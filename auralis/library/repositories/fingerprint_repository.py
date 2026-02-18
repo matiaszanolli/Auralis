@@ -8,7 +8,6 @@ Data access layer for track fingerprint operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
@@ -26,20 +25,14 @@ class FingerprintRepository:
     def __init__(
         self,
         session_factory: Callable[[], Session],
-        db_path: str | Path | None = None,
     ) -> None:
         """
         Initialize fingerprint repository
 
         Args:
-            session_factory: SQLAlchemy session factory
-            db_path: Path to the SQLite database file used for raw writes.
-                     Defaults to ~/.auralis/library.db when not provided.
+            session_factory: SQLAlchemy session factory used for all DB access.
         """
         self.session_factory = session_factory
-        self._db_path: Path = (
-            Path(db_path) if db_path is not None else Path.home() / '.auralis' / 'library.db'
-        )
 
     def get_session(self) -> Session:
         """Get a new database session"""

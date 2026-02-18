@@ -150,7 +150,7 @@ class LibraryManager:
         self.artists = ArtistRepository(self.SessionLocal)
         self.playlists = PlaylistRepository(self.SessionLocal)
         self.stats = StatsRepository(self.SessionLocal)
-        self.fingerprints = FingerprintRepository(self.SessionLocal, db_path=self.database_path)
+        self.fingerprints = FingerprintRepository(self.SessionLocal)
         self.queue = QueueRepository(self.SessionLocal)
 
         # Thread-safe locking for delete operations (prevents race conditions)

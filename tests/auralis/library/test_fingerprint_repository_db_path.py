@@ -1,99 +1,112 @@
 # -*- coding: utf-8 -*-
 
 """
-Tests for FingerprintRepository configurable db_path (issue #2082)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Tests for FingerprintRepository SQLAlchemy-only DB access (issue #2298)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Verifies that raw sqlite3 writes use the db_path passed at construction
-instead of the hardcoded ~/.auralis/library.db default.
+Previously these tests verified that raw sqlite3 writes respected a custom
+db_path.  After the fix (#2431 / #2298) all three write methods (upsert,
+store_fingerprint, update_status) use the SQLAlchemy session exclusively.
+
+Key invariants verified:
+- No db_path parameter accepted (would raise TypeError)
+- No _db_path attribute on the repository instance
+- upsert, store_fingerprint, update_status all call session.execute() + commit()
+- No hardcoded ~/.auralis path can be reached by any method
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """
 
-import sqlite3
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock
-
 import pytest
+from unittest.mock import MagicMock, call
 
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
 
-
-# Minimal schema required by the three raw-sqlite3 methods under test
-_CREATE_FINGERPRINTS = """
-CREATE TABLE IF NOT EXISTS track_fingerprints (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    track_id INTEGER UNIQUE NOT NULL,
-    sub_bass_pct REAL, bass_pct REAL, low_mid_pct REAL, mid_pct REAL,
-    upper_mid_pct REAL, presence_pct REAL, air_pct REAL,
-    lufs REAL, crest_db REAL, bass_mid_ratio REAL,
-    tempo_bpm REAL, rhythm_stability REAL, transient_density REAL, silence_ratio REAL,
-    spectral_centroid REAL, spectral_rolloff REAL, spectral_flatness REAL,
-    harmonic_ratio REAL, pitch_stability REAL, chroma_energy REAL,
-    dynamic_range_variation REAL, loudness_variation_std REAL, peak_consistency REAL,
-    stereo_width REAL, phase_correlation REAL,
-    fingerprint_blob BLOB,
-    fingerprint_version INTEGER,
-    fingerprint_status TEXT,
-    fingerprint_started_at TEXT,
-    fingerprint_computed_at TEXT
-)
-"""
 
 _SAMPLE_FINGERPRINT: dict = {
     'sub_bass_pct': 0.1, 'bass_pct': 0.2, 'low_mid_pct': 0.15,
     'mid_pct': 0.25, 'upper_mid_pct': 0.1, 'presence_pct': 0.1, 'air_pct': 0.1,
     'lufs': -14.0, 'crest_db': 6.0, 'bass_mid_ratio': 0.8,
-    'tempo_bpm': 120.0, 'rhythm_stability': 0.9, 'transient_density': 0.5, 'silence_ratio': 0.05,
-    'spectral_centroid': 3000.0, 'spectral_rolloff': 8000.0, 'spectral_flatness': 0.3,
-    'harmonic_ratio': 0.7, 'pitch_stability': 0.85, 'chroma_energy': 0.6,
-    'dynamic_range_variation': 3.0, 'loudness_variation_std': 1.5, 'peak_consistency': 0.9,
+    'tempo_bpm': 120.0, 'rhythm_stability': 0.9, 'transient_density': 0.5,
+    'silence_ratio': 0.05, 'spectral_centroid': 3000.0, 'spectral_rolloff': 8000.0,
+    'spectral_flatness': 0.3, 'harmonic_ratio': 0.7, 'pitch_stability': 0.85,
+    'chroma_energy': 0.6, 'dynamic_range_variation': 3.0,
+    'loudness_variation_std': 1.5, 'peak_consistency': 0.9,
     'stereo_width': 0.5, 'phase_correlation': 0.95,
 }
 
 
 @pytest.fixture
-def temp_db(tmp_path: Path):
-    """Create a temporary sqlite3 database with the required fingerprint table."""
-    db = tmp_path / "test_library.db"
-    conn = sqlite3.connect(str(db))
-    conn.execute(_CREATE_FINGERPRINTS)
-    conn.commit()
-    conn.close()
-    return db
+def session():
+    """Mocked SQLAlchemy session."""
+    s = MagicMock()
+    s.execute.return_value = MagicMock()
+    return s
 
 
 @pytest.fixture
-def mock_session_factory():
-    """Session factory mock — raw-sqlite3 methods only call expunge_all/close on it."""
-    session = MagicMock()
+def repo(session):
     factory = MagicMock(return_value=session)
-    return factory
+    return FingerprintRepository(factory), session
 
 
-@pytest.fixture
-def repo(temp_db, mock_session_factory):
-    return FingerprintRepository(mock_session_factory, db_path=temp_db)
+# ---------------------------------------------------------------------------
+# Constructor — no db_path
+# ---------------------------------------------------------------------------
+
+class TestConstructor:
+    def test_no_db_path_parameter(self):
+        """Passing db_path must raise TypeError (parameter removed in #2298)."""
+        from pathlib import Path
+        with pytest.raises(TypeError):
+            FingerprintRepository(MagicMock(), db_path=Path("/tmp/test.db"))
+
+    def test_no_db_path_attribute(self):
+        """Instance must not expose _db_path (no hardcoded path)."""
+        r = FingerprintRepository(MagicMock())
+        assert not hasattr(r, '_db_path')
+
+    def test_accepts_session_factory_only(self):
+        """Constructor with only session_factory must succeed."""
+        r = FingerprintRepository(MagicMock())
+        assert r is not None
 
 
-class TestFingerprintRepositoryDbPath:
-    """Verify db_path is honoured by all three raw-sqlite3 methods."""
+# ---------------------------------------------------------------------------
+# upsert — uses SQLAlchemy session
+# ---------------------------------------------------------------------------
 
-    def test_upsert_writes_to_custom_path(self, repo, temp_db):
-        result = repo.upsert(track_id=1, fingerprint_data=_SAMPLE_FINGERPRINT)
+class TestUpsertUsesSession:
+    def test_calls_session_execute(self, repo):
+        r, session = repo
+        r.upsert(track_id=1, fingerprint_data=_SAMPLE_FINGERPRINT)
+        session.execute.assert_called_once()
 
-        assert result is not None, "upsert should return a TrackFingerprint on success"
-        conn = sqlite3.connect(str(temp_db))
-        row = conn.execute(
-            "SELECT track_id FROM track_fingerprints WHERE track_id = ?", (1,)
-        ).fetchone()
-        conn.close()
-        assert row is not None, "fingerprint should exist in the custom db"
-        assert row[0] == 1
+    def test_calls_session_commit(self, repo):
+        r, session = repo
+        r.upsert(track_id=1, fingerprint_data=_SAMPLE_FINGERPRINT)
+        session.commit.assert_called_once()
 
-    def test_store_fingerprint_writes_to_custom_path(self, repo, temp_db):
+    def test_calls_session_close(self, repo):
+        r, session = repo
+        r.upsert(track_id=1, fingerprint_data=_SAMPLE_FINGERPRINT)
+        session.close.assert_called_once()
+
+    def test_rollback_on_execute_failure(self, repo):
+        r, session = repo
+        session.execute.side_effect = RuntimeError("db error")
+        result = r.upsert(track_id=1, fingerprint_data=_SAMPLE_FINGERPRINT)
+        assert result is None
+        session.rollback.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# store_fingerprint — uses SQLAlchemy session
+# ---------------------------------------------------------------------------
+
+class TestStoreFingerprintUsesSession:
+    def _call(self, repo):
         fp = _SAMPLE_FINGERPRINT
         repo.store_fingerprint(
             track_id=2,
@@ -113,50 +126,45 @@ class TestFingerprintRepositoryDbPath:
             stereo_width=fp['stereo_width'], phase_correlation=fp['phase_correlation'],
         )
 
-        conn = sqlite3.connect(str(temp_db))
-        row = conn.execute(
-            "SELECT track_id, fingerprint_blob FROM track_fingerprints WHERE track_id = ?", (2,)
-        ).fetchone()
-        conn.close()
-        assert row is not None, "fingerprint should exist in the custom db"
-        assert row[0] == 2
-        assert row[1] is not None, "quantized blob should be stored"
+    def test_calls_session_execute(self, repo):
+        r, session = repo
+        self._call(r)
+        session.execute.assert_called_once()
 
-    def test_update_status_writes_to_custom_path(self, repo, temp_db):
-        # Seed a row first so UPDATE has something to modify
-        conn = sqlite3.connect(str(temp_db))
-        conn.execute(
-            "INSERT OR REPLACE INTO track_fingerprints (track_id, fingerprint_status) VALUES (?, ?)",
-            (3, 'pending'),
-        )
-        conn.commit()
-        conn.close()
+    def test_calls_session_commit(self, repo):
+        r, session = repo
+        self._call(r)
+        session.commit.assert_called_once()
 
-        result = repo.update_status(track_id=3, status='failed')
+    def test_rollback_on_failure(self, repo):
+        r, session = repo
+        session.execute.side_effect = RuntimeError("db error")
+        self._call(r)
+        session.rollback.assert_called_once()
 
+
+# ---------------------------------------------------------------------------
+# update_status — uses SQLAlchemy session
+# ---------------------------------------------------------------------------
+
+class TestUpdateStatusUsesSession:
+    def test_completed_calls_execute_and_commit(self, repo):
+        r, session = repo
+        result = r.update_status(track_id=3, status='completed', completed_at='2026-01-01T00:00:00')
         assert result is True
-        conn = sqlite3.connect(str(temp_db))
-        row = conn.execute(
-            "SELECT fingerprint_status FROM track_fingerprints WHERE track_id = ?", (3,)
-        ).fetchone()
-        conn.close()
-        assert row is not None
-        assert row[0] == 'failed'
+        session.execute.assert_called_once()
+        session.commit.assert_called_once()
 
-    def test_default_db_path_fallback(self, mock_session_factory):
-        """When no db_path is provided the default ~/.auralis/library.db path is used."""
-        repo = FingerprintRepository(mock_session_factory)
-        expected = Path.home() / '.auralis' / 'library.db'
-        assert repo._db_path == expected
+    def test_failed_calls_execute_and_commit(self, repo):
+        r, session = repo
+        result = r.update_status(track_id=3, status='failed')
+        assert result is True
+        session.execute.assert_called_once()
+        session.commit.assert_called_once()
 
-    def test_custom_db_path_does_not_touch_default(self, repo, tmp_path):
-        """Writes must NOT reach ~/.auralis/library.db when a custom path is given."""
-        default_db = Path.home() / '.auralis' / 'library.db'
-        mtime_before = default_db.stat().st_mtime if default_db.exists() else None
-
-        repo.upsert(track_id=99, fingerprint_data=_SAMPLE_FINGERPRINT)
-
-        if default_db.exists() and mtime_before is not None:
-            assert default_db.stat().st_mtime == mtime_before, (
-                "upsert should not modify the default database when a custom db_path is set"
-            )
+    def test_returns_false_on_failure(self, repo):
+        r, session = repo
+        session.execute.side_effect = RuntimeError("db error")
+        result = r.update_status(track_id=3, status='completed')
+        assert result is False
+        session.rollback.assert_called_once()
