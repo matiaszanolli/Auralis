@@ -491,8 +491,9 @@ class AudioPlayer:
 
     @position.setter
     def position(self, value: int) -> None:
-        """Set position (for compatibility)"""
-        self.playback.position = value
+        """Set position in samples — thread-safe via PlaybackController.seek()"""
+        max_samples = self.file_manager.get_total_samples()
+        self.playback.seek(value, max_samples)
 
     @property
     def sample_rate(self) -> int:

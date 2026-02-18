@@ -412,6 +412,106 @@ class TestCallbackOutsideLock:
         )
 
 
+class TestAudioPlayerPositionSetterLock:
+    """AudioPlayer.position setter must acquire PlaybackController._lock (#2287).
+
+    Before the fix, `AudioPlayer.position = value` wrote directly to
+    `self.playback.position` (a plain attribute), bypassing the RLock
+    that guards all other state mutations in PlaybackController.
+
+    After the fix, the setter delegates to `self.playback.seek(value, max_samples)`
+    which acquires `_lock` before writing, keeping position changes atomic and
+    consistent with every other state transition.
+    """
+
+    @pytest.fixture
+    def player(self):
+        """AudioPlayer with real PlaybackController/AudioFileManager; rest mocked."""
+        from unittest.mock import MagicMock, patch
+
+        import numpy as np
+
+        from auralis.player.enhanced_audio_player import AudioPlayer
+
+        with (
+            patch("auralis.player.enhanced_audio_player.QueueController"),
+            patch("auralis.player.enhanced_audio_player.GaplessPlaybackEngine"),
+            patch("auralis.player.enhanced_audio_player.IntegrationManager"),
+            patch("auralis.player.enhanced_audio_player.FingerprintService"),
+            patch("auralis.player.enhanced_audio_player.RealtimeProcessor"),
+        ):
+            p = AudioPlayer(get_repository_factory=MagicMock())
+
+        # Inject fake audio so get_total_samples() returns 441000 (> 0)
+        p.file_manager.audio_data = np.zeros(441000, dtype=np.float32)
+        return p
+
+    def test_setter_delegates_to_seek(self, player):
+        """position setter must call PlaybackController.seek(), not write directly."""
+        from unittest.mock import patch as _patch
+
+        with _patch.object(player.playback, "seek", wraps=player.playback.seek) as mock_seek:
+            player.position = 10000
+
+        mock_seek.assert_called_once()
+        assert player.playback.position == 10000
+
+    def test_setter_clamps_above_total_samples(self, player):
+        """Values exceeding total samples are clamped by seek()."""
+        total = player.file_manager.get_total_samples()  # 441000
+
+        player.position = total + 99999
+
+        assert player.playback.position == total
+
+    def test_setter_clamps_below_zero(self, player):
+        """Negative values are clamped to 0 by seek()."""
+        player.position = -100
+
+        assert player.playback.position == 0
+
+    def test_setter_is_thread_safe(self, player):
+        """Concurrent position writes produce only in-bounds positions — no corruption."""
+        max_samples = player.file_manager.get_total_samples()
+        errors: list[str] = []
+        barrier = threading.Barrier(8)
+
+        def writer(target: int) -> None:
+            try:
+                barrier.wait()
+                for _ in range(200):
+                    player.position = target
+                    pos = player.playback.position
+                    if not (0 <= pos <= max_samples):
+                        errors.append(f"position {pos} out of [0, {max_samples}]")
+            except Exception as exc:  # noqa: BLE001
+                errors.append(str(exc))
+
+        targets = [0, 55125, 110250, 165375, 220500, 275625, 330750, 440999]
+        threads = [threading.Thread(target=writer, args=(t,)) for t in targets]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join(timeout=10.0)
+
+        assert not errors, f"Thread-safety violations: {errors}"
+
+    def test_no_direct_attribute_bypass(self, player):
+        """Regression: setter must delegate to seek(), never write playback.position directly."""
+        import inspect
+
+        setter = type(player).__dict__["position"].fset
+        assert setter is not None, "position setter should exist"
+        setter_src = inspect.getsource(setter)
+
+        assert "self.playback.seek(" in setter_src, (
+            "position setter must delegate to playback.seek() to hold the RLock"
+        )
+        assert "self.playback.position =" not in setter_src, (
+            "position setter must not assign directly to playback.position (bypasses lock)"
+        )
+
+
 class TestStateMachineBypass:
     """Verify state setter is removed from AudioPlayer (#2199)."""
 
