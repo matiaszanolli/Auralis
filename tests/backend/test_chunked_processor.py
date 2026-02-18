@@ -433,6 +433,57 @@ class TestProcessChunkSafeEventLoop:
             f"process_chunk_safe must use asyncio.to_thread() to keep the loop free."
         )
 
+    def test_process_chunk_safe_does_not_block_event_loop(self):
+        """
+        process_chunk_safe must not block the asyncio event loop (issue #2388 / #2398).
+
+        This test directly exercises the real process_chunk_safe method (bound via
+        _make_processor) whose underlying process_chunk sleeps for 100 ms to simulate
+        CPU-bound DSP work.  A concurrent counter coroutine must advance during that
+        window, proving the event loop stays free.
+
+        Without asyncio.to_thread() the counter would be stuck at 0 when the assert
+        runs — this is the regression the test guards against.
+        """
+        SLOW_DELAY = 0.10   # 100 ms of simulated CPU-bound work
+        MIN_TICKS = 5        # asyncio.sleep(0) granularity: many ticks expected
+
+        counter = [0]
+
+        def slow_sync_process_chunk(chunk_index, fast_start=False):
+            """Blocking sleep simulates CPU-bound DSP (must run in thread pool)."""
+            time.sleep(SLOW_DELAY)
+            return ("/tmp/chunk_0.wav", np.zeros(441, dtype=np.float32))
+
+        proc = self._make_processor()
+        proc.process_chunk = slow_sync_process_chunk  # override instant mock
+
+        async def increment_counter():
+            nonlocal counter
+            while True:
+                counter[0] += 1
+                await asyncio.sleep(0)
+
+        async def run():
+            counter_task = asyncio.create_task(increment_counter())
+            # Call the real process_chunk_safe (not a simulation coroutine)
+            await proc.process_chunk_safe(0)
+            counter_task.cancel()
+            try:
+                await counter_task
+            except asyncio.CancelledError:
+                pass
+
+        asyncio.run(run())
+
+        assert counter[0] >= MIN_TICKS, (
+            f"Event loop was blocked: counter only incremented {counter[0]} time(s) "
+            f"during {SLOW_DELAY * 1000:.0f}ms of chunk processing "
+            f"(expected >= {MIN_TICKS}). "
+            f"process_chunk_safe must offload CPU-bound work via asyncio.to_thread() "
+            f"to keep the event loop free (issue #2388 / #2398)."
+        )
+
     def test_concurrent_chunk_requests_are_serialized(self):
         """
         Two concurrent calls to _process_chunk_locked must not overlap.

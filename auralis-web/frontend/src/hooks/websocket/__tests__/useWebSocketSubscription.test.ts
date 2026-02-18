@@ -547,8 +547,9 @@ describe('useWebSocketSubscription Hook', () => {
       expect(getWebSocketManager()).toBeNull();
     });
 
-    it('should silently return when manager is null', () => {
+    it('should warn (not throw) when manager is null', () => {
       setWebSocketManager(null as any);
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const callback = vi.fn();
 
@@ -556,6 +557,12 @@ describe('useWebSocketSubscription Hook', () => {
       expect(() => {
         renderHook(() => useWebSocketSubscription(['player_state'], callback));
       }).not.toThrow();
+
+      // Must emit a warning — silent drops hide startup race bugs (issue #2396)
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const [warnMessage] = warnSpy.mock.calls[0] as [string];
+      expect(warnMessage).toContain('[useWebSocketSubscription]');
+      expect(warnMessage).toContain('issue #2396');
     });
 
     it('should not call subscribe when manager is null', () => {
@@ -566,6 +573,69 @@ describe('useWebSocketSubscription Hook', () => {
 
       // mockSubscribe should not be called when manager is null
       expect(mockSubscribe).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==========================================================================
+  // LATE-BINDING (STARTUP RACE CONDITION, ISSUE #2396)
+  // ==========================================================================
+
+  describe('Late-binding (startup race condition, issue #2396)', () => {
+    beforeEach(() => {
+      // Start each test with no manager so we can simulate the race condition.
+      setWebSocketManager(null as any);
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    it('should subscribe and receive messages when manager is set after mount', async () => {
+      const callback = vi.fn();
+      renderHook(() => useWebSocketSubscription(['player_state'], callback));
+
+      // Manager is null on mount — no subscribe call yet.
+      expect(mockSubscribe).not.toHaveBeenCalled();
+
+      // Simulate app startup completing: manager becomes available.
+      act(() => {
+        setWebSocketManager({ subscribe: mockSubscribe });
+      });
+
+      // Hook must now have subscribed.
+      expect(mockSubscribe).toHaveBeenCalledWith(['player_state'], expect.any(Function));
+
+      // And messages must be delivered.
+      act(() => {
+        simulateMessage('player_state', { isPlaying: true });
+      });
+      expect(callback).toHaveBeenCalled();
+    });
+
+    it('should not subscribe after unmount if manager was null on mount', () => {
+      const callback = vi.fn();
+      const { unmount } = renderHook(() =>
+        useWebSocketSubscription(['player_state'], callback)
+      );
+
+      // Unmount before manager arrives.
+      unmount();
+
+      // Manager set after unmount must NOT trigger a subscription.
+      act(() => {
+        setWebSocketManager({ subscribe: mockSubscribe });
+      });
+
+      expect(mockSubscribe).not.toHaveBeenCalled();
+    });
+
+    it('should not emit warning when manager is already available', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Re-set manager before rendering.
+      setWebSocketManager({ subscribe: mockSubscribe });
+
+      const callback = vi.fn();
+      renderHook(() => useWebSocketSubscription(['player_state'], callback));
+
+      expect(warnSpy).not.toHaveBeenCalled();
     });
   });
 

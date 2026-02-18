@@ -17,10 +17,12 @@ via WebSocket (fixes #2123).
 """
 
 import logging
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
+from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
@@ -119,12 +121,20 @@ def create_files_router(
                     audio_data, sample_rate = load_audio(temp_path)
                     duration = len(audio_data) / sample_rate
 
+                    # Move to permanent library storage before committing the DB record
+                    # (issue #2392: storing temp_path then deleting it made every upload
+                    # unplayable immediately after the finally block ran).
+                    upload_dir = Path.home() / ".auralis" / "uploads"
+                    upload_dir.mkdir(parents=True, exist_ok=True)
+                    permanent_path = upload_dir / f"{uuid4().hex}{suffix}"
+                    shutil.move(str(temp_path), str(permanent_path))
+
                     # Extract file name without extension
                     file_stem = Path(file.filename).stem if file.filename else "track"
 
                     # Create track info dictionary for library
                     track_info = {
-                        "filepath": temp_path,
+                        "filepath": str(permanent_path),  # permanent, not temp (issue #2392)
                         "filename": file.filename,
                         "title": file_stem,
                         "duration": duration,
@@ -162,9 +172,11 @@ def create_files_router(
                     })
 
                 finally:
-                    # Clean up temporary file
+                    # shutil.move already removed the temp file on success; unlink is a
+                    # no-op (missing_ok) in that case. On failure the temp file still
+                    # exists and must be cleaned up here.
                     try:
-                        Path(temp_path).unlink()
+                        Path(temp_path).unlink(missing_ok=True)
                     except Exception as e:
                         logger.debug(f"Failed to clean temp file: {e}")
 

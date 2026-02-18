@@ -378,6 +378,174 @@ class TestFilesSecurityValidation:
             assert response.status_code in [200, 400, 422]
 
 
+class TestUploadPermanentStorage:
+    """
+    Regression tests for issue #2392.
+
+    Every upload was immediately unplayable because the handler stored the temp
+    file path in the DB and then deleted the temp file in the finally block.
+    The fix moves the file to ~/.auralis/uploads/<uuid><ext> BEFORE the DB record
+    is created so the stored filepath is always valid.
+    """
+
+    def _make_mock_track(self):
+        """Return a minimal mock track with the attributes used by the response builder."""
+        track = Mock()
+        track.id = 42
+        track.title = "song"
+        track.duration = 3.0
+        track.sample_rate = 44100
+        return track
+
+    @patch('routers.files.load_audio')
+    @patch('routers.files.shutil.move')
+    def test_db_filepath_is_permanent_not_temp(
+        self, mock_move, mock_load, client, tmp_path
+    ):
+        """
+        add_track must be called with a permanent path, not a /tmp path.
+
+        If the handler still passes temp_path to add_track, this test fails
+        because temp paths start with the OS temp prefix (e.g. /tmp).
+        """
+        import numpy as np
+
+        mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
+        mock_lib_obj = Mock()
+        mock_lib_obj.add_track.return_value = self._make_mock_track()
+
+        def fake_move(src, dst):
+            Path(dst).write_bytes(Path(src).read_bytes() if Path(src).exists() else b"")
+
+        mock_move.side_effect = fake_move
+
+        import main as main_module
+        with patch.dict(main_module.globals_dict, {'library_manager': mock_lib_obj}):
+            files = {"files": ("song.mp3", io.BytesIO(b"audio"), "audio/mpeg")}
+            response = client.post("/api/files/upload", files=files)
+
+        assert response.status_code == 200
+        assert mock_lib_obj.add_track.call_count == 1
+
+        stored_filepath = mock_lib_obj.add_track.call_args[0][0]["filepath"]
+
+        # The stored path must NOT be a temp path.
+        assert not stored_filepath.startswith(tempfile.gettempdir()), (
+            f"DB filepath is still a temp path: {stored_filepath!r} — "
+            "issue #2392 not fixed: track will be unplayable after upload"
+        )
+
+    @patch('routers.files.load_audio')
+    @patch('routers.files.shutil.move')
+    def test_temp_file_is_cleaned_up_on_success(
+        self, mock_move, mock_load, client
+    ):
+        """
+        The temp file must not exist after a successful upload.
+
+        shutil.move removes the source (temp) file atomically; the finally
+        block's unlink(missing_ok=True) must not raise even though it's gone.
+        """
+        import numpy as np
+
+        mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
+        mock_lib_obj = Mock()
+        mock_lib_obj.add_track.return_value = self._make_mock_track()
+
+        captured_temp_path: list[str] = []
+
+        def fake_move(src, dst):
+            captured_temp_path.append(src)
+            # Simulate move: remove source (temp file goes away).
+            Path(src).unlink(missing_ok=True)
+
+        mock_move.side_effect = fake_move
+
+        import main as main_module
+        with patch.dict(main_module.globals_dict, {'library_manager': mock_lib_obj}):
+            files = {"files": ("song.mp3", io.BytesIO(b"audio"), "audio/mpeg")}
+            response = client.post("/api/files/upload", files=files)
+
+        assert response.status_code == 200
+        assert captured_temp_path, "shutil.move was never called — temp file not moved"
+
+        # Temp file must be gone after the request.
+        assert not Path(captured_temp_path[0]).exists(), (
+            f"Temp file still exists at {captured_temp_path[0]!r} after upload — "
+            "cleanup did not run correctly"
+        )
+
+    @patch('routers.files.load_audio')
+    @patch('routers.files.shutil.move')
+    def test_add_track_not_called_when_move_fails(
+        self, mock_move, mock_load, client
+    ):
+        """
+        If moving to permanent storage fails, no DB record must be created.
+
+        This is the atomicity guarantee: a broken file-system state should not
+        result in a DB record pointing to a non-existent file.
+        """
+        import numpy as np
+
+        mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
+        mock_lib_obj = Mock()
+        mock_move.side_effect = OSError("Simulated disk full")
+
+        import main as main_module
+        with patch.dict(main_module.globals_dict, {'library_manager': mock_lib_obj}):
+            files = {"files": ("song.mp3", io.BytesIO(b"audio"), "audio/mpeg")}
+            response = client.post("/api/files/upload", files=files)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["results"][0]["status"] == "error"
+        mock_lib_obj.add_track.assert_not_called()
+
+    @patch('routers.files.load_audio')
+    @patch('routers.files.shutil.move')
+    def test_upload_success_track_is_playable(
+        self, mock_move, mock_load, client, tmp_path
+    ):
+        """
+        After a successful upload the track filepath must point to an existing file.
+
+        This is the primary acceptance criterion: the DB record must reference a
+        file that actually exists so playback can start immediately.
+        """
+        import shutil as _shutil
+        import numpy as np
+
+        mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
+        mock_lib_obj = Mock()
+        permanent_file = tmp_path / "permanent.mp3"
+
+        mock_move.side_effect = lambda src, dst: _shutil.copy2(src, permanent_file)
+
+        # Capture what add_track was called with.
+        recorded: list[dict] = []
+
+        def capturing_add_track(track_info):
+            recorded.append(track_info)
+            return self._make_mock_track()
+
+        mock_lib_obj.add_track.side_effect = capturing_add_track
+
+        import main as main_module
+        with patch.dict(main_module.globals_dict, {'library_manager': mock_lib_obj}):
+            files = {"files": ("song.mp3", io.BytesIO(b"audio"), "audio/mpeg")}
+            response = client.post("/api/files/upload", files=files)
+
+        assert response.status_code == 200
+        assert response.json()["results"][0]["status"] == "success"
+        assert recorded, "add_track was never called"
+
+        # The file at the stored path must exist (permanent_file simulates it).
+        assert permanent_file.exists(), (
+            "Permanent file does not exist — uploaded track would be unplayable (issue #2392)"
+        )
+
+
 class TestFilesIntegration:
     """Integration tests for files endpoints"""
 

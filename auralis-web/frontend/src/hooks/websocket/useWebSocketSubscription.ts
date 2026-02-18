@@ -27,12 +27,28 @@ interface WebSocketSubscriptionManager {
 
 let globalWebSocketManager: WebSocketSubscriptionManager | null = null;
 
+// Hooks that mount before the manager is set register here so they can
+// subscribe lazily once setWebSocketManager() is called (issue #2396).
+type ManagerReadyListener = (manager: WebSocketSubscriptionManager) => void;
+const managerReadyListeners: Set<ManagerReadyListener> = new Set();
+
 /**
  * Set the global WebSocket subscription manager.
  * Call this in your root App component after establishing WebSocket connection.
+ * Any hooks that were waiting for the manager (startup race condition) will
+ * subscribe immediately when this is called.
+ * Passing null clears all pending listeners (e.g. on disconnect / test teardown).
  */
-export function setWebSocketManager(manager: WebSocketSubscriptionManager): void {
+export function setWebSocketManager(manager: WebSocketSubscriptionManager | null): void {
   globalWebSocketManager = manager;
+  if (manager) {
+    // Snapshot before clearing so listeners added during notification are ignored.
+    const pending = new Set(managerReadyListeners);
+    managerReadyListeners.clear();
+    pending.forEach((listener) => listener(manager));
+  } else {
+    managerReadyListeners.clear();
+  }
 }
 
 /**
@@ -45,6 +61,11 @@ export function getWebSocketManager(): WebSocketSubscriptionManager | null {
 /**
  * Subscribe to WebSocket messages.
  * Automatically unsubscribes when component unmounts.
+ *
+ * If the global manager is not yet set when this hook mounts, the subscription
+ * is deferred until setWebSocketManager() is called (startup race condition fix
+ * for issue #2396). A console.warn is emitted so the deferred state is visible
+ * during development.
  *
  * @param messageTypes - Array of message types to subscribe to
  * @param callback - Function called when message is received
@@ -59,21 +80,31 @@ export function useWebSocketSubscription(
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    const manager = getWebSocketManager();
+    let isActive = true;
 
-    if (!manager) {
-      // Silently return - this hook is legacy code
-      // The new WebSocketContext handles subscriptions
-      return;
+    function subscribeToManager(manager: WebSocketSubscriptionManager): void {
+      if (!isActive) return;
+      const unsubscribe = manager.subscribe(messageTypes, memoizedCallback);
+      unsubscribeRef.current = unsubscribe;
     }
 
-    // Subscribe to messages
-    const unsubscribe = manager.subscribe(messageTypes, memoizedCallback);
-    unsubscribeRef.current = unsubscribe;
+    const manager = getWebSocketManager();
+    if (manager) {
+      subscribeToManager(manager);
+    } else {
+      // Warn so the deferred state is visible during development (issue #2396).
+      console.warn(
+        '[useWebSocketSubscription] WebSocket manager not available yet. ' +
+        'Subscription deferred until setWebSocketManager() is called (issue #2396).'
+      );
+      managerReadyListeners.add(subscribeToManager);
+    }
 
-    // Unsubscribe on unmount
     return () => {
-      unsubscribe();
+      isActive = false;
+      // Remove deferred listener if manager was never set before unmount.
+      managerReadyListeners.delete(subscribeToManager);
+      unsubscribeRef.current?.();
       unsubscribeRef.current = null;
     };
   }, [messageTypes, memoizedCallback]);
