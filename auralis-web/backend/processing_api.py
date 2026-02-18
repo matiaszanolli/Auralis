@@ -410,7 +410,7 @@ async def cleanup_old_jobs(max_age_hours: int = 24) -> dict[str, Any]:
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
 
-    removed_count = _processing_engine.cleanup_old_jobs(max_age_hours)
+    removed_count = await _processing_engine.cleanup_old_jobs(max_age_hours)
 
     return {
         "message": f"Cleaned up jobs older than {max_age_hours} hours",

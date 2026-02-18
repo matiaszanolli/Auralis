@@ -494,10 +494,18 @@ class LibraryManager:
             # Use repository for database operation (repositories handle sessions)
             # The DB itself prevents double-deletion - if track doesn't exist, returns False
             try:
+                # Pre-invalidate: evict any cached entry BEFORE the DB row is removed so
+                # that no concurrent reader can obtain a stale object whose row is already
+                # gone.  A reader that misses the cache between here and the commit will
+                # hit the DB and see the row still present — that is safe.
+                invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
+                                 'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
+
                 success = self.tracks.delete(track_id)
 
                 if success:
-                    # Invalidate queries that might include the deleted track
+                    # Post-invalidate: evict any entry that a concurrent reader may have
+                    # re-populated between the pre-invalidate and the commit (#2432).
                     invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
                                      'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
 

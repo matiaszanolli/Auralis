@@ -111,6 +111,10 @@ class ProcessingEngine:
         self.processors: dict[str, HybridProcessor] = {}
         self.parameter_mapper = ParameterMapper()
 
+        # Locks — guards concurrent access to the two shared dicts (fixes #2320, #2435)
+        self._processor_lock: asyncio.Lock = asyncio.Lock()
+        self._jobs_lock: asyncio.Lock = asyncio.Lock()
+
         # Temporary file management
         self.temp_dir: Path = Path(tempfile.gettempdir()) / "auralis_processing"
         self.temp_dir.mkdir(exist_ok=True)
@@ -212,7 +216,7 @@ class ProcessingEngine:
         ]
         return "|".join(key_parts)
 
-    def _get_or_create_processor(self, mode: str, config: UnifiedConfig) -> HybridProcessor:
+    async def _get_or_create_processor(self, mode: str, config: UnifiedConfig) -> HybridProcessor:
         """
         Get cached processor instance or create new one.
 
@@ -223,6 +227,15 @@ class ProcessingEngine:
 
         Caching reusable processors provides 200-500ms speedup per job.
 
+        Access is serialised with _processor_lock so that:
+        - Concurrent jobs with identical config share one HybridProcessor instead
+          of each allocating ~200 MB.
+        - FIFO eviction is never interleaved with a concurrent read or write,
+          eliminating the "RuntimeError: dictionary changed size during iteration"
+          reported in #2320.
+        - HybridProcessor.__init__ (200-500 ms, CPU-bound) is offloaded to a
+          thread so the event loop stays responsive while the lock is held.
+
         Args:
             mode: Processing mode
             config: UnifiedConfig for processor
@@ -230,24 +243,23 @@ class ProcessingEngine:
         Returns:
             HybridProcessor instance (cached or new)
         """
-        cache_key = self._get_processor_cache_key(mode, config)
+        async with self._processor_lock:
+            cache_key = self._get_processor_cache_key(mode, config)
 
-        if cache_key in self.processors:
-            # Return cached processor
-            return self.processors[cache_key]
+            if cache_key in self.processors:
+                return self.processors[cache_key]
 
-        # Create new processor and cache it
-        processor = HybridProcessor(config)
-        self.processors[cache_key] = processor
+            # Construction is CPU-bound (200-500 ms) — run off the event loop
+            # so we don't stall request handling while the lock is held.
+            processor = await asyncio.to_thread(HybridProcessor, config)
+            self.processors[cache_key] = processor
 
-        # Keep cache size bounded (max 5 different processor configurations)
-        # This prevents unbounded memory growth while maintaining hit rates
-        if len(self.processors) > 5:
-            # Remove oldest entry (simple FIFO eviction)
-            oldest_key = next(iter(self.processors))
-            del self.processors[oldest_key]
+            # Keep cache size bounded (max 5 different processor configurations)
+            if len(self.processors) > 5:
+                oldest_key = next(iter(self.processors))
+                del self.processors[oldest_key]
 
-        return processor
+            return processor
 
     def _create_processor_config(self, job: ProcessingJob) -> UnifiedConfig:
         """
@@ -392,7 +404,7 @@ class ProcessingEngine:
             config = self._create_processor_config(job)
 
             # Get or create processor for this job (with caching for repeated configs)
-            processor = self._get_or_create_processor(job.mode, config)
+            processor = await self._get_or_create_processor(job.mode, config)
 
             await self._notify_progress(job.job_id, 40.0, "Processing audio...")
 
@@ -495,7 +507,7 @@ class ProcessingEngine:
                 finally:
                     self._tasks.pop(job.job_id, None)
                     self._concurrency_semaphore.release()
-                    self.cleanup_old_jobs(self.completed_job_ttl_hours)
+                    await self.cleanup_old_jobs(self.completed_job_ttl_hours)
 
             except Exception as e:
                 print(f"Worker error: {e}")
@@ -525,8 +537,13 @@ class ProcessingEngine:
 
         return False
 
-    def cleanup_old_jobs(self, max_age_hours: int = 24) -> int:
-        """Clean up old completed jobs and their files
+    async def cleanup_old_jobs(self, max_age_hours: int = 24) -> int:
+        """Clean up old completed jobs and their files.
+
+        Protected by _jobs_lock so that concurrent invocations (worker finally-
+        block vs. explicit DELETE /jobs/cleanup request) do not iterate and
+        delete self.jobs simultaneously, which would raise RuntimeError in
+        CPython when another coroutine modifies the dict mid-iteration (#2435).
 
         Returns:
             int: Number of jobs removed
@@ -534,20 +551,20 @@ class ProcessingEngine:
         now = datetime.now()
         jobs_to_remove: list[str] = []
 
-        for job_id, job in self.jobs.items():
-            if job.status in [ProcessingStatus.COMPLETED, ProcessingStatus.FAILED, ProcessingStatus.CANCELLED]:
-                if job.completed_at is not None:
-                    age_hours = (now - job.completed_at).total_seconds() / 3600
-                    if age_hours > max_age_hours:
-                        # Remove output file
-                        if Path(job.output_path).exists():
-                            Path(job.output_path).unlink()
-                        jobs_to_remove.append(job_id)
+        async with self._jobs_lock:
+            for job_id, job in self.jobs.items():
+                if job.status in [ProcessingStatus.COMPLETED, ProcessingStatus.FAILED, ProcessingStatus.CANCELLED]:
+                    if job.completed_at is not None:
+                        age_hours = (now - job.completed_at).total_seconds() / 3600
+                        if age_hours > max_age_hours:
+                            if Path(job.output_path).exists():
+                                Path(job.output_path).unlink()
+                            jobs_to_remove.append(job_id)
 
-        for job_id in jobs_to_remove:
-            del self.jobs[job_id]
-            if job_id in self.progress_callbacks:
-                del self.progress_callbacks[job_id]
+            for job_id in jobs_to_remove:
+                del self.jobs[job_id]
+                if job_id in self.progress_callbacks:
+                    del self.progress_callbacks[job_id]
 
         return len(jobs_to_remove)
 

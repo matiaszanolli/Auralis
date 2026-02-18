@@ -8,12 +8,11 @@ Data access layer for track fingerprint operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-import sqlite3
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
-from sqlalchemy import and_
+from sqlalchemy import and_, text
 from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info, warning
@@ -482,34 +481,23 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            # CRITICAL FIX: SQLAlchemy 2.0 session commit issues - use raw SQLite directly
-            # The ORM session is silently failing to commit even with begin() context
-            # Workaround: Use raw sqlite3 directly to bypass broken ORM layer
+            cols = list(fingerprint_data.keys())
+            cols_str = ', '.join(cols)
+            named_placeholders = ', '.join([f':{col}' for col in cols])
+            params: dict[str, Any] = {'track_id': track_id, **fingerprint_data}
 
-            conn = sqlite3.connect(str(self._db_path))
-            cursor = conn.cursor()
+            session.execute(
+                text(f"INSERT OR REPLACE INTO track_fingerprints (track_id, {cols_str}) VALUES (:track_id, {named_placeholders})"),
+                params,
+            )
+            session.commit()
 
-            try:
-                # Get column names from fingerprint_data
-                cols = list(fingerprint_data.keys())
-                placeholders = ', '.join(['?'] * len(cols))
-                cols_str = ', '.join(cols)
-                vals: list[Any] = [fingerprint_data[col] for col in cols]
-
-                # Use INSERT OR REPLACE (upsert) - much simpler than ORM
-                sql = f"INSERT OR REPLACE INTO track_fingerprints (track_id, {cols_str}) VALUES (?, {placeholders})"
-                cursor.execute(sql, [track_id] + vals)
-                conn.commit()
-            finally:
-                cursor.close()
-                conn.close()
-
-            # Return a dummy object to indicate success (compatibility with interface)
             fingerprint = TrackFingerprint(track_id=track_id, **fingerprint_data)
             info(f"Upserted fingerprint for track {track_id}")
             return fingerprint
 
         except Exception as e:
+            session.rollback()
             error(f"Failed to upsert fingerprint for track {track_id}: {e}")
             return None
         finally:
@@ -540,6 +528,7 @@ class FingerprintRepository:
         Returns:
             TrackFingerprint object if successful, None if failed
         """
+        session = self.get_session()
         try:
             # Build fingerprint dict
             fingerprint_dict = {
@@ -557,35 +546,35 @@ class FingerprintRepository:
             # Quantize fingerprint
             quantized_blob = FingerprintQuantizer.quantize(fingerprint_dict)
 
-            # Store both blob and float values
-            conn = sqlite3.connect(str(self._db_path))
-            cursor = conn.cursor()
+            cols = list(fingerprint_dict.keys())
+            cols_str = ', '.join(cols)
+            named_placeholders = ', '.join([f':{col}' for col in cols])
+            params: dict[str, Any] = {
+                'track_id': track_id,
+                'fingerprint_blob': quantized_blob,
+                **fingerprint_dict,
+            }
 
-            try:
-                # Use INSERT OR REPLACE to store both quantized blob and float values
-                cols = list(fingerprint_dict.keys())
-                placeholders = ', '.join(['?'] * len(cols))
-                cols_str = ', '.join(cols)
-                vals = [fingerprint_dict[col] for col in cols]
-
-                sql = f"""
+            session.execute(
+                text(f"""
                     INSERT OR REPLACE INTO track_fingerprints
                     (track_id, {cols_str}, fingerprint_blob, fingerprint_version)
-                    VALUES (?, {placeholders}, ?, 1)
-                """
-                cursor.execute(sql, [track_id] + vals + [quantized_blob])
-                conn.commit()
+                    VALUES (:track_id, {named_placeholders}, :fingerprint_blob, 1)
+                """),
+                params,
+            )
+            session.commit()
 
-                info(f"Stored fingerprint for track {track_id} (quantized blob: 25 bytes)")
-                return None
-
-            finally:
-                cursor.close()
-                conn.close()
+            info(f"Stored fingerprint for track {track_id} (quantized blob: 25 bytes)")
+            return None
 
         except Exception as e:
+            session.rollback()
             error(f"Failed to store fingerprint for track {track_id}: {e}")
             return None
+        finally:
+            session.expunge_all()
+            session.close()
 
     def update_status(self, track_id: int, status: str, completed_at: str | None = None) -> bool:
         """
@@ -599,34 +588,35 @@ class FingerprintRepository:
         Returns:
             True if successful, False otherwise
         """
+        session = self.get_session()
         try:
-            conn = sqlite3.connect(str(self._db_path))
-            cursor = conn.cursor()
-
-            try:
-                if status == 'completed':
-                    cursor.execute(
-                        """UPDATE track_fingerprints
-                           SET fingerprint_status = ?, fingerprint_computed_at = ?, fingerprint_started_at = NULL
-                           WHERE track_id = ?""",
-                        (status, completed_at, track_id)
-                    )
-                else:
-                    cursor.execute(
-                        """UPDATE track_fingerprints
-                           SET fingerprint_status = ?, fingerprint_started_at = NULL
-                           WHERE track_id = ?""",
-                        (status, track_id)
-                    )
-                conn.commit()
-                return True
-            finally:
-                cursor.close()
-                conn.close()
+            if status == 'completed':
+                session.execute(
+                    text("""UPDATE track_fingerprints
+                               SET fingerprint_status = :status,
+                                   fingerprint_computed_at = :completed_at,
+                                   fingerprint_started_at = NULL
+                               WHERE track_id = :track_id"""),
+                    {'status': status, 'completed_at': completed_at, 'track_id': track_id},
+                )
+            else:
+                session.execute(
+                    text("""UPDATE track_fingerprints
+                               SET fingerprint_status = :status,
+                                   fingerprint_started_at = NULL
+                               WHERE track_id = :track_id"""),
+                    {'status': status, 'track_id': track_id},
+                )
+            session.commit()
+            return True
 
         except Exception as e:
+            session.rollback()
             error(f"Failed to update status for track {track_id}: {e}")
             return False
+        finally:
+            session.expunge_all()
+            session.close()
 
     def get_fingerprint_status(self, track_id: int) -> dict[str, Any] | None:
         """
