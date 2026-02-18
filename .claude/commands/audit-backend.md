@@ -2,6 +2,8 @@
 
 Audit the Auralis FastAPI backend for route handler correctness, WebSocket streaming reliability, chunked processing integrity, schema consistency, middleware configuration, async/sync boundary safety, error handling, and test coverage. Then create GitHub issues for every new confirmed finding.
 
+**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
+
 ## Scope
 
 This audit covers ONLY the backend code:
@@ -18,20 +20,18 @@ This audit covers ONLY the backend code:
 
 Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. However, DO verify that the backend correctly calls engine APIs and returns responses matching frontend expectations.
 
-## Severity Definitions
+## Severity Examples
 
-| Severity | Definition | Examples |
-|----------|-----------|---------|
-| **CRITICAL** | Audio streaming corruption, data loss, or exploitable vulnerability in production NOW. | Dropped audio chunks in WebSocket stream, database corruption from concurrent writes, path traversal via router |
-| **HIGH** | Failures under realistic conditions. Fix before next release. | Blocking sync call starving event loop, WebSocket disconnect leaking resources, unhandled exception returning 500 |
-| **MEDIUM** | Incorrect behavior with workarounds, or affects non-critical paths. | Schema mismatch with frontend, missing input validation, inconsistent error response format |
-| **LOW** | Code quality, maintainability, or minor inconsistencies. | Unused imports, missing type hints, undocumented endpoints, inconsistent naming |
+| Severity | Backend-Specific Examples |
+|----------|--------------------------|
+| **CRITICAL** | Dropped audio chunks in WebSocket stream, database corruption from concurrent writes, path traversal via router |
+| **HIGH** | Blocking sync call starving event loop, WebSocket disconnect leaking resources, unhandled exception returning 500 |
+| **MEDIUM** | Schema mismatch with frontend, missing input validation, inconsistent error response format |
+| **LOW** | Unused imports, missing type hints, undocumented endpoints, inconsistent naming |
 
 ## Audit Dimensions
 
 ### Dimension 1: Route Handler Correctness
-
-**Key locations**: `auralis-web/backend/routers/`
 
 **Check**:
 - [ ] All handlers are `async def` — are there any sync handlers that block the event loop?
@@ -45,8 +45,6 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 
 ### Dimension 2: WebSocket Streaming
 
-**Key locations**: `auralis-web/backend/audio_stream_controller.py`, WebSocket-related code in `main.py`
-
 **Check**:
 - [ ] Connection lifecycle — is accept/close handled correctly? Are resources cleaned up on disconnect?
 - [ ] Binary frame format — is the audio frame encoding consistent with what the frontend expects?
@@ -59,8 +57,6 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 
 ### Dimension 3: Chunked Processing
 
-**Key locations**: `auralis-web/backend/chunked_processor.py`
-
 **Check**:
 - [ ] Chunk boundaries — do 30s chunks align to audio frame boundaries (not mid-sample)?
 - [ ] Crossfade correctness — is the 3s crossfade using equal-power curves? Is `len(output) == len(input)` maintained?
@@ -72,8 +68,6 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 
 ### Dimension 4: Processing Engine
 
-**Key locations**: `auralis-web/backend/processing_engine.py`
-
 **Check**:
 - [ ] Engine lifecycle — is the processing engine a singleton, per-request, or per-connection? Is this appropriate?
 - [ ] Audio engine integration — are calls to `auralis/` engine APIs correct (parameters, return types, error handling)?
@@ -83,8 +77,6 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 - [ ] Resource cleanup — are audio buffers, temporary files, and engine state cleaned up after processing?
 
 ### Dimension 5: Schema Consistency
-
-**Key locations**: `auralis-web/backend/schemas.py`, router response declarations
 
 **Check**:
 - [ ] Request/Response models — are all endpoints using Pydantic models for both input and output?
@@ -97,8 +89,6 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 
 ### Dimension 6: Middleware & Configuration
 
-**Key locations**: `auralis-web/backend/main.py`, `auralis-web/backend/config/`
-
 **Check**:
 - [ ] CORS — is `allow_origins` properly restricted? Is `allow_credentials=True` combined with wildcard `["*"]` origins (insecure)?
 - [ ] Router inclusion — are all 18 routers properly registered with correct prefixes and tags?
@@ -109,8 +99,6 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 - [ ] Logging configuration — appropriate log levels? Sensitive data (file paths, user data) redacted?
 
 ### Dimension 7: Error Handling & Resilience
-
-**Key locations**: All routers, `processing_engine.py`, `audio_stream_controller.py`
 
 **Check**:
 - [ ] Global exception handler — is there a catch-all that prevents 500 errors from leaking stack traces?
@@ -123,8 +111,6 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 
 ### Dimension 8: Performance & Resource Management
 
-**Key locations**: All backend files
-
 **Check**:
 - [ ] Event loop blocking — are there sync I/O calls (file reads, subprocess, CPU-bound work) on the async event loop?
 - [ ] Connection pooling — is SQLAlchemy connection pooling configured (`pool_pre_ping=True`, appropriate pool size)?
@@ -136,8 +122,6 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 
 ### Dimension 9: Test Coverage
 
-**Key locations**: Backend-related tests under `tests/`
-
 **Check**:
 - [ ] Router coverage — is each of the 18 routers tested with happy path and error cases?
 - [ ] WebSocket testing — are WebSocket connections tested (connect, send, receive, disconnect)?
@@ -146,17 +130,6 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 - [ ] Integration tests — are end-to-end flows (REST → engine → response) tested?
 - [ ] Error scenario tests — are corrupt files, missing resources, and timeouts tested?
 - [ ] Concurrency tests — are concurrent request scenarios tested?
-
-## Deduplication (MANDATORY)
-
-Before reporting ANY finding:
-
-1. Run: `gh issue list --limit 200 --json number,title,state,labels`
-2. Search for keywords from your finding in existing issue titles
-3. If a matching issue exists:
-   - **OPEN**: Note as "Existing: #NNN" and skip
-   - **CLOSED**: Verify fix is in place. If regressed, report as "Regression of #NNN"
-4. If no match: Report as NEW
 
 ## Phase 1: Audit
 
@@ -178,48 +151,4 @@ Write your report to: **`docs/audits/AUDIT_BACKEND_<TODAY>.md`** (use today's da
 
 ## Phase 2: Publish to GitHub
 
-After completing the audit report, for every finding with **Status: NEW** or **Regression**:
-
-1. **Create a GitHub issue** with:
-   - **Title**: `[<TODAY>] <SEVERITY> - <Short Title>`
-   - **Labels**: severity label (`critical`, `high`, `medium`, `low`) + `backend` + `bug`
-   - **Body**:
-     ```
-     ## Summary
-     <description>
-
-     ## Evidence / Code Paths
-     - **File**: `<path>:<line-range>`
-     - **Code**: <relevant snippet>
-     - **Call path**: <how execution reaches the problem>
-
-     ## Impact
-     - **Severity**: <SEVERITY>
-     - **What breaks**: <failure mode>
-     - **When**: <trigger conditions>
-
-     ## Related Issues
-     - #NNN — <relationship>
-
-     ## Proposed Fix
-     <recommended approach>
-
-     ## Acceptance Criteria
-     - [ ] <criterion>
-
-     ## Test Plan
-     - <test description> — assert <expected>
-     ```
-
-2. **Cross-reference**: For each new issue that relates to an existing issue:
-   ```
-   gh issue comment <EXISTING_ISSUE> --body "Related: #<NEW_ISSUE> — <brief description>"
-   ```
-
-3. **Print a summary table** at the end:
-   ```
-   | Finding | Severity | Dimension | Action | Issue |
-   |---------|----------|-----------|--------|-------|
-   | <title> | HIGH | WebSocket Streaming | CREATED | #NNN |
-   | <title> | MEDIUM | Schema Consistency | DUPLICATE of #NNN | — |
-   ```
+Use labels: severity label + `backend` + `bug`

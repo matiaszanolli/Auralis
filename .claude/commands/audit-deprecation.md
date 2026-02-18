@@ -2,26 +2,16 @@
 
 Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and language features across Python, TypeScript/React, Rust, and all third-party dependencies. Then create GitHub issues for every new confirmed finding.
 
-## Scope
+**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
 
-This audit covers ALL layers for deprecation issues:
+## Severity Examples
 
-- **Python engine**: `auralis/` — stdlib, NumPy, SciPy, FFmpeg bindings
-- **Backend**: `auralis-web/backend/` — FastAPI, Pydantic, SQLAlchemy, Uvicorn
-- **Frontend**: `auralis-web/frontend/` — React, Redux, MUI, Vite, TypeScript
-- **Rust DSP**: `vendor/auralis-dsp/` — PyO3, Rust crates
-- **Desktop**: `desktop/` — Electron
-- **Config**: `pyproject.toml`, `requirements.txt`, `package.json`, `Cargo.toml`, `tsconfig.json`, CI/CD files
-- **Tests**: `tests/` — deprecated test patterns, assertion styles
-
-## Severity Definitions
-
-| Severity | Definition | Examples |
-|----------|-----------|---------|
-| **CRITICAL** | Deprecated API already removed in the version we target, causing runtime failure. | Python 3.14 removed module still imported, React 19 removed API still called, Pydantic V1 syntax on V2 |
-| **HIGH** | Deprecated API scheduled for removal in the next major version of a dependency we use. Will break on upgrade. | `datetime.utcnow()`, SQLAlchemy 1.x `Query` API, MUI deprecated component props |
-| **MEDIUM** | Deprecated API with a supported replacement available. Works today but emits warnings or will break eventually. | Legacy React lifecycle methods, deprecated Node.js APIs, old Vite config keys |
-| **LOW** | Soft deprecation, style-level concern, or internal pattern the project has moved away from but remnants remain. | Old naming conventions, superseded utility functions, stale type patterns |
+| Severity | Deprecation-Specific Examples |
+|----------|------------------------------|
+| **CRITICAL** | Python 3.14 removed module still imported, React 19 removed API still called, Pydantic V1 syntax on V2 |
+| **HIGH** | `datetime.utcnow()` (deprecated 3.12), SQLAlchemy 1.x `Query` API, MUI deprecated component props |
+| **MEDIUM** | Legacy React lifecycle methods, deprecated Node.js APIs, old Vite config keys |
+| **LOW** | Old naming conventions, superseded utility functions, stale type patterns |
 
 ## Audit Dimensions
 
@@ -43,7 +33,6 @@ This audit covers ALL layers for deprecation issues:
 - [ ] Thread/process `daemon` property set after `start()` — deprecated
 - [ ] `ssl` deprecated functions/constants (e.g., `ssl.PROTOCOL_TLS`)
 - [ ] `locale.getdefaultlocale()` — deprecated since 3.11
-- [ ] f-string or `.format()` consistency where one pattern is preferred project-wide
 
 ### Dimension 2: NumPy / SciPy / Audio Libraries
 
@@ -161,17 +150,6 @@ For each finding:
 4. **Assess scope** — how many files/call sites are affected?
 5. **Evaluate risk** — is this blocking an upgrade? Emitting warnings? Will it break?
 
-## Deduplication (MANDATORY)
-
-Before reporting ANY finding:
-
-1. Run: `gh issue list --limit 200 --json number,title,state,labels`
-2. Search for keywords from your finding in existing issue titles
-3. If a matching issue exists:
-   - **OPEN**: Note as "Existing: #NNN" and skip
-   - **CLOSED**: Verify fix is in place. If regressed, report as "Regression of #NNN"
-4. If no match: Report as NEW
-
 ## Phase 1: Audit
 
 Write your report to: **`docs/audits/AUDIT_DEPRECATION_<TODAY>.md`** (use today's date, format YYYY-MM-DD).
@@ -203,54 +181,4 @@ Write your report to: **`docs/audits/AUDIT_DEPRECATION_<TODAY>.md`** (use today'
 
 ## Phase 2: Publish to GitHub
 
-After completing the audit report, for every finding with **Status: NEW** or **Regression**:
-
-1. **Create a GitHub issue** with:
-   - **Title**: `[<TODAY>] <SEVERITY> - <Short Title>`
-   - **Labels**: severity label (`critical`, `high`, `medium`, `low`) + `deprecation` + layer label(s) (`backend`, `frontend`, `audio-engine`, `rust-dsp`, `config`) + `maintenance`
-   - **Body**:
-     ```
-     ## Summary
-     <description>
-
-     ## Deprecated API
-     - **What**: `<deprecated function/pattern>`
-     - **Deprecated since**: <version>
-     - **Removed in**: <version or "TBD">
-     - **Replacement**: `<modern equivalent>`
-
-     ## Affected Files
-     - `<path>:<line>` — <usage description>
-     - ... (N total files)
-
-     ## Migration Path
-     1. <step>
-     2. <step>
-
-     ## Risk
-     - **If not migrated**: <what breaks and when>
-
-     ## Related Issues
-     - #NNN — <relationship>
-
-     ## Acceptance Criteria
-     - [ ] All usages of `<deprecated API>` replaced with `<replacement>`
-     - [ ] No deprecation warnings emitted
-     - [ ] Tests pass
-
-     ## Test Plan
-     - <test description> — assert <expected>
-     ```
-
-2. **Cross-reference**: For each new issue that relates to an existing issue:
-   ```
-   gh issue comment <EXISTING_ISSUE> --body "Related: #<NEW_ISSUE> — <brief description>"
-   ```
-
-3. **Print a summary table** at the end:
-   ```
-   | Finding | Severity | Dimension | Affected Files | Action | Issue |
-   |---------|----------|-----------|----------------|--------|-------|
-   | <title> | HIGH | FastAPI/Pydantic | 12 | CREATED | #NNN |
-   | <title> | MEDIUM | React/Redux | 5 | DUPLICATE of #NNN | — |
-   ```
+Use labels: severity label + `deprecation` + layer labels (`backend`, `frontend`, `audio-engine`, `rust-dsp`, `config`) + `maintenance`

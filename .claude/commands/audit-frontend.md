@@ -2,6 +2,8 @@
 
 Audit the Auralis React frontend for component quality, state management bugs, hook correctness, type safety, design system adherence, accessibility gaps, performance issues, and test coverage. Then create GitHub issues for every new confirmed finding.
 
+**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
+
 ## Scope
 
 This audit covers ONLY the frontend code:
@@ -16,20 +18,18 @@ This audit covers ONLY the frontend code:
 
 Out of scope: Python backend, audio engine, Rust DSP, database.
 
-## Severity Definitions
+## Severity Examples
 
-| Severity | Definition | Examples |
-|----------|-----------|---------|
-| **CRITICAL** | Data loss, audio playback failure, or exploitable XSS in production NOW. | Dropped audio frames from WebSocket, unescaped metadata rendering, Redux state corruption causing crash |
-| **HIGH** | Broken UX under realistic conditions. Fix before next release. | Stale closure causing wrong track to play, WebSocket reconnect losing state, memory leak in audio hooks |
-| **MEDIUM** | Incorrect behavior with workarounds, or affects non-critical paths. | Missing error boundary, inconsistent loading states, hardcoded colors bypassing design tokens |
-| **LOW** | Code quality, maintainability, or minor inconsistencies. | Component exceeding 300 lines, missing type annotations, dead imports, undocumented props |
+| Severity | Frontend-Specific Examples |
+|----------|--------------------------|
+| **CRITICAL** | Dropped audio frames from WebSocket, unescaped metadata rendering (XSS), Redux state corruption causing crash |
+| **HIGH** | Stale closure causing wrong track to play, WebSocket reconnect losing state, memory leak in audio hooks |
+| **MEDIUM** | Missing error boundary, inconsistent loading states, hardcoded colors bypassing design tokens |
+| **LOW** | Component exceeding 300 lines, missing type annotations, dead imports, undocumented props |
 
 ## Audit Dimensions
 
 ### Dimension 1: Component Quality
-
-**Key locations**: `auralis-web/frontend/src/components/`
 
 **Check**:
 - [ ] Single responsibility — does each component do ONE thing? Are any > 300 lines?
@@ -42,8 +42,6 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 
 ### Dimension 2: Redux State Management
 
-**Key locations**: `auralis-web/frontend/src/store/`
-
 **Check**:
 - [ ] Slice design — is state normalized? Are there duplicated pieces of state that can go out of sync?
 - [ ] Selector memoization — are selectors using `createSelector` where derived data is computed? Any selectors returning new references on every call?
@@ -54,8 +52,6 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] Serializable state — are non-serializable values (functions, class instances, Promises) stored in Redux?
 
 ### Dimension 3: Hook Correctness
-
-**Key locations**: `auralis-web/frontend/src/hooks/`
 
 **Check**:
 - [ ] Dependency arrays — missing deps causing stale closures? Excess deps causing infinite re-renders?
@@ -69,8 +65,6 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 
 ### Dimension 4: TypeScript Type Safety
 
-**Key locations**: All `.ts` and `.tsx` files under `auralis-web/frontend/src/`
-
 **Check**:
 - [ ] `any` usage — are there `any` types that bypass safety? Should they be `unknown` or properly typed?
 - [ ] Type assertions (`as`) — are there unsafe casts that could mask runtime errors?
@@ -82,8 +76,6 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 
 ### Dimension 5: Design System Adherence
 
-**Key locations**: `auralis-web/frontend/src/design-system/`, all component style files
-
 **Check**:
 - [ ] Token usage — are ALL colors sourced from `import { tokens } from '@/design-system'`? Any hardcoded hex/rgb values?
 - [ ] Spacing — consistent use of spacing tokens vs arbitrary pixel values?
@@ -93,8 +85,6 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] Import paths — all using `@/` absolute imports, no relative `../../` paths?
 
 ### Dimension 6: API Client & Data Fetching
-
-**Key locations**: `auralis-web/frontend/src/services/`
 
 **Check**:
 - [ ] Error handling — are HTTP errors (4xx, 5xx) caught and surfaced to the UI?
@@ -107,8 +97,6 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 
 ### Dimension 7: Performance
 
-**Key locations**: All component and hook files
-
 **Check**:
 - [ ] Unnecessary re-renders — are components re-rendering when their props haven't changed? Missing `React.memo`?
 - [ ] Large list rendering — are lists with 100+ items virtualized?
@@ -120,8 +108,6 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 
 ### Dimension 8: Accessibility
 
-**Key locations**: All component files
-
 **Check**:
 - [ ] Keyboard navigation — can all interactive elements be reached and activated via keyboard?
 - [ ] ARIA labels — do custom controls (sliders, progress bars, play/pause) have proper ARIA attributes?
@@ -132,8 +118,6 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 
 ### Dimension 9: Test Coverage
 
-**Key locations**: `auralis-web/frontend/src/test/`, co-located `*.test.*` files
-
 **Check**:
 - [ ] Critical path coverage — are player hooks, WebSocket hooks, and Redux slices tested?
 - [ ] Mock correctness — do mocks (`vi.*`) accurately represent real behavior? Over-mocking?
@@ -141,17 +125,6 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] User interaction testing — are tests using `@testing-library` user events, not direct DOM manipulation?
 - [ ] Snapshot overuse — are snapshots testing the right thing, or just freezing implementation details?
 - [ ] Edge cases — empty states, error states, loading states, large data sets?
-
-## Deduplication (MANDATORY)
-
-Before reporting ANY finding:
-
-1. Run: `gh issue list --limit 200 --json number,title,state,labels`
-2. Search for keywords from your finding in existing issue titles
-3. If a matching issue exists:
-   - **OPEN**: Note as "Existing: #NNN" and skip
-   - **CLOSED**: Verify fix is in place. If regressed, report as "Regression of #NNN"
-4. If no match: Report as NEW
 
 ## Phase 1: Audit
 
@@ -173,47 +146,4 @@ Write your report to: **`docs/audits/AUDIT_FRONTEND_<TODAY>.md`** (use today's d
 
 ## Phase 2: Publish to GitHub
 
-After completing the audit report, for every finding with **Status: NEW** or **Regression**:
-
-1. **Create a GitHub issue** with:
-   - **Title**: `[<TODAY>] <SEVERITY> - <Short Title>`
-   - **Labels**: severity label (`critical`, `high`, `medium`, `low`) + `frontend` + `bug`
-   - **Body**:
-     ```
-     ## Summary
-     <description>
-
-     ## Evidence / Code Paths
-     - **File**: `<path>:<line-range>`
-     - **Code**: <relevant snippet>
-
-     ## Impact
-     - **Severity**: <SEVERITY>
-     - **What breaks**: <failure mode>
-     - **User-visible effect**: <what the user sees>
-
-     ## Related Issues
-     - #NNN — <relationship>
-
-     ## Proposed Fix
-     <recommended approach>
-
-     ## Acceptance Criteria
-     - [ ] <criterion>
-
-     ## Test Plan
-     - <test description> — assert <expected>
-     ```
-
-2. **Cross-reference**: For each new issue that relates to an existing issue:
-   ```
-   gh issue comment <EXISTING_ISSUE> --body "Related: #<NEW_ISSUE> — <brief description>"
-   ```
-
-3. **Print a summary table** at the end:
-   ```
-   | Finding | Severity | Dimension | Action | Issue |
-   |---------|----------|-----------|--------|-------|
-   | <title> | HIGH | Hook Correctness | CREATED | #NNN |
-   | <title> | MEDIUM | Redux State | DUPLICATE of #NNN | — |
-   ```
+Use labels: severity label + `frontend` + `bug`

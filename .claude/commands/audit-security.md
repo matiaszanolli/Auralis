@@ -2,24 +2,16 @@
 
 Perform a security audit of the Auralis music player aligned with the OWASP Top 10 (2021), then create GitHub issues for every new confirmed finding.
 
-## Project Layout
+**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
 
-All code lives in a single repo at `/mnt/data/src/matchering`:
+## Severity Examples
 
-- **Audio Engine**: `auralis/` — Core Python audio engine
-- **Backend**: `auralis-web/backend/` — FastAPI REST + WebSocket (:8765)
-- **Frontend**: `auralis-web/frontend/` — React 18, TypeScript, Vite
-- **Rust DSP**: `vendor/auralis-dsp/` — PyO3 module
-- **Tests**: `tests/` — 850+ tests across 21 directories
-
-## Severity Definitions
-
-| Severity | Definition | Examples |
-|----------|-----------|---------|
-| **CRITICAL** | Exploitable NOW. File system access, code execution, or data exfiltration with no workaround. | Path traversal to arbitrary files, unvalidated FFmpeg args, exposed debug endpoints |
-| **HIGH** | Exploitable under realistic conditions or requires minor prerequisites. | Missing auth on WebSocket, unvalidated file uploads, CORS misconfiguration |
-| **MEDIUM** | Defense-in-depth gap or requires chained exploitation. | Missing input sanitization, overly broad file access, insufficient rate limiting |
-| **LOW** | Informational, hardening opportunity, or requires local access. | Missing security headers, undocumented API surface, verbose error messages |
+| Severity | Security-Specific Examples |
+|----------|--------------------------|
+| **CRITICAL** | Path traversal to arbitrary files, unvalidated FFmpeg args allowing code execution, exposed debug endpoints |
+| **HIGH** | Missing auth on WebSocket, unvalidated file uploads, CORS `allow_credentials=True` with `["*"]` origins |
+| **MEDIUM** | Missing input sanitization, overly broad file access, insufficient rate limiting |
+| **LOW** | Missing security headers, undocumented API surface, verbose error messages leaking internals |
 
 ## OWASP Top 10 Checklist
 
@@ -115,17 +107,6 @@ Trace how user-controlled data flows through the system:
 3. **WebSocket messages**: Frontend → WebSocket → audio_stream_controller → processing_engine → chunked_processor → audio engine — are messages validated?
 4. **Library scan paths**: User adds folder → scanner.py → filesystem walk → database insert — can symlinks or special paths escape?
 
-## Deduplication (MANDATORY)
-
-Before reporting ANY finding:
-
-1. Run: `gh issue list --limit 200 --json number,title,state,labels`
-2. Search for keywords from your finding in existing issue titles
-3. If a matching issue exists:
-   - **OPEN**: Note as "Existing: #NNN" and skip
-   - **CLOSED**: Verify fix is in place. If regressed, report as "Regression of #NNN"
-4. If no match: Report as NEW
-
 ## Phase 1: Audit
 
 Write your report to: **`docs/audits/AUDIT_SECURITY_<TODAY>.md`** (use today's date, format YYYY-MM-DD).
@@ -147,16 +128,4 @@ Write your report to: **`docs/audits/AUDIT_SECURITY_<TODAY>.md`** (use today's d
 
 ## Phase 2: Publish to GitHub
 
-After completing the audit report, for every finding with **Status: NEW** or **Regression**:
-
-1. **Create a GitHub issue** with:
-   - **Title**: `[<TODAY>] <SEVERITY> - <Short Title>`
-   - **Labels**: severity label (`critical`, `high`, `medium`, `low`) + `security` + `bug`
-   - **Body**: Summary, Evidence/Code Paths, Exploit Scenario, Impact, Related Issues, Proposed Fix, Acceptance Criteria, Test Plan
-
-2. **Cross-reference**: For each new issue that relates to an existing issue:
-   ```
-   gh issue comment <EXISTING_ISSUE> --body "Related: #<NEW_ISSUE> — <brief description>"
-   ```
-
-3. **Print a summary table** at the end with finding, severity, action taken, and issue number.
+Use labels: severity label + `security` + `bug`

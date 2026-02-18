@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(git -C /mnt/data/src/matchering add auralis/library/migration_manager.py tests/backend/test_migration_manager_fd_leak.py)",
+      "Bash(git -C:*)"
     ]
   }
 }

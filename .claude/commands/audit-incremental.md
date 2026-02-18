@@ -1,35 +1,33 @@
 # Incremental / Delta Audit
 
-Audit only the code that has changed in the last 10 commits, then create GitHub issues for any new findings.
+Audit only the code that has changed in a recent commit range, then create GitHub issues for any new findings.
 
-## Project Layout
+**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
 
-All code lives in a single repo at `/mnt/data/src/matchering`:
+## Arguments
 
-- **Audio Engine**: `auralis/` — Core Python audio engine
-- **Backend**: `auralis-web/backend/` — FastAPI REST + WebSocket (:8765)
-- **Frontend**: `auralis-web/frontend/` — React 18, TypeScript, Vite, Redux
-- **Rust DSP**: `vendor/auralis-dsp/` — PyO3 module
-- **Tests**: `tests/` — 850+ tests across 21 directories
+This command accepts an optional commit range argument: `$ARGUMENTS`
 
-## Severity Definitions
+- If provided, use it as the git range (e.g., `v1.1.0..HEAD`, `HEAD~20..HEAD`, `abc123..def456`)
+- If empty or not provided, default to `HEAD~10..HEAD`
 
-| Severity | Definition | Examples |
-|----------|-----------|---------|
-| **CRITICAL** | The change introduces audio corruption, data loss, or exploitable vulnerability. | Removed sample count check, broken crossfade, unvalidated file path |
-| **HIGH** | The change breaks existing behavior or introduces a race condition. | Missing null check, changed return type without updating callers, broken invariant |
-| **MEDIUM** | The change is correct but incomplete or inconsistent. | New endpoint without validation, test not updated, migration missing |
-| **LOW** | Style, naming, or minor quality issues in the changed code. | Inconsistent naming, missing type hints, dead code added |
+## Severity Examples
+
+| Severity | Delta-Specific Examples |
+|----------|------------------------|
+| **CRITICAL** | The change introduces audio corruption, data loss, or exploitable vulnerability |
+| **HIGH** | The change breaks existing behavior or introduces a race condition |
+| **MEDIUM** | The change is correct but incomplete or inconsistent with existing patterns |
+| **LOW** | Style, naming, or minor quality issues in the changed code |
 
 ## Step 1: Gather Changed Files
 
-Run to get the last 10 commits' changed files:
-
 ```bash
-cd /mnt/data/src/matchering && git diff HEAD~10..HEAD --name-only
+cd /mnt/data/src/matchering
+RANGE="${ARGUMENTS:-HEAD~10..HEAD}"
+git log --oneline $RANGE
+git diff $RANGE --name-only
 ```
-
-Also run `git log --oneline -10` to understand commit messages and intent.
 
 ## Step 2: Categorize Changes
 
@@ -76,12 +74,6 @@ For each changed file that crosses a layer boundary:
 5. **Database schema changed**: Is there a migration? Do all repositories handle the new schema?
 6. **Rust DSP changed**: Is the Python binding still correct? Do callers handle the new behavior?
 
-## Deduplication (MANDATORY)
-
-Before reporting ANY finding:
-1. Run: `gh issue list --limit 200 --json number,title,state,labels`
-2. If OPEN: skip. If no match: NEW.
-
 ## Phase 1: Audit
 
 Write your report to: **`docs/audits/AUDIT_INCREMENTAL_<TODAY>.md`** (use today's date).
@@ -94,6 +86,7 @@ Write your report to: **`docs/audits/AUDIT_INCREMENTAL_<TODAY>.md`** (use today'
 5. **Missing Tests** — Changed code paths without test updates
 
 ### Per-Finding Format
+
 ```
 ### <ID>: <Short Title>
 - **Severity**: CRITICAL | HIGH | MEDIUM | LOW
@@ -107,9 +100,4 @@ Write your report to: **`docs/audits/AUDIT_INCREMENTAL_<TODAY>.md`** (use today'
 
 ## Phase 2: Publish to GitHub
 
-For every finding with **Status: NEW**, create a GitHub issue:
-- **Title**: `[<TODAY>] <SEVERITY> - <Short Title>`
-- **Labels**: severity label (`critical`, `high`, `medium`, `low`) + domain label(s) (`audio-integrity`, `dsp`, `player`, `backend`, `frontend`, `library`, `concurrency`, `websocket`, `streaming`) + `bug`
-- **Body**: Summary, Evidence (diff), Impact, Related Issues, Proposed Fix, Acceptance Criteria, Test Plan
-- **Cross-reference** related existing issues with `gh issue comment`.
-- **Print summary table** at the end.
+Use labels: severity label + domain labels (`audio-integrity`, `dsp`, `player`, `backend`, `frontend`, `library`, `concurrency`, `websocket`, `streaming`) + `bug`

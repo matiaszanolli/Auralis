@@ -2,34 +2,22 @@
 
 Audit Auralis for race conditions, missing locks, thread safety violations, state machine bugs, and unsafe concurrent access patterns in the audio player, processing pipeline, and backend services. Then create GitHub issues for every new confirmed finding.
 
-## Project Layout
+**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
 
-All code lives in a single repo at `/mnt/data/src/matchering`:
+## Severity Examples
 
-- **Audio Engine**: `auralis/` — Core Python audio engine (player, DSP, library)
-- **Backend**: `auralis-web/backend/` — FastAPI REST + WebSocket (:8765)
-- **Frontend**: `auralis-web/frontend/` — React 18, Redux
-- **Rust DSP**: `vendor/auralis-dsp/` — PyO3 module
-- **Tests**: `tests/` — 850+ tests across 21 directories
-
-## Severity Definitions
-
-| Severity | Definition | Examples |
-|----------|-----------|---------|
-| **CRITICAL** | Audio corruption or data loss under normal concurrency. | Concurrent writes to audio buffer, race between player state and output, database corruption from parallel access |
-| **HIGH** | Race conditions triggered under realistic usage patterns. | Seek during gapless transition, queue modification during playback, parallel DSP chunk processing errors |
-| **MEDIUM** | Unsafe patterns that haven't caused issues yet but will at scale. | Unprotected shared state, missing copy-before-modify, in-memory state without persistence |
-| **LOW** | Sub-optimal concurrency patterns with negligible current impact. | Coarse-grained locks, unnecessary serialization, redundant locking |
+| Severity | Concurrency-Specific Examples |
+|----------|------------------------------|
+| **CRITICAL** | Concurrent writes to audio buffer, race between player state and output, database corruption from parallel access |
+| **HIGH** | Seek during gapless transition, queue modification during playback, parallel DSP chunk processing errors |
+| **MEDIUM** | Unprotected shared state, missing copy-before-modify, in-memory state without persistence |
+| **LOW** | Coarse-grained locks, unnecessary serialization, redundant locking |
 
 ## Audit Dimensions
 
 ### Dimension 1: Player Thread Safety
 
-**Key files**:
-- `auralis/player/enhanced_audio_player.py` — Main player with adaptive DSP
-- `auralis/player/gapless_playback_engine.py` — Gapless playback
-- `auralis/player/queue_controller.py` — Queue management
-- `auralis/player/realtime_processor.py` — Real-time audio processing
+**Key files**: `auralis/player/enhanced_audio_player.py`, `auralis/player/gapless_playback_engine.py`, `auralis/player/queue_controller.py`, `auralis/player/realtime_processor.py`
 
 **Check**:
 - [ ] RLock usage — is every shared state access protected? Are locks properly scoped?
@@ -42,12 +30,7 @@ All code lives in a single repo at `/mnt/data/src/matchering`:
 
 ### Dimension 2: Audio Processing Pipeline
 
-**Key files**:
-- `auralis/core/hybrid_processor.py` — HybridProcessor: main DSP pipeline
-- `auralis/core/simple_mastering.py` — SimpleMastering algorithm
-- `auralis/optimization/parallel_processor.py` — Parallel audio processing
-- `auralis/dsp/unified.py` — Unified DSP pipeline
-- `vendor/auralis-dsp/` — Rust DSP module (PyO3)
+**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/optimization/parallel_processor.py`, `auralis/dsp/unified.py`, `vendor/auralis-dsp/`
 
 **Check**:
 - [ ] Parallel processor — are audio chunks independently copied before processing? Can adjacent chunks interfere?
@@ -59,11 +42,7 @@ All code lives in a single repo at `/mnt/data/src/matchering`:
 
 ### Dimension 3: Backend WebSocket & Streaming
 
-**Key files**:
-- `auralis-web/backend/audio_stream_controller.py` — WebSocket audio streaming
-- `auralis-web/backend/chunked_processor.py` — 30s chunks, 3s crossfade
-- `auralis-web/backend/processing_engine.py` — Audio processing orchestration
-- `auralis-web/backend/main.py` — FastAPI app
+**Key files**: `auralis-web/backend/audio_stream_controller.py`, `auralis-web/backend/chunked_processor.py`, `auralis-web/backend/processing_engine.py`, `auralis-web/backend/main.py`
 
 **Check**:
 - [ ] Multiple WebSocket clients — can two clients request different tracks simultaneously?
@@ -74,11 +53,7 @@ All code lives in a single repo at `/mnt/data/src/matchering`:
 
 ### Dimension 4: Library & Database
 
-**Key files**:
-- `auralis/library/manager.py` — LibraryManager
-- `auralis/library/repositories/` — 12 repository classes
-- `auralis/library/scanner.py` — Folder scanning
-- `auralis/library/migration_manager.py` — Schema migrations
+**Key files**: `auralis/library/manager.py`, `auralis/library/repositories/`, `auralis/library/scanner.py`, `auralis/library/migration_manager.py`
 
 **Check**:
 - [ ] SQLite thread safety — `check_same_thread=False`? Connection pooling config?
@@ -90,10 +65,7 @@ All code lives in a single repo at `/mnt/data/src/matchering`:
 
 ### Dimension 5: Frontend State Consistency
 
-**Key files**:
-- `auralis-web/frontend/src/store/` — Redux state management
-- `auralis-web/frontend/src/hooks/` — WebSocket and player hooks
-- `auralis-web/frontend/src/services/` — API clients
+**Key files**: `auralis-web/frontend/src/store/`, `auralis-web/frontend/src/hooks/`, `auralis-web/frontend/src/services/`
 
 **Check**:
 - [ ] Redux dispatch ordering — can WebSocket messages arrive and dispatch out of order?
@@ -102,21 +74,12 @@ All code lives in a single repo at `/mnt/data/src/matchering`:
 - [ ] WebSocket reconnection — does the frontend correctly re-sync state after reconnect?
 - [ ] Multiple rapid user actions (skip, skip, skip) — does the frontend handle rapid state changes?
 
-## Deduplication (MANDATORY)
-
-Before reporting ANY finding:
-1. Run: `gh issue list --limit 200 --json number,title,state,labels`
-2. Search for keywords from your finding in existing issue titles
-3. If a matching issue exists:
-   - **OPEN**: Skip
-   - **CLOSED**: Verify fix is in place. If regressed, report as regression
-4. If no match: Report as NEW
-
 ## Phase 1: Audit
 
 Write your report to: **`docs/audits/AUDIT_CONCURRENCY_<TODAY>.md`** (use today's date).
 
 ### Per-Finding Format
+
 ```
 ### <ID>: <Short Title>
 - **Severity**: CRITICAL | HIGH | MEDIUM | LOW
@@ -131,9 +94,4 @@ Write your report to: **`docs/audits/AUDIT_CONCURRENCY_<TODAY>.md`** (use today'
 
 ## Phase 2: Publish to GitHub
 
-For every finding with **Status: NEW** or **Regression**, create a GitHub issue:
-- **Title**: `[<TODAY>] <SEVERITY> - <Short Title>`
-- **Labels**: severity label (`critical`, `high`, `medium`, `low`) + `concurrency` + `bug`
-- **Body**: Summary, Evidence, Trigger Conditions, Impact, Related Issues, Proposed Fix, Acceptance Criteria, Test Plan
-- **Cross-reference** related existing issues with `gh issue comment`.
-- **Print summary table** at the end.
+Use labels: severity label + `concurrency` + `bug`
