@@ -731,13 +731,13 @@ class TrackRepository:
         session = self.get_session()
         try:
             removed_count = 0
-            offset = 0
+            last_id = 0  # cursor: fetch rows with id > last_id (issue #2242)
 
             while True:
                 rows = (
                     session.query(Track.id, Track.filepath)
+                    .filter(Track.id > last_id)
                     .order_by(Track.id)
-                    .offset(offset)
                     .limit(batch_size)
                     .all()
                 )
@@ -756,7 +756,7 @@ class TrackRepository:
                     session.commit()
                     removed_count += len(missing_ids)
 
-                offset += batch_size
+                last_id = rows[-1].id  # advance cursor past this batch
 
             debug(f"Removed {removed_count} tracks with missing files")
             return removed_count
