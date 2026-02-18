@@ -90,12 +90,8 @@ class VectorizedEQProcessor:
         Returns:
             Processed mono audio
         """
-        # Apply window
-        window = np.hanning(fft_size)
-        windowed_audio = audio_mono[:fft_size] * window
-
-        # Transform to frequency domain
-        spectrum = fft(windowed_audio)
+        # Transform to frequency domain (no windowing for EQ — see filters.py)
+        spectrum = fft(audio_mono[:fft_size])
 
         # Create gain curve for all frequencies (vectorized)
         num_bins = fft_size // 2 + 1
@@ -115,8 +111,5 @@ class VectorizedEQProcessor:
 
         # Transform back to time domain
         processed_audio = np.real(ifft(spectrum))
-
-        # Apply window compensation
-        processed_audio *= window
 
         return cast(np.ndarray, processed_audio[:len(audio_mono)])
