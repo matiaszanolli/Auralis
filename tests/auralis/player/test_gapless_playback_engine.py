@@ -198,3 +198,36 @@ class TestGaplessTransitionPositionReset:
 
         assert player.playback.position == 0
         assert player.playback.position <= len(new_audio)
+
+    def test_position_resets_on_sample_rate_change(self, player):
+        """Stale position from 44.1kHz track must not bleed into 48kHz track (issue #2152).
+
+        Without the fix, the position from the 44.1kHz track (e.g. 441000 samples)
+        is carried over.  At 48kHz that maps to ~9.2s into the new track instead
+        of 0s — producing a skip.  The fix (seek(0, total_samples) in next_track)
+        covers this regardless of sample rate difference.
+        """
+        import numpy as np
+
+        # Track A: 44.1kHz, 10s → 441000 samples; player is near the end
+        player.file_manager.sample_rate = 44100
+        player.playback.seek(440000, 441000)
+        assert player.playback.position == 440000
+
+        # Track B: 48kHz, 10s → 480000 samples
+        new_audio = np.zeros(480000, dtype=np.float32)
+
+        def fake_advance(was_playing):
+            player.file_manager.audio_data = new_audio
+            player.file_manager.sample_rate = 48000
+            return True
+
+        player.gapless.advance_with_prebuffer.side_effect = fake_advance
+
+        player.next_track()
+
+        assert player.playback.position == 0, (
+            f"Expected position=0 after 44.1→48kHz transition, "
+            f"got {player.playback.position} (~{player.playback.position / 48000:.2f}s into new track)"
+        )
+        assert player.file_manager.sample_rate == 48000
