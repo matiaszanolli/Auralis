@@ -369,8 +369,8 @@ class TestEQCurrentAPI:
         # Reset
         eq.reset()
 
-        # Verify state is reset
-        assert np.allclose(eq.current_gains, np.ones(len(eq.critical_bands)))
+        # Verify state is reset to flat (0.0 dB = unity gain, not 1.0 dB)
+        assert np.allclose(eq.current_gains, np.zeros(len(eq.critical_bands)))
 
         self.tearDown()
 

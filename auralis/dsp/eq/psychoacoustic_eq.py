@@ -75,9 +75,9 @@ class PsychoacousticEQ:
             self.fft_size
         )
 
-        # Processing state
-        self.current_gains = np.ones(len(self.critical_bands))
-        self.target_gains = np.ones(len(self.critical_bands))
+        # Processing state (0.0 dB = flat/unity gain)
+        self.current_gains = np.zeros(len(self.critical_bands))
+        self.target_gains = np.zeros(len(self.critical_bands))
         self.processing_history: list[dict[str, Any]] = []
 
         # Pre-compute frequency mapping
@@ -329,6 +329,6 @@ class PsychoacousticEQ:
 
     def reset(self) -> None:
         """Reset EQ to flat response"""
-        self.current_gains = np.ones(len(self.critical_bands))
-        self.target_gains = np.ones(len(self.critical_bands))
+        self.current_gains = np.zeros(len(self.critical_bands))
+        self.target_gains = np.zeros(len(self.critical_bands))
         self.processing_history.clear()
