@@ -187,14 +187,18 @@ class SimpleMasteringPipeline:
                     if chunks_processed == 0:
                         info = chunk_info
 
-                    # Assemble output with crossfading at chunk boundaries
+                    # Assemble output with crossfading at chunk boundaries.
+                    # new_tail stages the next prev_tail value and is only committed
+                    # to prev_tail after output_file.write() succeeds (#2429).
+                    new_tail = None
+
                     if chunks_processed == 0:
                         # First chunk: write core, save overlap tail
                         if is_last:
                             write_region = processed_chunk
                         else:
                             write_region = processed_chunk[:, :core_samples]
-                            prev_tail = processed_chunk[:, core_samples:].copy()
+                            new_tail = processed_chunk[:, core_samples:].copy()
                     elif prev_tail is not None:
                         # Crossfade head of this chunk with previous tail
                         head_len = min(prev_tail.shape[1], processed_chunk.shape[1])
@@ -205,10 +209,9 @@ class SimpleMasteringPipeline:
                             # and silently drops samples at the chunk boundary)
                             if is_last:
                                 write_region = processed_chunk
-                                prev_tail = None
                             else:
                                 write_region = processed_chunk[:, :core_samples]
-                                prev_tail = processed_chunk[:, core_samples:].copy()
+                                new_tail = processed_chunk[:, core_samples:].copy()
                         else:
                             head = processed_chunk[:, :head_len]
 
@@ -221,18 +224,17 @@ class SimpleMasteringPipeline:
                             if is_last:
                                 body = processed_chunk[:, head_len:]
                                 write_region = np.concatenate([crossfaded, body], axis=1)
-                                prev_tail = None
                             else:
                                 body = processed_chunk[:, head_len:core_samples]
                                 write_region = np.concatenate([crossfaded, body], axis=1)
-                                prev_tail = processed_chunk[:, core_samples:].copy()
+                                new_tail = processed_chunk[:, core_samples:].copy()
                     else:
                         # No previous tail (safety fallback)
                         if is_last:
                             write_region = processed_chunk
                         else:
                             write_region = processed_chunk[:, :core_samples]
-                            prev_tail = processed_chunk[:, core_samples:].copy()
+                            new_tail = processed_chunk[:, core_samples:].copy()
 
                     # Convert back to (samples, channels) for writing.
                     # write_region is always (channels, samples) after processing,
@@ -240,6 +242,9 @@ class SimpleMasteringPipeline:
                     write_region = write_region.T
 
                     output_file.write(write_region)
+                    # Commit new tail only after write succeeds: if concatenate or
+                    # write raises, prev_tail retains the last-good value (#2429).
+                    prev_tail = new_tail
 
                     chunks_processed += 1
                     read_pos += core_samples
