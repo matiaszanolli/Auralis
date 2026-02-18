@@ -305,8 +305,9 @@ class MigrationManager:
         return True
 
     def close(self) -> None:
-        """Close database connection."""
+        """Close database connection and dispose engine (issue #2395)."""
         self.session.close()
+        self.engine.dispose()
 
 
 def backup_database(db_path: str, backup_dir: str | None = None) -> str:
