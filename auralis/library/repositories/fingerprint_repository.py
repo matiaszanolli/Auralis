@@ -18,6 +18,33 @@ from ...utils.logging import debug, error, info, warning
 from ..fingerprint_quantizer import FingerprintQuantizer
 from ..models import Track, TrackFingerprint
 
+# Whitelist of columns callers may supply to upsert() / store_fingerprint().
+# Derived from the SQLAlchemy model so it stays in sync automatically (#2286).
+# Excludes auto-managed columns (PK, timestamps) that callers must never set.
+_FINGERPRINT_WRITABLE_COLS: frozenset[str] = (
+    frozenset(TrackFingerprint.__table__.columns.keys())
+    - {'id', 'created_at', 'updated_at'}
+)
+
+
+def _validate_fingerprint_columns(cols: list[str]) -> None:
+    """Raise ValueError if any column name is not in the allowed whitelist.
+
+    Prevents SQL injection via f-string column interpolation (#2286).
+
+    Args:
+        cols: Column names to validate before interpolation into SQL
+
+    Raises:
+        ValueError: If any column is not in _FINGERPRINT_WRITABLE_COLS
+    """
+    bad = set(cols) - _FINGERPRINT_WRITABLE_COLS
+    if bad:
+        raise ValueError(
+            f"Invalid fingerprint column name(s): {sorted(bad)}. "
+            f"Allowed: {sorted(_FINGERPRINT_WRITABLE_COLS)}"
+        )
+
 
 class FingerprintRepository:
     """Repository for fingerprint database operations"""
@@ -472,11 +499,15 @@ class FingerprintRepository:
         Returns:
             TrackFingerprint object if successful, None if failed
         """
+        # Validate column names before acquiring a session so ValueError
+        # propagates to the caller instead of being swallowed (#2286).
+        cols = list(fingerprint_data.keys())
+        _validate_fingerprint_columns(cols)
+        cols_str = ', '.join(cols)
+        named_placeholders = ', '.join([f':{col}' for col in cols])
+
         session = self.get_session()
         try:
-            cols = list(fingerprint_data.keys())
-            cols_str = ', '.join(cols)
-            named_placeholders = ', '.join([f':{col}' for col in cols])
             params: dict[str, Any] = {'track_id': track_id, **fingerprint_data}
 
             session.execute(
@@ -521,27 +552,31 @@ class FingerprintRepository:
         Returns:
             TrackFingerprint object if successful, None if failed
         """
+        # Build fingerprint dict from explicit named parameters (keys are always
+        # known here, but validate anyway for defense-in-depth — #2286).
+        fingerprint_dict = {
+            'sub_bass_pct': sub_bass_pct, 'bass_pct': bass_pct, 'low_mid_pct': low_mid_pct,
+            'mid_pct': mid_pct, 'upper_mid_pct': upper_mid_pct, 'presence_pct': presence_pct,
+            'air_pct': air_pct, 'lufs': lufs, 'crest_db': crest_db, 'bass_mid_ratio': bass_mid_ratio,
+            'tempo_bpm': tempo_bpm, 'rhythm_stability': rhythm_stability, 'transient_density': transient_density,
+            'silence_ratio': silence_ratio, 'spectral_centroid': spectral_centroid,
+            'spectral_rolloff': spectral_rolloff, 'spectral_flatness': spectral_flatness,
+            'harmonic_ratio': harmonic_ratio, 'pitch_stability': pitch_stability, 'chroma_energy': chroma_energy,
+            'dynamic_range_variation': dynamic_range_variation, 'loudness_variation_std': loudness_variation_std,
+            'peak_consistency': peak_consistency, 'stereo_width': stereo_width, 'phase_correlation': phase_correlation,
+        }
+
+        # Validate before acquiring a session so ValueError reaches the caller (#2286).
+        cols = list(fingerprint_dict.keys())
+        _validate_fingerprint_columns(cols)
+        cols_str = ', '.join(cols)
+        named_placeholders = ', '.join([f':{col}' for col in cols])
+
         session = self.get_session()
         try:
-            # Build fingerprint dict
-            fingerprint_dict = {
-                'sub_bass_pct': sub_bass_pct, 'bass_pct': bass_pct, 'low_mid_pct': low_mid_pct,
-                'mid_pct': mid_pct, 'upper_mid_pct': upper_mid_pct, 'presence_pct': presence_pct,
-                'air_pct': air_pct, 'lufs': lufs, 'crest_db': crest_db, 'bass_mid_ratio': bass_mid_ratio,
-                'tempo_bpm': tempo_bpm, 'rhythm_stability': rhythm_stability, 'transient_density': transient_density,
-                'silence_ratio': silence_ratio, 'spectral_centroid': spectral_centroid,
-                'spectral_rolloff': spectral_rolloff, 'spectral_flatness': spectral_flatness,
-                'harmonic_ratio': harmonic_ratio, 'pitch_stability': pitch_stability, 'chroma_energy': chroma_energy,
-                'dynamic_range_variation': dynamic_range_variation, 'loudness_variation_std': loudness_variation_std,
-                'peak_consistency': peak_consistency, 'stereo_width': stereo_width, 'phase_correlation': phase_correlation,
-            }
-
             # Quantize fingerprint
             quantized_blob = FingerprintQuantizer.quantize(fingerprint_dict)
 
-            cols = list(fingerprint_dict.keys())
-            cols_str = ', '.join(cols)
-            named_placeholders = ', '.join([f':{col}' for col in cols])
             params: dict[str, Any] = {
                 'track_id': track_id,
                 'fingerprint_blob': quantized_blob,

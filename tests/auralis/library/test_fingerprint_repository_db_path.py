@@ -168,3 +168,60 @@ class TestUpdateStatusUsesSession:
         result = r.update_status(track_id=3, status='completed')
         assert result is False
         session.rollback.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# SQL injection guard — column whitelist (#2286)
+# ---------------------------------------------------------------------------
+
+class TestSqlInjectionGuard:
+    """Verify that f-string column interpolation is protected by whitelist."""
+
+    def test_upsert_rejects_injected_column_name(self, repo):
+        """upsert() must raise ValueError for non-whitelisted keys."""
+        r, session = repo
+        bad_data = {**_SAMPLE_FINGERPRINT, "') OR 1=1--": 0.0}
+        with pytest.raises(ValueError, match="Invalid fingerprint column"):
+            r.upsert(track_id=1, fingerprint_data=bad_data)
+        # Session must NOT have been touched when validation fails
+        session.execute.assert_not_called()
+
+    def test_upsert_rejects_unknown_column(self, repo):
+        r, session = repo
+        with pytest.raises(ValueError, match="Invalid fingerprint column"):
+            r.upsert(track_id=1, fingerprint_data={"evil_col": 1.0})
+        session.execute.assert_not_called()
+
+    def test_upsert_accepts_all_valid_columns(self, repo):
+        r, session = repo
+        r.upsert(track_id=1, fingerprint_data=_SAMPLE_FINGERPRINT)
+        session.execute.assert_called_once()
+
+    def test_validate_fingerprint_columns_raises_on_bad_name(self):
+        from auralis.library.repositories.fingerprint_repository import (
+            _validate_fingerprint_columns,
+        )
+        with pytest.raises(ValueError):
+            _validate_fingerprint_columns(["sub_bass_pct", "DROP TABLE tracks--"])
+
+    def test_validate_fingerprint_columns_passes_for_valid_names(self):
+        from auralis.library.repositories.fingerprint_repository import (
+            _validate_fingerprint_columns,
+        )
+        # Should not raise for the 25 known dimension columns
+        _validate_fingerprint_columns(list(_SAMPLE_FINGERPRINT.keys()))
+
+    def test_whitelist_excludes_pk_and_timestamps(self):
+        from auralis.library.repositories.fingerprint_repository import (
+            _FINGERPRINT_WRITABLE_COLS,
+        )
+        assert 'id' not in _FINGERPRINT_WRITABLE_COLS
+        assert 'created_at' not in _FINGERPRINT_WRITABLE_COLS
+        assert 'updated_at' not in _FINGERPRINT_WRITABLE_COLS
+
+    def test_whitelist_includes_all_25_dimensions(self):
+        from auralis.library.repositories.fingerprint_repository import (
+            _FINGERPRINT_WRITABLE_COLS,
+        )
+        for col in _SAMPLE_FINGERPRINT:
+            assert col in _FINGERPRINT_WRITABLE_COLS, f"{col} missing from whitelist"
