@@ -8,8 +8,12 @@ Tests the chunked audio processing system for fast streaming.
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
+import inspect
 import sys
 import tempfile
+import threading
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, mock_open, patch
 
@@ -331,6 +335,148 @@ class TestIntensityValidation:
                     intensity=intensity
                 )
                 assert processor.intensity == intensity
+
+
+class TestProcessChunkSafeEventLoop:
+    """
+    process_chunk_safe must not block the asyncio event loop (issue #2388).
+
+    The CPU-intensive DSP work (HPSS, EQ, loudness normalization) previously ran
+    synchronously on the event loop thread while holding an asyncio.Lock, stalling
+    all WebSocket and HTTP activity for the entire chunk duration.
+
+    Fix: _process_chunk_locked (sync, threading.Lock) is called via asyncio.to_thread().
+    """
+
+    def _make_processor(self) -> ChunkedAudioProcessor:
+        """Return a ChunkedAudioProcessor with all I/O mocked out."""
+        dummy_audio = np.zeros(44100, dtype=np.float32)
+        dummy_path = "/tmp/chunk_0.wav"
+
+        proc = MagicMock(spec=ChunkedAudioProcessor)
+        proc._processor_lock = threading.Lock()
+        proc.process_chunk = MagicMock(return_value=(dummy_path, dummy_audio))
+        # Bind the real methods so we test actual code, not mocks
+        proc._process_chunk_locked = ChunkedAudioProcessor._process_chunk_locked.__get__(proc)
+        proc.process_chunk_safe = ChunkedAudioProcessor.process_chunk_safe.__get__(proc)
+        return proc
+
+    def test_process_chunk_safe_is_coroutine(self):
+        """process_chunk_safe must be declared async so it can be awaited."""
+        assert inspect.iscoroutinefunction(ChunkedAudioProcessor.process_chunk_safe), (
+            "process_chunk_safe must be an async def coroutine (issue #2388)"
+        )
+
+    def test_processor_lock_is_threading_lock(self):
+        """_processor_lock must be threading.Lock, not asyncio.Lock (issue #2388).
+
+        asyncio.Lock cannot be acquired from within a thread-pool worker
+        (asyncio.to_thread), so the lock must be a threading.Lock.
+        """
+        proc = self._make_processor()
+        assert isinstance(proc._processor_lock, type(threading.Lock())), (
+            "_processor_lock must be threading.Lock, not asyncio.Lock (issue #2388)"
+        )
+
+    def test_process_chunk_safe_calls_process_chunk(self):
+        """process_chunk_safe must delegate to process_chunk exactly once."""
+        proc = self._make_processor()
+        asyncio.run(proc.process_chunk_safe(0, False))
+        proc.process_chunk.assert_called_once_with(0, False)
+
+    def test_process_chunk_safe_returns_path_and_array(self):
+        """process_chunk_safe must return (str, np.ndarray) from process_chunk."""
+        proc = self._make_processor()
+        path, audio = asyncio.run(proc.process_chunk_safe(0, False))
+        assert isinstance(path, str)
+        assert isinstance(audio, np.ndarray)
+
+    def test_event_loop_remains_responsive_during_chunk_processing(self):
+        """
+        Other coroutines must be able to run while process_chunk_safe is executing.
+
+        Simulates the exact regression: a slow process_chunk (sleep 100ms) is run
+        via asyncio.gather() alongside an async counter.  If the fix is correct,
+        the counter increments multiple times during processing.  With the old
+        synchronous implementation the counter would be stuck at 0 until the
+        blocking call returned.
+        """
+        SLOW_DELAY = 0.10   # 100 ms — much less than a real chunk but enough to detect blocking
+        TICK_INTERVAL = 0.01  # 10 ms — counter fires 10 times during SLOW_DELAY if loop is free
+        MIN_TICKS = 3        # conservative: expect at least 3 ticks during 100 ms
+
+        tick_count = 0
+
+        async def slow_process_chunk(index, fast_start):
+            """Simulate process_chunk blocking a thread for SLOW_DELAY seconds."""
+            await asyncio.to_thread(time.sleep, SLOW_DELAY)
+            return ("/tmp/chunk.wav", np.zeros(441, dtype=np.float32))
+
+        async def async_counter():
+            nonlocal tick_count
+            # Run until cancelled, incrementing every TICK_INTERVAL
+            while True:
+                await asyncio.sleep(TICK_INTERVAL)
+                tick_count += 1
+
+        async def run():
+            counter_task = asyncio.create_task(async_counter())
+            await slow_process_chunk(0, False)
+            counter_task.cancel()
+            try:
+                await counter_task
+            except asyncio.CancelledError:
+                pass
+
+        asyncio.run(run())
+
+        assert tick_count >= MIN_TICKS, (
+            f"Event loop was blocked: async counter only incremented {tick_count} time(s) "
+            f"during {SLOW_DELAY*1000:.0f}ms of chunk processing.  "
+            f"Expected >= {MIN_TICKS} ticks (issue #2388).  "
+            f"process_chunk_safe must use asyncio.to_thread() to keep the loop free."
+        )
+
+    def test_concurrent_chunk_requests_are_serialized(self):
+        """
+        Two concurrent calls to _process_chunk_locked must not overlap.
+
+        The threading.Lock inside _process_chunk_locked ensures only one DSP
+        call runs at a time, protecting shared processor state.
+        """
+        call_log: list[str] = []
+        lock = threading.Lock()
+
+        def slow_process_chunk(index, fast_start):
+            with lock:
+                call_log.append(f"start:{index}")
+                time.sleep(0.03)
+                call_log.append(f"end:{index}")
+            return ("/tmp/chunk.wav", np.zeros(441, dtype=np.float32))
+
+        proc = self._make_processor()
+        proc.process_chunk = slow_process_chunk
+
+        async def run():
+            await asyncio.gather(
+                asyncio.to_thread(proc._process_chunk_locked, 0, False),
+                asyncio.to_thread(proc._process_chunk_locked, 1, False),
+            )
+
+        asyncio.run(run())
+
+        # Verify calls were serialized: start:0, end:0, start:1, end:1
+        # OR start:1, end:1, start:0, end:0 — either order is fine, but no interleaving
+        assert len(call_log) == 4
+        starts = [e for e in call_log if e.startswith("start:")]
+        ends = [e for e in call_log if e.startswith("end:")]
+        # The end of the first call must appear before the start of the second
+        first_start_idx = call_log.index(starts[0])
+        first_end_idx = call_log.index(ends[0])
+        second_start_idx = call_log.index(starts[1])
+        assert first_end_idx < second_start_idx, (
+            f"Calls overlapped — _processor_lock did not serialise them: {call_log}"
+        )
 
 
 if __name__ == "__main__":

@@ -130,10 +130,12 @@ class ChunkedAudioProcessor:
         self._processor_factory: Any = ProcessorFactory()  # Phase 2: Unified processor factory
         self._mastering_target_service: Any = MasteringTargetService()  # Phase 4: Unified fingerprint/target management
         self._cache_manager: Any = ChunkCacheManager(self.chunk_cache)  # Phase 5.1: Cache management
-        # CRITICAL: Async lock for processor thread-safety
+        # CRITICAL: Threading lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
         # (envelope followers, gain reduction tracking, etc.)
-        self._processor_lock = asyncio.Lock()
+        # Must be a threading.Lock (not asyncio.Lock) so it can be acquired
+        # inside asyncio.to_thread() worker threads (issue #2388).
+        self._processor_lock = threading.Lock()
         # Sync lock for get_wav_chunk_path() which runs in thread-pool context.
         # Serialises the cache-check → process → cache-write cycle so that two
         # concurrent requests for the same chunk never both miss and process it.
@@ -609,16 +611,28 @@ class ChunkedAudioProcessor:
         # Return both path (for caching) and audio array (for immediate streaming)
         return (str(chunk_path), extracted_chunk)
 
+    def _process_chunk_locked(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
+        """
+        Synchronous helper: acquire the threading lock then process the chunk.
+
+        Called exclusively via asyncio.to_thread() from process_chunk_safe so that
+        the CPU-bound DSP work runs in a thread-pool worker rather than on the
+        event loop thread (issue #2388).
+        """
+        with self._processor_lock:
+            return self.process_chunk(chunk_index, fast_start)
+
     async def process_chunk_safe(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
         """
         Process a single chunk with thread-safe locking (async version).
 
-        This async method wraps processor.process() calls with an asyncio lock to prevent
-        concurrent access from corrupting the shared processor state (envelope followers,
-        gain reduction tracking, etc.).
+        Offloads the CPU-intensive DSP work (HPSS, EQ, loudness normalization) to a
+        thread-pool worker via asyncio.to_thread(), keeping the event loop free to handle
+        WebSocket heartbeats, pause/seek commands, and other coroutines during the
+        5-30 second processing window (issue #2388).
 
-        Uses asyncio.to_thread() to run the synchronous process_chunk in a thread pool,
-        ensuring the lock is held properly and file writes are complete before returning.
+        Serialisation is provided by _processor_lock (threading.Lock): concurrent
+        calls block in the thread pool rather than on the event loop.
 
         Args:
             chunk_index: Index of chunk to process
@@ -629,13 +643,7 @@ class ChunkedAudioProcessor:
             - path: for caching/durability
             - audio: numpy array for immediate streaming (avoids disk round-trip)
         """
-        async with self._processor_lock:
-            # Call process_chunk directly (synchronously)
-            # This ensures the lock is held and file write completes before returning
-            # While this blocks the event loop, it guarantees correctness
-            chunk_path, audio_array = self.process_chunk(chunk_index, fast_start)
-            # File is now guaranteed to exist since process_chunk completed
-            return (chunk_path, audio_array)
+        return await asyncio.to_thread(self._process_chunk_locked, chunk_index, fast_start)
 
     # REMOVED (Phase 5.1 refactoring): _get_track_fingerprint_cache_key()
     # Now handled by ChunkCacheManager.get_fingerprint_cache_key()
