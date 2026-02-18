@@ -184,9 +184,11 @@ class FingerprintService:
         try:
             import librosa
 
-            # Load audio if not provided
+            # Load audio if not provided.
+            # Use 22050 Hz (librosa's native analysis rate) to halve data for 44.1 kHz files.
+            # Cap at 90 s — sufficient for a stable 25D fingerprint with the sampling strategy.
             if audio is None or sr is None:
-                audio, sr = librosa.load(str(audio_path), sr=None, mono=False)
+                audio, sr = librosa.load(str(audio_path), sr=22050, mono=False, duration=90.0)
 
             # Ensure float64 for PyO3 compatibility
             audio = audio.astype(np.float64)

@@ -149,8 +149,11 @@ class AudioFingerprintAnalyzer:
                                 if self.fingerprint_strategy == "sampling"
                                 else self.harmonic_analyzer)
 
-            # Run independent analyzers in parallel
-            with ThreadPoolExecutor(max_workers=5) as executor:
+            # Run independent analyzers in parallel.
+            # Avoid the `with` context manager: its __exit__ calls shutdown(wait=True),
+            # which blocks indefinitely on KeyboardInterrupt while threads are running.
+            executor = ThreadPoolExecutor(max_workers=5)
+            try:
                 futures = {
                     # 3. Temporal analysis (4D)
                     executor.submit(self.temporal_analyzer.analyze, audio_mono, sr): 'temporal',
@@ -179,6 +182,13 @@ class AudioFingerprintAnalyzer:
                         fingerprint["_harmonic_analysis_method"] = ("sampled"
                                                                    if self.fingerprint_strategy == "sampling"
                                                                    else "full-track")
+            except KeyboardInterrupt:
+                # Cancel pending futures immediately; don't wait for running threads.
+                # The process is exiting anyway — daemon-like behaviour is fine here.
+                executor.shutdown(wait=False, cancel_futures=True)
+                raise
+            else:
+                executor.shutdown(wait=False)
 
             # Sanitize NaN values (replace with 0.0)
             for key, value in fingerprint.items():
