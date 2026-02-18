@@ -46,6 +46,8 @@ class GaplessPlaybackEngine:
 
         # Threading
         self.update_lock = threading.Lock()
+        self._thread_lock = threading.Lock()   # guards thread creation (#2075)
+        self._shutdown = threading.Event()     # signals worker to exit cleanly (#2075)
         self.prebuffer_callbacks: list[Callable[[dict[str, Any]], None]] = []
 
     def add_prebuffer_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
@@ -64,23 +66,25 @@ class GaplessPlaybackEngine:
         """
         Start background prebuffering of next track.
 
-        Safe to call multiple times—won't start duplicate threads.
+        Safe to call multiple times or concurrently—only one thread runs at a time.
+        No-op after cleanup() has been called.
         """
-        if not self.prebuffer_enabled:
+        if not self.prebuffer_enabled or self._shutdown.is_set():
             return
 
-        # Only start if not already running
-        if self.prebuffer_thread and self.prebuffer_thread.is_alive():
-            debug("Prebuffer thread already running")
-            return
+        with self._thread_lock:
+            # Double-check inside the lock to close the TOCTOU window (#2075)
+            if self.prebuffer_thread and self.prebuffer_thread.is_alive():
+                debug("Prebuffer thread already running")
+                return
 
-        # Start background thread
-        self.prebuffer_thread = threading.Thread(
-            target=self._prebuffer_worker,
-            daemon=True,
-            name="GaplessPlayback-Prebuffer"
-        )
-        self.prebuffer_thread.start()
+            # Non-daemon: won't be killed mid-I/O on shutdown (#2075)
+            self.prebuffer_thread = threading.Thread(
+                target=self._prebuffer_worker,
+                daemon=False,
+                name="GaplessPlayback-Prebuffer"
+            )
+            self.prebuffer_thread.start()
         debug("Started prebuffer thread")
 
     def _prebuffer_worker(self) -> None:
@@ -88,7 +92,12 @@ class GaplessPlaybackEngine:
         Background worker thread for prebuffering.
 
         Loads next track from queue without blocking playback.
+        Checks _shutdown before each blocking operation so cleanup() can
+        stop the thread at the next safe point (#2075).
         """
+        if self._shutdown.is_set():
+            return
+
         try:
             # Get next track from queue (without advancing)
             next_track = self.queue.peek_next_track()
@@ -101,10 +110,18 @@ class GaplessPlaybackEngine:
                 warning("Next track has no file path")
                 return
 
+            # Check before the potentially long blocking load (#2075)
+            if self._shutdown.is_set():
+                return
+
             info(f"Prebuffering next track: {file_path}")
 
             # Load audio
             audio_data, sample_rate = load(file_path, "target")
+
+            # Check again: don't store results if shutdown was requested during load
+            if self._shutdown.is_set():
+                return
 
             # Store in buffer (thread-safe)
             with self.update_lock:
@@ -208,10 +225,18 @@ class GaplessPlaybackEngine:
         info("Prebuffer invalidated")
 
     def cleanup(self) -> None:
-        """Clean up threads and resources"""
+        """Clean up threads and resources.
+
+        Signals the prebuffer worker to stop at the next safe point, then
+        waits up to 5s for it to finish.  Non-daemon threads are used so
+        the OS never kills the thread while it holds a file handle (#2075).
+        """
+        self._shutdown.set()
+
         if self.prebuffer_thread and self.prebuffer_thread.is_alive():
-            # Give thread time to finish
-            self.prebuffer_thread.join(timeout=2.0)
+            self.prebuffer_thread.join(timeout=5.0)
+            if self.prebuffer_thread.is_alive():
+                warning("Prebuffer thread did not stop within 5s after shutdown signal")
 
         self.invalidate_prebuffer()
         info("GaplessPlaybackEngine cleaned up")

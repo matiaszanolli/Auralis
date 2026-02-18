@@ -4,6 +4,7 @@ Tests for GaplessPlaybackEngine
 Covers:
 - Deadlock regression: get_prebuffered_track() must not deadlock (#2197)
 - Prebuffer lifecycle: store, retrieve, invalidate
+- Thread lifecycle: single-thread invariant, clean shutdown, non-daemon (#2075)
 """
 
 import threading
@@ -231,3 +232,173 @@ class TestGaplessTransitionPositionReset:
             f"got {player.playback.position} (~{player.playback.position / 48000:.2f}s into new track)"
         )
         assert player.file_manager.sample_rate == 48000
+
+
+# ============================================================================
+# Thread lifecycle and shutdown safety (issue #2075)
+# ============================================================================
+
+class TestPrebufferThreadLifecycle:
+    """Prebuffer thread must not be killed mid-I/O on shutdown (issue #2075).
+
+    Failures before the fix:
+    - daemon=True: process exit kills thread while it holds an open file handle
+    - TOCTOU race in start_prebuffering(): two concurrent callers both pass the
+      is_alive() check and spawn duplicate threads
+    - cleanup() didn't signal the worker, so join() always waited the full 2s
+
+    Fixes:
+    - daemon=False: thread runs to completion; process waits for it
+    - _thread_lock around is_alive() + thread creation (atomic check-then-create)
+    - _shutdown Event: worker exits at the next safe point; cleanup() sets it
+      and joins with a 5s timeout
+    """
+
+    @pytest.fixture
+    def slow_engine(self, audio_file_manager, queue_controller):
+        """GaplessPlaybackEngine whose worker blocks until released by a test."""
+        from unittest.mock import patch
+
+        load_started = threading.Event()
+        load_release = threading.Event()
+
+        def slow_load(path, mode):
+            load_started.set()
+            load_release.wait(timeout=10.0)
+            return np.zeros(44100, dtype=np.float32), 44100
+
+        engine = GaplessPlaybackEngine(audio_file_manager, queue_controller)
+
+        # Point queue at a fake track so the worker doesn't short-circuit
+        queue_controller.add_track({"file_path": "/tmp/fake.wav"})
+
+        engine._load_started = load_started
+        engine._load_release = load_release
+        engine._load_patch = patch("auralis.player.gapless_playback_engine.load", side_effect=slow_load)
+        engine._load_patch.start()
+        return engine
+
+    def teardown_method(self, method):
+        # Best-effort: nothing to tear down at class level
+        pass
+
+    # ------------------------------------------------------------------
+    # Non-daemon
+    # ------------------------------------------------------------------
+
+    def test_prebuffer_thread_is_not_daemon(self, audio_file_manager, queue_controller):
+        """Prebuffer thread must be daemon=False so it isn't killed mid-I/O (#2075)."""
+        from unittest.mock import patch
+
+        load_barrier = threading.Barrier(2)
+
+        def controlled_load(path, mode):
+            load_barrier.wait(timeout=5.0)   # sync with test
+            load_barrier.wait(timeout=5.0)   # hold until released
+            return np.zeros(44100, dtype=np.float32), 44100
+
+        engine = GaplessPlaybackEngine(audio_file_manager, queue_controller)
+        queue_controller.add_track({"file_path": "/tmp/fake.wav"})
+
+        with patch("auralis.player.gapless_playback_engine.load", side_effect=controlled_load):
+            engine.start_prebuffering()
+            load_barrier.wait(timeout=5.0)   # wait until worker is in load()
+
+            assert engine.prebuffer_thread is not None
+            assert engine.prebuffer_thread.daemon is False, (
+                "Prebuffer thread must be daemon=False to prevent mid-I/O termination"
+            )
+
+            load_barrier.wait(timeout=5.0)   # release the load
+            engine.prebuffer_thread.join(timeout=5.0)
+
+    # ------------------------------------------------------------------
+    # Single-thread invariant
+    # ------------------------------------------------------------------
+
+    def test_single_thread_under_concurrent_calls(self, audio_file_manager, queue_controller):
+        """Concurrent start_prebuffering() calls must spawn at most one thread (#2075)."""
+        from unittest.mock import patch
+
+        threads_created: list[int] = []
+        load_gate = threading.Event()
+
+        def gated_load(path, mode):
+            with threading.Lock():
+                threads_created.append(threading.current_thread().ident)
+            load_gate.wait(timeout=5.0)
+            return np.zeros(44100, dtype=np.float32), 44100
+
+        engine = GaplessPlaybackEngine(audio_file_manager, queue_controller)
+        queue_controller.add_track({"file_path": "/tmp/fake.wav"})
+
+        with patch("auralis.player.gapless_playback_engine.load", side_effect=gated_load):
+            # Fire 10 concurrent calls to start_prebuffering
+            callers = [
+                threading.Thread(target=engine.start_prebuffering)
+                for _ in range(10)
+            ]
+            for t in callers:
+                t.start()
+            for t in callers:
+                t.join(timeout=5.0)
+
+            load_gate.set()   # let the worker (if any) finish
+            if engine.prebuffer_thread:
+                engine.prebuffer_thread.join(timeout=5.0)
+
+        assert len(threads_created) <= 1, (
+            f"Expected at most 1 prebuffer thread, but {len(threads_created)} were spawned"
+        )
+
+    # ------------------------------------------------------------------
+    # Clean shutdown via _shutdown event
+    # ------------------------------------------------------------------
+
+    def test_cleanup_joins_running_thread(self, slow_engine):
+        """cleanup() must join the prebuffer thread within the timeout (#2075)."""
+        engine = slow_engine
+
+        engine.start_prebuffering()
+        engine._load_started.wait(timeout=5.0)  # thread is now inside load()
+
+        # Release the load so cleanup() can finish promptly
+        engine._load_release.set()
+        engine.cleanup()
+
+        assert engine.prebuffer_thread is None or not engine.prebuffer_thread.is_alive(), (
+            "Prebuffer thread must have stopped after cleanup()"
+        )
+        engine._load_patch.stop()
+
+    def test_shutdown_prevents_new_thread_after_cleanup(self, audio_file_manager, queue_controller):
+        """start_prebuffering() is a no-op after cleanup() has been called (#2075)."""
+        engine = GaplessPlaybackEngine(audio_file_manager, queue_controller)
+        engine.cleanup()   # sets _shutdown
+
+        engine.start_prebuffering()
+
+        assert engine.prebuffer_thread is None or not engine.prebuffer_thread.is_alive(), (
+            "No new thread should start after cleanup() has been called"
+        )
+
+    def test_worker_skips_load_after_shutdown_set(self, audio_file_manager, queue_controller):
+        """Worker must exit without calling load() when _shutdown is set before it runs (#2075)."""
+        from unittest.mock import patch
+
+        load_called = threading.Event()
+
+        def detecting_load(path, mode):
+            load_called.set()
+            return np.zeros(44100, dtype=np.float32), 44100
+
+        engine = GaplessPlaybackEngine(audio_file_manager, queue_controller)
+        queue_controller.add_track({"file_path": "/tmp/fake.wav"})
+        engine._shutdown.set()   # signal shutdown before starting
+
+        with patch("auralis.player.gapless_playback_engine.load", side_effect=detecting_load):
+            engine.start_prebuffering()   # no-op because _shutdown is set
+
+        assert not load_called.is_set(), (
+            "load() must not be called when _shutdown is set before start_prebuffering()"
+        )
