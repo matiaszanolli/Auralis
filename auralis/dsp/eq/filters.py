@@ -92,9 +92,10 @@ def apply_eq_mono(audio_mono: np.ndarray,
         # Apply gain to positive frequencies
         spectrum[:fft_size // 2 + 1][band_mask] *= gain_linear
 
-        # Apply gain to negative frequencies (maintain symmetry)
-        if i > 0:  # Skip DC component
-            spectrum[fft_size // 2 + 1:][band_mask[1:-1][::-1]] *= gain_linear
+        # Mirror to negative frequencies to maintain Hermitian symmetry.
+        # band_mask[1:-1] already excludes DC (index 0) and Nyquist (last index),
+        # so this is correct for all bands including band 0 (sub-bass).
+        spectrum[fft_size // 2 + 1:][band_mask[1:-1][::-1]] *= gain_linear
 
     # Transform back to time domain
     processed_audio = np.real(ifft(spectrum))

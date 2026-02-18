@@ -199,7 +199,8 @@ def create_lifespan(deps: dict[str, Any]):
                 # This enables gradual migration from LibraryManager to repositories
                 from auralis.library.repositories import RepositoryFactory
                 globals_dict['repository_factory'] = RepositoryFactory(
-                    globals_dict['library_manager'].SessionLocal
+                    globals_dict['library_manager'].SessionLocal,
+                    db_path=globals_dict['library_manager'].database_path,
                 )
                 logger.info("✅ Repository Factory initialized (Phase 2 support)")
 

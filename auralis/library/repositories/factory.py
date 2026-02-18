@@ -10,6 +10,7 @@ Enables dependency injection across the application without global singletons.
 """
 
 from collections.abc import Callable
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -52,14 +53,21 @@ class RepositoryFactory:
         concurrent requests), this is not a concern in practice.
     """
 
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
+    def __init__(
+        self,
+        session_factory: Callable[[], Session],
+        db_path: str | Path | None = None,
+    ) -> None:
         """
         Initialize repository factory.
 
         Args:
             session_factory: Callable that returns a new SQLAlchemy Session
+            db_path: Path to the SQLite database file, forwarded to
+                     FingerprintRepository for raw sqlite3 writes.
         """
         self.session_factory = session_factory
+        self._db_path = db_path
 
         # Lazy initialization caches for all repositories
         self._track_repo: TrackRepository | None = None
@@ -116,7 +124,7 @@ class RepositoryFactory:
     def fingerprints(self) -> FingerprintRepository:
         """Get or create FingerprintRepository instance (lazy initialization)."""
         if not self._fingerprint_repo:
-            self._fingerprint_repo = FingerprintRepository(self.session_factory)
+            self._fingerprint_repo = FingerprintRepository(self.session_factory, db_path=self._db_path)
         return self._fingerprint_repo
 
     @property
