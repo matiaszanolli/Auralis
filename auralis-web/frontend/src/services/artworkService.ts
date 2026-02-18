@@ -56,5 +56,5 @@ export async function deleteArtwork(albumId: number): Promise<{ message: string;
  * Get artwork URL for an album
  */
 export function getArtworkUrl(albumId: number): string {
-  return `${API_BASE_URL}/api/albums/${albumId}/artwork?t=${Date.now()}`;
+  return `${API_BASE_URL}/api/albums/${albumId}/artwork`;
 }

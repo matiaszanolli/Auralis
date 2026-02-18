@@ -235,21 +235,18 @@ describe.skip('ArtworkService', () => {
   });
 
   describe('getArtworkUrl', () => {
-    it('should generate artwork URL with timestamp', () => {
+    it('should generate a stable artwork URL without a timestamp', () => {
       const url = getArtworkUrl(1);
 
-      expect(url).toMatch(/^http:\/\/localhost:8765\/api\/albums\/1\/artwork\?t=\d+$/);
+      expect(url).toMatch(/^http:\/\/localhost:8765\/api\/albums\/1\/artwork$/);
+      expect(url).not.toContain('?t=');
     });
 
-    it('should generate different timestamps for consecutive calls', () => {
+    it('should return the same URL for consecutive calls (cache-friendly)', () => {
       const url1 = getArtworkUrl(1);
-
-      // Wait a bit to ensure different timestamp
       const url2 = getArtworkUrl(1);
 
-      // Both should be valid URLs
-      expect(url1).toContain('/api/albums/1/artwork?t=');
-      expect(url2).toContain('/api/albums/1/artwork?t=');
+      expect(url1).toBe(url2);
     });
 
     it('should generate URLs for different album IDs', () => {
@@ -257,21 +254,21 @@ describe.skip('ArtworkService', () => {
       const url42 = getArtworkUrl(42);
       const url999 = getArtworkUrl(999);
 
-      expect(url1).toContain('/albums/1/artwork?t=');
-      expect(url42).toContain('/albums/42/artwork?t=');
-      expect(url999).toContain('/albums/999/artwork?t=');
+      expect(url1).toContain('/albums/1/artwork');
+      expect(url42).toContain('/albums/42/artwork');
+      expect(url999).toContain('/albums/999/artwork');
     });
 
     it('should handle album ID 0', () => {
       const url = getArtworkUrl(0);
 
-      expect(url).toContain('/albums/0/artwork?t=');
+      expect(url).toContain('/albums/0/artwork');
     });
 
     it('should handle large album IDs', () => {
       const url = getArtworkUrl(999999999);
 
-      expect(url).toContain('/albums/999999999/artwork?t=');
+      expect(url).toContain('/albums/999999999/artwork');
     });
 
     it('should return string type', () => {
@@ -411,5 +408,43 @@ describe.skip('ArtworkService', () => {
 
       await expect(downloadArtwork(1)).rejects.toThrow('Timeout');
     });
+  });
+});
+
+// ============================================================================
+// getArtworkUrl — non-skipped tests (pure function, no MSW needed)
+// ============================================================================
+
+describe('getArtworkUrl — stable URL (issue #2387)', () => {
+  it('returns a stable URL without a timestamp query parameter', () => {
+    const url = getArtworkUrl(1);
+    expect(url).not.toContain('?t=');
+    expect(url).not.toContain('?');
+    expect(url).toMatch(/\/api\/albums\/1\/artwork$/);
+  });
+
+  it('returns the same URL on consecutive calls for the same albumId', () => {
+    const url1 = getArtworkUrl(1);
+    const url2 = getArtworkUrl(1);
+    expect(url1).toBe(url2);
+  });
+
+  it('returns different URLs for different albumIds', () => {
+    expect(getArtworkUrl(1)).not.toBe(getArtworkUrl(2));
+    expect(getArtworkUrl(1)).toContain('/albums/1/artwork');
+    expect(getArtworkUrl(42)).toContain('/albums/42/artwork');
+  });
+
+  it('URL is browser-cacheable: same string every millisecond', () => {
+    // Simulate rapid re-renders: 10 calls in a tight loop must all return identical strings
+    const albumId = 5;
+    const urls = Array.from({ length: 10 }, () => getArtworkUrl(albumId));
+    const unique = new Set(urls);
+    expect(unique.size).toBe(1);
+  });
+
+  it('handles edge-case albumIds (0, large numbers)', () => {
+    expect(getArtworkUrl(0)).toContain('/albums/0/artwork');
+    expect(getArtworkUrl(999999999)).toContain('/albums/999999999/artwork');
   });
 });
