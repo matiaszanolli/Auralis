@@ -9,7 +9,6 @@ Extracts 25D audio fingerprints during library scanning
 """
 
 import gc
-import sqlite3
 from pathlib import Path
 from typing import Any, Literal
 
@@ -45,7 +44,8 @@ class FingerprintExtractor:
     - Writes .25d file after extraction (for future speedup)
     """
 
-    def __init__(self, fingerprint_repository: Any, use_sidecar_files: bool = True,
+    def __init__(self, fingerprint_repository: Any, track_repository: Any = None,
+                 use_sidecar_files: bool = True,
                  fingerprint_strategy: Literal['full-track', 'sampling'] = "sampling", sampling_interval: float = 20.0,
                  use_rust_server: bool = True) -> None:
         """
@@ -53,12 +53,16 @@ class FingerprintExtractor:
 
         Args:
             fingerprint_repository: FingerprintRepository instance
+            track_repository: TrackRepository instance used to delete corrupted tracks
+                              via the repository pattern (#2288).  When None, corrupted-
+                              track deletion is skipped with a warning.
             use_sidecar_files: Enable .25d sidecar file caching (default: True)
             fingerprint_strategy: "full-track" or "sampling" (Phase 7)
             sampling_interval: Interval between chunk starts in seconds (for sampling)
             use_rust_server: Use Rust fingerprinting server (default: True, much faster)
         """
         self.fingerprint_repo = fingerprint_repository
+        self.track_repo = track_repository
         self.analyzer = AudioFingerprintAnalyzer(
             fingerprint_strategy=fingerprint_strategy,
             sampling_interval=sampling_interval
@@ -218,7 +222,10 @@ class FingerprintExtractor:
 
     def _delete_corrupted_track(self, track_id: int, filepath: str) -> bool:
         """
-        Delete corrupted track from the database
+        Delete corrupted track from the database via the repository pattern (#2288).
+
+        Uses TrackRepository.delete() so cascading deletes (fingerprints, playlist
+        entries, stats) fire correctly via SQLAlchemy and the configured DB URL.
 
         Args:
             track_id: ID of the track to delete
@@ -227,39 +234,20 @@ class FingerprintExtractor:
         Returns:
             True if successfully deleted, False otherwise
         """
+        if self.track_repo is None:
+            warning(
+                f"Cannot delete corrupted track {track_id}: no track_repository "
+                f"provided to FingerprintExtractor"
+            )
+            return False
+
         try:
-            # Get database connection from the repository (it has the DB connection info)
-            # Most repositories use the auralis library database
-            import os
-
-            # Determine database path - try to get it from the repository or use default
-            db_path = os.path.expanduser("~/.auralis/library.db")
-
-            # Alternative: check if there's a production database in Music/Auralis
-            production_db = os.path.expanduser("~/Music/Auralis/auralis_library.db")
-            if os.path.exists(production_db):
-                db_path = production_db
-
-            if not os.path.exists(db_path):
-                warning(f"Could not find database to delete corrupted track {track_id}")
-                return False
-
-            conn = sqlite3.connect(db_path)
-            try:
-                cursor = conn.cursor()
-                # Delete the track record
-                cursor.execute("DELETE FROM tracks WHERE id = ?", (track_id,))
-                conn.commit()
-
-                if cursor.rowcount > 0:
-                    info(f"Automatically deleted corrupted track {track_id} from database: {filepath}")
-                    return True
-                else:
-                    warning(f"Track {track_id} not found in database for deletion")
-                    return False
-            finally:
-                conn.close()
-
+            deleted = self.track_repo.delete(track_id)
+            if deleted:
+                info(f"Automatically deleted corrupted track {track_id} from database: {filepath}")
+            else:
+                warning(f"Track {track_id} not found in database for deletion")
+            return deleted
         except Exception as e:
             error(f"Failed to delete corrupted track {track_id} from database: {e}")
             return False

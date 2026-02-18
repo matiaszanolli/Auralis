@@ -200,7 +200,6 @@ def create_lifespan(deps: dict[str, Any]):
                 from auralis.library.repositories import RepositoryFactory
                 globals_dict['repository_factory'] = RepositoryFactory(
                     globals_dict['library_manager'].SessionLocal,
-                    db_path=globals_dict['library_manager'].database_path,
                 )
                 logger.info("✅ Repository Factory initialized (Phase 2 support)")
 
@@ -217,7 +216,8 @@ def create_lifespan(deps: dict[str, Any]):
 
                     # Create fingerprint extractor with library manager's fingerprint repository
                     fingerprint_extractor = FingerprintExtractor(
-                        fingerprint_repository=globals_dict['library_manager'].fingerprints
+                        fingerprint_repository=globals_dict['library_manager'].fingerprints,
+                        track_repository=globals_dict['library_manager'].tracks,
                     )
                     logger.info("✅ Fingerprint Extractor initialized")
 
