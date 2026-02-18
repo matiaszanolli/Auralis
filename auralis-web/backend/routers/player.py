@@ -31,11 +31,12 @@ Endpoints:
 """
 
 import logging
+import math
 from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from services import (
     NavigationService,
     PlaybackService,
@@ -73,6 +74,20 @@ class AddTrackToQueueRequest(BaseModel):
 class LoadTrackRequest(BaseModel):
     """Request model for loading a track"""
     track_id: int
+
+
+class SeekRequest(BaseModel):
+    """Request model for seek operation with input validation."""
+    position: float
+
+    @field_validator('position')
+    @classmethod
+    def validate_position(cls, v: float) -> float:
+        if math.isnan(v) or math.isinf(v):
+            raise ValueError("Position must be a finite number")
+        if v < 0:
+            raise ValueError("Position must be non-negative")
+        return v
 
 
 def create_player_router(
@@ -260,16 +275,33 @@ def create_player_router(
     #     # Legacy implementation removed - stop now via usePlayEnhanced hook
 
     @router.post("/api/player/seek", response_model=None)
-    async def seek_position(position: float) -> dict[str, Any]:
+    async def seek_position(request: SeekRequest) -> dict[str, Any]:
         """
         Seek to position in seconds.
 
         Args:
-            position: Position in seconds
+            request: SeekRequest with position in seconds (must be finite and non-negative)
 
         Returns:
             dict: Success message and new position
+
+        Raises:
+            HTTPException 422: If position is negative, NaN, or Infinity (Pydantic validation)
+            HTTPException 400: If position exceeds current track duration
+            HTTPException 503: If audio player is unavailable
         """
+        position = request.position
+
+        # Validate against current track duration when a track is loaded
+        state_manager = get_player_state_manager()
+        if state_manager:
+            state = state_manager.get_state()
+            if state.duration > 0 and position > state.duration:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Position {position:.1f}s exceeds track duration {state.duration:.1f}s"
+                )
+
         try:
             service = get_playback_service()
             result = await service.seek(position)

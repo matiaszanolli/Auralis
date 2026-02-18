@@ -154,6 +154,16 @@ def create_system_router(
                     data = message.get("data", {})
                     track_id = data.get("track_id")
 
+                    # Validate track_id before launching any background task (#2393)
+                    if not isinstance(track_id, int) or track_id <= 0:
+                        logger.warning(f"Invalid track_id in play_enhanced: {track_id!r}")
+                        await send_error_response(
+                            websocket,
+                            "invalid_track_id",
+                            "track_id must be a positive integer"
+                        )
+                        continue
+
                     # Use stored enhancement settings as source of truth (fixes #2103)
                     # This ensures REST API changes are respected
                     enhancement_enabled = True
@@ -300,6 +310,16 @@ def create_system_router(
                     data = message.get("data", {})
                     track_id = data.get("track_id")
 
+                    # Validate track_id before launching any background task (#2393)
+                    if not isinstance(track_id, int) or track_id <= 0:
+                        logger.warning(f"Invalid track_id in play_normal: {track_id!r}")
+                        await send_error_response(
+                            websocket,
+                            "invalid_track_id",
+                            "track_id must be a positive integer"
+                        )
+                        continue
+
                     logger.info(f"Received play_normal: track_id={track_id}")
 
                     # Clean up completed tasks to prevent memory leak (fixes #2321)
@@ -403,6 +423,25 @@ def create_system_router(
                     data = message.get("data", {})
                     track_id = data.get("track_id")
                     position = data.get("position", 0)  # Position in seconds
+
+                    # Validate track_id and position before launching any background task (#2393)
+                    if not isinstance(track_id, int) or track_id <= 0:
+                        logger.warning(f"Invalid track_id in seek: {track_id!r}")
+                        await send_error_response(
+                            websocket,
+                            "invalid_track_id",
+                            "track_id must be a positive integer"
+                        )
+                        continue
+
+                    if not isinstance(position, (int, float)) or position < 0:
+                        logger.warning(f"Invalid seek position: {position!r}")
+                        await send_error_response(
+                            websocket,
+                            "invalid_seek_position",
+                            "position must be a non-negative number"
+                        )
+                        continue
 
                     # Use stored enhancement settings (fixes #2103)
                     preset = "adaptive"

@@ -48,6 +48,11 @@ logger = logging.getLogger(__name__)
 # Limits Python-heap memory when the client is slower than the encoder.
 _SEND_QUEUE_MAXSIZE: int = 4
 
+# Maximum number of concurrent audio streams (enhanced, normal, seek).
+# Each stream holds a ChunkedProcessor in memory; unbounded concurrency
+# causes OOM under load (issue #2185).
+MAX_CONCURRENT_STREAMS: int = 10
+
 
 class SimpleChunkCache:
     """Simple in-memory cache for processed audio chunks."""
@@ -185,6 +190,8 @@ class AudioStreamController:
                 logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
 
         self.active_streams: dict[int, Any] = {}  # track_id -> streaming task
+        # Semaphore that caps concurrent streams (issue #2185)
+        self._stream_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_CONCURRENT_STREAMS)
 
         # Store previous chunk tails for crossfading (track_id -> tail samples)
         self._chunk_tails: dict[int, np.ndarray] = {}
@@ -418,22 +425,35 @@ class AudioStreamController:
         if not self._get_repository_factory:
             raise ValueError("RepositoryFactory not available")
 
+        # Limit concurrent streams to prevent unbounded memory growth (#2185)
+        try:
+            await asyncio.wait_for(self._stream_semaphore.acquire(), timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"Stream limit ({MAX_CONCURRENT_STREAMS}) reached, rejecting track {track_id}"
+            )
+            await self._send_error(websocket, track_id, "Server busy - too many active streams")
+            return
+
         # Get track from library
         try:
             factory = self._get_repository_factory()
             track = factory.tracks.get_by_id(track_id)
             if not track:
                 await self._send_error(websocket, track_id, "Track not found")
+                self._stream_semaphore.release()
                 return
 
             if not Path(track.filepath).exists():
                 await self._send_error(
                     websocket, track_id, f"Audio file not found: {track.filepath}"
                 )
+                self._stream_semaphore.release()
                 return
         except Exception as e:
             logger.error(f"Failed to load track {track_id}: {e}")
             await self._send_error(websocket, track_id, str(e))
+            self._stream_semaphore.release()
             return
 
         try:
@@ -562,6 +582,7 @@ class AudioStreamController:
         finally:
             # Clean up chunk tail storage for this track
             self._chunk_tails.pop(track_id, None)
+            self._stream_semaphore.release()
 
     async def stream_normal_audio(
         self,
@@ -591,22 +612,35 @@ class AudioStreamController:
         if not self._get_repository_factory:
             raise ValueError("RepositoryFactory not available")
 
+        # Limit concurrent streams to prevent unbounded memory growth (#2185)
+        try:
+            await asyncio.wait_for(self._stream_semaphore.acquire(), timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"Stream limit ({MAX_CONCURRENT_STREAMS}) reached, rejecting track {track_id}"
+            )
+            await self._send_error(websocket, track_id, "Server busy - too many active streams")
+            return
+
         # Get track from library
         try:
             factory = self._get_repository_factory()
             track = factory.tracks.get_by_id(track_id)
             if not track:
                 await self._send_error(websocket, track_id, "Track not found")
+                self._stream_semaphore.release()
                 return
 
             if not Path(track.filepath).exists():
                 await self._send_error(
                     websocket, track_id, f"Audio file not found: {track.filepath}"
                 )
+                self._stream_semaphore.release()
                 return
         except Exception as e:
             logger.error(f"Failed to load track {track_id}: {e}")
             await self._send_error(websocket, track_id, str(e))
+            self._stream_semaphore.release()
             return
 
         try:
@@ -717,6 +751,8 @@ class AudioStreamController:
                 # Only try to send error if WebSocket is still connected
                 if self._is_websocket_connected(websocket):
                     await self._send_error(websocket, track_id, str(e))
+        finally:
+            self._stream_semaphore.release()
 
     async def _process_and_stream_chunk(
         self,
@@ -1146,22 +1182,35 @@ class AudioStreamController:
         if not self._get_repository_factory:
             raise ValueError("RepositoryFactory not available")
 
+        # Limit concurrent streams to prevent unbounded memory growth (#2185)
+        try:
+            await asyncio.wait_for(self._stream_semaphore.acquire(), timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"Stream limit ({MAX_CONCURRENT_STREAMS}) reached, rejecting track {track_id}"
+            )
+            await self._send_error(websocket, track_id, "Server busy - too many active streams")
+            return
+
         # Get track from library
         try:
             factory = self._get_repository_factory()
             track = factory.tracks.get_by_id(track_id)
             if not track:
                 await self._send_error(websocket, track_id, "Track not found")
+                self._stream_semaphore.release()
                 return
 
             if not Path(track.filepath).exists():
                 await self._send_error(
                     websocket, track_id, f"Audio file not found: {track.filepath}"
                 )
+                self._stream_semaphore.release()
                 return
         except Exception as e:
             logger.error(f"Failed to load track {track_id}: {e}")
             await self._send_error(websocket, track_id, str(e))
+            self._stream_semaphore.release()
             return
 
         try:
@@ -1275,6 +1324,8 @@ class AudioStreamController:
                 logger.error(f"Seek streaming failed: {e}", exc_info=True)
                 if self._is_websocket_connected(websocket):
                     await self._send_error(websocket, track_id, str(e))
+        finally:
+            self._stream_semaphore.release()
 
     async def _send_stream_start_with_seek(
         self,
