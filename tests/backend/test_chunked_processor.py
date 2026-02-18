@@ -10,12 +10,13 @@ Tests the chunked audio processing system for fast streaming.
 
 import asyncio
 import inspect
+import math
 import sys
 import tempfile
 import threading
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
@@ -25,12 +26,69 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from chunked_processor import (
     CHUNK_DURATION,
+    CHUNK_INTERVAL,
     CONTEXT_DURATION,
     OVERLAP_DURATION,
     ChunkedAudioProcessor,
     apply_crossfade_between_chunks,
 )
+from core.chunk_cache_manager import ChunkCacheManager
 
+
+# ---------------------------------------------------------------------------
+# Fixture
+# ---------------------------------------------------------------------------
+
+FAKE_SR = 44100
+FAKE_CHANNELS = 1
+FAKE_DURATION = 60.0  # seconds
+
+
+def _fake_load_metadata(self):
+    """Drop-in replacement for _load_metadata that needs no real audio file."""
+    self.sample_rate = FAKE_SR
+    self.channels = FAKE_CHANNELS
+    self.total_duration = FAKE_DURATION
+    self.total_chunks = math.ceil(FAKE_DURATION / CHUNK_INTERVAL)
+
+
+def make_processor(**kwargs) -> ChunkedAudioProcessor:
+    """
+    Create a ChunkedAudioProcessor with all filesystem I/O replaced by fakes.
+
+    Patches:
+    - FileSignatureService.generate → 'test_sig'  (no file read)
+    - ChunkedAudioProcessor._load_metadata → sets known metadata in-process
+
+    The context-manager form is intentional: callers should use make_processor()
+    in a `with patch(...)` block, OR use the `processor` fixture below.
+    """
+    defaults = dict(track_id=1, filepath="/fake/test.mp3")
+    defaults.update(kwargs)
+    return ChunkedAudioProcessor(**defaults)
+
+
+@pytest.fixture
+def processor() -> ChunkedAudioProcessor:
+    """ChunkedAudioProcessor (track_id=1, preset=adaptive, intensity=1.0)."""
+    with patch("core.file_signature.FileSignatureService.generate", return_value="test_sig"), \
+         patch.object(ChunkedAudioProcessor, "_load_metadata", _fake_load_metadata):
+        yield make_processor()
+
+
+def _make_processor_with(**kwargs) -> tuple:
+    """Return (patch_ctx, processor) for parameterised variants."""
+    p1 = patch("core.file_signature.FileSignatureService.generate", return_value="test_sig")
+    p2 = patch.object(ChunkedAudioProcessor, "_load_metadata", _fake_load_metadata)
+    p1.start()
+    p2.start()
+    proc = make_processor(**kwargs)
+    return p1, p2, proc
+
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
 class TestChunkedProcessorConstants:
     """Tests for module constants"""
@@ -56,186 +114,137 @@ class TestChunkedProcessorConstants:
         assert CONTEXT_DURATION > 0
 
 
+# ---------------------------------------------------------------------------
+# Initialization
+# ---------------------------------------------------------------------------
+
 class TestChunkedAudioProcessorInit:
-    """Tests for ChunkedAudioProcessor initialization
+    """Tests for ChunkedAudioProcessor initialization."""
 
-    Note: These tests use complex mock patterns with lambda functions for _load_metadata.
-    Integration tests (test_chunked_processor_invariants.py) provide better coverage
-    of initialization behavior with real audio files.
-    """
+    def test_initialization_basic(self, processor):
+        """Basic init attributes are stored correctly."""
+        assert processor.track_id == 1
+        assert processor.filepath == "/fake/test.mp3"
+        assert processor.preset == "adaptive"   # default
+        assert processor.intensity == 1.0       # default
+        assert isinstance(processor.chunk_cache, dict)
 
-    @pytest.mark.skip(reason="Mock pattern doesn't properly intercept _load_metadata - covered by integration tests")
-    def test_initialization_basic(self):
-        """Test basic initialization with mocked file"""
-        track_id = 1
-        filepath = "/path/to/test.mp3"
-
-        with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-             patch.object(ChunkedAudioProcessor, "_load_metadata", lambda self: (setattr(self, "sample_rate", 44100), setattr(self, "total_duration", 60.0), setattr(self, "total_chunks", 2))):
-
-            processor = ChunkedAudioProcessor(track_id, filepath)
-
-            assert processor.track_id == track_id
-            assert processor.filepath == filepath
-            assert processor.preset == "adaptive"  # default
-            assert processor.intensity == 1.0  # default
-            assert isinstance(processor.chunk_cache, dict)
-
-    @pytest.mark.skip(reason="Mock pattern issue - covered by integration tests")
     def test_initialization_with_preset(self):
-        """Test initialization with custom preset"""
-        with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-             patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
+        """Custom preset is stored."""
+        with patch("core.file_signature.FileSignatureService.generate", return_value="test_sig"), \
+             patch.object(ChunkedAudioProcessor, "_load_metadata", _fake_load_metadata):
+            proc = make_processor(preset="gentle", intensity=0.5)
+        assert proc.preset == "gentle"
+        assert proc.intensity == 0.5
 
-            processor = ChunkedAudioProcessor(
-                track_id=1,
-                filepath="/path/to/test.mp3",
-                preset="gentle",
-                intensity=0.5
-            )
-
-            assert processor.preset == "gentle"
-            assert processor.intensity == 0.5
-
-    @pytest.mark.skip(reason="Mock pattern issue - covered by integration tests")
     def test_initialization_with_cache(self):
-        """Test initialization with provided cache"""
-        shared_cache = {"existing": "data"}
+        """Shared cache dict is used, not replaced."""
+        shared_cache: dict = {"existing": "data"}
+        with patch("core.file_signature.FileSignatureService.generate", return_value="test_sig"), \
+             patch.object(ChunkedAudioProcessor, "_load_metadata", _fake_load_metadata):
+            proc = make_processor(chunk_cache=shared_cache)
+        assert proc.chunk_cache is shared_cache
+        assert "existing" in proc.chunk_cache
 
-        with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-             patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
+    def test_chunk_dir_creation(self, processor):
+        """Chunk directory is created and has the expected name."""
+        assert processor.chunk_dir.name == "auralis_chunks"
+        assert processor.chunk_dir.exists()
 
-            processor = ChunkedAudioProcessor(
-                track_id=1,
-                filepath="/path/to/test.mp3",
-                chunk_cache=shared_cache
-            )
 
-            # Should use the same cache object
-            assert processor.chunk_cache is shared_cache
-            assert "existing" in processor.chunk_cache
-
-    @pytest.mark.skip(reason="Mock pattern issue - covered by integration tests")
-    def test_chunk_dir_creation(self):
-        """Test that chunk directory is created"""
-        with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-             patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))), \
-             patch('pathlib.Path.mkdir') as mock_mkdir:
-
-            processor = ChunkedAudioProcessor(1, "/path/to/test.mp3")
-
-            # Should create chunk directory
-            assert processor.chunk_dir.name == "auralis_chunks"
-            # mkdir is called (possibly multiple times with different args)
-            assert mock_mkdir.called
-
+# ---------------------------------------------------------------------------
+# File signature
+# ---------------------------------------------------------------------------
 
 class TestFileSignature:
-    """Tests for file signature generation
+    """Tests for file signature (set during init from FileSignatureService.generate)."""
 
-    Note: File signature tests use real filesystem operations.
-    Integration tests provide better coverage with actual file handling.
-    """
+    def test_generate_file_signature(self, processor):
+        """Processor stores the signature returned by FileSignatureService.generate."""
+        assert isinstance(processor.file_signature, str)
+        assert len(processor.file_signature) > 0
+        assert processor.file_signature == "test_sig"
 
-    @pytest.mark.skip(reason="Requires real file operations - covered by integration tests")
-    def test_generate_file_signature(self):
-        """Test file signature generation"""
-        with patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
-
-            processor = ChunkedAudioProcessor(1, "/path/to/test.mp3")
-
-            signature = processor.file_signature
-            assert isinstance(signature, str)
-            assert len(signature) > 0
-
-    @pytest.mark.skip(reason="Requires real file operations - covered by integration tests")
     def test_file_signature_consistency(self):
-        """Test that same file produces same signature"""
-        with patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
+        """Two processors for the same file produce the same signature."""
+        with patch("core.file_signature.FileSignatureService.generate", return_value="test_sig"), \
+             patch.object(ChunkedAudioProcessor, "_load_metadata", _fake_load_metadata):
+            proc1 = make_processor(track_id=1)
+            proc2 = make_processor(track_id=1)
+        assert proc1.file_signature == proc2.file_signature
 
-            processor1 = ChunkedAudioProcessor(1, "/path/to/test.mp3")
-            processor2 = ChunkedAudioProcessor(1, "/path/to/test.mp3")
 
-            # Same file should produce same signature
-            assert processor1.file_signature == processor2.file_signature
-
+# ---------------------------------------------------------------------------
+# Cache keys (now via ChunkCacheManager, replacing the removed _get_cache_key)
+# ---------------------------------------------------------------------------
 
 class TestCacheKeys:
-    """Tests for cache key generation
+    """Tests for cache key generation via ChunkCacheManager."""
 
-    Note: Cache key tests use mocked initialization.
-    Integration tests (test_chunked_processor_invariants.py) verify cache behavior.
-    """
+    def test_get_cache_key(self, processor):
+        """Cache key encodes track_id, preset, intensity, and chunk index."""
+        key = ChunkCacheManager.get_chunk_cache_key(
+            track_id=processor.track_id,
+            file_signature=processor.file_signature,
+            preset=processor.preset,
+            intensity=processor.intensity,
+            chunk_index=5,
+        )
+        assert isinstance(key, str)
+        assert str(processor.track_id) in key
+        assert processor.preset in key
+        assert str(processor.intensity) in key
+        assert "5" in key
 
-    @pytest.mark.skip(reason="Mock pattern issue - covered by integration tests")
-    def test_get_cache_key(self):
-        """Test cache key generation"""
-        with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-             patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
+    def test_cache_key_uniqueness(self, processor):
+        """Different chunk indices produce different keys; same index is identical."""
+        key1 = ChunkCacheManager.get_chunk_cache_key(
+            track_id=processor.track_id,
+            file_signature=processor.file_signature,
+            preset=processor.preset,
+            intensity=processor.intensity,
+            chunk_index=0,
+        )
+        key2 = ChunkCacheManager.get_chunk_cache_key(
+            track_id=processor.track_id,
+            file_signature=processor.file_signature,
+            preset=processor.preset,
+            intensity=processor.intensity,
+            chunk_index=1,
+        )
+        key3 = ChunkCacheManager.get_chunk_cache_key(
+            track_id=processor.track_id,
+            file_signature=processor.file_signature,
+            preset=processor.preset,
+            intensity=processor.intensity,
+            chunk_index=0,
+        )
+        assert key1 != key2   # different chunks → different keys
+        assert key1 == key3   # same params → same key
 
-            processor = ChunkedAudioProcessor(
-                track_id=123,
-                filepath="/path/to/test.mp3",
-                preset="warm",
-                intensity=0.8
-            )
 
-            key = processor._get_cache_key(chunk_index=5)
-
-            assert isinstance(key, str)
-            assert "123" in key  # track_id
-            assert "warm" in key  # preset
-            assert "0.8" in key  # intensity
-            assert "5" in key  # chunk_index
-
-    @pytest.mark.skip(reason="Mock pattern issue - covered by integration tests")
-    def test_cache_key_uniqueness(self):
-        """Test that different parameters produce different keys"""
-        with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-             patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
-
-            processor = ChunkedAudioProcessor(1, "/path/to/test.mp3")
-
-            key1 = processor._get_cache_key(0)
-            key2 = processor._get_cache_key(1)  # Different chunk
-            key3 = processor._get_cache_key(0)  # Same as key1
-
-            assert key1 != key2  # Different chunks
-            assert key1 == key3  # Same parameters
-
+# ---------------------------------------------------------------------------
+# Chunk paths
+# ---------------------------------------------------------------------------
 
 class TestChunkPath:
-    """Tests for chunk path generation
+    """Tests for chunk path generation via _get_chunk_path."""
 
-    Note: These tests use mocked initialization.
-    Covered by integration tests (test_chunked_processor_invariants.py).
-    """
+    def test_get_chunk_path(self, processor):
+        """_get_chunk_path returns a Path with .wav extension."""
+        chunk_path = processor._get_chunk_path(chunk_index=0)
+        assert isinstance(chunk_path, Path)
+        assert chunk_path.suffix == ".wav"
 
-    @pytest.mark.skip(reason="Mock pattern issue - covered by integration tests")
-    def test_get_chunk_path(self):
-        """Test chunk path generation"""
-        with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-             patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
+    def test_chunk_path_in_temp_dir(self, processor):
+        """Chunk paths are placed inside processor.chunk_dir."""
+        chunk_path = processor._get_chunk_path(0)
+        assert processor.chunk_dir in chunk_path.parents
 
-            processor = ChunkedAudioProcessor(1, "/path/to/test.mp3")
-            chunk_path = processor._get_chunk_path(chunk_index=0)
 
-            assert isinstance(chunk_path, Path)
-            assert chunk_path.suffix == ".wav"
-            assert "chunk" in str(chunk_path).lower()
-
-    @pytest.mark.skip(reason="Mock pattern issue - covered by integration tests")
-    def test_chunk_path_in_temp_dir(self):
-        """Test that chunk paths are in temp directory"""
-        with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-             patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
-
-            processor = ChunkedAudioProcessor(1, "/path/to/test.mp3")
-            chunk_path = processor._get_chunk_path(0)
-
-            # Should be in chunk directory
-            assert processor.chunk_dir in chunk_path.parents
-
+# ---------------------------------------------------------------------------
+# Crossfade
+# ---------------------------------------------------------------------------
 
 class TestCrossfade:
     """Tests for crossfade functionality"""
@@ -269,73 +278,60 @@ class TestCrossfade:
         assert np.issubdtype(result.dtype, np.floating)
 
 
+# ---------------------------------------------------------------------------
+# Metadata loading
+# ---------------------------------------------------------------------------
+
 class TestMetadataLoading:
-    """Tests for metadata loading
+    """Tests for metadata loading side-effects."""
 
-    Note: Metadata loading is covered by integration tests with real files.
-    """
+    def test_metadata_attributes_set(self, processor):
+        """_load_metadata sets sample_rate, channels, total_duration, total_chunks."""
+        assert processor.sample_rate == FAKE_SR
+        assert processor.channels == FAKE_CHANNELS
+        assert processor.total_duration == FAKE_DURATION
+        expected_chunks = math.ceil(FAKE_DURATION / CHUNK_INTERVAL)
+        assert processor.total_chunks == expected_chunks
+        assert isinstance(processor.sample_rate, int)
+        assert isinstance(processor.total_duration, float)
+        assert isinstance(processor.total_chunks, int)
 
-    @pytest.mark.skip(reason="Mock pattern issue - covered by integration tests")
-    def test_metadata_attributes_set(self):
-        """Test that processor has required metadata attributes"""
-        with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-             patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
 
-            processor = ChunkedAudioProcessor(1, "/path/to/test.mp3")
-
-            assert processor.sample_rate == 44100
-            assert processor.total_duration == 60.0
-            assert processor.total_chunks == 2
-            assert isinstance(processor.sample_rate, int)
-            assert isinstance(processor.total_duration, float)
-            assert isinstance(processor.total_chunks, int)
-
+# ---------------------------------------------------------------------------
+# Preset validation
+# ---------------------------------------------------------------------------
 
 class TestPresetValidation:
-    """Tests for preset validation
+    """Tests for preset parameter."""
 
-    Note: Preset validation is covered by integration tests.
-    """
+    @pytest.mark.parametrize("preset", ["adaptive", "gentle", "warm", "bright", "punchy"])
+    def test_valid_presets(self, preset):
+        """Valid preset strings are stored unchanged."""
+        with patch("core.file_signature.FileSignatureService.generate", return_value="test_sig"), \
+             patch.object(ChunkedAudioProcessor, "_load_metadata", _fake_load_metadata):
+            proc = make_processor(preset=preset)
+        assert proc.preset == preset
 
-    @pytest.mark.skip(reason="Mock pattern issue - covered by integration tests")
-    def test_valid_presets(self):
-        """Test that valid presets are accepted"""
-        valid_presets = ["adaptive", "gentle", "warm", "bright", "punchy"]
 
-        for preset in valid_presets:
-            with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-                 patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
-
-                processor = ChunkedAudioProcessor(
-                    track_id=1,
-                    filepath="/path/to/test.mp3",
-                    preset=preset
-                )
-                assert processor.preset == preset
-
+# ---------------------------------------------------------------------------
+# Intensity validation
+# ---------------------------------------------------------------------------
 
 class TestIntensityValidation:
-    """Tests for intensity parameter
+    """Tests for intensity parameter."""
 
-    Note: Intensity validation is covered by integration tests.
-    """
+    @pytest.mark.parametrize("intensity", [0.0, 0.5, 1.0])
+    def test_intensity_values(self, intensity):
+        """Intensity values are stored unchanged."""
+        with patch("core.file_signature.FileSignatureService.generate", return_value="test_sig"), \
+             patch.object(ChunkedAudioProcessor, "_load_metadata", _fake_load_metadata):
+            proc = make_processor(intensity=intensity)
+        assert proc.intensity == intensity
 
-    @pytest.mark.skip(reason="Mock pattern issue - covered by integration tests")
-    def test_intensity_values(self):
-        """Test various intensity values"""
-        intensities = [0.0, 0.5, 1.0]
 
-        for intensity in intensities:
-            with patch.object(ChunkedAudioProcessor, '_generate_file_signature', return_value='test_sig'), \
-                 patch.object(ChunkedAudioProcessor, '_load_metadata', lambda self: (setattr(self, 'sample_rate', 44100), setattr(self, 'total_duration', 60.0), setattr(self, 'total_chunks', 2))):
-
-                processor = ChunkedAudioProcessor(
-                    track_id=1,
-                    filepath="/path/to/test.mp3",
-                    intensity=intensity
-                )
-                assert processor.intensity == intensity
-
+# ---------------------------------------------------------------------------
+# process_chunk_safe event loop (issue #2388)
+# ---------------------------------------------------------------------------
 
 class TestProcessChunkSafeEventLoop:
     """
@@ -471,7 +467,6 @@ class TestProcessChunkSafeEventLoop:
         starts = [e for e in call_log if e.startswith("start:")]
         ends = [e for e in call_log if e.startswith("end:")]
         # The end of the first call must appear before the start of the second
-        first_start_idx = call_log.index(starts[0])
         first_end_idx = call_log.index(ends[0])
         second_start_idx = call_log.index(starts[1])
         assert first_end_idx < second_start_idx, (
