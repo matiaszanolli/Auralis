@@ -644,19 +644,18 @@ class AudioStreamController:
             return
 
         try:
-            # Load audio file metadata
-            audio_data, sample_rate = await asyncio.to_thread(
-                sf.read, str(track.filepath), dtype='float32'
+            # Read file metadata only — do NOT load audio data yet (#2121).
+            # sf.read() would allocate ~200 MB for a 10-min stereo track; instead
+            # we open the SoundFile, record its shape, and close it immediately.
+            def _get_audio_info(filepath: str) -> tuple[int, int, int]:
+                with sf.SoundFile(filepath) as audio_file:
+                    return audio_file.samplerate, audio_file.channels, len(audio_file)
+
+            sample_rate, channels, total_frames = await asyncio.to_thread(
+                _get_audio_info, str(track.filepath)
             )
 
-            # Handle mono/stereo
-            if audio_data.ndim == 1:
-                audio_data = audio_data[:, np.newaxis]  # Convert mono to stereo-like shape
-                channels = 1
-            else:
-                channels = audio_data.shape[1]
-
-            duration = len(audio_data) / sample_rate
+            duration = total_frames / sample_rate
 
             # Calculate chunks (NO overlap for normal streaming - no crossfade applied)
             chunk_duration = 15.0  # Chunk duration in seconds
@@ -667,7 +666,7 @@ class AudioStreamController:
             # normal path sends chunks without processing, so overlap would cause duplication
             interval_samples = chunk_samples  # No overlap
 
-            total_chunks = max(1, int(np.ceil(len(audio_data) / interval_samples)))
+            total_chunks = max(1, int(np.ceil(total_frames / interval_samples)))
 
             logger.info(
                 f"Starting normal audio stream: track={track_id}, "
@@ -689,23 +688,29 @@ class AudioStreamController:
                 logger.info(f"WebSocket disconnected, cannot start stream")
                 return
 
-            # Stream chunks without processing
+            # Helper: open → seek → read → close for a single chunk (#2121).
+            # Peak memory per stream is now one chunk (~13 MB for 15 s stereo 44.1 kHz)
+            # instead of the full file (~200 MB for 10 min).
+            def _read_audio_chunk(filepath: str, start: int, frames: int) -> np.ndarray:
+                with sf.SoundFile(filepath) as audio_file:
+                    audio_file.seek(start)
+                    # always_2d=True: mono returned as (N, 1) matching stereo shape
+                    # fill_value=0.0: pads last chunk automatically when fewer frames remain
+                    return audio_file.read(
+                        frames=frames, dtype='float32', always_2d=True, fill_value=0.0
+                    )
+
+            # Stream chunks one at a time without processing
             for chunk_idx in range(total_chunks):
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
                     break
 
                 try:
-                    # Extract chunk samples
                     start_sample = chunk_idx * interval_samples
-                    end_sample = min(start_sample + chunk_samples, len(audio_data))
-
-                    chunk_audio = audio_data[start_sample:end_sample].astype(np.float32)
-
-                    # Pad if last chunk is shorter
-                    if len(chunk_audio) < chunk_samples:
-                        padding = np.zeros((chunk_samples - len(chunk_audio), channels), dtype=np.float32)
-                        chunk_audio = np.vstack([chunk_audio, padding])
+                    chunk_audio: np.ndarray = await asyncio.to_thread(
+                        _read_audio_chunk, str(track.filepath), start_sample, chunk_samples
+                    )
 
                     # Stream the chunk
                     await self._send_pcm_chunk(
@@ -738,7 +743,7 @@ class AudioStreamController:
             await self._send_stream_end(
                 websocket,
                 track_id=track_id,
-                total_samples=len(audio_data),
+                total_samples=total_frames,
                 duration=duration,
             )
 
