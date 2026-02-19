@@ -147,7 +147,7 @@ export async function getGraphStats(): Promise<GraphStats | null> {
     return await crudService.custom('getGraphStats', 'get', {});
   } catch (error: any) {
     // Handle 404 gracefully (graph doesn't exist)
-    if (error.status === 404) {
+    if (error.statusCode === 404) {
       return null;
     }
     throw error;

@@ -25,9 +25,9 @@ export interface ArtworkRequest {
 // Create base CRUD service using factory with custom endpoints
 const crudService = createCrudService<ArtworkResponse, ArtworkRequest>({
   custom: {
-    extract: (albumId) => `/albums/${albumId}/artwork/extract`,
-    download: (albumId) => `/albums/${albumId}/artwork/download`,
-    delete: (albumId) => `/albums/${albumId}/artwork`,
+    extract: (data: { albumId: number }) => `/api/albums/${data.albumId}/artwork/extract`,
+    download: (data: { albumId: number }) => `/api/albums/${data.albumId}/artwork/download`,
+    delete: (data: { albumId: number }) => `/api/albums/${data.albumId}/artwork`,
   },
 });
 

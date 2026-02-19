@@ -2,101 +2,87 @@
  * Tests for Settings Service
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Tests the user settings management service
+ * Tests the user settings management service.
+ * Mocks at the apiRequest module level to avoid MSW conflicts.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// Setup fetch mock with proper Vitest types
-const createFetchMock = () => vi.fn();
-let fetchMock = createFetchMock();
-vi.stubGlobal('fetch', fetchMock);
+vi.mock('../../utils/apiRequest', () => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  del: vi.fn(),
+  APIRequestError: class APIRequestError extends Error {
+    constructor(message: string, public statusCode: number, public detail?: string) {
+      super(message);
+      this.name = 'APIRequestError';
+    }
+  },
+}));
 
-// Helper function to access the mocked fetch with proper types
-const mockFetch = () => fetchMock as any;
+import { get, post, put } from '../../utils/apiRequest';
 import settingsService, { type UserSettings, type SettingsUpdate } from '../settingsService';
 
-// Mock fetch
-global.fetch = vi.fn();
+const mockGet = get as ReturnType<typeof vi.fn>;
+const mockPost = post as ReturnType<typeof vi.fn>;
+const mockPut = put as ReturnType<typeof vi.fn>;
 
 const mockSettings: UserSettings = {
   id: 1,
-  // Library
   scan_folders: ['/music'],
   file_types: ['mp3', 'flac', 'wav'],
   auto_scan: true,
   scan_interval: 3600,
-  // Playback
   crossfade_enabled: true,
   crossfade_duration: 2.0,
   gapless_enabled: true,
   replay_gain_enabled: false,
   volume: 0.8,
-  // Audio
   output_device: 'default',
   bit_depth: 16,
   sample_rate: 44100,
-  // Interface
   theme: 'dark',
   language: 'en',
   show_visualizations: true,
   mini_player_on_close: false,
-  // Enhancement
   default_preset: 'adaptive',
   auto_enhance: true,
   enhancement_intensity: 0.7,
-  // Advanced
   cache_size: 1024,
   max_concurrent_scans: 4,
   enable_analytics: false,
   debug_mode: false,
-  // Timestamps
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };
 
-describe.skip('SettingsService', () => {
-  // SKIPPED: Tests need migration to MSW - currently mock fetch directly which conflicts with MSW
+describe('SettingsService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe('getSettings', () => {
     it('should get current settings successfully', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockSettings,
-      });
+      mockGet.mockResolvedValueOnce([mockSettings]);
 
       const result = await settingsService.getSettings();
 
-      expect(mockFetch()).toHaveBeenCalledWith('/api/settings');
+      expect(mockGet).toHaveBeenCalledWith('/api/settings');
       expect(result).toEqual(mockSettings);
     });
 
-    it('should throw error on failed fetch', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-      });
+    it('should throw when no settings are returned', async () => {
+      mockGet.mockResolvedValueOnce([]);
 
-      await expect(settingsService.getSettings()).rejects.toThrow('Failed to get settings');
-    });
-
-    it('should handle network errors', async () => {
-      mockFetch().mockRejectedValueOnce(new Error('Network error'));
-
-      await expect(settingsService.getSettings()).rejects.toThrow('Network error');
+      await expect(settingsService.getSettings()).rejects.toThrow('No settings found');
     });
 
     it('should return valid settings structure', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockSettings,
-      });
+      mockGet.mockResolvedValueOnce([mockSettings]);
 
       const result = await settingsService.getSettings();
 
-      // Verify all required fields exist
       expect(result).toHaveProperty('id');
       expect(result).toHaveProperty('scan_folders');
       expect(result).toHaveProperty('theme');
@@ -104,94 +90,33 @@ describe.skip('SettingsService', () => {
       expect(result).toHaveProperty('created_at');
       expect(result).toHaveProperty('updated_at');
     });
+
+    it('should propagate network errors', async () => {
+      mockGet.mockRejectedValueOnce(new Error('Network error'));
+
+      await expect(settingsService.getSettings()).rejects.toThrow('Network error');
+    });
   });
 
   describe('updateSettings', () => {
     it('should update settings successfully', async () => {
-      const updates: SettingsUpdate = {
-        theme: 'light',
-        volume: 0.9,
-      };
-
-      const expectedResponse = {
-        message: 'Settings updated',
-        settings: { ...mockSettings, ...updates },
-      };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => expectedResponse,
-      });
+      const updates: SettingsUpdate = { theme: 'light', volume: 0.9 };
+      const expectedResponse = { message: 'Settings updated', settings: { ...mockSettings, ...updates } };
+      mockPut.mockResolvedValueOnce(expectedResponse);
 
       const result = await settingsService.updateSettings(updates);
 
-      expect(mockFetch()).toHaveBeenCalledWith('/api/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
+      expect(mockPut).toHaveBeenCalledWith('/api/settings', updates);
       expect(result).toEqual(expectedResponse);
     });
 
     it('should update single field', async () => {
       const updates: SettingsUpdate = { volume: 0.5 };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Updated', settings: mockSettings }),
-      });
+      mockPut.mockResolvedValueOnce({ message: 'Updated', settings: mockSettings });
 
       await settingsService.updateSettings(updates);
 
-      expect(mockFetch()).toHaveBeenCalledWith(
-        '/api/settings',
-        expect.objectContaining({
-          body: JSON.stringify({ volume: 0.5 }),
-        })
-      );
-    });
-
-    it('should update multiple fields', async () => {
-      const updates: SettingsUpdate = {
-        theme: 'light',
-        language: 'es',
-        volume: 0.9,
-        crossfade_enabled: false,
-      };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Updated', settings: mockSettings }),
-      });
-
-      await settingsService.updateSettings(updates);
-
-      const call = mockFetch().mock.calls[0];
-      const body = JSON.parse(call[1].body);
-      expect(body).toEqual(updates);
-    });
-
-    it('should throw error on failed update', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-      });
-
-      await expect(settingsService.updateSettings({ volume: 0.5 })).rejects.toThrow(
-        'Failed to update settings'
-      );
-    });
-
-    it('should handle invalid values', async () => {
-      const updates: SettingsUpdate = { volume: 999 }; // Invalid volume
-
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-      });
-
-      await expect(settingsService.updateSettings(updates)).rejects.toThrow();
+      expect(mockPut).toHaveBeenCalledWith('/api/settings', { volume: 0.5 });
     });
 
     it('should update library settings', async () => {
@@ -200,19 +125,14 @@ describe.skip('SettingsService', () => {
         scan_interval: 7200,
         file_types: ['flac', 'wav', 'mp3', 'm4a'],
       };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Updated', settings: mockSettings }),
-      });
+      mockPut.mockResolvedValueOnce({ message: 'Updated', settings: mockSettings });
 
       await settingsService.updateSettings(updates);
 
-      const call = mockFetch().mock.calls[0];
-      const body = JSON.parse(call[1].body);
-      expect(body.auto_scan).toBe(false);
-      expect(body.scan_interval).toBe(7200);
-      expect(body.file_types).toHaveLength(4);
+      const callArg = mockPut.mock.calls[0][1];
+      expect(callArg.auto_scan).toBe(false);
+      expect(callArg.scan_interval).toBe(7200);
+      expect(callArg.file_types).toHaveLength(4);
     });
 
     it('should update playback settings', async () => {
@@ -222,18 +142,13 @@ describe.skip('SettingsService', () => {
         gapless_enabled: false,
         replay_gain_enabled: true,
       };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Updated', settings: mockSettings }),
-      });
+      mockPut.mockResolvedValueOnce({ message: 'Updated', settings: mockSettings });
 
       await settingsService.updateSettings(updates);
 
-      const call = mockFetch().mock.calls[0];
-      const body = JSON.parse(call[1].body);
-      expect(body.crossfade_enabled).toBe(true);
-      expect(body.crossfade_duration).toBe(3.5);
+      const callArg = mockPut.mock.calls[0][1];
+      expect(callArg.crossfade_enabled).toBe(true);
+      expect(callArg.crossfade_duration).toBe(3.5);
     });
 
     it('should update enhancement settings', async () => {
@@ -242,57 +157,38 @@ describe.skip('SettingsService', () => {
         auto_enhance: false,
         enhancement_intensity: 0.5,
       };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Updated', settings: mockSettings }),
-      });
+      mockPut.mockResolvedValueOnce({ message: 'Updated', settings: mockSettings });
 
       await settingsService.updateSettings(updates);
 
-      const call = mockFetch().mock.calls[0];
-      const body = JSON.parse(call[1].body);
-      expect(body.default_preset).toBe('warm');
-      expect(body.auto_enhance).toBe(false);
-      expect(body.enhancement_intensity).toBe(0.5);
+      const callArg = mockPut.mock.calls[0][1];
+      expect(callArg.default_preset).toBe('warm');
+      expect(callArg.auto_enhance).toBe(false);
+      expect(callArg.enhancement_intensity).toBe(0.5);
+    });
+
+    it('should propagate errors', async () => {
+      mockPut.mockRejectedValueOnce(new Error('Update failed'));
+
+      await expect(settingsService.updateSettings({ volume: 0.5 })).rejects.toThrow('Update failed');
     });
   });
 
   describe('resetSettings', () => {
     it('should reset settings to defaults', async () => {
-      const defaultSettings = {
-        message: 'Settings reset to defaults',
-        settings: mockSettings,
-      };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => defaultSettings,
-      });
+      const defaultResponse = { message: 'Settings reset to defaults', settings: mockSettings };
+      mockPost.mockResolvedValueOnce(defaultResponse);
 
       const result = await settingsService.resetSettings();
 
-      expect(mockFetch()).toHaveBeenCalledWith('/api/settings/reset', {
-        method: 'POST',
-      });
-      expect(result).toEqual(defaultSettings);
+      expect(mockPost).toHaveBeenCalledWith('/api/settings/reset', {});
+      expect(result).toEqual(defaultResponse);
     });
 
-    it('should throw error on failed reset', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-      });
+    it('should propagate errors', async () => {
+      mockPost.mockRejectedValueOnce(new Error('Reset failed'));
 
-      await expect(settingsService.resetSettings()).rejects.toThrow('Failed to reset settings');
-    });
-
-    it('should handle server errors during reset', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-      });
-
-      await expect(settingsService.resetSettings()).rejects.toThrow();
+      await expect(settingsService.resetSettings()).rejects.toThrow('Reset failed');
     });
   });
 
@@ -301,91 +197,39 @@ describe.skip('SettingsService', () => {
       const folder = '/music/jazz';
       const expectedResponse = {
         message: 'Scan folder added',
-        settings: {
-          ...mockSettings,
-          scan_folders: [...mockSettings.scan_folders, folder],
-        },
+        settings: { ...mockSettings, scan_folders: [...mockSettings.scan_folders, folder] },
       };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => expectedResponse,
-      });
+      mockPost.mockResolvedValueOnce(expectedResponse);
 
       const result = await settingsService.addScanFolder(folder);
 
-      expect(mockFetch()).toHaveBeenCalledWith('/api/settings/scan-folders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ folder }),
-      });
+      expect(mockPost).toHaveBeenCalledWith('/api/settings/scan-folders', { folder });
       expect(result).toEqual(expectedResponse);
-    });
-
-    it('should add multiple different folders', async () => {
-      const folders = ['/music/rock', '/music/classical', '/music/jazz'];
-
-      for (const folder of folders) {
-        mockFetch().mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ message: 'Added', settings: mockSettings }),
-        });
-
-        await settingsService.addScanFolder(folder);
-      }
-
-      expect(mockFetch()).toHaveBeenCalledTimes(3);
-    });
-
-    it('should throw error on failed add', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-      });
-
-      await expect(settingsService.addScanFolder('/invalid')).rejects.toThrow(
-        'Failed to add scan folder'
-      );
-    });
-
-    it('should handle duplicate folder errors', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        status: 409, // Conflict
-      });
-
-      await expect(settingsService.addScanFolder('/music')).rejects.toThrow();
     });
 
     it('should handle path with spaces', async () => {
       const folder = '/music/My Collection/Jazz';
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Added', settings: mockSettings }),
-      });
+      mockPost.mockResolvedValueOnce({ message: 'Added', settings: mockSettings });
 
       await settingsService.addScanFolder(folder);
 
-      const call = mockFetch().mock.calls[0];
-      const body = JSON.parse(call[1].body);
-      expect(body.folder).toBe(folder);
+      expect(mockPost).toHaveBeenCalledWith('/api/settings/scan-folders', { folder });
     });
 
     it('should handle Windows paths', async () => {
       const folder = 'C:\\Music\\Collection';
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Added', settings: mockSettings }),
-      });
+      mockPost.mockResolvedValueOnce({ message: 'Added', settings: mockSettings });
 
       await settingsService.addScanFolder(folder);
 
-      const call = mockFetch().mock.calls[0];
-      const body = JSON.parse(call[1].body);
-      expect(body.folder).toBe(folder);
+      const callArg = mockPost.mock.calls[0][1];
+      expect(callArg.folder).toBe(folder);
+    });
+
+    it('should propagate errors', async () => {
+      mockPost.mockRejectedValueOnce(new Error('Folder already exists'));
+
+      await expect(settingsService.addScanFolder('/music')).rejects.toThrow('Folder already exists');
     });
   });
 
@@ -394,196 +238,31 @@ describe.skip('SettingsService', () => {
       const folder = '/music';
       const expectedResponse = {
         message: 'Scan folder removed',
-        settings: {
-          ...mockSettings,
-          scan_folders: [],
-        },
+        settings: { ...mockSettings, scan_folders: [] },
       };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => expectedResponse,
-      });
+      mockPost.mockResolvedValueOnce(expectedResponse);
 
       const result = await settingsService.removeScanFolder(folder);
 
-      expect(mockFetch()).toHaveBeenCalledWith('/api/settings/scan-folders', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ folder }),
-      });
+      // Service uses POST to /scan-folders/delete endpoint
+      expect(mockPost).toHaveBeenCalledWith('/api/settings/scan-folders/delete', { folder });
       expect(result).toEqual(expectedResponse);
-    });
-
-    it('should throw error on failed remove', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-      });
-
-      await expect(settingsService.removeScanFolder('/music')).rejects.toThrow(
-        'Failed to remove scan folder'
-      );
-    });
-
-    it('should handle removing non-existent folder', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-      });
-
-      await expect(settingsService.removeScanFolder('/nonexistent')).rejects.toThrow();
     });
 
     it('should handle path with special characters', async () => {
       const folder = '/music/[Jazz] Collection';
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Removed', settings: mockSettings }),
-      });
+      mockPost.mockResolvedValueOnce({ message: 'Removed', settings: mockSettings });
 
       await settingsService.removeScanFolder(folder);
 
-      const call = mockFetch().mock.calls[0];
-      const body = JSON.parse(call[1].body);
-      expect(body.folder).toBe(folder);
-    });
-  });
-
-  describe('Integration scenarios', () => {
-    it('should handle complete settings workflow', async () => {
-      // Get settings
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockSettings,
-      });
-
-      const settings = await settingsService.getSettings();
-      expect(settings.theme).toBe('dark');
-
-      // Update theme
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          message: 'Updated',
-          settings: { ...mockSettings, theme: 'light' },
-        }),
-      });
-
-      await settingsService.updateSettings({ theme: 'light' });
-
-      // Reset settings
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Reset', settings: mockSettings }),
-      });
-
-      await settingsService.resetSettings();
+      const callArg = mockPost.mock.calls[0][1];
+      expect(callArg.folder).toBe(folder);
     });
 
-    it('should handle scan folder workflow', async () => {
-      // Add folder
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Added', settings: mockSettings }),
-      });
+    it('should propagate errors', async () => {
+      mockPost.mockRejectedValueOnce(new Error('Folder not found'));
 
-      await settingsService.addScanFolder('/music/new');
-
-      // Remove folder
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Removed', settings: mockSettings }),
-      });
-
-      await settingsService.removeScanFolder('/music/new');
-    });
-
-    it('should handle multiple concurrent updates', async () => {
-      const updates = [
-        { theme: 'light' },
-        { volume: 0.9 },
-        { crossfade_enabled: false },
-      ];
-
-      const promises = updates.map(update => {
-        mockFetch().mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ message: 'Updated', settings: mockSettings }),
-        });
-        return settingsService.updateSettings(update);
-      });
-
-      const results = await Promise.all(promises);
-
-      expect(results).toHaveLength(3);
-      expect(mockFetch()).toHaveBeenCalledTimes(3);
-    });
-  });
-
-  describe('Error handling edge cases', () => {
-    it('should handle malformed JSON response', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => { throw new Error('Invalid JSON'); },
-      });
-
-      await expect(settingsService.getSettings()).rejects.toThrow();
-    });
-
-    it('should handle null response', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => null,
-      });
-
-      const result = await settingsService.getSettings();
-      expect(result).toBeNull();
-    });
-
-    it('should handle empty updates', async () => {
-      const updates: SettingsUpdate = {};
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'No changes', settings: mockSettings }),
-      });
-
-      await settingsService.updateSettings(updates);
-
-      const call = mockFetch().mock.calls[0];
-      const body = JSON.parse(call[1].body);
-      expect(body).toEqual({});
-    });
-
-    it('should handle timeout errors', async () => {
-      mockFetch().mockImplementationOnce(() =>
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), 100)
-        )
-      );
-
-      await expect(settingsService.getSettings()).rejects.toThrow('Timeout');
-    });
-
-    it('should handle 401 unauthorized errors', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-      });
-
-      await expect(settingsService.getSettings()).rejects.toThrow();
-    });
-
-    it('should handle 403 forbidden errors', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        status: 403,
-      });
-
-      await expect(settingsService.updateSettings({ debug_mode: true })).rejects.toThrow();
+      await expect(settingsService.removeScanFolder('/nonexistent')).rejects.toThrow('Folder not found');
     });
   });
 });

@@ -2,18 +2,28 @@
  * Tests for Artwork Service
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Tests the artwork management service (extract, download, delete, URL generation)
+ * Tests the artwork management service (extract, download, delete, URL generation).
+ *
+ * Mocking strategy: vi.mock on utils/apiRequest so MSW is not disturbed.
+ * The old vi.stubGlobal('fetch') pattern was removed — it conflicted with MSW
+ * interception (fixes #2366).
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// Setup fetch mock with proper Vitest types
-const createFetchMock = () => vi.fn();
-let fetchMock = createFetchMock();
-vi.stubGlobal('fetch', fetchMock);
+vi.mock('../../utils/apiRequest', () => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  del: vi.fn(),
+  APIRequestError: class APIRequestError extends Error {
+    constructor(message: string, public statusCode: number, public detail?: string) {
+      super(message);
+      this.name = 'APIRequestError';
+    }
+  },
+}));
 
-// Helper function to access the mocked fetch with proper types
-const mockFetch = () => fetchMock as any;
 import {
   extractArtwork,
   downloadArtwork,
@@ -21,88 +31,68 @@ import {
   getArtworkUrl,
   type ArtworkResponse,
 } from '../artworkService';
+import { post, del } from '../../utils/apiRequest';
 
-// Mock fetch
-global.fetch = vi.fn();
+const mockPost = post as ReturnType<typeof vi.fn>;
+const mockDel = del as ReturnType<typeof vi.fn>;
 
-describe.skip('ArtworkService', () => {
-  // SKIPPED: Tests need migration to MSW - currently mock fetch directly which conflicts with MSW
+const mockArtworkResponse: ArtworkResponse = {
+  message: 'Artwork extracted successfully',
+  artwork_path: '/path/to/artwork.jpg',
+  album_id: 1,
+  artist: 'Test Artist',
+  album: 'Test Album',
+};
+
+describe('ArtworkService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe('extractArtwork', () => {
     it('should extract artwork successfully', async () => {
-      const mockResponse: ArtworkResponse = {
-        message: 'Artwork extracted successfully',
-        artwork_path: '/path/to/artwork.jpg',
-        album_id: 1,
-        artist: 'Test Artist',
-        album: 'Test Album',
-      };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
+      mockPost.mockResolvedValueOnce(mockArtworkResponse);
 
       const result = await extractArtwork(1);
 
-      expect(mockFetch()).toHaveBeenCalledWith(
+      expect(mockPost).toHaveBeenCalledWith(
         '/api/albums/1/artwork/extract',
-        { method: 'POST' }
+        expect.objectContaining({ albumId: 1 })
       );
-      expect(result).toEqual(mockResponse);
+      expect(result).toEqual(mockArtworkResponse);
     });
 
     it('should throw error on failed extraction', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ detail: 'No artwork found in audio files' }),
-      });
+      mockPost.mockRejectedValueOnce(new Error('No artwork found in audio files'));
 
       await expect(extractArtwork(1)).rejects.toThrow('No artwork found in audio files');
     });
 
-    it('should throw generic error when no detail provided', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({}),
-      });
-
-      await expect(extractArtwork(1)).rejects.toThrow('Failed to extract artwork');
-    });
-
     it('should handle network errors', async () => {
-      mockFetch().mockRejectedValueOnce(new Error('Network error'));
+      mockPost.mockRejectedValueOnce(new Error('Network error'));
 
       await expect(extractArtwork(1)).rejects.toThrow('Network error');
     });
 
     it('should extract artwork for different album IDs', async () => {
-      const mockResponse: ArtworkResponse = {
-        message: 'Success',
-        artwork_path: '/artwork.jpg',
-        album_id: 999,
-      };
+      for (const albumId of [1, 42, 999]) {
+        mockPost.mockResolvedValueOnce({ ...mockArtworkResponse, album_id: albumId });
 
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
+        await extractArtwork(albumId);
 
-      await extractArtwork(999);
+        expect(mockPost).toHaveBeenCalledWith(
+          `/api/albums/${albumId}/artwork/extract`,
+          expect.any(Object)
+        );
 
-      expect(mockFetch()).toHaveBeenCalledWith(
-        '/api/albums/999/artwork/extract',
-        { method: 'POST' }
-      );
+        vi.clearAllMocks();
+      }
     });
   });
 
   describe('downloadArtwork', () => {
     it('should download artwork successfully', async () => {
-      const mockResponse: ArtworkResponse = {
+      const downloadResponse: ArtworkResponse = {
         message: 'Artwork downloaded from MusicBrainz',
         artwork_path: '/path/to/downloaded.jpg',
         album_id: 1,
@@ -110,247 +100,110 @@ describe.skip('ArtworkService', () => {
         album: 'Test Album',
       };
 
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
+      mockPost.mockResolvedValueOnce(downloadResponse);
 
       const result = await downloadArtwork(1);
 
-      expect(mockFetch()).toHaveBeenCalledWith(
+      expect(mockPost).toHaveBeenCalledWith(
         '/api/albums/1/artwork/download',
-        { method: 'POST' }
+        expect.objectContaining({ albumId: 1 })
       );
-      expect(result).toEqual(mockResponse);
+      expect(result).toEqual(downloadResponse);
     });
 
     it('should throw error on failed download', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ detail: 'Album not found online' }),
-      });
+      mockPost.mockRejectedValueOnce(new Error('Album not found online'));
 
       await expect(downloadArtwork(1)).rejects.toThrow('Album not found online');
     });
 
-    it('should throw generic error when no detail provided', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({}),
-      });
-
-      await expect(downloadArtwork(1)).rejects.toThrow('Failed to download artwork');
-    });
-
     it('should handle API timeout', async () => {
-      mockFetch().mockRejectedValueOnce(new Error('Request timeout'));
+      mockPost.mockRejectedValueOnce(new Error('Request timeout'));
 
       await expect(downloadArtwork(1)).rejects.toThrow('Request timeout');
     });
 
     it('should download for various album IDs', async () => {
       for (const albumId of [1, 42, 9999]) {
-        mockFetch().mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            message: 'Downloaded',
-            artwork_path: '/artwork.jpg',
-            album_id: albumId,
-          }),
-        });
+        mockPost.mockResolvedValueOnce({ message: 'Downloaded', artwork_path: '/a.jpg', album_id: albumId });
 
         await downloadArtwork(albumId);
 
-        expect(mockFetch()).toHaveBeenCalledWith(
+        expect(mockPost).toHaveBeenCalledWith(
           `/api/albums/${albumId}/artwork/download`,
-          { method: 'POST' }
+          expect.any(Object)
         );
+
+        vi.clearAllMocks();
       }
     });
   });
 
   describe('deleteArtwork', () => {
     it('should delete artwork successfully', async () => {
-      const mockResponse = {
-        message: 'Artwork deleted successfully',
-        album_id: 1,
-      };
-
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
+      const deleteResponse = { message: 'Artwork deleted successfully', album_id: 1 };
+      mockDel.mockResolvedValueOnce(deleteResponse);
 
       const result = await deleteArtwork(1);
 
-      expect(mockFetch()).toHaveBeenCalledWith(
-        '/api/albums/1/artwork',
-        { method: 'DELETE' }
-      );
-      expect(result).toEqual(mockResponse);
+      expect(mockDel).toHaveBeenCalledWith('/api/albums/1/artwork');
+      expect(result).toEqual(deleteResponse);
     });
 
     it('should throw error on failed deletion', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ detail: 'Artwork not found' }),
-      });
+      mockDel.mockRejectedValueOnce(new Error('Artwork not found'));
 
       await expect(deleteArtwork(1)).rejects.toThrow('Artwork not found');
     });
 
-    it('should throw generic error when no detail provided', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({}),
-      });
-
-      await expect(deleteArtwork(1)).rejects.toThrow('Failed to delete artwork');
-    });
-
     it('should handle permission errors', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ detail: 'Permission denied' }),
-      });
+      mockDel.mockRejectedValueOnce(new Error('Permission denied'));
 
       await expect(deleteArtwork(1)).rejects.toThrow('Permission denied');
     });
 
     it('should delete for different album IDs', async () => {
       for (const albumId of [1, 100, 5000]) {
-        mockFetch().mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ message: 'Deleted', album_id: albumId }),
-        });
+        mockDel.mockResolvedValueOnce({ message: 'Deleted', album_id: albumId });
 
         await deleteArtwork(albumId);
 
-        expect(mockFetch()).toHaveBeenCalledWith(
-          `/api/albums/${albumId}/artwork`,
-          { method: 'DELETE' }
-        );
+        expect(mockDel).toHaveBeenCalledWith(`/api/albums/${albumId}/artwork`);
+
+        vi.clearAllMocks();
       }
-    });
-  });
-
-  describe('getArtworkUrl', () => {
-    it('should generate a stable artwork URL without a timestamp', () => {
-      const url = getArtworkUrl(1);
-
-      expect(url).toMatch(/^http:\/\/localhost:8765\/api\/albums\/1\/artwork$/);
-      expect(url).not.toContain('?t=');
-    });
-
-    it('should return the same URL for consecutive calls (cache-friendly)', () => {
-      const url1 = getArtworkUrl(1);
-      const url2 = getArtworkUrl(1);
-
-      expect(url1).toBe(url2);
-    });
-
-    it('should generate URLs for different album IDs', () => {
-      const url1 = getArtworkUrl(1);
-      const url42 = getArtworkUrl(42);
-      const url999 = getArtworkUrl(999);
-
-      expect(url1).toContain('/albums/1/artwork');
-      expect(url42).toContain('/albums/42/artwork');
-      expect(url999).toContain('/albums/999/artwork');
-    });
-
-    it('should handle album ID 0', () => {
-      const url = getArtworkUrl(0);
-
-      expect(url).toContain('/albums/0/artwork');
-    });
-
-    it('should handle large album IDs', () => {
-      const url = getArtworkUrl(999999999);
-
-      expect(url).toContain('/albums/999999999/artwork');
-    });
-
-    it('should return string type', () => {
-      const url = getArtworkUrl(1);
-
-      expect(typeof url).toBe('string');
     });
   });
 
   describe('Integration scenarios', () => {
     it('should handle extract -> download fallback workflow', async () => {
-      // First, extraction fails
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ detail: 'No embedded artwork' }),
-      });
-
+      mockPost.mockRejectedValueOnce(new Error('No embedded artwork'));
       await expect(extractArtwork(1)).rejects.toThrow('No embedded artwork');
 
-      // Then, download succeeds
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          message: 'Downloaded from MusicBrainz',
-          artwork_path: '/artwork.jpg',
-          album_id: 1,
-        }),
-      });
-
+      mockPost.mockResolvedValueOnce({ message: 'Downloaded from MusicBrainz', artwork_path: '/a.jpg', album_id: 1 });
       const result = await downloadArtwork(1);
       expect(result.message).toContain('Downloaded');
     });
 
-    it('should handle extract -> delete -> extract workflow', async () => {
-      // Extract artwork
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          message: 'Extracted',
-          artwork_path: '/old.jpg',
-          album_id: 1,
-        }),
-      });
-
+    it('should handle extract -> delete -> re-extract workflow', async () => {
+      mockPost.mockResolvedValueOnce({ message: 'Extracted', artwork_path: '/old.jpg', album_id: 1 });
       await extractArtwork(1);
 
-      // Delete artwork
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ message: 'Deleted', album_id: 1 }),
-      });
-
+      mockDel.mockResolvedValueOnce({ message: 'Deleted', album_id: 1 });
       await deleteArtwork(1);
 
-      // Extract again
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          message: 'Re-extracted',
-          artwork_path: '/new.jpg',
-          album_id: 1,
-        }),
-      });
-
+      mockPost.mockResolvedValueOnce({ message: 'Re-extracted', artwork_path: '/new.jpg', album_id: 1 });
       const result = await extractArtwork(1);
       expect(result.message).toBe('Re-extracted');
     });
 
     it('should handle multiple concurrent operations', async () => {
-      const promises = [1, 2, 3].map(id => {
-        mockFetch().mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            message: 'Success',
-            artwork_path: `/artwork${id}.jpg`,
-            album_id: id,
-          }),
-        });
-        return extractArtwork(id);
+      const albumIds = [1, 2, 3];
+      albumIds.forEach(id => {
+        mockPost.mockResolvedValueOnce({ message: 'Success', artwork_path: `/artwork${id}.jpg`, album_id: id });
       });
 
-      const results = await Promise.all(promises);
+      const results = await Promise.all(albumIds.map(id => extractArtwork(id)));
 
       expect(results).toHaveLength(3);
       expect(results[0].album_id).toBe(1);
@@ -360,59 +213,25 @@ describe.skip('ArtworkService', () => {
   });
 
   describe('Error handling edge cases', () => {
-    it('should handle malformed JSON response', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        json: async () => { throw new Error('Invalid JSON'); },
-      });
-
-      await expect(extractArtwork(1)).rejects.toThrow();
-    });
-
-    it('should handle null response', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: true,
-        json: async () => null,
-      });
-
-      const result = await extractArtwork(1);
-      expect(result).toBeNull();
-    });
-
     it('should handle 404 errors', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        json: async () => ({ detail: 'Album not found' }),
-      });
-
+      mockPost.mockRejectedValueOnce(new Error('Album not found'));
       await expect(downloadArtwork(999999)).rejects.toThrow('Album not found');
     });
 
     it('should handle 500 errors', async () => {
-      mockFetch().mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        json: async () => ({ detail: 'Internal server error' }),
-      });
-
+      mockPost.mockRejectedValueOnce(new Error('Internal server error'));
       await expect(extractArtwork(1)).rejects.toThrow('Internal server error');
     });
 
     it('should handle timeout errors', async () => {
-      mockFetch().mockImplementationOnce(() =>
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), 100)
-        )
-      );
-
+      mockPost.mockRejectedValueOnce(new Error('Timeout'));
       await expect(downloadArtwork(1)).rejects.toThrow('Timeout');
     });
   });
 });
 
 // ============================================================================
-// getArtworkUrl — non-skipped tests (pure function, no MSW needed)
+// getArtworkUrl — pure function, no HTTP calls, no MSW needed
 // ============================================================================
 
 describe('getArtworkUrl — stable URL (issue #2387)', () => {
@@ -436,11 +255,9 @@ describe('getArtworkUrl — stable URL (issue #2387)', () => {
   });
 
   it('URL is browser-cacheable: same string every millisecond', () => {
-    // Simulate rapid re-renders: 10 calls in a tight loop must all return identical strings
     const albumId = 5;
     const urls = Array.from({ length: 10 }, () => getArtworkUrl(albumId));
-    const unique = new Set(urls);
-    expect(unique.size).toBe(1);
+    expect(new Set(urls).size).toBe(1);
   });
 
   it('handles edge-case albumIds (0, large numbers)', () => {
