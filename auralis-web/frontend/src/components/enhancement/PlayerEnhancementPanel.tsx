@@ -15,6 +15,8 @@
 
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { playerSelectors } from '@/store/selectors';
+import type { RootState } from '@/store';
 import { tokens } from '@/design-system';
 
 // Playback hooks
@@ -67,9 +69,9 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
   className,
   playbackControls,
 }) => {
-  // Get streaming state from Redux
-  const streaming = useSelector((state: any) => state.player?.streaming || {});
-  const currentTrack = useSelector((state: any) => state.player?.currentTrack);
+  // Get streaming state from Redux (typed selectors fix #2463)
+  const streaming = useSelector((state: RootState) => state.player.streaming.enhanced);
+  const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
 
   // Play mode state (normal vs enhanced)
   const [playMode, setPlayMode] = useState<'normal' | 'enhanced'>('enhanced');

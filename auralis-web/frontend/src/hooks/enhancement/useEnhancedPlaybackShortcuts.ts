@@ -22,6 +22,8 @@
 import { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { PresetName } from '@/store/slices/playerSlice';
+import { playerSelectors } from '@/store/selectors';
+import type { RootState } from '@/store';
 
 /**
  * Enhanced playback shortcuts config
@@ -92,11 +94,11 @@ export const useEnhancedPlaybackShortcuts = (
     debug = false,
   } = config;
 
-  // Get streaming state from Redux
-  const streaming = useSelector((state: any) => state.player?.streaming || {});
-  const currentPreset = (streaming?.preset || 'adaptive') as PresetName;
-  const currentIntensity = streaming?.intensity || 1.0;
-  const isEnhancedMode = streaming?.state === 'streaming';
+  // Get streaming state from Redux (typed selectors fix #2463)
+  const streaming = useSelector((state: RootState) => state.player.streaming.enhanced);
+  const currentPreset = (useSelector(playerSelectors.selectPreset) ?? 'adaptive') as PresetName;
+  const currentIntensity = streaming.intensity || 1.0;
+  const isEnhancedMode = streaming.state === 'streaming';
 
   /**
    * Handle keyboard event

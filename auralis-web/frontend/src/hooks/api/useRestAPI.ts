@@ -10,7 +10,7 @@
  *   await api.post('/api/player/play', { track_path: '/music/song.wav' });
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { ApiResponse, ApiError } from '../../types/api';
 import { ApiErrorHandler } from '../../types/api';
 
@@ -25,6 +25,16 @@ const REQUEST_TIMEOUT = 30000; // 30 seconds
 export function useRestAPI() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+
+  // Track all in-flight AbortControllers so requests can be cancelled on unmount
+  // (fixes #2467: no hook-level abort on unmount caused setState on dead state).
+  const activeControllers = useRef(new Set<AbortController>());
+
+  useEffect(() => {
+    return () => {
+      activeControllers.current.forEach((c) => c.abort());
+    };
+  }, []);
 
   /**
    * Build full URL from endpoint path with optional query parameters.
@@ -52,6 +62,7 @@ export function useRestAPI() {
     async (url: string, options: RequestInit = {}): Promise<Response> => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+      activeControllers.current.add(controller);
 
       try {
         const response = await fetch(url, {
@@ -61,6 +72,7 @@ export function useRestAPI() {
         return response;
       } finally {
         clearTimeout(timeoutId);
+        activeControllers.current.delete(controller);
       }
     },
     []
@@ -90,6 +102,10 @@ export function useRestAPI() {
         const data = await response.json();
         return data as T;
       } catch (err) {
+        // AbortError from unmount cleanup — don't surface as API error (fixes #2467)
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw err;
+        }
         const apiError = ApiErrorHandler.parse(err);
         setError(apiError);
         throw apiError;
@@ -133,6 +149,10 @@ export function useRestAPI() {
         const data = await response.json();
         return data as T;
       } catch (err) {
+        // AbortError from unmount cleanup — don't surface as API error (fixes #2467)
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw err;
+        }
         const apiError = ApiErrorHandler.parse(err);
         setError(apiError);
         throw apiError;
@@ -169,6 +189,10 @@ export function useRestAPI() {
         const data = await response.json();
         return data as T;
       } catch (err) {
+        // AbortError from unmount cleanup — don't surface as API error (fixes #2467)
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw err;
+        }
         const apiError = ApiErrorHandler.parse(err);
         setError(apiError);
         throw apiError;
@@ -205,6 +229,10 @@ export function useRestAPI() {
         const data = await response.json();
         return data as T;
       } catch (err) {
+        // AbortError from unmount cleanup — don't surface as API error (fixes #2467)
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw err;
+        }
         const apiError = ApiErrorHandler.parse(err);
         setError(apiError);
         throw apiError;
@@ -236,6 +264,10 @@ export function useRestAPI() {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
       } catch (err) {
+        // AbortError from unmount cleanup — don't surface as API error (fixes #2467)
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw err;
+        }
         const apiError = ApiErrorHandler.parse(err);
         setError(apiError);
         throw apiError;

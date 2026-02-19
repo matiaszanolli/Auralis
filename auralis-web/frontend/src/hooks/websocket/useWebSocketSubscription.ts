@@ -13,7 +13,7 @@
  *   );
  */
 
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { WebSocketMessage, WebSocketMessageType } from '../../types/websocket';
 
 // Global WebSocket connection (should be managed by WebSocketContext)
@@ -75,16 +75,22 @@ export function useWebSocketSubscription(
   messageTypes: WebSocketMessageType[],
   callback: (message: WebSocketMessage) => void
 ): () => void {
-  // Memoize the callback to prevent re-subscribing unnecessarily
-  const memoizedCallback = useCallback(callback, [callback]);
+  // Use a ref to always hold the latest callback without recreating the subscription.
+  // useCallback(callback, [callback]) is a no-op for inline callbacks and causes
+  // unsubscribe+resubscribe on every parent render (fixes #2464).
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let isActive = true;
+    // Stable wrapper that delegates to the latest callbackRef without changing identity.
+    const stableCallback = (msg: WebSocketMessage) => callbackRef.current(msg);
 
     function subscribeToManager(manager: WebSocketSubscriptionManager): void {
       if (!isActive) return;
-      const unsubscribe = manager.subscribe(messageTypes, memoizedCallback);
+      const unsubscribe = manager.subscribe(messageTypes, stableCallback);
       unsubscribeRef.current = unsubscribe;
     }
 
@@ -107,7 +113,7 @@ export function useWebSocketSubscription(
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
     };
-  }, [messageTypes, memoizedCallback]);
+  }, [messageTypes]); // messageTypes is the only structural dependency; callback is via ref
 
   // Return a way to manually unsubscribe (rarely used)
   return () => {

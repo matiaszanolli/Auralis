@@ -46,6 +46,7 @@ import {
   previousTrack,
 } from '@/store/slices/queueSlice';
 import { setCurrentTrack, setVolume } from '@/store/slices/playerSlice';
+import { playerSelectors } from '@/store/selectors';
 
 /**
  * Player Component
@@ -65,10 +66,11 @@ const Player: React.FC = () => {
   // Queue panel visibility state
   const [queuePanelOpen, setQueuePanelOpen] = useState(false);
 
-  // Redux state for current playback info
-  // FIX: Read currentTrack directly from Redux instead of WebSocket hook
-  const state = useSelector((state: any) => state.player || {});
-  const currentTrack = state.currentTrack;
+  // Redux state for current playback info (typed selectors fix #2463)
+  const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
+  const playerVolume = useSelector(playerSelectors.selectVolume);
+  const playerIsMuted = useSelector(playerSelectors.selectIsMuted);
+  const state = { volume: playerVolume, isMuted: playerIsMuted };
 
   // Queue state for next/previous functionality
   const queueTracks = useSelector(selectQueueTracks);

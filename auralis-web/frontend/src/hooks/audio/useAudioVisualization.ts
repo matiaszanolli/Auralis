@@ -131,7 +131,7 @@ function getBandEnergy(
 export function useAudioVisualization(enabled: boolean = true): AudioVisualizationData {
   const [data, setData] = useState<AudioVisualizationData>(DEFAULT_DATA);
   const isPlaying = useSelector(playerSelectors.selectIsPlaying);
-  const streamingState = useSelector((state: any) => state.player?.streaming?.state);
+  const streamingState = useSelector(playerSelectors.selectEnhancedStreamingState);
 
   // Audio is active when either regular playback or streaming is active
   const isAudioActive = isPlaying || streamingState === 'streaming';

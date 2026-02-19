@@ -15,6 +15,8 @@
  */
 
 import { WebSocketManager, retryWithBackoff, withErrorLogging } from '../utils/errorHandling';
+import { get, post, del, getBlob } from '../utils/apiRequest';
+import { getApiUrl } from '../config/api';
 
 export interface ProcessingSettings {
   mode: 'adaptive' | 'reference' | 'hybrid';
@@ -93,13 +95,12 @@ export interface QueueStatus {
 }
 
 class ProcessingService {
-  private baseUrl: string;
+  // baseUrl removed — HTTP calls use centralized getApiUrl() (fixes #2466)
   private wsUrl: string;
   private wsManager: WebSocketManager | null = null;
   private jobCallbacks: Map<string, (job: ProcessingJob) => void> = new Map();
 
   constructor() {
-    this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8765';
     this.wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8765/ws';
   }
 
@@ -192,29 +193,14 @@ class ProcessingService {
     settings: ProcessingSettings,
     referencePath?: string
   ): Promise<{ job_id: string; status: string; message: string }> {
-    return await retryWithBackoff(async () => {
-      const response = await fetch(`${this.baseUrl}/api/processing/process`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          input_path: inputPath,
-          settings,
-          reference_path: referencePath,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to submit processing job');
-      }
-
-      return await response.json();
-    }, {
-      maxRetries: 3,
-      initialDelayMs: 200,
-    });
+    return await retryWithBackoff(
+      () => post('/api/processing/process', {
+        input_path: inputPath,
+        settings,
+        reference_path: referencePath,
+      }),
+      { maxRetries: 3, initialDelayMs: 200 }
+    );
   }
 
   /**
@@ -224,11 +210,13 @@ class ProcessingService {
     file: File,
     settings: ProcessingSettings
   ): Promise<{ job_id: string; status: string; message: string }> {
+    // Multipart FormData upload — not supported by the JSON-only apiRequest utility,
+    // so we use getApiUrl() for the URL while still routing through fetch directly.
     const formData = new FormData();
     formData.append('file', file);
     formData.append('settings', JSON.stringify(settings));
 
-    const response = await fetch(`${this.baseUrl}/api/processing/upload-and-process`, {
+    const response = await fetch(getApiUrl('/api/processing/upload-and-process'), {
       method: 'POST',
       body: formData,
     });
@@ -245,62 +233,34 @@ class ProcessingService {
    * Get processing job status (Phase 3c: Retry logic added)
    */
   async getJobStatus(jobId: string): Promise<ProcessingJob> {
-    return await retryWithBackoff(async () => {
-      const response = await fetch(`${this.baseUrl}/api/processing/job/${jobId}`);
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to get job status');
-      }
-
-      return await response.json();
-    }, {
-      maxRetries: 3,
-      initialDelayMs: 100,
-    });
+    return await retryWithBackoff(
+      () => get<ProcessingJob>(`/api/processing/job/${jobId}`),
+      { maxRetries: 3, initialDelayMs: 100 }
+    );
   }
 
   /**
    * Download processed audio file (Phase 3c: Retry logic + timeout added)
    */
   async downloadResult(jobId: string): Promise<Blob> {
-    return await retryWithBackoff(async () => {
-      const response = await fetch(`${this.baseUrl}/api/processing/job/${jobId}/download`);
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to download result');
-      }
-
-      return await response.blob();
-    }, {
-      maxRetries: 3,
-      initialDelayMs: 500,
-      maxDelayMs: 5000,
-    });
+    return await retryWithBackoff(
+      () => getBlob(`/api/processing/job/${jobId}/download`),
+      { maxRetries: 3, initialDelayMs: 500, maxDelayMs: 5000 }
+    );
   }
 
   /**
    * Get download URL for processed audio
    */
   getDownloadUrl(jobId: string): string {
-    return `${this.baseUrl}/api/processing/job/${jobId}/download`;
+    return getApiUrl(`/api/processing/job/${jobId}/download`);
   }
 
   /**
    * Cancel a processing job
    */
   async cancelJob(jobId: string): Promise<{ message: string; job_id: string }> {
-    const response = await fetch(`${this.baseUrl}/api/processing/job/${jobId}/cancel`, {
-      method: 'POST',
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to cancel job');
-    }
-
-    return await response.json();
+    return post(`/api/processing/job/${jobId}/cancel`);
   }
 
   /**
@@ -313,62 +273,28 @@ class ProcessingService {
     const params = new URLSearchParams();
     if (status) params.append('status', status);
     params.append('limit', limit.toString());
-
-    const response = await fetch(`${this.baseUrl}/api/processing/jobs?${params}`);
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to list jobs');
-    }
-
-    return await response.json();
+    return get(`/api/processing/jobs?${params}`);
   }
 
   /**
    * Get processing queue status
    */
   async getQueueStatus(): Promise<QueueStatus> {
-    const response = await fetch(`${this.baseUrl}/api/processing/queue/status`);
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to get queue status');
-    }
-
-    return await response.json();
+    return get('/api/processing/queue/status');
   }
 
   /**
    * Get available processing presets
    */
   async getPresets(): Promise<{ presets: Record<string, ProcessingPreset> }> {
-    const response = await fetch(`${this.baseUrl}/api/processing/presets`);
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to get presets');
-    }
-
-    return await response.json();
+    return get('/api/processing/presets');
   }
 
   /**
    * Clean up old completed jobs
    */
   async cleanupOldJobs(maxAgeHours: number = 24): Promise<{ message: string }> {
-    const response = await fetch(
-      `${this.baseUrl}/api/processing/jobs/cleanup?max_age_hours=${maxAgeHours}`,
-      {
-        method: 'DELETE',
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to cleanup jobs');
-    }
-
-    return await response.json();
+    return del(`/api/processing/jobs/cleanup?max_age_hours=${maxAgeHours}`);
   }
 
   /**

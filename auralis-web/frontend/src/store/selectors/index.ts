@@ -47,6 +47,10 @@ export const playerSelectors = {
   selectPreset: (state: RootState) => state.player.preset,
   selectPlayerLoading: (state: RootState) => state.player.isLoading,
   selectPlayerError: (state: RootState) => state.player.error,
+  /** Full streaming sub-state ({normal, enhanced}) */
+  selectStreaming: (state: RootState) => state.player.streaming,
+  /** Streaming state for the enhanced stream (idle | buffering | streaming | error | complete) */
+  selectEnhancedStreamingState: (state: RootState) => state.player.streaming.enhanced.state,
 };
 
 export const queueSelectors = {

@@ -221,6 +221,28 @@ class QueueManager:
         with self._lock:
             return len(self.tracks)
 
+    def get_queue_info(self) -> dict[str, Any]:
+        """
+        Return a fully atomic composite snapshot of queue state (fixes #2470).
+        Holds _lock for the entire read so that concurrent remove_track() /
+        next_track() calls cannot produce an inconsistent dict where
+        current_track is absent from tracks or current_index is stale.
+        """
+        with self._lock:
+            tracks_copy = self.tracks.copy()
+            idx = self.current_index
+            current = tracks_copy[idx] if 0 <= idx < len(tracks_copy) else None
+            return {
+                'tracks': tracks_copy,
+                'current_index': idx,
+                'current_track': current,
+                'track_count': len(tracks_copy),
+                'has_next': idx < len(tracks_copy) - 1,
+                'has_previous': idx > 0,
+                'shuffle_enabled': self.shuffle_enabled,
+                'repeat_enabled': self.repeat_enabled,
+            }
+
     def set_track_by_index(self, index: int) -> dict[str, Any] | None:
         """
         Set current track by index (jump to track in queue)

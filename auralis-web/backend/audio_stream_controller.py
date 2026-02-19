@@ -53,6 +53,11 @@ _SEND_QUEUE_MAXSIZE: int = 4
 # causes OOM under load (issue #2185).
 MAX_CONCURRENT_STREAMS: int = 10
 
+# Module-level shared semaphore so the cap is enforced across ALL
+# AudioStreamController instances (fixes #2469: per-instance semaphore
+# was created fresh per request, making the cap non-functional).
+_global_stream_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_CONCURRENT_STREAMS)
+
 
 class SimpleChunkCache:
     """Simple in-memory cache for processed audio chunks."""
@@ -190,8 +195,8 @@ class AudioStreamController:
                 logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
 
         self.active_streams: dict[int, Any] = {}  # track_id -> streaming task
-        # Semaphore that caps concurrent streams (issue #2185)
-        self._stream_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_CONCURRENT_STREAMS)
+        # Use the module-level semaphore shared across all instances (fixes #2469)
+        self._stream_semaphore: asyncio.Semaphore = _global_stream_semaphore
 
         # Store previous chunk tails for crossfading (track_id -> tail samples)
         self._chunk_tails: dict[int, np.ndarray] = {}
