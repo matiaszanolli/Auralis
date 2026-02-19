@@ -101,10 +101,11 @@ class ProcessingEngine:
         self.max_concurrent_jobs: int = max_concurrent_jobs
         self.max_queue_size: int = max_queue_size
         self.completed_job_ttl_hours: float = completed_job_ttl_hours
-        self.active_jobs: int = 0
         self.job_queue: asyncio.Queue[ProcessingJob] = asyncio.Queue(maxsize=max_queue_size)
 
-        # Semaphore replaces the busy-wait loop in start_worker (fixes #2332)
+        # Semaphore is the single source of truth for concurrency limiting.
+        # Replaces the busy-wait loop in start_worker (fixes #2332) and the
+        # unsynchronised active_jobs counter (fixes #2299).
         self._concurrency_semaphore: asyncio.Semaphore = asyncio.Semaphore(max_concurrent_jobs)
 
         # Processing components
@@ -391,7 +392,6 @@ class ProcessingEngine:
         try:
             job.status = ProcessingStatus.PROCESSING
             job.started_at = datetime.now()
-            self.active_jobs += 1
 
             await self._notify_progress(job.job_id, 0.0, "Loading audio file...")
 
@@ -480,8 +480,6 @@ class ProcessingEngine:
 
             await self._notify_progress(job.job_id, 100.0, f"Processing failed: {str(e)}")
 
-        finally:
-            self.active_jobs -= 1
 
     async def start_worker(self) -> None:
         """Start the job processing worker"""
@@ -577,7 +575,7 @@ class ProcessingEngine:
         return {
             "total_jobs": len(self.jobs),
             "queued": len([j for j in self.jobs.values() if j.status == ProcessingStatus.QUEUED]),
-            "processing": self.active_jobs,
+            "processing": self.max_concurrent_jobs - self._concurrency_semaphore._value,
             "completed": len([j for j in self.jobs.values() if j.status == ProcessingStatus.COMPLETED]),
             "failed": len([j for j in self.jobs.values() if j.status == ProcessingStatus.FAILED]),
             "max_concurrent": self.max_concurrent_jobs,

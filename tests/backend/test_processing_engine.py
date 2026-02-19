@@ -397,6 +397,48 @@ class TestQueueBackpressure:
         assert status["max_queue_size"] == engine.max_queue_size
         assert status["queue_full"] is False
 
+    @pytest.mark.asyncio
+    async def test_processing_count_reflects_semaphore_value(self):
+        """get_queue_status()['processing'] is derived from the semaphore, not a separate counter (fixes #2299)"""
+        engine = ProcessingEngine(max_concurrent_jobs=3)
+
+        assert engine.get_queue_status()["processing"] == 0
+
+        # Simulate two jobs holding concurrency slots
+        await engine._concurrency_semaphore.acquire()
+        assert engine.get_queue_status()["processing"] == 1
+
+        await engine._concurrency_semaphore.acquire()
+        assert engine.get_queue_status()["processing"] == 2
+
+        # Release both and verify the count drops back
+        engine._concurrency_semaphore.release()
+        engine._concurrency_semaphore.release()
+        assert engine.get_queue_status()["processing"] == 0
+
+    @pytest.mark.asyncio
+    async def test_semaphore_blocks_at_max_concurrent(self):
+        """A (max_concurrent_jobs+1)th acquire blocks until a slot is freed (fixes #2299)"""
+        engine = ProcessingEngine(max_concurrent_jobs=2)
+
+        # Fill all concurrency slots
+        await engine._concurrency_semaphore.acquire()
+        await engine._concurrency_semaphore.acquire()
+        assert engine._concurrency_semaphore._value == 0
+        assert engine.get_queue_status()["processing"] == 2
+
+        # The (max+1)th attempt must block — time out to prove it
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(engine._concurrency_semaphore.acquire(), timeout=0.05)
+
+        # After freeing a slot the next acquire should succeed immediately
+        engine._concurrency_semaphore.release()
+        await asyncio.wait_for(engine._concurrency_semaphore.acquire(), timeout=0.1)
+
+        # Clean up all held slots
+        engine._concurrency_semaphore.release()
+        engine._concurrency_semaphore.release()
+
 
 class TestJobDictBoundedMemory:
     """Tests for automatic TTL-based eviction of completed jobs (issue #2216)"""
