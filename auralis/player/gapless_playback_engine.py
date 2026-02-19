@@ -116,8 +116,35 @@ class GaplessPlaybackEngine:
 
             info(f"Prebuffering next track: {file_path}")
 
-            # Load audio
-            audio_data, sample_rate = load(file_path, "target")
+            # Run the blocking load in an inner daemon thread so cleanup() can
+            # preempt it at shutdown without the process hanging indefinitely
+            # on a slow/stalled filesystem (#2456).  The outer (non-daemon) thread
+            # polls _shutdown every 200 ms; the inner daemon thread is abandoned
+            # (and dies with the process) if we exit early.
+            _load_result: list[tuple[np.ndarray, int]] = []
+            _load_exc: list[BaseException] = []
+
+            def _do_load() -> None:
+                try:
+                    _load_result.append(load(file_path, "target"))
+                except Exception as exc:  # noqa: BLE001
+                    _load_exc.append(exc)
+
+            _loader = threading.Thread(
+                target=_do_load,
+                daemon=True,
+                name="GaplessPlayback-Prebuffer-IO",
+            )
+            _loader.start()
+            while _loader.is_alive():
+                if self._shutdown.is_set():
+                    return  # abandon; inner daemon thread dies with the process
+                _loader.join(timeout=0.2)
+
+            if _load_exc:
+                raise _load_exc[0]
+
+            audio_data, sample_rate = _load_result[0]
 
             # Check again: don't store results if shutdown was requested during load
             if self._shutdown.is_set():
@@ -190,10 +217,12 @@ class GaplessPlaybackEngine:
             info(f"Using prebuffered track (gapless): {file_path}")
 
             with self.update_lock:
-                # Load directly into file manager
-                self.file_manager.audio_data = audio_data
-                self.file_manager.sample_rate = sample_rate
-                self.file_manager.current_file = file_path
+                # Hold _audio_lock while swapping audio_data so get_audio_chunk()
+                # cannot slice the old (shorter) array after we replace it (#2423).
+                with self.file_manager._audio_lock:
+                    self.file_manager.audio_data = audio_data
+                    self.file_manager.sample_rate = sample_rate
+                    self.file_manager.current_file = file_path
 
                 # Clear prebuffer
                 self.next_track_buffer = None

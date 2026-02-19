@@ -108,6 +108,11 @@ class ProcessingEngine:
         # unsynchronised active_jobs counter (fixes #2299).
         self._concurrency_semaphore: asyncio.Semaphore = asyncio.Semaphore(max_concurrent_jobs)
 
+        # Public counter incremented after semaphore.acquire() and decremented
+        # in the finally block of start_worker.  Replaces the fragile
+        # `semaphore._value` CPython implementation detail (#2459).
+        self._active_job_count: int = 0
+
         # Processing components
         self.processors: dict[str, HybridProcessor] = {}
         self.parameter_mapper = ParameterMapper()
@@ -490,6 +495,7 @@ class ProcessingEngine:
 
                 # Block until a concurrency slot is free (replaces busy-wait, fixes #2332)
                 await self._concurrency_semaphore.acquire()
+                self._active_job_count += 1  # track in-flight jobs without _value (#2459)
 
                 # Wrap in a Task so cancel_job() can call task.cancel() (fixes #2217)
                 task = asyncio.create_task(self.process_job(job))
@@ -504,6 +510,7 @@ class ProcessingEngine:
                         raise
                 finally:
                     self._tasks.pop(job.job_id, None)
+                    self._active_job_count = max(0, self._active_job_count - 1)
                     self._concurrency_semaphore.release()
                     await self.cleanup_old_jobs(self.completed_job_ttl_hours)
 
@@ -575,7 +582,7 @@ class ProcessingEngine:
         return {
             "total_jobs": len(self.jobs),
             "queued": len([j for j in self.jobs.values() if j.status == ProcessingStatus.QUEUED]),
-            "processing": self.max_concurrent_jobs - self._concurrency_semaphore._value,
+            "processing": self._active_job_count,  # replaces ._value private attr (#2459)
             "completed": len([j for j in self.jobs.values() if j.status == ProcessingStatus.COMPLETED]),
             "failed": len([j for j in self.jobs.values() if j.status == ProcessingStatus.FAILED]),
             "max_concurrent": self.max_concurrent_jobs,

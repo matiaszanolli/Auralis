@@ -207,6 +207,17 @@ class MetadataEditor:
                 'results': [], 'rolled_back': False,
             }
 
+        # Guard: mixing backup=True and backup=False entries in a single batch
+        # leads to an inconsistent state where backup=False files are marked as
+        # rolled_back=True in the result (and skipped by the router's DB update)
+        # even though their on-disk write is NOT reverted (#2460).
+        backup_flags = {u.backup for u in updates}
+        if len(backup_flags) > 1:
+            raise ValueError(
+                "All updates in a batch must share the same backup setting. "
+                "Got mixed backup=True and backup=False entries."
+            )
+
         total = len(updates)
 
         # Phase 1 — Validate all files exist before touching any.

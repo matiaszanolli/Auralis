@@ -214,8 +214,9 @@ class ParallelBandProcessor:
                 # Execute in parallel
                 futures = [executor.submit(self._process_single_band_static, task) for task in tasks]
 
-                # Collect results
-                band_results: list[np.ndarray] = [np.array([])] * num_bands
+                # Collect results — list comprehension avoids shared-reference aliasing
+                # that [np.array([])] * num_bands would create (#2424).
+                band_results: list[np.ndarray] = [np.array([]) for _ in range(num_bands)]
                 for future in as_completed(futures):
                     idx, result = future.result()
                     band_results[idx] = result
@@ -228,8 +229,8 @@ class ParallelBandProcessor:
                     for i in range(num_bands)
                 ]
 
-                # Collect results
-                band_results = [np.array([])] * num_bands
+                # Collect results — list comprehension avoids shared-reference aliasing (#2424)
+                band_results = [np.array([]) for _ in range(num_bands)]
                 for future in as_completed(futures):
                     idx, result = future.result()
                     band_results[idx] = result
