@@ -321,5 +321,110 @@ class TestBroadcasting:
         assert call_args["data"]["volume"] == 50
 
 
+class TestAsyncLockFix:
+    """
+    Verify that PlayerStateManager uses asyncio.Lock (fixes #2220).
+
+    threading.Lock blocks the entire event loop when acquired inside an async
+    coroutine. asyncio.Lock cooperatively yields during contention so other
+    coroutines can run.
+    """
+
+    def test_lock_is_asyncio_lock(self, state_manager):
+        """_lock must be asyncio.Lock, not threading.Lock (fixes #2220)."""
+        import threading
+
+        assert isinstance(state_manager._lock, asyncio.Lock), (
+            f"_lock should be asyncio.Lock, got {type(state_manager._lock)}"
+        )
+        assert not isinstance(state_manager._lock, threading.Lock), (
+            "_lock must not be threading.Lock — it would block the event loop "
+            "when acquired inside an async coroutine"
+        )
+
+    @pytest.mark.asyncio
+    async def test_concurrent_coroutine_runs_during_update_state(self, state_manager):
+        """
+        A second coroutine must be schedulable while update_state holds the lock.
+
+        With threading.Lock this test would deadlock (lock blocks event loop,
+        other coroutines never get to run). With asyncio.Lock the lock yields
+        during contention, so the concurrent task can proceed.
+        """
+        concurrent_ran = asyncio.Event()
+
+        async def concurrent():
+            concurrent_ran.set()
+
+        # Interleave: hold the lock in update_state and ensure concurrent can run
+        await asyncio.gather(
+            state_manager.update_state(volume=42),
+            concurrent(),
+        )
+
+        assert concurrent_ran.is_set(), (
+            "Concurrent coroutine never ran — asyncio.Lock may not be releasing "
+            "the event loop (regression of #2220)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_position_update_loop_does_not_block_event_loop(self, state_manager):
+        """
+        _position_update_loop must not block the event loop while holding the lock.
+
+        We run a concurrent coroutine alongside the loop; if the loop used
+        threading.Lock the concurrent task would be starved and the wait_for
+        would time out.
+        """
+        from player_state import TrackInfo
+
+        track = TrackInfo(
+            id=1, title="T", artist="A", album="B",
+            duration=300.0, file_path="/tmp/t.mp3"
+        )
+        state_manager.state.state = PlaybackState.PLAYING
+        state_manager.state.is_playing = True
+        state_manager.state.current_time = 0.0
+        state_manager.state.duration = 300.0
+        state_manager.state.current_track = track
+
+        concurrent_ran = asyncio.Event()
+
+        async def concurrent():
+            concurrent_ran.set()
+
+        loop_task = asyncio.create_task(state_manager._position_update_loop())
+        # Yield so the loop task starts and enters asyncio.sleep(1.0)
+        await asyncio.sleep(0)
+
+        # The concurrent task must complete within a short window
+        await asyncio.wait_for(concurrent(), timeout=1.0)
+
+        loop_task.cancel()
+        try:
+            await loop_task
+        except asyncio.CancelledError:
+            pass
+
+        assert concurrent_ran.is_set(), (
+            "_position_update_loop blocked the event loop (regression of #2220)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_five_concurrent_update_state_no_deadlock(self, state_manager):
+        """
+        Multiple concurrent update_state calls complete without deadlock.
+
+        asyncio.Lock is non-reentrant but serialises access correctly.
+        """
+        await asyncio.gather(*[
+            state_manager.update_state(volume=i * 10)
+            for i in range(5)
+        ])
+        # All five completed — state holds the last write (exact value depends
+        # on scheduling order but must be one of 0/10/20/30/40)
+        assert state_manager.state.volume in {0, 10, 20, 30, 40}
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

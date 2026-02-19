@@ -11,7 +11,6 @@ Single source of truth that broadcasts state changes via WebSocket.
 
 import asyncio
 import logging
-import threading
 from typing import Any
 
 from player_state import PlaybackState, PlayerState, TrackInfo, create_track_info
@@ -36,13 +35,12 @@ class PlayerStateManager:
         """
         self.state: PlayerState = PlayerState()
         self.ws_manager: Any = websocket_manager
-        self._lock: threading.Lock = threading.Lock()
+        self._lock: asyncio.Lock = asyncio.Lock()
         self._position_update_task: asyncio.Task[Any] | None = None
 
     def get_state(self) -> PlayerState:
-        """Get current player state (thread-safe)"""
-        with self._lock:
-            return self.state.model_copy(deep=True)
+        """Get current player state snapshot"""
+        return self.state.model_copy(deep=True)
 
     async def update_state(self, **kwargs: Any) -> None:
         """
@@ -51,7 +49,7 @@ class PlayerStateManager:
         Args:
             **kwargs: Fields to update in PlayerState
         """
-        with self._lock:
+        async with self._lock:
             # Update state fields
             for key, value in kwargs.items():
                 if hasattr(self.state, key):
@@ -136,7 +134,7 @@ class PlayerStateManager:
         next_track: TrackInfo | None = None
         has_next: bool = False
 
-        with self._lock:
+        async with self._lock:
             if self.state.queue_index < len(self.state.queue) - 1:
                 new_index = self.state.queue_index + 1
                 next_track = self.state.queue[new_index]
@@ -161,7 +159,7 @@ class PlayerStateManager:
     async def previous_track(self) -> TrackInfo | None:
         """Move to previous track in queue"""
         # Determine action while holding lock (don't await inside lock)
-        with self._lock:
+        async with self._lock:
             if self.state.current_time > 3.0:
                 # Restart current track if > 3 seconds
                 should_restart: bool = True
@@ -212,7 +210,7 @@ class PlayerStateManager:
         try:
             while True:
                 await asyncio.sleep(1.0)
-                with self._lock:
+                async with self._lock:
                     if self.state.is_playing and self.state.current_track:
                         # Increment position
                         new_time = min(
