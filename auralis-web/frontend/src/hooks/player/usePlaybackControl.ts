@@ -100,6 +100,12 @@ export function usePlaybackControl(): PlaybackControlActions {
   // Track which command is executing (for optimistic updates)
   const executingCommand = useRef<string | null>(null);
 
+  // Ref so the play callback can read the latest track ID without taking
+  // playbackState.currentTrack as a dep (position updates create new object
+  // references every ~1 s, which would recreate play on every tick — #2354).
+  const currentTrackRef = useRef(playbackState.currentTrack);
+  currentTrackRef.current = playbackState.currentTrack;
+
   /**
    * Play - Start playback or resume if paused
    * Uses WebSocket 'play_normal' message for normal (unprocessed) audio streaming
@@ -110,8 +116,9 @@ export function usePlaybackControl(): PlaybackControlActions {
     executingCommand.current = 'play';
 
     try {
-      // Get current track from playback state
-      const trackId = playbackState.currentTrack?.id;
+      // Read track ID via ref so this callback doesn't depend on the
+      // currentTrack object reference (avoids re-creation on position updates).
+      const trackId = currentTrackRef.current?.id;
 
       if (!trackId) {
         throw new Error('No track selected. Set queue first.');
@@ -135,7 +142,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [send, playbackState.currentTrack]);
+  }, [send]);
 
   /**
    * Pause - Pause playback

@@ -19,6 +19,9 @@ import queueReducer from '@/store/slices/queueSlice';
 
 // Mock sendMessage - defined before vi.mock calls for hoisting
 const mockSendMessage = vi.fn();
+// Stable send mock — must be the same reference across renders so that
+// play's [send] dep does not trigger unnecessary recreation (#2354).
+const mockSend = vi.fn();
 
 // Mock WebSocketContext with vi.mock for proper hoisting
 // vi.mock is hoisted to top of file, ensuring mock is applied before imports
@@ -29,7 +32,7 @@ vi.mock('@/contexts/WebSocketContext', () => ({
     connectionStatus: 'connected' as const,
     subscribe: vi.fn(() => () => {}),
     subscribeAll: vi.fn(() => () => {}),
-    send: vi.fn(),
+    send: mockSend,
     connect: vi.fn(),
     disconnect: vi.fn(),
   }),
@@ -98,6 +101,7 @@ const createWrapper = () => {
 describe('usePlaybackControl', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSend.mockReset();
   });
 
   describe('play()', () => {
@@ -333,6 +337,51 @@ describe('usePlaybackControl', () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       expect(result.current.error).toBeNull();
+    });
+  });
+
+  describe('play callback stability (#2354)', () => {
+    it('play identity is stable across re-renders caused by new currentTrack object references', () => {
+      // The usePlaybackState mock returns a new currentTrack object on every call
+      // (arrow function with object literal), reproducing the position-update scenario
+      // where Redux creates new object references at ~1/sec during playback.
+      // Before the fix, play was in [send, playbackState.currentTrack] deps, so it
+      // was recreated every render.  After the fix, only [send] remains as dep.
+      const { result, rerender } = renderHook(() => usePlaybackControl(), {
+        wrapper: createWrapper(),
+      });
+
+      const playRef1 = result.current.play;
+
+      // Force a re-render — usePlaybackState mock will return a fresh object
+      rerender();
+      const playRef2 = result.current.play;
+
+      rerender();
+      const playRef3 = result.current.play;
+
+      expect(playRef1).toBe(playRef2);
+      expect(playRef2).toBe(playRef3);
+    });
+
+    it('play still works correctly after multiple re-renders (reads latest track via ref)', async () => {
+      // Verify the ref-based approach does not lose the track ID across re-renders.
+      // We assert that play() completes without error and leaves isLoading=false
+      // (the hook reads currentTrack.id correctly via ref).
+      const { result, rerender } = renderHook(() => usePlaybackControl(), {
+        wrapper: createWrapper(),
+      });
+
+      rerender();
+      rerender();
+
+      await act(async () => {
+        await result.current.play();
+      });
+
+      // No error means the track ID was available and the send() call succeeded
+      expect(result.current.error).toBeNull();
+      expect(result.current.isLoading).toBe(false);
     });
   });
 
