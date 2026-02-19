@@ -57,16 +57,11 @@ class ParallelFFTProcessor:
 
     def get_window(self, size: int) -> np.ndarray:
         """Get window function (cached or compute)"""
-        if size in self.window_cache:
-            return self.window_cache[size]
-
-        # Compute and cache new size
         with self.lock:
             if size not in self.window_cache:
                 self.window_cache[size] = np.hanning(size)
                 debug(f"Computed and cached Hanning window for size {size}")
-
-        return self.window_cache[size]
+            return self.window_cache[size]
 
     def parallel_windowed_fft(
         self,

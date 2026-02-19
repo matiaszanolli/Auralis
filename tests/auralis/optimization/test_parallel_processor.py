@@ -10,6 +10,7 @@ Tests the parallel processing optimization modules.
 :license: GPLv3, see LICENSE for more details.
 """
 
+import threading
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -278,6 +279,40 @@ class TestParallelProcessingIntegration:
 
         # Should return same cached object
         assert window1 is window2
+
+    def test_get_window_concurrent_stress(self):
+        """8 threads call get_window() for the same uncached size 10,000× each.
+
+        All returned arrays must equal np.hanning(size) — no partial/stale
+        window may be returned from the unprotected early-return path (#2428).
+        """
+        WINDOW_SIZE = 7777   # deliberately uncached so Phase-2 lock is exercised
+        THREADS = 8
+        CALLS_PER_THREAD = 10_000
+
+        processor = ParallelFFTProcessor()
+        expected = np.hanning(WINDOW_SIZE)
+
+        errors: list[str] = []
+        barrier = threading.Barrier(THREADS)  # all threads start at the same time
+
+        def worker():
+            barrier.wait()
+            for _ in range(CALLS_PER_THREAD):
+                w = processor.get_window(WINDOW_SIZE)
+                if not np.array_equal(w, expected):
+                    errors.append(
+                        f"window mismatch: got {w[:4]}… expected {expected[:4]}…"
+                    )
+                    break  # one error per thread is enough
+
+        threads = [threading.Thread(target=worker) for _ in range(THREADS)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f"Concurrent get_window() returned stale data:\n" + "\n".join(errors)
 
 
 if __name__ == "__main__":
