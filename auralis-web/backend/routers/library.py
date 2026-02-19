@@ -534,6 +534,20 @@ def create_library_router(
                 check_modifications=True,
             )
 
+            # Enqueue newly added tracks for background fingerprinting (#2382).
+            # Done here in the async context — asyncio.create_task() inside the
+            # scanner thread raised RuntimeError: no running event loop.
+            if result.added_tracks:
+                try:
+                    from fingerprint_queue import get_fingerprint_queue
+                    fp_queue = get_fingerprint_queue()
+                    if fp_queue:
+                        enqueued = sum(1 for t in result.added_tracks if fp_queue.enqueue(t.id))
+                        if enqueued:
+                            logger.info(f"Enqueued {enqueued} tracks for fingerprinting after scan")
+                except Exception as fp_err:
+                    logger.warning(f"Fingerprint enqueue failed after scan: {fp_err}")
+
             # Broadcast final scan result to all clients
             if connection_manager:
                 await connection_manager.broadcast({

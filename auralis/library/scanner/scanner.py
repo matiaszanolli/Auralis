@@ -135,11 +135,12 @@ class LibraryScanner:
                 result.files_skipped += batch_result.files_skipped
                 result.files_failed += batch_result.files_failed
 
-                # Enqueue fingerprints for newly added/updated tracks
-                if self.fingerprint_queue and batch_result.added_tracks:
-                    # Create async task without awaiting (fire and forget)
-                    import asyncio
-                    asyncio.create_task(self._enqueue_fingerprints(batch_result.added_tracks))
+                # Accumulate added tracks so the async caller can enqueue
+                # fingerprints in the event loop after to_thread() returns.
+                # asyncio.create_task() cannot be called from this worker
+                # thread — it raises RuntimeError: no running event loop (#2382).
+                if batch_result.added_tracks:
+                    result.added_tracks.extend(batch_result.added_tracks)
 
                 # Report progress
                 progress: float = (i + len(batch)) / len(all_files)
