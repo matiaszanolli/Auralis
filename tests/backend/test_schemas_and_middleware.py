@@ -543,7 +543,8 @@ class TestSchemaIntegration:
         assert json_data["pagination"]["total"] == 100
         assert json_data["pagination"]["has_more"] is True
 
-    def test_batch_operation_end_to_end(self):
+    @pytest.mark.asyncio
+    async def test_batch_operation_end_to_end(self):
         """Test complete batch operation flow."""
         # Create request
         request = BatchRequest(
@@ -561,7 +562,7 @@ class TestSchemaIntegration:
         handlers = {
             "favorite": lambda item_id, data: None
         }
-        response = execute_batch_operation_sync(request, handlers)
+        response = await execute_batch_operation_sync(request, handlers)
 
         # Verify response
         assert response.status == "completed"

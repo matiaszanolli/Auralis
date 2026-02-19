@@ -278,3 +278,170 @@ class WebSocketErrorResponse(BaseModel):
             "timestamp": "2024-11-28T10:00:00Z"
         }
     })
+
+
+# ============================================================================
+# Entity Base Models
+# ============================================================================
+
+class TrackBase(BaseModel):
+    """Minimal track representation for API responses."""
+    id: str = Field(description="Track identifier")
+    title: str = Field(description="Track title")
+    artist: str = Field(description="Artist name")
+    album: str = Field(description="Album name")
+    duration: float = Field(description="Duration in seconds")
+
+
+class ArtistBase(BaseModel):
+    """Minimal artist representation for API responses."""
+    id: str = Field(description="Artist identifier")
+    name: str = Field(description="Artist name")
+    track_count: int = Field(description="Number of tracks by this artist")
+
+
+class AlbumBase(BaseModel):
+    """Minimal album representation for API responses."""
+    id: str = Field(description="Album identifier")
+    title: str = Field(description="Album title")
+    artist: str = Field(description="Artist name")
+    track_count: int = Field(description="Number of tracks in this album")
+
+
+# ============================================================================
+# Request Parameter Models
+# ============================================================================
+
+class PaginationParams(BaseModel):
+    """Standard pagination query parameters."""
+    limit: int = Field(default=50, ge=1, le=500, description="Items per page (1–500)")
+    offset: int = Field(default=0, ge=0, description="Number of items to skip")
+
+
+class CursorPaginationParams(BaseModel):
+    """Cursor-based pagination parameters."""
+    limit: int = Field(default=50, ge=1, le=500, description="Items per page (1–500)")
+    cursor: str | None = Field(default=None, description="Opaque cursor from previous response")
+
+
+class SearchRequest(BaseModel):
+    """Generic search request."""
+    query: str = Field(description="Search query string")
+    fields: list[str] | None = Field(default=None, description="Fields to search in")
+    limit: int = Field(default=20, ge=1, le=100, description="Maximum number of results")
+    offset: int = Field(default=0, ge=0, description="Number of results to skip")
+
+
+# ============================================================================
+# System / Health Response Models
+# ============================================================================
+
+class ResponseStatus(str, Enum):
+    """Standard response status values."""
+    SUCCESS = "success"
+    ERROR = "error"
+    PARTIAL = "partial"
+
+
+class HealthCheckResponse(BaseModel):
+    """Health check endpoint response."""
+    status: str = Field(default="healthy", description="Service status")
+    version: str | None = Field(default=None, description="Service version")
+    uptime_seconds: float | None = Field(default=None, description="Service uptime in seconds")
+    timestamp: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )
+
+
+class VersionResponse(BaseModel):
+    """Version information response."""
+    version: str = Field(description="Application version string")
+    build: str | None = Field(default=None, description="Build identifier")
+    python_version: str | None = Field(default=None, description="Python runtime version")
+
+
+# ============================================================================
+# Cache Schemas (Phase B.2)
+# ============================================================================
+
+class CacheSource(str, Enum):
+    """Cache tier source indicator."""
+    TIER1 = "tier1"
+    TIER2 = "tier2"
+    MISS = "miss"
+
+
+class ChunkCacheMetadata(BaseModel):
+    """Metadata for a single cached audio chunk."""
+    track_id: int = Field(description="Track identifier")
+    chunk_index: int = Field(description="Zero-based chunk index")
+    preset: str = Field(description="Processing preset name")
+    intensity: float = Field(description="Processing intensity value")
+    source: CacheSource = Field(description="Which cache tier served this chunk")
+    timestamp: datetime.datetime = Field(description="When the chunk was cached")
+    access_count: int = Field(default=0, description="Number of times this chunk was accessed")
+
+
+class TrackCacheStatusResponse(BaseModel):
+    """Per-track cache status summary."""
+    track_id: int = Field(description="Track identifier")
+    total_chunks: int = Field(description="Total number of chunks for this track")
+    cached_original: int = Field(description="Number of unprocessed chunks cached")
+    cached_processed: int = Field(description="Number of processed chunks cached")
+    completion_percent: float = Field(description="Overall cache completion percentage")
+    fully_cached: bool = Field(description="Whether all chunks are cached")
+    estimated_cache_time_seconds: float | None = Field(
+        default=None,
+        description="Estimated seconds until fully cached"
+    )
+
+
+class CacheTierStats(BaseModel):
+    """Statistics for a single cache tier."""
+    tier_name: str = Field(description="Tier identifier (e.g. 'tier1', 'tier2')")
+    chunks: int = Field(description="Number of chunks stored in this tier")
+    size_mb: float = Field(description="Total size of cached data in MB")
+    hits: int = Field(description="Total cache hits")
+    misses: int = Field(description="Total cache misses")
+    hit_rate: float = Field(description="Cache hit rate (0–1)")
+
+
+class OverallCacheStats(BaseModel):
+    """Aggregate statistics across all cache tiers."""
+    total_chunks: int = Field(description="Total chunks across all tiers")
+    total_size_mb: float = Field(description="Total cached data size in MB")
+    total_hits: int = Field(description="Total hits across all tiers")
+    total_misses: int = Field(description="Total misses across all tiers")
+    overall_hit_rate: float = Field(description="Combined hit rate (0–1)")
+    tracks_cached: int = Field(description="Number of distinct tracks with cached data")
+
+
+class CacheHealthResponse(BaseModel):
+    """Cache subsystem health report."""
+    healthy: bool = Field(description="Overall health indicator")
+    tier1_size_mb: float = Field(description="Tier 1 (memory) size in MB")
+    tier1_healthy: bool = Field(description="Tier 1 health indicator")
+    tier2_size_mb: float = Field(description="Tier 2 (disk) size in MB")
+    tier2_healthy: bool = Field(description="Tier 2 health indicator")
+    total_size_mb: float = Field(description="Combined cache size in MB")
+    memory_healthy: bool = Field(description="Memory pressure indicator")
+    tier1_hit_rate: float = Field(description="Tier 1 hit rate (0–1)")
+    overall_hit_rate: float = Field(description="Overall hit rate across all tiers (0–1)")
+
+
+class CacheAwareResponse(BaseModel, Generic[T]):
+    """Response wrapper that includes cache hit/miss metadata."""
+    status: str = Field(default="success", description="Response status")
+    data: T = Field(description="Response payload")
+    cache_source: CacheSource = Field(description="Cache tier that served the response")
+    cache_hit: bool = Field(description="Whether the response was served from cache")
+    processing_time_ms: float = Field(description="Time to generate the response in ms")
+    message: str | None = Field(default=None, description="Optional message")
+
+
+class CacheStatsResponse(BaseModel):
+    """Full cache statistics response."""
+    tier1: CacheTierStats = Field(description="Tier 1 (memory) statistics")
+    tier2: CacheTierStats = Field(description="Tier 2 (disk) statistics")
+    overall: OverallCacheStats = Field(description="Aggregate statistics")
+    tracks: dict[int, Any] = Field(default_factory=dict, description="Per-track cache status")
