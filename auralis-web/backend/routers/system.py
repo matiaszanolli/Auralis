@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 # Track active streaming tasks per WebSocket to allow cancellation
 _active_streaming_tasks: dict[int, asyncio.Task] = {}
+_active_streaming_tasks_lock = asyncio.Lock()  # Protects all _active_streaming_tasks access (fixes #2425)
 
 # Global rate limiter for all WebSocket connections (fixes #2156)
 _rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
@@ -225,16 +226,7 @@ def create_system_router(
                             logger.error(f"Failed to send enhancement disabled error: {e}")
                         continue  # Skip to next message
 
-                    # Clean up completed tasks to prevent memory leak (fixes #2321)
-                    _active_streaming_tasks = {k: v for k, v in _active_streaming_tasks.items() if not v.done()}
-
-                    # Cancel any existing streaming task for this websocket
                     ws_id = id(websocket)
-                    if ws_id in _active_streaming_tasks:
-                        old_task = _active_streaming_tasks[ws_id]
-                        if not old_task.done():
-                            logger.info(f"Cancelling existing streaming task for ws {ws_id}")
-                            old_task.cancel()
 
                     # Define streaming coroutine
                     async def stream_audio():
@@ -294,15 +286,21 @@ def create_system_router(
                             except Exception:
                                 pass  # WebSocket may be closed
                         finally:
-                            # Only delete our own task reference (fixes #2164 - orphaned task race)
-                            # If a new task has replaced us, don't delete its reference
-                            if _active_streaming_tasks.get(ws_id) is my_task:
-                                del _active_streaming_tasks[ws_id]
+                            # Idempotent self-cleanup under lock (fixes #2425)
+                            async with _active_streaming_tasks_lock:
+                                if _active_streaming_tasks.get(ws_id) is my_task:
+                                    _active_streaming_tasks.pop(ws_id, None)
 
-                    # Start streaming in background task (non-blocking)
-                    # This allows the message loop to continue processing ping/pong
-                    task = asyncio.create_task(stream_audio())
-                    _active_streaming_tasks[ws_id] = task
+                    # Atomically: clean up done tasks, cancel prior stream, register new task (fixes #2425, #2430)
+                    async with _active_streaming_tasks_lock:
+                        for k in [k for k, v in _active_streaming_tasks.items() if v.done()]:
+                            _active_streaming_tasks.pop(k, None)
+                        old_task = _active_streaming_tasks.pop(ws_id, None)
+                        if old_task and not old_task.done():
+                            logger.info(f"Cancelling existing streaming task for ws {ws_id}")
+                            old_task.cancel()
+                        task = asyncio.create_task(stream_audio())
+                        _active_streaming_tasks[ws_id] = task
                     logger.info(f"Started background streaming task for track {track_id}")
 
                 elif message.get("type") == "play_normal":
@@ -322,16 +320,7 @@ def create_system_router(
 
                     logger.info(f"Received play_normal: track_id={track_id}")
 
-                    # Clean up completed tasks to prevent memory leak (fixes #2321)
-                    _active_streaming_tasks = {k: v for k, v in _active_streaming_tasks.items() if not v.done()}
-
-                    # Cancel any existing streaming task for this websocket
                     ws_id = id(websocket)
-                    if ws_id in _active_streaming_tasks:
-                        old_task = _active_streaming_tasks[ws_id]
-                        if not old_task.done():
-                            logger.info(f"Cancelling existing streaming task for ws {ws_id}")
-                            old_task.cancel()
 
                     # Define streaming coroutine
                     async def stream_normal():
@@ -367,26 +356,33 @@ def create_system_router(
                             except Exception:
                                 pass  # WebSocket may be closed
                         finally:
-                            # Only delete our own task reference (fixes #2164 - orphaned task race)
-                            # If a new task has replaced us, don't delete its reference
-                            if _active_streaming_tasks.get(ws_id) is my_task:
-                                del _active_streaming_tasks[ws_id]
+                            # Idempotent self-cleanup under lock (fixes #2425)
+                            async with _active_streaming_tasks_lock:
+                                if _active_streaming_tasks.get(ws_id) is my_task:
+                                    _active_streaming_tasks.pop(ws_id, None)
 
-                    # Start streaming in background task (non-blocking)
-                    task = asyncio.create_task(stream_normal())
-                    _active_streaming_tasks[ws_id] = task
+                    # Atomically: clean up done tasks, cancel prior stream, register new task (fixes #2425, #2430)
+                    async with _active_streaming_tasks_lock:
+                        for k in [k for k, v in _active_streaming_tasks.items() if v.done()]:
+                            _active_streaming_tasks.pop(k, None)
+                        old_task = _active_streaming_tasks.pop(ws_id, None)
+                        if old_task and not old_task.done():
+                            logger.info(f"Cancelling existing streaming task for ws {ws_id}")
+                            old_task.cancel()
+                        task = asyncio.create_task(stream_normal())
+                        _active_streaming_tasks[ws_id] = task
                     logger.info(f"Started background normal streaming task for track {track_id}")
 
                 elif message.get("type") == "pause":
                     # Pause audio playback
                     logger.info("Received pause command via WebSocket")
 
-                    # Cancel active streaming task if any
+                    # Cancel active streaming task if any (fixes #2425 — idempotent pop under lock)
                     ws_id = id(websocket)
-                    if ws_id in _active_streaming_tasks:
-                        task = _active_streaming_tasks[ws_id]
+                    async with _active_streaming_tasks_lock:
+                        task = _active_streaming_tasks.pop(ws_id, None)
+                    if task and not task.done():
                         task.cancel()
-                        del _active_streaming_tasks[ws_id]
                         logger.info("Cancelled active streaming task")
 
                     # Broadcast pause state to client
@@ -401,12 +397,12 @@ def create_system_router(
                     # Stop audio playback
                     logger.info("Received stop command via WebSocket")
 
-                    # Cancel active streaming task if any
+                    # Cancel active streaming task if any (fixes #2425 — idempotent pop under lock)
                     ws_id = id(websocket)
-                    if ws_id in _active_streaming_tasks:
-                        task = _active_streaming_tasks[ws_id]
+                    async with _active_streaming_tasks_lock:
+                        task = _active_streaming_tasks.pop(ws_id, None)
+                    if task and not task.done():
                         task.cancel()
-                        del _active_streaming_tasks[ws_id]
                         logger.info("Cancelled active streaming task")
 
                     # Broadcast stop state to client
@@ -456,21 +452,19 @@ def create_system_router(
                         f"position={position}s, preset={preset}"
                     )
 
-                    # Clean up completed tasks to prevent memory leak (fixes #2321)
-                    _active_streaming_tasks = {k: v for k, v in _active_streaming_tasks.items() if not v.done()}
-
-                    # Cancel any existing streaming task for this websocket
+                    # Pop prior task under lock; cancel and await outside lock to avoid deadlock (fixes #2425, #2430)
                     ws_id = id(websocket)
-                    if ws_id in _active_streaming_tasks:
-                        old_task = _active_streaming_tasks[ws_id]
-                        if not old_task.done():
-                            logger.info(f"Cancelling existing streaming task for seek")
-                            old_task.cancel()
-                            # Wait briefly for task to cancel
-                            try:
-                                await asyncio.wait_for(asyncio.shield(old_task), timeout=0.1)
-                            except (asyncio.CancelledError, TimeoutError):
-                                pass
+                    async with _active_streaming_tasks_lock:
+                        for k in [k for k, v in _active_streaming_tasks.items() if v.done()]:
+                            _active_streaming_tasks.pop(k, None)
+                        old_task = _active_streaming_tasks.pop(ws_id, None)
+                    if old_task and not old_task.done():
+                        logger.info("Cancelling existing streaming task for seek")
+                        old_task.cancel()
+                        try:
+                            await asyncio.wait_for(asyncio.shield(old_task), timeout=0.1)
+                        except (asyncio.CancelledError, TimeoutError):
+                            pass
 
                     # Send seek_started acknowledgment to client
                     await websocket.send_text(json.dumps({
@@ -519,14 +513,15 @@ def create_system_router(
                             except Exception:
                                 pass
                         finally:
-                            # Only delete our own task reference (fixes #2164 - orphaned task race)
-                            # If a new task has replaced us, don't delete its reference
-                            if _active_streaming_tasks.get(ws_id) is my_task:
-                                del _active_streaming_tasks[ws_id]
+                            # Idempotent self-cleanup under lock (fixes #2425)
+                            async with _active_streaming_tasks_lock:
+                                if _active_streaming_tasks.get(ws_id) is my_task:
+                                    _active_streaming_tasks.pop(ws_id, None)
 
-                    # Start seek streaming in background
-                    task = asyncio.create_task(stream_from_position())
-                    _active_streaming_tasks[ws_id] = task
+                    # Register new seek task under lock (fixes #2425)
+                    async with _active_streaming_tasks_lock:
+                        task = asyncio.create_task(stream_from_position())
+                        _active_streaming_tasks[ws_id] = task
                     logger.info(f"Started seek streaming task for track {track_id} at {position}s")
 
                 elif message.get("type") == "subscribe_job_progress":
@@ -557,13 +552,12 @@ def create_system_router(
             # Always clean up on disconnect
             ws_id = id(websocket)
 
-            # Cancel any active streaming task for this websocket
-            if ws_id in _active_streaming_tasks:
-                task = _active_streaming_tasks[ws_id]
-                if not task.done():
-                    logger.info(f"Cancelling streaming task on disconnect for ws {ws_id}")
-                    task.cancel()
-                del _active_streaming_tasks[ws_id]
+            # Cancel any active streaming task — idempotent pop under lock (fixes #2425)
+            async with _active_streaming_tasks_lock:
+                task = _active_streaming_tasks.pop(ws_id, None)
+            if task and not task.done():
+                logger.info(f"Cancelling streaming task on disconnect for ws {ws_id}")
+                task.cancel()
 
             # Clean up rate limiter (fixes #2156)
             _rate_limiter.cleanup(websocket)
