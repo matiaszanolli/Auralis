@@ -378,6 +378,13 @@ class AudioPlayer:
         try:
             if self.playback.is_playing():
                 self.next_track()
+        except Exception:
+            # next_track() failed (e.g. queue race before lock fix, file error).
+            # Stop playback so the audio callback's early-return guard fires and
+            # prevents this method from being re-triggered on every subsequent
+            # chunk — which would happen because _auto_advancing is cleared in
+            # the finally block regardless of outcome (fixes #2441).
+            self.playback.stop()
         finally:
             self._auto_advancing.clear()
 
