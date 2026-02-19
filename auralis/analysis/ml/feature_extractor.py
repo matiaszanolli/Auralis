@@ -51,9 +51,12 @@ class FeatureExtractor:
         """
         debug("Extracting ML features for genre classification")
 
-        # Convert to mono if stereo
+        # Convert to mono if stereo.
+        # The codebase convention is (channels, samples), so axis=0 averages
+        # across channels and produces the expected (n_samples,) mono signal.
+        # axis=1 would average across samples, yielding only a 2-element array (#2452).
         if audio.ndim == 2:
-            mono_audio = np.mean(audio, axis=1)
+            mono_audio = np.mean(audio, axis=0)
         else:
             mono_audio = audio
 

@@ -9,6 +9,7 @@ Responsibilities:
 """
 
 import os
+import threading
 from typing import cast
 
 import numpy as np
@@ -27,6 +28,10 @@ class AudioFileManager:
 
     def __init__(self, sample_rate: int = 44100):
         self.sample_rate = sample_rate
+
+        # Guards audio_data against concurrent read (playback thread) / write
+        # (gapless prebuffer thread) races that cause IndexError on transition (#2423).
+        self._audio_lock = threading.RLock()
 
         # Audio data
         self.audio_data: np.ndarray | None = None
@@ -51,10 +56,12 @@ class AudioFileManager:
                 error(f"File not found: {file_path}")
                 return False
 
-            # Load audio using Auralis loader
-            self.audio_data, loaded_sample_rate = load(file_path, "target")
-            self.current_file = file_path
-            self.sample_rate = loaded_sample_rate
+            # Load outside the lock (I/O may be slow); then swap atomically.
+            audio_data, loaded_sample_rate = load(file_path, "target")
+            with self._audio_lock:
+                self.audio_data = audio_data
+                self.current_file = file_path
+                self.sample_rate = loaded_sample_rate
 
             info(f"Loaded audio file: {file_path}")
             info(f"Duration: {self.get_duration():.1f}s")
@@ -110,12 +117,16 @@ class AudioFileManager:
         Returns:
             Audio chunk as numpy array (stereo, float32)
         """
-        if self.audio_data is None:
-            return np.zeros((chunk_size, 2), dtype=np.float32)
+        with self._audio_lock:
+            # Hold the lock for the entire read-slice so the gapless engine
+            # cannot replace audio_data between the len() check and the slice
+            # (fixes the IndexError race described in #2423).
+            if self.audio_data is None:
+                return np.zeros((chunk_size, 2), dtype=np.float32)
 
-        # Extract chunk
-        end = min(start_position + chunk_size, len(self.audio_data))
-        chunk = self.audio_data[start_position:end].copy()
+            # Extract chunk
+            end = min(start_position + chunk_size, len(self.audio_data))
+            chunk = self.audio_data[start_position:end].copy()
 
         # Ensure stereo format
         if len(chunk.shape) == 1:
@@ -160,8 +171,9 @@ class AudioFileManager:
 
     def clear_audio(self) -> None:
         """Clear loaded audio data"""
-        self.audio_data = None
-        self.current_file = None
+        with self._audio_lock:
+            self.audio_data = None
+            self.current_file = None
 
     def clear_reference(self) -> None:
         """Clear loaded reference data"""

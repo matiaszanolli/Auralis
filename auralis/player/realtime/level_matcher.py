@@ -8,6 +8,7 @@ Real-time RMS level matching with reference audio
 :license: GPLv3, see LICENSE for more details.
 """
 
+import threading
 from typing import Any
 
 import numpy as np
@@ -27,6 +28,11 @@ class RealtimeLevelMatcher:
         self.target_rms_alpha = 0.01  # Smoothing for RMS calculation
         self.current_target_rms = 0.0
 
+        # Serialises concurrent calls to process() / set_reference_audio() so
+        # the playback thread and any prefetch/lookahead thread cannot interleave
+        # reads and writes to current_target_rms or gain_smoother (#2426).
+        self._lock = threading.Lock()
+
         # Gain smoothing for artifact-free transitions
         self.gain_smoother = AdaptiveGainSmoother(
             attack_alpha=0.02,   # Fairly quick attack
@@ -37,38 +43,40 @@ class RealtimeLevelMatcher:
 
     def set_reference_audio(self, reference: np.ndarray | None) -> bool:
         """Set reference audio for level matching"""
-        if reference is None:
-            self.reference_rms = None
-            self.enabled = False
-            return False
+        with self._lock:
+            if reference is None:
+                self.reference_rms = None
+                self.enabled = False
+                return False
 
-        # Calculate RMS of reference audio
-        self.reference_rms = np.sqrt(np.mean(reference ** 2))
-        self.enabled = True
-        info(f"Reference RMS set: {self.reference_rms:.6f}")
-        return True
+            # Calculate RMS of reference audio
+            self.reference_rms = np.sqrt(np.mean(reference ** 2))
+            self.enabled = True
+            info(f"Reference RMS set: {self.reference_rms:.6f}")
+            return True
 
     def process(self, audio: np.ndarray) -> np.ndarray:
         """Process audio chunk with level matching"""
-        if not self.enabled or self.reference_rms is None or self.reference_rms == 0:
-            return audio
+        with self._lock:
+            if not self.enabled or self.reference_rms is None or self.reference_rms == 0:
+                return audio
 
-        # Calculate current RMS
-        current_rms = np.sqrt(np.mean(audio ** 2))
+            # Calculate current RMS
+            current_rms = np.sqrt(np.mean(audio ** 2))
 
-        if current_rms == 0:
-            return audio
+            if current_rms == 0:
+                return audio
 
-        # Smooth the target RMS to avoid sudden changes
-        target_rms = self.reference_rms
-        self.current_target_rms += (target_rms - self.current_target_rms) * self.target_rms_alpha
+            # Smooth the target RMS to avoid sudden changes
+            target_rms = self.reference_rms
+            self.current_target_rms += (target_rms - self.current_target_rms) * self.target_rms_alpha
 
-        # Calculate gain needed
-        gain = self.current_target_rms / current_rms
+            # Calculate gain needed
+            gain = self.current_target_rms / current_rms
 
-        # Apply gain smoothing — returns a per-sample 1-D ramp (issue #2209)
-        self.gain_smoother.set_target(gain)
-        smooth_gain = self.gain_smoother.process(len(audio))  # shape (num_samples,)
+            # Apply gain smoothing — returns a per-sample 1-D ramp (issue #2209)
+            self.gain_smoother.set_target(gain)
+            smooth_gain = self.gain_smoother.process(len(audio))  # shape (num_samples,)
 
         # Broadcast ramp over channels: (samples,) → (samples, 1) for 2-D audio
         if audio.ndim > 1:
