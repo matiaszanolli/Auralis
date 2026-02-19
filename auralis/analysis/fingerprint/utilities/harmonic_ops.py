@@ -37,9 +37,6 @@ class HarmonicOperations:
 
         Returns:
             Harmonic ratio (0-1), or 0.5 if calculation fails
-
-        Raises:
-            RuntimeError: If Rust DSP library not available
         """
         try:
             # Import DSPBackend for Rust HPSS implementation
@@ -63,7 +60,7 @@ class HarmonicOperations:
 
         except Exception as e:
             logger.error(f"Harmonic ratio calculation failed: {e}")
-            raise
+            return 0.5
 
     @staticmethod
     def calculate_pitch_stability(audio: np.ndarray, sr: int) -> float:
@@ -78,10 +75,7 @@ class HarmonicOperations:
             sr: Sample rate
 
         Returns:
-            Pitch stability (0-1), or default values if calculation fails
-
-        Raises:
-            RuntimeError: If Rust DSP library not available
+            Pitch stability (0-1), or 0.5 if calculation fails
         """
         try:
             # Import here to avoid circular dependency
@@ -105,7 +99,7 @@ class HarmonicOperations:
 
         except Exception as e:
             logger.error(f"Pitch stability calculation failed: {e}")
-            raise
+            return 0.5
 
     @staticmethod
     def calculate_chroma_energy(audio: np.ndarray, sr: int) -> float:
@@ -121,9 +115,6 @@ class HarmonicOperations:
 
         Returns:
             Chroma energy (0-1), or 0.5 if calculation fails
-
-        Raises:
-            RuntimeError: If Rust DSP library not available
         """
         try:
             # Import here to avoid circular dependency
@@ -151,22 +142,40 @@ class HarmonicOperations:
 
         except Exception as e:
             logger.error(f"Chroma energy calculation failed: {e}")
-            raise
+            return 0.5
 
     @staticmethod
     def calculate_all(audio: np.ndarray, sr: int) -> tuple[float, float, float]:
         """
         Calculate all three harmonic features in one call.
 
+        Each metric is computed independently; a failure in one returns its
+        fallback (0.5) without affecting the others (#2445).
+
         Args:
             audio: Audio signal
             sr: Sample rate
 
         Returns:
-            Tuple of (harmonic_ratio, pitch_stability, chroma_energy)
+            Tuple of (harmonic_ratio, pitch_stability, chroma_energy).
+            Any metric that fails is returned as 0.5.
         """
-        return (
-            HarmonicOperations.calculate_harmonic_ratio(audio),
-            HarmonicOperations.calculate_pitch_stability(audio, sr),
-            HarmonicOperations.calculate_chroma_energy(audio, sr)
-        )
+        try:
+            harmonic_ratio = HarmonicOperations.calculate_harmonic_ratio(audio)
+        except Exception as e:
+            logger.error(f"calculate_all: harmonic_ratio failed: {e}")
+            harmonic_ratio = 0.5
+
+        try:
+            pitch_stability = HarmonicOperations.calculate_pitch_stability(audio, sr)
+        except Exception as e:
+            logger.error(f"calculate_all: pitch_stability failed: {e}")
+            pitch_stability = 0.5
+
+        try:
+            chroma_energy = HarmonicOperations.calculate_chroma_energy(audio, sr)
+        except Exception as e:
+            logger.error(f"calculate_all: chroma_energy failed: {e}")
+            chroma_energy = 0.5
+
+        return (harmonic_ratio, pitch_stability, chroma_energy)
