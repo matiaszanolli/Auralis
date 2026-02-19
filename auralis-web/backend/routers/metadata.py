@@ -297,22 +297,25 @@ def create_metadata_router(
                     backup=request.backup
                 ))
 
-            # Execute batch update
+            # Execute batch update (atomic when backup=True)
             results = metadata_editor.batch_update(batch_updates)
+            rolled_back: bool = results.get('rolled_back', False)
 
-            # Update database for successful updates using repository
+            # Update database only when the batch was not rolled back.
+            # If rolled_back=True every file was restored, so no DB changes needed.
             successful_track_ids = []
 
-            for result in results.get('results', []):
-                if result['success']:
-                    track_id = result['track_id']
-                    updates = result.get('updates', {})
+            if not rolled_back:
+                for result in results.get('results', []):
+                    if result.get('success'):
+                        track_id = result['track_id']
+                        updates = result.get('updates', {})
 
-                    if updates:
-                        # Update database record using repository
-                        updated_track = repos.tracks.update_metadata(track_id, **updates)
-                        if updated_track:
-                            successful_track_ids.append(track_id)
+                        if updates:
+                            # Update database record using repository
+                            updated_track = repos.tracks.update_metadata(track_id, **updates)
+                            if updated_track:
+                                successful_track_ids.append(track_id)
 
             # Broadcast batch update event
             if broadcast_manager and successful_track_ids:
@@ -326,14 +329,16 @@ def create_metadata_router(
 
             logger.info(
                 f"Batch metadata update: {results['successful']}/{results['total']} successful"
+                + (", rolled back" if rolled_back else "")
             )
 
             return {
-                "success": True,
+                "success": results['failed'] == 0,
                 "total": results['total'],
                 "successful": results['successful'],
                 "failed": results['failed'],
-                "results": results['results']
+                "results": results['results'],
+                "rolled_back": rolled_back,
             }
 
         except Exception as e:

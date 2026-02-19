@@ -181,34 +181,139 @@ class MetadataEditor:
 
     def batch_update(self, updates: list[MetadataUpdate]) -> dict[str, Any]:
         """
-        Update metadata for multiple tracks
+        Update metadata for multiple tracks atomically.
+
+        When backup=True (the default), all files are backed up before any
+        write is attempted.  If any write fails, every file that was already
+        modified is restored from its backup so the collection is left in a
+        consistent state.  Backups are deleted only on a fully-successful run.
+
+        When backup=False the batch is best-effort (no rollback possible).
 
         Args:
             updates: List of MetadataUpdate objects
 
         Returns:
-            Dictionary with success/failure counts and errors
+            Dictionary with:
+            - total (int): updates attempted
+            - successful (int): updates that committed
+            - failed (int): updates that did not commit
+            - results (list): per-file {track_id, filepath, success, [error], [updates]}
+            - rolled_back (bool): True when a failure triggered a full rollback
         """
-        results: dict[str, Any] = {
-            'success': 0,
-            'failed': 0,
-            'errors': []
-        }
+        if not updates:
+            return {
+                'total': 0, 'successful': 0, 'failed': 0,
+                'results': [], 'rolled_back': False,
+            }
+
+        total = len(updates)
+
+        # Phase 1 — Validate all files exist before touching any.
+        for update in updates:
+            if not os.path.exists(update.filepath):
+                return {
+                    'total': total,
+                    'successful': 0,
+                    'failed': total,
+                    'results': [
+                        {
+                            'track_id': u.track_id,
+                            'filepath': u.filepath,
+                            'success': False,
+                            'error': (
+                                f"File not found: {update.filepath}"
+                                if u.filepath == update.filepath
+                                else f"Aborted: {update.filepath} not found"
+                            ),
+                        }
+                        for u in updates
+                    ],
+                    'rolled_back': False,
+                }
+
+        # Phase 2 — Back up every file (fail-fast: any backup failure aborts all).
+        backed_up_paths: set[str] = set()
+        if any(u.backup for u in updates):
+            for update in updates:
+                if update.backup:
+                    if not self.backup_manager.create_backup(update.filepath):
+                        for path in backed_up_paths:
+                            self.backup_manager.cleanup_backup(path)
+                        return {
+                            'total': total,
+                            'successful': 0,
+                            'failed': total,
+                            'results': [
+                                {
+                                    'track_id': u.track_id,
+                                    'filepath': u.filepath,
+                                    'success': False,
+                                    'error': (
+                                        f"Failed to create backup: {update.filepath}"
+                                        if u.filepath == update.filepath
+                                        else f"Aborted: backup failed for {update.filepath}"
+                                    ),
+                                }
+                                for u in updates
+                            ],
+                            'rolled_back': False,
+                        }
+                    backed_up_paths.add(update.filepath)
+
+        # Phase 3 — Apply all updates (skip per-file backup; batch backup done above).
+        per_file_results: list[dict[str, Any]] = []
+        applied_paths: list[str] = []
+        any_failed = False
 
         for update in updates:
             try:
-                self.write_metadata(update.filepath, update.updates, backup=update.backup)
-                results['success'] += 1
-            except Exception as e:
-                results['failed'] += 1
-                results['errors'].append({
+                self.write_metadata(update.filepath, update.updates, backup=False)
+                applied_paths.append(update.filepath)
+                per_file_results.append({
                     'track_id': update.track_id,
                     'filepath': update.filepath,
-                    'error': str(e)
+                    'success': True,
+                    'updates': update.updates,
+                })
+            except Exception as e:
+                any_failed = True
+                per_file_results.append({
+                    'track_id': update.track_id,
+                    'filepath': update.filepath,
+                    'success': False,
+                    'error': str(e),
                 })
 
-        info(f"Batch update complete: {results['success']} succeeded, {results['failed']} failed")
-        return results
+        # Phase 4 — Roll back all applied files when the batch was backed up and any failed.
+        rolled_back = False
+        if any_failed and backed_up_paths:
+            for filepath in applied_paths:
+                if filepath in backed_up_paths:
+                    self.backup_manager.restore_backup(filepath)
+            rolled_back = True
+            # Mark previously-succeeded items as rolled back.
+            per_file_results = [
+                {**r, 'success': False, 'rolled_back': True} if r.get('success') else r
+                for r in per_file_results
+            ]
+
+        # Phase 5 — Clean up backups on a fully successful run.
+        if not any_failed:
+            for path in backed_up_paths:
+                self.backup_manager.cleanup_backup(path)
+
+        successful = sum(1 for r in per_file_results if r.get('success'))
+        failed = total - successful
+
+        info(f"Batch update: {successful}/{total} successful, rolled_back={rolled_back}")
+        return {
+            'total': total,
+            'successful': successful,
+            'failed': failed,
+            'results': per_file_results,
+            'rolled_back': rolled_back,
+        }
 
     def _create_backup(self, filepath: str) -> bool:
         """

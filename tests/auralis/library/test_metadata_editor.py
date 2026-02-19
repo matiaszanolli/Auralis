@@ -279,15 +279,20 @@ class TestBatchUpdate:
             MetadataUpdate(2, '/path/to/track2.mp3', {'title': 'Title 2'})
         ]
 
-        with patch.object(editor, 'write_metadata', return_value=True):
+        with patch('os.path.exists', return_value=True), \
+             patch.object(editor.backup_manager, 'create_backup', return_value=True), \
+             patch.object(editor.backup_manager, 'cleanup_backup', return_value=True), \
+             patch.object(editor, 'write_metadata', return_value=True):
             results = editor.batch_update(updates)
 
-            assert results['success'] == 2
-            assert results['failed'] == 0
-            assert len(results['errors']) == 0
+        assert results['successful'] == 2
+        assert results['failed'] == 0
+        assert results['total'] == 2
+        assert results['rolled_back'] is False
+        assert all(r['success'] for r in results['results'])
 
     def test_batch_update_with_failures(self):
-        """Test batch update with some failures"""
+        """Test batch update with some failures rolls back all applied files"""
         editor = MetadataEditor()
 
         updates = [
@@ -300,14 +305,25 @@ class TestBatchUpdate:
                 raise ValueError("Test error")
             return True
 
-        with patch.object(editor, 'write_metadata', side_effect=mock_write):
+        with patch('os.path.exists', return_value=True), \
+             patch.object(editor.backup_manager, 'create_backup', return_value=True), \
+             patch.object(editor.backup_manager, 'restore_backup', return_value=True) as mock_restore, \
+             patch.object(editor, 'write_metadata', side_effect=mock_write):
             results = editor.batch_update(updates)
 
-            assert results['success'] == 1
-            assert results['failed'] == 1
-            assert len(results['errors']) == 1
-            assert results['errors'][0]['track_id'] == 2
-            assert 'Test error' in results['errors'][0]['error']
+        # All rolled back due to failure
+        assert results['successful'] == 0
+        assert results['failed'] == 2
+        assert results['total'] == 2
+        assert results['rolled_back'] is True
+        # track1 was applied then rolled back; track2 was the failure
+        failed_ids = {r['track_id'] for r in results['results'] if not r.get('success')}
+        assert failed_ids == {1, 2}
+        # Restore was called for track1 (the file that was applied before failure)
+        mock_restore.assert_called()
+        # The error message for track2 mentions the original error
+        track2_result = next(r for r in results['results'] if r['track_id'] == 2)
+        assert 'Test error' in track2_result['error']
 
     def test_batch_update_empty_list(self):
         """Test batch update with empty list"""
@@ -315,9 +331,11 @@ class TestBatchUpdate:
 
         results = editor.batch_update([])
 
-        assert results['success'] == 0
+        assert results['successful'] == 0
         assert results['failed'] == 0
-        assert len(results['errors']) == 0
+        assert results['total'] == 0
+        assert results['results'] == []
+        assert results['rolled_back'] is False
 
 
 @pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
