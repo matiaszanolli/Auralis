@@ -183,3 +183,83 @@ The following known issues are **verified fixed** by this range:
 | F1: Non-daemon prebuffer thread blocks exit if load() stalls past 5 s | MEDIUM | NEW |
 | F2: FingerprintService inconsistent sr between file-load and pre-loaded paths | LOW | NEW |
 | F3: useWebSocketSubscription deferred subscriptions not re-established on reconnect | LOW | NEW |
+
+---
+
+## Second Delta — Range: HEAD~10..HEAD (2026-02-18, second run)
+
+**Commits in range**: `768c00d5`, `64c6e30f`, `861660c9`, `f0853a54`, `ad388970`, `c603029d`, `a577cf9b`, `879a83d1`, `024b1f75`, `704b50f9`
+
+**Key themes**: Async lock consolidation (threading → asyncio), WebSocket streaming cleanup, metadata atomicity rollback, React unmount guard, HarmonicOps fallback.
+
+### Confirmed Correct Fixes (No Issues)
+
+| Commit | Fix | Verdict |
+|--------|-----|---------|
+| `64c6e30f` | `threading.Lock` → `asyncio.Lock` in `PlayerStateManager`; `get_state()` lock dropped | **CORRECT** — asyncio is single-threaded; drop-of-lock from read-only accessor is safe |
+| `861660c9` | `active_streams` registered in try-body, popped in finally for all 3 stream types | **CORRECT** — per-request controller, no cross-connection collisions |
+| `f0853a54` | `_active_streaming_tasks` guarded with `asyncio.Lock`; atomic cancel+register | **CORRECT** — TOCTOU eliminated; lock released before `await shield` for seek |
+| `c603029d` | `get_window()` returns inside `with self.lock` | **CORRECT** — eliminates check-then-return TOCTOU; prior reader had unprotected return |
+| `879a83d1` | `mountedRef` + `cancelAnimationFrame` on unmount in `usePlaybackWithDecay` | **CORRECT** — null ref on the rAF handle before `setIsAnimating` prevents setState-on-unmount |
+| `artworkService.ts` | Endpoint factory receives full `data` object, not just `albumId` | **CORRECT** — matches `serviceFactory.ts:117` call convention `(endpoints.custom[name])(data)` |
+| `similarityService.ts` | `error.status` → `error.statusCode` | **CORRECT** — `APIRequestError` exposes `.statusCode`; `.status` was always `undefined` |
+
+### Findings (Second Delta)
+
+#### I-01: `asyncio.Semaphore._value` Is a Private CPython Internal
+- **Severity**: MEDIUM
+- **Changed File**: `auralis-web/backend/processing_engine.py:578` (commit: `ad388970`)
+- **Status**: NEW
+- **Description**: The `get_queue_status()` method uses `self.max_concurrent_jobs - self._concurrency_semaphore._value` to count in-flight jobs. `_value` is an undocumented private attribute of `asyncio.Semaphore` (not listed in the public API). The public interface exposes only `locked()`, `acquire()`, and `release()`. This attribute has been stable in CPython but could change in Python 3.14+ (project target).
+- **Evidence**:
+  ```python
+  # processing_engine.py:578
+  "processing": self.max_concurrent_jobs - self._concurrency_semaphore._value,
+  ```
+- **Impact**: `get_queue_status()` silently returns wrong counts or raises `AttributeError` if CPython 3.14 renames the internal. The status endpoint is polled by the frontend for job progress.
+- **Suggested Fix**: Maintain a separate `self._active_job_count: int = 0`, increment after `semaphore.acquire()`, decrement in the `start_worker` finally block, and use it in `get_queue_status()`.
+
+#### I-02: `batch_update()` Mixed `backup` Flags Cause DB/Disk Inconsistency
+- **Severity**: MEDIUM
+- **Changed File**: `auralis/library/metadata_editor/metadata_editor.py:288-298` (commit: `a577cf9b`)
+- **Status**: NEW
+- **Description**: Phase 4 of `batch_update()` sets the global `rolled_back = True` flag and marks **all** previously-successful results as `success=False, rolled_back=True` — even entries whose individual `backup=False` flag meant no physical restore was possible. The metadata router then skips every DB update because `rolled_back=True`. If a mixed-flag batch is used, files with `backup=False` that succeeded on disk are permanently unregistered in the database.
+
+  > **Current API**: `POST /api/metadata/batch` applies a single `request.backup` value uniformly to all updates, so this path cannot be triggered via the HTTP endpoint today. The bug is in the library method's contract.
+- **Evidence**:
+  ```python
+  # Phase 4: all per_file_results marked rolled_back=True regardless of backup flag
+  per_file_results = [
+      {**r, 'success': False, 'rolled_back': True} if r.get('success') else r
+      for r in per_file_results
+  ]
+  # router/metadata.py: skips ALL DB updates when rolled_back=True
+  if not rolled_back:
+      for result in results.get('results', []):
+          if result.get('success'):
+              repos.tracks.update_metadata(...)
+  ```
+- **Impact**: Disk has new metadata; database has old metadata; user sees stale library until rescan.
+- **Suggested Fix**: Either enforce uniform `backup` within a batch (raise `ValueError` if mixed), or compute `rolled_back` per-file and let the router update entries that were genuinely applied-and-not-restored.
+
+#### I-03: `calculate_all()` try/except Blocks Are Dead Code After #2445
+- **Severity**: LOW
+- **Changed File**: `auralis/analysis/fingerprint/utilities/harmonic_ops.py:155-183` (commit: `704b50f9`)
+- **Status**: NEW
+- **Description**: Fix #2445 made all three `HarmonicOperations` methods catch their own exceptions and return 0.5. `calculate_all()` was simultaneously refactored to wrap each call in its own try/except. Since the callees no longer propagate exceptions, the except branches in `calculate_all()` are unreachable dead code.
+- **Evidence**:
+  ```python
+  try:
+      harmonic_ratio = HarmonicOperations.calculate_harmonic_ratio(audio)
+  except Exception as e:          # ← Never reached: callee catches internally
+      harmonic_ratio = 0.5
+  ```
+- **Impact**: No functional impact; dead code misleads future readers.
+- **Suggested Fix**: Remove try/except wrappers from `calculate_all()` and restore the simple three-expression tuple return.
+
+### Missing Tests (Second Delta)
+
+| Changed Code | Gap |
+|---|---|
+| `batch_update()` mixed backup=True/False paths | No test for mixed-flag batch; existing tests use uniform backup setting |
+| `get_queue_status()` `processing` count accuracy | No concurrent-worker test validating `_value` equals actual active count |

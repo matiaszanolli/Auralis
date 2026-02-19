@@ -24,6 +24,7 @@ class ScanResult:
     files_failed: int = 0
     scan_time: float = 0.0
     directories_scanned: int = 0
+    rejected: bool = False  # True when rejected by the concurrency guard (#2438)
     added_tracks: list[Any] = field(default_factory=list)  # List of Track objects added during scan
 
     def __str__(self) -> str:
