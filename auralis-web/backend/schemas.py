@@ -233,8 +233,8 @@ class WebSocketMessageBase(BaseModel):
     })
 
 
-class ScanRequest(BaseModel):
-    """Library scan request."""
+class LibraryScanRequest(BaseModel):
+    """Library scan request (POST /api/library/scan)."""
     directories: list[str] = Field(description="List of directory paths to scan")
     recursive: bool = Field(default=True, description="Whether to scan subdirectories")
     skip_existing: bool = Field(default=True, description="Skip files already in library")

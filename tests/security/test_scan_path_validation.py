@@ -319,57 +319,18 @@ class TestPathSanitization:
 
 @pytest.mark.security
 @pytest.mark.integration
-class TestScanRequestValidation:
-    """Test ScanRequest model validation (integration)."""
-
-    def test_scan_request_rejects_traversal(self):
-        """ScanRequest should reject path traversal attempts."""
-        from pydantic import ValidationError
-        from routers.files import ScanRequest
-
-        traversal_paths = [
-            "../../../etc",
-            "../../..",
-            "./music/../../../etc",
-        ]
-
-        for path in traversal_paths:
-            with pytest.raises(ValidationError) as exc_info:
-                ScanRequest(directory=path)
-
-            # Check that validation error mentions path traversal
-            errors = exc_info.value.errors()
-            assert any("traversal" in str(err).lower() for err in errors), \
-                f"Should reject traversal path: {path}"
-
-    def test_scan_request_accepts_valid_path(self, tmp_path):
-        """ScanRequest should accept valid paths."""
-        from routers.files import ScanRequest
-
-        # Create test directory
-        test_dir = tmp_path / "music"
-        test_dir.mkdir()
-
-        with patch('path_security.Path.home', return_value=tmp_path):
-            # Should accept valid path
-            request = ScanRequest(directory=str(test_dir))
-            assert request.directory == str(test_dir.resolve())
-
-
-@pytest.mark.security
-@pytest.mark.integration
 class TestLibraryScanRequestValidation:
-    """Test schemas.py ScanRequest validation (library scan endpoint).
+    """Test schemas.py LibraryScanRequest validation (library scan endpoint).
 
     Fixes #2181: Library scan endpoint bypasses path validation.
-    The ScanRequest in schemas.py (used by POST /api/library/scan) was missing
-    the path validation that the files router's ScanRequest already had.
+    Fixes #2182: Renamed from ScanRequest to LibraryScanRequest to eliminate
+    naming collision with the (now-removed) files router local class.
     """
 
     def test_library_scan_request_rejects_traversal(self):
-        """Library ScanRequest should reject path traversal attempts."""
+        """LibraryScanRequest should reject path traversal attempts."""
         from pydantic import ValidationError
-        from schemas import ScanRequest
+        from schemas import LibraryScanRequest
 
         traversal_paths = [
             "../../../etc",
@@ -379,40 +340,40 @@ class TestLibraryScanRequestValidation:
 
         for path in traversal_paths:
             with pytest.raises(ValidationError) as exc_info:
-                ScanRequest(directories=[path])
+                LibraryScanRequest(directories=[path])
 
             errors = exc_info.value.errors()
             assert any("traversal" in str(err).lower() for err in errors), \
                 f"Should reject traversal path: {path}"
 
     def test_library_scan_request_rejects_system_paths(self):
-        """Library ScanRequest should reject system directories."""
+        """LibraryScanRequest should reject system directories."""
         from pydantic import ValidationError
-        from schemas import ScanRequest
+        from schemas import LibraryScanRequest
 
         for path in ["/etc", "/root", "/var"]:
             if not Path(path).exists():
                 continue
             with pytest.raises(ValidationError):
-                ScanRequest(directories=[path])
+                LibraryScanRequest(directories=[path])
 
     def test_library_scan_request_rejects_mixed_paths(self):
         """One bad path in the list should reject the entire request."""
         from pydantic import ValidationError
-        from schemas import ScanRequest
+        from schemas import LibraryScanRequest
 
         with pytest.raises(ValidationError):
-            ScanRequest(directories=[str(Path.home() / "Music"), "../../etc"])
+            LibraryScanRequest(directories=[str(Path.home() / "Music"), "../../etc"])
 
     def test_library_scan_request_accepts_valid_paths(self, tmp_path):
-        """Library ScanRequest should accept valid paths."""
-        from schemas import ScanRequest
+        """LibraryScanRequest should accept valid paths."""
+        from schemas import LibraryScanRequest
 
         test_dir = tmp_path / "music"
         test_dir.mkdir()
 
         with patch('path_security.DEFAULT_ALLOWED_DIRS', [tmp_path]):
-            request = ScanRequest(directories=[str(test_dir)])
+            request = LibraryScanRequest(directories=[str(test_dir)])
             assert request.directories == [str(test_dir.resolve())]
 
 

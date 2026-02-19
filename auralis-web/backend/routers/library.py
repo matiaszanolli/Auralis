@@ -27,7 +27,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
 
-from schemas import ScanRequest
+from schemas import LibraryScanRequest
 
 from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
@@ -464,7 +464,7 @@ def create_library_router(
             raise handle_query_error("get album", e)
 
     @router.post("/api/library/scan")
-    async def scan_library(request: ScanRequest) -> dict[str, Any]:
+    async def scan_library(request: LibraryScanRequest) -> dict[str, Any]:
         """
         Scan directories for audio files and add them to the library.
 

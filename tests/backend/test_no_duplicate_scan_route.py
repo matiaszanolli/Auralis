@@ -4,7 +4,7 @@ Test: no duplicate POST /api/library/scan routes (fixes #2123)
 Verifies that:
 - files.py no longer registers POST /api/library/scan
 - library.py is the sole owner of POST /api/library/scan
-- The endpoint accepts both single and multiple directory lists (via schemas.ScanRequest)
+- The endpoint accepts both single and multiple directory lists (via schemas.LibraryScanRequest)
 - files.py still exposes POST /api/files/upload and GET /api/audio/formats
 """
 
@@ -84,31 +84,31 @@ def test_files_router_retains_formats_endpoint():
 
 def test_scan_request_accepts_multiple_directories():
     """
-    schemas.ScanRequest must accept a list of directory paths.
+    schemas.LibraryScanRequest must accept a list of directory paths.
     A single directory is passed as a one-element list ["path"].
     """
     from unittest.mock import patch
-    from schemas import ScanRequest
+    from schemas import LibraryScanRequest
 
     with patch("path_security.validate_scan_path", side_effect=lambda p: Path(p)):
-        req = ScanRequest(directories=["/tmp/music", "/tmp/other"])
+        req = LibraryScanRequest(directories=["/tmp/music", "/tmp/other"])
         assert len(req.directories) == 2
 
-        single = ScanRequest(directories=["/tmp/music"])
+        single = LibraryScanRequest(directories=["/tmp/music"])
         assert len(single.directories) == 1
 
 
 def test_scan_request_accepts_optional_flags():
-    """schemas.ScanRequest must default recursive=True, skip_existing=True."""
+    """schemas.LibraryScanRequest must default recursive=True, skip_existing=True."""
     from unittest.mock import patch
-    from schemas import ScanRequest
+    from schemas import LibraryScanRequest
 
     with patch("path_security.validate_scan_path", side_effect=lambda p: Path(p)):
-        req = ScanRequest(directories=["/tmp/music"])
+        req = LibraryScanRequest(directories=["/tmp/music"])
         assert req.recursive is True
         assert req.skip_existing is True
 
-        custom = ScanRequest(directories=["/tmp/music"], recursive=False, skip_existing=False)
+        custom = LibraryScanRequest(directories=["/tmp/music"], recursive=False, skip_existing=False)
         assert custom.recursive is False
         assert custom.skip_existing is False
 
@@ -126,5 +126,5 @@ def test_files_router_has_no_local_scan_request_class():
     ]
     assert "ScanRequest" not in class_names, (
         "files.py must not define a local ScanRequest class (fixes #2123). "
-        "Use schemas.ScanRequest exclusively."
+        "Use schemas.LibraryScanRequest exclusively."
     )
