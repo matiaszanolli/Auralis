@@ -10,6 +10,7 @@ Unified processor supporting both reference-based and adaptive mastering
 Main processing engine that bridges Matchering and Auralis systems
 """
 
+from collections import OrderedDict
 from typing import Any
 
 import numpy as np
@@ -471,7 +472,9 @@ _apply_module_optimizations()
 
 # Module-level processor cache for convenience functions
 # Caches HybridProcessor instances to avoid expensive re-initialization
-_processor_cache: dict[str, HybridProcessor] = {}
+# LRU-eviction cap: prevents unbounded memory growth in long-running servers (#2161)
+_PROCESSOR_CACHE_MAX_SIZE: int = 10
+_processor_cache: OrderedDict[str, HybridProcessor] = OrderedDict()
 
 
 def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridProcessor:
@@ -488,15 +491,23 @@ def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridP
     # Use config object id if provided, otherwise use mode as cache key
     cache_key: str = f"{id(config)}_{mode}" if config else f"default_{mode}"
 
-    if cache_key not in _processor_cache:
-        if config is None:
-            config = UnifiedConfig()
-        config.set_processing_mode(mode)  # type: ignore[arg-type]
-        _processor_cache[cache_key] = HybridProcessor(config)
-        debug(f"Created cached HybridProcessor for mode={mode}")
-    else:
+    if cache_key in _processor_cache:
+        # Move to end so it is considered most-recently-used
+        _processor_cache.move_to_end(cache_key)
         debug(f"Using cached HybridProcessor for mode={mode}")
+        return _processor_cache[cache_key]
 
+    if config is None:
+        config = UnifiedConfig()
+    config.set_processing_mode(mode)  # type: ignore[arg-type]
+    _processor_cache[cache_key] = HybridProcessor(config)
+
+    # Evict oldest entry when the cache exceeds its maximum size (#2161)
+    while len(_processor_cache) > _PROCESSOR_CACHE_MAX_SIZE:
+        evicted_key, _ = _processor_cache.popitem(last=False)
+        debug(f"Evicted cached HybridProcessor (cache full): key={evicted_key}")
+
+    debug(f"Created cached HybridProcessor for mode={mode} (cache size: {len(_processor_cache)})")
     return _processor_cache[cache_key]
 
 
