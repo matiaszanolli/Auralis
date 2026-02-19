@@ -40,7 +40,7 @@
  * @module hooks/player/usePlaybackQueue
  */
 
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
 import type { Track } from '@/types/domain';
@@ -557,7 +557,9 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   // Get current track from queue
   const currentTrack = state.tracks[state.currentIndex] || null;
 
-  return {
+  // Memoize return value so object identity is stable when deps haven't changed,
+  // preventing cascading re-renders in consumers (fixes #2465).
+  return useMemo(() => ({
     state,
     queue: state.tracks,
     currentIndex: state.currentIndex,
@@ -575,7 +577,11 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     isLoading,
     error,
     clearError,
-  };
+  }), [
+    state, currentTrack, isLoading, error,
+    setQueue, addTrack, removeTrack, reorderTrack, reorderQueue,
+    toggleShuffle, setRepeatMode, clearQueue, clearError,
+  ]);
 }
 
 /**

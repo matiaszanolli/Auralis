@@ -221,7 +221,7 @@ export class RealTimeAnalysisStream {
   }
 
   disconnect(): void {
-    this.isStreaming = false;
+    this.stateManager.setStreaming(false);
 
     if (this.wsManager) {
       this.wsManager.close();
@@ -541,7 +541,6 @@ export class RealTimeAnalysisStream {
 
   // Control Methods
   startStreaming(): void {
-    this.isStreaming = true;
     this.stateManager.setStreaming(true);
     if (this.wsManager?.isConnected()) {
       this.wsManager.send(JSON.stringify({
@@ -552,7 +551,6 @@ export class RealTimeAnalysisStream {
   }
 
   stopStreaming(): void {
-    this.isStreaming = false;
     this.stateManager.setStreaming(false);
     if (this.wsManager?.isConnected()) {
       this.wsManager.send(JSON.stringify({

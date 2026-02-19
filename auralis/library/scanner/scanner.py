@@ -93,6 +93,23 @@ class LibraryScanner:
         start_time: float = time.time()
         result: ScanResult = ScanResult()
 
+        # --- Concurrency guard (#2438) ---
+        _acquired: bool = True
+        _max_scans: int = 1
+        try:
+            _acquired, _max_scans = self.library_manager.try_acquire_scan_slot()
+        except AttributeError:
+            pass  # library_manager is a lightweight mock; skip guard
+
+        if not _acquired:
+            warning(
+                f"Scan rejected: max_concurrent_scans limit ({_max_scans}) already reached. "
+                "Retry when the active scan completes."
+            )
+            result.rejected = True
+            return result
+        # --- End concurrency guard ---
+
         info(f"Starting library scan of {len(directories)} directories")
 
         try:
@@ -164,6 +181,12 @@ class LibraryScanner:
             warning(f"Library scan failed: {e}")
             result.scan_time = time.time() - start_time
             return result
+
+        finally:
+            try:
+                self.library_manager.release_scan_slot()
+            except AttributeError:
+                pass
 
     def scan_single_directory(self, directory: str, **kwargs: Any) -> ScanResult:
         """Scan a single directory"""

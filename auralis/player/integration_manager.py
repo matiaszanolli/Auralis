@@ -10,6 +10,7 @@ Responsibilities:
 """
 
 import os
+import threading
 import time
 from typing import Any, cast
 from collections.abc import Callable
@@ -68,6 +69,7 @@ class IntegrationManager:
         self.tracks_played = 0
         self.total_play_time = 0.0
         self.session_start_time = time.time()
+        self._stats_lock = threading.Lock()  # guards tracks_played (fixes #2472)
 
         # Register to receive playback state changes
         self.playback.add_callback(self._on_playback_state_change)
@@ -230,11 +232,13 @@ class IntegrationManager:
         }
 
     def record_track_completion(self) -> None:
-        """Record that current track completed"""
-        self.tracks_played += 1
+        """Record that current track completed (fixes #2472: atomic increment)."""
+        with self._stats_lock:
+            self.tracks_played += 1
+            count = self.tracks_played
         self._notify_callbacks({
             'action': 'track_completed',
-            'tracks_played': self.tracks_played
+            'tracks_played': count
         })
 
     def _get_position_seconds(self) -> float:

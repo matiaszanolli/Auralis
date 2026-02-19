@@ -402,8 +402,12 @@ class AudioPlayer:
 
     def add_callback(self, callback: Callable[..., Any]) -> None:
         """Add callback for state updates"""
+        # Route through IntegrationManager only — it already bridges
+        # PlaybackController state changes via _on_playback_state_change,
+        # enriches the dict, and forwards to integration.callbacks.
+        # Adding to playback.callbacks directly would invoke cb twice per event
+        # (fixes #2471).
         self.integration.add_callback(callback)
-        self.playback.add_callback(callback)
 
     def _notify_callbacks(self, info: dict[str, Any] | None = None) -> None:
         """

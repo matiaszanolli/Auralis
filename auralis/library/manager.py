@@ -33,6 +33,7 @@ from .repositories import (
     StatsRepository,
     TrackRepository,
 )
+from .repositories.settings_repository import SettingsRepository
 
 
 class LibraryManager:
@@ -152,9 +153,14 @@ class LibraryManager:
         self.stats = StatsRepository(self.SessionLocal)
         self.fingerprints = FingerprintRepository(self.SessionLocal)
         self.queue = QueueRepository(self.SessionLocal)
+        self.settings = SettingsRepository(self.SessionLocal)
 
         # Thread-safe locking for delete operations (prevents race conditions)
         self._delete_lock = threading.RLock()
+
+        # Scan concurrency tracking (#2438)
+        self._scan_slots_lock = threading.Lock()
+        self._active_scans: int = 0
 
         # Clean up incomplete fingerprints from interrupted sessions (crash recovery)
         self._cleanup_incomplete_fingerprints()
@@ -218,6 +224,34 @@ class LibraryManager:
 
         except Exception as e:
             error(f"Error during LibraryManager shutdown: {e}")
+
+    def try_acquire_scan_slot(self) -> tuple[bool, int]:
+        """
+        Atomically reserve a concurrent scan slot (#2438).
+
+        Reads max_concurrent_scans from settings on every call so that user
+        changes take effect for the next scan without a restart.
+
+        Returns:
+            (acquired, max_allowed)
+            acquired=False means the caller must not start a scan.
+        """
+        try:
+            settings = self.settings.get_settings()
+            max_scans: int = max(1, (settings.max_concurrent_scans or 1) if settings else 1)
+        except Exception:
+            max_scans = 1  # conservative fallback if settings are unavailable
+
+        with self._scan_slots_lock:
+            if self._active_scans >= max_scans:
+                return False, max_scans
+            self._active_scans += 1
+            return True, max_scans
+
+    def release_scan_slot(self) -> None:
+        """Release a slot previously acquired by try_acquire_scan_slot()."""
+        with self._scan_slots_lock:
+            self._active_scans = max(0, self._active_scans - 1)
 
     def __del__(self) -> None:
         """

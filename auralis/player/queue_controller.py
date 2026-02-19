@@ -223,18 +223,8 @@ class QueueController:
         info("Queue cleared")
 
     def get_queue_info(self) -> dict[str, Any]:
-        """Get detailed queue information"""
-        current: dict[str, Any] | None = self.get_current_track()
-        return {
-            'tracks': self.queue.tracks.copy(),
-            'current_index': self.queue.current_index,
-            'current_track': current,
-            'track_count': len(self.queue.tracks),
-            'has_next': self.queue.current_index < len(self.queue.tracks) - 1,
-            'has_previous': self.queue.current_index > 0,
-            'shuffle_enabled': self.queue.shuffle_enabled,
-            'repeat_enabled': self.queue.repeat_enabled,
-        }
+        """Get detailed queue information as an atomic snapshot (fixes #2470)."""
+        return self.queue.get_queue_info()
 
     def set_shuffle(self, enabled: bool) -> None:
         """Enable/disable shuffle mode"""
