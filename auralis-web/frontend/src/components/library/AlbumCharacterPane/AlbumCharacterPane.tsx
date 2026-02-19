@@ -50,12 +50,21 @@ interface PlaybackDecayState {
  * Instead of instantly freezing, animations fade over 2-3 seconds.
  * Glow effects fade last, creating a "lingering impression" effect.
  */
-function usePlaybackWithDecay(isPlaying: boolean): PlaybackDecayState {
+export function usePlaybackWithDecay(isPlaying: boolean): PlaybackDecayState {
   const [isAnimating, setIsAnimating] = useState(isPlaying);
   const [intensity, setIntensity] = useState(isPlaying ? 1 : 0);
   const wasPlayingRef = useRef(isPlaying);
   const decayStartTimeRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+
+  // Track mounted state to guard against post-unmount setState calls (#2338)
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     // Transition: stopped → playing
@@ -75,7 +84,8 @@ function usePlaybackWithDecay(isPlaying: boolean): PlaybackDecayState {
       decayStartTimeRef.current = performance.now();
 
       const animateDecay = (currentTime: number) => {
-        if (!decayStartTimeRef.current) return;
+        // Guard: stop if component unmounted or decay was reset
+        if (!mountedRef.current || !decayStartTimeRef.current) return;
 
         const elapsed = currentTime - decayStartTimeRef.current;
         const progress = Math.min(elapsed / DECAY_DURATION_MS, 1);
@@ -91,9 +101,10 @@ function usePlaybackWithDecay(isPlaying: boolean): PlaybackDecayState {
           animationFrameRef.current = requestAnimationFrame(animateDecay);
         } else {
           // Decay complete
+          animationFrameRef.current = null;
+          decayStartTimeRef.current = null;
           setIsAnimating(false);
           setIntensity(0);
-          decayStartTimeRef.current = null;
         }
       };
 
@@ -105,6 +116,7 @@ function usePlaybackWithDecay(isPlaying: boolean): PlaybackDecayState {
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
   }, [isPlaying]);
