@@ -229,6 +229,13 @@ pub fn compute_complete_fingerprint(
         return Err("Sample rate must be > 0".into());
     }
 
+    if sample_rate < 8_000 || sample_rate > 384_000 {
+        return Err(format!(
+            "Sample rate {} Hz is out of supported range [8000, 384000]",
+            sample_rate
+        ).into());
+    }
+
     // Handle mono vs stereo
     let (mono_audio, left_channel, right_channel) = if channels == 2 {
         // Stereo: downmix to mono for most analysis

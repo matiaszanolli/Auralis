@@ -38,7 +38,7 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
         'chroma_energy': 0.5
     }
 
-    def __init__(self, chunk_duration: float = 5.0, interval_duration: float = 10.0) -> None:
+    def __init__(self, chunk_duration: float = 5.0, interval_duration: float = 10.0, max_chunks: int = 60) -> None:
         """
         Initialize sampled analyzer.
 
@@ -47,10 +47,12 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
             interval_duration: Interval between chunk starts in seconds (default: 10s)
                 If equal to chunk_duration, chunks don't overlap.
                 If greater, chunks are spaced apart.
+            max_chunks: Maximum number of chunks to extract (default: 60 = ~5 min at 5s/chunk, #2451)
         """
         super().__init__()
         self.chunk_duration: float = chunk_duration
         self.interval_duration: float = interval_duration
+        self.max_chunks: int = max_chunks
 
     def _extract_chunks(self, audio: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -73,6 +75,9 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
         # Extract chunks at regular intervals
         start_sample = 0
         while start_sample + chunk_samples <= len(audio):
+            if len(chunks) >= self.max_chunks:
+                logger.debug(f"Reached max_chunks={self.max_chunks}; stopping extraction (total_duration={total_duration:.1f}s)")
+                break
             end_sample = start_sample + chunk_samples
             chunk = audio[start_sample:end_sample].copy()
             chunks.append(chunk)

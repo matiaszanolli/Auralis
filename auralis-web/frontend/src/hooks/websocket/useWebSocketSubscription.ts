@@ -42,13 +42,12 @@ const managerReadyListeners: Set<ManagerReadyListener> = new Set();
 export function setWebSocketManager(manager: WebSocketSubscriptionManager | null): void {
   globalWebSocketManager = manager;
   if (manager) {
-    // Snapshot before clearing so listeners added during notification are ignored.
-    const pending = new Set(managerReadyListeners);
-    managerReadyListeners.clear();
-    pending.forEach((listener) => listener(manager));
-  } else {
-    managerReadyListeners.clear();
+    // Snapshot without clearing — listeners persist for future reconnects (#2458).
+    // This prevents infinite loops if a listener itself calls setWebSocketManager.
+    const snapshot = new Set(managerReadyListeners);
+    snapshot.forEach((listener) => listener(manager));
   }
+  // On null: leave listeners intact so hooks re-subscribe on next manager (#2458).
 }
 
 /**
@@ -90,9 +89,15 @@ export function useWebSocketSubscription(
 
     function subscribeToManager(manager: WebSocketSubscriptionManager): void {
       if (!isActive) return;
+      // Unsubscribe from previous manager first (reconnect path, fixes #2458).
+      unsubscribeRef.current?.();
+      unsubscribeRef.current = null;
       const unsubscribe = manager.subscribe(messageTypes, stableCallback);
       unsubscribeRef.current = unsubscribe;
     }
+
+    // Always register for reconnect support, even if manager already exists (#2458).
+    managerReadyListeners.add(subscribeToManager);
 
     const manager = getWebSocketManager();
     if (manager) {
@@ -103,12 +108,11 @@ export function useWebSocketSubscription(
         '[useWebSocketSubscription] WebSocket manager not available yet. ' +
         'Subscription deferred until setWebSocketManager() is called (issue #2396).'
       );
-      managerReadyListeners.add(subscribeToManager);
     }
 
     return () => {
       isActive = false;
-      // Remove deferred listener if manager was never set before unmount.
+      // Remove from listeners for reconnect support.
       managerReadyListeners.delete(subscribeToManager);
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;

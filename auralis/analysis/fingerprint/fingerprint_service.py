@@ -189,6 +189,23 @@ class FingerprintService:
             # Cap at 90 s — sufficient for a stable 25D fingerprint with the sampling strategy.
             if audio is None or sr is None:
                 audio, sr = librosa.load(str(audio_path), sr=22050, mono=False, duration=90.0)
+            else:
+                # Normalize pre-loaded audio to match file-load parameters (#2457).
+                # Ensures fingerprints are comparable regardless of loading path.
+                _target_sr = 22050
+                _max_samples = int(_target_sr * 90.0)
+                if sr != _target_sr:
+                    # Resample to target sr.
+                    if audio.ndim == 1:
+                        audio = librosa.resample(audio.astype(np.float32), orig_sr=sr, target_sr=_target_sr)
+                    else:
+                        audio = np.stack([
+                            librosa.resample(audio[ch].astype(np.float32), orig_sr=sr, target_sr=_target_sr)
+                            for ch in range(audio.shape[0])
+                        ])
+                    sr = _target_sr
+                # Cap at 90 seconds (works for both 1-D and 2-D audio).
+                audio = audio[..., :_max_samples]
 
             # Ensure float64 for PyO3 compatibility
             audio = audio.astype(np.float64)

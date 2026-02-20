@@ -12,6 +12,7 @@ Fixes #2156: Unvalidated WebSocket message content and size
 
 import json
 import logging
+import threading
 import time
 from typing import Any
 
@@ -50,6 +51,8 @@ class WebSocketRateLimiter:
         self.window_seconds = window_seconds
         # Track message timestamps per WebSocket ID
         self.message_log: dict[int, list[float]] = {}
+        # Lock to protect message_log during concurrent access (#2442)
+        self._lock = threading.Lock()
 
     def check_rate_limit(self, websocket: WebSocket) -> tuple[bool, str | None]:
         """
@@ -61,30 +64,31 @@ class WebSocketRateLimiter:
         Returns:
             Tuple of (allowed: bool, error_message: str | None)
         """
-        ws_id = id(websocket)
-        now = time.time()
-        cutoff = now - self.window_seconds
+        with self._lock:  # Thread-safe access to message_log (#2442)
+            ws_id = id(websocket)
+            now = time.time()
+            cutoff = now - self.window_seconds
 
-        # Initialize log for this connection if needed
-        if ws_id not in self.message_log:
-            self.message_log[ws_id] = []
+            # Initialize log for this connection if needed
+            if ws_id not in self.message_log:
+                self.message_log[ws_id] = []
 
-        # Remove old timestamps outside the window
-        self.message_log[ws_id] = [
-            ts for ts in self.message_log[ws_id]
-            if ts > cutoff
-        ]
+            # Remove old timestamps outside the window
+            self.message_log[ws_id] = [
+                ts for ts in self.message_log[ws_id]
+                if ts > cutoff
+            ]
 
-        # Check if rate limit exceeded
-        if len(self.message_log[ws_id]) >= self.max_messages_per_second:
-            return False, (
-                f"Rate limit exceeded: maximum {self.max_messages_per_second} "
-                f"messages per {self.window_seconds}s"
-            )
+            # Check if rate limit exceeded
+            if len(self.message_log[ws_id]) >= self.max_messages_per_second:
+                return False, (
+                    f"Rate limit exceeded: maximum {self.max_messages_per_second} "
+                    f"messages per {self.window_seconds}s"
+                )
 
-        # Record this message timestamp
-        self.message_log[ws_id].append(now)
-        return True, None
+            # Record this message timestamp
+            self.message_log[ws_id].append(now)
+            return True, None
 
     def cleanup(self, websocket: WebSocket) -> None:
         """
@@ -93,10 +97,11 @@ class WebSocketRateLimiter:
         Args:
             websocket: WebSocket connection
         """
-        ws_id = id(websocket)
-        if ws_id in self.message_log:
-            del self.message_log[ws_id]
-            logger.debug(f"Cleaned up rate limiter for WebSocket {ws_id}")
+        with self._lock:  # Thread-safe access to message_log (#2442)
+            ws_id = id(websocket)
+            if ws_id in self.message_log:
+                del self.message_log[ws_id]
+                logger.debug(f"Cleaned up rate limiter for WebSocket {ws_id}")
 
 
 async def validate_and_parse_message(

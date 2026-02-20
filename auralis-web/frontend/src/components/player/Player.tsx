@@ -250,7 +250,7 @@ const Player: React.FC = () => {
   // Extract volume from Redux state (0-100 range)
   const volume = useMemo(() => {
     return state.volume ?? 50;
-  }, [state.volume, isStreaming]);
+  }, [state.volume]);
 
   // Muted state - check if volume is 0 or explicitly muted
   const isMuted = useMemo(() => {

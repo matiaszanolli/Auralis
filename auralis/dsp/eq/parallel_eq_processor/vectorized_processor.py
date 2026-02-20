@@ -90,6 +90,9 @@ class VectorizedEQProcessor:
         Returns:
             Processed mono audio
         """
+        # Preserve input dtype to avoid silent promotion to float64 (#2450)
+        input_dtype = audio_mono.dtype
+
         # Transform to frequency domain (no windowing for EQ — see filters.py)
         spectrum = fft(audio_mono[:fft_size])
 
@@ -112,4 +115,5 @@ class VectorizedEQProcessor:
         # Transform back to time domain
         processed_audio = np.real(ifft(spectrum))
 
-        return cast(np.ndarray, processed_audio[:len(audio_mono)])
+        # Cast back to input dtype (fixes #2450: don't silently promote float32 to float64)
+        return cast(np.ndarray, processed_audio[:len(audio_mono)].astype(input_dtype, copy=False))
