@@ -29,6 +29,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import threading
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any
@@ -75,6 +76,7 @@ class SimpleChunkCache:
         """
         self.cache: OrderedDict[str, tuple[np.ndarray, int]] = OrderedDict()
         self.max_chunks: int = max_chunks
+        self._lock = threading.Lock()  # Protects cache from concurrent access (fixes #2436)
 
     def _make_key(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> str:
         """Generate cache key from parameters."""
@@ -95,13 +97,14 @@ class SimpleChunkCache:
         Returns:
             Tuple of (audio_samples, sample_rate) or None if not cached
         """
-        key = self._make_key(track_id, chunk_idx, preset, intensity)
-        if key in self.cache:
-            # Move to end (LRU)
-            self.cache.move_to_end(key)
-            logger.debug(f"✅ Cache HIT: chunk {chunk_idx}, preset {preset}")
-            return self.cache[key]
-        return None
+        with self._lock:
+            key = self._make_key(track_id, chunk_idx, preset, intensity)
+            if key in self.cache:
+                # Move to end (LRU)
+                self.cache.move_to_end(key)
+                logger.debug(f"✅ Cache HIT: chunk {chunk_idx}, preset {preset}")
+                return self.cache[key]
+            return None
 
     def put(
         self,
@@ -113,20 +116,22 @@ class SimpleChunkCache:
         sample_rate: int
     ) -> None:
         """Store chunk in cache."""
-        key = self._make_key(track_id, chunk_idx, preset, intensity)
+        with self._lock:
+            key = self._make_key(track_id, chunk_idx, preset, intensity)
 
-        # Remove oldest if at capacity
-        if len(self.cache) >= self.max_chunks:
-            removed_key = next(iter(self.cache))
-            del self.cache[removed_key]
-            logger.debug(f"Cache evicted oldest chunk to make space")
+            # Remove oldest if at capacity
+            if len(self.cache) >= self.max_chunks:
+                removed_key = next(iter(self.cache))
+                del self.cache[removed_key]
+                logger.debug(f"Cache evicted oldest chunk to make space")
 
-        self.cache[key] = (audio, sample_rate)
-        logger.debug(f"✅ Cached chunk {chunk_idx}, preset {preset}, cache size: {len(self.cache)}")
+            self.cache[key] = (audio, sample_rate)
+            logger.debug(f"✅ Cached chunk {chunk_idx}, preset {preset}, cache size: {len(self.cache)}")
 
     def clear(self) -> None:
         """Clear all cached chunks."""
-        self.cache.clear()
+        with self._lock:
+            self.cache.clear()
 
     def invalidate_chunk(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> None:
         """Remove a specific chunk from cache after a processing failure.
@@ -139,9 +144,10 @@ class SimpleChunkCache:
             preset: Processing preset used
             intensity: Processing intensity used
         """
-        key = self._make_key(track_id, chunk_idx, preset, intensity)
-        if self.cache.pop(key, None) is not None:
-            logger.debug(f"Invalidated stale cache entry: chunk {chunk_idx} of track {track_id}")
+        with self._lock:
+            key = self._make_key(track_id, chunk_idx, preset, intensity)
+            if self.cache.pop(key, None) is not None:
+                logger.debug(f"Invalidated stale cache entry: chunk {chunk_idx} of track {track_id}")
 
 
 class AudioStreamController:

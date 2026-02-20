@@ -721,21 +721,15 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            # Find incomplete placeholders (fingerprints with LUFS=-100.0)
-            incomplete_fps = (
+            # Bulk delete incomplete fingerprints (placeholders with LUFS=-100.0, #2453).
+            incomplete_count = (
                 session.query(TrackFingerprint)
                 .filter(TrackFingerprint.lufs == -100.0)
-                .all()
+                .delete(synchronize_session=False)
             )
 
-            if not incomplete_fps:
+            if incomplete_count == 0:
                 return 0
-
-            incomplete_count = len(incomplete_fps)
-
-            # Delete incomplete fingerprints
-            for fp in incomplete_fps:
-                session.delete(fp)
 
             session.commit()
             return incomplete_count

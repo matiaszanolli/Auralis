@@ -70,13 +70,10 @@ def create_albums_router(
 
             # Get albums with pagination
             if search:
-                albums = repos.albums.search(search, limit=limit, offset=offset)
-                # For search, we don't have total count yet, so estimate
-                total = len(albums) + offset
-                has_more = len(albums) >= limit
+                albums, total = repos.albums.search(search, limit=limit, offset=offset)
             else:
                 albums, total = repos.albums.get_all(limit=limit, offset=offset, order_by=order_by)
-                has_more = (offset + len(albums)) < total
+            has_more = (offset + len(albums)) < total
 
             return {
                 "albums": serialize_albums(albums),
@@ -220,21 +217,48 @@ def create_albums_router(
             # Compute median for each fingerprint dimension
             import numpy as np
 
-            # Extract all 25 dimensions from fingerprints
-            dimensions = [
-                'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct', 'upper_mid_pct', 'presence_pct', 'air_pct',
-                'lufs', 'crest_db', 'bass_mid_ratio',
-                'tempo_bpm', 'rhythm_stability', 'transient_density', 'silence_ratio',
-                'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
-                'harmonic_ratio', 'pitch_stability', 'chroma_energy',
-                'dynamic_range_variation', 'loudness_variation_std', 'peak_consistency',
-                'stereo_width', 'phase_correlation'
+            # Extract all 25 dimensions from fingerprints.
+            # Map DB column names → API field names to match the AudioFingerprint
+            # interface consumed by the frontend (fixes #2477: _pct suffix mismatch).
+            db_to_api: list[tuple[str, str]] = [
+                # frequency bands: DB uses _pct suffix, API/track endpoint uses bare names
+                ('sub_bass_pct', 'sub_bass'),
+                ('bass_pct', 'bass'),
+                ('low_mid_pct', 'low_mid'),
+                ('mid_pct', 'mid'),
+                ('upper_mid_pct', 'upper_mid'),
+                ('presence_pct', 'presence'),
+                ('air_pct', 'air'),
+                # dynamics / loudness (no rename needed)
+                ('lufs', 'lufs'),
+                ('crest_db', 'crest_db'),
+                ('bass_mid_ratio', 'bass_mid_ratio'),
+                # temporal / rhythm (no rename needed)
+                ('tempo_bpm', 'tempo_bpm'),
+                ('rhythm_stability', 'rhythm_stability'),
+                ('transient_density', 'transient_density'),
+                ('silence_ratio', 'silence_ratio'),
+                # spectral (no rename needed)
+                ('spectral_centroid', 'spectral_centroid'),
+                ('spectral_rolloff', 'spectral_rolloff'),
+                ('spectral_flatness', 'spectral_flatness'),
+                # harmonic / pitch — align with track endpoint field names
+                ('harmonic_ratio', 'harmonic_ratio'),
+                ('pitch_stability', 'pitch_confidence'),   # track uses pitch_confidence
+                ('chroma_energy', 'chroma_energy_mean'),   # track uses chroma_energy_mean
+                # dynamics (no rename needed)
+                ('dynamic_range_variation', 'dynamic_range_variation'),
+                ('loudness_variation_std', 'loudness_variation_std'),
+                ('peak_consistency', 'peak_consistency'),
+                # stereo — align with track endpoint field names
+                ('stereo_width', 'stereo_width'),
+                ('phase_correlation', 'stereo_correlation'),  # track uses stereo_correlation
             ]
 
             median_fingerprint = {}
-            for dim in dimensions:
-                values = [getattr(fp, dim, 0.0) for fp in fingerprints]
-                median_fingerprint[dim] = float(np.median(values))
+            for db_col, api_key in db_to_api:
+                values = [getattr(fp, db_col, 0.0) for fp in fingerprints]
+                median_fingerprint[api_key] = float(np.median(values))
 
             return {
                 "album_id": album_id,

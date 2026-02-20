@@ -16,6 +16,27 @@ from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
+# Allowed origins for WebSocket connections (fixes #2413: cross-origin hijacking).
+# Browser clients send the Origin header; non-browser clients (native apps, tests) may not.
+ALLOWED_WS_ORIGINS = frozenset({
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:3003",
+    "http://localhost:3004",
+    "http://localhost:3005",
+    "http://localhost:3006",
+    "http://localhost:8765",
+    "ws://localhost:3000",
+    "ws://localhost:3001",
+    "ws://localhost:3002",
+    "ws://localhost:3003",
+    "ws://localhost:3004",
+    "ws://localhost:3005",
+    "ws://localhost:3006",
+    "ws://localhost:8765",
+})
+
 
 class ConnectionManager:
     """
@@ -32,12 +53,25 @@ class ConnectionManager:
         """
         Register a new WebSocket connection.
 
+        Validates the Origin header to prevent cross-origin hijacking attacks.
+        Rejects connections from untrusted origins (fixes #2413).
+
         Args:
             websocket: WebSocket connection to register
         """
+        # Check Origin header for security (CORS does not apply to WebSocket upgrades).
+        # Non-browser clients may not send Origin; we allow empty origins for compatibility.
+        origin = websocket.headers.get("origin", "").lower()
+        if origin and origin not in ALLOWED_WS_ORIGINS:
+            logger.warning(f"WebSocket connection rejected: untrusted origin {origin!r}")
+            await websocket.close(code=1008)  # Policy Violation
+            return
+
         await websocket.accept()
         self.active_connections.append(websocket)
-        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+        client = websocket.client
+        client_id = f"{client.host}:{client.port}" if client else "unknown"
+        logger.info(f"WebSocket connected from {client_id}. Total connections: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket) -> None:
         """
@@ -46,11 +80,13 @@ class ConnectionManager:
         Args:
             websocket: WebSocket connection to unregister
         """
+        client = websocket.client
+        client_id = f"{client.host}:{client.port}" if client else "unknown"
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+            logger.info(f"WebSocket disconnected from {client_id}. Total connections: {len(self.active_connections)}")
         else:
-            logger.debug("WebSocket disconnect called but connection not in list (already removed)")
+            logger.debug(f"WebSocket disconnect called for {client_id} but connection not in list (already removed)")
 
     async def broadcast(self, message: dict[str, Any]) -> None:
         """

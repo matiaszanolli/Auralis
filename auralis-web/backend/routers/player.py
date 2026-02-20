@@ -213,10 +213,11 @@ def create_player_router(
             success = audio_player.load_current_track() if hasattr(audio_player, 'load_current_track') else True
 
             if success:
-                # Broadcast to all connected clients
+                # Broadcast to all connected clients — omit filepath to avoid leaking
+                # the server filesystem layout to browser clients (fixes #2479).
                 await connection_manager.broadcast({
                     "type": "track_loaded",
-                    "data": {"track_path": track.filepath}
+                    "data": {"track_id": track.id}
                 })
 
                 # Generate mastering recommendation in background (Priority 4)

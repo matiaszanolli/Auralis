@@ -30,6 +30,10 @@ export function useRestAPI() {
   // (fixes #2467: no hook-level abort on unmount caused setState on dead state).
   const activeControllers = useRef(new Set<AbortController>());
 
+  // Request sequence counter to detect stale responses (fixes #2439: overlapping calls
+  // completing out of order can overwrite state with older data).
+  const requestSequence = useRef(0);
+
   useEffect(() => {
     return () => {
       activeControllers.current.forEach((c) => c.abort());
@@ -83,6 +87,7 @@ export function useRestAPI() {
    */
   const get = useCallback(
     async <T = any>(endpoint: string): Promise<T> => {
+      const seq = ++requestSequence.current;
       setIsLoading(true);
       setError(null);
 
@@ -99,11 +104,16 @@ export function useRestAPI() {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
+        // Detect stale response: if a newer request started after this one, discard this response (fixes #2439).
+        if (seq !== requestSequence.current) {
+          throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
+        }
+
         const data = await response.json();
         return data as T;
       } catch (err) {
-        // AbortError from unmount cleanup — don't surface as API error (fixes #2467)
-        if (err instanceof Error && err.name === 'AbortError') {
+        // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
+        if (err instanceof Error && (err.name === 'AbortError' || err.name === 'StaleRequestError')) {
           throw err;
         }
         const apiError = ApiErrorHandler.parse(err);
@@ -129,6 +139,7 @@ export function useRestAPI() {
    */
   const post = useCallback(
     async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
+      const seq = ++requestSequence.current;
       setIsLoading(true);
       setError(null);
 
@@ -146,11 +157,16 @@ export function useRestAPI() {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
+        // Detect stale response (fixes #2439).
+        if (seq !== requestSequence.current) {
+          throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
+        }
+
         const data = await response.json();
         return data as T;
       } catch (err) {
-        // AbortError from unmount cleanup — don't surface as API error (fixes #2467)
-        if (err instanceof Error && err.name === 'AbortError') {
+        // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
+        if (err instanceof Error && (err.name === 'AbortError' || err.name === 'StaleRequestError')) {
           throw err;
         }
         const apiError = ApiErrorHandler.parse(err);
@@ -169,6 +185,7 @@ export function useRestAPI() {
    */
   const put = useCallback(
     async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
+      const seq = ++requestSequence.current;
       setIsLoading(true);
       setError(null);
 
@@ -186,11 +203,16 @@ export function useRestAPI() {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
+        // Detect stale response (fixes #2439).
+        if (seq !== requestSequence.current) {
+          throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
+        }
+
         const data = await response.json();
         return data as T;
       } catch (err) {
-        // AbortError from unmount cleanup — don't surface as API error (fixes #2467)
-        if (err instanceof Error && err.name === 'AbortError') {
+        // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
+        if (err instanceof Error && (err.name === 'AbortError' || err.name === 'StaleRequestError')) {
           throw err;
         }
         const apiError = ApiErrorHandler.parse(err);
@@ -209,6 +231,7 @@ export function useRestAPI() {
    */
   const patch = useCallback(
     async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
+      const seq = ++requestSequence.current;
       setIsLoading(true);
       setError(null);
 
@@ -226,11 +249,16 @@ export function useRestAPI() {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
+        // Detect stale response (fixes #2439).
+        if (seq !== requestSequence.current) {
+          throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
+        }
+
         const data = await response.json();
         return data as T;
       } catch (err) {
-        // AbortError from unmount cleanup — don't surface as API error (fixes #2467)
-        if (err instanceof Error && err.name === 'AbortError') {
+        // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
+        if (err instanceof Error && (err.name === 'AbortError' || err.name === 'StaleRequestError')) {
           throw err;
         }
         const apiError = ApiErrorHandler.parse(err);
@@ -248,6 +276,7 @@ export function useRestAPI() {
    */
   const delete_ = useCallback(
     async (endpoint: string): Promise<void> => {
+      const seq = ++requestSequence.current;
       setIsLoading(true);
       setError(null);
 
@@ -263,9 +292,14 @@ export function useRestAPI() {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+
+        // Detect stale response (fixes #2439).
+        if (seq !== requestSequence.current) {
+          throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
+        }
       } catch (err) {
-        // AbortError from unmount cleanup — don't surface as API error (fixes #2467)
-        if (err instanceof Error && err.name === 'AbortError') {
+        // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
+        if (err instanceof Error && (err.name === 'AbortError' || err.name === 'StaleRequestError')) {
           throw err;
         }
         const apiError = ApiErrorHandler.parse(err);

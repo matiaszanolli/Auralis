@@ -118,7 +118,7 @@ class AlbumRepository:
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 50, offset: int = 0) -> list[Album]:
+    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Album], int]:
         """
         Search albums by title or artist name
 
@@ -128,25 +128,32 @@ class AlbumRepository:
             offset: Number of results to skip
 
         Returns:
-            List of matching albums
+            Tuple of (matching albums, total match count) — total enables correct
+            pagination (fixes #2482: estimated total was always wrong).
         """
         session = self.get_session()
         try:
-            from sqlalchemy import or_
+            from sqlalchemy import func, or_
 
             from ..models import Artist
 
             search_term = f"%{query}%"
-            results = (
+            base_query = (
                 session.query(Album)
                 .join(Album.artist, isouter=True)
-                .options(selectinload(Album.artist), selectinload(Album.tracks))
                 .filter(
                     or_(
                         Album.title.ilike(search_term),
                         Artist.name.ilike(search_term)
                     )
                 )
+            )
+
+            total = base_query.with_entities(func.count(Album.id)).scalar() or 0
+
+            results = (
+                base_query
+                .options(selectinload(Album.artist), selectinload(Album.tracks))
                 .limit(limit)
                 .offset(offset)
                 .all()
@@ -154,7 +161,7 @@ class AlbumRepository:
 
             for album in results:
                 session.expunge(album)
-            return results
+            return results, total
         finally:
             session.close()
 

@@ -417,13 +417,10 @@ def create_library_router(
 
             # Get albums with pagination
             if search:
-                albums = repos.albums.search(search, limit=limit, offset=offset)
-                # For search, we don't have total count yet, so estimate
-                total = len(albums) + offset
-                has_more = len(albums) >= limit
+                albums, total = repos.albums.search(search, limit=limit, offset=offset)
             else:
                 albums, total = repos.albums.get_all(limit=limit, offset=offset, order_by=order_by)
-                has_more = (offset + len(albums)) < total
+            has_more = (offset + len(albums)) < total
 
             return {
                 "albums": serialize_albums(albums),
@@ -518,7 +515,7 @@ def create_library_router(
                                 "current": processed,
                                 "total": total,
                                 "percentage": percentage,
-                                "current_file": progress_data.get('directory'),
+                                "current_file": progress_data.get('current_file') or progress_data.get('file'),
                             }
                         }),
                         loop,
@@ -554,7 +551,7 @@ def create_library_router(
                     "type": "scan_complete",
                     "data": {
                         "files_processed": result.files_processed,
-                        "tracks_added": result.files_added,
+                        "files_added": result.files_added,
                         "duration": result.scan_time,
                     }
                 })

@@ -541,6 +541,12 @@ def create_system_router(
 
                         processing_engine.register_progress_callback(job_id, progress_callback)
 
+                else:
+                    # Unknown message type (fixes #2417)
+                    message_type = message.get("type", "unknown")
+                    logger.warning(f"Unknown WebSocket message type: {message_type!r}")
+                    await send_error_response(websocket, "unknown_message_type", f"Unknown message type: {message_type}")
+
         except WebSocketDisconnect:
             logger.info("WebSocket client disconnected normally")
         except RuntimeError as e:
