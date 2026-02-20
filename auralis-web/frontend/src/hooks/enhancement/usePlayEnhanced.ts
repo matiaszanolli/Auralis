@@ -350,7 +350,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     } catch (error) {
       const errorMsg = `Failed to initialize streaming: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[usePlayEnhanced]', errorMsg);
-      dispatch(setStreamingError(errorMsg));
+      dispatch(setStreamingError({ streamType: 'enhanced', error: errorMsg }));
     }
   }, [dispatch]);
 

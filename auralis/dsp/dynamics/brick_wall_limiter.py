@@ -104,6 +104,11 @@ class BrickWallLimiter:
         # For each sample, find the maximum peak in the next lookahead_samples
         gain_curve = np.ones(num_samples)
 
+        # Seed gain_curve from self.current_gain so consecutive chunk calls
+        # produce a continuous gain envelope (fixes #2390: instantaneous gain
+        # step / audible click at every 30-second chunk boundary).
+        prev_gain = self.current_gain
+
         for i in range(num_samples):
             # Look ahead at next lookahead_samples samples
             lookahead_window = padded_audio[i:i + self.lookahead_samples]
@@ -119,17 +124,21 @@ class BrickWallLimiter:
                 # No reduction needed
                 target_gain = 1.0
 
-            # Smooth gain reduction (instant attack, exponential release)
-            if i == 0:
-                # First sample - initialize
+            # Smooth gain reduction (instant attack, exponential release).
+            # Use prev_gain as the prior-sample value so the first sample of
+            # each chunk continues seamlessly from the last sample of the
+            # previous chunk.
+            if target_gain < prev_gain:
+                # Attack: instant
                 gain_curve[i] = target_gain
             else:
-                if target_gain < gain_curve[i-1]:
-                    # Attack: instant (or very fast)
-                    gain_curve[i] = target_gain
-                else:
-                    # Release: exponential decay back to 1.0
-                    gain_curve[i] = gain_curve[i-1] * self.release_coef + target_gain * (1 - self.release_coef)
+                # Release: exponential decay back to 1.0
+                gain_curve[i] = prev_gain * self.release_coef + target_gain * (1 - self.release_coef)
+
+            prev_gain = gain_curve[i]
+
+        # Persist ending gain for the next call (cross-chunk continuity).
+        self.current_gain = float(gain_curve[-1])
 
         # Apply gain curve to audio
         output = audio * gain_curve.reshape(-1, 1)

@@ -284,7 +284,10 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            search_term = f"%{query}%"
+            # Escape LIKE metacharacters so a query containing '%' or '_' does
+            # not accidentally match all rows (fixes #2405).
+            escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            search_term = f"%{escaped}%"
 
             # Build query with outer joins to include tracks without artists/albums
             query_obj = (

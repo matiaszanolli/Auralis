@@ -134,10 +134,15 @@ class ArtistRepository:
         """
         session = self.get_session()
         try:
+            # Escape LIKE metacharacters so a query containing '%' or '_' does
+            # not accidentally match all rows (fixes #2405).
+            escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            search_term = f"%{escaped}%"
+
             # Get total count of matching artists
             total = (
                 session.query(Artist)
-                .filter(Artist.name.ilike(f'%{query}%'))
+                .filter(Artist.name.ilike(search_term))
                 .count()
             )
 
@@ -148,7 +153,7 @@ class ArtistRepository:
                     joinedload(Artist.tracks).joinedload(Track.genres),
                     joinedload(Artist.albums)
                 )
-                .filter(Artist.name.ilike(f'%{query}%'))
+                .filter(Artist.name.ilike(search_term))
                 .order_by(Artist.name)
                 .limit(limit)
                 .offset(offset)

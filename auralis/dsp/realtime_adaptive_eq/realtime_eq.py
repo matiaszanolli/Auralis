@@ -151,9 +151,10 @@ class RealtimeAdaptiveEQ:
             return np.concatenate(processed_chunks)
 
         else:
-            # Not enough samples yet, return silence or previous chunk
+            # Not enough samples yet — return dry audio (passthrough) instead
+            # of silence so there is no dropout at stream start (fixes #2401).
             self.performance_stats['buffer_underruns'] += 1
-            return np.zeros_like(audio_chunk)
+            return audio_chunk.copy()
 
     def set_adaptation_parameters(self, **kwargs: Any) -> None:
         """Update adaptation parameters dynamically"""

@@ -102,6 +102,10 @@ def create_files_router(
             try:
                 # Validate file type
                 if not file.filename or not file.filename.lower().endswith(supported_extensions):
+                    # Log rejected uploads for security audit trail (fixes #2421).
+                    logger.warning(
+                        f"Rejected upload of unsupported file type: {file.filename!r}"
+                    )
                     results.append({
                         "filename": file.filename or "",
                         "status": "error",

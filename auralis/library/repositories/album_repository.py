@@ -41,7 +41,10 @@ class AlbumRepository:
                 .first()
             )
             if album:
-                session.expunge(album)
+                # Expunge the album AND all eagerly-loaded related objects so
+                # callers can access album.tracks after the session closes
+                # without hitting DetachedInstanceError (fixes #2406).
+                session.expunge_all()
             return album
         finally:
             session.close()
@@ -137,7 +140,10 @@ class AlbumRepository:
 
             from ..models import Artist
 
-            search_term = f"%{query}%"
+            # Escape LIKE metacharacters so a query containing '%' or '_' does
+            # not accidentally match all rows (fixes #2405).
+            escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            search_term = f"%{escaped}%"
             base_query = (
                 session.query(Album)
                 .join(Album.artist, isouter=True)

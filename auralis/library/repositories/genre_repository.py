@@ -271,8 +271,10 @@ class GenreRepository:
         """
         session = self.get_session()
         try:
-            # Search for genres matching the query
-            search_filter = Genre.name.ilike(f"%{query}%")
+            # Search for genres matching the query.
+            # Escape LIKE metacharacters to prevent full-table scans on '%'/'_' (fixes #2405).
+            escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            search_filter = Genre.name.ilike(f"%{escaped}%")
             total = session.query(Genre).filter(search_filter).count()
 
             genres = (
