@@ -9,6 +9,7 @@ Uses existing DSP components without requiring full HybridProcessor setup.
 :license: GPLv3, see LICENSE for more details.
 """
 
+import threading
 import time
 from pathlib import Path
 
@@ -39,13 +40,15 @@ class SimpleMasteringPipeline:
     def __init__(self, config: SimpleMasteringConfig | None = None):
         self._fingerprint_service: FingerprintService | None = None
         self.config = config or SimpleMasteringConfig()
+        self._fp_service_lock = threading.Lock()  # Protects lazy init (fixes #2434)
 
     @property
     def fingerprint_service(self) -> FingerprintService:
-        """Lazy-init fingerprint service."""
-        if self._fingerprint_service is None:
-            self._fingerprint_service = FingerprintService(fingerprint_strategy="sampling")
-        return self._fingerprint_service
+        """Lazy-init fingerprint service (thread-safe, fixes #2434)."""
+        with self._fp_service_lock:
+            if self._fingerprint_service is None:
+                self._fingerprint_service = FingerprintService(fingerprint_strategy="sampling")
+            return self._fingerprint_service
 
     def master_file(
         self,

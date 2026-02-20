@@ -5,7 +5,7 @@ Responsibilities:
 - Library track loading and reference selection
 - Auto-mastering profile control
 - Effect management
-- Callback coordination
+- Callback coordination (thread-safe)
 - Session statistics
 """
 
@@ -64,6 +64,7 @@ class IntegrationManager:
 
         # External callbacks (application-level)
         self.callbacks: list[Callable[[dict[str, Any]], None]] = []
+        self._callbacks_lock = threading.Lock()  # Protects callbacks list (fixes #2433)
 
         # Statistics
         self.tracks_played = 0
@@ -89,12 +90,15 @@ class IntegrationManager:
         )
 
     def add_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
-        """Register callback for integration events"""
-        self.callbacks.append(callback)
+        """Register callback for integration events (thread-safe, fixes #2433)"""
+        with self._callbacks_lock:
+            self.callbacks.append(callback)
 
     def _notify_callbacks(self, state_info: dict[str, Any]) -> None:
-        """Notify all callbacks"""
-        for callback in self.callbacks:
+        """Notify all callbacks (snapshot pattern to avoid holding lock during execution, fixes #2433)"""
+        with self._callbacks_lock:
+            snapshot = list(self.callbacks)
+        for callback in snapshot:
             try:
                 callback(state_info)
             except Exception as e:

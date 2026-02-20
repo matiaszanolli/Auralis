@@ -29,8 +29,11 @@ let globalWebSocketManager: WebSocketSubscriptionManager | null = null;
 
 // Hooks that mount before the manager is set register here so they can
 // subscribe lazily once setWebSocketManager() is called (issue #2396).
+// Keyed by a stable Symbol per hook instance so that effect re-runs due to
+// dep changes always overwrite the previous entry rather than accumulating
+// stale references (fixes #2440: duplicate subscriptions on re-render).
 type ManagerReadyListener = (manager: WebSocketSubscriptionManager) => void;
-const managerReadyListeners: Set<ManagerReadyListener> = new Set();
+const managerReadyListeners: Map<symbol, ManagerReadyListener> = new Map();
 
 /**
  * Set the global WebSocket subscription manager.
@@ -44,7 +47,7 @@ export function setWebSocketManager(manager: WebSocketSubscriptionManager | null
   if (manager) {
     // Snapshot without clearing — listeners persist for future reconnects (#2458).
     // This prevents infinite loops if a listener itself calls setWebSocketManager.
-    const snapshot = new Set(managerReadyListeners);
+    const snapshot = new Map(managerReadyListeners);
     snapshot.forEach((listener) => listener(manager));
   }
   // On null: leave listeners intact so hooks re-subscribe on next manager (#2458).
@@ -81,6 +84,9 @@ export function useWebSocketSubscription(
   callbackRef.current = callback;
 
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  // Stable key for the managerReadyListeners Map — one per hook instance regardless
+  // of how many times the effect re-runs (fixes #2440: accumulating stale refs).
+  const listenerKeyRef = useRef<symbol>(Symbol('wsSubscription'));
 
   useEffect(() => {
     let isActive = true;
@@ -97,7 +103,9 @@ export function useWebSocketSubscription(
     }
 
     // Always register for reconnect support, even if manager already exists (#2458).
-    managerReadyListeners.add(subscribeToManager);
+    // Using the stable symbol key ensures only one entry per hook instance exists in
+    // the Map even when the effect re-runs due to dep changes (fixes #2440).
+    managerReadyListeners.set(listenerKeyRef.current, subscribeToManager);
 
     const manager = getWebSocketManager();
     if (manager) {
@@ -112,8 +120,8 @@ export function useWebSocketSubscription(
 
     return () => {
       isActive = false;
-      // Remove from listeners for reconnect support.
-      managerReadyListeners.delete(subscribeToManager);
+      // Remove this hook instance's entry from the Map.
+      managerReadyListeners.delete(listenerKeyRef.current);
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
     };
