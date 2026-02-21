@@ -112,7 +112,7 @@ def create_similarity_router(
             if not repos.fingerprints.exists(track_id):
                 # Enqueue for background processing (Phase 7.4)
                 try:
-                    from fingerprint_queue import get_fingerprint_queue
+                    from analysis.fingerprint_queue import get_fingerprint_queue
                     queue = get_fingerprint_queue()
                     if queue:
                         queue.enqueue(track_id)
@@ -435,7 +435,7 @@ def create_similarity_router(
             Queue status dictionary
         """
         try:
-            from fingerprint_queue import get_fingerprint_queue
+            from analysis.fingerprint_queue import get_fingerprint_queue
             queue = get_fingerprint_queue()
 
             if queue is None:
@@ -482,7 +482,7 @@ def create_similarity_router(
                 }
 
             # Enqueue
-            from fingerprint_queue import get_fingerprint_queue
+            from analysis.fingerprint_queue import get_fingerprint_queue
             queue = get_fingerprint_queue()
 
             if queue is None:
@@ -539,7 +539,7 @@ def create_similarity_router(
                 }
 
             # Get the fingerprint queue
-            from fingerprint_queue import get_fingerprint_queue
+            from analysis.fingerprint_queue import get_fingerprint_queue
             queue = get_fingerprint_queue()
 
             if queue is None:

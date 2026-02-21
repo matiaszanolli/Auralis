@@ -244,7 +244,7 @@ class LibraryScanRequest(BaseModel):
     @classmethod
     def validate_directory_paths(cls, v: list[str]) -> list[str]:
         """Validate all directory paths to prevent path traversal."""
-        from path_security import PathValidationError, validate_scan_path
+        from security.path_security import PathValidationError, validate_scan_path
 
         validated = []
         for path in v:

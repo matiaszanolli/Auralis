@@ -10,9 +10,9 @@ import logging
 from typing import Any
 from collections.abc import Callable
 
-from audio_stream_controller import AudioStreamController
+from core.audio_stream_controller import AudioStreamController
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from websocket_security import (
+from websocket.websocket_security import (
     WebSocketRateLimiter,
     validate_and_parse_message,
     send_error_response,
@@ -240,7 +240,7 @@ def create_system_router(
                         # Capture task identity to prevent orphaned task race (fixes #2164)
                         my_task = asyncio.current_task()
                         try:
-                            from chunked_processor import ChunkedAudioProcessor
+                            from core.chunked_processor import ChunkedAudioProcessor
 
                             controller = AudioStreamController(
                                 chunked_processor_class=ChunkedAudioProcessor,
@@ -488,7 +488,7 @@ def create_system_router(
                         # Capture task identity to prevent orphaned task race (fixes #2164)
                         my_task = asyncio.current_task()
                         try:
-                            from chunked_processor import ChunkedAudioProcessor
+                            from core.chunked_processor import ChunkedAudioProcessor
 
                             controller = AudioStreamController(
                                 chunked_processor_class=ChunkedAudioProcessor,

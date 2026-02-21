@@ -272,7 +272,7 @@ class StreamlinedCacheWorker:
                 return None
 
             # Import here to avoid circular dependency
-            from chunked_processor import ChunkedAudioProcessor
+            from core.chunked_processor import ChunkedAudioProcessor
 
             # Create processor
             processor = ChunkedAudioProcessor(

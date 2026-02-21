@@ -31,7 +31,7 @@ from auralis.io.unified_loader import load_audio
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
-from chunked_processor import ChunkedAudioProcessor
+from core.chunked_processor import ChunkedAudioProcessor
 
 # ============================================================================
 # Fixtures

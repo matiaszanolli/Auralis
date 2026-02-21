@@ -35,7 +35,7 @@ import pytest
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
-from chunked_processor import (
+from core.chunked_processor import (
     CHUNK_DURATION,
     CONTEXT_DURATION,
     MAX_LEVEL_CHANGE_DB,
@@ -220,7 +220,7 @@ def test_chunk_boundaries_are_continuous(processor):
     - Each chunk starts at: chunk_idx * CHUNK_INTERVAL
     - Each chunk ends at: chunk_idx * CHUNK_INTERVAL + CHUNK_DURATION
     """
-    from chunked_processor import CHUNK_INTERVAL
+    from core.chunked_processor import CHUNK_INTERVAL
 
     for chunk_idx in range(processor.total_chunks - 1):
         _, chunk_start, chunk_end = processor.load_chunk(chunk_idx, with_context=False)
@@ -286,7 +286,7 @@ def test_chunk_count_calculation(processor):
     """
     import math
 
-    from chunked_processor import CHUNK_INTERVAL
+    from core.chunked_processor import CHUNK_INTERVAL
     expected_chunks = math.ceil(processor.total_duration / CHUNK_INTERVAL)
 
     assert processor.total_chunks == expected_chunks, (
@@ -369,7 +369,7 @@ def test_processed_chunks_concatenate_to_correct_duration(processor):
 
     # With 5s overlaps between chunks, total should be roughly:
     # original_duration + (num_chunks - 1) * overlap_duration
-    from chunked_processor import CHUNK_INTERVAL
+    from core.chunked_processor import CHUNK_INTERVAL
     expected_overlap_seconds = max(0, (processor.total_chunks - 1) * OVERLAP_DURATION)
     rough_expected = processor.total_duration + expected_overlap_seconds
 
@@ -801,7 +801,7 @@ def test_handles_exactly_one_chunk_interval():
     """
     import tempfile
 
-    from chunked_processor import CHUNK_INTERVAL
+    from core.chunked_processor import CHUNK_INTERVAL
 
     duration = float(CHUNK_INTERVAL)  # Exactly 10 seconds (one CHUNK_INTERVAL)
     sample_rate = 44100

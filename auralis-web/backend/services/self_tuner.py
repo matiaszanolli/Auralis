@@ -14,8 +14,8 @@ import time
 from typing import Any, Protocol
 
 # Import actual implementations for type hints (not Protocols)
-from learning_system import AdaptiveWeightTuner, AffinityRuleLearner, LearningSystem
-from memory_monitor import DegradationManager, MemoryPressureMonitor
+from services.learning_system import AdaptiveWeightTuner, AffinityRuleLearner, LearningSystem
+from monitoring.memory_monitor import DegradationManager, MemoryPressureMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +214,7 @@ class SelfTuner:
             self.affinity_learner.update_affinity_rules()
 
             # Apply updated rules to audio content predictor
-            from audio_content_predictor import get_audio_content_predictor
+            from services.audio_content_predictor import get_audio_content_predictor
             predictor = get_audio_content_predictor()
             predictor.affinity_rules = self.affinity_learner.affinity_rules
 

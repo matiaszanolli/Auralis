@@ -76,7 +76,7 @@ def create_processor(filepath, track_id=1, preset="adaptive", intensity=1.0):
         ChunkedAudioProcessor instance
     """
     # Import here to avoid module-level import issues
-    from chunked_processor import ChunkedAudioProcessor
+    from core.chunked_processor import ChunkedAudioProcessor
 
     return ChunkedAudioProcessor(
         track_id=track_id,

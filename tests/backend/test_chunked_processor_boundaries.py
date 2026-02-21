@@ -25,7 +25,7 @@ import pytest
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
-from chunked_processor import (
+from core.chunked_processor import (
     CHUNK_DURATION,
     OVERLAP_DURATION,
     ChunkedAudioProcessor,
@@ -274,7 +274,7 @@ def test_very_long_audio_one_hour(processor_factory):
     processor = processor_factory(duration_seconds=duration)
 
     # Should have 360 chunks (3600s / 10s CHUNK_INTERVAL)
-    from chunked_processor import CHUNK_INTERVAL
+    from core.chunked_processor import CHUNK_INTERVAL
     expected_chunks = int(np.ceil(duration / CHUNK_INTERVAL))
 
     assert processor.total_chunks == expected_chunks, \
@@ -304,7 +304,7 @@ def test_two_hour_audio_chunk_count(processor_factory):
     duration = 7200.0  # 2 hours
     processor = processor_factory(duration_seconds=duration)
 
-    from chunked_processor import CHUNK_INTERVAL
+    from core.chunked_processor import CHUNK_INTERVAL
     expected_chunks = int(np.ceil(duration / CHUNK_INTERVAL))  # 720 chunks
 
     assert processor.total_chunks == expected_chunks, \

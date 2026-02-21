@@ -24,7 +24,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
-from path_security import PathValidationError, validate_file_path
+from security.path_security import PathValidationError, validate_file_path
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
@@ -101,7 +101,7 @@ def create_enhancement_router(
             import sys
             sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             import soundfile as sf
-            from chunked_processor import ChunkedAudioProcessor
+            from core.chunked_processor import ChunkedAudioProcessor
 
             # Calculate current chunk and next 3 chunks to pre-process
             current_chunk_idx = int(current_time / CHUNK_DURATION)
@@ -375,7 +375,7 @@ def create_enhancement_router(
             import os
             import sys
             sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-            from chunked_processor import ChunkedAudioProcessor
+            from core.chunked_processor import ChunkedAudioProcessor
 
             # Create processor (caches the recommendation internally)
             processor = ChunkedAudioProcessor(
@@ -418,7 +418,7 @@ def create_enhancement_router(
             # Import the helper function from chunked_processor
             import sys
             sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-            from chunked_processor import get_last_content_profile
+            from core.chunked_processor import get_last_content_profile
 
             # Get current preset
             preset = get_enhancement_settings().get("preset", "adaptive")

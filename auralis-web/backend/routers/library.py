@@ -541,7 +541,7 @@ def create_library_router(
             # scanner thread raised RuntimeError: no running event loop.
             if result.added_tracks:
                 try:
-                    from fingerprint_queue import get_fingerprint_queue
+                    from analysis.fingerprint_queue import get_fingerprint_queue
                     fp_queue = get_fingerprint_queue()
                     if fp_queue:
                         enqueued = sum(1 for t in result.added_tracks if fp_queue.enqueue(t.id))
@@ -661,7 +661,7 @@ def create_library_router(
             if not fp:
                 # Enqueue for background processing if not available
                 try:
-                    from fingerprint_queue import get_fingerprint_queue
+                    from analysis.fingerprint_queue import get_fingerprint_queue
                     queue = get_fingerprint_queue()
                     if queue:
                         queue.enqueue(track_id)

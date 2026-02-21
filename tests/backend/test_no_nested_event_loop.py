@@ -17,7 +17,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from chunked_processor import ChunkedAudioProcessor
+from core.chunked_processor import ChunkedAudioProcessor
 
 
 def _make_processor() -> ChunkedAudioProcessor:
@@ -77,9 +77,9 @@ async def test_get_full_processed_audio_path_calls_process_chunk_safe():
     proc._get_chunk_path = fake_get_chunk_path  # type: ignore[method-assign]
 
     with (
-        patch("chunked_processor.load_audio", return_value=(fake_audio, 44100)),
-        patch("chunked_processor.save_audio"),
-        patch("chunked_processor.apply_crossfade_between_chunks", side_effect=lambda a, b, _: a),
+        patch("core.chunked_processor.load_audio", return_value=(fake_audio, 44100)),
+        patch("core.chunked_processor.save_audio"),
+        patch("core.chunked_processor.apply_crossfade_between_chunks", side_effect=lambda a, b, _: a),
         patch.object(Path, "exists", return_value=False),
     ):
         result = await proc.get_full_processed_audio_path()
@@ -121,9 +121,9 @@ async def test_get_full_processed_audio_path_no_nested_loop():
 
     with (
         patch("asyncio.run", patched_asyncio_run),
-        patch("chunked_processor.load_audio", return_value=(fake_audio, 44100)),
-        patch("chunked_processor.save_audio"),
-        patch("chunked_processor.apply_crossfade_between_chunks", side_effect=lambda a, b, _: a),
+        patch("core.chunked_processor.load_audio", return_value=(fake_audio, 44100)),
+        patch("core.chunked_processor.save_audio"),
+        patch("core.chunked_processor.apply_crossfade_between_chunks", side_effect=lambda a, b, _: a),
         patch.object(Path, "exists", return_value=False),
     ):
         await proc.get_full_processed_audio_path()

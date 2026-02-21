@@ -177,7 +177,7 @@ def create_lifespan(deps: dict[str, Any]):
         if HAS_AURALIS:
             try:
                 # Import Auralis components here to support optional dependency
-                from state_manager import PlayerStateManager
+                from core.state_manager import PlayerStateManager
 
                 from auralis.library import LibraryManager
                 from auralis.library.repositories.settings_repository import (
@@ -287,8 +287,8 @@ def create_lifespan(deps: dict[str, Any]):
                 # Initialize on-demand fingerprint queue (Phase 7.4)
                 # This handles 404s during similarity lookup - queues tracks for background processing
                 try:
-                    from fingerprint_generator import FingerprintGenerator
-                    from fingerprint_queue import (
+                    from analysis.fingerprint_generator import FingerprintGenerator
+                    from analysis.fingerprint_queue import (
                         FingerprintQueue,
                         set_fingerprint_queue,
                     )
@@ -364,8 +364,8 @@ def create_lifespan(deps: dict[str, Any]):
         # Initialize processing engine
         if HAS_PROCESSING:
             try:
-                from processing_api import set_processing_engine
-                from processing_engine import ProcessingEngine
+                from routers.processing_api import set_processing_engine
+                from core.processing_engine import ProcessingEngine
 
                 globals_dict['processing_engine'] = ProcessingEngine(max_concurrent_jobs=2)
                 set_processing_engine(globals_dict['processing_engine'])
@@ -381,7 +381,7 @@ def create_lifespan(deps: dict[str, Any]):
         if HAS_STREAMLINED_CACHE and globals_dict.get('library_manager'):
             try:
                 from cache import streamlined_cache_manager
-                from streamlined_worker import StreamlinedCacheWorker
+                from core.streamlined_worker import StreamlinedCacheWorker
 
                 # Use global singleton instance
                 globals_dict['streamlined_cache'] = streamlined_cache_manager

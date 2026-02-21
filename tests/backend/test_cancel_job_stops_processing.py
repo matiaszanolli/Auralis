@@ -20,7 +20,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
+from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +188,7 @@ async def test_process_job_cancelled_error_sets_status():
         load_started.set()
         await asyncio.sleep(100)  # hang until cancelled
 
-    with patch("processing_engine.asyncio.to_thread", side_effect=hanging_to_thread):
+    with patch("core.processing_engine.asyncio.to_thread", side_effect=hanging_to_thread):
         task = asyncio.create_task(engine.process_job(job))
         await load_started.wait()  # ensure we're inside the first to_thread call
         task.cancel()

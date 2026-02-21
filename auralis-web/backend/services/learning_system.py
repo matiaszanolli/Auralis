@@ -322,7 +322,7 @@ class AffinityRuleLearner:
         """
         # Import default rules if not provided
         if default_rules is None:
-            from audio_content_predictor import get_audio_content_predictor
+            from services.audio_content_predictor import get_audio_content_predictor
             predictor = get_audio_content_predictor()
             default_rules = copy.deepcopy(predictor.affinity_rules)
 

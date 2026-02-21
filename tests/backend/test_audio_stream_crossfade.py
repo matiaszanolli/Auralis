@@ -25,7 +25,7 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from audio_stream_controller import AudioStreamController
+from core.audio_stream_controller import AudioStreamController
 
 
 class TestBoundaryCrossfade:
@@ -336,7 +336,7 @@ class TestSendPcmChunkBackpressure:
     async def test_producer_stops_early_on_client_disconnect(self):
         """When the client disconnects mid-stream, the producer stops encoding further frames."""
         import asyncio
-        from audio_stream_controller import _SEND_QUEUE_MAXSIZE
+        from core.audio_stream_controller import _SEND_QUEUE_MAXSIZE
 
         controller = AudioStreamController()
         controller._stream_type = "enhanced"
@@ -391,7 +391,7 @@ class TestSendPcmChunkBackpressure:
     async def test_slow_client_bounded_concurrent_frames(self):
         """Queue maxsize is respected: producer blocks until consumer drains a slot."""
         import asyncio
-        from audio_stream_controller import _SEND_QUEUE_MAXSIZE
+        from core.audio_stream_controller import _SEND_QUEUE_MAXSIZE
 
         controller = AudioStreamController()
         controller._stream_type = "enhanced"

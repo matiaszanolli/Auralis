@@ -24,7 +24,7 @@ import pytest
 # Add backend to path (belt-and-suspenders alongside conftest)
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from audio_stream_controller import AudioStreamController, MAX_CONCURRENT_STREAMS
+from core.audio_stream_controller import AudioStreamController, MAX_CONCURRENT_STREAMS
 
 # ---------------------------------------------------------------------------
 # Constants

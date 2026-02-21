@@ -17,7 +17,7 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from memory_monitor import DegradationManager, MemoryPressureMonitor, MemoryStatus
+from monitoring.memory_monitor import DegradationManager, MemoryPressureMonitor, MemoryStatus
 
 
 class TestMemoryStatus:

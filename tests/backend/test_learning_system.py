@@ -16,7 +16,7 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from learning_system import (
+from services.learning_system import (
     AdaptiveWeightTuner,
     AffinityRuleLearner,
     LearningSystem,

@@ -24,7 +24,7 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from chunked_processor import (
+from core.chunked_processor import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
     CONTEXT_DURATION,

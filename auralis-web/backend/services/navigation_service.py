@@ -8,14 +8,18 @@ Coordinates with AudioPlayer and PlayerStateManager for state synchronization.
 :license: GPLv3
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
-from config.globals import ConnectionManager
-from state_manager import PlayerStateManager
+from core.state_manager import PlayerStateManager
 
 from auralis import EnhancedAudioPlayer
+
+if TYPE_CHECKING:
+    from config.globals import ConnectionManager
 
 logger = logging.getLogger(__name__)
 

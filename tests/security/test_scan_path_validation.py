@@ -29,7 +29,7 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from path_security import (
+from security.path_security import (
     PathValidationError,
     get_allowed_directories,
     is_safe_filename,
@@ -98,7 +98,7 @@ class TestPathTraversalPrevention:
         test_dir.mkdir()
 
         # Mock Path.home() to return tmp_path
-        with patch('path_security.Path.home', return_value=tmp_path):
+        with patch('security.path_security.Path.home', return_value=tmp_path):
             # Should accept path in home directory
             result = validate_scan_path(str(test_dir))
             assert result == test_dir.resolve()
@@ -123,7 +123,7 @@ class TestPathTraversalPrevention:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test")
 
-        with patch('path_security.Path.home', return_value=tmp_path):
+        with patch('security.path_security.Path.home', return_value=tmp_path):
             with pytest.raises(PathValidationError) as exc_info:
                 validate_scan_path(str(test_file))
 
@@ -141,7 +141,7 @@ class TestPathTraversalPrevention:
         os.chmod(test_dir, 0o000)
 
         try:
-            with patch('path_security.Path.home', return_value=tmp_path):
+            with patch('security.path_security.Path.home', return_value=tmp_path):
                 with pytest.raises(PathValidationError) as exc_info:
                     validate_scan_path(str(test_dir))
 
@@ -184,7 +184,7 @@ class TestPathTraversalPrevention:
         symlink.symlink_to(system_dir)
 
         # Mock Path.home() to only allow music directory
-        with patch('path_security.Path.home', return_value=tmp_path):
+        with patch('security.path_security.Path.home', return_value=tmp_path):
             # Symlink target (system_dir) is outside allowed (music only)
             # Should be rejected after resolution
             with pytest.raises(PathValidationError) as exc_info:
@@ -372,7 +372,7 @@ class TestLibraryScanRequestValidation:
         test_dir = tmp_path / "music"
         test_dir.mkdir()
 
-        with patch('path_security.DEFAULT_ALLOWED_DIRS', [tmp_path]):
+        with patch('security.path_security.DEFAULT_ALLOWED_DIRS', [tmp_path]):
             request = LibraryScanRequest(directories=[str(test_dir)])
             assert request.directories == [str(test_dir.resolve())]
 

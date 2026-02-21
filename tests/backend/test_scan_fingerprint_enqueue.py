@@ -225,7 +225,7 @@ class TestFingerprintQueueSync:
         await from async scan_library handler.
         """
         import inspect
-        from fingerprint_queue import FingerprintQueue
+        from analysis.fingerprint_queue import FingerprintQueue
 
         assert not inspect.iscoroutinefunction(FingerprintQueue.enqueue), (
             "FingerprintQueue.enqueue must be synchronous so scan_library "
@@ -234,7 +234,7 @@ class TestFingerprintQueueSync:
 
     def test_enqueue_returns_bool(self):
         """enqueue() must return True on first enqueue, False on duplicate."""
-        from fingerprint_queue import FingerprintQueue
+        from analysis.fingerprint_queue import FingerprintQueue
 
         queue = FingerprintQueue(
             fingerprint_generator=MagicMock(),

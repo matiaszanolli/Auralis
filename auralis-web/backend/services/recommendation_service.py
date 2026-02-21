@@ -70,7 +70,7 @@ class RecommendationService:
         try:
             # Import here to avoid circular dependencies
             sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-            from chunked_processor import ChunkedAudioProcessor
+            from core.chunked_processor import ChunkedAudioProcessor
 
             # Create processor to generate recommendation
             processor = ChunkedAudioProcessor(
@@ -132,7 +132,7 @@ class RecommendationService:
         try:
             # Import here to avoid circular dependencies
             sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-            from chunked_processor import ChunkedAudioProcessor
+            from core.chunked_processor import ChunkedAudioProcessor
 
             # Create processor to generate recommendation
             processor = ChunkedAudioProcessor(

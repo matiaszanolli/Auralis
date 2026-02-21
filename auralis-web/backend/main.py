@@ -55,7 +55,7 @@ from config.startup import create_lifespan
 
 # Import state management
 from player_state import create_track_info
-from proactive_buffer import buffer_presets_for_track
+from core.proactive_buffer import buffer_presets_for_track
 
 # Check feature availability
 HAS_AURALIS = True
@@ -67,7 +67,7 @@ HAS_SIMILARITY = True
 ProcessingEngine: Any = None
 ChunkedAudioProcessor: Any = None
 try:
-    from chunked_processor import ChunkedAudioProcessor
+    from core.chunked_processor import ChunkedAudioProcessor
 except ImportError:
     HAS_PROCESSING = False
     logger.warning("⚠️  Processing components not available")

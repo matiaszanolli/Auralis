@@ -18,7 +18,7 @@ from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from processing_engine import ProcessingEngine, ProcessingStatus
+from core.processing_engine import ProcessingEngine, ProcessingStatus
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)

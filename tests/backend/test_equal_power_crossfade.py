@@ -16,7 +16,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from chunked_processor import apply_crossfade_between_chunks
+from core.chunked_processor import apply_crossfade_between_chunks
 
 
 

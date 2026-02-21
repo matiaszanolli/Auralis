@@ -18,8 +18,8 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from fastapi import FastAPI
-from processing_api import router, set_processing_engine
-from processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
+from routers.processing_api import router, set_processing_engine
+from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
 
 
 @pytest.fixture

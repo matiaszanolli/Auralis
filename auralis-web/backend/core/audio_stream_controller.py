@@ -46,9 +46,9 @@ from collections.abc import Callable
 
 import numpy as np
 from cache.manager import StreamlinedCacheManager
-from chunked_processor import ChunkedAudioProcessor, apply_crossfade_between_chunks
+from core.chunked_processor import ChunkedAudioProcessor, apply_crossfade_between_chunks
 from fastapi import WebSocket
-from fingerprint_generator import FingerprintGenerator
+from analysis.fingerprint_generator import FingerprintGenerator
 
 from auralis.library.repositories.factory import RepositoryFactory
 
@@ -391,7 +391,7 @@ class AudioStreamController:
 
             # Try to enqueue via fingerprint queue (non-blocking)
             try:
-                from fingerprint_queue import get_fingerprint_queue
+                from analysis.fingerprint_queue import get_fingerprint_queue
                 queue = get_fingerprint_queue()
                 if queue:
                     added = queue.enqueue(track_id)

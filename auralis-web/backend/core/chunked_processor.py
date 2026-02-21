@@ -24,8 +24,8 @@ from typing import Any, cast
 import numpy as np
 
 # Ensure both project root and backend are in path
-backend_path = str(Path(__file__).parent)
-project_root = str(Path(__file__).parent.parent.parent)
+backend_path = str(Path(__file__).parent.parent)   # core/ → backend/
+project_root = str(Path(__file__).parent.parent.parent.parent)  # core/ → backend/ → auralis-web/ → project root
 if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
 if project_root not in sys.path:

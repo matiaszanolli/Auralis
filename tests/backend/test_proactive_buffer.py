@@ -16,7 +16,7 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from proactive_buffer import AVAILABLE_PRESETS, PRELOAD_CHUNKS
+from core.proactive_buffer import AVAILABLE_PRESETS, PRELOAD_CHUNKS
 
 
 class TestProactiveBufferConstants:

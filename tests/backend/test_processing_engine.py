@@ -17,7 +17,7 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from processing_engine import (
+from core.processing_engine import (
     ProcessingEngine,
     ProcessingJob,
     ProcessingStatus,
@@ -224,9 +224,9 @@ class TestProcessingJobProcessing:
         """Test processing with mocked dependencies"""
         engine = ProcessingEngine(max_concurrent_jobs=1)
 
-        with patch('processing_engine.load_audio') as mock_load, \
-             patch('processing_engine.HybridProcessor') as mock_processor, \
-             patch('processing_engine.save') as mock_save:
+        with patch('core.processing_engine.load_audio') as mock_load, \
+             patch('core.processing_engine.HybridProcessor') as mock_processor, \
+             patch('core.processing_engine.save') as mock_save:
 
             # Setup mocks
             mock_load.return_value = (np.zeros((1000, 2)), 44100)

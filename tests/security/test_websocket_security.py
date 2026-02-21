@@ -28,7 +28,7 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from websocket_security import (
+from websocket.websocket_security import (
     MAX_MESSAGE_SIZE,
     MAX_MESSAGES_PER_SECOND,
     WebSocketRateLimiter,
