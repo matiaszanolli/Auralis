@@ -56,10 +56,23 @@ class ParallelFFTProcessor:
             debug(f"Cached Hanning window for size {size}")
 
     def get_window(self, size: int) -> np.ndarray:
-        """Get window function (cached or compute)"""
+        """Get window function (cached or compute).
+
+        Uses a double-check pattern so that np.hanning() — which can be
+        expensive for large sizes — is computed outside the lock, preventing
+        all parallel threads from serialising on the first cache miss (#2077).
+        """
+        # Fast path: common sizes are pre-warmed in __init__, no lock needed.
+        if size in self.window_cache:
+            return self.window_cache[size]
+
+        # Slow path: compute outside the lock to avoid blocking other threads.
+        window = np.hanning(size)
+
         with self.lock:
+            # Another thread may have inserted this size while we computed.
             if size not in self.window_cache:
-                self.window_cache[size] = np.hanning(size)
+                self.window_cache[size] = window
                 debug(f"Computed and cached Hanning window for size {size}")
             return self.window_cache[size]
 
@@ -428,16 +441,25 @@ class ParallelAudioProcessor:
                 debug(f"Updated config: {key}={value}")
 
 
-# Global parallel processor instance
+# Global parallel processor instance and its creation lock (#2314)
 _global_parallel_processor: ParallelAudioProcessor | None = None
+_global_parallel_processor_lock: threading.Lock = threading.Lock()
 
 
 def get_parallel_processor(config: ParallelConfig | None = None) -> ParallelAudioProcessor:
-    """Get global parallel processor instance"""
+    """Get global parallel processor instance.
+
+    Uses a double-check pattern: a fast unlocked read avoids lock overhead on
+    the common hot path; the lock + inner check closes the TOCTOU window for
+    the first call (fixes #2314).
+    """
     global _global_parallel_processor
-    if _global_parallel_processor is None:
-        _global_parallel_processor = ParallelAudioProcessor(config)
-    return _global_parallel_processor
+    if _global_parallel_processor is not None:
+        return _global_parallel_processor
+    with _global_parallel_processor_lock:
+        if _global_parallel_processor is None:
+            _global_parallel_processor = ParallelAudioProcessor(config)
+        return _global_parallel_processor
 
 
 def create_parallel_processor(config: ParallelConfig | None = None) -> ParallelAudioProcessor:

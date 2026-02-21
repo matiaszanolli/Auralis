@@ -10,6 +10,7 @@ Unified processor supporting both reference-based and adaptive mastering
 Main processing engine that bridges Matchering and Auralis systems
 """
 
+import threading
 from collections import OrderedDict
 from typing import Any
 
@@ -358,10 +359,11 @@ class HybridProcessor:
         return processed_chunk
 
     def _load_audio_placeholder(self, file_path: str) -> np.ndarray:
-        """Placeholder for audio loading - will be replaced with unified I/O"""
-        debug(f"Loading audio file: {file_path}")
-        # For now, return dummy audio data
-        return np.random.randn(44100 * 5, 2) * 0.1  # 5 seconds of dummy stereo audio
+        """File-path audio loading is not implemented; callers must pass a NumPy array."""
+        raise NotImplementedError(
+            f"Loading audio from a file path is not supported. "
+            f"Pass a NumPy array directly instead of: {file_path}"
+        )
 
     # Delegation methods for component managers
 
@@ -475,6 +477,8 @@ _apply_module_optimizations()
 # LRU-eviction cap: prevents unbounded memory growth in long-running servers (#2161)
 _PROCESSOR_CACHE_MAX_SIZE: int = 10
 _processor_cache: OrderedDict[str, HybridProcessor] = OrderedDict()
+# Lock protecting _processor_cache against concurrent check-and-insert races (#2314)
+_processor_cache_lock: threading.Lock = threading.Lock()
 
 
 def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridProcessor:
@@ -491,24 +495,28 @@ def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridP
     # Use config object id if provided, otherwise use mode as cache key
     cache_key: str = f"{id(config)}_{mode}" if config else f"default_{mode}"
 
-    if cache_key in _processor_cache:
-        # Move to end so it is considered most-recently-used
-        _processor_cache.move_to_end(cache_key)
-        debug(f"Using cached HybridProcessor for mode={mode}")
+    # The entire check-and-insert is wrapped in a single lock acquisition so
+    # concurrent callers cannot both pass the cache-miss check and create
+    # duplicate HybridProcessor instances (fixes #2314).
+    with _processor_cache_lock:
+        if cache_key in _processor_cache:
+            # Move to end so it is considered most-recently-used
+            _processor_cache.move_to_end(cache_key)
+            debug(f"Using cached HybridProcessor for mode={mode}")
+            return _processor_cache[cache_key]
+
+        if config is None:
+            config = UnifiedConfig()
+        config.set_processing_mode(mode)  # type: ignore[arg-type]
+        _processor_cache[cache_key] = HybridProcessor(config)
+
+        # Evict oldest entry when the cache exceeds its maximum size (#2161)
+        while len(_processor_cache) > _PROCESSOR_CACHE_MAX_SIZE:
+            evicted_key, _ = _processor_cache.popitem(last=False)
+            debug(f"Evicted cached HybridProcessor (cache full): key={evicted_key}")
+
+        debug(f"Created cached HybridProcessor for mode={mode} (cache size: {len(_processor_cache)})")
         return _processor_cache[cache_key]
-
-    if config is None:
-        config = UnifiedConfig()
-    config.set_processing_mode(mode)  # type: ignore[arg-type]
-    _processor_cache[cache_key] = HybridProcessor(config)
-
-    # Evict oldest entry when the cache exceeds its maximum size (#2161)
-    while len(_processor_cache) > _PROCESSOR_CACHE_MAX_SIZE:
-        evicted_key, _ = _processor_cache.popitem(last=False)
-        debug(f"Evicted cached HybridProcessor (cache full): key={evicted_key}")
-
-    debug(f"Created cached HybridProcessor for mode={mode} (cache size: {len(_processor_cache)})")
-    return _processor_cache[cache_key]
 
 
 def process_adaptive(target: str | np.ndarray,

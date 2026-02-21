@@ -158,13 +158,15 @@ class AutoMasterProcessor:
             makeup_gain_db = 20 * np.log10(profile_gain) if profile_gain > 0 else 0
             debug(f"Using profile-based gain ({self.profile}): {makeup_gain_db:.1f} dB")
 
-        # Apply gain with clipping protection
-        input_peak = np.max(np.abs(audio))
-        if input_peak > 0.5:  # -6dBFS threshold
+        # Apply gain with clipping protection measured on post-compression audio,
+        # not the raw input — using the pre-compression peak would over-penalise
+        # material that the compressor has already brought under control (#2310).
+        processed_peak = np.max(np.abs(processed))
+        if processed_peak > 0.5:  # -6dBFS threshold
             # Reduce gain proportionally for loud material
-            hot_reduction = 1.0 - (input_peak - 0.5) * 0.4
+            hot_reduction = 1.0 - (processed_peak - 0.5) * 0.4
             makeup_gain_db *= max(hot_reduction, 0.8)
-            debug(f"Reduced gain due to hot input: {makeup_gain_db:.1f} dB")
+            debug(f"Reduced gain due to hot post-compression level: {makeup_gain_db:.1f} dB")
 
         # Apply makeup gain in linear scale
         if makeup_gain_db != 0:

@@ -54,8 +54,9 @@ def load_with_soundfile(file_path: Path) -> tuple[np.ndarray, int]:
             # Multi-channel audio
             if audio_data.shape[1] > 2:
                 # Convert to stereo by taking first two channels
+                original_channels = audio_data.shape[1]
                 audio_data = audio_data[:, :2]
-                warning(f"Converted {audio_data.shape[1]} channels to stereo")
+                warning(f"Converted {original_channels} channels to stereo")
         else:
             raise ModuleError(f"{Code.ERROR_INVALID_AUDIO}: Invalid audio dimensions")
 

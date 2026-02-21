@@ -43,15 +43,21 @@ class PlaybackController:
 
     def add_callback(self, callback: Callable[[dict[str, Any] | None], None]) -> None:
         """Register a callback for state changes"""
-        self.callbacks.append(callback)
+        with self._lock:
+            self.callbacks.append(callback)
 
     def _notify_callbacks(self, state_info: dict[str, Any]) -> None:
         """Notify all callbacks of state change.
 
-        Must be called OUTSIDE the lock so that callbacks can themselves
-        read or transition player state without deadlocking (issue #2291).
+        Takes a snapshot of the callback list under the lock, then invokes each
+        callback outside the lock so that callbacks can themselves read or
+        transition player state without deadlocking (issue #2291).  The snapshot
+        pattern also prevents RuntimeError if add_callback() races with iteration
+        (fixes #2308).
         """
-        for callback in self.callbacks:
+        with self._lock:
+            callbacks = list(self.callbacks)
+        for callback in callbacks:
             try:
                 callback(state_info)
             except Exception as e:

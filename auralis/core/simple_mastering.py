@@ -348,13 +348,14 @@ class SimpleMasteringPipeline:
             output_target = 0.95
 
             current_peak = np.max(np.abs(processed))
-            # Always normalize - pre-EQ headroom and RMS expansion reduced level
-            # The 0.9x threshold was causing level drops when peak stayed high
-            if current_peak < output_target:
+            # Normalize in both directions — boost quiet material AND reduce hot
+            # peaks above the target ceiling (fixes #2306: was only normalizing UP).
+            if current_peak > 0:
                 processed = normalize(processed, output_target)
                 if verbose:
                     gain_db = 20 * np.log10(output_target / current_peak)
-                    print(f"   Output normalize: +{gain_db:.1f} dB → {output_target*100:.0f}% peak")
+                    direction = "+" if gain_db >= 0 else ""
+                    print(f"   Output normalize: {direction}{gain_db:.1f} dB → {output_target*100:.0f}% peak")
                 info['stages'].append({'stage': 'output_normalize', 'target_peak': output_target})
 
         # Validate output for NaN/Inf (graceful handling for production resilience)

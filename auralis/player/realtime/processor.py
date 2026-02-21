@@ -144,10 +144,12 @@ class RealtimeProcessor:
                     # Map [0.95, 1.0] -> [0.95, 0.98] smoothly
                     processed = np.tanh(processed / target_peak) * target_peak
 
-        # Record performance
-        processing_time = time.perf_counter() - start_time
-        chunk_duration = len(audio) / self.config.sample_rate
-        self.performance_monitor.record_processing_time(processing_time, chunk_duration)
+            # Record performance inside the lock so any concurrent reader of
+            # performance_monitor stats (e.g. get_processing_info) always sees a
+            # consistent state (fixes #2213).
+            processing_time = time.perf_counter() - start_time
+            chunk_duration = len(audio) / self.config.sample_rate
+            self.performance_monitor.record_processing_time(processing_time, chunk_duration)
 
         return processed
 

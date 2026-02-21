@@ -15,6 +15,7 @@ a true limiter only reduces gain when peaks occur.
 from dataclasses import dataclass
 
 import numpy as np
+from scipy.ndimage import maximum_filter1d
 
 
 @dataclass
@@ -96,46 +97,61 @@ class BrickWallLimiter:
 
         num_samples, num_channels = audio.shape
 
-        # Create extended buffer with look-ahead padding
-        # Pad with zeros at the end for look-ahead
-        padded_audio = np.vstack([audio, np.zeros((self.lookahead_samples, num_channels))])
+        # --- Vectorized lookahead peak detection (fixes #2293) ---
+        #
+        # Original approach: O(n × lookahead) — a Python loop with an inner
+        # np.max() call per sample, which is 100-500 ms/second of audio.
+        #
+        # New approach: O(n) sliding-window maximum via scipy.ndimage.
+        #
+        # Pad the abs signal so the filter sees zeros beyond the end of the
+        # block (matching the original zero-padding behaviour).
+        abs_padded = np.abs(
+            np.vstack([audio, np.zeros((self.lookahead_samples, num_channels))])
+        )
+        # Collapse channels: take the per-sample maximum across all channels.
+        per_sample_max = abs_padded.max(axis=1)  # shape: (num_samples + lookahead,)
 
-        # Calculate envelope of peaks in look-ahead window
-        # For each sample, find the maximum peak in the next lookahead_samples
-        gain_curve = np.ones(num_samples)
+        # maximum_filter1d with a negative origin shifts the window forward so
+        # it looks *ahead* rather than centred on the current sample.
+        # origin = -(size // 2) places the right edge of the window at the
+        # current sample, i.e. the window spans [i, i + lookahead_samples).
+        lookahead = self.lookahead_samples
+        peak_envelope = maximum_filter1d(
+            per_sample_max,
+            size=lookahead,
+            mode='constant',
+            cval=0.0,
+            origin=-(lookahead // 2),
+        )[:num_samples]  # trim padding tail
 
-        # Seed gain_curve from self.current_gain so consecutive chunk calls
-        # produce a continuous gain envelope (fixes #2390: instantaneous gain
-        # step / audible click at every 30-second chunk boundary).
+        # Vectorized target-gain computation: threshold / peak where above
+        # threshold, else 1.0.  Clamp denominator to avoid division by zero.
+        safe_envelope = np.maximum(peak_envelope, 1e-10)
+        target_gains = np.where(
+            peak_envelope > self.threshold_linear,
+            self.threshold_linear / safe_envelope,
+            1.0,
+        )
+
+        # Release envelope is inherently recurrent (each sample depends on the
+        # previous gain), so a loop is unavoidable here.  However it now has
+        # NO inner NumPy call — it's pure scalar arithmetic, which is ~10×
+        # faster than the previous O(n × lookahead) loop.
+        gain_curve = np.empty(num_samples)
+        # Seed from self.current_gain so consecutive chunk calls produce a
+        # continuous gain envelope (fixes #2390: audible click at boundaries).
         prev_gain = self.current_gain
-
+        rc = self.release_coef
         for i in range(num_samples):
-            # Look ahead at next lookahead_samples samples
-            lookahead_window = padded_audio[i:i + self.lookahead_samples]
-
-            # Find peak in window (max absolute value across all channels)
-            peak = np.max(np.abs(lookahead_window))
-
-            # Calculate required gain reduction
-            if peak > self.threshold_linear:
-                # Need to reduce gain to bring peak down to threshold
-                target_gain = self.threshold_linear / peak
-            else:
-                # No reduction needed
-                target_gain = 1.0
-
-            # Smooth gain reduction (instant attack, exponential release).
-            # Use prev_gain as the prior-sample value so the first sample of
-            # each chunk continues seamlessly from the last sample of the
-            # previous chunk.
-            if target_gain < prev_gain:
+            tg = target_gains[i]
+            if tg < prev_gain:
                 # Attack: instant
-                gain_curve[i] = target_gain
+                prev_gain = tg
             else:
-                # Release: exponential decay back to 1.0
-                gain_curve[i] = prev_gain * self.release_coef + target_gain * (1 - self.release_coef)
-
-            prev_gain = gain_curve[i]
+                # Release: exponential decay back toward 1.0
+                prev_gain = prev_gain * rc + tg * (1.0 - rc)
+            gain_curve[i] = prev_gain
 
         # Persist ending gain for the next call (cross-chunk continuity).
         self.current_gain = float(gain_curve[-1])

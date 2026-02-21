@@ -106,11 +106,15 @@ class ChunkBoundaryManager:
             with_context=with_context
         )
 
+        # round() instead of int() prevents systematic truncation drift at
+        # non-44100 sample rates (e.g. 48 kHz, 96 kHz) where float arithmetic
+        # gives results like 719999.999… that int() would truncate by one
+        # sample per boundary (fixes #2327).
         return (
-            int(load_start * self.sample_rate),
-            int(load_end * self.sample_rate),
-            int(trim_start * self.sample_rate),
-            int(trim_end * self.sample_rate)
+            round(load_start * self.sample_rate),
+            round(load_end * self.sample_rate),
+            round(trim_start * self.sample_rate),
+            round(trim_end * self.sample_rate)
         )
 
     def calculate_context_trim_samples(self, chunk_index: int) -> tuple[int, int]:
@@ -123,7 +127,7 @@ class ChunkBoundaryManager:
         Returns:
             Tuple of (trim_start_samples, trim_end_samples)
         """
-        context_samples = int(CONTEXT_DURATION * self.sample_rate)
+        context_samples = round(CONTEXT_DURATION * self.sample_rate)
         is_last = chunk_index == self.total_chunks - 1
 
         trim_start = context_samples if chunk_index > 0 else 0
@@ -137,7 +141,7 @@ class ChunkBoundaryManager:
 
     def get_overlap_samples(self) -> int:
         """Get the number of overlap samples between adjacent chunks."""
-        return int(OVERLAP_DURATION * self.sample_rate)
+        return round(OVERLAP_DURATION * self.sample_rate)
 
     def get_segment_boundaries(
         self,
@@ -159,7 +163,7 @@ class ChunkBoundaryManager:
         """
         is_last = self.is_last_chunk(chunk_index)
         self.get_overlap_samples()
-        context_samples = int(CONTEXT_DURATION * self.sample_rate)
+        context_samples = round(CONTEXT_DURATION * self.sample_rate)
 
         # Start point in processed chunk (skip leading context)
         if chunk_index == 0:
@@ -168,12 +172,12 @@ class ChunkBoundaryManager:
             segment_start = context_samples  # Skip leading context
 
         # End point in processed chunk
-        chunk_duration_samples = int(CHUNK_DURATION * self.sample_rate)
+        chunk_duration_samples = round(CHUNK_DURATION * self.sample_rate)
         if is_last:
             # Last chunk: calculate from remaining duration
             chunk_start_time = chunk_index * CHUNK_INTERVAL
             remaining_duration = max(0, self.total_duration - chunk_start_time)
-            remaining_samples = int(remaining_duration * self.sample_rate)
+            remaining_samples = round(remaining_duration * self.sample_rate)
             segment_end = segment_start + remaining_samples
         else:
             # Regular chunk: extract CHUNK_DURATION
