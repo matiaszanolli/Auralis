@@ -6,7 +6,8 @@
       "Bash(git -C:*)",
       "Bash(git remote get-url:*)",
       "Bash(GIT_DIR=/mnt/data/src/matchering/.git git remote:*)",
-      "Read(//mnt/data/src/**)"
+      "Read(//mnt/data/src/**)",
+      "Bash(python3:*)"
     ]
   }
 }

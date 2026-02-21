@@ -17,10 +17,45 @@ Features:
 import hashlib
 import logging
 from pathlib import Path
+from urllib.parse import urlparse
 
 import aiohttp
 
 logger = logging.getLogger(__name__)
+
+# Trusted domains for artwork downloads (fixes #2416: SSRF via unvalidated URL).
+# Only apple/iTunes domains are allowed.
+_TRUSTED_ARTWORK_DOMAINS = frozenset({
+    "is1-ssl.mzstatic.com",
+    "is2-ssl.mzstatic.com",
+    "is3-ssl.mzstatic.com",
+    "is4-ssl.mzstatic.com",
+    "is5-ssl.mzstatic.com",
+    "mzstatic.com",
+})
+
+
+def _validate_artwork_url(url: str) -> bool:
+    """
+    Validate artwork URL against trusted domains.
+
+    Prevents SSRF attacks by only allowing downloads from known Apple/iTunes servers.
+
+    Args:
+        url: URL to validate
+
+    Returns:
+        bool: True if URL is from a trusted domain, False otherwise
+    """
+    try:
+        parsed = urlparse(url)
+        return (
+            parsed.scheme in ("https",) and
+            parsed.hostname and
+            parsed.hostname in _TRUSTED_ARTWORK_DOMAINS
+        )
+    except Exception:
+        return False
 
 
 class ArtworkDownloader:
@@ -186,6 +221,11 @@ class ArtworkDownloader:
 
                     # Request larger artwork (600x600)
                     artwork_url = artwork_url.replace("100x100", "600x600")
+
+                    # Validate artwork URL against trusted domains (fixes #2416: SSRF mitigation)
+                    if not _validate_artwork_url(artwork_url):
+                        logger.warning(f"Rejecting untrusted artwork URL: {artwork_url!r}")
+                        return None
 
                 # Download artwork
                 async with session.get(artwork_url) as resp:
