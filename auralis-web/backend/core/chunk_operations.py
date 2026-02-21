@@ -94,8 +94,8 @@ class ChunkOperations:
         try:
             import soundfile as sf
 
-            start_frame = int(load_start * sample_rate)
-            frames_to_read = int((load_end - load_start) * sample_rate)
+            start_frame = int(round(load_start * sample_rate))
+            frames_to_read = int(round((load_end - load_start) * sample_rate))
 
             with sf.SoundFile(filepath) as f:
                 f.seek(start_frame)
@@ -112,8 +112,8 @@ class ChunkOperations:
 
             full_audio, _ = load_audio(filepath, target_sample_rate=sample_rate)
 
-            start_sample = int(load_start * sample_rate)
-            end_sample = int(load_end * sample_rate)
+            start_sample = int(round(load_start * sample_rate))
+            end_sample = int(round(load_end * sample_rate))
 
             # Ensure we don't try to read beyond the file
             end_sample = min(end_sample, len(full_audio))
@@ -175,11 +175,11 @@ class ChunkOperations:
             Extracted segment ready for encoding
         """
         is_last = (total_chunks is not None) and (chunk_index == total_chunks - 1)
-        overlap_samples = int(overlap_duration * sample_rate)
+        overlap_samples = int(round(overlap_duration * sample_rate))
 
         if chunk_index == 0:
             # First chunk: extract exactly CHUNK_DURATION seconds (or full duration if shorter)
-            expected_samples = int(chunk_duration * sample_rate)
+            expected_samples = int(round(chunk_duration * sample_rate))
             extracted = processed_chunk[:expected_samples]
             logger.debug(
                 f"✅ Chunk 0: extracted [0:{expected_samples}] samples "
@@ -191,7 +191,7 @@ class ChunkOperations:
             assert total_duration is not None
             chunk_start_time = chunk_index * chunk_interval
             remaining_duration = max(0, total_duration - chunk_start_time)
-            expected_samples = int(remaining_duration * sample_rate)
+            expected_samples = int(round(remaining_duration * sample_rate))
 
             # Skip the overlap region to avoid duplicate audio
             extracted = processed_chunk[overlap_samples : overlap_samples + expected_samples]
@@ -202,7 +202,7 @@ class ChunkOperations:
 
         else:
             # Regular chunk: skip the overlap, extract exactly CHUNK_DURATION seconds
-            expected_samples = int(chunk_duration * sample_rate)
+            expected_samples = int(round(chunk_duration * sample_rate))
             # Skip the overlap region to avoid duplicate audio
             extracted = processed_chunk[overlap_samples : overlap_samples + expected_samples]
             logger.debug(
@@ -217,9 +217,9 @@ class ChunkOperations:
             assert total_duration is not None
             chunk_start_time = chunk_index * chunk_interval
             remaining_duration = max(0, total_duration - chunk_start_time)
-            expected_for_validation = int(remaining_duration * sample_rate)
+            expected_for_validation = int(round(remaining_duration * sample_rate))
         else:
-            expected_for_validation = int(chunk_duration * sample_rate)
+            expected_for_validation = int(round(chunk_duration * sample_rate))
 
         if current_samples < expected_for_validation:
             # Pad with silence if too short

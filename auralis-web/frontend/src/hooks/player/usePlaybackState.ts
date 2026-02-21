@@ -27,9 +27,10 @@ export interface PlaybackState {
   duration: number;
   queue: TrackInfo[];
   queueIndex: number;
-  gapless_enabled: boolean;
-  crossfade_enabled: boolean;
-  crossfade_duration: number;
+  // Standardized to camelCase (fixes #2276)
+  gaplessEnabled: boolean;
+  crossfadeEnabled: boolean;
+  crossfadeDuration: number;
   isLoading: boolean;
   error: string | null;
 }
@@ -42,9 +43,10 @@ const INITIAL_STATE: PlaybackState = {
   duration: 0,
   queue: [],
   queueIndex: -1,
-  gapless_enabled: true,
-  crossfade_enabled: true,
-  crossfade_duration: 3.0,
+  // Standardized to camelCase (fixes #2276)
+  gaplessEnabled: true,
+  crossfadeEnabled: true,
+  crossfadeDuration: 3.0,
   isLoading: false,
   error: null,
 };
@@ -83,9 +85,10 @@ export function usePlaybackState(): PlaybackState {
               duration: data.duration ?? 0,
               queue: data.queue ?? [],
               queueIndex: data.queue_index ?? -1,
-              gapless_enabled: data.gapless_enabled ?? true,
-              crossfade_enabled: data.crossfade_enabled ?? true,
-              crossfade_duration: data.crossfade_duration ?? 3.0,
+              // Backend sends snake_case; mapped to camelCase (fixes #2276)
+              gaplessEnabled: data.gapless_enabled ?? true,
+              crossfadeEnabled: data.crossfade_enabled ?? true,
+              crossfadeDuration: data.crossfade_duration ?? 3.0,
               isLoading: false,
               error: null,
             };

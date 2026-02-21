@@ -88,9 +88,19 @@ class SettingsRepository:
                     settings.file_types = updates['file_types']
                 del updates['file_types']
 
-            # Update remaining attributes
+            # Whitelist of mutable settings fields — prevents ORM internal state
+            # corruption via _sa_instance_state, id, created_at, etc. (fixes #2240)
+            ALLOWED_SETTINGS_FIELDS = {
+                'auto_scan', 'scan_interval',
+                'crossfade_enabled', 'crossfade_duration', 'gapless_enabled',
+                'replay_gain_enabled', 'volume',
+                'output_device', 'bit_depth', 'sample_rate',
+                'theme', 'language', 'show_visualizations', 'mini_player_on_close',
+                'default_preset', 'auto_enhance', 'enhancement_intensity',
+                'cache_size', 'max_concurrent_scans', 'enable_analytics', 'debug_mode',
+            }
             for key, value in updates.items():
-                if hasattr(settings, key):
+                if key in ALLOWED_SETTINGS_FIELDS:
                     setattr(settings, key, value)
 
             session.commit()

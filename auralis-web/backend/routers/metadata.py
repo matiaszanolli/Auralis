@@ -24,6 +24,8 @@ from pydantic import BaseModel, Field
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
 
+from security.path_security import PathValidationError, validate_file_path
+
 from .dependencies import require_repository_factory
 
 logger = logging.getLogger(__name__)
@@ -111,8 +113,11 @@ def create_metadata_router(
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
 
-            # Get editable fields for this file format (file I/O — run in thread)
-            filepath_str = str(track.filepath)
+            # Validate DB-retrieved filepath before any file I/O (fixes #2302)
+            try:
+                filepath_str = str(validate_file_path(str(track.filepath)))
+            except PathValidationError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid track filepath: {e}")
             editable_fields = await asyncio.to_thread(metadata_editor.get_editable_fields, filepath_str)
 
             # Get current metadata (file I/O — run in thread)
@@ -155,8 +160,14 @@ def create_metadata_router(
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
 
+            # Validate DB-retrieved filepath before file I/O (fixes #2302)
+            try:
+                filepath_validated = str(validate_file_path(str(track.filepath)))
+            except PathValidationError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid track filepath: {e}")
+
             # Read metadata from file (offloaded to thread to avoid event-loop block, fixes #2317)
-            metadata = await asyncio.to_thread(metadata_editor.read_metadata, str(track.filepath))
+            metadata = await asyncio.to_thread(metadata_editor.read_metadata, filepath_validated)
 
             return {
                 "track_id": track_id,
@@ -204,11 +215,17 @@ def create_metadata_router(
             if not metadata_updates:
                 raise HTTPException(status_code=400, detail="No metadata fields provided")
 
+            # Validate DB-retrieved filepath before any file I/O (fixes #2302)
+            try:
+                filepath_validated = str(validate_file_path(str(track.filepath)))
+            except PathValidationError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid track filepath: {e}")
+
             # Write metadata to file (backup always enforced server-side, fixes #2407).
             # Offloaded to thread to avoid blocking the event loop (fixes #2317).
             success = await asyncio.to_thread(
                 metadata_editor.write_metadata,
-                str(track.filepath),
+                filepath_validated,
                 metadata_updates,
                 True  # backup=True
             )
@@ -235,7 +252,9 @@ def create_metadata_router(
                 })
 
             # Read updated metadata (offloaded to thread, fixes #2317)
-            updated_metadata = await asyncio.to_thread(metadata_editor.read_metadata, str(track.filepath))
+            # track was refreshed from DB above — re-validate before read (fixes #2302)
+            validated_path_for_read = str(validate_file_path(str(track.filepath)))
+            updated_metadata = await asyncio.to_thread(metadata_editor.read_metadata, validated_path_for_read)
 
             logger.info(f"Updated metadata for track {track_id}: {list(metadata_updates.keys())}")
 
@@ -290,9 +309,16 @@ def create_metadata_router(
 
                 track_map[update_req.track_id] = track
 
+                # Validate DB-retrieved filepath before file I/O (fixes #2302)
+                try:
+                    validated_filepath = str(validate_file_path(str(track.filepath)))
+                except PathValidationError as e:
+                    logger.warning(f"Invalid filepath for track {update_req.track_id}: {e}, skipping")
+                    continue
+
                 batch_updates.append(MetadataUpdate(
                     track_id=update_req.track_id,
-                    filepath=str(track.filepath),
+                    filepath=validated_filepath,
                     updates=update_req.metadata,
                     backup=True  # always enforced server-side (fixes #2407)
                 ))

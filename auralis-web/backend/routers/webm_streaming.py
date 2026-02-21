@@ -30,6 +30,7 @@ import logging
 import math
 import os
 import time
+from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
@@ -264,9 +265,11 @@ def create_webm_streaming_router(
                             cache_tier = tier.upper()
                             logger.info(f"✅ Cache {tier.upper()} HIT: Serving chunk {chunk_idx} from cache")
 
-                            # Read cached chunk
-                            with open(cached_chunk_path, 'rb') as f:
-                                wav_bytes = f.read()
+                            # Read cached chunk (offloaded to thread with timeout — fixes #2329)
+                            wav_bytes = await asyncio.wait_for(
+                                asyncio.to_thread(Path(cached_chunk_path).read_bytes),
+                                timeout=10.0
+                            )
                         else:
                             cache_tier = "MISS"
                     except Exception as e:
@@ -302,9 +305,11 @@ def create_webm_streaming_router(
                     chunk_path = processor.get_wav_chunk_path(chunk_idx)
 
                     try:
-                        # Read the processed chunk
-                        with open(chunk_path, 'rb') as f:
-                            wav_bytes = f.read()
+                        # Read the processed chunk (offloaded to thread with timeout — fixes #2329)
+                        wav_bytes = await asyncio.wait_for(
+                            asyncio.to_thread(Path(chunk_path).read_bytes),
+                            timeout=10.0
+                        )
                         logger.info(f"Chunk {chunk_idx} processed on-demand: {len(wav_bytes)} bytes WAV at {processor.sample_rate}Hz")
 
                         # Add to streamlined cache (Tier 1 or Tier 2 auto-detected)

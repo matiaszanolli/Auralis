@@ -38,6 +38,15 @@ export type WebSocketMessageType =
   | 'mastering_recommendation'
   // Artwork messages
   | 'artwork_updated'
+  // Fingerprint messages (fixes #2282)
+  | 'fingerprint_progress'
+  // Seek acknowledgement (fixes #2282)
+  | 'seek_started'
+  // Audio stream lifecycle messages (fixes #2282)
+  | 'audio_stream_start'
+  | 'audio_stream_end'
+  | 'audio_chunk'
+  | 'audio_stream_error'
   // System messages
   | 'scan_progress'
   | 'scan_complete';
@@ -72,9 +81,10 @@ export interface PlayerStateData {
   duration: number; // Seconds
   queue: TrackInfo[];
   queueIndex: number;
-  gapless_enabled: boolean;
-  crossfade_enabled: boolean;
-  crossfade_duration: number; // Seconds
+  // Standardized to camelCase (fixes #2276); backend sends snake_case — mapped at consumption
+  gaplessEnabled: boolean;
+  crossfadeEnabled: boolean;
+  crossfadeDuration: number; // Seconds
 }
 
 export interface PlayerStateMessage extends WebSocketMessage {
@@ -288,6 +298,66 @@ export interface ArtworkUpdatedMessage extends WebSocketMessage {
 }
 
 // ============================================================================
+// Fingerprint Messages (fixes #2282)
+// ============================================================================
+
+/** Sent by audio_stream_controller.py while computing track fingerprint */
+export interface FingerprintProgressMessage extends WebSocketMessage {
+  type: 'fingerprint_progress';
+  data: {
+    track_id: number;
+    progress: number; // 0-100
+    stage?: string;
+  };
+}
+
+/** Sent by system.py seek handler to acknowledge a seek request */
+export interface SeekStartedMessage extends WebSocketMessage {
+  type: 'seek_started';
+  data: {
+    position: number; // Seconds
+  };
+}
+
+// ============================================================================
+// Audio Stream Messages (fixes #2282)
+// ============================================================================
+
+export interface AudioStreamStartMessage extends WebSocketMessage {
+  type: 'audio_stream_start';
+  data: {
+    track_id: number;
+    sample_rate: number;
+    channels: number;
+    total_chunks: number;
+  };
+}
+
+export interface AudioStreamEndMessage extends WebSocketMessage {
+  type: 'audio_stream_end';
+  data: {
+    track_id: number;
+  };
+}
+
+export interface AudioChunkMessage extends WebSocketMessage {
+  type: 'audio_chunk';
+  data: {
+    track_id: number;
+    chunk_index: number;
+    data: string; // base64-encoded PCM
+  };
+}
+
+export interface AudioStreamErrorMessage extends WebSocketMessage {
+  type: 'audio_stream_error';
+  data: {
+    track_id: number;
+    error: string;
+  };
+}
+
+// ============================================================================
 // System Messages
 // ============================================================================
 
@@ -336,6 +406,12 @@ export type AnyWebSocketMessage =
   | EnhancementSettingsChangedMessage
   | MasteringRecommendationMessage
   | ArtworkUpdatedMessage
+  | FingerprintProgressMessage
+  | SeekStartedMessage
+  | AudioStreamStartMessage
+  | AudioStreamEndMessage
+  | AudioChunkMessage
+  | AudioStreamErrorMessage
   | ScanProgressMessage
   | ScanCompleteMessage;
 

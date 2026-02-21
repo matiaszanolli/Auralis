@@ -231,6 +231,9 @@ class AlbumRepository:
                 session.commit()
                 return True
             return False
+        except Exception:
+            session.rollback()  # fixes #2238: prevent dirty session in pool
+            raise
         finally:
             session.close()
 
@@ -255,6 +258,9 @@ class AlbumRepository:
                 session.commit()
                 return True
             return False
+        except Exception:
+            session.rollback()  # fixes #2238: prevent dirty session in pool
+            raise
         finally:
             session.close()
 

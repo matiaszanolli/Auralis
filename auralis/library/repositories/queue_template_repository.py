@@ -214,9 +214,14 @@ class QueueTemplateRepository:
             if 'tags' in kwargs and isinstance(kwargs['tags'], list):
                 kwargs['tags'] = json.dumps(kwargs['tags'])
 
-            # Update fields
+            # Whitelist of mutable fields — prevents ORM internal state corruption
+            # via _sa_instance_state, id, created_at, etc. (fixes #2240)
+            ALLOWED_FIELDS = {
+                'name', 'description', 'track_ids', 'is_shuffled',
+                'repeat_mode', 'tags', 'is_favorite',
+            }
             for key, value in kwargs.items():
-                if hasattr(template, key):
+                if key in ALLOWED_FIELDS:
                     setattr(template, key, value)
 
             session.commit()
