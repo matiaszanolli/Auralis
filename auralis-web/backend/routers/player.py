@@ -230,7 +230,7 @@ def create_player_router(
                     )
                     logger.info(f"🎯 Scheduled mastering recommendation generation for track {track.id}")
 
-                return {"message": "Track loaded successfully", "track_path": track.filepath}
+                return {"message": "Track loaded successfully", "track_id": track.id}
             else:
                 raise HTTPException(status_code=400, detail="Failed to load track")
 
@@ -380,12 +380,14 @@ def create_player_router(
             track_info = {"filepath": track.filepath, "id": track.id}  # Security: Use validated path from database
             audio_player.add_to_queue(track_info)
 
+            # Use track_id (not track_path) to avoid leaking server filesystem paths
+            # to all connected WebSocket clients (fixes #2483 / incomplete fix of #2479).
             await connection_manager.broadcast({
                 "type": "queue_updated",
-                "data": {"action": "added", "track_path": track.filepath}
+                "data": {"action": "added", "track_id": track.id}
             })
 
-            return {"message": "Track added to queue", "track_path": track.filepath}
+            return {"message": "Track added to queue", "track_id": track.id}
         except HTTPException:
             raise
         except Exception as e:

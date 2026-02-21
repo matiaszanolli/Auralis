@@ -250,10 +250,22 @@ def create_library_router(
 
                 lyrics_text = None
 
-                # Try different lyrics tags
+                # Try different lyrics tags — order matters: MP4 must come first because
+                # mutagen.mp4.MP4Tags implements .get(), so it would incorrectly match the
+                # Vorbis branch and look up the wrong key 'LYRICS' instead of '©lyr'
+                # (fixes #2383: MP4/M4A lyrics branch was unreachable).
                 if audio_file:
+                    from mutagen.mp4 import MP4
+
+                    if isinstance(audio_file, MP4):
+                        # MP4/M4A: iTunes '©lyr' atom
+                        try:
+                            lyrics_text = audio_file.get('\xa9lyr', [None])[0]
+                        except Exception:
+                            pass
+
                     # ID3 tags (MP3)
-                    if hasattr(audio_file, 'tags') and audio_file.tags:
+                    elif hasattr(audio_file, 'tags') and audio_file.tags:
                         # USLT frame (Unsynchronized lyrics)
                         if 'USLT::eng' in audio_file.tags:
                             lyrics_text = str(audio_file.tags['USLT::eng'])
@@ -266,13 +278,6 @@ def create_library_router(
                     # Vorbis comments (FLAC, OGG)
                     elif hasattr(audio_file, 'get'):
                         lyrics_text = audio_file.get('LYRICS', [None])[0] or audio_file.get('UNSYNCEDLYRICS', [None])[0]
-
-                    # MP4/M4A tags
-                    elif hasattr(audio_file, '__getitem__'):
-                        try:
-                            lyrics_text = audio_file.get('\xa9lyr', [None])[0]
-                        except Exception:
-                            pass
 
                 if lyrics_text:
                     # Save to database for future requests

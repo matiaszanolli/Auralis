@@ -299,10 +299,28 @@ class QueueService:
             if index < 0 or index >= queue_size:
                 raise ValueError(f"Invalid index: {index}")
 
+            # Detect whether the currently-playing track is the one being removed
+            # (fixes #2403: without this check, audio continues from the removed track
+            # while get_current_track() returns the next one — metadata/audio desync).
+            was_current = (index == queue_manager.current_index)
+
             # Remove track from queue
             success = queue_manager.remove_track(index)
             if not success:
                 raise ValueError("Failed to remove track")
+
+            # If the removed track was playing, stop current audio and load the new
+            # current track (or stop entirely if the queue is now empty).
+            if was_current and self.audio_player:
+                new_current = queue_manager.get_current_track()
+                if new_current and hasattr(self.audio_player, 'load_file'):
+                    file_path = new_current.get('filepath') or new_current.get('file_path')
+                    if file_path:
+                        self.audio_player.load_file(file_path)
+                        logger.info(f"Removed current track; loaded next: {new_current.get('id')}")
+                elif hasattr(self.audio_player, 'playback') and hasattr(self.audio_player.playback, 'stop'):
+                    self.audio_player.playback.stop()
+                    logger.info("Removed only/last track; stopped playback")
 
             # Get updated queue
             updated_queue = queue_manager.get_queue()

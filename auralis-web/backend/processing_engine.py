@@ -413,6 +413,11 @@ class ProcessingEngine:
 
             await self._notify_progress(job.job_id, 40.0, "Processing audio...")
 
+            # Reset EQ state before each job so cached processors don't bleed
+            # the previous track's psychoacoustic EQ curve into the new track (fixes #2400).
+            processor.reset_realtime_eq()
+            processor.reset_dynamics()
+
             # Process audio — CPU-bound; offload to thread (fixes #2319)
             if job.mode == "reference" or job.mode == "hybrid":
                 # Load reference audio if needed

@@ -140,8 +140,10 @@ class RealtimeAdaptiveEQ:
                     processed_chunk = self._process_fixed_chunk(chunk, content_info)
                     processed_chunks.append(processed_chunk)
                 else:
-                    # Handle remainder
-                    padded_chunk = np.zeros(self.buffer_size)
+                    # Handle remainder — preserve channel dimensionality to avoid
+                    # ValueError when assigning a 2-D stereo chunk into a 1-D array
+                    # (fixes #2399: np.zeros(N) can't hold shape (N, 2)).
+                    padded_chunk = np.zeros((self.buffer_size,) + chunk.shape[1:], dtype=chunk.dtype)
                     padded_chunk[:len(chunk)] = chunk
                     processed_chunk = self._process_fixed_chunk(padded_chunk, content_info)
                     processed_chunks.append(processed_chunk[:len(chunk)])

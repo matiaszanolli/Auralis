@@ -35,7 +35,7 @@
  * @module hooks/enhancement/useEnhancementControl
  */
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
 import type { ApiError } from '@/types/api';
@@ -176,7 +176,14 @@ export function useEnhancementControl(): EnhancementControlActions {
   /**
    * Toggle enhancement on/off
    */
+  // Ref-based in-flight guard prevents rapid double-click from sending duplicate
+  // requests: both clicks would read the same stale state.enabled and call the
+  // API twice with the same value (fixes #2404).
+  const isTogglingRef = useRef(false);
+
   const toggleEnabled = useCallback(async (): Promise<void> => {
+    if (isTogglingRef.current) return;
+    isTogglingRef.current = true;
     setIsLoading(true);
     setError(null);
 
@@ -200,6 +207,7 @@ export function useEnhancementControl(): EnhancementControlActions {
       setError(apiError);
       throw apiError;
     } finally {
+      isTogglingRef.current = false;
       setIsLoading(false);
     }
   }, [post, state.enabled]);

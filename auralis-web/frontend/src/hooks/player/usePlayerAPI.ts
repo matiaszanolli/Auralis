@@ -86,61 +86,21 @@ export const usePlayerAPI = () => {
   }, []);
 
   // Play current track or resume
+  // NOTE: /api/player/play was deprecated and removed from the backend (fixes #2377).
+  // Play control is now handled via WebSocket 'play_normal' messages in usePlaybackControl.
+  // This implementation updates local optimistic state only.
   const play = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/player/play`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPlayerState(prev => ({
-          ...prev,
-          isPlaying: true,
-          currentTrack: data.track || prev.currentTrack
-        }));
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Failed to play');
-      }
-    } catch (err) {
-      setError('Network error');
-      console.error('Play error:', err);
-    } finally {
-      setLoading(false);
-    }
+    console.warn('[usePlayerAPI] play() is deprecated — use usePlaybackControl instead.');
+    setPlayerState(prev => ({ ...prev, isPlaying: true }));
   }, []);
 
   // Pause playback
+  // NOTE: /api/player/pause was deprecated and removed from the backend (fixes #2377).
+  // Pause control is now handled via WebSocket 'pause' messages in usePlaybackControl.
+  // This implementation updates local optimistic state only.
   const pause = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/player/pause`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      if (response.ok) {
-        setPlayerState(prev => ({
-          ...prev,
-          isPlaying: false
-        }));
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Failed to pause');
-      }
-    } catch (err) {
-      setError('Network error');
-      console.error('Pause error:', err);
-    } finally {
-      setLoading(false);
-    }
+    console.warn('[usePlayerAPI] pause() is deprecated — use usePlaybackControl instead.');
+    setPlayerState(prev => ({ ...prev, isPlaying: false }));
   }, []);
 
   // Play/pause toggle

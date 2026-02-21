@@ -138,13 +138,6 @@ class SimpleMasteringPipeline:
                 chunks_processed = 0
                 total_chunks = int(np.ceil(total_frames / chunk_size))
 
-                # Calculate peak from first chunk for adaptive processing
-                audio_file.seek(0)
-                first_chunk = audio_file.read(chunk_size)
-                if first_chunk.ndim == 1:
-                    first_chunk = np.stack([first_chunk, first_chunk]).T
-                peak_db = self._peak_db(first_chunk.T)
-
                 prev_tail = None  # Previous chunk's processed overlap tail
                 read_pos = 0
 
@@ -180,6 +173,11 @@ class SimpleMasteringPipeline:
                     # square arrays like (2, 2) — 2-sample stereo — because 2 > 2
                     # is False (issue #2292).
                     chunk = chunk.T
+
+                    # Compute peak_db per chunk so the peak-reduction gate correctly
+                    # engages on loud sections even when the track starts quietly (fixes
+                    # #2402: stale first-chunk peak caused missed limiting on loud choruses).
+                    peak_db = self._peak_db(chunk)
 
                     # Process chunk (includes overlap tail for crossfading)
                     processed_chunk, chunk_info = self._process(
