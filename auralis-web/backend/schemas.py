@@ -203,6 +203,7 @@ class WebSocketMessageType(str, Enum):
     """Valid WebSocket message types."""
     PING = "ping"
     PONG = "pong"
+    HEARTBEAT = "heartbeat"
     PROCESSING_SETTINGS_UPDATE = "processing_settings_update"
     PROCESSING_SETTINGS_APPLIED = "processing_settings_applied"
     AB_TRACK_LOADED = "ab_track_loaded"

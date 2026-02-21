@@ -31,16 +31,20 @@ if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     # Use working directory to find resources (cwd is set to resources/backend by Electron)
     auralis_parent = Path(os.getcwd()).parent
     logger.info(f"Running as PyInstaller bundle, adding to sys.path: {auralis_parent}")
+    # Append (not insert) so that _MEIPASS — which PyInstaller puts at the front — takes
+    # priority over the external resources/auralis/ copy, preventing a stale copy from
+    # shadowing the auralis version that was bundled into this executable.
+    sys.path.append(str(auralis_parent))
 elif os.environ.get('ELECTRON_MODE') == '1':
     # Running in Electron but not frozen (shouldn't happen in production)
     auralis_parent = Path(__file__).parent.parent
     logger.info(f"Running in Electron mode (unfrozen), adding to sys.path: {auralis_parent}")
+    sys.path.insert(0, str(auralis_parent))
 else:
     # Running in development - auralis package is in ../../..
     auralis_parent = Path(__file__).parent.parent.parent
     logger.info(f"Running in development mode, adding to sys.path: {auralis_parent}")
-
-sys.path.insert(0, str(auralis_parent))
+    sys.path.insert(0, str(auralis_parent))
 
 # Import configuration modules
 from config.app import create_app

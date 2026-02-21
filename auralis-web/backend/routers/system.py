@@ -128,6 +128,10 @@ def create_system_router(
                 if message.get("type") == "ping":
                     await websocket.send_text(json.dumps({"type": "pong"}))
 
+                elif message.get("type") == "heartbeat":
+                    # Keepalive sent by RealTimeAnalysisStream every 30s — no response needed
+                    pass
+
                 elif message.get("type") == "processing_settings_update":
                     # Handle processing settings updates
                     settings = message.get("data", {})
