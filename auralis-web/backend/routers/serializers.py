@@ -50,7 +50,10 @@ DEFAULT_ARTIST_FIELDS = {
     'id': None,
     'name': 'Unknown Artist',
     'track_count': 0,
-    'album_count': 0
+    'album_count': 0,
+    # Include artwork fields so serialize_artist() never silently drops them (fixes #2511)
+    'artwork_url': None,
+    'artwork_source': None,
 }
 
 DEFAULT_PLAYLIST_FIELDS = {

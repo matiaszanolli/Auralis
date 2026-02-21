@@ -29,11 +29,12 @@ SUPPORTED_FORMATS = {
     '.m4a': 'M4A',
     '.aac': 'AAC',
     '.ogg': 'OGG',
-    '.wma': 'WMA'
+    '.wma': 'WMA',
+    '.opus': 'OPUS',  # fixes #2529
 }
 
 # Formats that require FFmpeg conversion
-FFMPEG_FORMATS = {'.mp3', '.m4a', '.aac', '.ogg', '.wma'}
+FFMPEG_FORMATS = {'.mp3', '.m4a', '.aac', '.ogg', '.wma', '.opus'}
 
 
 def load_audio(

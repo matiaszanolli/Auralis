@@ -47,8 +47,25 @@ class DSPBackend:
             logger.error(error_msg)
             raise RuntimeError(error_msg) from e
 
+    @staticmethod
+    def _validate_ffi_inputs(audio: np.ndarray, sr: int, op: str) -> np.ndarray:
+        """
+        Validate and coerce inputs at the Rust FFI boundary (fixes #2521).
+
+        PyO3 silently truncates float64 to float32; an empty array or sr=0
+        causes a Rust panic that crashes the interpreter instead of raising
+        a Python exception.
+        """
+        if sr <= 0:
+            raise ValueError(f"{op}: sample rate must be > 0, got sr={sr}")
+        if audio.size == 0:
+            raise ValueError(f"{op}: audio array is empty")
+        if audio.dtype != np.float32:
+            audio = audio.astype(np.float32)
+        return audio
+
     @classmethod
-    def hpss(cls, audio: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, np.ndarray]:
+    def hpss(cls, audio: np.ndarray, sr: int = 22050, **kwargs: Any) -> tuple[np.ndarray, np.ndarray]:
         """
         Harmonic/Percussive Source Separation (Rust implementation).
 
@@ -56,6 +73,7 @@ class DSPBackend:
 
         Args:
             audio: Audio signal
+            sr: Sample rate (used for validation; HPSS itself is sample-rate agnostic)
             **kwargs: Additional arguments (reserved for future use)
 
         Returns:
@@ -67,6 +85,7 @@ class DSPBackend:
         if not cls.AVAILABLE or cls._module is None:
             raise RuntimeError("Rust DSP library not initialized. Cannot perform HPSS.")
 
+        audio = cls._validate_ffi_inputs(audio, sr, "HPSS")
         try:
             return cls._module.hpss(audio)  # type: ignore[no-any-return]
         except Exception as e:
@@ -95,6 +114,7 @@ class DSPBackend:
         if not cls.AVAILABLE or cls._module is None:
             raise RuntimeError("Rust DSP library not initialized. Cannot perform YIN pitch detection.")
 
+        audio = cls._validate_ffi_inputs(audio, sr, "YIN")
         try:
             return cls._module.yin(audio, sr=sr, fmin=fmin, fmax=fmax)  # type: ignore[no-any-return]
         except Exception as e:
@@ -121,6 +141,7 @@ class DSPBackend:
         if not cls.AVAILABLE or cls._module is None:
             raise RuntimeError("Rust DSP library not initialized. Cannot perform Chroma CQT.")
 
+        audio = cls._validate_ffi_inputs(audio, sr, "Chroma CQT")
         try:
             return cls._module.chroma_cqt(audio, sr=sr)  # type: ignore[no-any-return]
         except Exception as e:

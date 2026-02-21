@@ -346,7 +346,7 @@ class TrackRepository:
             ).options(
                 joinedload(Track.artists),
                 joinedload(Track.album),
-                joinedload(Track.genres)
+                selectinload(Track.genres)  # separate IN query avoids N×G row explosion (fixes #2523)
             ).limit(limit).all()
 
             # Expunge from session to make objects persistent across session close

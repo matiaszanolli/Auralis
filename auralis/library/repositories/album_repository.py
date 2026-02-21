@@ -36,7 +36,7 @@ class AlbumRepository:
         try:
             album = (
                 session.query(Album)
-                .options(joinedload(Album.artist), joinedload(Album.tracks))
+                .options(joinedload(Album.artist), selectinload(Album.tracks))
                 .filter(Album.id == album_id)
                 .first()
             )
@@ -55,7 +55,7 @@ class AlbumRepository:
         try:
             album = (
                 session.query(Album)
-                .options(joinedload(Album.artist), joinedload(Album.tracks))
+                .options(joinedload(Album.artist), selectinload(Album.tracks))
                 .filter(Album.title == title)
                 .first()
             )
@@ -89,7 +89,7 @@ class AlbumRepository:
             order_column = getattr(Album, order_by, Album.title)
             albums = (
                 session.query(Album)
-                .options(joinedload(Album.artist), joinedload(Album.tracks))
+                .options(joinedload(Album.artist), selectinload(Album.tracks))
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
@@ -109,7 +109,7 @@ class AlbumRepository:
         try:
             albums = (
                 session.query(Album)
-                .options(joinedload(Album.artist), joinedload(Album.tracks))
+                .options(joinedload(Album.artist), selectinload(Album.tracks))
                 .order_by(Album.created_at.desc())
                 .limit(limit)
                 .offset(offset)
@@ -185,7 +185,7 @@ class AlbumRepository:
         try:
             album = (
                 session.query(Album)
-                .options(joinedload(Album.tracks))
+                .options(selectinload(Album.tracks))
                 .filter(Album.id == album_id)
                 .first()
             )

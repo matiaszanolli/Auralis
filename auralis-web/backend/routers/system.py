@@ -107,6 +107,23 @@ def create_system_router(
         - Job progress subscriptions
         """
         await manager.connect(websocket)
+        # Immediately send current enhancement settings so a reconnecting
+        # frontend syncs its Redux store without waiting for the next broadcast
+        # (fixes #2507). Ignore errors — connection may have been rejected above.
+        if get_enhancement_settings is not None:
+            try:
+                _settings = get_enhancement_settings()
+                await websocket.send_text(json.dumps({
+                    "type": "enhancement_settings_changed",
+                    "data": {
+                        "enabled": _settings.get("enabled", True),
+                        "preset": _settings.get("preset", "adaptive"),
+                        "intensity": _settings.get("intensity", 1.0),
+                    }
+                }))
+            except Exception:
+                pass  # Connection rejected or already closed
+
         try:
             while True:
                 # Wait for messages from client.

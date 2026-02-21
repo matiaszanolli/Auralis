@@ -183,12 +183,14 @@ class AudioFingerprintAnalyzer:
                                                                    if self.fingerprint_strategy == "sampling"
                                                                    else "full-track")
             except KeyboardInterrupt:
-                # Cancel pending futures immediately; don't wait for running threads.
-                # The process is exiting anyway — daemon-like behaviour is fine here.
-                executor.shutdown(wait=False, cancel_futures=True)
+                # Wait for already-running threads to finish before re-raising so
+                # they cannot write partial results to `fingerprint` after this
+                # function returns. cancel_futures=True drops queued-but-unstarted
+                # submissions (fixes #2514).
+                executor.shutdown(wait=True, cancel_futures=True)
                 raise
             else:
-                executor.shutdown(wait=False)
+                executor.shutdown(wait=True)
 
             # Sanitize NaN values (replace with 0.0)
             for key, value in fingerprint.items():

@@ -301,6 +301,11 @@ class HybridProcessor:
         # Apply brick-wall limiter for final peak control
         # Ensures output never clips and stays within safe range
         processed = self.brick_wall_limiter.process(processed)
+        # Sample-count invariant: limiter must preserve length (fixes #2519)
+        assert processed.shape == target_audio.shape, (
+            f"Sample count mismatch after limiter (adaptive): "
+            f"expected {target_audio.shape}, got {processed.shape}"
+        )
 
         # Validate output for NaN/Inf (graceful handling for production resilience)
         processed = sanitize_audio(processed, context="adaptive mode output")
@@ -327,6 +332,11 @@ class HybridProcessor:
         # Apply brick-wall limiter for final peak control
         # Ensures output never clips and stays within safe range
         processed = self.brick_wall_limiter.process(processed)
+        # Sample-count invariant: limiter must preserve length (fixes #2519)
+        assert processed.shape == target_audio.shape, (
+            f"Sample count mismatch after limiter (hybrid): "
+            f"expected {target_audio.shape}, got {processed.shape}"
+        )
 
         # Validate output for NaN/Inf (graceful handling for production resilience)
         processed = sanitize_audio(processed, context="hybrid mode output")

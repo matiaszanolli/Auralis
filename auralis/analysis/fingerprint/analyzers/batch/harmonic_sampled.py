@@ -122,14 +122,33 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
 
         logger.debug(f"Analyzing {n_chunks} chunks from {len(audio)/sr:.1f}s track")
 
-        # OPTIMIZATION: Analyze chunks in parallel using ThreadPoolExecutor
-        # Chunks are independent, so parallelization provides 4-6x speedup with 4 workers
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = [
-                executor.submit(self._analyze_chunk, chunk, sr, i)
+        # OPTIMIZATION: Analyze chunks in parallel using ThreadPoolExecutor.
+        # Use as_completed() so a single failed chunk does not block the rest:
+        # the `with` context manager would call shutdown(wait=True) after a
+        # list-comprehension exception, stalling until all running threads finish
+        # (fixes #2527).
+        from concurrent.futures import as_completed as _as_completed
+        executor = ThreadPoolExecutor(max_workers=4)
+        try:
+            future_to_idx = {
+                executor.submit(self._analyze_chunk, chunk, sr, i): i
                 for i, chunk in enumerate(chunks)
-            ]
-            results = [f.result() for f in futures]
+            }
+            results_map: dict[int, tuple[float, float, float]] = {}
+            for future in _as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    results_map[idx] = future.result()
+                except Exception as exc:
+                    logger.warning(f"Chunk {idx} analysis failed ({exc}); using default features")
+                    results_map[idx] = (
+                        self.DEFAULT_FEATURES['harmonic_ratio'],
+                        self.DEFAULT_FEATURES['pitch_stability'],
+                        self.DEFAULT_FEATURES['chroma_energy'],
+                    )
+            results = [results_map[i] for i in range(len(chunks))]
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
         # Aggregate results from chunks using mean aggregation
         if not results:
