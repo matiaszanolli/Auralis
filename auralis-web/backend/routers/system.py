@@ -109,8 +109,10 @@ def create_system_router(
         await manager.connect(websocket)
         try:
             while True:
-                # Wait for messages from client
-                data = await websocket.receive_text()
+                # Wait for messages from client.
+                # Named raw_data to avoid shadowing the inner payload dicts
+                # extracted per-message below (fixes #2312).
+                raw_data = await websocket.receive_text()
 
                 # Security: Check rate limit (fixes #2156)
                 allowed, error_msg = _rate_limiter.check_rate_limit(websocket)
@@ -120,7 +122,7 @@ def create_system_router(
                     continue
 
                 # Security: Validate message size and structure (fixes #2156)
-                message, error = await validate_and_parse_message(data, websocket)
+                message, error = await validate_and_parse_message(raw_data, websocket)
                 if error or not message:
                     # Error already sent to client by validate_and_parse_message
                     continue

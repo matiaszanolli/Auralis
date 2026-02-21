@@ -213,10 +213,10 @@ export function useCurrentTrack(): TrackInfo | null {
         const data = msg.data as any;
         setTrack(data.current_track ?? null);
       } else if (message.type === 'track_loaded' || message.type === 'track_changed') {
-        const msg = message as TrackLoadedMessage | TrackChangedMessage;
-        if (msg.data.track) {
-          setTrack(msg.data.track);
-        }
+        // TrackLoadedMessage.data = { track_path } and TrackChangedMessage.data = { action }.
+        // Neither type includes a 'track' field, so the previous branch was dead
+        // code that silently missed updates.  Track info comes exclusively from
+        // player_state messages (fixes #2355).
       }
     }
   );

@@ -247,7 +247,15 @@ const playerSlice = createSlice({
           { timestamp: number }
         >
       ) {
-        Object.assign(state, action.payload);
+        // Deep-merge the streaming sub-state so a server status_update that
+        // includes a partial streaming object doesn't clobber the client-side
+        // streaming progress tracked by usePlayEnhanced (fixes #2352).
+        const { streaming, ...rest } = action.payload;
+        Object.assign(state, rest);
+        if (streaming) {
+          if (streaming.normal) Object.assign(state.streaming.normal, streaming.normal);
+          if (streaming.enhanced) Object.assign(state.streaming.enhanced, streaming.enhanced);
+        }
         state.lastUpdated = action.meta.timestamp;
       },
       prepare(playbackState: Partial<Omit<PlayerState, 'lastUpdated'>>) {

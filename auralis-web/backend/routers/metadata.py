@@ -155,8 +155,8 @@ def create_metadata_router(
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
 
-            # Read metadata from file
-            metadata = metadata_editor.read_metadata(str(track.filepath))
+            # Read metadata from file (offloaded to thread to avoid event-loop block, fixes #2317)
+            metadata = await asyncio.to_thread(metadata_editor.read_metadata, str(track.filepath))
 
             return {
                 "track_id": track_id,
@@ -204,11 +204,13 @@ def create_metadata_router(
             if not metadata_updates:
                 raise HTTPException(status_code=400, detail="No metadata fields provided")
 
-            # Write metadata to file (backup is always enforced server-side, fixes #2407)
-            success = metadata_editor.write_metadata(
+            # Write metadata to file (backup always enforced server-side, fixes #2407).
+            # Offloaded to thread to avoid blocking the event loop (fixes #2317).
+            success = await asyncio.to_thread(
+                metadata_editor.write_metadata,
                 str(track.filepath),
                 metadata_updates,
-                backup=True
+                True  # backup=True
             )
 
             if not success:
@@ -232,8 +234,8 @@ def create_metadata_router(
                     }
                 })
 
-            # Read updated metadata
-            updated_metadata = metadata_editor.read_metadata(str(track.filepath))
+            # Read updated metadata (offloaded to thread, fixes #2317)
+            updated_metadata = await asyncio.to_thread(metadata_editor.read_metadata, str(track.filepath))
 
             logger.info(f"Updated metadata for track {track_id}: {list(metadata_updates.keys())}")
 
@@ -295,8 +297,9 @@ def create_metadata_router(
                     backup=True  # always enforced server-side (fixes #2407)
                 ))
 
-            # Execute batch update (atomic when backup=True)
-            results = metadata_editor.batch_update(batch_updates)
+            # Execute batch update (atomic when backup=True).
+            # Offloaded to thread to avoid blocking the event loop (fixes #2317).
+            results = await asyncio.to_thread(metadata_editor.batch_update, batch_updates)
             rolled_back: bool = results.get('rolled_back', False)
 
             # Update database only when the batch was not rolled back.

@@ -144,6 +144,14 @@ export const TrackList: React.FC<TrackListProps> = ({
                 key={virtualItem.key}
                 data-index={virtualItem.index}
                 onClick={() => handleTrackClick(track, virtualItem.index)}
+                onKeyDown={(e) => {
+                  // Activate track on Enter or Space so keyboard users can play
+                  // tracks from the library list (fixes #2351).
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleTrackClick(track, virtualItem.index);
+                  }
+                }}
                 style={{
                   ...styles.trackItem,
                   ...(isSelected && styles.trackItemSelected),
@@ -156,7 +164,7 @@ export const TrackList: React.FC<TrackListProps> = ({
                 }}
                 role="button"
                 tabIndex={0}
-                aria-selected={isSelected}
+                aria-pressed={isSelected}
               >
                 {/* Track number */}
                 <span style={styles.trackNumber}>{virtualItem.index + 1}</span>

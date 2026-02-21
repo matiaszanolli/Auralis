@@ -72,8 +72,11 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
             from processing_api import router as processing_router
             app.include_router(processing_router)
             logger.debug("✅ Processing API router included")
-        except ImportError:
-            logger.warning("⚠️  Processing API router not available")
+        except Exception as e:
+            # Catch all exceptions (not just ImportError) so syntax errors or
+            # missing transitive deps degrade gracefully rather than crashing
+            # startup (fixes #2324).
+            logger.warning(f"⚠️  Processing API router not available: {e}")
 
     # Create and include system router (health, version, WebSocket)
     system_router: APIRouter = create_system_router(

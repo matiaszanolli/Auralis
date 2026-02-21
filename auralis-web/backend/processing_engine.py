@@ -260,10 +260,14 @@ class ProcessingEngine:
             processor = await asyncio.to_thread(HybridProcessor, config)
             self.processors[cache_key] = processor
 
-            # Keep cache size bounded (max 5 different processor configurations)
+            # Keep cache size bounded (max 5 different processor configurations).
+            # Use list() snapshot of keys so eviction never races with a concurrent
+            # iteration (e.g. get_statistics) even if the lock is weakened later
+            # (fixes #2328).  pop() with default is safe if the key disappeared.
             if len(self.processors) > 5:
-                oldest_key = next(iter(self.processors))
-                del self.processors[oldest_key]
+                cache_keys = list(self.processors)
+                if cache_keys:
+                    self.processors.pop(cache_keys[0], None)
 
             return processor
 

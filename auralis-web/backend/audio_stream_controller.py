@@ -213,8 +213,12 @@ class AudioStreamController:
         # Use the module-level semaphore shared across all instances (fixes #2469)
         self._stream_semaphore: asyncio.Semaphore = _global_stream_semaphore
 
-        # Store previous chunk tails for crossfading (track_id -> tail samples)
+        # Store previous chunk tails for crossfading (track_id -> tail samples).
+        # _chunk_tails_lock serialises the check-then-set sequence so that if the
+        # architecture ever reuses a controller across concurrent seek tasks the
+        # crossfade state cannot be torn (fixes #2326).
         self._chunk_tails: dict[int, np.ndarray] = {}
+        self._chunk_tails_lock: asyncio.Lock = asyncio.Lock()
 
     def _is_websocket_connected(self, websocket: WebSocket) -> bool:
         """
@@ -886,24 +890,27 @@ class AudioStreamController:
             crossfade_duration_ms = 200  # milliseconds
             crossfade_samples = int(crossfade_duration_ms * processor.sample_rate / 1000)
 
-            # Apply crossfade if not the first chunk
-            if chunk_index > 0 and processor.track_id in self._chunk_tails:
-                prev_tail = self._chunk_tails[processor.track_id]
-                pcm_samples = self._apply_boundary_crossfade(
-                    prev_tail, pcm_samples, crossfade_samples
-                )
-                logger.debug(
-                    f"Applied {crossfade_duration_ms}ms crossfade between chunks "
-                    f"{chunk_index-1} and {chunk_index}"
-                )
+            # Apply crossfade if not the first chunk.
+            # _chunk_tails_lock serialises the read-check-write so concurrent
+            # seeks for the same track_id cannot produce a torn tail (fixes #2326).
+            async with self._chunk_tails_lock:
+                if chunk_index > 0 and processor.track_id in self._chunk_tails:
+                    prev_tail = self._chunk_tails[processor.track_id]
+                    pcm_samples = self._apply_boundary_crossfade(
+                        prev_tail, pcm_samples, crossfade_samples
+                    )
+                    logger.debug(
+                        f"Applied {crossfade_duration_ms}ms crossfade between chunks "
+                        f"{chunk_index-1} and {chunk_index}"
+                    )
 
-            # Store tail for next chunk (last N samples) if not the last chunk
-            if chunk_index < processor.total_chunks - 1:
-                tail_samples = min(crossfade_samples, len(pcm_samples))
-                self._chunk_tails[processor.track_id] = pcm_samples[-tail_samples:].copy()
-            else:
-                # Last chunk - clean up tail storage
-                self._chunk_tails.pop(processor.track_id, None)
+                # Store tail for next chunk (last N samples) if not the last chunk
+                if chunk_index < processor.total_chunks - 1:
+                    tail_samples = min(crossfade_samples, len(pcm_samples))
+                    self._chunk_tails[processor.track_id] = pcm_samples[-tail_samples:].copy()
+                else:
+                    # Last chunk - clean up tail storage
+                    self._chunk_tails.pop(processor.track_id, None)
 
             await self._send_pcm_chunk(
                 websocket,

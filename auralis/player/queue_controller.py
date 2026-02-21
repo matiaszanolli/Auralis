@@ -201,13 +201,17 @@ class QueueController:
             # Clear and reload queue
             self.queue.clear()
 
-            for track in playlist.tracks:
+            # Snapshot playlist.tracks before iteration so a concurrent
+            # queue modification cannot cause RuntimeError mid-loop (fixes #2492).
+            for track in list(playlist.tracks):
                 track_info = track.to_dict()
                 self.queue.add_track(track_info)
 
-            if self.queue.tracks:
-                self.queue.current_index = min(start_index, len(self.queue.tracks) - 1)
-                info(f"Loaded playlist: {playlist.name} ({len(playlist.tracks)} tracks)")
+            # Snapshot again to avoid TOCTOU between the bool check and len() use.
+            tracks_snapshot = list(self.queue.tracks)
+            if tracks_snapshot:
+                self.queue.current_index = min(start_index, len(tracks_snapshot) - 1)
+                info(f"Loaded playlist: {playlist.name} ({len(tracks_snapshot)} tracks)")
                 return True
 
             warning(f"Playlist is empty: {playlist.name}")
@@ -271,5 +275,6 @@ class QueueController:
             else:
                 # Assume it's a filepath
                 self.queue.add_track({'filepath': track})
-        if self.queue.tracks and start_index >= 0:
-            self.queue.current_index = min(start_index, len(self.queue.tracks) - 1)
+        set_queue_snapshot = list(self.queue.tracks)
+        if set_queue_snapshot and start_index >= 0:
+            self.queue.current_index = min(start_index, len(set_queue_snapshot) - 1)

@@ -190,7 +190,7 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: tokens.spacing.sm,
-            padding: `${tokens.spacing.sm}px ${tokens.spacing.md}px`,
+            padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
             cursor: 'pointer',
             color: tokens.colors.text.secondary,
             transition: tokens.transitions.fast,
