@@ -7,7 +7,18 @@
       "Bash(git remote get-url:*)",
       "Bash(GIT_DIR=/mnt/data/src/matchering/.git git remote:*)",
       "Read(//mnt/data/src/**)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(git tag:*)",
+      "Bash(COMMIT=38eb0a46)",
+      "Bash(__NEW_LINE_4188b5d8d39749e8__ gh issue close 2378 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
+      "Bash(__NEW_LINE_4188b5d8d39749e8__ gh issue close 2377 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
+      "Bash(__NEW_LINE_4188b5d8d39749e8__ gh issue close 2399 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
+      "Bash(__NEW_LINE_43998b5414ed0246__ gh issue close 2400 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
+      "Bash(__NEW_LINE_43998b5414ed0246__ gh issue close 2402 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
+      "Bash(__NEW_LINE_43998b5414ed0246__ gh issue close 2404 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
+      "Bash(__NEW_LINE_9fc41cf59050eb89__ gh issue close 2403 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
+      "Bash(__NEW_LINE_9fc41cf59050eb89__ gh issue close 2383 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
+      "Bash(__NEW_LINE_9fc41cf59050eb89__ gh issue close 2483 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)"
     ]
   }
 }
