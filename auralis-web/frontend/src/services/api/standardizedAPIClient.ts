@@ -12,6 +12,7 @@
  */
 
 import { z } from 'zod';
+import { API_BASE_URL } from '../../config/api';
 
 // ============================================================================
 // API Response Types (matching backend schemas)
@@ -498,7 +499,7 @@ export function initializeAPIClient(config: APIClientConfig): StandardizedAPICli
 
 export function getAPIClient(): StandardizedAPIClient {
   if (!apiClientInstance) {
-    const baseURL = import.meta.env.VITE_API_URL ?? 'http://localhost:8765';
+    const baseURL = import.meta.env.VITE_API_URL ?? API_BASE_URL;
     apiClientInstance = initializeAPIClient({ baseURL });
   }
   return apiClientInstance;

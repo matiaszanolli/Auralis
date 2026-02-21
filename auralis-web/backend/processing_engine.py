@@ -584,12 +584,14 @@ class ProcessingEngine:
 
     def get_queue_status(self) -> dict[str, Any]:
         """Get current queue status"""
+        # Snapshot to avoid RuntimeError if cleanup_old_jobs mutates self.jobs concurrently (#2435)
+        jobs = list(self.jobs.values())
         return {
-            "total_jobs": len(self.jobs),
-            "queued": len([j for j in self.jobs.values() if j.status == ProcessingStatus.QUEUED]),
+            "total_jobs": len(jobs),
+            "queued": len([j for j in jobs if j.status == ProcessingStatus.QUEUED]),
             "processing": self._active_job_count,  # replaces ._value private attr (#2459)
-            "completed": len([j for j in self.jobs.values() if j.status == ProcessingStatus.COMPLETED]),
-            "failed": len([j for j in self.jobs.values() if j.status == ProcessingStatus.FAILED]),
+            "completed": len([j for j in jobs if j.status == ProcessingStatus.COMPLETED]),
+            "failed": len([j for j in jobs if j.status == ProcessingStatus.FAILED]),
             "max_concurrent": self.max_concurrent_jobs,
             "max_queue_size": self.max_queue_size,
             "queue_full": self.job_queue.full(),

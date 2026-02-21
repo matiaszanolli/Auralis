@@ -28,6 +28,7 @@ import {
   RequestOptions
 } from '@/services/api/standardizedAPIClient';
 import { getAPIClient, initializeAPIClient } from '@/services/api/standardizedAPIClient';
+import { API_BASE_URL } from '@/config/api';
 
 // ============================================================================
 // Hook State Types
@@ -508,7 +509,7 @@ export function useBatchOperations(): {
  */
 export function useInitializeAPI(config?: Partial<APIClientConfig>): void {
   useEffect(() => {
-    const baseURL = config?.baseURL ?? import.meta.env.VITE_API_URL ?? 'http://localhost:8765';
+    const baseURL = config?.baseURL ?? import.meta.env.VITE_API_URL ?? API_BASE_URL;
 
     initializeAPIClient({
       baseURL,

@@ -28,6 +28,25 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from .dependencies import require_library_manager, require_repository_factory
 
+# Magic byte signatures for supported audio formats (issue #2415)
+_AUDIO_MAGIC: tuple[bytes, ...] = (
+    b'\xff\xfb', b'\xff\xf3', b'\xff\xf2',  # MP3 (sync word variants)
+    b'ID3',                                  # MP3 with ID3 tag
+    b'RIFF',                                 # WAV
+    b'fLaC',                                 # FLAC
+    b'OggS',                                 # OGG/Vorbis/Opus
+)
+
+
+def _has_valid_audio_magic(data: bytes) -> bool:
+    """Return True if the first bytes match a known audio container."""
+    if len(data) < 8:
+        return False
+    # MP4/M4A/AAC: 4-byte box size then ASCII 'ftyp'
+    if data[4:8] == b'ftyp':
+        return True
+    return any(data.startswith(m) for m in _AUDIO_MAGIC)
+
 # Import only if available
 try:
     from auralis.io.unified_loader import load_audio
@@ -115,8 +134,21 @@ def create_files_router(
 
                 # Save uploaded file to temporary location
                 suffix = Path(file.filename).suffix if file.filename else ""
+                content = await file.read()
+
+                # Validate magic bytes before invoking audio parser (issue #2415)
+                if not _has_valid_audio_magic(content):
+                    logger.warning(
+                        f"Rejected upload with invalid audio content: {file.filename!r}"
+                    )
+                    results.append({
+                        "filename": file.filename or "",
+                        "status": "error",
+                        "message": "File content does not match any known audio format"
+                    })
+                    continue
+
                 with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                    content = await file.read()
                     tmp.write(content)
                     temp_path = tmp.name
 

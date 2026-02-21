@@ -365,8 +365,11 @@ export interface StreamingUrlResponse {
 export class ApiErrorHandler {
   static parse(error: any): ApiError {
     if (error instanceof Error) {
+      // Extract the real HTTP status from 'HTTP ${status}: ${text}' messages thrown
+      // by useRestAPI, so callers see the actual code rather than always 500 (#2361).
+      const httpMatch = error.message.match(/^HTTP (\d{3}):/);
       return {
-        status: 500,
+        status: httpMatch ? parseInt(httpMatch[1], 10) : 500,
         message: error.message,
       };
     }

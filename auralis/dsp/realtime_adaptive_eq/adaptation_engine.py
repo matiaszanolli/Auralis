@@ -165,11 +165,14 @@ class AdaptationEngine:
         # Apply smoothing per band
         smoothed_gains = np.zeros_like(target_gains)
         for i in range(len(target_gains)):
-            # Frequency-dependent smoothing
+            # Frequency-dependent smoothing.
+            # Lower alpha → slower EMA; higher alpha → faster EMA.
+            # Low frequencies need slower adaptation; high frequencies faster.
+            # Original multipliers were inverted (fixes #2409).
             if i < 8:  # Low frequencies - slower adaptation
-                smoothing = smoothing_factor * 1.2
-            elif i > 20:  # High frequencies - faster adaptation
                 smoothing = smoothing_factor * 0.8
+            elif i > 20:  # High frequencies - faster adaptation
+                smoothing = smoothing_factor * 1.2
             else:  # Midrange - normal adaptation
                 smoothing = smoothing_factor
 

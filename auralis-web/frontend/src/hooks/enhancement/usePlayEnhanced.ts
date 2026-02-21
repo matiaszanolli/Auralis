@@ -43,6 +43,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { API_BASE_URL } from '@/config/api';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import {
@@ -182,6 +183,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const unsubscribeStreamEndRef = useRef<(() => void) | null>(null);
   const unsubscribeErrorRef = useRef<(() => void) | null>(null);
   const unsubscribeFingerprintRef = useRef<(() => void) | null>(null);
+
+  // Timer ref for fingerprint status auto-clear (fixes #2353)
+  const fingerprintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Pending chunks queue - handles race condition where chunks arrive before stream_start
   const pendingChunksRef = useRef<AudioChunkMessage[]>([]);
@@ -485,9 +489,14 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     setFingerprintStatus(status || 'idle');
     setFingerprintMessage(progressMessage || null);
 
-    // Auto-clear success message after 2 seconds
+    // Auto-clear success message after 2 seconds; store handle so it can be
+    // cancelled on unmount to avoid setState on a dead component (fixes #2353).
     if (status === 'complete') {
-      setTimeout(() => {
+      if (fingerprintTimeoutRef.current !== null) {
+        clearTimeout(fingerprintTimeoutRef.current);
+      }
+      fingerprintTimeoutRef.current = setTimeout(() => {
+        fingerprintTimeoutRef.current = null;
         setFingerprintStatus('idle');
         setFingerprintMessage(null);
       }, 2000);
@@ -523,9 +532,8 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
         // Load track data from backend so we can set currentTrack
         // This ensures the player bar shows the correct track info
-        const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8765';
         try {
-          const response = await fetch(`${apiBaseUrl}/api/library/tracks`);
+          const response = await fetch(`${API_BASE_URL}/api/library/tracks`);
           if (response.ok) {
             const data = await response.json();
             const track = data.tracks?.find((t: any) => t.id === trackId);
@@ -759,6 +767,11 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // Only stop playback engine, don't call full stopPlayback which cleans up subscriptions
       playbackEngineRef.current?.stopPlayback();
       dispatch(resetStreaming('enhanced'));
+      // Cancel pending fingerprint status timer to avoid setState on dead component (#2353)
+      if (fingerprintTimeoutRef.current !== null) {
+        clearTimeout(fingerprintTimeoutRef.current);
+        fingerprintTimeoutRef.current = null;
+      }
     };
   }, [dispatch]);
 

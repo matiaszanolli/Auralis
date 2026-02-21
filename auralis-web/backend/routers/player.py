@@ -90,6 +90,16 @@ class SeekRequest(BaseModel):
         return v
 
 
+class SetVolumeRequest(BaseModel):
+    """Request model for volume control (0–100)."""
+    volume: float
+
+    @field_validator('volume')
+    @classmethod
+    def clamp_volume(cls, v: float) -> float:
+        return max(0.0, min(100.0, v))
+
+
 def create_player_router(
     get_library_manager: Callable[[], Any],
     get_audio_player: Callable[[], Any],
@@ -313,12 +323,12 @@ def create_player_router(
             raise HTTPException(status_code=500, detail=f"Failed to seek: {e}")
 
     @router.post("/api/player/volume", response_model=None)
-    async def set_volume(volume: float) -> dict[str, Any]:
+    async def set_volume(body: SetVolumeRequest) -> dict[str, Any]:
         """
         Set playback volume.
 
         Args:
-            volume: Volume level (0-100, converted to 0.0-1.0 internally)
+            body: JSON body with volume level (0-100, converted to 0.0-1.0 internally)
 
         Returns:
             dict: Success message and new volume
@@ -328,8 +338,8 @@ def create_player_router(
         """
         try:
             service = get_playback_service()
-            # Convert 0-100 to 0.0-1.0 for service layer
-            normalized_volume = max(0.0, min(100.0, volume)) / 100.0
+            # Convert 0-100 to 0.0-1.0 for service layer (clamping already done by model)
+            normalized_volume = body.volume / 100.0
             result = await service.set_volume(normalized_volume)
             return result
         except ValueError as e:

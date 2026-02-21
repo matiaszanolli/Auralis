@@ -22,6 +22,7 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, field_validator
 
 from path_security import PathValidationError, validate_file_path
 
@@ -34,6 +35,31 @@ VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
 # Chunk configuration (must match chunked_processor.py)
 # NEW (Beta.9): Reduced from 30s → 10s for instant toggle feel
 CHUNK_DURATION = 10  # seconds per chunk (reduced from 30s for Phase 2)
+
+
+class ToggleEnhancementRequest(BaseModel):
+    enabled: bool
+
+
+class SetPresetRequest(BaseModel):
+    preset: str
+
+    @field_validator('preset')
+    @classmethod
+    def validate_preset(cls, v: str) -> str:
+        v = v.lower()
+        if v not in VALID_PRESETS:
+            raise ValueError(f"Invalid preset. Must be one of: {', '.join(VALID_PRESETS)}")
+        return v
+
+
+class SetIntensityRequest(BaseModel):
+    intensity: float
+
+    @field_validator('intensity')
+    @classmethod
+    def clamp_intensity(cls, v: float) -> float:
+        return max(0.0, min(1.0, v))
 
 
 def create_enhancement_router(
@@ -124,7 +150,7 @@ def create_enhancement_router(
             logger.error(f"❌ Background chunk pre-processing failed: {e}")
 
     @router.post("/api/player/enhancement/toggle")
-    async def toggle_enhancement(enabled: bool) -> dict[str, Any]:
+    async def toggle_enhancement(body: ToggleEnhancementRequest) -> dict[str, Any]:
         """
         Enable or disable real-time audio enhancement.
 
@@ -142,6 +168,7 @@ def create_enhancement_router(
         """
         try:
             enhancement_settings = get_enhancement_settings()
+            enabled = body.enabled
             enhancement_settings["enabled"] = enabled
 
             # If enabling enhancement mid-playback, pre-process upcoming chunks in background
@@ -181,7 +208,7 @@ def create_enhancement_router(
             raise HTTPException(status_code=500, detail=f"Failed to toggle enhancement: {e}")
 
     @router.post("/api/player/enhancement/preset")
-    async def set_enhancement_preset(preset: str) -> dict[str, Any]:
+    async def set_enhancement_preset(body: SetPresetRequest) -> dict[str, Any]:
         """
         Change the enhancement preset.
 
@@ -194,19 +221,14 @@ def create_enhancement_router(
         Raises:
             HTTPException: If preset is invalid or change fails
         """
-        if preset.lower() not in VALID_PRESETS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid preset. Must be one of: {', '.join(VALID_PRESETS)}"
-            )
-
         try:
+            preset = body.preset  # already validated and lowercased by SetPresetRequest
             enhancement_settings = get_enhancement_settings()
             old_preset = enhancement_settings.get("preset")
-            enhancement_settings["preset"] = preset.lower()
+            enhancement_settings["preset"] = preset
 
             # Update multi-tier buffer manager for branch prediction learning
-            if get_multi_tier_buffer and get_player_state_manager and old_preset != preset.lower():
+            if get_multi_tier_buffer and get_player_state_manager and old_preset != preset:
                 buffer_manager = get_multi_tier_buffer()
                 player_state_manager = get_player_state_manager()
                 if buffer_manager and player_state_manager:
@@ -216,21 +238,21 @@ def create_enhancement_router(
                         await buffer_manager.update_position(
                             track_id=state.current_track.id,
                             position=state.current_time,
-                            preset=preset.lower(),
+                            preset=preset,
                             intensity=enhancement_settings["intensity"]
                         )
-                        logger.info(f"🎯 Buffer manager learned preset switch: {old_preset} → {preset.lower()}")
+                        logger.info(f"🎯 Buffer manager learned preset switch: {old_preset} → {preset}")
 
             # NOTE: We keep the old preset cached for instant toggling back
             # Proactive buffering will handle caching the new preset in background
             # This prevents the 2-5s delay when switching presets
-            logger.info(f"⚡ Preset switched instantly: {old_preset} → {preset.lower()} (cache preserved)")
+            logger.info(f"⚡ Preset switched instantly: {old_preset} → {preset} (cache preserved)")
 
             # Broadcast to all clients
             await connection_manager.broadcast({
                 "type": "enhancement_settings_changed",
                 "data": {
-                    "preset": preset.lower(),
+                    "preset": preset,
                     "enabled": enhancement_settings["enabled"],
                     "intensity": enhancement_settings["intensity"]
                 }
@@ -246,26 +268,21 @@ def create_enhancement_router(
             raise HTTPException(status_code=500, detail=f"Failed to change preset: {e}")
 
     @router.post("/api/player/enhancement/intensity")
-    async def set_enhancement_intensity(intensity: float) -> dict[str, Any]:
+    async def set_enhancement_intensity(body: SetIntensityRequest) -> dict[str, Any]:
         """
         Adjust the enhancement intensity.
 
         Args:
-            intensity: Intensity value between 0.0 and 1.0
+            body: JSON body with intensity value between 0.0 and 1.0 (clamped)
 
         Returns:
             dict: Status message and current settings
 
         Raises:
-            HTTPException: If intensity is out of range or change fails
+            HTTPException: If intensity change fails
         """
-        if not 0.0 <= intensity <= 1.0:
-            raise HTTPException(
-                status_code=400,
-                detail="Intensity must be between 0.0 and 1.0"
-            )
-
         try:
+            intensity = body.intensity  # already clamped by SetIntensityRequest
             enhancement_settings = get_enhancement_settings()
             old_intensity = enhancement_settings.get("intensity")
             enhancement_settings["intensity"] = intensity

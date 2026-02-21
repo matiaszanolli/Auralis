@@ -12,14 +12,13 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { transformAlbumsResponse } from '@/api/transformers';
 import type { AlbumsApiResponse } from '@/api/transformers';
+import { API_BASE_URL as API_BASE } from '@/config/api';
 
 interface UseInfiniteAlbumsOptions {
   limit?: number;
   search?: string;
   enabled?: boolean;
 }
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8765';
 
 /**
  * Fetch albums from the API with pagination

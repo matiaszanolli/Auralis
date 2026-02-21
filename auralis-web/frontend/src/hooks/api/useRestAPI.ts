@@ -13,9 +13,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { ApiResponse, ApiError } from '../../types/api';
 import { ApiErrorHandler } from '../../types/api';
-
-// Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8765';
+import { API_BASE_URL } from '../../config/api';
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 /**

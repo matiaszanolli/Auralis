@@ -43,6 +43,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { API_BASE_URL } from '@/config/api';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import {
@@ -426,9 +427,8 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         }
 
         // Load track data from backend so we can set currentTrack
-        const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8765';
         try {
-          const response = await fetch(`${apiBaseUrl}/api/library/tracks`);
+          const response = await fetch(`${API_BASE_URL}/api/library/tracks`);
           if (response.ok) {
             const data = await response.json();
             const track = data.tracks?.find((t: any) => t.id === trackId);

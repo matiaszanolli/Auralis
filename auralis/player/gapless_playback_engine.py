@@ -52,11 +52,16 @@ class GaplessPlaybackEngine:
 
     def add_prebuffer_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Register callback when prebuffering completes"""
-        self.prebuffer_callbacks.append(callback)
+        with self.update_lock:
+            self.prebuffer_callbacks.append(callback)
 
     def _notify_prebuffer_callbacks(self, track_info: dict[str, Any]) -> None:
         """Notify callbacks that prebuffering completed"""
-        for callback in self.prebuffer_callbacks:
+        # Snapshot under lock so concurrent add_prebuffer_callback calls
+        # cannot mutate the list while we iterate (#2412).
+        with self.update_lock:
+            callbacks = list(self.prebuffer_callbacks)
+        for callback in callbacks:
             try:
                 callback(track_info)
             except Exception as e:

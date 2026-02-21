@@ -13,6 +13,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketManager } from '../utils/errorHandling';
+import { WS_BASE_URL } from '../config/api';
 
 // ============================================================================
 // TypeScript Types for WebSocket Messages
@@ -290,7 +291,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     if (window.location.hostname === 'localhost' && parseInt(window.location.port) >= 3000) {
       // Development: Connect directly to backend at 8765
       // Bypasses Vite proxy which can have WebSocket issues
-      return `ws://localhost:8765/ws`
+      return `${WS_BASE_URL}/ws`
     } else {
       // Production: Use same host as frontend (backend serves both)
       return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`

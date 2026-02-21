@@ -16,7 +16,7 @@
 
 import { WebSocketManager, retryWithBackoff, withErrorLogging } from '../utils/errorHandling';
 import { get, post, del, getBlob } from '../utils/apiRequest';
-import { getApiUrl } from '../config/api';
+import { getApiUrl, WS_BASE_URL } from '../config/api';
 
 export interface ProcessingSettings {
   mode: 'adaptive' | 'reference' | 'hybrid';
@@ -101,7 +101,7 @@ class ProcessingService {
   private jobCallbacks: Map<string, (job: ProcessingJob) => void> = new Map();
 
   constructor() {
-    this.wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8765/ws';
+    this.wsUrl = import.meta.env.VITE_WS_URL || `${WS_BASE_URL}/ws`;
   }
 
   /**
@@ -298,15 +298,40 @@ class ProcessingService {
   }
 
   /**
-   * Poll job status until completion
+   * Poll job status until completion.
+   *
+   * Pass an AbortSignal to cancel polling on component unmount (fixes #2358).
+   * The returned promise rejects with an AbortError when the signal fires.
    */
   async waitForCompletion(
     jobId: string,
     onProgress?: (job: ProcessingJob) => void,
-    pollInterval: number = 1000
+    pollInterval: number = 1000,
+    signal?: AbortSignal
   ): Promise<ProcessingJob> {
     return new Promise((resolve, reject) => {
+      let timerId: ReturnType<typeof setTimeout> | undefined;
+
+      const cleanup = () => {
+        if (timerId !== undefined) {
+          clearTimeout(timerId);
+          timerId = undefined;
+        }
+      };
+
+      if (signal) {
+        if (signal.aborted) {
+          reject(new DOMException('Polling aborted', 'AbortError'));
+          return;
+        }
+        signal.addEventListener('abort', () => {
+          cleanup();
+          reject(new DOMException('Polling aborted', 'AbortError'));
+        }, { once: true });
+      }
+
       const poll = async () => {
+        if (signal?.aborted) return;
         try {
           const job = await this.getJobStatus(jobId);
 
@@ -315,14 +340,17 @@ class ProcessingService {
           }
 
           if (job.status === 'completed') {
+            cleanup();
             resolve(job);
           } else if (job.status === 'failed' || job.status === 'cancelled') {
+            cleanup();
             reject(new Error(job.error_message || `Job ${job.status}`));
           } else {
             // Continue polling
-            setTimeout(poll, pollInterval);
+            timerId = setTimeout(poll, pollInterval);
           }
         } catch (error) {
+          cleanup();
           reject(error);
         }
       };
