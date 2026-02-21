@@ -134,7 +134,16 @@ def create_files_router(
 
                 # Save uploaded file to temporary location
                 suffix = Path(file.filename).suffix if file.filename else ""
+                _MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB cap (fixes #2248)
                 content = await file.read()
+                if len(content) > _MAX_UPLOAD_BYTES:
+                    logger.warning(f"Rejected oversized upload: {file.filename!r} ({len(content)} bytes)")
+                    results.append({
+                        "filename": file.filename or "",
+                        "status": "error",
+                        "message": "File exceeds maximum upload size of 500 MB"
+                    })
+                    continue
 
                 # Validate magic bytes before invoking audio parser (issue #2415)
                 if not _has_valid_audio_magic(content):

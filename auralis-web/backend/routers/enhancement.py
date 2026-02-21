@@ -180,14 +180,18 @@ def create_enhancement_router(
                     state = player_state_manager.get_state()
                     # Only pre-process if actively playing
                     if state.current_track and state.state.value == "playing":
-                        # Launch background task to pre-process next 3 chunks
-                        asyncio.create_task(_preprocess_upcoming_chunks(
+                        # Launch background task to pre-process next 3 chunks (#2296)
+                        _bg_task = asyncio.create_task(_preprocess_upcoming_chunks(
                             track_id=state.current_track.id,
                             filepath=state.current_track.file_path,
                             current_time=state.current_time,
                             preset=enhancement_settings.get("preset", "adaptive"),
                             intensity=enhancement_settings.get("intensity", 1.0)
                         ))
+                        _bg_task.add_done_callback(
+                            lambda t: logger.error(f"Pre-processing task failed: {t.exception()}")
+                            if not t.cancelled() and t.exception() else None
+                        )
                         logger.info(f"🎯 Launched background pre-processing for track {state.current_track.id} at {state.current_time:.1f}s")
 
             # Broadcast to all clients
@@ -377,23 +381,27 @@ def create_enhancement_router(
             sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             from core.chunked_processor import ChunkedAudioProcessor
 
-            # Create processor (caches the recommendation internally)
-            processor = ChunkedAudioProcessor(
-                track_id=track_id,
-                filepath=str(normalized_path),
-                preset="adaptive",  # Default for analysis-only mode
-                intensity=1.0,
-                chunk_cache={}
-            )
+            # Run CPU-bound processor off the event loop (#2301)
+            _fp = str(normalized_path)
+            _tid = track_id
+            _ct = confidence_threshold
 
-            # Get weighted recommendation
-            rec = processor.get_mastering_recommendation(confidence_threshold=confidence_threshold)
+            def _run_recommendation() -> dict | None:
+                proc = ChunkedAudioProcessor(
+                    track_id=_tid,
+                    filepath=_fp,
+                    preset="adaptive",  # Default for analysis-only mode
+                    intensity=1.0,
+                    chunk_cache={}
+                )
+                rec = proc.get_mastering_recommendation(confidence_threshold=_ct)
+                return rec.to_dict() if rec is not None else None
 
-            if rec is None:
+            result = await asyncio.to_thread(_run_recommendation)
+
+            if result is None:
                 raise HTTPException(status_code=500, detail="Failed to analyze audio file")
 
-            # Return serialized recommendation
-            result = rec.to_dict()
             return result if isinstance(result, dict) else {}
 
         except HTTPException:

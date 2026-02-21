@@ -178,13 +178,14 @@ class ArtworkService:
             # URL-encode artist name
             encoded_name = urllib.parse.quote(artist_name)
 
-            # Search for artist
+            # Search for artist — token sent as Authorization header, not URL param (fixes #2244)
             search_url = (
                 f"https://api.discogs.com/database/search"
-                f"?q={encoded_name}&type=artist&token={self.discogs_token}"
+                f"?q={encoded_name}&type=artist"
             )
 
             req = urllib.request.Request(search_url)
+            req.add_header('Authorization', f'Discogs token={self.discogs_token}')
             req.add_header('User-Agent', self.user_agent)
 
             with urllib.request.urlopen(req, timeout=self.timeout) as response:

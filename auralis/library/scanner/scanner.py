@@ -166,7 +166,8 @@ class LibraryScanner:
                     'progress': progress,
                     'processed': result.files_processed,
                     'added': result.files_added,
-                    'failed': result.files_failed
+                    'failed': result.files_failed,
+                    'current_file': batch[0] if batch else None,  # fixes #2384
                 })
 
             result.scan_time = time.time() - start_time

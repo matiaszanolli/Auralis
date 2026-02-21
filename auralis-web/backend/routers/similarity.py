@@ -83,7 +83,7 @@ def create_similarity_router(
         track_id: int,
         limit: int = Query(10, ge=1, le=100, description="Number of similar tracks to return"),
         use_graph: bool = Query(True, description="Use pre-computed graph if available"),
-        include_details: bool = Query(False, description="Include track title/artist/album")
+        include_details: bool = Query(True, description="Include track title/artist/album")
     ) -> list[SimilarTrack]:
         """
         Get similar tracks to a given track

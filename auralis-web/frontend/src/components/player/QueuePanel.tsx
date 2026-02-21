@@ -147,6 +147,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
           disabled={isLoading}
           title={isShuffled ? 'Shuffle: ON' : 'Shuffle: OFF'}
           aria-label={isShuffled ? 'Disable shuffle' : 'Enable shuffle'}
+          aria-pressed={isShuffled}
         >
           🔀 Shuffle
         </button>
@@ -161,6 +162,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
             disabled={isLoading}
             title="Repeat: OFF"
             aria-label="Turn off repeat"
+            aria-pressed={repeatMode === 'off'}
           >
             ○
           </button>
@@ -173,6 +175,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
             disabled={isLoading}
             title="Repeat: ALL"
             aria-label="Repeat all tracks"
+            aria-pressed={repeatMode === 'all'}
           >
             ↻
           </button>
@@ -185,6 +188,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
             disabled={isLoading}
             title="Repeat: ONE"
             aria-label="Repeat one track"
+            aria-pressed={repeatMode === 'one'}
           >
             ↻1
           </button>

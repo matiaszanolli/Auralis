@@ -122,6 +122,15 @@ export const TrackDisplay: React.FC<TrackDisplayProps> = ({
       }}
       aria-label={finalAriaLabel}
     >
+      {/* Screen-reader live region for track changes (fixes #2362) */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap' }}
+      >
+        {`Now playing: ${title}${artist ? ` by ${artist}` : ''}${album ? ` from ${album}` : ''}`}
+      </div>
+
       {/* Track Title */}
       <div
         style={{

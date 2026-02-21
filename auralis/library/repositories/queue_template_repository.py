@@ -162,20 +162,15 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            templates = session.query(QueueTemplate).all()
-            matching = []
-
+            # Use SQL LIKE on the JSON string to avoid loading the full table (fixes #2249).
+            # Tags are stored as JSON arrays (e.g. '["rock", "chill"]'), so matching
+            # the quoted tag value is sufficient and avoids false positives.
+            templates = session.query(QueueTemplate).filter(
+                QueueTemplate.tags.like(f'%"{tag}"%')
+            ).all()
             for template in templates:
-                try:
-                    tags = json.loads(template.tags) if template.tags else []  # type: ignore[arg-type]
-                    if tag in tags:
-                        matching.append(template)
-                except (json.JSONDecodeError, TypeError):
-                    pass
-
-            for template in matching:
                 session.expunge(template)
-            return matching
+            return templates
         finally:
             session.close()
 
