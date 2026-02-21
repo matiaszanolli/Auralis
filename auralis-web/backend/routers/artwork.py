@@ -167,7 +167,7 @@ def create_artwork_router(
 
             return {
                 "message": "Artwork extracted successfully",
-                "artwork_path": artwork_url,  # Return URL, not filesystem path
+                "artwork_url": artwork_url,  # API URL — consistent with artist serializer (fixes #2508)
                 "album_id": album_id
             }
 

@@ -184,6 +184,16 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const unsubscribeErrorRef = useRef<(() => void) | null>(null);
   const unsubscribeFingerprintRef = useRef<(() => void) | null>(null);
 
+  // Stable callback refs — always hold the latest handler version so that the
+  // subscription effect (which only depends on wsContext) never needs to
+  // resubscribe when callbacks change identity, eliminating the missed-message
+  // window on WebSocket reconnect (fixes #2532).
+  const handleStreamStartRef = useRef<((m: AudioStreamStartMessage) => void) | null>(null);
+  const handleChunkRef = useRef<((m: AudioChunkMessage) => void) | null>(null);
+  const handleStreamEndRef = useRef<((m: AudioStreamEndMessage) => void) | null>(null);
+  const handleStreamErrorRef = useRef<((m: AudioStreamErrorMessage) => void) | null>(null);
+  const handleFingerprintProgressRef = useRef<((m: any) => void) | null>(null);
+
   // Timer ref for fingerprint status auto-clear (fixes #2353)
   const fingerprintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -207,6 +217,11 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const [isSeeking, setIsSeeking] = useState(false);
   const [fingerprintStatus, setFingerprintStatus] = useState<'idle' | 'analyzing' | 'complete' | 'failed' | 'error'>('idle');
   const [fingerprintMessage, setFingerprintMessage] = useState<string | null>(null);
+
+  // Tracks the last progress value dispatched to Redux to throttle per-chunk
+  // dispatches. Only dispatch on first chunk, every 10% increment, and completion
+  // so Redux DevTools remains usable during playback (fixes #2535).
+  const lastDispatchedProgressRef = useRef<number>(-1);
 
   // Current track info for seek operations
   const currentTrackInfoRef = useRef<{
@@ -310,6 +325,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
       // Reset chunk tracking for new stream
       lastReceivedChunkIndexRef.current = -1;
+      lastDispatchedProgressRef.current = -1; // Reset progress throttle (fixes #2535)
 
       // Update Redux state
       dispatch(
@@ -411,16 +427,25 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       const bufferedSamples = pcmBufferRef.current.getAvailableSamples();
       const progress =
         (streamingMetadataRef.current.processedChunks / streamingMetadataRef.current.totalChunks) * 100;
+      const clampedProgress = Math.min(progress, 100);
 
-      // Update Redux
-      dispatch(
-        updateStreamingProgress({
-          streamType: 'enhanced',
-          processedChunks: streamingMetadataRef.current.processedChunks,
-          bufferedSamples,
-          progress: Math.min(progress, 100),
-        })
-      );
+      // Throttle Redux dispatches: only update at first chunk, every 10%
+      // increment, or on completion — avoids O(n_chunks) Redux churn that
+      // makes DevTools unusable and causes cascading re-renders (fixes #2535).
+      const lastProgress = lastDispatchedProgressRef.current;
+      const crossedDecile =
+        Math.floor(clampedProgress / 10) > Math.floor(Math.max(0, lastProgress) / 10);
+      if (lastProgress < 0 || crossedDecile || clampedProgress >= 100) {
+        lastDispatchedProgressRef.current = clampedProgress;
+        dispatch(
+          updateStreamingProgress({
+            streamType: 'enhanced',
+            processedChunks: streamingMetadataRef.current.processedChunks,
+            bufferedSamples,
+            progress: clampedProgress,
+          })
+        );
+      }
 
       // Auto-start playback when sufficient buffer accumulated (2 seconds minimum)
       // Note: For stereo audio, we need sampleRate * channels * seconds interleaved samples
@@ -669,33 +694,42 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     });
   }, [wsContext]);
 
+  // Keep callback refs in sync with the latest versions so stable wrapper
+  // subscriptions always call current logic (part of fixes #2532).
+  handleStreamStartRef.current = handleStreamStart;
+  handleChunkRef.current = handleChunk;
+  handleStreamEndRef.current = handleStreamEnd;
+  handleStreamErrorRef.current = handleStreamError;
+  handleFingerprintProgressRef.current = handleFingerprintProgress;
+
   /**
-   * Subscribe to streaming messages on mount
-   * This allows the Player's usePlayEnhanced to handle streams initiated
-   * by other components (like library track clicks) that send play_enhanced
-   * messages directly via WebSocket.
+   * Subscribe to streaming messages on mount (or WebSocket reconnect).
+   * Wrapper functions indirectly call the latest callback via refs so this
+   * effect only needs to resubscribe when wsContext changes — not on every
+   * render where a callback identity changes. This closes the missed-message
+   * gap that occurred on WS reconnect (fixes #2532).
    */
   useEffect(() => {
     // Subscribe to streaming messages immediately on mount
     unsubscribeStreamStartRef.current = wsContext.subscribe(
       'audio_stream_start',
-      handleStreamStart as any
+      (m: any) => handleStreamStartRef.current?.(m)
     );
     unsubscribeChunkRef.current = wsContext.subscribe(
       'audio_chunk',
-      handleChunk as any
+      (m: any) => handleChunkRef.current?.(m)
     );
     unsubscribeStreamEndRef.current = wsContext.subscribe(
       'audio_stream_end',
-      handleStreamEnd as any
+      (m: any) => handleStreamEndRef.current?.(m)
     );
     unsubscribeErrorRef.current = wsContext.subscribe(
       'audio_stream_error',
-      handleStreamError as any
+      (m: any) => handleStreamErrorRef.current?.(m)
     );
     unsubscribeFingerprintRef.current = wsContext.subscribe(
       'fingerprint_progress',
-      handleFingerprintProgress as any
+      (m: any) => handleFingerprintProgressRef.current?.(m)
     );
 
     console.log('[usePlayEnhanced] Subscribed to streaming messages on mount');
@@ -709,7 +743,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       unsubscribeFingerprintRef.current?.();
       console.log('[usePlayEnhanced] Unsubscribed from streaming messages on unmount');
     };
-  }, [wsContext, handleStreamStart, handleChunk, handleStreamEnd, handleStreamError, handleFingerprintProgress]);
+  }, [wsContext]); // Only resubscribe when the WS manager itself changes (reconnect)
 
   /**
    * Handle WebSocket disconnection - clean up playback state to prevent stale state on reconnect.
@@ -732,6 +766,13 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       pcmBufferRef.current = null;
       streamingMetadataRef.current = null;
       pendingChunksRef.current = [];
+
+      // Cancel orphaned fingerprint timeout so stale callback cannot fire against
+      // the next stream context after disconnect (fixes #2536).
+      if (fingerprintTimeoutRef.current !== null) {
+        clearTimeout(fingerprintTimeoutRef.current);
+        fingerprintTimeoutRef.current = null;
+      }
 
       // Reset UI state
       setCurrentTime(0);

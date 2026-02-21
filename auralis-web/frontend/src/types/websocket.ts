@@ -301,13 +301,14 @@ export interface ArtworkUpdatedMessage extends WebSocketMessage {
 // Fingerprint Messages (fixes #2282)
 // ============================================================================
 
-/** Sent by audio_stream_controller.py while computing track fingerprint */
+/** Sent by audio_stream_controller.py while computing track fingerprint (fixes #2502) */
 export interface FingerprintProgressMessage extends WebSocketMessage {
   type: 'fingerprint_progress';
   data: {
     track_id: number;
-    progress: number; // 0-100
-    stage?: string;
+    status: 'analyzing' | 'complete' | 'failed' | 'error' | 'cached' | 'queued';
+    message: string;
+    stream_type?: 'enhanced' | 'normal';
   };
 }
 
@@ -323,13 +324,23 @@ export interface SeekStartedMessage extends WebSocketMessage {
 // Audio Stream Messages (fixes #2282)
 // ============================================================================
 
+/** Sent when a new audio stream begins (fixes #2503) */
 export interface AudioStreamStartMessage extends WebSocketMessage {
   type: 'audio_stream_start';
   data: {
     track_id: number;
+    preset: string;
+    intensity: number;
     sample_rate: number;
     channels: number;
     total_chunks: number;
+    chunk_duration: number;
+    total_duration: number;
+    stream_type?: 'enhanced' | 'normal';
+    is_seek?: boolean;
+    start_chunk?: number;
+    seek_position?: number;
+    seek_offset?: number;
   };
 }
 
@@ -340,12 +351,18 @@ export interface AudioStreamEndMessage extends WebSocketMessage {
   };
 }
 
+/** Sent for each PCM audio chunk during streaming (fixes #2501) */
 export interface AudioChunkMessage extends WebSocketMessage {
   type: 'audio_chunk';
   data: {
-    track_id: number;
     chunk_index: number;
-    data: string; // base64-encoded PCM
+    chunk_count: number;
+    frame_index: number;
+    frame_count: number;
+    samples: string; // base64-encoded float32 PCM
+    sample_count: number;
+    crossfade_samples: number;
+    stream_type?: 'enhanced' | 'normal';
   };
 }
 

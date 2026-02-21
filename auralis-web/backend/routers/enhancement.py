@@ -294,15 +294,32 @@ def create_enhancement_router(
             enhancement_settings["intensity"] = intensity
 
             # Clear cache entries for tracks with the old intensity to force reprocessing
+            preset = enhancement_settings.get("preset", "adaptive")
             if get_processing_cache is not None and old_intensity != intensity:
                 cache = get_processing_cache()
                 # Cache keys include intensity, so we need to clear all entries for current preset
-                preset = enhancement_settings.get("preset", "adaptive")
                 keys_to_remove = [k for k in cache.keys() if f"_{preset}_{old_intensity}_" in k]
                 for key in keys_to_remove:
                     del cache[key]
                 if keys_to_remove:
                     logger.info(f"🧹 Cleared {len(keys_to_remove)} cache entries for old intensity {old_intensity}")
+
+            # Notify multi-tier buffer manager so pre-buffered chunks at the old
+            # intensity are replaced — mirrors the same call in set_enhancement_preset
+            # (fixes #2504).
+            if get_multi_tier_buffer and get_player_state_manager and old_intensity != intensity:
+                buffer_manager = get_multi_tier_buffer()
+                player_state_manager = get_player_state_manager()
+                if buffer_manager and player_state_manager:
+                    state = player_state_manager.get_state()
+                    if state.current_track:
+                        await buffer_manager.update_position(
+                            track_id=state.current_track.id,
+                            position=state.current_time,
+                            preset=preset,
+                            intensity=intensity
+                        )
+                        logger.info(f"🎯 Buffer manager updated for intensity switch: {old_intensity} → {intensity}")
 
             # Broadcast to all clients
             await connection_manager.broadcast({

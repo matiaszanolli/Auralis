@@ -265,20 +265,12 @@ export const useLibraryWithStats = ({
           console.error('Failed to fetch tracks');
           setError('Failed to load library');
           toastError('Failed to load library');
-
-          if (view !== 'favourites' && resetPagination) {
-            loadMockData();
-          }
         }
       } catch (err) {
         console.error('Error fetching tracks:', err);
         const errorMsg = 'Failed to connect to server';
         setError(errorMsg);
         toastError(errorMsg);
-
-        if (view !== 'favourites') {
-          loadMockData();
-        }
       } finally {
         setLoading(false);
         fetchInProgressRef.current = false;
@@ -287,7 +279,7 @@ export const useLibraryWithStats = ({
     // NOTE: Do NOT include 'offset' in dependencies - it's only used for loadMore (non-reset case)
     // fetchTracks is called with resetPagination=true from useEffect, which always uses currentOffset=0
     // Including offset would cause fetchTracks to be recreated every time offset changes, leading to infinite loops
-    [view, success, toastError, info, loadMockData]
+    [view, success, toastError, info]
   );
 
   const loadMore = useCallback(async () => {

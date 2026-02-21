@@ -691,9 +691,12 @@ class FingerprintRepository:
             # Count total tracks
             total_tracks = session.query(func.count(Track.id)).scalar() or 0
 
-            # Count tracks with fingerprints
+            # Count fully-computed fingerprints, excluding in-progress placeholder
+            # rows (lufs=-100.0 sentinel inserted by claim_next_unfingerprinted_track).
+            # Including placeholders inflated completion percentages (fixes #2506).
             fingerprinted_count = (
                 session.query(func.count(TrackFingerprint.id))
+                .filter(TrackFingerprint.lufs != -100.0)
                 .scalar() or 0
             )
 
