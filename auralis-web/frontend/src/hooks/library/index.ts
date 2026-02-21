@@ -16,3 +16,5 @@ export { useLibraryData } from './useLibraryData';
 export { useTrackSelection } from './useTrackSelection';
 export { useRecentlyTouched } from './useRecentlyTouched';
 export type { RecentlyTouchedEntry } from './useRecentlyTouched';
+export { useScanProgress } from './useScanProgress';
+export type { ScanProgress } from './useScanProgress';

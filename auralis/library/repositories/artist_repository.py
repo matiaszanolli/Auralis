@@ -10,7 +10,7 @@ Data access layer for artist operations
 
 from collections.abc import Callable
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ..models import Album, Artist, Track
 
@@ -102,12 +102,14 @@ class ArtistRepository:
             else:  # Default to name
                 order_column = Artist.name.asc()
 
-            # Get paginated artists with all relationships eagerly loaded
+            # Get paginated artists with all relationships eagerly loaded.
+            # Use selectinload (separate IN queries) instead of nested joinedload
+            # to avoid the N×M Cartesian-product row explosion (fixes #2516).
             artists = (
                 session.query(Artist)
                 .options(
-                    joinedload(Artist.tracks).joinedload(Track.genres),
-                    joinedload(Artist.albums)
+                    selectinload(Artist.tracks).selectinload(Track.genres),
+                    selectinload(Artist.albums)
                 )
                 .order_by(order_column)
                 .limit(limit)

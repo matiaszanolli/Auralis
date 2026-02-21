@@ -748,10 +748,18 @@ class TrackRepository:
                 if not rows:
                     break
 
-                missing_ids = [
-                    row.id for row in rows
-                    if not os.path.exists(row.filepath)
-                ]
+                missing_ids = []
+                for row in rows:
+                    filepath = str(row.filepath)
+                    parent = os.path.dirname(filepath)
+                    # If the parent directory itself is absent the volume is
+                    # likely unmounted (NFS/SMB). Skip this file rather than
+                    # permanently deleting it from the library (fixes #2525).
+                    if not os.path.exists(parent):
+                        debug(f"Parent directory inaccessible, skipping: {parent}")
+                        continue
+                    if not os.path.exists(filepath):
+                        missing_ids.append(row.id)
 
                 if missing_ids:
                     session.query(Track).filter(

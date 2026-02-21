@@ -8,6 +8,7 @@ Machine learning-based genre classification using audio features
 :license: GPLv3, see LICENSE for more details.
 """
 
+from functools import lru_cache
 from typing import Any, cast
 
 import numpy as np
@@ -155,14 +156,18 @@ class MLGenreClassifier:
         }
 
 
+@lru_cache(maxsize=4)
 def create_ml_genre_classifier(model_path: str | None = None) -> MLGenreClassifier:
     """
-    Factory function to create ML genre classifier
+    Factory function to create ML genre classifier.
+
+    Results are cached by model_path so FeatureExtractor and genre weights
+    are only allocated once per unique model path (fixes #2528).
 
     Args:
         model_path: Optional path to saved model weights
 
     Returns:
-        Configured MLGenreClassifier instance
+        Cached MLGenreClassifier instance
     """
     return MLGenreClassifier(model_path)

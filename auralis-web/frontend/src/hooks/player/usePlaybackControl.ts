@@ -289,8 +289,8 @@ export function usePlaybackControl(): PlaybackControlActions {
     const validVolume = Math.max(0.0, Math.min(1.0, volume)) * 100;
 
     try {
-      // Backend expects volume as query parameter (0-100)
-      await api.post(`/api/player/volume?volume=${Math.round(validVolume)}`);
+      // Backend reads volume from JSON body (SetVolumeRequest, 0-100) (fixes #2498)
+      await api.post('/api/player/volume', { volume: Math.round(validVolume) });
       // Server broadcasts 'volume_changed' message which updates usePlaybackState
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'VOLUME_ERROR', status: 500 } : err as ApiError;

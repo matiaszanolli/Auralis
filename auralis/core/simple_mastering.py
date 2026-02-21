@@ -228,6 +228,11 @@ class SimpleMasteringPipeline:
                             else:
                                 body = processed_chunk[:, head_len:core_samples]
                                 write_region = np.concatenate([crossfaded, body], axis=1)
+                                # Guard against silent sample drift at chunk boundaries (#2515)
+                                assert write_region.shape[1] == core_samples, (
+                                    f"Crossfade write_region mismatch: expected {core_samples} "
+                                    f"samples, got {write_region.shape[1]}"
+                                )
                                 new_tail = processed_chunk[:, core_samples:].copy()
                     else:
                         # No previous tail (safety fallback)

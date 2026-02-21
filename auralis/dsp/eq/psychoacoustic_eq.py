@@ -203,6 +203,10 @@ class PsychoacousticEQ:
         """Calculate target gains for each band"""
         target_gains = np.zeros(len(self.critical_bands))
 
+        # Guard against NaN/Inf from silent audio or log10(0) (fixes #2513)
+        band_energies = np.where(np.isfinite(band_energies), band_energies, 0.0)
+        masking_thresholds = np.where(np.isfinite(masking_thresholds), masking_thresholds, 0.0)
+
         for i, band in enumerate(self.critical_bands):
             # Find target level for this band
             if i < len(target_curve):

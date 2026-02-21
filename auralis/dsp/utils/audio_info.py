@@ -78,7 +78,8 @@ def mono_to_stereo(audio: np.ndarray) -> np.ndarray:
     """
     if audio.ndim == 1:
         return np.column_stack([audio, audio])
-    return np.repeat(audio, repeats=2, axis=1)
+    # Already stereo (or higher) — return a copy unchanged (fixes #2512)
+    return audio.copy()
 
 
 def count_max_peaks(audio: np.ndarray) -> tuple[float, int]:

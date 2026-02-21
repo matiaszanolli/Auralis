@@ -72,6 +72,14 @@ class ParallelFFTProcessor:
         with self.lock:
             # Another thread may have inserted this size while we computed.
             if size not in self.window_cache:
+                # Evict the oldest non-pre-warmed entry if cache is full (fixes #2526)
+                _MAX_WINDOW_CACHE = 16
+                if len(self.window_cache) >= _MAX_WINDOW_CACHE:
+                    _pre_warmed = {512, 1024, 2048, 4096, 8192}
+                    for _evict in list(self.window_cache):
+                        if _evict not in _pre_warmed:
+                            del self.window_cache[_evict]
+                            break
                 self.window_cache[size] = window
                 debug(f"Computed and cached Hanning window for size {size}")
             return self.window_cache[size]

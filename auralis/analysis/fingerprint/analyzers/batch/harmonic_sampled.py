@@ -72,18 +72,28 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
         chunks = []
         start_times = []
 
+        # For long tracks, spread max_chunks evenly across the full duration
+        # instead of stopping at the cap and silently discarding the remainder (#2517).
+        total_samples = len(audio)
+        possible_chunks = max(1, (total_samples - chunk_samples) // interval_samples + 1)
+        if possible_chunks > self.max_chunks:
+            effective_interval = max(chunk_samples, total_samples // self.max_chunks)
+            logger.debug(
+                f"Track duration {total_duration:.1f}s would yield {possible_chunks} chunks; "
+                f"distributing {self.max_chunks} evenly (interval={effective_interval / sr:.1f}s)"
+            )
+        else:
+            effective_interval = interval_samples
+
         # Extract chunks at regular intervals
         start_sample = 0
         while start_sample + chunk_samples <= len(audio):
-            if len(chunks) >= self.max_chunks:
-                logger.debug(f"Reached max_chunks={self.max_chunks}; stopping extraction (total_duration={total_duration:.1f}s)")
-                break
             end_sample = start_sample + chunk_samples
             chunk = audio[start_sample:end_sample].copy()
             chunks.append(chunk)
 
             start_times.append(start_sample / sr)
-            start_sample += interval_samples
+            start_sample += effective_interval
 
         if len(chunks) == 0:
             # Track too short, analyze entire audio as one chunk
