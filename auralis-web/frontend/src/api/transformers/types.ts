@@ -58,14 +58,17 @@ export interface ArtistsApiResponse {
 export interface TrackApiResponse {
   id: number;
   title: string;
-  artist: string;
+  // Backend to_dict() returns arrays; singular forms kept for backward compat (fixes #2263)
+  artists?: string[];   // backend primary field
+  genres?: string[];    // backend primary field
+  artist?: string;      // singular fallback (some serializer paths)
   album: string;
   duration: number; // seconds
   filepath: string;
 
   // Optional metadata
   artwork_url?: string;
-  genre?: string;
+  genre?: string;       // singular fallback
   year?: number;
 
   // Audio properties

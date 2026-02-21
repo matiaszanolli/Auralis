@@ -34,6 +34,12 @@ class ScoringOperations:
         Returns:
             Score 0-100, clamped
         """
+        # Guard against NaN inputs from silent files, analysis timeouts, or
+        # floating-point underflow.  NaN would propagate through all arithmetic
+        # and be stored as the final quality score (fixes #2496).
+        if np.isnan(value) or np.isnan(min_val) or np.isnan(max_val):
+            return 0.0
+
         if max_val == min_val:
             return 100.0 if value == max_val else 0.0
 

@@ -90,9 +90,10 @@ export interface Playlist {
   track_count: number;
   is_smart: boolean;
 
-  // Timestamps
-  created_at: string; // ISO 8601
-  modified_at: string; // ISO 8601
+  // Timestamps — optional because backend returns null when the field is unset
+  // (fixes #2278: was required string, causing crashes on null created_at)
+  created_at?: string; // ISO 8601
+  modified_at?: string; // ISO 8601
 }
 
 export interface PlaylistDetail extends Playlist {

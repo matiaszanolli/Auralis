@@ -184,8 +184,15 @@ class MigrationManager:
             migration_script=migration_script
         )
         self.session.add(schema_version)
-        self.session.commit()
-        logger.info(f"✅ Recorded migration to v{version}: {description}")
+        try:
+            self.session.commit()
+            logger.info(f"✅ Recorded migration to v{version}: {description}")
+        except Exception as e:
+            # Roll back so the session stays usable and the DB isn't left with a
+            # partially-applied migration record (fixes #2313).
+            self.session.rollback()
+            logger.error(f"❌ Failed to record migration v{version}: {e}")
+            raise
 
     def apply_migration(self, from_version: int, to_version: int) -> bool:
         """

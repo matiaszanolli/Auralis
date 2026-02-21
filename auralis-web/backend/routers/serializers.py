@@ -16,10 +16,24 @@ logger = logging.getLogger(__name__)
 
 # Default field mappings for common objects
 DEFAULT_TRACK_FIELDS = {
+    # Core identity (always required by TrackApiResponse)
     'id': None,
     'title': 'Unknown',
+    'artist': '',
+    'album': '',
     'duration': 0,
-    'format': 'Unknown'
+    'filepath': '',
+    'format': 'Unknown',
+    # Optional metadata (fixes #2267 — frontend requires artist/album, others desirable)
+    'artwork_url': None,
+    'genre': None,
+    'year': None,
+    'bitrate': None,
+    'sample_rate': None,
+    'bit_depth': None,
+    'loudness': None,
+    'date_added': None,
+    'date_modified': None,
 }
 
 DEFAULT_ALBUM_FIELDS = {

@@ -106,10 +106,16 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
     # Probe source format: duration, sample rate, and channel count
     probe = _probe_audio(file_path)
     expected_duration = probe['duration']
-    source_sample_rate = probe['sample_rate'] or 44100
-    source_channels = probe['channels'] or 2
+    # Fail fast when FFprobe cannot determine sample rate or channel count.
+    # Silently assuming 44100 Hz / 2 ch caused 48 kHz and other files to be
+    # permanently resampled to the wrong rate (fixes #2495).
     if probe['sample_rate'] is None or probe['channels'] is None:
-        warning(f"Could not probe sample rate/channels for {file_path}; defaulting to {source_sample_rate} Hz / {source_channels} ch")
+        raise ModuleError(
+            f"{Code.ERROR_CORRUPTED}: Could not probe sample rate / channel count for "
+            f"'{file_path}'. FFprobe output may be malformed or the container unsupported."
+        )
+    source_sample_rate = probe['sample_rate']
+    source_channels = probe['channels']
 
     # Create temporary WAV file
     if temp_folder:

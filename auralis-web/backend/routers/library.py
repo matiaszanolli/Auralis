@@ -681,15 +681,18 @@ def create_library_router(
                 "track_title": track.title,
                 "artist": track.artist,
                 "album": track.album,
+                # Attribute names corrected to match TrackFingerprint model (fixes #2260).
+                # Model columns use _pct suffix for frequency bands and have different
+                # names for several attributes that the old code accessed incorrectly.
                 "fingerprint": {
-                    # 7D Frequency distribution
-                    "sub_bass": fp.sub_bass,
-                    "bass": fp.bass,
-                    "low_mid": fp.low_mid,
-                    "mid": fp.mid,
-                    "upper_mid": fp.upper_mid,
-                    "presence": fp.presence,
-                    "air": fp.air,
+                    # 7D Frequency distribution (model columns: *_pct)
+                    "sub_bass": fp.sub_bass_pct,
+                    "bass": fp.bass_pct,
+                    "low_mid": fp.low_mid_pct,
+                    "mid": fp.mid_pct,
+                    "upper_mid": fp.upper_mid_pct,
+                    "presence": fp.presence_pct,
+                    "air": fp.air_pct,
                     # 3D Loudness/dynamics
                     "lufs": fp.lufs,
                     "crest_db": fp.crest_db,
@@ -703,16 +706,16 @@ def create_library_router(
                     "spectral_centroid": fp.spectral_centroid,
                     "spectral_rolloff": fp.spectral_rolloff,
                     "spectral_flatness": fp.spectral_flatness,
-                    # 6D Harmonic content
+                    # Harmonic content (model has harmonic_ratio, pitch_stability, chroma_energy)
                     "harmonic_ratio": fp.harmonic_ratio,
-                    "percussive_ratio": fp.percussive_ratio,
-                    "pitch_confidence": fp.pitch_confidence,
-                    "chroma_energy_mean": fp.chroma_energy_mean,
-                    "chroma_energy_variance": fp.chroma_energy_variance,
-                    "key_strength": fp.key_strength,
-                    # 2D Stereo characteristics
+                    "percussive_ratio": 1.0 - fp.harmonic_ratio,     # derived: inverse of harmonic_ratio
+                    "pitch_confidence": fp.pitch_stability,           # model: pitch_stability
+                    "chroma_energy_mean": fp.chroma_energy,           # model: chroma_energy
+                    "chroma_energy_variance": None,                   # not in model
+                    "key_strength": fp.pitch_stability,               # closest proxy in model
+                    # 2D Stereo characteristics (model: phase_correlation, not stereo_correlation)
                     "stereo_width": fp.stereo_width,
-                    "stereo_correlation": fp.stereo_correlation,
+                    "stereo_correlation": fp.phase_correlation,       # model: phase_correlation
                 }
             }
 

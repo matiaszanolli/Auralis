@@ -17,17 +17,22 @@ import type { Track } from '@/types/domain';
  * - sampleRate, bitDepth, crestFactor, dateAdded, dateModified
  */
 export function transformTrack(apiTrack: TrackApiResponse): Track {
+  // Backend sends artists/genres as arrays; fall back to singular fields if present.
+  // Fixes #2263: previously read apiTrack.artist which was always undefined.
+  const artist = apiTrack.artists?.[0] ?? apiTrack.artist ?? '';
+  const genre = apiTrack.genres?.[0] ?? apiTrack.genre;
+
   return {
     id: apiTrack.id,
     title: apiTrack.title,
-    artist: apiTrack.artist,
+    artist,
     album: apiTrack.album,
     duration: apiTrack.duration,
     filepath: apiTrack.filepath,
 
     // Optional metadata (null → undefined)
     artworkUrl: apiTrack.artwork_url ?? undefined,
-    genre: apiTrack.genre ?? undefined,
+    genre: genre ?? undefined,
     year: apiTrack.year ?? undefined,
 
     // Audio properties (snake → camel, null → undefined)
