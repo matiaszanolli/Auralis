@@ -9,7 +9,6 @@
  * - Infinite scroll support
  * - Folder scanning via API
  * - Favorites vs. all tracks support
- * - Mock data fallback for development
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -43,12 +42,16 @@ export interface UseLibraryDataReturn {
   offset: number;
   isLoadingMore: boolean;
   scanning: boolean;
+  /** Controlled folder-path value for the web-browser (non-Electron) scan input. */
+  webFolderPath: string;
 
   // Methods
   fetchTracks: (resetPagination?: boolean) => Promise<void>;
   loadMore: () => Promise<void>;
   handleScanFolder: () => Promise<void>;
   isElectron: () => boolean;
+  /** Setter for the web-browser scan-path controlled input. */
+  setWebFolderPath: (path: string) => void;
 }
 
 /**
@@ -67,70 +70,14 @@ export const useLibraryData = ({
   const offsetRef = useRef(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [scanning, setScanning] = useState(false);
+  // Controlled input for folder path in web (non-Electron) environments (fixes #2359).
+  const [webFolderPath, setWebFolderPath] = useState('');
 
   const { success, error, info } = useToast();
 
   // Check if running in Electron
   const isElectron = useCallback(() => {
     return !!(window as any).electronAPI;
-  }, []);
-
-  // Load mock data as fallback
-  const loadMockData = useCallback(() => {
-    const mockTracks: Track[] = [
-      {
-        id: 1,
-        title: "Bohemian Rhapsody",
-        artist: "Queen",
-        album: "A Night at the Opera",
-        duration: 355,
-        quality: 0.95,
-        isEnhanced: true,
-        genre: "Rock",
-        year: 1975,
-        albumArt: "https://via.placeholder.com/300x300/1976d2/white?text=Queen"
-      },
-      {
-        id: 2,
-        title: "Hotel California",
-        artist: "Eagles",
-        album: "Hotel California",
-        duration: 391,
-        quality: 0.88,
-        isEnhanced: false,
-        genre: "Rock",
-        year: 1976,
-        albumArt: "https://via.placeholder.com/300x300/d32f2f/white?text=Eagles"
-      },
-      {
-        id: 3,
-        title: "Billie Jean",
-        artist: "Michael Jackson",
-        album: "Thriller",
-        duration: 294,
-        quality: 0.92,
-        isEnhanced: true,
-        genre: "Pop",
-        year: 1982,
-        albumArt: "https://via.placeholder.com/300x300/388e3c/white?text=MJ"
-      },
-      {
-        id: 4,
-        title: "Sweet Child O' Mine",
-        artist: "Guns N' Roses",
-        album: "Appetite for Destruction",
-        duration: 356,
-        quality: 0.89,
-        isEnhanced: false,
-        genre: "Rock",
-        year: 1987,
-        albumArt: "https://via.placeholder.com/300x300/f57c00/white?text=GNR"
-      }
-    ];
-
-    setTracks(mockTracks);
-    setHasMore(false);
-    setTotalTracks(mockTracks.length);
   }, []);
 
   // Fetch tracks from API with pagination
@@ -184,23 +131,17 @@ export const useLibraryData = ({
         }
       } else {
         console.error('Failed to fetch tracks');
-        error('Failed to load library');
-        // Fall back to mock data only for regular view
-        if (view !== 'favourites' && resetPagination) {
-          loadMockData();
-        }
+        // Show error state — never fall back to mock data in production (fixes #2344).
+        error('Failed to load library. Check that the Auralis backend is running.');
       }
     } catch (err) {
       console.error('Error fetching tracks:', err);
-      error('Failed to connect to server');
-      // Fall back to mock data only for regular view
-      if (view !== 'favourites') {
-        loadMockData();
-      }
+      // Show error state — never fall back to mock data in production (fixes #2344).
+      error('Cannot connect to Auralis server. Retry when the backend is available.');
     } finally {
       setLoading(false);
     }
-  }, [view, success, error, info, loadMockData]);
+  }, [view, success, error, info]);
 
   // Load more tracks (for infinite scroll)
   const loadMore = useCallback(async () => {
@@ -246,6 +187,7 @@ export const useLibraryData = ({
   }, [isLoadingMore, hasMore, view]);
 
   // Handle folder scan
+  // Blocking alert()/prompt() replaced with toast notifications (fixes #2359).
   const handleScanFolder = useCallback(async () => {
     let folderPath: string | undefined;
 
@@ -258,15 +200,18 @@ export const useLibraryData = ({
         } else {
           return; // User cancelled
         }
-      } catch (error) {
-        console.error('Failed to open folder picker:', error);
-        alert('❌ Failed to open folder picker');
+      } catch (err) {
+        console.error('Failed to open folder picker:', err);
+        error('Failed to open folder picker');
         return;
       }
     } else {
-      // Fallback to prompt in web browser
-      folderPath = prompt('Enter folder path to scan:\n(e.g., /home/user/Music)') || undefined;
-      if (!folderPath) return;
+      // Web browser: read from the controlled input (set via setWebFolderPath).
+      folderPath = webFolderPath.trim() || undefined;
+      if (!folderPath) {
+        info('Enter a folder path in the scan field and try again');
+        return;
+      }
     }
 
     setScanning(true);
@@ -279,20 +224,20 @@ export const useLibraryData = ({
 
       if (response.ok) {
         const result = await response.json();
-        alert(`✅ Scan complete!\nAdded: ${result.files_added || 0} tracks`);
+        success(`Scan complete — ${result.files_added || 0} track(s) added`);
         // Refresh the library
         await fetchTracks();
       } else {
-        const errorData = await response.json();
-        alert(`❌ Scan failed: ${errorData.detail || 'Unknown error'}`);
+        const errorData = await response.json().catch(() => ({}));
+        error(`Scan failed: ${errorData.detail || 'Unknown error'}`);
       }
-    } catch (error) {
-      console.error('Scan error:', error);
-      alert(`❌ Error scanning folder: ${error}`);
+    } catch (err) {
+      console.error('Scan error:', err);
+      error('Error scanning folder — check the backend is reachable');
     } finally {
       setScanning(false);
     }
-  }, [isElectron, fetchTracks]);
+  }, [isElectron, fetchTracks, webFolderPath, success, error, info]);
 
   // Auto-load on mount or when view/autoLoad changes.
   // fetchTracks is safe to include now that offset is held in a ref (not closure).
@@ -311,12 +256,14 @@ export const useLibraryData = ({
     offset,
     isLoadingMore,
     scanning,
+    webFolderPath,
 
     // Methods
     fetchTracks,
     loadMore,
     handleScanFolder,
-    isElectron
+    isElectron,
+    setWebFolderPath,
   };
 };
 

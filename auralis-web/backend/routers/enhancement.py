@@ -131,8 +131,10 @@ def create_enhancement_router(
                     break  # Don't process chunks beyond the track
 
                 try:
-                    # Process chunk (this will cache the WAV file)
-                    wav_chunk_path = processor.get_wav_chunk_path(chunk_idx)
+                    # Process chunk (this will cache the WAV file).
+                    # get_wav_chunk_path does CPU-bound audio processing; run in a
+                    # thread pool to avoid blocking the event loop (fixes #2330).
+                    wav_chunk_path = await asyncio.to_thread(processor.get_wav_chunk_path, chunk_idx)
 
                     if os.path.exists(wav_chunk_path):
                         processed_count += 1

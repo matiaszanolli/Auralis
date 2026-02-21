@@ -26,10 +26,19 @@ Features:
 """
 
 import asyncio
+import contextvars
 import hashlib
 import json
 import logging
 import threading
+
+# Per-task stream-type context variable (fixes #2493).
+# Each asyncio Task inherits its own copy of the context, so concurrent
+# stream_enhanced_audio / stream_normal_audio calls in different WebSocket
+# handler tasks cannot overwrite each other's value — unlike self._stream_type.
+_stream_type_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    '_stream_type', default=None
+)
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any
@@ -180,7 +189,7 @@ class AudioStreamController:
 
         # Use provided cache manager or fallback to SimpleChunkCache
         self.cache_manager: StreamlinedCacheManager | SimpleChunkCache = cache_manager or SimpleChunkCache()
-        self._stream_type: str | None = None  # Set by public streaming methods ("enhanced" or "normal")
+        self._stream_type: str | None = None  # Deprecated; reads now use _stream_type_var.get() (fixes #2493)
         logger.info(f"AudioStreamController initialized with cache manager: {type(self.cache_manager).__name__}")
 
         # NEW (Phase 7.3): Fingerprint generator for on-demand generation
@@ -428,7 +437,7 @@ class AudioStreamController:
             ValueError: If track not found or processor unavailable
             Exception: If processing or streaming fails
         """
-        self._stream_type = "enhanced"
+        _stream_type_var.set("enhanced")  # per-task; safe for concurrent coroutines (fixes #2493)
 
         if not self.chunked_processor_class:
             raise ValueError("ChunkedProcessor not available")
@@ -620,7 +629,7 @@ class AudioStreamController:
             ValueError: If track not found or file unavailable
             Exception: If loading or streaming fails
         """
-        self._stream_type = "normal"
+        _stream_type_var.set("normal")  # per-task; safe for concurrent coroutines (fixes #2493)
 
         import soundfile as sf
 
@@ -1027,7 +1036,7 @@ class AudioStreamController:
                             # to prevent audible clicks at chunk boundaries.
                             # Frontend receives pre-crossfaded audio, so no client-side crossfade needed.
                             "crossfade_samples": crossfade_samples,  # For monitoring/debugging
-                            "stream_type": self._stream_type,
+                            "stream_type": _stream_type_var.get(),
                         },
                     }
                     await queue.put(message)
@@ -1082,7 +1091,7 @@ class AudioStreamController:
                 "total_chunks": total_chunks,
                 "chunk_duration": chunk_duration,
                 "total_duration": total_duration,
-                "stream_type": self._stream_type,
+                "stream_type": _stream_type_var.get(),
             },
         }
         if await self._safe_send(websocket, message):
@@ -1108,7 +1117,7 @@ class AudioStreamController:
                 "track_id": track_id,
                 "total_samples": total_samples,
                 "duration": duration,
-                "stream_type": self._stream_type,
+                "stream_type": _stream_type_var.get(),
             },
         }
         if await self._safe_send(websocket, message):
@@ -1136,7 +1145,7 @@ class AudioStreamController:
             "track_id": track_id,
             "error": error_message,
             "code": "STREAMING_ERROR",
-            "stream_type": self._stream_type,
+            "stream_type": _stream_type_var.get(),
         }
         if recovery_position is not None:
             data["recovery_position"] = recovery_position
@@ -1168,7 +1177,7 @@ class AudioStreamController:
                 "track_id": track_id,
                 "status": status,
                 "message": message,
-                "stream_type": self._stream_type,
+                "stream_type": _stream_type_var.get(),
             },
         }
         try:
@@ -1204,7 +1213,7 @@ class AudioStreamController:
             ValueError: If track not found or processor unavailable
             Exception: If processing or streaming fails
         """
-        self._stream_type = "enhanced"
+        _stream_type_var.set("enhanced")  # per-task; safe for concurrent coroutines (fixes #2493)
 
         if not self.chunked_processor_class:
             raise ValueError("ChunkedProcessor not available")
@@ -1399,7 +1408,7 @@ class AudioStreamController:
                 "start_chunk": start_chunk,
                 "seek_position": seek_position,
                 "seek_offset": seek_offset,
-                "stream_type": self._stream_type,
+                "stream_type": _stream_type_var.get(),
             },
         }
         if await self._safe_send(websocket, message):

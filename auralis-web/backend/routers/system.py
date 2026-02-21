@@ -444,13 +444,14 @@ def create_system_router(
                         )
                         continue
 
-                    # Use stored enhancement settings (fixes #2103)
-                    preset = "adaptive"
-                    intensity = 1.0
+                    # Use values from WS message as initial fallback (fixes #2381),
+                    # then let server-side settings override when available (fixes #2103).
+                    preset = data.get("preset", "adaptive")
+                    intensity = data.get("intensity", 1.0)
                     if get_enhancement_settings is not None:
                         settings = get_enhancement_settings()
-                        preset = settings.get("preset", "adaptive")
-                        intensity = settings.get("intensity", 1.0)
+                        preset = settings.get("preset", preset)
+                        intensity = settings.get("intensity", intensity)
 
                     logger.info(
                         f"Received seek: track_id={track_id}, "

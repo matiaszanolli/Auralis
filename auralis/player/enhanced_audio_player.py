@@ -104,6 +104,10 @@ class AudioPlayer:
         # Fingerprinting service for adaptive mastering
         self.fingerprint_service = FingerprintService()
         self._current_fingerprint: dict | None = None
+        # Protects _current_fingerprint against a background loader writing
+        # concurrently with the playback thread reading it for adaptive DSP
+        # parameters (fixes #2491).
+        self._fingerprint_lock = threading.Lock()
 
         # Control flags
         self.auto_advance = True
@@ -203,19 +207,22 @@ class AudioPlayer:
             fingerprint = self.fingerprint_service.get_or_compute(audio_path)
 
             if fingerprint:
-                self._current_fingerprint = fingerprint
+                with self._fingerprint_lock:
+                    self._current_fingerprint = fingerprint
                 self.processor.set_fingerprint(fingerprint)
                 info(f"Fingerprint loaded for adaptive mastering: "
                      f"LUFS {fingerprint.get('lufs', 0):.1f} dB, "
                      f"crest {fingerprint.get('crest_db', 0):.1f} dB")
             else:
                 debug(f"Failed to load fingerprint for {audio_path.name}, using profile-based mastering")
-                self._current_fingerprint = None
+                with self._fingerprint_lock:
+                    self._current_fingerprint = None
                 self.processor.set_fingerprint(None)
 
         except Exception as e:
             warning(f"Error loading fingerprint: {e}")
-            self._current_fingerprint = None
+            with self._fingerprint_lock:
+                self._current_fingerprint = None
             self.processor.set_fingerprint(None)
 
     def load_reference(self, file_path: str) -> bool:

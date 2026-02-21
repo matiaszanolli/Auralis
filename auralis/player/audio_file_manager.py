@@ -89,9 +89,11 @@ class AudioFileManager:
                 error(f"Reference file not found: {file_path}")
                 return False
 
-            # Load reference audio
-            self.reference_data, ref_sample_rate = load(file_path, "reference")
-            self.reference_file = file_path
+            # Load outside the lock (I/O may be slow); then swap atomically.
+            reference_data, ref_sample_rate = load(file_path, "reference")
+            with self._audio_lock:
+                self.reference_data = reference_data
+                self.reference_file = file_path
 
             info(f"Reference loaded: {file_path}")
             info(f"Reference duration: {len(self.reference_data) / ref_sample_rate:.1f}s")
@@ -167,7 +169,8 @@ class AudioFileManager:
 
     def has_reference(self) -> bool:
         """Check if reference audio is loaded"""
-        return self.reference_data is not None
+        with self._audio_lock:
+            return self.reference_data is not None
 
     def clear_audio(self) -> None:
         """Clear loaded audio data"""
@@ -177,8 +180,9 @@ class AudioFileManager:
 
     def clear_reference(self) -> None:
         """Clear loaded reference data"""
-        self.reference_data = None
-        self.reference_file = None
+        with self._audio_lock:
+            self.reference_data = None
+            self.reference_file = None
 
     def clear_all(self) -> None:
         """Clear all loaded audio"""

@@ -11,6 +11,7 @@ In-memory caching for frequently accessed library queries
 import hashlib
 import json
 import logging
+import threading
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any
@@ -45,6 +46,10 @@ class QueryCache:
         self._cache: dict[str, tuple[Any, datetime | None, dict[str, Any]]] = {}
         self._hits = 0
         self._misses = 0
+        # Protects _cache, _hits, _misses against concurrent reads and writes
+        # from both the async FastAPI event loop and background scanner threads
+        # (fixes #2494: KeyError from check-then-act on unprotected dict).
+        self._lock = threading.Lock()
 
     def _make_key(self, func_name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
         """
@@ -77,20 +82,21 @@ class QueryCache:
         Returns:
             Cached value or None if not found/expired
         """
-        if key not in self._cache:
-            self._misses += 1
-            return None
+        with self._lock:
+            if key not in self._cache:
+                self._misses += 1
+                return None
 
-        value, expiry, metadata = self._cache[key]
+            value, expiry, metadata = self._cache[key]
 
-        # Check if expired
-        if expiry and datetime.now() > expiry:
-            del self._cache[key]
-            self._misses += 1
-            return None
+            # Check if expired
+            if expiry and datetime.now() > expiry:
+                del self._cache[key]
+                self._misses += 1
+                return None
 
-        self._hits += 1
-        return value
+            self._hits += 1
+            return value
 
     def set(self, key: str, value: Any, ttl: int | None = None, metadata: dict[str, Any] | None = None) -> None:
         """
@@ -113,13 +119,14 @@ class QueryCache:
         if metadata is None:
             metadata = {}
 
-        # LRU eviction if cache is full
-        if len(self._cache) >= self.max_size and key not in self._cache:
-            # Remove oldest item (first inserted)
-            oldest_key = next(iter(self._cache))
-            del self._cache[oldest_key]
+        with self._lock:
+            # LRU eviction if cache is full
+            if len(self._cache) >= self.max_size and key not in self._cache:
+                # Remove oldest item (first inserted)
+                oldest_key = next(iter(self._cache))
+                del self._cache[oldest_key]
 
-        self._cache[key] = (value, expiry, metadata)
+            self._cache[key] = (value, expiry, metadata)
 
     def invalidate(self, *patterns: str) -> None:
         """
@@ -134,26 +141,27 @@ class QueryCache:
             invalidate('get_all_tracks')                           # Clear only get_all_tracks
             invalidate('get_all_tracks', 'get_track', 'search')    # Clear multiple functions
         """
-        if not patterns:
-            # No patterns = clear all
-            self._cache.clear()
-            logger.info("🗑️  Cache cleared (full flush)")
-        else:
-            # Match exact function names
-            keys_to_remove = []
-            for key, (value, expiry, metadata) in self._cache.items():
-                func_name = metadata.get('func', '')
-                if func_name in patterns:
-                    keys_to_remove.append(key)
-
-            for key in keys_to_remove:
-                del self._cache[key]
-
-            if keys_to_remove:
-                pattern_str = ', '.join(f"'{p}'" for p in patterns)
-                logger.info(f"🗑️  Invalidated {len(keys_to_remove)} cache entries for {pattern_str}")
+        with self._lock:
+            if not patterns:
+                # No patterns = clear all
+                self._cache.clear()
+                logger.info("🗑️  Cache cleared (full flush)")
             else:
-                logger.debug(f"🔍 No cache entries found for {patterns}")
+                # Match exact function names
+                keys_to_remove = []
+                for key, (value, expiry, metadata) in self._cache.items():
+                    func_name = metadata.get('func', '')
+                    if func_name in patterns:
+                        keys_to_remove.append(key)
+
+                for key in keys_to_remove:
+                    del self._cache[key]
+
+                if keys_to_remove:
+                    pattern_str = ', '.join(f"'{p}'" for p in patterns)
+                    logger.info(f"🗑️  Invalidated {len(keys_to_remove)} cache entries for {pattern_str}")
+                else:
+                    logger.debug(f"🔍 No cache entries found for {patterns}")
 
     def get_stats(self) -> dict[str, Any]:
         """
@@ -162,17 +170,17 @@ class QueryCache:
         Returns:
             Dictionary with cache stats
         """
-        total_requests = self._hits + self._misses
-        hit_rate = (self._hits / total_requests * 100) if total_requests > 0 else 0
-
-        return {
-            'size': len(self._cache),
-            'max_size': self.max_size,
-            'hits': self._hits,
-            'misses': self._misses,
-            'hit_rate': f'{hit_rate:.1f}%',
-            'total_requests': total_requests
-        }
+        with self._lock:
+            total_requests = self._hits + self._misses
+            hit_rate = (self._hits / total_requests * 100) if total_requests > 0 else 0
+            return {
+                'size': len(self._cache),
+                'max_size': self.max_size,
+                'hits': self._hits,
+                'misses': self._misses,
+                'hit_rate': f'{hit_rate:.1f}%',
+                'total_requests': total_requests
+            }
 
 
 # Global cache instance

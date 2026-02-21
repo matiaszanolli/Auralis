@@ -123,7 +123,7 @@ async def _background_auto_scan(
         })
 
     except Exception as scan_e:
-        logger.warning(f"⚠️  Background auto-scan failed: {scan_e}")
+        logger.warning(f"⚠️  Background auto-scan failed: {scan_e}", exc_info=True)
         await connection_manager.broadcast({
             "type": "library_scan_error",
             "error": str(scan_e)

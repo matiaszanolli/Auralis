@@ -60,7 +60,6 @@ class BatchMetadataUpdateRequest(BaseModel):
 class BatchMetadataRequest(BaseModel):
     """Request model for batch update endpoint"""
     updates: list[BatchMetadataUpdateRequest] = Field(..., description="List of updates")
-    backup: bool = Field(True, description="Create backup before modification")
 
 
 def create_metadata_router(
@@ -174,14 +173,13 @@ def create_metadata_router(
             raise HTTPException(status_code=500, detail=f"Failed to get metadata: {e}")
 
     @router.put("/api/metadata/tracks/{track_id}")
-    async def update_track_metadata(track_id: int, request: MetadataUpdateRequest, backup: bool = True) -> dict[str, Any]:
+    async def update_track_metadata(track_id: int, request: MetadataUpdateRequest) -> dict[str, Any]:
         """
         Update metadata for a track.
 
         Args:
             track_id: Track ID
             request: Metadata fields to update
-            backup: Create backup before modification (default: True)
 
         Returns:
             dict: Updated track metadata
@@ -206,11 +204,11 @@ def create_metadata_router(
             if not metadata_updates:
                 raise HTTPException(status_code=400, detail="No metadata fields provided")
 
-            # Write metadata to file
+            # Write metadata to file (backup is always enforced server-side, fixes #2407)
             success = metadata_editor.write_metadata(
                 str(track.filepath),
                 metadata_updates,
-                backup=backup
+                backup=True
             )
 
             if not success:
@@ -294,7 +292,7 @@ def create_metadata_router(
                     track_id=update_req.track_id,
                     filepath=str(track.filepath),
                     updates=update_req.metadata,
-                    backup=request.backup
+                    backup=True  # always enforced server-side (fixes #2407)
                 ))
 
             # Execute batch update (atomic when backup=True)
