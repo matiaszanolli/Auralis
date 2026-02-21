@@ -95,11 +95,12 @@ export const notificationShadows = {
 /**
  * Compound shadow presets - Complex multi-layer shadows
  */
+// Compound shadows use auroraOpacity (accent #7366F0) instead of deprecated #667eea (fixes #2356).
 export const compoundShadows = {
   // Player button shadow (large base + subtle top)
-  playerButton: '0 4px 16px rgba(102, 126, 234, 0.2), 0 0 24px rgba(102, 126, 234, 0.1)',
+  playerButton: `0 4px 16px ${auroraOpacity.standard}, 0 0 24px ${auroraOpacity.veryLight}`,
   // Player button hover (large base + strong top)
-  playerButtonHover: '0 8px 24px rgba(102, 126, 234, 0.3), 0 0 32px rgba(102, 126, 234, 0.2)',
+  playerButtonHover: `0 8px 24px ${auroraOpacity.strong}, 0 0 32px ${auroraOpacity.standard}`,
   // Player container (negative Y for top-facing shadow)
-  playerContainer: '0 -8px 32px rgba(102, 126, 234, 0.15), 0 -2px 8px rgba(102, 126, 234, 0.1)',
+  playerContainer: `0 -8px 32px ${auroraOpacity.lighter}, 0 -2px 8px ${auroraOpacity.veryLight}`,
 };

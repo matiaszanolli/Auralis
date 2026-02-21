@@ -125,7 +125,10 @@ export function useWebSocketSubscription(
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
     };
-  }, [messageTypes]); // messageTypes is the only structural dependency; callback is via ref
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messageTypes.join('\x00')]); // Value-stable string key: callers that pass inline array
+  // literals get a new reference every render but the joined string is identical, preventing
+  // subscription teardown + rebuild on every render (fixes #2487).
 
   // Return a way to manually unsubscribe (rarely used)
   return () => {

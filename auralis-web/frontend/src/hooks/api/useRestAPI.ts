@@ -21,6 +21,11 @@ const REQUEST_TIMEOUT = 30000; // 30 seconds
  * Provides type-safe methods for GET, POST, PUT, DELETE requests.
  */
 export function useRestAPI() {
+  // Counter-based loading: each in-flight request increments on entry and decrements
+  // in finally. isLoading stays true until all concurrent requests finish (fixes #2489:
+  // a shared boolean flag was cleared by the first completing request even when a
+  // second was still in-flight).
+  const inflightCount = useRef(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
@@ -86,6 +91,7 @@ export function useRestAPI() {
   const get = useCallback(
     async <T = any>(endpoint: string): Promise<T> => {
       const seq = ++requestSequence.current;
+      inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
 
@@ -118,7 +124,7 @@ export function useRestAPI() {
         setError(apiError);
         throw apiError;
       } finally {
-        setIsLoading(false);
+        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
       }
     },
     [buildUrl, fetchWithTimeout]
@@ -138,6 +144,7 @@ export function useRestAPI() {
   const post = useCallback(
     async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
       const seq = ++requestSequence.current;
+      inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
 
@@ -171,7 +178,7 @@ export function useRestAPI() {
         setError(apiError);
         throw apiError;
       } finally {
-        setIsLoading(false);
+        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
       }
     },
     [buildUrl, fetchWithTimeout]
@@ -184,6 +191,7 @@ export function useRestAPI() {
   const put = useCallback(
     async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
       const seq = ++requestSequence.current;
+      inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
 
@@ -217,7 +225,7 @@ export function useRestAPI() {
         setError(apiError);
         throw apiError;
       } finally {
-        setIsLoading(false);
+        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
       }
     },
     [buildUrl, fetchWithTimeout]
@@ -230,6 +238,7 @@ export function useRestAPI() {
   const patch = useCallback(
     async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
       const seq = ++requestSequence.current;
+      inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
 
@@ -263,7 +272,7 @@ export function useRestAPI() {
         setError(apiError);
         throw apiError;
       } finally {
-        setIsLoading(false);
+        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
       }
     },
     [buildUrl, fetchWithTimeout]
@@ -275,6 +284,7 @@ export function useRestAPI() {
   const delete_ = useCallback(
     async (endpoint: string): Promise<void> => {
       const seq = ++requestSequence.current;
+      inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
 
@@ -304,7 +314,7 @@ export function useRestAPI() {
         setError(apiError);
         throw apiError;
       } finally {
-        setIsLoading(false);
+        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
       }
     },
     [buildUrl, fetchWithTimeout]
@@ -350,7 +360,7 @@ export function useQuery<T = any>(endpoint: string, skip: boolean = false) {
       } catch (err) {
         setError(err as ApiError);
       } finally {
-        setIsLoading(false);
+        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
       }
     };
 
@@ -393,7 +403,7 @@ export function useMutation<T = any>(endpoint: string, method: 'POST' | 'PUT' | 
         setError(apiError);
         throw apiError;
       } finally {
-        setIsLoading(false);
+        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
       }
     },
     [post, put, apiDelete, endpoint, method]

@@ -22,8 +22,13 @@ export type PlaybackState = 'idle' | 'playing' | 'paused' | 'stopped' | 'error';
  * Stores in global for useAudioVisualization hook to access
  */
 function createGlobalAnalyser(audioContext: AudioContext): AnalyserNode {
-  if ((window as any).__auralisAnalyser) {
-    return (window as any).__auralisAnalyser;
+  const existing = (window as any).__auralisAnalyser as AnalyserNode | undefined;
+  // Reuse only when the cached node belongs to the same, non-closed context.
+  // When usePlayEnhanced replaces an AudioContext (e.g. sample-rate change), the
+  // stale analyser belongs to the closed old context; connecting a gainNode from
+  // the new context to it throws DOMException: InvalidStateError (fixes #2488).
+  if (existing && existing.context === audioContext && audioContext.state !== 'closed') {
+    return existing;
   }
 
   const analyser = audioContext.createAnalyser();

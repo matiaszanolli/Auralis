@@ -77,7 +77,9 @@ async def _background_auto_scan(
                     "current": processed,
                     "total": total,
                     "percentage": percentage,
-                    "current_file": progress_data.get('directory'),
+                    # Prefer filename keys; fall back to directory only as last resort.
+                    # Mirrors the fix applied to routers/library.py (fixes #2484 / #2384).
+                    "current_file": progress_data.get('current_file') or progress_data.get('file') or progress_data.get('directory'),
                 }
             })
 

@@ -38,6 +38,7 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
     duration = Column(Float)
     sample_rate = Column(Integer)
     bit_depth = Column(Integer)
+    bitrate = Column(Integer)  # kbps; matches the field listed in TrackRepository.update (fixes #2411)
     channels = Column(Integer)
     format = Column(String)
     filesize = Column(Integer)

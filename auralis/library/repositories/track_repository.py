@@ -118,6 +118,7 @@ class TrackRepository:
                 duration=track_info.get('duration'),
                 sample_rate=track_info.get('sample_rate'),
                 bit_depth=track_info.get('bit_depth'),
+                bitrate=track_info.get('bitrate'),  # fixes #2411: add() now persists bitrate
                 channels=track_info.get('channels'),
                 format=track_info.get('format'),
                 filesize=track_info.get('filesize'),

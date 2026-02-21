@@ -28,7 +28,7 @@ export const getToastBackgroundColor = (severity: AlertColor): string => {
     case 'warning':
       return hexToRgba(tokens.colors.semantic.warning, 0.15);
     case 'info':
-      return 'rgba(102, 126, 234, 0.1)';
+      return tokens.colors.opacityScale.accent.veryLight; // replaces deprecated #667eea (fixes #2356)
     default:
       return tokens.colors.bg.secondary;
   }
@@ -48,7 +48,7 @@ export const getToastBorderColor = (severity: AlertColor): string => {
     case 'warning':
       return tokens.colors.semantic.warning;
     case 'info':
-      return '#667eea';
+      return tokens.colors.accent.primary; // replaces deprecated #667eea (fixes #2356)
     default:
       return tokens.colors.text.disabled;
   }

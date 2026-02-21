@@ -79,19 +79,20 @@ def create_system_router(
             return get_version_info()
         except ImportError:
             logger.warning("auralis.version not available, using fallback")
-            # Fallback if version module not available
+            # Fallback when auralis.version cannot be imported (broken install, path issue).
+            # Keep in sync with auralis/version.py — the single source of truth (fixes #2335).
             return {
-                "version": "1.0.0-beta.1",
+                "version": "1.2.1-beta.1",
                 "major": 1,
-                "minor": 0,
-                "patch": 0,
+                "minor": 2,
+                "patch": 1,
                 "prerelease": "beta.1",
                 "build": "",
-                "build_date": "2025-10-24",
+                "build_date": "2026-02-20",
                 "git_commit": "",
                 "api_version": "v1",
                 "db_schema_version": 3,
-                "display": "Auralis v1.0.0-beta.1"
+                "display": "Auralis v1.2.1-beta.1"
             }
 
     @router.websocket("/ws")

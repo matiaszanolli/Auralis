@@ -89,6 +89,10 @@ export class WebSocketProtocolClient {
   private errorHandlers: Set<ErrorHandler> = new Set();
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private heartbeatTimeout: NodeJS.Timeout | null = null;
+  // Unsubscribe fn for the PONG handler registered by startHeartbeat().
+  // Stored so stopHeartbeat() can remove it; without this, each reconnect
+  // adds an extra anonymous handler that is never garbage-collected (fixes #2486).
+  private pongUnsubscribe: (() => void) | null = null;
   private lastHeartbeat = 0;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
@@ -280,8 +284,11 @@ export class WebSocketProtocolClient {
       }
     }, 30000);
 
-    // Handle pong messages
-    this.on(MessageType.PONG, () => {
+    // Remove any stale PONG handler from a previous connection before registering
+    // a fresh one. Without this, each reconnect accumulates an extra handler in the
+    // Set that is never removed for the lifetime of the singleton (fixes #2486).
+    this.pongUnsubscribe?.();
+    this.pongUnsubscribe = this.on(MessageType.PONG, () => {
       if (this.heartbeatTimeout) {
         clearTimeout(this.heartbeatTimeout);
       }
@@ -297,6 +304,8 @@ export class WebSocketProtocolClient {
       clearTimeout(this.heartbeatTimeout);
       this.heartbeatTimeout = null;
     }
+    this.pongUnsubscribe?.();
+    this.pongUnsubscribe = null;
   }
 
   private attemptReconnect(): void {

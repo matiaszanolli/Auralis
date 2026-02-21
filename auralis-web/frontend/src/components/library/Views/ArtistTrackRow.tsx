@@ -7,6 +7,7 @@ import { TableCell, Typography, Box } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { StyledTableRow, PlayIcon } from '../Styles/Table.styles';
 import { type Track } from '../Details/useArtistDetailsData';
+import { tokens } from '@/design-system';
 
 interface ArtistTrackRowProps {
   track: Track;
@@ -33,7 +34,7 @@ export const ArtistTrackRow: React.FC<ArtistTrackRowProps> = ({
       <TableCell>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {isCurrentTrack && isPlaying ? (
-            <Pause sx={{ fontSize: 20, color: '#667eea' }} />
+            <Pause sx={{ fontSize: 20, color: tokens.colors.accent.primary }} />
           ) : (
             <>
               <Typography
