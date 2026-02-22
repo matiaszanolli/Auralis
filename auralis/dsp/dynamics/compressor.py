@@ -94,7 +94,11 @@ class AdaptiveCompressor:
 
     def process(self, audio: np.ndarray, detection_mode: str = "rms") -> tuple[np.ndarray, dict[str, float]]:
         """
-        Process audio through compressor
+        Process audio through compressor with per-sample gain envelope.
+
+        Uses the envelope follower to compute sample-by-sample gain reduction
+        instead of applying a single gain to the entire chunk, preventing
+        audible pumping artifacts (#2214).
 
         Args:
             audio: Input audio
@@ -108,38 +112,55 @@ class AdaptiveCompressor:
 
         # Handle lookahead
         if self.lookahead_buffer is not None:
-            # Use lookahead for better transient handling
             delayed_audio = self._apply_lookahead(audio)
         else:
             delayed_audio = audio
 
-        # Detect input level
-        input_level = self._detect_input_level(delayed_audio, detection_mode)
-        input_level_db = 20 * np.log10(input_level + 1e-10)
+        # Compute per-sample input levels for the gain envelope (#2214).
+        # Mono: use absolute value; stereo: max across channels.
+        if delayed_audio.ndim == 1:
+            sample_levels = np.abs(delayed_audio)
+        else:
+            sample_levels = np.max(np.abs(delayed_audio), axis=1)
 
-        # Calculate required gain reduction
-        target_gain_reduction = self._calculate_gain_reduction(input_level_db)
+        # Convert to dB
+        sample_levels_db = 20 * np.log10(sample_levels + 1e-10)
 
-        # Apply gain smoothing
-        smoothed_gain_reduction = self.gain_follower.process(target_gain_reduction)
-        self.gain_reduction = smoothed_gain_reduction
+        # Vectorized gain reduction per sample
+        _calculate = np.vectorize(self._calculate_gain_reduction)
+        target_gain_reduction = _calculate(sample_levels_db)
+
+        # Smooth gain reduction with the envelope follower (per-sample)
+        smoothed_gain_reduction = self.gain_follower.process_buffer(
+            target_gain_reduction.astype(np.float32)
+        )
+
+        # Track average reduction for reporting
+        avg_reduction = float(np.mean(smoothed_gain_reduction))
+        self.gain_reduction = avg_reduction
 
         # Convert to linear gain
-        gain_linear = 10 ** (smoothed_gain_reduction / 20)
+        gain_envelope = np.power(10.0, smoothed_gain_reduction / 20.0)
 
         # Apply makeup gain
         makeup_gain = 10 ** (self.settings.makeup_gain_db / 20)
-        final_gain = gain_linear * makeup_gain
+        gain_envelope = gain_envelope * makeup_gain
 
-        # Apply gain to audio
-        processed_audio = delayed_audio * final_gain
-        self.previous_gain = final_gain
+        # Apply per-sample gain to audio
+        if delayed_audio.ndim == 2:
+            processed_audio = delayed_audio * gain_envelope[:, np.newaxis]
+        else:
+            processed_audio = delayed_audio * gain_envelope
 
-        # Compression info
+        self.previous_gain = float(gain_envelope[-1])
+
+        # Average input level for reporting
+        avg_input_db = float(np.mean(sample_levels_db))
+
         compression_info = {
-            'input_level_db': float(input_level_db),
-            'gain_reduction_db': float(smoothed_gain_reduction),
-            'output_gain': float(final_gain),
+            'input_level_db': avg_input_db,
+            'gain_reduction_db': avg_reduction,
+            'output_gain': float(gain_envelope[-1]),
             'threshold_db': self.settings.threshold_db,
             'ratio': self.settings.ratio
         }

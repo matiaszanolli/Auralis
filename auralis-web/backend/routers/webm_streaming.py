@@ -55,15 +55,27 @@ router = APIRouter(tags=["webm-streaming"])
 # are mutable we store them as read-only views to prevent accidental in-place
 # modification by downstream code.
 @lru_cache(maxsize=8)
-def _load_audio_cached(filepath: str):  # type: ignore[return]
+def _load_audio_cached(filepath: str, _mtime: float = 0.0):  # type: ignore[return]
     """Load and decode an audio file, caching the result for reuse.
 
     Called from an asyncio.to_thread() context so blocking I/O is fine here.
+    The _mtime parameter is part of the cache key so that re-encoded files
+    at the same path are detected and re-loaded (#2590).
     """
     from auralis.io.unified_loader import load_audio
     audio, sr = load_audio(filepath)
     audio.flags.writeable = False  # prevent accidental mutation of cached data
     return audio, sr
+
+
+def load_audio_with_invalidation(filepath: str):
+    """Load audio with file-change detection via mtime (#2590)."""
+    import os
+    try:
+        mtime = os.path.getmtime(filepath)
+    except OSError:
+        mtime = 0.0
+    return _load_audio_cached(filepath, mtime)
 
 
 class StreamMetadata(BaseModel):
@@ -426,7 +438,7 @@ def create_webm_streaming_router(
         """
         # Load audio from the process-level LRU cache — avoids reloading the
         # entire file (~100 MB) for every chunk request (fixes #2295).
-        audio, sr = await asyncio.to_thread(_load_audio_cached, filepath)
+        audio, sr = await asyncio.to_thread(load_audio_with_invalidation, filepath)
 
         # Calculate chunk boundaries using chunk_interval for start position
         # With 10s chunks and 10s interval: chunk 0 starts at 0s, chunk 1 at 10s, chunk 2 at 20s, etc.

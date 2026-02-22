@@ -19,7 +19,7 @@
  * />
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { tokens } from '@/design-system';
 import styles from './PlaybackControlsStyles';
 
@@ -87,6 +87,43 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
     return disabled || isLoading;
   }, [disabled, isLoading]);
 
+  // Hover and focus state tracking per button
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  const [focusedButton, setFocusedButton] = useState<string | null>(null);
+
+  // Compute secondary button hover/focus styles based on state
+  const getSecondaryButtonStyle = (buttonId: string) => ({
+    ...styles.secondaryButton,
+    opacity: isDisabled ? 0.7 : 1,
+    color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.secondary,
+    cursor: isDisabled ? 'not-allowed' : 'pointer',
+    ...(hoveredButton === buttonId && !isDisabled ? {
+      backgroundColor: tokens.colors.bg.tertiary,
+      borderColor: tokens.colors.accent.primary,
+      transform: 'scale(1.05)',
+    } : {}),
+    ...(focusedButton === buttonId && !isDisabled ? {
+      outline: `3px solid ${tokens.colors.accent.primary}`,
+      outlineOffset: '2px',
+    } : {}),
+  });
+
+  // Compute primary button hover/focus styles based on state
+  const getPrimaryButtonStyle = () => ({
+    ...styles.primaryButton,
+    opacity: isDisabled ? 0.7 : 1,
+    color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.primary,
+    cursor: isDisabled ? 'not-allowed' : 'pointer',
+    ...(hoveredButton === 'primary' && !isDisabled ? {
+      transform: 'scale(1.08)',
+      boxShadow: tokens.shadows.glowMd,
+    } : {}),
+    ...(focusedButton === 'primary' && !isDisabled ? {
+      outline: `3px solid ${tokens.colors.accent.primary}`,
+      outlineOffset: '2px',
+    } : {}),
+  });
+
   return (
     <div
       className={className}
@@ -100,33 +137,11 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         data-testid="playback-controls-previous"
         aria-label="Previous track"
         title="Previous track (⌨ ← )"
-        style={{
-          ...styles.secondaryButton,
-          opacity: isDisabled ? 0.7 : 1,
-          color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.secondary,
-          cursor: isDisabled ? 'not-allowed' : 'pointer',
-        }}
-        onMouseEnter={(e) => {
-          if (!isDisabled) {
-            e.currentTarget.style.backgroundColor = tokens.colors.bg.tertiary;
-            e.currentTarget.style.borderColor = tokens.colors.accent.primary;
-            e.currentTarget.style.transform = 'scale(1.05)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = 'transparent';
-          e.currentTarget.style.borderColor = tokens.colors.border.light;
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
-        onFocus={(e) => {
-          if (!isDisabled) {
-            e.currentTarget.style.outline = `3px solid ${tokens.colors.accent.primary}`;
-            e.currentTarget.style.outlineOffset = '2px';
-          }
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.outline = 'none';
-        }}
+        style={getSecondaryButtonStyle('previous')}
+        onMouseEnter={() => setHoveredButton('previous')}
+        onMouseLeave={() => setHoveredButton(null)}
+        onFocus={() => setFocusedButton('previous')}
+        onBlur={() => setFocusedButton(null)}
       >
         ⏮
       </button>
@@ -139,31 +154,11 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           data-testid="playback-controls-pause"
           aria-label="Pause"
           title="Pause playback (⌨ Space )"
-          style={{
-            ...styles.primaryButton,
-            opacity: isDisabled ? 0.7 : 1,
-            color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.primary,
-            cursor: isDisabled ? 'not-allowed' : 'pointer',
-          }}
-          onMouseEnter={(e) => {
-            if (!isDisabled) {
-              e.currentTarget.style.transform = 'scale(1.08)';
-              e.currentTarget.style.boxShadow = tokens.shadows.glowMd;
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = tokens.shadows.md;
-          }}
-          onFocus={(e) => {
-            if (!isDisabled) {
-              e.currentTarget.style.outline = `3px solid ${tokens.colors.accent.primary}`;
-              e.currentTarget.style.outlineOffset = '2px';
-            }
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.outline = 'none';
-          }}
+          style={getPrimaryButtonStyle()}
+          onMouseEnter={() => setHoveredButton('primary')}
+          onMouseLeave={() => setHoveredButton(null)}
+          onFocus={() => setFocusedButton('primary')}
+          onBlur={() => setFocusedButton(null)}
         >
           ⏸
         </button>
@@ -174,31 +169,11 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           data-testid="playback-controls-play"
           aria-label="Play"
           title="Play (⌨ Space )"
-          style={{
-            ...styles.primaryButton,
-            opacity: isDisabled ? 0.7 : 1,
-            color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.primary,
-            cursor: isDisabled ? 'not-allowed' : 'pointer',
-          }}
-          onMouseEnter={(e) => {
-            if (!isDisabled) {
-              e.currentTarget.style.transform = 'scale(1.08)';
-              e.currentTarget.style.boxShadow = tokens.shadows.glowMd;
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = tokens.shadows.md;
-          }}
-          onFocus={(e) => {
-            if (!isDisabled) {
-              e.currentTarget.style.outline = `3px solid ${tokens.colors.accent.primary}`;
-              e.currentTarget.style.outlineOffset = '2px';
-            }
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.outline = 'none';
-          }}
+          style={getPrimaryButtonStyle()}
+          onMouseEnter={() => setHoveredButton('primary')}
+          onMouseLeave={() => setHoveredButton(null)}
+          onFocus={() => setFocusedButton('primary')}
+          onBlur={() => setFocusedButton(null)}
         >
           ▶
         </button>
@@ -211,33 +186,11 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         data-testid="playback-controls-next"
         aria-label="Next track"
         title="Next track (⌨ → )"
-        style={{
-          ...styles.secondaryButton,
-          opacity: isDisabled ? 0.7 : 1,
-          color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.secondary,
-          cursor: isDisabled ? 'not-allowed' : 'pointer',
-        }}
-        onMouseEnter={(e) => {
-          if (!isDisabled) {
-            e.currentTarget.style.backgroundColor = tokens.colors.bg.tertiary;
-            e.currentTarget.style.borderColor = tokens.colors.accent.primary;
-            e.currentTarget.style.transform = 'scale(1.05)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = 'transparent';
-          e.currentTarget.style.borderColor = tokens.colors.border.light;
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
-        onFocus={(e) => {
-          if (!isDisabled) {
-            e.currentTarget.style.outline = `3px solid ${tokens.colors.accent.primary}`;
-            e.currentTarget.style.outlineOffset = '2px';
-          }
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.outline = 'none';
-        }}
+        style={getSecondaryButtonStyle('next')}
+        onMouseEnter={() => setHoveredButton('next')}
+        onMouseLeave={() => setHoveredButton(null)}
+        onFocus={() => setFocusedButton('next')}
+        onBlur={() => setFocusedButton(null)}
       >
         ⏭
       </button>

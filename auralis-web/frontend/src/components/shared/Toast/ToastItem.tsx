@@ -35,7 +35,9 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, index, onClose }) =
       onClose={handleClose}
       anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       sx={{
-        top: `${24 + index * 70}px !important`,
+        '&.MuiSnackbar-root': {
+          top: `${24 + index * 70}px`,
+        },
         transition: 'top 0.3s ease',
       }}
     >

@@ -322,7 +322,7 @@ const NewArtistsTab: React.FC<NewArtistsTabProps> = ({ newArtists, onAddTrack })
     <div style={styles.tabContent}>
       {newArtists.map((artist, index) => (
         <div
-          key={index}
+          key={`artist-${artist.artist}`}
           style={{
             ...styles.artistCard,
             ...(hoveredIndex === index ? styles.artistCardHovered : {}),

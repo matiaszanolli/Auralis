@@ -101,30 +101,41 @@ class FingerprintService:
             logger.error(f"Fingerprint retrieval failed: {e}")
             return None
 
+    def _get_connection(self) -> sqlite3.Connection:
+        """Create a sqlite3 connection with proper PRAGMA setup (#2581).
+
+        Sets WAL mode and busy_timeout to match the SQLAlchemy engine's
+        configuration, avoiding 'database locked' errors under concurrent
+        access.
+        """
+        conn = sqlite3.connect(str(self.db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=60000")
+        return conn
+
     def _load_from_database(self, filepath: str) -> dict | None:
         """Load fingerprint from SQLite database."""
         try:
             if not self.db_path.exists():
                 return None
 
-            conn = sqlite3.connect(str(self.db_path))
-            cursor = conn.cursor()
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
 
-            # Query 25D fingerprint columns
-            cursor.execute("""
-                SELECT
-                    tempo_bpm, lufs, crest_db, bass_pct, mid_pct,
-                    harmonic_ratio, transient_density, spectral_centroid,
-                    bass_mid_ratio, rhythm_stability, silence_ratio,
-                    spectral_rolloff, spectral_flatness, pitch_stability,
-                    chroma_energy, dynamic_range_variation, loudness_variation_std,
-                    peak_consistency, stereo_width, phase_correlation,
-                    sub_bass_pct, low_mid_pct, upper_mid_pct, presence_pct, air_pct
-                FROM tracks WHERE filepath = ?
-            """, (filepath,))
+                # Query 25D fingerprint columns
+                cursor.execute("""
+                    SELECT
+                        tempo_bpm, lufs, crest_db, bass_pct, mid_pct,
+                        harmonic_ratio, transient_density, spectral_centroid,
+                        bass_mid_ratio, rhythm_stability, silence_ratio,
+                        spectral_rolloff, spectral_flatness, pitch_stability,
+                        chroma_energy, dynamic_range_variation, loudness_variation_std,
+                        peak_consistency, stereo_width, phase_correlation,
+                        sub_bass_pct, low_mid_pct, upper_mid_pct, presence_pct, air_pct
+                    FROM tracks WHERE filepath = ?
+                """, (filepath,))
 
-            row = cursor.fetchone()
-            conn.close()
+                row = cursor.fetchone()
 
             if not row or row[0] is None:  # Check if tempo_bpm exists
                 return None
@@ -228,12 +239,12 @@ class FingerprintService:
             if not self.db_path.exists():
                 return False
 
-            conn = sqlite3.connect(str(self.db_path))
-            cursor = conn.cursor()
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
 
-            # Update 25D columns
-            cursor.execute("""
-                UPDATE tracks SET
+                # Update 25D columns
+                cursor.execute("""
+                    UPDATE tracks SET
                     tempo_bpm = ?,
                     lufs = ?,
                     crest_db = ?,
@@ -289,9 +300,7 @@ class FingerprintService:
                 filepath
             ))
 
-            conn.commit()
-            conn.close()
-            return True
+                return True
 
         except Exception as e:
             logger.debug(f"Database save failed: {e}")

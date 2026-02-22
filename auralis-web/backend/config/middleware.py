@@ -9,6 +9,7 @@ and security headers.
 """
 
 import logging
+import time
 from typing import Any, cast
 from collections.abc import Callable
 
@@ -16,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,63 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return cast(Response, response)
 
 
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """
+    Simple per-path rate limiting for expensive REST endpoints (#2575).
+
+    Uses a sliding-window counter per client IP + path prefix.
+    Only applies to paths in ``_RATE_LIMITS``; all other routes pass through.
+    """
+
+    # path-prefix → (max_requests, window_seconds)
+    _RATE_LIMITS: dict[str, tuple[int, int]] = {
+        "/api/files/upload": (5, 60),       # 5 uploads per minute
+        "/api/processing": (10, 60),        # 10 processing jobs per minute
+        "/api/library/scan": (2, 60),       # 2 scans per minute
+        "/api/similarity": (20, 60),        # 20 similarity queries per minute
+    }
+
+    def __init__(self, app: Any) -> None:
+        super().__init__(app)
+        # {client_key: [timestamp, ...]}
+        self._windows: dict[str, list[float]] = {}
+
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
+        path = request.url.path
+
+        # Find matching rate-limit rule
+        limit_rule: tuple[int, int] | None = None
+        for prefix, rule in self._RATE_LIMITS.items():
+            if path.startswith(prefix):
+                limit_rule = rule
+                break
+
+        if limit_rule is None:
+            return await call_next(request)
+
+        max_requests, window_sec = limit_rule
+        client_ip = request.client.host if request.client else "unknown"
+        key = f"{client_ip}:{path}"
+        now = time.monotonic()
+
+        # Prune expired entries and check limit
+        timestamps = self._windows.get(key, [])
+        timestamps = [t for t in timestamps if now - t < window_sec]
+
+        if len(timestamps) >= max_requests:
+            retry_after = int(window_sec - (now - timestamps[0])) + 1
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests"},
+                headers={"Retry-After": str(retry_after)},
+            )
+
+        timestamps.append(now)
+        self._windows[key] = timestamps
+
+        return await call_next(request)
+
+
 def setup_middleware(app: FastAPI) -> None:
     """
     Add middleware to FastAPI application.
@@ -79,6 +137,9 @@ def setup_middleware(app: FastAPI) -> None:
 
     # Security headers middleware
     app.add_middleware(SecurityHeadersMiddleware)
+
+    # Rate limiting for expensive endpoints (#2575)
+    app.add_middleware(RateLimitMiddleware)
 
     # CORS middleware for cross-origin requests
     # Allow multiple dev server ports since Vite auto-increments if port is in use

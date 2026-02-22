@@ -21,7 +21,7 @@ const StyledToggleButtonGroup = styled(ToggleButtonGroup)({
 
 const StyledToggleButton = styled(ToggleButton)({
   border: 'none',
-  borderRadius: `${tokens.borderRadius.sm} !important`,  // 8px (close to 6px)
+  borderRadius: tokens.borderRadius.sm,                    // 8px (close to 6px)
   padding: `${tokens.spacing.cluster} ${tokens.spacing.md}`,  // 8px 12px
   color: tokens.colors.text.secondary,
   transition: tokens.transitions.base,                  // 200ms (close to 300ms)

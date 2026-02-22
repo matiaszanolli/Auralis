@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 interface OptimisticUpdateOptions<T> {
   onSuccess?: (data: T) => void;
@@ -19,9 +19,13 @@ export function useOptimisticUpdate<T, Args extends any[]>(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Use a ref to avoid stale closure over state in the execute callback
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   const execute = useCallback(
     async (optimisticValue: T, ...args: Args) => {
-      const previousState = state;
+      const previousState = stateRef.current;
 
       // Optimistically update the UI
       setState(optimisticValue);
@@ -49,7 +53,7 @@ export function useOptimisticUpdate<T, Args extends any[]>(
         setIsLoading(false);
       }
     },
-    [state, asyncOperation, options]
+    [asyncOperation, options]
   );
 
   const reset = useCallback(() => {
