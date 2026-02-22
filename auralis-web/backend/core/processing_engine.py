@@ -213,13 +213,22 @@ class ProcessingEngine:
         Returns:
             Cache key string
         """
-        # Create a simple key based on mode and key config params
-        # Sample rate is critical, as are the key tuning parameters
+        import hashlib
+        # Include mode, sample rate, processing mode, and a hash of the full
+        # config dict so that different enhancement settings (preset, intensity,
+        # EQ bands, dynamics params) produce distinct cache keys (#2218).
         key_parts: list[str] = [
             mode,
             str(config.internal_sample_rate),
             config.processing_mode if hasattr(config, 'processing_mode') else 'unknown',
         ]
+        # Hash the serialisable config attributes for a compact fingerprint
+        try:
+            config_dict = {k: v for k, v in vars(config).items() if not k.startswith('_')}
+            config_hash = hashlib.md5(repr(sorted(config_dict.items())).encode()).hexdigest()[:12]
+        except Exception:
+            config_hash = "nohash"
+        key_parts.append(config_hash)
         return "|".join(key_parts)
 
     async def _get_or_create_processor(self, mode: str, config: UnifiedConfig) -> HybridProcessor:

@@ -107,10 +107,21 @@ export function useFingerprintCache(): UseFingerprintCacheReturn {
   /**
    * Simulate fingerprinting (placeholder for actual Web Worker).
    * In production, this would delegate to a real Web Worker.
+   *
+   * Guard: mock fingerprints are only generated in DEV mode to prevent
+   * fake data from polluting the production cache (#2118).
    */
   const simulateFingerprinting = useCallback(
     async (trackId: number, signal: AbortSignal) => {
       try {
+        if (!import.meta.env.DEV) {
+          // Production: mock fingerprinting is disabled — the backend
+          // generates real fingerprints via PyO3 Rust.
+          setError('Client-side fingerprinting not available');
+          setState('error');
+          return;
+        }
+
         // Simulate processing with progress updates
         for (let i = 0; i < 100; i += 10) {
           if (signal.aborted) {

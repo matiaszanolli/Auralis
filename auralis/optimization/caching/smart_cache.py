@@ -9,7 +9,7 @@ Intelligent caching system with LRU eviction and TTL expiration.
 """
 
 import hashlib
-import pickle
+import sys
 import threading
 import time
 from collections import OrderedDict
@@ -66,9 +66,10 @@ class SmartCache:
     def put(self, key: str, value: Any) -> None:
         """Put item in cache"""
         with self.lock:
-            # Estimate size
+            # Estimate size — prefer .nbytes for NumPy arrays (most common
+            # cache content), fall back to sys.getsizeof for other types.
             try:
-                size = len(pickle.dumps(value))
+                size = int(value.nbytes) if hasattr(value, 'nbytes') else sys.getsizeof(value)
             except Exception:
                 size = 1024  # Default estimate
 

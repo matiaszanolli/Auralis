@@ -17,6 +17,7 @@ import ReactDOM from 'react-dom/client';
     const { Global } = await import('@emotion/react');
     const { globalStyles } = await import('./styles/globalStyles');
     const { default: App } = await import('./App');
+    const { ErrorBoundary } = await import('./components/core/ErrorBoundary');
 
     // Log commit ID for debugging
     const commitId = import.meta.env.VITE_COMMIT_ID || 'unknown';
@@ -37,9 +38,11 @@ import ReactDOM from 'react-dom/client';
 
     root.render(
       <React.StrictMode>
-        <CssBaseline />
-        <Global styles={globalStyles} />
-        <App />
+        <ErrorBoundary>
+          <CssBaseline />
+          <Global styles={globalStyles} />
+          <App />
+        </ErrorBoundary>
       </React.StrictMode>
     );
 

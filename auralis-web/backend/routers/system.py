@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 _active_streaming_tasks: dict[int, asyncio.Task] = {}
 _active_streaming_tasks_lock = asyncio.Lock()  # Protects all _active_streaming_tasks access (fixes #2425)
 
+# Per-WebSocket pause events: when clear, streaming loops sleep; when set, they proceed.
+# This avoids destroying the streaming task on pause (#2106).
+_stream_pause_events: dict[int, asyncio.Event] = {}
+
 # Global rate limiter for all WebSocket connections (fixes #2156)
 _rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
 
@@ -106,6 +110,18 @@ def create_system_router(
         - A/B comparison track loading
         - Job progress subscriptions
         """
+        # Origin check: only accept connections from localhost (#2206).
+        # Auralis is a local Electron app — reject non-local origins to
+        # prevent cross-origin WebSocket hijacking from malicious pages.
+        origin = (websocket.headers.get("origin") or "").lower()
+        if origin and not any(
+            origin.startswith(prefix)
+            for prefix in ("http://localhost", "http://127.0.0.1", "file://")
+        ):
+            logger.warning(f"Rejected WebSocket connection from non-local origin: {origin}")
+            await websocket.close(code=4003, reason="Forbidden origin")
+            return
+
         await manager.connect(websocket)
         # Immediately send current enhancement settings so a reconnecting
         # frontend syncs its Redux store without waiting for the next broadcast
@@ -331,6 +347,10 @@ def create_system_router(
                         if old_task and not old_task.done():
                             logger.info(f"Cancelling existing streaming task for ws {ws_id}")
                             old_task.cancel()
+                        # Create pause event for this stream — set = running (#2106)
+                        pause_event = asyncio.Event()
+                        pause_event.set()
+                        _stream_pause_events[ws_id] = pause_event
                         task = asyncio.create_task(stream_audio())
                         _active_streaming_tasks[ws_id] = task
                     logger.info(f"Started background streaming task for track {track_id}")
@@ -401,25 +421,43 @@ def create_system_router(
                         if old_task and not old_task.done():
                             logger.info(f"Cancelling existing streaming task for ws {ws_id}")
                             old_task.cancel()
+                        # Create pause event for this stream — set = running (#2106)
+                        pause_event = asyncio.Event()
+                        pause_event.set()
+                        _stream_pause_events[ws_id] = pause_event
                         task = asyncio.create_task(stream_normal())
                         _active_streaming_tasks[ws_id] = task
                     logger.info(f"Started background normal streaming task for track {track_id}")
 
                 elif message.get("type") == "pause":
-                    # Pause audio playback
+                    # Pause audio streaming by clearing the pause event so the
+                    # streaming task sleeps instead of being destroyed (#2106).
                     logger.info("Received pause command via WebSocket")
-
-                    # Cancel active streaming task if any (fixes #2425 — idempotent pop under lock)
                     ws_id = id(websocket)
-                    async with _active_streaming_tasks_lock:
-                        task = _active_streaming_tasks.pop(ws_id, None)
-                    if task and not task.done():
-                        task.cancel()
-                        logger.info("Cancelled active streaming task")
+                    pause_evt = _stream_pause_events.get(ws_id)
+                    if pause_evt is not None:
+                        pause_evt.clear()
+                        logger.info("Paused streaming task (event cleared)")
 
                     # Broadcast pause state to client
                     await websocket.send_text(json.dumps({
                         "type": "playback_paused",
+                        "data": {
+                            "success": True
+                        }
+                    }))
+
+                elif message.get("type") == "resume":
+                    # Resume a paused streaming task by setting the pause event (#2106).
+                    logger.info("Received resume command via WebSocket")
+                    ws_id = id(websocket)
+                    pause_evt = _stream_pause_events.get(ws_id)
+                    if pause_evt is not None:
+                        pause_evt.set()
+                        logger.info("Resumed streaming task (event set)")
+
+                    await websocket.send_text(json.dumps({
+                        "type": "playback_resumed",
                         "data": {
                             "success": True
                         }
@@ -597,6 +635,9 @@ def create_system_router(
             if task and not task.done():
                 logger.info(f"Cancelling streaming task on disconnect for ws {ws_id}")
                 task.cancel()
+
+            # Clean up pause event (#2106)
+            _stream_pause_events.pop(ws_id, None)
 
             # Clean up rate limiter (fixes #2156)
             _rate_limiter.cleanup(websocket)

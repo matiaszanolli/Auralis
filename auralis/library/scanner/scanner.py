@@ -113,62 +113,66 @@ class LibraryScanner:
         info(f"Starting library scan of {len(directories)} directories")
 
         try:
-            # Discover all audio files
-            all_files: list[str] = []
-            for directory in directories:
-                if self.should_stop:
-                    break
+            # Discover and process audio files in streaming batches to
+            # bound memory usage regardless of library size (#2160).
+            # Instead of collecting all paths first, we fill batches as files
+            # are discovered and process each batch immediately.
+            pending_batch: list[str] = []
 
-                files: list[str] = list(self.file_discovery.discover_audio_files(directory, recursive))
-                all_files.extend(files)
-                result.directories_scanned += 1
-
-                self._report_progress({
-                    'stage': 'discovering',
-                    'directory': directory,
-                    'files_found': len(files),
-                    'total_found': len(all_files)
-                })
-
-            result.files_found = len(all_files)
-            info(f"Discovered {result.files_found} audio files")
-
-            if self.should_stop:
-                return result
-
-            # Process files in batches for better performance
-            for i in range(0, len(all_files), batch_size):
-                if self.should_stop:
-                    break  # type: ignore[unreachable]
-
-                batch: list[str] = all_files[i:i + batch_size]
+            def _process_batch(batch: list[str]) -> None:
+                """Process a single batch and accumulate results."""
                 batch_result: Any = self.batch_processor.process_file_batch(
                     batch, skip_existing, check_modifications
                 )
-
                 result.files_processed += batch_result.files_processed
                 result.files_added += batch_result.files_added
                 result.files_updated += batch_result.files_updated
                 result.files_skipped += batch_result.files_skipped
                 result.files_failed += batch_result.files_failed
-
                 # Accumulate added tracks so the async caller can enqueue
                 # fingerprints in the event loop after to_thread() returns.
                 # asyncio.create_task() cannot be called from this worker
                 # thread — it raises RuntimeError: no running event loop (#2382).
                 if batch_result.added_tracks:
                     result.added_tracks.extend(batch_result.added_tracks)
-
-                # Report progress
-                progress: float = (i + len(batch)) / len(all_files)
                 self._report_progress({
                     'stage': 'processing',
-                    'progress': progress,
                     'processed': result.files_processed,
                     'added': result.files_added,
                     'failed': result.files_failed,
-                    'current_file': batch[0] if batch else None,  # fixes #2384
+                    'total_found': result.files_found,
+                    'current_file': batch[0] if batch else None,
                 })
+
+            for directory in directories:
+                if self.should_stop:
+                    break
+
+                for filepath in self.file_discovery.discover_audio_files(directory, recursive):
+                    if self.should_stop:
+                        break
+                    pending_batch.append(filepath)
+                    result.files_found += 1
+
+                    if len(pending_batch) >= batch_size:
+                        _process_batch(pending_batch)
+                        pending_batch = []
+
+                result.directories_scanned += 1
+                self._report_progress({
+                    'stage': 'discovering',
+                    'directory': directory,
+                    'total_found': result.files_found,
+                })
+
+            info(f"Discovered {result.files_found} audio files")
+
+            if self.should_stop:
+                return result
+
+            # Process remaining files that didn't fill a full batch
+            if pending_batch:
+                _process_batch(pending_batch)
 
             result.scan_time = time.time() - start_time
 

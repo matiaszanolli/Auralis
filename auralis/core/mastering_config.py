@@ -101,7 +101,7 @@ class SimpleMasteringConfig:
     VARIATION_PRESERVATION_THRESHOLD: float = 0.5
     """Dynamic variation threshold for preserving variation in soft clipping"""
 
-    FLATNESS_PRESERVATION_THRESHOLD: float = 0.4
+    FLATNESS_PRESERVATION_THRESHOLD: float = 0.6
     """Spectral flatness threshold for preserving flatness in soft clipping"""
 
     # =========================================================================

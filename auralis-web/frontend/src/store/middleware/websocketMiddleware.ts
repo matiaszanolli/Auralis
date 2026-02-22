@@ -67,7 +67,7 @@ export class OfflineMessageQueue {
 // ============================================================================
 
 interface MessageHandler {
-  (message: WSMessage, dispatch: Dispatch, state: RootState): Promise<void> | void;
+  (message: WSMessage, dispatch: Dispatch, state: RootState, getState?: () => RootState): Promise<void> | void;
 }
 
 type MessageHandlerMap = Record<MessageType | string, MessageHandler>;
@@ -102,23 +102,30 @@ const createMessageHandlers = (): MessageHandlerMap => ({
     dispatch(playerActions.setCurrentTime(position));
   },
 
-  [MessageType.NEXT]: (_message, dispatch, state) => {
-    const { currentIndex } = state.queue;
+  [MessageType.NEXT]: (_message, dispatch, _state, getState) => {
     dispatch(queueActions.nextTrack());
-    // Load next track from queue
-    const nextTrack = state.queue.tracks[currentIndex + 1];
-    if (nextTrack) {
-      dispatch(playerActions.setCurrentTrack(nextTrack));
+    // Read post-dispatch state to get the correct track after reducer
+    // updates (avoids stale-state bug during shuffle, fixes #2178).
+    const updated = getState?.();
+    if (updated) {
+      const { currentIndex, tracks } = updated.queue;
+      const nextTrack = tracks[currentIndex];
+      if (nextTrack) {
+        dispatch(playerActions.setCurrentTrack(nextTrack));
+      }
     }
   },
 
-  [MessageType.PREVIOUS]: (_message, dispatch, state) => {
-    const { currentIndex } = state.queue;
+  [MessageType.PREVIOUS]: (_message, dispatch, _state, getState) => {
     dispatch(queueActions.previousTrack());
-    // Load previous track from queue
-    const prevTrack = state.queue.tracks[currentIndex - 1];
-    if (prevTrack) {
-      dispatch(playerActions.setCurrentTrack(prevTrack));
+    // Read post-dispatch state to get the correct track (fixes #2178).
+    const updated = getState?.();
+    if (updated) {
+      const { currentIndex, tracks } = updated.queue;
+      const prevTrack = tracks[currentIndex];
+      if (prevTrack) {
+        dispatch(playerActions.setCurrentTrack(prevTrack));
+      }
     }
   },
 
@@ -325,7 +332,7 @@ export function createWebSocketMiddleware(protocolClient: any) {
       if (handler) {
         try {
           const state = api.getState();
-          handler(message, api.dispatch, state);
+          handler(message, api.dispatch, state, api.getState);
         } catch (error) {
           console.error(`[Message Handler Error] ${message.type}:`, error);
           api.dispatch(

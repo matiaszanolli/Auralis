@@ -557,6 +557,14 @@ class AudioStreamController:
 
             # Process and stream chunks
             for chunk_idx in range(processor.total_chunks):
+                # Honour pause/resume events from the WebSocket handler (#2106).
+                # When the event is cleared (paused), we block here until it's
+                # set again (resumed) or the task is cancelled.
+                from routers.system import _stream_pause_events
+                pause_evt = _stream_pause_events.get(id(websocket))
+                if pause_evt is not None:
+                    await pause_evt.wait()
+
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
                     break
@@ -748,6 +756,12 @@ class AudioStreamController:
 
             # Stream chunks one at a time without processing
             for chunk_idx in range(total_chunks):
+                # Honour pause/resume events from the WebSocket handler (#2106).
+                from routers.system import _stream_pause_events
+                pause_evt = _stream_pause_events.get(id(websocket))
+                if pause_evt is not None:
+                    await pause_evt.wait()
+
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
                     break

@@ -87,7 +87,7 @@ class VectorizedEnvelopeFollower:
         # Update state
         self.envelope = current_env
 
-        return output
+        return np.asarray(output, dtype=np.float32)
 
     def process_buffer_numba(self, input_levels: np.ndarray) -> np.ndarray:
         """
