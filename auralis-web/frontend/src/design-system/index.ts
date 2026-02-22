@@ -28,7 +28,6 @@ export {
   scaleOut,
   pulse,
   rotate,
-  bounce,
   shimmer,
   glow,
   glowAqua,

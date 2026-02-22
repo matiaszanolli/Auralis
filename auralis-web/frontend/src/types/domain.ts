@@ -203,30 +203,12 @@ export interface MasteringRecommendation {
 // ============================================================================
 // Audio Fingerprint
 // ============================================================================
-
-export interface AudioFingerprint {
-  trackId: number;
-
-  // Loudness analysis
-  loudness: number; // LUFS
-
-  // Dynamics analysis
-  crest: number; // dB
-  rms: number; // LUFS
-
-  // Spectral analysis
-  centroid: number; // Hz
-  spectralFlux: number[]; // Per chunk
-  mfcc: number[][]; // Mel-frequency cepstral coefficients
-
-  // Harmonic analysis
-  chroma: number[][]; // Chromatic pitch distribution
-
-  // Metadata
-  timestamp: number; // Unix timestamp (milliseconds)
-  cached: boolean;
-  computation_time_ms: number;
-}
+// Canonical AudioFingerprint is the 25D schema defined in
+// '@/utils/fingerprintToGradient'. The old schema (trackId, loudness, crest,
+// rms, centroid, spectralFlux, mfcc, chroma, timestamp, cached,
+// computation_time_ms) has been removed to eliminate the dual-interface
+// conflict (fixes #2280). Import from '@/utils/fingerprintToGradient' instead.
+export type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 
 // ============================================================================
 // Library Stats

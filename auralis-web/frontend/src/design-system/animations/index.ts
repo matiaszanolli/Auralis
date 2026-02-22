@@ -179,8 +179,6 @@ export const rotate = keyframes`
 /**
  * Gentle Float - Slow, weighted vertical motion
  * Style Guide §6.1: "No bounce easing" - use slow, heavy motion instead
- *
- * @deprecated 'bounce' is deprecated. Use 'gentleFloat' or 'breathe' for natural motion.
  */
 export const gentleFloat = keyframes`
   0%, 100% {
@@ -192,11 +190,8 @@ export const gentleFloat = keyframes`
     opacity: 0.95;
   }
 `;
-
-/**
- * @deprecated Use 'gentleFloat' instead. Bounce animations violate Style Guide §6.1.
- */
-export const bounce = gentleFloat;
+// Removed: deprecated 'bounce' alias (bounce = gentleFloat) — fixes #2233.
+// Use 'gentleFloat' directly.
 
 /**
  * Shimmer - Loading skeleton shimmer effect

@@ -262,7 +262,10 @@ class PersonalPreferences:
                     except (IndexError, ValueError):
                         continue
                 if versions:
-                    # Simple increment: bump patch version
+                    # Sort numerically before picking the latest so filesystem
+                    # ordering (which may differ from version order) doesn't
+                    # cause us to increment from the wrong base (fixes #2211).
+                    versions.sort(key=lambda v: tuple(map(int, v.split("."))))
                     major, minor = map(int, versions[-1].split("."))
                     version = f"{major}.{minor + 1}"
             if version is None:

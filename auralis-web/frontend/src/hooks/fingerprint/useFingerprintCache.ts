@@ -20,7 +20,10 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getFingerprintCache } from '../../services/fingerprint/FingerprintCache';
-import type { AudioFingerprint } from '../../types/domain';
+// Import the canonical 25D AudioFingerprint from its single source of truth
+// (fixes #2280: the old import from '../../types/domain' used a different,
+// incompatible schema with fields like trackId/loudness/crest/rms/centroid).
+import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 
 type FingerprintState = 'idle' | 'processing' | 'ready' | 'error';
 
@@ -118,25 +121,20 @@ export function useFingerprintCache(): UseFingerprintCacheReturn {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
 
-        // Create mock fingerprint
+        // Create mock fingerprint using the canonical 25D schema
+        // (fixes #2280: old mock used the removed domain.ts schema).
         const mockFingerprint: AudioFingerprint = {
-          trackId,
-          loudness: -14.5,
-          crest: 6.2,
-          rms: -16.0,
-          centroid: 2450,
-          spectralFlux: Array(100).fill(0.5),
-          mfcc: Array(13).fill(0).map(() => Array(100).fill(0.1)),
-          chroma: Array(12).fill(0).map(() => Array(100).fill(0.08)),
-          timestamp: Date.now(),
-          cached: false,
-          computation_time_ms: 1000,
+          sub_bass: 0.3, bass: 0.4, low_mid: 0.35, mid: 0.5,
+          upper_mid: 0.45, presence: 0.4, air: 0.25,
+          lufs: -14.5, crest_db: 6.2, bass_mid_ratio: 0.8,
+          spectral_centroid: 0.55, spectral_rolloff: 0.6, spectral_flatness: 0.3,
+          harmonic_ratio: 0.7, pitch_stability: 0.75, chroma_energy: 0.5,
+          stereo_width: 0.4, phase_correlation: 0.9,
         };
 
         // Store in cache
         const cache = getFingerprintCache();
-        const { trackId: _, ...fpData } = mockFingerprint;
-        await cache.set(trackId, fpData);
+        await cache.set(trackId, mockFingerprint);
 
         setFingerprint(mockFingerprint);
         setState('ready');

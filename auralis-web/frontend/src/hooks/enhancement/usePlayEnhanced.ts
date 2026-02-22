@@ -301,6 +301,13 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       );
       playbackEngineRef.current = engine;
 
+      // When streaming resumes from a seek position, tell the engine where to
+      // start its time counter so the UI shows the correct position instead of
+      // always starting from 0:00 (fixes #2259).
+      if (isSeek && seekPosition > 0) {
+        engine.setSeekOffset(seekPosition);
+      }
+
       // Register state change callback
       engine.onStateChanged((state) => {
         if (state === 'paused') {

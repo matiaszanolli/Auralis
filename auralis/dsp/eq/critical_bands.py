@@ -31,9 +31,13 @@ def create_critical_bands() -> list[CriticalBand]:
     Returns:
         List of 25 critical bands covering 0-20kHz
     """
-    # Bark scale critical band boundaries (approximate)
+    # Bark scale critical band boundaries (approximate).
+    # The lower bound of the first band is 20 Hz (the threshold of human hearing)
+    # rather than 0 Hz.  Using 0 produced center_freq = sqrt(0 * 100) = 0 Hz (DC),
+    # which is inaudible, causes division-by-zero in bandwidth calculations, and
+    # makes the sub-bass EQ adjustment meaningless (fixes #2208).
     bark_frequencies = [
-        0, 100, 200, 300, 400, 510, 630, 770, 920, 1080,
+        20, 100, 200, 300, 400, 510, 630, 770, 920, 1080,
         1270, 1480, 1720, 2000, 2320, 2700, 3150, 3700, 4400,
         5300, 6400, 7700, 9500, 12000, 15500, 20000
     ]
@@ -43,7 +47,7 @@ def create_critical_bands() -> list[CriticalBand]:
     for i in range(len(bark_frequencies) - 1):
         low_freq = bark_frequencies[i]
         high_freq = bark_frequencies[i + 1]
-        center_freq = np.sqrt(low_freq * high_freq)  # Geometric mean
+        center_freq = np.sqrt(low_freq * high_freq)  # Geometric mean (always > 0 now)
         bandwidth = high_freq - low_freq
 
         # Perceptual weighting based on equal loudness contours

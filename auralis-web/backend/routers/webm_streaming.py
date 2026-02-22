@@ -30,6 +30,7 @@ import logging
 import math
 import os
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -43,6 +44,26 @@ from .dependencies import require_repository_factory
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["webm-streaming"])
+
+# ---------------------------------------------------------------------------
+# Per-process audio file cache (fixes #2295)
+# ---------------------------------------------------------------------------
+# _get_original_wav_chunk() was loading the entire audio file for every chunk
+# request — up to ~100 MB per call and O(concurrent_listeners) allocations.
+# Cache up to 8 decoded files by filepath; eviction is automatic via LRU.
+# The cache stores (audio_array, sample_rate) tuples.  Because numpy arrays
+# are mutable we store them as read-only views to prevent accidental in-place
+# modification by downstream code.
+@lru_cache(maxsize=8)
+def _load_audio_cached(filepath: str):  # type: ignore[return]
+    """Load and decode an audio file, caching the result for reuse.
+
+    Called from an asyncio.to_thread() context so blocking I/O is fine here.
+    """
+    from auralis.io.unified_loader import load_audio
+    audio, sr = load_audio(filepath)
+    audio.flags.writeable = False  # prevent accidental mutation of cached data
+    return audio, sr
 
 
 class StreamMetadata(BaseModel):
@@ -403,10 +424,9 @@ def create_webm_streaming_router(
         Raises:
             WAVEncoderError: If encoding fails
         """
-        from auralis.io.unified_loader import load_audio
-
-        # Load audio (file I/O — run in thread to avoid blocking event loop)
-        audio, sr = await asyncio.to_thread(load_audio, filepath)
+        # Load audio from the process-level LRU cache — avoids reloading the
+        # entire file (~100 MB) for every chunk request (fixes #2295).
+        audio, sr = await asyncio.to_thread(_load_audio_cached, filepath)
 
         # Calculate chunk boundaries using chunk_interval for start position
         # With 10s chunks and 10s interval: chunk 0 starts at 0s, chunk 1 at 10s, chunk 2 at 20s, etc.

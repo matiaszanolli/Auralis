@@ -68,14 +68,17 @@ async fn health() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("🎵 Auralis Fingerprint Server starting on http://0.0.0.0:8766");
+    // Bind to loopback only — this service has no authentication and accepts
+    // arbitrary file paths in POST requests, so network-accessible binding
+    // would be a significant security risk (fixes #2243).
+    println!("🎵 Auralis Fingerprint Server starting on http://127.0.0.1:8766");
 
     HttpServer::new(|| {
         App::new()
             .route("/health", web::get().to(health))
             .route("/fingerprint", web::post().to(fingerprint_handler))
     })
-    .bind("0.0.0.0:8766")?
+    .bind("127.0.0.1:8766")?
     .run()
     .await
 }

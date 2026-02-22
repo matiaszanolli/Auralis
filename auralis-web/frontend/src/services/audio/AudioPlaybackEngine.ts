@@ -62,6 +62,9 @@ export class AudioPlaybackEngine {
   private playbackStartTime: number = 0;
   private samplesPlayed: number = 0;
   private bufferUnderrunCount: number = 0;
+  // Seek offset: when streaming resumes from a non-zero position the time
+  // display must start from that position rather than 0:00 (fixes #2259).
+  private seekOffsetSeconds: number = 0;
 
   // Configuration
   private bufferSize: number = 4096; // samples per process callback
@@ -202,6 +205,7 @@ export class AudioPlaybackEngine {
     this.audioContextStartTime = 0;
     this.playbackStartTime = 0;
     this.samplesPlayed = 0;
+    this.seekOffsetSeconds = 0;
     this.bufferUnderrunCount = 0;
     this.isBufferPaused = false; // Reset buffer health state
 
@@ -219,6 +223,14 @@ export class AudioPlaybackEngine {
   }
 
   /**
+   * Set a seek offset so the reported playback position starts from the seek
+   * point rather than 0:00 (fixes #2259).  Call before startPlayback().
+   */
+  setSeekOffset(offsetSeconds: number): void {
+    this.seekOffsetSeconds = Math.max(0, offsetSeconds);
+  }
+
+  /**
    * Get current playback time in seconds
    */
   getCurrentPlaybackTime(): number {
@@ -230,9 +242,9 @@ export class AudioPlaybackEngine {
       return this.pausedTime;
     }
 
-    // Playing: calculate from samples played
+    // Playing: calculate from samples played, offset by seek position
     const sampleRate = this.buffer.getMetadata().sampleRate;
-    return this.samplesPlayed / sampleRate;
+    return this.seekOffsetSeconds + this.samplesPlayed / sampleRate;
   }
 
   /**

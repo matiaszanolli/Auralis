@@ -66,8 +66,9 @@ def resample_audio(audio_data: np.ndarray, original_rate: int, target_rate: int)
         import resampy
         debug(f"Resampling from {original_rate} Hz to {target_rate} Hz using resampy")
 
+        input_dtype = audio_data.dtype  # Preserve caller's dtype (fixes #2227)
         if audio_data.ndim == 1:
-            return np.asarray(resampy.resample(audio_data, original_rate, target_rate), dtype=np.float32)
+            return np.asarray(resampy.resample(audio_data, original_rate, target_rate), dtype=input_dtype)
         else:
             # Resample each channel separately
             resampled_channels = []
@@ -76,7 +77,7 @@ def resample_audio(audio_data: np.ndarray, original_rate: int, target_rate: int)
                     audio_data[:, channel], original_rate, target_rate
                 )
                 resampled_channels.append(resampled_channel)
-            return np.column_stack(resampled_channels)
+            return np.column_stack(resampled_channels).astype(input_dtype, copy=False)
 
     except ImportError:
         # Fallback to simple linear interpolation (less quality but no dependency)
@@ -85,14 +86,18 @@ def resample_audio(audio_data: np.ndarray, original_rate: int, target_rate: int)
 
 
 def simple_resample(audio_data: np.ndarray, original_rate: int, target_rate: int) -> np.ndarray:
-    """Simple resampling using linear interpolation"""
+    """Simple resampling using linear interpolation.
+
+    Output dtype matches the input dtype (fixes #2227).
+    """
+    input_dtype = audio_data.dtype
     ratio = target_rate / original_rate
     new_length = int(len(audio_data) * ratio)
 
     if audio_data.ndim == 1:
         # Mono audio
         old_indices = np.linspace(0, len(audio_data) - 1, new_length)
-        return np.asarray(np.interp(old_indices, np.arange(len(audio_data)), audio_data), dtype=np.float32)
+        return np.asarray(np.interp(old_indices, np.arange(len(audio_data)), audio_data), dtype=input_dtype)
     else:
         # Multi-channel audio
         resampled_channels = []
@@ -102,4 +107,4 @@ def simple_resample(audio_data: np.ndarray, original_rate: int, target_rate: int
                 old_indices, np.arange(len(audio_data)), audio_data[:, channel]
             )
             resampled_channels.append(resampled_channel)
-        return np.column_stack(resampled_channels)
+        return np.column_stack(resampled_channels).astype(input_dtype, copy=False)
