@@ -191,26 +191,50 @@ This commit fixes **9 issues** (some marked as LOW, others MEDIUM):
 
 ### Frontend (React)
 
-#### H. WebSocket Subscription Reconnect Fix (#2458)
+#### H. WebSocket Subscription — Three-Part Fix (#2458, #2440, #2487)
 
 - **File**: `auralis-web/frontend/src/hooks/websocket/useWebSocketSubscription.ts`
-- **Change**: Always register in `managerReadyListeners` to support reconnects
-- **Code**:
-  ```javascript
-  // Always register for reconnect support, even if manager already exists (#2458).
-  managerReadyListeners.add(subscribeToManager);
+- **Changes** (applied across two sessions):
 
-  const manager = getWebSocketManager();
-  if (manager) {
-      subscribeToManager(manager);
-  }
+  **H1 — Always register for reconnect (#2458)**
+  ```typescript
+  // Always register for reconnect support, even if manager already exists (#2458).
+  managerReadyListeners.set(listenerKeyRef.current, subscribeToManager);
   ```
-- **Assessment**: ✅ **CORRECT** — Reconnect behavior:
-  - Previous implementation only registered if manager was not available at hook mount time
-  - After reconnect, `setWebSocketManager()` is called with new manager instance
-  - Snapshot + forEach ensures all listeners re-subscribe
-  - **Prevents loss of subscriptions across reconnects**
-- **Minor Note**: Listeners persist even after cleanup (line "leave listeners intact"). This is intentional for reconnect support but means listeners accumulate if component is remounted. ✅ **ACCEPTABLE** for normal usage
+  - Hooks that previously only registered when the manager was absent now always register, enabling re-subscription after WebSocket reconnects.
+
+  **H2 — Map with stable Symbol key prevents accumulation (#2440)**
+  ```typescript
+  // Set<ManagerReadyListener>  →  Map<symbol, ManagerReadyListener>
+  const managerReadyListeners: Map<symbol, ManagerReadyListener> = new Map();
+  const listenerKeyRef = useRef<symbol>(Symbol('wsSubscription')); // one per hook instance
+
+  // Effect re-runs overwrite instead of appending:
+  managerReadyListeners.set(listenerKeyRef.current, subscribeToManager);
+  // Cleanup:
+  managerReadyListeners.delete(listenerKeyRef.current);
+  ```
+  - **Fixes the accumulation bug from #2440**: each hook instance has one stable Symbol key; effect re-runs overwrite the previous entry rather than inserting a new anonymous function reference into the old `Set`.
+  - Cleanup path correctly deletes the exact entry via the stable key.
+
+  **H3 — Value-stable dependency for messageTypes array (#2487)**
+  ```typescript
+  // BEFORE (broken: new array reference every render → effect re-runs 10×/sec):
+  }, [messageTypes]);
+
+  // AFTER (fixed: value-stable string comparison):
+  }, [messageTypes.join('\x00')]);
+  ```
+  - `messageTypes` is frequently passed as an inline array literal (e.g., `['player_state', 'playback_started', ...]`). React's `Object.is` sees a new reference every render.
+  - `join('\x00')` produces a stable string when content is identical, preventing subscription teardown/rebuild on every render. Null byte delimiter is safe; message type names do not contain `\x00`.
+  - The `// eslint-disable-next-line react-hooks/exhaustive-deps` is justified because the linter cannot reason about value-stable serialisation.
+
+- **Combined Assessment**: ✅ **CORRECT** — The three fixes together make `useWebSocketSubscription` correct across all lifecycle scenarios:
+  - Reconnect: subscriptions re-established via Map overwrite ✅
+  - Effect re-runs: no duplicate entries (Map + Symbol key) ✅
+  - Inline callers: no churn on every render (join-based dep) ✅
+  - Unmount cleanup: `delete(listenerKeyRef.current)` removes exact entry ✅
+  - Map `forEach((listener) => listener(manager))` correctly iterates values ✅
 
 ---
 
@@ -268,15 +292,17 @@ Checked against existing issues via `gh issue list`:
 
 | Issue | Severity | Domain | Status |
 |-------|----------|--------|--------|
-| #2468 | LOW | Frontend optimization | ✅ Addressed |
-| #2461 | LOW | Code quality | ✅ Addressed |
-| #2458 | LOW | WebSocket | ✅ Addressed |
-| #2457 | LOW | Audio integrity | ✅ Addressed (fixes F2 from 2026-02-18) |
-| #2455 | LOW | Input validation | ✅ Addressed |
-| #2453 | MEDIUM | Performance | ✅ Addressed |
-| #2451 | MEDIUM | Performance | ✅ Addressed |
-| #2450 | MEDIUM | Audio integrity | ✅ Addressed |
-| #2442 | LOW | Concurrency | ✅ Addressed |
+| #2487 | MEDIUM | Frontend/WebSocket | ✅ Closed — subscription churn on inline array (join-based dep) |
+| #2468 | LOW | Frontend optimization | ✅ Closed — spurious isStreaming dep from volume memo |
+| #2461 | LOW | Code quality | ✅ Closed — dead try/except removed in calculate_all |
+| #2458 | LOW | WebSocket | ✅ Closed — reconnect subscriptions now re-established |
+| #2457 | LOW | Audio integrity | ✅ Closed — pre-loaded audio normalized (fixes F2 from 2026-02-18) |
+| #2455 | LOW | Input validation | ✅ Closed — Rust sample rate range guard |
+| #2453 | MEDIUM | Performance | ✅ Closed — bulk DELETE replaces loop-delete |
+| #2451 | MEDIUM | Performance | ✅ Closed — max_chunks cap prevents OOM |
+| #2450 | MEDIUM | Audio integrity | ✅ Closed — float32 dtype preserved post-FFT |
+| #2442 | LOW | Concurrency | ✅ Closed — threading.Lock on rate limiter |
+| #2440 | MEDIUM | WebSocket/Concurrency | ✅ Closed — Map+Symbol key prevents listener accumulation |
 
 ---
 
