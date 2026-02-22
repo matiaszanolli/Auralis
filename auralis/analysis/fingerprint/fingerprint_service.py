@@ -13,6 +13,8 @@ Replaces:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import hashlib
+import json
 import logging
 import sqlite3
 from pathlib import Path
@@ -140,8 +142,8 @@ class FingerprintService:
             if not row or row[0] is None:  # Check if tempo_bpm exists
                 return None
 
-            # Map columns to fingerprint dict
-            return {
+            # Map columns to fingerprint dict — verify integrity hash (#2422)
+            fingerprint = {
                 'tempo_bpm': row[0],
                 'lufs': row[1],
                 'crest_db': row[2],
@@ -168,6 +170,28 @@ class FingerprintService:
                 'presence_pct': row[23],
                 'air_pct': row[24],
             }
+
+            # Verify integrity hash if present (#2422)
+            try:
+                cursor2 = conn.cursor()
+                cursor2.execute(
+                    "SELECT fingerprint_hash FROM tracks WHERE filepath = ?",
+                    (filepath,),
+                )
+                hash_row = cursor2.fetchone()
+                if hash_row and hash_row[0]:
+                    expected = hash_row[0]
+                    actual = self._compute_fingerprint_hash(fingerprint)
+                    if expected != actual:
+                        logger.warning(
+                            f"Fingerprint integrity check failed for {filepath} "
+                            f"(expected {expected[:12]}…, got {actual[:12]}…)"
+                        )
+                        return None  # Force recomputation
+            except sqlite3.OperationalError:
+                pass  # Column doesn't exist yet (pre-migration)
+
+            return fingerprint
 
         except Exception as e:
             logger.debug(f"Database fingerprint lookup failed: {e}")
@@ -300,11 +324,50 @@ class FingerprintService:
                 filepath
             ))
 
+                # Store integrity hash (#2422)
+                fp_hash = self._compute_fingerprint_hash(fingerprint)
+                try:
+                    cursor.execute(
+                        "UPDATE tracks SET fingerprint_hash = ? WHERE filepath = ?",
+                        (fp_hash, filepath),
+                    )
+                except sqlite3.OperationalError:
+                    pass  # Column doesn't exist yet (pre-migration)
+
                 return True
 
         except Exception as e:
             logger.debug(f"Database save failed: {e}")
             return False
+
+    # ------------------------------------------------------------------
+    # Fingerprint integrity hash (#2422)
+    # ------------------------------------------------------------------
+    # The 25D fingerprint columns are ordered deterministically so that
+    # json.dumps(sorted_items) produces the same bytes for the same data.
+    _HASH_KEYS = sorted([
+        'tempo_bpm', 'lufs', 'crest_db', 'bass_pct', 'mid_pct',
+        'harmonic_ratio', 'transient_density', 'spectral_centroid',
+        'bass_mid_ratio', 'rhythm_stability', 'silence_ratio',
+        'spectral_rolloff', 'spectral_flatness', 'pitch_stability',
+        'chroma_energy', 'dynamic_range_variation', 'loudness_variation_std',
+        'peak_consistency', 'stereo_width', 'phase_correlation',
+        'sub_bass_pct', 'low_mid_pct', 'upper_mid_pct', 'presence_pct', 'air_pct',
+    ])
+
+    @staticmethod
+    def _compute_fingerprint_hash(fingerprint: dict) -> str:
+        """Compute SHA-256 integrity hash for a 25D fingerprint.
+
+        Values are rounded to 6 decimal places to avoid floating-point
+        representation drift across platforms.
+        """
+        canonical = {
+            k: round(float(fingerprint.get(k, 0.0)), 6)
+            for k in FingerprintService._HASH_KEYS
+        }
+        payload = json.dumps(canonical, sort_keys=True).encode()
+        return hashlib.sha256(payload).hexdigest()
 
     @staticmethod
     def _numpy_to_python(obj):

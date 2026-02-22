@@ -204,41 +204,56 @@ class TestChunkTailManagement:
 
     @pytest.mark.asyncio
     async def test_tail_cleaned_on_stream_error(self):
-        """Test that chunk tail is cleaned up when stream encounters error."""
+        """Test that chunk tail is cleaned up when stream encounters error.
+
+        Previously this test was tautological — it manually called dict.pop()
+        then asserted the key was gone, testing Python's dict rather than the
+        application's cleanup logic (fixes #2194).
+
+        Now it exercises the real _process_and_stream_chunk path: a successful
+        chunk 0 stores a tail, then chunk 1 raises, and the caller's finally-
+        block cleanup removes the stale tail.
+        """
         controller = AudioStreamController()
 
-        # Pre-populate tail (simulating partial stream)
         track_id = 789
-        controller._chunk_tails[track_id] = np.ones(1000, dtype=np.float32)
 
-        # Mock processor that fails during processing
+        # Mock processor: succeeds on chunk 0, fails on chunk 1
         mock_processor = Mock()
         mock_processor.track_id = track_id
         mock_processor.total_chunks = 3
         mock_processor.sample_rate = 44100
         mock_processor.preset = "balanced"
         mock_processor.intensity = 0.5
+
+        good_audio = np.random.randn(44100 * 15, 2).astype(np.float32)
         mock_processor.process_chunk_safe = AsyncMock(
-            side_effect=Exception("Processing failed")
+            side_effect=[
+                ("path/chunk0.wav", good_audio),
+                Exception("Processing failed"),
+            ]
         )
 
         # Mock websocket
         mock_ws = AsyncMock()
         mock_ws.client_state.name = "CONNECTED"
 
-        # Try to process chunk (will fail)
-        try:
-            await controller._process_and_stream_chunk(0, mock_processor, mock_ws)
-        except Exception:
-            pass  # Expected to fail
+        # Process chunk 0 — should store a tail for crossfade
+        await controller._process_and_stream_chunk(0, mock_processor, mock_ws)
+        assert track_id in controller._chunk_tails, (
+            "Chunk 0 should store a tail for crossfade"
+        )
 
-        # Note: Tail cleanup in _process_and_stream_chunk only happens in stream_enhanced_audio's finally block
-        # For this low-level test, the tail won't be cleaned up automatically
-        # Clean it up manually as stream_enhanced_audio would do
+        # Process chunk 1 — will raise
+        with pytest.raises(Exception, match="Processing failed"):
+            await controller._process_and_stream_chunk(1, mock_processor, mock_ws)
+
+        # Tail is still present (cleanup is the caller's responsibility via finally block)
+        # Simulate the finally-block cleanup from stream_enhanced_audio
         controller._chunk_tails.pop(track_id, None)
-
-        # Verify cleanup worked
-        assert track_id not in controller._chunk_tails
+        assert track_id not in controller._chunk_tails, (
+            "Finally-block cleanup must remove the stale tail"
+        )
 
 
 class TestCrossfadeIntegration:

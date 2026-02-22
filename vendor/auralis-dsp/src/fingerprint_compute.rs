@@ -260,9 +260,8 @@ pub fn compute_complete_fingerprint(
 
     // 3. Temporal (4D)
     let silence_ratio = compute_silence_ratio(&mono_audio);
-    // Tempo/rhythm from existing module (simplified placeholder)
     let tempo_bpm = estimate_tempo(&mono_audio, sample_rate);
-    let rhythm_stability = 0.7; // Placeholder - would need beat tracking
+    let rhythm_stability = estimate_rhythm_stability(&mono_audio, sample_rate);
     let transient_density = estimate_transient_density(&mono_audio, sample_rate);
 
     // 4. Spectral (3D)
@@ -273,7 +272,7 @@ pub fn compute_complete_fingerprint(
 
     // 5. Harmonic (3D)
     let harmonic_ratio = estimate_harmonic_ratio(&mono_audio, sample_rate);
-    let pitch_stability = 0.75; // Placeholder - would need pitch tracking
+    let pitch_stability = estimate_pitch_stability(&mono_audio, sample_rate);
     let chroma_energy = estimate_chroma_energy(&mono_audio, sample_rate);
 
     // 6. Variation (3D)
@@ -333,13 +332,187 @@ pub fn compute_complete_fingerprint(
     })
 }
 
-/// Estimate tempo using spectral flux
+/// Estimate tempo via spectral-flux onset detection and autocorrelation.
+///
+/// Computes an onset-strength envelope from spectral flux, then finds the
+/// dominant periodicity via autocorrelation in the BPM range [60, 200].
 fn estimate_tempo(audio: &[f32], sample_rate: u32) -> f32 {
-    // Simplified tempo estimation
-    // Would ideally use onset detection or beat tracking
-    // For now, return 120 BPM as neutral default
-    // (In production, would use existing tempo detection from vendor/auralis-dsp)
-    120.0
+    let hop = 512usize;
+    let frame_size = 1024usize;
+
+    if audio.len() < frame_size * 2 {
+        return 120.0; // Not enough data for reliable estimation
+    }
+
+    // Compute magnitude spectrum per frame (half-spectrum)
+    let n_frames = (audio.len().saturating_sub(frame_size)) / hop + 1;
+    if n_frames < 2 {
+        return 120.0;
+    }
+
+    let half = frame_size / 2 + 1;
+    let mut prev_mag = vec![0.0f32; half];
+    let mut onset_env = Vec::with_capacity(n_frames);
+
+    for i in 0..n_frames {
+        let start = i * hop;
+        let end = (start + frame_size).min(audio.len());
+        let frame = &audio[start..end];
+
+        // Simple DFT magnitude for low bins (cheap approximation)
+        let mut mag = vec![0.0f32; half];
+        for k in 0..half {
+            let mut re = 0.0f32;
+            let mut im = 0.0f32;
+            for (n, &s) in frame.iter().enumerate() {
+                let angle = -2.0 * std::f32::consts::PI * k as f32 * n as f32 / frame_size as f32;
+                re += s * angle.cos();
+                im += s * angle.sin();
+            }
+            mag[k] = (re * re + im * im).sqrt();
+        }
+
+        // Spectral flux (only positive differences = onsets)
+        let flux: f32 = mag.iter().zip(prev_mag.iter())
+            .map(|(&cur, &prev)| (cur - prev).max(0.0))
+            .sum();
+        onset_env.push(flux);
+        prev_mag = mag;
+    }
+
+    if onset_env.len() < 4 {
+        return 120.0;
+    }
+
+    // Autocorrelation of onset envelope to find dominant period
+    let onset_sr = sample_rate as f32 / hop as f32; // frames per second
+    let min_lag = (onset_sr * 60.0 / 200.0).ceil() as usize; // 200 BPM
+    let max_lag = (onset_sr * 60.0 / 60.0).floor() as usize;  // 60 BPM
+    let max_lag = max_lag.min(onset_env.len() / 2);
+
+    if min_lag >= max_lag {
+        return 120.0;
+    }
+
+    let mut best_lag = min_lag;
+    let mut best_corr = f32::NEG_INFINITY;
+
+    for lag in min_lag..=max_lag {
+        let mut corr = 0.0f32;
+        let n = onset_env.len() - lag;
+        for i in 0..n {
+            corr += onset_env[i] * onset_env[i + lag];
+        }
+        if corr > best_corr {
+            best_corr = corr;
+            best_lag = lag;
+        }
+    }
+
+    let bpm = 60.0 * onset_sr / best_lag as f32;
+    bpm.clamp(60.0, 200.0)
+}
+
+/// Estimate rhythm stability from inter-onset-interval (IOI) variance.
+///
+/// Low variance = stable, repetitive rhythm → value near 1.0.
+/// High variance = free-time / rubato → value near 0.0.
+fn estimate_rhythm_stability(audio: &[f32], sample_rate: u32) -> f32 {
+    let hop = 512usize;
+    let frame_size = 1024usize;
+
+    if audio.len() < frame_size * 4 {
+        return 0.5; // Not enough data
+    }
+
+    // Compute simple energy envelope
+    let n_frames = (audio.len().saturating_sub(frame_size)) / hop + 1;
+    let mut energies = Vec::with_capacity(n_frames);
+    for i in 0..n_frames {
+        let start = i * hop;
+        let end = (start + frame_size).min(audio.len());
+        let e: f32 = audio[start..end].iter().map(|s| s * s).sum::<f32>() / (end - start) as f32;
+        energies.push(e);
+    }
+
+    // Find onsets via energy peaks (simple threshold-based)
+    let mean_energy: f32 = energies.iter().sum::<f32>() / energies.len() as f32;
+    let threshold = mean_energy * 1.5;
+
+    let mut onset_frames = Vec::new();
+    let mut in_onset = false;
+    for (i, &e) in energies.iter().enumerate() {
+        if e > threshold && !in_onset {
+            onset_frames.push(i);
+            in_onset = true;
+        } else if e <= mean_energy {
+            in_onset = false;
+        }
+    }
+
+    if onset_frames.len() < 3 {
+        return 0.5; // Not enough onsets to assess stability
+    }
+
+    // Compute IOIs (inter-onset intervals)
+    let iois: Vec<f32> = onset_frames.windows(2)
+        .map(|w| (w[1] - w[0]) as f32)
+        .collect();
+
+    let mean_ioi: f32 = iois.iter().sum::<f32>() / iois.len() as f32;
+    if mean_ioi < 1e-6 {
+        return 0.5;
+    }
+
+    // Coefficient of variation (std / mean) — lower = more stable
+    let variance: f32 = iois.iter().map(|&ioi| (ioi - mean_ioi).powi(2)).sum::<f32>() / iois.len() as f32;
+    let cv = variance.sqrt() / mean_ioi;
+
+    // Map CV to 0-1 stability: CV=0 → 1.0, CV=1 → 0.0
+    (1.0 - cv).clamp(0.0, 1.0)
+}
+
+/// Estimate pitch stability via zero-crossing rate variance across frames.
+///
+/// Stable pitch → consistent ZCR → value near 1.0.
+/// Varying pitch → varying ZCR → value near 0.0.
+fn estimate_pitch_stability(audio: &[f32], sample_rate: u32) -> f32 {
+    let frame_size = 2048usize;
+    let hop = 1024usize;
+
+    if audio.len() < frame_size * 3 {
+        return 0.5;
+    }
+
+    let n_frames = (audio.len().saturating_sub(frame_size)) / hop + 1;
+    let mut zcrs = Vec::with_capacity(n_frames);
+
+    for i in 0..n_frames {
+        let start = i * hop;
+        let end = (start + frame_size).min(audio.len());
+        let frame = &audio[start..end];
+
+        // Zero-crossing rate
+        let crossings = frame.windows(2)
+            .filter(|w| (w[0] >= 0.0) != (w[1] >= 0.0))
+            .count();
+        zcrs.push(crossings as f32 / (end - start) as f32);
+    }
+
+    if zcrs.len() < 2 {
+        return 0.5;
+    }
+
+    let mean_zcr: f32 = zcrs.iter().sum::<f32>() / zcrs.len() as f32;
+    if mean_zcr < 1e-8 {
+        return 0.5; // Silent audio
+    }
+
+    let variance: f32 = zcrs.iter().map(|&z| (z - mean_zcr).powi(2)).sum::<f32>() / zcrs.len() as f32;
+    let cv = variance.sqrt() / mean_zcr;
+
+    // Map CV to stability: CV=0 → 1.0, CV≥1 → 0.0
+    (1.0 - cv).clamp(0.0, 1.0)
 }
 
 /// Estimate transient density (percussive content)

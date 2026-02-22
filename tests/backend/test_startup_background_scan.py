@@ -114,10 +114,13 @@ async def test_background_scan_does_not_block():
         )
         scheduling_duration = time.monotonic() - start
 
-        # create_task returns almost immediately
-        assert scheduling_duration < 0.05, (
+        # create_task returns almost immediately — generous bound for loaded CI
+        assert scheduling_duration < 0.5, (
             f"Scheduling took {scheduling_duration:.3f}s — scan must not block caller"
         )
+
+        # The task should not be done yet since the scan takes 100ms
+        assert not task.done(), "Task completed synchronously — scan must run in background"
 
         # Let the background task finish
         await task

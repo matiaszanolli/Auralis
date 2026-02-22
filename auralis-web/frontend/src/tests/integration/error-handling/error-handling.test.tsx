@@ -67,7 +67,7 @@ const TestConcurrentComponent: React.FC = () => {
       '/api/player/state',
       '/api/library/tracks?limit=10',
       '/api/enhancement/state',
-      '/api/library/albums?limit=10',
+      '/api/albums?limit=10',
     ];
 
     try {

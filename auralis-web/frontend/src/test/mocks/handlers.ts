@@ -191,8 +191,8 @@ export const handlers = [
     });
   }),
 
-  // GET /api/library/albums - Get albums
-  http.get(`${API_BASE}/library/albums`, async ({ request }) => {
+  // GET /api/albums - Get albums (updated from /api/library/albums per #2509)
+  http.get(`${API_BASE}/albums`, async ({ request }) => {
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const offset = parseInt(url.searchParams.get('offset') || '0');
@@ -207,8 +207,8 @@ export const handlers = [
     });
   }),
 
-  // GET /api/library/albums/:id - Get album details
-  http.get(`${API_BASE}/library/albums/:id`, async ({ params }) => {
+  // GET /api/albums/:id - Get album details
+  http.get(`${API_BASE}/albums/:id`, async ({ params }) => {
     await delay(50);
     const album = mockAlbums.find(a => a.id === parseInt(params.id as string));
     if (album) {
@@ -217,8 +217,8 @@ export const handlers = [
     return HttpResponse.json({ error: 'Album not found' }, { status: 404 });
   }),
 
-  // GET /api/library/albums/:id/tracks - Get album tracks
-  http.get(`${API_BASE}/library/albums/:id/tracks`, async ({ params }) => {
+  // GET /api/albums/:id/tracks - Get album tracks
+  http.get(`${API_BASE}/albums/:id/tracks`, async ({ params }) => {
     await delay(100);
     const albumId = parseInt(params.id as string);
     const album = mockAlbums.find(a => a.id === albumId);
@@ -226,8 +226,8 @@ export const handlers = [
     return HttpResponse.json({ tracks: albumTracks });
   }),
 
-  // GET /api/library/artists - Get artists
-  http.get(`${API_BASE}/library/artists`, async ({ request }) => {
+  // GET /api/artists - Get artists (updated from /api/library/artists per #2509)
+  http.get(`${API_BASE}/artists`, async ({ request }) => {
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const offset = parseInt(url.searchParams.get('offset') || '0');
@@ -242,8 +242,8 @@ export const handlers = [
     });
   }),
 
-  // GET /api/library/artists/:id - Get artist details
-  http.get(`${API_BASE}/library/artists/:id`, async ({ params }) => {
+  // GET /api/artists/:id - Get artist details
+  http.get(`${API_BASE}/artists/:id`, async ({ params }) => {
     await delay(50);
     const artist = mockArtists.find(a => a.id === parseInt(params.id as string));
     if (artist) {
@@ -252,8 +252,8 @@ export const handlers = [
     return HttpResponse.json({ error: 'Artist not found' }, { status: 404 });
   }),
 
-  // GET /api/library/artists/:id/tracks - Get artist tracks
-  http.get(`${API_BASE}/library/artists/:id/tracks`, async ({ params }) => {
+  // GET /api/artists/:id/tracks - Get artist tracks
+  http.get(`${API_BASE}/artists/:id/tracks`, async ({ params }) => {
     await delay(100);
     const artistId = parseInt(params.id as string);
     const artist = mockArtists.find(a => a.id === artistId);

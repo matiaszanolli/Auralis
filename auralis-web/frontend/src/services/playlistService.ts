@@ -68,7 +68,12 @@ const crudService = createCrudService<Playlist, CreatePlaylistRequest>({
  */
 export async function getPlaylists(): Promise<PlaylistsResponse> {
   const response = await crudService.list();
-  const playlistsArray = Array.isArray(response) ? response : (response as any).playlists;
+  // Runtime shape validation — response may be a bare array or {playlists: [...]}
+  const playlistsArray = Array.isArray(response)
+    ? response
+    : (response && typeof response === 'object' && 'playlists' in response && Array.isArray((response as PlaylistsResponse).playlists))
+      ? (response as PlaylistsResponse).playlists
+      : [];
   return { playlists: playlistsArray, total: playlistsArray.length };
 }
 
@@ -84,8 +89,11 @@ export async function getPlaylist(playlistId: number): Promise<Playlist> {
  */
 export async function createPlaylist(request: CreatePlaylistRequest): Promise<Playlist> {
   const data = await crudService.create(request);
-  // crudService.create returns Playlist directly
-  return (data as any).playlist || data;
+  // Response may be {playlist: {...}} or a bare Playlist object
+  if (data && typeof data === 'object' && 'playlist' in data) {
+    return (data as { playlist: Playlist }).playlist;
+  }
+  return data;
 }
 
 /**
