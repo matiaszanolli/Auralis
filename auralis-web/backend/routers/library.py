@@ -390,54 +390,7 @@ def create_library_router(
         except Exception as e:
             raise handle_query_error("get artist", e)
 
-    @router.get("/api/library/albums")
-    async def get_albums(
-        limit: int = Query(50, ge=1, le=200),
-        offset: int = Query(0, ge=0),
-        search: str | None = None,
-        order_by: str = 'title'
-    ) -> dict[str, Any]:
-        """
-        Get albums from library with optional search and pagination.
-
-        Args:
-            limit: Maximum number of albums to return (default: 50)
-            offset: Number of albums to skip (default: 0)
-            search: Optional search query (searches title and artist)
-            order_by: Column to order by (default: 'title', options: 'title', 'year', 'created_at')
-
-        Returns:
-            dict: List of albums with pagination info including:
-                - albums: List of album objects
-                - total: Total number of albums in library
-                - limit: Requested limit
-                - offset: Current offset
-                - has_more: Boolean indicating if more albums are available
-
-        Raises:
-            HTTPException: If library manager/factory not available or query fails
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-
-            # Get albums with pagination
-            if search:
-                albums, total = repos.albums.search(search, limit=limit, offset=offset)
-            else:
-                albums, total = repos.albums.get_all(limit=limit, offset=offset, order_by=order_by)
-            has_more = (offset + len(albums)) < total
-
-            return {
-                "albums": serialize_albums(albums),
-                "total": total,
-                "offset": offset,
-                "limit": limit,
-                "has_more": has_more
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get albums", e)
+    # Removed: GET /api/library/albums — dead endpoint, duplicate of GET /api/albums (fixes #2509)
 
     @router.get("/api/library/albums/{album_id}")
     async def get_album(album_id: int) -> dict[str, Any]:

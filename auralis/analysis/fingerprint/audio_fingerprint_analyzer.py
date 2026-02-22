@@ -192,16 +192,28 @@ class AudioFingerprintAnalyzer:
             else:
                 executor.shutdown(wait=True)
 
-            # Sanitize NaN values (replace with 0.0)
+            # Sanitize NaN/Inf values (replace with 0.0) and count replacements
+            # so regressions in individual analyzers are surfaced rather than
+            # silently hidden (fixes #2531).
+            nan_replaced: list[str] = []
             for key, value in fingerprint.items():
                 try:
                     if isinstance(value, (int, float, np.number)):
                         if np.isnan(value) or np.isinf(value):
-                            logger.warning(f"Fingerprint dimension '{key}' contains NaN/Inf, replacing with 0.0")
+                            logger.warning(
+                                f"Fingerprint dimension '{key}' contains NaN/Inf, replacing with 0.0"
+                            )
                             fingerprint[key] = 0.0
+                            nan_replaced.append(key)
                 except (TypeError, ValueError):
                     # Skip non-numeric values (like strings)
                     pass
+
+            if nan_replaced:
+                logger.warning(
+                    f"Fingerprint sanitized {len(nan_replaced)} NaN/Inf dimension(s): "
+                    f"{nan_replaced}. Check the contributing analyzers for bugs."
+                )
 
             return fingerprint
 

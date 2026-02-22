@@ -12,7 +12,7 @@ import { Box, Typography, Stack } from '@mui/material';
 import { GraphicEq, VolumeUp, Compress } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { ParameterRow } from './ParameterRow';
-import { useParameterFormatting } from '../../hooks/useParameterFormatting';
+import { useParameterFormatting } from '@/components/enhancement-pane/hooks/useParameterFormatting';
 
 interface ProcessingParams {
   target_lufs: number;

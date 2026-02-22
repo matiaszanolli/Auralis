@@ -11,13 +11,13 @@ import type { TrackInfo } from './websocket';
 // Generic Response Wrappers
 // ============================================================================
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data: T;
   error?: string;
   status: number;
 }
 
-export interface ApiListResponse<T = any> {
+export interface ApiListResponse<T = unknown> {
   data: T[];
   total: number;
   limit: number;

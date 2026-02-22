@@ -120,7 +120,7 @@ const MasteringRecommendation: React.FC<MasteringRecommendationProps> = React.me
           }}>
             Hybrid Blend
           </div>
-          {recommendation.weighted_profiles!.map((profile, idx) => (
+          {(recommendation.weighted_profiles ?? []).map((profile, idx) => (
             <div key={idx} style={{
               display: 'flex',
               justifyContent: 'space-between',

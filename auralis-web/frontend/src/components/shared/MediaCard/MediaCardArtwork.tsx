@@ -35,12 +35,14 @@ interface MediaCardArtworkProps {
  * Used as fallback when no fingerprint is available
  */
 const getPlaceholderColor = (text: string | null | undefined): string => {
+  // Use design-system tokens so placeholder gradients stay in sync with the
+  // color system (fixes #2551: hardcoded hex values bypassed tokens.gradients).
   const colors = [
-    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    tokens.gradients.aurora,                        // violet → indigo
+    tokens.gradients.decorative.gradientPink,       // #f093fb → #f5576c
+    tokens.gradients.decorative.gradientBlue,       // #4facfe → #00f2fe
+    tokens.gradients.decorative.gradientGreen,      // #43e97b → #38f9d7
+    tokens.gradients.decorative.gradientSunset,     // #fa709a → #fee140
   ];
 
   // Handle null/undefined text with fallback

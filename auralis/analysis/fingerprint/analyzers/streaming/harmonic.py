@@ -22,7 +22,6 @@ Dependencies:
 """
 
 import logging
-from collections import deque
 from typing import Any
 
 import numpy as np
@@ -33,6 +32,12 @@ from ...utilities.harmonic_ops import HarmonicOperations
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of voiced pitch frames kept for stability computation.
+# Frames are chosen via reservoir sampling (Vitter's Algorithm R) so the
+# sample is uniform across the entire track — not biased toward the tail
+# as a deque(maxlen=N) would be (fixes #2530).
+_PITCH_RESERVOIR_SIZE = 1000
+
 
 class HarmonicRunningStats:
     """Running statistics for harmonic metrics."""
@@ -41,7 +46,9 @@ class HarmonicRunningStats:
         """Initialize harmonic stats."""
         self.count = 0
         self.harmonic_sum = 0.0
-        self.pitch_values: deque[np.floating[Any]] = deque(maxlen=1000)  # Keep recent pitch values
+        # Reservoir sample of voiced pitch frames (uniform, not tail-biased)
+        self._pitch_reservoir: list[float] = []
+        self._pitch_total = 0  # total voiced frames seen across all chunks
         self.chroma_sum = 0.0
 
     def update_harmonic(self, ratio: float) -> None:
@@ -54,15 +61,23 @@ class HarmonicRunningStats:
         self.harmonic_sum += ratio
 
     def update_pitch(self, f0: np.ndarray) -> None:
-        """Update with pitch values.
+        """Update with pitch values using reservoir sampling.
+
+        Vitter's Algorithm R ensures pitch_stability reflects the whole
+        track uniformly rather than only the last N seconds (fixes #2530).
 
         Args:
             f0: Pitch values from YIN detection
         """
-        # Only store voiced frames (f0 > 0)
         voiced_f0 = f0[f0 > 0]
-        if len(voiced_f0) > 0:
-            self.pitch_values.extend(voiced_f0)
+        for v in voiced_f0:
+            self._pitch_total += 1
+            if len(self._pitch_reservoir) < _PITCH_RESERVOIR_SIZE:
+                self._pitch_reservoir.append(float(v))
+            else:
+                j = int(np.random.randint(0, self._pitch_total))
+                if j < _PITCH_RESERVOIR_SIZE:
+                    self._pitch_reservoir[j] = float(v)
 
     def update_chroma(self, energy: float) -> None:
         """Update with chroma energy.
@@ -79,12 +94,12 @@ class HarmonicRunningStats:
         return 0.5
 
     def get_pitch_stability(self) -> float:
-        """Get pitch stability from accumulated values."""
-        if len(self.pitch_values) < 10:
+        """Get pitch stability from uniform reservoir sample across the track."""
+        if len(self._pitch_reservoir) < 10:
             return 0.5
 
         try:
-            voiced_f0 = np.array(list(self.pitch_values))
+            voiced_f0 = np.array(self._pitch_reservoir)
             # Use unified StabilityMetrics with harmonic-specific scale
             return StabilityMetrics.from_values(voiced_f0, scale=10.0)
         except Exception as e:
@@ -104,7 +119,8 @@ class HarmonicRunningStats:
         """Reset stats."""
         self.count = 0
         self.harmonic_sum = 0.0
-        self.pitch_values.clear()
+        self._pitch_reservoir.clear()
+        self._pitch_total = 0
         self.chroma_sum = 0.0
 
 

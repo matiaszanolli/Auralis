@@ -106,10 +106,27 @@ def create_artwork_router(
             if not requested_path.exists():
                 raise HTTPException(status_code=404, detail="Artwork not found")
 
-            # Detect MIME type from file extension; fall back to image/jpeg
+            # Detect MIME type from file extension first, then fall back to magic bytes
+            # so that PNG files with unrecognized/missing extensions are not served
+            # as image/jpeg (fixes #2510).
             media_type, _ = mimetypes.guess_type(str(requested_path))
             if not media_type or not media_type.startswith("image/"):
-                media_type = "image/jpeg"
+                # Read the first 12 bytes to identify the format via magic bytes
+                try:
+                    with open(requested_path, "rb") as _f:
+                        header = _f.read(12)
+                except OSError:
+                    header = b""
+                if header[:8] == b"\x89PNG\r\n\x1a\n":
+                    media_type = "image/png"
+                elif header[:3] == b"\xff\xd8\xff":
+                    media_type = "image/jpeg"
+                elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+                    media_type = "image/webp"
+                elif header[:4] in (b"GIF8", b"GIF9"):
+                    media_type = "image/gif"
+                else:
+                    media_type = "image/jpeg"  # safest fallback for browsers
 
             # Return artwork file with validated path
             return FileResponse(

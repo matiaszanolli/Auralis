@@ -123,7 +123,6 @@ export const TimeDisplay: React.FC<TimeDisplayProps> = ({
         userSelect: 'none',
       }}
       data-testid="time-display"
-      title={displayString}
     >
       {displayString}
     </time>

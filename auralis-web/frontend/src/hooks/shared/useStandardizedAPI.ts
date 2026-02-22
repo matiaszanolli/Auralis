@@ -57,7 +57,7 @@ export interface APICacheStats {
 /**
  * Hook for making standardized API requests
  */
-export function useStandardizedAPI<T = any>(
+export function useStandardizedAPI<T = unknown>(
   endpoint: string,
   options?: {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
