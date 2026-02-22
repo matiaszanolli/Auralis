@@ -222,16 +222,24 @@ class WebSocketMessageType(str, Enum):
 
 
 class WebSocketMessageBase(BaseModel):
-    """Base WebSocket message with type validation."""
+    """Base WebSocket message with type validation.
+
+    extra='allow' preserves protocol envelope fields sent by WebSocketProtocolClient
+    (correlation_id, timestamp, priority, response_required, timeout_seconds) so that
+    request-response correlation does not time out (fixes #2281).
+    """
     type: WebSocketMessageType = Field(description="Message type")
     data: dict[str, Any] | None = Field(default=None, description="Message payload")
 
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "type": "ping",
-            "data": None
+    model_config = ConfigDict(
+        extra='allow',
+        json_schema_extra={
+            "example": {
+                "type": "ping",
+                "data": None
+            }
         }
-    })
+    )
 
 
 class LibraryScanRequest(BaseModel):

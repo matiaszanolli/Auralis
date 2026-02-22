@@ -76,7 +76,7 @@ export interface WebSocketMessage<T = any> {
 export interface PlayerStateData {
   currentTrack: TrackInfo | null;
   isPlaying: boolean;
-  volume: number; // 0.0 - 1.0
+  volume: number; // 0-100 integer scale (matches backend default of 80)
   position: number; // Seconds
   duration: number; // Seconds
   queue: TrackInfo[];
@@ -137,7 +137,7 @@ export interface PositionChangedMessage extends WebSocketMessage {
 export interface VolumeChangedMessage extends WebSocketMessage {
   type: 'volume_changed';
   data: {
-    volume: number; // 0.0 - 1.0
+    volume: number; // 0-100 integer scale (matches PlayerState.volume sent by backend)
   };
 }
 

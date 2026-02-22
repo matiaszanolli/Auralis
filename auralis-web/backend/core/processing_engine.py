@@ -217,7 +217,7 @@ class ProcessingEngine:
         # Sample rate is critical, as are the key tuning parameters
         key_parts: list[str] = [
             mode,
-            str(config.sample_rate),  # type: ignore[attr-defined]
+            str(config.internal_sample_rate),
             config.processing_mode if hasattr(config, 'processing_mode') else 'unknown',
         ]
         return "|".join(key_parts)

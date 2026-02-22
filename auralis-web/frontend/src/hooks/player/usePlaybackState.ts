@@ -83,7 +83,7 @@ export function usePlaybackState(): PlaybackState {
               currentTrack: data.current_track ?? null,
               isPlaying: data.is_playing ?? false,
               volume: data.volume ?? 80,  // 0-100 scale, matches backend default (issue #2251)
-              position: data.position ?? 0,
+              position: data.current_time ?? 0,
               duration: data.duration ?? 0,
               queue: data.queue ?? [],
               queueIndex: data.queue_index ?? -1,
@@ -175,7 +175,7 @@ export function usePlaybackPosition(): { position: number; duration: number } {
     (message) => {
       if (message.type === 'player_state') {
         const msg = message as PlayerStateMessage;
-        setPosition(msg.data.position);
+        setPosition((msg.data as any).current_time ?? msg.data.position ?? 0);
         setDuration(msg.data.duration);
       } else if (message.type === 'position_changed') {
         const msg = message as PositionChangedMessage;

@@ -997,14 +997,19 @@ class AudioStreamController:
         # Convert to base64 for JSON transmission
         import base64
 
-        # Split into smaller frames to avoid WebSocket client 1MB limit
+        # Split into smaller frames to avoid WebSocket client 1MB limit.
         # Each float32 sample = 4 bytes. Base64 encodes to 4/3 size.
-        # Target: ~400KB base64 per message (safe margin below 1MB limit)
+        # Target: ~400KB base64 per message (safe margin below 1MB limit).
+        #
+        # Flatten to 1D first so that len() and slicing always operate on
+        # individual float32 values rather than rows (fixes #2257: for stereo
+        # 2D arrays len() returned frame-count, producing ~800KB frames).
         TARGET_BASE64_SIZE: int = 400 * 1024  # 400 KB
         BYTES_PER_SAMPLE: int = 4  # float32
+        pcm_flat: np.ndarray = pcm_samples.reshape(-1)
         samples_per_frame: int = int(TARGET_BASE64_SIZE / (BYTES_PER_SAMPLE * 4/3))
 
-        total_samples: int = len(pcm_samples)
+        total_samples: int = len(pcm_flat)
         num_frames: int = (total_samples + samples_per_frame - 1) // samples_per_frame
 
         # Bounded producer/consumer: limits Python-heap accumulation when the
@@ -1025,7 +1030,7 @@ class AudioStreamController:
                         break
                     start_idx: int = frame_idx * samples_per_frame
                     end_idx: int = min(start_idx + samples_per_frame, total_samples)
-                    frame_samples: np.ndarray = pcm_samples[start_idx:end_idx]
+                    frame_samples: np.ndarray = pcm_flat[start_idx:end_idx]
 
                     pcm_bytes: bytes = frame_samples.tobytes()
                     pcm_base64: str = base64.b64encode(pcm_bytes).decode("ascii")

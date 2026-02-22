@@ -210,6 +210,9 @@ class PlayerStateManager:
         try:
             while True:
                 await asyncio.sleep(1.0)
+                new_time: float | None = None
+                track_ended: bool = False
+
                 async with self._lock:
                     if self.state.is_playing and self.state.current_track:
                         # Increment position
@@ -221,12 +224,18 @@ class PlayerStateManager:
 
                         # Check if track ended
                         if new_time >= self.state.duration:
-                            asyncio.create_task(self.next_track())
-                            return
+                            track_ended = True
 
-                        # Broadcast position update
-                        state_snapshot = self.state.model_copy(deep=True)
+                if track_ended:
+                    asyncio.create_task(self.next_track())
+                    return
 
-                await self._broadcast_state(state_snapshot)
+                # Broadcast lightweight position update (fixes #2570) — avoids
+                # serialising the full queue + track info every second.
+                if new_time is not None:
+                    await self.ws_manager.broadcast({
+                        "type": "position_changed",
+                        "data": {"position": new_time},
+                    })
         except asyncio.CancelledError:
             pass  # Normal cancellation

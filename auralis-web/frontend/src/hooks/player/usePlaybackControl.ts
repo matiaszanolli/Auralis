@@ -219,8 +219,8 @@ export function usePlaybackControl(): PlaybackControlActions {
     const validPosition = Math.max(0, Math.min(position, playbackState.duration || position));
 
     try {
-      // Backend expects position as query parameter
-      await api.post('/api/player/seek', undefined, { position: validPosition });
+      // Backend expects position in JSON body
+      await api.post('/api/player/seek', { position: validPosition });
       // Server broadcasts 'position_changed' message which updates usePlaybackState
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'SEEK_ERROR', status: 500 } : err as ApiError;

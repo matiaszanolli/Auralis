@@ -189,41 +189,49 @@ def create_system_router(
                         )
                         continue
 
-                    # Use stored enhancement settings as source of truth (fixes #2103)
-                    # This ensures REST API changes are respected
+                    # Use frontend-sent values as primary; fall back to stored settings
+                    # so that UI changes take effect immediately without waiting for a
+                    # REST round-trip (fixes #2256, preserves intent of #2103).
+                    VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
                     enhancement_enabled = True
-                    preset = "adaptive"
-                    intensity = 1.0
 
+                    # Validate and accept the values sent by the frontend
+                    raw_preset = data.get("preset", "")
+                    raw_intensity = data.get("intensity")
+
+                    if raw_preset and isinstance(raw_preset, str) and raw_preset.lower() in VALID_PRESETS:
+                        preset = raw_preset.lower()
+                    else:
+                        preset = None  # Will be resolved from stored settings below
+
+                    if isinstance(raw_intensity, (int, float)) and 0.0 <= raw_intensity <= 1.0:
+                        intensity = float(raw_intensity)
+                    else:
+                        intensity = None  # Will be resolved from stored settings below
+
+                    # Fill any missing/invalid values from stored settings
                     if get_enhancement_settings is not None:
                         settings = get_enhancement_settings()
                         enhancement_enabled = settings.get("enabled", True)
-                        preset = settings.get("preset", "adaptive")
-                        intensity = settings.get("intensity", 1.0)
+                        if preset is None:
+                            preset = settings.get("preset", "adaptive")
+                        if intensity is None:
+                            intensity = settings.get("intensity", 1.0)
                         logger.info(
-                            f"Using stored enhancement settings: enabled={enhancement_enabled}, "
+                            f"Using enhancement settings (frontend+stored): enabled={enhancement_enabled}, "
                             f"preset={preset}, intensity={intensity}"
                         )
                     else:
-                        # Fallback to message data if settings not available
-                        # Validate preset (fixes #2112)
-                        VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
-                        preset = data.get("preset", "adaptive").lower()
-                        if preset not in VALID_PRESETS:
-                            logger.warning(f"Invalid preset '{preset}' in play_enhanced, using 'adaptive'")
+                        # No stored settings — reject if frontend values were invalid
+                        if preset is None:
                             await send_error_response(
                                 websocket,
                                 "invalid_preset",
-                                f"Invalid preset '{preset}'. Must be one of: {', '.join(VALID_PRESETS)}"
+                                f"Invalid preset. Must be one of: {', '.join(VALID_PRESETS)}"
                             )
                             continue
-
-                        # Validate intensity (fixes #2112)
-                        intensity = data.get("intensity", 1.0)
-                        if not isinstance(intensity, (int, float)) or not (0.0 <= intensity <= 1.0):
-                            logger.warning(f"Invalid intensity '{intensity}' in play_enhanced, clamping to 0.0-1.0")
-                            intensity = max(0.0, min(1.0, float(intensity))) if isinstance(intensity, (int, float)) else 1.0
-
+                        if intensity is None:
+                            intensity = 1.0
                         logger.warning("Enhancement settings not available, using validated message data")
 
                     logger.info(

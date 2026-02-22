@@ -340,7 +340,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           streamType: 'enhanced',
           trackId: message.data.track_id,
           totalChunks: message.data.total_chunks,
-          intensity: 1.0, // Will be set by caller
+          intensity: currentTrackInfoRef.current?.intensity ?? 1.0,
         })
       );
 
@@ -813,6 +813,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     return () => {
       // Only stop playback engine, don't call full stopPlayback which cleans up subscriptions
       playbackEngineRef.current?.stopPlayback();
+      // Close AudioContext to release browser audio resources (fixes #2294)
+      audioContextRef.current?.close();
+      audioContextRef.current = null;
       dispatch(resetStreaming('enhanced'));
       // Cancel pending fingerprint status timer to avoid setState on dead component (#2353)
       if (fingerprintTimeoutRef.current !== null) {
