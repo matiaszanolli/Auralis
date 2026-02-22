@@ -10,6 +10,7 @@ Replaces the Tkinter GUI with a professional web interface.
 :license: GPLv3, see LICENSE for more details.
 """
 
+import html as html_module
 import logging
 import os
 import sys
@@ -187,7 +188,7 @@ else:
             <body>
                 <h1>🎵 Auralis Web Backend</h1>
                 <p>FastAPI backend is running!</p>
-                <p>Frontend not found at: {frontend_path}</p>
+                <p>Frontend not found at: {html_module.escape(str(frontend_path))}</p>
                 <p><a href="/api/docs">View API Documentation</a></p>
             </body>
         </html>

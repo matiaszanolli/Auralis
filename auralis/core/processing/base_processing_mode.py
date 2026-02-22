@@ -29,6 +29,15 @@ Migration Timeline:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import warnings
+
+warnings.warn(
+    "auralis.core.processing.base_processing_mode is deprecated. "
+    "Import from auralis.core.processing.base instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 # Re-export all classes from the modular base package
 from .base import (
     AudioMeasurement,

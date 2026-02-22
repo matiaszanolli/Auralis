@@ -78,19 +78,6 @@ def adjust_stereo_width(stereo_audio: np.ndarray, width_factor: float) -> np.nda
     return mid_side_decode(mid, adjusted_side)
 
 
-def _linkwitz_riley_4(freq: float, btype: str) -> np.ndarray:
-    """
-    Create 4th-order Linkwitz-Riley filter (LR4, 24dB/octave).
-
-    LR4 filters are two cascaded 2nd-order Butterworth filters.
-    They have -6dB at crossover and sum flat when combined.
-    """
-    # Two cascaded 2nd-order Butterworth = LR4
-    sos1 = butter(2, freq, btype=btype, output='sos')
-    sos2 = butter(2, freq, btype=btype, output='sos')
-    return np.vstack([sos1, sos2])
-
-
 def adjust_stereo_width_multiband(
     stereo_audio: np.ndarray,
     width_factor: float,

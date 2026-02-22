@@ -76,15 +76,18 @@ class SimpleChunkCache:
     # This invalidates all cached chunks when we fix bugs in extraction/processing
     CACHE_VERSION = 3  # v3: Added _extract_chunk_segment to process_chunk for proper overlap handling
 
-    def __init__(self, max_chunks: int = 50) -> None:
+    def __init__(self, max_chunks: int = 50, max_memory_bytes: int = 512 * 1024 * 1024) -> None:
         """
         Initialize chunk cache.
 
         Args:
             max_chunks: Maximum number of chunks to keep in memory
+            max_memory_bytes: Maximum total memory for cached audio (default 512 MB)
         """
         self.cache: OrderedDict[str, tuple[np.ndarray, int]] = OrderedDict()
         self.max_chunks: int = max_chunks
+        self._max_memory_bytes: int = max_memory_bytes
+        self._current_bytes: int = 0
         self._lock = threading.Lock()  # Protects cache from concurrent access (fixes #2436)
 
     def _make_key(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> str:
@@ -128,19 +131,27 @@ class SimpleChunkCache:
         with self._lock:
             key = self._make_key(track_id, chunk_idx, preset, intensity)
 
-            # Remove oldest if at capacity
-            if len(self.cache) >= self.max_chunks:
-                removed_key = next(iter(self.cache))
-                del self.cache[removed_key]
-                logger.debug(f"Cache evicted oldest chunk to make space")
+            chunk_bytes = audio.nbytes
+
+            # Evict by count limit
+            while len(self.cache) >= self.max_chunks:
+                removed_key, (removed_audio, _) = self.cache.popitem(last=False)
+                self._current_bytes -= removed_audio.nbytes
+
+            # Evict by memory limit (#2084)
+            while self._current_bytes + chunk_bytes > self._max_memory_bytes and self.cache:
+                removed_key, (removed_audio, _) = self.cache.popitem(last=False)
+                self._current_bytes -= removed_audio.nbytes
 
             self.cache[key] = (audio, sample_rate)
+            self._current_bytes += chunk_bytes
             logger.debug(f"✅ Cached chunk {chunk_idx}, preset {preset}, cache size: {len(self.cache)}")
 
     def clear(self) -> None:
         """Clear all cached chunks."""
         with self._lock:
             self.cache.clear()
+            self._current_bytes = 0
 
     def invalidate_chunk(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> None:
         """Remove a specific chunk from cache after a processing failure.
@@ -194,6 +205,7 @@ class AudioStreamController:
 
         # NEW (Phase 7.3): Fingerprint generator for on-demand generation
         self.fingerprint_generator: FingerprintGenerator | None = None
+        self.fingerprint_init_error: str | None = None
         if self._get_repository_factory:
             try:
                 # Get session factory from the first repository factory call
@@ -205,8 +217,10 @@ class AudioStreamController:
                     )
                     logger.info("✅ FingerprintGenerator initialized for on-demand fingerprint generation")
                 else:
-                    logger.warning("RepositoryFactory missing session_factory attribute, fingerprint generation unavailable")
+                    self.fingerprint_init_error = "RepositoryFactory missing session_factory attribute"
+                    logger.warning(f"Fingerprint generation unavailable: {self.fingerprint_init_error}")
             except Exception as e:
+                self.fingerprint_init_error = str(e)
                 logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
 
         self.active_streams: dict[int, Any] = {}  # track_id -> streaming task
@@ -726,9 +740,10 @@ class AudioStreamController:
                 with sf.SoundFile(filepath) as audio_file:
                     audio_file.seek(start)
                     # always_2d=True: mono returned as (N, 1) matching stereo shape
-                    # fill_value=0.0: pads last chunk automatically when fewer frames remain
+                    # Do NOT use fill_value: send the last chunk at its actual
+                    # length to avoid appending silence (#2124).
                     return audio_file.read(
-                        frames=frames, dtype='float32', always_2d=True, fill_value=0.0
+                        frames=frames, dtype='float32', always_2d=True
                     )
 
             # Stream chunks one at a time without processing

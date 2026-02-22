@@ -219,6 +219,14 @@ class MigrationManager:
             with open(migration_path) as f:
                 sql = f.read()
 
+            # Validate migration SQL before execution (#2083)
+            _DANGEROUS_KEYWORDS = {'DROP TABLE', 'DROP DATABASE', 'TRUNCATE', 'DELETE FROM'}
+            sql_upper = sql.upper()
+            for keyword in _DANGEROUS_KEYWORDS:
+                if keyword in sql_upper:
+                    logger.error(f"Migration {migration_file} contains dangerous operation: {keyword}")
+                    return False
+
             # Execute migration in a transaction
             with self.engine.begin() as conn:
                 # Split by semicolons and execute each statement
