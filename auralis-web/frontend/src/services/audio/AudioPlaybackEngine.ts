@@ -4,7 +4,7 @@
  * Manages real-time playback of PCM samples from circular buffer via Web Audio API.
  * Features:
  * - Efficient sample pulling from PCMStreamBuffer
- * - ScriptProcessorNode + AudioWorklet fallback
+ * - AudioWorklet (off-main-thread) with ScriptProcessorNode fallback
  * - Volume and gain control
  * - Pause/resume functionality
  * - Buffer underrun detection
@@ -54,6 +54,9 @@ export class AudioPlaybackEngine {
   private buffer: PCMStreamBuffer;
   private gainNode: GainNode;
   private scriptNode: ScriptProcessorNode | null = null;
+  private workletNode: AudioWorkletNode | null = null;
+  private feedInterval: ReturnType<typeof setInterval> | null = null;
+  private workletReady: boolean = false;
   private state: PlaybackState = 'idle';
   private volume: number = 1.0;
 
@@ -147,8 +150,11 @@ export class AudioPlaybackEngine {
         }
       }
 
-      // Create ScriptProcessorNode for sample pulling
-      this.createScriptProcessor();
+      // Try AudioWorklet (off-main-thread), fall back to ScriptProcessorNode
+      if (!this.workletReady) {
+        this.workletReady = await this.initWorklet();
+      }
+      this.createProcessor();
 
       // Record timing
       this.audioContextStartTime = this.audioContext.currentTime;
@@ -175,11 +181,8 @@ export class AudioPlaybackEngine {
     // Record pause time for resuming
     this.pausedTime = this.getCurrentPlaybackTime();
 
-    // Disconnect script processor
-    if (this.scriptNode) {
-      this.scriptNode.disconnect();
-      this.scriptNode = null;
-    }
+    // Disconnect processor (worklet or script)
+    this.disconnectProcessor();
 
     this.setState('paused');
     console.log('[AudioPlaybackEngine] Playback paused at', this.pausedTime.toFixed(2), 's');
@@ -195,7 +198,7 @@ export class AudioPlaybackEngine {
 
     // Resume from paused time
     this.playbackStartTime = Date.now() - (this.pausedTime * 1000);
-    this.createScriptProcessor();
+    this.createProcessor();
     this.setState('playing');
     console.log('[AudioPlaybackEngine] Playback resumed from', this.pausedTime.toFixed(2), 's');
   }
@@ -204,10 +207,7 @@ export class AudioPlaybackEngine {
    * Stop playback completely
    */
   stopPlayback(): void {
-    if (this.scriptNode) {
-      this.scriptNode.disconnect();
-      this.scriptNode = null;
-    }
+    this.disconnectProcessor();
 
     this.pausedTime = 0;
     this.audioContextStartTime = 0;
@@ -301,8 +301,142 @@ export class AudioPlaybackEngine {
   // ========================================================================
 
   /**
-   * Create ScriptProcessorNode for sample pulling
-   * This is the audio callback that pulls samples from the buffer
+   * Disconnect active processor (worklet or script) and stop feeding
+   */
+  private disconnectProcessor(): void {
+    this.stopFeeding();
+    if (this.workletNode) {
+      this.workletNode.port.postMessage({ command: 'clear' });
+      this.workletNode.disconnect();
+      this.workletNode = null;
+    }
+    if (this.scriptNode) {
+      this.scriptNode.disconnect();
+      this.scriptNode = null;
+    }
+  }
+
+  /**
+   * Create the appropriate processor (AudioWorklet or ScriptProcessorNode)
+   */
+  private createProcessor(): void {
+    if (this.workletReady) {
+      this.createWorkletNode();
+    } else {
+      this.createScriptProcessor();
+    }
+  }
+
+  /**
+   * Load AudioWorklet module (one-time initialization)
+   * @returns true if AudioWorklet is available and module loaded
+   */
+  private async initWorklet(): Promise<boolean> {
+    try {
+      if (!this.audioContext.audioWorklet) {
+        return false;
+      }
+      await this.audioContext.audioWorklet.addModule('/audio-worklet-processor.js');
+      console.log('[AudioPlaybackEngine] AudioWorklet module loaded successfully');
+      return true;
+    } catch (error) {
+      console.warn('[AudioPlaybackEngine] AudioWorklet not available, using ScriptProcessorNode fallback:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Create AudioWorkletNode for off-main-thread audio processing (#2347)
+   * Falls back to ScriptProcessorNode on failure.
+   */
+  private createWorkletNode(): void {
+    if (this.workletNode) return;
+
+    try {
+      this.workletNode = new AudioWorkletNode(
+        this.audioContext,
+        'auralis-playback-processor',
+        { outputChannelCount: [2] }
+      );
+
+      this.workletNode.port.onmessage = (event: MessageEvent) => {
+        const { data } = event;
+        if (data.type === 'underrun') {
+          this.bufferUnderrunCount++;
+          this.onBufferUnderrun();
+        } else if (data.type === 'samplesPlayed') {
+          this.samplesPlayed = data.count;
+        }
+      };
+
+      this.workletNode.connect(this.gainNode);
+      this.startFeeding();
+
+      console.log('[AudioPlaybackEngine] AudioWorkletNode created (off-main-thread processing)');
+    } catch (error) {
+      console.error('[AudioPlaybackEngine] Failed to create AudioWorkletNode, falling back:', error);
+      this.workletReady = false;
+      this.createScriptProcessor();
+    }
+  }
+
+  /**
+   * Push samples from PCMStreamBuffer to AudioWorklet at regular intervals
+   */
+  private startFeeding(): void {
+    if (this.feedInterval) return;
+
+    const feedChunkSize = this.bufferSize * 2; // stereo interleaved
+
+    this.feedInterval = setInterval(() => {
+      if (!this.workletNode || this.state !== 'playing') return;
+
+      const bufferChannels = this.buffer.getMetadata().channels || 2;
+      const sampleRate = this.buffer.getMetadata().sampleRate || 44100;
+      const available = this.buffer.getAvailableSamples();
+      const bufferedSeconds = available / (sampleRate * bufferChannels);
+
+      // Buffer health management (mirrors ScriptProcessorNode approach)
+      if (!this.isBufferPaused && bufferedSeconds < this.lowWaterMarkSeconds) {
+        this.isBufferPaused = true;
+        console.warn(
+          `[AudioPlaybackEngine] Buffer critically low (${bufferedSeconds.toFixed(1)}s). Pausing feed...`
+        );
+        return;
+      }
+
+      if (this.isBufferPaused) {
+        if (bufferedSeconds >= this.highWaterMarkSeconds) {
+          this.isBufferPaused = false;
+          console.log(
+            `[AudioPlaybackEngine] Buffer recovered (${bufferedSeconds.toFixed(1)}s). Resuming feed.`
+          );
+        } else {
+          return;
+        }
+      }
+
+      // Read and send samples to worklet
+      const samples = this.buffer.read(feedChunkSize);
+      if (samples.length > 0) {
+        this.workletNode!.port.postMessage({ samples });
+      }
+    }, 50);
+  }
+
+  /**
+   * Stop feeding samples to AudioWorklet
+   */
+  private stopFeeding(): void {
+    if (this.feedInterval) {
+      clearInterval(this.feedInterval);
+      this.feedInterval = null;
+    }
+  }
+
+  /**
+   * Create ScriptProcessorNode for sample pulling (legacy fallback)
+   * Used when AudioWorklet is not available.
    */
   private createScriptProcessor(): void {
     if (this.scriptNode) {
@@ -321,7 +455,7 @@ export class AudioPlaybackEngine {
       // Connect to gain node
       this.scriptNode.connect(this.gainNode);
 
-      console.log('[AudioPlaybackEngine] ScriptProcessorNode created with buffer size:', this.bufferSize);
+      console.log('[AudioPlaybackEngine] ScriptProcessorNode created (legacy fallback) with buffer size:', this.bufferSize);
     } catch (error) {
       console.error('[AudioPlaybackEngine] Failed to create ScriptProcessorNode:', error);
       this.setState('error');

@@ -282,16 +282,36 @@ const QueueTrackItem: React.FC<QueueTrackItemProps> = ({
   onHover,
   disabled,
 }) => {
+  const [isFocused, setIsFocused] = React.useState(false);
+  const showActions = isHovered || isFocused;
+
   return (
     <li
       style={{
         ...styles.trackItem,
         ...(isCurrentTrack ? styles.trackItemCurrent : {}),
         ...(isDragging ? styles.trackItemDragging : {}),
-        ...(isHovered ? styles.trackItemHovered : {}),
+        ...((isHovered || isFocused) ? styles.trackItemHovered : {}),
       }}
+      tabIndex={0}
+      role="option"
+      aria-selected={isCurrentTrack}
+      aria-label={`${track.title} by ${track.artist}, ${formatDuration(track.duration)}`}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={(e) => {
+        // Keep focused if focus moves to the remove button inside
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          setIsFocused(false);
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault();
+          if (!disabled) onRemove();
+        }
+      }}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -316,8 +336,8 @@ const QueueTrackItem: React.FC<QueueTrackItemProps> = ({
       {/* Duration */}
       <span style={styles.trackDuration}>{formatDuration(track.duration)}</span>
 
-      {/* Remove Button (visible on hover) */}
-      {isHovered && (
+      {/* Remove Button (visible on hover or focus for keyboard users) */}
+      {showActions && (
         <button
           style={styles.removeButton}
           onClick={(e) => {

@@ -235,6 +235,107 @@ const SearchableLibrary = () => {
   );
 };
 
+// Mock modal component for focus trap / Escape key tests (#2557)
+const ModalComponent = () => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const firstFocusRef = React.useRef<HTMLButtonElement>(null);
+  const lastFocusRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    if (isOpen && firstFocusRef.current) {
+      firstFocusRef.current.focus();
+    }
+  }, [isOpen]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+      triggerRef.current?.focus();
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      if (e.shiftKey && document.activeElement === firstFocusRef.current) {
+        e.preventDefault();
+        lastFocusRef.current?.focus();
+      } else if (!e.shiftKey && document.activeElement === lastFocusRef.current) {
+        e.preventDefault();
+        firstFocusRef.current?.focus();
+      }
+    }
+  };
+
+  return (
+    <div>
+      <button ref={triggerRef} onClick={() => setIsOpen(true)} data-testid="modal-trigger">
+        Open Modal
+      </button>
+      {isOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Test modal"
+          onKeyDown={handleKeyDown}
+          data-testid="modal"
+        >
+          <h2>Modal Title</h2>
+          <button ref={firstFocusRef} data-testid="modal-first-btn">First Button</button>
+          <input data-testid="modal-input" placeholder="Type here" />
+          <button ref={lastFocusRef} data-testid="modal-last-btn">Last Button</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Mock component with async results and aria-live announcements
+const AsyncSearchComponent = () => {
+  const [query, setQuery] = React.useState('');
+  const [results, setResults] = React.useState<string[]>([]);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!query) {
+      setResults([]);
+      return;
+    }
+
+    setLoading(true);
+    const timer = setTimeout(() => {
+      // Simulate async search results
+      const mockResults = ['Result A', 'Result B', 'Result C'].filter(r =>
+        r.toLowerCase().includes(query.toLowerCase())
+      );
+      setResults(mockResults);
+      setLoading(false);
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  return (
+    <div>
+      <input
+        type="search"
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        aria-label="Search"
+        data-testid="async-search"
+      />
+      {loading && <div data-testid="loading-indicator" aria-busy="true">Searching...</div>}
+      <div aria-live="polite" aria-atomic="true" data-testid="result-announcement">
+        {loading ? 'Searching...' : `${results.length} results found`}
+      </div>
+      <ul role="listbox" aria-label="Search results">
+        {results.map((r, i) => (
+          <li key={i} role="option" aria-selected={false}>{r}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 describe('Accessibility Integration Tests', () => {
   describe('Keyboard Accessibility', () => {
     it('should navigate tracks with arrow keys', async () => {
@@ -351,6 +452,134 @@ describe('Accessibility Integration Tests', () => {
       // Check results list has proper role and label
       const resultsList = screen.getByRole('list', { name: 'Track results' });
       expect(resultsList).toBeInTheDocument();
+    });
+  });
+
+  // === New tests for #2557: Focus traps, keyboard flows, announcements ===
+
+  describe('Focus Management', () => {
+    it('should move focus to first element when modal opens', async () => {
+      render(<ModalComponent />);
+
+      const trigger = screen.getByTestId('modal-trigger');
+      await userEvent.click(trigger);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('modal-first-btn')).toHaveFocus();
+      });
+    });
+
+    it('should close modal and restore focus on Escape key', async () => {
+      render(<ModalComponent />);
+
+      const trigger = screen.getByTestId('modal-trigger');
+      await userEvent.click(trigger);
+
+      // Modal should be open with focus on first button
+      await waitFor(() => {
+        expect(screen.getByTestId('modal')).toBeInTheDocument();
+      });
+
+      // Press Escape
+      await userEvent.keyboard('{Escape}');
+
+      // Modal should close
+      await waitFor(() => {
+        expect(screen.queryByTestId('modal')).not.toBeInTheDocument();
+      });
+
+      // Focus should return to trigger element
+      expect(trigger).toHaveFocus();
+    });
+
+    it('should have proper dialog ARIA attributes', async () => {
+      render(<ModalComponent />);
+
+      await userEvent.click(screen.getByTestId('modal-trigger'));
+
+      const modal = await screen.findByTestId('modal');
+      expect(modal).toHaveAttribute('role', 'dialog');
+      expect(modal).toHaveAttribute('aria-modal', 'true');
+      expect(modal).toHaveAttribute('aria-label', 'Test modal');
+    });
+  });
+
+  describe('Focus Trap', () => {
+    it('should trap Tab within modal (forward wrap)', async () => {
+      render(<ModalComponent />);
+
+      await userEvent.click(screen.getByTestId('modal-trigger'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('modal-first-btn')).toHaveFocus();
+      });
+
+      // Tab to input
+      await userEvent.tab();
+      expect(screen.getByTestId('modal-input')).toHaveFocus();
+
+      // Tab to last button
+      await userEvent.tab();
+      expect(screen.getByTestId('modal-last-btn')).toHaveFocus();
+
+      // Tab past last button should wrap to first button
+      await userEvent.tab();
+      expect(screen.getByTestId('modal-first-btn')).toHaveFocus();
+    });
+
+    it('should trap Shift+Tab within modal (backward wrap)', async () => {
+      render(<ModalComponent />);
+
+      await userEvent.click(screen.getByTestId('modal-trigger'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('modal-first-btn')).toHaveFocus();
+      });
+
+      // Shift+Tab from first element should wrap to last
+      await userEvent.tab({ shift: true });
+      expect(screen.getByTestId('modal-last-btn')).toHaveFocus();
+    });
+  });
+
+  describe('Aria-Live Announcements', () => {
+    it('should update aria-live region text when async results load', async () => {
+      render(<AsyncSearchComponent />);
+
+      const searchInput = screen.getByTestId('async-search');
+      const announcement = screen.getByTestId('result-announcement');
+
+      // Initial state
+      expect(announcement).toHaveTextContent('0 results found');
+
+      // Type a query
+      await userEvent.type(searchInput, 'result');
+
+      // Wait for async results to load and aria-live region to update
+      await waitFor(() => {
+        expect(announcement).toHaveTextContent('3 results found');
+      });
+    });
+
+    it('should have aria-live="polite" on result announcement region', () => {
+      render(<AsyncSearchComponent />);
+
+      const announcement = screen.getByTestId('result-announcement');
+      expect(announcement).toHaveAttribute('aria-live', 'polite');
+      expect(announcement).toHaveAttribute('aria-atomic', 'true');
+    });
+
+    it('should use listbox role with option items for search results', async () => {
+      render(<AsyncSearchComponent />);
+
+      await userEvent.type(screen.getByTestId('async-search'), 'result');
+
+      await waitFor(() => {
+        const listbox = screen.getByRole('listbox', { name: 'Search results' });
+        expect(listbox).toBeInTheDocument();
+        const options = screen.getAllByRole('option');
+        expect(options.length).toBe(3);
+      });
     });
   });
 });
