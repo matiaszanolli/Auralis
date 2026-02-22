@@ -38,6 +38,9 @@ class FeatureExtractor:
         self.n_mfcc = 13
         self.n_chroma = 12
         self.n_tonnetz = 6
+        # Cache mel filterbank — it depends only on n_mfcc, n_fft, and
+        # sample_rate which are fixed for the lifetime of this instance.
+        self._mel_filterbank: list[np.ndarray] = self._create_mel_filterbank(self.n_mfcc, 2049)
 
     def extract_features(self, audio: np.ndarray) -> AudioFeatures:
         """
@@ -256,7 +259,7 @@ class FeatureExtractor:
         spectrum = np.fft.fft(audio[:4096])
         magnitude = np.abs(spectrum[:2049])
 
-        mel_filters = self._create_mel_filterbank(self.n_mfcc, 2049)
+        mel_filters = self._mel_filterbank
 
         mel_energies = []
         for filt in mel_filters:

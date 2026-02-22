@@ -24,7 +24,6 @@ import aiohttp
 logger = logging.getLogger(__name__)
 
 # Trusted domains for artwork downloads (fixes #2416: SSRF via unvalidated URL).
-# Only apple/iTunes domains are allowed.
 _TRUSTED_ARTWORK_DOMAINS = frozenset({
     "is1-ssl.mzstatic.com",
     "is2-ssl.mzstatic.com",
@@ -32,7 +31,17 @@ _TRUSTED_ARTWORK_DOMAINS = frozenset({
     "is4-ssl.mzstatic.com",
     "is5-ssl.mzstatic.com",
     "mzstatic.com",
+    "coverartarchive.org",
+    "archive.org",
+    "ia800.us.archive.org",  # CAA image CDN hosts
+    "ia801.us.archive.org",
+    "ia802.us.archive.org",
+    "ia803.us.archive.org",
+    "ia804.us.archive.org",
 })
+
+# Maximum artwork download size (5 MB) to prevent memory exhaustion.
+_MAX_ARTWORK_BYTES = 5 * 1024 * 1024
 
 
 def _validate_artwork_url(url: str) -> bool:
@@ -49,10 +58,13 @@ def _validate_artwork_url(url: str) -> bool:
     """
     try:
         parsed = urlparse(url)
-        return (
-            parsed.scheme in ("https",) and
-            parsed.hostname and
-            parsed.hostname in _TRUSTED_ARTWORK_DOMAINS
+        if parsed.scheme not in ("https", "http") or not parsed.hostname:
+            return False
+        # Allow exact matches or subdomains of trusted domains
+        hostname = parsed.hostname
+        return any(
+            hostname == domain or hostname.endswith(f".{domain}")
+            for domain in _TRUSTED_ARTWORK_DOMAINS
         )
     except Exception:
         return False
@@ -169,8 +181,20 @@ class ArtworkDownloader:
                     if resp.status != 200:
                         return None
 
-                    # Save artwork
-                    artwork_data = await resp.read()
+                    # Validate final URL after redirects (SSRF mitigation #2576)
+                    if not _validate_artwork_url(str(resp.url)):
+                        logger.warning(f"Rejecting untrusted MusicBrainz redirect: {resp.url!r}")
+                        return None
+
+                    # Size-limited read to prevent memory exhaustion (#2576)
+                    content_length = resp.content_length or 0
+                    if content_length > _MAX_ARTWORK_BYTES:
+                        logger.warning(f"MusicBrainz artwork too large: {content_length} bytes")
+                        return None
+                    artwork_data = await resp.content.read(_MAX_ARTWORK_BYTES + 1)
+                    if len(artwork_data) > _MAX_ARTWORK_BYTES:
+                        logger.warning(f"MusicBrainz artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")
+                        return None
                     return self._save_artwork(artwork_data, album_id, "jpg")
 
         except Exception as e:
@@ -227,12 +251,19 @@ class ArtworkDownloader:
                         logger.warning(f"Rejecting untrusted artwork URL: {artwork_url!r}")
                         return None
 
-                # Download artwork
+                # Download artwork (size-limited, #2576)
                 async with session.get(artwork_url) as resp:
                     if resp.status != 200:
                         return None
 
-                    artwork_data = await resp.read()
+                    content_length = resp.content_length or 0
+                    if content_length > _MAX_ARTWORK_BYTES:
+                        logger.warning(f"iTunes artwork too large: {content_length} bytes")
+                        return None
+                    artwork_data = await resp.content.read(_MAX_ARTWORK_BYTES + 1)
+                    if len(artwork_data) > _MAX_ARTWORK_BYTES:
+                        logger.warning(f"iTunes artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")
+                        return None
                     return self._save_artwork(artwork_data, album_id, "jpg")
 
         except Exception as e:

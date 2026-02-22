@@ -43,8 +43,10 @@ class DynamicRangeAnalyzer:
             Dictionary with dynamic range metrics
         """
         if audio_data.ndim == 2:
-            # For stereo, analyze sum of channels
-            audio_mono = np.sum(audio_data, axis=1) / 2
+            # For stereo, ravel all channel samples to compute true stereo RMS
+            # instead of averaging channels first (which underestimates by up
+            # to 3 dB for uncorrelated content — see #2579).
+            audio_mono = audio_data.ravel()
         else:
             audio_mono = audio_data
 

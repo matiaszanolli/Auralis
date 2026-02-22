@@ -41,11 +41,10 @@ class BadRequestError(HTTPException):
 class InternalServerError(HTTPException):
     """Internal server error (500 Internal Server Error)"""
     def __init__(self, operation: str, error: Exception | None = None) -> None:
+        detail = f"Failed to {operation}"
         if error:
-            detail = f"Failed to {operation}: {str(error)}"
             logger.error(f"Internal error during {operation}: {error}", exc_info=True)
         else:
-            detail = f"Failed to {operation}"
             logger.error(f"Internal error during {operation}")
         super().__init__(status_code=500, detail=detail)
 

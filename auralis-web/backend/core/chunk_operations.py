@@ -285,9 +285,11 @@ class ChunkOperations:
         chunk1_tail = chunk1[-actual_overlap:]
         chunk2_head = chunk2[:actual_overlap]
 
-        # Create fade curves
-        fade_out = np.linspace(1.0, 0.0, actual_overlap)
-        fade_in = np.linspace(0.0, 1.0, actual_overlap)
+        # Create equal-power fade curves (sin²/cos²) to avoid ~3 dB energy dip
+        # at crossfade midpoint — consistent with chunked_processor.py (#2578).
+        t = np.linspace(0.0, np.pi / 2, actual_overlap)
+        fade_out = np.cos(t) ** 2
+        fade_in = np.sin(t) ** 2
 
         # Handle stereo
         if chunk1_tail.ndim == 2:

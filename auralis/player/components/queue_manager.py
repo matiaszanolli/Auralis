@@ -98,6 +98,31 @@ class QueueManager:
             self.tracks.clear()
             self.current_index = -1
 
+    def _remove_track_unlocked(self, index: int) -> bool:
+        """
+        Remove a track at the specified index (caller must hold self._lock).
+
+        Args:
+            index: Index of track to remove
+
+        Returns:
+            True if track was removed, False if index was invalid
+        """
+        if 0 <= index < len(self.tracks):
+            self.tracks.pop(index)
+
+            # Adjust current_index if necessary
+            if index < self.current_index:
+                self.current_index -= 1
+            elif index == self.current_index:
+                # If we removed the current track, stay at the same index
+                # (which now points to the next track)
+                if self.current_index >= len(self.tracks):
+                    self.current_index = len(self.tracks) - 1
+
+            return True
+        return False
+
     def remove_track(self, index: int) -> bool:
         """
         Remove a track at the specified index
@@ -109,20 +134,7 @@ class QueueManager:
             True if track was removed, False if index was invalid
         """
         with self._lock:
-            if 0 <= index < len(self.tracks):
-                self.tracks.pop(index)
-
-                # Adjust current_index if necessary
-                if index < self.current_index:
-                    self.current_index -= 1
-                elif index == self.current_index:
-                    # If we removed the current track, stay at the same index
-                    # (which now points to the next track)
-                    if self.current_index >= len(self.tracks):
-                        self.current_index = len(self.tracks) - 1
-
-                return True
-            return False
+            return self._remove_track_unlocked(index)
 
     def remove_tracks(self, indices: list[int]) -> int:
         """
@@ -134,14 +146,13 @@ class QueueManager:
         Returns:
             Number of tracks actually removed
         """
-        # Hold the lock for the entire batch to prevent interleaving
         with self._lock:
             # Sort indices in reverse order to avoid index shifting issues
             sorted_indices = sorted(set(indices), reverse=True)
             removed_count = 0
 
             for index in sorted_indices:
-                if self.remove_track(index):
+                if self._remove_track_unlocked(index):
                     removed_count += 1
 
             return removed_count

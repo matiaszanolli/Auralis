@@ -216,10 +216,19 @@ class GaplessPlaybackEngine:
 
         # Check for prebuffered track — validate it matches the expected next track
         # before using it (fixes #2303: queue modified after prebuffering started).
-        audio_data, sample_rate = self.get_prebuffered_track()
-
+        # Read both audio_data and next_track_info in a single lock scope to
+        # prevent TOCTOU: invalidate_prebuffer() could clear the buffer between
+        # two separate lock acquisitions (#2589).
         with self.update_lock:
-            prebuffered_info = self.next_track_info
+            if (self.next_track_buffer is not None and
+                    self.next_track_info is not None):
+                audio_data = self.next_track_buffer
+                sample_rate = self.next_track_sample_rate
+                prebuffered_info = self.next_track_info
+            else:
+                audio_data = None
+                sample_rate = None
+                prebuffered_info = None
         prebuffer_matches = (
             audio_data is not None
             and sample_rate is not None

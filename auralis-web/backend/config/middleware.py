@@ -43,6 +43,26 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
         return cast(Response, response)
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to add browser security headers to all responses.
+
+    Sets standard headers to prevent clickjacking, MIME-type sniffing,
+    and other common browser-based attacks.
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
+        response = await call_next(request)
+
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+
+        return cast(Response, response)
+
+
 def setup_middleware(app: FastAPI) -> None:
     """
     Add middleware to FastAPI application.
@@ -56,6 +76,9 @@ def setup_middleware(app: FastAPI) -> None:
     """
     # Add no-cache middleware first (innermost in processing order)
     app.add_middleware(NoCacheMiddleware)
+
+    # Security headers middleware
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # CORS middleware for cross-origin requests
     # Allow multiple dev server ports since Vite auto-increments if port is in use
@@ -80,4 +103,4 @@ def setup_middleware(app: FastAPI) -> None:
         allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "X-Session-Id"],
     )
 
-    logger.debug("✅ Middleware configured: NoCacheMiddleware, CORSMiddleware")
+    logger.debug("✅ Middleware configured: NoCacheMiddleware, SecurityHeadersMiddleware, CORSMiddleware")

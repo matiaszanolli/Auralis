@@ -33,6 +33,14 @@ class CompressorSettings:
     enable_lookahead: bool = True
     lookahead_ms: float = 5.0
 
+    def __post_init__(self) -> None:
+        self.threshold_db = max(-80.0, min(0.0, self.threshold_db))
+        self.ratio = max(1.0, min(100.0, self.ratio))
+        self.attack_ms = max(0.01, min(500.0, self.attack_ms))
+        self.release_ms = max(1.0, min(5000.0, self.release_ms))
+        self.knee_db = max(0.0, min(24.0, self.knee_db))
+        self.lookahead_ms = max(0.0, min(50.0, self.lookahead_ms))
+
 
 @dataclass
 class LimiterSettings:
@@ -42,6 +50,15 @@ class LimiterSettings:
     lookahead_ms: float = 5.0
     isr_enabled: bool = True  # Inter-sample peak detection
     oversampling: int = 4
+
+    def __post_init__(self) -> None:
+        self.threshold_db = max(-40.0, min(0.0, self.threshold_db))
+        self.release_ms = max(1.0, min(2000.0, self.release_ms))
+        self.lookahead_ms = max(0.0, min(50.0, self.lookahead_ms))
+        # Oversampling must be a power of 2 in [1, 8]
+        valid_oversampling = {1, 2, 4, 8}
+        if self.oversampling not in valid_oversampling:
+            self.oversampling = min(valid_oversampling, key=lambda x: abs(x - self.oversampling))
 
 
 @dataclass

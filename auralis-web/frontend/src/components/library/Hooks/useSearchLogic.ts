@@ -89,7 +89,7 @@ export const useSearchLogic = (
       }
 
       // Search albums
-      const albumsResponse = await fetch('/api/library/albums');
+      const albumsResponse = await fetch('/api/albums');
       if (albumsResponse.ok) {
         const albumsData = await albumsResponse.json();
         const matchingAlbums = albumsData.albums
@@ -109,7 +109,7 @@ export const useSearchLogic = (
       }
 
       // Search artists
-      const artistsResponse = await fetch('/api/library/artists');
+      const artistsResponse = await fetch('/api/artists');
       if (artistsResponse.ok) {
         const artistsData = await artistsResponse.json();
         const matchingArtists = artistsData.artists
