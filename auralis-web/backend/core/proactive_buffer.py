@@ -1,7 +1,7 @@
 """
 Proactive Buffering for Instant Preset Switching
 
-Buffers first 3 chunks (90 seconds) for all presets when track loads.
+Buffers first 3 chunks (45 seconds) for all presets when track loads.
 This enables instant preset switching with zero wait time.
 """
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Available presets for buffering
 AVAILABLE_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
-PRELOAD_CHUNKS = 3  # Buffer first 90 seconds (3 x 30s chunks)
+PRELOAD_CHUNKS = 3  # Buffer first 45 seconds (3 x 15s chunks)
 
 
 async def buffer_presets_for_track(
@@ -53,6 +53,7 @@ async def buffer_presets_for_track(
 
         # Process each preset
         for preset in AVAILABLE_PRESETS:
+            processor = None
             try:
                 # Create processor for this preset
                 processor = ChunkedAudioProcessor(
@@ -66,7 +67,6 @@ async def buffer_presets_for_track(
                 for chunk_idx in range(chunks_to_buffer):
                     try:
                         # Check if already cached
-                        f"{track_id}_{preset}_{intensity}_{chunk_idx}"
                         chunk_path = processor._get_chunk_path(chunk_idx)
 
                         if chunk_path.exists():
@@ -88,7 +88,13 @@ async def buffer_presets_for_track(
 
             except Exception as preset_error:
                 logger.error(f"Failed to initialize processor for {preset}: {preset_error}")
-                continue
+            finally:
+                # Release processor resources (#2567)
+                if processor is not None and hasattr(processor, "close"):
+                    try:
+                        processor.close()
+                    except Exception:
+                        pass
 
         logger.info(
             f"🎉 Proactive buffering complete: track={track_id}, "
@@ -106,9 +112,9 @@ def get_buffer_status(track_id: int, preset: str, intensity: float = 1.0) -> set
     Returns:
         Set of chunk indices that are already cached
     """
-    from pathlib import Path
+    import tempfile
 
-    chunk_dir = Path("/tmp/auralis_chunks")
+    chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
     if not chunk_dir.exists():
         return set()
 

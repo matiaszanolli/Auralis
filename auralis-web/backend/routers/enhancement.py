@@ -24,6 +24,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
+from core.chunk_boundaries import CHUNK_DURATION  # single source of truth (#2564)
 from security.path_security import PathValidationError, validate_file_path
 
 logger = logging.getLogger(__name__)
@@ -31,10 +32,6 @@ router = APIRouter(tags=["enhancement"])
 
 # Valid enhancement presets
 VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
-
-# Chunk configuration (must match chunked_processor.py)
-# NEW (Beta.9): Reduced from 30s → 10s for instant toggle feel
-CHUNK_DURATION = 10  # seconds per chunk (reduced from 30s for Phase 2)
 
 
 class ToggleEnhancementRequest(BaseModel):

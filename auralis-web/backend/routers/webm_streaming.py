@@ -338,7 +338,7 @@ def create_webm_streaming_router(
                             try:
                                 # Get track duration for cache planning
                                 import mutagen
-                                audio_file = mutagen.File(track.filepath)  # type: ignore[attr-defined]
+                                audio_file = await asyncio.to_thread(mutagen.File, track.filepath)  # type: ignore[attr-defined]
                                 track_duration: float | None = audio_file.info.length if audio_file else None
 
                                 # Update position for cache tier detection

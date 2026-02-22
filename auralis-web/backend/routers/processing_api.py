@@ -12,7 +12,9 @@ FastAPI routes for audio processing functionality.
 
 import asyncio
 import logging
+import struct
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -20,11 +22,37 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from core.processing_engine import ProcessingEngine, ProcessingStatus
 from pydantic import BaseModel
+from security.path_security import PathValidationError, validate_file_path
 
 logger = logging.getLogger(__name__)
 
 # Create router
 router = APIRouter(prefix="/api/processing", tags=["audio-processing"])
+
+# Upload security constants (#2560)
+_MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB hard limit
+_ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".flac", ".wav", ".m4a", ".ogg", ".aiff", ".aif", ".opus"}
+
+
+def _is_valid_audio_magic(data: bytes) -> bool:
+    """Return True if data starts with a known audio format magic signature."""
+    if len(data) < 8:
+        return False
+    if data[:4] == b"RIFF":                          # WAV
+        return True
+    if data[:4] == b"fLaC":                          # FLAC
+        return True
+    if data[:4] == b"OggS":                          # OGG/Opus
+        return True
+    if data[:3] == b"ID3":                           # MP3 with ID3v2 tag
+        return True
+    if data[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"\xff\xfa"):  # MP3 sync word
+        return True
+    if data[4:8] == b"ftyp":                         # M4A/MP4 (MPEG-4 container)
+        return True
+    if data[:4] in (b"FORM", b"AIFF"):               # AIFF
+        return True
+    return False
 
 # Global processing engine (will be injected)
 _processing_engine: ProcessingEngine | None = None
@@ -90,16 +118,25 @@ async def process_audio(request: ProcessRequest) -> ProcessResponse:
         raise HTTPException(status_code=503, detail="Processing engine not available")
 
     try:
-        # Validate input path exists
-        if not Path(request.input_path).exists():
-            raise HTTPException(status_code=400, detail="Input file not found")
+        # Validate input path against allowed directories (#2559)
+        try:
+            validated_input = validate_file_path(request.input_path)
+        except PathValidationError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid input path: {e}")
+
+        validated_reference: Path | None = None
+        if request.reference_path:
+            try:
+                validated_reference = validate_file_path(request.reference_path)
+            except PathValidationError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid reference path: {e}")
 
         # Create processing job
         job = _processing_engine.create_job(
-            input_path=request.input_path,
+            input_path=str(validated_input),
             settings=request.settings.model_dump(),
             mode=request.settings.mode,
-            reference_path=request.reference_path
+            reference_path=str(validated_reference) if validated_reference else None
         )
 
         # Submit to queue
@@ -148,10 +185,27 @@ async def upload_and_process(
         temp_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
         temp_dir.mkdir(exist_ok=True)
 
-        filename = file.filename or "audio_file"
-        input_path = temp_dir / filename
+        # Enforce size limit before reading the whole body (#2560)
+        content = await file.read(_MAX_UPLOAD_BYTES + 1)
+        if len(content) > _MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large (max {_MAX_UPLOAD_BYTES // 1024 // 1024} MB)"
+            )
+
+        # Reject files whose magic bytes don't match a known audio format (#2560)
+        if not _is_valid_audio_magic(content):
+            raise HTTPException(
+                status_code=415,
+                detail="Unsupported or invalid audio file format"
+            )
+
+        # Use a UUID filename to prevent client-controlled path injection (#2560)
+        original_ext = Path(file.filename or "").suffix.lower()
+        if original_ext not in _ALLOWED_AUDIO_EXTENSIONS:
+            original_ext = ".bin"
+        input_path = temp_dir / f"{uuid.uuid4()}{original_ext}"
         with open(input_path, "wb") as f:
-            content = await file.read()
             f.write(content)
 
         logger.info(f"Uploaded file saved to {input_path}")
@@ -219,7 +273,16 @@ async def download_result(job_id: str) -> FileResponse:
     if job.status != ProcessingStatus.COMPLETED:
         raise HTTPException(status_code=400, detail=f"Job not completed (status: {job.status.value})")
 
-    output_path = Path(job.output_path)
+    output_path = Path(job.output_path).resolve()
+
+    # Validate output path is within the expected temp directory (#2561)
+    allowed_output_base = Path(tempfile.gettempdir()).resolve()
+    try:
+        output_path.relative_to(allowed_output_base)
+    except ValueError:
+        logger.error(f"Job {job_id} output path outside expected directory: {output_path}")
+        raise HTTPException(status_code=500, detail="Output path configuration error")
+
     if not output_path.exists():
         raise HTTPException(status_code=404, detail="Output file not found")
 

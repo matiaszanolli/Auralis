@@ -17,10 +17,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Default allowed base directories
+# Default allowed base directories — intentionally excludes bare Path.home()
+# to prevent traversal to sensitive files like ~/.ssh or ~/.gnupg (#2562).
 DEFAULT_ALLOWED_DIRS = [
-    Path.home(),  # User's home directory
-    Path.home() / "Music",  # Standard music directory
+    Path.home() / "Music",      # Standard music directory
     Path.home() / "Documents",  # Documents directory
 ]
 
