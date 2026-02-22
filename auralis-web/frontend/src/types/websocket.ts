@@ -481,6 +481,34 @@ export function isRepeatModeChangedMessage(msg: WebSocketMessage): msg is Repeat
 }
 
 // ============================================================================
+// Generated type guards for the remaining 19 message types (#2548)
+// Uses a factory so each guard is a single, consistent, type-safe expression.
+// ============================================================================
+
+function makeGuard<T extends AnyWebSocketMessage>(type: T['type']) {
+  return (msg: AnyWebSocketMessage): msg is T => msg.type === type;
+}
+
+export const isPlaybackStoppedMessage       = makeGuard<PlaybackStoppedMessage>('playback_stopped');
+export const isTrackLoadedMessage           = makeGuard<TrackLoadedMessage>('track_loaded');
+export const isTrackChangedMessage          = makeGuard<TrackChangedMessage>('track_changed');
+export const isPositionChangedMessage       = makeGuard<PositionChangedMessage>('position_changed');
+export const isVolumeChangedMessage         = makeGuard<VolumeChangedMessage>('volume_changed');
+export const isQueueUpdatedMessage          = makeGuard<QueueUpdatedMessage>('queue_updated');
+export const isMetadataBatchUpdatedMessage  = makeGuard<MetadataBatchUpdatedMessage>('metadata_batch_updated');
+export const isPlaylistCreatedMessage       = makeGuard<PlaylistCreatedMessage>('playlist_created');
+export const isPlaylistUpdatedMessage       = makeGuard<PlaylistUpdatedMessage>('playlist_updated');
+export const isPlaylistDeletedMessage       = makeGuard<PlaylistDeletedMessage>('playlist_deleted');
+export const isArtworkUpdatedMessage        = makeGuard<ArtworkUpdatedMessage>('artwork_updated');
+export const isFingerprintProgressMessage   = makeGuard<FingerprintProgressMessage>('fingerprint_progress');
+export const isSeekStartedMessage           = makeGuard<SeekStartedMessage>('seek_started');
+export const isAudioStreamStartMessage      = makeGuard<AudioStreamStartMessage>('audio_stream_start');
+export const isAudioStreamEndMessage        = makeGuard<AudioStreamEndMessage>('audio_stream_end');
+export const isAudioChunkMessage            = makeGuard<AudioChunkMessage>('audio_chunk');
+export const isAudioStreamErrorMessage      = makeGuard<AudioStreamErrorMessage>('audio_stream_error');
+export const isScanCompleteMessage          = makeGuard<ScanCompleteMessage>('scan_complete');
+
+// ============================================================================
 // Helper Types from Backend
 // ============================================================================
 

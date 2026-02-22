@@ -147,13 +147,21 @@ class ProcessingService {
   }
 
   /**
-   * Handle incoming WebSocket messages
+   * Handle incoming WebSocket messages (#2549)
+   * Parameter typed as `unknown`; narrowed with a type guard before access.
    */
-  private handleWebSocketMessage(message: any) {
-    if (message.type === 'job_progress') {
-      const { job_id, progress, message: progressMessage } = message.data;
+  private handleWebSocketMessage(message: unknown): void {
+    if (
+      typeof message === 'object' &&
+      message !== null &&
+      'type' in message &&
+      (message as { type: unknown }).type === 'job_progress' &&
+      'data' in message
+    ) {
+      const data = (message as { type: string; data: { job_id: string } }).data;
+      const { job_id } = data;
 
-      // Update job status
+      // Update job status via callback
       this.getJobStatus(job_id).then((job) => {
         const callback = this.jobCallbacks.get(job_id);
         if (callback) {

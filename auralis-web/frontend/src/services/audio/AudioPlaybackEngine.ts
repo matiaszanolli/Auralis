@@ -105,6 +105,14 @@ export class AudioPlaybackEngine {
   }
 
   /**
+   * Expose the engine-level minimum buffer threshold so callers can align their
+   * own pre-checks with the gate enforced inside startPlayback() (#2478).
+   */
+  getMinBufferSamples(): number {
+    return this.minBufferSamples;
+  }
+
+  /**
    * Start playback from buffer
    * Requires sufficient samples in buffer (minBufferSamples)
    * Note: This is now async to properly handle AudioContext resume

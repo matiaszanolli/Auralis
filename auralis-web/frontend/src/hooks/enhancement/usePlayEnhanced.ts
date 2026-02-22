@@ -365,12 +365,10 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         }
       }
 
-      // Start playback immediately when stream begins
-      // (buffer should have minimum 2 seconds of data before starting)
-      // Note: For stereo audio, we need sampleRate * channels * seconds interleaved samples
-      const minBufferSeconds = 2;
-      const minBufferSamples = message.data.sample_rate * message.data.channels * minBufferSeconds;
-      if (buffer.getAvailableSamples() >= minBufferSamples) {
+      // Start playback immediately when stream begins only if the engine's own
+      // minimum is already satisfied — avoids the engine entering 'error' state
+      // when hook threshold (2 s) was below engine threshold (240 000 samples, fixes #2478).
+      if (buffer.getAvailableSamples() >= engine.getMinBufferSamples()) {
         engine.startPlayback();
         setIsPaused(false);
       }
@@ -454,11 +452,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         );
       }
 
-      // Auto-start playback when sufficient buffer accumulated (2 seconds minimum)
-      // Note: For stereo audio, we need sampleRate * channels * seconds interleaved samples
+      // Auto-start when engine's own minimum threshold is met (fixes #2478).
       const engine = playbackEngineRef.current;
-      const minBufferSamples = streamingMetadataRef.current.sampleRate * streamingMetadataRef.current.channels * 2;
-      if (engine && !engine.isPlaying() && bufferedSamples >= minBufferSamples) {
+      if (engine && !engine.isPlaying() && bufferedSamples >= engine.getMinBufferSamples()) {
         console.log('[usePlayEnhanced] Starting playback with buffer:', (bufferedSamples / (streamingMetadataRef.current.sampleRate * streamingMetadataRef.current.channels)).toFixed(1) + 's');
         engine.startPlayback();
         setIsPaused(false);
@@ -809,8 +805,11 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
   /**
    * Cleanup on unmount - stop playback but DON'T unsubscribe (handled above)
+   * Also resets Redux streaming state on MOUNT to clear any stale state left by
+   * a previous instance (prevents phantom progress bar on remount — fixes #2533).
    */
   useEffect(() => {
+    dispatch(resetStreaming('enhanced'));
     return () => {
       // Only stop playback engine, don't call full stopPlayback which cleans up subscriptions
       playbackEngineRef.current?.stopPlayback();

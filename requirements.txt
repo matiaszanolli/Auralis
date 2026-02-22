@@ -1,30 +1,32 @@
 # Core Audio Processing
-numpy>=1.23.4
-scipy>=1.9.2
-soundfile>=0.11.0
-librosa
-resampy>=0.4.2
-mutagen
+# Pinned to exact versions for reproducible installs (#2414).
+# Run `pip-compile requirements.in` (or `uv pip compile`) to regenerate.
+numpy==2.3.5
+scipy==1.16.3
+soundfile==0.13.1
+librosa==0.11.0
+resampy==0.4.3
+mutagen==1.47.0
 
 # FastAPI Backend
-fastapi>=0.104.0
-uvicorn>=0.24.0
-pydantic>=2.4.2
-pydantic-settings>=2.0.3
-python-multipart>=0.0.6
+fastapi==0.122.0
+uvicorn==0.38.0
+pydantic==2.12.4
+pydantic-settings==2.12.0
+python-multipart==0.0.20
 
 # Database
-SQLAlchemy>=2.0.22
+SQLAlchemy==2.0.44
 
 # Async HTTP & Utilities
-aiohttp>=3.9.0
-psutil>=7.1.3
-python-dotenv>=1.0.0
+aiohttp==3.13.2
+psutil==7.1.3
+python-dotenv==1.2.1
 
 # HTTP dependencies (automatically installed by FastAPI/aiohttp)
-h11>=0.16
-httpcore>=1.0.9
-httpx>=0.28.1
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
 
 # ============================================================================
 # REMOVED (not used in production - kept here for reference)

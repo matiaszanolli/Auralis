@@ -49,8 +49,25 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
     <ResultAvatar result={result} />
   );
 
+  const liveMessage = loading
+    ? 'Searching...'
+    : showResults && results.length === 0 && query
+      ? `No results found for ${query}`
+      : showResults && results.length > 0
+        ? `${results.length} result${results.length === 1 ? '' : 's'} found`
+        : '';
+
   return (
     <SearchContainer>
+      {/* ARIA live region — announces search state to screen readers (fixes #2547) */}
+      <span
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap' }}
+      >
+        {liveMessage}
+      </span>
       <SearchInput
         query={query}
         loading={loading}

@@ -357,15 +357,13 @@ const Player: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Queue Panel - Expands when opened */}
-      {queuePanelOpen && (
-        <Box sx={styles.queuePanelWrapper}>
-          <QueuePanel
-            collapsed={false}
-            onToggleCollapse={() => setQueuePanelOpen(false)}
-          />
-        </Box>
-      )}
+      {/* Queue Panel - Always mounted; hidden via CSS to preserve scroll + focus (#2541) */}
+      <Box sx={{ ...styles.queuePanelWrapper, display: queuePanelOpen ? undefined : 'none' }}>
+        <QueuePanel
+          collapsed={false}
+          onToggleCollapse={() => setQueuePanelOpen(false)}
+        />
+      </Box>
 
       {/* Enhancement Panel - REMOVED: Redundant playback mode controls */}
       {/* {(() => {

@@ -74,8 +74,10 @@ def setup_middleware(app: FastAPI) -> None:
             "http://127.0.0.1:8765",
         ],
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        # Explicit lists instead of wildcards — allow_credentials=True with "*"
+        # violates the CORS spec and overly broadens the attack surface (#2224).
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "X-Session-Id"],
     )
 
     logger.debug("✅ Middleware configured: NoCacheMiddleware, CORSMiddleware")

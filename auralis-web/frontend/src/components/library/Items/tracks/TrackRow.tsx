@@ -178,22 +178,13 @@ const TrackRowComponent: React.FC<TrackRowProps> = ({
 };
 
 /**
- * Memoized TrackRow component with custom comparator
- * Only re-renders when critical props change: track.id, isPlaying, isCurrent, isAnyPlaying, index
- * Prevents O(n) re-renders when parent re-renders
+ * Memoized TrackRow component.
+ * Uses default shallow comparison so all props — including the 9 callback props
+ * (onPlay, onPause, onDoubleClick, onEditMetadata, etc.) — are checked.
+ * Parents must wrap callbacks in useCallback to avoid unnecessary re-renders.
+ * The previous custom comparator silently dropped callback prop changes,
+ * causing stale closure bugs (#2540).
  */
-export const TrackRow = React.memo<TrackRowProps>(
-  TrackRowComponent,
-  (prev, next) => {
-    // Only re-render if these critical props change
-    return (
-      prev.track.id === next.track.id &&
-      prev.isPlaying === next.isPlaying &&
-      prev.isCurrent === next.isCurrent &&
-      prev.isAnyPlaying === next.isAnyPlaying &&
-      prev.index === next.index
-    );
-  }
-);
+export const TrackRow = React.memo<TrackRowProps>(TrackRowComponent);
 
 export default TrackRow;

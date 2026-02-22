@@ -69,6 +69,13 @@ export const QueueSearchPanel: React.FC<QueueSearchPanelProps> = ({
   const [durationFilter, setDurationFilter] = useState<'all' | 'short' | 'medium' | 'long'>('all');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Focus search input when panel opens (WCAG 2.1 §2.4.3 — fixes #2546)
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
+
   // Apply duration filter when duration button is clicked
   useEffect(() => {
     switch (durationFilter) {
@@ -108,7 +115,14 @@ export const QueueSearchPanel: React.FC<QueueSearchPanelProps> = ({
 
   return (
     <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
+      <div
+        style={styles.panel}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search queue"
+        onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+      >
         {/* Header */}
         <div style={styles.header}>
           <h2 style={styles.title}>Search Queue</h2>
