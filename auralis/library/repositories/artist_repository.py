@@ -172,11 +172,22 @@ class ArtistRepository:
         """Get all artists without pagination (for batch operations)
 
         Returns:
-            List of all artists in the database
+            List of all artists in the database with tracks and albums eagerly loaded.
+
+        Note:
+            Uses selectinload to avoid DetachedInstanceError when accessing .tracks
+            or .albums on returned objects after the session is closed (fixes #2524).
         """
         session = self.get_session()
         try:
-            artists = session.query(Artist).all()
+            artists = (
+                session.query(Artist)
+                .options(
+                    selectinload(Artist.tracks),
+                    selectinload(Artist.albums),
+                )
+                .all()
+            )
             for artist in artists:
                 session.expunge(artist)
             return artists

@@ -18,7 +18,7 @@
  */
 
 import { useSelector, useDispatch } from 'react-redux';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { RootState, AppDispatch } from '@/store';
 import * as playerActions from '@/store/slices/playerSlice';
 import * as queueActions from '@/store/slices/queueSlice';
@@ -41,52 +41,75 @@ export const usePlayerState = () => {
  */
 export const usePlayer = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const state = useSelector((state: RootState) => state.player);
 
-  return {
-    // State
-    isPlaying: state.isPlaying,
-    currentTrack: state.currentTrack,
-    currentTime: state.currentTime,
-    duration: state.duration,
-    volume: state.volume,
-    isMuted: state.isMuted,
-    preset: state.preset,
-    isLoading: state.isLoading,
-    error: state.error,
+  // Granular selectors — each only triggers a re-render when its specific field
+  // changes, preventing the full player slice subscription from causing cascading
+  // re-renders on every WebSocket position update (fixes #2537).
+  const isPlaying = useSelector((state: RootState) => state.player.isPlaying);
+  const currentTrack = useSelector((state: RootState) => state.player.currentTrack);
+  const currentTime = useSelector((state: RootState) => state.player.currentTime);
+  const duration = useSelector((state: RootState) => state.player.duration);
+  const volume = useSelector((state: RootState) => state.player.volume);
+  const isMuted = useSelector((state: RootState) => state.player.isMuted);
+  const preset = useSelector((state: RootState) => state.player.preset);
+  const isLoading = useSelector((state: RootState) => state.player.isLoading);
+  const error = useSelector((state: RootState) => state.player.error);
 
-    // Actions
-    play: useCallback(() => dispatch(playerActions.setIsPlaying(true)), [dispatch]),
-    pause: useCallback(() => dispatch(playerActions.setIsPlaying(false)), [dispatch]),
-    togglePlay: useCallback(
-      () => dispatch(playerActions.setIsPlaying(!state.isPlaying)),
-      [dispatch, state.isPlaying]
-    ),
-    seek: useCallback(
-      (time: number) => dispatch(playerActions.setCurrentTime(time)),
-      [dispatch]
-    ),
-    setVolume: useCallback(
-      (volume: number) => dispatch(playerActions.setVolume(volume)),
-      [dispatch]
-    ),
-    setMuted: useCallback(
-      (muted: boolean) => dispatch(playerActions.setMuted(muted)),
-      [dispatch]
-    ),
-    toggleMute: useCallback(
-      () => dispatch(playerActions.toggleMute()),
-      [dispatch]
-    ),
-    setPreset: useCallback(
-      (preset: playerActions.PresetName) => dispatch(playerActions.setPreset(preset)),
-      [dispatch]
-    ),
-    setTrack: useCallback(
-      (track: any | null) => dispatch(playerActions.setCurrentTrack(track)),
-      [dispatch]
-    ),
-  };
+  // Stable action callbacks — dispatch never changes identity so these are stable
+  const play = useCallback(() => dispatch(playerActions.setIsPlaying(true)), [dispatch]);
+  const pause = useCallback(() => dispatch(playerActions.setIsPlaying(false)), [dispatch]);
+  const togglePlay = useCallback(
+    () => dispatch(playerActions.setIsPlaying(!isPlaying)),
+    [dispatch, isPlaying]
+  );
+  const seek = useCallback(
+    (time: number) => dispatch(playerActions.setCurrentTime(time)),
+    [dispatch]
+  );
+  const setVolume = useCallback(
+    (vol: number) => dispatch(playerActions.setVolume(vol)),
+    [dispatch]
+  );
+  const setMuted = useCallback(
+    (muted: boolean) => dispatch(playerActions.setMuted(muted)),
+    [dispatch]
+  );
+  const toggleMute = useCallback(() => dispatch(playerActions.toggleMute()), [dispatch]);
+  const setPreset = useCallback(
+    (p: playerActions.PresetName) => dispatch(playerActions.setPreset(p)),
+    [dispatch]
+  );
+  const setTrack = useCallback(
+    (track: any | null) => dispatch(playerActions.setCurrentTrack(track)),
+    [dispatch]
+  );
+
+  // Memoize the returned object so consumers only re-render when state they
+  // actually use changes, not on every render of this hook (fixes #2537).
+  return useMemo(() => ({
+    isPlaying,
+    currentTrack,
+    currentTime,
+    duration,
+    volume,
+    isMuted,
+    preset,
+    isLoading,
+    error,
+    play,
+    pause,
+    togglePlay,
+    seek,
+    setVolume,
+    setMuted,
+    toggleMute,
+    setPreset,
+    setTrack,
+  }), [
+    isPlaying, currentTrack, currentTime, duration, volume, isMuted, preset,
+    isLoading, error, play, pause, togglePlay, seek, setVolume, setMuted,
+    toggleMute, setPreset, setTrack,
+  ]);
 };
 
 // ============================================================================
@@ -107,6 +130,17 @@ export const useQueue = () => {
   const dispatch = useDispatch<AppDispatch>();
   const state = useSelector((state: RootState) => state.queue);
 
+  // Memoize O(n) queue duration computations — only recalculate when tracks or
+  // currentIndex change, not on every 10Hz position_changed re-render (fixes #2545).
+  const remainingTime = useMemo(
+    () => state.tracks.slice(state.currentIndex + 1).reduce((sum, t) => sum + t.duration, 0),
+    [state.tracks, state.currentIndex]
+  );
+  const totalTime = useMemo(
+    () => state.tracks.reduce((sum, t) => sum + t.duration, 0),
+    [state.tracks]
+  );
+
   return {
     // State
     tracks: state.tracks,
@@ -116,11 +150,9 @@ export const useQueue = () => {
     isLoading: state.isLoading,
     error: state.error,
 
-    // Computed state
-    remainingTime: state.tracks
-      .slice(state.currentIndex + 1)
-      .reduce((sum, track) => sum + track.duration, 0),
-    totalTime: state.tracks.reduce((sum, track) => sum + track.duration, 0),
+    // Computed state (memoized above)
+    remainingTime,
+    totalTime,
 
     // Actions
     add: useCallback(

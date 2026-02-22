@@ -214,6 +214,10 @@ export function usePlayerStreaming({
     }
 
     const interval = setInterval(() => {
+      // Short-circuit when paused and not seeking to avoid reading 6 DOM properties
+      // unnecessarily — prevents 600 redundant reads/min while paused (fixes #2543).
+      if (audioElement.paused && !audioElement.seeking) return;
+
       const time = audioElement.currentTime;
       const dur = audioElement.duration;
       const playing = !audioElement.paused && !audioElement.ended;

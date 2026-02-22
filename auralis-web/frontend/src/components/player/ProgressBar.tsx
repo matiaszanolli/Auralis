@@ -77,6 +77,9 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const [hoverPosition, setHoverPosition] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  // Live position during drag — throttled to ~4Hz for ARIA announcements (fixes #2538)
+  const [liveSeekTime, setLiveSeekTime] = useState<number | null>(null);
+  const lastAriaAnnounceRef = useRef<number>(0);
 
   // Calculate progress percentage
   const progressPercentage = useMemo(() => {
@@ -159,6 +162,13 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 
       const position = getPositionFromEvent(event);
       onSeek(position);
+
+      // Throttle ARIA live region updates to ~4Hz during drag (fixes #2538)
+      const now = Date.now();
+      if (now - lastAriaAnnounceRef.current >= 250) {
+        lastAriaAnnounceRef.current = now;
+        setLiveSeekTime(position);
+      }
     },
     [isDragging, getPositionFromEvent, onSeek]
   );
@@ -166,6 +176,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   // Handle drag end
   const handleGlobalMouseUp = useCallback(() => {
     setIsDragging(false);
+    setLiveSeekTime(null);
   }, []);
 
   // Handle keyboard navigation
@@ -244,6 +255,13 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       const percentage = Math.max(0, Math.min(1, x / rect.width));
       const position = percentage * duration;
       onSeek(position);
+
+      // Throttle ARIA live region updates to ~4Hz during touch drag (fixes #2538)
+      const now = Date.now();
+      if (now - lastAriaAnnounceRef.current >= 250) {
+        lastAriaAnnounceRef.current = now;
+        setLiveSeekTime(position);
+      }
     },
     [isDragging, duration, onSeek]
   );
@@ -251,6 +269,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   // Handle touch end
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false);
+    setLiveSeekTime(null);
   }, []);
 
   // Set up global event listeners during drag
@@ -289,6 +308,17 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         width: '100%',
       }}
     >
+      {/* Screen-reader live region — announces position during drag/touch (fixes #2538) */}
+      <div
+        aria-live="assertive"
+        aria-atomic="true"
+        style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap' }}
+      >
+        {liveSeekTime !== null
+          ? `Seeking to ${formatSecondToTime(liveSeekTime, duration >= 3600)}`
+          : ''}
+      </div>
+
       {/* Main progress bar container */}
       <div
         ref={containerRef}

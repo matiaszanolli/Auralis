@@ -14,7 +14,6 @@ import type {
   PlaybackStoppedMessage,
   TrackLoadedMessage,
   TrackChangedMessage,
-  PositionChangedMessage,
   VolumeChangedMessage,
   PlayerStateMessage,
 } from '../../types/websocket';
@@ -58,7 +57,11 @@ const INITIAL_STATE: PlaybackState = {
 export function usePlaybackState(): PlaybackState {
   const [state, setState] = useState<PlaybackState>(INITIAL_STATE);
 
-  // Subscribe to all playback-related messages
+  // Subscribe to low-frequency playback state events only. position_changed is
+  // intentionally excluded — it fires at 10Hz and would cause 10 re-renders/sec
+  // in all usePlaybackState consumers. Use usePlaybackPosition() for live position.
+  // Removing position_changed also shrinks the subscription to 7 types, reducing
+  // the missed-message window on WS reconnect (fixes #2542, #2558).
   useWebSocketSubscription(
     [
       'player_state',
@@ -67,7 +70,6 @@ export function usePlaybackState(): PlaybackState {
       'playback_stopped',
       'track_loaded',
       'track_changed',
-      'position_changed',
       'volume_changed',
     ],
     (message) => {
@@ -139,14 +141,6 @@ export function usePlaybackState(): PlaybackState {
               position: 0, // Reset position when track changes
               isLoading: false,
               error: null,
-            };
-          }
-
-          case 'position_changed': {
-            const msg = message as PositionChangedMessage;
-            return {
-              ...prevState,
-              position: msg.data.position,
             };
           }
 

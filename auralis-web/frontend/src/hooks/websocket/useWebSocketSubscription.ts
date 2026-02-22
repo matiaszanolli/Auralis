@@ -35,6 +35,13 @@ let globalWebSocketManager: WebSocketSubscriptionManager | null = null;
 type ManagerReadyListener = (manager: WebSocketSubscriptionManager) => void;
 const managerReadyListeners: Map<symbol, ManagerReadyListener> = new Map();
 
+// Monotonically increasing version counter incremented each time a new non-null
+// manager is registered. Allows useWebSocketSubscription instances to include
+// this in their effect dependencies so the effect re-runs when the manager
+// reference changes on WS reconnect (fixes #2544).
+let _managerVersion = 0;
+const _managerVersionListeners: Set<(v: number) => void> = new Set();
+
 /**
  * Set the global WebSocket subscription manager.
  * Call this in your root App component after establishing WebSocket connection.
@@ -45,6 +52,13 @@ const managerReadyListeners: Map<symbol, ManagerReadyListener> = new Map();
 export function setWebSocketManager(manager: WebSocketSubscriptionManager | null): void {
   globalWebSocketManager = manager;
   if (manager) {
+    // Increment connection version so hook effects that track it re-run on reconnect
+    // (fixes #2544 — subscriptions would otherwise not re-establish when the manager
+    // reference changes without messageTypes changing).
+    _managerVersion++;
+    const v = _managerVersion;
+    _managerVersionListeners.forEach((l) => l(v));
+
     // Snapshot without clearing — listeners persist for future reconnects (#2458).
     // This prevents infinite loops if a listener itself calls setWebSocketManager.
     const snapshot = new Map(managerReadyListeners);
@@ -88,6 +102,15 @@ export function useWebSocketSubscription(
   // of how many times the effect re-runs (fixes #2440: accumulating stale refs).
   const listenerKeyRef = useRef<symbol>(Symbol('wsSubscription'));
 
+  // Track manager version so the subscription effect re-runs when the WS manager
+  // reference changes on reconnect (fixes #2544).
+  const [managerVersion, setManagerVersion] = useState(_managerVersion);
+  useEffect(() => {
+    const listener = (v: number) => setManagerVersion(v);
+    _managerVersionListeners.add(listener);
+    return () => { _managerVersionListeners.delete(listener); };
+  }, []);
+
   useEffect(() => {
     let isActive = true;
     // Stable wrapper that delegates to the latest callbackRef without changing identity.
@@ -126,9 +149,10 @@ export function useWebSocketSubscription(
       unsubscribeRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messageTypes.join('\x00')]); // Value-stable string key: callers that pass inline array
+  }, [messageTypes.join('\x00'), managerVersion]); // Value-stable string key: callers that pass inline array
   // literals get a new reference every render but the joined string is identical, preventing
   // subscription teardown + rebuild on every render (fixes #2487).
+  // managerVersion increments on each WS reconnect to trigger re-subscription (fixes #2544).
 
   // Return a way to manually unsubscribe (rarely used)
   return () => {

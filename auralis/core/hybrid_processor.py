@@ -252,8 +252,9 @@ class HybridProcessor:
         # Delegate to reference matching
         processed = apply_reference_matching(target_audio, reference_audio)
 
-        # Validate output for NaN/Inf (graceful handling for production resilience)
-        processed = sanitize_audio(processed, context="reference mode output")
+        # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
+        # silently masking them with zero-replacement (fixes #2520).
+        processed = validate_audio_finite(processed, context="reference mode output", repair=False)
 
         return processed
 
@@ -307,8 +308,9 @@ class HybridProcessor:
             f"expected {target_audio.shape}, got {processed.shape}"
         )
 
-        # Validate output for NaN/Inf (graceful handling for production resilience)
-        processed = sanitize_audio(processed, context="adaptive mode output")
+        # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
+        # silently masking them with zero-replacement (fixes #2520).
+        processed = validate_audio_finite(processed, context="adaptive mode output", repair=False)
 
         return processed
 
@@ -338,8 +340,9 @@ class HybridProcessor:
             f"expected {target_audio.shape}, got {processed.shape}"
         )
 
-        # Validate output for NaN/Inf (graceful handling for production resilience)
-        processed = sanitize_audio(processed, context="hybrid mode output")
+        # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
+        # silently masking them with zero-replacement (fixes #2520).
+        processed = validate_audio_finite(processed, context="hybrid mode output", repair=False)
 
         return processed
 

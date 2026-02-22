@@ -131,8 +131,12 @@ class PsychoacousticEQ:
         spectrum = fft(windowed_audio)
         magnitude = np.abs(spectrum[:self.fft_size // 2 + 1])
 
-        # Convert to dB
-        magnitude_db = 20 * np.log10(magnitude + 1e-10)
+        # Convert to dB and compensate for Hanning window coherent amplitude gain.
+        # The Hanning window has a coherent gain of 0.5 (−6.02 dB), so windowed
+        # magnitudes read ~6 dB lower than the unwindowed synthesis path.  Adding
+        # 6.02 dB here aligns analysis magnitudes with the EQ synthesis scale,
+        # preventing adaptive gain curves from over-boosting by that margin (fixes #2518).
+        magnitude_db = 20 * np.log10(magnitude + 1e-10) + 6.02
 
         # Calculate energy in each critical band
         band_energies = self._calculate_band_energies(magnitude_db)
