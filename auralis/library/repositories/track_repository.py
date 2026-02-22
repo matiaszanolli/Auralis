@@ -47,6 +47,23 @@ class TrackRepository:
         Returns:
             Track object if successful, None if failed
         """
+        # Validate required fields and ranges (#2073)
+        if not track_info.get('filepath'):
+            warning("Cannot add track: missing 'filepath'")
+            return None
+        if 'duration' in track_info and (not isinstance(track_info['duration'], (int, float)) or track_info['duration'] < 0):
+            track_info['duration'] = 0.0
+        if 'sample_rate' in track_info and (not isinstance(track_info['sample_rate'], (int, float)) or track_info['sample_rate'] <= 0):
+            track_info.pop('sample_rate', None)
+        if 'channels' in track_info and track_info['channels'] not in (1, 2, 4, 6, 8):
+            track_info.pop('channels', None)
+        # Truncate excessively long text fields
+        for field, max_len in (('title', 500), ('album', 500)):
+            if field in track_info and isinstance(track_info[field], str) and len(track_info[field]) > max_len:
+                track_info[field] = track_info[field][:max_len]
+        if 'artists' in track_info:
+            track_info['artists'] = [a[:200] for a in track_info['artists'] if isinstance(a, str)]
+
         session = self.get_session()
         try:
             # Check if track already exists
@@ -533,31 +550,39 @@ class TrackRepository:
         try:
             # Simple similarity based on genre and artist
             # In production, would use more sophisticated audio fingerprinting
-            similar_tracks = []
+            similar_tracks: list[Track] = []
+            seen_ids: set[int] = set()
 
-            # Find tracks by same artist
+            # Batch query: find tracks by any of the same artists (#2072)
             if track.artists:
-                for artist in track.artists:
-                    artist_tracks = (
-                        session.query(Track)
-                        .options(selectinload(Track.artists), selectinload(Track.album))
-                        .filter(Track.artists.contains(artist), Track.id != track.id)
-                        .limit(limit)
-                        .all()
-                    )
-                    similar_tracks.extend(artist_tracks)
+                artist_tracks = (
+                    session.query(Track)
+                    .options(selectinload(Track.artists), selectinload(Track.album))
+                    .filter(Track.artists.any(Artist.id.in_([a.id for a in track.artists])))
+                    .filter(Track.id != track.id)
+                    .limit(limit)
+                    .all()
+                )
+                for t in artist_tracks:
+                    if t.id not in seen_ids:
+                        similar_tracks.append(t)
+                        seen_ids.add(t.id)
 
-            # Find tracks in same genre
+            # Batch query: find tracks in any of the same genres (#2072)
             if track.genres and len(similar_tracks) < limit:
-                for genre in track.genres:
-                    genre_tracks = (
-                        session.query(Track)
-                        .options(selectinload(Track.artists), selectinload(Track.album))
-                        .filter(Track.genres.contains(genre), Track.id != track.id)
-                        .limit(limit - len(similar_tracks))
-                        .all()
-                    )
-                    similar_tracks.extend(genre_tracks)
+                genre_tracks = (
+                    session.query(Track)
+                    .options(selectinload(Track.artists), selectinload(Track.album))
+                    .filter(Track.genres.any(Genre.id.in_([g.id for g in track.genres])))
+                    .filter(Track.id != track.id)
+                    .filter(~Track.id.in_(seen_ids) if seen_ids else True)
+                    .limit(limit - len(similar_tracks))
+                    .all()
+                )
+                for t in genre_tracks:
+                    if t.id not in seen_ids:
+                        similar_tracks.append(t)
+                        seen_ids.add(t.id)
 
             result = similar_tracks[:limit]
             for t in set(result):

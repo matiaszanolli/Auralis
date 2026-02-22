@@ -14,6 +14,7 @@ DEPRECATED: Use repository classes directly for new code
 import atexit
 import threading
 import warnings
+import os
 from pathlib import Path
 from typing import Any
 
@@ -89,7 +90,7 @@ class LibraryManager:
         if database_path is None:
             # Default to user's music directory
             music_dir = Path.home() / "Music" / "Auralis"
-            music_dir.mkdir(parents=True, exist_ok=True)
+            music_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             database_path = str(music_dir / "auralis_library.db")
 
         self.database_path = database_path
@@ -120,6 +121,14 @@ class LibraryManager:
             max_overflow=5,  # Up to 10 total connections
         )
 
+        # Restrict database file permissions to owner-only (#2577)
+        db_path = Path(database_path)
+        if db_path.exists():
+            try:
+                os.chmod(db_path, 0o600)
+            except OSError:
+                pass
+
         # Configure SQLite pragmas for reliable fingerprinting persistence
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
@@ -138,6 +147,8 @@ class LibraryManager:
             cursor.execute("PRAGMA foreign_keys=ON")
             # Increase max page count for larger working set
             cursor.execute("PRAGMA max_page_count=1073741823")  # ~4GB max database
+            # Explicit busy timeout at PRAGMA level for consistent behavior (#2091)
+            cursor.execute("PRAGMA busy_timeout=60000")  # 60s
             cursor.close()
 
         self.SessionLocal = sessionmaker(bind=self.engine)

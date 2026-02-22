@@ -97,12 +97,13 @@ class RealtimeProcessor:
                 self.auto_master.set_fingerprint(fingerprint)
                 info(f"Fingerprint set for adaptive mastering")
 
-    def process_chunk(self, audio: np.ndarray) -> np.ndarray:
+    def process_chunk(self, audio: np.ndarray, sample_rate: int | None = None) -> np.ndarray:
         """
         Process a single audio chunk with all enabled effects
 
         Args:
             audio: Input audio chunk (stereo or mono)
+            sample_rate: Actual sample rate of the current track (uses config default if None)
 
         Returns:
             Processed audio chunk
@@ -136,7 +137,7 @@ class RealtimeProcessor:
             # performance_monitor stats (e.g. get_processing_info) always sees a
             # consistent state (fixes #2213).
             processing_time = time.perf_counter() - start_time
-            chunk_duration = len(audio) / self.config.sample_rate
+            chunk_duration = len(audio) / (sample_rate or self.config.sample_rate)
             self.performance_monitor.record_processing_time(processing_time, chunk_duration)
 
         return processed

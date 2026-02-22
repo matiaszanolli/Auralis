@@ -34,11 +34,17 @@ def soft_clip(audio: np.ndarray, threshold: float = 0.9, ceiling: float = 0.99) 
         - Preserves overall loudness while catching peaks
         - Mid-high frequencies stay clean when below threshold
     """
+    # Guard against zero or negative ceiling (#2587)
+    if ceiling <= 0.0:
+        return np.zeros_like(audio)
+
     # Ensure threshold < ceiling
     threshold = min(threshold, ceiling * 0.99)
 
     # Calculate the headroom above threshold
     headroom = ceiling - threshold
+    if headroom <= 0.0:
+        return np.clip(audio, -ceiling, ceiling)
 
     # Get absolute values and signs for processing
     abs_audio = np.abs(audio)

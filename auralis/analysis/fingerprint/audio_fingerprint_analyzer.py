@@ -117,6 +117,19 @@ class AudioFingerprintAnalyzer:
               - phase_correlation: -1 (out of phase) to +1 (in phase)
         """
         try:
+            # Validate input audio (#2586)
+            if audio is None or audio.size == 0:
+                logger.warning("Fingerprint skipped: empty or None audio")
+                return {}
+            if sr <= 0:
+                logger.warning(f"Fingerprint skipped: invalid sample rate {sr}")
+                return {}
+            # Require minimum 0.5s of audio for meaningful fingerprinting
+            min_samples = sr // 2
+            if audio.shape[-1] < min_samples:
+                logger.warning(f"Fingerprint skipped: audio too short ({audio.shape[-1]} < {min_samples} samples)")
+                return {}
+
             # Convert to mono for most analysis (except stereo analyzer)
             if len(audio.shape) > 1:
                 audio_mono = np.mean(audio, axis=0) if audio.shape[0] == 2 else np.mean(audio, axis=1)
