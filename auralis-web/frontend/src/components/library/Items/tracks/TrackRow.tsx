@@ -179,8 +179,8 @@ const TrackRowComponent: React.FC<TrackRowProps> = ({
 
 /**
  * Memoized TrackRow component.
- * Uses default shallow comparison so all props — including the 9 callback props
- * (onPlay, onPause, onDoubleClick, onEditMetadata, etc.) — are checked.
+ * Uses default shallow comparison so all props — including the 10 callback props
+ * (onPlay, onPause, onDoubleClick, onEditMetadata, onFindSimilar, etc.) — are checked.
  * Parents must wrap callbacks in useCallback to avoid unnecessary re-renders.
  * The previous custom comparator silently dropped callback prop changes,
  * causing stale closure bugs (#2540).

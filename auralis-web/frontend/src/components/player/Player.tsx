@@ -260,6 +260,8 @@ const Player: React.FC = () => {
   return (
     <Box
       data-testid="player"
+      role="region"
+      aria-label="Music player"
       sx={styles.player}
     >
       {/* Progress Bar - Full width at top */}
@@ -392,7 +394,7 @@ const Player: React.FC = () => {
 
       {/* Error State Indicator */}
       {hasError && (
-        <Box sx={styles.errorBanner}>
+        <Box sx={styles.errorBanner} role="alert" aria-live="assertive">
           <span style={styles.errorText}>
             {streamingError || 'Playback error occurred'}
           </span>
