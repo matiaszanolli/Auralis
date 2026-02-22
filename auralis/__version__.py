@@ -2,7 +2,7 @@
 
 __version__ = "1.0.0"
 __version_info__ = (1, 0, 0)
-__db_schema_version__ = 12  # Added fingerprint_hash for integrity verification
+__db_schema_version__ = 13  # Added bitrate column to tracks table
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app
@@ -17,3 +17,4 @@ __db_schema_version__ = 12  # Added fingerprint_hash for integrity verification
 # Schema v10 - Added artist artwork columns (artwork_url, artwork_source, artwork_fetched_at) (2025-12-27)
 # Schema v11 - Added artist normalized_name for duplicate detection and merging (2025-12-29)
 # Schema v12 - Added fingerprint_hash for integrity verification (2026-02-22)
+# Schema v13 - Added bitrate column to tracks table (2026-02-22)

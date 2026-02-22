@@ -657,8 +657,8 @@ def create_library_router(
             return {
                 "track_id": track_id,
                 "track_title": track.title,
-                "artist": track.artist,
-                "album": track.album,
+                "artist": ", ".join(a.name for a in track.artists) if track.artists else "Unknown Artist",
+                "album": track.album.name if track.album else "Unknown Album",
                 # Attribute names corrected to match TrackFingerprint model (fixes #2260).
                 # Model columns use _pct suffix for frequency bands and have different
                 # names for several attributes that the old code accessed incorrectly.

@@ -27,7 +27,6 @@ class AuralisApp {
     return new Promise((resolve) => {
       console.log(`Checking if port ${this.backendPort} is available...`);
 
-      // Platform-specific commands to find process using port
       const isWindows = process.platform === 'win32';
       const findCommand = isWindows
         ? `netstat -ano | findstr :${this.backendPort}`
@@ -35,7 +34,6 @@ class AuralisApp {
 
       exec(findCommand, (error, stdout, stderr) => {
         if (error || !stdout.trim()) {
-          // No process found or command failed, port is free
           console.log(`✓ Port ${this.backendPort} is available`);
           resolve();
           return;
@@ -43,7 +41,6 @@ class AuralisApp {
 
         let pids = [];
         if (isWindows) {
-          // Parse netstat output: "TCP    0.0.0.0:8765    0.0.0.0:0    LISTENING    12345"
           const lines = stdout.trim().split('\n');
           pids = lines
             .map(line => {
@@ -51,10 +48,8 @@ class AuralisApp {
               return match ? match[1] : null;
             })
             .filter(pid => pid);
-          // Remove duplicates
           pids = [...new Set(pids)];
         } else {
-          // lsof output: one PID per line
           pids = stdout.trim().split('\n').filter(pid => pid);
         }
 
@@ -66,10 +61,10 @@ class AuralisApp {
 
         console.log(`⚠️ Found ${pids.length} process(es) using port ${this.backendPort}: ${pids.join(', ')}`);
 
-        // Kill all processes
+        // Force-kill all processes (SIGKILL) for reliable cleanup
         const killPromises = pids.map(pid => {
           return new Promise((killResolve) => {
-            const killCommand = isWindows ? `taskkill /F /PID ${pid}` : `kill ${pid}`;
+            const killCommand = isWindows ? `taskkill /F /PID ${pid}` : `kill -9 ${pid}`;
             exec(killCommand, (killError) => {
               if (killError) {
                 console.error(`Failed to kill process ${pid}:`, killError.message);
@@ -82,11 +77,27 @@ class AuralisApp {
         });
 
         Promise.all(killPromises).then(() => {
-          // Wait a bit for processes to fully terminate
-          setTimeout(() => {
-            console.log(`✓ Port ${this.backendPort} cleanup complete`);
-            resolve();
-          }, 1000);
+          // Poll until port is actually free (up to 5 seconds)
+          const startTime = Date.now();
+          const pollInterval = 250;
+          const maxWait = 5000;
+
+          const checkPort = () => {
+            exec(findCommand, (err, out) => {
+              if (err || !out.trim()) {
+                console.log(`✓ Port ${this.backendPort} is free`);
+                resolve();
+              } else if (Date.now() - startTime > maxWait) {
+                console.warn(`⚠️ Port ${this.backendPort} still in use after ${maxWait}ms, proceeding anyway`);
+                resolve();
+              } else {
+                setTimeout(checkPort, pollInterval);
+              }
+            });
+          };
+
+          // Give initial kill a moment then start polling
+          setTimeout(checkPort, 500);
         });
       });
     });
@@ -172,31 +183,46 @@ class AuralisApp {
       });
 
       let startupOutput = '';
+      let resolved = false;
 
-      // Wait for backend to be ready
+      const markReady = (source) => {
+        if (!resolved) {
+          resolved = true;
+          this.backendReady = true;
+          console.log(`✓ Backend is ready! (detected from ${source})`);
+          resolve();
+        }
+      };
+
+      const checkReadiness = (output, source) => {
+        // "Uvicorn running on" is printed AFTER successful socket bind — most reliable signal
+        if (output.includes('Uvicorn running') ||
+            output.includes('Application startup complete')) {
+          markReady(source);
+        }
+      };
+
+      // Watch stdout for readiness
       this.pythonProcess.stdout.on('data', (data) => {
         const output = data.toString();
         startupOutput += output;
         console.log('[Backend]', output.trim());
-
-        // Look for backend ready signals
-        if (output.includes('Backend ready') ||
-            output.includes('Uvicorn running') ||
-            output.includes('Application startup complete')) {
-          this.backendReady = true;
-          console.log('✓ Backend is ready!');
-          resolve();
-        }
+        checkReadiness(output, 'stdout');
       });
 
-      // Handle backend errors
+      // Watch stderr too — uvicorn logs go to stderr via Python logging
       this.pythonProcess.stderr.on('data', (data) => {
-        const error = data.toString();
-        console.error('[Backend Error]', error.trim());
+        const output = data.toString();
+        startupOutput += output;
+        console.error('[Backend Error]', output.trim());
+        checkReadiness(output, 'stderr');
 
-        // Don't treat all stderr as errors (some are just logs)
-        if (error.includes('ERROR') || error.includes('CRITICAL')) {
-          console.error('Critical backend error:', error);
+        // Detect fatal bind errors
+        if (output.includes('address already in use')) {
+          if (!resolved) {
+            resolved = true;
+            reject(new Error('Port 8765 is already in use — backend cannot start'));
+          }
         }
       });
 

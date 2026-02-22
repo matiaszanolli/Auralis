@@ -196,8 +196,7 @@ else:
 
 
 if __name__ == "__main__":
-    print("🚀 Starting Auralis Web Backend...")
-    print("Backend ready", flush=True)  # Signal to Electron that backend is ready
+    print("🚀 Starting Auralis Web Backend...", flush=True)
 
     uvicorn.run(
         app,  # Pass app directly instead of "main:app" to avoid module duplication
