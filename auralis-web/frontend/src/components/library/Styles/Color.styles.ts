@@ -50,7 +50,7 @@ export const blackOpacity = tokens.colors.opacityScale.dark;
 export const gradientPresets = {
   // Main aurora gradient
   aurora: tokens.gradients.aurora,
-  aurora45: 'linear-gradient(45deg, #7366F0 0%, #5A5CC4 100%)',
+  aurora45: tokens.gradients.aurora.replace('135deg', '45deg'),
   auroraHover: tokens.gradients.aurora,
 
   // Decorative gradients
@@ -125,9 +125,9 @@ export const colorUtility = {
   error: tokens.colors.utility.error,
   errorHover: tokens.colors.utility.errorHover,
   success: tokens.colors.semantic.success,
-  successHover: '#26de81',
+  successHover: tokens.colors.audioSemantic.stability,
   warning: tokens.colors.semantic.warning,
-  warningHover: '#ff9500',
+  warningHover: tokens.colors.accent.energy,
 };
 
 /**

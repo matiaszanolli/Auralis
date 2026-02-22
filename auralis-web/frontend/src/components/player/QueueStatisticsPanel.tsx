@@ -248,12 +248,12 @@ interface QualityRatingProps {
 const QualityRating: React.FC<QualityRatingProps> = ({ assessment }) => {
   const ratingColor =
     assessment.rating === 'excellent'
-      ? tokens.colors.semantic.success || '#00aa00'
+      ? tokens.colors.semantic.success
       : assessment.rating === 'good'
-        ? tokens.colors.accent.primary || '#0066cc'
+        ? tokens.colors.accent.primary
         : assessment.rating === 'fair'
-          ? tokens.colors.semantic.warning || '#ffaa00'
-          : tokens.colors.semantic.error || '#ff4444';
+          ? tokens.colors.semantic.warning
+          : tokens.colors.semantic.error;
 
   const ratingIcon =
     assessment.rating === 'excellent'
@@ -455,7 +455,7 @@ const styles = {
   },
 
   topItemRank: {
-    color: tokens.colors.accent.primary || '#0066cc',
+    color: tokens.colors.accent.primary,
     fontWeight: tokens.typography.fontWeight.bold,
     minWidth: '30px',
   },

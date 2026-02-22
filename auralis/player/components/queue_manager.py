@@ -175,19 +175,26 @@ class QueueManager:
             if set(new_order) != set(range(len(self.tracks))):
                 return False
 
-            # Find current track ID to maintain playback
-            current_track = self.get_current_track()
-            current_track_id = current_track.get('id') if current_track else None
+            # Read current track ID directly (we already hold self._lock)
+            current_track_id = None
+            if 0 <= self.current_index < len(self.tracks):
+                current_track_id = self.tracks[self.current_index].get('id')
 
             # Reorder tracks
             self.tracks = [self.tracks[i] for i in new_order]
 
-            # Update current_index to point to the same track
+            # Update current_index to point to the same track (#2159)
             if current_track_id is not None:
+                found = False
                 for i, track in enumerate(self.tracks):
                     if track.get('id') == current_track_id:
                         self.current_index = i
+                        found = True
                         break
+                if not found:
+                    self.current_index = 0
+            else:
+                self.current_index = 0
 
             return True
 

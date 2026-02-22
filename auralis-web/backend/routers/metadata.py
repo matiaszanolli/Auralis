@@ -49,8 +49,7 @@ class MetadataUpdateRequest(BaseModel):
     lyrics: str | None = None
     copyright: str | None = None
 
-    class Config:
-        extra = "forbid"  # Don't allow unknown fields
+    model_config = {"extra": "forbid"}
 
 
 class BatchMetadataUpdateRequest(BaseModel):

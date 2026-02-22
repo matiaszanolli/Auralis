@@ -213,7 +213,7 @@ class PlayerStateManager:
         actual elapsed time prevents the 10-20ms/tick drift that accumulates
         into visible position lag over a 3-minute track (fixes #2171).
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         last_tick = loop.time()
         try:
             while True:

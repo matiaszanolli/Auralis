@@ -7,6 +7,7 @@
 import React from 'react';
 import { Menu, MenuItem } from '@mui/material';
 import { Edit } from '@mui/icons-material';
+import { tokens } from '@/design-system';
 import { auroraOpacity } from '../Styles/Color.styles';
 
 interface BatchActionsMoreMenuProps {
@@ -40,7 +41,7 @@ export const BatchActionsMoreMenu: React.FC<BatchActionsMoreMenuProps> = ({
       }}
       PaperProps={{
         sx: {
-          background: 'linear-gradient(135deg, #1a1f3a 0%, #0A0E27 100%)',
+          background: tokens.gradients.darkSubtle,
           border: `1px solid ${auroraOpacity.standard}`,
           borderRadius: '12px',
           mt: 1,

@@ -493,7 +493,7 @@ const styles = {
   },
 
   recReason: {
-    color: tokens.colors.accent.primary || '#0066cc',
+    color: tokens.colors.accent.primary,
     fontSize: tokens.typography.fontSize.xs,
     fontStyle: 'italic',
   },
@@ -508,7 +508,7 @@ const styles = {
   scoreValue: {
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.accent.primary || '#0066cc',
+    color: tokens.colors.accent.primary,
   },
 
   trackItem: {
@@ -566,7 +566,7 @@ const styles = {
 
   artistCardHovered: {
     backgroundColor: tokens.colors.bg.tertiary,
-    borderColor: tokens.colors.accent.primary || '#0066cc',
+    borderColor: tokens.colors.accent.primary,
   },
 
   artistName: {

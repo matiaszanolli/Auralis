@@ -528,7 +528,7 @@ const styles = {
 
   trackItemCurrent: {
     backgroundColor: tokens.colors.bg.secondary,
-    borderLeft: `3px solid ${tokens.colors.accent.primary || '#0066cc'}`,
+    borderLeft: `3px solid ${tokens.colors.accent.primary}`,
     paddingLeft: `calc(${tokens.spacing.md} - 3px)`,
   },
 
@@ -571,7 +571,7 @@ const styles = {
   },
 
   playingIcon: {
-    color: tokens.colors.accent.primary || '#0066cc',
+    color: tokens.colors.accent.primary,
     fontSize: tokens.typography.fontSize.sm,
     flexShrink: 0,
   },

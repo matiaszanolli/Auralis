@@ -234,7 +234,7 @@ class FingerprintGenerator:
 
             # Get the ProcessPoolExecutor for fingerprinting (separate process)
             executor = _get_fingerprint_executor()
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             # Run fingerprint computation in a SEPARATE PROCESS
             # This ensures playback threads are never blocked by CPU-intensive Rust operations

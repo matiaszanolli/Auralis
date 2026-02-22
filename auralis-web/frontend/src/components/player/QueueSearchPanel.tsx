@@ -446,7 +446,7 @@ const styles = {
 
     ':focus': {
       outline: 'none',
-      borderColor: tokens.colors.accent.primary || '#0066cc',
+      borderColor: tokens.colors.accent.primary,
     },
 
     '::placeholder': {

@@ -95,8 +95,6 @@ def create_enhancement_router(
         """
         try:
             # Import here to avoid circular dependencies
-            import sys
-            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             import soundfile as sf
             from core.chunked_processor import ChunkedAudioProcessor
 
@@ -390,9 +388,6 @@ def create_enhancement_router(
             raise HTTPException(status_code=400, detail=f"Invalid filepath: {e}")
 
         try:
-            import os
-            import sys
-            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             from core.chunked_processor import ChunkedAudioProcessor
 
             # Run CPU-bound processor off the event loop (#2301)
@@ -437,9 +432,6 @@ def create_enhancement_router(
             dict: Processing parameters including coordinates, targets, and adjustments
         """
         try:
-            # Import the helper function from chunked_processor
-            import sys
-            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             from core.chunked_processor import get_last_content_profile
 
             # Get current preset
