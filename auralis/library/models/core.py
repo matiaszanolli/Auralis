@@ -95,20 +95,20 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
                 # Convert filesystem path to API URL if artwork exists
                 if self.album and hasattr(self.album, 'artwork_path') and self.album.artwork_path:
                     album_artwork = f"/api/albums/{self.album.id}/artwork"
-            except:
+            except Exception:
                 album_title = None
                 album_artwork = None
 
             artist_names = []
             try:
                 artist_names = [artist.name for artist in self.artists]
-            except:
+            except Exception:
                 artist_names = []
 
             genre_names = []
             try:
                 genre_names = [genre.name for genre in self.genres]
-            except:
+            except Exception:
                 genre_names = []
 
             return {

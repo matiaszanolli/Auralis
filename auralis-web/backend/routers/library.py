@@ -165,6 +165,31 @@ def create_library_router(
         except Exception as e:
             raise handle_query_error("get favorite tracks", e)
 
+    @router.get("/api/library/tracks/{track_id}")
+    async def get_track(track_id: int) -> dict[str, Any]:
+        """
+        Get a single track by ID.
+
+        Args:
+            track_id: Track ID
+
+        Returns:
+            dict: Track object
+
+        Raises:
+            HTTPException: 404 if track not found, 503 if repository unavailable
+        """
+        try:
+            repos = require_repository_factory(get_repository_factory)
+            track = repos.tracks.get_by_id(track_id)
+            if not track:
+                raise NotFoundError("Track", track_id)
+            return serialize_tracks([track])[0]
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise handle_query_error("get track", e)
+
     @router.post("/api/library/tracks/{track_id}/favorite")
     async def set_track_favorite(track_id: int) -> dict[str, Any]:
         """

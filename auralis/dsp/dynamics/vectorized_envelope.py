@@ -128,7 +128,7 @@ class VectorizedEnvelopeFollower:
         if self.use_numba:
             try:
                 return self.process_buffer_numba(input_levels)
-            except:
+            except Exception:
                 # Fall back to vectorized if Numba not available
                 return self.process_buffer_vectorized(input_levels)
         else:

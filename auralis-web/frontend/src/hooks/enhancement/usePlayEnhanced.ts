@@ -558,18 +558,15 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           throw new Error('WebSocket not connected. Please wait for connection and try again.');
         }
 
-        // Load track data from backend so we can set currentTrack
+        // Load track data from backend so we can set currentTrack (fixes #2258)
         // This ensures the player bar shows the correct track info
         try {
-          const response = await fetch(`${API_BASE_URL}/api/library/tracks`);
+          const response = await fetch(`${API_BASE_URL}/api/library/tracks/${trackId}`);
           if (response.ok) {
-            const data = await response.json();
-            const track = data.tracks?.find((t: any) => t.id === trackId);
-            if (track) {
-              // Set the track as current in Redux state
-              dispatch(setCurrentTrack(track));
-              console.log('[usePlayEnhanced] Set current track:', track.title);
-            }
+            const track = await response.json();
+            // Set the track as current in Redux state
+            dispatch(setCurrentTrack(track));
+            console.log('[usePlayEnhanced] Set current track:', track.title);
           }
         } catch (err) {
           console.warn('[usePlayEnhanced] Failed to load track data:', err);

@@ -46,7 +46,7 @@ from collections.abc import Callable
 
 import numpy as np
 from cache.manager import StreamlinedCacheManager
-from core.chunked_processor import ChunkedAudioProcessor, apply_crossfade_between_chunks
+from core.chunked_processor import ChunkedAudioProcessor
 from fastapi import WebSocket
 from analysis.fingerprint_generator import FingerprintGenerator
 
@@ -912,12 +912,14 @@ class AudioStreamController:
                     # Last chunk - clean up tail storage
                     self._chunk_tails.pop(processor.track_id, None)
 
+            # Server already applied the boundary crossfade above; send 0 so the
+            # client does not double-apply it (fixes #2188: double crossfade).
             await self._send_pcm_chunk(
                 websocket,
                 pcm_samples=pcm_samples,
                 chunk_index=chunk_index,
                 total_chunks=processor.total_chunks,
-                crossfade_samples=crossfade_samples,
+                crossfade_samples=0,
             )
         except Exception as e:
             logger.error(f"Failed to stream chunk {chunk_index}: {e}")

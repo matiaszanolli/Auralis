@@ -214,10 +214,22 @@ class GaplessPlaybackEngine:
         if not file_path:
             return False
 
-        # Check for prebuffered track
+        # Check for prebuffered track — validate it matches the expected next track
+        # before using it (fixes #2303: queue modified after prebuffering started).
         audio_data, sample_rate = self.get_prebuffered_track()
 
-        if audio_data is not None and sample_rate is not None:
+        with self.update_lock:
+            prebuffered_info = self.next_track_info
+        prebuffer_matches = (
+            audio_data is not None
+            and sample_rate is not None
+            and prebuffered_info is not None
+            and (prebuffered_info.get('id') == next_track.get('id')
+                 or (prebuffered_info.get('file_path') or prebuffered_info.get('path'))
+                 == file_path)
+        )
+
+        if prebuffer_matches:
             # Use prebuffered audio (gapless!)
             info(f"Using prebuffered track (gapless): {file_path}")
 
@@ -236,8 +248,12 @@ class GaplessPlaybackEngine:
 
             info(f"Gapless transition complete: {file_path}")
         else:
-            # Fallback to normal loading
-            info(f"Prebuffer not available, loading: {file_path}")
+            # Prebuffer unavailable or stale — fall back to normal loading
+            if audio_data is not None and not prebuffer_matches:
+                info(f"Discarding stale prebuffer (track mismatch): {file_path}")
+                self.invalidate_prebuffer()
+            else:
+                info(f"Prebuffer not available, loading: {file_path}")
             if not self.file_manager.load_file(file_path):
                 return False
 

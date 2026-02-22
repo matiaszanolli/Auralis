@@ -69,7 +69,7 @@ class SmartCache:
             # Estimate size
             try:
                 size = len(pickle.dumps(value))
-            except:
+            except Exception:
                 size = 1024  # Default estimate
 
             current_time = time.time()

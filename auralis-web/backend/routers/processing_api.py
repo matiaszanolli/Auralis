@@ -200,12 +200,15 @@ async def upload_and_process(
                 detail="Unsupported or invalid audio file format"
             )
 
-        # Use a UUID filename to prevent client-controlled path injection (#2560)
+        # Use a UUID filename to prevent client-controlled path injection (#2560).
+        # Open with "xb" (exclusive create) to prevent TOCTOU: if another process
+        # created a symlink at this path between path selection and open, the
+        # kernel raises FileExistsError rather than following the symlink (fixes #2170).
         original_ext = Path(file.filename or "").suffix.lower()
         if original_ext not in _ALLOWED_AUDIO_EXTENSIONS:
             original_ext = ".bin"
         input_path = temp_dir / f"{uuid.uuid4()}{original_ext}"
-        with open(input_path, "wb") as f:
+        with open(input_path, "xb") as f:
             f.write(content)
 
         logger.info(f"Uploaded file saved to {input_path}")

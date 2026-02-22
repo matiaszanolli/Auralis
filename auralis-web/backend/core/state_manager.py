@@ -206,18 +206,30 @@ class PlayerStateManager:
             self._position_update_task = None
 
     async def _position_update_loop(self) -> None:
-        """Update position every second while playing"""
+        """Update position every second while playing, corrected for event-loop drift.
+
+        asyncio.sleep(1.0) can fire slightly late when the loop is busy.
+        Recording the wall-clock timestamp of the previous tick and using the
+        actual elapsed time prevents the 10-20ms/tick drift that accumulates
+        into visible position lag over a 3-minute track (fixes #2171).
+        """
+        loop = asyncio.get_event_loop()
+        last_tick = loop.time()
         try:
             while True:
                 await asyncio.sleep(1.0)
+                now = loop.time()
+                elapsed = now - last_tick
+                last_tick = now
+
                 new_time: float | None = None
                 track_ended: bool = False
 
                 async with self._lock:
                     if self.state.is_playing and self.state.current_track:
-                        # Increment position
+                        # Advance by actual elapsed wall-clock time, not a fixed 1.0s
                         new_time = min(
-                            self.state.current_time + 1.0,
+                            self.state.current_time + elapsed,
                             self.state.duration
                         )
                         self.state.current_time = new_time

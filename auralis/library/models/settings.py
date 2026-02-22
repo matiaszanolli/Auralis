@@ -65,7 +65,7 @@ class UserSettings(Base, TimestampMixin):  # type: ignore[misc]
         if self.scan_folders:
             try:
                 scan_folders_list = json.loads(self.scan_folders)  # type: ignore[arg-type]
-            except:
+            except Exception:
                 scan_folders_list = []
 
         return {
