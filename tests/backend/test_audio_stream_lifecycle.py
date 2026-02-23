@@ -339,7 +339,7 @@ class TestStreamEnhancedAudioLifecycle:
         ws = _make_ws()
         ctrl = _make_controller()
         with patch(
-            "audio_stream_controller.asyncio.wait_for",
+            "core.audio_stream_controller.asyncio.wait_for",
             side_effect=asyncio.TimeoutError(),
         ):
             await ctrl.stream_enhanced_audio(

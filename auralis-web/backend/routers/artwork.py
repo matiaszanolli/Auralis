@@ -88,7 +88,7 @@ def create_artwork_router(
             # Use strict=False to resolve path even if file doesn't exist (for security validation)
             try:
                 requested_path = Path(album.artwork_path).resolve(strict=False)
-            except (OSError, RuntimeError) as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Invalid artwork path for album {album_id}: {album.artwork_path} - {e}")
                 raise HTTPException(status_code=403, detail="Access denied: invalid path")
 

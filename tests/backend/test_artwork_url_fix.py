@@ -132,9 +132,9 @@ class TestTrackArtworkURL:
         track_dict = track.to_dict()
 
         # Should return URL, not filesystem path
-        assert track_dict['album_art'] == "/api/albums/100/artwork"
-        assert not track_dict['album_art'].startswith("/home/")
-        assert not track_dict['album_art'].endswith(".jpg")
+        assert track_dict['artwork_url'] == "/api/albums/100/artwork"
+        assert not track_dict['artwork_url'].startswith("/home/")
+        assert not track_dict['artwork_url'].endswith(".jpg")
 
     def test_track_without_album_returns_none(self, db_session):
         """Test that track without album returns None for album_art"""
@@ -152,7 +152,7 @@ class TestTrackArtworkURL:
         track_dict = track.to_dict()
 
         # Should return None
-        assert track_dict['album_art'] is None
+        assert track_dict['artwork_url'] is None
 
     def test_track_with_album_without_artwork_returns_none(self, db_session):
         """Test that track with album but no artwork returns None"""
@@ -183,7 +183,7 @@ class TestTrackArtworkURL:
         track_dict = track.to_dict()
 
         # Should return None
-        assert track_dict['album_art'] is None
+        assert track_dict['artwork_url'] is None
 
 
 class TestArtworkURLSecurity:
@@ -250,9 +250,9 @@ class TestArtworkURLSecurity:
         track_dict = track.to_dict()
 
         # album_art should not contain .auralis or filesystem artwork path
-        if track_dict['album_art']:
-            assert ".auralis" not in track_dict['album_art']
-            assert track_dict['album_art'].startswith("/api/")
+        if track_dict['artwork_url']:
+            assert ".auralis" not in track_dict['artwork_url']
+            assert track_dict['artwork_url'].startswith("/api/")
 
     def test_url_format_is_correct(self, db_session):
         """Test that generated URLs follow correct format"""
