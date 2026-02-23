@@ -176,6 +176,10 @@ class ContinuousMode:
             )
             self.last_fingerprint = fingerprint
 
+            if not fingerprint:
+                debug("Fingerprint extraction returned empty — skipping continuous processing")
+                return processed_audio
+
             print(f"[Continuous Space] Fingerprint extracted:")
             print(f"  Bass: {fingerprint['bass_pct']:.1f}%, Crest: {fingerprint['crest_db']:.1f} dB, LUFS: {fingerprint['lufs']:.1f}")
 

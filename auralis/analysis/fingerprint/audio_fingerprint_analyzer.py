@@ -126,8 +126,13 @@ class AudioFingerprintAnalyzer:
                 return {}
             # Require minimum 0.5s of audio for meaningful fingerprinting
             min_samples = sr // 2
-            if audio.shape[-1] < min_samples:
-                logger.warning(f"Fingerprint skipped: audio too short ({audio.shape[-1]} < {min_samples} samples)")
+            # Determine sample count: (channels, samples) if first dim ≤ 2, else (samples, channels)
+            if len(audio.shape) > 1:
+                num_samples = audio.shape[-1] if audio.shape[0] <= 2 else audio.shape[0]
+            else:
+                num_samples = audio.shape[0]
+            if num_samples < min_samples:
+                logger.warning(f"Fingerprint skipped: audio too short ({num_samples} < {min_samples} samples)")
                 return {}
 
             # Convert to mono for most analysis (except stereo analyzer)

@@ -201,27 +201,31 @@ class TestRealtimeProcessorComprehensive:
         # Test gain increase (attack)
         smoother.set_target(2.0)
 
-        # Process several chunks and check gain progression
-        gains = []
-        for i in range(10):
-            gain = smoother.process(512)  # 512 samples
-            gains.append(gain)
+        # Process several chunks and verify the gain ramps toward the target
+        first_ramp = smoother.process(512)
+        initial_gain = float(first_ramp[0])
+
+        for _ in range(9):
+            smoother.process(512)
+        final_gain = smoother.current_gain
 
         # Gain should increase towards target
-        assert gains[0] < gains[-1]  # Final gain should be higher than initial
-        assert gains[-1] <= 2.0      # Should not exceed target
+        assert initial_gain < final_gain  # Gain ramped up from initial
+        assert final_gain <= 2.0          # Should not exceed target
 
         # Test gain decrease (release)
         smoother.set_target(0.5)
 
-        release_gains = []
-        for i in range(10):
-            gain = smoother.process(512)
-            release_gains.append(gain)
+        first_release_ramp = smoother.process(512)
+        initial_release_gain = float(first_release_ramp[0])
+
+        for _ in range(9):
+            smoother.process(512)
+        final_release_gain = smoother.current_gain
 
         # Gain should decrease towards target
-        assert release_gains[0] > release_gains[-1]  # Final gain should be lower
-        assert release_gains[-1] >= 0.5  # Should not go below target
+        assert initial_release_gain > final_release_gain  # Gain ramped down
+        assert final_release_gain >= 0.5  # Should not go below target
 
         self.tearDown()
 

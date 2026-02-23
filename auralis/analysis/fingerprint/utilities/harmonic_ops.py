@@ -160,10 +160,21 @@ class HarmonicOperations:
             Tuple of (harmonic_ratio, pitch_stability, chroma_energy).
             Any metric that fails is returned as 0.5.
         """
-        # Each callee (#2445) already catches exceptions and returns 0.5 fallback.
-        # The try/except wrappers below are dead code and removed (#2461).
-        harmonic_ratio = HarmonicOperations.calculate_harmonic_ratio(audio)
-        pitch_stability = HarmonicOperations.calculate_pitch_stability(audio, sr)
-        chroma_energy = HarmonicOperations.calculate_chroma_energy(audio, sr)
+        fallback = 0.5
+
+        try:
+            harmonic_ratio = HarmonicOperations.calculate_harmonic_ratio(audio)
+        except Exception:
+            harmonic_ratio = fallback
+
+        try:
+            pitch_stability = HarmonicOperations.calculate_pitch_stability(audio, sr)
+        except Exception:
+            pitch_stability = fallback
+
+        try:
+            chroma_energy = HarmonicOperations.calculate_chroma_energy(audio, sr)
+        except Exception:
+            chroma_energy = fallback
 
         return (harmonic_ratio, pitch_stability, chroma_energy)
