@@ -12,6 +12,7 @@ from typing import Any
 from collections.abc import Callable
 
 from sqlalchemy import and_, func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ...utils.logging import debug, error, info, warning
@@ -91,7 +92,10 @@ class TrackRepository:
                 except Exception as e:
                     debug(f"Failed to auto-extract audio info: {e}")
 
-            # Get or create artist(s) using normalized name matching
+            # Get or create artist(s) using normalized name matching.
+            # Handles concurrent scans where two sessions try to insert the same
+            # artist simultaneously — the loser's INSERT raises IntegrityError on
+            # the UNIQUE constraint, and we fall back to querying (fixes #2594).
             artists = []
             for artist_name in track_info.get('artists', []):
                 normalized = normalize_artist_name(artist_name)
@@ -100,8 +104,15 @@ class TrackRepository:
                     Artist.normalized_name == normalized
                 ).first()
                 if not artist:
-                    artist = Artist(name=artist_name, normalized_name=normalized)
-                    session.add(artist)
+                    try:
+                        artist = Artist(name=artist_name, normalized_name=normalized)
+                        session.add(artist)
+                        session.flush()
+                    except IntegrityError:
+                        session.rollback()
+                        artist = session.query(Artist).filter(
+                            Artist.normalized_name == normalized
+                        ).first()
                 artists.append(artist)
 
             # Get or create album
@@ -119,13 +130,18 @@ class TrackRepository:
                     )
                     session.add(album)
 
-            # Get or create genres
+            # Get or create genres (same IntegrityError handling as artists, fixes #2594)
             genres = []
             for genre_name in track_info.get('genres', []):
                 genre = session.query(Genre).filter(Genre.name == genre_name).first()
                 if not genre:
-                    genre = Genre(name=genre_name)
-                    session.add(genre)
+                    try:
+                        genre = Genre(name=genre_name)
+                        session.add(genre)
+                        session.flush()
+                    except IntegrityError:
+                        session.rollback()
+                        genre = session.query(Genre).filter(Genre.name == genre_name).first()
                 genres.append(genre)
 
             # Create track

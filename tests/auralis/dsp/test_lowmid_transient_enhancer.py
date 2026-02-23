@@ -38,7 +38,7 @@ def _with_transient(base: np.ndarray, pos: int, width: int = 50,
     half = width // 2
     start = max(0, pos - half)
     end = min(len(sig), pos + half)
-    sig[start:end] += amp * np.hanning(end - start)
+    sig[start:end] += amp * np.hann(end - start)
     return np.clip(sig, -1.0, 1.0)
 
 

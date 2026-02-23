@@ -335,6 +335,7 @@ const Player: React.FC = () => {
             }}
             title="Toggle queue (Q)"
             aria-label="Toggle queue"
+            aria-expanded={queuePanelOpen}
             onMouseEnter={(e) => {
               if (!queuePanelOpen) {
                 // Hover: subtle glass effect

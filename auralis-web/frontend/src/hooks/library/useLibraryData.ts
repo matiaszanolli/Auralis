@@ -69,6 +69,10 @@ export const useLibraryData = ({
   const [offset, setOffset] = useState(0);
   const offsetRef = useRef(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // Ref-based guard to prevent concurrent loadMore calls from racing (fixes #2603).
+  // State-based guard (`isLoadingMore`) is stale within the same React render frame,
+  // so two rapid scroll events can both enter loadMore before React re-renders.
+  const isLoadingMoreRef = useRef(false);
   const [scanning, setScanning] = useState(false);
   // Controlled input for folder path in web (non-Electron) environments (fixes #2359).
   const [webFolderPath, setWebFolderPath] = useState('');
@@ -143,12 +147,15 @@ export const useLibraryData = ({
     }
   }, [view, success, error, info]);
 
-  // Load more tracks (for infinite scroll)
+  // Load more tracks (for infinite scroll).
+  // Uses ref-based guard to prevent duplicate fetches from concurrent scroll events (fixes #2603).
   const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore) {
+    if (isLoadingMoreRef.current || !hasMore) {
       return;
     }
 
+    // Synchronous ref update prevents concurrent calls within the same frame
+    isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
     try {
       const limit = 50;
@@ -182,9 +189,10 @@ export const useLibraryData = ({
     } catch (err) {
       console.error('Error loading more tracks:', err);
     } finally {
+      isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMore, view]);
+  }, [hasMore, view]);
 
   // Handle folder scan
   // Blocking alert()/prompt() replaced with toast notifications (fixes #2359).

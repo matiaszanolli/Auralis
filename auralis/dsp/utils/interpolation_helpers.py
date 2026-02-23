@@ -113,7 +113,7 @@ def _apply_window_smoothing(envelope: np.ndarray, start_idx: int, end_idx: int,
         return
 
     if window_type == 'hann':
-        window = np.hanning(width)
+        window = np.hann(width)
     else:  # hamming
         window = np.hamming(width)
 
