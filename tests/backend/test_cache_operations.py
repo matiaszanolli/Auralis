@@ -458,7 +458,7 @@ def test_cache_operations_with_repository_factory(temp_audio_dir, repository_fac
             "channels": 2,
             "bitrate": 1411200,
         }
-        track_repo.create(track_info)
+        track_repo.add(track_info)
 
     # Query via factory
     tracks, total = track_repo.get_all(limit=50, offset=0)
@@ -509,7 +509,7 @@ def test_cache_operations_dual_mode_equivalent(
             "channels": 2,
             "bitrate": 1411200,
         }
-        repository_factory_memory.tracks.create(track_info)
+        repository_factory_memory.tracks.add(track_info)
 
     # Query via RepositoryFactory
     tracks_factory, total_factory = repository_factory_memory.tracks.get_all(limit=50, offset=0)
@@ -543,7 +543,7 @@ def test_cache_invalidation_with_factory(temp_audio_dir, repository_factory_memo
             "channels": 2,
             "bitrate": 1411200,
         }
-        track_repo.create(track_info)
+        track_repo.add(track_info)
 
     # Query to populate cache
     tracks1, total1 = track_repo.get_all(limit=50, offset=0)
@@ -560,7 +560,7 @@ def test_cache_invalidation_with_factory(temp_audio_dir, repository_factory_memo
         "channels": 2,
         "bitrate": 1411200,
     }
-    track_repo.create(track_info)
+    track_repo.add(track_info)
 
     # Query again
     tracks2, total2 = track_repo.get_all(limit=50, offset=0)

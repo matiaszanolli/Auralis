@@ -16,11 +16,37 @@ Coverage:
 
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
+
+
+@pytest.fixture
+def client():
+    """FastAPI test client with cache router registered via mock cache manager."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from routers.cache_streamlined import create_streamlined_cache_router
+
+    mock_cache = Mock()
+    mock_cache.get_stats = Mock(return_value={
+        "tier1": {"hit_rate": 0.0, "size_mb": 0.0, "hits": 0, "misses": 0},
+        "tier2": {"hit_rate": 0.0, "size_mb": 0.0, "hits": 0, "misses": 0},
+        "overall": {"overall_hit_rate": 0.0, "total_size_mb": 0.0},
+        "tracks": {},
+    })
+    mock_cache.get_track_cache_status = Mock(return_value=None)
+    mock_cache.clear_all = AsyncMock()
+
+    app = FastAPI()
+    app.include_router(create_streamlined_cache_router(cache_manager=mock_cache))
+
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 class TestGetCacheStats:
