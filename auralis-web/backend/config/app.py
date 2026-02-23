@@ -52,9 +52,19 @@ def create_app(lifespan: Any = None) -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        # Extract only JSON-safe fields from Pydantic v2 errors.
+        # exc.errors() can contain raw ValueError objects in ctx which
+        # are not JSON-serializable.
+        errors = [
+            {
+                "field": ".".join(str(loc) for loc in e.get("loc", [])),
+                "message": e.get("msg", ""),
+            }
+            for e in exc.errors()
+        ]
         return JSONResponse(
             status_code=422,
-            content={"detail": "Validation error", "errors": exc.errors()},
+            content={"detail": "Validation error", "errors": errors},
         )
 
     @app.exception_handler(Exception)

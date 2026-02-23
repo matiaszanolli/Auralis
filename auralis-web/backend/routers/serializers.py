@@ -102,10 +102,21 @@ def serialize_object(obj: Any, fallback_fields: dict[str, Any] | None = None) ->
     if fallback_fields is None:
         fallback_fields = {}
 
-    return {
-        field: getattr(obj, field, default)
-        for field, default in fallback_fields.items()
-    }
+    result = {}
+    for field, default in fallback_fields.items():
+        value = getattr(obj, field, default)
+        # Sanitize relationship objects (ORM models / Mocks) that aren't
+        # directly JSON-serializable.  Real objects normally go through
+        # to_dict() above; this only fires for the fallback path.
+        if value is not None and not isinstance(value, (str, int, float, bool, list, dict)):
+            if hasattr(value, 'name') and isinstance(getattr(value, 'name', None), str):
+                value = value.name
+            elif hasattr(value, 'title') and isinstance(getattr(value, 'title', None), str):
+                value = value.title
+            else:
+                value = default
+        result[field] = value
+    return result
 
 
 def serialize_objects(

@@ -349,7 +349,7 @@ class TestAlbumsAPIIntegration:
 
     def test_albums_search_and_retrieve(self, client, mock_album, mock_repos):
         """Test searching for album and retrieving it"""
-        mock_repos.albums.search.return_value = [mock_album]
+        mock_repos.albums.search.return_value = ([mock_album], 1)
 
         with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             # Search for album
