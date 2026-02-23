@@ -123,7 +123,7 @@ class PsychoacousticEQ:
             audio_mono = padded
 
         # Apply window to reduce spectral leakage
-        window = np.hanning(self.fft_size)
+        window = np.hann(self.fft_size)
         windowed_audio = audio_mono[:self.fft_size] * window
 
         # Compute spectrum

@@ -484,13 +484,13 @@ class AudioStreamController:
 
             if not Path(track.filepath).exists():
                 await self._send_error(
-                    websocket, track_id, f"Audio file not found: {track.filepath}"
+                    websocket, track_id, "Audio file not found"
                 )
                 self._stream_semaphore.release()
                 return
         except Exception as e:
-            logger.error(f"Failed to load track {track_id}: {e}")
-            await self._send_error(websocket, track_id, str(e))
+            logger.error(f"Failed to load track {track_id}: {e}", exc_info=True)
+            await self._send_error(websocket, track_id, "Failed to load track")
             self._stream_semaphore.release()
             return
 
@@ -627,7 +627,7 @@ class AudioStreamController:
                 logger.error(f"Audio streaming failed: {e}", exc_info=True)
                 # Only try to send error if WebSocket is still connected
                 if self._is_websocket_connected(websocket):
-                    await self._send_error(websocket, track_id, str(e))
+                    await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
             # Clean up chunk tail storage for this track
             self._chunk_tails.pop(track_id, None)
@@ -683,13 +683,13 @@ class AudioStreamController:
 
             if not Path(track.filepath).exists():
                 await self._send_error(
-                    websocket, track_id, f"Audio file not found: {track.filepath}"
+                    websocket, track_id, "Audio file not found"
                 )
                 self._stream_semaphore.release()
                 return
         except Exception as e:
-            logger.error(f"Failed to load track {track_id}: {e}")
-            await self._send_error(websocket, track_id, str(e))
+            logger.error(f"Failed to load track {track_id}: {e}", exc_info=True)
+            await self._send_error(websocket, track_id, "Failed to load track")
             self._stream_semaphore.release()
             return
 
@@ -818,7 +818,7 @@ class AudioStreamController:
                 logger.error(f"Normal audio streaming failed: {e}", exc_info=True)
                 # Only try to send error if WebSocket is still connected
                 if self._is_websocket_connected(websocket):
-                    await self._send_error(websocket, track_id, str(e))
+                    await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
             self.active_streams.pop(track_id, None)  # fixes #2076
             self._stream_semaphore.release()
@@ -1285,13 +1285,13 @@ class AudioStreamController:
 
             if not Path(track.filepath).exists():
                 await self._send_error(
-                    websocket, track_id, f"Audio file not found: {track.filepath}"
+                    websocket, track_id, "Audio file not found"
                 )
                 self._stream_semaphore.release()
                 return
         except Exception as e:
-            logger.error(f"Failed to load track {track_id}: {e}")
-            await self._send_error(websocket, track_id, str(e))
+            logger.error(f"Failed to load track {track_id}: {e}", exc_info=True)
+            await self._send_error(websocket, track_id, "Failed to load track")
             self._stream_semaphore.release()
             return
 
@@ -1408,7 +1408,7 @@ class AudioStreamController:
             else:
                 logger.error(f"Seek streaming failed: {e}", exc_info=True)
                 if self._is_websocket_connected(websocket):
-                    await self._send_error(websocket, track_id, str(e))
+                    await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
             self._chunk_tails.pop(track_id, None)  # fixes orphaned state
             self.active_streams.pop(track_id, None)  # fixes #2076

@@ -148,12 +148,14 @@ class ArtistRepository:
                 .count()
             )
 
-            # Get paginated results
+            # Get paginated results.
+            # Use selectinload (separate IN queries) instead of nested joinedload
+            # to avoid the N×M Cartesian-product row explosion (mirrors get_all() fix #2516).
             artists = (
                 session.query(Artist)
                 .options(
-                    joinedload(Artist.tracks).joinedload(Track.genres),
-                    joinedload(Artist.albums)
+                    selectinload(Artist.tracks).selectinload(Track.genres),
+                    selectinload(Artist.albums)
                 )
                 .filter(Artist.name.ilike(search_term))
                 .order_by(Artist.name)

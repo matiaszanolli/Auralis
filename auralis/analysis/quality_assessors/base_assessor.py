@@ -202,7 +202,7 @@ class BaseAssessor(ABC):
         audio_segment = audio_mono[mid_start:mid_end]
 
         # Compute FFT with windowing
-        window = np.hanning(len(audio_segment))
+        window = np.hann(len(audio_segment))
         windowed = audio_segment * window
 
         fft_result = np.fft.rfft(windowed, n=fft_size)

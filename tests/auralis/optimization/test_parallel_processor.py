@@ -283,7 +283,7 @@ class TestParallelProcessingIntegration:
     def test_get_window_concurrent_stress(self):
         """8 threads call get_window() for the same uncached size 10,000× each.
 
-        All returned arrays must equal np.hanning(size) — no partial/stale
+        All returned arrays must equal np.hann(size) — no partial/stale
         window may be returned from the unprotected early-return path (#2428).
         """
         WINDOW_SIZE = 7777   # deliberately uncached so Phase-2 lock is exercised
@@ -291,7 +291,7 @@ class TestParallelProcessingIntegration:
         CALLS_PER_THREAD = 10_000
 
         processor = ParallelFFTProcessor()
-        expected = np.hanning(WINDOW_SIZE)
+        expected = np.hann(WINDOW_SIZE)
 
         errors: list[str] = []
         barrier = threading.Barrier(THREADS)  # all threads start at the same time

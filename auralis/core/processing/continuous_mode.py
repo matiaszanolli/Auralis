@@ -428,7 +428,9 @@ class ContinuousMode:
         # Use RMS instead of LUFS because LUFS measurement can be unreliable after EQ processing
         from ...dsp.basic import rms as calculate_rms
 
-        current_rms = calculate_rms(np.mean(audio, axis=1) if audio.ndim == 2 else audio)
+        # Use audio.ravel() for stereo to include all channel samples in RMS,
+        # avoiding up-to-3dB underestimate from averaging L+R before RMS (fixes #2593).
+        current_rms = calculate_rms(audio.ravel() if audio.ndim == 2 else audio)
         current_rms_db = DBConversion.to_db(current_rms)
 
         # Use LUFS target directly as RMS target
@@ -439,7 +441,7 @@ class ContinuousMode:
 
         if abs(rms_adjustment) > 0.5:
             audio = amplify(audio, rms_adjustment)
-            new_rms = calculate_rms(np.mean(audio, axis=1) if audio.ndim == 2 else audio)
+            new_rms = calculate_rms(audio.ravel() if audio.ndim == 2 else audio)
             new_rms_db = DBConversion.to_db(new_rms)
             debug(f"[RMS Normalization] {current_rms_db:.1f} → {new_rms_db:.1f} dB ({rms_adjustment:+.1f} dB)")
 

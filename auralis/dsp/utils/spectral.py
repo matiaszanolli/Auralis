@@ -42,7 +42,7 @@ def spectral_centroid(audio: np.ndarray, sample_rate: int = 44100) -> float:
         audio_segment = audio
 
     # Apply window to reduce spectral leakage
-    window = np.hanning(len(audio_segment))
+    window = np.hann(len(audio_segment))
     windowed_audio = audio_segment * window
 
     # Compute magnitude spectrum

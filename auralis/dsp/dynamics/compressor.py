@@ -57,25 +57,32 @@ class AdaptiveCompressor:
 
         debug(f"Adaptive compressor initialized: {settings.ratio:.1f}:1, {settings.threshold_db:.1f}dB")
 
-    def _calculate_gain_reduction(self, level_db: float) -> float:
-        """Calculate gain reduction based on input level"""
+    def _calculate_gain_reduction_vectorized(self, levels_db: np.ndarray) -> np.ndarray:
+        """Calculate gain reduction for an array of input levels (pure NumPy, no Python loop).
+
+        Replaces the previous np.vectorize wrapper for ~10-50x speedup (fixes #2596).
+        """
         threshold = self.settings.threshold_db
         ratio = self.settings.ratio
         knee = self.settings.knee_db
+        half_knee = knee / 2
 
-        if level_db <= threshold - knee/2:
-            # Below knee
-            return 0.0
-        elif level_db >= threshold + knee/2:
-            # Above knee (linear compression)
-            over_threshold = level_db - threshold
-            return -over_threshold * (1 - 1/ratio)
-        else:
-            # In knee (soft compression)
-            over_threshold = level_db - threshold + knee/2
-            knee_ratio = over_threshold / knee
-            soft_ratio = 1 + knee_ratio * (ratio - 1) / ratio
-            return -over_threshold * (1 - 1/soft_ratio)
+        gain_reduction = np.zeros_like(levels_db)
+
+        # Above knee: linear compression
+        above_knee = levels_db >= threshold + half_knee
+        over_threshold_above = levels_db[above_knee] - threshold
+        gain_reduction[above_knee] = -over_threshold_above * (1 - 1 / ratio)
+
+        # In knee: soft compression (quadratic interpolation)
+        in_knee = (levels_db > threshold - half_knee) & ~above_knee
+        over_threshold_knee = levels_db[in_knee] - threshold + half_knee
+        knee_ratio = over_threshold_knee / knee
+        soft_ratio = 1 + knee_ratio * (ratio - 1) / ratio
+        gain_reduction[in_knee] = -over_threshold_knee * (1 - 1 / soft_ratio)
+
+        # Below knee: gain_reduction stays 0.0 (already initialized)
+        return gain_reduction
 
     def _detect_input_level(self, audio: np.ndarray, detection_mode: str = "rms") -> float:
         """Detect input level using specified mode"""
@@ -110,8 +117,9 @@ class AdaptiveCompressor:
         if len(audio) == 0:
             return audio, {}
 
-        # Handle lookahead
-        if self.lookahead_buffer is not None:
+        # Handle lookahead — check the settings flag instead of the buffer,
+        # since the buffer is lazily initialized inside _apply_lookahead() (fixes #2592).
+        if self.settings.enable_lookahead and self.lookahead_samples > 0:
             delayed_audio = self._apply_lookahead(audio)
         else:
             delayed_audio = audio
@@ -126,9 +134,8 @@ class AdaptiveCompressor:
         # Convert to dB
         sample_levels_db = 20 * np.log10(sample_levels + 1e-10)
 
-        # Vectorized gain reduction per sample
-        _calculate = np.vectorize(self._calculate_gain_reduction)
-        target_gain_reduction = _calculate(sample_levels_db)
+        # Pure NumPy vectorized gain reduction per sample (fixes #2596)
+        target_gain_reduction = self._calculate_gain_reduction_vectorized(sample_levels_db)
 
         # Smooth gain reduction with the envelope follower (per-sample)
         smoothed_gain_reduction = self.gain_follower.process_buffer(
