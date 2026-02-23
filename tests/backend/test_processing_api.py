@@ -61,7 +61,7 @@ def mock_engine():
         "failed": 0,
         "max_concurrent": 2
     })
-    engine.cleanup_old_jobs = Mock(return_value=5)  # Synchronous, not async
+    engine.cleanup_old_jobs = AsyncMock(return_value=5)
 
     set_processing_engine(engine)
     return engine
@@ -399,11 +399,12 @@ class TestQueueBackpressureAPI:
         audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
         mock_engine.create_job.return_value = mock_engine.get_job.return_value
 
-        # Simulate a valid process request pointing at the real temp file
-        response = client.post(
-            "/api/processing/process",
-            json={"input_path": str(audio_file), "settings": {"mode": "adaptive"}},
-        )
+        # Bypass path validation so the request reaches submit_job
+        with patch("routers.processing_api.validate_file_path", return_value=audio_file):
+            response = client.post(
+                "/api/processing/process",
+                json={"input_path": str(audio_file), "settings": {"mode": "adaptive"}},
+            )
 
         assert response.status_code == 503
         assert "queue" in response.json()["detail"].lower()

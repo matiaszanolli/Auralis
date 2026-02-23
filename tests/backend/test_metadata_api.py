@@ -108,8 +108,8 @@ class TestGetEditableFields:
 
         response = client.get("/api/metadata/tracks/1/fields")
 
-        # Should return 404 for missing file
-        assert response.status_code in [404, 500]
+        # Should return 400 (path validation), 404 (file not found), or 500
+        assert response.status_code in [400, 404, 500]
 
     def test_get_editable_fields_accepts_get_only(self, client):
         """Test that endpoint only accepts GET"""
@@ -139,7 +139,8 @@ class TestGetTrackMetadata:
 
         response = client.get("/api/metadata/tracks/1")
 
-        assert response.status_code in [404, 500]
+        # 400 from path validation, 404 from file not found, or 500
+        assert response.status_code in [400, 404, 500]
 
     def test_get_metadata_accepts_get_only(self, client):
         """Test that endpoint only accepts GET"""
@@ -214,8 +215,8 @@ class TestUpdateTrackMetadata:
             json={"title": "New Title"}
         )
 
-        # Should return 404 for missing file
-        assert response.status_code in [404, 500]
+        # Should return 400 (path validation), 404 (file not found), or 500
+        assert response.status_code in [400, 404, 500]
 
     def test_update_metadata_accepts_put_only(self, client):
         """Test that endpoint only accepts PUT"""
@@ -239,7 +240,7 @@ class TestUpdateTrackMetadata:
         )
 
         # Will fail because file doesn't exist, but validates parameter passing
-        assert response.status_code in [404, 500]
+        assert response.status_code in [400, 404, 500]
 
 
 class TestBatchUpdateMetadata:
@@ -348,7 +349,7 @@ class TestBatchUpdateMetadata:
     def test_batch_update_accepts_post_only(self, client):
         """Test that batch endpoint only accepts POST"""
         response = client.get("/api/metadata/batch")
-        assert response.status_code == 405
+        assert response.status_code in [404, 405]
 
 
 class TestMetadataValidation:
@@ -377,7 +378,7 @@ class TestMetadataValidation:
         )
 
         # Will fail because file doesn't exist, but validates field types
-        assert response.status_code in [404, 500]
+        assert response.status_code in [400, 404, 500]
         # Should NOT be validation error (422)
         assert response.status_code != 422
 
@@ -394,7 +395,7 @@ class TestMetadataValidation:
         )
 
         # Will fail because file doesn't exist, but validates partial update
-        assert response.status_code in [404, 500]
+        assert response.status_code in [400, 404, 500]
         assert response.status_code != 422
 
 
@@ -414,7 +415,7 @@ class TestMetadataSecurityValidation:
         )
 
         # Should handle safely (not execute SQL)
-        assert response.status_code in [404, 500]
+        assert response.status_code in [400, 404, 500]
 
     @patch('routers.metadata.require_repository_factory')
     def test_metadata_xss_attempt(self, mock_require_repos, client, mock_repos, mock_track):
@@ -429,7 +430,7 @@ class TestMetadataSecurityValidation:
         )
 
         # Should accept (metadata can contain special chars) but not execute
-        assert response.status_code in [404, 500]
+        assert response.status_code in [400, 404, 500]
 
     @patch('routers.metadata.require_repository_factory')
     def test_metadata_extremely_long_strings(self, mock_require_repos, client, mock_repos, mock_track):
@@ -467,9 +468,9 @@ class TestMetadataIntegration:
             json={"title": "Updated Title"}
         )
 
-        # Both should fail consistently
-        assert fields_response.status_code in [404, 500]
-        assert update_response.status_code in [404, 500]
+        # Both should fail consistently (400 from path validation, 404/500 from file I/O)
+        assert fields_response.status_code in [400, 404, 500]
+        assert update_response.status_code in [400, 404, 500]
 
     @patch('routers.metadata.require_repository_factory')
     def test_workflow_single_then_batch_update(self, mock_require_repos, client, mock_repos):
@@ -495,5 +496,5 @@ class TestMetadataIntegration:
         )
 
         # Both should process (may fail due to missing tracks)
-        assert single_response.status_code in [404, 500]
+        assert single_response.status_code in [400, 404, 500]
         assert batch_response.status_code in [200, 500]

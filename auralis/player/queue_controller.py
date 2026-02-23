@@ -260,6 +260,10 @@ class QueueController:
         """Get full queue as list"""
         return self.queue.get_queue()  # type: ignore[no-any-return]
 
+    def shuffle(self) -> None:
+        """Shuffle the queue, keeping the current track in place."""
+        self.queue.shuffle()
+
     def reorder_tracks(self, new_order: list[int]) -> bool:
         """Reorder tracks according to new index order"""
         return self.queue.reorder_tracks(new_order)  # type: ignore[no-any-return]

@@ -90,7 +90,7 @@ def test_scan_request_accepts_multiple_directories():
     from unittest.mock import patch
     from schemas import LibraryScanRequest
 
-    with patch("path_security.validate_scan_path", side_effect=lambda p: Path(p)):
+    with patch("security.path_security.validate_scan_path", side_effect=lambda p: Path(p)):
         req = LibraryScanRequest(directories=["/tmp/music", "/tmp/other"])
         assert len(req.directories) == 2
 
@@ -103,7 +103,7 @@ def test_scan_request_accepts_optional_flags():
     from unittest.mock import patch
     from schemas import LibraryScanRequest
 
-    with patch("path_security.validate_scan_path", side_effect=lambda p: Path(p)):
+    with patch("security.path_security.validate_scan_path", side_effect=lambda p: Path(p)):
         req = LibraryScanRequest(directories=["/tmp/music"])
         assert req.recursive is True
         assert req.skip_existing is True

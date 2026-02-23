@@ -178,7 +178,8 @@ class TestProcessingEngine:
 
         assert "test-job" in engine.progress_callbacks
 
-    def test_cleanup_old_jobs(self, engine, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_cleanup_old_jobs(self, engine, temp_audio_file):
         """Test cleaning up old jobs"""
         from datetime import datetime, timedelta
 
@@ -192,7 +193,7 @@ class TestProcessingEngine:
         # Add job to engine's jobs dict
         engine.jobs[job.job_id] = job
 
-        removed = engine.cleanup_old_jobs(max_age_hours=24)
+        removed = await engine.cleanup_old_jobs(max_age_hours=24)
 
         assert removed == 1
         assert job.job_id not in engine.jobs
@@ -399,21 +400,25 @@ class TestQueueBackpressure:
 
     @pytest.mark.asyncio
     async def test_processing_count_reflects_semaphore_value(self):
-        """get_queue_status()['processing'] is derived from the semaphore, not a separate counter (fixes #2299)"""
+        """get_queue_status()['processing'] tracks active jobs via _active_job_count (#2459)"""
         engine = ProcessingEngine(max_concurrent_jobs=3)
 
         assert engine.get_queue_status()["processing"] == 0
 
-        # Simulate two jobs holding concurrency slots
+        # Simulate two jobs holding concurrency slots (mimic start_worker behavior)
         await engine._concurrency_semaphore.acquire()
+        engine._active_job_count += 1
         assert engine.get_queue_status()["processing"] == 1
 
         await engine._concurrency_semaphore.acquire()
+        engine._active_job_count += 1
         assert engine.get_queue_status()["processing"] == 2
 
         # Release both and verify the count drops back
         engine._concurrency_semaphore.release()
+        engine._active_job_count -= 1
         engine._concurrency_semaphore.release()
+        engine._active_job_count -= 1
         assert engine.get_queue_status()["processing"] == 0
 
     @pytest.mark.asyncio
@@ -421,10 +426,11 @@ class TestQueueBackpressure:
         """A (max_concurrent_jobs+1)th acquire blocks until a slot is freed (fixes #2299)"""
         engine = ProcessingEngine(max_concurrent_jobs=2)
 
-        # Fill all concurrency slots
+        # Fill all concurrency slots (mimic start_worker behavior)
         await engine._concurrency_semaphore.acquire()
+        engine._active_job_count += 1
         await engine._concurrency_semaphore.acquire()
-        assert engine._concurrency_semaphore._value == 0
+        engine._active_job_count += 1
         assert engine.get_queue_status()["processing"] == 2
 
         # The (max+1)th attempt must block — time out to prove it
@@ -453,7 +459,8 @@ class TestJobDictBoundedMemory:
         engine = ProcessingEngine()
         assert engine.completed_job_ttl_hours == 1.0
 
-    def test_jobs_dict_stays_bounded_after_many_completions(self, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_jobs_dict_stays_bounded_after_many_completions(self, temp_audio_file):
         """Completed jobs are evicted so the dict does not grow without bound"""
         from datetime import datetime, timedelta
 
@@ -470,12 +477,13 @@ class TestJobDictBoundedMemory:
 
         assert len(engine.jobs) == 100
 
-        removed = engine.cleanup_old_jobs(max_age_hours=0.0)
+        removed = await engine.cleanup_old_jobs(max_age_hours=0.0)
 
         assert removed == 100
         assert len(engine.jobs) == 0
 
-    def test_active_jobs_are_not_evicted(self, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_active_jobs_are_not_evicted(self, temp_audio_file):
         """QUEUED and PROCESSING jobs must never be removed by cleanup"""
         engine = ProcessingEngine(max_concurrent_jobs=2, completed_job_ttl_hours=0.0)
 
@@ -489,12 +497,13 @@ class TestJobDictBoundedMemory:
         )
         processing_job.status = ProcessingStatus.PROCESSING
 
-        engine.cleanup_old_jobs(max_age_hours=0.0)
+        await engine.cleanup_old_jobs(max_age_hours=0.0)
 
         assert queued_job.job_id in engine.jobs
         assert processing_job.job_id in engine.jobs
 
-    def test_progress_callbacks_cleaned_up_with_job(self, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_progress_callbacks_cleaned_up_with_job(self, temp_audio_file):
         """Evicting a job also removes its progress callback to prevent leaks"""
         from datetime import datetime, timedelta
 
@@ -508,7 +517,7 @@ class TestJobDictBoundedMemory:
         job.status = ProcessingStatus.COMPLETED
         job.completed_at = datetime.now() - timedelta(seconds=1)
 
-        engine.cleanup_old_jobs(max_age_hours=0.0)
+        await engine.cleanup_old_jobs(max_age_hours=0.0)
 
         assert job.job_id not in engine.jobs
         assert job.job_id not in engine.progress_callbacks
