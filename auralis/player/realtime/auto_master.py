@@ -161,12 +161,16 @@ class AutoMasterProcessor:
         # Apply gain with clipping protection measured on post-compression audio,
         # not the raw input — using the pre-compression peak would over-penalise
         # material that the compressor has already brought under control (#2310).
+        # Cap gain to available headroom so the expected output peak never exceeds
+        # 0.98 (-0.18 dBFS). The old proportional-attenuation approach (floored at
+        # 0.8×) could not prevent clipping when peaks were already near 0 dBFS.
         processed_peak = np.max(np.abs(processed))
-        if processed_peak > 0.5:  # -6dBFS threshold
-            # Reduce gain proportionally for loud material
-            hot_reduction = 1.0 - (processed_peak - 0.5) * 0.4
-            makeup_gain_db *= max(hot_reduction, 0.8)
-            debug(f"Reduced gain due to hot post-compression level: {makeup_gain_db:.1f} dB")
+        if processed_peak > 0 and makeup_gain_db > 0:
+            max_safe_gain_db = 20 * np.log10(0.98 / processed_peak)
+            if makeup_gain_db > max_safe_gain_db:
+                debug(f"Capped gain {makeup_gain_db:.1f} → {max(max_safe_gain_db, 0.0):.1f} dB "
+                      f"(headroom protection, peak {20*np.log10(processed_peak):.1f} dBFS)")
+                makeup_gain_db = max(max_safe_gain_db, 0.0)
 
         # Apply makeup gain in linear scale
         if makeup_gain_db != 0:
@@ -194,6 +198,19 @@ class AutoMasterProcessor:
                     debug(f"Transient enhancement applied (intensity: {transient_intensity:.2f})")
                 except Exception as e:
                     warning(f"Transient enhancement failed: {e}")
+
+        # Apply adaptive peak ceiling from fingerprint parameters.
+        # target_peak is computed by _generate_adaptive_parameters() but was never
+        # consumed here — quieter sources got a higher ceiling (0.90) while loud
+        # sources got a tighter one (0.85), acting as a final safety net that
+        # accounts for transient enhancement potentially adding back peak energy.
+        if self.adaptive_params is not None:
+            target_peak = self.adaptive_params['target_peak']
+            current_peak = np.max(np.abs(processed))
+            if current_peak > target_peak and current_peak > 0:
+                processed = processed * (target_peak / current_peak)
+                debug(f"Adaptive peak ceiling: {20*np.log10(current_peak):.1f} → "
+                      f"{20*np.log10(target_peak):.1f} dBFS")
 
         return processed
 

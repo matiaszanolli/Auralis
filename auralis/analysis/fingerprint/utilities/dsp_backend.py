@@ -52,16 +52,15 @@ class DSPBackend:
         """
         Validate and coerce inputs at the Rust FFI boundary (fixes #2521).
 
-        PyO3 silently truncates float64 to float32; an empty array or sr=0
-        causes a Rust panic that crashes the interpreter instead of raising
-        a Python exception.
+        The Rust DSP module requires float64. An empty array or sr=0 causes a
+        Rust panic that crashes the interpreter instead of raising a Python exception.
         """
         if sr <= 0:
             raise ValueError(f"{op}: sample rate must be > 0, got sr={sr}")
         if audio.size == 0:
             raise ValueError(f"{op}: audio array is empty")
-        if audio.dtype != np.float32:
-            audio = audio.astype(np.float32)
+        if audio.dtype != np.float64:
+            audio = audio.astype(np.float64)
         return audio
 
     @classmethod
