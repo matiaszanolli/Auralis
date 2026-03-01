@@ -360,14 +360,14 @@ class AudioFingerprintAnalyzer:
             Dict with 25 default values
         """
         return {
-            # Frequency (7D)
-            'sub_bass_pct': 5.0,
-            'bass_pct': 15.0,
-            'low_mid_pct': 15.0,
-            'mid_pct': 30.0,
-            'upper_mid_pct': 20.0,
-            'presence_pct': 10.0,
-            'air_pct': 5.0,
+            # Frequency (7D) — 0-1 range, sums to 1.0 (matches _analyze_frequency_cached output)
+            'sub_bass_pct': 0.05,
+            'bass_pct': 0.15,
+            'low_mid_pct': 0.15,
+            'mid_pct': 0.30,
+            'upper_mid_pct': 0.20,
+            'presence_pct': 0.10,
+            'air_pct': 0.05,
             # Dynamics (3D)
             'lufs': -20.0,
             'crest_db': 15.0,
