@@ -93,13 +93,13 @@ const crudService = createCrudService<UserSettings, SettingsUpdate>({
  * Get current user settings
  */
 export async function getSettings(): Promise<UserSettings> {
-  const result = await crudService.list();
-  // list() returns an array, but for settings we expect a single object
-  if (Array.isArray(result) && result.length > 0) {
-    return result[0];
+  const result: any = await crudService.list();
+  // Backend returns a single object; fall back to array handling for compat
+  if (Array.isArray(result)) {
+    if (result.length > 0) return result[0];
+    throw new Error('No settings found');
   }
-  // Return default empty settings if list is empty
-  throw new Error('No settings found');
+  return result as UserSettings;
 }
 
 /**
@@ -130,12 +130,24 @@ export async function removeScanFolder(folder: string): Promise<{ message: strin
   return crudService.custom('removeScanFolder', 'post', { folder });
 }
 
+/**
+ * Trigger an immediate library scan on the given directories
+ */
+export async function triggerLibraryScan(directories: string[]): Promise<void> {
+  await fetch('/api/library/scan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ directories, recursive: true, skip_existing: true }),
+  });
+}
+
 export const settingsService = {
   getSettings,
   updateSettings,
   resetSettings,
   addScanFolder,
   removeScanFolder,
+  triggerLibraryScan,
 };
 
 export default settingsService;

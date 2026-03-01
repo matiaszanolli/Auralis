@@ -146,7 +146,7 @@ class LibraryAutoScanner:
                 logger.error(f"LibraryAutoScanner cycle failed: {exc}", exc_info=True)
                 await connection_manager_safe_broadcast(
                     self._connection_manager,
-                    {"type": "library_scan_error", "error": str(exc)}
+                    {"type": "library_scan_error", "data": {"error": str(exc)}}
                 )
                 # Back off 30s before retry to avoid tight crash-loop
                 await self._interruptible_sleep(30)
@@ -177,7 +177,7 @@ class LibraryAutoScanner:
         logger.info(f"🔍 Auto-scan starting: {scan_folders}")
         await connection_manager_safe_broadcast(
             self._connection_manager,
-            {"type": "library_scan_started", "directories": scan_folders}
+            {"type": "library_scan_started", "data": {"directories": scan_folders}}
         )
 
         scanner = LibraryScanner(
@@ -223,7 +223,7 @@ class LibraryAutoScanner:
             logger.error(f"scan_directories failed: {exc}", exc_info=True)
             await connection_manager_safe_broadcast(
                 self._connection_manager,
-                {"type": "library_scan_error", "error": str(exc)}
+                {"type": "library_scan_error", "data": {"error": str(exc)}}
             )
             return
 
@@ -251,7 +251,7 @@ class LibraryAutoScanner:
                 logger.info(f"🗑️  Removed {removed} missing tracks from library")
                 await connection_manager_safe_broadcast(
                     self._connection_manager,
-                    {"type": "library_tracks_removed", "count": removed}
+                    {"type": "library_tracks_removed", "data": {"count": removed}}
                 )
         except Exception as exc:
             logger.warning(f"cleanup_missing_files failed: {exc}")

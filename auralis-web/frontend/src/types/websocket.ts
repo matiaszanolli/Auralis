@@ -49,7 +49,9 @@ export type WebSocketMessageType =
   | 'audio_stream_error'
   // System messages
   | 'scan_progress'
-  | 'scan_complete';
+  | 'scan_complete'
+  | 'library_scan_started'
+  | 'library_tracks_removed';
 
 // ============================================================================
 // Base Message Interface
@@ -392,8 +394,22 @@ export interface ScanCompleteMessage extends WebSocketMessage {
   type: 'scan_complete';
   data: {
     files_processed: number;
-    tracks_added: number;
+    files_added: number;
     duration: number; // Seconds
+  };
+}
+
+export interface LibraryScanStartedMessage extends WebSocketMessage {
+  type: 'library_scan_started';
+  data: {
+    directories: string[];
+  };
+}
+
+export interface LibraryTracksRemovedMessage extends WebSocketMessage {
+  type: 'library_tracks_removed';
+  data: {
+    count: number;
   };
 }
 
@@ -430,7 +446,9 @@ export type AnyWebSocketMessage =
   | AudioChunkMessage
   | AudioStreamErrorMessage
   | ScanProgressMessage
-  | ScanCompleteMessage;
+  | ScanCompleteMessage
+  | LibraryScanStartedMessage
+  | LibraryTracksRemovedMessage;
 
 // ============================================================================
 // Type Guards
@@ -562,6 +580,8 @@ export const ALL_MESSAGE_TYPES: WebSocketMessageType[] = [
   'artwork_updated',
   'scan_progress',
   'scan_complete',
+  'library_scan_started',
+  'library_tracks_removed',
 ];
 
 export const PLAYER_STATE_TYPES: WebSocketMessageType[] = [
@@ -593,4 +613,6 @@ export const LIBRARY_TYPES: WebSocketMessageType[] = [
   'metadata_batch_updated',
   'scan_progress',
   'scan_complete',
+  'library_scan_started',
+  'library_tracks_removed',
 ];

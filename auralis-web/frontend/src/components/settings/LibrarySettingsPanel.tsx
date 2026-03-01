@@ -3,6 +3,8 @@ import { Box } from '@mui/material';
 import { SettingsUpdate } from '../../services/settingsService';
 import FoldersList from './FoldersList';
 import AutoScanSettings from './AutoScanSettings';
+import ScanStatusCard from './ScanStatusCard';
+import { tokens } from '@/design-system';
 
 interface LibrarySettingsPanelProps {
   scanFolders: string[];
@@ -10,17 +12,17 @@ interface LibrarySettingsPanelProps {
   scanInterval: number;
   onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
   onAddFolder: () => Promise<void>;
-  onRemoveFolder: (folder: string) => Promise<void>;
-  onRescanFolder: (folder: string) => Promise<void>;
+  onRemoveFolder: (folder: string) => void;
+  onScanNow: () => void;
 }
 
 /**
  * LibrarySettingsPanel - Library folder and auto-scan settings
  *
  * Manages:
- * - Scan folders list (add, remove, rescan)
- * - Auto-scan toggle
- * - Scan interval configuration
+ * - Scan folders list (add, remove)
+ * - Live scan status card
+ * - Auto-scan toggle and interval
  */
 export const LibrarySettingsPanel: React.FC<LibrarySettingsPanelProps> = ({
   scanFolders,
@@ -29,7 +31,7 @@ export const LibrarySettingsPanel: React.FC<LibrarySettingsPanelProps> = ({
   onSettingChange,
   onAddFolder,
   onRemoveFolder,
-  onRescanFolder,
+  onScanNow,
 }) => {
   return (
     <Box>
@@ -37,8 +39,13 @@ export const LibrarySettingsPanel: React.FC<LibrarySettingsPanelProps> = ({
         scanFolders={scanFolders}
         onAddFolder={onAddFolder}
         onRemoveFolder={onRemoveFolder}
-        onRescanFolder={onRescanFolder}
       />
+      <Box sx={{ mb: tokens.spacing.lg }}>
+        <ScanStatusCard
+          disabled={scanFolders.length === 0}
+          onScanNow={onScanNow}
+        />
+      </Box>
       <AutoScanSettings
         autoScan={autoScan}
         scanInterval={scanInterval}

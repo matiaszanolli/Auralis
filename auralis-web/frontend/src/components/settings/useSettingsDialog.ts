@@ -12,14 +12,19 @@ export interface UseSettingsDialogProps {
  * Handles:
  * - Loading settings
  * - Tracking pending changes
- * - Saving settings
+ * - Saving settings (with isSaving indicator)
  * - Resetting to defaults
- * - Folder operations (add, remove, rescan)
+ * - Folder operations (add, remove with confirm state)
+ * - Triggering an immediate library scan
  */
 export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogProps) => {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingChanges, setPendingChanges] = useState<SettingsUpdate>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Folder pending removal — non-null means confirm dialog is open
+  const [removeConfirmFolder, setRemoveConfirmFolder] = useState<string | null>(null);
 
   // Load settings when dialog opens
   useEffect(() => {
@@ -30,11 +35,13 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await settingsService.getSettings();
       setSettings(data);
-    } catch (error) {
-      console.error('Failed to load settings:', error);
+    } catch (err) {
+      console.error('Failed to load settings:', err);
+      setError('Failed to load settings');
     } finally {
       setLoading(false);
     }
@@ -51,51 +58,36 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
         return;
       }
 
+      setIsSaving(true);
+      setError(null);
       try {
         const result = await settingsService.updateSettings(pendingChanges);
         setSettings(result.settings);
         setPendingChanges({});
         onSettingsChange?.(result.settings);
         onClose();
-      } catch (error) {
-        console.error('Failed to save settings:', error);
+      } catch (err) {
+        console.error('Failed to save settings:', err);
+        setError('Failed to save settings');
+      } finally {
+        setIsSaving(false);
       }
     },
     [pendingChanges, onSettingsChange]
   );
 
   const handleReset = useCallback(async () => {
-    if (!window.confirm('Reset all settings to defaults?')) {
-      return;
-    }
-
+    setError(null);
     try {
       const result = await settingsService.resetSettings();
       setSettings(result.settings);
       setPendingChanges({});
       onSettingsChange?.(result.settings);
-    } catch (error) {
-      console.error('Failed to reset settings:', error);
+    } catch (err) {
+      console.error('Failed to reset settings:', err);
+      setError('Failed to reset settings');
     }
   }, [onSettingsChange]);
-
-  const triggerScan = useCallback(async (directory: string) => {
-    try {
-      const response = await fetch('/api/library/scan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ directory }),
-      });
-
-      if (response.ok) {
-        console.log(`Scan started for: ${directory}`);
-      }
-    } catch (error) {
-      console.error('Failed to trigger scan:', error);
-    }
-  }, []);
 
   const handleAddScanFolder = useCallback(async () => {
     let folder: string | null = null;
@@ -104,8 +96,8 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
     if ((window as any).electronAPI && (window as any).electronAPI.selectFolder) {
       try {
         folder = await (window as any).electronAPI.selectFolder();
-      } catch (error) {
-        console.error('Electron folder picker failed:', error);
+      } catch (err) {
+        console.error('Electron folder picker failed:', err);
       }
     }
 
@@ -116,45 +108,54 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
 
     if (!folder) return;
 
+    setError(null);
     try {
       const result = await settingsService.addScanFolder(folder);
       setSettings(result.settings);
       onSettingsChange?.(result.settings);
-
-      // Trigger scan of the newly added folder
-      await triggerScan(folder);
-    } catch (error) {
-      console.error('Failed to add scan folder:', error);
+      // Auto-scanner wakes up via reload_config() on the backend — no manual scan trigger needed
+    } catch (err) {
+      console.error('Failed to add scan folder:', err);
+      setError('Failed to add scan folder');
     }
-  }, [triggerScan, onSettingsChange]);
+  }, [onSettingsChange]);
 
-  const handleRemoveScanFolder = useCallback(
-    async (folder: string) => {
-      if (
-        !window.confirm(
-          `Remove folder from library?\n\n${folder}\n\nNote: Files will remain on disk.`
-        )
-      ) {
-        return;
-      }
+  /** Open the remove-confirm dialog for the given folder */
+  const handleRemoveScanFolder = useCallback((folder: string) => {
+    setRemoveConfirmFolder(folder);
+  }, []);
 
-      try {
-        const result = await settingsService.removeScanFolder(folder);
-        setSettings(result.settings);
-        onSettingsChange?.(result.settings);
-      } catch (error) {
-        console.error('Failed to remove scan folder:', error);
-      }
-    },
-    [onSettingsChange]
-  );
+  /** Confirm and execute the pending folder removal */
+  const handleConfirmRemove = useCallback(async () => {
+    if (!removeConfirmFolder) return;
+    const folder = removeConfirmFolder;
+    setRemoveConfirmFolder(null);
+    setError(null);
+    try {
+      const result = await settingsService.removeScanFolder(folder);
+      setSettings(result.settings);
+      onSettingsChange?.(result.settings);
+    } catch (err) {
+      console.error('Failed to remove scan folder:', err);
+      setError('Failed to remove scan folder');
+    }
+  }, [removeConfirmFolder, onSettingsChange]);
 
-  const handleRescanFolder = useCallback(
-    async (folder: string) => {
-      await triggerScan(folder);
-    },
-    [triggerScan]
-  );
+  const handleCancelRemove = useCallback(() => {
+    setRemoveConfirmFolder(null);
+  }, []);
+
+  /** Trigger an immediate library scan on the currently configured folders */
+  const handleScanNow = useCallback(async (folders: string[]) => {
+    if (folders.length === 0) return;
+    setError(null);
+    try {
+      await settingsService.triggerLibraryScan(folders);
+    } catch (err) {
+      console.error('Failed to trigger scan:', err);
+      setError('Failed to start scan');
+    }
+  }, []);
 
   const getValue = useCallback(
     <K extends keyof SettingsUpdate>(key: K): any => {
@@ -170,12 +171,17 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
     settings,
     loading,
     pendingChanges,
+    isSaving,
+    error,
+    removeConfirmFolder,
     handleSettingChange,
     handleSave,
     handleReset,
     handleAddScanFolder,
     handleRemoveScanFolder,
-    handleRescanFolder,
+    handleConfirmRemove,
+    handleCancelRemove,
+    handleScanNow,
     getValue,
   };
 };

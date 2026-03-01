@@ -13,8 +13,8 @@ interface SettingsDialogContentProps {
   getValue: <K extends keyof SettingsUpdate>(key: K) => any;
   onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
   onAddFolder: () => Promise<void>;
-  onRemoveFolder: (folder: string) => Promise<void>;
-  onRescanFolder: (folder: string) => Promise<void>;
+  onRemoveFolder: (folder: string) => void;
+  onScanNow: () => void;
 }
 
 /**
@@ -28,19 +28,19 @@ export const SettingsDialogContentComponent: React.FC<SettingsDialogContentProps
   onSettingChange,
   onAddFolder,
   onRemoveFolder,
-  onRescanFolder,
+  onScanNow,
 }) => {
   return (
     <StyledContent>
       {activeTab === 0 && (
         <LibrarySettingsPanel
-          scanFolders={getValue('scan_folders')}
+          scanFolders={getValue('scan_folders') ?? []}
           autoScan={getValue('auto_scan')}
           scanInterval={getValue('scan_interval')}
           onSettingChange={onSettingChange}
           onAddFolder={onAddFolder}
           onRemoveFolder={onRemoveFolder}
-          onRescanFolder={onRescanFolder}
+          onScanNow={onScanNow}
         />
       )}
 
