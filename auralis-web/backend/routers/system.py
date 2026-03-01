@@ -140,6 +140,20 @@ def create_system_router(
             except Exception:
                 pass  # Connection rejected or already closed
 
+        # Push full player state on connect so reconnecting clients sync
+        # their Redux store immediately (fixes #2606).
+        if get_state_manager is not None:
+            try:
+                _state_mgr = get_state_manager()
+                if _state_mgr is not None:
+                    _state = _state_mgr.get_state()
+                    await websocket.send_text(json.dumps({
+                        "type": "player_state",
+                        "data": _state.model_dump(),
+                    }))
+            except Exception:
+                pass  # Best-effort: don't fail the connection
+
         try:
             while True:
                 # Wait for messages from client.
