@@ -23,6 +23,7 @@ from routers.library import create_library_router
 from routers.metadata import create_metadata_router
 from routers.player import create_player_router
 from routers.playlists import create_playlists_router
+from routers.settings import create_settings_router
 from routers.similarity import create_similarity_router
 
 # Import router factories
@@ -88,6 +89,14 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     )
     app.include_router(system_router)
     logger.debug("✅ System router registered")
+
+    # Create and include settings router (GET/PUT /api/settings, scan-folders management)
+    settings_router: APIRouter = create_settings_router(
+        get_settings_repo=get_component('settings_repository'),
+        get_auto_scanner=get_component('auto_scanner'),
+    )
+    app.include_router(settings_router)
+    logger.debug("✅ Settings router registered")
 
     # Create and include files router (scan, upload, formats)
     files_router: APIRouter = create_files_router(

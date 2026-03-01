@@ -28,108 +28,6 @@ from fastapi import FastAPI
 logger = logging.getLogger(__name__)
 
 
-async def _background_auto_scan(
-    music_source_dir: Path,
-    library_manager: Any,
-    fingerprint_queue: Any | None,
-    connection_manager: Any
-) -> None:
-    """
-    Run library scan in background without blocking server startup.
-
-    Broadcasts progress updates via WebSocket to all connected clients.
-
-    Args:
-        music_source_dir: Directory to scan
-        library_manager: LibraryManager instance
-        fingerprint_queue: Optional fingerprint extraction queue
-        connection_manager: WebSocket ConnectionManager for progress updates
-    """
-    try:
-        from auralis.library.scanner import LibraryScanner
-
-        logger.info(f"🔍 Starting background auto-scan of {music_source_dir}...")
-
-        # Broadcast scan start notification
-        await connection_manager.broadcast({
-            "type": "library_scan_started",
-            "directory": str(music_source_dir)
-        })
-
-        # Create scanner with progress callback
-        scanner = LibraryScanner(
-            library_manager,
-            fingerprint_queue=fingerprint_queue
-        )
-
-        # Set up progress callback to broadcast updates
-        async def progress_callback(progress_data: dict[str, Any]) -> None:
-            """Broadcast scan progress to all connected clients"""
-            total = progress_data.get('total_found', 0) or progress_data.get('processed', 0)
-            processed = progress_data.get('processed', 0)
-            progress_frac = progress_data.get('progress', 0)
-            percentage = round(progress_frac * 100) if progress_frac else (
-                round(processed / total * 100) if total > 0 else 0
-            )
-            await connection_manager.broadcast({
-                "type": "scan_progress",
-                "data": {
-                    "current": processed,
-                    "total": total,
-                    "percentage": percentage,
-                    # Prefer filename keys; fall back to directory only as last resort.
-                    # Mirrors the fix applied to routers/library.py (fixes #2484 / #2384).
-                    "current_file": progress_data.get('current_file') or progress_data.get('file') or progress_data.get('directory'),
-                }
-            })
-
-        # Capture the event loop before entering the thread pool.
-        # asyncio.create_task() cannot be called from a background thread
-        # (raises RuntimeError: no running event loop).  Use call_soon_threadsafe()
-        # to schedule the coroutine creation back on the event loop (fixes #2189).
-        loop = asyncio.get_running_loop()
-
-        def sync_progress_callback(progress_data: dict[str, Any]) -> None:
-            """Synchronous wrapper that schedules async broadcast from worker thread."""
-            loop.call_soon_threadsafe(
-                loop.create_task, progress_callback(progress_data)
-            )
-
-        scanner.set_progress_callback(sync_progress_callback)
-
-        # Run scan in thread pool to avoid blocking event loop
-        scan_result = await asyncio.to_thread(
-            scanner.scan_directories,
-            [str(music_source_dir)],
-            recursive=True,
-            skip_existing=True
-        )
-
-        # Log and broadcast results
-        if scan_result and scan_result.files_added > 0:
-            logger.info(f"✅ Background auto-scan complete: {scan_result.files_added} files added")
-        elif scan_result:
-            logger.info(f"✅ ~/Music already scanned: {scan_result.files_found} total files")
-        else:
-            logger.info("ℹ️  No new files to scan in ~/Music")
-
-        await connection_manager.broadcast({
-            "type": "scan_complete",
-            "data": {
-                "files_processed": scan_result.files_processed if scan_result else 0,
-                "tracks_added": scan_result.files_added if scan_result else 0,
-                "duration": scan_result.scan_time if scan_result else 0,
-            }
-        })
-
-    except Exception as scan_e:
-        logger.warning(f"⚠️  Background auto-scan failed: {scan_e}", exc_info=True)
-        await connection_manager.broadcast({
-            "type": "library_scan_error",
-            "error": str(scan_e)
-        })
-
-
 def create_lifespan(deps: dict[str, Any]):
     """
     Create a lifespan context manager for FastAPI application.
@@ -243,24 +141,30 @@ def create_lifespan(deps: dict[str, Any]):
                     logger.warning(f"⚠️  Failed to initialize fingerprinting system: {fp_e}")
                     fingerprint_queue = None
 
-                # Schedule auto-scan as background task (non-blocking)
-                music_source_dir = Path.home() / "Music"
-                if music_source_dir.exists() and music_source_dir != music_dir:
-                    logger.info(f"🔍 Scheduling background auto-scan of {music_source_dir}...")
-                    asyncio.create_task(_background_auto_scan(
-                        music_source_dir=music_source_dir,
-                        library_manager=globals_dict['library_manager'],
-                        fingerprint_queue=globals_dict.get('fingerprint_queue'),
-                        connection_manager=manager
-                    ))
-                else:
-                    logger.info("ℹ️  No music directory to auto-scan")
-
                 # Initialize settings repository
                 globals_dict['settings_repository'] = SettingsRepository(
                     globals_dict['library_manager'].SessionLocal
                 )
                 logger.info("✅ Settings Repository initialized")
+
+                # Start the library auto-scanner service.
+                # Replaces the old one-shot ~/Music scan with a proper service that:
+                # - reads scan_folders from user settings (not hardcoded)
+                # - uses watchdog for real-time detection + periodic polling fallback
+                # - removes stale tracks (cleanup_missing_files) after each cycle
+                # - handles crashes gracefully with 30s back-off
+                try:
+                    from services.library_auto_scanner import LibraryAutoScanner
+                    auto_scanner = LibraryAutoScanner(
+                        settings_repo=globals_dict['settings_repository'],
+                        library_manager=globals_dict['library_manager'],
+                        fingerprint_queue=globals_dict.get('fingerprint_queue'),
+                        connection_manager=manager,
+                    )
+                    await auto_scanner.start()
+                    globals_dict['auto_scanner'] = auto_scanner
+                except Exception as as_e:
+                    logger.warning(f"⚠️  Failed to start LibraryAutoScanner: {as_e}")
 
                 # Initialize enhanced audio player with optimized config
                 player_config = PlayerConfig(
@@ -409,6 +313,11 @@ def create_lifespan(deps: dict[str, Any]):
 
         # === Shutdown ===
         try:
+            # Stop library auto-scanner first (it may be mid-scan)
+            if 'auto_scanner' in globals_dict and globals_dict['auto_scanner']:
+                await globals_dict['auto_scanner'].stop()
+                logger.info("✅ Library Auto-Scanner stopped")
+
             # Stop on-demand fingerprint queue (Phase 7.4)
             if 'ondemand_fingerprint_queue' in globals_dict and globals_dict['ondemand_fingerprint_queue']:
                 await globals_dict['ondemand_fingerprint_queue'].stop()
