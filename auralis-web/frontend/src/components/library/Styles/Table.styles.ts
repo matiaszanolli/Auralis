@@ -5,7 +5,6 @@
  */
 
 import { Box, TableRow, styled } from '@mui/material';
-import { auroraOpacity } from './Color.styles';
 import { tokens } from '@/design-system';
 
 /**
@@ -16,13 +15,13 @@ export const StyledTableRow = styled(TableRow)(({ theme }) => ({
   cursor: 'pointer',
   transition: 'background-color 0.2s ease',
   '&:hover': {
-    backgroundColor: auroraOpacity.ultraLight,
+    backgroundColor: tokens.colors.opacityScale.accent.ultraLight,
     '& .play-icon': {
       opacity: 1
     }
   },
   '&.current-track': {
-    backgroundColor: auroraOpacity.lighter,
+    backgroundColor: tokens.colors.opacityScale.accent.lighter,
     '& .track-number': {
       color: tokens.colors.accent.primary
     },

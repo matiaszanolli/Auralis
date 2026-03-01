@@ -4,10 +4,9 @@
  * Consolidates gradient buttons and other styled buttons used across detail views.
  * Shadow effects are imported from Shadow.styles.ts for consistency.
  * Border radius values are imported from BorderRadius.styles.ts.
- * Color presets are imported from Color.styles.ts for consistency.
+ * Color tokens are sourced from '@/design-system' for consistency.
  */
 
-import { gradients, auroraOpacity } from './Color.styles';
 import { buttonShadows } from './Shadow.styles';
 import { radiusMedium } from './BorderRadius.styles';
 import { Button } from '@/design-system';
@@ -20,7 +19,7 @@ import { tokens } from '@/design-system';
  * Glass effect on hover for elevated aesthetic
  */
 export const GradientButton = styled(Button)({
-  background: gradients.aurora,
+  background: tokens.gradients.aurora,
   color: tokens.colors.text.primary,
   textTransform: 'none',
   fontWeight: tokens.typography.fontWeight.semibold,
@@ -29,7 +28,7 @@ export const GradientButton = styled(Button)({
   boxShadow: buttonShadows.primary,                       // Initial depth
 
   '&:hover': {
-    background: gradients.auroraHover,
+    background: tokens.gradients.aurora,
     transform: 'scale(1.02)',                             // Subtle scale for organic feel
     boxShadow: '0 12px 32px rgba(115, 102, 240, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Enhanced glow
   },
@@ -39,7 +38,7 @@ export const GradientButton = styled(Button)({
   },
 
   '&:disabled': {
-    background: auroraOpacity.strong,
+    background: tokens.colors.opacityScale.accent.strong,
     color: 'rgba(255, 255, 255, 0.5)',
   },
 
@@ -71,7 +70,7 @@ export const CancelButton = styled(Button)(({ theme }) => ({
  * Glass effect on hover for elevated aesthetic
  */
 export const SaveButton = styled(Button)(({ theme }) => ({
-  background: gradients.aurora,
+  background: tokens.gradients.aurora,
   color: tokens.colors.text.primary,
   textTransform: 'none',
   fontWeight: tokens.typography.fontWeight.semibold,
@@ -80,7 +79,7 @@ export const SaveButton = styled(Button)(({ theme }) => ({
   boxShadow: buttonShadows.primary,                       // Initial depth
 
   '&:hover': {
-    background: gradients.auroraHover,
+    background: tokens.gradients.aurora,
     transform: 'scale(1.02)',                             // Subtle scale for organic feel
     boxShadow: '0 12px 32px rgba(115, 102, 240, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Enhanced glow
   },
@@ -90,7 +89,7 @@ export const SaveButton = styled(Button)(({ theme }) => ({
   },
 
   '&:disabled': {
-    background: auroraOpacity.strong,
+    background: tokens.colors.opacityScale.accent.strong,
     color: 'rgba(255, 255, 255, 0.5)',
   },
 

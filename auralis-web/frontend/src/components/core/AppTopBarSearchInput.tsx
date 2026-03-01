@@ -2,9 +2,8 @@ import React from 'react';
 
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import { auroraOpacity } from '../library/Styles/Color.styles';
 import { SearchContainer } from './AppTopBar.styles';
-import { IconButton } from '@/design-system';
+import { IconButton, tokens } from '@/design-system';
 import { TextField } from '@mui/material';
 
 interface AppTopBarSearchInputProps {
@@ -35,7 +34,7 @@ export const AppTopBarSearchInput: React.FC<AppTopBarSearchInputProps> = ({
     <SearchContainer focused={isSearchFocused} sx={{ minWidth }}>
       <SearchIcon
         sx={{
-          color: auroraOpacity.stronger,
+          color: tokens.colors.opacityScale.accent.stronger,
           fontSize: '18px',
           opacity: 0.6,
         }}
@@ -57,7 +56,7 @@ export const AppTopBarSearchInput: React.FC<AppTopBarSearchInputProps> = ({
             color: 'var(--silver)',
             fontSize: '14px',
             '&::placeholder': {
-              color: auroraOpacity.standard,
+              color: tokens.colors.opacityScale.accent.standard,
               opacity: 1,
             },
           },
@@ -71,7 +70,7 @@ export const AppTopBarSearchInput: React.FC<AppTopBarSearchInputProps> = ({
           onClick={onClear}
           size="small"
           sx={{
-            color: auroraOpacity.stronger,
+            color: tokens.colors.opacityScale.accent.stronger,
             padding: '4px',
             '&:hover': {
               color: 'var(--silver)',

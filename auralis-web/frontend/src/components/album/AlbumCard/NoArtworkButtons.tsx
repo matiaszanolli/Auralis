@@ -8,7 +8,6 @@
 import React from 'react';
 
 import { CloudDownload, ImageSearch } from '@mui/icons-material';
-import { gradients, auroraOpacity } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 import { IconButton, Tooltip } from '@/design-system';
 import { Box } from '@mui/material';
@@ -51,8 +50,8 @@ export const NoArtworkButtons: React.FC<NoArtworkButtonsProps> = ({
           disabled={isDownloading}
           sx={{
             color: tokens.colors.text.primary,
-            background: gradients.aurora,
-            '&:hover': { background: gradients.electricPurple },
+            background: tokens.gradients.aurora,
+            '&:hover': { background: tokens.gradients.decorative.electricPurple },
           }}
         >
           <CloudDownload fontSize="small" />
@@ -65,8 +64,8 @@ export const NoArtworkButtons: React.FC<NoArtworkButtonsProps> = ({
           disabled={isExtracting}
           sx={{
             color: tokens.colors.text.primary,
-            background: auroraOpacity.light,
-            '&:hover': { background: auroraOpacity.standard },
+            background: tokens.colors.opacityScale.accent.light,
+            '&:hover': { background: tokens.colors.opacityScale.accent.standard },
           }}
         >
           <ImageSearch fontSize="small" />

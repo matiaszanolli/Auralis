@@ -10,7 +10,6 @@
 import React from 'react';
 
 import { PlayArrow, MusicNote } from '@mui/icons-material';
-import { auroraOpacity, gradients } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 import { PlayOverlay, DurationBadge, NoArtworkIcon, ShimmerOverlay } from './TrackCardStyles';
 import { formatDuration } from './TrackCardHelpers';
@@ -39,7 +38,7 @@ export const TrackCardOverlay: React.FC<TrackCardOverlayProps> = ({
             <MusicNote
               sx={{
                 fontSize: 64,
-                color: auroraOpacity.lighter,
+                color: tokens.colors.opacityScale.accent.lighter,
               }}
             />
           </NoArtworkIcon>
@@ -60,12 +59,12 @@ export const TrackCardOverlay: React.FC<TrackCardOverlayProps> = ({
           sx={{
             width: 56,
             height: 56,
-            background: gradients.aurora,
+            background: tokens.gradients.aurora,
             color: tokens.colors.text.primary,
             transform: isHovered ? 'scale(1)' : 'scale(0.8)',
             transition: 'all 0.3s ease',
             '&:hover': {
-              background: gradients.electricPurple,
+              background: tokens.gradients.decorative.electricPurple,
               transform: 'scale(1.1)',
             },
           }}

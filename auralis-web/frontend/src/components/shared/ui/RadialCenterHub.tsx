@@ -7,7 +7,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { Preset } from './presetConfig';
-import { auroraOpacity, colorAuroraPrimary } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 
 interface RadialCenterHubProps {
@@ -33,9 +32,9 @@ export const RadialCenterHub: React.FC<RadialCenterHubProps> = ({ preset, size }
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: `0 0 40px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}66`,
+        boxShadow: `0 0 40px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || tokens.colors.accent.primary}66`,
         transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-        border: `3px solid ${auroraOpacity.lighter}`,
+        border: `3px solid ${tokens.colors.opacityScale.accent.lighter}`,
         backdropFilter: 'blur(10px)',
       }}
     >

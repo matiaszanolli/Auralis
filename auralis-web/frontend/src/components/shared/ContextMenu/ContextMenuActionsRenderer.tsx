@@ -1,8 +1,8 @@
 import React from 'react';
 import { ListItemIcon, ListItemText, Divider } from '@mui/material';
+import { tokens } from '@/design-system';
 import { StyledMenuItem } from './ContextMenu.styles';
 import { ContextMenuAction } from './contextMenuActions';
-import { auroraOpacity } from '../../library/Styles/Color.styles';
 
 interface ContextMenuActionsRendererProps {
   actions: ContextMenuAction[];
@@ -30,7 +30,7 @@ export const ContextMenuActionsRenderer: React.FC<ContextMenuActionsRendererProp
       {actions.map((action, index) => (
         <React.Fragment key={action.id}>
           {action.divider && index > 0 && (
-            <Divider sx={{ borderColor: auroraOpacity.minimal, my: 1 }} />
+            <Divider sx={{ borderColor: tokens.colors.opacityScale.accent.minimal, my: 1 }} />
           )}
           <StyledMenuItem
             onClick={() => onActionClick(action)}

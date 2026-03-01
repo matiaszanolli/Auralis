@@ -9,8 +9,7 @@ import React from 'react';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { PaneHeader, PaneTitle } from './AppEnhancementPaneStyles';
-import { auroraOpacity } from '../../library/Styles/Color.styles';
-import { IconButton, Tooltip } from '@/design-system';
+import { IconButton, Tooltip, tokens } from '@/design-system';
 
 interface AppEnhancementPaneHeaderProps {
   isCollapsed: boolean;
@@ -40,7 +39,7 @@ export const AppEnhancementPaneHeader: React.FC<AppEnhancementPaneHeaderProps> =
             padding: '4px',
             '&:hover': {
               color: 'var(--silver)',
-              background: auroraOpacity.veryLight,
+              background: tokens.colors.opacityScale.accent.veryLight,
             },
           }}
         >

@@ -9,7 +9,6 @@
 import React from 'react';
 import { Box, styled } from '@mui/material';
 import { ProgressiveImage } from '../shared/ui/media';
-import { auroraOpacity } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 
 interface AlbumArtProps {
@@ -37,7 +36,7 @@ const ArtworkContainer = styled(Box, {
 
     '&:hover': clickable ? {
       transform: 'scale(1.05)',
-      boxShadow: `0 8px 32px ${auroraOpacity.veryStrong}`,
+      boxShadow: `0 8px 32px ${tokens.colors.opacityScale.accent.veryStrong}`,
     } : {},
   })
 );
@@ -56,19 +55,19 @@ const getGradientForAlbum = (albumId?: number): string => {
   };
 
   if (!albumId) {
-    return `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 100%)`;
+    return `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.lighter} 0%, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 100%)`;
   }
 
   // 8 distinct gradient combinations using design tokens
   const gradients = [
-    `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 100%)`, // Violet-Aqua
+    `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.lighter} 0%, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 100%)`, // Violet-Aqua
     `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 0%, ${hexToRgba(tokens.colors.accent.tertiary, 0.15)} 100%)`,  // Aqua-Lavender
-    `linear-gradient(135deg, ${hexToRgba(tokens.colors.semantic.success, 0.15)} 0%, ${auroraOpacity.lighter} 100%)`,  // Green-Purple
+    `linear-gradient(135deg, ${hexToRgba(tokens.colors.semantic.success, 0.15)} 0%, ${tokens.colors.opacityScale.accent.lighter} 100%)`,  // Green-Purple
     `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.tertiary, 0.15)} 0%, ${hexToRgba(tokens.colors.accent.energy, 0.15)} 100%)`,   // Lavender-Amber
     `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.primary, 0.15)} 0%, ${hexToRgba(tokens.colors.semantic.success, 0.15)} 100%)`,    // Violet-Green
     `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.energy, 0.15)} 0%, ${hexToRgba(tokens.colors.accent.tertiary, 0.15)} 100%)`,   // Amber-Lavender
     `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 0%, ${hexToRgba(tokens.colors.accent.primary, 0.15)} 100%)`,   // Aqua-Violet
-    `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${hexToRgba(tokens.colors.semantic.success, 0.15)} 100%)`,  // Purple-Green
+    `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.lighter} 0%, ${hexToRgba(tokens.colors.semantic.success, 0.15)} 100%)`,  // Purple-Green
   ];
 
   return gradients[albumId % gradients.length];

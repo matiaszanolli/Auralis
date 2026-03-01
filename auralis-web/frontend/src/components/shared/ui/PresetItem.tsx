@@ -2,7 +2,6 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { Tooltip } from '@/design-system';
 import { tokens } from '@/design-system';
-import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 import { Preset } from './presetConfig';
 
 interface PresetItemProps {
@@ -33,7 +32,7 @@ export const PresetItem: React.FC<PresetItemProps> = ({
   // Extract hex color from gradient for effects
   const extractHexColor = (gradient: string): string => {
     const match = gradient.match(/#[0-9a-f]{6}/i);
-    return match?.[0] || colorAuroraPrimary;
+    return match?.[0] || tokens.colors.accent.primary;
   };
 
   const presetColor = extractHexColor(preset.gradient);

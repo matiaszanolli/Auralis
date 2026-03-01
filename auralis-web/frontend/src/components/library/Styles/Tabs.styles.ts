@@ -12,7 +12,6 @@
  */
 
 import { Tabs, styled } from '@mui/material';
-import { colorAuroraPrimary } from './Color.styles';
 import { tokens } from '@/design-system';
 
 /**
@@ -29,11 +28,11 @@ export const DialogTabs = styled(Tabs)(({ theme }) => ({
     minHeight: 48,
     color: theme.palette.text.secondary,
     '&.Mui-selected': {
-      color: colorAuroraPrimary
+      color: tokens.colors.accent.primary
     }
   },
   '& .MuiTabs-indicator': {
-    backgroundColor: colorAuroraPrimary
+    backgroundColor: tokens.colors.accent.primary
   }
 }));
 
@@ -51,11 +50,11 @@ export const DetailViewTabs = styled(Tabs)(({ theme }) => ({
     fontWeight: tokens.typography.fontWeight.medium,
     minWidth: 120,
     '&.Mui-selected': {
-      color: colorAuroraPrimary
+      color: tokens.colors.accent.primary
     }
   },
   '& .MuiTabs-indicator': {
-    backgroundColor: colorAuroraPrimary
+    backgroundColor: tokens.colors.accent.primary
   }
 }));
 

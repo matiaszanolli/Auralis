@@ -1,7 +1,6 @@
 import React from 'react';
 import { Box, styled } from '@mui/material';
 import { rotate, pulse } from '../../../library/Styles/Animation.styles';
-import { colorAuroraPrimary, colorAuroraSecondary, gradients } from '../../../library/Styles/Color.styles';
 import { tokens, CircularProgress } from '@/design-system';
 
 interface LoadingSpinnerProps {
@@ -33,7 +32,7 @@ const SpinnerWrapper = styled(Box)({
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   size = 40,
   thickness = 4,
-  gradient = gradients.aurora,
+  gradient = tokens.gradients.aurora,
   className,
 }) => {
   const gradientId = `gradient-${Math.random().toString(36).substr(2, 9)}`;
@@ -43,8 +42,8 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       <GradientSVG width={0} height={0}>
         <defs>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={colorAuroraPrimary} />
-            <stop offset="100%" stopColor={colorAuroraSecondary} />
+            <stop offset="0%" stopColor={tokens.colors.accent.primary} />
+            <stop offset="100%" stopColor={tokens.colors.accent.primary} />
           </linearGradient>
         </defs>
       </GradientSVG>

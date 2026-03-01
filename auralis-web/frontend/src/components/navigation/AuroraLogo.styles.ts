@@ -3,7 +3,7 @@
  */
 
 import { Box, Typography, styled, keyframes } from '@mui/material';
-import { gradients, auroraOpacity } from '../library/Styles/Color.styles';
+import { tokens } from '@/design-system';
 
 export const float = keyframes`
   0%, 100% {
@@ -36,13 +36,13 @@ export const LogoIcon = styled(Box)<{ size: number }>(({ size }) => ({
   width: size,
   height: size,
   borderRadius: '8px',
-  background: gradients.aurora,
+  background: tokens.gradients.aurora,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   position: 'relative',
   overflow: 'hidden',
-  boxShadow: `0 4px 12px ${auroraOpacity.strong}`,
+  boxShadow: `0 4px 12px ${tokens.colors.opacityScale.accent.strong}`,
 
   '&::before': {
     content: '""',
@@ -76,7 +76,7 @@ export const LogoText = styled(Typography, {
   return {
     fontSize,
     fontWeight: 700,
-    background: gradients.aurora,
+    background: tokens.gradients.aurora,
     backgroundClip: 'text',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',

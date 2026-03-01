@@ -1,7 +1,7 @@
 import { styled } from '@mui/material/styles';
 import { Box, ListItemButton, Typography } from '@mui/material';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
-import { auroraOpacity } from '../library/Styles/Color.styles';
+import { tokens } from '@/design-system';
 
 export const StyledListItemButton = styled(ListItemButton, {
   shouldForwardProp: (prop) => prop !== 'isDraggingOver' && prop !== 'selected',
@@ -11,17 +11,17 @@ export const StyledListItemButton = styled(ListItemButton, {
   padding: theme.spacing(1, 2),
   transition: 'all 0.2s ease',
   backgroundColor: isDraggingOver
-    ? auroraOpacity.standard
+    ? tokens.colors.opacityScale.accent.standard
     : selected
-      ? auroraOpacity.veryLight
+      ? tokens.colors.opacityScale.accent.veryLight
       : 'transparent',
-  border: isDraggingOver ? `2px dashed ${auroraOpacity.stronger}` : '2px solid transparent',
+  border: isDraggingOver ? `2px dashed ${tokens.colors.opacityScale.accent.stronger}` : '2px solid transparent',
 
   '&:hover': {
     backgroundColor: isDraggingOver
-      ? auroraOpacity.light
+      ? tokens.colors.opacityScale.accent.light
       : selected
-        ? auroraOpacity.lighter
+        ? tokens.colors.opacityScale.accent.lighter
         : 'rgba(255, 255, 255, 0.05)',
   },
 }));
@@ -46,8 +46,8 @@ export const DropIndicator = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: auroraOpacity.veryLight,
-  border: `2px dashed ${auroraOpacity.stronger}`,
+  backgroundColor: tokens.colors.opacityScale.accent.veryLight,
+  border: `2px dashed ${tokens.colors.opacityScale.accent.stronger}`,
   borderRadius: theme.spacing(1),
   pointerEvents: 'none',
   zIndex: 1,

@@ -1,5 +1,4 @@
 import { tokens } from '@/design-system';
-import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 
 /**
  * useSimilarityFormatting - Similarity value and text formatting utilities
@@ -12,7 +11,7 @@ import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 export const useSimilarityFormatting = () => {
   const getSimilarityLevel = (score: number): { label: string; color: string } => {
     if (score >= 0.9) return { label: 'Very Similar', color: tokens.colors.semantic.success };
-    if (score >= 0.8) return { label: 'Similar', color: colorAuroraPrimary };
+    if (score >= 0.8) return { label: 'Similar', color: tokens.colors.accent.primary };
     if (score >= 0.7) return { label: 'Somewhat Similar', color: tokens.colors.accent.secondary };
     if (score >= 0.6) return { label: 'Slightly Similar', color: tokens.colors.text.secondary };
     return { label: 'Different', color: tokens.colors.text.disabled };

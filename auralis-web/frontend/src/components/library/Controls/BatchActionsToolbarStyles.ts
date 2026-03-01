@@ -4,7 +4,6 @@
 
 import { cardShadows } from '../Styles/Shadow.styles';
 import { spacingPresets } from '../Styles/Spacing.styles';
-import { auroraOpacity } from '../Styles/Color.styles';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Paper, Typography, styled } from '@mui/material';
@@ -15,9 +14,9 @@ export const ToolbarContainer = styled(Paper)(({ theme }) => ({
   left: '50%',
   transform: 'translateX(-50%)',
   zIndex: 1200,
-  background: `linear-gradient(135deg, ${auroraOpacity.veryStrong} 0%, rgba(118, 75, 162, 0.95) 100%)`,
+  background: `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.veryStrong} 0%, rgba(118, 75, 162, 0.95) 100%)`,
   backdropFilter: 'blur(20px)',
-  border: `1px solid ${auroraOpacity.light}`,
+  border: `1px solid ${tokens.colors.opacityScale.accent.light}`,
   borderRadius: '16px',
   padding: spacingPresets.buttons.compact,
   display: 'flex',
@@ -46,9 +45,9 @@ export const SelectionCount = styled(Typography)(({ theme }) => ({
 
 export const ActionButton = styled(IconButton)(({ theme }) => ({
   color: tokens.colors.text.primary,
-  backgroundColor: auroraOpacity.light,
+  backgroundColor: tokens.colors.opacityScale.accent.light,
   '&:hover': {
-    backgroundColor: auroraOpacity.standard,
+    backgroundColor: tokens.colors.opacityScale.accent.standard,
   },
   transition: 'all 0.2s ease',
 }));
@@ -57,6 +56,6 @@ export const CloseButton = styled(IconButton)(({ theme }) => ({
   color: tokens.colors.text.primary,
   marginLeft: 'auto',
   '&:hover': {
-    backgroundColor: auroraOpacity.light,
+    backgroundColor: tokens.colors.opacityScale.accent.light,
   },
 }));

@@ -7,7 +7,6 @@
  * Tab components (StyledTabs, DialogTabs) are imported from Tabs.styles.ts
  */
 
-import { gradients } from './Color.styles';
 import { Button } from '@/design-system';
 import { Dialog, DialogTitle, DialogActions, Box, styled } from '@mui/material';
 import { tokens } from '@/design-system';
@@ -34,7 +33,7 @@ export const StyledDialog = styled(Dialog)(({ theme }) => ({
  * StyledDialogTitle - Dialog header with aurora gradient background
  */
 export const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
-  background: gradients.aurora,
+  background: tokens.gradients.aurora,
   color: tokens.colors.text.primary,
   display: 'flex',
   justifyContent: 'space-between',

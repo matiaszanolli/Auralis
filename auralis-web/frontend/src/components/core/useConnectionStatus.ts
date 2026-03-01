@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { statusColors } from '../library/Styles/Color.styles';
+import { tokens } from '@/design-system';
 
 export type ConnectionStatusType = 'connected' | 'connecting' | 'disconnected';
 
@@ -12,13 +12,13 @@ export const useConnectionStatus = (status: ConnectionStatusType) => {
   const statusColor = useMemo(() => {
     switch (status) {
       case 'connected':
-        return statusColors.connected;
+        return tokens.colors.status.connected;
       case 'connecting':
-        return statusColors.connecting;
+        return tokens.colors.status.connecting;
       case 'disconnected':
-        return statusColors.disconnected;
+        return tokens.colors.status.disconnected;
       default:
-        return statusColors.disconnected;
+        return tokens.colors.status.disconnected;
     }
   }, [status]);
 

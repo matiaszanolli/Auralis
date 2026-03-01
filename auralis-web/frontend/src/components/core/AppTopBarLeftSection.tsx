@@ -1,9 +1,8 @@
 import React from 'react';
 
 import MenuIcon from '@mui/icons-material/Menu';
-import { auroraOpacity } from '../library/Styles/Color.styles';
 import { LeftSection, TitleBox } from './AppTopBar.styles';
-import { IconButton } from '@/design-system';
+import { IconButton, tokens } from '@/design-system';
 
 interface AppTopBarLeftSectionProps {
   showMobileMenu: boolean;
@@ -30,7 +29,7 @@ export const AppTopBarLeftSection: React.FC<AppTopBarLeftSectionProps> = ({
             color: 'var(--silver)',
             padding: '8px',
             '&:hover': {
-              background: auroraOpacity.veryLight,
+              background: tokens.colors.opacityScale.accent.veryLight,
             },
           }}
         >

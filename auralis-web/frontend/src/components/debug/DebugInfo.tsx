@@ -1,6 +1,6 @@
 import React from 'react'
 import { useCommitId, getVersionString } from '@/hooks/app/useCommitId'
-import { auroraOpacity, colorAuroraPrimary } from '../library/Styles/Color.styles'
+import { tokens } from '@/design-system'
 import { spacingSmall, spacingXSmall } from '../library/Styles/Spacing.styles'
 
 /**
@@ -33,14 +33,14 @@ export const DebugInfo: React.FC = () => {
         position: 'fixed',
         bottom: spacingSmall,
         right: spacingSmall,
-        backgroundColor: auroraOpacity.veryStrong,
-        color: colorAuroraPrimary,
+        backgroundColor: tokens.colors.opacityScale.accent.veryStrong,
+        color: tokens.colors.accent.primary,
         padding: `${spacingXSmall} ${spacingSmall}`,
         borderRadius: '8px',
         fontFamily: 'monospace',
         fontSize: '12px',
         zIndex: 10000,
-        border: `1px solid ${colorAuroraPrimary}`,
+        border: `1px solid ${tokens.colors.accent.primary}`,
         maxWidth: '300px',
       }}
     >

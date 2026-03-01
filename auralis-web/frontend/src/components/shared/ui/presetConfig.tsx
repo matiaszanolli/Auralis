@@ -15,7 +15,7 @@ import {
   FlareOutlined,
   BoltOutlined,
 } from '@mui/icons-material';
-import { gradients } from '../../library/Styles/Color.styles';
+import { tokens } from '@/design-system';
 
 export interface Preset {
   value: string;
@@ -35,7 +35,7 @@ export const PRESETS: Preset[] = [
     value: 'adaptive',
     label: 'Adaptive',
     description: 'Intelligent content-aware mastering',
-    gradient: gradients.aurora,
+    gradient: tokens.gradients.aurora,
     icon: <AutoAwesome />,
     angle: 0, // Top
   },
@@ -43,7 +43,7 @@ export const PRESETS: Preset[] = [
     value: 'bright',
     label: 'Bright',
     description: 'Enhances clarity and presence',
-    gradient: gradients.neonSunset,
+    gradient: tokens.gradients.decorative.neonSunset,
     icon: <FlareOutlined />,
     angle: 72, // Top-right
   },
@@ -51,7 +51,7 @@ export const PRESETS: Preset[] = [
     value: 'punchy',
     label: 'Punchy',
     description: 'Increases impact and dynamics',
-    gradient: gradients.electricPurple,
+    gradient: tokens.gradients.decorative.electricPurple,
     icon: <BoltOutlined />,
     angle: 144, // Bottom-right
   },
@@ -59,7 +59,7 @@ export const PRESETS: Preset[] = [
     value: 'warm',
     label: 'Warm',
     description: 'Adds warmth and smoothness',
-    gradient: gradients.neonSunset,
+    gradient: tokens.gradients.decorative.neonSunset,
     icon: <WhatshotOutlined />,
     angle: 216, // Bottom-left
   },
@@ -67,7 +67,7 @@ export const PRESETS: Preset[] = [
     value: 'gentle',
     label: 'Gentle',
     description: 'Subtle mastering with minimal processing',
-    gradient: gradients.deepOcean,
+    gradient: tokens.gradients.decorative.deepOcean,
     icon: <WavesOutlined />,
     angle: 288, // Top-left
   },

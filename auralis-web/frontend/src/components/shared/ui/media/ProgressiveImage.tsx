@@ -19,10 +19,10 @@
 import React from 'react';
 import { Box, styled } from '@mui/material';
 import { MusicNote } from '@mui/icons-material';
+import { tokens } from '@/design-system';
 import { SkeletonContainer } from '../../../library/Styles/Skeleton.styles';
 import { fadeIn } from '../../../library/Styles/Animation.styles';
 import { Skeleton } from '../loaders';
-import { auroraOpacity } from '../../../library/Styles/Color.styles';
 import { useProgressiveImageLoader } from './useProgressiveImageLoader';
 
 interface ProgressiveImageProps {
@@ -65,8 +65,8 @@ const FallbackContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${auroraOpacity.light} 100%)`,
-  color: auroraOpacity.standard,
+  background: `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.lighter} 0%, ${tokens.colors.opacityScale.accent.light} 100%)`,
+  color: tokens.colors.opacityScale.accent.standard,
   animation: `${fadeIn} 0.3s cubic-bezier(0.4, 0, 0.2, 1)`,
 });
 
@@ -137,7 +137,7 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
         <FallbackContainer
           sx={{
             borderRadius,
-            background: fallbackGradient || `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${auroraOpacity.light} 100%)`,
+            background: fallbackGradient || `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.lighter} 0%, ${tokens.colors.opacityScale.accent.light} 100%)`,
           }}
         >
           <MusicNote

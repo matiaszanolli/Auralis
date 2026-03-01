@@ -18,7 +18,6 @@ import {
 } from '@mui/material';
 import { PlaylistAdd, Add } from '@mui/icons-material';
 import * as playlistService from '../../../services/playlistService';
-import { auroraOpacity } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 
 const PlaylistMenuItem = styled(MenuItem)({
@@ -27,7 +26,7 @@ const PlaylistMenuItem = styled(MenuItem)({
   padding: '8px 16px 8px 48px',
   transition: 'all 0.2s ease',
   '&:hover': {
-    background: auroraOpacity.veryLight,
+    background: tokens.colors.opacityScale.accent.veryLight,
     color: tokens.colors.text.primary,
     transform: 'translateX(2px)',
   },
@@ -40,7 +39,7 @@ const CreateNewMenuItem = styled(MenuItem)({
   fontWeight: 600,
   transition: 'all 0.2s ease',
   '&:hover': {
-    background: auroraOpacity.lighter,
+    background: tokens.colors.opacityScale.accent.lighter,
     transform: 'translateX(2px)',
   },
 });
@@ -69,7 +68,7 @@ export const PlaylistSection: React.FC<PlaylistSectionProps> = ({
 }) => {
   return (
     <>
-      <Divider sx={{ borderColor: auroraOpacity.minimal, my: 1 }} />
+      <Divider sx={{ borderColor: tokens.colors.opacityScale.accent.minimal, my: 1 }} />
       <MenuItem disabled>
         <ListItemIcon>
           <PlaylistAdd />

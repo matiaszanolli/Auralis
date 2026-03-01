@@ -1,7 +1,6 @@
 import React from 'react';
 import { ToggleButtonGroup, ToggleButton, styled } from '@mui/material';
 import { ViewModule, ViewList } from '@mui/icons-material';
-import { gradients, auroraOpacity } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 
 export type ViewMode = 'grid' | 'list';
@@ -16,7 +15,7 @@ const StyledToggleButtonGroup = styled(ToggleButtonGroup)({
   borderRadius: tokens.borderRadius.sm,                 // 8px
   padding: tokens.spacing.xs,                           // 4px
   gap: tokens.spacing.xs,                               // 4px
-  border: `1px solid ${auroraOpacity.standard}`,
+  border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
 });
 
 const StyledToggleButton = styled(ToggleButton)({
@@ -27,17 +26,17 @@ const StyledToggleButton = styled(ToggleButton)({
   transition: tokens.transitions.base,                  // 200ms (close to 300ms)
 
   '&:hover': {
-    background: auroraOpacity.veryLight,
+    background: tokens.colors.opacityScale.accent.veryLight,
     color: tokens.colors.text.primary,
   },
 
   '&.Mui-selected': {
-    background: gradients.aurora,
+    background: tokens.gradients.aurora,
     color: tokens.colors.text.primary,                  // White text
-    boxShadow: `0 2px 8px ${auroraOpacity.strong}`,    // Button depth
+    boxShadow: `0 2px 8px ${tokens.colors.opacityScale.accent.strong}`,    // Button depth
 
     '&:hover': {
-      background: gradients.aurora,
+      background: tokens.gradients.aurora,
       filter: 'brightness(1.1)',                        // Slight brighten on hover
     },
   },

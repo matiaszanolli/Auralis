@@ -14,7 +14,6 @@
 import { Avatar, Box, styled } from '@mui/material';
 import { glowShadows } from './Shadow.styles';
 import { radiusCircle } from './BorderRadius.styles';
-import { gradients, auroraOpacity } from './Color.styles';
 import { tokens } from '@/design-system';
 
 /**
@@ -46,7 +45,7 @@ export const ArtistAvatarCircle = styled(Box)(({ theme }) => ({
 export const ArtistSearchAvatar = styled(Avatar)(({ theme }) => ({
   width: 40,
   height: 40,
-  background: gradients.aurora,
+  background: tokens.gradients.aurora,
   fontSize: tokens.typography.fontSize.md,
   fontWeight: tokens.typography.fontWeight.bold
 }));
@@ -59,5 +58,5 @@ export const ArtistSearchAvatar = styled(Avatar)(({ theme }) => ({
 export const DefaultSearchAvatar = styled(Avatar)(({ theme }) => ({
   width: 40,
   height: 40,
-  backgroundColor: auroraOpacity.standard
+  backgroundColor: tokens.colors.opacityScale.accent.standard
 }));

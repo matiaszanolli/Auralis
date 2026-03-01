@@ -4,7 +4,7 @@
  * Consolidates all shadow patterns used across components for consistent
  * depth and elevation effects throughout the application.
  *
- * Color values are imported from Color.styles.ts for consistency.
+ * Color values are sourced from '@/design-system' tokens.
  *
  * Shadow Categories:
  * - Button shadows: Hover/active state glows
@@ -14,20 +14,20 @@
  * - Glow shadows: Aurora glow effects (purple)
  */
 
-import { auroraOpacity, blackOpacity } from './Color.styles';
+import { tokens } from '@/design-system';
 
 /**
  * Button shadow presets - Used for button hover/active states
  */
 export const buttonShadows = {
   // Primary action button hover shadow (3px offset, 12px blur)
-  primary: `0 4px 12px ${auroraOpacity.veryStrong}`,
+  primary: `0 4px 12px ${tokens.colors.opacityScale.accent.veryStrong}`,
   // Subtle button hover shadow (2px offset, 8px blur, medium opacity)
-  secondary: `0 2px 8px ${auroraOpacity.strong}`,
+  secondary: `0 2px 8px ${tokens.colors.opacityScale.accent.strong}`,
   // Subtle button focus/hover shadow (low opacity)
-  tertiary: `0 2px 8px ${auroraOpacity.standard}`,
+  tertiary: `0 2px 8px ${tokens.colors.opacityScale.accent.standard}`,
   // Dark button shadow (for contrast backgrounds)
-  dark: `0 4px 12px ${blackOpacity.standard}`,
+  dark: `0 4px 12px ${tokens.colors.opacityScale.dark.standard}`,
 };
 
 /**
@@ -35,17 +35,17 @@ export const buttonShadows = {
  */
 export const cardShadows = {
   // Large dropdown/modal shadow (8px offset, 32px blur)
-  dropdown: `0 8px 32px ${auroraOpacity.strong}`,
+  dropdown: `0 8px 32px ${tokens.colors.opacityScale.accent.strong}`,
   // Large dropdown/modal shadow (dark variant)
-  dropdownDark: `0 8px 32px ${blackOpacity.veryStrong}`,
+  dropdownDark: `0 8px 32px ${tokens.colors.opacityScale.dark.veryStrong}`,
   // Card hover shadow (8px offset, 32px blur, strong opacity)
-  hoverGlow: `0 8px 32px ${auroraOpacity.veryStrong}`,
+  hoverGlow: `0 8px 32px ${tokens.colors.opacityScale.accent.veryStrong}`,
   // Medium card elevation shadow (8px offset, 24px blur)
-  hover: `0 8px 24px ${auroraOpacity.standard}`,
+  hover: `0 8px 24px ${tokens.colors.opacityScale.accent.standard}`,
   // Dark card shadow variant
-  dark: `0 8px 24px ${blackOpacity.standard}`,
+  dark: `0 8px 24px ${tokens.colors.opacityScale.dark.standard}`,
   // Small context menu shadow (12px offset, 48px blur)
-  contextMenu: `0 12px 48px ${blackOpacity.strongerDark}`,
+  contextMenu: `0 12px 48px ${tokens.colors.opacityScale.dark.strongerDark}`,
 };
 
 /**
@@ -53,9 +53,9 @@ export const cardShadows = {
  */
 export const containerShadows = {
   // Results container/dropdown shadow (8px offset, 32px blur, dark)
-  dropdown: `0 8px 32px ${blackOpacity.veryStrong}`,
+  dropdown: `0 8px 32px ${tokens.colors.opacityScale.dark.veryStrong}`,
   // Search results container shadow (same as results panel)
-  resultsPanel: `0 8px 32px ${blackOpacity.strongerDark}`,
+  resultsPanel: `0 8px 32px ${tokens.colors.opacityScale.dark.strongerDark}`,
 };
 
 /**
@@ -63,11 +63,11 @@ export const containerShadows = {
  */
 export const focusShadows = {
   // Input focus ring shadow (3px spread)
-  ring: `0 0 0 3px ${auroraOpacity.veryLight}`,
+  ring: `0 0 0 3px ${tokens.colors.opacityScale.accent.veryLight}`,
   // Input glow on focus (12px blur)
-  glow: `0 0 12px ${auroraOpacity.strong}`,
+  glow: `0 0 12px ${tokens.colors.opacityScale.accent.strong}`,
   // Strong focus glow (20px blur)
-  glowStrong: `0 0 20px ${auroraOpacity.veryStrong}`,
+  glowStrong: `0 0 20px ${tokens.colors.opacityScale.accent.veryStrong}`,
 };
 
 /**
@@ -75,13 +75,13 @@ export const focusShadows = {
  */
 export const glowShadows = {
   // Aurora purple glow (medium)
-  purple: `0 8px 32px ${auroraOpacity.strong}`,
+  purple: `0 8px 32px ${tokens.colors.opacityScale.accent.strong}`,
   // Aurora purple glow (strong)
-  purpleStrong: `0 8px 32px ${auroraOpacity.veryStrong}`,
+  purpleStrong: `0 8px 32px ${tokens.colors.opacityScale.accent.veryStrong}`,
   // Subtle ambient glow
-  subtle: `0 4px 12px ${auroraOpacity.strong}`,
+  subtle: `0 4px 12px ${tokens.colors.opacityScale.accent.strong}`,
   // Strong ambient glow
-  strong: `0 4px 12px ${auroraOpacity.veryStrong}`,
+  strong: `0 4px 12px ${tokens.colors.opacityScale.accent.veryStrong}`,
 };
 
 /**
@@ -98,9 +98,9 @@ export const notificationShadows = {
 // Compound shadows use auroraOpacity (accent #7366F0) instead of deprecated #667eea (fixes #2356).
 export const compoundShadows = {
   // Player button shadow (large base + subtle top)
-  playerButton: `0 4px 16px ${auroraOpacity.standard}, 0 0 24px ${auroraOpacity.veryLight}`,
+  playerButton: `0 4px 16px ${tokens.colors.opacityScale.accent.standard}, 0 0 24px ${tokens.colors.opacityScale.accent.veryLight}`,
   // Player button hover (large base + strong top)
-  playerButtonHover: `0 8px 24px ${auroraOpacity.strong}, 0 0 32px ${auroraOpacity.standard}`,
+  playerButtonHover: `0 8px 24px ${tokens.colors.opacityScale.accent.strong}, 0 0 32px ${tokens.colors.opacityScale.accent.standard}`,
   // Player container (negative Y for top-facing shadow)
-  playerContainer: `0 -8px 32px ${auroraOpacity.lighter}, 0 -2px 8px ${auroraOpacity.veryLight}`,
+  playerContainer: `0 -8px 32px ${tokens.colors.opacityScale.accent.lighter}, 0 -2px 8px ${tokens.colors.opacityScale.accent.veryLight}`,
 };

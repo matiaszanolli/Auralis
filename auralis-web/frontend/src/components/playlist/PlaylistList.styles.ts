@@ -3,10 +3,9 @@
  *
  * Consolidates styled components from PlaylistList for better organization
  * and reusability across playlist-related components.
- * Color presets are imported from Color.styles.ts for consistency.
+ * Color presets are sourced from '@/design-system' tokens.
  */
 
-import { auroraOpacity, colorAuroraPrimary } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Box, ListItem, ListItemButton, Typography, styled } from '@mui/material';
@@ -128,8 +127,8 @@ export const ActionButton = styled(IconButton)({
   height: '28px',
   color: tokens.colors.text.secondary,
   '&:hover': {
-    color: colorAuroraPrimary,
-    background: auroraOpacity.veryLight,
+    color: tokens.colors.accent.primary,
+    background: tokens.colors.opacityScale.accent.veryLight,
   },
   '& .MuiSvgIcon-root': {
     fontSize: '18px',
@@ -144,8 +143,8 @@ export const AddButton = styled(IconButton)({
   height: '28px',
   color: tokens.colors.text.secondary,
   '&:hover': {
-    color: colorAuroraPrimary,
-    background: auroraOpacity.veryLight,
+    color: tokens.colors.accent.primary,
+    background: tokens.colors.opacityScale.accent.veryLight,
   },
   '& .MuiSvgIcon-root': {
     fontSize: '20px',

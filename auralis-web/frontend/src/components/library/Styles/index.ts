@@ -15,7 +15,6 @@ export * from './Animation.styles';
 export * from './Avatar.styles';
 export * from './BorderRadius.styles';
 export * from './Button.styles';
-export * from './Color.styles';
 export * from './Container.styles';
 export * from './EmptyState.styles';
 export * from './FormFields.styles';

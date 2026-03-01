@@ -9,7 +9,6 @@
  */
 
 import { Typography, TableContainer, Paper, styled } from '@mui/material';
-import { auroraOpacity } from './Color.styles';
 import { tokens } from '@/design-system';
 export { ArtistAvatarCircle } from './Avatar.styles';
 export { DetailViewTabs as StyledTabs } from './Tabs.styles';
@@ -19,12 +18,12 @@ export { DetailViewTabs as StyledTabs } from './Tabs.styles';
  * Features hover elevation and color transition on album title
  */
 export const AlbumCard = styled(Paper)(({ theme }) => ({
-  background: auroraOpacity.ultraLight,
+  background: tokens.colors.opacityScale.accent.ultraLight,
   borderRadius: theme.spacing(2),
   overflow: 'hidden',
   cursor: 'pointer',
   transition: tokens.transitions.all,
-  border: `1px solid ${auroraOpacity.ultraLight}`,
+  border: `1px solid ${tokens.colors.opacityScale.accent.ultraLight}`,
   '&:hover': {
     transform: 'translateY(-4px)',
     boxShadow: tokens.shadows.lg,
@@ -57,7 +56,7 @@ export const AlbumInfo = styled(Typography)(({ theme }) => ({
  * TracksTableContainer - Container for the tracks table with styling
  */
 export const TracksTableContainer = styled(TableContainer)(({ theme }) => ({
-  background: auroraOpacity.ultraLight,
+  background: tokens.colors.opacityScale.accent.ultraLight,
   borderRadius: theme.spacing(2),
   backdropFilter: 'blur(10px)'
 }));

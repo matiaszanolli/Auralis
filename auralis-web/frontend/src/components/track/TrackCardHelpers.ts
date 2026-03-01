@@ -6,7 +6,7 @@
  * - Duration formatting
  */
 
-import { gradients } from '../library/Styles/Color.styles';
+import { tokens } from '@/design-system';
 
 /**
  * Generate consistent color from album name for placeholders
@@ -14,14 +14,14 @@ import { gradients } from '../library/Styles/Color.styles';
  */
 export const getAlbumColor = (albumName: string | undefined | null): string => {
   const gradientList = [
-    gradients.aurora, // Purple
-    gradients.gradientPink, // Pink
-    gradients.gradientBlue, // Blue
-    gradients.gradientGreen, // Green
-    gradients.gradientSunset, // Sunset
-    gradients.gradientTeal, // Ocean/Teal
-    gradients.gradientPastel, // Pastel
-    gradients.gradientRose, // Rose
+    tokens.gradients.aurora, // Purple
+    tokens.gradients.decorative.gradientPink, // Pink
+    tokens.gradients.decorative.gradientBlue, // Blue
+    tokens.gradients.decorative.gradientGreen, // Green
+    tokens.gradients.decorative.gradientSunset, // Sunset
+    tokens.gradients.decorative.gradientTeal, // Ocean/Teal
+    tokens.gradients.decorative.gradientPastel, // Pastel
+    tokens.gradients.decorative.gradientRose, // Rose
   ];
 
   // Use default album name if not provided

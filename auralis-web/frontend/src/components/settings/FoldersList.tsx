@@ -11,7 +11,6 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
-import { auroraOpacity } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 import { List, IconButton, Button } from '@/design-system';
 import { Box, ListItem, ListItemText, ListItemSecondaryAction,  } from '@mui/material';
@@ -82,7 +81,7 @@ export const FoldersList: React.FC<FoldersListProps> = ({
           color: tokens.colors.accent.primary,
           '&:hover': {
             borderColor: tokens.colors.accent.primary,
-            backgroundColor: auroraOpacity.standard,
+            backgroundColor: tokens.colors.opacityScale.accent.standard,
           },
         }}
       >

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens, CircularProgress, Alert } from '@/design-system';
-import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 
 interface SimilarityLoadingStateProps {
   message?: string;
@@ -11,7 +10,7 @@ export const SimilarityLoadingState: React.FC<SimilarityLoadingStateProps> = ({
   message = 'Analyzing similarity...',
 }) => (
   <Box sx={{ p: 2, textAlign: 'center' }}>
-    <CircularProgress size={24} sx={{ color: colorAuroraPrimary }} />
+    <CircularProgress size={24} sx={{ color: tokens.colors.accent.primary }} />
     <Typography variant="body2" sx={{ mt: 1, color: tokens.colors.text.secondary }}>
       {message}
     </Typography>

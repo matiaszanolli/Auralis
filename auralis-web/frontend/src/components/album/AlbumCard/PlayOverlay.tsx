@@ -8,7 +8,6 @@
 import React from 'react';
 
 import { PlayArrow } from '@mui/icons-material';
-import { gradients } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Box } from '@mui/material';
@@ -38,12 +37,12 @@ export const PlayOverlay: React.FC<PlayOverlayProps> = ({ isHovered, onClick }) 
         sx={{
           width: 56,
           height: 56,
-          background: gradients.aurora,
+          background: tokens.gradients.aurora,
           color: tokens.colors.text.primary,
           transform: isHovered ? 'scale(1)' : 'scale(0.8)',
           transition: 'all 0.3s ease',
           '&:hover': {
-            background: gradients.electricPurple,
+            background: tokens.gradients.decorative.electricPurple,
             transform: 'scale(1.1)',
           },
         }}

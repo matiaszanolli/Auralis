@@ -3,7 +3,6 @@
  */
 
 import { Box, Checkbox, styled } from '@mui/material';
-import { auroraOpacity } from '../../Styles/Color.styles';
 import { tokens } from '@/design-system';
 
 export const SelectableContainer = styled(Box, {
@@ -14,12 +13,12 @@ export const SelectableContainer = styled(Box, {
   gap: '8px',
   padding: '4px 8px',
   borderRadius: '8px',
-  backgroundColor: isSelected ? auroraOpacity.lighter : 'transparent',
-  border: isSelected ? `1px solid ${auroraOpacity.strong}` : '1px solid transparent',
+  backgroundColor: isSelected ? tokens.colors.opacityScale.accent.lighter : 'transparent',
+  border: isSelected ? `1px solid ${tokens.colors.opacityScale.accent.strong}` : '1px solid transparent',
   transition: 'all 0.2s ease',
   cursor: 'pointer',
   '&:hover': {
-    backgroundColor: isSelected ? auroraOpacity.standard : auroraOpacity.ultraLight,
+    backgroundColor: isSelected ? tokens.colors.opacityScale.accent.standard : tokens.colors.opacityScale.accent.ultraLight,
     '& .selection-checkbox': {
       opacity: 1,
     },
@@ -27,7 +26,7 @@ export const SelectableContainer = styled(Box, {
 }));
 
 export const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
-  color: auroraOpacity.lighter,
+  color: tokens.colors.opacityScale.accent.lighter,
   opacity: 0,
   transition: 'opacity 0.2s ease',
   '&.Mui-checked': {

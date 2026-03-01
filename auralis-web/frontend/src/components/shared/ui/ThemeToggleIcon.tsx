@@ -1,7 +1,6 @@
 import React from 'react';
 import { LightMode, DarkMode } from '@mui/icons-material';
 import { ThemeToggleIconContainer } from './ThemeToggle.styles';
-import { colorAuroraPrimary, auroraOpacity } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 
 interface ThemeToggleIconProps {
@@ -33,8 +32,8 @@ export const ThemeToggleIcon: React.FC<ThemeToggleIconProps> = ({ isDark, iconSi
         <LightMode
           sx={{
             fontSize: iconSize,
-            color: colorAuroraPrimary,
-            filter: `drop-shadow(0 0 8px ${auroraOpacity.veryStrong})`,
+            color: tokens.colors.accent.primary,
+            filter: `drop-shadow(0 0 8px ${tokens.colors.opacityScale.accent.veryStrong})`,
             transition: 'all 0.3s ease',
           }}
         />

@@ -1,6 +1,5 @@
 import { Paper, styled, alpha } from '@mui/material';
 import { tokens } from '@/design-system';
-import { gradients } from '../../library/Styles/Color.styles';
 
 /**
  * Styled components for DropZone
@@ -44,7 +43,7 @@ export const DropZonePaper = styled(Paper, {
         content: '""',
         position: 'absolute',
         inset: 0,
-        background: gradients.aurora,
+        background: tokens.gradients.aurora,
         opacity: 0.05,
         animation: 'pulse 2s ease-in-out infinite',
       },

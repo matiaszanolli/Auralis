@@ -15,7 +15,6 @@ import React from 'react';
 import { Box, styled } from '@mui/material';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { tokens } from '@/design-system';
-import { auroraOpacity } from '../../../library/Styles/Color.styles';
 
 export interface AlbumArtDisplayProps {
   /**
@@ -65,7 +64,7 @@ const StyledAlbumArt = styled(Box)<StyledAlbumArtProps>(({ size, useTokens }) =>
   borderRadius: useTokens ? tokens.borderRadius.md : '6px',
   overflow: 'hidden',
   flexShrink: 0,
-  background: useTokens ? tokens.colors.bg.elevated : `linear-gradient(135deg, ${auroraOpacity.veryLight} 0%, ${auroraOpacity.veryLight} 100%)`,
+  background: useTokens ? tokens.colors.bg.elevated : `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.veryLight} 0%, ${tokens.colors.opacityScale.accent.veryLight} 100%)`,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',

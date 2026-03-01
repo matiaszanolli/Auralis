@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { tokens } from '@/design-system';
-import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 import { SectionDivider, DimensionRow, ValueComparisonBox } from './SimilarityVisualization.styles';
 import { useSimilarityFormatting } from './useSimilarityFormatting';
 import { LinearProgress } from '@/design-system';
@@ -57,7 +56,7 @@ export const SimilarityTopDifferences: React.FC<SimilarityTopDifferencesProps> =
               borderRadius: 3,
               backgroundColor: tokens.colors.border.light,
               '& .MuiLinearProgress-bar': {
-                backgroundColor: colorAuroraPrimary,
+                backgroundColor: tokens.colors.accent.primary,
                 borderRadius: 3,
               },
             }}

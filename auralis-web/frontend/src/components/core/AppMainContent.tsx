@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import { auroraOpacity } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 
 /**
@@ -87,10 +86,10 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
             background: 'transparent',
           },
           '&::-webkit-scrollbar-thumb': {
-            background: auroraOpacity.strong,
+            background: tokens.colors.opacityScale.accent.strong,
             borderRadius: tokens.borderRadius.sm,              // 8px - organic curves
             '&:hover': {
-              background: auroraOpacity.stronger,
+              background: tokens.colors.opacityScale.accent.stronger,
             },
           },
         }}

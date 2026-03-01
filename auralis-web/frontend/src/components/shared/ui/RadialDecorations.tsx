@@ -7,7 +7,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { PRESETS, getCirclePosition } from './presetConfig';
-import { auroraOpacity, colorAuroraPrimary, gradients } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 
 interface RadialDecorationsProps {
@@ -48,7 +47,7 @@ export const RadialDecorations: React.FC<RadialDecorationsProps> = ({
               y1={centerY}
               x2={centerX + pos.x}
               y2={centerY + pos.y}
-              stroke={isActive ? colorAuroraPrimary : tokens.colors.text.primary}
+              stroke={isActive ? tokens.colors.accent.primary : tokens.colors.text.primary}
               strokeWidth={isActive ? 2 : 1}
               strokeDasharray={isActive ? '0' : '4 4'}
               style={{
@@ -69,14 +68,14 @@ export const RadialDecorations: React.FC<RadialDecorationsProps> = ({
           width: radius * 2 + 40,
           height: radius * 2 + 40,
           borderRadius: '50%',
-          border: `1px solid ${auroraOpacity.standard}`,
+          border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
           pointerEvents: 'none',
           '&::before': {
             content: '""',
             position: 'absolute',
             inset: -2,
             borderRadius: '50%',
-            background: gradients.aurora,
+            background: tokens.gradients.aurora,
             opacity: 0.05,
             animation: 'rotate 20s linear infinite',
           },

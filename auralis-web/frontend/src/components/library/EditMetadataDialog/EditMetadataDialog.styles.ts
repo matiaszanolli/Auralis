@@ -1,5 +1,4 @@
 import { styled, Box } from '@mui/material';
-import { auroraOpacity } from '../Styles/Color.styles';
 import { tokens } from '@/design-system';
 
 export const DialogHeaderBox = styled(Box)({
@@ -10,7 +9,7 @@ export const DialogHeaderBox = styled(Box)({
 
 export const DialogTitleStyled = styled(Box)({
   color: tokens.colors.text.primary,
-  borderBottom: `1px solid ${auroraOpacity.ultraLight}`,
+  borderBottom: `1px solid ${tokens.colors.opacityScale.accent.ultraLight}`,
 });
 
 export const DialogPaperProps = {

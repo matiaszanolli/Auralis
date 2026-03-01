@@ -7,8 +7,7 @@
 
 import React from 'react';
 import { Box } from '@mui/material';
-import { CircularProgress } from '@/design-system';
-import { auroraOpacity } from '../../library/Styles/Color.styles';
+import { CircularProgress, tokens } from '@/design-system';
 
 export interface LoadingOverlayProps {
   show: boolean;
@@ -29,7 +28,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ show }) => {
         backdropFilter: 'blur(4px)',
       }}
     >
-      <CircularProgress size={40} sx={{ color: auroraOpacity.veryStrong }} />
+      <CircularProgress size={40} sx={{ color: tokens.colors.opacityScale.accent.veryStrong }} />
     </Box>
   );
 };

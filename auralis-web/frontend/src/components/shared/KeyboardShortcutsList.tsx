@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Divider, Typography } from '@mui/material';
+import { tokens } from '@/design-system';
 import { ShortcutDefinition } from '../../services/keyboardShortcutsService';
 import {
   CategorySection,
@@ -8,7 +9,6 @@ import {
   ShortcutKey,
   CategoryTitle,
 } from './KeyboardShortcutsHelp.styles';
-import { auroraOpacity } from '../library/Styles/Color.styles';
 
 interface ShortcutCategory {
   category: string;
@@ -54,9 +54,9 @@ export const KeyboardShortcutsList: React.FC<KeyboardShortcutsListProps> = ({
         </CategorySection>
       ))}
 
-      <Divider sx={{ my: 3, borderColor: auroraOpacity.ultraLight }} />
+      <Divider sx={{ my: 3, borderColor: tokens.colors.opacityScale.accent.ultraLight }} />
 
-      <Box sx={{ textAlign: 'center', color: auroraOpacity.standard }}>
+      <Box sx={{ textAlign: 'center', color: tokens.colors.opacityScale.accent.standard }}>
         <Typography variant="body2">
           Press <strong>?</strong> anytime to show this dialog
         </Typography>

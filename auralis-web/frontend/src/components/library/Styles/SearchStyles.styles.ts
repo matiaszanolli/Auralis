@@ -9,7 +9,6 @@
  */
 
 import { containerShadows } from './Shadow.styles';
-import { auroraOpacity } from './Color.styles';
 import { tokens } from '@/design-system';
 import { Chip } from '@/design-system';
 import { TextField, Paper, ListItemButton, styled, Box } from '@mui/material';
@@ -32,20 +31,20 @@ export const SearchContainer = styled(Box)(({ theme }) => ({
  */
 export const SearchField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
-    backgroundColor: auroraOpacity.ultraLight,
+    backgroundColor: tokens.colors.opacityScale.accent.ultraLight,
     borderRadius: tokens.borderRadius.full,
     '&:hover': {
-      backgroundColor: auroraOpacity.veryLight
+      backgroundColor: tokens.colors.opacityScale.accent.veryLight
     },
     '&.Mui-focused': {
-      backgroundColor: auroraOpacity.veryLight,
+      backgroundColor: tokens.colors.opacityScale.accent.veryLight,
       '& fieldset': {
         borderColor: tokens.colors.accent.primary,
         borderWidth: 2
       }
     },
     '& fieldset': {
-      borderColor: auroraOpacity.lighter
+      borderColor: tokens.colors.opacityScale.accent.lighter
     }
   },
   '& .MuiOutlinedInput-input': {
@@ -67,7 +66,7 @@ export const ResultsContainer = styled(Paper)(({ theme }) => ({
   overflowY: 'auto',
   background: tokens.colors.bg.secondary,
   backdropFilter: 'blur(20px)',
-  border: `1px solid ${auroraOpacity.lighter}`,
+  border: `1px solid ${tokens.colors.opacityScale.accent.lighter}`,
   borderRadius: theme.spacing(2),
   boxShadow: containerShadows.resultsPanel,
   zIndex: 1000
@@ -80,7 +79,7 @@ export const StyledListItemButton = styled(ListItemButton)(({ theme }) => ({
   borderRadius: theme.spacing(1),
   margin: theme.spacing(0.5, 1),
   '&:hover': {
-    backgroundColor: auroraOpacity.ultraLight,
+    backgroundColor: tokens.colors.opacityScale.accent.ultraLight,
     '& .result-title': {
       color: tokens.colors.accent.primary
     }
@@ -96,15 +95,15 @@ export const TypeChip = styled(Chip)(({ theme }) => ({
   fontSize: tokens.typography.fontSize.xs,
   fontWeight: tokens.typography.fontWeight.semibold,
   '&.track': {
-    backgroundColor: auroraOpacity.light,
+    backgroundColor: tokens.colors.opacityScale.accent.light,
     color: tokens.colors.accent.primary
   },
   '&.album': {
-    backgroundColor: auroraOpacity.standard,
+    backgroundColor: tokens.colors.opacityScale.accent.standard,
     color: tokens.colors.accent.secondary
   },
   '&.artist': {
-    backgroundColor: auroraOpacity.standard,
+    backgroundColor: tokens.colors.opacityScale.accent.standard,
     color: tokens.colors.accent.tertiary
   }
 }));

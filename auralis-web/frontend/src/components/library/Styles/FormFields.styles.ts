@@ -12,7 +12,6 @@
  */
 
 import { TextField, styled } from '@mui/material';
-import { auroraOpacity } from './Color.styles';
 import { tokens } from '@/design-system';
 
 /**
@@ -23,11 +22,11 @@ import { tokens } from '@/design-system';
 export const StyledTextField = styled(TextField)({
   '& .MuiOutlinedInput-root': {
     color: tokens.colors.text.primary,
-    '& fieldset': { borderColor: auroraOpacity.light },
-    '&:hover fieldset': { borderColor: auroraOpacity.standard },
+    '& fieldset': { borderColor: tokens.colors.opacityScale.accent.light },
+    '&:hover fieldset': { borderColor: tokens.colors.opacityScale.accent.standard },
     '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.primary }
   },
-  '& .MuiInputLabel-root': { color: auroraOpacity.standard }
+  '& .MuiInputLabel-root': { color: tokens.colors.opacityScale.accent.standard }
 });
 
 /**
@@ -88,15 +87,15 @@ export const CompactTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
     fontSize: tokens.typography.fontSize.sm,
     color: tokens.colors.text.primary,
-    '& fieldset': { borderColor: auroraOpacity.ultraLight },
-    '&:hover fieldset': { borderColor: auroraOpacity.lighter },
+    '& fieldset': { borderColor: tokens.colors.opacityScale.accent.ultraLight },
+    '&:hover fieldset': { borderColor: tokens.colors.opacityScale.accent.lighter },
     '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.primary }
   },
   '& .MuiOutlinedInput-input': {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
   },
   '& .MuiInputLabel-root': {
-    color: auroraOpacity.lighter,
+    color: tokens.colors.opacityScale.accent.lighter,
     fontSize: tokens.typography.fontSize.sm
   }
 }));

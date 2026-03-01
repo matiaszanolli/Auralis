@@ -2,7 +2,6 @@
  * SearchBar Styled Components
  */
 
-import { auroraOpacity } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { styled, Typography } from '@mui/material';
@@ -14,7 +13,7 @@ export const ClearButton = styled(IconButton)({
 
   '&:hover': {
     color: tokens.colors.text.primary,
-    background: auroraOpacity.ultraLight,
+    background: tokens.colors.opacityScale.accent.ultraLight,
   },
 });
 

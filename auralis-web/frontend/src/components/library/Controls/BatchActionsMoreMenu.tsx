@@ -8,7 +8,6 @@ import React from 'react';
 import { Menu, MenuItem } from '@mui/material';
 import { Edit } from '@mui/icons-material';
 import { tokens } from '@/design-system';
-import { auroraOpacity } from '../Styles/Color.styles';
 
 interface BatchActionsMoreMenuProps {
   anchorEl: HTMLElement | null;
@@ -42,13 +41,13 @@ export const BatchActionsMoreMenu: React.FC<BatchActionsMoreMenuProps> = ({
       PaperProps={{
         sx: {
           background: tokens.gradients.darkSubtle,
-          border: `1px solid ${auroraOpacity.standard}`,
+          border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
           borderRadius: '12px',
           mt: 1,
         },
       }}
     >
-      <MenuItem onClick={handleEditClick} sx={{ color: 'white', gap: 1 }}>
+      <MenuItem onClick={handleEditClick} sx={{ color: tokens.colors.text.primaryFull, gap: 1 }}>
         <Edit fontSize="small" />
         Edit Metadata
       </MenuItem>

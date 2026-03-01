@@ -1,6 +1,5 @@
 
 import { tokens } from '@/design-system';
-import { auroraOpacity, gradients } from '../../Styles/Color.styles';
 import { IconButton } from '@/design-system';
 import { Box, Typography, styled } from '@mui/material';
 
@@ -21,12 +20,12 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
 
     // Current track: Enhanced presence with glow and gradient (Phase 1)
     ...(iscurrent === 'true' && {
-      background: `linear-gradient(90deg, ${auroraOpacity.light} 0%, transparent 100%)`,
-      border: `1px solid ${auroraOpacity.standard}`,
+      background: `linear-gradient(90deg, ${tokens.colors.opacityScale.accent.light} 0%, transparent 100%)`,
+      border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
       boxShadow: `
         0 4px 16px rgba(115, 102, 240, 0.15),
-        0 0 0 1px ${auroraOpacity.veryLight},
-        inset 0 0 20px ${auroraOpacity.ultraLight}
+        0 0 0 1px ${tokens.colors.opacityScale.accent.veryLight},
+        inset 0 0 20px ${tokens.colors.opacityScale.accent.ultraLight}
       `,
       // Slow shimmer animation (Phase 1) - "the room lights dim when music starts"
       animation: 'playbackShimmer 4s ease-in-out infinite',
@@ -45,11 +44,11 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
 
     '&:hover': {
       background: iscurrent === 'true'
-        ? `linear-gradient(90deg, ${auroraOpacity.lighter} 0%, ${auroraOpacity.ultraLight} 100%)`
-        : auroraOpacity.ultraLight,
+        ? `linear-gradient(90deg, ${tokens.colors.opacityScale.accent.lighter} 0%, ${tokens.colors.opacityScale.accent.ultraLight} 100%)`
+        : tokens.colors.opacityScale.accent.ultraLight,
       transform: 'translateX(4px) scale(1.005)', // Subtle scale for depth
       boxShadow: iscurrent === 'true'
-        ? `0 6px 20px rgba(115, 102, 240, 0.2), 0 0 0 1px ${auroraOpacity.veryLight}`
+        ? `0 6px 20px rgba(115, 102, 240, 0.2), 0 0 0 1px ${tokens.colors.opacityScale.accent.veryLight}`
         : '0 2px 8px rgba(0, 0, 0, 0.15)',
       opacity: 1, // Full opacity on hover even when dimmed
 
@@ -73,7 +72,7 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
 
       '& .album-art': {
         transform: 'scale(1.05)',
-        boxShadow: `0 4px 12px ${auroraOpacity.strong}`,
+        boxShadow: `0 4px 12px ${tokens.colors.opacityScale.accent.strong}`,
       },
     },
 
@@ -89,7 +88,7 @@ export const ActiveIndicator = styled(Box)({
   top: 0,
   bottom: 0,
   width: '3px',
-  background: gradients.aurora,
+  background: tokens.gradients.aurora,
   borderRadius: `0 ${tokens.borderRadius.sm} ${tokens.borderRadius.sm} 0`,
 });
 
@@ -130,7 +129,7 @@ export const PlayButton = styled(IconButton)({
   },
 
   '&:hover': {
-    background: auroraOpacity.lighter,
+    background: tokens.colors.opacityScale.accent.lighter,
     transform: 'scale(1.1)',
   },
 });
@@ -142,7 +141,7 @@ export const AlbumArtThumbnail = styled(Box)({
   borderRadius: tokens.borderRadius.sm,
   overflow: 'hidden',
   flexShrink: 0,
-  background: gradients.aurora,
+  background: tokens.gradients.aurora,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -237,7 +236,7 @@ export const MoreButton = styled(IconButton)({
   },
 
   '&:hover': {
-    background: auroraOpacity.light,
+    background: tokens.colors.opacityScale.accent.light,
     color: tokens.colors.accent.primary,
   },
 });
