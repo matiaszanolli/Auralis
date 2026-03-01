@@ -10,7 +10,7 @@ Data access layer for artist operations
 
 from collections.abc import Callable
 
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from ..models import Album, Artist, Track
 
@@ -31,8 +31,8 @@ class ArtistRepository:
             artist = (
                 session.query(Artist)
                 .options(
-                    joinedload(Artist.tracks).joinedload(Track.genres),
-                    joinedload(Artist.albums).joinedload(Album.tracks)
+                    selectinload(Artist.tracks).selectinload(Track.genres),
+                    selectinload(Artist.albums).selectinload(Album.tracks)
                 )
                 .filter(Artist.id == artist_id)
                 .first()
@@ -50,8 +50,8 @@ class ArtistRepository:
             artist = (
                 session.query(Artist)
                 .options(
-                    joinedload(Artist.tracks).joinedload(Track.genres),
-                    joinedload(Artist.albums)
+                    selectinload(Artist.tracks).selectinload(Track.genres),
+                    selectinload(Artist.albums)
                 )
                 .filter(Artist.name == name)
                 .first()
