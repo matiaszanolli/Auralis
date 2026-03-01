@@ -15,6 +15,7 @@ from typing import Any, Literal
 import aiohttp
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
+from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..io.unified_loader import load_audio
 from ..library.sidecar_manager import SidecarManager
 from ..utils.logging import debug, error, info, warning
@@ -284,8 +285,17 @@ class FingerprintExtractor:
                     fingerprint = self.sidecar_manager.get_fingerprint(filepath_obj)
                     # Fingerprint should have 25 dimensions, may also include fingerprint_version
                     if fingerprint and len(fingerprint) >= 25:
-                        info(f"Loaded fingerprint from .25d file for track {track_id}")
-                        cached = True
+                        # Reject sidecar fingerprints computed with an older algorithm version
+                        sidecar_version = int(fingerprint.get('fingerprint_version', 1))
+                        if sidecar_version < FINGERPRINT_ALGORITHM_VERSION:
+                            warning(
+                                f"Sidecar fingerprint for track {track_id} is v{sidecar_version} "
+                                f"(current: v{FINGERPRINT_ALGORITHM_VERSION}), re-extracting"
+                            )
+                            fingerprint = None
+                        else:
+                            info(f"Loaded fingerprint from .25d file for track {track_id}")
+                            cached = True
                     else:
                         warning(f"Invalid fingerprint in .25d file, will re-analyze")
                         fingerprint = None
@@ -345,9 +355,10 @@ class FingerprintExtractor:
             }
             fingerprint = {k: v for k, v in fingerprint.items() if k in expected_keys}
 
-            # CRITICAL FIX: Add fingerprint_version (required by database schema)
-            # Without this, upsert fails silently because INSERT lacks required NOT NULL field
-            fingerprint['fingerprint_version'] = 1
+            # Add fingerprint_version so the DB row records which algorithm produced it.
+            # Uses the single authoritative constant — bump FINGERPRINT_ALGORITHM_VERSION
+            # in auralis/__version__.py to trigger re-fingerprinting of old rows.
+            fingerprint['fingerprint_version'] = FINGERPRINT_ALGORITHM_VERSION
 
             # Store in database
             result = self.fingerprint_repo.upsert(track_id, fingerprint)

@@ -29,6 +29,7 @@ from collections.abc import Callable
 
 from auralis.services.fingerprint_extractor import FingerprintExtractor
 from auralis.library.repositories.factory import RepositoryFactory
+from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 
 from ..library.resource_monitor import AdaptiveResourceMonitor, ResourceLimits
 from ..utils.logging import debug, error, info, warning
@@ -269,23 +270,35 @@ class FingerprintExtractionQueue:
         info(f"Worker {worker_id} started")
 
         try:
+            # Phase 1: Process newly added tracks (no fingerprint row at all).
             while not self.should_stop:
-                # Atomically claim next unfingerprinted track from database
-                # This prevents race condition where multiple workers fetch the same track
                 try:
                     factory = self._get_repository_factory()
                     track = factory.fingerprints.claim_next_unfingerprinted_track()
                     if not track:
-                        # No more unfingerprinted tracks, exit loop
                         debug(f"Worker {worker_id}: No more unfingerprinted tracks")
                         break
-
-                    # Process the claimed track
                     self._process_track(track, worker_id)
-
                 except Exception as e:
                     error(f"Worker {worker_id} error during processing: {e}")
-                    # Brief sleep before retrying to avoid busy-loop on persistent errors
+                    time.sleep(0.1)
+
+            # Phase 2: Re-fingerprint tracks whose fingerprint was computed with an
+            # older algorithm version.  Only runs when FINGERPRINT_ALGORITHM_VERSION
+            # has been bumped; claim_next_outdated_fingerprint() returns None
+            # immediately when current_version <= 1.
+            if not self.should_stop:
+                info(f"Worker {worker_id}: Checking for outdated fingerprints (v<{FINGERPRINT_ALGORITHM_VERSION})")
+            while not self.should_stop:
+                try:
+                    factory = self._get_repository_factory()
+                    track = factory.fingerprints.claim_next_outdated_fingerprint(FINGERPRINT_ALGORITHM_VERSION)
+                    if not track:
+                        debug(f"Worker {worker_id}: No more outdated fingerprints")
+                        break
+                    self._process_track(track, worker_id)
+                except Exception as e:
+                    error(f"Worker {worker_id} error during outdated re-fingerprinting: {e}")
                     time.sleep(0.1)
 
         except Exception as e:

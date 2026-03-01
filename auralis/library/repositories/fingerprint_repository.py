@@ -15,6 +15,7 @@ from sqlalchemy import and_, text
 from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info, warning
+from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..fingerprint_quantizer import FingerprintQuantizer
 from ..models import Track, TrackFingerprint
 
@@ -447,7 +448,7 @@ class FingerprintRepository:
             try:
                 placeholder = TrackFingerprint(
                     track_id=track_id,
-                    # Initialize all 27 dimensions with zeros (will be overwritten)
+                    # Initialize all 25 dimensions with zeros (will be overwritten)
                     sub_bass_pct=0.0, bass_pct=0.0, low_mid_pct=0.0, mid_pct=0.0,
                     upper_mid_pct=0.0, presence_pct=0.0, air_pct=0.0,
                     lufs=-100.0, crest_db=0.0, bass_mid_ratio=0.0,
@@ -456,7 +457,7 @@ class FingerprintRepository:
                     harmonic_ratio=0.0, pitch_stability=0.0, chroma_energy=0.0,
                     dynamic_range_variation=0.0, loudness_variation_std=0.0, peak_consistency=0.0,
                     stereo_width=0.0, phase_correlation=0.0,
-                    fingerprint_version=1,
+                    fingerprint_version=FINGERPRINT_ALGORITHM_VERSION,
                 )
                 session.add(placeholder)
                 session.commit()
@@ -481,6 +482,88 @@ class FingerprintRepository:
         except Exception as e:
             session.rollback()
             error(f"Error claiming next unfingerprinted track: {e}")
+            return None
+        finally:
+            session.expunge_all()
+            session.close()
+
+    def claim_next_outdated_fingerprint(self, current_version: int) -> Track | None:
+        """
+        Atomically claim the next fingerprint whose algorithm version is stale.
+
+        Called by workers after the new-track queue is exhausted.  Uses a
+        version-sentinel strategy analogous to claim_next_unfingerprinted_track:
+
+        1. Find a row with 0 < fingerprint_version < current_version (legitimate
+           but old data, not a new-track placeholder).
+        2. Set fingerprint_version = 0 to "claim" it atomically (rowcount check).
+        3. Return the Track so the worker can re-extract and upsert the updated
+           fingerprint (which restores fingerprint_version = current_version).
+
+        On worker crash, cleanup_incomplete_fingerprints() resets version-0 rows
+        back to 1 so they re-enter the outdated queue on next startup.
+
+        Args:
+            current_version: The authoritative algorithm version (FINGERPRINT_ALGORITHM_VERSION).
+
+        Returns:
+            Track object if successfully claimed, None if nothing to update.
+        """
+        if current_version <= 1:
+            # No fingerprints can be "outdated" if the current version is 1
+            # (version 0 is only the crash-recovery sentinel, not a real version).
+            return None
+
+        session = self.get_session()
+        try:
+            row = session.execute(
+                text("""
+                    SELECT tf.track_id, t.filepath
+                    FROM track_fingerprints tf
+                    JOIN tracks t ON t.id = tf.track_id
+                    WHERE tf.fingerprint_version > 0
+                      AND tf.fingerprint_version < :current_ver
+                      AND tf.lufs != -100.0
+                      AND t.filepath IS NOT NULL
+                    ORDER BY tf.track_id
+                    LIMIT 1
+                """),
+                {'current_ver': current_version},
+            ).first()
+
+            if not row:
+                return None
+
+            track_id: int = row[0]
+            filepath: str = row[1]
+
+            # Claim atomically: set version=0 only if it still has the old version
+            result = session.execute(
+                text("""
+                    UPDATE track_fingerprints
+                    SET fingerprint_version = 0
+                    WHERE track_id = :tid
+                      AND fingerprint_version > 0
+                      AND fingerprint_version < :current_ver
+                """),
+                {'tid': track_id, 'current_ver': current_version},
+            )
+            session.commit()
+
+            if result.rowcount != 1:
+                # Another worker got there first
+                debug(f"Track {track_id} outdated fingerprint already claimed")
+                return None
+
+            claimed = Track()
+            claimed.id = track_id
+            claimed.filepath = filepath
+            debug(f"Track {track_id} outdated fingerprint claimed for re-extraction")
+            return claimed
+
+        except Exception as e:
+            session.rollback()
+            error(f"Error claiming outdated fingerprint: {e}")
             return None
         finally:
             session.expunge_all()
@@ -580,6 +663,7 @@ class FingerprintRepository:
             params: dict[str, Any] = {
                 'track_id': track_id,
                 'fingerprint_blob': quantized_blob,
+                'fp_version': FINGERPRINT_ALGORITHM_VERSION,
                 **fingerprint_dict,
             }
 
@@ -587,7 +671,7 @@ class FingerprintRepository:
                 text(f"""
                     INSERT OR REPLACE INTO track_fingerprints
                     (track_id, {cols_str}, fingerprint_blob, fingerprint_version)
-                    VALUES (:track_id, {named_placeholders}, :fingerprint_blob, 1)
+                    VALUES (:track_id, {named_placeholders}, :fingerprint_blob, :fp_version)
                 """),
                 params,
             )
@@ -682,7 +766,10 @@ class FingerprintRepository:
         Get overall fingerprint statistics.
 
         Returns:
-            Dict with 'total', 'fingerprinted', and 'pending' counts
+            Dict with 'total', 'fingerprinted', 'pending', 'outdated', and
+            'progress_percent' counts.  'outdated' is the number of fingerprints
+            computed with an older algorithm version that are queued for
+            re-extraction.
         """
         session = self.get_session()
         try:
@@ -691,51 +778,93 @@ class FingerprintRepository:
             # Count total tracks
             total_tracks = session.query(func.count(Track.id)).scalar() or 0
 
-            # Count fully-computed fingerprints, excluding in-progress placeholder
-            # rows (lufs=-100.0 sentinel inserted by claim_next_unfingerprinted_track).
-            # Including placeholders inflated completion percentages (fixes #2506).
-            fingerprinted_count = (
+            # Count fully-computed fingerprints at the current algorithm version,
+            # excluding:
+            #   - new-track placeholder rows (lufs=-100.0)
+            #   - stale outdated-claim sentinels (fingerprint_version=0)
+            current_count = (
                 session.query(func.count(TrackFingerprint.id))
-                .filter(TrackFingerprint.lufs != -100.0)
+                .filter(
+                    TrackFingerprint.lufs != -100.0,
+                    TrackFingerprint.fingerprint_version == FINGERPRINT_ALGORITHM_VERSION,
+                )
                 .scalar() or 0
             )
 
+            # Outdated fingerprints: present in DB but computed with an older version
+            outdated_count = (
+                session.query(func.count(TrackFingerprint.id))
+                .filter(
+                    TrackFingerprint.lufs != -100.0,
+                    TrackFingerprint.fingerprint_version > 0,
+                    TrackFingerprint.fingerprint_version < FINGERPRINT_ALGORITHM_VERSION,
+                )
+                .scalar() or 0
+            )
+
+            # "fingerprinted" = any valid row (current or outdated) — tracks that
+            # have *some* fingerprint data and are usable for similarity queries.
+            fingerprinted_count = current_count + outdated_count
+
             pending_count = max(0, total_tracks - fingerprinted_count)
-            progress_percent = int((fingerprinted_count / max(1, total_tracks)) * 100)
+            progress_percent = int((current_count / max(1, total_tracks)) * 100)
 
             return {
                 'total': total_tracks,
                 'fingerprinted': fingerprinted_count,
+                'current': current_count,
+                'outdated': outdated_count,
                 'pending': pending_count,
-                'progress_percent': progress_percent
+                'progress_percent': progress_percent,
             }
         finally:
             session.close()
 
     def cleanup_incomplete_fingerprints(self) -> int:
         """
-        Clean up incomplete fingerprints (placeholders with LUFS=-100.0).
+        Clean up incomplete fingerprints on startup.
+
+        Handles two crash-recovery cases:
+
+        1. New-track placeholders (lufs=-100.0): deleted so the track re-enters
+           the unfingerprinted queue on the next worker pass.
+        2. Stale outdated-fingerprint claims (fingerprint_version=0): reset to
+           version 1 so they re-enter the outdated queue on the next worker pass.
 
         Returns:
-            Number of incomplete fingerprints deleted
+            Total number of rows cleaned up (deleted + reset)
 
         Raises:
             Exception: If cleanup fails
         """
         session = self.get_session()
         try:
-            # Bulk delete incomplete fingerprints (placeholders with LUFS=-100.0, #2453).
-            incomplete_count = (
+            # 1. Delete new-track placeholder rows (lufs=-100.0 sentinel, #2453).
+            deleted_count = (
                 session.query(TrackFingerprint)
                 .filter(TrackFingerprint.lufs == -100.0)
                 .delete(synchronize_session=False)
             )
 
-            if incomplete_count == 0:
+            # 2. Reset stale outdated-fingerprint claims (fingerprint_version=0 sentinel).
+            #    These are fingerprints that were claimed for re-extraction but the
+            #    worker crashed before completing.  Reset to version 1 so they are
+            #    eligible for re-claiming next time.
+            reset_result = session.execute(
+                text("UPDATE track_fingerprints SET fingerprint_version = 1 WHERE fingerprint_version = 0")
+            )
+            reset_count = reset_result.rowcount
+
+            total = deleted_count + reset_count
+            if total == 0:
                 return 0
 
             session.commit()
-            return incomplete_count
+            if deleted_count:
+                info(f"Cleaned up {deleted_count} incomplete new-track fingerprint placeholder(s)")
+            if reset_count:
+                info(f"Reset {reset_count} stale outdated-fingerprint claim(s) (version=0 → 1)")
+            return total
         except Exception:
             session.rollback()
             raise

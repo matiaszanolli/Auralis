@@ -4,6 +4,12 @@ __version__ = "1.0.0"
 __version_info__ = (1, 0, 0)
 __db_schema_version__ = 13  # Added bitrate column to tracks table
 
+# Fingerprint algorithm version — increment this whenever the 25D extraction
+# algorithm changes in a way that produces different values for the same audio.
+# All existing fingerprints with a lower version will be automatically
+# re-fingerprinted by background workers.
+FINGERPRINT_ALGORITHM_VERSION = 1
+
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app
 # Schema v2 - Added lyrics column to tracks table
