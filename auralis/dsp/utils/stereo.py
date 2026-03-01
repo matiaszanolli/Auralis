@@ -36,6 +36,11 @@ def stereo_width_analysis(stereo_audio: np.ndarray) -> float:
     left = stereo_audio[:, 0]
     right = stereo_audio[:, 1]
 
+    # Guard: constant/silent channels have zero variance — np.corrcoef returns NaN.
+    # Treat them as perfectly correlated (mono) → width = 0.0 (fixes #2611).
+    if np.std(left) < 1e-9 or np.std(right) < 1e-9:
+        return 0.0
+
     # Calculate correlation
     correlation = np.corrcoef(left, right)[0, 1]
 
