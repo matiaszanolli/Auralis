@@ -20,6 +20,7 @@ interface EnhancementContextType {
   setPreset: (preset: string) => void;
   setIntensity: (intensity: number) => void;
   isProcessing: boolean;
+  error: Error | null;
 }
 
 const EnhancementContext = createContext<EnhancementContextType | undefined>(undefined);
@@ -43,6 +44,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
     intensity: 1.0,
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   // WebSocket for real-time sync (using shared WebSocketContext)
   const { subscribe } = useWebSocketContext();
@@ -72,6 +74,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
 
   // Set enabled state via REST API
   const setEnabled = useCallback(async (enabled: boolean) => {
+    setError(null);
     try {
       setIsProcessing(true);
       const url = `/api/player/enhancement/toggle?enabled=${enabled}`;
@@ -98,11 +101,13 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
       // Update local state (WebSocket will also update it, but this is immediate)
       setSettings(prev => ({
         ...prev,
-        enabled: data.settings.enabled,
+        enabled: data?.settings?.enabled ?? prev.enabled,
       }));
-    } catch (error) {
-      console.error('Failed to set enhancement enabled:', error);
-      throw error; // Re-throw so calling code knows it failed
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      console.error('Failed to set enhancement enabled:', e);
+      setError(e);
+      throw e;
     } finally {
       setIsProcessing(false);
     }
@@ -110,6 +115,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
 
   // Set preset via REST API
   const setPreset = useCallback(async (preset: string) => {
+    setError(null);
     try {
       setIsProcessing(true);
       const response = await fetch(`/api/player/enhancement/preset?preset=${preset}`, {
@@ -128,10 +134,13 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
       // Update local state
       setSettings(prev => ({
         ...prev,
-        preset: data.settings.preset,
+        preset: data?.settings?.preset ?? prev.preset,
       }));
-    } catch (error) {
-      console.error('Failed to set enhancement preset:', error);
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      console.error('Failed to set enhancement preset:', e);
+      setError(e);
+      throw e;
     } finally {
       setIsProcessing(false);
     }
@@ -142,6 +151,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
     // Clamp between 0.0 and 1.0
     const clampedIntensity = Math.max(0.0, Math.min(1.0, intensity));
 
+    setError(null);
     try {
       setIsProcessing(true);
       const response = await fetch(`/api/player/enhancement/intensity?intensity=${clampedIntensity}`, {
@@ -160,10 +170,13 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
       // Update local state
       setSettings(prev => ({
         ...prev,
-        intensity: data.settings.intensity,
+        intensity: data?.settings?.intensity ?? prev.intensity,
       }));
-    } catch (error) {
-      console.error('Failed to set enhancement intensity:', error);
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      console.error('Failed to set enhancement intensity:', e);
+      setError(e);
+      throw e;
     } finally {
       setIsProcessing(false);
     }
@@ -175,6 +188,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
     setPreset,
     setIntensity,
     isProcessing,
+    error,
   };
 
   return (
