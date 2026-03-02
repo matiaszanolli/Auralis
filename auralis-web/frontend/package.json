@@ -101,5 +101,10 @@
   "proxy": "http://localhost:8000",
   "overrides": {
     "rollup": ">=4.59.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "rollup": ">=4.59.0"
+    }
   }
 }
