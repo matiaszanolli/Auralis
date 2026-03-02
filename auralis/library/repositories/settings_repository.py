@@ -12,6 +12,7 @@ import json
 from typing import Any
 from collections.abc import Callable
 
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..models import UserSettings
@@ -40,7 +41,7 @@ class SettingsRepository:
         """
         session = self.get_session()
         try:
-            settings = session.query(UserSettings).first()
+            settings = session.execute(select(UserSettings)).scalars().first()
 
             # Create default settings if none exist
             if not settings:
@@ -66,7 +67,7 @@ class SettingsRepository:
         """
         session = self.get_session()
         try:
-            settings = session.query(UserSettings).first()
+            settings = session.execute(select(UserSettings)).scalars().first()
 
             if not settings:
                 settings = UserSettings()
@@ -120,7 +121,7 @@ class SettingsRepository:
         session = self.get_session()
         try:
             # Delete existing settings
-            session.query(UserSettings).delete()
+            session.execute(delete(UserSettings))
 
             # Create new default settings
             settings = UserSettings()

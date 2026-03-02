@@ -11,7 +11,7 @@ Data access layer for track fingerprint operations
 from typing import Any
 from collections.abc import Callable
 
-from sqlalchemy import and_, text
+from sqlalchemy import and_, delete, func, select, text
 from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info, warning
@@ -80,9 +80,9 @@ class FingerprintRepository:
         session = self.get_session()
         try:
             # Check if fingerprint already exists
-            existing = session.query(TrackFingerprint).filter(
-                TrackFingerprint.track_id == track_id
-            ).first()
+            existing = session.execute(
+                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+            ).scalars().first()
 
             if existing:
                 debug(f"Fingerprint already exists for track {track_id}, updating")
@@ -126,9 +126,9 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            fingerprint = session.query(TrackFingerprint).filter(
-                TrackFingerprint.track_id == track_id
-            ).first()
+            fingerprint = session.execute(
+                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+            ).scalars().first()
             if fingerprint:
                 session.expunge(fingerprint)
             return fingerprint
@@ -148,9 +148,9 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            fingerprint = session.query(TrackFingerprint).filter(
-                TrackFingerprint.track_id == track_id
-            ).first()
+            fingerprint = session.execute(
+                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+            ).scalars().first()
 
             if not fingerprint:
                 warning(f"Fingerprint not found for track {track_id}")
@@ -191,9 +191,9 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            fingerprint = session.query(TrackFingerprint).filter(
-                TrackFingerprint.track_id == track_id
-            ).first()
+            fingerprint = session.execute(
+                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+            ).scalars().first()
 
             if not fingerprint:
                 warning(f"Fingerprint not found for track {track_id}")
@@ -225,12 +225,12 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            query = session.query(TrackFingerprint).order_by(TrackFingerprint.created_at.desc())
+            stmt = select(TrackFingerprint).order_by(TrackFingerprint.created_at.desc())
 
             if limit:
-                query = query.limit(limit).offset(offset)
+                stmt = stmt.limit(limit).offset(offset)
 
-            fingerprints = query.all()
+            fingerprints = session.execute(stmt).scalars().all()
             for fp in fingerprints:
                 session.expunge(fp)
             return fingerprints
@@ -247,7 +247,7 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            return session.query(TrackFingerprint).count()
+            return session.execute(select(func.count()).select_from(TrackFingerprint)).scalar_one()
         finally:
             session.close()
 
@@ -280,7 +280,7 @@ class FingerprintRepository:
                 return []
 
             dim_attr = getattr(TrackFingerprint, dimension)
-            query = session.query(TrackFingerprint).filter(
+            stmt = select(TrackFingerprint).where(
                 and_(
                     dim_attr >= min_value,
                     dim_attr <= max_value
@@ -288,9 +288,9 @@ class FingerprintRepository:
             )
 
             if limit:
-                query = query.limit(limit)
+                stmt = stmt.limit(limit)
 
-            fingerprints = query.all()
+            fingerprints = session.execute(stmt).scalars().all()
             for fp in fingerprints:
                 session.expunge(fp)
             return fingerprints
@@ -335,12 +335,12 @@ class FingerprintRepository:
                 warning("No valid dimension ranges provided")
                 return []
 
-            query = session.query(TrackFingerprint).filter(and_(*conditions))
+            stmt = select(TrackFingerprint).where(and_(*conditions))
 
             if limit:
-                query = query.limit(limit)
+                stmt = stmt.limit(limit)
 
-            fingerprints = query.all()
+            fingerprints = session.execute(stmt).scalars().all()
             for fp in fingerprints:
                 session.expunge(fp)
             return fingerprints
@@ -360,9 +360,11 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            count = session.query(TrackFingerprint).filter(
-                TrackFingerprint.track_id == track_id
-            ).count()
+            count = session.execute(
+                select(func.count()).select_from(TrackFingerprint).where(
+                    TrackFingerprint.track_id == track_id
+                )
+            ).scalar_one()
             return count > 0
         finally:
             session.close()
@@ -381,17 +383,17 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            query = session.query(Track).outerjoin(
+            stmt = select(Track).outerjoin(
                 TrackFingerprint,
                 Track.id == TrackFingerprint.track_id
-            ).filter(
+            ).where(
                 TrackFingerprint.id == None
             )
 
             if limit:
-                query = query.limit(limit)
+                stmt = stmt.limit(limit)
 
-            tracks = query.all()
+            tracks = session.execute(stmt).scalars().all()
 
             # CRITICAL: Detach all Track objects from session before returning
             # Prevents memory accumulation when workers process tracks from multiple queries
@@ -427,13 +429,15 @@ class FingerprintRepository:
         session = self.get_session()
         try:
             # Find first unfingerprinted track using efficient LEFT JOIN
-            unfingerprinted = session.query(Track).outerjoin(
-                TrackFingerprint,
-                Track.id == TrackFingerprint.track_id
-            ).filter(
-                TrackFingerprint.id == None,
-                Track.filepath.isnot(None)
-            ).order_by(Track.id).first()
+            unfingerprinted = session.execute(
+                select(Track).outerjoin(
+                    TrackFingerprint,
+                    Track.id == TrackFingerprint.track_id
+                ).where(
+                    TrackFingerprint.id == None,
+                    Track.filepath.isnot(None)
+                ).order_by(Track.id)
+            ).scalars().first()
 
             if not unfingerprinted:
                 # No unfingerprinted tracks left
@@ -742,11 +746,9 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            fingerprint = (
-                session.query(TrackFingerprint)
-                .filter(TrackFingerprint.track_id == track_id)
-                .first()
-            )
+            fingerprint = session.execute(
+                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+            ).scalars().first()
 
             if not fingerprint:
                 return None
@@ -773,34 +775,32 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy import func
-
             # Count total tracks
-            total_tracks = session.query(func.count(Track.id)).scalar() or 0
+            total_tracks = session.execute(
+                select(func.count(Track.id))
+            ).scalar_one_or_none() or 0
 
             # Count fully-computed fingerprints at the current algorithm version,
             # excluding:
             #   - new-track placeholder rows (lufs=-100.0)
             #   - stale outdated-claim sentinels (fingerprint_version=0)
-            current_count = (
-                session.query(func.count(TrackFingerprint.id))
-                .filter(
+            current_count = session.execute(
+                select(func.count(TrackFingerprint.id))
+                .where(
                     TrackFingerprint.lufs != -100.0,
                     TrackFingerprint.fingerprint_version == FINGERPRINT_ALGORITHM_VERSION,
                 )
-                .scalar() or 0
-            )
+            ).scalar_one_or_none() or 0
 
             # Outdated fingerprints: present in DB but computed with an older version
-            outdated_count = (
-                session.query(func.count(TrackFingerprint.id))
-                .filter(
+            outdated_count = session.execute(
+                select(func.count(TrackFingerprint.id))
+                .where(
                     TrackFingerprint.lufs != -100.0,
                     TrackFingerprint.fingerprint_version > 0,
                     TrackFingerprint.fingerprint_version < FINGERPRINT_ALGORITHM_VERSION,
                 )
-                .scalar() or 0
-            )
+            ).scalar_one_or_none() or 0
 
             # "fingerprinted" = any valid row (current or outdated) — tracks that
             # have *some* fingerprint data and are usable for similarity queries.
@@ -840,11 +840,10 @@ class FingerprintRepository:
         session = self.get_session()
         try:
             # 1. Delete new-track placeholder rows (lufs=-100.0 sentinel, #2453).
-            deleted_count = (
-                session.query(TrackFingerprint)
-                .filter(TrackFingerprint.lufs == -100.0)
-                .delete(synchronize_session=False)
+            result = session.execute(
+                delete(TrackFingerprint).where(TrackFingerprint.lufs == -100.0)
             )
+            deleted_count = result.rowcount
 
             # 2. Reset stale outdated-fingerprint claims (fingerprint_version=0 sentinel).
             #    These are fingerprints that were claimed for re-extraction but the

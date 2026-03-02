@@ -11,7 +11,7 @@ Data access layer for track operations
 from typing import Any
 from collections.abc import Callable
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -68,9 +68,11 @@ class TrackRepository:
         session = self.get_session()
         try:
             # Check if track already exists
-            existing = session.query(Track).options(
-                joinedload(Track.artists), joinedload(Track.album)
-            ).filter(Track.filepath == track_info['filepath']).first()
+            existing = session.execute(
+                select(Track).options(
+                    joinedload(Track.artists), joinedload(Track.album)
+                ).where(Track.filepath == track_info['filepath'])
+            ).scalars().unique().first()
             if existing:
                 session.expunge(existing)
                 warning(f"Track already exists: {track_info['filepath']}")
@@ -100,9 +102,9 @@ class TrackRepository:
             for artist_name in track_info.get('artists', []):
                 normalized = normalize_artist_name(artist_name)
                 # Match by normalized name to prevent duplicates (AC/DC vs ACDC)
-                artist = session.query(Artist).filter(
-                    Artist.normalized_name == normalized
-                ).first()
+                artist = session.execute(
+                    select(Artist).where(Artist.normalized_name == normalized)
+                ).scalars().first()
                 if not artist:
                     try:
                         artist = Artist(name=artist_name, normalized_name=normalized)
@@ -110,9 +112,9 @@ class TrackRepository:
                         session.flush()
                     except IntegrityError:
                         session.rollback()
-                        artist = session.query(Artist).filter(
-                            Artist.normalized_name == normalized
-                        ).first()
+                        artist = session.execute(
+                            select(Artist).where(Artist.normalized_name == normalized)
+                        ).scalars().first()
                 artists.append(artist)
 
             # Get or create album
@@ -121,7 +123,7 @@ class TrackRepository:
                 album_filter = Album.title == track_info['album']
                 if artists:
                     album_filter = and_(album_filter, Album.artist_id == artists[0].id)
-                album = session.query(Album).filter(album_filter).first()
+                album = session.execute(select(Album).where(album_filter)).scalars().first()
                 if not album and artists:
                     album = Album(
                         title=track_info['album'],
@@ -133,7 +135,7 @@ class TrackRepository:
             # Get or create genres (same IntegrityError handling as artists, fixes #2594)
             genres = []
             for genre_name in track_info.get('genres', []):
-                genre = session.query(Genre).filter(Genre.name == genre_name).first()
+                genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
                 if not genre:
                     try:
                         genre = Genre(name=genre_name)
@@ -141,7 +143,7 @@ class TrackRepository:
                         session.flush()
                     except IntegrityError:
                         session.rollback()
-                        genre = session.query(Genre).filter(Genre.name == genre_name).first()
+                        genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
                 genres.append(genre)
 
             # Create track
@@ -192,12 +194,11 @@ class TrackRepository:
                     warning(f"Failed to extract artwork for album {album.title}: {artwork_error}")
 
             # Re-query with eager loading before detaching from session
-            track = (
-                session.query(Track)
+            track = session.execute(
+                select(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
-                .filter(Track.id == track.id)
-                .first()
-            )
+                .where(Track.id == track.id)
+            ).scalars().unique().first()
             session.expunge(track)
             return track
 
@@ -212,12 +213,11 @@ class TrackRepository:
         """Get track by ID with relationships loaded"""
         session = self.get_session()
         try:
-            track = (
-                session.query(Track)
+            track = session.execute(
+                select(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
-                .filter(Track.id == track_id)
-                .first()
-            )
+                .where(Track.id == track_id)
+            ).scalars().unique().first()
             if track:
                 session.expunge(track)
             return track
@@ -228,12 +228,11 @@ class TrackRepository:
         """Get track by file path with relationships loaded"""
         session = self.get_session()
         try:
-            track = (
-                session.query(Track)
+            track = session.execute(
+                select(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
-                .filter(Track.filepath == filepath)
-                .first()
-            )
+                .where(Track.filepath == filepath)
+            ).scalars().unique().first()
             if track:
                 session.expunge(track)
             return track
@@ -257,7 +256,7 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            track = session.query(Track).filter(Track.filepath == filepath).first()
+            track = session.execute(select(Track).where(Track.filepath == filepath)).scalars().first()
             if not track:
                 warning(f"Track not found: {filepath}")
                 return None
@@ -279,7 +278,7 @@ class TrackRepository:
 
             # Update album
             if 'album' in track_info:
-                album = session.query(Album).filter(Album.title == track_info['album']).first()
+                album = session.execute(select(Album).where(Album.title == track_info['album'])).scalars().first()
                 if not album:
                     album = Album(title=track_info['album'], year=track_info.get('year'))
                     session.add(album)
@@ -287,12 +286,11 @@ class TrackRepository:
 
             session.commit()
             # Re-query with eager loading before detaching from session
-            track = (
-                session.query(Track)
+            track = session.execute(
+                select(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
-                .filter(Track.filepath == filepath)
-                .first()
-            )
+                .where(Track.filepath == filepath)
+            ).scalars().unique().first()
             info(f"Updated track: {track.title}")
             session.expunge(track)
             return track
@@ -323,27 +321,32 @@ class TrackRepository:
             escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
             search_term = f"%{escaped}%"
 
-            # Build query with outer joins to include tracks without artists/albums
-            query_obj = (
-                session.query(Track)
-                .join(Track.artists, isouter=True)
-                .join(Track.album, isouter=True)
-                .options(selectinload(Track.artists), selectinload(Track.album))
-                .filter(
-                    or_(
-                        Track.title.ilike(search_term),
-                        Artist.name.ilike(search_term),
-                        Album.title.ilike(search_term)
-                    )
-                )
-                .distinct()
+            # Build shared filter for count and results statements
+            search_filter = or_(
+                Track.title.ilike(search_term),
+                Artist.name.ilike(search_term),
+                Album.title.ilike(search_term)
             )
 
             # Get total count
-            total = query_obj.count()
+            total = session.execute(
+                select(func.count(func.distinct(Track.id)))
+                .join(Track.artists, isouter=True)
+                .join(Track.album, isouter=True)
+                .where(search_filter)
+            ).scalar_one()
 
             # Get paginated results
-            results = query_obj.limit(limit).offset(offset).all()
+            results = session.execute(
+                select(Track)
+                .join(Track.artists, isouter=True)
+                .join(Track.album, isouter=True)
+                .options(selectinload(Track.artists), selectinload(Track.album))
+                .where(search_filter)
+                .distinct()
+                .limit(limit)
+                .offset(offset)
+            ).scalars().unique().all()
 
             for track in results:
                 session.expunge(track)
@@ -355,14 +358,13 @@ class TrackRepository:
         """Get tracks by genre"""
         session = self.get_session()
         try:
-            tracks = (
-                session.query(Track)
+            tracks = session.execute(
+                select(Track)
                 .join(Track.genres)
                 .options(selectinload(Track.artists), selectinload(Track.album))
-                .filter(Genre.name == genre_name)
+                .where(Genre.name == genre_name)
                 .limit(limit)
-                .all()
-            )
+            ).scalars().all()
             for track in tracks:
                 session.expunge(track)
             return tracks
@@ -374,13 +376,15 @@ class TrackRepository:
         session = self.get_session()
         try:
             # Use eager loading to load relationships before session closes
-            tracks = session.query(Track).join(Track.artists).filter(
-                Artist.name == artist_name
-            ).options(
-                joinedload(Track.artists),
-                joinedload(Track.album),
-                selectinload(Track.genres)  # separate IN query avoids N×G row explosion (fixes #2523)
-            ).limit(limit).all()
+            tracks = session.execute(
+                select(Track).join(Track.artists).where(
+                    Artist.name == artist_name
+                ).options(
+                    joinedload(Track.artists),
+                    joinedload(Track.album),
+                    selectinload(Track.genres)  # separate IN query avoids N×G row explosion (fixes #2523)
+                ).limit(limit)
+            ).scalars().unique().all()
 
             # Expunge from session to make objects persistent across session close
             for track in tracks:
@@ -402,18 +406,19 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            # Build query
-            query = (
-                session.query(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
-                .order_by(Track.created_at.desc())
-            )
-
             # Get total count
-            total = query.count()
+            total = session.execute(
+                select(func.count()).select_from(Track)
+            ).scalar_one()
 
             # Get paginated results
-            results = query.limit(limit).offset(offset).all()
+            results = session.execute(
+                select(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .order_by(Track.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            ).scalars().unique().all()
 
             for track in results:
                 session.expunge(track)
@@ -433,18 +438,19 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            # Build query
-            query = (
-                session.query(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
-                .order_by(Track.play_count.desc())
-            )
-
             # Get total count
-            total = query.count()
+            total = session.execute(
+                select(func.count()).select_from(Track)
+            ).scalar_one()
 
             # Get paginated results
-            results = query.limit(limit).offset(offset).all()
+            results = session.execute(
+                select(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .order_by(Track.play_count.desc())
+                .limit(limit)
+                .offset(offset)
+            ).scalars().unique().all()
 
             for track in results:
                 session.expunge(track)
@@ -464,19 +470,21 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            # Build query
-            query = (
-                session.query(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
-                .filter(Track.favorite == True)
-                .order_by(Track.title.asc())
-            )
-
             # Get total count
-            total = query.count()
+            total = session.execute(
+                select(func.count()).select_from(Track)
+                .where(Track.favorite == True)
+            ).scalar_one()
 
             # Get paginated results
-            results = query.limit(limit).offset(offset).all()
+            results = session.execute(
+                select(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .where(Track.favorite == True)
+                .order_by(Track.title.asc())
+                .limit(limit)
+                .offset(offset)
+            ).scalars().unique().all()
 
             for track in results:
                 session.expunge(track)
@@ -498,21 +506,22 @@ class TrackRepository:
         session = self.get_session()
         try:
             # Get total count
-            total = session.query(Track).count()
+            total = session.execute(
+                select(func.count()).select_from(Track)
+            ).scalar_one()
 
             # Get tracks for current page (whitelist to prevent arbitrary attribute access)
             VALID_ORDER_COLUMNS = {'title', 'created_at', 'play_count', 'duration', 'year', 'last_played'}
             if order_by not in VALID_ORDER_COLUMNS:
                 order_by = 'title'
             order_column = getattr(Track, order_by, Track.title)
-            tracks = (
-                session.query(Track)
+            tracks = session.execute(
+                select(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
-                .all()
-            )
+            ).scalars().unique().all()
 
             for track in tracks:
                 session.expunge(track)
@@ -524,7 +533,7 @@ class TrackRepository:
         """Record a track play"""
         session = self.get_session()
         try:
-            track = session.query(Track).filter(Track.id == track_id).first()
+            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
             if track:
                 track.play_count = (track.play_count or 0) + 1  # type: ignore[assignment]
                 track.last_played = func.now()  # type: ignore[assignment]
@@ -540,7 +549,7 @@ class TrackRepository:
         """Set track favorite status"""
         session = self.get_session()
         try:
-            track = session.query(Track).filter(Track.id == track_id).first()
+            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
             if track:
                 track.favorite = favorite  # type: ignore[assignment]
                 session.commit()
@@ -571,14 +580,13 @@ class TrackRepository:
 
             # Batch query: find tracks by any of the same artists (#2072)
             if track.artists:
-                artist_tracks = (
-                    session.query(Track)
+                artist_tracks = session.execute(
+                    select(Track)
                     .options(selectinload(Track.artists), selectinload(Track.album))
-                    .filter(Track.artists.any(Artist.id.in_([a.id for a in track.artists])))
-                    .filter(Track.id != track.id)
+                    .where(Track.artists.any(Artist.id.in_([a.id for a in track.artists])))
+                    .where(Track.id != track.id)
                     .limit(limit)
-                    .all()
-                )
+                ).scalars().all()
                 for t in artist_tracks:
                     if t.id not in seen_ids:
                         similar_tracks.append(t)
@@ -586,15 +594,18 @@ class TrackRepository:
 
             # Batch query: find tracks in any of the same genres (#2072)
             if track.genres and len(similar_tracks) < limit:
-                genre_tracks = (
-                    session.query(Track)
+                genre_filters = [
+                    Track.genres.any(Genre.id.in_([g.id for g in track.genres])),
+                    Track.id != track.id,
+                ]
+                if seen_ids:
+                    genre_filters.append(~Track.id.in_(seen_ids))
+                genre_tracks = session.execute(
+                    select(Track)
                     .options(selectinload(Track.artists), selectinload(Track.album))
-                    .filter(Track.genres.any(Genre.id.in_([g.id for g in track.genres])))
-                    .filter(Track.id != track.id)
-                    .filter(~Track.id.in_(seen_ids) if seen_ids else True)
+                    .where(*genre_filters)
                     .limit(limit - len(similar_tracks))
-                    .all()
-                )
+                ).scalars().all()
                 for t in genre_tracks:
                     if t.id not in seen_ids:
                         similar_tracks.append(t)
@@ -613,9 +624,9 @@ class TrackRepository:
         for artist_name in artist_names:
             normalized = normalize_artist_name(artist_name)
             # Match by normalized name to prevent duplicates (AC/DC vs ACDC)
-            artist = session.query(Artist).filter(
-                Artist.normalized_name == normalized
-            ).first()
+            artist = session.execute(
+                select(Artist).where(Artist.normalized_name == normalized)
+            ).scalars().first()
             if not artist:
                 artist = Artist(name=artist_name, normalized_name=normalized)
                 session.add(artist)
@@ -625,7 +636,7 @@ class TrackRepository:
         """Update track genres"""
         track.genres = []
         for genre_name in genre_names:
-            genre = session.query(Genre).filter(Genre.name == genre_name).first()
+            genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
             if not genre:
                 genre = Genre(name=genre_name)
                 session.add(genre)
@@ -643,7 +654,7 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            track = session.query(Track).filter(Track.id == track_id).first()
+            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
             if track:
                 session.delete(track)
                 session.commit()
@@ -670,7 +681,7 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            track = session.query(Track).filter(Track.id == track_id).first()
+            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
             if not track:
                 return None
 
@@ -695,7 +706,7 @@ class TrackRepository:
             if 'album' in track_info:
                 album_title = track_info['album']
                 if album_title:
-                    album = session.query(Album).filter(Album.title == album_title).first()
+                    album = session.execute(select(Album).where(Album.title == album_title)).scalars().first()
                     if not album:
                         album = Album(title=album_title)
                         session.add(album)
@@ -703,12 +714,11 @@ class TrackRepository:
 
             session.commit()
             # Re-query with eager loading before detaching from session
-            track = (
-                session.query(Track)
+            track = session.execute(
+                select(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
-                .filter(Track.id == track_id)
-                .first()
-            )
+                .where(Track.id == track_id)
+            ).scalars().unique().first()
             debug(f"Updated track: {track.title}")
             session.expunge(track)
             return track
@@ -735,7 +745,7 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            track = session.query(Track).filter(Track.id == track_id).first()
+            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
             if not track:
                 return None
 
@@ -779,13 +789,12 @@ class TrackRepository:
             last_id = 0  # cursor: fetch rows with id > last_id (issue #2242)
 
             while True:
-                rows = (
-                    session.query(Track.id, Track.filepath)
-                    .filter(Track.id > last_id)
+                rows = session.execute(
+                    select(Track.id, Track.filepath)
+                    .where(Track.id > last_id)
                     .order_by(Track.id)
                     .limit(batch_size)
-                    .all()
-                )
+                ).all()
                 if not rows:
                     break
 
@@ -803,9 +812,9 @@ class TrackRepository:
                         missing_ids.append(row.id)
 
                 if missing_ids:
-                    session.query(Track).filter(
-                        Track.id.in_(missing_ids)
-                    ).delete(synchronize_session=False)
+                    session.execute(
+                        delete(Track).where(Track.id.in_(missing_ids))
+                    )
                     session.commit()
                     removed_count += len(missing_ids)
 

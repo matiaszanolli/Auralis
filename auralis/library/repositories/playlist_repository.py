@@ -11,6 +11,7 @@ Data access layer for playlist operations
 from typing import Any
 from collections.abc import Callable
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from ...utils.logging import debug, error, info
@@ -51,7 +52,7 @@ class PlaylistRepository:
 
             # Add tracks if provided
             if track_ids:
-                tracks = session.query(Track).filter(Track.id.in_(track_ids)).all()
+                tracks = session.execute(select(Track).where(Track.id.in_(track_ids))).scalars().all()
                 playlist.tracks = tracks
 
             session.add(playlist)
@@ -80,11 +81,13 @@ class PlaylistRepository:
         """Get playlist by ID with eager loading"""
         session = self.get_session()
         try:
-            playlist = session.query(Playlist).options(
-                selectinload(Playlist.tracks).selectinload(Track.artists),
-                selectinload(Playlist.tracks).selectinload(Track.genres),
-                selectinload(Playlist.tracks).selectinload(Track.album)
-            ).filter(Playlist.id == playlist_id).first()
+            playlist = session.execute(
+                select(Playlist).options(
+                    selectinload(Playlist.tracks).selectinload(Track.artists),
+                    selectinload(Playlist.tracks).selectinload(Track.genres),
+                    selectinload(Playlist.tracks).selectinload(Track.album)
+                ).where(Playlist.id == playlist_id)
+            ).scalars().first()
 
             if playlist:
                 session.expunge(playlist)
@@ -96,9 +99,11 @@ class PlaylistRepository:
         """Get all playlists with eager loading"""
         session = self.get_session()
         try:
-            playlists = session.query(Playlist).options(
-                selectinload(Playlist.tracks)
-            ).order_by(Playlist.name).all()
+            playlists = session.execute(
+                select(Playlist)
+                .options(selectinload(Playlist.tracks))
+                .order_by(Playlist.name)
+            ).scalars().all()
             # Expunge all playlists to avoid DetachedInstanceError
             for playlist in playlists:
                 session.expunge(playlist)
@@ -119,7 +124,7 @@ class PlaylistRepository:
         """
         session = self.get_session()
         try:
-            playlist = session.query(Playlist).filter(Playlist.id == playlist_id).first()
+            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
             if not playlist:
                 return False
 
@@ -151,7 +156,7 @@ class PlaylistRepository:
         """
         session = self.get_session()
         try:
-            playlist = session.query(Playlist).filter(Playlist.id == playlist_id).first()
+            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
             if not playlist:
                 return False
 
@@ -181,8 +186,8 @@ class PlaylistRepository:
         """
         session = self.get_session()
         try:
-            playlist = session.query(Playlist).filter(Playlist.id == playlist_id).first()
-            track = session.query(Track).filter(Track.id == track_id).first()
+            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
+            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
 
             if not playlist or not track:
                 return False
@@ -213,8 +218,8 @@ class PlaylistRepository:
         """Remove track from playlist"""
         session = self.get_session()
         try:
-            playlist = session.query(Playlist).filter(Playlist.id == playlist_id).first()
-            track = session.query(Track).filter(Track.id == track_id).first()
+            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
+            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
 
             if not playlist or not track:
                 return False
@@ -237,7 +242,7 @@ class PlaylistRepository:
         """Remove all tracks from playlist"""
         session = self.get_session()
         try:
-            playlist = session.query(Playlist).filter(Playlist.id == playlist_id).first()
+            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
             if not playlist:
                 return False
 
@@ -267,7 +272,7 @@ class PlaylistRepository:
         """
         session = self.get_session()
         try:
-            playlist = session.query(Playlist).filter(Playlist.id == playlist_id).first()
+            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
             if not playlist:
                 return False
 

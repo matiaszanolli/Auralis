@@ -12,6 +12,7 @@ import logging
 from typing import Any
 from collections.abc import Callable
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from ..models import Genre, Track
@@ -41,11 +42,9 @@ class GenreRepository:
         """
         session = self.get_session()
         try:
-            genre = (
-                session.query(Genre)
-                .filter(Genre.id == genre_id)
-                .first()
-            )
+            genre = session.execute(
+                select(Genre).where(Genre.id == genre_id)
+            ).scalars().first()
             if genre:
                 session.expunge(genre)
             return genre
@@ -64,11 +63,9 @@ class GenreRepository:
         """
         session = self.get_session()
         try:
-            genre = (
-                session.query(Genre)
-                .filter(Genre.name == name)
-                .first()
-            )
+            genre = session.execute(
+                select(Genre).where(Genre.name == name)
+            ).scalars().first()
             if genre:
                 session.expunge(genre)
             return genre
@@ -90,20 +87,21 @@ class GenreRepository:
         session = self.get_session()
         try:
             # Get total count
-            total = session.query(Genre).count()
+            total = session.execute(
+                select(func.count()).select_from(Genre)
+            ).scalar_one()
 
             # Get genres for current page (whitelist to prevent arbitrary attribute access)
             VALID_ORDER_COLUMNS = {'name', 'created_at'}
             if order_by not in VALID_ORDER_COLUMNS:
                 order_by = 'name'
             order_column = getattr(Genre, order_by, Genre.name)
-            genres = (
-                session.query(Genre)
+            genres = session.execute(
+                select(Genre)
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
-                .all()
-            )
+            ).scalars().all()
 
             # Expunge from session to detach while keeping loaded data
             for genre in genres:
@@ -133,20 +131,27 @@ class GenreRepository:
         session = self.get_session()
         try:
             # Get total count
-            genre = session.query(Genre).filter(Genre.id == genre_id).first()
+            genre = session.execute(
+                select(Genre).where(Genre.id == genre_id)
+            ).scalars().first()
             if not genre:
                 return [], 0
 
             # Get tracks for this genre
-            query = (
-                session.query(Track)
-                .filter(Track.genres.any(Genre.id == genre_id))
+            track_filter = Track.genres.any(Genre.id == genre_id)
+
+            total = session.execute(
+                select(func.count()).select_from(Track).where(track_filter)
+            ).scalar_one()
+
+            tracks = session.execute(
+                select(Track)
+                .where(track_filter)
                 .options(joinedload(Track.album), joinedload(Track.artists))
                 .order_by(Track.title)
-            )
-
-            total = query.count()
-            tracks = query.limit(limit).offset(offset).all()
+                .limit(limit)
+                .offset(offset)
+            ).scalars().unique().all()
 
             # Expunge from session
             for track in tracks:
@@ -208,7 +213,9 @@ class GenreRepository:
         """
         session = self.get_session()
         try:
-            genre = session.query(Genre).filter(Genre.id == genre_id).first()
+            genre = session.execute(
+                select(Genre).where(Genre.id == genre_id)
+            ).scalars().first()
             if not genre:
                 return None
 
@@ -243,7 +250,9 @@ class GenreRepository:
         """
         session = self.get_session()
         try:
-            genre = session.query(Genre).filter(Genre.id == genre_id).first()
+            genre = session.execute(
+                select(Genre).where(Genre.id == genre_id)
+            ).scalars().first()
             if not genre:
                 return False
 
@@ -275,16 +284,17 @@ class GenreRepository:
             # Escape LIKE metacharacters to prevent full-table scans on '%'/'_' (fixes #2405).
             escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
             search_filter = Genre.name.ilike(f"%{escaped}%")
-            total = session.query(Genre).filter(search_filter).count()
+            total = session.execute(
+                select(func.count()).select_from(Genre).where(search_filter)
+            ).scalar_one()
 
-            genres = (
-                session.query(Genre)
-                .filter(search_filter)
+            genres = session.execute(
+                select(Genre)
+                .where(search_filter)
                 .order_by(Genre.name)
                 .limit(limit)
                 .offset(offset)
-                .all()
-            )
+            ).scalars().all()
 
             # Expunge from session
             for genre in genres:

@@ -11,7 +11,7 @@ Data access layer for similarity graph operations
 from typing import Any
 from collections.abc import Callable
 
-from sqlalchemy import func
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..models import SimilarityGraph
@@ -35,8 +35,8 @@ class SimilarityGraphRepository:
         """
         session = self.get_session()
         try:
-            count = session.query(SimilarityGraph).count()
-            session.query(SimilarityGraph).delete()
+            count = session.execute(select(func.count()).select_from(SimilarityGraph)).scalar_one()
+            session.execute(delete(SimilarityGraph))
             session.commit()
             return count
         except Exception:
@@ -57,14 +57,10 @@ class SimilarityGraphRepository:
         """
         session = self.get_session()
         try:
-            count = (
-                session.query(SimilarityGraph)
-                .filter(SimilarityGraph.track_id == track_id)
-                .count()
-            )
-            session.query(SimilarityGraph).filter(
-                SimilarityGraph.track_id == track_id
-            ).delete()
+            count = session.execute(
+                select(func.count()).select_from(SimilarityGraph).where(SimilarityGraph.track_id == track_id)
+            ).scalar_one()
+            session.execute(delete(SimilarityGraph).where(SimilarityGraph.track_id == track_id))
             session.commit()
             return count
         except Exception:
@@ -151,16 +147,16 @@ class SimilarityGraphRepository:
         """
         session = self.get_session()
         try:
-            query = (
-                session.query(SimilarityGraph)
-                .filter(SimilarityGraph.track_id == track_id)
+            stmt = (
+                select(SimilarityGraph)
+                .where(SimilarityGraph.track_id == track_id)
                 .order_by(SimilarityGraph.rank)
             )
 
             if limit:
-                query = query.limit(limit)
+                stmt = stmt.limit(limit)
 
-            edges = query.all()
+            edges = session.execute(stmt).scalars().all()
             for edge in edges:
                 session.expunge(edge)
             return edges
@@ -178,25 +174,25 @@ class SimilarityGraphRepository:
         session = self.get_session()
         try:
             # Count edges
-            total_edges = session.query(SimilarityGraph).count()
+            total_edges = session.execute(select(func.count()).select_from(SimilarityGraph)).scalar_one()
 
             if total_edges == 0:
                 return None
 
             # Count unique tracks
-            total_tracks = session.query(
-                func.count(func.distinct(SimilarityGraph.track_id))
-            ).scalar()
+            total_tracks = session.execute(
+                select(func.count(func.distinct(SimilarityGraph.track_id)))
+            ).scalar_one_or_none()
 
             # Calculate k (average neighbors per track)
             k_neighbors = total_edges // total_tracks if total_tracks > 0 else 0
 
             # Distance statistics
-            distance_stats = session.query(
+            distance_stats = session.execute(select(
                 func.avg(SimilarityGraph.distance),
                 func.min(SimilarityGraph.distance),
                 func.max(SimilarityGraph.distance)
-            ).first()
+            )).first()
 
             avg_distance, min_distance, max_distance = distance_stats
 
@@ -220,6 +216,6 @@ class SimilarityGraphRepository:
         """
         session = self.get_session()
         try:
-            return session.query(SimilarityGraph).count()
+            return session.execute(select(func.count()).select_from(SimilarityGraph)).scalar_one()
         finally:
             session.close()

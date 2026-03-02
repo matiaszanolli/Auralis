@@ -10,6 +10,7 @@ Data access layer for artist operations
 
 from collections.abc import Callable
 
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import Album, Artist, Track
@@ -29,13 +30,14 @@ class ArtistRepository:
         session = self.get_session()
         try:
             artist = (
-                session.query(Artist)
-                .options(
-                    selectinload(Artist.tracks).selectinload(Track.genres),
-                    selectinload(Artist.albums).selectinload(Album.tracks)
-                )
-                .filter(Artist.id == artist_id)
-                .first()
+                session.execute(
+                    select(Artist)
+                    .options(
+                        selectinload(Artist.tracks).selectinload(Track.genres),
+                        selectinload(Artist.albums).selectinload(Album.tracks)
+                    )
+                    .where(Artist.id == artist_id)
+                ).scalars().first()
             )
             if artist:
                 session.expunge(artist)
@@ -48,13 +50,14 @@ class ArtistRepository:
         session = self.get_session()
         try:
             artist = (
-                session.query(Artist)
-                .options(
-                    selectinload(Artist.tracks).selectinload(Track.genres),
-                    selectinload(Artist.albums)
-                )
-                .filter(Artist.name == name)
-                .first()
+                session.execute(
+                    select(Artist)
+                    .options(
+                        selectinload(Artist.tracks).selectinload(Track.genres),
+                        selectinload(Artist.albums)
+                    )
+                    .where(Artist.name == name)
+                ).scalars().first()
             )
             if artist:
                 session.expunge(artist)
@@ -75,16 +78,14 @@ class ArtistRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy import desc, func
-
             # Get total count
-            total = session.query(Artist).count()
+            total = session.execute(select(func.count()).select_from(Artist)).scalar_one()
 
             # Determine sort column
             if order_by == 'album_count':
                 # Subquery to count albums per artist
                 album_count_query = (
-                    session.query(Artist.id, func.count(Artist.albums).label('album_count'))
+                    select(Artist.id, func.count(Artist.albums).label('album_count'))
                     .join(Artist.albums)
                     .group_by(Artist.id)
                     .subquery()
@@ -93,7 +94,7 @@ class ArtistRepository:
             elif order_by == 'track_count':
                 # Subquery to count tracks per artist
                 track_count_query = (
-                    session.query(Artist.id, func.count(Artist.tracks).label('track_count'))
+                    select(Artist.id, func.count(Artist.tracks).label('track_count'))
                     .join(Artist.tracks)
                     .group_by(Artist.id)
                     .subquery()
@@ -106,15 +107,16 @@ class ArtistRepository:
             # Use selectinload (separate IN queries) instead of nested joinedload
             # to avoid the N×M Cartesian-product row explosion (fixes #2516).
             artists = (
-                session.query(Artist)
-                .options(
-                    selectinload(Artist.tracks).selectinload(Track.genres),
-                    selectinload(Artist.albums)
-                )
-                .order_by(order_column)
-                .limit(limit)
-                .offset(offset)
-                .all()
+                session.execute(
+                    select(Artist)
+                    .options(
+                        selectinload(Artist.tracks).selectinload(Track.genres),
+                        selectinload(Artist.albums)
+                    )
+                    .order_by(order_column)
+                    .limit(limit)
+                    .offset(offset)
+                ).scalars().all()
             )
 
             for artist in artists:
@@ -142,26 +144,26 @@ class ArtistRepository:
             search_term = f"%{escaped}%"
 
             # Get total count of matching artists
-            total = (
-                session.query(Artist)
-                .filter(Artist.name.ilike(search_term))
-                .count()
-            )
+            total = session.execute(
+                select(func.count()).select_from(Artist)
+                .where(Artist.name.ilike(search_term))
+            ).scalar_one()
 
             # Get paginated results.
             # Use selectinload (separate IN queries) instead of nested joinedload
             # to avoid the N×M Cartesian-product row explosion (mirrors get_all() fix #2516).
             artists = (
-                session.query(Artist)
-                .options(
-                    selectinload(Artist.tracks).selectinload(Track.genres),
-                    selectinload(Artist.albums)
-                )
-                .filter(Artist.name.ilike(search_term))
-                .order_by(Artist.name)
-                .limit(limit)
-                .offset(offset)
-                .all()
+                session.execute(
+                    select(Artist)
+                    .options(
+                        selectinload(Artist.tracks).selectinload(Track.genres),
+                        selectinload(Artist.albums)
+                    )
+                    .where(Artist.name.ilike(search_term))
+                    .order_by(Artist.name)
+                    .limit(limit)
+                    .offset(offset)
+                ).scalars().all()
             )
 
             for artist in artists:
@@ -183,12 +185,13 @@ class ArtistRepository:
         session = self.get_session()
         try:
             artists = (
-                session.query(Artist)
-                .options(
-                    selectinload(Artist.tracks),
-                    selectinload(Artist.albums),
-                )
-                .all()
+                session.execute(
+                    select(Artist)
+                    .options(
+                        selectinload(Artist.tracks),
+                        selectinload(Artist.albums),
+                    )
+                ).scalars().all()
             )
             for artist in artists:
                 session.expunge(artist)
@@ -218,7 +221,9 @@ class ArtistRepository:
 
         session = self.get_session()
         try:
-            artist = session.query(Artist).filter(Artist.id == artist_id).first()
+            artist = session.execute(
+                select(Artist).where(Artist.id == artist_id)
+            ).scalars().first()
             if not artist:
                 return False
 

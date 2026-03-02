@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any
 from collections.abc import Callable
 
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..models import QueueTemplate
@@ -88,9 +89,9 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            template = session.query(QueueTemplate).filter(
+            template = session.execute(select(QueueTemplate).where(
                 QueueTemplate.id == template_id
-            ).first()
+            )).scalars().first()
             if template:
                 session.expunge(template)
             return template
@@ -114,18 +115,18 @@ class QueueTemplateRepository:
 
         session = self.get_session()
         try:
-            query = session.query(QueueTemplate)
+            stmt = select(QueueTemplate)
 
             if sort_by == 'name':
-                query = query.order_by(QueueTemplate.name.asc() if ascending else QueueTemplate.name.desc())
+                stmt = stmt.order_by(QueueTemplate.name.asc() if ascending else QueueTemplate.name.desc())
             elif sort_by == 'load_count':
-                query = query.order_by(QueueTemplate.load_count.desc() if not ascending else QueueTemplate.load_count.asc())
+                stmt = stmt.order_by(QueueTemplate.load_count.desc() if not ascending else QueueTemplate.load_count.asc())
             elif sort_by == 'updated_at':
-                query = query.order_by(QueueTemplate.updated_at.desc() if not ascending else QueueTemplate.updated_at.asc())
+                stmt = stmt.order_by(QueueTemplate.updated_at.desc() if not ascending else QueueTemplate.updated_at.asc())
             else:  # created_at
-                query = query.order_by(QueueTemplate.created_at.desc() if not ascending else QueueTemplate.created_at.asc())
+                stmt = stmt.order_by(QueueTemplate.created_at.desc() if not ascending else QueueTemplate.created_at.asc())
 
-            templates = query.all()
+            templates = session.execute(stmt).scalars().all()
             for template in templates:
                 session.expunge(template)
             return templates
@@ -141,9 +142,9 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            templates = session.query(QueueTemplate).filter(
+            templates = session.execute(select(QueueTemplate).where(
                 QueueTemplate.is_favorite == True
-            ).order_by(QueueTemplate.created_at.desc()).all()
+            ).order_by(QueueTemplate.created_at.desc())).scalars().all()
             for template in templates:
                 session.expunge(template)
             return templates
@@ -165,9 +166,9 @@ class QueueTemplateRepository:
             # Use SQL LIKE on the JSON string to avoid loading the full table (fixes #2249).
             # Tags are stored as JSON arrays (e.g. '["rock", "chill"]'), so matching
             # the quoted tag value is sufficient and avoids false positives.
-            templates = session.query(QueueTemplate).filter(
+            templates = session.execute(select(QueueTemplate).where(
                 QueueTemplate.tags.like(f'%"{tag}"%')
-            ).all()
+            )).scalars().all()
             for template in templates:
                 session.expunge(template)
             return templates
@@ -190,9 +191,9 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            template = session.query(QueueTemplate).filter(
+            template = session.execute(select(QueueTemplate).where(
                 QueueTemplate.id == template_id
-            ).first()
+            )).scalars().first()
 
             if not template:
                 return None
@@ -238,9 +239,9 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            template = session.query(QueueTemplate).filter(
+            template = session.execute(select(QueueTemplate).where(
                 QueueTemplate.id == template_id
-            ).first()
+            )).scalars().first()
 
             if not template:
                 return None
@@ -265,9 +266,9 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            template = session.query(QueueTemplate).filter(
+            template = session.execute(select(QueueTemplate).where(
                 QueueTemplate.id == template_id
-            ).first()
+            )).scalars().first()
 
             if not template:
                 return None
@@ -293,9 +294,9 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            template = session.query(QueueTemplate).filter(
+            template = session.execute(select(QueueTemplate).where(
                 QueueTemplate.id == template_id
-            ).first()
+            )).scalars().first()
 
             if not template:
                 return False
@@ -315,7 +316,7 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            count = session.query(QueueTemplate).count()
+            count = session.execute(select(func.count()).select_from(QueueTemplate)).scalar_one()
             return count
         finally:
             session.close()
@@ -355,10 +356,10 @@ class QueueTemplateRepository:
         session = self.get_session()
         try:
             query.lower()
-            templates = session.query(QueueTemplate).filter(
+            templates = session.execute(select(QueueTemplate).where(
                 (QueueTemplate.name.ilike(f'%{query}%')) |
                 (QueueTemplate.description.ilike(f'%{query}%'))
-            ).all()
+            )).scalars().all()
             for template in templates:
                 session.expunge(template)
             return templates
@@ -374,8 +375,8 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            count = session.query(QueueTemplate).count()
-            session.query(QueueTemplate).delete()
+            count = session.execute(select(func.count()).select_from(QueueTemplate)).scalar_one()
+            session.execute(delete(QueueTemplate))
             session.commit()
             return count
         finally:

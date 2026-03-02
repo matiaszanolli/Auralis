@@ -11,10 +11,11 @@ Data access layer for album operations
 from pathlib import Path
 from collections.abc import Callable
 
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ..artwork import create_artwork_extractor
-from ..models import Album
+from ..models import Album, Artist
 
 
 class AlbumRepository:
@@ -34,12 +35,11 @@ class AlbumRepository:
         """Get album by ID with relationships loaded"""
         session = self.get_session()
         try:
-            album = (
-                session.query(Album)
+            album = session.execute(
+                select(Album)
                 .options(joinedload(Album.artist), selectinload(Album.tracks))
-                .filter(Album.id == album_id)
-                .first()
-            )
+                .where(Album.id == album_id)
+            ).scalars().unique().first()
             if album:
                 # Expunge the album AND all eagerly-loaded related objects so
                 # callers can access album.tracks after the session closes
@@ -53,12 +53,11 @@ class AlbumRepository:
         """Get album by title with relationships loaded"""
         session = self.get_session()
         try:
-            album = (
-                session.query(Album)
+            album = session.execute(
+                select(Album)
                 .options(joinedload(Album.artist), selectinload(Album.tracks))
-                .filter(Album.title == title)
-                .first()
-            )
+                .where(Album.title == title)
+            ).scalars().unique().first()
             if album:
                 session.expunge(album)
             return album
@@ -80,21 +79,22 @@ class AlbumRepository:
         session = self.get_session()
         try:
             # Get total count
-            total = session.query(Album).count()
+            total = session.execute(
+                select(func.count()).select_from(Album)
+            ).scalar_one()
 
             # Get albums for current page (whitelist to prevent arbitrary attribute access)
             VALID_ORDER_COLUMNS = {'title', 'year', 'created_at'}
             if order_by not in VALID_ORDER_COLUMNS:
                 order_by = 'title'
             order_column = getattr(Album, order_by, Album.title)
-            albums = (
-                session.query(Album)
+            albums = session.execute(
+                select(Album)
                 .options(joinedload(Album.artist), selectinload(Album.tracks))
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
-                .all()
-            )
+            ).scalars().unique().all()
 
             for album in albums:
                 session.expunge(album)
@@ -107,14 +107,13 @@ class AlbumRepository:
         """Get recently added albums with pagination"""
         session = self.get_session()
         try:
-            albums = (
-                session.query(Album)
+            albums = session.execute(
+                select(Album)
                 .options(joinedload(Album.artist), selectinload(Album.tracks))
                 .order_by(Album.created_at.desc())
                 .limit(limit)
                 .offset(offset)
-                .all()
-            )
+            ).scalars().unique().all()
             for album in albums:
                 session.expunge(album)
             return albums
@@ -136,34 +135,29 @@ class AlbumRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy import func, or_
-
-            from ..models import Artist
-
             # Escape LIKE metacharacters so a query containing '%' or '_' does
             # not accidentally match all rows (fixes #2405).
             escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
             search_term = f"%{escaped}%"
-            base_query = (
-                session.query(Album)
-                .join(Album.artist, isouter=True)
-                .filter(
-                    or_(
-                        Album.title.ilike(search_term),
-                        Artist.name.ilike(search_term)
-                    )
-                )
+            search_filter = or_(
+                Album.title.ilike(search_term),
+                Artist.name.ilike(search_term)
             )
 
-            total = base_query.with_entities(func.count(Album.id)).scalar() or 0
+            total = session.execute(
+                select(func.count(Album.id))
+                .join(Album.artist, isouter=True)
+                .where(search_filter)
+            ).scalar_one_or_none() or 0
 
-            results = (
-                base_query
+            results = session.execute(
+                select(Album)
+                .join(Album.artist, isouter=True)
+                .where(search_filter)
                 .options(selectinload(Album.artist), selectinload(Album.tracks))
                 .limit(limit)
                 .offset(offset)
-                .all()
-            )
+            ).scalars().unique().all()
 
             for album in results:
                 session.expunge(album)
@@ -183,12 +177,11 @@ class AlbumRepository:
         """
         session = self.get_session()
         try:
-            album = (
-                session.query(Album)
+            album = session.execute(
+                select(Album)
                 .options(selectinload(Album.tracks))
-                .filter(Album.id == album_id)
-                .first()
-            )
+                .where(Album.id == album_id)
+            ).scalars().first()
 
             if not album or not album.tracks:
                 return None
@@ -225,7 +218,7 @@ class AlbumRepository:
         """
         session = self.get_session()
         try:
-            album = session.query(Album).filter(Album.id == album_id).first()
+            album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
             if album:
                 album.artwork_path = artwork_path  # type: ignore[assignment]
                 session.commit()
@@ -249,7 +242,7 @@ class AlbumRepository:
         """
         session = self.get_session()
         try:
-            album = session.query(Album).filter(Album.id == album_id).first()
+            album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
             if album and album.artwork_path:
                 # Delete file
                 self.artwork_extractor.delete_artwork(album.artwork_path)  # type: ignore[arg-type]
@@ -280,7 +273,7 @@ class AlbumRepository:
         """
         session = self.get_session()
         try:
-            album = session.query(Album).filter(Album.id == album_id).first()
+            album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
             if not album:
                 return None
 

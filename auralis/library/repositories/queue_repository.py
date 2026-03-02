@@ -12,6 +12,7 @@ import json
 from typing import Any
 from collections.abc import Callable
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import QueueState
@@ -56,7 +57,7 @@ class QueueRepository:
         """
         session = self.get_session()
         try:
-            queue_state = session.query(QueueState).first()
+            queue_state = session.execute(select(QueueState)).scalars().first()
 
             # Create default queue state if none exist
             if not queue_state:
@@ -94,7 +95,7 @@ class QueueRepository:
 
         session = self.get_session()
         try:
-            queue_state = session.query(QueueState).first()
+            queue_state = session.execute(select(QueueState)).scalars().first()
 
             if not queue_state:
                 queue_state = QueueState()
@@ -129,7 +130,7 @@ class QueueRepository:
         """
         session = self.get_session()
         try:
-            queue_state = session.query(QueueState).first()
+            queue_state = session.execute(select(QueueState)).scalars().first()
 
             if not queue_state:
                 queue_state = QueueState()
@@ -179,7 +180,7 @@ class QueueRepository:
         """
         session = self.get_session()
         try:
-            queue_state = session.query(QueueState).first()
+            queue_state = session.execute(select(QueueState)).scalars().first()
 
             if not queue_state:
                 queue_state = QueueState()

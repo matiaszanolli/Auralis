@@ -12,6 +12,7 @@ import json
 from typing import Any, cast
 from collections.abc import Callable
 
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..models import QueueHistory, QueueState
@@ -59,7 +60,7 @@ class QueueHistoryRepository:
         session = self.get_session()
         try:
             # Get the current queue state to associate with history
-            queue_state = session.query(QueueState).first()
+            queue_state = session.execute(select(QueueState)).scalars().first()
             if not queue_state:
                 queue_state = QueueState()
                 session.add(queue_state)
@@ -97,15 +98,16 @@ class QueueHistoryRepository:
         """
         session = self.get_session()
         try:
-            queue_state = session.query(QueueState).first()
+            queue_state = session.execute(select(QueueState)).scalars().first()
             if not queue_state:
                 return []
 
-            entries = session.query(QueueHistory) \
-                .filter(QueueHistory.queue_state_id == queue_state.id) \
-                .order_by(QueueHistory.created_at.desc()) \
-                .limit(limit) \
-                .all()
+            entries = session.execute(
+                select(QueueHistory)
+                .where(QueueHistory.queue_state_id == queue_state.id)
+                .order_by(QueueHistory.created_at.desc())
+                .limit(limit)
+            ).scalars().all()
 
             for entry in entries:
                 session.expunge(entry)
@@ -134,15 +136,16 @@ class QueueHistoryRepository:
         """
         session = self.get_session()
         try:
-            queue_state = session.query(QueueState).first()
+            queue_state = session.execute(select(QueueState)).scalars().first()
             if not queue_state:
                 return None
 
             # Get the most recent history entry
-            latest_history = session.query(QueueHistory) \
-                .filter(QueueHistory.queue_state_id == queue_state.id) \
-                .order_by(QueueHistory.created_at.desc()) \
-                .first()
+            latest_history = session.execute(
+                select(QueueHistory)
+                .where(QueueHistory.queue_state_id == queue_state.id)
+                .order_by(QueueHistory.created_at.desc())
+            ).scalars().first()
 
             if not latest_history:
                 return None
@@ -193,13 +196,14 @@ class QueueHistoryRepository:
         """
         session = self.get_session()
         try:
-            queue_state = session.query(QueueState).first()
+            queue_state = session.execute(select(QueueState)).scalars().first()
             if not queue_state:
                 return False
 
-            session.query(QueueHistory) \
-                .filter(QueueHistory.queue_state_id == queue_state.id) \
-                .delete()
+            session.execute(
+                delete(QueueHistory)
+                .where(QueueHistory.queue_state_id == queue_state.id)
+            )
 
             session.commit()
             return True
@@ -215,13 +219,14 @@ class QueueHistoryRepository:
         """
         session = self.get_session()
         try:
-            queue_state = session.query(QueueState).first()
+            queue_state = session.execute(select(QueueState)).scalars().first()
             if not queue_state:
                 return 0
 
-            count = session.query(QueueHistory) \
-                .filter(QueueHistory.queue_state_id == queue_state.id) \
-                .count()
+            count = session.execute(
+                select(func.count()).select_from(QueueHistory)
+                .where(QueueHistory.queue_state_id == queue_state.id)
+            ).scalar_one()
 
             return count
         finally:
@@ -253,18 +258,20 @@ class QueueHistoryRepository:
             queue_state_id: Queue state ID to cleanup for
         """
         # Get count of history entries
-        count = session.query(QueueHistory) \
-            .filter(QueueHistory.queue_state_id == queue_state_id) \
-            .count()
+        count = session.execute(
+            select(func.count()).select_from(QueueHistory)
+            .where(QueueHistory.queue_state_id == queue_state_id)
+        ).scalar_one()
 
         if count > self.HISTORY_LIMIT:
             # Delete oldest entries beyond the limit
             excess = count - self.HISTORY_LIMIT
-            old_entries = session.query(QueueHistory) \
-                .filter(QueueHistory.queue_state_id == queue_state_id) \
-                .order_by(QueueHistory.created_at.asc()) \
-                .limit(excess) \
-                .all()
+            old_entries = session.execute(
+                select(QueueHistory)
+                .where(QueueHistory.queue_state_id == queue_state_id)
+                .order_by(QueueHistory.created_at.asc())
+                .limit(excess)
+            ).scalars().all()
 
             for entry in old_entries:
                 session.delete(entry)

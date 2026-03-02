@@ -11,7 +11,7 @@ Data access layer for library statistics
 from typing import Any
 from collections.abc import Callable
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import Album, Artist, Genre, Playlist, Track
@@ -36,20 +36,20 @@ class StatsRepository:
         session = self.get_session()
         try:
             stats = {
-                'total_tracks': session.query(func.count(Track.id)).scalar() or 0,
-                'total_albums': session.query(func.count(Album.id)).scalar() or 0,
-                'total_artists': session.query(func.count(Artist.id)).scalar() or 0,
-                'total_genres': session.query(func.count(Genre.id)).scalar() or 0,
-                'total_playlists': session.query(func.count(Playlist.id)).scalar() or 0,
-                'total_duration': session.query(func.sum(Track.duration)).scalar() or 0,
-                'total_filesize': session.query(func.sum(Track.filesize)).scalar() or 0,
-                'total_plays': session.query(func.sum(Track.play_count)).scalar() or 0,
-                'favorite_count': session.query(func.count(Track.id)).filter(Track.favorite == True).scalar() or 0,
+                'total_tracks': session.execute(select(func.count(Track.id))).scalar_one_or_none() or 0,
+                'total_albums': session.execute(select(func.count(Album.id))).scalar_one_or_none() or 0,
+                'total_artists': session.execute(select(func.count(Artist.id))).scalar_one_or_none() or 0,
+                'total_genres': session.execute(select(func.count(Genre.id))).scalar_one_or_none() or 0,
+                'total_playlists': session.execute(select(func.count(Playlist.id))).scalar_one_or_none() or 0,
+                'total_duration': session.execute(select(func.sum(Track.duration))).scalar_one_or_none() or 0,
+                'total_filesize': session.execute(select(func.sum(Track.filesize))).scalar_one_or_none() or 0,
+                'total_plays': session.execute(select(func.sum(Track.play_count))).scalar_one_or_none() or 0,
+                'favorite_count': session.execute(select(func.count(Track.id)).where(Track.favorite == True)).scalar_one_or_none() or 0,
             }
 
             # Calculate average audio quality metrics
-            avg_dr = session.query(func.avg(Track.dr_rating)).filter(Track.dr_rating.isnot(None)).scalar()
-            avg_lufs = session.query(func.avg(Track.lufs_level)).filter(Track.lufs_level.isnot(None)).scalar()
+            avg_dr = session.execute(select(func.avg(Track.dr_rating)).where(Track.dr_rating.isnot(None))).scalar_one_or_none()
+            avg_lufs = session.execute(select(func.avg(Track.lufs_level)).where(Track.lufs_level.isnot(None))).scalar_one_or_none()
 
             stats['average_dr'] = float(avg_dr) if avg_dr else None
             stats['average_lufs'] = float(avg_lufs) if avg_lufs else None

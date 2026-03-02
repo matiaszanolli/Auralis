@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, select, text
 from sqlalchemy.orm import sessionmaker
 
 from auralis.__version__ import __db_schema_version__
@@ -155,9 +155,9 @@ class MigrationManager:
         """
         try:
             # Try to query the schema_version table
-            result = self.session.query(SchemaVersion).order_by(
-                SchemaVersion.version.desc()
-            ).first()
+            result = self.session.execute(
+                select(SchemaVersion).order_by(SchemaVersion.version.desc())
+            ).scalars().first()
 
             if result:
                 return int(result.version)
