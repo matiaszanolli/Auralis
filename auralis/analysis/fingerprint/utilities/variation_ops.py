@@ -98,7 +98,8 @@ class VariationOperations:
                 rms = librosa.feature.rms(
                     y=audio,
                     frame_length=frame_length,
-                    hop_length=hop_length
+                    hop_length=hop_length,
+                    center=False,
                 )[0]
 
             # Use pre-computed peaks if provided, otherwise compute
@@ -221,7 +222,8 @@ class VariationOperations:
             rms_with_frame = librosa.feature.rms(
                 y=audio,
                 frame_length=frame_length_500ms,
-                hop_length=hop_length_250ms
+                hop_length=hop_length_250ms,
+                center=False,
             )[0]
 
             # Pre-compute frame peaks once (vectorized), reuse in both calculations
