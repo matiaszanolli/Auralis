@@ -45,6 +45,7 @@ export const ENDPOINTS = {
   // Queue
   QUEUE: '/api/player/queue',
   QUEUE_TRACK: (index: number) => `/api/player/queue/${index}`,
+  QUEUE_ADD_TRACK: '/api/player/queue/add-track',
   QUEUE_REORDER: '/api/player/queue/reorder',
   QUEUE_SHUFFLE: '/api/player/queue/shuffle',
   QUEUE_CLEAR: '/api/player/queue/clear',
@@ -59,6 +60,7 @@ export const ENDPOINTS = {
   LIBRARY_ALBUMS: '/api/albums',
   LIBRARY_ARTISTS: '/api/artists',
   ARTIST_TRACKS: (artistId: number) => `/api/artists/${artistId}/tracks`,
+  TRACK_FAVORITE: (trackId: number) => `/api/library/tracks/${trackId}/favorite`,
 
   // Enhancement
   ENHANCEMENT_TOGGLE: (enabled: boolean) => `/api/player/enhancement/toggle?enabled=${enabled}`,
