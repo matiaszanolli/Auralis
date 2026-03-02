@@ -13,20 +13,52 @@ Replaces:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import hashlib
-import json
 import logging
-import sqlite3
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
+from sqlalchemy import create_engine, event, select
+from sqlalchemy.orm import Session, sessionmaker
 
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
+from auralis.library.models import Track
+from auralis.library.repositories.fingerprint_repository import FingerprintRepository
 
 logger = logging.getLogger(__name__)
+
+# All 25 fingerprint dimension keys — must match TrackFingerprint column names.
+_FP_KEYS: tuple[str, ...] = (
+    'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct', 'upper_mid_pct',
+    'presence_pct', 'air_pct', 'lufs', 'crest_db', 'bass_mid_ratio',
+    'tempo_bpm', 'rhythm_stability', 'transient_density', 'silence_ratio',
+    'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
+    'harmonic_ratio', 'pitch_stability', 'chroma_energy',
+    'dynamic_range_variation', 'loudness_variation_std', 'peak_consistency',
+    'stereo_width', 'phase_correlation',
+)
+
+
+def _make_engine(db_path: Path):
+    """Create a minimal SQLAlchemy engine matching LibraryManager's configuration."""
+    engine = create_engine(
+        f"sqlite:///{db_path}",
+        echo=False,
+        connect_args={'timeout': 15, 'check_same_thread': False},
+        pool_pre_ping=True,
+    )
+
+    @event.listens_for(engine, "connect")
+    def _set_pragmas(dbapi_conn, _record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=60000")
+
+    return engine
 
 
 class FingerprintService:
@@ -39,13 +71,21 @@ class FingerprintService:
     Single interface for all fingerprint operations.
     """
 
-    def __init__(self, db_path: Path | None = None, fingerprint_strategy: str = "sampling"):
+    def __init__(
+        self,
+        db_path: Path | None = None,
+        fingerprint_strategy: str = "sampling",
+        session_factory: Callable[[], Session] | None = None,
+    ):
         """
         Initialize fingerprinting service.
 
         Args:
             db_path: Path to SQLite database (default: ~/.auralis/library.db)
             fingerprint_strategy: "sampling" or "full-track" (Phase 7)
+            session_factory: Optional SQLAlchemy session factory. When provided
+                             the service uses the caller's connection pool.
+                             When omitted a minimal engine is created from db_path.
         """
         if db_path is None:
             db_path = Path.home() / ".auralis" / "library.db"
@@ -53,6 +93,15 @@ class FingerprintService:
         self.db_path = Path(db_path)
         self.fingerprint_strategy = fingerprint_strategy
         self.analyzer = AudioFingerprintAnalyzer(fingerprint_strategy=fingerprint_strategy)
+
+        if session_factory is None:
+            self._engine = _make_engine(self.db_path)
+            session_factory = sessionmaker(bind=self._engine)
+        else:
+            self._engine = None
+
+        self._session_factory = session_factory
+        self._fingerprint_repo = FingerprintRepository(session_factory)
 
     def get_or_compute(self, audio_path: Path, audio: np.ndarray | None = None, sr: int | None = None) -> dict | None:
         """
@@ -103,95 +152,29 @@ class FingerprintService:
             logger.error(f"Fingerprint retrieval failed: {e}")
             return None
 
-    def _get_connection(self) -> sqlite3.Connection:
-        """Create a sqlite3 connection with proper PRAGMA setup (#2581).
-
-        Sets WAL mode and busy_timeout to match the SQLAlchemy engine's
-        configuration, avoiding 'database locked' errors under concurrent
-        access.
-        """
-        conn = sqlite3.connect(str(self.db_path))
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA busy_timeout=60000")
-        return conn
-
     def _load_from_database(self, filepath: str) -> dict | None:
-        """Load fingerprint from SQLite database."""
+        """Load fingerprint from database via FingerprintRepository."""
         try:
             if not self.db_path.exists():
                 return None
 
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
+            session = self._session_factory()
+            try:
+                track_id = session.execute(
+                    select(Track.id).where(Track.filepath == filepath)
+                ).scalar_one_or_none()
+            finally:
+                session.close()
 
-                # Query 25D fingerprint columns
-                cursor.execute("""
-                    SELECT
-                        tempo_bpm, lufs, crest_db, bass_pct, mid_pct,
-                        harmonic_ratio, transient_density, spectral_centroid,
-                        bass_mid_ratio, rhythm_stability, silence_ratio,
-                        spectral_rolloff, spectral_flatness, pitch_stability,
-                        chroma_energy, dynamic_range_variation, loudness_variation_std,
-                        peak_consistency, stereo_width, phase_correlation,
-                        sub_bass_pct, low_mid_pct, upper_mid_pct, presence_pct, air_pct
-                    FROM tracks WHERE filepath = ?
-                """, (filepath,))
-
-                row = cursor.fetchone()
-
-            if not row or row[0] is None:  # Check if tempo_bpm exists
+            if track_id is None:
                 return None
 
-            # Map columns to fingerprint dict — verify integrity hash (#2422)
-            fingerprint = {
-                'tempo_bpm': row[0],
-                'lufs': row[1],
-                'crest_db': row[2],
-                'bass_pct': row[3],
-                'mid_pct': row[4],
-                'harmonic_ratio': row[5],
-                'transient_density': row[6],
-                'spectral_centroid': row[7],
-                'bass_mid_ratio': row[8],
-                'rhythm_stability': row[9],
-                'silence_ratio': row[10],
-                'spectral_rolloff': row[11],
-                'spectral_flatness': row[12],
-                'pitch_stability': row[13],
-                'chroma_energy': row[14],
-                'dynamic_range_variation': row[15],
-                'loudness_variation_std': row[16],
-                'peak_consistency': row[17],
-                'stereo_width': row[18],
-                'phase_correlation': row[19],
-                'sub_bass_pct': row[20],
-                'low_mid_pct': row[21],
-                'upper_mid_pct': row[22],
-                'presence_pct': row[23],
-                'air_pct': row[24],
-            }
+            fp = self._fingerprint_repo.get_by_track_id(track_id)
+            # lufs == -100.0 is the placeholder sentinel written by claim_next_unfingerprinted_track
+            if fp is None or getattr(fp, 'lufs', -100.0) == -100.0:
+                return None
 
-            # Verify integrity hash if present (#2422)
-            try:
-                cursor2 = conn.cursor()
-                cursor2.execute(
-                    "SELECT fingerprint_hash FROM tracks WHERE filepath = ?",
-                    (filepath,),
-                )
-                hash_row = cursor2.fetchone()
-                if hash_row and hash_row[0]:
-                    expected = hash_row[0]
-                    actual = self._compute_fingerprint_hash(fingerprint)
-                    if expected != actual:
-                        logger.warning(
-                            f"Fingerprint integrity check failed for {filepath} "
-                            f"(expected {expected[:12]}…, got {actual[:12]}…)"
-                        )
-                        return None  # Force recomputation
-            except sqlite3.OperationalError:
-                pass  # Column doesn't exist yet (pre-migration)
-
-            return fingerprint
+            return {key: getattr(fp, key) for key in _FP_KEYS}
 
         except Exception as e:
             logger.debug(f"Database fingerprint lookup failed: {e}")
@@ -258,116 +241,29 @@ class FingerprintService:
             return None
 
     def _save_to_database(self, filepath: str, fingerprint: dict) -> bool:
-        """Save fingerprint to SQLite database."""
+        """Save fingerprint to database via FingerprintRepository."""
         try:
             if not self.db_path.exists():
                 return False
 
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
+            session = self._session_factory()
+            try:
+                track_id = session.execute(
+                    select(Track.id).where(Track.filepath == filepath)
+                ).scalar_one_or_none()
+            finally:
+                session.close()
 
-                # Update 25D columns
-                cursor.execute("""
-                    UPDATE tracks SET
-                    tempo_bpm = ?,
-                    lufs = ?,
-                    crest_db = ?,
-                    bass_pct = ?,
-                    mid_pct = ?,
-                    harmonic_ratio = ?,
-                    transient_density = ?,
-                    spectral_centroid = ?,
-                    bass_mid_ratio = ?,
-                    rhythm_stability = ?,
-                    silence_ratio = ?,
-                    spectral_rolloff = ?,
-                    spectral_flatness = ?,
-                    pitch_stability = ?,
-                    chroma_energy = ?,
-                    dynamic_range_variation = ?,
-                    loudness_variation_std = ?,
-                    peak_consistency = ?,
-                    stereo_width = ?,
-                    phase_correlation = ?,
-                    sub_bass_pct = ?,
-                    low_mid_pct = ?,
-                    upper_mid_pct = ?,
-                    presence_pct = ?,
-                    air_pct = ?
-                WHERE filepath = ?
-            """, (
-                fingerprint.get('tempo_bpm'),
-                fingerprint.get('lufs'),
-                fingerprint.get('crest_db'),
-                fingerprint.get('bass_pct'),
-                fingerprint.get('mid_pct'),
-                fingerprint.get('harmonic_ratio'),
-                fingerprint.get('transient_density'),
-                fingerprint.get('spectral_centroid'),
-                fingerprint.get('bass_mid_ratio'),
-                fingerprint.get('rhythm_stability'),
-                fingerprint.get('silence_ratio'),
-                fingerprint.get('spectral_rolloff'),
-                fingerprint.get('spectral_flatness'),
-                fingerprint.get('pitch_stability'),
-                fingerprint.get('chroma_energy'),
-                fingerprint.get('dynamic_range_variation'),
-                fingerprint.get('loudness_variation_std'),
-                fingerprint.get('peak_consistency'),
-                fingerprint.get('stereo_width'),
-                fingerprint.get('phase_correlation'),
-                fingerprint.get('sub_bass_pct'),
-                fingerprint.get('low_mid_pct'),
-                fingerprint.get('upper_mid_pct'),
-                fingerprint.get('presence_pct'),
-                fingerprint.get('air_pct'),
-                filepath
-            ))
+            if track_id is None:
+                # Track not in library yet; nothing to associate the fingerprint with.
+                return False
 
-                # Store integrity hash (#2422)
-                fp_hash = self._compute_fingerprint_hash(fingerprint)
-                try:
-                    cursor.execute(
-                        "UPDATE tracks SET fingerprint_hash = ? WHERE filepath = ?",
-                        (fp_hash, filepath),
-                    )
-                except sqlite3.OperationalError:
-                    pass  # Column doesn't exist yet (pre-migration)
-
-                return True
+            fp_data = {key: fingerprint[key] for key in _FP_KEYS if key in fingerprint}
+            return self._fingerprint_repo.upsert(track_id, fp_data) is not None
 
         except Exception as e:
             logger.debug(f"Database save failed: {e}")
             return False
-
-    # ------------------------------------------------------------------
-    # Fingerprint integrity hash (#2422)
-    # ------------------------------------------------------------------
-    # The 25D fingerprint columns are ordered deterministically so that
-    # json.dumps(sorted_items) produces the same bytes for the same data.
-    _HASH_KEYS = sorted([
-        'tempo_bpm', 'lufs', 'crest_db', 'bass_pct', 'mid_pct',
-        'harmonic_ratio', 'transient_density', 'spectral_centroid',
-        'bass_mid_ratio', 'rhythm_stability', 'silence_ratio',
-        'spectral_rolloff', 'spectral_flatness', 'pitch_stability',
-        'chroma_energy', 'dynamic_range_variation', 'loudness_variation_std',
-        'peak_consistency', 'stereo_width', 'phase_correlation',
-        'sub_bass_pct', 'low_mid_pct', 'upper_mid_pct', 'presence_pct', 'air_pct',
-    ])
-
-    @staticmethod
-    def _compute_fingerprint_hash(fingerprint: dict) -> str:
-        """Compute SHA-256 integrity hash for a 25D fingerprint.
-
-        Values are rounded to 6 decimal places to avoid floating-point
-        representation drift across platforms.
-        """
-        canonical = {
-            k: round(float(fingerprint.get(k, 0.0)), 6)
-            for k in FingerprintService._HASH_KEYS
-        }
-        payload = json.dumps(canonical, sort_keys=True).encode()
-        return hashlib.sha256(payload).hexdigest()
 
     @staticmethod
     def _numpy_to_python(obj):
