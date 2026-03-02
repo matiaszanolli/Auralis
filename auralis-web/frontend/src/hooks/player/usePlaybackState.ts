@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { useWebSocketSubscription } from '../websocket/useWebSocketSubscription';
+import { transformPlayerState } from '../../types/websocket';
 import type { TrackInfo } from '../../types/websocket';
 import type {
   PositionChangedMessage,
@@ -73,20 +74,9 @@ export function usePlaybackState(): PlaybackState {
         switch (message.type) {
           case 'player_state': {
             const msg = message as PlayerStateMessage;
-            // Map snake_case from backend to camelCase for frontend
-            const data = msg.data as any;
+            const mapped = transformPlayerState(msg.data);
             return {
-              currentTrack: data.current_track ?? null,
-              isPlaying: data.is_playing ?? false,
-              volume: data.volume ?? 80,  // 0-100 scale, matches backend default (issue #2251)
-              position: data.current_time ?? 0,
-              duration: data.duration ?? 0,
-              queue: data.queue ?? [],
-              queueIndex: data.queue_index ?? -1,
-              // Backend sends snake_case; mapped to camelCase (fixes #2276)
-              gaplessEnabled: data.gapless_enabled ?? true,
-              crossfadeEnabled: data.crossfade_enabled ?? true,
-              crossfadeDuration: data.crossfade_duration ?? 3.0,
+              ...mapped,
               isLoading: false,
               error: null,
             };
@@ -171,7 +161,7 @@ export function usePlaybackPosition(): { position: number; duration: number } {
     (message) => {
       if (message.type === 'player_state') {
         const msg = message as PlayerStateMessage;
-        setPosition((msg.data as any).current_time ?? msg.data.position ?? 0);
+        setPosition(msg.data.current_time ?? 0);
         setDuration(msg.data.duration);
       } else if (message.type === 'position_changed') {
         const msg = message as PositionChangedMessage;
@@ -202,9 +192,7 @@ export function useCurrentTrack(): TrackInfo | null {
     (message) => {
       if (message.type === 'player_state') {
         const msg = message as PlayerStateMessage;
-        // Backend sends current_track (snake_case)
-        const data = msg.data as any;
-        setTrack(data.current_track ?? null);
+        setTrack(msg.data.current_track ?? null);
       } else if (message.type === 'track_loaded' || message.type === 'track_changed') {
         // TrackLoadedMessage.data = { track_path } and TrackChangedMessage.data = { action }.
         // Neither type includes a 'track' field, so the previous branch was dead
@@ -235,9 +223,7 @@ export function useIsPlaying(): boolean {
       switch (message.type) {
         case 'player_state': {
           const msg = message as PlayerStateMessage;
-          // Backend sends is_playing (snake_case)
-          const data = msg.data as any;
-          setIsPlaying(data.is_playing ?? false);
+          setIsPlaying(msg.data.is_playing ?? false);
           break;
         }
         case 'playback_started':

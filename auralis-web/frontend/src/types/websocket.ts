@@ -68,12 +68,35 @@ export interface WebSocketMessage<T = any> {
 // ============================================================================
 
 /**
- * Player state data (frontend-facing camelCase representation).
- *
- * IMPORTANT: The backend sends snake_case fields (current_track, is_playing, queue_index).
- * You must map snake_case → camelCase when consuming this data.
- *
- * See usePlayerStateSync.ts and usePlaybackState.ts for mapping examples.
+ * Raw player state as sent by the backend (snake_case fields).
+ * Matches the Pydantic PlayerState model in backend/player_state.py.
+ */
+export interface RawPlayerStateData {
+  state: string;
+  is_playing: boolean;
+  is_paused: boolean;
+  current_track: TrackInfo | null;
+  current_time: number;
+  duration: number;
+  volume: number; // 0-100 integer scale
+  is_muted: boolean;
+  queue: TrackInfo[];
+  queue_index: number;
+  queue_size: number;
+  shuffle_enabled: boolean;
+  repeat_mode: string;
+  mastering_enabled: boolean;
+  current_preset: string;
+  analysis?: Record<string, unknown> | null;
+  // Enhancement/gapless fields (optional — not always present)
+  gapless_enabled?: boolean;
+  crossfade_enabled?: boolean;
+  crossfade_duration?: number;
+}
+
+/**
+ * Frontend-facing camelCase representation of player state.
+ * Use transformPlayerState() to convert from RawPlayerStateData.
  */
 export interface PlayerStateData {
   currentTrack: TrackInfo | null;
@@ -83,15 +106,32 @@ export interface PlayerStateData {
   duration: number; // Seconds
   queue: TrackInfo[];
   queueIndex: number;
-  // Standardized to camelCase (fixes #2276); backend sends snake_case — mapped at consumption
   gaplessEnabled: boolean;
   crossfadeEnabled: boolean;
   crossfadeDuration: number; // Seconds
 }
 
+/**
+ * Transform raw backend snake_case player state to frontend camelCase.
+ */
+export function transformPlayerState(raw: RawPlayerStateData): PlayerStateData {
+  return {
+    currentTrack: raw.current_track ?? null,
+    isPlaying: raw.is_playing ?? false,
+    volume: raw.volume ?? 80,
+    position: raw.current_time ?? 0,
+    duration: raw.duration ?? 0,
+    queue: raw.queue ?? [],
+    queueIndex: raw.queue_index ?? -1,
+    gaplessEnabled: raw.gapless_enabled ?? true,
+    crossfadeEnabled: raw.crossfade_enabled ?? true,
+    crossfadeDuration: raw.crossfade_duration ?? 3.0,
+  };
+}
+
 export interface PlayerStateMessage extends WebSocketMessage {
   type: 'player_state';
-  data: PlayerStateData;
+  data: RawPlayerStateData;
 }
 
 export interface PlaybackStartedMessage extends WebSocketMessage {
