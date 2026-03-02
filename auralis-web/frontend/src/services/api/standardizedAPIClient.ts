@@ -166,6 +166,8 @@ export interface RequestOptions {
   timeout?: number;
   cache?: boolean;
   cacheTTL?: number;
+  /** Allow retrying this request on failure even if the method is non-idempotent. */
+  idempotent?: boolean;
 }
 
 /**
@@ -244,8 +246,13 @@ export class StandardizedAPIClient {
 
     let lastError: Error | null = null;
 
+    // Only retry idempotent methods (GET, HEAD) by default.
+    // Non-idempotent methods (POST, PUT, DELETE, PATCH) require explicit opt-in.
+    const isIdempotent = options.idempotent ?? method === 'GET';
+    const maxAttempts = isIdempotent ? this.retryAttempts : 0;
+
     // Retry logic
-    for (let attempt = 0; attempt <= this.retryAttempts; attempt++) {
+    for (let attempt = 0; attempt <= maxAttempts; attempt++) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -290,9 +297,15 @@ export class StandardizedAPIClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        if (attempt < this.retryAttempts) {
+        // Never retry AbortError (request timeout)
+        const isAbort = error instanceof DOMException && error.name === 'AbortError';
+        if (isAbort) {
+          break;
+        }
+
+        if (attempt < maxAttempts) {
           const delay = this.retryDelay * Math.pow(2, attempt); // Exponential backoff
-          console.warn(`[API Retry] ${endpoint} (attempt ${attempt + 1}/${this.retryAttempts}) in ${delay}ms`);
+          console.warn(`[API Retry] ${endpoint} (attempt ${attempt + 1}/${maxAttempts}) in ${delay}ms`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }

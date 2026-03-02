@@ -141,15 +141,17 @@ export const Box = React.forwardRef<HTMLElement, BoxProps>(
       ...style,
     };
 
+    const Element = Component as React.ElementType;
+
     return (
-      <Component
-        ref={ref as any}
+      <Element
+        ref={ref}
         style={styles}
         className={className}
         onClick={onClick}
       >
         {children}
-      </Component>
+      </Element>
     );
   }
 );

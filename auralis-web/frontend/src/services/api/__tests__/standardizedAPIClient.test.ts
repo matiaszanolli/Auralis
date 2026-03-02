@@ -258,6 +258,65 @@ describe('StandardizedAPIClient', () => {
     );
   });
 
+  it('should not retry POST requests by default', async () => {
+    const mockFetch = vi.fn()
+      .mockRejectedValue(new Error('Network error'));
+    global.fetch = mockFetch;
+
+    const result = await client.post('/api/test', { name: 'Test' });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1); // No retries
+    expect(result.status).toBe('error');
+  });
+
+  it('should not retry PUT requests by default', async () => {
+    const mockFetch = vi.fn()
+      .mockRejectedValue(new Error('Network error'));
+    global.fetch = mockFetch;
+
+    const result = await client.put('/api/test/1', { name: 'Updated' });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('error');
+  });
+
+  it('should not retry DELETE requests by default', async () => {
+    const mockFetch = vi.fn()
+      .mockRejectedValue(new Error('Network error'));
+    global.fetch = mockFetch;
+
+    const result = await client.delete('/api/test/1');
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('error');
+  });
+
+  it('should retry non-idempotent requests when idempotent flag is set', async () => {
+    const mockFetch = vi.fn()
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockSuccessResponse)
+      });
+    global.fetch = mockFetch;
+
+    const result = await client.post('/api/test', { name: 'Test' }, { idempotent: true });
+
+    expect(mockFetch).toHaveBeenCalledTimes(2); // Retried once
+    expect(result.status).toBe('success');
+  });
+
+  it('should not retry on AbortError (timeout)', async () => {
+    const abortError = new DOMException('The operation was aborted', 'AbortError');
+    const mockFetch = vi.fn().mockRejectedValue(abortError);
+    global.fetch = mockFetch;
+
+    const result = await client.get('/api/test');
+
+    expect(mockFetch).toHaveBeenCalledTimes(1); // No retries despite GET
+    expect(result.status).toBe('error');
+  });
+
   it('should handle paginated responses', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
