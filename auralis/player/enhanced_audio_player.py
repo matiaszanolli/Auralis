@@ -294,11 +294,12 @@ class AudioPlayer:
 
     def previous_track(self) -> bool:
         """Skip to previous track in queue"""
+        was_playing = self.playback.is_playing()
         prev_track = self.queue.previous_track()
         if prev_track:
             file_path = prev_track.get('file_path') or prev_track.get('path')
             if file_path and self.load_file(file_path):
-                if self.playback.is_playing():
+                if was_playing:
                     self.playback.play()
                 return True
         return False
