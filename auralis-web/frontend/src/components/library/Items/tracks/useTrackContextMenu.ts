@@ -88,12 +88,13 @@ export const useTrackContextMenu = ({
       const queueTrack = {
         id: track.id,
         title: track.title,
-        album: track.album,
+        artist: track.artist,
+        album: track.album ?? '',
         duration: track.duration,
       };
 
       // Add track to queue
-      queue.addMany([queueTrack] as any);
+      queue.addMany([queueTrack]);
       success(`Added "${track.title}" to queue`);
     } catch (err) {
       const errorMessage =
@@ -137,9 +138,9 @@ export const useTrackContextMenu = ({
             }
           : undefined,
         onShowAlbum:
-          onShowAlbum && track.album_id
+          onShowAlbum && track.albumId
             ? () => {
-                onShowAlbum(track.album_id!);
+                onShowAlbum(track.albumId!);
               }
             : undefined,
         onShowArtist: onShowArtist
@@ -173,7 +174,7 @@ export const useTrackContextMenu = ({
       track.id,
       track.title,
       track.favorite,
-      track.album_id,
+      track.albumId,
       track.artist,
       onPlay,
       onToggleFavorite,

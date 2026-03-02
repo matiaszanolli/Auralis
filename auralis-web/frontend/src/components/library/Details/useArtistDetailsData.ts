@@ -5,17 +5,9 @@
  */
 
 import { useState, useEffect } from 'react';
-import type { Artist as DomainArtist } from '@/types/domain';
+import type { Artist as DomainArtist, DetailTrack } from '@/types/domain';
 
-export interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  album?: string;
-  duration: number;
-  track_number?: number;
-  disc_number?: number;
-}
+export type Track = DetailTrack;
 
 export interface Album {
   id: number;

@@ -25,18 +25,7 @@ import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/app/useKeyboardShortcuts';
 import { selectIsPlaying, selectVolume } from './store/slices/playerSlice';
-import type { Track as DomainTrack } from '@/types/domain';
-
-interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  duration: number;
-  filepath?: string;
-  albumArt?: string;
-  isEnhanced?: boolean;
-}
+import type { Track } from '@/types/domain';
 
 function ComfortableApp() {
   // Layout state management (useAppLayout handles responsive sidebar/drawer)
@@ -115,9 +104,7 @@ function ComfortableApp() {
       setCurrentTrack(track);
       console.log('Playing track:', track.title);
 
-      // Set queue to single track (cast needed: local Track is superset of domain Track
-      // minus filepath, which setQueue doesn't use — only t.id is sent to backend)
-      await setQueue([track as unknown as DomainTrack], 0);
+      await setQueue([track], 0);
 
       // Start enhanced playback via WebSocket message
       // The Player component's usePlayEnhanced instance will handle the stream

@@ -12,14 +12,7 @@ import { tokens } from '@/design-system';
 import TrackTableHeader from './TrackTableHeader';
 import TrackTableRowItem from './TrackTableRowItem';
 
-interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  duration: number;
-  track_number?: number;
-  disc_number?: number;
-}
+import type { DetailTrack as Track } from '@/types/domain';
 
 interface AlbumTrackTableProps {
   tracks: Track[];

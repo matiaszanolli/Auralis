@@ -9,7 +9,8 @@ import { Box, Tab, Tabs } from '@mui/material';
 import { tokens } from '@/design-system';
 import AlbumsTab from '../Views/AlbumsTab';
 import TracksTab from '../Views/TracksTab';
-import { type Track, type Artist } from './useArtistDetailsData';
+import type { DetailTrack as Track } from '@/types/domain';
+import { type Artist } from './useArtistDetailsData';
 
 interface ArtistDetailTabsProps {
   artist: Artist;

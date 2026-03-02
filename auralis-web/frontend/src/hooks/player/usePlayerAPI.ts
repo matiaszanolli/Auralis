@@ -26,15 +26,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
-interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  duration: number;
-  albumArt?: string;
-  file_path?: string;
-}
+import type { Track } from '@/types/domain';
 
 interface PlayerState {
   currentTrack: Track | null;

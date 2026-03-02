@@ -21,12 +21,18 @@ export interface Track {
   artworkUrl?: string | null; // camelCase
   genre?: string | null;
   year?: number | null;
+  trackNumber?: number | null; // Backend: track_number
+  discNumber?: number | null; // Backend: disc_number
+  albumId?: number | null; // Backend: album_id
+  favorite?: boolean; // Backend: favorite
 
   // Audio properties
   bitrate?: number | null; // kbps
   sampleRate?: number | null; // Hz (camelCase)
   bitDepth?: number | null; // bits (camelCase)
+  channels?: number | null;
   format?: string | null; // wav, flac, mp3, etc.
+  fileSize?: number | null; // Backend: filesize
 
   // Analysis properties
   loudness?: number | null; // LUFS
@@ -37,6 +43,13 @@ export interface Track {
   dateAdded?: string | null; // ISO 8601 (camelCase)
   dateModified?: string | null; // ISO 8601 (camelCase)
 }
+
+// Named subsets for components that only need specific fields
+export type PlayerTrack = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'duration' | 'artworkUrl'>;
+export type QueueTrack = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'duration' | 'artworkUrl'>;
+export type LibraryTrack = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'albumId' | 'duration' | 'filepath' | 'artworkUrl' | 'genre' | 'year' | 'favorite'>;
+export type DetailTrack = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'duration' | 'filepath' | 'artworkUrl' | 'genre' | 'year' | 'trackNumber' | 'discNumber' | 'albumId' | 'favorite'>;
+export type TrackRef = Pick<Track, 'id'>;
 
 // ============================================================================
 // Album

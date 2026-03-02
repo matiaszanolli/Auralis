@@ -11,16 +11,7 @@ import { TrackPlayIndicator } from '../tracks/TrackPlayIndicator';
 import { ContextMenu } from '../../../shared/ContextMenu';
 import { useTrackContextMenu } from '../tracks/useTrackContextMenu';
 
-interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  duration: number;
-  track_number?: number;
-  disc_number?: number;
-  album_id?: number;
-  favorite?: boolean;
-}
+import type { DetailTrack as Track } from '@/types/domain';
 
 interface TrackTableRowItemProps {
   track: Track;
@@ -68,7 +59,7 @@ export const TrackTableRowItem: React.FC<TrackTableRowItemProps> = ({
       <TrackPlayIndicator
         isCurrentTrack={isCurrentTrack}
         isPlaying={isPlaying}
-        trackNumber={track.track_number}
+        trackNumber={track.trackNumber ?? undefined}
         index={index}
       />
       <TableCell>

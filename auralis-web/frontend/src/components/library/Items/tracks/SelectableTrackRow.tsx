@@ -21,19 +21,7 @@ import TrackRow from './TrackRow';
 import { SelectableContainer, StyledCheckbox, TrackContainer } from './SelectableTrackRow.styles';
 import { useTrackRowSelection } from './useTrackRowSelection';
 
-interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  duration: number;
-  albumArt?: string;
-  isEnhanced?: boolean;
-  quality?: number;
-  genre?: string;
-  year?: number;
-  [key: string]: any;
-}
+import type { LibraryTrack as Track } from '@/types/domain';
 
 interface SelectableTrackRowProps {
   track: Track;

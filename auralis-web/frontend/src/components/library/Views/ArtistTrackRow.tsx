@@ -6,7 +6,7 @@ import React from 'react';
 import { TableCell, Typography, Box } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { StyledTableRow, PlayIcon } from '../Styles/Table.styles';
-import { type Track } from '../Details/useArtistDetailsData';
+import type { DetailTrack as Track } from '@/types/domain';
 import { tokens } from '@/design-system';
 
 interface ArtistTrackRowProps {

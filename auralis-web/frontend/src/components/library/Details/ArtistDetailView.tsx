@@ -3,7 +3,8 @@ import { Container } from '@mui/material';
 import { tokens } from '@/design-system';
 import { EmptyState } from '../../shared/ui/feedback';
 import DetailLoading from './DetailLoading';
-import { useArtistDetailsData, type Track } from './useArtistDetailsData';
+import type { DetailTrack as Track } from '@/types/domain';
+import { useArtistDetailsData } from './useArtistDetailsData';
 import { ArtistDetailHeaderSection } from './ArtistDetailHeader';
 import { ArtistDetailTabsSection } from './ArtistDetailTabs';
 

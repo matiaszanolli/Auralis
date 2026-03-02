@@ -29,14 +29,8 @@ export interface Playlist {
   tracks?: Track[];
 }
 
-export interface Track {
-  id: number;
-  title: string;
-  artist?: string;
-  album?: string;
-  duration: number;
-  filepath: string;
-}
+import type { Track } from '@/types/domain';
+export type { Track };
 
 export interface PlaylistsResponse {
   playlists: Playlist[];

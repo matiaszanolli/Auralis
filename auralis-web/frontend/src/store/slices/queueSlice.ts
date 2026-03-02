@@ -14,7 +14,7 @@
  */
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { Track } from './playerSlice';
+import type { QueueTrack as Track } from '@/types/domain';
 
 export interface QueueState {
   tracks: Track[];

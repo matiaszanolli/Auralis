@@ -43,7 +43,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
-import type { LibraryStats } from '@/types/domain';
+import type { LibraryStats, LibraryTrack } from '@/types/domain';
 
 // ============================================================================
 // Types
@@ -51,19 +51,7 @@ import type { LibraryStats } from '@/types/domain';
 
 export type { LibraryStats };
 
-export interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  album_id?: number;
-  duration: number;
-  albumArt?: string;
-  quality?: number;
-  isEnhanced?: boolean;
-  genre?: string;
-  year?: number;
-}
+export type Track = LibraryTrack;
 
 export interface UseLibraryWithStatsOptions {
   view: string;
@@ -168,13 +156,18 @@ export const useLibraryWithStats = ({
         if (response.ok) {
           const data = await response.json();
 
-          const transformedTracks = (data.tracks || []).map((track: any) => ({
-            ...track,
-            artist:
-              Array.isArray(track.artists) && track.artists.length > 0
-                ? track.artists[0]
-                : track.artist || 'Unknown Artist',
-            albumArt: track.album_art || track.albumArt
+          const transformedTracks: Track[] = (data.tracks || []).map((track: any) => ({
+            id: track.id,
+            title: track.title ?? '',
+            artist: Array.isArray(track.artists) && track.artists.length > 0 ? track.artists[0] : track.artist || 'Unknown Artist',
+            album: track.album ?? '',
+            albumId: track.album_id ?? undefined,
+            duration: track.duration ?? 0,
+            filepath: track.filepath ?? track.file_path ?? '',
+            artworkUrl: track.artwork_url ?? track.album_art ?? null,
+            genre: track.genre ?? null,
+            year: track.year ?? null,
+            favorite: track.favorite ?? undefined,
           }));
 
           setHasMore(data.has_more || false);
@@ -257,13 +250,18 @@ export const useLibraryWithStats = ({
       if (response.ok) {
         const data = await response.json();
 
-        const transformedTracks = (data.tracks || []).map((track: any) => ({
-          ...track,
-          artist:
-            Array.isArray(track.artists) && track.artists.length > 0
-              ? track.artists[0]
-              : track.artist || 'Unknown Artist',
-          albumArt: track.album_art || track.albumArt
+        const transformedTracks: Track[] = (data.tracks || []).map((track: any) => ({
+          id: track.id,
+          title: track.title ?? '',
+          artist: Array.isArray(track.artists) && track.artists.length > 0 ? track.artists[0] : track.artist || 'Unknown Artist',
+          album: track.album ?? '',
+          albumId: track.album_id ?? undefined,
+          duration: track.duration ?? 0,
+          filepath: track.filepath ?? track.file_path ?? '',
+          artworkUrl: track.artwork_url ?? track.album_art ?? null,
+          genre: track.genre ?? null,
+          year: track.year ?? null,
+          favorite: track.favorite ?? undefined,
         }));
 
         setTracks((prev) => [...prev, ...transformedTracks]);

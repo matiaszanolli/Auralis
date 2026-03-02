@@ -9,16 +9,9 @@
  */
 
 import { useState, useEffect } from 'react';
+import type { DetailTrack } from '@/types/domain';
 
-export interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  album?: string;
-  duration: number;
-  track_number?: number;
-  disc_number?: number;
-}
+export type Track = DetailTrack;
 
 export interface Album {
   id: number;
@@ -65,7 +58,21 @@ export const useAlbumDetails = (albumId: number) => {
         year: data.year,
         track_count: data.total_tracks,
         total_duration: data.tracks?.reduce((sum: number, t: Track) => sum + (t.duration || 0), 0) || 0,
-        tracks: data.tracks || []
+        tracks: (data.tracks || []).map((t: any) => ({
+          id: t.id,
+          title: t.title ?? '',
+          artist: t.artist ?? '',
+          album: t.album ?? '',
+          duration: t.duration ?? 0,
+          filepath: t.filepath ?? t.file_path ?? '',
+          artworkUrl: t.artwork_url ?? null,
+          genre: t.genre ?? null,
+          year: t.year ?? null,
+          trackNumber: t.track_number ?? null,
+          discNumber: t.disc_number ?? null,
+          albumId: t.album_id ?? null,
+          favorite: t.favorite ?? undefined,
+        })),
       };
 
       setAlbum(albumData);

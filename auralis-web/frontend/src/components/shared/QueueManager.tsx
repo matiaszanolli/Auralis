@@ -21,12 +21,7 @@ import { tokens } from '@/design-system';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
 
-interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  duration: number;
-}
+import type { QueueTrack as Track } from '@/types/domain';
 
 interface QueueManagerProps {
   /**

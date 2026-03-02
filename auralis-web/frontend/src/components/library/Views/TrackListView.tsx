@@ -21,22 +21,11 @@ import { ListLoadingContainer } from '../Styles/Grid.styles';
 import TrackGridView from './TrackGridView';
 import TrackListViewContent from './TrackListViewContent';
 import { useQueueOperations } from './useQueueOperations';
+import type { LibraryTrack } from '@/types/domain';
 // TODO: Replace with react-infinite-scroll-component like Artists view
 // import { useInfiniteScroll } from '@/hooks/shared';
 
-export interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  album_id?: number;
-  duration: number;
-  albumArt?: string;
-  quality?: number;
-  isEnhanced?: boolean;
-  genre?: string;
-  year?: number;
-}
+export type Track = LibraryTrack;
 
 export type ViewMode = 'grid' | 'list';
 

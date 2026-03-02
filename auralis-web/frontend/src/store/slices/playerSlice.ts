@@ -15,15 +15,10 @@
  */
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import type { PlayerTrack } from '@/types/domain';
 
-export interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  album?: string;
-  duration: number;
-  artworkUrl?: string;  // Standardized field name (was coverUrl)
-}
+// Backward-compat re-export so existing `import { Track } from './playerSlice'` still works.
+export type Track = PlayerTrack;
 
 export type PresetName = 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
 

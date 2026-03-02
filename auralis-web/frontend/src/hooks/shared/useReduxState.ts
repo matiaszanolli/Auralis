@@ -20,6 +20,7 @@
 import { useSelector, useDispatch } from 'react-redux';
 import { useCallback, useMemo } from 'react';
 import type { RootState, AppDispatch } from '@/store';
+import type { PlayerTrack, QueueTrack } from '@/types/domain';
 import * as playerActions from '@/store/slices/playerSlice';
 import * as queueActions from '@/store/slices/queueSlice';
 import * as cacheActions from '@/store/slices/cacheSlice';
@@ -80,7 +81,7 @@ export const usePlayer = () => {
     [dispatch]
   );
   const setTrack = useCallback(
-    (track: any | null) => dispatch(playerActions.setCurrentTrack(track)),
+    (track: PlayerTrack | null) => dispatch(playerActions.setCurrentTrack(track)),
     [dispatch]
   );
 
@@ -156,11 +157,11 @@ export const useQueue = () => {
 
     // Actions
     add: useCallback(
-      (track: any) => dispatch(queueActions.addTrack(track)),
+      (track: QueueTrack) => dispatch(queueActions.addTrack(track)),
       [dispatch]
     ),
     addMany: useCallback(
-      (tracks: any[]) => dispatch(queueActions.addTracks(tracks)),
+      (tracks: QueueTrack[]) => dispatch(queueActions.addTracks(tracks)),
       [dispatch]
     ),
     remove: useCallback(
@@ -180,7 +181,7 @@ export const useQueue = () => {
     previous: useCallback(() => dispatch(queueActions.previousTrack()), [dispatch]),
     clear: useCallback(() => dispatch(queueActions.clearQueue()), [dispatch]),
     setQueue: useCallback(
-      (tracks: any[]) => dispatch(queueActions.setQueue(tracks)),
+      (tracks: QueueTrack[]) => dispatch(queueActions.setQueue(tracks)),
       [dispatch]
     ),
   };

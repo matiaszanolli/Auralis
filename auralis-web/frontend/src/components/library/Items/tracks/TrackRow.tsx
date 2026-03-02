@@ -16,16 +16,9 @@ import { useTrackContextMenu } from './useTrackContextMenu';
 import { useTrackImage } from './useTrackImage';
 import { useTrackFormatting } from './useTrackFormatting';
 
-export interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  album?: string;
-  album_id?: number;
-  duration: number;
-  albumArt?: string;
-  favorite?: boolean;
-}
+// Re-export LibraryTrack as Track for backward compat with consumers of this module
+import type { LibraryTrack } from '@/types/domain';
+export type Track = LibraryTrack;
 
 interface TrackRowProps {
   track: Track;
@@ -130,10 +123,10 @@ const TrackRowComponent: React.FC<TrackRowProps> = ({
 
         {/* Album Art Thumbnail */}
         <TrackRowAlbumArt
-          albumArt={track.albumArt}
+          albumArt={track.artworkUrl ?? undefined}
           title={track.title}
           album={track.album}
-          shouldShowImage={shouldShowImage(track.albumArt)}
+          shouldShowImage={shouldShowImage(track.artworkUrl ?? undefined)}
           onImageError={handleImageError}
         />
 

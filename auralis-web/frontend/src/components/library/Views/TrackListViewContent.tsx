@@ -4,7 +4,7 @@ import SelectableTrackRow from '../Items/tracks/SelectableTrackRow';
 import GridLoadingState from '../Items/utilities/GridLoadingState';
 import EndOfListIndicator from '../Items/utilities/EndOfListIndicator';
 import { ListViewContainer, VirtualScrollContainer } from './TrackListView.styles';
-import { Track } from './TrackListView';
+import type { LibraryTrack as Track } from '@/types/domain';
 
 const ROW_HEIGHT = 56; // 44px row + 4px margin + 8px selectable padding
 

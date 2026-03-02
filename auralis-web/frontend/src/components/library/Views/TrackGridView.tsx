@@ -2,7 +2,7 @@ import React from 'react';
 import { Grid } from '@mui/material';
 import { TrackCard } from '../../track/TrackCard';
 import InfiniteScrollTrigger from '../Items/utilities/InfiniteScrollTrigger';
-import { Track } from './TrackListView';
+import type { LibraryTrack as Track } from '@/types/domain';
 
 export interface TrackGridViewProps {
   tracks: Track[];
@@ -54,9 +54,9 @@ export const TrackGridView: React.FC<TrackGridViewProps> = ({
               title={track.title}
               artist={track.artist}
               album={track.album}
-              albumId={track.album_id}
+              albumId={track.albumId ?? undefined}
               duration={track.duration}
-              albumArt={track.albumArt}
+              albumArt={track.artworkUrl ?? undefined}
               onPlay={(id) => {
                 const foundTrack = tracks.find((t) => t.id === id);
                 if (foundTrack) {

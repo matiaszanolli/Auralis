@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '../shared/Toast';
-import { Track } from '@/hooks/library/useLibraryWithStats';
+import type { LibraryTrack as Track } from '@/types/domain';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 /**

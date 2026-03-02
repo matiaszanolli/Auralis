@@ -25,11 +25,9 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
+import type { TrackRef } from '@/types/domain';
 
-interface Track {
-  id: number;
-  [key: string]: any;
-}
+type Track = TrackRef;
 
 export interface UseTrackSelectionReturn {
   selectedTracks: Set<number>;

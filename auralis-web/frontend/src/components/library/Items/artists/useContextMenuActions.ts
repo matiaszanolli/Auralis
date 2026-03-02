@@ -43,13 +43,14 @@ export const useContextMenuActions = ({
       const tracks = response.tracks.map((track) => ({
         id: track.id,
         title: track.title,
+        artist: artist.name,
         album: track.album,
         duration: track.duration,
       }));
 
       // Clear existing queue and set new tracks
       queue.clear();
-      queue.setQueue(tracks as any);
+      queue.setQueue(tracks);
 
       // Start playback
       player.play();
@@ -73,6 +74,7 @@ export const useContextMenuActions = ({
       const tracks = response.tracks.map((track) => ({
         id: track.id,
         title: track.title,
+        artist: artist.name,
         album: track.album,
         duration: track.duration,
       }));
@@ -83,7 +85,7 @@ export const useContextMenuActions = ({
       }
 
       // Add all tracks to queue
-      queue.addMany(tracks as any);
+      queue.addMany(tracks);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to add artist tracks to queue';
