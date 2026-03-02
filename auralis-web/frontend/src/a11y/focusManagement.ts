@@ -111,14 +111,6 @@ class FocusManager {
     container: HTMLElement,
     onEscape?: () => void
   ): () => void {
-    const focusableElements = this.getFocusableElements(container);
-    if (focusableElements.length === 0) {
-      return () => {};
-    }
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && onEscape) {
         event.preventDefault();
@@ -127,6 +119,13 @@ class FocusManager {
       }
 
       if (event.key !== 'Tab') return;
+
+      // Re-query on each Tab so dynamically added elements are included
+      const focusableElements = this.getFocusableElements(container);
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
 
       if (event.shiftKey) {
         // Shift+Tab
@@ -145,8 +144,11 @@ class FocusManager {
 
     container.addEventListener('keydown', handleKeyDown);
 
-    // Focus first element
-    firstElement.focus();
+    // Focus first element if available
+    const initialElements = this.getFocusableElements(container);
+    if (initialElements.length > 0) {
+      initialElements[0].focus();
+    }
 
     // Return cleanup function
     return () => {
