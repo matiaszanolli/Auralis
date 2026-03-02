@@ -8,6 +8,7 @@
  */
 
 import { ENDPOINTS } from '../config/api';
+import { post } from '../utils/apiRequest';
 import { createCrudService } from '../utils/serviceFactory';
 
 export interface UserSettings {
@@ -134,11 +135,7 @@ export async function removeScanFolder(folder: string): Promise<{ message: strin
  * Trigger an immediate library scan on the given directories
  */
 export async function triggerLibraryScan(directories: string[]): Promise<void> {
-  await fetch('/api/library/scan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ directories, recursive: true, skip_existing: true }),
-  });
+  await post(ENDPOINTS.LIBRARY_SCAN, { directories, recursive: true, skip_existing: true });
 }
 
 export const settingsService = {

@@ -60,6 +60,14 @@ export const ENDPOINTS = {
   LIBRARY_ARTISTS: '/api/artists',
   ARTIST_TRACKS: (artistId: number) => `/api/artists/${artistId}/tracks`,
 
+  // Enhancement
+  ENHANCEMENT_TOGGLE: (enabled: boolean) => `/api/player/enhancement/toggle?enabled=${enabled}`,
+  ENHANCEMENT_PRESET: (preset: string) => `/api/player/enhancement/preset?preset=${preset}`,
+  ENHANCEMENT_INTENSITY: (intensity: number) => `/api/player/enhancement/intensity?intensity=${intensity}`,
+
+  // Library scan
+  LIBRARY_SCAN: '/api/library/scan',
+
   // Player
   PLAYER_STATUS: '/api/player/status',
   PLAYER_LOAD: '/api/player/load',

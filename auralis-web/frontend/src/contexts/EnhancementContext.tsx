@@ -7,6 +7,8 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useWebSocketContext } from './WebSocketContext';
+import { post } from '@/utils/apiRequest';
+import { ENDPOINTS } from '@/config/api';
 
 export interface EnhancementSettings {
   enabled: boolean;
@@ -77,26 +79,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
     setError(null);
     try {
       setIsProcessing(true);
-      const url = `/api/player/enhancement/toggle?enabled=${enabled}`;
-      console.log('Calling enhancement toggle API:', url);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Enhancement toggle response:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Enhancement toggle failed:', errorText);
-        throw new Error(`Failed to toggle enhancement: ${response.statusText} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('Enhancement toggle success:', data);
+      const data = await post(ENDPOINTS.ENHANCEMENT_TOGGLE(enabled));
 
       // Update local state (WebSocket will also update it, but this is immediate)
       setSettings(prev => ({
@@ -118,18 +101,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
     setError(null);
     try {
       setIsProcessing(true);
-      const response = await fetch(`/api/player/enhancement/preset?preset=${preset}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to set preset: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await post(ENDPOINTS.ENHANCEMENT_PRESET(preset));
 
       // Update local state
       setSettings(prev => ({
@@ -154,18 +126,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
     setError(null);
     try {
       setIsProcessing(true);
-      const response = await fetch(`/api/player/enhancement/intensity?intensity=${clampedIntensity}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to set intensity: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await post(ENDPOINTS.ENHANCEMENT_INTENSITY(clampedIntensity));
 
       // Update local state
       setSettings(prev => ({
