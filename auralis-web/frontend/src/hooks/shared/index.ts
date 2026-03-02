@@ -6,6 +6,7 @@
  * - Artist grouping and data organization
  */
 
+export { useDialogAccessibility } from './useDialogAccessibility';
 export { useOptimisticUpdate } from './useOptimisticUpdate';
 export { useScrollAnimation } from './useScrollAnimation';
 export { useStandardizedAPI } from './useStandardizedAPI';

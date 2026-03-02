@@ -14,10 +14,11 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheStats, useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
 import { useStandardizedAPI } from '@/hooks/shared/useStandardizedAPI';
+import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
 
 interface CacheManagementPanelProps {
   /**
@@ -54,6 +55,9 @@ function ConfirmationModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const dialogRef = useDialogAccessibility(onCancel);
+  const titleId = useId();
+
   return (
     <div
       style={{
@@ -68,6 +72,10 @@ function ConfirmationModal({
       onClick={onCancel}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         style={{
           background: tokens.colors.bg.secondary,
           borderRadius: '12px',
@@ -79,6 +87,7 @@ function ConfirmationModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3
+          id={titleId}
           style={{
             margin: `0 0 ${tokens.spacing.md} 0`,
             fontSize: tokens.typography.fontSize.lg,

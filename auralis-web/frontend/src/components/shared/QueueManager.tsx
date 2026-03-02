@@ -16,9 +16,10 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useId } from 'react';
 import { tokens } from '@/design-system';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
+import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
 
 interface Track {
   id: number;
@@ -85,6 +86,10 @@ export function QueueManager({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [showAddTrackForm, setShowAddTrackForm] = useState(false);
+  const clearDialogRef = useDialogAccessibility(
+    useCallback(() => setShowClearConfirmation(false), [])
+  );
+  const clearDialogTitleId = useId();
 
   const handleRemoveTrack = useCallback(
     async (index: number) => {
@@ -435,6 +440,10 @@ export function QueueManager({
           onClick={() => setShowClearConfirmation(false)}
         >
           <div
+            ref={clearDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={clearDialogTitleId}
             style={{
               background: tokens.colors.bg.secondary,
               borderRadius: '12px',
@@ -445,6 +454,7 @@ export function QueueManager({
             onClick={(e) => e.stopPropagation()}
           >
             <h3
+              id={clearDialogTitleId}
               style={{
                 margin: `0 0 ${tokens.spacing.md} 0`,
                 fontSize: tokens.typography.fontSize.lg,

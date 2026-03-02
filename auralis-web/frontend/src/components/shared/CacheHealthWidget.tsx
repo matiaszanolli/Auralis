@@ -14,9 +14,10 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { useState } from 'react';
+import { useState, useCallback, useId } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
+import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
 import CacheHealthMonitor from './CacheHealthMonitor';
 import { getHealthStatus } from './HealthStatusIndicator';
 
@@ -74,6 +75,10 @@ export function CacheHealthWidget({
 }: CacheHealthWidgetProps) {
   const { data: cacheHealth, loading, error, isHealthy, refetch } = useCacheHealth();
   const [showExpandedMonitor, setShowExpandedMonitor] = useState(false);
+  const monitorDialogRef = useDialogAccessibility(
+    useCallback(() => setShowExpandedMonitor(false), [])
+  );
+  const monitorDialogTitleId = useId();
   const sizeStyles = getSizeStyles(size);
 
   if (loading && !cacheHealth) {
@@ -279,6 +284,10 @@ export function CacheHealthWidget({
           onClick={() => setShowExpandedMonitor(false)}
         >
           <div
+            ref={monitorDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={monitorDialogTitleId}
             style={{
               background: tokens.colors.bg.secondary,
               borderRadius: '12px',
@@ -300,6 +309,7 @@ export function CacheHealthWidget({
               }}
             >
               <h2
+                id={monitorDialogTitleId}
                 style={{
                   margin: 0,
                   fontSize: tokens.typography.fontSize.lg,
