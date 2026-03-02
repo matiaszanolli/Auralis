@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { get } from '@/utils/apiRequest';
+import { ENDPOINTS } from '@/config/api';
 
 interface SearchResult {
   type: 'track' | 'album' | 'artist';
@@ -33,8 +35,9 @@ interface UseSearchLogicReturn {
  * - Loading and visibility states
  *
  * Features:
- * - Multi-type simultaneous API calls
- * - Filters and limits results to 5 per type
+ * - Server-side search via ?search= query param (5 results per type)
+ * - Parallel API calls via Promise.all
+ * - AbortController to cancel stale in-flight requests
  * - Debounced query to prevent excessive API calls
  * - Result grouping for UI organization
  */
@@ -45,6 +48,7 @@ export const useSearchLogic = (
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Debounced search
   useEffect(() => {
@@ -62,73 +66,51 @@ export const useSearchLogic = (
   }, [query]);
 
   const performSearch = async (searchQuery: string) => {
+    // Cancel any in-flight request before starting a new one
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
-    const allResults: SearchResult[] = [];
 
     try {
-      // Search tracks
-      const tracksResponse = await fetch(
-        `/api/library/tracks?limit=100`
-      );
-      if (tracksResponse.ok) {
-        const tracksData = await tracksResponse.json();
-        const matchingTracks = tracksData.tracks
-          .filter((track: any) =>
-            track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            track.artist.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-          .slice(0, 5)
-          .map((track: any) => ({
-            type: 'track' as const,
-            id: track.id,
-            title: track.title,
-            subtitle: `${track.artist} • ${track.album}`,
-            albumId: track.album_id
-          }));
-        allResults.push(...matchingTracks);
-      }
+      const encoded = encodeURIComponent(searchQuery);
+      const [tracksData, albumsData, artistsData] = await Promise.all([
+        get(`${ENDPOINTS.LIBRARY_TRACKS}?search=${encoded}&limit=5`, { signal: controller.signal }),
+        get(`${ENDPOINTS.LIBRARY_ALBUMS}?search=${encoded}&limit=5`, { signal: controller.signal }),
+        get(`${ENDPOINTS.LIBRARY_ARTISTS}?search=${encoded}&limit=5`, { signal: controller.signal }),
+      ]);
 
-      // Search albums
-      const albumsResponse = await fetch('/api/albums');
-      if (albumsResponse.ok) {
-        const albumsData = await albumsResponse.json();
-        const matchingAlbums = albumsData.albums
-          .filter((album: any) =>
-            album.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            album.artist.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-          .slice(0, 5)
-          .map((album: any) => ({
-            type: 'album' as const,
-            id: album.id,
-            title: album.title,
-            subtitle: album.artist,
-            albumId: album.id
-          }));
-        allResults.push(...matchingAlbums);
-      }
+      // Ignore results from a cancelled request
+      if (controller.signal.aborted) return;
 
-      // Search artists
-      const artistsResponse = await fetch('/api/artists');
-      if (artistsResponse.ok) {
-        const artistsData = await artistsResponse.json();
-        const matchingArtists = artistsData.artists
-          .filter((artist: any) =>
-            artist.name.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-          .slice(0, 5)
-          .map((artist: any) => ({
-            type: 'artist' as const,
-            id: artist.id,
-            title: artist.name,
-            subtitle: `${artist.album_count || 0} albums • ${artist.track_count || 0} tracks`
-          }));
-        allResults.push(...matchingArtists);
-      }
+      const tracks: SearchResult[] = (tracksData.tracks ?? []).map((track: any) => ({
+        type: 'track' as const,
+        id: track.id,
+        title: track.title,
+        subtitle: `${track.artist} • ${track.album}`,
+        albumId: track.album_id,
+      }));
 
-      setResults(allResults);
+      const albums: SearchResult[] = (albumsData.albums ?? []).map((album: any) => ({
+        type: 'album' as const,
+        id: album.id,
+        title: album.title,
+        subtitle: album.artist,
+        albumId: album.id,
+      }));
+
+      const artists: SearchResult[] = (artistsData.artists ?? []).map((artist: any) => ({
+        type: 'artist' as const,
+        id: artist.id,
+        title: artist.name,
+        subtitle: `${artist.album_count || 0} albums • ${artist.track_count || 0} tracks`,
+      }));
+
+      setResults([...tracks, ...albums, ...artists]);
       setShowResults(true);
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.error('Search error:', error);
     } finally {
       setLoading(false);
@@ -153,7 +135,7 @@ export const useSearchLogic = (
   const groupedResults = {
     tracks: results.filter(r => r.type === 'track'),
     albums: results.filter(r => r.type === 'album'),
-    artists: results.filter(r => r.type === 'artist')
+    artists: results.filter(r => r.type === 'artist'),
   };
 
   return {
@@ -164,7 +146,7 @@ export const useSearchLogic = (
     showResults,
     handleResultClick,
     handleClear,
-    groupedResults
+    groupedResults,
   };
 };
 
