@@ -98,5 +98,8 @@
     "vite-tsconfig-paths": "^4.3.2",
     "vitest": "^3.2.4"
   },
-  "proxy": "http://localhost:8000"
+  "proxy": "http://localhost:8000",
+  "overrides": {
+    "rollup": ">=4.59.0"
+  }
 }
