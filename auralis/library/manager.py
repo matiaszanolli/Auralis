@@ -18,7 +18,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
 from ..utils.logging import error, info, warning
@@ -210,7 +210,7 @@ class LibraryManager:
             with self.engine.connect() as conn:
                 try:
                     # TRUNCATE mode: checkpoint and delete WAL/SHM files
-                    result = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                    result = conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE)"))
                     checkpoint_result = result.fetchone()
                     if checkpoint_result:
                         info(f"WAL checkpoint completed: {checkpoint_result}")
@@ -219,7 +219,7 @@ class LibraryManager:
 
                 # 2. Optimize query planner statistics
                 try:
-                    conn.execute("PRAGMA optimize")
+                    conn.execute(text("PRAGMA optimize"))
                     info("Query planner optimized")
                 except Exception as e:
                     error(f"PRAGMA optimize failed: {e}")
