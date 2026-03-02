@@ -19,7 +19,6 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  useRenderProfiler,
   renderMetricsStore,
   checkPerformanceWarnings,
   type RenderMetrics,

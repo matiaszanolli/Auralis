@@ -212,7 +212,7 @@ export function setConnectionStatusCallback(
 }
 
 export function useWebSocketStatus(): WebSocketStatus {
-  const [status, setStatus] = useState<WebSocketStatus>({
+  const [status, _setStatus] = useState<WebSocketStatus>({
     isConnected: false,
     isConnecting: false,
     lastError: null,

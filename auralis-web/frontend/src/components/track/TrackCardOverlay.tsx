@@ -14,7 +14,7 @@ import { tokens } from '@/design-system';
 import { PlayOverlay, DurationBadge, NoArtworkIcon, ShimmerOverlay } from './TrackCardStyles';
 import { formatDuration } from './TrackCardHelpers';
 import { IconButton } from '@/design-system';
-import { Box, Typography } from '@mui/material';
+import { Typography } from '@mui/material';
 
 interface TrackCardOverlayProps {
   duration: number;

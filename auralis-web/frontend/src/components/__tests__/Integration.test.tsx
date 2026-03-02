@@ -20,8 +20,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
-import { Provider } from 'react-redux';
+import { render, screen } from '@/test/test-utils';
 import { configureStore } from '@reduxjs/toolkit';
 import playerReducer from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
@@ -33,7 +32,6 @@ import * as cacheActions from '@/store/slices/cacheSlice';
 import * as connectionActions from '@/store/slices/connectionSlice';
 import { PlayerControls } from '../shared/PlayerControls';
 import { QueueManager } from '../shared/QueueManager';
-import { CacheManagementPanel } from '../shared/CacheManagementPanel';
 import { ConnectionStatusIndicator } from '../shared/ConnectionStatusIndicator';
 
 // Mock WebSocket protocol client to prevent initialization errors
@@ -260,7 +258,7 @@ describe('Component Integration Tests', () => {
     // Dispatch action to update player state
     store.dispatch(playerActions.setVolume(60));
 
-    const state1 = store.getState();
+    store.getState();
 
     // Dispatch queue action
     store.dispatch(queueActions.addTrack({

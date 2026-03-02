@@ -91,7 +91,7 @@ export const AlbumArt: React.FC<AlbumArtProps> = ({
   size = 160,
   borderRadius = 8,
   onClick,
-  showSkeleton = true,
+  showSkeleton: _showSkeleton = true,
   style,
 }) => {
   // Construct artwork URL

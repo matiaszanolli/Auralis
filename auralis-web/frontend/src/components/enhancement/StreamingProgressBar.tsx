@@ -89,15 +89,6 @@ export const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({
   }, [bufferedSamples, sampleRate]);
 
   /**
-   * Calculate estimated total duration based on chunks
-   */
-  const estimatedTotalDuration = useMemo(() => {
-    if (totalChunks === 0 || sampleRate === 0) return 0;
-    // Rough estimate: assume each chunk is ~30 seconds (from backend config)
-    return totalChunks * 30;
-  }, [totalChunks, sampleRate]);
-
-  /**
    * Calculate estimated remaining time
    */
   const estimatedRemaining = useMemo(() => {

@@ -23,7 +23,7 @@ export const PresetItem: React.FC<PresetItemProps> = ({
   isActive,
   isHovered,
   position,
-  size,
+  size: _size,
   onSelect,
   onHover,
 }) => {

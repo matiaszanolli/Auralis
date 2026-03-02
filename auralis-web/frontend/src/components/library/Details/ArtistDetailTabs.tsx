@@ -9,7 +9,7 @@ import { Box, Tab, Tabs } from '@mui/material';
 import { tokens } from '@/design-system';
 import AlbumsTab from '../Views/AlbumsTab';
 import TracksTab from '../Views/TracksTab';
-import { type Track, type Album, type Artist } from './useArtistDetailsData';
+import { type Track, type Artist } from './useArtistDetailsData';
 
 interface ArtistDetailTabsProps {
   artist: Artist;
@@ -31,10 +31,10 @@ export const ArtistDetailTabsSection: React.FC<ArtistDetailTabsProps> = ({
   onAlbumClick,
 }) => {
   return (
-    <Box sx={{ mt: tokens.spacing['2xl'] }}> {/* Increased spacing */}
+    <Box sx={{ mt: tokens.spacing.xxl }}> {/* Increased spacing */}
       <Tabs
         value={activeTab}
-        onChange={(e, newValue) => onTabChange(newValue)}
+        onChange={(_e, newValue) => onTabChange(newValue)}
         aria-label="Artist content sections"
         sx={{
           borderBottom: `2px solid ${tokens.colors.border.light}`,  // Tab border

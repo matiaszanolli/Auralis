@@ -59,7 +59,7 @@ export const QueueSearchPanel: React.FC<QueueSearchPanelProps> = ({
     searchQuery,
     setSearchQuery,
     filteredTracks,
-    filters,
+    filters: _filters,
     setFilters,
     clearFilters,
     matchCount,

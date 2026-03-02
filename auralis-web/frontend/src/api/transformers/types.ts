@@ -40,7 +40,7 @@ export interface ArtistApiResponse {
   artwork_url: string | null; // Backend field name (issue #2110: was incorrectly artwork_path)
   track_count: number; // snake_case
   album_count: number; // snake_case
-  date_added?: string;
+  date_added?: string | null;
 }
 
 export interface ArtistsApiResponse {
@@ -66,25 +66,25 @@ export interface TrackApiResponse {
   duration: number; // seconds
   filepath: string;
 
-  // Optional metadata
-  artwork_url?: string;
-  genre?: string;       // singular fallback
-  year?: number;
+  // Optional metadata — backend sends null for missing values (Python None → JSON null)
+  artwork_url?: string | null;
+  genre?: string | null;       // singular fallback
+  year?: number | null;
 
   // Audio properties
-  bitrate?: number;
-  sample_rate?: number; // snake_case
-  bit_depth?: number; // snake_case
-  format?: string;
+  bitrate?: number | null;
+  sample_rate?: number | null; // snake_case
+  bit_depth?: number | null; // snake_case
+  format?: string | null;
 
   // Analysis properties
-  loudness?: number;
-  crest_factor?: number; // snake_case
-  centroid?: number;
+  loudness?: number | null;
+  crest_factor?: number | null; // snake_case
+  centroid?: number | null;
 
   // Timestamps
-  date_added?: string; // snake_case
-  date_modified?: string; // snake_case
+  date_added?: string | null; // snake_case
+  date_modified?: string | null; // snake_case
 }
 
 export interface TracksApiResponse {

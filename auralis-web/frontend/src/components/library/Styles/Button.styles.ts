@@ -8,7 +8,6 @@
  */
 
 import { buttonShadows } from './Shadow.styles';
-import { radiusMedium } from './BorderRadius.styles';
 import { Button } from '@/design-system';
 import { styled } from '@mui/material';
 import { tokens } from '@/design-system';
@@ -49,7 +48,7 @@ export const GradientButton = styled(Button)({
  * CancelButton - Secondary button with glass hover effect (Design Language v1.2.0)
  * Used in dialog action bars
  */
-export const CancelButton = styled(Button)(({ theme }) => ({
+export const CancelButton = styled(Button)(({ theme: _theme }) => ({
   color: tokens.colors.text.secondary,
   textTransform: 'none',
   borderRadius: tokens.borderRadius.md,                   // 12px - softer, more organic
@@ -69,7 +68,7 @@ export const CancelButton = styled(Button)(({ theme }) => ({
  * Used in dialogs and forms for saving/submitting data
  * Glass effect on hover for elevated aesthetic
  */
-export const SaveButton = styled(Button)(({ theme }) => ({
+export const SaveButton = styled(Button)(({ theme: _theme }) => ({
   background: tokens.gradients.aurora,
   color: tokens.colors.text.primary,
   textTransform: 'none',

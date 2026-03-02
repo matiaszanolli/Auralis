@@ -25,7 +25,6 @@ export interface RenderStats {
 }
 
 export class FrameRateController {
-  private targetFPS: number;
   private frameInterval: number;
   private lastFrameTime: number = 0;
   private frameCount: number = 0;
@@ -34,7 +33,6 @@ export class FrameRateController {
   private droppedFrames: number = 0;
 
   constructor(targetFPS: number = 60) {
-    this.targetFPS = targetFPS;
     this.frameInterval = 1000 / targetFPS;
   }
 
@@ -51,7 +49,7 @@ export class FrameRateController {
     return false;
   }
 
-  updateFPS(currentTime: number): void {
+  updateFPS(_currentTime: number): void {
     this.frameCount++;
     const now = performance.now();
     const elapsed = now - this.lastFrameTime;
@@ -83,18 +81,15 @@ export class FrameRateController {
   }
 
   adjustTargetFPS(newFPS: number): void {
-    this.targetFPS = newFPS;
     this.frameInterval = 1000 / newFPS;
   }
 }
 
 export class DataDecimator {
   private maxPoints: number;
-  private threshold: number;
 
-  constructor(maxPoints: number = 1000, threshold: number = 2000) {
+  constructor(maxPoints: number = 1000, _threshold: number = 2000) {
     this.maxPoints = maxPoints;
-    this.threshold = threshold;
   }
 
   decimate(data: number[]): number[] {
@@ -242,8 +237,6 @@ export class RenderOptimizer {
   }
 
   optimizeData(data: number[]): number[] {
-    const startTime = performance.now();
-
     let optimizedData = data;
 
     // Apply decimation if needed

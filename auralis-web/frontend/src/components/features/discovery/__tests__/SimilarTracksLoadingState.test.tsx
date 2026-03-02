@@ -6,7 +6,6 @@
  * - Loading message display
  */
 
-import { vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { SimilarTracksLoadingState } from '../SimilarTracksLoadingState';
 

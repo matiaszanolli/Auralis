@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@/test/test-utils'
+import { render, screen, fireEvent } from '@/test/test-utils'
 import RadialPresetSelector from '../shared/ui/RadialPresetSelector'
 
 describe('RadialPresetSelector', () => {
@@ -72,7 +72,7 @@ describe('RadialPresetSelector', () => {
   })
 
   it('does not call onPresetChange when clicking current preset', () => {
-    const { container } = render(<RadialPresetSelector {...defaultProps} currentPreset="adaptive" />)
+    render(<RadialPresetSelector {...defaultProps} currentPreset="adaptive" />)
 
     // Click the center hub (current Adaptive preset)
     const centerHub = screen.getByText('Adaptive').closest('[class*="MuiBox-root"]') as HTMLElement

@@ -14,6 +14,7 @@ import { useMetadataEditing } from '../useMetadataEditing';
 // Mock dependencies
 vi.mock('../../shared/Toast', () => ({
   useToast: vi.fn(() => ({
+    showToast: vi.fn(),
     success: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
@@ -116,6 +117,7 @@ describe('useMetadataEditing', () => {
     it('should show success toast', async () => {
       const mockToastSuccess = vi.fn();
       vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
         success: mockToastSuccess,
         error: vi.fn(),
         info: vi.fn(),

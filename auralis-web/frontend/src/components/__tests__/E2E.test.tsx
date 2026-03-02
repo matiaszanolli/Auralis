@@ -46,7 +46,6 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import playerReducer from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
@@ -56,10 +55,6 @@ import * as playerActions from '@/store/slices/playerSlice';
 import * as queueActions from '@/store/slices/queueSlice';
 import * as cacheActions from '@/store/slices/cacheSlice';
 import * as connectionActions from '@/store/slices/connectionSlice';
-import { PlayerControls } from '../shared/PlayerControls';
-import { QueueManager } from '../shared/QueueManager';
-import { CacheManagementPanel } from '../shared/CacheManagementPanel';
-import { ConnectionStatusIndicator } from '../shared/ConnectionStatusIndicator';
 
 // Mock hooks
 vi.mock('@/hooks/usePlayerCommands');
@@ -85,10 +80,6 @@ describe('End-to-End User Flows', () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
-
-  const createWrapper = (children: any) => (
-    <Provider store={store}>{children}</Provider>
-  );
 
   // ============================================================================
   // Complete Playback Flow

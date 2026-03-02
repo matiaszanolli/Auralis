@@ -14,7 +14,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheStats, useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
 import { useStandardizedAPI } from '@/hooks/shared/useStandardizedAPI';
@@ -226,12 +226,12 @@ function MemoryGauge({ current, max }: { current: number; max: number }) {
  */
 export function CacheManagementPanel({
   onCacheClearRequest,
-  refreshInterval = 5000,
+  refreshInterval: _refreshInterval = 5000,
   showAdvanced = false,
 }: CacheManagementPanelProps) {
   const { data: cacheStats, loading: statsLoading, error: statsError, refetch: refetchStats } =
     useCacheStats();
-  const { data: cacheHealth, loading: healthLoading, error: healthError } = useCacheHealth();
+  const { data: cacheHealth, loading: _healthLoading, error: healthError } = useCacheHealth();
   const { refetch: clearCache, loading: clearLoading } = useStandardizedAPI('/api/cache/clear', {
     method: 'POST',
   });
@@ -285,7 +285,7 @@ export function CacheManagementPanel({
     }
   };
 
-  const handleClearTrack = async (trackId: string) => {
+  const handleClearTrack = async (_trackId: string) => {
     try {
       // Use the API client to clear specific track cache
       // Note: clearCache() doesn't support arguments, so we'd need a separate endpoint call

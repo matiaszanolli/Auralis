@@ -13,7 +13,7 @@
  * @module components/library/__tests__/TrackList.test
  */
 
-import { render, screen, fireEvent, waitFor, within, cleanup } from '@/test/test-utils';
+import { render, screen, fireEvent, waitFor, cleanup } from '@/test/test-utils';
 import { vi, afterEach } from 'vitest';
 import TrackList from '@/components/library/TrackList';
 import { useTracksQuery } from '@/hooks/library/useLibraryQuery';
@@ -45,15 +45,6 @@ const mockTrack2: Track = {
   album: 'Album Two',
   duration: 240,
   filepath: '/path/to/song2.wav',
-};
-
-const mockTrack3: Track = {
-  id: 3,
-  title: 'Third Song',
-  artist: 'Artist Three',
-  album: 'Album Three',
-  duration: 200,
-  filepath: '/path/to/song3.wav',
 };
 
 describe('TrackList', () => {
@@ -227,7 +218,7 @@ describe('TrackList', () => {
         clearError: vi.fn(),
       });
 
-      const { container } = render(
+      render(
         <TrackList onTrackSelect={mockOnTrackSelect} />
       );
 

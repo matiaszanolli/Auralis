@@ -7,7 +7,7 @@ import { tokens } from '@/design-system';
 
 export const SelectableContainer = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'isSelected',
-})<{ isSelected: boolean }>(({ theme, isSelected }) => ({
+})<{ isSelected: boolean }>(({ theme: _theme, isSelected }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
@@ -25,7 +25,7 @@ export const SelectableContainer = styled(Box, {
   },
 }));
 
-export const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
+export const StyledCheckbox = styled(Checkbox)(({ theme: _theme }) => ({
   color: tokens.colors.opacityScale.accent.lighter,
   opacity: 0,
   transition: 'opacity 0.2s ease',
@@ -41,7 +41,7 @@ export const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
   },
 }));
 
-export const TrackContainer = styled(Box)(({ theme }) => ({
+export const TrackContainer = styled(Box)(({ theme: _theme }) => ({
   flex: 1,
   minWidth: 0, // Allow text truncation
 }));

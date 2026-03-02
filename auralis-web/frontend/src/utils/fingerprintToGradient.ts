@@ -75,7 +75,7 @@ function getDominantFrequencyRegion(fp: AudioFingerprint): 'bass' | 'mid' | 'tre
  * Treble → Cool (180-270°: blues, purples)
  */
 function frequencyToHue(fp: AudioFingerprint): number {
-  const region = getDominantFrequencyRegion(fp);
+  getDominantFrequencyRegion(fp);
 
   // Compute weighted hue within region
   const bassEnergy = fp.sub_bass + fp.bass + fp.low_mid;

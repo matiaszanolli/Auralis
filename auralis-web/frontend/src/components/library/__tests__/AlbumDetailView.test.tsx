@@ -12,10 +12,9 @@
  */
 
 import { vi } from 'vitest';
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import AlbumDetailView from '../AlbumDetailView';
+import AlbumDetailView from '../Details/AlbumDetailView';
 
 // Create mock fetch before test
 const mockFetch = vi.fn();
@@ -288,7 +287,6 @@ describe.skip('AlbumDetailView', () => {
     });
 
     it('should play track when track row clicked', async () => {
-      const user = userEvent.setup();
       const onTrackPlay = vi.fn();
 
       render(
@@ -342,7 +340,7 @@ describe.skip('AlbumDetailView', () => {
     it('should show play icon on non-current track hover', async () => {
       const user = userEvent.setup();
 
-      const { container } = render(
+      render(
         <AlbumDetailView albumId={1} currentTrackId={1} />
       );
 
@@ -355,7 +353,11 @@ describe.skip('AlbumDetailView', () => {
         await user.hover(trackRow);
         // Play icon should be visible
         const playIcon = trackRow.querySelector('[class*="play"]');
-        expect(playIcon).toBeInTheDocument() || expect(trackRow.textContent).toContain('play');
+        if (!playIcon) {
+          expect(trackRow.textContent).toContain('play');
+        } else {
+          expect(playIcon).toBeInTheDocument();
+        }
       }
     });
 
@@ -412,8 +414,6 @@ describe.skip('AlbumDetailView', () => {
     });
 
     it('should toggle favorite on click', async () => {
-      const user = userEvent.setup();
-
       render(
         <AlbumDetailView albumId={1} />
       );
@@ -721,7 +721,9 @@ describe.skip('AlbumDetailView', () => {
 
       const buttons = screen.getAllByRole('button');
       buttons.forEach(button => {
-        expect(button).toHaveAccessibleName() || expect(button.title || button.getAttribute('aria-label')).toBeTruthy();
+        // Check that button has some accessible name or aria-label
+        const hasName = button.title || button.getAttribute('aria-label') || button.textContent;
+        expect(hasName).toBeTruthy();
       });
     });
 
@@ -772,7 +774,7 @@ describe.skip('AlbumDetailView', () => {
     });
 
     it('should display album art and info side by side', async () => {
-      const { container } = render(
+      render(
         <AlbumDetailView albumId={1} />
       );
 
@@ -841,8 +843,6 @@ describe.skip('AlbumDetailView', () => {
     });
 
     it('should maintain state through interactions', async () => {
-      const user = userEvent.setup();
-
       const { rerender } = render(
         <AlbumDetailView albumId={1} currentTrackId={1} isPlaying={false} />
       );

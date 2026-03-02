@@ -8,9 +8,8 @@
  * - Accessibility and semantic structure
  */
 
-import React from 'react';
 import { render, screen } from '@/test/test-utils';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { LibraryEmptyState } from '../LibraryEmptyState';
 
 // Mock the shared EmptyState components
@@ -29,7 +28,7 @@ vi.mock('../../shared/EmptyState', () => ({
       <p>No results for "{query}"</p>
     </div>
   ),
-  EmptyState: ({ icon, title, description }: any) => (
+  EmptyState: ({ title, description }: any) => (
     <div data-testid="empty-state">
       <p>{title}</p>
       <p>{description}</p>

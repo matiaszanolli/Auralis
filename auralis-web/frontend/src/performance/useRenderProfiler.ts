@@ -24,7 +24,7 @@ import { useEffect, useRef, useCallback } from 'react';
 // Types
 // ============================================================================
 
-interface RenderMetrics {
+export interface RenderMetrics {
   component: string;
   renderTime: number;
   commitTime: number;
@@ -211,7 +211,6 @@ export function useRenderProfiler(
 ) {
   const startTimeRef = useRef<number>(0);
   const renderCountRef = useRef<number>(0);
-  const propsRef = useRef<any>(null);
   const memoRef = useRef<{ prevProps: any; changeCount: number }>({
     prevProps: null,
     changeCount: 0,

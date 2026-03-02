@@ -54,7 +54,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onClose,
   actions,
   trackId,
-  trackTitle,
+  trackTitle: _trackTitle,
   playlists = [],
   isLoadingPlaylists = false,
   onPlaylistsLoad,

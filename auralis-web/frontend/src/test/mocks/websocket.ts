@@ -44,7 +44,7 @@ export class MockWebSocket {
     setTimeout(() => this.simulateOpen(), 0)
   }
 
-  send = vi.fn((data: string) => {
+  send = vi.fn((_data: string) => {
     if (this.readyState !== OPEN) {
       throw new Error('WebSocket is not open')
     }

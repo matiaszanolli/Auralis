@@ -19,7 +19,7 @@ export { CategoryHeader, ResultTitle, ResultSubtitle } from './Typography.styles
  * SearchContainer - Root container for search input
  * Centered layout with max width constraint
  */
-export const SearchContainer = styled(Box)(({ theme }) => ({
+export const SearchContainer = styled(Box)(({ theme: _theme }) => ({
   position: 'relative',
   width: '100%',
   maxWidth: 600,
@@ -29,7 +29,7 @@ export const SearchContainer = styled(Box)(({ theme }) => ({
 /**
  * SearchField - Styled search input with aurora focus color
  */
-export const SearchField = styled(TextField)(({ theme }) => ({
+export const SearchField = styled(TextField)(({ theme: _theme }) => ({
   '& .MuiOutlinedInput-root': {
     backgroundColor: tokens.colors.opacityScale.accent.ultraLight,
     borderRadius: tokens.borderRadius.full,
@@ -90,7 +90,7 @@ export const StyledListItemButton = styled(ListItemButton)(({ theme }) => ({
  * TypeChip - Type indicator with color coding
  * Supports track, album, artist types with distinct colors
  */
-export const TypeChip = styled(Chip)(({ theme }) => ({
+export const TypeChip = styled(Chip)(({ theme: _theme }) => ({
   height: 20,
   fontSize: tokens.typography.fontSize.xs,
   fontWeight: tokens.typography.fontWeight.semibold,

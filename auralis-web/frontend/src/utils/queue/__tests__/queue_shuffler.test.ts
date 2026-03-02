@@ -322,7 +322,6 @@ describe('QueueShuffler', () => {
   // =========================================================================
 
   it('should have uniform distribution across multiple shuffles', () => {
-    const trackIds = mockTracks.map((t) => t.id);
     const positionCounts = new Map<number, number[]>();
 
     // Track 10 positions for each track over 100 shuffles
@@ -340,7 +339,7 @@ describe('QueueShuffler', () => {
     }
 
     // Check that each track appears across different positions
-    for (const [trackId, positions] of positionCounts) {
+    for (const [, positions] of positionCounts) {
       const uniquePositions = new Set(positions);
       expect(uniquePositions.size).toBeGreaterThan(2);
     }

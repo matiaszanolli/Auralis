@@ -22,7 +22,8 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useWebSocketProtocol } from '../useWebSocketProtocol';
 import * as protocolClient from '@/services/websocket/protocolClient';
-import type { WebSocketProtocolClient, MessageType } from '@/services/websocket/protocolClient';
+import { MessagePriority } from '@/services/websocket/protocolClient';
+import type { WebSocketProtocolClient } from '@/services/websocket/protocolClient';
 
 // Mock the protocol client module
 vi.mock('@/services/websocket/protocolClient', () => ({
@@ -70,7 +71,7 @@ describe('useWebSocketProtocol Hook', () => {
     mockConnect = vi.fn().mockResolvedValue(undefined);
     mockDisconnect = vi.fn();
     mockSend = vi.fn().mockResolvedValue({ type: 'response', payload: {} });
-    mockOn = vi.fn((type: string, handler: Function) => {
+    mockOn = vi.fn((_type: string, _handler: Function) => {
       // Return unsubscribe function
       return vi.fn();
     });
@@ -364,7 +365,7 @@ describe('useWebSocketProtocol Hook', () => {
       );
 
       const payload = { track_id: 123 };
-      const options = { priority: 'high' as const, responseRequired: true };
+      const options = { priority: MessagePriority.HIGH, responseRequired: true };
 
       await act(async () => {
         await result.current.send('play', payload, options);
@@ -573,7 +574,7 @@ describe('useWebSocketProtocol Hook', () => {
     });
 
     it('should preserve client reference across re-renders', () => {
-      const { result, rerender } = renderHook(() =>
+      const { rerender } = renderHook(() =>
         useWebSocketProtocol({ autoConnect: true })
       );
 

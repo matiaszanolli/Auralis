@@ -180,7 +180,6 @@ export function usePlayerStreaming({
   const [state, setState] = useState<PlayerStreamingState>(initialState);
   const wsContext = useWebSocketContext();
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get buffered ranges from audio element
   const getBufferedRanges = useCallback((audio: HTMLAudioElement): BufferedRange[] => {

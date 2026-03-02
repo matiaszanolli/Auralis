@@ -93,7 +93,6 @@ export class WebSocketProtocolClient {
   // Stored so stopHeartbeat() can remove it; without this, each reconnect
   // adds an extra anonymous handler that is never garbage-collected (fixes #2486).
   private pongUnsubscribe: (() => void) | null = null;
-  private lastHeartbeat = 0;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
@@ -124,7 +123,7 @@ export class WebSocketProtocolClient {
           this.handleMessage(JSON.parse(event.data));
         };
 
-        this.ws.onerror = (event) => {
+        this.ws.onerror = (_event) => {
           const error = new Error('WebSocket error');
           this.notifyErrorHandlers(error);
           reject(error);
@@ -269,7 +268,6 @@ export class WebSocketProtocolClient {
   private startHeartbeat(): void {
     this.heartbeatInterval = setInterval(() => {
       if (this.isConnected()) {
-        this.lastHeartbeat = Date.now();
         this.send(MessageType.PING, {}, { priority: MessagePriority.CRITICAL }).catch((error) => {
           this.notifyErrorHandlers(error);
         });

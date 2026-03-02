@@ -43,14 +43,14 @@ const mockAlbum: Album = {
   title: 'Test Album',
   artist: 'Test Artist',
   year: 2023,
-  track_count: 10,
+  trackCount: 10,
 };
 
 const mockArtist: Artist = {
   id: 1,
   name: 'Test Artist',
-  track_count: 25,
-  album_count: 3,
+  trackCount: 25,
+  albumCount: 3,
 };
 
 describe('useLibraryQuery', () => {
@@ -311,7 +311,7 @@ describe('useLibraryQuery', () => {
       // Attempt to fetch more while "loading"
       await act(async () => {
         // Don't await, so isLoading might still be true
-        const promise = result.current.fetchMore();
+        result.current.fetchMore();
         // Manually set isLoading state check
         if (result.current.isLoading) {
           // Second call should return early
@@ -580,7 +580,7 @@ describe('useLibraryQuery', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.error?.code).toBe('QUERY_ERROR');
+      expect((result.current.error as any)?.code).toBe('QUERY_ERROR');
     });
 
     it('should allow clearing errors', async () => {

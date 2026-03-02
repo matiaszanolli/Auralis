@@ -42,7 +42,6 @@ export class PCMStreamBuffer {
 
   // Crossfade state
   private lastChunkEnd: Float32Array | null = null;
-  private crossfadeLength: number = 0;
 
   // Statistics
   private totalAppended: number = 0;
@@ -84,7 +83,7 @@ export class PCMStreamBuffer {
     this.readPos = 0;
     this.isInitialized = true;
     this.lastChunkEnd = null;
-    this.crossfadeLength = 0;
+
     this.totalAppended = 0;
     this.totalRead = 0;
   }
@@ -224,7 +223,7 @@ export class PCMStreamBuffer {
     this.writePos = 0;
     this.readPos = 0;
     this.lastChunkEnd = null;
-    this.crossfadeLength = 0;
+
     this.totalAppended = 0;
     this.totalRead = 0;
 

@@ -9,7 +9,7 @@
  * Design: "Ambient, slow, expressive" - not corporate charts
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { tokens } from '@/design-system';
 import type { PresetName } from '@/store/slices/playerSlice';
 
@@ -53,6 +53,7 @@ export const EnhancementIdentityLayer: React.FC<EnhancementIdentityLayerProps> =
   progress,
   onRevealInspection,
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
   const preset = PRESET_INFO[selectedPreset];
 
   /**
@@ -91,7 +92,12 @@ export const EnhancementIdentityLayer: React.FC<EnhancementIdentityLayerProps> =
 
   return (
     <div
-      style={styles.container}
+      style={{
+        ...styles.container,
+        ...(isHovered ? styles.containerHover : undefined),
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={onRevealInspection}
       role="button"
       tabIndex={0}
@@ -147,11 +153,11 @@ const styles: Record<string, React.CSSProperties> = {
     backdropFilter: tokens.glass.subtle.backdropFilter,   // 24px blur
     border: tokens.glass.subtle.border,                   // 15% white opacity
     boxShadow: 'none',                                    // No shadow - ambient, not elevated
+  },
 
-    '&:hover': {
-      background: tokens.glass.medium.background,         // Slight intensification
-      boxShadow: tokens.glass.subtle.boxShadow,          // Subtle depth appears
-    },
+  containerHover: {
+    background: tokens.glass.medium.background,           // Slight intensification
+    boxShadow: tokens.glass.subtle.boxShadow,             // Subtle depth appears
   },
 
   presetSection: {

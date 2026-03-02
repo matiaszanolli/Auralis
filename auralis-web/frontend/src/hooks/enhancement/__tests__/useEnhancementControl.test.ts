@@ -254,7 +254,7 @@ describe('useEnhancementControl', () => {
       });
 
       expect(result.current.error).not.toBeNull();
-      expect(result.current.error?.code).toBe('TOGGLE_ERROR');
+      expect((result.current.error as any)?.code).toBe('TOGGLE_ERROR');
     });
   });
 
@@ -315,7 +315,7 @@ describe('useEnhancementControl', () => {
       });
 
       expect(result.current.error).not.toBeNull();
-      expect(result.current.error?.code).toBe('INVALID_PRESET');
+      expect((result.current.error as any)?.code).toBe('INVALID_PRESET');
     });
 
     it('should support all valid presets', async () => {
@@ -375,7 +375,7 @@ describe('useEnhancementControl', () => {
         }
       });
 
-      expect(result.current.error?.code).toBe('PRESET_ERROR');
+      expect((result.current.error as any)?.code).toBe('PRESET_ERROR');
     });
   });
 
@@ -491,7 +491,7 @@ describe('useEnhancementControl', () => {
         }
       });
 
-      expect(result.current.error?.code).toBe('INTENSITY_ERROR');
+      expect((result.current.error as any)?.code).toBe('INTENSITY_ERROR');
     });
   });
 
@@ -587,9 +587,9 @@ describe('useEnhancementControl', () => {
       } as any);
 
       vi.mocked(useWebSocketSubscription).mockImplementation(
-        (types, callback) => {
+        (_types, callback) => {
           wsCallback = callback;
-          return undefined;
+          return (() => {}) as any;
         }
       );
 
@@ -628,9 +628,9 @@ describe('useEnhancementControl', () => {
       } as any);
 
       vi.mocked(useWebSocketSubscription).mockImplementation(
-        (types, callback) => {
+        (_types, callback) => {
           wsCallback = callback;
-          return undefined;
+          return (() => {}) as any;
         }
       );
 

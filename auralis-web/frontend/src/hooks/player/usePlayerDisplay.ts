@@ -7,7 +7,7 @@
  * @module hooks/usePlayerDisplay
  */
 
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 
 /**
  * Formatted display strings for player UI

@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
@@ -706,8 +706,6 @@ describe('Metadata API Integration Tests', () => {
           });
         })
       );
-
-      const user = userEvent.setup();
 
       // Act
       render(<MetadataEditForm trackId={1} />);

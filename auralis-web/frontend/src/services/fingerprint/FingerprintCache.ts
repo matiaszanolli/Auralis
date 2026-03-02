@@ -7,6 +7,12 @@
 
 import type { AudioFingerprint } from '../../types/domain';
 
+/** Cache entry extends AudioFingerprint with persistence metadata */
+interface CachedFingerprint extends AudioFingerprint {
+  trackId: number;
+  timestamp: number;
+}
+
 const DB_NAME = 'auralis-fingerprints';
 const DB_VERSION = 1;
 const STORE_NAME = 'fingerprints';
@@ -88,7 +94,7 @@ export class FingerprintCache {
       };
 
       request.onsuccess = () => {
-        const fingerprint = request.result as AudioFingerprint | undefined;
+        const fingerprint = request.result as CachedFingerprint | undefined;
 
         if (!fingerprint) {
           resolve(null);
@@ -126,7 +132,7 @@ export class FingerprintCache {
       const transaction = this.db!.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
 
-      const data: AudioFingerprint = {
+      const data: CachedFingerprint = {
         trackId,
         ...fingerprint,
         timestamp: Date.now(),
@@ -248,7 +254,7 @@ export class FingerprintCache {
       };
 
       request.onsuccess = () => {
-        const fingerprints = request.result as AudioFingerprint[];
+        const fingerprints = request.result as CachedFingerprint[];
         let totalSize = 0;
 
         for (const fp of fingerprints) {
@@ -293,7 +299,7 @@ export class FingerprintCache {
       };
 
       request.onsuccess = () => {
-        const fingerprints = request.result as AudioFingerprint[];
+        const fingerprints = request.result as CachedFingerprint[];
         const sizeMB = fingerprints.reduce(
           (sum, fp) => sum + JSON.stringify(fp).length,
           0
@@ -323,8 +329,6 @@ export class FingerprintCache {
       return 0;
     }
 
-    const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-    const now = Date.now();
     let deletedCount = 0;
 
     const keys = await this.getAllKeys();

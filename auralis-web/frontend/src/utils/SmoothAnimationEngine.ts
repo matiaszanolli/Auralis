@@ -301,7 +301,7 @@ export class SmoothAnimationEngine {
   // Audio-specific animations
   animateAudioLevel(
     id: string,
-    currentLevel: number,
+    _currentLevel: number,
     targetLevel: number,
     isRising: boolean = true,
     options: {

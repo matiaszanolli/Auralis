@@ -25,6 +25,7 @@ import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/app/useKeyboardShortcuts';
 import { selectIsPlaying, selectVolume } from './store/slices/playerSlice';
+import type { Track as DomainTrack } from '@/types/domain';
 
 interface Track {
   id: number;
@@ -32,6 +33,7 @@ interface Track {
   artist: string;
   album: string;
   duration: number;
+  filepath?: string;
   albumArt?: string;
   isEnhanced?: boolean;
 }
@@ -46,7 +48,7 @@ function ComfortableApp() {
     setMobileDrawerOpen,
   } = useAppLayout();
 
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [_currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -113,8 +115,9 @@ function ComfortableApp() {
       setCurrentTrack(track);
       console.log('Playing track:', track.title);
 
-      // Set queue to single track
-      await setQueue([track], 0);
+      // Set queue to single track (cast needed: local Track is superset of domain Track
+      // minus filepath, which setQueue doesn't use — only t.id is sent to backend)
+      await setQueue([track as unknown as DomainTrack], 0);
 
       // Start enhanced playback via WebSocket message
       // The Player component's usePlayEnhanced instance will handle the stream

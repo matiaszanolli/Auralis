@@ -17,7 +17,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import {
   shallowEqual,
@@ -101,8 +101,8 @@ describe('Memoization Utilities', () => {
     });
 
     it('should return false for objects with different structure', () => {
-      const obj1 = { a: { b: 1 } };
-      const obj2 = { a: { c: 1 } };
+      const obj1 = { a: { b: 1 } } as any;
+      const obj2 = { a: { c: 1 } } as any;
       expect(deepEqual(obj1, obj2)).toBe(false);
     });
 
@@ -191,7 +191,7 @@ describe('Memoization Utilities', () => {
     });
 
     it('should support selective prop comparison', () => {
-      const TestComponent = ({ a, b, c }: { a: number; b: number; c: number }) => (
+      const TestComponent = ({ a, b: _b, c: _c }: { a: number; b: number; c: number }) => (
         <div>{a}</div>
       );
 

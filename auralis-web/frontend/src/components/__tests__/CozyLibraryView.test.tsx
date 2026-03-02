@@ -117,7 +117,7 @@ describe('CozyLibraryView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Set default mock return values
-    vi.mocked(useLibraryWithStats).mockReturnValue(mockLibraryWithStats);
+    vi.mocked(useLibraryWithStats).mockReturnValue(mockLibraryWithStats as any);
     vi.mocked(usePlayerAPI).mockReturnValue(mockPlayerAPI);
   });
 
@@ -148,7 +148,7 @@ describe('CozyLibraryView', () => {
       vi.mocked(useLibraryWithStats).mockReturnValue({
         ...mockLibraryWithStats,
         tracks: [],
-      });
+      } as any);
 
       render(<CozyLibraryView />);
       expect(screen.getByTestId('empty-library')).toBeInTheDocument();
@@ -159,7 +159,7 @@ describe('CozyLibraryView', () => {
       vi.mocked(useLibraryWithStats).mockReturnValue({
         ...mockLibraryWithStats,
         tracks: [],
-      });
+      } as any);
 
       render(<CozyLibraryView view="favourites" />);
       expect(screen.getByTestId('empty-state')).toBeInTheDocument();
@@ -172,7 +172,7 @@ describe('CozyLibraryView', () => {
       vi.mocked(useLibraryWithStats).mockReturnValue({
         ...mockLibraryWithStats,
         loading: true,
-      });
+      } as any);
 
       const { container } = render(<CozyLibraryView />);
       expect(container.firstChild).toBeInTheDocument();

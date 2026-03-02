@@ -11,8 +11,7 @@
  */
 
 import { vi } from 'vitest';
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
+import { render, screen, fireEvent } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import TrackRow from '../Items/tracks/TrackRow';
 import { useTrackSelection } from '@/hooks/library/useTrackSelection';
@@ -76,12 +75,13 @@ const mockTrack2 = {
 
 const mockSelectionContext = {
   selectedTracks: new Set<number>(),
-  isSelected: (id: number) => false,
-  toggleSelection: vi.fn(),
-  addToSelection: vi.fn(),
-  removeFromSelection: vi.fn(),
+  isSelected: (_id: number) => false,
+  toggleTrack: vi.fn(),
   clearSelection: vi.fn(),
   selectRange: vi.fn(),
+  selectAll: vi.fn(),
+  selectedCount: 0,
+  hasSelection: false,
 };
 
 
@@ -94,7 +94,7 @@ describe('TrackRow', () => {
   describe('Rendering', () => {
     it('should render track title', () => {
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       expect(screen.getByText('Test Track')).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe('TrackRow', () => {
 
     it('should render artist name', () => {
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       expect(screen.getByText('Test Artist')).toBeInTheDocument();
@@ -110,7 +110,7 @@ describe('TrackRow', () => {
 
     it('should render album name', () => {
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       expect(screen.getByText('Test Album')).toBeInTheDocument();
@@ -118,7 +118,7 @@ describe('TrackRow', () => {
 
     it('should render duration', () => {
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       // Duration should be displayed as MM:SS
@@ -127,7 +127,7 @@ describe('TrackRow', () => {
 
     it('should render album artwork', () => {
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       expect(screen.getByTestId('track-artwork')).toBeInTheDocument();
@@ -135,7 +135,7 @@ describe('TrackRow', () => {
 
     it('should render selection checkbox', () => {
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       // Component renders (checkbox not part of this component)
@@ -144,7 +144,7 @@ describe('TrackRow', () => {
 
     it('should render context menu', () => {
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       expect(screen.getByTestId('track-context-menu')).toBeInTheDocument();
@@ -152,7 +152,7 @@ describe('TrackRow', () => {
 
     it('should render drag handle if draggable', () => {
       render(
-        <TrackRow track={mockTrack} draggable={true} />
+        <TrackRow {...{ track: mockTrack, draggable: true, index: 0, onPlay: vi.fn() } as any} />
       );
 
       // Drag handle should be present
@@ -170,7 +170,7 @@ describe('TrackRow', () => {
       });
 
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       // Selection state managed through context (no checkbox in this version)
@@ -185,7 +185,7 @@ describe('TrackRow', () => {
       });
 
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       // Selection state managed through context (no checkbox in this version)
@@ -194,21 +194,21 @@ describe('TrackRow', () => {
 
     it('should toggle selection on checkbox click', async () => {
       const user = userEvent.setup();
-      const toggleSelection = vi.fn();
+      const toggleTrack = vi.fn();
 
       vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
-        toggleSelection,
+        toggleTrack,
       });
 
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       const row = screen.getByRole('row');
       await user.click(row);
 
-      expect(toggleSelection).toHaveBeenCalledWith(mockTrack.id);
+      expect(toggleTrack).toHaveBeenCalledWith(mockTrack.id);
     });
 
     it('should support shift-click for range selection', async () => {
@@ -221,32 +221,36 @@ describe('TrackRow', () => {
       });
 
       render(
-        <TrackRow track={mockTrack} index={0} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       const row = screen.getByRole('row');
-      await user.click(row, { shiftKey: true });
+      await user.keyboard('{Shift>}');
+      await user.click(row);
+      await user.keyboard('{/Shift}');
 
       expect(selectRange).toHaveBeenCalled();
     });
 
     it('should support ctrl/cmd-click for multi-select', async () => {
       const user = userEvent.setup();
-      const toggleSelection = vi.fn();
+      const toggleTrack = vi.fn();
 
       vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
-        toggleSelection,
+        toggleTrack,
       });
 
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       const row = screen.getByRole('row');
-      await user.click(row, { ctrlKey: true });
+      await user.keyboard('{Control>}');
+      await user.click(row);
+      await user.keyboard('{/Control}');
 
-      expect(toggleSelection).toHaveBeenCalledWith(mockTrack.id);
+      expect(toggleTrack).toHaveBeenCalledWith(mockTrack.id);
     });
   });
 
@@ -256,7 +260,7 @@ describe('TrackRow', () => {
       const onPlay = vi.fn();
 
       render(
-        <TrackRow track={mockTrack} onPlay={onPlay} />
+        <TrackRow track={mockTrack} onPlay={onPlay} index={0} />
       );
 
       const row = screen.getByRole('row');
@@ -270,7 +274,7 @@ describe('TrackRow', () => {
       const onPlay = vi.fn();
 
       render(
-        <TrackRow track={mockTrack} onPlay={onPlay} />
+        <TrackRow track={mockTrack} onPlay={onPlay} index={0} />
       );
 
       const playButton = screen.getByText('Play');
@@ -286,7 +290,7 @@ describe('TrackRow', () => {
       const unavailableTrack = { ...mockTrack, filepath: null };
 
       render(
-        <TrackRow track={unavailableTrack} onPlay={onPlay} />
+        <TrackRow track={unavailableTrack} onPlay={onPlay} index={0} />
       );
 
       const row = screen.getByRole('row');
@@ -301,7 +305,7 @@ describe('TrackRow', () => {
       const user = userEvent.setup();
 
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       const row = screen.getByRole('row');
@@ -316,7 +320,7 @@ describe('TrackRow', () => {
       const user = userEvent.setup();
 
       const { container } = render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       const row = container.firstChild as HTMLElement;
@@ -331,7 +335,7 @@ describe('TrackRow', () => {
   describe('Drag and Drop', () => {
     it('should be draggable when draggable prop is true', () => {
       const { container } = render(
-        <TrackRow track={mockTrack} draggable={true} />
+        <TrackRow {...{ track: mockTrack, draggable: true, index: 0, onPlay: vi.fn() } as any} />
       );
 
       const row = container.firstChild as HTMLElement;
@@ -340,7 +344,7 @@ describe('TrackRow', () => {
 
     it('should not be draggable when draggable prop is false', () => {
       const { container } = render(
-        <TrackRow track={mockTrack} draggable={false} />
+        <TrackRow {...{ track: mockTrack, draggable: false, index: 0, onPlay: vi.fn() } as any} />
       );
 
       const row = container.firstChild as HTMLElement;
@@ -348,15 +352,10 @@ describe('TrackRow', () => {
     });
 
     it('should call onDragStart when drag begins', () => {
-      const user = userEvent.setup();
       const onDragStart = vi.fn();
 
       const { container } = render(
-        <TrackRow
-            track={mockTrack}
-            draggable={true}
-            onDragStart={onDragStart}
-          />
+        <TrackRow {...{ track: mockTrack, draggable: true, onDragStart, index: 0, onPlay: vi.fn() } as any} />
       );
 
       const row = container.firstChild as HTMLElement;
@@ -370,11 +369,7 @@ describe('TrackRow', () => {
       const onDragEnd = vi.fn();
 
       const { container } = render(
-        <TrackRow
-            track={mockTrack}
-            draggable={true}
-            onDragEnd={onDragEnd}
-          />
+        <TrackRow {...{ track: mockTrack, draggable: true, onDragEnd, index: 0, onPlay: vi.fn() } as any} />
       );
 
       const row = container.firstChild as HTMLElement;
@@ -387,10 +382,8 @@ describe('TrackRow', () => {
 
   describe('Context Menu', () => {
     it('should open context menu on right-click', async () => {
-      const user = userEvent.setup();
-
       const { container } = render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       // Right-click on the track row container
@@ -403,7 +396,7 @@ describe('TrackRow', () => {
 
     it('should pass track to context menu', () => {
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       // Verify track title is displayed (passed to context menu)
@@ -414,7 +407,7 @@ describe('TrackRow', () => {
   describe('Accessibility', () => {
     it('should have proper structure', () => {
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       // Component renders content in a proper structure
@@ -423,7 +416,7 @@ describe('TrackRow', () => {
 
     it('should have accessible track title', () => {
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       const titleElement = screen.getByText('Test Track');
@@ -434,7 +427,7 @@ describe('TrackRow', () => {
       const user = userEvent.setup();
 
       render(
-        <TrackRow track={mockTrack} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       await user.tab();
@@ -451,7 +444,7 @@ describe('TrackRow', () => {
       };
 
       const { container } = render(
-        <TrackRow track={longTitleTrack} />
+        <TrackRow track={longTitleTrack} index={0} onPlay={vi.fn()} />
       );
 
       const row = container.firstChild as HTMLElement;
@@ -465,7 +458,7 @@ describe('TrackRow', () => {
       };
 
       render(
-        <TrackRow track={noDurationTrack} />
+        <TrackRow track={noDurationTrack} index={0} onPlay={vi.fn()} />
       );
 
       // Should still render without crashing
@@ -479,7 +472,7 @@ describe('TrackRow', () => {
       };
 
       render(
-        <TrackRow track={noArtworkTrack} />
+        <TrackRow track={noArtworkTrack} index={0} onPlay={vi.fn()} />
       );
 
       expect(screen.getByText('Test Track')).toBeInTheDocument();
@@ -493,7 +486,7 @@ describe('TrackRow', () => {
       };
 
       render(
-        <TrackRow track={specialTrack} />
+        <TrackRow track={specialTrack} index={0} onPlay={vi.fn()} />
       );
 
       expect(screen.getByText(/Track.*Remix.*2024/)).toBeInTheDocument();
@@ -502,13 +495,13 @@ describe('TrackRow', () => {
 
   describe('Performance', () => {
     it('should render efficiently with many rows', () => {
-      const { container, rerender } = render(
-        <TrackRow track={mockTrack} />
+      const { rerender } = render(
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
       // Update track and ensure no unnecessary re-renders
       rerender(
-        <TrackRow track={mockTrack2} />
+        <TrackRow track={mockTrack2} index={0} onPlay={vi.fn()} />
       );
 
       expect(screen.getByText('Another Track')).toBeInTheDocument();
@@ -518,7 +511,7 @@ describe('TrackRow', () => {
       let renderCount = 0;
       const TestWrapper = () => {
         renderCount++;
-        return <TrackRow track={mockTrack} />;
+        return <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />;
       };
 
       const { rerender } = render(

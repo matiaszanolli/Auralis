@@ -94,7 +94,7 @@ const createTestStore = () => {
 const createWrapper = () => {
   const store = createTestStore();
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store }, children);
+    return React.createElement(Provider, { store, children });
   };
 };
 

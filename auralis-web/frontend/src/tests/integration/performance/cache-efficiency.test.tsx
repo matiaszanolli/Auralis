@@ -21,7 +21,6 @@ describe('Cache Efficiency Integration Tests', () => {
   it('should achieve cache hit rate > 80% for repeated queries', async () => {
     // Arrange
     let requestCount = 0;
-    const cacheHits: boolean[] = [];
 
     server.use(
       http.get('http://localhost:8765/api/library/tracks', async () => {

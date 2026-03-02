@@ -15,7 +15,7 @@ export const StyledListItemButton = styled(ListItemButton, {
     : selected
       ? tokens.colors.opacityScale.accent.veryLight
       : 'transparent',
-  border: isDraggingOver ? `2px dashed ${tokens.colors.opacityScale.accent.stronger}` : '2px solid transparent',
+  border: isDraggingOver ? `2px dashed ${tokens.colors.opacityScale.accent.veryStrong}` : '2px solid transparent',
 
   '&:hover': {
     backgroundColor: isDraggingOver
@@ -47,7 +47,7 @@ export const DropIndicator = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'center',
   backgroundColor: tokens.colors.opacityScale.accent.veryLight,
-  border: `2px dashed ${tokens.colors.opacityScale.accent.stronger}`,
+  border: `2px dashed ${tokens.colors.opacityScale.accent.veryStrong}`,
   borderRadius: theme.spacing(1),
   pointerEvents: 'none',
   zIndex: 1,

@@ -297,7 +297,7 @@ describe('Error Tracking Middleware', () => {
   // ============================================================================
 
   it('should trigger connection recovery on network error', () => {
-    const dispatchSpy = vi.spyOn(store || { dispatch: vi.fn() }, 'dispatch', 'get');
+    vi.spyOn(store || { dispatch: vi.fn() }, 'dispatch', 'get');
 
     store = configureStore({
       reducer: {

@@ -44,7 +44,7 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, index, onClose }) =
       <StyledAlert
         severity={toast.type}
         onClose={handleClose}
-        variant="filled"
+        variant={toast.type}
       >
         {toast.message}
       </StyledAlert>

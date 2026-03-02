@@ -172,17 +172,11 @@ describe('Pagination Performance Integration Tests', () => {
   it('should handle search performance on large datasets (< 100ms)', async () => {
     // Arrange
     const searchQuery = 'Track 1';
-    let searchStartTime = 0;
-    let searchEndTime = 0;
 
     server.use(
       http.get('http://localhost:8765/api/library/tracks', ({ request }) => {
         const url = new URL(request.url);
         const search = url.searchParams.get('search') || '';
-
-        if (search) {
-          searchStartTime = performance.now();
-        }
 
         // Simulate search filtering
         const filtered = Array.from({ length: 100 }, (_, i) => ({
@@ -192,10 +186,6 @@ describe('Pagination Performance Integration Tests', () => {
         })).filter(t =>
           t.title.toLowerCase().includes(search.toLowerCase())
         );
-
-        if (search) {
-          searchEndTime = performance.now();
-        }
 
         return HttpResponse.json({
           tracks: filtered.slice(0, 50),
@@ -357,7 +347,7 @@ describe('Pagination Performance Integration Tests', () => {
     );
 
     const SortableLibrary = () => {
-      const [sortBy, setSortBy] = React.useState('title');
+      const [sortBy] = React.useState('title');
       const [order, setOrder] = React.useState('asc');
       const [tracks, setTracks] = React.useState<any[]>([]);
 

@@ -57,7 +57,7 @@ type TestStore = ReturnType<typeof createTestStore>;
 
 function makeWrapper(store: TestStore) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store }, children);
+    return React.createElement(Provider, { store, children });
   };
 }
 

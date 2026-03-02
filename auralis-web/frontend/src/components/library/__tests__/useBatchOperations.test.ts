@@ -11,7 +11,7 @@
  */
 
 import { vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useBatchOperations } from '../useBatchOperations';
 import { server } from '@/test/mocks/server';
 import { http, HttpResponse } from 'msw';
@@ -19,6 +19,7 @@ import { http, HttpResponse } from 'msw';
 // Mock dependencies
 vi.mock('../../shared/Toast', () => ({
   useToast: vi.fn(() => ({
+    showToast: vi.fn(),
     success: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
@@ -81,6 +82,7 @@ describe('useBatchOperations', () => {
     it('should show success toast', async () => {
       const mockToastSuccess = vi.fn();
       vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
         success: mockToastSuccess,
         error: vi.fn(),
         info: vi.fn(),
@@ -125,6 +127,7 @@ describe('useBatchOperations', () => {
     it('should handle API errors', async () => {
       const mockToastError = vi.fn();
       vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
         success: vi.fn(),
         error: mockToastError,
         info: vi.fn(),
@@ -160,6 +163,7 @@ describe('useBatchOperations', () => {
     it('should show coming soon message', async () => {
       const mockToastInfo = vi.fn();
       vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
         success: vi.fn(),
         error: vi.fn(),
         info: mockToastInfo,
@@ -227,6 +231,7 @@ describe('useBatchOperations', () => {
     it('should delete from favorites when in favorites view', async () => {
       const mockToastSuccess = vi.fn();
       vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
         success: mockToastSuccess,
         error: vi.fn(),
         info: vi.fn(),
@@ -254,6 +259,7 @@ describe('useBatchOperations', () => {
     it('should show implementation message for library delete', async () => {
       const mockToastInfo = vi.fn();
       vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
         success: vi.fn(),
         error: vi.fn(),
         info: mockToastInfo,
@@ -300,6 +306,7 @@ describe('useBatchOperations', () => {
     it('should handle API errors', async () => {
       const mockToastError = vi.fn();
       vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
         success: vi.fn(),
         error: mockToastError,
         info: vi.fn(),
@@ -355,6 +362,7 @@ describe('useBatchOperations', () => {
     it('should show success toast with count', async () => {
       const mockToastSuccess = vi.fn();
       vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
         success: mockToastSuccess,
         error: vi.fn(),
         info: vi.fn(),
@@ -417,6 +425,7 @@ describe('useBatchOperations', () => {
     it('should handle API errors', async () => {
       const mockToastError = vi.fn();
       vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
         success: vi.fn(),
         error: mockToastError,
         info: vi.fn(),
@@ -452,6 +461,7 @@ describe('useBatchOperations', () => {
     it('should behave differently for favorites vs library', async () => {
       const mockToastSuccess = vi.fn();
       vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
         success: mockToastSuccess,
         error: vi.fn(),
         info: vi.fn(),

@@ -18,7 +18,6 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { waitFor } from '@testing-library/react';
 
 // ============================================================
 // MSE API MOCKS
@@ -34,7 +33,6 @@ class MockMediaSource extends EventTarget {
 
   private _onSourceOpen?: () => void;
   private _onSourceEnded?: () => void;
-  private _onSourceClose?: () => void;
 
   constructor() {
     super();
@@ -82,10 +80,7 @@ class MockMediaSource extends EventTarget {
 
   set onsourceclose(handler: (() => void) | null) {
     if (handler) {
-      this._onSourceClose = handler;
       this.addEventListener('sourceclose', handler);
-    } else {
-      this._onSourceClose = undefined;
     }
   }
 
@@ -106,14 +101,11 @@ class MockSourceBuffer extends EventTarget {
   appendWindowStart: number = 0;
   appendWindowEnd: number = Infinity;
   private _chunks: ArrayBuffer[] = [];
-  private _mimeType: string;
 
   private _onUpdateEnd?: () => void;
-  private _onError?: (e: Event) => void;
 
-  constructor(mimeType: string) {
+  constructor(_mimeType: string) {
     super();
-    this._mimeType = mimeType;
     this.buffered = new MockTimeRanges();
   }
 
@@ -177,10 +169,7 @@ class MockSourceBuffer extends EventTarget {
 
   set onerror(handler: ((e: Event) => void) | null) {
     if (handler) {
-      this._onError = handler;
       this.addEventListener('error', handler);
-    } else {
-      this._onError = undefined;
     }
   }
 
@@ -545,7 +534,6 @@ describe('Streaming & MSE Integration Tests', () => {
     it('should handle chunk buffering and playback', async () => {
       // Arrange
       await player.initialize(1);
-      const metadata = createMockStreamMetadata(1, 20);
 
       // Act - Buffer first 5 chunks (50 seconds)
       for (let i = 0; i < 5; i++) {
@@ -616,7 +604,6 @@ describe('Streaming & MSE Integration Tests', () => {
       }
 
       const initialPreset = player.currentPreset;
-      const initialBuffered = player.sourceBuffer?.buffered.end(0);
 
       // Act - Switch to 'warm' preset
       await player.switchPreset('warm');
@@ -631,7 +618,6 @@ describe('Streaming & MSE Integration Tests', () => {
       // Arrange
       await player.initialize(1);
       await player.appendChunk(createMockWebMChunk(0));
-      const initialChunks = player.sourceBuffer?.getChunks().length;
 
       // Act - Switch preset
       const oldPreset = player.currentPreset;

@@ -309,7 +309,7 @@ export async function extractArtworkColors(
         // Convert to ExtractedColor format
         const extractedColors: ExtractedColor[] = clusters.map((cluster) => {
           const { r, g, b } = cluster.color;
-          const [h, s, l] = rgbToHsl(r, g, b);
+          const [_h, s, l] = rgbToHsl(r, g, b);
           return {
             r,
             g,

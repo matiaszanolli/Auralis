@@ -24,13 +24,13 @@ export interface TrackGridViewProps {
 export const TrackGridView: React.FC<TrackGridViewProps> = ({
   tracks,
   hasMore,
-  currentTrackId,
+  currentTrackId: _currentTrackId,
   loadMoreRef,
   onTrackPlay,
-  onRemoveTrack,
-  onReorderQueue,
-  onShuffleQueue,
-  onClearQueue,
+  onRemoveTrack: _onRemoveTrack,
+  onReorderQueue: _onReorderQueue,
+  onShuffleQueue: _onShuffleQueue,
+  onClearQueue: _onClearQueue,
 }) => {
   return (
     <>

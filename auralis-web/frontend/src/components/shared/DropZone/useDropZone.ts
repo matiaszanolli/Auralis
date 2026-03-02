@@ -22,7 +22,7 @@ export const useDropZone = (
   scanning: boolean = false
 ): UseDropZoneReturn => {
   const [isDragging, setIsDragging] = useState(false);
-  const [dragCounter, setDragCounter] = useState(0);
+  const [_dragCounter, setDragCounter] = useState(0);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();

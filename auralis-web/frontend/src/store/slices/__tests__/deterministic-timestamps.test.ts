@@ -5,7 +5,7 @@
  * instead receiving timestamps via action.meta from prepare callbacks.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import queueReducer, { addTrack, setIsLoading as setQueueLoading } from '../queueSlice';
 import playerReducer, { setIsPlaying, setVolume } from '../playerSlice';
@@ -16,12 +16,13 @@ import type { CacheStats } from '@/services/api/standardizedAPIClient';
 
 describe('Deterministic Timestamps (fixes #2232)', () => {
   describe('Queue Slice', () => {
-    let store: ReturnType<typeof configureStore>;
+    const createQueueStore = () => configureStore({
+      reducer: { queue: queueReducer },
+    });
+    let store: ReturnType<typeof createQueueStore>;
 
     beforeEach(() => {
-      store = configureStore({
-        reducer: { queue: queueReducer },
-      });
+      store = createQueueStore();
     });
 
     it('should include timestamp in action meta, not call Date.now() in reducer', () => {
@@ -70,7 +71,7 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
 
       // Dispatch same action multiple times
       store.dispatch(action);
-      const state1 = store.getState().queue;
+      store.getState().queue;
 
       store.dispatch(setQueueLoading(false));
       store.dispatch(action);
@@ -84,12 +85,13 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
   });
 
   describe('Player Slice', () => {
-    let store: ReturnType<typeof configureStore>;
+    const createPlayerStore = () => configureStore({
+      reducer: { player: playerReducer },
+    });
+    let store: ReturnType<typeof createPlayerStore>;
 
     beforeEach(() => {
-      store = configureStore({
-        reducer: { player: playerReducer },
-      });
+      store = createPlayerStore();
     });
 
     it('should include timestamp in action meta for all actions', () => {
@@ -128,9 +130,7 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
       expect(state2.lastUpdated).toBe(time2);
 
       // Replay again - should get same result (deterministic)
-      const store2 = configureStore({
-        reducer: { player: playerReducer },
-      });
+      const store2 = createPlayerStore();
       store2.dispatch(action1);
       store2.dispatch(action2);
 
@@ -142,12 +142,13 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
   });
 
   describe('Cache Slice', () => {
-    let store: ReturnType<typeof configureStore>;
+    const createCacheStore = () => configureStore({
+      reducer: { cache: cacheReducer },
+    });
+    let store: ReturnType<typeof createCacheStore>;
 
     beforeEach(() => {
-      store = configureStore({
-        reducer: { cache: cacheReducer },
-      });
+      store = createCacheStore();
     });
 
     it('should set lastUpdate from action meta timestamp', () => {
@@ -180,12 +181,13 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
   });
 
   describe('Connection Slice', () => {
-    let store: ReturnType<typeof configureStore>;
+    const createConnectionStore = () => configureStore({
+      reducer: { connection: connectionReducer },
+    });
+    let store: ReturnType<typeof createConnectionStore>;
 
     beforeEach(() => {
-      store = configureStore({
-        reducer: { connection: connectionReducer },
-      });
+      store = createConnectionStore();
     });
 
     it('should set lastUpdated from action meta timestamp', () => {
@@ -226,7 +228,7 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
       vi.restoreAllMocks();
 
       // Create two stores and dispatch same actions
-      const store1 = configureStore({
+      const createFullStore = () => configureStore({
         reducer: {
           queue: queueReducer,
           player: playerReducer,
@@ -234,15 +236,8 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
           connection: connectionReducer,
         },
       });
-
-      const store2 = configureStore({
-        reducer: {
-          queue: queueReducer,
-          player: playerReducer,
-          cache: cacheReducer,
-          connection: connectionReducer,
-        },
-      });
+      const store1 = createFullStore();
+      const store2 = createFullStore();
 
       // Dispatch same actions to both stores
       actions.forEach((action) => {

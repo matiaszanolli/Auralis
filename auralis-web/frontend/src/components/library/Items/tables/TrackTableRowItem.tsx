@@ -54,7 +54,7 @@ export const TrackTableRowItem: React.FC<TrackTableRowItemProps> = ({
     contextActions,
   } = useTrackContextMenu({
     track,
-    onPlay: (trackId) => onTrackClick(track),
+    onPlay: (_trackId) => onTrackClick(track),
     onFindSimilar,
   });
 

@@ -17,25 +17,25 @@ export interface Track {
   duration: number; // Seconds
   filepath: string;
 
-  // Optional metadata
-  artworkUrl?: string; // camelCase
-  genre?: string;
-  year?: number;
+  // Optional metadata — backend sends null for missing values (Python None → JSON null)
+  artworkUrl?: string | null; // camelCase
+  genre?: string | null;
+  year?: number | null;
 
   // Audio properties
-  bitrate?: number; // kbps
-  sampleRate?: number; // Hz (camelCase)
-  bitDepth?: number; // bits (camelCase)
-  format?: string; // wav, flac, mp3, etc.
+  bitrate?: number | null; // kbps
+  sampleRate?: number | null; // Hz (camelCase)
+  bitDepth?: number | null; // bits (camelCase)
+  format?: string | null; // wav, flac, mp3, etc.
 
   // Analysis properties
-  loudness?: number; // LUFS
-  crestFactor?: number; // dB (camelCase)
-  centroid?: number; // Hz
+  loudness?: number | null; // LUFS
+  crestFactor?: number | null; // dB (camelCase)
+  centroid?: number | null; // Hz
 
   // Timestamps
-  dateAdded?: string; // ISO 8601 (camelCase)
-  dateModified?: string; // ISO 8601 (camelCase)
+  dateAdded?: string | null; // ISO 8601 (camelCase)
+  dateModified?: string | null; // ISO 8601 (camelCase)
 }
 
 // ============================================================================
@@ -68,15 +68,15 @@ export interface Artist {
   id: number;
   name: string;
 
-  // Optional metadata
-  artworkUrl?: string; // camelCase
+  // Optional metadata — backend sends null for missing values
+  artworkUrl?: string | null; // camelCase
 
   // Stats
   trackCount: number; // camelCase
   albumCount: number; // camelCase
 
   // Timestamps
-  dateAdded?: string; // ISO 8601 (camelCase)
+  dateAdded?: string | null; // ISO 8601 (camelCase)
 }
 
 // ============================================================================

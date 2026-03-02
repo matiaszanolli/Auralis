@@ -191,7 +191,7 @@ export function useAudioVisualization(enabled: boolean = true): AudioVisualizati
     }
 
     // Get frequency data
-    analyser.getByteFrequencyData(frequencyData);
+    analyser.getByteFrequencyData(frequencyData as Uint8Array<ArrayBuffer>);
 
     const sampleRate = audioContext.sampleRate;
     const fftSize = analyser.fftSize;

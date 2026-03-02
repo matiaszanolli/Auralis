@@ -268,8 +268,8 @@ describe('StandardizedAPIClient', () => {
     const result = await client.getPaginated('/api/test', 50, 0);
 
     expect(isPaginatedResponse(result)).toBe(true);
-    expect(result.pagination.total).toBe(100);
-    expect(result.pagination.has_more).toBe(true);
+    expect((result as any).pagination.total).toBe(100);
+    expect((result as any).pagination.has_more).toBe(true);
   });
 
   it('should clear cache', async () => {

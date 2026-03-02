@@ -11,7 +11,7 @@ import { tokens } from '@/design-system';
  * StyledTableRow - Interactive table row with hover effects and current track highlighting
  * Used in AlbumDetailView and ArtistDetailView for track listings
  */
-export const StyledTableRow = styled(TableRow)(({ theme }) => ({
+export const StyledTableRow = styled(TableRow)(({ theme: _theme }) => ({
   cursor: 'pointer',
   transition: 'background-color 0.2s ease',
   '&:hover': {

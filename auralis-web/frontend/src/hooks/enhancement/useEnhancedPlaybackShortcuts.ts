@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import type { PresetName } from '@/store/slices/playerSlice';
 import { playerSelectors } from '@/store/selectors';
 import type { RootState } from '@/store';

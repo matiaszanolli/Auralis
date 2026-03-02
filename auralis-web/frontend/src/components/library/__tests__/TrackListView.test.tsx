@@ -8,7 +8,6 @@
  */
 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import React from 'react';
 import { render, screen } from '@/test/test-utils';
 import { act } from 'react-dom/test-utils';
 import TrackListView from '../Views/TrackListView';
@@ -84,11 +83,6 @@ const defaultProps = {
   onEditMetadata: vi.fn(),
   onLoadMore: vi.fn(),
 };
-
-const mockTracks = [
-  { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
-  { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Album 2', duration: 200 },
-];
 
 describe('TrackListView', () => {
   beforeEach(() => {

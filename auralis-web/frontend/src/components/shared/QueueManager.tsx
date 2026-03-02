@@ -16,7 +16,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { tokens } from '@/design-system';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 
@@ -40,12 +40,6 @@ interface QueueManagerProps {
    * Show add track functionality
    */
   showAddTrack?: boolean;
-}
-
-interface QueueState {
-  tracks: Track[];
-  currentIndex: number;
-  isLoading: boolean;
 }
 
 /**
@@ -85,7 +79,7 @@ export function QueueManager({
     clearQueue,
     reorderTrack,
     isLoading,
-    error,
+    error: _error,
   } = usePlaybackQueue();
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);

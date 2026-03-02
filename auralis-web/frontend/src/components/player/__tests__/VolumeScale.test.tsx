@@ -49,7 +49,7 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
 }));
 
 describe('Player - Volume Scale Consistency (#2116)', () => {
-  let store: ReturnType<typeof configureStore>;
+  let store: any;
 
   beforeEach(() => {
     // Reset mocks
@@ -60,7 +60,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
       reducer: {
         player: playerReducer,
         queue: queueReducer,
-      },
+      } as any,
       preloadedState: {
         player: {
           currentTrack: {
@@ -84,7 +84,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
           shuffle: false,
           repeat: 'none',
         },
-      },
+      } as any,
     });
   });
 

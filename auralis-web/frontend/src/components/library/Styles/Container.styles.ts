@@ -19,7 +19,7 @@ import { Box, styled } from '@mui/material';
  * Used for: modals, loaders, empty states, centered UI elements
  * Features: horizontal and vertical centering via flexbox
  */
-export const CenteredBox = styled(Box)(({ theme }) => ({
+export const CenteredBox = styled(Box)(({ theme: _theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -32,7 +32,7 @@ export const CenteredBox = styled(Box)(({ theme }) => ({
  * Used for: vertical layouts, form containers, stacked content
  * Features: vertical stacking with centered alignment
  */
-export const CenteredColumn = styled(Box)(({ theme }) => ({
+export const CenteredColumn = styled(Box)(({ theme: _theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -86,7 +86,7 @@ export const SectionBox = styled(Box)(({ theme }) => ({
  * Used for: scrollable lists, overflow content
  * Features: auto scroll, width/height constraints
  */
-export const OverflowContainer = styled(Box)(({ theme }) => ({
+export const OverflowContainer = styled(Box)(({ theme: _theme }) => ({
   overflow: 'auto',
   width: '100%',
 }));
@@ -96,7 +96,7 @@ export const OverflowContainer = styled(Box)(({ theme }) => ({
  * Used for: parent of absolutely positioned children
  * Features: position relative, size management
  */
-export const RelativeContainer = styled(Box)(({ theme }) => ({
+export const RelativeContainer = styled(Box)(({ theme: _theme }) => ({
   position: 'relative',
   width: '100%',
 }));

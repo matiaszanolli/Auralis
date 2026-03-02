@@ -10,11 +10,10 @@
  * - Artist metadata display
  */
 
-import React from 'react';
 import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CozyArtistList } from '../CozyArtistList';
+import { CozyArtistList } from '../Items/artists/CozyArtistList';
 
 // Mock context menu and toast hooks
 vi.mock('../../shared/ContextMenu', () => ({

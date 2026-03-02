@@ -4,7 +4,7 @@
  * Tests for track title, artist, album display, overflow handling, and accessibility.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import TrackDisplay from '../TrackDisplay';
 
@@ -131,7 +131,7 @@ describe('TrackDisplay', () => {
 
   describe('Meta Separator', () => {
     it('should show separator between artist and album', () => {
-      const { container } = render(
+      render(
         <TrackDisplay
           title="Song Title"
           artist="Artist Name"
@@ -144,7 +144,7 @@ describe('TrackDisplay', () => {
     });
 
     it('should not show separator with only artist', () => {
-      const { container } = render(
+      render(
         <TrackDisplay
           title="Song Title"
           artist="Artist Name"
@@ -156,7 +156,7 @@ describe('TrackDisplay', () => {
     });
 
     it('should not show separator with only album', () => {
-      const { container } = render(
+      render(
         <TrackDisplay
           title="Song Title"
           album="Album Name"

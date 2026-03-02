@@ -41,8 +41,6 @@ export const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
   const { hoveredPreset, setHoveredPreset, getCirclePosition: calculatePosition } = usePresetSelection();
 
   const radius = (size - 80) / 2; // Leave space for preset buttons
-  const centerSize = size / 3;
-
   const currentPresetData = PRESETS.find((p) => p.value === currentPreset) || PRESETS[0];
 
   return (

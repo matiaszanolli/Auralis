@@ -209,7 +209,7 @@ export function withTrackedMemo<P extends Record<string, any>>(
  */
 export function memoizeValue<T>(
   factory: () => T,
-  deps: React.DependencyList
+  _deps: React.DependencyList
 ): T {
   // This is a utility wrapper - actual memoization happens in useMemo
   return factory();

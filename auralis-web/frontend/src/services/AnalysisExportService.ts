@@ -595,7 +595,7 @@ export class AnalysisExportService {
   private async exportAsImage(options: ExportOptions, format: 'png' | 'svg'): Promise<string> {
     this.progressTracker.updateProgress(20, `Generating ${format.toUpperCase()} visualization...`);
 
-    const visualSettings: Required<ExportOptions['visualizationSettings']> = options.visualizationSettings || {
+    const visualSettings: Required<NonNullable<ExportOptions['visualizationSettings']>> = options.visualizationSettings || {
       width: 1920,
       height: 1080,
       theme: 'dark' as const,
@@ -627,7 +627,7 @@ export class AnalysisExportService {
 
   private async renderVisualization(
     ctx: CanvasRenderingContext2D,
-    settings: Required<ExportOptions['visualizationSettings']>
+    settings: Required<NonNullable<ExportOptions['visualizationSettings']>>
   ): Promise<void> {
     const { width, height, theme } = settings;
     const renderCtx = { width, height, theme, ctx };

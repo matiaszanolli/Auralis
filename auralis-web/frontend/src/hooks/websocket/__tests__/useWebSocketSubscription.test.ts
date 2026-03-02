@@ -36,7 +36,6 @@ import type {
 describe('useWebSocketSubscription Hook', () => {
   // Mock subscription manager
   let mockSubscribe: ReturnType<typeof vi.fn>;
-  let mockUnsubscribe: ReturnType<typeof vi.fn>;
   let subscriptionCallbacks: Map<string, Set<Function>>;
 
   beforeEach(() => {
@@ -44,9 +43,6 @@ describe('useWebSocketSubscription Hook', () => {
 
     // Reset callbacks map
     subscriptionCallbacks = new Map();
-
-    // Mock unsubscribe function
-    mockUnsubscribe = vi.fn();
 
     // Mock subscribe function that stores callbacks
     mockSubscribe = vi.fn(
@@ -511,7 +507,7 @@ describe('useWebSocketSubscription Hook', () => {
       });
 
       await waitFor(() => {
-        expect(result.current?.data).toEqual({ isPlaying: true });
+        expect((result.current as any)?.data).toEqual({ isPlaying: true });
       });
     });
 

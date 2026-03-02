@@ -9,7 +9,6 @@
  * - Click handlers and callbacks
  */
 
-import React from 'react';
 import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, beforeAll, vi } from 'vitest';
@@ -406,7 +405,7 @@ describe('CozyAlbumGrid', () => {
           json: async () => moreData,
         });
 
-      const { container } = render(
+      render(
         <CozyAlbumGrid />
       );
 

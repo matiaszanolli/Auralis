@@ -7,7 +7,6 @@
  * - Conditional messaging
  */
 
-import { vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { SimilarTracksEmptyState } from '../SimilarTracksEmptyState';
 

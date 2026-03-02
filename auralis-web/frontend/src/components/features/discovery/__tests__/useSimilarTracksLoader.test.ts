@@ -8,7 +8,7 @@
  */
 
 import { vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useSimilarTracksLoader } from '../useSimilarTracksLoader';
 import similarityService from '@/services/similarityService';
 
@@ -20,9 +20,9 @@ vi.mock('@/services/similarityService', () => ({
 }));
 
 const mockSimilarTracks = [
-  { track_id: 2, title: 'Similar Track 1', artist: 'Artist A', similarity_score: 0.95 },
-  { track_id: 3, title: 'Similar Track 2', artist: 'Artist B', similarity_score: 0.87 },
-  { track_id: 4, title: 'Similar Track 3', artist: 'Artist C', similarity_score: 0.75 },
+  { track_id: 2, title: 'Similar Track 1', artist: 'Artist A', album: 'Album A', distance: 0.05, similarity_score: 0.95 },
+  { track_id: 3, title: 'Similar Track 2', artist: 'Artist B', album: 'Album B', distance: 0.13, similarity_score: 0.87 },
+  { track_id: 4, title: 'Similar Track 3', artist: 'Artist C', album: 'Album C', distance: 0.25, similarity_score: 0.75 },
 ];
 
 describe('useSimilarTracksLoader', () => {
@@ -221,7 +221,7 @@ describe('useSimilarTracksLoader', () => {
             useGraph: false,
           }),
         {
-          initialProps: { trackId: 1 },
+          initialProps: { trackId: 1 as number | null },
         }
       );
 

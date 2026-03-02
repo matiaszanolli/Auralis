@@ -60,8 +60,8 @@ export interface AppMainContentProps {
  */
 export const AppMainContent: React.FC<AppMainContentProps> = ({
   children,
-  onPlayTrack,
-  onQueueTrack,
+  onPlayTrack: _onPlayTrack,
+  onQueueTrack: _onQueueTrack,
 }) => {
   return (
     <Box
@@ -89,7 +89,7 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
             background: tokens.colors.opacityScale.accent.strong,
             borderRadius: tokens.borderRadius.sm,              // 8px - organic curves
             '&:hover': {
-              background: tokens.colors.opacityScale.accent.stronger,
+              background: tokens.colors.opacityScale.accent.veryStrong,
             },
           },
         }}

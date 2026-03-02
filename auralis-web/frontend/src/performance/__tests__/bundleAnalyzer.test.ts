@@ -17,9 +17,8 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  bundleAnalyzer,
   BundleAnalyzer,
   type ModuleMetrics,
   type SizeBudget,

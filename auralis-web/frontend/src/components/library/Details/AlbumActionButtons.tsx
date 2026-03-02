@@ -35,7 +35,7 @@ export const AlbumActionButtons: React.FC<AlbumActionButtonsProps> = ({
   isFavorite,
   savingFavorite,
   firstTrackId,
-  albumId,
+  albumId: _albumId,
   onPlay,
   onToggleFavorite,
   onAddToQueue,

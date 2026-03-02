@@ -5,8 +5,8 @@
  * Replace ComponentName with your component name.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@/test/test-utils'
+import { describe, it, beforeEach, afterEach } from 'vitest'
+// import { render, screen, fireEvent, waitFor } from '@/test/test-utils'
 // import ComponentName from '../ComponentName'
 
 describe('ComponentName', () => {

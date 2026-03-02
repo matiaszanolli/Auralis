@@ -13,8 +13,7 @@
  * @module components/library/__tests__/SearchBar.test
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import SearchBar from '@/components/library/SearchBar';
 
@@ -304,7 +303,7 @@ describe('SearchBar', () => {
     it('should hide loading indicator after debounce completes', async () => {
       const mockOnSearch = vi.fn();
 
-      const { container } = render(<SearchBar onSearch={mockOnSearch} />);
+      render(<SearchBar onSearch={mockOnSearch} />);
 
       const input = screen.getByRole('textbox');
 
@@ -316,9 +315,6 @@ describe('SearchBar', () => {
         vi.advanceTimersByTime(300);
       });
 
-      const loadingIcon = container.querySelector(
-        'span:contains("⟳")'
-      );
       // After debounce, loading state should be false
       expect(mockOnSearch).toHaveBeenCalled();
     });

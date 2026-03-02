@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { ApiResponse, ApiError } from '../../types/api';
+import type { ApiError } from '../../types/api';
 import { ApiErrorHandler } from '../../types/api';
 import { API_BASE_URL } from '../../config/api';
 const REQUEST_TIMEOUT = 30000; // 30 seconds
@@ -360,7 +360,7 @@ export function useQuery<T = any>(endpoint: string, skip: boolean = false) {
       } catch (err) {
         setError(err as ApiError);
       } finally {
-        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
+        setIsLoading(false);
       }
     };
 
@@ -403,7 +403,7 @@ export function useMutation<T = any>(endpoint: string, method: 'POST' | 'PUT' | 
         setError(apiError);
         throw apiError;
       } finally {
-        if ((inflightCount.current -= 1) <= 0) { inflightCount.current = 0; setIsLoading(false); }
+        setIsLoading(false);
       }
     },
     [post, put, apiDelete, endpoint, method]

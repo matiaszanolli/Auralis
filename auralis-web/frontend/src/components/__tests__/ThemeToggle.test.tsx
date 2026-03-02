@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@/test/test-utils'
+import { render, screen, fireEvent } from '@/test/test-utils'
 import { useTheme } from '../../contexts/ThemeContext'
 import ThemeToggle from '../shared/ui/ThemeToggle'
 
@@ -60,19 +60,19 @@ describe('ThemeToggle', () => {
   })
 
   it.skip('renders with correct size - small', () => {
-    const { container } = render(<ThemeToggle size="small" />)
+    render(<ThemeToggle size="small" />)
     const button = screen.getByRole('button')
     expect(button).toHaveStyle({ width: '36px', height: '36px' })
   })
 
   it.skip('renders with correct size - medium', () => {
-    const { container } = render(<ThemeToggle size="medium" />)
+    render(<ThemeToggle size="medium" />)
     const button = screen.getByRole('button')
     expect(button).toHaveStyle({ width: '44px', height: '44px' })
   })
 
   it.skip('renders with correct size - large', () => {
-    const { container } = render(<ThemeToggle size="large" />)
+    render(<ThemeToggle size="large" />)
     const button = screen.getByRole('button')
     expect(button).toHaveStyle({ width: '52px', height: '52px' })
   })

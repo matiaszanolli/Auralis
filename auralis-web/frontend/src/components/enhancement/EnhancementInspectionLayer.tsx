@@ -26,7 +26,7 @@ export interface EnhancementInspectionLayerProps {
   fingerprintStatus: 'idle' | 'analyzing' | 'complete' | 'error' | 'failed';
 
   /** Fingerprint message (for errors) */
-  fingerprintMessage?: string;
+  fingerprintMessage?: string | null;
 
   /** Streaming state */
   streamingState: 'idle' | 'buffering' | 'streaming' | 'error' | 'complete';
@@ -47,7 +47,7 @@ export interface EnhancementInspectionLayerProps {
   isPaused: boolean;
 
   /** Error message (if any) */
-  error?: string;
+  error?: string | null;
 
   /** Is currently streaming? */
   isStreaming: boolean;

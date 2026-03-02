@@ -57,7 +57,7 @@ export interface AppEnhancementPaneProps {
  * - Footer with V2 toggle
  */
 export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
-  onEnhancementChange,
+  onEnhancementChange: _onEnhancementChange,
   onToggleV2,
   useV2 = false,
   initiallyCollapsed = false,

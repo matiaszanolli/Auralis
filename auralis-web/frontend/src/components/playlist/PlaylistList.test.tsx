@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, within } from '@/test/test-utils'
+import { render, screen, waitFor } from '@/test/test-utils'
 import userEvent from '@testing-library/user-event'
 import { PlaylistList } from './PlaylistList'
 import * as playlistService from '@/services/playlistService'
@@ -305,7 +305,6 @@ describe('PlaylistList', () => {
 
   describe('Delete Playlist', () => {
     it('shows delete button on hover', async () => {
-      const user = userEvent.setup()
       render(<PlaylistList />)
 
       await waitFor(() => {

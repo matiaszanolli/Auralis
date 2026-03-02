@@ -8,7 +8,7 @@ import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Paper, Typography, styled } from '@mui/material';
 
-export const ToolbarContainer = styled(Paper)(({ theme }) => ({
+export const ToolbarContainer = styled(Paper)(({ theme: _theme }) => ({
   position: 'fixed',
   top: '80px',
   left: '50%',
@@ -36,14 +36,14 @@ export const ToolbarContainer = styled(Paper)(({ theme }) => ({
   },
 }));
 
-export const SelectionCount = styled(Typography)(({ theme }) => ({
+export const SelectionCount = styled(Typography)(({ theme: _theme }) => ({
   color: tokens.colors.text.primary,
   fontWeight: 'bold',
   fontSize: '16px',
   minWidth: '140px',
 }));
 
-export const ActionButton = styled(IconButton)(({ theme }) => ({
+export const ActionButton = styled(IconButton)(({ theme: _theme }) => ({
   color: tokens.colors.text.primary,
   backgroundColor: tokens.colors.opacityScale.accent.light,
   '&:hover': {
@@ -52,7 +52,7 @@ export const ActionButton = styled(IconButton)(({ theme }) => ({
   transition: 'all 0.2s ease',
 }));
 
-export const CloseButton = styled(IconButton)(({ theme }) => ({
+export const CloseButton = styled(IconButton)(({ theme: _theme }) => ({
   color: tokens.colors.text.primary,
   marginLeft: 'auto',
   '&:hover': {

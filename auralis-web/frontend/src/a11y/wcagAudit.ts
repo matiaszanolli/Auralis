@@ -69,7 +69,7 @@ interface AuditResult {
 // WCAG Criteria Database
 // ============================================================================
 
-const wcagCriteria: Record<string, WCAGCriterion> = {
+export const wcagCriteria: Record<string, WCAGCriterion> = {
   '1.1.1': {
     code: '1.1.1',
     name: 'Non-text Content',
@@ -438,7 +438,7 @@ export class WCAGAudit {
   /**
    * Check language specification (3.1.1)
    */
-  private checkLanguage(root: HTMLElement): void {
+  private checkLanguage(_root: HTMLElement): void {
     const htmlElement = document.documentElement;
     if (!htmlElement.getAttribute('lang')) {
       this.addIssue({

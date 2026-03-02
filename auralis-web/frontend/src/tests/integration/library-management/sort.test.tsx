@@ -91,7 +91,6 @@ describe('Sort Operations', () => {
     server.use(
       http.get('http://localhost:8765/api/library/tracks', ({ request }) => {
         const url = new URL(request.url);
-        const sortBy = url.searchParams.get('sort') || 'title';
         const order = url.searchParams.get('order') || 'asc';
 
         const sorted = [...mockTracks].sort((a, b) => {

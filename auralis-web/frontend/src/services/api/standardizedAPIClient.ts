@@ -11,7 +11,6 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { z } from 'zod';
 import { API_BASE_URL } from '../../config/api';
 
 // ============================================================================
@@ -190,7 +189,7 @@ export function isPaginatedResponse<T>(response: any): response is PaginatedResp
   return (
     isSuccessResponse(response) &&
     Array.isArray(response.data) &&
-    response.pagination !== undefined
+    (response as any).pagination !== undefined
   );
 }
 
@@ -355,7 +354,7 @@ export class StandardizedAPIClient {
     options?: RequestOptions
   ): Promise<PaginatedResponse<T> | ErrorResponse> {
     const url = `${endpoint}?limit=${limit}&offset=${offset}`;
-    return this.request<T[]>(url, { ...options, method: 'GET' });
+    return this.request<T[]>(url, { ...options, method: 'GET' }) as Promise<PaginatedResponse<T> | ErrorResponse>;
   }
 
   /**
@@ -391,7 +390,7 @@ export class CacheAwareAPIClient {
   /**
    * Get chunk with cache information
    */
-  async getChunk(trackId: number, chunkIndex: number, preset?: string) {
+  async getChunk(trackId: number, chunkIndex: number, _preset?: string) {
     const endpoint = `/api/chunks/${trackId}/${chunkIndex}`;
     const response = await this.apiClient.get(endpoint, { cache: true });
 

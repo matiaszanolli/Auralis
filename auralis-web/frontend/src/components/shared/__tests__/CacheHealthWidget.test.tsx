@@ -28,7 +28,6 @@ import { CacheHealthWidget } from '../CacheHealthWidget';
 import * as hooks from '@/hooks/shared/useStandardizedAPI';
 import {
   mockCacheHealth,
-  mockUseCacheHealth,
 } from './test-utils';
 
 // Mock the hooks
@@ -45,6 +44,7 @@ describe('CacheHealthWidget', () => {
       loading: false,
       error: null,
       isHealthy: true,
+      healthStatus: 'healthy',
       refetch: vi.fn().mockResolvedValue(undefined),
     });
   });
@@ -101,6 +101,8 @@ describe('CacheHealthWidget', () => {
       },
       loading: false,
       error: null,
+      isHealthy: false,
+      healthStatus: 'warning' as const,
       refetch: vi.fn(),
     }));
 
@@ -119,6 +121,7 @@ describe('CacheHealthWidget', () => {
       loading: false,
       error: null,
       isHealthy: false,
+      healthStatus: 'critical',
       refetch: vi.fn(),
     }));
 
@@ -151,6 +154,7 @@ describe('CacheHealthWidget', () => {
       loading: false,
       error: null,
       isHealthy: true,
+      healthStatus: 'healthy',
       refetch: vi.fn(),
     }));
 
@@ -172,6 +176,8 @@ describe('CacheHealthWidget', () => {
       },
       loading: false,
       error: null,
+      isHealthy: true,
+      healthStatus: 'healthy' as const,
       refetch: vi.fn(),
     }));
 
@@ -191,6 +197,7 @@ describe('CacheHealthWidget', () => {
       loading: false,
       error: null,
       isHealthy: true,
+      healthStatus: 'healthy',
       refetch: vi.fn(),
     }));
 
@@ -209,6 +216,8 @@ describe('CacheHealthWidget', () => {
       },
       loading: false,
       error: null,
+      isHealthy: true,
+      healthStatus: 'warning' as const,
       refetch: vi.fn(),
     }));
 
@@ -238,6 +247,7 @@ describe('CacheHealthWidget', () => {
       loading: false,
       error: null,
       isHealthy: false,
+      healthStatus: 'critical',
       refetch: vi.fn(),
     }));
 
@@ -262,6 +272,7 @@ describe('CacheHealthWidget', () => {
       loading: false,
       error: null,
       isHealthy: false,
+      healthStatus: 'critical',
       refetch: vi.fn(),
     }));
 
@@ -379,6 +390,8 @@ describe('CacheHealthWidget', () => {
       data: null,
       loading: true,
       error: null,
+      isHealthy: false,
+      healthStatus: 'critical' as const,
       refetch: vi.fn(),
     }));
 
@@ -392,6 +405,8 @@ describe('CacheHealthWidget', () => {
       data: null,
       loading: true,
       error: null,
+      isHealthy: false,
+      healthStatus: 'critical' as const,
       refetch: vi.fn(),
     }));
 
@@ -409,6 +424,8 @@ describe('CacheHealthWidget', () => {
       data: null,
       loading: false,
       error: 'Failed to load health',
+      isHealthy: false,
+      healthStatus: 'critical' as const,
       refetch: vi.fn(),
     }));
 
@@ -425,6 +442,8 @@ describe('CacheHealthWidget', () => {
       data: null,
       loading: false,
       error: 'Failed to load health',
+      isHealthy: false,
+      healthStatus: 'critical' as const,
       refetch: mockRefetch,
     }));
 
@@ -441,6 +460,8 @@ describe('CacheHealthWidget', () => {
       data: null,
       loading: false,
       error: 'Failed to load health',
+      isHealthy: false,
+      healthStatus: 'critical' as const,
       refetch: mockRefetch,
     }));
 
@@ -485,6 +506,8 @@ describe('CacheHealthWidget', () => {
       },
       loading: false,
       error: null,
+      isHealthy: false,
+      healthStatus: 'critical' as const,
       refetch: vi.fn(),
     }));
 
@@ -552,6 +575,8 @@ describe('CacheHealthWidget', () => {
       data: mockCacheHealth,
       loading: false,
       error: null,
+      isHealthy: true,
+      healthStatus: 'healthy' as const,
       refetch: mockRefetch,
     }));
 

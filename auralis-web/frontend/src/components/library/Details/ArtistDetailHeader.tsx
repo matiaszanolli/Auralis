@@ -9,9 +9,8 @@ import React from 'react';
 import { tokens } from '@/design-system';
 import { ArrowBack } from '@mui/icons-material';
 import ArtistHeader from './ArtistHeader';
-import { type Track, type Album, type Artist } from './useArtistDetailsData';
-import { Button, IconButton } from '@/design-system';
-import { Box, Container } from '@mui/material';
+import { type Artist } from './useArtistDetailsData';
+import { IconButton } from '@/design-system';
 
 interface ArtistDetailHeaderProps {
   artist: Artist;

@@ -50,7 +50,7 @@ describe('usePlayerStreaming Hook', () => {
 
     // Create mock WebSocket context
     mockWebSocketContext = {
-      subscribe: vi.fn((event: string, callback: Function) => {
+      subscribe: vi.fn((_event: string, _callback: Function) => {
         // Return unsubscribe function
         return vi.fn();
       }),
@@ -93,7 +93,7 @@ describe('usePlayerStreaming Hook', () => {
         })
       );
 
-      mockAudioElement.duration = 200;
+      (mockAudioElement as any).duration = 200;
 
       await waitFor(() => {
         expect(result.current.duration).toBe(200);
@@ -107,7 +107,7 @@ describe('usePlayerStreaming Hook', () => {
         })
       );
 
-      mockAudioElement.paused = false;
+      (mockAudioElement as any).paused = false;
 
       await waitFor(() => {
         expect(result.current.isPlaying).toBe(true);
@@ -122,7 +122,7 @@ describe('usePlayerStreaming Hook', () => {
         })
       );
 
-      mockAudioElement.paused = true;
+      (mockAudioElement as any).paused = true;
 
       await waitFor(() => {
         expect(result.current.isPlaying).toBe(false);
@@ -175,7 +175,7 @@ describe('usePlayerStreaming Hook', () => {
       buffered.length = 1;
       vi.mocked(buffered.start).mockReturnValue(0);
       vi.mocked(buffered.end).mockReturnValue(50);
-      mockAudioElement.duration = 100;
+      (mockAudioElement as any).duration = 100;
 
       const { result } = renderHook(() =>
         usePlayerStreaming({
@@ -203,7 +203,7 @@ describe('usePlayerStreaming Hook', () => {
     });
 
     it('should handle zero duration', async () => {
-      mockAudioElement.duration = 0;
+      (mockAudioElement as any).duration = 0;
 
       const { result } = renderHook(() =>
         usePlayerStreaming({
@@ -328,8 +328,6 @@ describe('usePlayerStreaming Hook', () => {
           driftThreshold: 100,
         })
       );
-
-      const originalPlaybackRate = mockAudioElement.playbackRate;
 
       // Playback rate should be adjusted for large drift
       act(() => {
@@ -547,7 +545,7 @@ describe('usePlayerStreaming Hook', () => {
   describe('Error Handling', () => {
     it('should set error state on audio error', async () => {
       let errorListener: Function;
-      vi.mocked(mockAudioElement.addEventListener).mockImplementation(
+      (mockAudioElement.addEventListener as any).mockImplementation(
         (event: string, listener: Function) => {
           if (event === 'error') {
             errorListener = listener;
@@ -555,7 +553,7 @@ describe('usePlayerStreaming Hook', () => {
         }
       );
 
-      mockAudioElement.error = { code: 4 } as any;
+      (mockAudioElement as any).error = { code: 4 };
 
       const { result } = renderHook(() =>
         usePlayerStreaming({
@@ -574,7 +572,7 @@ describe('usePlayerStreaming Hook', () => {
 
     it('should track buffering state on waiting event', async () => {
       let waitingListener: Function;
-      vi.mocked(mockAudioElement.addEventListener).mockImplementation(
+      (mockAudioElement.addEventListener as any).mockImplementation(
         (event: string, listener: Function) => {
           if (event === 'waiting') {
             waitingListener = listener;
@@ -599,7 +597,7 @@ describe('usePlayerStreaming Hook', () => {
 
     it('should clear buffering state on canplay event', async () => {
       let canplayListener: Function;
-      vi.mocked(mockAudioElement.addEventListener).mockImplementation(
+      (mockAudioElement.addEventListener as any).mockImplementation(
         (event: string, listener: Function) => {
           if (event === 'canplay') {
             canplayListener = listener;
@@ -615,8 +613,8 @@ describe('usePlayerStreaming Hook', () => {
 
       // Set error first
       act(() => {
-        const listeners = vi.mocked(mockAudioElement.addEventListener).mock.calls;
-        const errorListener = listeners.find((call) => call[0] === 'error')?.[1];
+        const listeners = (mockAudioElement.addEventListener as any).mock.calls;
+        const errorListener = listeners.find((call: any[]) => call[0] === 'error')?.[1] as Function | undefined;
         errorListener?.();
       });
 
@@ -645,7 +643,7 @@ describe('usePlayerStreaming Hook', () => {
     });
 
     it('should handle missing WebSocket context', async () => {
-      vi.mocked(useWebSocketContext).mockReturnValue(null);
+      vi.mocked(useWebSocketContext).mockReturnValue(null as any);
 
       const { result } = renderHook(() =>
         usePlayerStreaming({
@@ -657,7 +655,7 @@ describe('usePlayerStreaming Hook', () => {
     });
 
     it('should handle NaN duration', async () => {
-      mockAudioElement.duration = NaN;
+      (mockAudioElement as any).duration = NaN;
 
       const { result } = renderHook(() =>
         usePlayerStreaming({
@@ -670,7 +668,7 @@ describe('usePlayerStreaming Hook', () => {
     });
 
     it('should handle Infinity duration', async () => {
-      mockAudioElement.duration = Infinity;
+      (mockAudioElement as any).duration = Infinity;
 
       const { result } = renderHook(() =>
         usePlayerStreaming({

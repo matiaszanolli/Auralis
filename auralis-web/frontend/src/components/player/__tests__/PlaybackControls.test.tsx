@@ -29,7 +29,7 @@ describe('PlaybackControls', () => {
     });
 
     it('should render with correct structure', () => {
-      const { container } = render(
+      render(
         <PlaybackControls
           isPlaying={false}
           onPlay={vi.fn()}

@@ -70,7 +70,7 @@ export const ResultTitle = styled(Typography)({
  * Used for: search results secondary info, artist/album info
  * Features: dimmed color, slightly smaller font
  */
-export const ResultSubtitle = styled(Typography)(({ theme }) => ({
+export const ResultSubtitle = styled(Typography)(({ theme: _theme }) => ({
   fontSize: tokens.typography.fontSize.sm,
   color: tokens.colors.text.secondary,
 }));
@@ -80,7 +80,7 @@ export const ResultSubtitle = styled(Typography)(({ theme }) => ({
  * Used for: metadata, timestamps, utility text
  * Features: small font, secondary color
  */
-export const SmallText = styled(Typography)(({ theme }) => ({
+export const SmallText = styled(Typography)(({ theme: _theme }) => ({
   fontSize: tokens.typography.fontSize.xs,
   color: tokens.colors.text.secondary,
   fontWeight: tokens.typography.fontWeight.normal,
@@ -91,7 +91,7 @@ export const SmallText = styled(Typography)(({ theme }) => ({
  * Used for: inactive elements, helper text, disabled state
  * Features: disabled color, normal weight
  */
-export const SecondaryText = styled(Typography)(({ theme }) => ({
+export const SecondaryText = styled(Typography)(({ theme: _theme }) => ({
   color: tokens.colors.text.secondary,
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.normal,
@@ -102,7 +102,7 @@ export const SecondaryText = styled(Typography)(({ theme }) => ({
  * Used for: form helper text, tooltips, hints
  * Features: very small, disabled color, reduced line height
  */
-export const HelperText = styled(Typography)(({ theme }) => ({
+export const HelperText = styled(Typography)(({ theme: _theme }) => ({
   fontSize: tokens.typography.fontSize.xs,
   color: tokens.colors.text.muted,
   lineHeight: tokens.typography.lineHeight.tight,

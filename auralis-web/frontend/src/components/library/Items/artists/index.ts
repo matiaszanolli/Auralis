@@ -13,8 +13,8 @@ export { default as ArtistListItem } from './ArtistListItem';
 // Loading and state components
 export { default as ArtistListLoading } from './ArtistListLoading';
 export { default as ArtistListEmptyState } from './ArtistListEmptyState';
-export { default as ArtistListLoadingIndicator } from './ArtistListLoadingIndicator';
-export { default as ArtistListHeader } from './ArtistListHeader';
+export { ArtistListLoadingIndicator } from './ArtistListLoadingIndicator';
+export { ArtistListHeader } from './ArtistListHeader';
 
 // Custom hooks
 export { useContextMenuActions } from './useContextMenuActions';

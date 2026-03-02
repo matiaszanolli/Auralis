@@ -15,7 +15,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { tokens } from '@/design-system';
 import { useWebSocketProtocol } from '@/hooks/websocket/useWebSocketProtocol';
 

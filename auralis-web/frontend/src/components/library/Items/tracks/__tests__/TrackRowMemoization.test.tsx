@@ -11,18 +11,11 @@
  */
 
 import { vi } from 'vitest';
-import React, { useState } from 'react';
 import { render, screen } from '@/test/test-utils';
 import TrackRow from '../TrackRow';
 import TrackRowMetadata from '../TrackRowMetadata';
 import TrackRowPlayButton from '../TrackRowPlayButton';
 import TrackRowAlbumArt from '../TrackRowAlbumArt';
-
-// Track render counts
-let trackRowRenderCount = 0;
-let metadataRenderCount = 0;
-let playButtonRenderCount = 0;
-let albumArtRenderCount = 0;
 
 // Mock hooks and components to reduce noise in tests
 vi.mock('../../shared/ContextMenu', () => ({
@@ -79,9 +72,6 @@ const mockTrack = {
 };
 
 describe('TrackRow Memoization', () => {
-  beforeEach(() => {
-    trackRowRenderCount = 0;
-  });
 
   describe('TrackRow Component', () => {
     it('should not re-render when parent re-renders with same props', () => {
@@ -509,7 +499,7 @@ describe('TrackRow Memoization', () => {
 
       const onPlay = vi.fn();
 
-      const { container } = render(
+      render(
         <div>
           {tracks.map((track, index) => (
             <TrackRow

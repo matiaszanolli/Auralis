@@ -5,15 +5,11 @@
  * Does not initiate any actions, just subscribes to state changes.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useWebSocketSubscription } from '../websocket/useWebSocketSubscription';
-import type { PlayerStateData, TrackInfo } from '../../types/websocket';
+import type { TrackInfo } from '../../types/websocket';
 import type {
-  PlaybackStartedMessage,
-  PlaybackPausedMessage,
-  PlaybackStoppedMessage,
-  TrackLoadedMessage,
-  TrackChangedMessage,
+  PositionChangedMessage,
   VolumeChangedMessage,
   PlayerStateMessage,
 } from '../../types/websocket';

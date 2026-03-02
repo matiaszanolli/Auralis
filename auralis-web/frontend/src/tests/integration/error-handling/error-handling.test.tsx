@@ -16,7 +16,7 @@
  */
 
 import React from 'react';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import { http, HttpResponse } from 'msw';

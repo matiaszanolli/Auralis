@@ -59,7 +59,7 @@ export interface SegmentedControlProps {
   className?: string;
 }
 
-const ControlContainer = styled('div')<{ size: 'sm' | 'md' }>(({ size }) => ({
+const ControlContainer = styled('div')<{ size: 'sm' | 'md' }>(({ size: _size }) => ({
   display: 'inline-flex',
   alignItems: 'center',
   // Subtle glass container

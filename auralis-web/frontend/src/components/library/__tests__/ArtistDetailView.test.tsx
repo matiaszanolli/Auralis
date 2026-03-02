@@ -8,8 +8,7 @@
  */
 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import React from 'react';
-import { render, screen } from '@/test/test-utils';
+import { render } from '@/test/test-utils';
 import { act } from 'react-dom/test-utils';
 import ArtistDetailView from '../Details/ArtistDetailView';
 
@@ -44,7 +43,7 @@ describe('ArtistDetailView', () => {
 
   describe('Rendering', () => {
     it('should render without crashing', () => {
-      const { container } = render(<ArtistDetailView />);
+      const { container } = render(<ArtistDetailView artistId={1} />);
       expect(container).toBeInTheDocument();
     });
 
@@ -66,7 +65,7 @@ describe('ArtistDetailView', () => {
     });
 
     it('should handle undefined artistId', () => {
-      const { container } = render(<ArtistDetailView />);
+      const { container } = render(<ArtistDetailView {...{artistId: undefined} as any} />);
       expect(container).toBeInTheDocument();
     });
 
@@ -78,7 +77,7 @@ describe('ArtistDetailView', () => {
         trackCount: 50,
       };
       const { container } = render(
-        <ArtistDetailView artistId={1} artist={mockArtist} />
+        <ArtistDetailView artistId={1} artistName={mockArtist.name} />
       );
       expect(container).toBeInTheDocument();
     });
@@ -121,18 +120,18 @@ describe('ArtistDetailView', () => {
       };
 
       const { container } = render(
-        <ArtistDetailView artistId={1} artist={mockArtist} />
+        <ArtistDetailView artistId={1} artistName={mockArtist.name} />
       );
       expect(container).toBeInTheDocument();
     });
 
     it('should handle empty artist data', () => {
-      const { container } = render(<ArtistDetailView artistId={1} artist={undefined} />);
+      const { container } = render(<ArtistDetailView artistId={1} artistName={undefined} />);
       expect(container).toBeInTheDocument();
     });
 
     it('should handle null artist data', () => {
-      const { container } = render(<ArtistDetailView artistId={1} artist={null} />);
+      const { container } = render(<ArtistDetailView artistId={1} {...{artistName: null} as any} />);
       expect(container).toBeInTheDocument();
     });
   });
@@ -145,25 +144,17 @@ describe('ArtistDetailView', () => {
     });
 
     it('should handle album list prop', () => {
-      const mockAlbums = [
-        { id: 1, title: 'Album 1', year: 2020 },
-        { id: 2, title: 'Album 2', year: 2021 },
-      ];
-
+      // ArtistDetailView fetches albums internally; just render with artistId
       const { container } = render(
-        <ArtistDetailView artistId={1} albums={mockAlbums} />
+        <ArtistDetailView artistId={1} />
       );
       expect(container).toBeInTheDocument();
     });
 
     it('should handle track list prop', () => {
-      const mockTracks = [
-        { id: 1, title: 'Track 1', artist: 'Test Artist' },
-        { id: 2, title: 'Track 2', artist: 'Test Artist' },
-      ];
-
+      // ArtistDetailView fetches tracks internally; just render with artistId
       const { container } = render(
-        <ArtistDetailView artistId={1} tracks={mockTracks} />
+        <ArtistDetailView artistId={1} />
       );
       expect(container).toBeInTheDocument();
     });
@@ -189,7 +180,7 @@ describe('ArtistDetailView', () => {
 
   describe('Error States', () => {
     it('should handle missing artistId gracefully', () => {
-      const { container } = render(<ArtistDetailView />);
+      const { container } = render(<ArtistDetailView {...{artistId: undefined} as any} />);
       expect(container).toBeInTheDocument();
     });
 
@@ -199,8 +190,9 @@ describe('ArtistDetailView', () => {
     });
 
     it('should handle empty lists gracefully', () => {
+      // ArtistDetailView fetches data internally; just verify it renders
       const { container } = render(
-        <ArtistDetailView artistId={1} albums={[]} tracks={[]} />
+        <ArtistDetailView artistId={1} />
       );
       expect(container).toBeInTheDocument();
     });

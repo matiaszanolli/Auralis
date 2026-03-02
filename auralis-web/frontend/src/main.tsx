@@ -12,14 +12,13 @@ import ReactDOM from 'react-dom/client';
     ]);
 
     // Now safe to import components that use styled(Paper) etc
-    const { ThemeProvider } = await import('@mui/material/styles');
+    const { ThemeProvider: _ThemeProvider } = await import('@mui/material/styles');
     const { default: CssBaseline } = await import('@mui/material/CssBaseline');
     const { Global } = await import('@emotion/react');
     const { globalStyles } = await import('./styles/globalStyles');
     const { default: App } = await import('./App');
 
     // Log commit ID for debugging
-    const commitId = import.meta.env.VITE_COMMIT_ID || 'unknown';
     const commitMeta = document.querySelector('meta[name="commit-id"]');
     const commitFromMeta = commitMeta?.getAttribute('content') || 'unknown';
     console.log(`%c<� Auralis ${import.meta.env.MODE} build`, 'color: #00d4ff; font-weight: bold; font-size: 14px;');

@@ -3,13 +3,7 @@ import { Box } from '@mui/material';
 import { List } from '@/design-system';
 import { AlphabetDivider } from '../../Styles/ArtistList.styles';
 import { ArtistListItem } from './ArtistListItem';
-
-interface Artist {
-  id: number;
-  name: string;
-  album_count?: number;
-  track_count?: number;
-}
+import type { Artist } from '@/types/domain';
 
 interface ArtistSectionProps {
   letter: string;

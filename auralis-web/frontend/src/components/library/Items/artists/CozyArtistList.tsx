@@ -65,7 +65,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
     }
   }, [onArtistClick]);
 
-  const handleContextMenuOpen = useCallback((event: React.MouseEvent, artist: Artist) => {
+  const handleContextMenuOpen = useCallback((artist: Artist, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
     setContextMenuArtist(artist);
@@ -82,7 +82,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
   }
 
   const emptyState = (
-    <ArtistListEmptyState loading={isLoading} error={error?.message} />
+    <ArtistListEmptyState loading={isLoading} error={error?.message ?? null} />
   );
 
   if (error || artists.length === 0) {

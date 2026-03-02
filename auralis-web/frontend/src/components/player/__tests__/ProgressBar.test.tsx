@@ -5,7 +5,7 @@
  * hover preview, and accessibility features.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@/test/test-utils';
 import ProgressBar from '../ProgressBar';
 
@@ -168,7 +168,7 @@ describe('ProgressBar', () => {
   describe('Click to Seek', () => {
     it('should call onSeek when clicked at midpoint', () => {
       const mockSeek = vi.fn();
-      const { container } = render(
+      render(
         <ProgressBar
           currentTime={0}
           duration={100}
@@ -342,7 +342,7 @@ describe('ProgressBar', () => {
     });
 
     it('should update tooltip position on mouse move', () => {
-      const { container } = render(
+      render(
         <ProgressBar
           currentTime={0}
           duration={180}
@@ -658,7 +658,6 @@ describe('ProgressBar', () => {
       const buffered = screen.getByTestId('progress-bar-buffered');
       // NaN gets clamped to 0, which sets width to 0%
       // Check that it's either explicitly set to 0% or inherits to 0
-      const width = buffered.style.width || '0%';
       expect(['0%', '']).toContain(buffered.style.width);
     });
   });

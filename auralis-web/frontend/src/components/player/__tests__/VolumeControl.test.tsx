@@ -243,7 +243,7 @@ describe('VolumeControl', () => {
     });
 
     it('should apply opacity when disabled', () => {
-      const { container } = render(
+      render(
         <VolumeControl
           volume={0.5}
           onVolumeChange={vi.fn()}

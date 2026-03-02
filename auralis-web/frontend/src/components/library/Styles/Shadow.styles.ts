@@ -45,7 +45,7 @@ export const cardShadows = {
   // Dark card shadow variant
   dark: `0 8px 24px ${tokens.colors.opacityScale.dark.standard}`,
   // Small context menu shadow (12px offset, 48px blur)
-  contextMenu: `0 12px 48px ${tokens.colors.opacityScale.dark.strongerDark}`,
+  contextMenu: `0 12px 48px ${tokens.colors.opacityScale.dark.veryStrong}`,
 };
 
 /**
@@ -55,7 +55,7 @@ export const containerShadows = {
   // Results container/dropdown shadow (8px offset, 32px blur, dark)
   dropdown: `0 8px 32px ${tokens.colors.opacityScale.dark.veryStrong}`,
   // Search results container shadow (same as results panel)
-  resultsPanel: `0 8px 32px ${tokens.colors.opacityScale.dark.strongerDark}`,
+  resultsPanel: `0 8px 32px ${tokens.colors.opacityScale.dark.veryStrong}`,
 };
 
 /**

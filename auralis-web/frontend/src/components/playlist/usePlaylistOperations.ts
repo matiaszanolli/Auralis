@@ -23,7 +23,7 @@ export const usePlaylistOperations = ({
   selectedPlaylistId,
   onPlaylistSelect,
 }: UsePlaylistOperationsProps) => {
-  const { success, error, info } = useToast();
+  const { success, error, info: _info } = useToast();
 
   const fetchPlaylists = useCallback(async () => {
     try {

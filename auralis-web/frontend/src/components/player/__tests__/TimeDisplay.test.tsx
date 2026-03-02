@@ -460,7 +460,7 @@ describe('TimeDisplay', () => {
         />
       );
 
-      const initialText = screen.getByTestId('time-display').textContent;
+      screen.getByTestId('time-display').textContent;
 
       rerender(
         <TimeDisplay

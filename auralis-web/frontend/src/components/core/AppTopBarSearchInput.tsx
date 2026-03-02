@@ -34,7 +34,7 @@ export const AppTopBarSearchInput: React.FC<AppTopBarSearchInputProps> = ({
     <SearchContainer focused={isSearchFocused} sx={{ minWidth }}>
       <SearchIcon
         sx={{
-          color: tokens.colors.opacityScale.accent.stronger,
+          color: tokens.colors.opacityScale.accent.veryStrong,
           fontSize: '18px',
           opacity: 0.6,
         }}
@@ -70,7 +70,7 @@ export const AppTopBarSearchInput: React.FC<AppTopBarSearchInputProps> = ({
           onClick={onClear}
           size="small"
           sx={{
-            color: tokens.colors.opacityScale.accent.stronger,
+            color: tokens.colors.opacityScale.accent.veryStrong,
             padding: '4px',
             '&:hover': {
               color: 'var(--silver)',

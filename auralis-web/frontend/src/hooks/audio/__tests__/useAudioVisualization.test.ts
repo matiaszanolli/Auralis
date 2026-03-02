@@ -106,7 +106,7 @@ describe('useAudioVisualization', () => {
   it('emits fewer than 200 state updates over 5s at 60fps', () => {
     let renderCount = 0;
 
-    const { result } = renderHook(() => {
+    renderHook(() => {
       renderCount++;
       return useAudioVisualization(true);
     });

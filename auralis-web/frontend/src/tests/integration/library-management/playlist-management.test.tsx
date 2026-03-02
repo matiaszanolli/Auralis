@@ -24,7 +24,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { DragDropContext } from '@hello-pangea/dnd';
@@ -168,7 +168,6 @@ describe('Playlist Management Integration Tests', () => {
 
     it('should duplicate a playlist', async () => {
       // Arrange
-      const user = userEvent.setup();
       render(<PlaylistListWithDnd />);
 
       // Wait for playlists to load
@@ -255,7 +254,6 @@ describe('Playlist Management Integration Tests', () => {
 
     it('should move track to different position within playlist', async () => {
       // Arrange
-      const playlistId = 1;
       const newTrackOrder = [3, 1, 2, 4, 5]; // New order after moving track
 
       // Act - Reorder tracks (direct API call)
@@ -435,7 +433,6 @@ describe('Playlist Management Integration Tests', () => {
     it('should resume playlist from specific track', async () => {
       // Arrange
       const playlistId = 1;
-      const trackIndex = 5;
 
       // Act - Get playlist tracks
       const playlist = await playlistService.getPlaylist(playlistId);

@@ -6,5 +6,5 @@
  */
 
 export { default as CozyAlbumGrid } from './CozyAlbumGrid';
-export { default as AlbumGridContent } from './AlbumGridContent';
-export { default as AlbumGridLoadingState } from './AlbumGridLoadingState';
+export { AlbumGridContent } from './AlbumGridContent';
+export { AlbumGridLoadingState } from './AlbumGridLoadingState';

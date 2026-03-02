@@ -39,7 +39,6 @@ import {
   useAppErrors,
   useConnectionHealth,
   usePlaybackProgress,
-  useQueueTimeRemaining,
 } from '../useReduxState';
 import type React from 'react';
 

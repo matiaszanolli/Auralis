@@ -79,7 +79,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 /** Parse all recorded manager.send() calls as JSON objects. */
 function sentMessages(mgr: MockWSManager): any[] {
-  return mgr.send.mock.calls.map(([raw]: [string]) => JSON.parse(raw));
+  return mgr.send.mock.calls.map(([raw]: any[]) => JSON.parse(raw));
 }
 
 // ============================================================================

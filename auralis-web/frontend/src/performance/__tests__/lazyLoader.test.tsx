@@ -18,12 +18,11 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   dynamicImport,
   modulePreloader,
   createLazyRoutes,
-  ErrorBoundary,
   DefaultLoadingFallback,
   DefaultErrorFallback,
   type RouteConfig,
@@ -310,8 +309,8 @@ describe('Lazy Loader', () => {
 // ============================================================================
 
 function renderWithErrorBoundary(
-  children: React.ReactNode,
-  props?: any
+  _children: React.ReactNode,
+  _props?: any
 ) {
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -324,7 +323,7 @@ function renderWithErrorBoundary(
   }
 }
 
-function renderComponent(component: React.ReactNode) {
+function renderComponent(_component: React.ReactNode) {
   const container = document.createElement('div');
   document.body.appendChild(container);
 

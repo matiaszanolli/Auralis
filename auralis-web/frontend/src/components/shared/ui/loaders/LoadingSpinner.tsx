@@ -32,7 +32,7 @@ const SpinnerWrapper = styled(Box)({
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   size = 40,
   thickness = 4,
-  gradient = tokens.gradients.aurora,
+  gradient: _gradient = tokens.gradients.aurora,
   className,
 }) => {
   const gradientId = `gradient-${Math.random().toString(36).substr(2, 9)}`;
@@ -81,7 +81,7 @@ const CenteredContainer = styled(Box)({
   minHeight: '200px',
 });
 
-const LoadingText = styled(Box)(({ theme }) => ({
+const LoadingText = styled(Box)(({ theme: _theme }) => ({
   fontSize: '14px',
   color: tokens.colors.text.secondary,
   fontWeight: 500,

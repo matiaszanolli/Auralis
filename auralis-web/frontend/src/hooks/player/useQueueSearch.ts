@@ -112,12 +112,11 @@ export interface QueueSearchActions {
  * Higher score = more relevant
  */
 function calculateRelevance(
-  query: string,
+  _query: string,
   titleMatch: boolean,
   artistMatch: boolean,
   albumMatch: boolean
 ): number {
-  const queryLower = query.toLowerCase();
   let score = 0;
 
   // Title matches are most relevant (0.6)

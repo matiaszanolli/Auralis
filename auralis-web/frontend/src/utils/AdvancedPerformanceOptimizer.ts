@@ -49,7 +49,6 @@ export class AdvancedPerformanceOptimizer {
   private performanceCallbacks: ((metrics: PerformanceMetrics) => void)[] = [];
   private animationFrameId: number | null = null;
   private lastFrameTime = 0;
-  private frameStartTime = 0;
   private isOptimizing = false;
 
   // Performance monitoring
@@ -277,7 +276,6 @@ export class AdvancedPerformanceOptimizer {
 
   // Public API
   startRender(): void {
-    this.frameStartTime = performance.now();
     if ('performance' in window) {
       performance.mark('auralis-render-start');
     }

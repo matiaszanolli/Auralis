@@ -15,8 +15,8 @@
  * Total: 20 tests
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -150,35 +150,6 @@ const VirtualList = ({
   );
 };
 
-// Cache-aware fetch hook
-const useCachedFetch = (url: string) => {
-  const [data, setData] = React.useState<any>(null);
-  const [cacheHit, setCacheHit] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-
-  React.useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const startTime = performance.now();
-
-      const response = await fetch(url);
-      const result = await response.json();
-
-      const endTime = performance.now();
-      const duration = endTime - startTime;
-
-      // Assume cache hit if response is very fast (< 10ms)
-      setCacheHit(duration < 10);
-      setData(result);
-      setLoading(false);
-    };
-
-    fetchData();
-  }, [url]);
-
-  return { data, cacheHit, loading };
-};
-
 import * as React from 'react';
 
 describe('Performance & Large Libraries Integration Tests', () => {
@@ -267,17 +238,11 @@ describe('Performance & Large Libraries Integration Tests', () => {
     it('should handle search performance on large datasets (< 100ms)', async () => {
       // Arrange
       const searchQuery = 'Track 1';
-      let searchStartTime = 0;
-      let searchEndTime = 0;
 
       server.use(
         http.get('http://localhost:8765/api/library/tracks', ({ request }) => {
           const url = new URL(request.url);
           const search = url.searchParams.get('search') || '';
-
-          if (search) {
-            searchStartTime = performance.now();
-          }
 
           // Simulate search filtering
           const filtered = Array.from({ length: 100 }, (_, i) => ({
@@ -287,10 +252,6 @@ describe('Performance & Large Libraries Integration Tests', () => {
           })).filter(t =>
             t.title.toLowerCase().includes(search.toLowerCase())
           );
-
-          if (search) {
-            searchEndTime = performance.now();
-          }
 
           return HttpResponse.json({
             tracks: filtered.slice(0, 50),
@@ -452,7 +413,7 @@ describe('Performance & Large Libraries Integration Tests', () => {
       );
 
       const SortableLibrary = () => {
-        const [sortBy, setSortBy] = React.useState('title');
+        const [sortBy] = React.useState('title');
         const [order, setOrder] = React.useState('asc');
         const [tracks, setTracks] = React.useState<any[]>([]);
 
@@ -656,7 +617,6 @@ describe('Performance & Large Libraries Integration Tests', () => {
     it('should achieve cache hit rate > 80% for repeated queries', async () => {
       // Arrange
       let requestCount = 0;
-      const cacheHits: boolean[] = [];
 
       server.use(
         http.get('http://localhost:8765/api/library/tracks', async () => {

@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { useTrackContextMenu } from '../tracks/useTrackContextMenu';
@@ -49,7 +49,6 @@ vi.mock('@/components/shared/ContextMenu', () => ({
 }));
 
 import * as playlistService from '@/services/playlistService';
-import { useToast } from '@/components/shared/Toast';
 
 // Create a test store
 const createTestStore = () => {
@@ -65,7 +64,7 @@ const createTestStore = () => {
 const createWrapper = () => {
   const store = createTestStore();
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store }, children);
+    return React.createElement(Provider, { store, children });
   };
 };
 
@@ -82,21 +81,16 @@ const mockTrack = {
 const mockPlaylists = [
   { id: 1, name: 'Favorites', trackCount: 10 },
   { id: 2, name: 'Workout', trackCount: 25 },
-];
+] as any[];
 
 describe('useTrackContextMenu', () => {
   const mockOnPlay = vi.fn();
-  const mockOnToggleFavorite = vi.fn();
-  const mockOnShowAlbum = vi.fn();
-  const mockOnShowArtist = vi.fn();
-  const mockOnShowInfo = vi.fn();
-  const mockOnEditMetadata = vi.fn();
-  const mockOnDelete = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(playlistService.getPlaylists).mockResolvedValue({
       playlists: mockPlaylists,
+      total: mockPlaylists.length,
     });
   });
 
@@ -279,7 +273,7 @@ describe('useTrackContextMenu', () => {
         { wrapper: createWrapper() }
       );
 
-      vi.mocked(playlistService.addTracksToPlaylist).mockResolvedValue(undefined);
+      vi.mocked(playlistService.addTracksToPlaylist).mockResolvedValue(1);
 
       await act(async () => {
         await result.current.handleAddToPlaylist(1, 'Favorites');
@@ -323,8 +317,8 @@ describe('useTrackContextMenu', () => {
         { wrapper: createWrapper() }
       );
 
-      const newPlaylist = { id: 3, name: 'New Playlist', trackCount: 0 };
-      vi.mocked(playlistService.addTracksToPlaylist).mockResolvedValue(undefined);
+      const newPlaylist = { id: 3, name: 'New Playlist', trackCount: 0 } as any;
+      vi.mocked(playlistService.addTracksToPlaylist).mockResolvedValue(1);
 
       await act(async () => {
         await result.current.handleCreatePlaylist(newPlaylist);

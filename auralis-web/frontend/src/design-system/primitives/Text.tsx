@@ -17,7 +17,7 @@ export interface TextProps {
 
 const variantStyles = {
   display: {
-    fontSize: tokens.typography.fontSize.xxl,
+    fontSize: tokens.typography.fontSize['2xl'],
     fontWeight: tokens.typography.fontWeight.bold,
     lineHeight: 1.2,
   },

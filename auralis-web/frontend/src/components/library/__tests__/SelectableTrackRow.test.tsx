@@ -10,7 +10,6 @@
  */
 
 import { vi } from 'vitest';
-import React from 'react';
 import { render, screen, fireEvent } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import SelectableTrackRow from '../Items/tracks/SelectableTrackRow';
@@ -55,6 +54,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -68,6 +68,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -82,6 +83,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -98,6 +100,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -112,6 +115,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={true}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -129,6 +133,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
+            onPlay={vi.fn()}
           />
       );
 
@@ -148,6 +153,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
+            onPlay={vi.fn()}
           />
       );
 
@@ -166,6 +172,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={true}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -182,6 +189,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -202,6 +210,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
+            onPlay={vi.fn()}
           />
       );
 
@@ -244,6 +253,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
+            onPlay={vi.fn()}
           />
       );
 
@@ -286,6 +296,7 @@ describe('SelectableTrackRow', () => {
             isSelected={false}
             onToggleSelect={vi.fn()}
             onPause={onPause}
+            onPlay={vi.fn()}
           />
       );
 
@@ -300,6 +311,7 @@ describe('SelectableTrackRow', () => {
             isSelected={false}
             onToggleSelect={vi.fn()}
             isPlaying={true}
+            onPlay={vi.fn()}
           />
       );
 
@@ -314,6 +326,7 @@ describe('SelectableTrackRow', () => {
             isSelected={false}
             onToggleSelect={vi.fn()}
             isCurrent={true}
+            onPlay={vi.fn()}
           />
       );
 
@@ -333,6 +346,7 @@ describe('SelectableTrackRow', () => {
             isSelected={false}
             onToggleSelect={vi.fn()}
             onEditMetadata={onEditMetadata}
+            onPlay={vi.fn()}
           />
       );
 
@@ -352,6 +366,7 @@ describe('SelectableTrackRow', () => {
             isSelected={false}
             onToggleSelect={vi.fn()}
             onEditMetadata={onEditMetadata}
+            onPlay={vi.fn()}
           />
       );
 
@@ -371,12 +386,14 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={true}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
           <SelectableTrackRow
             track={track2}
             index={1}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
         </>
       );
@@ -389,19 +406,21 @@ describe('SelectableTrackRow', () => {
       const track1 = { ...mockTrack, id: 1, title: 'Track 1' };
       const track2 = { ...mockTrack, id: 2, title: 'Track 2' };
 
-      const { container } = render(
+      render(
         <>
           <SelectableTrackRow
             track={track1}
             index={0}
             isSelected={true}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
           <SelectableTrackRow
             track={track2}
             index={1}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
         </>
       );
@@ -421,6 +440,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -437,6 +457,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -463,6 +484,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -479,6 +501,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
+            onPlay={vi.fn()}
           />
       );
 
@@ -493,6 +516,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={true}
             onToggleSelect={onToggleSelect}
+            onPlay={vi.fn()}
           />
       );
 
@@ -513,6 +537,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 
@@ -533,6 +558,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
+            onPlay={vi.fn()}
           />
       );
 

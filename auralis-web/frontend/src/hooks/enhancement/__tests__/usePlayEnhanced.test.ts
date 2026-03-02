@@ -63,7 +63,7 @@ type TestStore = ReturnType<typeof createTestStore>;
 
 function makeWrapper(store: TestStore) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store }, children);
+    return React.createElement(Provider, { store, children });
   };
 }
 
@@ -200,10 +200,13 @@ function setupMocks() {
     samples: new Float32Array([0.1, 0.2, 0.3]),
     metadata: {
       chunkIndex: 0,
+      chunkCount: 10,
       frameIndex: 0,
       frameCount: 1,
       sampleCount: 3,
       crossfadeSamples: 0,
+      sampleRate: 44100,
+      channels: 2,
     },
   });
 
@@ -405,8 +408,8 @@ describe('usePlayEnhanced – audio_stream_start', () => {
 
     fireHandler('audio_stream_start', makeStreamStartMsg());
 
-    expect(store.getState().player.streaming.state).toBe('error');
-    expect(store.getState().player.streaming.error).toContain('Failed to initialize streaming');
+    expect(store.getState().player.streaming.enhanced.state).toBe('error');
+    expect(store.getState().player.streaming.enhanced.error).toContain('Failed to initialize streaming');
   });
 });
 
@@ -519,8 +522,8 @@ describe('usePlayEnhanced – audio_chunk', () => {
 
     fireHandler('audio_chunk', makeChunkMsg());
 
-    expect(store.getState().player.streaming.state).toBe('error');
-    expect(store.getState().player.streaming.error).toContain('Failed to process audio chunk');
+    expect(store.getState().player.streaming.enhanced.state).toBe('error');
+    expect(store.getState().player.streaming.enhanced.error).toContain('Failed to process audio chunk');
   });
 });
 
@@ -609,7 +612,7 @@ describe('usePlayEnhanced – audio_stream_error', () => {
     fireHandler('audio_stream_error', makeStreamErrorMsg({ stream_type: 'normal' }));
 
     // State should not change to error
-    expect(store.getState().player.streaming.state).not.toBe('error');
+    expect(store.getState().player.streaming.enhanced.state).not.toBe('error');
   });
 });
 
@@ -868,7 +871,7 @@ describe('usePlayEnhanced – playback controls', () => {
 
     expect(mockEngineInstance.stopPlayback).toHaveBeenCalledOnce();
     await waitFor(() =>
-      expect(testStore.getState().player.streaming.state).toBe('idle')
+      expect(testStore.getState().player.streaming.enhanced.state).toBe('idle')
     );
   });
 
@@ -944,7 +947,7 @@ describe('usePlayEnhanced – playEnhanced', () => {
       await result.current.playEnhanced(5, 'punchy', 0.9);
     });
 
-    const streaming = store.getState().player.streaming;
+    const streaming = store.getState().player.streaming.enhanced;
     expect(streaming.trackId).toBe(5);
     expect(streaming.intensity).toBe(0.9);
   });
@@ -1004,8 +1007,8 @@ describe('usePlayEnhanced – playEnhanced', () => {
       await result.current.playEnhanced(1, 'adaptive', 1.0);
     });
 
-    expect(disconnectedStore.getState().player.streaming.state).toBe('error');
-    expect(disconnectedStore.getState().player.streaming.error).toContain('WebSocket not connected');
+    expect(disconnectedStore.getState().player.streaming.enhanced.state).toBe('error');
+    expect(disconnectedStore.getState().player.streaming.enhanced.error).toContain('WebSocket not connected');
   });
 });
 
@@ -1031,7 +1034,7 @@ describe('usePlayEnhanced – WS disconnect cleanup', () => {
 
     // Start a stream so engine/buffer are populated
     fireHandler('audio_stream_start', makeStreamStartMsg());
-    expect(store.getState().player.streaming.state).toBe('buffering');
+    expect(store.getState().player.streaming.enhanced.state).toBe('buffering');
 
     // Simulate disconnect: change mock to return isConnected=false, then re-render
     vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue({
@@ -1050,7 +1053,7 @@ describe('usePlayEnhanced – WS disconnect cleanup', () => {
 
     expect(mockEngineInstance.stopPlayback).toHaveBeenCalledOnce();
     await waitFor(() =>
-      expect(store.getState().player.streaming.state).toBe('idle')
+      expect(store.getState().player.streaming.enhanced.state).toBe('idle')
     );
   });
 });

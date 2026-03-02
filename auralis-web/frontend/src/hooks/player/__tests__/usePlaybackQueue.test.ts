@@ -607,7 +607,7 @@ describe('usePlaybackQueue', () => {
     });
 
     expect(result.current.error).toBeDefined();
-    expect(result.current.error?.code).toBe('INVALID_REPEAT_MODE');
+    expect((result.current.error as any)?.code).toBe('INVALID_REPEAT_MODE');
   });
 
   // =========================================================================

@@ -7,7 +7,6 @@
  * - Icon visibility
  */
 
-import { vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { SimilarTracksHeader } from '../SimilarTracksHeader';
 
@@ -33,7 +32,7 @@ describe('SimilarTracksHeader', () => {
   });
 
   it('should have proper structure', () => {
-    const { container } = render(<SimilarTracksHeader />);
+    render(<SimilarTracksHeader />);
 
     // Should have title and description
     const titleElement = screen.getByText('Similar Tracks');
@@ -44,7 +43,7 @@ describe('SimilarTracksHeader', () => {
   });
 
   it('should render without props', () => {
-    const { container } = render(<SimilarTracksHeader />);
+    render(<SimilarTracksHeader />);
 
     expect(screen.getByText('Similar Tracks')).toBeInTheDocument();
     expect(screen.getByText('Based on acoustic fingerprint analysis')).toBeInTheDocument();
@@ -59,7 +58,7 @@ describe('SimilarTracksHeader', () => {
   });
 
   it('should be accessible', () => {
-    const { container } = render(<SimilarTracksHeader />);
+    render(<SimilarTracksHeader />);
 
     const heading = screen.getByText('Similar Tracks');
     expect(heading).toBeInTheDocument();

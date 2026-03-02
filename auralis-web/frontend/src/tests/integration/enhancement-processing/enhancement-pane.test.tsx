@@ -84,7 +84,7 @@ function createTestStore() {
       queue: queueReducer,
       cache: cacheReducer,
       connection: connectionReducer,
-    },
+    } as any,
     preloadedState: {
       player: {
         currentTrack: { id: 1, title: 'Test Track', artist: 'Test Artist', duration: 240 },
@@ -110,7 +110,7 @@ function createTestStore() {
         latency: 0,
         lastError: null,
       },
-    } as any,
+    },
   });
 }
 
@@ -138,20 +138,6 @@ function renderWithMinimalWrapper(ui: React.ReactElement) {
 
   return render(ui, { wrapper: Wrapper });
 }
-
-// Mock processing parameters
-const mockProcessingParams = {
-  spectral_balance: 0.6,
-  dynamic_range: 0.7,
-  energy_level: 0.5,
-  target_lufs: -14.0,
-  peak_target_db: -1.0,
-  bass_boost: 2.5,
-  air_boost: 1.8,
-  compression_amount: 0.4,
-  expansion_amount: 0.2,
-  stereo_width: 0.8,
-};
 
 // Default mock handlers
 const createMockHandlers = () => ({

@@ -24,7 +24,7 @@ import playerReducer from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
 import cacheReducer from '@/store/slices/cacheSlice';
 import connectionReducer from '@/store/slices/connectionSlice';
-import { createLoggerMiddleware, type LoggerConfig } from '../loggerMiddleware';
+import { createLoggerMiddleware } from '../loggerMiddleware';
 
 describe('Logger Middleware', () => {
   let store: any;
@@ -265,8 +265,6 @@ describe('Logger Middleware', () => {
   });
 
   it('should not log duration when disabled', () => {
-    const logCallsBefore = consoleLogSpy.mock.calls.length;
-
     store = configureStore({
       reducer: {
         player: playerReducer,

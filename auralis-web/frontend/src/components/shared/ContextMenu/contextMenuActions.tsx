@@ -20,7 +20,6 @@ import {
   Edit,
   Album as AlbumIcon,
   Person,
-  Add,
   Explore, // Phase 5: Find Similar Tracks icon
 } from '@mui/icons-material';
 
@@ -38,7 +37,7 @@ export interface ContextMenuAction {
  * Generate track context menu actions
  */
 export const getTrackContextActions = (
-  trackId: number,
+  _trackId: number,
   isLoved: boolean,
   callbacks: {
     onPlay?: () => void;
@@ -132,7 +131,7 @@ export const getTrackContextActions = (
  * Generate album context menu actions
  */
 export const getAlbumContextActions = (
-  albumId: number,
+  _albumId: number,
   callbacks: {
     onPlay?: () => void;
     onAddToQueue?: () => void;
@@ -171,7 +170,7 @@ export const getAlbumContextActions = (
  * Generate artist context menu actions
  */
 export const getArtistContextActions = (
-  artistId: number,
+  _artistId: number,
   callbacks: {
     onPlayAll?: () => void;
     onAddToQueue?: () => void;
@@ -210,7 +209,7 @@ export const getArtistContextActions = (
  * Generate playlist context menu actions
  */
 export const getPlaylistContextActions = (
-  playlistId: string,
+  _playlistId: string,
   callbacks: {
     onPlay?: () => void;
     onEdit?: () => void;

@@ -25,7 +25,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { getApiUrl } from '@/config/api';
 
 interface Track {
   id: number;
@@ -229,7 +228,7 @@ export const usePlayerAPI = () => {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        await response.json();
         setPlayerState(prev => ({
           ...prev,
           queue: tracks,

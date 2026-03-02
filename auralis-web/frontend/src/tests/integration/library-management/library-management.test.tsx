@@ -23,7 +23,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { screen, waitFor, within, cleanup, act } from '@testing-library/react';
+import { screen, waitFor, cleanup, act } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import CozyLibraryView from '@/components/library/CozyLibraryView';

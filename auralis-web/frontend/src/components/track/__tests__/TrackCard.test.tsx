@@ -59,7 +59,7 @@ describe('TrackCard', () => {
     });
 
     it('should render with placeholder when no album art', () => {
-      const { container } = render(
+      render(
         <TrackCard {...defaultProps} albumArt={undefined} />
       );
       // Should still render without crashing

@@ -7,7 +7,6 @@
  * - Dynamic text based on props
  */
 
-import { vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { SimilarTracksFooter } from '../SimilarTracksFooter';
 

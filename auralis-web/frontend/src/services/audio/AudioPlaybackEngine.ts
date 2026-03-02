@@ -61,8 +61,6 @@ export class AudioPlaybackEngine {
   private volume: number = 1.0;
 
   // Playback timing
-  private audioContextStartTime: number = 0;
-  private playbackStartTime: number = 0;
   private samplesPlayed: number = 0;
   private bufferUnderrunCount: number = 0;
   // Seek offset: when streaming resumes from a non-zero position the time
@@ -157,8 +155,6 @@ export class AudioPlaybackEngine {
       this.createProcessor();
 
       // Record timing
-      this.audioContextStartTime = this.audioContext.currentTime;
-      this.playbackStartTime = Date.now();
       this.samplesPlayed = 0;
       this.isBufferPaused = false; // Ensure clean buffer health state
 
@@ -197,7 +193,6 @@ export class AudioPlaybackEngine {
     }
 
     // Resume from paused time
-    this.playbackStartTime = Date.now() - (this.pausedTime * 1000);
     this.createProcessor();
     this.setState('playing');
     console.log('[AudioPlaybackEngine] Playback resumed from', this.pausedTime.toFixed(2), 's');
@@ -210,8 +205,6 @@ export class AudioPlaybackEngine {
     this.disconnectProcessor();
 
     this.pausedTime = 0;
-    this.audioContextStartTime = 0;
-    this.playbackStartTime = 0;
     this.samplesPlayed = 0;
     this.seekOffsetSeconds = 0;
     this.bufferUnderrunCount = 0;

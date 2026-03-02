@@ -5,9 +5,8 @@
  * Tests how search, statistics, recommendations, and shuffle work together.
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { useQueueSearch } from '@/hooks/player/useQueueSearch';
 import { useQueueStatistics } from '@/hooks/player/useQueueStatistics';
 import { useQueueRecommendations } from '@/hooks/player/useQueueRecommendations';
@@ -184,7 +183,7 @@ describe('Phase 7 Integration Tests', () => {
 
     // Initialize all hooks
     const { result: searchResult } = renderHook(() => useQueueSearch(queue));
-    const { result: statsResult } = renderHook(() =>
+    const { result: _statsResult } = renderHook(() =>
       useQueueStatistics(queue)
     );
     const { result: recResult } = renderHook(() =>
@@ -286,7 +285,7 @@ describe('Phase 7 Integration Tests', () => {
     const { result: statsResult } = renderHook(() =>
       useQueueStatistics(largeQueue)
     );
-    const { result: recResult } = renderHook(() =>
+    const { result: _recResult } = renderHook(() =>
       useQueueRecommendations(largeQueue, largeQueue[0], availableTracks)
     );
 
@@ -331,7 +330,6 @@ describe('Phase 7 Integration Tests', () => {
 
   it('should maintain data consistency across operations', () => {
     const queue = createTestQueue(20);
-    const availableTracks = createTestQueue(50);
 
     // Get initial stats
     const { result: statsResult } = renderHook(() =>
@@ -394,7 +392,6 @@ describe('Phase 7 Integration Tests', () => {
 
   it('should handle queue with single track', () => {
     const singleTrackQueue = [createTestQueue(1)[0]];
-    const availableTracks = createTestQueue(20);
 
     const { result: shuffleResult } = renderHook(() => {
       const shuffled = QueueShuffler.shuffle(singleTrackQueue, 'random');

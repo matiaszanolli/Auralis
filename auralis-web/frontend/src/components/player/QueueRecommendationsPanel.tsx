@@ -194,7 +194,7 @@ interface RecommendationTabProps {
 }
 
 const RecommendationTab: React.FC<RecommendationTabProps> = ({
-  title,
+  title: _title,
   recommendations,
   onAddTrack,
 }) => {

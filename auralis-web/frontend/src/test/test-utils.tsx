@@ -10,7 +10,7 @@
  *   })
  */
 
-import React, { ReactElement, ReactNode, createContext, useContext } from 'react'
+import { ReactElement, ReactNode, createContext, useContext } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

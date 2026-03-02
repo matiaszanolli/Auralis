@@ -6,7 +6,6 @@
  * - Alert component visibility
  */
 
-import { vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { SimilarTracksErrorState } from '../SimilarTracksErrorState';
 

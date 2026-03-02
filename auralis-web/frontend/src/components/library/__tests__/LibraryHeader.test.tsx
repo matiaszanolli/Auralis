@@ -8,7 +8,6 @@
  * - Design token compliance
  */
 
-import React from 'react';
 import { render, screen } from '@/test/test-utils';
 import { LibraryHeader } from '../Controls/LibraryHeader';
 
@@ -140,7 +139,6 @@ describe('LibraryHeader', () => {
       );
 
       const heading = container.querySelector('h1');
-      const styles = heading ? window.getComputedStyle(heading) : null;
 
       // Check for gradient-related styling
       expect(heading).toBeInTheDocument();

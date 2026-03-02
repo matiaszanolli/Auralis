@@ -34,20 +34,17 @@ const mockTrack = {
 // Mock time progression
 let mockCurrentTime = 0;
 let mockIsPlaying = false;
-let playbackStartTime = 0;
 
 describe('Progress Bar Monitoring Test', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCurrentTime = 0;
     mockIsPlaying = false;
-    playbackStartTime = 0;
   });
 
   afterEach(() => {
     // Reset player state
     mockIsPlaying = false;
-    playbackStartTime = 0;
   });
 
   it('should monitor progress bar updates for 60 seconds', async () => {
@@ -67,11 +64,9 @@ describe('Progress Bar Monitoring Test', () => {
     const mockHandlers = {
       onPlay: vi.fn().mockImplementation(() => {
         mockIsPlaying = true;
-        playbackStartTime = Date.now();
       }),
       onPause: vi.fn().mockImplementation(() => {
         mockIsPlaying = false;
-        playbackStartTime = 0;
       }),
       onSeek: vi.fn(),
       onVolumeChange: vi.fn(),
@@ -212,7 +207,7 @@ describe('Progress Bar Monitoring Test', () => {
     const anomalies: ProgressMeasurement[] = [];
     const anomalyThreshold = avgDeltaProgress * 2; // 2x average is anomaly
 
-    measurements.forEach((m, i) => {
+    measurements.forEach((m, _i) => {
       if (Math.abs(m.deltaProgress - avgDeltaProgress) > anomalyThreshold) {
         anomalies.push(m);
       }

@@ -349,7 +349,6 @@ describe('QueueRecommendationsPanel', () => {
       clearError: vi.fn(),
     } as any);
 
-    const user = userEvent.setup();
     render(
       <QueueRecommendationsPanel collapsed={false} onToggleCollapse={() => {}} />
     );

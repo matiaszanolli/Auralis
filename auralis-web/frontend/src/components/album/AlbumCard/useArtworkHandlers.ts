@@ -35,7 +35,7 @@ export const useArtworkHandlers = (albumId: number, onArtworkUpdated?: () => voi
     setExtracting(true);
 
     try {
-      const result = await extractArtwork(albumId);
+      await extractArtwork(albumId);
       success(`Extracted artwork from audio files`);
       onArtworkUpdated?.();
     } catch (err) {

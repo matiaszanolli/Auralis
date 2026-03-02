@@ -14,7 +14,7 @@
  * @license GPLv3
  */
 
-import { WebSocketManager, retryWithBackoff, withErrorLogging } from '../utils/errorHandling';
+import { WebSocketManager, retryWithBackoff } from '../utils/errorHandling';
 import { get, post, del, getBlob } from '../utils/apiRequest';
 import { getApiUrl, WS_BASE_URL } from '../config/api';
 

@@ -121,15 +121,6 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
     }
   };
 
-  // Playlist edit handler
-  const handleEditClick = (playlistId: number) => {
-    const playlist = playlists.find((p) => p.id === playlistId);
-    if (playlist) {
-      setEditingPlaylist(playlist);
-      setEditDialogOpen(true);
-    }
-  };
-
   // Playlist updated handler
   const handlePlaylistUpdated = async () => {
     const loaded = await fetchPlaylistsAsync();

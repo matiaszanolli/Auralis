@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { renderHook, act, waitFor } from '@/test/test-utils'
+import { renderHook, act } from '@/test/test-utils'
 import { ReactNode } from 'react'
 import { ThemeProvider, useTheme } from '../ThemeContext'
 

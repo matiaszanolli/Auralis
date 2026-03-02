@@ -62,7 +62,7 @@ export interface PlaylistSectionProps {
 
 export const PlaylistSection: React.FC<PlaylistSectionProps> = ({
   playlists,
-  isLoadingPlaylists,
+  isLoadingPlaylists: _isLoadingPlaylists,
   onAddToPlaylist,
   onCreateNewPlaylist,
 }) => {

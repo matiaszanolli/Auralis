@@ -63,7 +63,7 @@ const TrackRowComponent: React.FC<TrackRowProps> = ({
   onDelete,
 }) => {
   // Image state management
-  const { imageError, handleImageError, shouldShowImage } = useTrackImage();
+  const { imageError: _imageError, handleImageError, shouldShowImage } = useTrackImage();
 
   // Play/pause and row click handlers
   const { handlePlayClick, handleRowClick, handleRowDoubleClick } =

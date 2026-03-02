@@ -92,6 +92,15 @@ export const createMockCacheHealth = (overrides?: Partial<any>) => ({
   hit_rate: 0.95,
   status: 'healthy',
   warnings: 0,
+  tier1_size_mb: 6,
+  tier1_healthy: true,
+  tier2_size_mb: 120,
+  tier2_healthy: true,
+  total_size_mb: 126,
+  memory_healthy: true,
+  tier1_hit_rate: 0.95,
+  overall_hit_rate: 0.73,
+  timestamp: new Date().toISOString(),
   ...overrides,
 });
 
@@ -102,6 +111,17 @@ export const createMockCacheHealth = (overrides?: Partial<any>) => ({
 /**
  * Default empty store state
  */
+const defaultStreamingInfo = {
+  state: 'idle' as const,
+  trackId: null,
+  intensity: 1.0,
+  progress: 0,
+  bufferedSamples: 0,
+  totalChunks: 0,
+  processedChunks: 0,
+  error: null,
+};
+
 export const emptyStoreState: RootState = {
   player: {
     isPlaying: false,
@@ -114,6 +134,10 @@ export const emptyStoreState: RootState = {
     isLoading: false,
     error: null,
     lastUpdated: 0,
+    streaming: {
+      normal: { ...defaultStreamingInfo },
+      enhanced: { ...defaultStreamingInfo },
+    },
   },
   queue: {
     tracks: [],

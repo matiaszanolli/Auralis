@@ -70,8 +70,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   // ============================================================
   // LOCAL UI STATE
   // ============================================================
-  const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [searchQuery, _setSearchQuery] = useState('');
+  const [viewMode, _setViewMode] = useState<ViewMode>('grid');
 
   // Filtered tracks (search)
   const filteredTracks = useMemo(() => {

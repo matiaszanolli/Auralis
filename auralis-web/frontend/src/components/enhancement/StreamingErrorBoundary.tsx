@@ -169,7 +169,7 @@ export const StreamingErrorBoundary: React.FC<StreamingErrorBoundaryProps> = ({
   autoDismissMs = 10000,
   allowRetry = true,
   allowFallback = true,
-  trackId,
+  trackId: _trackId,
   showHistory = false,
 }) => {
   const [isVisible, setIsVisible] = useState(!!error);

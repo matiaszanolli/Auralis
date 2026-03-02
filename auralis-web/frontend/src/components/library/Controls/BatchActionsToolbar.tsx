@@ -74,7 +74,7 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
     moreMenuAnchor,
     handleMoreMenuOpen,
     handleMoreMenuClose,
-    handleAction,
+    handleAction: _handleAction,
   } = useBatchActionsMenu();
 
   return (

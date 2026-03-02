@@ -78,7 +78,7 @@ const getPlaceholderGradient = (
 export const MediaCardArtwork: React.FC<MediaCardArtworkProps> = ({
   artworkUrl,
   fallbackText,
-  variant,
+  variant: _variant,
   fingerprint,
   children,
 }) => {

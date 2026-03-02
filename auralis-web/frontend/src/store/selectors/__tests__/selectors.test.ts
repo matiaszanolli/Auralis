@@ -14,12 +14,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import playerReducer, {
-  setCurrentTrack,
   setCurrentTime,
   setDuration,
-  setVolume,
-  setMuted,
-  setPreset,
   setIsPlaying,
 } from '@/store/slices/playerSlice';
 import queueReducer, { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
@@ -29,8 +25,6 @@ import {
   // Simple selectors
   playerSelectors,
   queueSelectors,
-  cacheSelectors,
-  connectionSelectors,
   // Memoized derived selectors
   selectPlaybackProgress,
   selectFormattedTime,
@@ -39,8 +33,6 @@ import {
   selectTotalQueueTime,
   selectFormattedQueueTime,
   selectQueueStats,
-  selectCacheMetrics,
-  selectCacheHealthDerived,
   selectConnectionStatus,
   selectPlaybackState,
   selectQueueState,

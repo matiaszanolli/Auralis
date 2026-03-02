@@ -375,7 +375,7 @@ export const focusVisibilityMonitor = new FocusVisibilityMonitor();
 /**
  * Announce focus change to screen readers
  */
-export function announceFocus(element: HTMLElement, message: string): void {
+export function announceFocus(_element: HTMLElement, message: string): void {
   // Create temporary live region
   const announcement = document.createElement('div');
   announcement.setAttribute('aria-live', 'assertive');

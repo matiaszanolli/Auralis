@@ -8,7 +8,6 @@
 import React from 'react';
 
 import { tokens } from '@/design-system';
-import { Button } from '@/design-system';
 import { Box, Typography, styled } from '@mui/material';
 
 interface DetailViewHeaderProps {
@@ -101,12 +100,6 @@ const Subtitle = styled(Typography)({
   marginBottom: tokens.spacing.md,
   fontWeight: tokens.typography.fontWeight.semibold,
   letterSpacing: '-0.01em',                          // Tight tracking for headers
-});
-
-const Metadata = styled(Typography)({
-  fontSize: tokens.typography.fontSize.sm,
-  color: tokens.colors.text.tertiary,
-  marginBottom: tokens.spacing.xs,
 });
 
 const ActionsContainer = styled(Box)({

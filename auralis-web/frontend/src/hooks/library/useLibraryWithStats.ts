@@ -97,61 +97,6 @@ export interface UseLibraryWithStatsReturn {
 }
 
 // ============================================================================
-// Mock Data
-// ============================================================================
-
-const MOCK_TRACKS: Track[] = [
-  {
-    id: 1,
-    title: 'Bohemian Rhapsody',
-    artist: 'Queen',
-    album: 'A Night at the Opera',
-    duration: 355,
-    quality: 0.95,
-    isEnhanced: true,
-    genre: 'Rock',
-    year: 1975,
-    albumArt: 'https://via.placeholder.com/300x300/1976d2/white?text=Queen'
-  },
-  {
-    id: 2,
-    title: 'Hotel California',
-    artist: 'Eagles',
-    album: 'Hotel California',
-    duration: 391,
-    quality: 0.88,
-    isEnhanced: false,
-    genre: 'Rock',
-    year: 1976,
-    albumArt: 'https://via.placeholder.com/300x300/d32f2f/white?text=Eagles'
-  },
-  {
-    id: 3,
-    title: 'Billie Jean',
-    artist: 'Michael Jackson',
-    album: 'Thriller',
-    duration: 294,
-    quality: 0.92,
-    isEnhanced: true,
-    genre: 'Pop',
-    year: 1982,
-    albumArt: 'https://via.placeholder.com/300x300/388e3c/white?text=MJ'
-  },
-  {
-    id: 4,
-    title: "Sweet Child O' Mine",
-    artist: "Guns N' Roses",
-    album: 'Appetite for Destruction',
-    duration: 356,
-    quality: 0.89,
-    isEnhanced: false,
-    genre: 'Rock',
-    year: 1987,
-    albumArt: 'https://via.placeholder.com/300x300/f57c00/white?text=GNR'
-  }
-];
-
-// ============================================================================
 // Hook Implementation
 // ============================================================================
 
@@ -187,11 +132,7 @@ export const useLibraryWithStats = ({
     return !!(window as any).electronAPI;
   }, []);
 
-  const loadMockData = useCallback(() => {
-    setTracks(MOCK_TRACKS);
-    setHasMore(false);
-    setTotalTracks(MOCK_TRACKS.length);
-  }, []);
+  // Mock data loading removed - was unused dead code
 
   // ========================================================================
   // Track Data Methods

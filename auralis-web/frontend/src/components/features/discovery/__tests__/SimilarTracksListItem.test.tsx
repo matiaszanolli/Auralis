@@ -15,9 +15,11 @@ import { SimilarTrack } from '../../../../services/similarityService';
 
 describe('SimilarTracksListItem', () => {
   const mockTrack: SimilarTrack = {
-    id: 1,
+    track_id: 1,
     title: 'Similar Track',
     artist: 'Similar Artist',
+    album: 'Similar Album',
+    distance: 0.05,
     duration: 240,
     similarity_score: 0.95,
   };
@@ -258,9 +260,11 @@ describe('SimilarTracksListItem', () => {
   describe('Different Track Data', () => {
     it('should handle tracks with special characters', () => {
       const specialTrack: SimilarTrack = {
-        id: 2,
+        track_id: 2,
         title: "Song & Artist's Track (Remix)",
         artist: 'Artist / Collaborator',
+        album: 'Special Album',
+        distance: 0.12,
         duration: 300,
         similarity_score: 0.88,
       };
@@ -282,9 +286,11 @@ describe('SimilarTracksListItem', () => {
 
     it('should handle long track titles', () => {
       const longTrack: SimilarTrack = {
-        id: 3,
+        track_id: 3,
         title: 'This is a very long track title that might wrap to multiple lines in the UI',
         artist: 'Test Artist',
+        album: 'Test Album',
+        distance: 0.08,
         duration: 250,
         similarity_score: 0.92,
       };
@@ -307,9 +313,11 @@ describe('SimilarTracksListItem', () => {
   describe('Props Integration', () => {
     it('should use all provided props correctly', () => {
       const customTrack: SimilarTrack = {
-        id: 99,
+        track_id: 99,
         title: 'Custom Track',
         artist: 'Custom Artist',
+        album: 'Custom Album',
+        distance: 0.15,
         duration: 180,
         similarity_score: 0.85,
       };

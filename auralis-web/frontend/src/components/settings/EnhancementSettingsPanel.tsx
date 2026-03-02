@@ -71,7 +71,7 @@ export const EnhancementSettingsPanel: React.FC<EnhancementSettingsPanelProps> =
         <SectionLabel>Enhancement Intensity: {Math.round(enhancementIntensity * 100)}%</SectionLabel>
         <Slider
           value={enhancementIntensity}
-          onChange={(e, v) => onSettingChange('enhancement_intensity', v)}
+          onChange={(_e, v) => onSettingChange('enhancement_intensity', v)}
           min={0}
           max={1}
           step={0.1}

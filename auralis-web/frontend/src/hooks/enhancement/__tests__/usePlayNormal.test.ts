@@ -59,7 +59,7 @@ type TestStore = ReturnType<typeof createTestStore>;
 
 function makeWrapper(store: TestStore) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store }, children);
+    return React.createElement(Provider, { store, children });
   };
 }
 
@@ -384,7 +384,7 @@ describe('usePlayNormal', () => {
       const threshold = sr * ch * 2;  // 192000
 
       // One sample below threshold — no start
-      const result1 = await setupStream({ sample_rate: sr, channels: ch });
+      await setupStream({ sample_rate: sr, channels: ch });
       mockBufferInstance.getAvailableSamples.mockReturnValue(threshold - 1);
       act(() => { handlers['audio_chunk'](makeChunkMsg()); });
       expect(mockEngineInstance.startPlayback).not.toHaveBeenCalled();

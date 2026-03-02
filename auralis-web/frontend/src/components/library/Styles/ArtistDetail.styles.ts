@@ -36,7 +36,7 @@ export const AlbumCard = styled(Paper)(({ theme }) => ({
 /**
  * AlbumTitle - Title typography for album cards
  */
-export const AlbumTitle = styled(Typography)(({ theme }) => ({
+export const AlbumTitle = styled(Typography)(({ theme: _theme }) => ({
   fontSize: tokens.typography.fontSize.md,
   fontWeight: tokens.typography.fontWeight.semibold,
   color: tokens.colors.text.primary,
@@ -47,7 +47,7 @@ export const AlbumTitle = styled(Typography)(({ theme }) => ({
 /**
  * AlbumInfo - Secondary information typography for album cards (year, track count)
  */
-export const AlbumInfo = styled(Typography)(({ theme }) => ({
+export const AlbumInfo = styled(Typography)(({ theme: _theme }) => ({
   fontSize: tokens.typography.fontSize.sm,
   color: tokens.colors.text.secondary
 }));

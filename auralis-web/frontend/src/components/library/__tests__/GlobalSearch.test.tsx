@@ -8,7 +8,6 @@
  */
 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import React from 'react';
 import { render, screen } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { act } from 'react-dom/test-utils';
@@ -131,7 +130,6 @@ describe('GlobalSearch', () => {
     });
 
     it('should support keyboard navigation', async () => {
-      const user = userEvent.setup();
       await act(async () => {
         render(<GlobalSearch />);
       });

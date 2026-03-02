@@ -13,8 +13,7 @@
  * - Favorite toggling
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { mockTracks, mockAlbums, mockArtists } from '../../test/mocks/mockData';
+import { describe, it, expect } from 'vitest';
 
 // API base URL
 const API_BASE = 'http://localhost:8765/api';

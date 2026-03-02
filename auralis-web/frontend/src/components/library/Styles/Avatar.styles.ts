@@ -12,7 +12,6 @@
  */
 
 import { Avatar, Box, styled } from '@mui/material';
-import { glowShadows } from './Shadow.styles';
 import { radiusCircle } from './BorderRadius.styles';
 import { tokens } from '@/design-system';
 
@@ -21,7 +20,7 @@ import { tokens } from '@/design-system';
  * Reduced prominence to avoid drawing excessive attention to placeholder
  * Dimensions: 120x120 with 3rem font size (scaled down from 200x200)
  */
-export const ArtistAvatarCircle = styled(Box)(({ theme }) => ({
+export const ArtistAvatarCircle = styled(Box)(({ theme: _theme }) => ({
   width: 120,
   height: 120,
   borderRadius: radiusCircle,
@@ -42,7 +41,7 @@ export const ArtistAvatarCircle = styled(Box)(({ theme }) => ({
  * Features aurora gradient background with initial letter
  * Dimensions: 40x40
  */
-export const ArtistSearchAvatar = styled(Avatar)(({ theme }) => ({
+export const ArtistSearchAvatar = styled(Avatar)(({ theme: _theme }) => ({
   width: 40,
   height: 40,
   background: tokens.gradients.aurora,
@@ -55,7 +54,7 @@ export const ArtistSearchAvatar = styled(Avatar)(({ theme }) => ({
  * Used for tracks, albums, and other result types
  * Dimensions: 40x40
  */
-export const DefaultSearchAvatar = styled(Avatar)(({ theme }) => ({
+export const DefaultSearchAvatar = styled(Avatar)(({ theme: _theme }) => ({
   width: 40,
   height: 40,
   backgroundColor: tokens.colors.opacityScale.accent.standard

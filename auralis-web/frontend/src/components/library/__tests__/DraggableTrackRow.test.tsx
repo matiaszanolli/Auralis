@@ -10,10 +10,9 @@
  */
 
 import { vi } from 'vitest';
-import React from 'react';
-import { render, screen, fireEvent } from '@/test/test-utils';
+import { render, screen } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { DraggableTrackRow } from '../DraggableTrackRow';
+import { DraggableTrackRow } from '../Items/tracks/DraggableTrackRow';
 
 // Mock TrackRow component
 vi.mock('../TrackRow', () => ({
@@ -107,7 +106,7 @@ describe('DraggableTrackRow', () => {
     });
 
     it('should show drag handle by default', () => {
-      const { container } = render(
+      render(
         <DraggableTrackRow
             track={mockTrack}
             index={0}
@@ -122,7 +121,7 @@ describe('DraggableTrackRow', () => {
     });
 
     it('should hide drag handle when showDragHandle is false', () => {
-      const { container } = render(
+      render(
         <DraggableTrackRow
             track={mockTrack}
             index={0}
@@ -351,7 +350,7 @@ describe('DraggableTrackRow', () => {
 
   describe('Accessibility', () => {
     it('should have accessible drag handle', () => {
-      const { container } = render(
+      render(
         <DraggableTrackRow
             track={mockTrack}
             index={0}
@@ -426,7 +425,7 @@ describe('DraggableTrackRow', () => {
     it('should handle special characters in draggableId', () => {
       const specialId = 'track-@#$%-1';
 
-      const { container } = render(
+      render(
         <DraggableTrackRow
             track={mockTrack}
             index={0}

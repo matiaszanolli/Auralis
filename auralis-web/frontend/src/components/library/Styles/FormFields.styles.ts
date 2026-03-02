@@ -34,7 +34,7 @@ export const StyledTextField = styled(TextField)({
  * Used in search bars and search interfaces
  * Features: transparent background, simple underline, minimal styling
  */
-export const SearchTextField = styled(TextField)(({ theme }) => ({
+export const SearchTextField = styled(TextField)(({ theme: _theme }) => ({
   '& .MuiOutlinedInput-root': {
     height: tokens.components.searchBar.height,
     borderRadius: 0,
@@ -83,7 +83,7 @@ export const SearchTextField = styled(TextField)(({ theme }) => ({
  * Used in compact forms, inline editing, or mobile layouts
  * Features: reduced padding, minimal borders, dense styling
  */
-export const CompactTextField = styled(TextField)(({ theme }) => ({
+export const CompactTextField = styled(TextField)(({ theme: _theme }) => ({
   '& .MuiOutlinedInput-root': {
     fontSize: tokens.typography.fontSize.sm,
     color: tokens.colors.text.primary,

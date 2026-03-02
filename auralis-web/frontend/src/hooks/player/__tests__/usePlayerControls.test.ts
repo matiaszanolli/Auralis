@@ -586,7 +586,7 @@ describe('usePlayerControls Hook', () => {
 
   describe('Debug Logging', () => {
     it('should log operations when debug enabled', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       const { result } = renderHook(() =>
         usePlayerControls({ onPlay: mockOnPlay, debug: true })
@@ -603,7 +603,7 @@ describe('usePlayerControls Hook', () => {
     });
 
     it('should not log when debug disabled', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       const { result } = renderHook(() =>
         usePlayerControls({ onPlay: mockOnPlay, debug: false })
@@ -670,9 +670,9 @@ describe('usePlayerControls Hook', () => {
         ]);
       });
 
-      expect(playResult.success).toBe(true);
-      expect(seekResult.success).toBe(true);
-      expect(volumeResult.success).toBe(true);
+      expect(playResult!.success).toBe(true);
+      expect(seekResult!.success).toBe(true);
+      expect(volumeResult!.success).toBe(true);
 
       expect(mockOnPlay).toHaveBeenCalledTimes(1);
       expect(mockOnSeek).toHaveBeenCalledWith(30);
@@ -699,9 +699,9 @@ describe('usePlayerControls Hook', () => {
         ]);
       });
 
-      expect(playResult.success).toBe(true);
-      expect(seekResult.success).toBe(false);
-      expect(volumeResult.success).toBe(true);
+      expect(playResult!.success).toBe(true);
+      expect(seekResult!.success).toBe(false);
+      expect(volumeResult!.success).toBe(true);
     });
   });
 });

@@ -60,7 +60,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
         <SettingsTabNav
           activeTab={activeTab}
-          onTabChange={(e, v) => setActiveTab(v)}
+          onTabChange={(_e, v) => setActiveTab(v)}
           isScanning={isScanning}
         />
 

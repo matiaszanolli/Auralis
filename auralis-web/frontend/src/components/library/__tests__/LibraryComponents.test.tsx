@@ -13,7 +13,7 @@
  * @module components/library/__tests__/LibraryComponents.test
  */
 
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { vi } from 'vitest';
 import AlbumGrid from '@/components/library/AlbumGrid';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';

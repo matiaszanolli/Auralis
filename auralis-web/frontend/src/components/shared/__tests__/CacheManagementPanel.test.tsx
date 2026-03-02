@@ -24,7 +24,6 @@ import { CacheManagementPanel } from '../CacheManagementPanel';
 import * as hooks from '@/hooks/shared/useStandardizedAPI';
 import {
   mockCacheStats,
-  mockCacheHealth,
   mockUseCacheStats,
   mockUseCacheHealth,
   mockUseStandardizedAPI,

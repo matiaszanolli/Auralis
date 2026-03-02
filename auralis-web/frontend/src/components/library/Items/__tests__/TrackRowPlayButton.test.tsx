@@ -10,7 +10,6 @@
 import { vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { TrackRowPlayButton } from '../tracks/TrackRowPlayButton';
-import { Pause, PlayArrow } from '@mui/icons-material';
 
 describe('TrackRowPlayButton', () => {
   const mockOnClick = vi.fn();

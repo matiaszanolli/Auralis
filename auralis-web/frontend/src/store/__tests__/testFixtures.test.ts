@@ -17,7 +17,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   createMockTrack,
   createMockTracks,
@@ -121,7 +121,7 @@ describe('Redux Test Fixtures', () => {
         player: {
           volume: 50,
           isPlaying: true,
-        },
+        } as any,
       });
 
       const state = store.getState();

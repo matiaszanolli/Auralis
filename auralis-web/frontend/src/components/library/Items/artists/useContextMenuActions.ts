@@ -4,16 +4,10 @@ import { useToast } from '../../../shared/Toast';
 import { getArtistTracks } from '../../../../services/libraryService';
 import { useQueue } from '../../../../hooks/shared/useReduxState';
 import { usePlayer } from '../../../../hooks/shared/useReduxState';
-
-interface ArtistInfo {
-  id: number;
-  name: string;
-  album_count?: number;
-  track_count?: number;
-}
+import type { Artist } from '@/types/domain';
 
 interface UseContextMenuActionsProps {
-  artist: ArtistInfo | null;
+  artist: Artist | null;
   onArtistClick?: (artistId: number, artistName: string) => void;
 }
 

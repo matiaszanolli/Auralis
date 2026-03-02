@@ -62,7 +62,7 @@ export const AlbumsTab: React.FC<AlbumsTabProps> = ({
       <Box sx={{
         mb: tokens.spacing.xl,
         pb: tokens.spacing.md,
-        borderBottom: `1px solid ${tokens.colors.border.subtle}`,
+        borderBottom: `1px solid ${tokens.colors.border.light}`,
       }}>
         <Typography variant="h6" sx={{
           fontSize: tokens.typography.fontSize.lg,

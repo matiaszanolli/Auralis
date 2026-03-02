@@ -138,7 +138,7 @@ describe('TrackRowMetadata', () => {
 
   describe('Current Track Styling', () => {
     it('should apply current styling when isCurrent is true', () => {
-      const { container } = render(
+      render(
         <TrackRowMetadata
           title="Test Track"
           artist="Test Artist"
@@ -160,7 +160,7 @@ describe('TrackRowMetadata', () => {
     });
 
     it('should not apply current styling when isCurrent is false', () => {
-      const { container } = render(
+      render(
         <TrackRowMetadata
           title="Test Track"
           artist="Test Artist"
@@ -190,7 +190,7 @@ describe('TrackRowMetadata', () => {
         { duration: '1:23:45', name: 'track with hours' },
       ];
 
-      durations.forEach(({ duration, name }) => {
+      durations.forEach(({ duration, name: _name }) => {
         const { unmount } = render(
           <TrackRowMetadata
             title="Test Track"
@@ -372,7 +372,7 @@ describe('TrackRowMetadata', () => {
 
   describe('DOM Structure', () => {
     it('should render in correct DOM hierarchy', () => {
-      const { container } = render(
+      render(
         <TrackRowMetadata
           title="Test Track"
           artist="Test Artist"

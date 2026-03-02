@@ -18,7 +18,6 @@
  */
 
 import React from 'react';
-import { Typography } from '@mui/material';
 import {
   EndOfListIndicator as StyledContainer,
   EndOfListText as StyledText

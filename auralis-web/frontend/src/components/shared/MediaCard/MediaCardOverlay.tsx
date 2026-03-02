@@ -50,7 +50,7 @@ export const MediaCardOverlay: React.FC<MediaCardOverlayProps> = ({
           bottom: 0,
           background: 'rgba(0, 0, 0, 0.4)',
           opacity: showOverlay ? 1 : 0,
-          transition: tokens.transitions.medium,
+          transition: tokens.transitions.base,
           pointerEvents: 'none',
         }}
       />
@@ -63,7 +63,7 @@ export const MediaCardOverlay: React.FC<MediaCardOverlayProps> = ({
           left: '50%',
           transform: 'translate(-50%, -50%)',
           opacity: showOverlay ? 1 : 0,
-          transition: tokens.transitions.medium,
+          transition: tokens.transitions.base,
         }}
       >
         <IconButton
@@ -74,7 +74,7 @@ export const MediaCardOverlay: React.FC<MediaCardOverlayProps> = ({
             width: 56,
             height: 56,
             '&:hover': {
-              background: tokens.colors.accent.primaryHover,
+              background: tokens.colors.accent.secondary,
               transform: 'scale(1.1)',
             },
             transition: tokens.transitions.fast,

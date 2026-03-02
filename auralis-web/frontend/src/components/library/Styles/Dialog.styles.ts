@@ -7,7 +7,6 @@
  * Tab components (StyledTabs, DialogTabs) are imported from Tabs.styles.ts
  */
 
-import { Button } from '@/design-system';
 import { Dialog, DialogTitle, DialogActions, Box, styled } from '@mui/material';
 import { tokens } from '@/design-system';
 export { DialogTabs as StyledTabs, DetailViewTabs } from './Tabs.styles';
@@ -18,7 +17,7 @@ export { SectionLabel, SectionDescription } from './Typography.styles';
  * StyledDialog - Base dialog with glass effect (Design Language v1.2.0 §4.2)
  * Used by: SettingsDialog, CreatePlaylistDialog, EditPlaylistDialog, KeyboardShortcutsHelp
  */
-export const StyledDialog = styled(Dialog)(({ theme }) => ({
+export const StyledDialog = styled(Dialog)(({ theme: _theme }) => ({
   '& .MuiDialog-paper': {
     // Glass effect for elevated dialog (upgraded to strong for maximum prominence)
     background: tokens.glass.strong.background,

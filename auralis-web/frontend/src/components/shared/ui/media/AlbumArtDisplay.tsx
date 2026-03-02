@@ -84,7 +84,7 @@ const StyledAlbumArt = styled(Box)<StyledAlbumArtProps>(({ size, useTokens }) =>
   },
 }));
 
-const PlaceholderIcon = styled(MusicNoteIcon)(({ theme }) => ({
+const PlaceholderIcon = styled(MusicNoteIcon)(({ theme: _theme }) => ({
   color: tokens.colors.text.tertiary,
   fontSize: '24px',
 }));

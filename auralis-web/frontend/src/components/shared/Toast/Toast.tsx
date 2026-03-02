@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext, useCallback, useMemo } from 'react';
+import React, { useState, createContext, useContext, useCallback } from 'react';
 import { AlertColor, Snackbar } from '@mui/material';
 import { StyledAlert } from './Toast.styles';
 import { ToastItem } from './ToastItem';
@@ -156,7 +156,7 @@ export const Toast: React.FC<ToastProps> = ({
       <StyledAlert
         severity={type}
         onClose={onClose}
-        variant="filled"
+        variant={type}
       >
         {message}
       </StyledAlert>
