@@ -13,7 +13,7 @@ interface DropZoneTextProps {
   scanning: boolean;
 }
 
-export const DropZoneText: React.FC<DropZoneTextProps> = ({ isDragging, scanning }) => {
+export const DropZoneText = ({ isDragging, scanning }: DropZoneTextProps) => {
   return (
     <>
       <Typography

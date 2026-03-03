@@ -25,7 +25,7 @@ import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
  * Displays album artwork, track title, artist, and album name.
  * Shows loading/empty state when no track is playing.
  */
-export const TrackInfo: React.FC = () => {
+export const TrackInfo = () => {
   const track = useCurrentTrack();
 
   return (

@@ -30,13 +30,13 @@ const formatDuration = (seconds: number): string => {
   return `${minutes}m`;
 };
 
-export const AlbumInfo: React.FC<AlbumInfoProps> = ({
+export const AlbumInfo = ({
   title,
   artist,
   trackCount = 0,
   duration,
   year,
-}) => {
+}: AlbumInfoProps) => {
   return (
     <CardContent sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
       {/* Album Title */}

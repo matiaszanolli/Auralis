@@ -38,7 +38,7 @@ interface TrackRowProps {
   onDelete?: (trackId: number) => void;
 }
 
-const TrackRowComponent: React.FC<TrackRowProps> = ({
+const TrackRowComponent = ({
   track,
   index,
   isPlaying = false,
@@ -54,7 +54,7 @@ const TrackRowComponent: React.FC<TrackRowProps> = ({
   onShowArtist,
   onShowInfo,
   onDelete,
-}) => {
+}: TrackRowProps) => {
   // Image state management
   const { imageError: _imageError, handleImageError, shouldShowImage } = useTrackImage();
 

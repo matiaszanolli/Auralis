@@ -28,11 +28,11 @@ interface ArtistHeaderProps {
  * - Play All and Shuffle buttons
  * - More options menu button
  */
-export const ArtistHeader: React.FC<ArtistHeaderProps> = ({
+export const ArtistHeader = ({
   artist,
   onPlayAll,
   onShuffle
-}) => {
+}: ArtistHeaderProps) => {
   const getArtistInitial = (name: string): string => {
     return name.charAt(0).toUpperCase();
   };

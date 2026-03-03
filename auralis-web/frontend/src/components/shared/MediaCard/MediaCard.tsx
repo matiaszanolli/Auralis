@@ -101,7 +101,7 @@ const getMetadata = (props: MediaCardProps) => {
  * />
  * ```
  */
-export const MediaCard: React.FC<MediaCardProps> = (props) => {
+export const MediaCard = (props: MediaCardProps) => {
   const { isHovered, setIsHovered } = useMediaCardState();
   const metadata = getMetadata(props);
 

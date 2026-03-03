@@ -9,7 +9,7 @@ import { SkeletonBox } from '../../../library/Styles/Skeleton.styles';
  * - Icon placeholder
  * - Item label placeholder
  */
-export const SidebarItemSkeleton: React.FC = () => {
+export const SidebarItemSkeleton = () => {
   return (
     <Box
       sx={{

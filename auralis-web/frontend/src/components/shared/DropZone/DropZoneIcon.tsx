@@ -14,7 +14,7 @@ interface DropZoneIconProps {
   scanning: boolean;
 }
 
-export const DropZoneIcon: React.FC<DropZoneIconProps> = ({ isDragging, scanning }) => {
+export const DropZoneIcon = ({ isDragging, scanning }: DropZoneIconProps) => {
   return (
     <Box
       sx={{

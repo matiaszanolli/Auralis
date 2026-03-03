@@ -30,7 +30,7 @@ interface AlbumActionButtonsProps {
   onMoreOptions?: () => void;
 }
 
-export const AlbumActionButtons: React.FC<AlbumActionButtonsProps> = ({
+export const AlbumActionButtons = ({
   isPlaying,
   isFavorite,
   savingFavorite,
@@ -40,7 +40,7 @@ export const AlbumActionButtons: React.FC<AlbumActionButtonsProps> = ({
   onToggleFavorite,
   onAddToQueue,
   onMoreOptions,
-}) => {
+}: AlbumActionButtonsProps) => {
   return (
     <Box sx={{ display: 'flex', gap: tokens.spacing.md, flexWrap: 'wrap', alignItems: 'center' }}>
       {/* Primary Play/Pause Button */}

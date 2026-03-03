@@ -49,11 +49,11 @@ interface PlaylistListProps {
   hideHeader?: boolean;
 }
 
-export const PlaylistList: React.FC<PlaylistListProps> = ({
+export const PlaylistList = ({
   onPlaylistSelect,
   selectedPlaylistId,
   hideHeader = false,
-}) => {
+}: PlaylistListProps) => {
   // State management
   const [playlists, setPlaylists] = useState<playlistService.Playlist[]>([]);
   const [expanded, setExpanded] = useState(true);

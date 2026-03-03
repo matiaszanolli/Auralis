@@ -61,7 +61,7 @@ export interface VolumeControlProps {
  *
  * Renders volume slider with mute button and percentage display.
  */
-export const VolumeControl: React.FC<VolumeControlProps> = ({
+export const VolumeControl = ({
   volume,
   onVolumeChange,
   isMuted = false,
@@ -69,7 +69,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
   disabled = false,
   className = '',
   ariaLabel,
-}) => {
+}: VolumeControlProps) => {
   const [isMuteButtonFocused, setIsMuteButtonFocused] = useState(false);
   const [isSliderFocused, setIsSliderFocused] = useState(false);
   // Clamp volume to valid range (handle NaN)

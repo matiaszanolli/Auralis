@@ -13,11 +13,11 @@ interface TrackRowPlayButtonProps {
  *
  * Shows play icon normally, pause when track is current and playing.
  */
-const TrackRowPlayButtonComponent: React.FC<TrackRowPlayButtonProps> = ({
+const TrackRowPlayButtonComponent = ({
   isCurrent,
   isPlaying,
   onClick,
-}) => {
+}: TrackRowPlayButtonProps) => {
   return (
     <PlayButton onClick={onClick} size="small" className="play-button">
       {isCurrent && isPlaying ? <Pause /> : <PlayArrow />}

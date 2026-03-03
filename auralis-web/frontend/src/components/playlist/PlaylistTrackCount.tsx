@@ -12,7 +12,7 @@ interface PlaylistTrackCountProps {
  * - Track count with proper singular/plural form
  * - Styled info box with aurora theme
  */
-export const PlaylistTrackCount: React.FC<PlaylistTrackCountProps> = ({ trackCount }) => {
+export const PlaylistTrackCount = ({ trackCount }: PlaylistTrackCountProps) => {
   return (
     <TrackCountBox>
       <TrackCountText>

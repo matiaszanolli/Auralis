@@ -36,11 +36,11 @@ export interface EnhancementPaneProps {
  *
  * Orchestrates IdentityLayer and InspectionLayer with show/hide logic
  */
-export const EnhancementPane: React.FC<EnhancementPaneProps> = ({
+export const EnhancementPane = ({
   trackId,
   onPlayEnhanced,
   disabled = false,
-}) => {
+}: EnhancementPaneProps) => {
   const {
     playEnhanced,
     stopPlayback,

@@ -30,12 +30,12 @@ interface MediaCardOverlayProps {
  * - Optional badge (bottom-right corner)
  * - Smooth fade transitions
  */
-export const MediaCardOverlay: React.FC<MediaCardOverlayProps> = ({
+export const MediaCardOverlay = ({
   isHovered,
   isPlaying = false,
   onPlay,
   badgeContent,
-}) => {
+}: MediaCardOverlayProps) => {
   const showOverlay = isHovered || isPlaying;
 
   return (

@@ -71,7 +71,7 @@ const formatBytes = (bytes: number): string => {
  *
  * Provides visual feedback on audio streaming progress with detailed metrics.
  */
-export const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({
+export const StreamingProgressBar = ({
   progress,
   bufferedSamples,
   totalChunks,
@@ -80,7 +80,7 @@ export const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({
   displayTotalChunks,
   showDetails = true,
   currentTime = 0,
-}) => {
+}: StreamingProgressBarProps) => {
   /**
    * Calculate buffered duration in seconds
    */

@@ -12,10 +12,10 @@ interface MetadataExtendedFieldsProps {
   onChange: (field: keyof MetadataFields, value: string) => void;
 }
 
-export const MetadataExtendedFields: React.FC<MetadataExtendedFieldsProps> = ({
+export const MetadataExtendedFields = ({
   metadata,
   onChange,
-}) => {
+}: MetadataExtendedFieldsProps) => {
   return (
     <>
       {/* Comment */}

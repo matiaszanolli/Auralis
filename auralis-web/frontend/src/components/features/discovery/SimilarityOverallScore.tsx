@@ -14,10 +14,10 @@ interface SimilarityOverallScoreProps {
  *
  * Shows score as percentage, label (Very Similar/Similar/etc.), and distance metric.
  */
-export const SimilarityOverallScore: React.FC<SimilarityOverallScoreProps> = ({
+export const SimilarityOverallScore = ({
   score,
   distance,
-}) => {
+}: SimilarityOverallScoreProps) => {
   const { getSimilarityLevel } = useSimilarityFormatting();
   const { label, color } = getSimilarityLevel(score);
 

@@ -13,7 +13,7 @@ interface InitialTracksInfoProps {
  * - Only displayed when tracks are provided
  * - Styled info box with aurora theme
  */
-export const InitialTracksInfo: React.FC<InitialTracksInfoProps> = ({ trackIds }) => {
+export const InitialTracksInfo = ({ trackIds }: InitialTracksInfoProps) => {
   if (!trackIds || trackIds.length === 0) return null;
 
   return (

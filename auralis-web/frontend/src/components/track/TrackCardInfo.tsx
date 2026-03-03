@@ -21,12 +21,12 @@ interface TrackCardInfoProps {
   isPlaying?: boolean;
 }
 
-export const TrackCardInfo: React.FC<TrackCardInfoProps> = ({
+export const TrackCardInfo = ({
   title,
   artist,
   album,
   isPlaying = false,
-}) => {
+}: TrackCardInfoProps) => {
   return (
     <TrackCardContent>
       <Tooltip title={title} placement="top">

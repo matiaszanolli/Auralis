@@ -12,10 +12,10 @@ interface MetadataDetailFieldsProps {
   onChange: (field: keyof MetadataFields, value: string) => void;
 }
 
-export const MetadataDetailFields: React.FC<MetadataDetailFieldsProps> = ({
+export const MetadataDetailFields = ({
   metadata,
   onChange,
-}) => {
+}: MetadataDetailFieldsProps) => {
   return (
     <>
       {/* Genre & Year */}

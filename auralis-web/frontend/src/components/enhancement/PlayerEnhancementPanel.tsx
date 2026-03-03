@@ -63,12 +63,12 @@ export interface PlayerEnhancementPanelProps {
  * Provides a unified interface for enhanced audio playback with streaming controls,
  * progress visualization, and error handling.
  */
-export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
+export const PlayerEnhancementPanel = ({
   trackId,
   isVisible = true,
   className,
   playbackControls,
-}) => {
+}: PlayerEnhancementPanelProps) => {
   // Get streaming state from Redux (typed selectors fix #2463)
   const streaming = useSelector((state: RootState) => state.player.streaming.enhanced);
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);

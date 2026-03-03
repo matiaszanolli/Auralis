@@ -15,11 +15,11 @@ interface RadialDecorationsProps {
   currentPreset: string;
 }
 
-export const RadialDecorations: React.FC<RadialDecorationsProps> = ({
+export const RadialDecorations = ({
   size,
   radius,
   currentPreset,
-}) => {
+}: RadialDecorationsProps) => {
   return (
     <>
       {/* Connecting lines (subtle) */}

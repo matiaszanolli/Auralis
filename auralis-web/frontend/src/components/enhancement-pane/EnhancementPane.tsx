@@ -20,7 +20,7 @@ interface EnhancementPaneProps {
   onMasteringToggle?: (enabled: boolean) => void;
 }
 
-const EnhancementPane: React.FC<EnhancementPaneProps> = React.memo(({
+const EnhancementPane = React.memo<EnhancementPaneProps>(({
   collapsed = false,
   onToggleCollapse,
   onMasteringToggle,

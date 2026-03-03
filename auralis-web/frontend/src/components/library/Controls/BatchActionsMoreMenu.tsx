@@ -15,11 +15,11 @@ interface BatchActionsMoreMenuProps {
   onEditMetadata: () => void;
 }
 
-export const BatchActionsMoreMenu: React.FC<BatchActionsMoreMenuProps> = ({
+export const BatchActionsMoreMenu = ({
   anchorEl,
   onClose,
   onEditMetadata,
-}) => {
+}: BatchActionsMoreMenuProps) => {
   const handleEditClick = () => {
     onEditMetadata();
     onClose();

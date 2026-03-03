@@ -15,7 +15,7 @@ interface LibraryHeaderProps {
   view: string;
 }
 
-export const LibraryHeader: React.FC<LibraryHeaderProps> = React.memo(({ view }) => {
+export const LibraryHeader = React.memo<LibraryHeaderProps>(({ view }) => {
   return (
     <Box sx={{ mb: tokens.spacing.xl }}>
       <Typography

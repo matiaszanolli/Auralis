@@ -13,7 +13,7 @@ interface PlaylistDropIndicatorProps {
  * - Aurora-styled dashed border
  * - Centered "Drop to add tracks" text
  */
-export const PlaylistDropIndicator: React.FC<PlaylistDropIndicatorProps> = ({ visible }) => {
+export const PlaylistDropIndicator = ({ visible }: PlaylistDropIndicatorProps) => {
   if (!visible) return null;
 
   return (

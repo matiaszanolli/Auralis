@@ -18,7 +18,7 @@ interface PresetItemProps {
  * Individual preset button in the RadialPresetSelector
  * Handles rendering, interaction, and visual feedback for a single preset
  */
-export const PresetItem: React.FC<PresetItemProps> = ({
+export const PresetItem = ({
   preset,
   isActive,
   isHovered,
@@ -26,7 +26,7 @@ export const PresetItem: React.FC<PresetItemProps> = ({
   size: _size,
   onSelect,
   onHover,
-}) => {
+}: PresetItemProps) => {
   const buttonSize = isActive ? 64 : isHovered ? 56 : 52;
 
   // Extract hex color from gradient for effects

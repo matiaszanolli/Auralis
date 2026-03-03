@@ -40,14 +40,14 @@ interface DroppablePlaylistProps {
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export const DroppablePlaylist: React.FC<DroppablePlaylistProps> = ({
+export const DroppablePlaylist = ({
   playlistId,
   playlistName,
   trackCount,
   selected = false,
   onClick,
   onContextMenu,
-}) => {
+}: DroppablePlaylistProps) => {
   const droppableId = `playlist-${playlistId}`;
 
   return (

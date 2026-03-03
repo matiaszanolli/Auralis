@@ -62,14 +62,14 @@ export interface SimilarTracksModalProps {
  *
  * Modal for displaying and interacting with similar tracks
  */
-export const SimilarTracksModal: React.FC<SimilarTracksModalProps> = ({
+export const SimilarTracksModal = ({
   open,
   trackId,
   trackTitle = 'this track',
   onClose,
   onTrackPlay,
   limit = 20,
-}) => {
+}: SimilarTracksModalProps) => {
   const { similarTracks, loading, error, findSimilar, clear } = useSimilarTracks();
 
   // Fetch similar tracks when modal opens with a valid trackId

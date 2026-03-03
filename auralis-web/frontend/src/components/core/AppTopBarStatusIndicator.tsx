@@ -10,9 +10,9 @@ interface AppTopBarStatusIndicatorProps {
  *
  * Displays colored dot with glow to indicate connection status.
  */
-export const AppTopBarStatusIndicator: React.FC<AppTopBarStatusIndicatorProps> = ({
+export const AppTopBarStatusIndicator = ({
   color,
-}) => {
+}: AppTopBarStatusIndicatorProps) => {
   return <StatusIndicator color={color} />;
 };
 

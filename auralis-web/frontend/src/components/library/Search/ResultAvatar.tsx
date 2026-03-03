@@ -32,7 +32,7 @@ interface ResultAvatarProps {
  *
  * Type-specific avatar rendering logic
  */
-export const ResultAvatar: React.FC<ResultAvatarProps> = ({ result }) => {
+export const ResultAvatar = ({ result }: ResultAvatarProps) => {
   // Album or track with album artwork
   if (result.type === 'album' || (result.type === 'track' && result.albumId)) {
     return (

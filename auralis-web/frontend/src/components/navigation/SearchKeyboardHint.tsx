@@ -8,7 +8,7 @@ interface SearchKeyboardHintProps {
   show: boolean;
 }
 
-export const SearchKeyboardHint: React.FC<SearchKeyboardHintProps> = ({ show: _show }) => {
+export const SearchKeyboardHint = ({ show: _show }: SearchKeyboardHintProps) => {
   // Hide keyboard hint to reduce visual noise - search should feel ambient
   return null;
 };

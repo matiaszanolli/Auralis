@@ -54,11 +54,11 @@ interface TrackListProps {
  * Each track shows title, artist, album, and duration.
  * Clicking a track triggers playback via callback.
  */
-export const TrackList: React.FC<TrackListProps> = ({
+export const TrackList = ({
   search,
   limit = 50,
   onTrackSelect,
-}) => {
+}: TrackListProps) => {
   const { data: tracks, isLoading, error, hasMore, fetchMore } = useTracksQuery({
     search,
     limit,

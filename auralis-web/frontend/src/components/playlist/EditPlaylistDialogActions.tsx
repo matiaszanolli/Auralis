@@ -17,12 +17,12 @@ interface EditPlaylistDialogActionsProps {
  * - Both buttons disabled while loading
  * - Loading state shows "Saving..." text
  */
-export const EditPlaylistDialogActions: React.FC<EditPlaylistDialogActionsProps> = ({
+export const EditPlaylistDialogActions = ({
   loading,
   nameEmpty,
   onSave,
   onCancel,
-}) => {
+}: EditPlaylistDialogActionsProps) => {
   return (
     <DialogActions sx={{ p: 2, pt: 1 }}>
       <CancelButton onClick={onCancel} disabled={loading}>

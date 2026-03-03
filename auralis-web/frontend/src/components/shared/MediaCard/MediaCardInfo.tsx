@@ -31,12 +31,12 @@ interface MediaCardInfoProps {
  *
  * Highlights title when playing.
  */
-export const MediaCardInfo: React.FC<MediaCardInfoProps> = ({
+export const MediaCardInfo = ({
   title,
   primary,
   secondary,
   isPlaying = false,
-}) => {
+}: MediaCardInfoProps) => {
   return (
     <Box
       sx={{

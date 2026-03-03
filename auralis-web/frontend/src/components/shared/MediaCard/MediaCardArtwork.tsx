@@ -75,13 +75,13 @@ const getPlaceholderGradient = (
 /**
  * MediaCardArtwork - Artwork container with placeholder fallback
  */
-export const MediaCardArtwork: React.FC<MediaCardArtworkProps> = ({
+export const MediaCardArtwork = ({
   artworkUrl,
   fallbackText,
   variant: _variant,
   fingerprint,
   children,
-}) => {
+}: MediaCardArtworkProps) => {
   return (
     <Box
       sx={{

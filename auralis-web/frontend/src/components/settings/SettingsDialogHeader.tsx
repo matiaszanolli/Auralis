@@ -14,7 +14,7 @@ interface SettingsDialogHeaderProps {
  *
  * Displays settings title and close button.
  */
-export const SettingsDialogHeader: React.FC<SettingsDialogHeaderProps> = ({ onClose }) => {
+export const SettingsDialogHeader = ({ onClose }: SettingsDialogHeaderProps) => {
   return (
     <StyledDialogTitle>
       <Typography variant="h6" component="span">

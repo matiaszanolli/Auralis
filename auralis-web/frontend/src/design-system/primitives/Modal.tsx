@@ -97,7 +97,7 @@ const StyledDialogActions = styled(DialogActions)({
   gap: tokens.spacing.sm,
 });
 
-export const Modal: React.FC<ModalProps> = ({
+export const Modal = ({
   children,
   title,
   size = 'md',
@@ -105,7 +105,7 @@ export const Modal: React.FC<ModalProps> = ({
   showClose = true,
   onClose,
   ...props
-}) => {
+}: ModalProps) => {
   return (
     <StyledDialog size={size} onClose={onClose} {...props}>
       {title && (

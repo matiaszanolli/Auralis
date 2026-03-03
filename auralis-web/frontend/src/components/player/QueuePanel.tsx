@@ -40,10 +40,10 @@ interface QueuePanelProps {
  * Displays the playback queue with interactive controls.
  * Allows users to reorder, remove, and manage queue settings.
  */
-export const QueuePanel: React.FC<QueuePanelProps> = ({
+export const QueuePanel = ({
   collapsed = false,
   onToggleCollapse,
-}) => {
+}: QueuePanelProps) => {
   const {
     queue,
     currentIndex,
@@ -269,7 +269,7 @@ interface QueueTrackItemProps {
   disabled: boolean;
 }
 
-const QueueTrackItem: React.FC<QueueTrackItemProps> = ({
+const QueueTrackItem = ({
   track,
   index,
   isCurrentTrack,
@@ -281,7 +281,7 @@ const QueueTrackItem: React.FC<QueueTrackItemProps> = ({
   onDragOver,
   onHover,
   disabled,
-}) => {
+}: QueueTrackItemProps) => {
   const [isFocused, setIsFocused] = React.useState(false);
   const showActions = isHovered || isFocused;
 

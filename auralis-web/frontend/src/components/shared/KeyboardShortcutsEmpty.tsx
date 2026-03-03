@@ -10,7 +10,7 @@ import { EmptyStateBox } from './KeyboardShortcutsHelp.styles';
  * - Large keyboard icon
  * - Helpful message explaining why no shortcuts are shown
  */
-export const KeyboardShortcutsEmpty: React.FC = () => {
+export const KeyboardShortcutsEmpty = () => {
   return (
     <EmptyStateBox>
       <Keyboard sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />

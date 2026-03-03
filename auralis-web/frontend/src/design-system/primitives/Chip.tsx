@@ -46,7 +46,7 @@ const StyledChip = styled(MuiChip)({
   },
 });
 
-export const Chip: React.FC<ChipProps> = (props) => {
+export const Chip = (props: ChipProps) => {
   return <StyledChip {...props} />;
 };
 

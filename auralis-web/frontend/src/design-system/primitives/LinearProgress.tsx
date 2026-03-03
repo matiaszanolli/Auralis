@@ -34,7 +34,7 @@ const StyledLinearProgress = styled(MuiLinearProgress)({
   },
 });
 
-export const LinearProgress: React.FC<LinearProgressProps> = (props) => {
+export const LinearProgress = (props: LinearProgressProps) => {
   return <StyledLinearProgress {...props} />;
 };
 

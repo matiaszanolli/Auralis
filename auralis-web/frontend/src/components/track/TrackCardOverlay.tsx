@@ -23,12 +23,12 @@ interface TrackCardOverlayProps {
   onPlay: (e: React.MouseEvent) => void;
 }
 
-export const TrackCardOverlay: React.FC<TrackCardOverlayProps> = ({
+export const TrackCardOverlay = ({
   duration,
   hasArtwork,
   isHovered,
   onPlay,
-}) => {
+}: TrackCardOverlayProps) => {
   return (
     <>
       {/* No artwork icon + shimmer effect */}

@@ -60,7 +60,7 @@ const getRemoveLabel = (context: string): string => {
  *
  * Floating toolbar with conditional action buttons and menu
  */
-const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
+const BatchActionsToolbar = ({
   selectedCount,
   onAddToPlaylist,
   onAddToQueue,
@@ -69,7 +69,7 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
   onEditMetadata,
   onClearSelection,
   context = 'library',
-}) => {
+}: BatchActionsToolbarProps) => {
   const {
     moreMenuAnchor,
     handleMoreMenuOpen,

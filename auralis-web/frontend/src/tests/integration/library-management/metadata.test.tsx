@@ -34,7 +34,7 @@ interface MetadataFormProps {
   onError?: (error: Error) => void;
 }
 
-const MetadataEditForm: React.FC<MetadataFormProps> = ({ trackId, onSave, onError }) => {
+const MetadataEditForm = ({ trackId, onSave, onError }: MetadataFormProps) => {
   const [metadata, setMetadata] = React.useState({
     title: '',
     artist: '',
@@ -243,7 +243,7 @@ interface BatchMetadataFormProps {
   onError?: (error: Error) => void;
 }
 
-const BatchMetadataForm: React.FC<BatchMetadataFormProps> = ({ trackIds, onSave, onError }) => {
+const BatchMetadataForm = ({ trackIds, onSave, onError }: BatchMetadataFormProps) => {
   const [metadata, setMetadata] = React.useState({ genre: '', year: '' });
   const [saving, setSaving] = React.useState(false);
   const [result, setResult] = React.useState<any>(null);

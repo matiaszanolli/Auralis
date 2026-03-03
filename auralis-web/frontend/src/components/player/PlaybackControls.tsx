@@ -72,7 +72,7 @@ export interface PlaybackControlsProps {
  *
  * Renders play/pause, next, and previous buttons with proper state management.
  */
-export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
+export const PlaybackControls = ({
   isPlaying,
   onPlay,
   onPause,
@@ -81,7 +81,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   isLoading = false,
   className = '',
   disabled = false,
-}) => {
+}: PlaybackControlsProps) => {
   // Determine if buttons should be disabled
   const isDisabled = useMemo(() => {
     return disabled || isLoading;

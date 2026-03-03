@@ -17,11 +17,11 @@ interface AppEnhancementPaneHeaderProps {
   onToggleCollapse: () => void;
 }
 
-export const AppEnhancementPaneHeader: React.FC<AppEnhancementPaneHeaderProps> = ({
+export const AppEnhancementPaneHeader = ({
   isCollapsed,
   useV2,
   onToggleCollapse,
-}) => {
+}: AppEnhancementPaneHeaderProps) => {
   return (
     <PaneHeader>
       {!isCollapsed && (

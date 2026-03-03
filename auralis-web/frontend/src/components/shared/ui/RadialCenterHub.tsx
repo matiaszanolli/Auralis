@@ -14,7 +14,7 @@ interface RadialCenterHubProps {
   size: number; // Diameter of selector
 }
 
-export const RadialCenterHub: React.FC<RadialCenterHubProps> = ({ preset, size }) => {
+export const RadialCenterHub = ({ preset, size }: RadialCenterHubProps) => {
   const centerSize = size / 3;
 
   return (

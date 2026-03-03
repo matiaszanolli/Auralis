@@ -13,7 +13,7 @@ export interface LoadingOverlayProps {
   show: boolean;
 }
 
-export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ show }) => {
+export const LoadingOverlay = ({ show }: LoadingOverlayProps) => {
   if (!show) return null;
 
   return (

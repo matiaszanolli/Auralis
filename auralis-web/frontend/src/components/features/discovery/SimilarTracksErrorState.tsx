@@ -9,7 +9,7 @@ interface SimilarTracksErrorStateProps {
 /**
  * SimilarTracksErrorState - Shows error message when loading fails
  */
-export const SimilarTracksErrorState: React.FC<SimilarTracksErrorStateProps> = ({ error }) => {
+export const SimilarTracksErrorState = ({ error }: SimilarTracksErrorStateProps) => {
   return (
     <Box sx={{ p: 2 }}>
       <Alert variant="error">

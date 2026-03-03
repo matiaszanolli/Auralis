@@ -22,11 +22,11 @@ export interface MetadataFormFieldsProps {
   onChange: (field: keyof MetadataFields, value: string) => void;
 }
 
-export const MetadataFormFields: React.FC<MetadataFormFieldsProps> = ({
+export const MetadataFormFields = ({
   metadata,
   loading,
   onChange,
-}) => {
+}: MetadataFormFieldsProps) => {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>

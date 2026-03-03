@@ -37,12 +37,12 @@ interface KeyboardShortcutsHelpProps {
   formatShortcut?: (shortcut: ShortcutDefinition) => string;
 }
 
-const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
+const KeyboardShortcutsHelp = ({
   open,
   shortcuts,
   onClose,
   formatShortcut,
-}) => {
+}: KeyboardShortcutsHelpProps) => {
   const { groupedShortcuts, config, formatFn } = useShortcutFormatting(
     shortcuts,
     formatShortcut

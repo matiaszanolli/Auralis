@@ -17,12 +17,12 @@ interface LibraryEmptyStateProps {
   onScanFolder: () => void;
 }
 
-export const LibraryEmptyState: React.FC<LibraryEmptyStateProps> = ({
+export const LibraryEmptyState = ({
   view,
   searchQuery,
   scanning,
   onScanFolder,
-}) => {
+}: LibraryEmptyStateProps) => {
   if (view === 'favourites') {
     return (
       <EmptyState

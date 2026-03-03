@@ -60,12 +60,12 @@ export interface PlaylistSectionProps {
   onCreateNewPlaylist: () => void;
 }
 
-export const PlaylistSection: React.FC<PlaylistSectionProps> = ({
+export const PlaylistSection = ({
   playlists,
   isLoadingPlaylists: _isLoadingPlaylists,
   onAddToPlaylist,
   onCreateNewPlaylist,
-}) => {
+}: PlaylistSectionProps) => {
   return (
     <>
       <Divider sx={{ borderColor: tokens.colors.opacityScale.accent.minimal, my: 1 }} />

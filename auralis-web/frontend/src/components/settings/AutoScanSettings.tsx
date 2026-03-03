@@ -30,11 +30,11 @@ function nearestPreset(seconds: number): number {
   ).seconds;
 }
 
-export const AutoScanSettings: React.FC<AutoScanSettingsProps> = ({
+export const AutoScanSettings = ({
   autoScan,
   scanInterval,
   onSettingChange,
-}) => {
+}: AutoScanSettingsProps) => {
   const selectedInterval = nearestPreset(scanInterval ?? 3600);
 
   return (

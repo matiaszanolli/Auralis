@@ -11,7 +11,7 @@ import { Box, ListItem, Skeleton } from '@mui/material';
  * - 15 skeleton items with avatar and text placeholders
  * - Maintains visual layout during initial data fetch
  */
-export const ArtistListLoading: React.FC = () => {
+export const ArtistListLoading = () => {
   return (
     <ListContainer>
       <List>

@@ -35,12 +35,12 @@ interface ExpandedProps {
  *
  * Displays master toggle, audio characteristics, processing parameters, and info.
  */
-export const Expanded: React.FC<ExpandedProps> = ({
+export const Expanded = ({
   params,
   isAnalyzing,
   onToggleCollapse,
   onMasteringToggle,
-}) => {
+}: ExpandedProps) => {
   const { settings, setEnabled, isProcessing } = useEnhancement();
   const currentTrack = useSelector(selectCurrentTrack);
   const trackId = currentTrack?.id;

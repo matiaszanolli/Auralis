@@ -20,12 +20,12 @@ interface ArtistSectionProps {
  * - All artists starting with that letter
  * - Uses ArtistListItem for each artist
  */
-export const ArtistSection: React.FC<ArtistSectionProps> = ({
+export const ArtistSection = ({
   letter,
   artists,
   onArtistClick,
   onContextMenu
-}) => {
+}: ArtistSectionProps) => {
   return (
     <Box>
       <AlphabetDivider>{letter}</AlphabetDivider>

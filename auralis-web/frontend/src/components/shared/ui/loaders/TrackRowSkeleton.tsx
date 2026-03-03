@@ -10,7 +10,7 @@ import { SkeletonBox } from '../../../library/Styles/Skeleton.styles';
  * - Track title placeholder
  * - Duration placeholder
  */
-export const TrackRowSkeleton: React.FC = () => {
+export const TrackRowSkeleton = () => {
   return (
     <Box
       sx={{

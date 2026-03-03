@@ -21,7 +21,7 @@ interface AppTopBarSearchInputProps {
  *
  * Displays search icon, input field, and optional clear button.
  */
-export const AppTopBarSearchInput: React.FC<AppTopBarSearchInputProps> = ({
+export const AppTopBarSearchInput = ({
   searchQuery,
   isSearchFocused,
   minWidth,
@@ -29,7 +29,7 @@ export const AppTopBarSearchInput: React.FC<AppTopBarSearchInputProps> = ({
   onFocus,
   onBlur,
   onClear,
-}) => {
+}: AppTopBarSearchInputProps) => {
   return (
     <SearchContainer focused={isSearchFocused} sx={{ minWidth }}>
       <SearchIcon

@@ -58,7 +58,7 @@ interface ArtistListContentProps {
  *   {...otherProps}
  * />
  */
-export const ArtistListContent: React.FC<ArtistListContentProps> = ({
+export const ArtistListContent = ({
   artists,
   totalArtists,
   isLoadingMore,
@@ -71,7 +71,7 @@ export const ArtistListContent: React.FC<ArtistListContentProps> = ({
   onArtistClick,
   onContextMenuOpen,
   onContextMenuClose,
-}) => {
+}: ArtistListContentProps) => {
   return (
     <ArtistListContainer>
       <InfiniteScroll

@@ -29,11 +29,11 @@ interface EndOfListIndicatorProps {
   itemType?: string; // e.g., "tracks", "albums"
 }
 
-export const EndOfListIndicator: React.FC<EndOfListIndicatorProps> = ({
+export const EndOfListIndicator = ({
   children,
   count,
   itemType = 'items'
-}) => {
+}: EndOfListIndicatorProps) => {
   return (
     <StyledContainer>
       <StyledText variant="body2">

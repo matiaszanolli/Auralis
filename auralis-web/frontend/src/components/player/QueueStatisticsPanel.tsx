@@ -39,10 +39,10 @@ interface QueueStatisticsPanelProps {
  *
  * Displays comprehensive queue statistics and analytics.
  */
-export const QueueStatisticsPanel: React.FC<QueueStatisticsPanelProps> = ({
+export const QueueStatisticsPanel = ({
   collapsed = false,
   onToggleCollapse,
-}) => {
+}: QueueStatisticsPanelProps) => {
   const { queue } = usePlaybackQueue();
   const {
     stats,
@@ -198,7 +198,7 @@ interface StatItemProps {
   value: string;
 }
 
-const StatItem: React.FC<StatItemProps> = ({ label, value }) => (
+const StatItem = ({ label, value }: StatItemProps) => (
   <div style={styles.statItem}>
     <div style={styles.statLabel}>{label}</div>
     <div style={styles.statValue}>{value}</div>
@@ -213,7 +213,7 @@ interface StatRowProps {
   value: string;
 }
 
-const StatRow: React.FC<StatRowProps> = ({ label, value }) => (
+const StatRow = ({ label, value }: StatRowProps) => (
   <div style={styles.statRow}>
     <span style={styles.statRowLabel}>{label}</span>
     <span style={styles.statRowValue}>{value}</span>
@@ -228,7 +228,7 @@ interface TopItemRowProps {
   index: number;
 }
 
-const TopItemRow: React.FC<TopItemRowProps> = ({ item, index }) => (
+const TopItemRow = ({ item, index }: TopItemRowProps) => (
   <div style={styles.topItemRow}>
     <span style={styles.topItemRank}>#{index + 1}</span>
     <span style={styles.topItemValue}>{item.value}</span>
@@ -245,7 +245,7 @@ interface QualityRatingProps {
   assessment: QualityAssessment;
 }
 
-const QualityRating: React.FC<QualityRatingProps> = ({ assessment }) => {
+const QualityRating = ({ assessment }: QualityRatingProps) => {
   const ratingColor =
     assessment.rating === 'excellent'
       ? tokens.colors.semantic.success

@@ -38,13 +38,13 @@ interface AlbumDetailViewProps {
   isPlaying?: boolean;
 }
 
-export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
+export const AlbumDetailView = ({
   albumId,
   onBack,
   onTrackPlay,
   currentTrackId,
   isPlaying = false
-}) => {
+}: AlbumDetailViewProps) => {
   const { album, loading, error, isFavorite, savingFavorite, toggleFavorite } = useAlbumDetails(albumId);
 
   // Fetch album fingerprint for character pane

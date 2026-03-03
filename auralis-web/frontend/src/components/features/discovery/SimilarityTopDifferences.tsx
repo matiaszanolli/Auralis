@@ -22,9 +22,9 @@ interface SimilarityTopDifferencesProps {
  *
  * Shows top N dimensions with contribution bars and value comparisons.
  */
-export const SimilarityTopDifferences: React.FC<SimilarityTopDifferencesProps> = ({
+export const SimilarityTopDifferences = ({
   differences,
-}) => {
+}: SimilarityTopDifferencesProps) => {
   const { formatDimensionName, formatValue } = useSimilarityFormatting();
 
   return (

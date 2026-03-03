@@ -32,7 +32,7 @@ interface LibrarySearchControlsProps {
  * - Refresh library button
  * - Track count indicator
  */
-export const LibrarySearchControls: React.FC<LibrarySearchControlsProps> = ({
+export const LibrarySearchControls = ({
   searchQuery,
   onSearchChange,
   viewMode,
@@ -42,7 +42,7 @@ export const LibrarySearchControls: React.FC<LibrarySearchControlsProps> = ({
   scanning,
   loading,
   trackCount
-}) => {
+}: LibrarySearchControlsProps) => {
   return (
     <Paper
       elevation={2}

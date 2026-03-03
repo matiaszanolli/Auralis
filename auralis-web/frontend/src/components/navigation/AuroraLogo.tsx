@@ -8,11 +8,11 @@ interface AuroraLogoProps {
   animated?: boolean;
 }
 
-export const AuroraLogo: React.FC<AuroraLogoProps> = ({
+export const AuroraLogo = ({
   size = 'medium',
   showText = true,
   animated = false,
-}) => {
+}: AuroraLogoProps) => {
   const iconSize = {
     small: 32,
     medium: 40,

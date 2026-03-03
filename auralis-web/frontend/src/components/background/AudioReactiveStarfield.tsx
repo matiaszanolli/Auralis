@@ -32,14 +32,14 @@ interface AudioReactiveStarfieldProps {
   enableAudioReactivity?: boolean;
 }
 
-export const AudioReactiveStarfield: React.FC<AudioReactiveStarfieldProps> = ({
+export const AudioReactiveStarfield = ({
   enableParallax = true,
   parallaxStrength = 0.5,
   speed = 1.0,
   zIndex = -1,
   className,
   enableAudioReactivity = true,
-}) => {
+}: AudioReactiveStarfieldProps) => {
   // Get real-time audio analysis data from Web Audio API
   const audioData = useAudioVisualization(enableAudioReactivity);
 

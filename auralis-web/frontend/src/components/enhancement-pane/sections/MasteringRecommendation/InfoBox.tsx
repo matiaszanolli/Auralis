@@ -9,7 +9,7 @@ import React from 'react';
 import { Paper, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 
-const InfoBox: React.FC = React.memo(() => {
+const InfoBox = React.memo(() => {
   return (
     <Paper
       elevation={0}

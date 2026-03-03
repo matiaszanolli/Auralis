@@ -14,11 +14,11 @@ interface BatchActionButtonProps {
   onClick: (event: React.MouseEvent<HTMLElement>) => void;
 }
 
-export const BatchActionButton: React.FC<BatchActionButtonProps> = ({
+export const BatchActionButton = ({
   icon,
   title,
   onClick,
-}) => {
+}: BatchActionButtonProps) => {
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     onClick(event);
   };

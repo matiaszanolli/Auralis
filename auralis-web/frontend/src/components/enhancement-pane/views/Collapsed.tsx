@@ -17,9 +17,9 @@ interface CollapsedProps {
  *
  * Shows only icon and collapse button when collapsed.
  */
-export const Collapsed: React.FC<CollapsedProps> = ({
+export const Collapsed = ({
   onToggleCollapse,
-}) => {
+}: CollapsedProps) => {
   return (
     <CollapsedPaneContainer>
       <IconButton onClick={onToggleCollapse} sx={{ color: tokens.colors.text.primary }}>

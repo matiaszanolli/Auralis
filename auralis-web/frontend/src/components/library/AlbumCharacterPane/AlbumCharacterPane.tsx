@@ -235,11 +235,11 @@ interface FloatingParticlesProps {
   count?: number;
 }
 
-const FloatingParticles: React.FC<FloatingParticlesProps> = ({
+const FloatingParticles = ({
   isAnimating,
   intensity,
   count = 12,
-}) => {
+}: FloatingParticlesProps) => {
   // Generate particles with varied properties
   const particles = React.useMemo(() =>
     Array.from({ length: count }, (_, i) => ({
@@ -298,7 +298,7 @@ interface GlowingArcProps {
   energyLevel: number;
 }
 
-const GlowingArc: React.FC<GlowingArcProps> = ({ isAnimating, intensity, energyLevel }) => {
+const GlowingArc = ({ isAnimating, intensity, energyLevel }: GlowingArcProps) => {
   const glowIntensity = Math.sqrt(intensity);
 
   // Arc spans based on energy level (more energy = wider arc)
@@ -409,7 +409,7 @@ interface EnergyFieldProps {
   intensity: number;
 }
 
-const EnergyField: React.FC<EnergyFieldProps> = ({ energy, isAnimating, intensity }) => {
+const EnergyField = ({ energy, isAnimating, intensity }: EnergyFieldProps) => {
   // Map energy (0-1) to visual position
   const percentage = energy * 100;
 
@@ -515,11 +515,11 @@ interface WaveformVisualizationProps {
   intensity: number;
 }
 
-const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
+const WaveformVisualization = ({
   fingerprint,
   isAnimating,
   intensity,
-}) => {
+}: WaveformVisualizationProps) => {
   const frequencyBands = [
     fingerprint.sub_bass,
     fingerprint.bass,
@@ -608,11 +608,11 @@ interface RotatingDescriptionProps {
   isPlaying: boolean;
 }
 
-const RotatingDescription: React.FC<RotatingDescriptionProps> = ({
+const RotatingDescription = ({
   descriptions,
   staticDescription,
   isPlaying,
-}) => {
+}: RotatingDescriptionProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
 
@@ -665,7 +665,7 @@ interface CharacterTagsProps {
   intensity: number;
 }
 
-const CharacterTags: React.FC<CharacterTagsProps> = ({ tags, isAnimating, intensity }) => {
+const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsProps) => {
   // Glow lingers longer (use sqrt for slower fade)
   const glowIntensity = Math.sqrt(intensity);
 
@@ -730,14 +730,14 @@ const CharacterTags: React.FC<CharacterTagsProps> = ({ tags, isAnimating, intens
 // Main Component
 // ============================================================================
 
-export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
+export const AlbumCharacterPane = ({
   fingerprint: albumFingerprint,
   albumTitle,
   isLoading: albumLoading = false,
   isEnhancementEnabled = true,
   onEnhancementToggle,
   showPlayingTrack = true,
-}) => {
+}: AlbumCharacterPaneProps) => {
   // Get playback state from Redux
   const isPlayingRaw = useSelector(playerSelectors.selectIsPlaying);
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);

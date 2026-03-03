@@ -29,12 +29,12 @@ interface SearchInputProps {
  *
  * Props management: Query state and change handlers passed from parent
  */
-export const SearchInput: React.FC<SearchInputProps> = ({
+export const SearchInput = ({
   query,
   loading,
   onQueryChange,
   onClear
-}) => {
+}: SearchInputProps) => {
   return (
     <SearchContainer>
       <SearchField

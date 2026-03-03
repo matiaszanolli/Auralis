@@ -28,7 +28,7 @@ const StyledCircularProgress = styled(MuiCircularProgress)({
   },
 });
 
-export const CircularProgress: React.FC<CircularProgressProps> = (props) => {
+export const CircularProgress = (props: CircularProgressProps) => {
   return <StyledCircularProgress {...props} />;
 };
 

@@ -24,11 +24,11 @@ interface SettingsTabNavProps {
  * Manages switching between different settings categories.
  * Shows a pulsing indicator on the Library tab while a scan is running.
  */
-export const SettingsTabNav: React.FC<SettingsTabNavProps> = ({
+export const SettingsTabNav = ({
   activeTab,
   onTabChange,
   isScanning = false,
-}) => {
+}: SettingsTabNavProps) => {
   const libraryLabel = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
       Library

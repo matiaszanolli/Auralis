@@ -9,7 +9,7 @@ interface AuroraWaveIconProps {
   size: number;
 }
 
-export const AuroraWaveIcon: React.FC<AuroraWaveIconProps> = ({ size }) => {
+export const AuroraWaveIcon = ({ size }: AuroraWaveIconProps) => {
   return (
     <WaveIcon size={size} viewBox="0 0 24 24" fill="none">
       {/* Aurora wave pattern */}

@@ -282,7 +282,7 @@ interface WebSocketProviderProps {
   url?: string;
 }
 
-export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
+export const WebSocketProvider = ({
   children,
   url = (() => {
     // In development (Vite on localhost:3000+), connect directly to backend
@@ -297,7 +297,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
     }
   })()
-}) => {
+}: WebSocketProviderProps) => {
   const wsManagerRef = useRef<WebSocketManager | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected' | 'error'>('disconnected');

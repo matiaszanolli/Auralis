@@ -23,7 +23,7 @@ import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
 
 // Test component that makes API calls
-const TestAPIComponent: React.FC<{ endpoint: string; onError?: (error: Error) => void }> = ({ endpoint, onError }) => {
+const TestAPIComponent = ({ endpoint, onError }: { endpoint: string; onError?: (error: Error) => void }) => {
   const [data, setData] = React.useState<any>(null);
   const [error, setError] = React.useState<Error | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -58,7 +58,7 @@ const TestAPIComponent: React.FC<{ endpoint: string; onError?: (error: Error) =>
 };
 
 // Test component for concurrent requests
-const TestConcurrentComponent: React.FC = () => {
+const TestConcurrentComponent = () => {
   const [results, setResults] = React.useState<string[]>([]);
   const [errors, setErrors] = React.useState<string[]>([]);
 
@@ -96,7 +96,7 @@ const TestConcurrentComponent: React.FC = () => {
 };
 
 // Test component for retry logic with rate limiting
-const TestRetryComponent: React.FC = () => {
+const TestRetryComponent = () => {
   const [attempts, setAttempts] = React.useState(0);
   const [retryAfter, setRetryAfter] = React.useState<number | null>(null);
   const [status, setStatus] = React.useState<string>('idle');
@@ -357,7 +357,7 @@ describe('Error Handling API Integration Tests', () => {
 
     it('should handle aborted request', async () => {
       // Arrange
-      const TestAbortComponent: React.FC = () => {
+      const TestAbortComponent = () => {
         const [error, setError] = React.useState<string | null>(null);
 
         React.useEffect(() => {
@@ -424,7 +424,7 @@ describe('Error Handling API Integration Tests', () => {
         })
       );
 
-      const TestMissingFieldsComponent: React.FC = () => {
+      const TestMissingFieldsComponent = () => {
         const [error, setError] = React.useState<string | null>(null);
 
         React.useEffect(() => {
@@ -461,7 +461,7 @@ describe('Error Handling API Integration Tests', () => {
         })
       );
 
-      const TestTypeMismatchComponent: React.FC = () => {
+      const TestTypeMismatchComponent = () => {
         const [error, setError] = React.useState<string | null>(null);
 
         React.useEffect(() => {
@@ -528,7 +528,7 @@ describe('Error Handling API Integration Tests', () => {
         })
       );
 
-      const TestNullFieldsComponent: React.FC = () => {
+      const TestNullFieldsComponent = () => {
         const [hasNulls, setHasNulls] = React.useState(false);
 
         React.useEffect(() => {
@@ -564,7 +564,7 @@ describe('Error Handling API Integration Tests', () => {
         })
       );
 
-      const TestUndefinedPropsComponent: React.FC = () => {
+      const TestUndefinedPropsComponent = () => {
         const [hasUndefined, setHasUndefined] = React.useState(false);
 
         React.useEffect(() => {

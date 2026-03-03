@@ -46,7 +46,7 @@ const StyledToggleButton = styled(ToggleButton)({
   },
 });
 
-export const ViewToggle: React.FC<ViewToggleProps> = ({ value, onChange }) => {
+export const ViewToggle = ({ value, onChange }: ViewToggleProps) => {
   const handleChange = (_event: React.MouseEvent<HTMLElement>, newValue: ViewMode | null) => {
     if (newValue !== null) {
       onChange(newValue);

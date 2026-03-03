@@ -22,11 +22,11 @@ interface ArtistListItemProps {
  * - Album and track count metadata
  * - Glass card with hover effects for starfield visibility
  */
-export const ArtistListItem: React.FC<ArtistListItemProps> = ({
+export const ArtistListItem = ({
   artist,
   onClick,
   onContextMenu
-}) => {
+}: ArtistListItemProps) => {
   return (
     <StyledListItem>
       <StyledListItemButton

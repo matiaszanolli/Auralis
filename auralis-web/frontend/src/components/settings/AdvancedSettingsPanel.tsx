@@ -26,13 +26,13 @@ interface AdvancedSettingsPanelProps {
  * - Analytics toggle
  * - Debug mode toggle
  */
-export const AdvancedSettingsPanel: React.FC<AdvancedSettingsPanelProps> = ({
+export const AdvancedSettingsPanel = ({
   cacheSize,
   maxConcurrentScans,
   enableAnalytics,
   debugMode,
   onSettingChange
-}) => {
+}: AdvancedSettingsPanelProps) => {
   return (
     <Box>
       <SectionContainer>

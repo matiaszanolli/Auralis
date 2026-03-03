@@ -13,9 +13,9 @@ interface TrackListSkeletonProps {
  * - Multiple track row skeletons in vertical list
  * - Configurable number of rows to display
  */
-export const TrackListSkeleton: React.FC<TrackListSkeletonProps> = ({
+export const TrackListSkeleton = ({
   count = 8,
-}) => {
+}: TrackListSkeletonProps) => {
   return (
     <Box>
       {Array.from({ length: count }).map((_, index) => (

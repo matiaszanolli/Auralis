@@ -19,10 +19,10 @@ interface TestProvidersProps {
  * @param children - Components to wrap
  * @param wsUrl - WebSocket URL (defaults to test mock URL)
  */
-export const TestProviders: React.FC<TestProvidersProps> = ({
+export const TestProviders = ({
   children,
   wsUrl = 'ws://localhost:8765/ws'
-}) => {
+}: TestProvidersProps) => {
   return (
     <WebSocketProvider url={wsUrl}>
       {children}
@@ -34,7 +34,7 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
  * Minimal test wrapper without WebSocket connection
  * Use for tests that don't need WebSocket functionality
  */
-export const MinimalTestProviders: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const MinimalTestProviders = ({ children }: { children: ReactNode }) => {
   return (
     <WebSocketProvider url="ws://test/ws">
       {children}

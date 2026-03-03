@@ -23,14 +23,14 @@ interface PlaybackSettingsPanelProps {
  * - Replay gain toggle
  * - Default volume slider
  */
-export const PlaybackSettingsPanel: React.FC<PlaybackSettingsPanelProps> = ({
+export const PlaybackSettingsPanel = ({
   gaplessEnabled,
   crossfadeEnabled,
   crossfadeDuration,
   replayGainEnabled,
   volume,
   onSettingChange
-}) => {
+}: PlaybackSettingsPanelProps) => {
   return (
     <Box>
       <SectionContainer>

@@ -36,7 +36,7 @@ import * as playlistService from '@/services/playlistService';
  * The test-utils intentionally excludes DragDropContext to prevent state conflicts,
  * so tests using drag-drop components must provide it individually.
  */
-const PlaylistListWithDnd: React.FC<React.ComponentProps<typeof PlaylistList>> = (props) => (
+const PlaylistListWithDnd = (props: React.ComponentProps<typeof PlaylistList>) => (
   <DragDropContext onDragEnd={() => {}}>
     <PlaylistList {...props} />
   </DragDropContext>

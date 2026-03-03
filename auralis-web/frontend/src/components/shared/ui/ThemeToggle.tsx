@@ -28,7 +28,7 @@ interface ThemeToggleProps {
  * @example
  * <ThemeToggle size="medium" showLabel={false} />
  */
-export const ThemeToggle: React.FC<ThemeToggleProps> = ({ size = 'medium', showLabel = false }) => {
+export const ThemeToggle = ({ size = 'medium', showLabel = false }: ThemeToggleProps) => {
   const { mode, toggleTheme, colors } = useTheme();
   const isDark = mode === 'dark';
   const { iconSize, buttonSize } = useThemeToggleSize(size);

@@ -44,14 +44,14 @@ interface MetadataEditorDialogProps {
  * Modal dialog for editing track metadata.
  * Shows form with common fields (title, artist, album, year, genre).
  */
-export const MetadataEditorDialog: React.FC<MetadataEditorDialogProps> = ({
+export const MetadataEditorDialog = ({
   track,
   open,
   onClose,
   onSave,
   error: externalError,
   isSaving: externalIsSaving,
-}) => {
+}: MetadataEditorDialogProps) => {
   const [formData, setFormData] = useState<Partial<Track>>({});
   const [internalIsSaving, setInternalIsSaving] = useState(false);
   const [internalError, setInternalError] = useState<string | null>(null);

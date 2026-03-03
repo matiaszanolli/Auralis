@@ -20,9 +20,9 @@ interface SimilarityAllDimensionsProps {
  *
  * Sorted by contribution percentage in a grid layout.
  */
-export const SimilarityAllDimensions: React.FC<SimilarityAllDimensionsProps> = ({
+export const SimilarityAllDimensions = ({
   contributions,
-}) => {
+}: SimilarityAllDimensionsProps) => {
   const { formatDimensionName } = useSimilarityFormatting();
 
   return (

@@ -14,7 +14,7 @@ import { EnhancementToggleProps } from './EnhancementToggle';
  * - Processing state feedback
  * - Larger interactive area
  */
-export const SwitchVariant: React.FC<EnhancementToggleProps> = React.memo(({
+export const SwitchVariant = React.memo<EnhancementToggleProps>(({
   isEnabled,
   onToggle,
   isProcessing = false,

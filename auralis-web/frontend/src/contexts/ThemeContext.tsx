@@ -19,7 +19,7 @@ interface ThemeProviderProps {
   children: ReactNode;
 }
 
-export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
+export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   // Check localStorage for saved theme preference, default to dark
   const [mode, setMode] = useState<ThemeMode>(() => {
     const savedTheme = localStorage.getItem('auralis-theme');

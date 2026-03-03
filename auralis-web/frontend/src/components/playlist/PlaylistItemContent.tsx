@@ -15,10 +15,10 @@ interface PlaylistItemContentProps {
  * - Playlist name as primary text
  * - Track count as secondary text with proper singular/plural
  */
-export const PlaylistItemContent: React.FC<PlaylistItemContentProps> = ({
+export const PlaylistItemContent = ({
   playlistName,
   trackCount,
-}) => {
+}: PlaylistItemContentProps) => {
   return (
     <>
       <PlaylistIcon fontSize="small" />

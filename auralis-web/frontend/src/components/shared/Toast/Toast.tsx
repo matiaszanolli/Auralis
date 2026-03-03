@@ -78,10 +78,10 @@ interface ToastProviderProps {
  *   <App />
  * </ToastProvider>
  */
-export const ToastProvider: React.FC<ToastProviderProps> = ({
+export const ToastProvider = ({
   children,
   maxToasts = 3,
-}) => {
+}: ToastProviderProps) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const handleAddToast = useCallback((newToast: ToastMessage) => {
@@ -139,13 +139,13 @@ interface ToastProps {
   duration?: number;
 }
 
-export const Toast: React.FC<ToastProps> = ({
+export const Toast = ({
   open,
   message,
   type = 'info',
   onClose,
   duration = 4000,
-}) => {
+}: ToastProps) => {
   return (
     <Snackbar
       open={open}

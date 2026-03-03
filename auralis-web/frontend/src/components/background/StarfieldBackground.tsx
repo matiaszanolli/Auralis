@@ -336,14 +336,14 @@ interface StarfieldBackgroundProps {
   audioReactivity?: AudioReactivityData;
 }
 
-export const StarfieldBackground: React.FC<StarfieldBackgroundProps> = ({
+export const StarfieldBackground = ({
   enableParallax = true,
   parallaxStrength = 0.5,
   speed = 1.0,
   zIndex = -1,
   className,
   audioReactivity,
-}) => {
+}: StarfieldBackgroundProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programRef = useRef<WebGLProgram | null>(null);

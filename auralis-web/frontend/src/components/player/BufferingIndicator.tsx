@@ -55,14 +55,14 @@ export interface BufferingIndicatorProps {
  *
  * Shows buffering progress and status with appropriate animations and messaging.
  */
-export const BufferingIndicator: React.FC<BufferingIndicatorProps> = ({
+export const BufferingIndicator = ({
   bufferedPercentage,
   isBuffering = false,
   isError = false,
   errorMessage,
   className = '',
   ariaLabel,
-}) => {
+}: BufferingIndicatorProps) => {
   // Clamp percentage to 0-100
   const clampedPercentage = useMemo(() => {
     // Handle NaN and non-numeric values

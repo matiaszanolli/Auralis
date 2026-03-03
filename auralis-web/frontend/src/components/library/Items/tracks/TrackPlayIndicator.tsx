@@ -15,12 +15,12 @@ interface TrackPlayIndicatorProps {
   index: number;
 }
 
-export const TrackPlayIndicator: React.FC<TrackPlayIndicatorProps> = ({
+export const TrackPlayIndicator = ({
   isCurrentTrack,
   isPlaying,
   trackNumber,
   index,
-}) => {
+}: TrackPlayIndicatorProps) => {
   return (
     <TableCell>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

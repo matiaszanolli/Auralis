@@ -14,13 +14,13 @@ interface TrackRowMetadataProps {
  *
  * Displays track metadata in a structured layout.
  */
-const TrackRowMetadataComponent: React.FC<TrackRowMetadataProps> = ({
+const TrackRowMetadataComponent = ({
   title,
   artist,
   album,
   duration,
   isCurrent,
-}) => {
+}: TrackRowMetadataProps) => {
   const isCurrentStr = isCurrent ? 'true' : 'false';
 
   return (

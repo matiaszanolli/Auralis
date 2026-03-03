@@ -32,7 +32,7 @@ interface AlbumGridContentProps {
   onAlbumClick: (albumId: number) => void;
 }
 
-export const AlbumGridContent: React.FC<AlbumGridContentProps> = ({
+export const AlbumGridContent = ({
   albums,
   hasMore,
   isLoadingMore,
@@ -40,7 +40,7 @@ export const AlbumGridContent: React.FC<AlbumGridContentProps> = ({
   containerRef,
   loadMoreTriggerRef,
   onAlbumClick,
-}) => {
+}: AlbumGridContentProps) => {
   return (
     <GridContainer ref={containerRef}>
       <Grid container spacing={3}>

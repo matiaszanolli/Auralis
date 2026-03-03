@@ -24,12 +24,12 @@ const formatTotalDuration = (seconds: number): string => {
   return `${mins} min`;
 };
 
-export const AlbumMetadata: React.FC<AlbumMetadataProps> = ({
+export const AlbumMetadata = ({
   year,
   trackCount,
   totalDuration,
   genre,
-}) => {
+}: AlbumMetadataProps) => {
   return (
     <Box>
       <Typography variant="body2" sx={{

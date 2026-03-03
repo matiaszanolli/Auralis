@@ -183,7 +183,7 @@ const LoadingSpinner = styled(CircularProgress)({
   color: tokens.colors.text.primary,
 });
 
-export const Button: React.FC<ButtonProps> = ({
+export const Button = ({
   children,
   loading = false,
   disabled = false,
@@ -192,7 +192,7 @@ export const Button: React.FC<ButtonProps> = ({
   startIcon,
   endIcon,
   ...props
-}) => {
+}: ButtonProps) => {
   return (
     <StyledButton
       variant={variant}

@@ -43,7 +43,7 @@ interface SelectableTrackRowProps {
   onDelete?: (trackId: number) => void;
 }
 
-const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
+const SelectableTrackRow = ({
   track,
   index,
   isSelected,
@@ -61,7 +61,7 @@ const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
   onShowArtist,
   onShowInfo,
   onDelete,
-}) => {
+}: SelectableTrackRowProps) => {
   const { handleContainerClick, handleCheckboxClick } = useTrackRowSelection({
     onToggleSelect,
   });

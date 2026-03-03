@@ -45,7 +45,7 @@ interface CozyLibraryViewProps {
   onEnhancementToggle?: (enabled: boolean) => void;
 }
 
-const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
+const CozyLibraryView = React.memo<CozyLibraryViewProps>(({
   onTrackPlay,
   view = 'songs',
   isEnhancementEnabled = true,

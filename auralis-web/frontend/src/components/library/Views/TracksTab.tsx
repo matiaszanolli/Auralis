@@ -23,12 +23,12 @@ interface TracksTabProps {
  * - Duration in MM:SS format
  * - Empty state message
  */
-export const TracksTab: React.FC<TracksTabProps> = ({
+export const TracksTab = ({
   tracks,
   currentTrackId,
   isPlaying = false,
   onTrackClick,
-}) => {
+}: TracksTabProps) => {
   const { formatDuration } = useDurationFormatter();
 
   if (!tracks || tracks.length === 0) {

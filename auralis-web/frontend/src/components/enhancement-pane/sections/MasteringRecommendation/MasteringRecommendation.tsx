@@ -32,7 +32,7 @@ interface MasteringRecommendationProps {
   isLoading?: boolean;
 }
 
-const MasteringRecommendation: React.FC<MasteringRecommendationProps> = React.memo(({
+const MasteringRecommendation = React.memo<MasteringRecommendationProps>(({
   recommendation,
   isLoading = false,
 }) => {
@@ -191,7 +191,7 @@ interface ProcessingChangeItemProps {
   unit: string;
 }
 
-const ProcessingChangeItem: React.FC<ProcessingChangeItemProps> = ({ label, value, unit }) => (
+const ProcessingChangeItem = ({ label, value, unit }: ProcessingChangeItemProps) => (
   <div style={{
     display: 'flex',
     flexDirection: 'column',

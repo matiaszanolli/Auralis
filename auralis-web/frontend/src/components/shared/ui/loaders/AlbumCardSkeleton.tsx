@@ -10,7 +10,7 @@ import { SkeletonBox } from '../../../library/Styles/Skeleton.styles';
  * - Album title skeleton
  * - Artist name skeleton
  */
-export const AlbumCardSkeleton: React.FC = () => {
+export const AlbumCardSkeleton = () => {
   return (
     <Box>
       <SkeletonBox

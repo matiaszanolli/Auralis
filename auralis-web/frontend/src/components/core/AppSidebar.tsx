@@ -84,7 +84,7 @@ export interface AppSidebarProps {
  * }
  * ```
  */
-export const AppSidebar: React.FC<AppSidebarProps> = ({
+export const AppSidebar = ({
   collapsed,
   onToggleCollapse,
   onNavigate,
@@ -92,7 +92,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   mobileDrawerOpen,
   onCloseMobileDrawer,
   isMobile,
-}) => {
+}: AppSidebarProps) => {
   const theme = useTheme();
   const mediaIsMobile = useMediaQuery(theme.breakpoints.down('md'));
 

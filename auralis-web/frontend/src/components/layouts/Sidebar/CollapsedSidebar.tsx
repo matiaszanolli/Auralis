@@ -15,7 +15,7 @@ interface CollapsedSidebarProps {
  *
  * Shows only toggle button to expand sidebar
  */
-export const CollapsedSidebar: React.FC<CollapsedSidebarProps> = ({ onToggleCollapse }) => {
+export const CollapsedSidebar = ({ onToggleCollapse }: CollapsedSidebarProps) => {
   return (
     <CollapsedSidebarContainer>
       <Box sx={{ p: tokens.spacing.md, display: 'flex', justifyContent: 'center' }}>

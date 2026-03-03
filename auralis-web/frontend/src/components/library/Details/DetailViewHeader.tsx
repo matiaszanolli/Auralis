@@ -110,7 +110,7 @@ const ActionsContainer = styled(Box)({
   flexWrap: 'wrap',
 });
 
-export const DetailViewHeader: React.FC<DetailViewHeaderProps> = ({
+export const DetailViewHeader = ({
   artwork,
   title,
   subtitle,
@@ -118,7 +118,7 @@ export const DetailViewHeader: React.FC<DetailViewHeaderProps> = ({
   actions,
   direction = 'row',
   isPlaying = false, // Phase 1: Default to false (no playback)
-}) => {
+}: DetailViewHeaderProps) => {
   const isPlayingStr = isPlaying ? 'true' : 'false'; // Convert to string for styled-components
 
   return (

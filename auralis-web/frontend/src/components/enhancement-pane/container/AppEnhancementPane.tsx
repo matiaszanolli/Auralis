@@ -56,13 +56,13 @@ export interface AppEnhancementPaneProps {
  * - Content area for enhancement controls
  * - Footer with V2 toggle
  */
-export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
+export const AppEnhancementPane = ({
   onEnhancementChange: _onEnhancementChange,
   onToggleV2,
   useV2 = false,
   initiallyCollapsed = false,
   children,
-}) => {
+}: AppEnhancementPaneProps) => {
   const { isCollapsed, handleCollapsedToggle } = useAppEnhancementPaneState(initiallyCollapsed);
 
   return (

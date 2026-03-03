@@ -39,7 +39,7 @@ interface EnhancementProviderProps {
   children: React.ReactNode;
 }
 
-export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ children }) => {
+export const EnhancementProvider = ({ children }: EnhancementProviderProps) => {
   const [settings, setSettings] = useState<EnhancementSettings>({
     enabled: true,
     preset: 'adaptive',

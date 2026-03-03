@@ -13,10 +13,10 @@ interface ThemeToggleLabelComponentProps {
  * - Current theme mode as text label
  * - Only rendered when showLabel prop is true
  */
-export const ThemeToggleLabelComponent: React.FC<ThemeToggleLabelComponentProps> = ({
+export const ThemeToggleLabelComponent = ({
   isDark,
   color,
-}) => {
+}: ThemeToggleLabelComponentProps) => {
   return (
     <ThemeToggleLabel sx={{ color }}>
       {isDark ? 'Dark' : 'Light'}

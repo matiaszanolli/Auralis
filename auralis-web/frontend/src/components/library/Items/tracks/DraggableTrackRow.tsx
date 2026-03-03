@@ -60,7 +60,7 @@ interface DraggableTrackRowProps {
   onDelete?: (trackId: number) => void;
 }
 
-export const DraggableTrackRow: React.FC<DraggableTrackRowProps> = ({
+export const DraggableTrackRow = ({
   track,
   index,
   draggableId,
@@ -77,7 +77,7 @@ export const DraggableTrackRow: React.FC<DraggableTrackRowProps> = ({
   onShowArtist,
   onShowInfo,
   onDelete,
-}) => {
+}: DraggableTrackRowProps) => {
   return (
     <Draggable
       draggableId={draggableId}

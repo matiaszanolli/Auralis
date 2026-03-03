@@ -63,10 +63,10 @@ export interface AppContainerProps {
  * }
  * ```
  */
-export const AppContainer: React.FC<AppContainerProps> = ({
+export const AppContainer = ({
   onDragEnd,
   children,
-}) => {
+}: AppContainerProps) => {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <Box

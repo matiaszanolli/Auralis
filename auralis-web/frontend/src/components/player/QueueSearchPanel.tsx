@@ -49,11 +49,11 @@ interface QueueSearchPanelProps {
  * Provides search and filtering UI for the playback queue.
  * Displays filtered search results with highlight information.
  */
-export const QueueSearchPanel: React.FC<QueueSearchPanelProps> = ({
+export const QueueSearchPanel = ({
   isOpen,
   onClose,
   onTrackSelect,
-}) => {
+}: QueueSearchPanelProps) => {
   const { queue, removeTrack } = usePlaybackQueue();
   const {
     searchQuery,
@@ -267,11 +267,11 @@ interface SearchResultItemProps {
   onRemove: () => void;
 }
 
-const SearchResultItem: React.FC<SearchResultItemProps> = ({
+const SearchResultItem = ({
   result,
   onSelect,
   onRemove,
-}) => {
+}: SearchResultItemProps) => {
   const [isHovered, setIsHovered] = useState(false);
 
   const handleClick = () => {

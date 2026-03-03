@@ -14,7 +14,7 @@ interface MetadataDialogAlertsProps {
  * - Error alert if an error occurs during save
  * - Success alert after successful metadata save
  */
-export const MetadataDialogAlerts: React.FC<MetadataDialogAlertsProps> = ({ error, success }) => {
+export const MetadataDialogAlerts = ({ error, success }: MetadataDialogAlertsProps) => {
   return (
     <>
       {error && (

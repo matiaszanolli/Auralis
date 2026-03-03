@@ -122,7 +122,7 @@ const PRESETS: Record<PresetName, PresetInfo> = {
  *
  * Detailed controls - revealed on interaction with IdentityLayer
  */
-export const EnhancementInspectionLayer: React.FC<EnhancementInspectionLayerProps> = ({
+export const EnhancementInspectionLayer = ({
   selectedPreset,
   intensity,
   fingerprintStatus,
@@ -142,7 +142,7 @@ export const EnhancementInspectionLayer: React.FC<EnhancementInspectionLayerProp
   onTogglePause,
   onStop,
   onDismissError,
-}) => {
+}: EnhancementInspectionLayerProps) => {
   const [showPresetMenu, setShowPresetMenu] = React.useState(false);
 
   /**

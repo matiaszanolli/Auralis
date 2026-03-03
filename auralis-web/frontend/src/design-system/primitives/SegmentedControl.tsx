@@ -125,14 +125,14 @@ const SegmentButton = styled('button')<{
   } : {},
 }));
 
-export const SegmentedControl: React.FC<SegmentedControlProps> = ({
+export const SegmentedControl = ({
   value,
   onChange,
   options,
   size = 'sm',
   disabled = false,
   className,
-}) => {
+}: SegmentedControlProps) => {
   return (
     <ControlContainer size={size} className={className}>
       {options.map((option) => (

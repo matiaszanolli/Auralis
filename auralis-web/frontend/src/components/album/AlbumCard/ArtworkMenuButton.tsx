@@ -14,7 +14,7 @@ interface ArtworkMenuButtonProps {
   onClick: (e: React.MouseEvent<HTMLElement>) => void;
 }
 
-export const ArtworkMenuButton: React.FC<ArtworkMenuButtonProps> = ({ onClick }) => {
+export const ArtworkMenuButton = ({ onClick }: ArtworkMenuButtonProps) => {
   return (
     <IconButton
       onClick={onClick}

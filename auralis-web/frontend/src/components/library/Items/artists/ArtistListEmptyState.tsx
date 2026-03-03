@@ -16,10 +16,10 @@ interface ArtistListEmptyStateProps {
  * @example
  * <ArtistListEmptyState loading={loading} error={error} />
  */
-export const ArtistListEmptyState: React.FC<ArtistListEmptyStateProps> = ({
+export const ArtistListEmptyState = ({
   loading,
   error,
-}) => {
+}: ArtistListEmptyStateProps) => {
   if (loading) {
     return null; // Show loading skeleton in parent
   }

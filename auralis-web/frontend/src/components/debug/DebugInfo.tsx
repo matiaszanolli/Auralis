@@ -7,7 +7,7 @@ import { spacingSmall, spacingXSmall } from '../library/Styles/Spacing.styles'
  * Debug info component - displays build and commit information
  * Can be toggled via keyboard shortcut (Ctrl+Shift+I in future)
  */
-export const DebugInfo: React.FC = () => {
+export const DebugInfo = () => {
   const [visible, setVisible] = React.useState(false)
   const commitId = useCommitId()
   const versionString = getVersionString()

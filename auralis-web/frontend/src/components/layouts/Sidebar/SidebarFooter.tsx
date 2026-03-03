@@ -13,7 +13,7 @@ interface SidebarFooterProps {
   onOpenSettings?: () => void;
 }
 
-export const SidebarFooter: React.FC<SidebarFooterProps> = ({ onOpenSettings }) => {
+export const SidebarFooter = ({ onOpenSettings }: SidebarFooterProps) => {
   return (
     <Box sx={{ mt: 'auto', p: tokens.spacing.md, borderTop: `1px solid ${tokens.colors.border.light}` }}>
       {/* Settings Button */}

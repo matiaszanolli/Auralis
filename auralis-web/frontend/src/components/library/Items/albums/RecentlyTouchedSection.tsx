@@ -33,12 +33,12 @@ interface RecentlyTouchedSectionProps {
  * Shows nothing if no recent albums exist.
  * Limited to first 8 albums for visual balance.
  */
-export const RecentlyTouchedSection: React.FC<RecentlyTouchedSectionProps> = ({
+export const RecentlyTouchedSection = ({
   recentAlbums,
   onAlbumClick,
   onAlbumHover,
   onAlbumHoverEnd,
-}) => {
+}: RecentlyTouchedSectionProps) => {
   // Don't render if no recent albums
   if (recentAlbums.length === 0) {
     return null;

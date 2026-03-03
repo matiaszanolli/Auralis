@@ -19,12 +19,12 @@ interface ArtistDetailHeaderProps {
   onShuffle: () => void;
 }
 
-export const ArtistDetailHeaderSection: React.FC<ArtistDetailHeaderProps> = ({
+export const ArtistDetailHeaderSection = ({
   artist,
   onBack,
   onPlayAll,
   onShuffle,
-}) => {
+}: ArtistDetailHeaderProps) => {
   return (
     <>
       {onBack && (

@@ -45,7 +45,7 @@ export interface AlbumCardProps {
  * TODO: Re-implement artwork management (download/extract/delete) via
  * MediaCard extension or separate overlay component.
  */
-export const AlbumCard: React.FC<AlbumCardProps> = ({
+export const AlbumCard = ({
   albumId,
   title,
   artist,
@@ -58,7 +58,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   onArtworkUpdated,
   onHoverEnter,
   onHoverLeave,
-}) => {
+}: AlbumCardProps) => {
   // Build artwork URL from albumId if artwork exists
   const artworkUrl = hasArtwork ? `/api/albums/${albumId}/artwork` : undefined;
 

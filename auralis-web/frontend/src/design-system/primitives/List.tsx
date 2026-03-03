@@ -36,7 +36,7 @@ const StyledList = styled(MuiList)({
   },
 });
 
-export const List: React.FC<ListProps> = (props) => {
+export const List = (props: ListProps) => {
   return <StyledList {...props} />;
 };
 

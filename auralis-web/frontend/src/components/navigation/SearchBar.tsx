@@ -15,7 +15,7 @@ interface SearchBarProps {
   isSearching?: boolean;
 }
 
-export const SearchBar: React.FC<SearchBarProps> = ({
+export const SearchBar = ({
   value: controlledValue,
   onChange,
   placeholder = 'Search tracks, albums, artists...',
@@ -24,7 +24,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   resultCount,
   showResultCount = false,
   isSearching = false,
-}) => {
+}: SearchBarProps) => {
   const [internalValue, setInternalValue] = useState(controlledValue || '');
   const [debouncedValue, setDebouncedValue] = useState(internalValue);
 

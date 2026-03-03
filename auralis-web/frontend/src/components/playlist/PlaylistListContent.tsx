@@ -37,7 +37,7 @@ interface PlaylistListContentProps {
  *   {...otherProps}
  * />
  */
-export const PlaylistListContent: React.FC<PlaylistListContentProps> = ({
+export const PlaylistListContent = ({
   playlists,
   loading,
   expanded,
@@ -47,7 +47,7 @@ export const PlaylistListContent: React.FC<PlaylistListContentProps> = ({
   onPlaylistSelect,
   onContextMenuOpen,
   onContextMenuClose,
-}) => {
+}: PlaylistListContentProps) => {
   return (
     <>
       <Collapse in={expanded}>

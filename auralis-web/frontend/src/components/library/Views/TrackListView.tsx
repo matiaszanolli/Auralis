@@ -57,7 +57,7 @@ export interface TrackListViewProps {
  *
  * Renders tracks in grid or list mode with infinite scroll support.
  */
-export const TrackListView: React.FC<TrackListViewProps> = ({
+export const TrackListView = ({
   tracks,
   viewMode,
   loading,
@@ -74,7 +74,7 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
   onEditMetadata,
   onFindSimilar,
   onLoadMore,
-}) => {
+}: TrackListViewProps) => {
   // Queue operations with toast feedback
   const {
     handleRemoveTrack,

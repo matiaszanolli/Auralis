@@ -28,12 +28,12 @@ interface GridLoadingStateProps {
   children?: React.ReactNode;
 }
 
-export const GridLoadingState: React.FC<GridLoadingStateProps> = ({
+export const GridLoadingState = ({
   current,
   total,
   itemType = 'items',
   children
-}) => {
+}: GridLoadingStateProps) => {
   return (
     <LoadingIndicatorBox>
       <LoadingSpinner />

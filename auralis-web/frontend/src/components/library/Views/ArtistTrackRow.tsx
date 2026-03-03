@@ -18,14 +18,14 @@ interface ArtistTrackRowProps {
   formatDuration: (seconds: number) => string;
 }
 
-export const ArtistTrackRow: React.FC<ArtistTrackRowProps> = ({
+export const ArtistTrackRow = ({
   track,
   index,
   isCurrentTrack,
   isPlaying,
   onTrackClick,
   formatDuration,
-}) => {
+}: ArtistTrackRowProps) => {
   return (
     <StyledTableRow
       onClick={() => onTrackClick(track)}

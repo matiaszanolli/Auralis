@@ -31,7 +31,7 @@ interface ResultGroupProps {
  *
  * Manages rendering of results grouped by type
  */
-export const ResultGroup: React.FC<ResultGroupProps> = ({
+export const ResultGroup = ({
   title,
   results,
   showDivider,
@@ -39,7 +39,7 @@ export const ResultGroup: React.FC<ResultGroupProps> = ({
   chipLabel,
   chipClass,
   onResultClick
-}) => {
+}: ResultGroupProps) => {
   if (results.length === 0) {
     return null;
   }

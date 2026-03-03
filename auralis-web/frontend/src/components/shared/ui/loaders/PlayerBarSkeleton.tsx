@@ -11,7 +11,7 @@ import { SkeletonBox } from '../../../library/Styles/Skeleton.styles';
  * - Control buttons placeholders
  * - Volume slider placeholder
  */
-export const PlayerBarSkeleton: React.FC = () => {
+export const PlayerBarSkeleton = () => {
   return (
     <Box
       sx={{

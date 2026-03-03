@@ -39,7 +39,7 @@ interface ResultsContainerComponentProps {
  *
  * Manages visibility and rendering of results
  */
-export const ResultsContainerComponent: React.FC<ResultsContainerComponentProps> = ({
+export const ResultsContainerComponent = ({
   visible,
   results,
   loading,
@@ -47,7 +47,7 @@ export const ResultsContainerComponent: React.FC<ResultsContainerComponentProps>
   groupedResults,
   getAvatar,
   onResultClick
-}) => {
+}: ResultsContainerComponentProps) => {
   if (!visible) {
     return null;
   }

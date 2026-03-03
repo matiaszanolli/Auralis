@@ -7,7 +7,7 @@
 import React from 'react';
 import { Box, Grid, Skeleton } from '@mui/material';
 
-export const AlbumGridLoadingState: React.FC = () => {
+export const AlbumGridLoadingState = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Grid container spacing={3}>

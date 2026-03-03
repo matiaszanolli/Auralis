@@ -44,7 +44,7 @@ import type React from 'react';
 
 describe('Redux State Hooks', () => {
   let store: any;
-  let wrapper: React.FC<{ children: React.ReactNode }>;
+  let wrapper: (props: { children: React.ReactNode }) => React.ReactElement | null;
 
   beforeEach(() => {
     store = configureStore({

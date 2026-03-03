@@ -51,13 +51,13 @@ export interface TimeDisplayProps {
  * Provides formatted time information for the player UI.
  * Handles live content detection and appropriate display.
  */
-export const TimeDisplay: React.FC<TimeDisplayProps> = ({
+export const TimeDisplay = ({
   currentTime,
   duration,
   showRemaining = false,
   className = '',
   ariaLabel,
-}) => {
+}: TimeDisplayProps) => {
   // Determine if this is live content (no duration or infinity)
   const isLiveContent = useMemo(() => {
     return !Number.isFinite(duration) || duration === 0;

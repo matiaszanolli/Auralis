@@ -23,7 +23,7 @@ export interface ArtworkMenuProps {
   isExtracting?: boolean;
 }
 
-export const ArtworkMenu: React.FC<ArtworkMenuProps> = ({
+export const ArtworkMenu = ({
   open,
   anchorEl,
   onClose,
@@ -33,7 +33,7 @@ export const ArtworkMenu: React.FC<ArtworkMenuProps> = ({
   onDelete,
   isDownloading = false,
   isExtracting = false,
-}) => {
+}: ArtworkMenuProps) => {
   return (
     <Menu
       anchorEl={anchorEl}

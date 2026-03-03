@@ -23,7 +23,7 @@ interface TrackTableRowItemProps {
   formatDuration: (seconds: number) => string;
 }
 
-export const TrackTableRowItem: React.FC<TrackTableRowItemProps> = ({
+export const TrackTableRowItem = ({
   track,
   index,
   isCurrentTrack,
@@ -31,7 +31,7 @@ export const TrackTableRowItem: React.FC<TrackTableRowItemProps> = ({
   onTrackClick,
   onFindSimilar,
   formatDuration,
-}) => {
+}: TrackTableRowItemProps) => {
   // Context menu support (Phase 5)
   const {
     contextMenuPosition,

@@ -46,12 +46,12 @@ interface QueueRecommendationsPanelProps {
  *
  * Displays recommendations and discovery content.
  */
-export const QueueRecommendationsPanel: React.FC<QueueRecommendationsPanelProps> = ({
+export const QueueRecommendationsPanel = ({
   collapsed = false,
   onToggleCollapse,
   availableTracks = [],
   onAddTrack,
-}) => {
+}: QueueRecommendationsPanelProps) => {
   const { queue, currentTrack, addTrack } = usePlaybackQueue();
   const {
     forYouRecommendations,
@@ -193,11 +193,11 @@ interface RecommendationTabProps {
   onAddTrack: (track: any) => void;
 }
 
-const RecommendationTab: React.FC<RecommendationTabProps> = ({
+const RecommendationTab = ({
   title: _title,
   recommendations,
   onAddTrack,
-}) => {
+}: RecommendationTabProps) => {
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   if (recommendations.length === 0) {
@@ -255,7 +255,7 @@ interface DiscoveryTabProps {
   onAddTrack: (track: any) => void;
 }
 
-const DiscoveryTab: React.FC<DiscoveryTabProps> = ({ tracks, onAddTrack }) => {
+const DiscoveryTab = ({ tracks, onAddTrack }: DiscoveryTabProps) => {
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   if (tracks.length === 0) {
@@ -307,7 +307,7 @@ interface NewArtistsTabProps {
   onAddTrack: (track: any) => void;
 }
 
-const NewArtistsTab: React.FC<NewArtistsTabProps> = ({ newArtists, onAddTrack }) => {
+const NewArtistsTab = ({ newArtists, onAddTrack }: NewArtistsTabProps) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   if (newArtists.length === 0) {

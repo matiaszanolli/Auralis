@@ -32,12 +32,12 @@ interface CreatePlaylistDialogProps {
  *   initialTrackIds={selectedTrackIds}
  * />
  */
-export const CreatePlaylistDialog: React.FC<CreatePlaylistDialogProps> = ({
+export const CreatePlaylistDialog = ({
   open,
   onClose,
   onPlaylistCreated,
   initialTrackIds,
-}) => {
+}: CreatePlaylistDialogProps) => {
   const {
     name,
     setName,

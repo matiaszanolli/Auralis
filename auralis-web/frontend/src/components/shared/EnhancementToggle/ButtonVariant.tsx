@@ -14,7 +14,7 @@ import { EnhancementToggleProps } from './EnhancementToggle';
  * - Smooth scale animations
  * - Icon rotation effect
  */
-export const ButtonVariant: React.FC<EnhancementToggleProps> = React.memo(({
+export const ButtonVariant = React.memo<EnhancementToggleProps>(({
   isEnabled,
   onToggle,
   tooltipText,

@@ -6,7 +6,7 @@ import React from 'react';
 import { TableHead, TableRow, TableCell } from '@mui/material';
 import { tokens } from '@/design-system';
 
-export const TrackTableHeader: React.FC = () => {
+export const TrackTableHeader = () => {
   return (
     <TableHead>
       <TableRow sx={{

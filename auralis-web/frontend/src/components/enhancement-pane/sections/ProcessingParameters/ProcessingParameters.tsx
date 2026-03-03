@@ -28,7 +28,7 @@ interface ProcessingParametersProps {
   params: ProcessingParams;
 }
 
-const ProcessingParameters: React.FC<ProcessingParametersProps> = React.memo(({ params }) => {
+const ProcessingParameters = React.memo<ProcessingParametersProps>(({ params }) => {
   const {
     formatTargetLoudness,
     formatPeakTarget,

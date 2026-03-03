@@ -46,13 +46,13 @@ const PRESET_INFO: Record<PresetName, { icon: string; label: string }> = {
  *
  * Minimal ambient display - "the system listening to the music"
  */
-export const EnhancementIdentityLayer: React.FC<EnhancementIdentityLayerProps> = ({
+export const EnhancementIdentityLayer = ({
   selectedPreset,
   fingerprintStatus,
   streamingState,
   progress,
   onRevealInspection,
-}) => {
+}: EnhancementIdentityLayerProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const preset = PRESET_INFO[selectedPreset];
 

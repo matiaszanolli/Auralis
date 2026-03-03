@@ -41,12 +41,12 @@ interface SearchBarProps {
  * Includes clear button and loading indicator.
  * Optimized for library search queries.
  */
-export const SearchBar: React.FC<SearchBarProps> = ({
+export const SearchBar = ({
   onSearch,
   placeholder = 'Search tracks, albums, artists...',
   debounceMs = 300,
   autoFocus = false,
-}) => {
+}: SearchBarProps) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);

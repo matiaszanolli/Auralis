@@ -6,7 +6,7 @@ import { tokens } from '@/design-system';
 /**
  * SimilarTracksHeader - Header with title and description
  */
-export const SimilarTracksHeader: React.FC = () => {
+export const SimilarTracksHeader = () => {
   return (
     <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid rgba(102, 126, 234, 0.1)` }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

@@ -159,12 +159,12 @@ const StyledSlider = styled(MuiSlider, {
   };
 });
 
-export const Slider: React.FC<SliderProps> = ({
+export const Slider = ({
   variant = 'default',
   size = 'md',
   showValue = false,
   ...props
-}) => {
+}: SliderProps) => {
   return (
     <StyledSlider
       variant={variant}

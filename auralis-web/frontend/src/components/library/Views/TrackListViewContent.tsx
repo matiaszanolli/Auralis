@@ -31,7 +31,7 @@ export interface TrackListViewContentProps {
  * Uses @tanstack/react-virtual to only render visible tracks (+ overscan buffer),
  * keeping DOM node count constant regardless of library size.
  */
-export const TrackListViewContent: React.FC<TrackListViewContentProps> = ({
+export const TrackListViewContent = ({
   tracks,
   hasMore,
   isLoadingMore,
@@ -45,7 +45,7 @@ export const TrackListViewContent: React.FC<TrackListViewContentProps> = ({
   onEditMetadata,
   onFindSimilar,
   onLoadMore,
-}) => {
+}: TrackListViewContentProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({

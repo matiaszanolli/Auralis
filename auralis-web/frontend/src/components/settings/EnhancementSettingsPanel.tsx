@@ -20,12 +20,12 @@ interface EnhancementSettingsPanelProps {
  * - Auto-enhance toggle
  * - Enhancement intensity slider
  */
-export const EnhancementSettingsPanel: React.FC<EnhancementSettingsPanelProps> = ({
+export const EnhancementSettingsPanel = ({
   defaultPreset,
   autoEnhance,
   enhancementIntensity,
   onSettingChange
-}) => {
+}: EnhancementSettingsPanelProps) => {
   return (
     <Box>
       <SectionContainer>

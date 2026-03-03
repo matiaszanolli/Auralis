@@ -63,7 +63,7 @@ export interface ProgressBarProps {
  * Renders an interactive timeline with seeking capability, buffered range,
  * and hover time preview.
  */
-export const ProgressBar: React.FC<ProgressBarProps> = ({
+export const ProgressBar = ({
   currentTime,
   duration,
   bufferedPercentage = 0,
@@ -71,7 +71,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   disabled = false,
   className = '',
   ariaLabel,
-}) => {
+}: ProgressBarProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovering, setIsHovering] = useState(false);
   const [hoverPosition, setHoverPosition] = useState(0);

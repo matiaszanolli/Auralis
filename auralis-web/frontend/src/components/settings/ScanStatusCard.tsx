@@ -27,7 +27,7 @@ interface ScanStatusCardProps {
   onScanNow: () => void;
 }
 
-export const ScanStatusCard: React.FC<ScanStatusCardProps> = ({ disabled = false, onScanNow }) => {
+export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardProps) => {
   const { isScanning, current, total, percentage, currentFile, lastResult } = useScanProgress();
 
   // --- No folders configured ---

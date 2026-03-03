@@ -11,7 +11,7 @@ import {
  * - Header skeleton (artist image, title, metadata)
  * - Content skeleton (tabs and content area)
  */
-export const DetailLoading: React.FC = () => {
+export const DetailLoading = () => {
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Skeleton

@@ -29,10 +29,10 @@ interface KeyboardShortcutsListProps {
  * - Individual shortcuts with descriptions and key combinations
  * - Footer hint about showing dialog with ?
  */
-export const KeyboardShortcutsList: React.FC<KeyboardShortcutsListProps> = ({
+export const KeyboardShortcutsList = ({
   categories,
   formatShortcut,
-}) => {
+}: KeyboardShortcutsListProps) => {
   return (
     <>
       {categories.map((cat) => (

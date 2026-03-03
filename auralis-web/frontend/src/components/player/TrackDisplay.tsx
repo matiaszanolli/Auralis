@@ -53,14 +53,14 @@ export interface TrackDisplayProps {
  *
  * Renders track title, artist, and album information with proper text overflow handling.
  */
-export const TrackDisplay: React.FC<TrackDisplayProps> = ({
+export const TrackDisplay = ({
   title,
   artist,
   album,
   isLoading = false,
   className = '',
   ariaLabel,
-}) => {
+}: TrackDisplayProps) => {
   // Final aria label
   const finalAriaLabel = useMemo(() => {
     if (ariaLabel) {

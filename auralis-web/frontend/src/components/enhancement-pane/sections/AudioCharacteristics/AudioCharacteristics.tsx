@@ -30,7 +30,7 @@ const GRADIENTS = {
   energyLevel: tokens.gradients.decorative.gradientGreen,      // Green energy gradient
 };
 
-const AudioCharacteristics: React.FC<AudioCharacteristicsProps> = React.memo(({ params }) => {
+const AudioCharacteristics = React.memo<AudioCharacteristicsProps>(({ params }) => {
   // Helper to get spectral balance label
   const getSpectralLabel = (value: number): string => {
     if (value < 0.3) return 'Dark';

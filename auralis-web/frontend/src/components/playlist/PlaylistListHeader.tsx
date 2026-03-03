@@ -28,12 +28,12 @@ interface PlaylistListHeaderProps {
  *   onCreateClick={handleCreate}
  * />
  */
-export const PlaylistListHeader: React.FC<PlaylistListHeaderProps> = ({
+export const PlaylistListHeader = ({
   playlistCount,
   expanded,
   onExpandToggle,
   onCreateClick,
-}) => {
+}: PlaylistListHeaderProps) => {
   const handleCreateClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();

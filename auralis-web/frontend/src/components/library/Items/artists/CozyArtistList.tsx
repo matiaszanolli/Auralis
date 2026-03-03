@@ -40,7 +40,7 @@ interface CozyArtistListProps {
   onArtistClick?: (artistId: number, artistName: string) => void;
 }
 
-export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick }) => {
+export const CozyArtistList = ({ onArtistClick }: CozyArtistListProps) => {
   const [contextMenuArtist, setContextMenuArtist] = useState<Artist | null>(null);
 
   // Data fetching with pagination

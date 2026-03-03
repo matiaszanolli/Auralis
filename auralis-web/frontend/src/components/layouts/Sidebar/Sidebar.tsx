@@ -24,12 +24,12 @@ interface SidebarProps {
  * - Theme toggle and settings
  * - Active item highlighting with aurora glow
  */
-const SidebarComponent: React.FC<SidebarProps> = ({
+const SidebarComponent = ({
   collapsed = false,
   onToggleCollapse,
   onNavigate,
   onOpenSettings,
-}) => {
+}: SidebarProps) => {
   const { selectedItem, handleItemClick } = useSidebarState(onNavigate);
 
   // Show collapsed variant

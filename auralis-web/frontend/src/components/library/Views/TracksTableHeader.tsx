@@ -5,7 +5,7 @@
 import React from 'react';
 import { TableHead, TableRow, TableCell } from '@mui/material';
 
-export const TracksTableHeader: React.FC = () => {
+export const TracksTableHeader = () => {
   return (
     <TableHead>
       <TableRow>

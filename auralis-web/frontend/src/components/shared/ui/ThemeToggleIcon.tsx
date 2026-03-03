@@ -16,7 +16,7 @@ interface ThemeToggleIconProps {
  * - Glow effect for active mode
  * - Smooth transition animation
  */
-export const ThemeToggleIcon: React.FC<ThemeToggleIconProps> = ({ isDark, iconSize }) => {
+export const ThemeToggleIcon = ({ isDark, iconSize }: ThemeToggleIconProps) => {
   return (
     <ThemeToggleIconContainer sx={{ transform: isDark ? 'rotate(0deg)' : 'rotate(180deg)' }}>
       {isDark ? (

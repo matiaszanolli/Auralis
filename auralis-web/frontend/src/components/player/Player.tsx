@@ -60,7 +60,7 @@ import { playerSelectors } from '@/store/selectors';
  * - Layer 3: Responsive layout with design tokens
  * - WebSocket Streaming: Audio playback via usePlayEnhanced hook (not HTML5 audio)
  */
-const Player: React.FC = () => {
+const Player = () => {
   const dispatch = useDispatch();
 
   // Queue panel visibility state

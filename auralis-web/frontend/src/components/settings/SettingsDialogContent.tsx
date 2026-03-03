@@ -22,14 +22,14 @@ interface SettingsDialogContentProps {
  *
  * Displays the appropriate settings panel based on active tab.
  */
-export const SettingsDialogContentComponent: React.FC<SettingsDialogContentProps> = ({
+export const SettingsDialogContentComponent = ({
   activeTab,
   getValue,
   onSettingChange,
   onAddFolder,
   onRemoveFolder,
   onScanNow,
-}) => {
+}: SettingsDialogContentProps) => {
   return (
     <StyledContent>
       {activeTab === 0 && (

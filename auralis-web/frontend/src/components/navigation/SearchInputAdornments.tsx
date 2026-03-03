@@ -21,7 +21,7 @@ interface SearchInputAdornmentsEndProps {
 /**
  * Start adornment - search icon (minimal, faded)
  */
-export const SearchInputAdornmentsStart: React.FC = () => (
+export const SearchInputAdornmentsStart = () => (
   <InputAdornment position="start">
     <Search sx={{ fontSize: 18, opacity: 0.6 }} />
   </InputAdornment>
@@ -30,13 +30,13 @@ export const SearchInputAdornmentsStart: React.FC = () => (
 /**
  * End adornment - search indicator, result count, and clear button
  */
-export const SearchInputAdornmentsEnd: React.FC<SearchInputAdornmentsEndProps> = ({
+export const SearchInputAdornmentsEnd = ({
   value,
   resultCount,
   showResultCount = false,
   isSearching = false,
   onClear,
-}) => (
+}: SearchInputAdornmentsEndProps) => (
   <InputAdornment position="end">
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       {/* Searching indicator */}

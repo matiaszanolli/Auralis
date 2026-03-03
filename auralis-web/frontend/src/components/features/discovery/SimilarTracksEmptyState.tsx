@@ -13,7 +13,7 @@ interface SimilarTracksEmptyStateProps {
 /**
  * SimilarTracksEmptyState - Shows when no similar tracks found or no track selected
  */
-export const SimilarTracksEmptyState: React.FC<SimilarTracksEmptyStateProps> = ({ trackId }) => {
+export const SimilarTracksEmptyState = ({ trackId }: SimilarTracksEmptyStateProps) => {
   if (!trackId) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>

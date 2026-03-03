@@ -89,7 +89,7 @@ const PlaceholderIcon = styled(MusicNoteIcon)(({ theme: _theme }) => ({
   fontSize: '24px',
 }));
 
-export const AlbumArtDisplay: React.FC<AlbumArtDisplayProps> = React.memo(({
+export const AlbumArtDisplay = React.memo<AlbumArtDisplayProps>(({
   artworkPath,
   title = 'Album',
   album = 'Album',

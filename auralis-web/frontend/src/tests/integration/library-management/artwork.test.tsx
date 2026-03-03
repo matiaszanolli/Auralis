@@ -33,7 +33,7 @@ interface ArtworkManagerProps {
   onError?: (error: Error) => void;
 }
 
-const ArtworkManager: React.FC<ArtworkManagerProps> = ({ albumId, onUpload, onDelete, onError }) => {
+const ArtworkManager = ({ albumId, onUpload, onDelete, onError }: ArtworkManagerProps) => {
   const [artworkUrl, setArtworkUrl] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [uploading, setUploading] = React.useState(false);

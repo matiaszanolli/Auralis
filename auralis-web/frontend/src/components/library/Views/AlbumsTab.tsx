@@ -35,10 +35,10 @@ interface AlbumsTabProps {
  * - Click handler for navigation
  * - Empty state message
  */
-export const AlbumsTab: React.FC<AlbumsTabProps> = ({
+export const AlbumsTab = ({
   albums,
   onAlbumClick
-}) => {
+}: AlbumsTabProps) => {
   if (!albums || albums.length === 0) {
     return (
       <Paper

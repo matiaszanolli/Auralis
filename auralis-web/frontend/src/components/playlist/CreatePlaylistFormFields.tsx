@@ -22,7 +22,7 @@ interface CreatePlaylistFormFieldsProps {
  * - Initial tracks info (if tracks provided)
  * - Keyboard shortcut support (Enter to create)
  */
-export const CreatePlaylistFormFields: React.FC<CreatePlaylistFormFieldsProps> = ({
+export const CreatePlaylistFormFields = ({
   name,
   onNameChange,
   description,
@@ -30,7 +30,7 @@ export const CreatePlaylistFormFields: React.FC<CreatePlaylistFormFieldsProps> =
   loading,
   onKeyDown,
   initialTrackIds,
-}) => {
+}: CreatePlaylistFormFieldsProps) => {
   return (
     <DialogContentBox>
       <StyledTextField

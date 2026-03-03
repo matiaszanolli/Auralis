@@ -15,7 +15,7 @@ interface SidebarContentProps {
   onItemClick: (itemId: string) => void;
 }
 
-export const SidebarContent: React.FC<SidebarContentProps> = ({ selectedItem, onItemClick }) => {
+export const SidebarContent = ({ selectedItem, onItemClick }: SidebarContentProps) => {
   // Navigation items definitions
   const libraryItems = [
     { id: 'songs', label: 'Songs', icon: <LibraryMusic /> },

@@ -14,7 +14,7 @@ interface EditMetadataDialogHeaderProps {
  * - "Edit Metadata" title
  * - Loading spinner when fetching metadata
  */
-export const EditMetadataDialogHeader: React.FC<EditMetadataDialogHeaderProps> = ({ loading }) => {
+export const EditMetadataDialogHeader = ({ loading }: EditMetadataDialogHeaderProps) => {
   return (
     <DialogTitleStyled component="div">
       <DialogHeaderBox>

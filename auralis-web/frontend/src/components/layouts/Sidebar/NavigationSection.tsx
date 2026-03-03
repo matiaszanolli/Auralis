@@ -20,11 +20,11 @@ interface NavigationSectionProps {
  *
  * Used for Library and Collections sections
  */
-export const NavigationSection: React.FC<NavigationSectionProps> = ({
+export const NavigationSection = ({
   items,
   selectedItem,
   onItemClick,
-}) => {
+}: NavigationSectionProps) => {
   return (
     <List sx={{ px: tokens.spacing.md }}>
       {items.map((item) => (

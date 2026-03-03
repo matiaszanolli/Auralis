@@ -19,14 +19,14 @@ interface PlaylistFormFieldsProps {
  * - Description textarea (optional)
  * - Keyboard shortcut support (Enter to save)
  */
-export const PlaylistFormFields: React.FC<PlaylistFormFieldsProps> = ({
+export const PlaylistFormFields = ({
   name,
   onNameChange,
   description,
   onDescriptionChange,
   loading,
   onKeyPress,
-}) => {
+}: PlaylistFormFieldsProps) => {
   return (
     <DialogContentBox>
       <StyledTextField

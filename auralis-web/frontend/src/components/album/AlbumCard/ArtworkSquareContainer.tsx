@@ -12,7 +12,7 @@ interface ArtworkSquareContainerProps {
   children: React.ReactNode;
 }
 
-export const ArtworkSquareContainer: React.FC<ArtworkSquareContainerProps> = ({ children }) => {
+export const ArtworkSquareContainer = ({ children }: ArtworkSquareContainerProps) => {
   return (
     <Box
       sx={{

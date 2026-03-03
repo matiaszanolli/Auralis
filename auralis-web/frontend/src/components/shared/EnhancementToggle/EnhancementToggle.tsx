@@ -82,7 +82,7 @@ export interface EnhancementToggleProps {
  *   label="Enable Auto-Mastering"
  * />
  */
-export const EnhancementToggle: React.FC<EnhancementToggleProps> = React.memo(({
+export const EnhancementToggle = React.memo<EnhancementToggleProps>(({
   variant = 'button',
   ...props
 }) => {

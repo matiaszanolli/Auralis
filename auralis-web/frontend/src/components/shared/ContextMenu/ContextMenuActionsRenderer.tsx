@@ -21,10 +21,10 @@ interface ContextMenuActionsRendererProps {
  *   onActionClick={handleAction}
  * />
  */
-export const ContextMenuActionsRenderer: React.FC<ContextMenuActionsRendererProps> = ({
+export const ContextMenuActionsRenderer = ({
   actions,
   onActionClick,
-}) => {
+}: ContextMenuActionsRendererProps) => {
   return (
     <>
       {actions.map((action, index) => (

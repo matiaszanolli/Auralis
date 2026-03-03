@@ -17,7 +17,7 @@ export interface PlayOverlayProps {
   onClick: (e: React.MouseEvent) => void;
 }
 
-export const PlayOverlay: React.FC<PlayOverlayProps> = ({ isHovered, onClick }) => {
+export const PlayOverlay = ({ isHovered, onClick }: PlayOverlayProps) => {
   return (
     <Box
       sx={{

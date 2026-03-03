@@ -13,7 +13,7 @@ interface ParameterChipProps {
   gradient: string;
 }
 
-const ParameterChip: React.FC<ParameterChipProps> = React.memo(({ label, gradient }) => {
+const ParameterChip = React.memo<ParameterChipProps>(({ label, gradient }) => {
   return (
     <Chip
       label={label}

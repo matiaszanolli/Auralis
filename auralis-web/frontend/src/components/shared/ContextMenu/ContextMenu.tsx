@@ -48,7 +48,7 @@ export interface ContextMenuProps {
   onCreatePlaylist?: (playlist: playlistService.Playlist) => Promise<void>;
 }
 
-export const ContextMenu: React.FC<ContextMenuProps> = ({
+export const ContextMenu = ({
   open,
   anchorPosition,
   onClose,
@@ -60,7 +60,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onPlaylistsLoad,
   onAddToPlaylist,
   onCreatePlaylist,
-}) => {
+}: ContextMenuProps) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 

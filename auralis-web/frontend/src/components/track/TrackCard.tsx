@@ -30,7 +30,7 @@ interface TrackCardProps {
  * Wrapper around MediaCard with track-specific props.
  * Provides backwards compatibility for existing track grid views.
  */
-export const TrackCard: React.FC<TrackCardProps> = ({
+export const TrackCard = ({
   id,
   title,
   artist,
@@ -40,7 +40,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   albumArt,
   isPlaying = false,
   onPlay,
-}) => {
+}: TrackCardProps) => {
   // For tracks, clicking anywhere on the card should trigger playback
   const handleClick = () => {
     onPlay(id);

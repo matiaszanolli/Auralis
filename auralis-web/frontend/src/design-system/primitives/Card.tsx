@@ -112,14 +112,14 @@ const StyledCard = styled(MuiCard, {
   };
 });
 
-export const Card: React.FC<CardProps> = ({
+export const Card = ({
   children,
   variant = 'default',
   padding = 'md',
   hoverable = false,
   selected = false,
   ...props
-}) => {
+}: CardProps) => {
   return (
     <StyledCard
       variant={variant}

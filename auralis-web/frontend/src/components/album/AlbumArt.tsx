@@ -86,14 +86,14 @@ const getIconSize = (size: number | string): string => {
   return '5rem';
 };
 
-export const AlbumArt: React.FC<AlbumArtProps> = ({
+export const AlbumArt = ({
   albumId,
   size = 160,
   borderRadius = 8,
   onClick,
   showSkeleton: _showSkeleton = true,
   style,
-}) => {
+}: AlbumArtProps) => {
   // Construct artwork URL
   const artworkUrl = albumId ? `/api/albums/${albumId}/artwork` : '';
 

@@ -41,7 +41,7 @@ interface AlbumHeaderActionsProps {
   artworkGlow?: string;
 }
 
-export const AlbumHeaderActions: React.FC<AlbumHeaderActionsProps> = ({
+export const AlbumHeaderActions = ({
   album,
   isPlaying = false,
   currentTrackId,
@@ -50,7 +50,7 @@ export const AlbumHeaderActions: React.FC<AlbumHeaderActionsProps> = ({
   onPlay,
   onToggleFavorite,
   artworkGlow,
-}) => {
+}: AlbumHeaderActionsProps) => {
   return (
     <DetailViewHeader
       isPlaying={isPlaying} // Phase 1: Reduce header opacity during playback

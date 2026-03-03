@@ -58,11 +58,11 @@ export interface AppMainContentProps {
  * }
  * ```
  */
-export const AppMainContent: React.FC<AppMainContentProps> = ({
+export const AppMainContent = ({
   children,
   onPlayTrack: _onPlayTrack,
   onQueueTrack: _onQueueTrack,
-}) => {
+}: AppMainContentProps) => {
   return (
     <Box
       sx={{

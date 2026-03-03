@@ -21,11 +21,11 @@ interface FoldersListProps {
   onRemoveFolder: (folder: string) => void;
 }
 
-export const FoldersList: React.FC<FoldersListProps> = ({
+export const FoldersList = ({
   scanFolders,
   onAddFolder,
   onRemoveFolder,
-}) => {
+}: FoldersListProps) => {
   return (
     <SectionContainer>
       <SectionLabel>Scan Folders</SectionLabel>

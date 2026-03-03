@@ -40,12 +40,12 @@ export interface DropZoneProps {
  * />
  * ```
  */
-export const DropZone: React.FC<DropZoneProps> = ({
+export const DropZone = ({
   onFolderDrop,
   onFolderSelect,
   disabled = false,
   scanning = false,
-}) => {
+}: DropZoneProps) => {
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const { isDragging, handleDragEnter, handleDragLeave, handleDragOver, handleDrop } =
     useDropZone(disabled, scanning);

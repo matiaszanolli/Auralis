@@ -6,9 +6,9 @@ interface SimilarityLoadingStateProps {
   message?: string;
 }
 
-export const SimilarityLoadingState: React.FC<SimilarityLoadingStateProps> = ({
+export const SimilarityLoadingState = ({
   message = 'Analyzing similarity...',
-}) => (
+}: SimilarityLoadingStateProps) => (
   <Box sx={{ p: 2, textAlign: 'center' }}>
     <CircularProgress size={24} sx={{ color: tokens.colors.accent.primary }} />
     <Typography variant="body2" sx={{ mt: 1, color: tokens.colors.text.secondary }}>
@@ -21,7 +21,7 @@ interface SimilarityErrorStateProps {
   error: string;
 }
 
-export const SimilarityErrorState: React.FC<SimilarityErrorStateProps> = ({ error }) => (
+export const SimilarityErrorState = ({ error }: SimilarityErrorStateProps) => (
   <Box sx={{ p: 2 }}>
     <Alert variant="error">
       {error}
@@ -29,7 +29,7 @@ export const SimilarityErrorState: React.FC<SimilarityErrorStateProps> = ({ erro
   </Box>
 );
 
-export const SimilarityEmptyState: React.FC = () => (
+export const SimilarityEmptyState = () => (
   <Box sx={{ p: 2, textAlign: 'center' }}>
     <Typography variant="body2" sx={{ color: tokens.colors.text.secondary }}>
       Select two tracks to compare

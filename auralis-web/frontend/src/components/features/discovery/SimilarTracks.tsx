@@ -31,12 +31,12 @@ interface SimilarTracksProps {
   useGraph?: boolean;
 }
 
-const SimilarTracks: React.FC<SimilarTracksProps> = ({
+const SimilarTracks = ({
   trackId,
   onTrackSelect,
   limit = 5,
   useGraph = true
-}) => {
+}: SimilarTracksProps) => {
   // Load similar tracks
   const { similarTracks, loading, error } = useSimilarTracksLoader({
     trackId,

@@ -25,7 +25,7 @@ interface ProcessingToastProps {
   show: boolean;
 }
 
-export const ProcessingToast: React.FC<ProcessingToastProps> = ({ stats, show }) => {
+export const ProcessingToast = ({ stats, show }: ProcessingToastProps) => {
   if (!show || stats.status === 'idle') {
     return null;
   }

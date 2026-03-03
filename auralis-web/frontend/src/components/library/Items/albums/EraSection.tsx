@@ -42,14 +42,14 @@ interface EraSectionProps {
 /**
  * EraSection - Era header with album grid
  */
-export const EraSection: React.FC<EraSectionProps> = ({
+export const EraSection = ({
   label,
   albums,
   fingerprints,
   onAlbumClick,
   onAlbumHover,
   onAlbumHoverEnd,
-}) => {
+}: EraSectionProps) => {
   // Don't render empty eras
   if (albums.length === 0) {
     return null;

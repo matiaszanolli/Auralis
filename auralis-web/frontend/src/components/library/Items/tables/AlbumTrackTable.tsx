@@ -23,14 +23,14 @@ interface AlbumTrackTableProps {
   formatDuration: (seconds: number) => string;
 }
 
-export const AlbumTrackTable: React.FC<AlbumTrackTableProps> = ({
+export const AlbumTrackTable = ({
   tracks,
   currentTrackId,
   isPlaying = false,
   onTrackClick,
   onFindSimilar,
   formatDuration
-}) => {
+}: AlbumTrackTableProps) => {
   return (
     <TableContainer
       component={Paper}

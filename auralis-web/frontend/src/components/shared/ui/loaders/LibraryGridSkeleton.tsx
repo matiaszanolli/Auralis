@@ -13,9 +13,9 @@ interface LibraryGridSkeletonProps {
  * - Multiple album card skeletons in responsive grid layout
  * - Configurable number of cards to display
  */
-export const LibraryGridSkeleton: React.FC<LibraryGridSkeletonProps> = ({
+export const LibraryGridSkeleton = ({
   count = 12,
-}) => {
+}: LibraryGridSkeletonProps) => {
   return (
     <Grid container spacing={3}>
       {Array.from({ length: count }).map((_, index) => (

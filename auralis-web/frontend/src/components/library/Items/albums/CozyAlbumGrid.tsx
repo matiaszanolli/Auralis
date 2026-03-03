@@ -46,12 +46,12 @@ interface CozyAlbumGridProps {
  * - Cache management
  * - No race conditions
  */
-export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({
+export const CozyAlbumGrid = ({
   onAlbumClick,
   onAlbumHover,
   onAlbumHoverEnd,
   sortBy = 'az',
-}) => {
+}: CozyAlbumGridProps) => {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // Infinite query with TanStack Query

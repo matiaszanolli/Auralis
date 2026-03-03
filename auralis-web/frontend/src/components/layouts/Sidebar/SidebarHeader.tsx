@@ -14,7 +14,7 @@ interface SidebarHeaderProps {
   onToggleCollapse?: () => void;
 }
 
-export const SidebarHeader: React.FC<SidebarHeaderProps> = ({ onToggleCollapse }) => {
+export const SidebarHeader = ({ onToggleCollapse }: SidebarHeaderProps) => {
   return (
     <>
       <Box

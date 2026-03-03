@@ -47,13 +47,13 @@ interface SearchResultItemProps {
   onClick: (result: SearchResult) => void;
 }
 
-export const SearchResultItem: React.FC<SearchResultItemProps> = ({
+export const SearchResultItem = ({
   result,
   avatar,
   chipLabel,
   chipClass,
   onClick
-}) => {
+}: SearchResultItemProps) => {
   return (
     <StyledListItemButton
       key={`${result.type}-${result.id}`}

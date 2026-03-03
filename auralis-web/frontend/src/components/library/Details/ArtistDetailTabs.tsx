@@ -22,7 +22,7 @@ interface ArtistDetailTabsProps {
   onAlbumClick: (albumId: number) => void;
 }
 
-export const ArtistDetailTabsSection: React.FC<ArtistDetailTabsProps> = ({
+export const ArtistDetailTabsSection = ({
   artist,
   activeTab,
   onTabChange,
@@ -30,7 +30,7 @@ export const ArtistDetailTabsSection: React.FC<ArtistDetailTabsProps> = ({
   isPlaying,
   onTrackClick,
   onAlbumClick,
-}) => {
+}: ArtistDetailTabsProps) => {
   return (
     <Box sx={{ mt: tokens.spacing.xxl }}> {/* Increased spacing */}
       <Tabs

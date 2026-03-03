@@ -29,14 +29,14 @@ const iconMap = {
   folder: FolderOpen,
 };
 
-export const EmptyState: React.FC<EmptyStateProps> = ({
+export const EmptyState = ({
   icon = 'music',
   customIcon,
   title,
   description,
   actionLabel,
   onAction,
-}) => {
+}: EmptyStateProps) => {
   const IconComponent = iconMap[icon];
 
   return (
@@ -59,11 +59,11 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 };
 
 // Predefined empty states for common scenarios
-export const EmptyLibrary: React.FC<{
+export const EmptyLibrary = ({ onScanFolder, onFolderDrop, scanning = false }: {
   onScanFolder?: () => void;
   onFolderDrop?: (path: string) => void;
   scanning?: boolean;
-}> = ({ onScanFolder, onFolderDrop, scanning = false }) => {
+}) => {
   // Only import DropZone if needed
   const DropZone = React.lazy(() => import('@/components/shared/DropZone/DropZone').then(m => ({ default: m.DropZone })));
 
@@ -99,7 +99,7 @@ export const EmptyLibrary: React.FC<{
   );
 };
 
-export const NoSearchResults: React.FC<{ query?: string }> = ({ query }) => (
+export const NoSearchResults = ({ query }: { query?: string }) => (
   <EmptyState
     icon="search"
     title="No results found"
@@ -111,7 +111,7 @@ export const NoSearchResults: React.FC<{ query?: string }> = ({ query }) => (
   />
 );
 
-export const EmptyPlaylist: React.FC<{ onAddTracks?: () => void }> = ({ onAddTracks }) => (
+export const EmptyPlaylist = ({ onAddTracks }: { onAddTracks?: () => void }) => (
   <EmptyState
     icon="playlist"
     title="Empty playlist"
@@ -121,7 +121,7 @@ export const EmptyPlaylist: React.FC<{ onAddTracks?: () => void }> = ({ onAddTra
   />
 );
 
-export const EmptyQueue: React.FC = () => (
+export const EmptyQueue = () => (
   <EmptyState
     icon="playlist"
     title="Queue is empty"

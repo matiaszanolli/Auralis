@@ -20,7 +20,7 @@ import { ArtworkSquareContainer } from './ArtworkSquareContainer';
 import { ArtworkMenuButton } from './ArtworkMenuButton';
 
 // Shimmer overlay for placeholders (same as TrackCard)
-const ShimmerOverlay: React.FC = () => (
+const ShimmerOverlay = () => (
   <Box
     className="shimmer-overlay"
     sx={{
@@ -50,7 +50,7 @@ export interface ArtworkContainerProps {
   onDelete: () => void;
 }
 
-export const ArtworkContainer: React.FC<ArtworkContainerProps> = ({
+export const ArtworkContainer = ({
   albumId,
   hasArtwork,
   isHovered,
@@ -62,7 +62,7 @@ export const ArtworkContainer: React.FC<ArtworkContainerProps> = ({
   onDownload,
   onExtract,
   onDelete,
-}) => {
+}: ArtworkContainerProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => {

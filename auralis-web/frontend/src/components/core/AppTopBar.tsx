@@ -81,14 +81,14 @@ export interface AppTopBarProps {
  * }
  * ```
  */
-export const AppTopBar: React.FC<AppTopBarProps> = ({
+export const AppTopBar = ({
   onSearch,
   onOpenMobileDrawer,
   title,
   connectionStatus,
   isMobile,
   onSearchClear,
-}) => {
+}: AppTopBarProps) => {
   const theme = useTheme();
   const mediaIsMobile = useMediaQuery(theme.breakpoints.down('md'));
   const shouldShowMobileMenu = isMobile || mediaIsMobile;

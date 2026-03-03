@@ -40,13 +40,13 @@ export interface EditMetadataDialogProps {
   onSave?: (trackId: number, metadata: MetadataFields) => void;
 }
 
-export const EditMetadataDialog: React.FC<EditMetadataDialogProps> = ({
+export const EditMetadataDialog = ({
   open,
   trackId,
   currentMetadata,
   onClose,
   onSave,
-}) => {
+}: EditMetadataDialogProps) => {
   const { metadata, loading, saving, error, success, updateField, saveMetadata, setSuccess } =
     useMetadataForm(trackId, currentMetadata, onSave);
 

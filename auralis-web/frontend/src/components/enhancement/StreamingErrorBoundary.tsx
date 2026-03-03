@@ -161,7 +161,7 @@ const getSeverityColor = (severity: ErrorSeverity): string => {
  *
  * Displays streaming errors with recovery options and auto-dismiss behavior.
  */
-export const StreamingErrorBoundary: React.FC<StreamingErrorBoundaryProps> = ({
+export const StreamingErrorBoundary = ({
   error,
   errorType = StreamingErrorType.UNKNOWN,
   onRetry,
@@ -171,7 +171,7 @@ export const StreamingErrorBoundary: React.FC<StreamingErrorBoundaryProps> = ({
   allowFallback = true,
   trackId: _trackId,
   showHistory = false,
-}) => {
+}: StreamingErrorBoundaryProps) => {
   const [isVisible, setIsVisible] = useState(!!error);
   const [retryCount, setRetryCount] = useState(0);
   const [errorHistory, setErrorHistory] = useState<StreamingError[]>([]);

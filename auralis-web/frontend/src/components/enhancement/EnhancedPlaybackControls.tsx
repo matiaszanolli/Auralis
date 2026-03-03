@@ -44,9 +44,9 @@ export interface EnhancedPlaybackControlsProps {
  * Main interface for initiating enhanced audio playback streaming.
  * Now delegates to EnhancementPane for layered architecture.
  */
-export const EnhancedPlaybackControls: React.FC<
+export const EnhancedPlaybackControls = ({ trackId, onPlayEnhanced, disabled = false }: 
   EnhancedPlaybackControlsProps
-> = ({ trackId, onPlayEnhanced, disabled = false }) => {
+) => {
   // Forward all props to EnhancementPane (showStatus is deprecated, ignored)
   return (
     <EnhancementPane

@@ -22,7 +22,7 @@ interface ToastItemProps {
  *   onClose={handleClose}
  * />
  */
-export const ToastItem: React.FC<ToastItemProps> = ({ toast, index, onClose }) => {
+export const ToastItem = ({ toast, index, onClose }: ToastItemProps) => {
   const handleClose = useCallback(() => {
     onClose(toast.id);
   }, [toast.id, onClose]);

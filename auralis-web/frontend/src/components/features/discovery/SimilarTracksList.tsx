@@ -17,13 +17,13 @@ interface SimilarTracksListProps {
 /**
  * SimilarTracksList - Full list with header, items, and footer
  */
-export const SimilarTracksList: React.FC<SimilarTracksListProps> = ({
+export const SimilarTracksList = ({
   tracks,
   useGraph,
   onTrackSelect,
   getSimilarityColor,
   formatDuration,
-}) => {
+}: SimilarTracksListProps) => {
   const handleTrackClick = (track: SimilarTrack) => {
     onTrackSelect(track.track_id);
   };

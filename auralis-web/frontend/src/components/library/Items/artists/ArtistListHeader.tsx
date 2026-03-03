@@ -13,10 +13,10 @@ interface ArtistListHeaderProps {
   totalCount: number;
 }
 
-export const ArtistListHeader: React.FC<ArtistListHeaderProps> = ({
+export const ArtistListHeader = ({
   loadedCount,
   totalCount,
-}) => {
+}: ArtistListHeaderProps) => {
   return (
     <SectionHeader>
       <Typography variant="body2" color="text.secondary">

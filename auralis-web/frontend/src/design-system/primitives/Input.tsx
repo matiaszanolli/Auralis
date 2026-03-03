@@ -157,7 +157,7 @@ const StyledTextField = styled(MuiTextField, {
   };
 });
 
-export const Input: React.FC<InputProps> = ({
+export const Input = ({
   variant = 'default',
   size = 'md',
   startIcon,
@@ -165,7 +165,7 @@ export const Input: React.FC<InputProps> = ({
   error = false,
   errorMessage,
   ...props
-}) => {
+}: InputProps) => {
   return (
     <StyledTextField
       variant={variant}

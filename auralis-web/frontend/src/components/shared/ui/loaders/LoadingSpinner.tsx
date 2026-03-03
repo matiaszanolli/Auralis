@@ -29,12 +29,12 @@ const SpinnerWrapper = styled(Box)({
   animation: `${rotate} 1.4s linear infinite`,
 });
 
-export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
+export const LoadingSpinner = ({
   size = 40,
   thickness = 4,
   gradient: _gradient = tokens.gradients.aurora,
   className,
-}) => {
+}: LoadingSpinnerProps) => {
   const gradientId = `gradient-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
@@ -88,10 +88,10 @@ const LoadingText = styled(Box)(({ theme: _theme }) => ({
   animation: `${pulse} 2s ease-in-out infinite`,
 }));
 
-export const CenteredLoading: React.FC<CenteredLoadingProps> = ({
+export const CenteredLoading = ({
   text,
   size = 48,
-}) => {
+}: CenteredLoadingProps) => {
   return (
     <CenteredContainer>
       <LoadingSpinner size={size} />

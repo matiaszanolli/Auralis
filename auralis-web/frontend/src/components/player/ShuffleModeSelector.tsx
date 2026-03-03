@@ -44,11 +44,11 @@ interface ShuffleModeSelectorProps {
  *
  * Provides UI for selecting different shuffle modes.
  */
-export const ShuffleModeSelector: React.FC<ShuffleModeSelectorProps> = ({
+export const ShuffleModeSelector = ({
   currentMode,
   onModeChange,
   disabled = false,
-}) => {
+}: ShuffleModeSelectorProps) => {
   const [hoveredMode, setHoveredMode] = useState<ShuffleMode | null>(null);
   const modes = QueueShuffler.getModes();
 

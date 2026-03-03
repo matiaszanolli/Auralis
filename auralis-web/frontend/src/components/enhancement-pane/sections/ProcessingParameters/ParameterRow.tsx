@@ -17,7 +17,7 @@ interface ParameterRowProps {
   valueColor?: string;
 }
 
-export const ParameterRow: React.FC<ParameterRowProps> = React.memo(
+export const ParameterRow = React.memo<ParameterRowProps>(
   ({
     label,
     value,

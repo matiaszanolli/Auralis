@@ -19,7 +19,7 @@ interface ParameterBarProps {
   chipLabel: string;
 }
 
-const ParameterBar: React.FC<ParameterBarProps> = React.memo(({
+const ParameterBar = React.memo<ParameterBarProps>(({
   label,
   value,
   gradient,

@@ -29,14 +29,14 @@ interface ArtistDetailViewProps {
  *
  * Orchestrates header, tabs, and data fetching via extracted modules
  */
-export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
+export const ArtistDetailView = ({
   artistId,
   onBack,
   onTrackPlay,
   onAlbumClick,
   currentTrackId,
   isPlaying = false
-}) => {
+}: ArtistDetailViewProps) => {
   const { artist, loading, error } = useArtistDetailsData(artistId);
   const [activeTab, setActiveTab] = useState(0);
 

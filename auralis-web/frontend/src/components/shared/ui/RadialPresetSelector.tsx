@@ -32,12 +32,12 @@ interface RadialPresetSelectorProps {
  * />
  * ```
  */
-export const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
+export const RadialPresetSelector = ({
   currentPreset,
   onPresetChange,
   disabled = false,
   size = 240,
-}) => {
+}: RadialPresetSelectorProps) => {
   const { hoveredPreset, setHoveredPreset, getCirclePosition: calculatePosition } = usePresetSelection();
 
   const radius = (size - 80) / 2; // Leave space for preset buttons

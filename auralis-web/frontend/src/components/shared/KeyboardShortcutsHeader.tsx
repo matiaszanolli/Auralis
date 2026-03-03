@@ -17,7 +17,7 @@ interface KeyboardShortcutsHeaderProps {
  * - Keyboard icon with title
  * - Close button to dismiss dialog
  */
-export const KeyboardShortcutsHeader: React.FC<KeyboardShortcutsHeaderProps> = ({ onClose }) => {
+export const KeyboardShortcutsHeader = ({ onClose }: KeyboardShortcutsHeaderProps) => {
   return (
     <StyledDialogTitle>
       <Keyboard />

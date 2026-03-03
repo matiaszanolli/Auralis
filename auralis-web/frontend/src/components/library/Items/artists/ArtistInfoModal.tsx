@@ -35,11 +35,11 @@ interface ArtistInfoModalProps {
  * - Design system token styling
  * - Close button in actions bar
  */
-export const ArtistInfoModal: React.FC<ArtistInfoModalProps> = ({
+export const ArtistInfoModal = ({
   open,
   artist,
   onClose,
-}) => {
+}: ArtistInfoModalProps) => {
   if (!artist) return null;
 
   return (

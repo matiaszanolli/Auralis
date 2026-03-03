@@ -16,12 +16,12 @@ interface MobileSidebarDrawerProps {
   onOpenSettings: () => void;
 }
 
-export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
+export const MobileSidebarDrawer = ({
   open,
   onClose,
   onNavigate,
   onOpenSettings,
-}) => {
+}: MobileSidebarDrawerProps) => {
   const handleNavigate = (view: string) => {
     onNavigate(view);
     onClose(); // Close drawer after navigation

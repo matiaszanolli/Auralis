@@ -12,10 +12,10 @@ interface MetadataBasicFieldsProps {
   onChange: (field: keyof MetadataFields, value: string) => void;
 }
 
-export const MetadataBasicFields: React.FC<MetadataBasicFieldsProps> = ({
+export const MetadataBasicFields = ({
   metadata,
   onChange,
-}) => {
+}: MetadataBasicFieldsProps) => {
   return (
     <>
       {/* Title */}

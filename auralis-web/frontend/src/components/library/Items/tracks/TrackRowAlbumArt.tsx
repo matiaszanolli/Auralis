@@ -15,13 +15,13 @@ interface TrackRowAlbumArtProps {
  *
  * Shows album art image or fallback music note icon.
  */
-const TrackRowAlbumArtComponent: React.FC<TrackRowAlbumArtProps> = ({
+const TrackRowAlbumArtComponent = ({
   albumArt,
   title,
   album,
   shouldShowImage,
   onImageError,
-}) => {
+}: TrackRowAlbumArtProps) => {
   return (
     <AlbumArtThumbnail>
       {shouldShowImage && albumArt ? (

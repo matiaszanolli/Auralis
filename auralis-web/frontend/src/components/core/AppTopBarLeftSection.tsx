@@ -15,11 +15,11 @@ interface AppTopBarLeftSectionProps {
  *
  * Shows hamburger menu on mobile, title on desktop.
  */
-export const AppTopBarLeftSection: React.FC<AppTopBarLeftSectionProps> = ({
+export const AppTopBarLeftSection = ({
   showMobileMenu,
   title,
   onOpenMobileDrawer,
-}) => {
+}: AppTopBarLeftSectionProps) => {
   return (
     <LeftSection sx={{ flex: showMobileMenu ? 0 : 1 }}>
       {showMobileMenu && (

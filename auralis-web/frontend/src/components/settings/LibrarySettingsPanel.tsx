@@ -24,7 +24,7 @@ interface LibrarySettingsPanelProps {
  * - Live scan status card
  * - Auto-scan toggle and interval
  */
-export const LibrarySettingsPanel: React.FC<LibrarySettingsPanelProps> = ({
+export const LibrarySettingsPanel = ({
   scanFolders,
   autoScan,
   scanInterval,
@@ -32,7 +32,7 @@ export const LibrarySettingsPanel: React.FC<LibrarySettingsPanelProps> = ({
   onAddFolder,
   onRemoveFolder,
   onScanNow,
-}) => {
+}: LibrarySettingsPanelProps) => {
   return (
     <Box>
       <FoldersList

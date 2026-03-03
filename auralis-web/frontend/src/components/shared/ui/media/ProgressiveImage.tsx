@@ -74,7 +74,7 @@ const FallbackContainer = styled(Box)({
  * Progressive Image with smooth loading transitions
  * Uses custom hook for retry logic and image state management
  */
-export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
+export const ProgressiveImage = ({
   src,
   alt,
   width = '100%',
@@ -89,7 +89,7 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   maxRetries = 2,
   onLoad,
   onError,
-}) => {
+}: ProgressiveImageProps) => {
   const { imageLoaded, imageError, imageSrc } = useProgressiveImageLoader({
     src,
     retryOnError,

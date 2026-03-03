@@ -82,13 +82,13 @@ const StyledBadge = styled(MuiBadge, {
   };
 });
 
-export const Badge: React.FC<BadgeProps> = ({
+export const Badge = ({
   children,
   variant = 'default',
   value,
   dot = false,
   ...props
-}) => {
+}: BadgeProps) => {
   return (
     <StyledBadge
       variant={variant}

@@ -25,12 +25,12 @@ interface AudioSettingsPanelProps {
  * - Bit depth (16, 24, 32 bit)
  * - Sample rate (44.1kHz, 48kHz, 96kHz, 192kHz)
  */
-export const AudioSettingsPanel: React.FC<AudioSettingsPanelProps> = ({
+export const AudioSettingsPanel = ({
   outputDevice,
   bitDepth,
   sampleRate,
   onSettingChange
-}) => {
+}: AudioSettingsPanelProps) => {
   return (
     <Box>
       <SectionContainer>

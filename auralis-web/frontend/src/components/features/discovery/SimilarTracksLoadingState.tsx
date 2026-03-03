@@ -5,7 +5,7 @@ import { tokens, CircularProgress } from '@/design-system';
 /**
  * SimilarTracksLoadingState - Shows loading spinner while fetching similar tracks
  */
-export const SimilarTracksLoadingState: React.FC = () => {
+export const SimilarTracksLoadingState = () => {
   return (
     <Box sx={{ p: 2, textAlign: 'center' }}>
       <CircularProgress size={24} sx={{ color: tokens.colors.accent.primary }} />

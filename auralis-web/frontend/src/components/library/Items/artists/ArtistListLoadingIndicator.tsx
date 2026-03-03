@@ -12,10 +12,10 @@ interface ArtistListLoadingIndicatorProps {
   totalCount: number;
 }
 
-export const ArtistListLoadingIndicator: React.FC<ArtistListLoadingIndicatorProps> = ({
+export const ArtistListLoadingIndicator = ({
   currentCount,
   totalCount,
-}) => {
+}: ArtistListLoadingIndicatorProps) => {
   return (
     <Box
       sx={{

@@ -32,11 +32,11 @@ interface SimilarityVisualizationProps {
   topN?: number;
 }
 
-const SimilarityVisualization: React.FC<SimilarityVisualizationProps> = ({
+const SimilarityVisualization = ({
   trackId1,
   trackId2,
   topN = 5,
-}) => {
+}: SimilarityVisualizationProps) => {
   const [explanation, setExplanation] = useState<SimilarityExplanation | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

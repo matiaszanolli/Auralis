@@ -57,7 +57,7 @@ function formatTime(seconds: number): string {
 // Component
 // ============================================================================
 
-export const PlayerBarV2: React.FC<PlayerBarV2Props> = ({
+export const PlayerBarV2 = ({
   player,
   onPlay,
   onPause,
@@ -66,7 +66,7 @@ export const PlayerBarV2: React.FC<PlayerBarV2Props> = ({
   onEnhancementToggle,
   onPrevious,
   onNext,
-}) => {
+}: PlayerBarV2Props) => {
   const { currentTrack, isPlaying, currentTime, duration, volume, isEnhanced } = player;
 
   return (

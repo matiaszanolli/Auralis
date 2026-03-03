@@ -17,12 +17,12 @@ interface SettingsDialogFooterProps {
  *
  * Shows a saving spinner while the save request is in flight.
  */
-export const SettingsDialogFooter: React.FC<SettingsDialogFooterProps> = ({
+export const SettingsDialogFooter = ({
   onReset,
   onCancel,
   onSave,
   isSaving = false,
-}) => {
+}: SettingsDialogFooterProps) => {
   return (
     <SettingsDialogActions>
       <Button onClick={onReset} startIcon={<ResetIcon />} variant="danger" disabled={isSaving}>

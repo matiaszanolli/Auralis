@@ -24,11 +24,11 @@ interface SettingsDialogProps {
   onSettingsChange?: (settings: UserSettings) => void;
 }
 
-export const SettingsDialog: React.FC<SettingsDialogProps> = ({
+export const SettingsDialog = ({
   open,
   onClose,
   onSettingsChange,
-}) => {
+}: SettingsDialogProps) => {
   const [activeTab, setActiveTab] = useState(0);
 
   const {

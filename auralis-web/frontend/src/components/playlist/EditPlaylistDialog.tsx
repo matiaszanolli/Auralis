@@ -32,12 +32,12 @@ interface EditPlaylistDialogProps {
  *   onPlaylistUpdated={onRefresh}
  * />
  */
-export const EditPlaylistDialog: React.FC<EditPlaylistDialogProps> = ({
+export const EditPlaylistDialog = ({
   open,
   onClose,
   playlist,
   onPlaylistUpdated,
-}) => {
+}: EditPlaylistDialogProps) => {
   const {
     name,
     setName,

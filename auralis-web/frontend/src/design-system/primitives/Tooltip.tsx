@@ -36,7 +36,7 @@ const StyledTooltip = styled(MuiTooltip)({
   },
 });
 
-export const Tooltip: React.FC<TooltipProps> = (props) => {
+export const Tooltip = (props: TooltipProps) => {
   return <StyledTooltip {...props} />;
 };
 

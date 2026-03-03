@@ -14,10 +14,10 @@ interface AppEnhancementPaneFooterProps {
   onToggleV2?: () => void;
 }
 
-export const AppEnhancementPaneFooter: React.FC<AppEnhancementPaneFooterProps> = ({
+export const AppEnhancementPaneFooter = ({
   useV2,
   onToggleV2,
-}) => {
+}: AppEnhancementPaneFooterProps) => {
   return (
     <FooterArea>
       <Tooltip title={useV2 ? 'Switch to V1' : 'Switch to V2'}>

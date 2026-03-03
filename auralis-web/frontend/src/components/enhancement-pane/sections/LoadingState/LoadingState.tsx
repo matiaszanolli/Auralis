@@ -10,7 +10,7 @@ import { Paper, Typography } from '@mui/material';
 import { AutoAwesome } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 
-const LoadingState: React.FC = React.memo(() => {
+const LoadingState = React.memo(() => {
   return (
     <Paper
       elevation={0}

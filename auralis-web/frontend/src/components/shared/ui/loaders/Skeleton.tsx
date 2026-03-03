@@ -20,12 +20,12 @@ interface SkeletonProps {
  * <Skeleton width="100%" height="20px" variant="text" />
  * <Skeleton width="64px" height="64px" variant="circular" />
  */
-export const Skeleton: React.FC<SkeletonProps> = ({
+export const Skeleton = ({
   width = '100%',
   height = '20px',
   borderRadius = '4px',
   variant = 'rectangular',
-}) => {
+}: SkeletonProps) => {
   const getBorderRadius = () => {
     if (variant === 'circular') return '50%';
     if (variant === 'text') return '4px';

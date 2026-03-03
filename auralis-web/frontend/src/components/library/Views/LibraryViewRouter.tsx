@@ -61,7 +61,7 @@ export interface LibraryViewRouterProps {
  * Handles routing between albums/artists views and their detail pages.
  * Returns null for track list views (songs/favorites) which are handled by parent.
  */
-export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
+export const LibraryViewRouter = ({
   view,
   selectedAlbumId,
   selectedArtistId,
@@ -75,7 +75,7 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
   onTrackPlay,
   isEnhancementEnabled = true,
   onEnhancementToggle,
-}) => {
+}: LibraryViewRouterProps) => {
   // Album detail view (from albums or artists view)
   if (selectedAlbumId !== null) {
     return (

@@ -24,14 +24,14 @@ interface ViewContainerProps {
   headerActions?: React.ReactNode;
 }
 
-export const ViewContainer: React.FC<ViewContainerProps> = ({
+export const ViewContainer = ({
   icon,
   title,
   subtitle,
   children,
   rightPane,
   headerActions,
-}) => {
+}: ViewContainerProps) => {
   return (
     <Box
       sx={{

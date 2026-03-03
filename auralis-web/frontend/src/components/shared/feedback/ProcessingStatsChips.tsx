@@ -16,12 +16,12 @@ interface ProcessingStatsChipsProps {
   totalChunks?: number;
 }
 
-export const ProcessingStatsChips: React.FC<ProcessingStatsChipsProps> = ({
+export const ProcessingStatsChips = ({
   cacheHit,
   processingSpeed,
   currentChunk,
   totalChunks,
-}) => {
+}: ProcessingStatsChipsProps) => {
   return (
     <Stack direction="row" spacing={tokens.spacing.xs} flexWrap="wrap" gap={tokens.spacing.xs}>
       {cacheHit && (

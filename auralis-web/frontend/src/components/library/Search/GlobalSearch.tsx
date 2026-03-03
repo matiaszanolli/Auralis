@@ -33,7 +33,7 @@ interface GlobalSearchProps {
  * - Empty state handling
  * - Keyboard-friendly result selection
  */
-export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClose: _onClose }) => {
+export const GlobalSearch = ({ onResultClick, onClose: _onClose }: GlobalSearchProps) => {
   const {
     query,
     setQuery,

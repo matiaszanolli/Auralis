@@ -17,12 +17,12 @@ interface CreatePlaylistDialogActionsProps {
  * - Both buttons disabled while loading
  * - Loading state shows "Creating..." text
  */
-export const CreatePlaylistDialogActions: React.FC<CreatePlaylistDialogActionsProps> = ({
+export const CreatePlaylistDialogActions = ({
   loading,
   nameEmpty,
   onCreate,
   onCancel,
-}) => {
+}: CreatePlaylistDialogActionsProps) => {
   return (
     <DialogActions sx={{ p: 2, pt: 1 }}>
       <CancelButton onClick={onCancel} disabled={loading}>

@@ -21,7 +21,7 @@ export interface TrackGridViewProps {
  *
  * Displays tracks as cards with album art and queue management.
  */
-export const TrackGridView: React.FC<TrackGridViewProps> = ({
+export const TrackGridView = ({
   tracks,
   hasMore,
   currentTrackId: _currentTrackId,
@@ -31,7 +31,7 @@ export const TrackGridView: React.FC<TrackGridViewProps> = ({
   onReorderQueue: _onReorderQueue,
   onShuffleQueue: _onShuffleQueue,
   onClearQueue: _onClearQueue,
-}) => {
+}: TrackGridViewProps) => {
   return (
     <>
       <Grid container spacing={3}>

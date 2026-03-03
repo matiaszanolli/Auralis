@@ -27,12 +27,12 @@ interface InterfaceSettingsPanelProps {
  * - Visualizations toggle
  * - Mini player on close toggle
  */
-export const InterfaceSettingsPanel: React.FC<InterfaceSettingsPanelProps> = ({
+export const InterfaceSettingsPanel = ({
   theme,
   showVisualizations,
   miniPlayerOnClose,
   onSettingChange
-}) => {
+}: InterfaceSettingsPanelProps) => {
   return (
     <Box>
       <SectionContainer>

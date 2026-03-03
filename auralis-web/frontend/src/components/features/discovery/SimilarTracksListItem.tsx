@@ -22,14 +22,14 @@ interface SimilarTracksListItemProps {
 /**
  * SimilarTracksListItem - Individual track row with similarity score
  */
-export const SimilarTracksListItem: React.FC<SimilarTracksListItemProps> = ({
+export const SimilarTracksListItem = ({
   track,
   index,
   totalCount,
   onClick,
   getSimilarityColor,
   formatDuration,
-}) => {
+}: SimilarTracksListItemProps) => {
   return (
     <>
       <ListItem disablePadding>

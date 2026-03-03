@@ -33,10 +33,10 @@ interface AlbumGridProps {
  * Responsive grid of album cards with infinite scroll.
  * Adapts column count based on viewport width.
  */
-export const AlbumGrid: React.FC<AlbumGridProps> = ({
+export const AlbumGrid = ({
   onAlbumSelect,
   limit = 20,
-}) => {
+}: AlbumGridProps) => {
   const { data: albums, isLoading, error, hasMore, fetchMore } = useAlbumsQuery({ limit });
 
   const handleAlbumSelect = useCallback(

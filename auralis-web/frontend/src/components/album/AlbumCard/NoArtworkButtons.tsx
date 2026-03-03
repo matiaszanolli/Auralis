@@ -20,13 +20,13 @@ export interface NoArtworkButtonsProps {
   isExtracting?: boolean;
 }
 
-export const NoArtworkButtons: React.FC<NoArtworkButtonsProps> = ({
+export const NoArtworkButtons = ({
   show,
   onDownload,
   onExtract,
   isDownloading = false,
   isExtracting = false,
-}) => {
+}: NoArtworkButtonsProps) => {
   if (!show) return null;
 
   return (
