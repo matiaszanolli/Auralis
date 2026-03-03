@@ -9,6 +9,7 @@ Spectral feature extraction and analysis functions
 """
 
 import numpy as np
+from scipy.signal.windows import hann
 
 from ...utils.logging import debug
 
@@ -42,7 +43,7 @@ def spectral_centroid(audio: np.ndarray, sample_rate: int = 44100) -> float:
         audio_segment = audio
 
     # Apply window to reduce spectral leakage
-    window = np.hann(len(audio_segment))
+    window = hann(len(audio_segment))
     windowed_audio = audio_segment * window
 
     # Compute magnitude spectrum

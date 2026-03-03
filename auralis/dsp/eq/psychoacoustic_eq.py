@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
+from scipy.signal.windows import hann
 
 from ...utils.logging import debug
 from ..unified import smooth_parameter_transition
@@ -123,7 +124,7 @@ class PsychoacousticEQ:
             audio_mono = padded
 
         # Apply window to reduce spectral leakage
-        window = np.hann(self.fft_size)
+        window = hann(self.fft_size)
         windowed_audio = audio_mono[:self.fft_size] * window
 
         # Compute spectrum

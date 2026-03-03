@@ -12,6 +12,7 @@ Verifies that:
 """
 
 import numpy as np
+from scipy.signal.windows import hann
 import pytest
 
 from auralis.dsp.dynamics.lowmid_transient_enhancer import LowMidTransientEnhancer
@@ -38,7 +39,7 @@ def _with_transient(base: np.ndarray, pos: int, width: int = 50,
     half = width // 2
     start = max(0, pos - half)
     end = min(len(sig), pos + half)
-    sig[start:end] += amp * np.hann(end - start)
+    sig[start:end] += amp * hann(end - start)
     return np.clip(sig, -1.0, 1.0)
 
 

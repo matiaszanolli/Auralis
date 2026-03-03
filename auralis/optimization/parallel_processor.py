@@ -17,6 +17,7 @@ from typing import Any
 from collections.abc import Callable
 
 import numpy as np
+from scipy.signal.windows import hann
 
 from ..utils.logging import debug, info
 
@@ -52,13 +53,13 @@ class ParallelFFTProcessor:
         common_sizes: list[int] = [512, 1024, 2048, 4096, 8192]
 
         for size in common_sizes:
-            self.window_cache[size] = np.hann(size)
+            self.window_cache[size] = hann(size)
             debug(f"Cached Hanning window for size {size}")
 
     def get_window(self, size: int) -> np.ndarray:
         """Get window function (cached or compute).
 
-        Uses a double-check pattern so that np.hann() — which can be
+        Uses a double-check pattern so that hann() — which can be
         expensive for large sizes — is computed outside the lock, preventing
         all parallel threads from serialising on the first cache miss (#2077).
         """
@@ -67,7 +68,7 @@ class ParallelFFTProcessor:
             return self.window_cache[size]
 
         # Slow path: compute outside the lock to avoid blocking other threads.
-        window = np.hann(size)
+        window = hann(size)
 
         with self.lock:
             # Another thread may have inserted this size while we computed.
