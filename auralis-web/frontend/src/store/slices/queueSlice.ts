@@ -134,7 +134,7 @@ const queueSlice = createSlice({
     setQueue: {
       reducer(state, action: PayloadAction<Track[], string, { timestamp: number }>) {
         state.tracks = action.payload;
-        state.currentIndex = Math.min(state.currentIndex, state.tracks.length - 1);
+        state.currentIndex = Math.max(0, Math.min(state.currentIndex, state.tracks.length - 1));
         state.lastUpdated = action.meta.timestamp;
       },
       prepare(tracks: Track[]) {
