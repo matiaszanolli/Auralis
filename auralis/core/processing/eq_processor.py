@@ -166,6 +166,10 @@ class EQProcessor:
         chunk_size = self.psychoacoustic_eq.fft_size
         processed_audio = np.zeros_like(audio)
 
+        # Hann synthesis window — satisfies COLA at 50% overlap so windowed
+        # chunks accumulate to unity gain with no extra normalisation step.
+        synthesis_window = np.hanning(chunk_size)
+
         for i in range(0, len(audio), chunk_size // 2):  # 50% overlap
             end_idx = min(i + chunk_size, len(audio))
             chunk = audio[i:end_idx]
@@ -181,12 +185,14 @@ class EQProcessor:
                 chunk, target_curve, content_profile
             )
 
-            # Extract only the valid part (remove padding)
+            # Apply synthesis window and accumulate into output (overlap-add).
+            # Using += instead of = so overlapping regions are summed, not overwritten.
             valid_length = end_idx - i
+            window_slice = synthesis_window[:valid_length]
             if audio.ndim == 2:
-                processed_audio[i:end_idx] = processed_chunk[:valid_length]
+                processed_audio[i:end_idx] += processed_chunk[:valid_length] * window_slice[:, np.newaxis]
             else:
-                processed_audio[i:end_idx] = processed_chunk[:valid_length]
+                processed_audio[i:end_idx] += processed_chunk[:valid_length] * window_slice
 
         return processed_audio
 
