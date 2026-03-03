@@ -24,7 +24,7 @@ fn format_panic(e: Box<dyn std::any::Any + Send>) -> String {
 /// PyO3 module initialization
 /// Exposes all DSP functions to Python
 #[pymodule]
-fn auralis_dsp(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn auralis_dsp(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Add functions with clean names (without _wrapper suffix)
     m.add_function(wrap_pyfunction!(hpss_wrapper, m)?)?;
     m.add("hpss", m.getattr("hpss_wrapper")?)?;
