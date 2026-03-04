@@ -14,180 +14,39 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketManager } from '../utils/errorHandling';
 import { WS_BASE_URL } from '../config/api';
+import type { AnyWebSocketMessage, WebSocketMessage } from '../types/websocket';
+
+// Re-export message types so existing consumers can still import from here
+export type { AnyWebSocketMessage } from '../types/websocket';
+export type {
+  WebSocketMessage,
+  AudioStreamStartMessage,
+  AudioChunkMessage,
+  AudioStreamEndMessage,
+  AudioStreamErrorMessage,
+  PlayerStateMessage,
+  EnhancementSettingsChangedMessage,
+  LibraryUpdatedMessage,
+  ScanProgressMessage,
+  PlaylistCreatedMessage,
+  PlaylistUpdatedMessage,
+  PlaylistDeletedMessage,
+} from '../types/websocket';
 
 // ============================================================================
-// TypeScript Types for WebSocket Messages
+// Outgoing (client → server) message type
 // ============================================================================
 
-export interface WebSocketMessage {
+export interface OutgoingWebSocketMessage {
   type: string;
-  data?: any;
-  timestamp?: number;
+  data?: Record<string, unknown>;
 }
-
-// Player State Messages
-export interface PlayerStateMessage extends WebSocketMessage {
-  type: 'player_state';
-  data: {
-    state: string;
-    is_playing: boolean;
-    is_paused: boolean;
-    current_track: any;
-    current_time: number;
-    duration: number;
-    volume: number;
-    is_muted: boolean;
-    queue: any[];
-    queue_index: number;
-    queue_size: number;
-    shuffle_enabled: boolean;
-    repeat_mode: string;
-    mastering_enabled: boolean;
-    current_preset: string;
-  };
-}
-
-// Enhancement Messages
-export interface EnhancementSettingsChangedMessage extends WebSocketMessage {
-  type: 'enhancement_settings_changed';
-  data: {
-    enabled: boolean;
-    preset: string;
-    intensity: number;
-  };
-}
-
-// Library Messages
-export interface LibraryUpdatedMessage extends WebSocketMessage {
-  type: 'library_updated';
-  data: {
-    action: string;
-    track_count?: number;
-  };
-}
-
-export interface ScanProgressMessage extends WebSocketMessage {
-  type: 'scan_progress';
-  data: {
-    current: number;
-    total: number;
-    percentage: number;
-    current_file?: string;
-  };
-}
-
-// Playlist Messages
-export interface PlaylistCreatedMessage extends WebSocketMessage {
-  type: 'playlist_created';
-  data: {
-    playlist_id: number;
-    name: string;
-  };
-}
-
-export interface PlaylistUpdatedMessage extends WebSocketMessage {
-  type: 'playlist_updated';
-  data: {
-    playlist_id: number;
-    action: string;
-  };
-}
-
-export interface PlaylistDeletedMessage extends WebSocketMessage {
-  type: 'playlist_deleted';
-  data: {
-    playlist_id: number;
-  };
-}
-
-// ============================================================================
-// Audio Streaming Messages (Phase 2.2)
-// ============================================================================
-
-/**
- * Sent by backend when audio stream starts
- * Contains metadata needed to initialize PCMStreamBuffer and playback
- */
-export interface AudioStreamStartMessage extends WebSocketMessage {
-  type: 'audio_stream_start';
-  data: {
-    track_id: number;
-    preset: string;
-    intensity: number;
-    sample_rate: number;
-    channels: number;
-    total_chunks: number;
-    chunk_duration: number;
-    total_duration: number;
-    stream_type?: 'enhanced' | 'normal';
-  };
-}
-
-/**
- * Sent by backend for each chunk of PCM audio
- * Contains base64-encoded PCM samples and frame metadata
- * Large chunks are split into multiple frames to stay under WebSocket 1MB limit
- */
-export interface AudioChunkMessage extends WebSocketMessage {
-  type: 'audio_chunk';
-  data: {
-    chunk_index: number;
-    chunk_count: number;
-    frame_index: number;
-    frame_count: number;
-    samples: string; // Base64-encoded float32 PCM samples
-    sample_count: number; // Number of samples in this frame
-    crossfade_samples: number; // Overlap duration at chunk boundary (only for first frame)
-    stream_type?: 'enhanced' | 'normal';
-  };
-}
-
-/**
- * Sent by backend when audio stream completes
- */
-export interface AudioStreamEndMessage extends WebSocketMessage {
-  type: 'audio_stream_end';
-  data: {
-    track_id: number;
-    total_samples: number;
-    duration: number;
-    stream_type?: 'enhanced' | 'normal';
-  };
-}
-
-/**
- * Sent by backend if stream fails
- */
-export interface AudioStreamErrorMessage extends WebSocketMessage {
-  type: 'audio_stream_error';
-  data: {
-    track_id: number;
-    error: string;
-    code: string;
-    stream_type?: 'enhanced' | 'normal';
-  };
-}
-
-// Union type of all possible messages
-export type AuralisWebSocketMessage =
-  | PlayerStateMessage
-  | EnhancementSettingsChangedMessage
-  | LibraryUpdatedMessage
-  | ScanProgressMessage
-  | PlaylistCreatedMessage
-  | PlaylistUpdatedMessage
-  | PlaylistDeletedMessage
-  | AudioStreamStartMessage
-  | AudioChunkMessage
-  | AudioStreamEndMessage
-  | AudioStreamErrorMessage
-  | WebSocketMessage; // Fallback for unknown messages
 
 // ============================================================================
 // Message Handler Type
 // ============================================================================
 
-export type MessageHandler = (message: AuralisWebSocketMessage) => void;
+export type MessageHandler = (message: AnyWebSocketMessage | WebSocketMessage) => void;
 
 // ============================================================================
 // WebSocket Context Interface
@@ -202,8 +61,8 @@ interface WebSocketContextValue {
   subscribe: (messageType: string, handler: MessageHandler) => () => void;
   subscribeAll: (handler: MessageHandler) => () => void;
 
-  // Send messages (for future use if needed)
-  send: (message: any) => void;
+  // Send messages
+  send: (message: OutgoingWebSocketMessage) => void;
 
   // Manual connection control
   connect: () => void;
@@ -244,7 +103,7 @@ const singletonGlobalHandlers: Set<MessageHandler> = new Set();
  * Re-issued after every reconnect to restore audio stream (issue #2385).
  * Cleared when the client sends an explicit stop or pause.
  */
-let singletonLastStreamCommand: any = null;
+let singletonLastStreamCommand: OutgoingWebSocketMessage | null = null;
 
 /**
  * Reset all WebSocket singletons - ONLY FOR TESTING
@@ -308,7 +167,7 @@ export const WebSocketProvider = ({
   const globalHandlersRef = useRef(singletonGlobalHandlers);
 
   // Message queue for sending during disconnection
-  const messageQueueRef = useRef<any[]>([]);
+  const messageQueueRef = useRef<OutgoingWebSocketMessage[]>([]);
 
   // Track if component is mounted to prevent setState after unmount
   const mountedRef = useRef(true);
@@ -355,7 +214,7 @@ export const WebSocketProvider = ({
       // Setup message handler
       manager.on('message', ((event: MessageEvent) => {
         try {
-          const message: AuralisWebSocketMessage = JSON.parse(event.data);
+          const message: AnyWebSocketMessage | WebSocketMessage = JSON.parse(event.data);
 
           // Call global handlers
           globalHandlersRef.current.forEach(handler => {
@@ -495,7 +354,7 @@ export const WebSocketProvider = ({
   /**
    * Send message
    */
-  const send = useCallback((message: any) => {
+  const send = useCallback((message: OutgoingWebSocketMessage) => {
     if (wsManagerRef.current?.isConnected()) {
       // Track last active streaming command for reconnect resume (issue #2385).
       // Only track when connected: queued commands are replayed from the queue on
