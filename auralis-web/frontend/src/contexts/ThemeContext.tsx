@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState, useEffect, ReactNode } from 'react';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { createAuralisTheme, darkColors, lightColors, glassEffects } from '../theme/themeConfig';
@@ -55,21 +55,21 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     }
   }, [mode]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setMode((prevMode) => (prevMode === 'dark' ? 'light' : 'dark'));
-  };
+  }, []);
 
-  const setTheme = (newMode: ThemeMode) => {
+  const setTheme = useCallback((newMode: ThemeMode) => {
     setMode(newMode);
-  };
+  }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     mode,
     toggleTheme,
     setTheme,
     colors,
     glassEffects,
-  };
+  }), [mode, toggleTheme, setTheme, colors, glassEffects]);
 
   return (
     <ThemeContext.Provider value={value}>
