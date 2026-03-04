@@ -604,7 +604,7 @@ class AudioStreamController:
                     await self._send_error(
                         websocket,
                         track_id,
-                        f"Failed to process chunk {chunk_idx}: {chunk_error}",
+                        f"Failed to process audio chunk {chunk_idx}",
                         recovery_position=recovery_position,
                     )
                     return
@@ -796,7 +796,7 @@ class AudioStreamController:
                     await self._send_error(
                         websocket,
                         track_id,
-                        f"Failed to stream chunk {chunk_idx}: {chunk_error}",
+                        f"Failed to stream audio chunk {chunk_idx}",
                         recovery_position=normal_recovery_position,
                     )
                     return
@@ -1389,7 +1389,7 @@ class AudioStreamController:
                     await self._send_error(
                         websocket,
                         track_id,
-                        f"Failed to process chunk {chunk_idx}: {chunk_error}",
+                        f"Failed to process audio chunk {chunk_idx}",
                     )
                     return
 
