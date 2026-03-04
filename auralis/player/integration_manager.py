@@ -246,10 +246,12 @@ class IntegrationManager:
         })
 
     def _get_position_seconds(self) -> float:
-        """Get current playback position in seconds"""
+        """Get current playback position in seconds (clamped to duration)"""
         if self.file_manager.audio_data is None:
             return 0.0
-        return self.playback.position / self.file_manager.sample_rate
+        position_seconds = self.playback.position / self.file_manager.sample_rate
+        duration = self.file_manager.get_duration()
+        return min(position_seconds, duration)
 
     def cleanup(self) -> None:
         """Clean up resources"""
