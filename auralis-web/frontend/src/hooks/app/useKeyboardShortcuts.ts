@@ -8,7 +8,7 @@
  * robust service architecture. Prefers V2 pattern but maintains V1 compatibility.
  */
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useMemo } from 'react';
 import { keyboardShortcuts, ShortcutDefinition, ShortcutHandler } from '@/services/keyboardShortcutsService';
 import {
   SHORTCUT_CONFIG_MAP,
@@ -183,10 +183,13 @@ export const useKeyboardShortcuts = (
       : (configOrShortcuts?.enabled !== false)
   );
 
-  // Determine input format and convert to service format
-  const shortcutsToRegister = Array.isArray(configOrShortcuts)
-    ? configOrShortcuts
-    : configToServiceShortcuts(configOrShortcuts || {});
+  // Determine input format and convert to service format (memoized to avoid effect churn)
+  const shortcutsToRegister = useMemo(
+    () => Array.isArray(configOrShortcuts)
+      ? configOrShortcuts
+      : configToServiceShortcuts(configOrShortcuts || {}),
+    [configOrShortcuts]
+  );
 
   // Register shortcuts with service on mount
   useEffect(() => {
