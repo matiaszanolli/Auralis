@@ -386,7 +386,8 @@ export const useConnectionHealth = () => {
  * Get current playback progress (0-1)
  */
 export const usePlaybackProgress = () => {
-  const { currentTime, duration } = usePlayerState();
+  const currentTime = useSelector((state: RootState) => state.player.currentTime);
+  const duration = useSelector((state: RootState) => state.player.duration);
   return duration > 0 ? currentTime / duration : 0;
 };
 
