@@ -45,7 +45,7 @@ def normalize(audio: np.ndarray, target_level: float = 1.0) -> np.ndarray:
     peak = np.max(np.abs(audio))
     if peak > 0:
         return audio * float(target_level / peak)
-    return audio
+    return audio.copy()
 
 
 def amplify(audio: np.ndarray, gain_db: float) -> np.ndarray:
