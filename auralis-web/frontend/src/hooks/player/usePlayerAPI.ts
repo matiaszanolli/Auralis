@@ -26,15 +26,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
-import type { Track } from '@/types/domain';
+import type { PlayerTrack } from '@/types/domain';
 
 interface PlayerState {
-  currentTrack: Track | null;
+  currentTrack: PlayerTrack | null;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
   volume: number;
-  queue: Track[];
+  queue: PlayerTrack[];
   queueIndex: number;
 }
 
@@ -205,7 +205,7 @@ export const usePlayerAPI = () => {
   }, []);
 
   // Set queue and optionally start playing
-  const setQueue = useCallback(async (tracks: Track[], startIndex: number = 0) => {
+  const setQueue = useCallback(async (tracks: PlayerTrack[], startIndex: number = 0) => {
     setLoading(true);
     setError(null);
 
@@ -245,7 +245,7 @@ export const usePlayerAPI = () => {
   }, [play]);
 
   // Play specific track (convenience method)
-  const playTrack = useCallback(async (track: Track) => {
+  const playTrack = useCallback(async (track: PlayerTrack) => {
     // Guard: Don't restart if same track is already playing
     if (playerState.currentTrack?.id === track.id && playerState.isPlaying) {
       console.log('✋ Already playing this track, ignoring duplicate play request');
