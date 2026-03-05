@@ -40,7 +40,7 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
             audio_data = np.column_stack([audio_data[:, 0], audio_data[:, 0]])
         elif audio_data.shape[1] > 2:
             # Convert multi-channel to stereo (take first two channels)
-            audio_data = audio_data[:, :2]
+            audio_data = audio_data[:, :2].copy()
 
         info(f"Loaded {file_type}: {audio_data.shape[0]} samples, {sample_rate} Hz")
         return audio_data, sample_rate
