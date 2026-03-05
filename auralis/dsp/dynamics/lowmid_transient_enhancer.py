@@ -170,10 +170,11 @@ class LowMidTransientEnhancer:
                         * blend
                     )
 
-        # Prevent clipping
-        max_val = np.max(np.abs(output))
-        if max_val > 1.0:
-            output = output / max_val
+        # Prevent clipping — clip to [-1, 1] so only samples that actually
+        # exceed the range are affected.  The old approach divided the entire
+        # signal by max_val, which reduced the level of untouched regions
+        # whenever a single expanded transient exceeded 1.0 (fixes #2682).
+        np.clip(output, -1.0, 1.0, out=output)
 
         return output
 
