@@ -114,6 +114,12 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    esbuild: {
+      // Strip console.* and debugger statements from production bundles.
+      // The injected loader script (raw HTML) is unaffected — its two
+      // console.error calls in the fatal-error catch block are intentional.
+      drop: mode === 'production' ? ['console', 'debugger'] : [],
+    },
     build: {
       outDir: 'dist',
       sourcemap: false,
