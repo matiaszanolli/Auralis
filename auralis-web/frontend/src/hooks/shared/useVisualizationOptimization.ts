@@ -34,6 +34,11 @@ export const useVisualizationOptimization = (
     ...optimizerConfig
   } = options;
 
+  // Stabilize optimizerConfig so it can be used as an effect dependency — the
+  // rest spread creates a new object each render, but the contents are
+  // primitives so JSON serialization gives a stable string key.
+  const configKey = JSON.stringify(optimizerConfig);
+
   const optimizerRef = useRef<PerformanceOptimizer>();
   const monitorRef = useRef<PerformanceMonitor>();
   const [stats, setStats] = useState<PerformanceMetrics>({
@@ -49,7 +54,8 @@ export const useVisualizationOptimization = (
   });
   const [qualityLevel, setQualityLevel] = useState(1.0);
 
-  // Initialize optimizer and monitor
+  // Initialize optimizer and monitor — re-run when config props change so the
+  // optimizer is never "stuck" at mount-time values (fixes #2701).
   useEffect(() => {
     optimizerRef.current = new PerformanceOptimizer({
       adaptiveQuality: autoAdjustQuality,
@@ -63,7 +69,7 @@ export const useVisualizationOptimization = (
     return () => {
       optimizerRef.current?.cleanup();
     };
-  }, []);
+  }, [autoAdjustQuality, enableMonitoring, configKey]);
 
   // Stats update loop
   useEffect(() => {
