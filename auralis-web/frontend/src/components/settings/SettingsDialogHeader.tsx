@@ -2,7 +2,7 @@ import React from 'react';
 
 import { Close as CloseIcon } from '@mui/icons-material';
 import { StyledDialogTitle } from '@/components/library/Styles/Dialog.styles';
-import { IconButton } from '@/design-system';
+import { IconButton, tokens } from '@/design-system';
 import { Typography } from '@mui/material';
 
 interface SettingsDialogHeaderProps {
@@ -20,7 +20,7 @@ export const SettingsDialogHeader = ({ onClose }: SettingsDialogHeaderProps) => 
       <Typography variant="h6" component="span">
         Settings
       </Typography>
-      <IconButton onClick={onClose} sx={{ color: 'white' }}>
+      <IconButton onClick={onClose} sx={{ color: tokens.colors.text.primaryFull }}>
         <CloseIcon />
       </IconButton>
     </StyledDialogTitle>
