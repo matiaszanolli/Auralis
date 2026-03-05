@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   Skeleton,
   Dialog,
   DialogTitle,
@@ -44,6 +45,7 @@ export const SettingsDialog = ({
     handleCancelRemove,
     handleScanNow,
     getValue,
+    error,
   } = useSettingsDialog({ open, onSettingsChange });
 
   const { isScanning } = useScanProgress();
@@ -57,6 +59,8 @@ export const SettingsDialog = ({
     <>
       <StyledDialog open={open} onClose={onClose} maxWidth="md" fullWidth>
         <SettingsDialogHeader onClose={onClose} />
+
+        {error && <Alert severity="error" sx={{ mx: 3, mt: 2 }}>{error}</Alert>}
 
         <SettingsTabNav
           activeTab={activeTab}
