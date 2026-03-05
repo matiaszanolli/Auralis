@@ -117,7 +117,6 @@ const cacheSlice = createSlice({
     clearCacheLocal: {
       reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
         state.stats = {
-          ...initialState.stats,
           tier1: { chunks: 0, size_mb: 0, hits: 0, misses: 0, hit_rate: 0 },
           tier2: { chunks: 0, size_mb: 0, hits: 0, misses: 0, hit_rate: 0 },
           overall: {
@@ -129,7 +128,7 @@ const cacheSlice = createSlice({
             tracks_cached: 0,
           },
           tracks: {},
-        } as CacheStats;
+        };
         state.lastUpdate = action.meta.timestamp;
       },
       prepare() {
