@@ -9,7 +9,7 @@ import {
   Build as BuildIcon,
   FiberManualRecord as ScanDotIcon,
 } from '@mui/icons-material';
-import { StyledTabs } from '../library/Styles/Dialog.styles';
+import { StyledTabs } from '@/components/library/Styles/Dialog.styles';
 import { tokens } from '@/design-system';
 
 interface SettingsTabNavProps {

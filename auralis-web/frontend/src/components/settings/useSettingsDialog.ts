@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { settingsService, UserSettings, SettingsUpdate } from '../../services/settingsService';
+import { settingsService, UserSettings, SettingsUpdate } from '@/services/settingsService';
 
 export interface UseSettingsDialogProps {
   open: boolean;

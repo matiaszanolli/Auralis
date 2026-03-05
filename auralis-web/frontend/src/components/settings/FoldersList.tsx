@@ -10,7 +10,7 @@ import {
   Delete as DeleteIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
-import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
+import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 import { tokens } from '@/design-system';
 import { List, IconButton, Button } from '@/design-system';
 import { Box, ListItem, ListItemText, ListItemSecondaryAction, Typography } from '@mui/material';

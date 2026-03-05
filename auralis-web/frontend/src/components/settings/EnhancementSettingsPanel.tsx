@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { SettingsUpdate } from '../../services/settingsService';
-import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
+import { SettingsUpdate } from '@/services/settingsService';
+import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 import { Slider } from '@/design-system';
 import { Box, FormControl, InputLabel, Select, MenuItem, Switch, FormControlLabel, Divider } from '@mui/material';
 

@@ -19,7 +19,7 @@ import {
 } from '@mui/icons-material';
 import { Button } from '@/design-system';
 import { tokens } from '@/design-system';
-import { useScanProgress } from '../../hooks/library/useScanProgress';
+import { useScanProgress } from '@/hooks/library/useScanProgress';
 
 interface ScanStatusCardProps {
   /** Disable the Scan Now button (no folders configured) */

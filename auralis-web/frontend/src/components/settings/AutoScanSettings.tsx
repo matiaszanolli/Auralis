@@ -4,8 +4,8 @@
 
 import React from 'react';
 import { Box, Switch, FormControlLabel, Select, MenuItem, FormControl, Divider } from '@mui/material';
-import { SettingsUpdate } from '../../services/settingsService';
-import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
+import { SettingsUpdate } from '@/services/settingsService';
+import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 
 interface AutoScanSettingsProps {
   autoScan: boolean;

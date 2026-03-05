@@ -8,15 +8,15 @@ import {
   DialogActions,
 } from '@mui/material';
 import { Button } from '@/design-system';
-import { UserSettings } from '../../services/settingsService';
-import { StyledDialog } from '../library/Styles/Dialog.styles';
+import { UserSettings } from '@/services/settingsService';
+import { StyledDialog } from '@/components/library/Styles/Dialog.styles';
 import { SettingsDialogContent as StyledContent } from './SettingsDialog.styles';
 import { SettingsTabNav } from './SettingsTabNav';
 import SettingsDialogHeader from './SettingsDialogHeader';
 import SettingsDialogContentComponent from './SettingsDialogContent';
 import SettingsDialogFooter from './SettingsDialogFooter';
 import { useSettingsDialog } from './useSettingsDialog';
-import { useScanProgress } from '../../hooks/library/useScanProgress';
+import { useScanProgress } from '@/hooks/library/useScanProgress';
 
 interface SettingsDialogProps {
   open: boolean;

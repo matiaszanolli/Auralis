@@ -9,8 +9,8 @@ import {
   FormControlLabel,
   Divider
 } from '@mui/material';
-import { SettingsUpdate } from '../../services/settingsService';
-import { SectionContainer, SectionDescription } from '../library/Styles/Dialog.styles';
+import { SettingsUpdate } from '@/services/settingsService';
+import { SectionContainer, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 
 interface InterfaceSettingsPanelProps {
   theme: string;
