@@ -15,8 +15,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { transformBackendTrack, type LibraryTrack } from '@/types/domain';
 
-export type Track = LibraryTrack;
-
 export interface UseLibraryDataOptions {
   view: string;
   autoLoad?: boolean;
@@ -24,7 +22,7 @@ export interface UseLibraryDataOptions {
 
 export interface UseLibraryDataReturn {
   // State
-  tracks: Track[];
+  tracks: LibraryTrack[];
   loading: boolean;
   hasMore: boolean;
   totalTracks: number;
@@ -51,7 +49,7 @@ export const useLibraryData = ({
   autoLoad = true
 }: UseLibraryDataOptions): UseLibraryDataReturn => {
   // State
-  const [tracks, setTracks] = useState<Track[]>([]);
+  const [tracks, setTracks] = useState<LibraryTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [totalTracks, setTotalTracks] = useState(0);
@@ -98,7 +96,7 @@ export const useLibraryData = ({
         const data = await response.json();
 
         // Transform tracks data to match frontend interface
-        const transformedTracks: Track[] = (data.tracks || []).map(transformBackendTrack);
+        const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
 
         // Update state with pagination info
         setHasMore(data.has_more || false);
@@ -158,7 +156,7 @@ export const useLibraryData = ({
         const data = await response.json();
 
         // Transform tracks data to match frontend interface
-        const transformedTracks: Track[] = (data.tracks || []).map(transformBackendTrack);
+        const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
 
         // Append new tracks
         setTracks(prev => [...prev, ...transformedTracks]);

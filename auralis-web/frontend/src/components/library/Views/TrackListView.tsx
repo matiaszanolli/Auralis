@@ -25,12 +25,10 @@ import type { LibraryTrack } from '@/types/domain';
 // TODO: Replace with react-infinite-scroll-component like Artists view
 // import { useInfiniteScroll } from '@/hooks/shared';
 
-export type Track = LibraryTrack;
-
 export type ViewMode = 'grid' | 'list';
 
 export interface TrackListViewProps {
-  tracks: Track[];
+  tracks: LibraryTrack[];
   viewMode: ViewMode;
   loading: boolean;
   hasMore: boolean;
@@ -45,7 +43,7 @@ export interface TrackListViewProps {
   onToggleSelect: (trackId: number, e: React.MouseEvent) => void;
 
   // Actions
-  onTrackPlay: (track: Track) => void;
+  onTrackPlay: (track: LibraryTrack) => void;
   onPause: () => void;
   onEditMetadata: (trackId: number) => void;
   onFindSimilar?: (trackId: number) => void; // Phase 5: Find similar tracks

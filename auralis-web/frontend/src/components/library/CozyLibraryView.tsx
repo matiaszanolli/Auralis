@@ -22,7 +22,8 @@ import BatchActionsToolbar from './Controls/BatchActionsToolbar';
 import EditMetadataDialog from './EditMetadataDialog/EditMetadataDialog';
 import { SimilarTracksModal } from '../shared/SimilarTracksModal';
 import { useTrackSelection } from '@/hooks/library/useTrackSelection';
-import { useLibraryWithStats, Track } from '@/hooks/library/useLibraryWithStats';
+import { useLibraryWithStats } from '@/hooks/library/useLibraryWithStats';
+import type { LibraryTrack } from '@/types/domain';
 import type { ViewMode } from '../navigation/ViewToggle';
 import { LibraryViewRouter } from './Views/LibraryViewRouter';
 import { ViewContainer } from './Views/ViewContainer';
@@ -37,7 +38,7 @@ import { usePlaybackState } from './usePlaybackState';
 import { tokens } from '@/design-system';
 
 interface CozyLibraryViewProps {
-  onTrackPlay?: (track: Track) => void;
+  onTrackPlay?: (track: LibraryTrack) => void;
   view?: string;
   /** Enhancement (auto-mastering) enabled state */
   isEnhancementEnabled?: boolean;

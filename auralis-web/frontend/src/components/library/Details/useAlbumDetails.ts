@@ -11,8 +11,6 @@
 import { useState, useEffect } from 'react';
 import type { DetailTrack } from '@/types/domain';
 
-export type Track = DetailTrack;
-
 export interface Album {
   id: number;
   title: string;
@@ -22,7 +20,7 @@ export interface Album {
   genre?: string;
   track_count: number;
   total_duration: number;
-  tracks?: Track[];
+  tracks?: DetailTrack[];
 }
 
 export const useAlbumDetails = (albumId: number) => {
@@ -57,7 +55,7 @@ export const useAlbumDetails = (albumId: number) => {
         artist_name: data.artist,
         year: data.year,
         track_count: data.total_tracks,
-        total_duration: data.tracks?.reduce((sum: number, t: Track) => sum + (t.duration || 0), 0) || 0,
+        total_duration: data.tracks?.reduce((sum: number, t: DetailTrack) => sum + (t.duration || 0), 0) || 0,
         tracks: (data.tracks || []).map((t: any) => ({
           id: t.id,
           title: t.title ?? '',

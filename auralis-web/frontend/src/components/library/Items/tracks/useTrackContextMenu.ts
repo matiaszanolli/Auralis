@@ -3,7 +3,7 @@ import { getTrackContextActions } from '../../../shared/ContextMenu';
 import { useToast } from '../../../shared/Toast';
 import { useQueue } from '@/hooks/shared/useReduxState';
 import * as playlistService from '@/services/playlistService';
-import { Track } from './TrackRow';
+import type { LibraryTrack as Track } from '@/types/domain';
 
 export interface UseTrackContextMenuProps {
   track: Track;

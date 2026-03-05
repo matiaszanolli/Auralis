@@ -30,7 +30,6 @@ export interface Playlist {
 }
 
 import type { Track } from '@/types/domain';
-export type { Track };
 
 export interface PlaylistsResponse {
   playlists: Playlist[];

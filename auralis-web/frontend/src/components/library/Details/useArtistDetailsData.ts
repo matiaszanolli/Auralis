@@ -7,8 +7,6 @@
 import { useState, useEffect } from 'react';
 import type { Artist as DomainArtist, DetailTrack } from '@/types/domain';
 
-export type Track = DetailTrack;
-
 export interface Album {
   id: number;
   title: string;
@@ -19,7 +17,7 @@ export interface Album {
 
 export interface Artist extends DomainArtist {
   albums?: Album[];
-  tracks?: Track[];
+  tracks?: DetailTrack[];
 }
 
 export const useArtistDetailsData = (artistId: number) => {

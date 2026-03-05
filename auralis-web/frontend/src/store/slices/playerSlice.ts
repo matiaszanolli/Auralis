@@ -17,9 +17,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { PlayerTrack } from '@/types/domain';
 
-// Backward-compat re-export so existing `import { Track } from './playerSlice'` still works.
-export type Track = PlayerTrack;
-
 export type PresetName = 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
 
 export type StreamingState = 'idle' | 'buffering' | 'streaming' | 'error' | 'complete';
@@ -39,7 +36,7 @@ export interface StreamingInfo {
 
 export interface PlayerState {
   isPlaying: boolean;
-  currentTrack: Track | null;
+  currentTrack: PlayerTrack | null;
   currentTime: number;
   duration: number;
   volume: number;
@@ -103,7 +100,7 @@ const playerSlice = createSlice({
      * Set current track
      */
     setCurrentTrack: {
-      reducer(state, action: PayloadAction<Track | null, string, { timestamp: number }>) {
+      reducer(state, action: PayloadAction<PlayerTrack | null, string, { timestamp: number }>) {
         state.currentTrack = action.payload;
         if (action.payload) {
           state.duration = action.payload.duration;
@@ -111,7 +108,7 @@ const playerSlice = createSlice({
         }
         state.lastUpdated = action.meta.timestamp;
       },
-      prepare(track: Track | null) {
+      prepare(track: PlayerTrack | null) {
         return { payload: track, meta: { timestamp: Date.now() } };
       },
     },

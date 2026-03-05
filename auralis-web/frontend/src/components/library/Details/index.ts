@@ -22,4 +22,4 @@ export { default as ArtistHeader } from './ArtistHeader';
 // AlbumDetailView subcomponents
 export { default as AlbumHeaderActions } from './AlbumHeaderActions';
 export { useAlbumDetails } from './useAlbumDetails';
-export type { Album, Track } from './useAlbumDetails';
+export type { Album } from './useAlbumDetails';

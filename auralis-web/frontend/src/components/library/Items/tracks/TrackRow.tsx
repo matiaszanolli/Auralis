@@ -15,13 +15,10 @@ import { useTrackRowHandlers } from './useTrackRowHandlers';
 import { useTrackContextMenu } from './useTrackContextMenu';
 import { useTrackImage } from './useTrackImage';
 import { useTrackFormatting } from './useTrackFormatting';
-
-// Re-export LibraryTrack as Track for backward compat with consumers of this module
 import type { LibraryTrack } from '@/types/domain';
-export type Track = LibraryTrack;
 
 interface TrackRowProps {
-  track: Track;
+  track: LibraryTrack;
   index: number;
   isPlaying?: boolean;
   isCurrent?: boolean;

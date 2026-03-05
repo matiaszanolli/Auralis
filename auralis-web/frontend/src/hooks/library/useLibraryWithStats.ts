@@ -51,8 +51,6 @@ import { transformBackendTrack, type LibraryStats, type LibraryTrack } from '@/t
 
 export type { LibraryStats };
 
-export type Track = LibraryTrack;
-
 export interface UseLibraryWithStatsOptions {
   view: string;
   autoLoad?: boolean;
@@ -61,7 +59,7 @@ export interface UseLibraryWithStatsOptions {
 
 export interface UseLibraryWithStatsReturn {
   // Data
-  tracks: Track[];
+  tracks: LibraryTrack[];
   stats: LibraryStats | null;
 
   // State - Unified
@@ -94,7 +92,7 @@ export const useLibraryWithStats = ({
   includeStats = true
 }: UseLibraryWithStatsOptions): UseLibraryWithStatsReturn => {
   // Track Data State
-  const [tracks, setTracks] = useState<Track[]>([]);
+  const [tracks, setTracks] = useState<LibraryTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -156,7 +154,7 @@ export const useLibraryWithStats = ({
         if (response.ok) {
           const data = await response.json();
 
-          const transformedTracks: Track[] = (data.tracks || []).map(transformBackendTrack);
+          const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
 
           setHasMore(data.has_more || false);
           setTotalTracks(data.total || 0);
@@ -238,7 +236,7 @@ export const useLibraryWithStats = ({
       if (response.ok) {
         const data = await response.json();
 
-        const transformedTracks: Track[] = (data.tracks || []).map(transformBackendTrack);
+        const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
 
         setTracks((prev) => [...prev, ...transformedTracks]);
         setHasMore(data.has_more || false);

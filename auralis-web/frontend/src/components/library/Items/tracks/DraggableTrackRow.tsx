@@ -7,7 +7,8 @@
 
 import React from 'react';
 import { Draggable } from '@hello-pangea/dnd';
-import { TrackRow, Track } from './TrackRow';
+import { TrackRow } from './TrackRow';
+import type { LibraryTrack as Track } from '@/types/domain';
 import { styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
