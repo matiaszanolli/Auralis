@@ -122,14 +122,16 @@ async def process_audio(request: ProcessRequest) -> ProcessResponse:
         try:
             validated_input = validate_file_path(request.input_path)
         except PathValidationError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid input path: {e}")
+            logger.warning(f"Invalid input path rejected: {e}")
+            raise HTTPException(status_code=400, detail="Invalid or inaccessible input path")
 
         validated_reference: Path | None = None
         if request.reference_path:
             try:
                 validated_reference = validate_file_path(request.reference_path)
             except PathValidationError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid reference path: {e}")
+                logger.warning(f"Invalid reference path rejected: {e}")
+                raise HTTPException(status_code=400, detail="Invalid or inaccessible reference path")
 
         # Create processing job
         job = _processing_engine.create_job(
@@ -159,8 +161,8 @@ async def process_audio(request: ProcessRequest) -> ProcessResponse:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to submit processing job: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to submit processing job: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to submit processing job")
 
 
 @router.post("/upload-and-process", response_model=ProcessResponse)
@@ -237,8 +239,8 @@ async def upload_and_process(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to upload and process: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to upload and process: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to upload and process")
 
 
 @router.get("/job/{job_id}", response_model=JobStatusResponse)
