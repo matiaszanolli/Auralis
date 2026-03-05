@@ -21,10 +21,13 @@
  * @module components/player/QueuePanel
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { tokens } from '@/design-system';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import type { Track } from '@/types/domain';
+
+const QUEUE_ITEM_HEIGHT = 60; // track item height including border
 
 interface QueuePanelProps {
   /** Whether panel is collapsed */
@@ -61,6 +64,15 @@ export const QueuePanel = ({
   // Local state for UI interactions
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  // Virtualization
+  const queueScrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: queue.length,
+    getScrollElement: () => queueScrollRef.current,
+    estimateSize: () => QUEUE_ITEM_HEIGHT,
+    overscan: 5,
+  });
 
   if (collapsed) {
     return (
@@ -213,36 +225,53 @@ export const QueuePanel = ({
       )}
 
       {/* Queue List */}
-      <div style={styles.queueContainer}>
+      <div style={styles.queueContainer} ref={queueScrollRef}>
         {queue.length === 0 ? (
           <div style={styles.emptyState}>
             <p>Queue is empty</p>
             <p style={styles.emptySubtext}>Add tracks to get started</p>
           </div>
         ) : (
-          <ul style={styles.queueList}>
-            {queue.map((track, index) => (
-              <QueueTrackItem
-                key={`${track.id}-${index}`}
-                track={track}
-                index={index}
-                isCurrentTrack={index === currentIndex}
-                isDragging={draggingIndex === index}
-                isHovered={hoveredIndex === index}
-                onRemove={() => handleRemoveTrack(index)}
-                onDragStart={() => setDraggingIndex(index)}
-                onDragEnd={() => setDraggingIndex(null)}
-                onDragOver={(toIndex) => {
-                  if (draggingIndex !== null && draggingIndex !== toIndex) {
-                    handleReorderTrack(draggingIndex, toIndex);
+          <ul
+            style={{
+              ...styles.queueList,
+              height: virtualizer.getTotalSize(),
+              position: 'relative' as const,
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const track = queue[virtualRow.index];
+              const index = virtualRow.index;
+              return (
+                <QueueTrackItem
+                  key={`${track.id}-${index}`}
+                  track={track}
+                  index={index}
+                  isCurrentTrack={index === currentIndex}
+                  isDragging={draggingIndex === index}
+                  isHovered={hoveredIndex === index}
+                  onRemove={() => handleRemoveTrack(index)}
+                  onDragStart={() => setDraggingIndex(index)}
+                  onDragEnd={() => setDraggingIndex(null)}
+                  onDragOver={(toIndex) => {
+                    if (draggingIndex !== null && draggingIndex !== toIndex) {
+                      handleReorderTrack(draggingIndex, toIndex);
+                    }
+                  }}
+                  onHover={(hovering) =>
+                    setHoveredIndex(hovering ? index : null)
                   }
-                }}
-                onHover={(hovering) =>
-                  setHoveredIndex(hovering ? index : null)
-                }
-                disabled={isLoading}
-              />
-            ))}
+                  disabled={isLoading}
+                  style={{
+                    position: 'absolute' as const,
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                />
+              );
+            })}
           </ul>
         )}
       </div>
@@ -267,6 +296,7 @@ interface QueueTrackItemProps {
   onDragOver: (toIndex: number) => void;
   onHover: (hovering: boolean) => void;
   disabled: boolean;
+  style?: React.CSSProperties;
 }
 
 const QueueTrackItem = ({
@@ -281,6 +311,7 @@ const QueueTrackItem = ({
   onDragOver,
   onHover,
   disabled,
+  style: positionStyle,
 }: QueueTrackItemProps) => {
   const [isFocused, setIsFocused] = React.useState(false);
   const showActions = isHovered || isFocused;
@@ -292,6 +323,7 @@ const QueueTrackItem = ({
         ...(isCurrentTrack ? styles.trackItemCurrent : {}),
         ...(isDragging ? styles.trackItemDragging : {}),
         ...((isHovered || isFocused) ? styles.trackItemHovered : {}),
+        ...positionStyle,
       }}
       tabIndex={0}
       role="option"
