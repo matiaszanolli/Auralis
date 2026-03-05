@@ -80,10 +80,25 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         "/api/similarity": (20, 60),        # 20 similarity queries per minute
     }
 
+    # Evict stale keys every 256 rate-limited requests to bound memory (#2630).
+    _EVICTION_INTERVAL = 256
+
     def __init__(self, app: Any) -> None:
         super().__init__(app)
         # {client_key: [timestamp, ...]}
         self._windows: dict[str, list[float]] = {}
+        self._request_count = 0
+
+    def _evict_stale_keys(self, now: float) -> None:
+        """Remove dict entries whose timestamps have all expired."""
+        # Find the longest window across all rules for a conservative cutoff
+        max_window = max(w for _, w in self._RATE_LIMITS.values())
+        stale_keys = [
+            k for k, ts in self._windows.items()
+            if not ts or now - ts[-1] >= max_window
+        ]
+        for k in stale_keys:
+            del self._windows[k]
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
         path = request.url.path
@@ -103,11 +118,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         key = f"{client_ip}:{path}"
         now = time.monotonic()
 
+        # Periodic eviction of stale keys to prevent unbounded growth (#2630)
+        self._request_count += 1
+        if self._request_count >= self._EVICTION_INTERVAL:
+            self._request_count = 0
+            self._evict_stale_keys(now)
+
         # Prune expired entries and check limit
         timestamps = self._windows.get(key, [])
         timestamps = [t for t in timestamps if now - t < window_sec]
 
         if len(timestamps) >= max_requests:
+            self._windows[key] = timestamps
             retry_after = int(window_sec - (now - timestamps[0])) + 1
             return JSONResponse(
                 status_code=429,
