@@ -14,8 +14,8 @@ export const DialogTitleStyled = styled(Box)({
 
 export const DialogPaperProps = {
   sx: {
-    bgcolor: '#1a1f3a',
-    backgroundImage: 'linear-gradient(135deg, #1a1f3a 0%, #0f1228 100%)',
+    bgcolor: tokens.colors.bg.level3,
+    backgroundImage: `linear-gradient(135deg, ${tokens.colors.bg.level3} 0%, ${tokens.colors.bg.level0} 100%)`,
   },
 };
 

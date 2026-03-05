@@ -20,6 +20,7 @@
  */
 
 import React, { lazy, Suspense, ReactNode, ComponentType, ReactElement } from 'react';
+import { tokens } from '@/design-system';
 
 // ============================================================================
 // Types
@@ -71,7 +72,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     if (this.state.hasError) {
       return (
         this.props.fallback || (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#d32f2f' }}>
+          <div style={{ padding: '20px', textAlign: 'center', color: tokens.colors.semantic.error }}>
             <h2>Failed to load component</h2>
             <p>{this.state.error?.message}</p>
           </div>
@@ -97,7 +98,7 @@ export const DefaultLoadingFallback = () => (
       minHeight: '100px',
     }}
   >
-    <div style={{ textAlign: 'center', color: '#666' }}>
+    <div style={{ textAlign: 'center', color: tokens.colors.text.secondary }}>
       <p>Loading...</p>
     </div>
   </div>
@@ -108,9 +109,9 @@ export const DefaultErrorFallback = ({ error }: { error?: Error }) => (
     style={{
       padding: '20px',
       textAlign: 'center',
-      color: '#d32f2f',
-      border: '1px solid #d32f2f',
-      borderRadius: '4px',
+      color: tokens.colors.semantic.error,
+      border: `1px solid ${tokens.colors.semantic.error}`,
+      borderRadius: tokens.borderRadius.sm,
     }}
   >
     <h3>Failed to load component</h3>
