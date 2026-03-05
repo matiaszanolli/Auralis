@@ -208,8 +208,8 @@ def create_enhancement_router(
                 "settings": enhancement_settings
             }
         except Exception as e:
-            logger.error(f"Failed to toggle enhancement: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to toggle enhancement: {e}")
+            logger.error(f"Failed to toggle enhancement: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to toggle enhancement")
 
     @router.post("/api/player/enhancement/preset")
     async def set_enhancement_preset(body: SetPresetRequest) -> dict[str, Any]:
@@ -268,8 +268,8 @@ def create_enhancement_router(
                 "settings": enhancement_settings
             }
         except Exception as e:
-            logger.error(f"Failed to change preset: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to change preset: {e}")
+            logger.error(f"Failed to change preset: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to change preset")
 
     @router.post("/api/player/enhancement/intensity")
     async def set_enhancement_intensity(body: SetIntensityRequest) -> dict[str, Any]:
@@ -335,8 +335,8 @@ def create_enhancement_router(
                 "settings": enhancement_settings
             }
         except Exception as e:
-            logger.error(f"Failed to set intensity: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to set intensity: {e}")
+            logger.error(f"Failed to set intensity: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to set intensity")
 
     @router.get("/api/player/enhancement/status")
     async def get_enhancement_status() -> dict[str, Any]:
@@ -387,8 +387,8 @@ def create_enhancement_router(
         # Validate filepath against allowed library directories
         try:
             normalized_path = validate_file_path(filepath)
-        except PathValidationError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid filepath: {e}")
+        except PathValidationError:
+            raise HTTPException(status_code=400, detail="Invalid filepath")
 
         try:
             from core.chunked_processor import ChunkedAudioProcessor
@@ -419,8 +419,8 @@ def create_enhancement_router(
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to generate mastering recommendation for track {track_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+            logger.error(f"Failed to generate mastering recommendation for track {track_id}: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Analysis failed")
 
     @router.get("/api/processing/parameters")
     async def get_processing_parameters() -> dict[str, Any]:
@@ -544,7 +544,7 @@ def create_enhancement_router(
                 "items_cleared": cache_size
             }
         except Exception as e:
-            logger.error(f"Failed to clear cache: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to clear cache: {e}")
+            logger.error(f"Failed to clear cache: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to clear cache")
 
     return router
