@@ -93,7 +93,12 @@ class FingerprintQueue:
         """
         Add a track to the fingerprint queue.
 
-        Thread-safe. Deduplicates (same track won't be queued twice).
+        Coroutine-safe (single-threaded asyncio only). The check-then-mutate
+        sequence has no ``await`` between read and write, so no other coroutine
+        can interleave.  Do NOT call from a thread (e.g. ``asyncio.to_thread``)
+        without adding external synchronization.
+
+        Deduplicates (same track won't be queued twice).
 
         Args:
             track_id: ID of the track to fingerprint
@@ -101,7 +106,8 @@ class FingerprintQueue:
         Returns:
             True if added to queue, False if already queued/processing
         """
-        # Check if already queued or currently processing
+        # Safe in asyncio's cooperative model: no await between check and
+        # write, so no other coroutine can interleave (see #2708).
         if track_id in self._state.queued_set:
             logger.debug(f"Track {track_id} already in fingerprint queue, skipping")
             return False
