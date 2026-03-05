@@ -8,10 +8,13 @@ Models for database schema version tracking
 :license: GPLv3, see LICENSE for more details.
 """
 
-from datetime import datetime, timezone
-from typing import Any
+from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, Integer, Text
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+from sqlalchemy import DateTime, Integer, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
 
@@ -20,11 +23,11 @@ class SchemaVersion(Base):  # type: ignore[misc]
     """Model for tracking database schema versions."""
     __tablename__ = 'schema_version'
 
-    id = Column(Integer, primary_key=True)
-    version = Column(Integer, nullable=False, unique=True)
-    applied_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    description = Column(Text)
-    migration_script = Column(Text)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    applied_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    migration_script: Mapped[Optional[str]] = mapped_column(Text)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert schema version to dictionary"""

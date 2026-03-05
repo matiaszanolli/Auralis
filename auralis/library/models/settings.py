@@ -8,9 +8,12 @@ Models for user settings and preferences
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any
+from __future__ import annotations
 
-from sqlalchemy import Boolean, Column, Float, Integer, String, Text
+from typing import Any, Optional
+
+from sqlalchemy import Boolean, Float, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin
 
@@ -19,42 +22,42 @@ class UserSettings(Base, TimestampMixin):  # type: ignore[misc]
     """Model for user settings and preferences."""
     __tablename__ = 'user_settings'
 
-    id = Column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     # Library Settings
-    scan_folders = Column(Text)  # JSON array of folder paths
-    file_types = Column(Text, default='mp3,flac,wav,m4a,ogg,aac,wma')  # Comma-separated
-    auto_scan = Column(Boolean, default=False)
-    scan_interval = Column(Integer, default=3600)  # Seconds
+    scan_folders: Mapped[Optional[str]] = mapped_column(Text)  # JSON array of folder paths
+    file_types: Mapped[Optional[str]] = mapped_column(Text, default='mp3,flac,wav,m4a,ogg,aac,wma')  # Comma-separated
+    auto_scan: Mapped[bool] = mapped_column(Boolean, default=False)
+    scan_interval: Mapped[int] = mapped_column(Integer, default=3600)  # Seconds
 
     # Playback Settings
-    crossfade_enabled = Column(Boolean, default=False)
-    crossfade_duration = Column(Float, default=5.0)  # Seconds
-    gapless_enabled = Column(Boolean, default=True)
-    replay_gain_enabled = Column(Boolean, default=False)
-    volume = Column(Float, default=0.8)  # 0.0-1.0
+    crossfade_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    crossfade_duration: Mapped[float] = mapped_column(Float, default=5.0)  # Seconds
+    gapless_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    replay_gain_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    volume: Mapped[float] = mapped_column(Float, default=0.8)  # 0.0-1.0
 
     # Audio Settings
-    output_device = Column(String, default='default')
-    bit_depth = Column(Integer, default=16)  # 16, 24, 32
-    sample_rate = Column(Integer, default=44100)  # Hz
+    output_device: Mapped[Optional[str]] = mapped_column(String, default='default')
+    bit_depth: Mapped[int] = mapped_column(Integer, default=16)  # 16, 24, 32
+    sample_rate: Mapped[int] = mapped_column(Integer, default=44100)  # Hz
 
     # Interface Settings
-    theme = Column(String, default='dark')
-    language = Column(String, default='en')
-    show_visualizations = Column(Boolean, default=True)
-    mini_player_on_close = Column(Boolean, default=False)
+    theme: Mapped[Optional[str]] = mapped_column(String, default='dark')
+    language: Mapped[Optional[str]] = mapped_column(String, default='en')
+    show_visualizations: Mapped[bool] = mapped_column(Boolean, default=True)
+    mini_player_on_close: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Enhancement Settings
-    default_preset = Column(String, default='adaptive')
-    auto_enhance = Column(Boolean, default=False)
-    enhancement_intensity = Column(Float, default=1.0)  # 0.0-1.0
+    default_preset: Mapped[Optional[str]] = mapped_column(String, default='adaptive')
+    auto_enhance: Mapped[bool] = mapped_column(Boolean, default=False)
+    enhancement_intensity: Mapped[float] = mapped_column(Float, default=1.0)  # 0.0-1.0
 
     # Advanced Settings
-    cache_size = Column(Integer, default=1024)  # MB
-    max_concurrent_scans = Column(Integer, default=4)
-    enable_analytics = Column(Boolean, default=False)
-    debug_mode = Column(Boolean, default=False)
+    cache_size: Mapped[int] = mapped_column(Integer, default=1024)  # MB
+    max_concurrent_scans: Mapped[int] = mapped_column(Integer, default=4)
+    enable_analytics: Mapped[bool] = mapped_column(Boolean, default=False)
+    debug_mode: Mapped[bool] = mapped_column(Boolean, default=False)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert settings to dictionary"""
@@ -64,7 +67,7 @@ class UserSettings(Base, TimestampMixin):  # type: ignore[misc]
         scan_folders_list = []
         if self.scan_folders:
             try:
-                scan_folders_list = json.loads(self.scan_folders)  # type: ignore[arg-type]
+                scan_folders_list = json.loads(self.scan_folders)
             except Exception:
                 scan_folders_list = []
 

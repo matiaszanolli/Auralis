@@ -11,11 +11,10 @@ Core models for tracks, albums, artists, genres, and playlists
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy import (
     Boolean,
-    Column,
     DateTime,
     Float,
     ForeignKey,
@@ -23,7 +22,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, track_artist, track_genre, track_playlist
 
@@ -32,53 +31,53 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
     """Model for audio tracks."""
     __tablename__ = 'tracks'
 
-    id = Column(Integer, primary_key=True)
-    title = Column(String, nullable=False)
-    filepath = Column(String, nullable=False, unique=True)
-    duration = Column(Float)
-    sample_rate = Column(Integer)
-    bit_depth = Column(Integer)
-    bitrate = Column(Integer)  # kbps; matches the field listed in TrackRepository.update (fixes #2411)
-    channels = Column(Integer)
-    format = Column(String)
-    filesize = Column(Integer)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    filepath: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    duration: Mapped[Optional[float]] = mapped_column(Float)
+    sample_rate: Mapped[Optional[int]] = mapped_column(Integer)
+    bit_depth: Mapped[Optional[int]] = mapped_column(Integer)
+    bitrate: Mapped[Optional[int]] = mapped_column(Integer)  # kbps; matches the field listed in TrackRepository.update (fixes #2411)
+    channels: Mapped[Optional[int]] = mapped_column(Integer)
+    format: Mapped[Optional[str]] = mapped_column(String)
+    filesize: Mapped[Optional[int]] = mapped_column(Integer)
 
     # Audio analysis data
-    peak_level = Column(Float)
-    rms_level = Column(Float)
-    dr_rating = Column(Float)  # Dynamic Range rating
-    lufs_level = Column(Float)  # LUFS loudness
+    peak_level: Mapped[Optional[float]] = mapped_column(Float)
+    rms_level: Mapped[Optional[float]] = mapped_column(Float)
+    dr_rating: Mapped[Optional[float]] = mapped_column(Float)  # Dynamic Range rating
+    lufs_level: Mapped[Optional[float]] = mapped_column(Float)  # LUFS loudness
 
     # Auralis-specific analysis
-    mastering_quality = Column(Float)  # Quality score 0-1
-    recommended_reference = Column(String)  # Best reference track path
-    processing_profile = Column(String)  # Optimal mastering profile
+    mastering_quality: Mapped[Optional[float]] = mapped_column(Float)  # Quality score 0-1
+    recommended_reference: Mapped[Optional[str]] = mapped_column(String)  # Best reference track path
+    processing_profile: Mapped[Optional[str]] = mapped_column(String)  # Optimal mastering profile
 
     # 25D Fingerprint analysis
-    fingerprint_status = Column(String, default='pending')  # pending, processing, complete, error
-    fingerprint_computed_at = Column(DateTime)  # When fingerprint was last computed
-    fingerprint_error_message = Column(Text)  # Error message if extraction failed
-    fingerprint_vector = Column(Text)  # Serialized 25D fingerprint (JSON)
+    fingerprint_status: Mapped[Optional[str]] = mapped_column(String, default='pending')  # pending, processing, complete, error
+    fingerprint_computed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)  # When fingerprint was last computed
+    fingerprint_error_message: Mapped[Optional[str]] = mapped_column(Text)  # Error message if extraction failed
+    fingerprint_vector: Mapped[Optional[str]] = mapped_column(Text)  # Serialized 25D fingerprint (JSON)
 
     # Metadata
-    album_id = Column(Integer, ForeignKey('albums.id'))
-    track_number = Column(Integer)
-    disc_number = Column(Integer)
-    year = Column(Integer)
-    comments = Column(Text)
-    lyrics = Column(Text)  # Plain text or LRC format lyrics
+    album_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('albums.id'))
+    track_number: Mapped[Optional[int]] = mapped_column(Integer)
+    disc_number: Mapped[Optional[int]] = mapped_column(Integer)
+    year: Mapped[Optional[int]] = mapped_column(Integer)
+    comments: Mapped[Optional[str]] = mapped_column(Text)
+    lyrics: Mapped[Optional[str]] = mapped_column(Text)  # Plain text or LRC format lyrics
 
     # Playback statistics
-    play_count = Column(Integer, default=0)
-    last_played = Column(DateTime)
-    skip_count = Column(Integer, default=0)
-    favorite = Column(Boolean, default=False)
+    play_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_played: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    skip_count: Mapped[int] = mapped_column(Integer, default=0)
+    favorite: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Relationships
-    album = relationship("Album", back_populates="tracks")
-    artists = relationship("Artist", secondary=track_artist, back_populates="tracks")
-    genres = relationship("Genre", secondary=track_genre, back_populates="tracks")
-    playlists = relationship("Playlist", secondary=track_playlist, back_populates="tracks")
+    album: Mapped[Optional[Album]] = relationship("Album", back_populates="tracks")
+    artists: Mapped[list[Artist]] = relationship("Artist", secondary=track_artist, back_populates="tracks")
+    genres: Mapped[list[Genre]] = relationship("Genre", secondary=track_genre, back_populates="tracks")
+    playlists: Mapped[list[Playlist]] = relationship("Playlist", secondary=track_playlist, back_populates="tracks")
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -165,24 +164,24 @@ class Album(Base, TimestampMixin):  # type: ignore[misc]
     """Model for albums."""
     __tablename__ = 'albums'
 
-    id = Column(Integer, primary_key=True)
-    title = Column(String, nullable=False)
-    artist_id = Column(Integer, ForeignKey('artists.id'))
-    year = Column(Integer)
-    total_tracks = Column(Integer)
-    total_discs = Column(Integer)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    artist_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('artists.id'))
+    year: Mapped[Optional[int]] = mapped_column(Integer)
+    total_tracks: Mapped[Optional[int]] = mapped_column(Integer)
+    total_discs: Mapped[Optional[int]] = mapped_column(Integer)
 
     # Album artwork
-    artwork_path = Column(String)  # Path to extracted album artwork
+    artwork_path: Mapped[Optional[str]] = mapped_column(String)  # Path to extracted album artwork
 
     # Album-level analysis
-    avg_dr_rating = Column(Float)
-    avg_lufs = Column(Float)
-    mastering_consistency = Column(Float)  # How consistent the mastering is across tracks
+    avg_dr_rating: Mapped[Optional[float]] = mapped_column(Float)
+    avg_lufs: Mapped[Optional[float]] = mapped_column(Float)
+    mastering_consistency: Mapped[Optional[float]] = mapped_column(Float)  # How consistent the mastering is across tracks
 
     # Relationships
-    artist = relationship("Artist", back_populates="albums")
-    tracks = relationship("Track", back_populates="album")
+    artist: Mapped[Optional[Artist]] = relationship("Artist", back_populates="albums")
+    tracks: Mapped[list[Track]] = relationship("Track", back_populates="album")
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -218,22 +217,22 @@ class Artist(Base, TimestampMixin):  # type: ignore[misc]
     """Model for artists."""
     __tablename__ = 'artists'
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False, unique=True)
-    normalized_name = Column(String, index=True)  # Canonical form for duplicate detection
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    normalized_name: Mapped[Optional[str]] = mapped_column(String, index=True)  # Canonical form for duplicate detection
 
     # Artist statistics
-    total_plays = Column(Integer, default=0)
-    avg_mastering_quality = Column(Float)
+    total_plays: Mapped[int] = mapped_column(Integer, default=0)
+    avg_mastering_quality: Mapped[Optional[float]] = mapped_column(Float)
 
     # Artwork metadata (Phase 2: Real artist imagery)
-    artwork_url = Column(Text)  # External URL to artist image
-    artwork_source = Column(String)  # 'musicbrainz', 'discogs', 'lastfm', etc.
-    artwork_fetched_at = Column(DateTime)  # Last fetch timestamp
+    artwork_url: Mapped[Optional[str]] = mapped_column(Text)  # External URL to artist image
+    artwork_source: Mapped[Optional[str]] = mapped_column(String)  # 'musicbrainz', 'discogs', 'lastfm', etc.
+    artwork_fetched_at: Mapped[Optional[datetime]] = mapped_column(DateTime)  # Last fetch timestamp
 
     # Relationships
-    albums = relationship("Album", back_populates="artist")
-    tracks = relationship("Track", secondary=track_artist, back_populates="artists")
+    albums: Mapped[list[Album]] = relationship("Album", back_populates="artist")
+    tracks: Mapped[list[Track]] = relationship("Track", secondary=track_artist, back_populates="artists")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert artist to dictionary"""
@@ -256,16 +255,16 @@ class Genre(Base, TimestampMixin):  # type: ignore[misc]
     """Model for music genres."""
     __tablename__ = 'genres'
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
 
     # Genre characteristics for auto-mastering
-    preferred_profile = Column(String, default='balanced')  # warm, bright, punchy, balanced
-    typical_dr_range = Column(String)  # "8-12" for example
-    typical_lufs_range = Column(String)  # "-14 to -10" for example
+    preferred_profile: Mapped[Optional[str]] = mapped_column(String, default='balanced')  # warm, bright, punchy, balanced
+    typical_dr_range: Mapped[Optional[str]] = mapped_column(String)  # "8-12" for example
+    typical_lufs_range: Mapped[Optional[str]] = mapped_column(String)  # "-14 to -10" for example
 
     # Relationships
-    tracks = relationship("Track", secondary=track_genre, back_populates="genres")
+    tracks: Mapped[list[Track]] = relationship("Track", secondary=track_genre, back_populates="genres")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert genre to dictionary"""
@@ -285,19 +284,19 @@ class Playlist(Base, TimestampMixin):  # type: ignore[misc]
     """Model for playlists."""
     __tablename__ = 'playlists'
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    description = Column(Text)
-    is_smart = Column(Boolean, default=False)
-    smart_criteria = Column(Text)  # JSON string for smart playlist rules
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    is_smart: Mapped[bool] = mapped_column(Boolean, default=False)
+    smart_criteria: Mapped[Optional[str]] = mapped_column(Text)  # JSON string for smart playlist rules
 
     # Playlist-level mastering settings
-    auto_master_enabled = Column(Boolean, default=True)
-    mastering_profile = Column(String, default='balanced')
-    normalize_levels = Column(Boolean, default=True)
+    auto_master_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    mastering_profile: Mapped[Optional[str]] = mapped_column(String, default='balanced')
+    normalize_levels: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
-    tracks = relationship("Track", secondary=track_playlist, back_populates="playlists")
+    tracks: Mapped[list[Track]] = relationship("Track", secondary=track_playlist, back_populates="playlists")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert playlist to dictionary"""
@@ -331,29 +330,29 @@ class QueueState(Base, TimestampMixin):  # type: ignore[misc]
     """
     __tablename__ = 'queue_state'
 
-    id = Column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     # Queue composition - stored as JSON list of track IDs
     # Example: "[1, 5, 3, 7]" - order matters
-    track_ids = Column(Text, default='[]', nullable=False)
+    track_ids: Mapped[str] = mapped_column(Text, default='[]', nullable=False)
 
     # Current playback position in queue
-    current_index = Column(Integer, default=0, nullable=False)
+    current_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Shuffle mode toggle
-    is_shuffled = Column(Boolean, default=False, nullable=False)
+    is_shuffled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Repeat mode: 'off', 'all', or 'one'
-    repeat_mode = Column(String, default='off', nullable=False)
+    repeat_mode: Mapped[str] = mapped_column(String, default='off', nullable=False)
 
     # Timestamp for optimistic sync detection
-    synced_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert queue state to dictionary"""
         import json
         try:
-            parsed_track_ids = json.loads(self.track_ids) if self.track_ids else []  # type: ignore[arg-type]
+            parsed_track_ids = json.loads(self.track_ids) if self.track_ids else []
             track_ids: list[int] = parsed_track_ids if isinstance(parsed_track_ids, list) else []
         except (json.JSONDecodeError, TypeError):
             track_ids = []
@@ -374,10 +373,10 @@ class QueueState(Base, TimestampMixin):  # type: ignore[misc]
         """Create QueueState from dictionary"""
         import json
         state = QueueState()
-        state.track_ids = json.dumps(data.get('track_ids', []))  # type: ignore[assignment]
-        state.current_index = int(data.get('current_index', 0))  # type: ignore[assignment]
-        state.is_shuffled = bool(data.get('is_shuffled', False))  # type: ignore[assignment]
-        state.repeat_mode = str(data.get('repeat_mode', 'off'))  # type: ignore[assignment]
+        state.track_ids = json.dumps(data.get('track_ids', []))
+        state.current_index = int(data.get('current_index', 0))
+        state.is_shuffled = bool(data.get('is_shuffled', False))
+        state.repeat_mode = str(data.get('repeat_mode', 'off'))
         return state
 
 
@@ -390,36 +389,36 @@ class QueueHistory(Base, TimestampMixin):  # type: ignore[misc]
     """
     __tablename__ = 'queue_history'
 
-    id = Column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     # Reference to queue state (for tracking which queue this history belongs to)
-    queue_state_id = Column(Integer, ForeignKey('queue_state.id'), nullable=False)
+    queue_state_id: Mapped[int] = mapped_column(Integer, ForeignKey('queue_state.id'), nullable=False)
 
     # Type of operation that triggered this history entry
     # Valid values: 'set', 'add', 'remove', 'reorder', 'shuffle', 'clear'
-    operation = Column(String, nullable=False)
+    operation: Mapped[str] = mapped_column(String, nullable=False)
 
     # Full snapshot of queue state before the operation
     # Stored as JSON to capture: track_ids, current_index, is_shuffled, repeat_mode
-    state_snapshot = Column(Text, nullable=False)
+    state_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Optional metadata about the operation
     # For 'add'/'remove': contains index or track_id
     # For 'reorder': contains fromIndex and toIndex
     # For 'shuffle': contains shuffle_mode info
-    operation_metadata = Column(Text, default='{}')
+    operation_metadata: Mapped[Optional[str]] = mapped_column(Text, default='{}')
 
     def to_dict(self) -> dict[str, Any]:
         """Convert history entry to dictionary"""
         import json
         try:
-            parsed_snapshot = json.loads(self.state_snapshot) if self.state_snapshot else {}  # type: ignore[arg-type]
+            parsed_snapshot = json.loads(self.state_snapshot) if self.state_snapshot else {}
             state_snapshot: dict[str, Any] = parsed_snapshot if isinstance(parsed_snapshot, dict) else {}
         except (json.JSONDecodeError, TypeError):
             state_snapshot = {}
 
         try:
-            parsed_metadata = json.loads(self.operation_metadata) if self.operation_metadata else {}  # type: ignore[arg-type]
+            parsed_metadata = json.loads(self.operation_metadata) if self.operation_metadata else {}
             operation_metadata: dict[str, Any] = parsed_metadata if isinstance(parsed_metadata, dict) else {}
         except (json.JSONDecodeError, TypeError):
             operation_metadata = {}
@@ -439,10 +438,10 @@ class QueueHistory(Base, TimestampMixin):  # type: ignore[misc]
         """Create QueueHistory from dictionary"""
         import json
         entry = QueueHistory()
-        entry.queue_state_id = int(data.get('queue_state_id', 1))  # type: ignore[assignment]
-        entry.operation = str(data.get('operation', 'set'))  # type: ignore[assignment]
-        entry.state_snapshot = json.dumps(data.get('state_snapshot', {}))  # type: ignore[assignment]
-        entry.operation_metadata = json.dumps(data.get('operation_metadata', {}))  # type: ignore[assignment]
+        entry.queue_state_id = int(data.get('queue_state_id', 1))
+        entry.operation = str(data.get('operation', 'set'))
+        entry.state_snapshot = json.dumps(data.get('state_snapshot', {}))
+        entry.operation_metadata = json.dumps(data.get('operation_metadata', {}))
         return entry
 
 
@@ -455,46 +454,46 @@ class QueueTemplate(Base, TimestampMixin):  # type: ignore[misc]
     """
     __tablename__ = 'queue_template'
 
-    id = Column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     # Template name for user identification
-    name = Column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
 
     # Track IDs in the template queue
-    track_ids = Column(Text, default='[]', nullable=False)
+    track_ids: Mapped[str] = mapped_column(Text, default='[]', nullable=False)
 
     # Shuffle setting when template was saved
-    is_shuffled = Column(Boolean, default=False, nullable=False)
+    is_shuffled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Repeat mode when template was saved
-    repeat_mode = Column(String, default='off', nullable=False)
+    repeat_mode: Mapped[str] = mapped_column(String, default='off', nullable=False)
 
     # Optional description/notes about the template
-    description = Column(Text, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Template tags for organization
-    tags = Column(Text, default='[]', nullable=False)
+    tags: Mapped[str] = mapped_column(Text, default='[]', nullable=False)
 
     # Whether this is a favorite/starred template
-    is_favorite = Column(Boolean, default=False, nullable=False)
+    is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Number of times this template has been loaded
-    load_count = Column(Integer, default=0, nullable=False)
+    load_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Last time this template was loaded
-    last_loaded = Column(DateTime, nullable=True)
+    last_loaded: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert template to dictionary"""
         import json
         try:
-            parsed_track_ids = json.loads(self.track_ids) if self.track_ids else []  # type: ignore[arg-type]
+            parsed_track_ids = json.loads(self.track_ids) if self.track_ids else []
             track_ids: list[int] = parsed_track_ids if isinstance(parsed_track_ids, list) else []
         except (json.JSONDecodeError, TypeError):
             track_ids = []
 
         try:
-            parsed_tags = json.loads(self.tags) if self.tags else []  # type: ignore[arg-type]
+            parsed_tags = json.loads(self.tags) if self.tags else []
             tags: list[str] = parsed_tags if isinstance(parsed_tags, list) else []
         except (json.JSONDecodeError, TypeError):
             tags = []
@@ -519,11 +518,11 @@ class QueueTemplate(Base, TimestampMixin):  # type: ignore[misc]
         """Create QueueTemplate from dictionary"""
         import json
         template = QueueTemplate()
-        template.name = str(data.get('name', 'Untitled Template'))  # type: ignore[assignment]
-        template.track_ids = json.dumps(data.get('track_ids', []))  # type: ignore[assignment]
-        template.is_shuffled = bool(data.get('is_shuffled', False))  # type: ignore[assignment]
-        template.repeat_mode = str(data.get('repeat_mode', 'off'))  # type: ignore[assignment]
-        template.description = data.get('description', None)  # type: ignore[assignment]
-        template.tags = json.dumps(data.get('tags', []))  # type: ignore[assignment]
-        template.is_favorite = bool(data.get('is_favorite', False))  # type: ignore[assignment]
+        template.name = str(data.get('name', 'Untitled Template'))
+        template.track_ids = json.dumps(data.get('track_ids', []))
+        template.is_shuffled = bool(data.get('is_shuffled', False))
+        template.repeat_mode = str(data.get('repeat_mode', 'off'))
+        template.description = data.get('description', None)
+        template.tags = json.dumps(data.get('tags', []))
+        template.is_favorite = bool(data.get('is_favorite', False))
         return template

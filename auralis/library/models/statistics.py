@@ -8,9 +8,13 @@ Models for library-wide statistics and analytics
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any
+from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, Float, Integer
+from datetime import datetime
+from typing import Any, Optional
+
+from sqlalchemy import DateTime, Float, Integer
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin
 
@@ -19,25 +23,25 @@ class LibraryStats(Base, TimestampMixin):  # type: ignore[misc]
     """Model for library-wide statistics."""
     __tablename__ = 'library_stats'
 
-    id = Column(Integer, primary_key=True)
-    total_tracks = Column(Integer, default=0)
-    total_artists = Column(Integer, default=0)
-    total_albums = Column(Integer, default=0)
-    total_genres = Column(Integer, default=0)
-    total_playlists = Column(Integer, default=0)
-    total_duration = Column(Float, default=0.0)  # Total duration in seconds
-    total_filesize = Column(Integer, default=0)  # Total filesize in bytes
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    total_tracks: Mapped[int] = mapped_column(Integer, default=0)
+    total_artists: Mapped[int] = mapped_column(Integer, default=0)
+    total_albums: Mapped[int] = mapped_column(Integer, default=0)
+    total_genres: Mapped[int] = mapped_column(Integer, default=0)
+    total_playlists: Mapped[int] = mapped_column(Integer, default=0)
+    total_duration: Mapped[float] = mapped_column(Float, default=0.0)  # Total duration in seconds
+    total_filesize: Mapped[int] = mapped_column(Integer, default=0)  # Total filesize in bytes
 
     # Quality statistics
-    avg_dr_rating = Column(Float)
-    avg_lufs = Column(Float)
-    avg_mastering_quality = Column(Float)
+    avg_dr_rating: Mapped[Optional[float]] = mapped_column(Float)
+    avg_lufs: Mapped[Optional[float]] = mapped_column(Float)
+    avg_mastering_quality: Mapped[Optional[float]] = mapped_column(Float)
 
     # Last scan information
-    last_scan_date = Column(DateTime)
-    last_scan_duration = Column(Float)  # Scan duration in seconds
-    files_scanned = Column(Integer, default=0)
-    new_files_found = Column(Integer, default=0)
+    last_scan_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_scan_duration: Mapped[Optional[float]] = mapped_column(Float)  # Scan duration in seconds
+    files_scanned: Mapped[int] = mapped_column(Integer, default=0)
+    new_files_found: Mapped[int] = mapped_column(Integer, default=0)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert stats to dictionary"""

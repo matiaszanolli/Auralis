@@ -8,12 +8,15 @@ Models for 25D audio fingerprints and similarity graph
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any
+from __future__ import annotations
 
-from sqlalchemy import Column, Float, ForeignKey, Integer, LargeBinary
-from sqlalchemy.orm import relationship
+from typing import Any, Optional
+
+from sqlalchemy import Float, ForeignKey, Integer, LargeBinary
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
+from .core import Track
 
 
 class TrackFingerprint(Base, TimestampMixin):  # type: ignore[misc]
@@ -33,58 +36,58 @@ class TrackFingerprint(Base, TimestampMixin):  # type: ignore[misc]
     """
     __tablename__ = 'track_fingerprints'
 
-    id = Column(Integer, primary_key=True)
-    track_id = Column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    track_id: Mapped[int] = mapped_column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False, unique=True)
 
     # Frequency Distribution (7 dimensions)
-    sub_bass_pct = Column(Float, nullable=False)     # % energy in sub-bass (20-60 Hz)
-    bass_pct = Column(Float, nullable=False)          # % energy in bass (60-250 Hz)
-    low_mid_pct = Column(Float, nullable=False)       # % energy in low-mids (250-500 Hz)
-    mid_pct = Column(Float, nullable=False)           # % energy in mids (500-2k Hz)
-    upper_mid_pct = Column(Float, nullable=False)     # % energy in upper-mids (2k-4k Hz)
-    presence_pct = Column(Float, nullable=False)      # % energy in presence (4k-6k Hz)
-    air_pct = Column(Float, nullable=False)           # % energy in air (6k-20k Hz)
+    sub_bass_pct: Mapped[float] = mapped_column(Float, nullable=False)     # % energy in sub-bass (20-60 Hz)
+    bass_pct: Mapped[float] = mapped_column(Float, nullable=False)          # % energy in bass (60-250 Hz)
+    low_mid_pct: Mapped[float] = mapped_column(Float, nullable=False)       # % energy in low-mids (250-500 Hz)
+    mid_pct: Mapped[float] = mapped_column(Float, nullable=False)           # % energy in mids (500-2k Hz)
+    upper_mid_pct: Mapped[float] = mapped_column(Float, nullable=False)     # % energy in upper-mids (2k-4k Hz)
+    presence_pct: Mapped[float] = mapped_column(Float, nullable=False)      # % energy in presence (4k-6k Hz)
+    air_pct: Mapped[float] = mapped_column(Float, nullable=False)           # % energy in air (6k-20k Hz)
 
     # Dynamics (3 dimensions)
-    lufs = Column(Float, nullable=False)              # Integrated loudness (LUFS)
-    crest_db = Column(Float, nullable=False)          # Crest factor in dB
-    bass_mid_ratio = Column(Float, nullable=False)    # Bass to mid energy ratio
+    lufs: Mapped[float] = mapped_column(Float, nullable=False)              # Integrated loudness (LUFS)
+    crest_db: Mapped[float] = mapped_column(Float, nullable=False)          # Crest factor in dB
+    bass_mid_ratio: Mapped[float] = mapped_column(Float, nullable=False)    # Bass to mid energy ratio
 
     # Temporal (4 dimensions)
-    tempo_bpm = Column(Float, nullable=False)         # Detected tempo in BPM
-    rhythm_stability = Column(Float, nullable=False)  # Rhythm consistency (0-1)
-    transient_density = Column(Float, nullable=False) # Transients per second
-    silence_ratio = Column(Float, nullable=False)     # % below -60 dB
+    tempo_bpm: Mapped[float] = mapped_column(Float, nullable=False)         # Detected tempo in BPM
+    rhythm_stability: Mapped[float] = mapped_column(Float, nullable=False)  # Rhythm consistency (0-1)
+    transient_density: Mapped[float] = mapped_column(Float, nullable=False) # Transients per second
+    silence_ratio: Mapped[float] = mapped_column(Float, nullable=False)     # % below -60 dB
 
     # Spectral (3 dimensions)
-    spectral_centroid = Column(Float, nullable=False) # Brightness
-    spectral_rolloff = Column(Float, nullable=False)  # 85% energy frequency
-    spectral_flatness = Column(Float, nullable=False) # Tonality vs noise
+    spectral_centroid: Mapped[float] = mapped_column(Float, nullable=False) # Brightness
+    spectral_rolloff: Mapped[float] = mapped_column(Float, nullable=False)  # 85% energy frequency
+    spectral_flatness: Mapped[float] = mapped_column(Float, nullable=False) # Tonality vs noise
 
     # Harmonic (3 dimensions)
-    harmonic_ratio = Column(Float, nullable=False)    # Harmonic vs percussive
-    pitch_stability = Column(Float, nullable=False)   # Pitch consistency
-    chroma_energy = Column(Float, nullable=False)     # Chroma strength
+    harmonic_ratio: Mapped[float] = mapped_column(Float, nullable=False)    # Harmonic vs percussive
+    pitch_stability: Mapped[float] = mapped_column(Float, nullable=False)   # Pitch consistency
+    chroma_energy: Mapped[float] = mapped_column(Float, nullable=False)     # Chroma strength
 
     # Variation (3 dimensions)
-    dynamic_range_variation = Column(Float, nullable=False)  # DR variation
-    loudness_variation_std = Column(Float, nullable=False)   # Loudness STD
-    peak_consistency = Column(Float, nullable=False)         # Peak consistency
+    dynamic_range_variation: Mapped[float] = mapped_column(Float, nullable=False)  # DR variation
+    loudness_variation_std: Mapped[float] = mapped_column(Float, nullable=False)   # Loudness STD
+    peak_consistency: Mapped[float] = mapped_column(Float, nullable=False)         # Peak consistency
 
     # Stereo (2 dimensions)
-    stereo_width = Column(Float, nullable=False)      # Stereo width (0-1)
-    phase_correlation = Column(Float, nullable=False) # Phase correlation
+    stereo_width: Mapped[float] = mapped_column(Float, nullable=False)      # Stereo width (0-1)
+    phase_correlation: Mapped[float] = mapped_column(Float, nullable=False) # Phase correlation
 
     # Metadata
-    fingerprint_version = Column(Integer, nullable=False, default=1)
+    fingerprint_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     # Phase 3A: 8-bit quantized fingerprint storage (25 bytes, 8x compression)
     # Stores quantized uint8 values for space efficiency
     # Auto-dequantized on retrieval to restore float values (~1% accuracy loss)
-    fingerprint_blob = Column(LargeBinary(25), nullable=True)
+    fingerprint_blob: Mapped[Optional[bytes]] = mapped_column(LargeBinary(25), nullable=True)
 
     # Relationship
-    track = relationship("Track", backref="fingerprint", uselist=False)
+    track: Mapped[Track] = relationship("Track", backref="fingerprint", uselist=False)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert fingerprint to dictionary"""
@@ -192,16 +195,16 @@ class SimilarityGraph(Base, TimestampMixin):  # type: ignore[misc]
     """
     __tablename__ = 'similarity_graph'
 
-    id = Column(Integer, primary_key=True)
-    track_id = Column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False)
-    similar_track_id = Column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False)
-    distance = Column(Float, nullable=False)
-    similarity_score = Column(Float, nullable=False)
-    rank = Column(Integer, nullable=False)  # 1=most similar, 2=second most, etc.
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    track_id: Mapped[int] = mapped_column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False)
+    similar_track_id: Mapped[int] = mapped_column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False)
+    distance: Mapped[float] = mapped_column(Float, nullable=False)
+    similarity_score: Mapped[float] = mapped_column(Float, nullable=False)
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)  # 1=most similar, 2=second most, etc.
 
     # Relationships
-    track = relationship("Track", foreign_keys=[track_id], backref="similar_tracks")
-    similar_track = relationship("Track", foreign_keys=[similar_track_id])
+    track: Mapped[Track] = relationship("Track", foreign_keys=[track_id], backref="similar_tracks")
+    similar_track: Mapped[Track] = relationship("Track", foreign_keys=[similar_track_id])
 
     def to_dict(self) -> dict[str, Any]:
         """Convert similarity edge to dictionary"""
