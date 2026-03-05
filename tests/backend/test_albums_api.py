@@ -12,7 +12,7 @@ This file uses the Phase 6B RepositoryFactory pattern:
 """
 
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -48,8 +48,8 @@ def mock_album():
     album.avg_dr_rating = 12.0
     album.avg_lufs = -14.0
     album.mastering_consistency = 0.85
-    album.created_at = datetime.utcnow()
-    album.updated_at = datetime.utcnow()
+    album.created_at = datetime.now(timezone.utc)
+    album.updated_at = datetime.now(timezone.utc)
 
     # Create track mocks without circular album references
     track1 = Mock(spec=['duration'])

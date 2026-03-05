@@ -17,7 +17,7 @@ Test Coverage:
 
 import asyncio
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict
 
@@ -65,7 +65,7 @@ class TestCacheSchemas:
             preset="adaptive",
             intensity=1.0,
             source=CacheSource.TIER1,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             access_count=5
         )
         assert metadata.track_id == 123

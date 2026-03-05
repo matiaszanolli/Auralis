@@ -21,7 +21,7 @@ import asyncio
 import json
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
@@ -99,7 +99,7 @@ class TestWSMessage:
             "priority": "high",
             "payload": {"track_id": 789},
             "response_required": True,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
         msg = WSMessage.from_dict(data)
@@ -147,14 +147,14 @@ class TestConnectionInfo:
     def test_connection_is_active(self):
         """Test checking if connection is active."""
         conn = ConnectionInfo()
-        conn.last_activity = datetime.utcnow()
+        conn.last_activity = datetime.now(timezone.utc)
 
         assert conn.is_active(timeout_seconds=120) is True
 
     def test_connection_is_stale(self):
         """Test detecting stale connection."""
         conn = ConnectionInfo()
-        conn.last_activity = datetime.utcnow() - timedelta(seconds=150)
+        conn.last_activity = datetime.now(timezone.utc) - timedelta(seconds=150)
 
         assert conn.is_active(timeout_seconds=120) is False
 
