@@ -4,14 +4,13 @@
 Processing Lock Manager
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Handle async/sync processing coordination with thread-safe locking.
+Handle async/sync processing coordination with locking.
 
 Provides unified interface for:
 - Async processing with asyncio.Lock
-- Sync processing in async context (ThreadPoolExecutor)
-- Sync processing in sync context (direct call)
+- Sync processing (direct call, no lock)
 
-This consolidates the 3 different processing wrapper patterns in ChunkedAudioProcessor
+This consolidates the processing wrapper patterns in ChunkedAudioProcessor
 into a single, consistent approach.
 
 :copyright: (C) 2024 Auralis Team
@@ -19,7 +18,6 @@ into a single, consistent approach.
 """
 
 import asyncio
-import concurrent.futures
 import logging
 from typing import Callable, TypeVar
 
@@ -30,12 +28,7 @@ T = TypeVar('T')
 
 class ProcessingLockManager:
     """
-    Handle async/sync processing coordination with thread-safe locking.
-
-    This service consolidates three processing wrapper patterns:
-    - process_chunk() → Direct sync call
-    - process_chunk_safe() → Async with lock
-    - process_chunk_synchronized() → Sync in async context
+    Handle async/sync processing coordination with locking.
 
     The lock prevents concurrent calls to processor.process() from corrupting
     shared processor state (envelope followers, gain reduction tracking, etc.).
@@ -50,19 +43,11 @@ class ProcessingLockManager:
                 lambda: self._process_chunk_impl(chunk_index)
             )
             return result
-
-        # Sync processing in async context (e.g., full audio export):
-        def process_chunk_sync(self, chunk_index: int):
-            result = self._lock_manager.process_sync_in_async_context(
-                lambda: self._process_chunk_impl(chunk_index)
-            )
-            return result
     """
 
     def __init__(self) -> None:
         """Initialize processing lock manager."""
         self._lock = asyncio.Lock()
-        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         logger.debug("ProcessingLockManager initialized")
 
     async def process_async(self, process_fn: Callable[[], T]) -> T:
@@ -95,55 +80,6 @@ class ProcessingLockManager:
                 logger.error(f"Processing failed in async context: {e}")
                 raise
 
-    def process_sync_in_async_context(self, process_fn: Callable[[], T]) -> T:
-        """
-        Process synchronously within an async context.
-
-        This is for synchronous callers that need to wait for processing to complete
-        (e.g., get_full_processed_audio_path) but may be called from an async context.
-
-        The method handles two cases:
-        1. Called from async context: Creates new event loop in thread
-        2. Called from sync context: Creates new event loop
-
-        Args:
-            process_fn: Function to execute with lock held
-
-        Returns:
-            Result from process_fn
-
-        Examples:
-            >>> manager = ProcessingLockManager()
-            >>> def export_full_audio():
-            ...     result = manager.process_sync_in_async_context(
-            ...         lambda: process_all_chunks()
-            ...     )
-            ...     return result
-        """
-        try:
-            # Check if we're in an async context
-            loop = asyncio.get_running_loop()
-
-            # We're in an async context - run in thread to avoid blocking
-            logger.debug("Processing sync in async context (via thread pool)")
-            future = self._executor.submit(
-                lambda: asyncio.run(self.process_async(process_fn))
-            )
-            result = future.result()
-            logger.debug("Completed sync processing in async context")
-            return result
-
-        except RuntimeError:
-            # No event loop running - create one
-            logger.debug("Processing sync in sync context (new event loop)")
-            loop = asyncio.new_event_loop()
-            try:
-                result = loop.run_until_complete(self.process_async(process_fn))
-                logger.debug("Completed sync processing in sync context")
-                return result
-            finally:
-                loop.close()
-
     def process_sync(self, process_fn: Callable[[], T]) -> T:
         """
         Process synchronously without lock (direct call).
@@ -174,7 +110,7 @@ class ProcessingLockManager:
 
     def cleanup(self) -> None:
         """
-        Clean up resources (shutdown executor).
+        Clean up resources.
 
         Call this when the processor is no longer needed.
 
@@ -183,13 +119,4 @@ class ProcessingLockManager:
             >>> # ... use manager ...
             >>> manager.cleanup()
         """
-        logger.debug("Shutting down ProcessingLockManager executor")
-        self._executor.shutdown(wait=True)
         logger.debug("ProcessingLockManager cleanup complete")
-
-    def __del__(self) -> None:
-        """Ensure executor is cleaned up on deletion."""
-        try:
-            self._executor.shutdown(wait=False)
-        except Exception:
-            pass  # Silently ignore cleanup errors during deletion
