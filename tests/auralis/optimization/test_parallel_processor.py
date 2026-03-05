@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
-from scipy.signal.windows import hann
+from scipy.signal.windows import hamming, hann
 
 from auralis.optimization.parallel_processor import (
     ParallelAudioProcessor,
@@ -145,7 +145,7 @@ class TestParallelFFTProcessor:
     def test_parallel_windowed_fft_custom_window(self, processor, test_audio):
         """Test FFT with custom window function"""
         fft_size = 2048
-        custom_window = np.hamming(fft_size)
+        custom_window = hamming(fft_size)
 
         results = processor.parallel_windowed_fft(
             test_audio,

@@ -11,7 +11,7 @@ Vectorized interpolation and envelope creation utilities for DSP operations
 from typing import Any
 
 import numpy as np
-from scipy.signal.windows import hann
+from scipy.signal.windows import hamming, hann
 
 
 def create_triangular_envelope(start: float, center: float, end: float,
@@ -116,7 +116,7 @@ def _apply_window_smoothing(envelope: np.ndarray, start_idx: int, end_idx: int,
     if window_type == 'hann':
         window = hann(width)
     else:  # hamming
-        window = np.hamming(width)
+        window = hamming(width)
 
     mask = envelope[start_idx:end_idx + 1] > 0
     envelope[start_idx:end_idx + 1] *= window
