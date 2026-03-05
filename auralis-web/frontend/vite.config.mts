@@ -61,11 +61,8 @@ export default defineConfig(({ mode }) => {
             const loaderScript = `<script type="module">
   (async () => {
     try {
-      console.log('[loader] Pre-loading vendor module...');
-
-      // Load vendor module
+      // Load vendor module first to guarantee it's in the module cache
       const vendor = await import('${vendorHref}');
-      console.log('[loader] Vendor module imported, checking for MUI...');
 
       // Wait multiple event loop cycles to ensure all vendor initialization is complete
       // Vendor module contains React, MUI, emotion which register themselves on load
@@ -73,11 +70,8 @@ export default defineConfig(({ mode }) => {
         await new Promise(r => setTimeout(r, 0));
       }
 
-      console.log('[loader] Vendor initialization complete, loading application...');
-
       // Now load app - its static imports will reuse vendor from module cache
       const appModule = await import('${appSrc}');
-      console.log('[loader] Application loaded successfully');
 
     } catch (err) {
       console.error('[loader] Fatal loading error:', err);
