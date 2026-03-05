@@ -392,6 +392,31 @@ export function isEnhancementPreset(value: any): value is EnhancementPreset {
 }
 
 // ============================================================================
+// Backend → Frontend Transformers
+// ============================================================================
+
+/**
+ * Transform a raw backend track object (snake_case) to a LibraryTrack (camelCase).
+ * Single source of truth for backend→frontend track mapping.
+ */
+export function transformBackendTrack(track: Record<string, any>): LibraryTrack {
+  return {
+    id: track.id,
+    title: track.title ?? '',
+    artist: Array.isArray(track.artists) && track.artists.length > 0
+      ? track.artists[0] : track.artist || 'Unknown Artist',
+    album: track.album ?? '',
+    albumId: track.album_id ?? undefined,
+    duration: track.duration ?? 0,
+    filepath: track.filepath ?? track.file_path ?? '',
+    artworkUrl: track.artwork_url ?? track.album_art ?? null,
+    genre: track.genre ?? null,
+    year: track.year ?? null,
+    favorite: track.favorite ?? undefined,
+  };
+}
+
+// ============================================================================
 // Utility Functions
 // ============================================================================
 

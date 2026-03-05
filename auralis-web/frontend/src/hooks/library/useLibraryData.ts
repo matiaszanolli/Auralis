@@ -13,7 +13,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
-import type { LibraryTrack } from '@/types/domain';
+import { transformBackendTrack, type LibraryTrack } from '@/types/domain';
 
 export type Track = LibraryTrack;
 
@@ -98,19 +98,7 @@ export const useLibraryData = ({
         const data = await response.json();
 
         // Transform tracks data to match frontend interface
-        const transformedTracks: Track[] = (data.tracks || []).map((track: any) => ({
-          id: track.id,
-          title: track.title ?? '',
-          artist: Array.isArray(track.artists) && track.artists.length > 0 ? track.artists[0] : track.artist || 'Unknown Artist',
-          album: track.album ?? '',
-          albumId: track.album_id ?? undefined,
-          duration: track.duration ?? 0,
-          filepath: track.filepath ?? track.file_path ?? '',
-          artworkUrl: track.artwork_url ?? track.album_art ?? null,
-          genre: track.genre ?? null,
-          year: track.year ?? null,
-          favorite: track.favorite ?? undefined,
-        }));
+        const transformedTracks: Track[] = (data.tracks || []).map(transformBackendTrack);
 
         // Update state with pagination info
         setHasMore(data.has_more || false);
@@ -170,19 +158,7 @@ export const useLibraryData = ({
         const data = await response.json();
 
         // Transform tracks data to match frontend interface
-        const transformedTracks: Track[] = (data.tracks || []).map((track: any) => ({
-          id: track.id,
-          title: track.title ?? '',
-          artist: Array.isArray(track.artists) && track.artists.length > 0 ? track.artists[0] : track.artist || 'Unknown Artist',
-          album: track.album ?? '',
-          albumId: track.album_id ?? undefined,
-          duration: track.duration ?? 0,
-          filepath: track.filepath ?? track.file_path ?? '',
-          artworkUrl: track.artwork_url ?? track.album_art ?? null,
-          genre: track.genre ?? null,
-          year: track.year ?? null,
-          favorite: track.favorite ?? undefined,
-        }));
+        const transformedTracks: Track[] = (data.tracks || []).map(transformBackendTrack);
 
         // Append new tracks
         setTracks(prev => [...prev, ...transformedTracks]);
