@@ -150,14 +150,17 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       css: true,
       // Memory management: limit concurrent test threads to prevent memory explosion
-      threads: true,
-      maxThreads: 2,
-      minThreads: 1,
+      pool: 'threads',
+      poolOptions: {
+        threads: {
+          maxThreads: 2,
+          minThreads: 1,
+        },
+      },
       // Timeout settings for memory cleanup
       testTimeout: 30000,
       hookTimeout: 10000,
-      // Force exit after tests complete (prevents hanging)
-      forceExitTimeout: 5000,
+      teardownTimeout: 5000,
       // Per-test isolation for better cleanup
       isolate: true,
       // Clear mocks between tests
