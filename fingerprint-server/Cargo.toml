@@ -33,7 +33,7 @@ anyhow = "1.0"
 thiserror = "1.0"
 
 # Utilities
-lru = "0.12"
+lru = "0.16"
 parking_lot = "0.12"
 
 [[bin]]
