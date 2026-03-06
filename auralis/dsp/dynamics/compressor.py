@@ -179,6 +179,10 @@ class AdaptiveCompressor:
         if self.lookahead_samples == 0:
             return audio
 
+        # Reset buffer if ndim changed (e.g., mono → stereo across tracks)
+        if self.lookahead_buffer is not None and self.lookahead_buffer.ndim != audio.ndim:
+            self.lookahead_buffer = None
+
         # Initialize buffer on first use with correct shape
         if self.lookahead_buffer is None:
             if audio.ndim == 1:
@@ -201,7 +205,7 @@ class AdaptiveCompressor:
                 audio
             ], axis=0)
             self.lookahead_buffer = np.roll(self.lookahead_buffer, -audio_len, axis=0)
-            self.lookahead_buffer[-audio_len:, ...] = audio
+            self.lookahead_buffer[-audio_len:, ...] = audio.copy()
 
         return cast(np.ndarray, delayed_audio[:audio_len])
 
