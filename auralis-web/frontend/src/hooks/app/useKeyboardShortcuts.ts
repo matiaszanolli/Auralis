@@ -8,7 +8,7 @@
  * robust service architecture. Prefers V2 pattern but maintains V1 compatibility.
  */
 
-import { useEffect, useCallback, useState, useMemo } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { keyboardShortcuts, ShortcutDefinition, ShortcutHandler } from '@/services/keyboardShortcutsService';
 import {
   SHORTCUT_CONFIG_MAP,
@@ -183,21 +183,24 @@ export const useKeyboardShortcuts = (
       : (configOrShortcuts?.enabled !== false)
   );
 
-  // Determine input format and convert to service format (memoized to avoid effect churn)
-  const shortcutsToRegister = useMemo(
-    () => Array.isArray(configOrShortcuts)
-      ? configOrShortcuts
-      : configToServiceShortcuts(configOrShortcuts || {}),
-    [configOrShortcuts]
-  );
+  // Determine input format and convert to service format
+  const shortcutsToRegister = Array.isArray(configOrShortcuts)
+    ? configOrShortcuts
+    : configToServiceShortcuts(configOrShortcuts || {});
 
-  // Register shortcuts with service on mount
+  // Stabilize: only re-register when the set of shortcut keys actually changes,
+  // not when handler identity changes (which happens every render).
+  const serializedKey = shortcutsToRegister
+    .map((s: KeyboardShortcut) => `${s.key}:${s.ctrl ?? ''}:${s.meta ?? ''}:${s.alt ?? ''}:${s.shift ?? ''}`)
+    .join('|');
+
+  // Register shortcuts with service when shortcut keys change
   useEffect(() => {
     // Clear any previous shortcuts
     keyboardShortcuts.clear();
 
     // Register all shortcuts
-    shortcutsToRegister.forEach((shortcut) => {
+    shortcutsToRegister.forEach((shortcut: KeyboardShortcut) => {
       const { handler, ...definition } = shortcut;
       keyboardShortcuts.register(definition, handler);
     });
@@ -210,7 +213,20 @@ export const useKeyboardShortcuts = (
       keyboardShortcuts.stopListening();
       keyboardShortcuts.clear();
     };
-  }, [shortcutsToRegister]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- serializedKey tracks shortcut structure; handlers update via ref below
+  }, [serializedKey]);
+
+  // Keep handlers fresh without re-running the full effect.
+  // The service stores handlers by reference, so we update them in-place
+  // on every render to avoid stale closures.
+  const shortcutsRef = useRef(shortcutsToRegister);
+  if (shortcutsRef.current !== shortcutsToRegister) {
+    shortcutsRef.current = shortcutsToRegister;
+    shortcutsToRegister.forEach((shortcut: KeyboardShortcut) => {
+      const { handler, ...definition } = shortcut;
+      keyboardShortcuts.register(definition, handler);
+    });
+  }
 
   // Enable/disable based on state
   useEffect(() => {
