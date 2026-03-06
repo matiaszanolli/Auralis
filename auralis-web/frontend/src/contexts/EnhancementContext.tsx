@@ -45,7 +45,8 @@ export const EnhancementProvider = ({ children }: EnhancementProviderProps) => {
     preset: 'adaptive',
     intensity: 1.0,
   });
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingCount, setProcessingCount] = useState(0);
+  const isProcessing = processingCount > 0;
   const [error, setError] = useState<Error | null>(null);
 
   // WebSocket for real-time sync (using shared WebSocketContext)
@@ -78,7 +79,7 @@ export const EnhancementProvider = ({ children }: EnhancementProviderProps) => {
   const setEnabled = useCallback(async (enabled: boolean) => {
     setError(null);
     try {
-      setIsProcessing(true);
+      setProcessingCount(c => c + 1);
       const data = await post(ENDPOINTS.ENHANCEMENT_TOGGLE(enabled));
 
       // Update local state (WebSocket will also update it, but this is immediate)
@@ -92,7 +93,7 @@ export const EnhancementProvider = ({ children }: EnhancementProviderProps) => {
       setError(e);
       throw e;
     } finally {
-      setIsProcessing(false);
+      setProcessingCount(c => c - 1);
     }
   }, []);
 
@@ -100,7 +101,7 @@ export const EnhancementProvider = ({ children }: EnhancementProviderProps) => {
   const setPreset = useCallback(async (preset: string) => {
     setError(null);
     try {
-      setIsProcessing(true);
+      setProcessingCount(c => c + 1);
       const data = await post(ENDPOINTS.ENHANCEMENT_PRESET(preset));
 
       // Update local state
@@ -114,7 +115,7 @@ export const EnhancementProvider = ({ children }: EnhancementProviderProps) => {
       setError(e);
       throw e;
     } finally {
-      setIsProcessing(false);
+      setProcessingCount(c => c - 1);
     }
   }, []);
 
@@ -125,7 +126,7 @@ export const EnhancementProvider = ({ children }: EnhancementProviderProps) => {
 
     setError(null);
     try {
-      setIsProcessing(true);
+      setProcessingCount(c => c + 1);
       const data = await post(ENDPOINTS.ENHANCEMENT_INTENSITY(clampedIntensity));
 
       // Update local state
@@ -139,7 +140,7 @@ export const EnhancementProvider = ({ children }: EnhancementProviderProps) => {
       setError(e);
       throw e;
     } finally {
-      setIsProcessing(false);
+      setProcessingCount(c => c - 1);
     }
   }, []);
 
