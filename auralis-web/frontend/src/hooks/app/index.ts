@@ -5,7 +5,6 @@
  * - Layout and app state
  */
 
-export { useAppKeyboardShortcuts } from './useAppKeyboardShortcuts';
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
 export { useKeyboardShortcutsV2 } from './useKeyboardShortcutsV2';
 export { useAppDragDrop } from './useAppDragDrop';

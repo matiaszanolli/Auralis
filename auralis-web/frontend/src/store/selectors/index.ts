@@ -302,37 +302,6 @@ export const makeSelectTracksByDuration = (minSeconds: number, maxSeconds: numbe
   );
 
 // ============================================================================
-// Backwards-compatible factory aliases (deprecated — use direct selectors above)
-// ============================================================================
-
-/** @deprecated Use selectPlaybackProgress directly */
-export const makeSelectPlaybackProgress = () => selectPlaybackProgress;
-/** @deprecated Use selectFormattedTime directly */
-export const makeSelectFormattedTime = () => selectFormattedTime;
-/** @deprecated Use selectCurrentQueueTrack directly */
-export const makeSelectCurrentQueueTrack = () => selectCurrentQueueTrack;
-/** @deprecated Use selectRemainingTime directly */
-export const makeSelectRemainingTime = () => selectRemainingTime;
-/** @deprecated Use selectTotalQueueTime directly */
-export const makeSelectTotalQueueTime = () => selectTotalQueueTime;
-/** @deprecated Use selectFormattedQueueTime directly */
-export const makeSelectFormattedQueueTime = () => selectFormattedQueueTime;
-/** @deprecated Use selectQueueStats directly */
-export const makeSelectQueueStats = () => selectQueueStats;
-/** @deprecated Use selectCacheMetrics directly */
-export const makeSelectCacheMetrics = () => selectCacheMetrics;
-/** @deprecated Use selectCacheHealthDerived directly */
-export const makeSelectCacheHealth = () => selectCacheHealthDerived;
-/** @deprecated Use selectConnectionStatus directly */
-export const makeSelectConnectionStatus = () => selectConnectionStatus;
-/** @deprecated Use selectPlaybackState directly */
-export const makeSelectPlaybackState = () => selectPlaybackState;
-/** @deprecated Use selectQueueState directly */
-export const makeSelectQueueState = () => selectQueueState;
-/** @deprecated Use selectAppSnapshot directly */
-export const makeSelectAppSnapshot = () => selectAppSnapshot;
-
-// ============================================================================
 // Performance Monitoring
 // ============================================================================
 
@@ -444,9 +413,9 @@ export const selectors = {
   queue: queueSelectors,
   cache: cacheSelectors,
   connection: connectionSelectors,
-  playback: makeSelectPlaybackState,
-  queueState: makeSelectQueueState,
-  appSnapshot: makeSelectAppSnapshot,
+  playback: selectPlaybackState,
+  queueState: selectQueueState,
+  appSnapshot: selectAppSnapshot,
 };
 
 /**

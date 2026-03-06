@@ -16,8 +16,9 @@
  */
 
 import React from 'react';
+import { useSelector } from 'react-redux';
 import { tokens } from '@/design-system';
-import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
+import { selectCurrentTrack } from '@/store/slices/playerSlice';
 
 /**
  * TrackInfo component
@@ -26,7 +27,7 @@ import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
  * Shows loading/empty state when no track is playing.
  */
 export const TrackInfo = () => {
-  const track = useCurrentTrack();
+  const track = useSelector(selectCurrentTrack);
 
   return (
     <div style={styles.container}>
@@ -34,9 +35,9 @@ export const TrackInfo = () => {
         <>
           {/* Album artwork */}
           <div style={styles.artworkContainer}>
-            {track.artwork_url ? (
+            {track.artworkUrl ? (
               <img
-                src={track.artwork_url}
+                src={track.artworkUrl}
                 alt={track.title}
                 style={styles.artwork}
                 loading="lazy"
@@ -67,18 +68,6 @@ export const TrackInfo = () => {
               </p>
             )}
 
-            {/* Optional: Metadata badges */}
-            {track.year && (
-              <div style={styles.metadata}>
-                <span style={styles.metadataItem}>{track.year}</span>
-                {track.genre && (
-                  <>
-                    <span style={styles.metadataSeparator}>•</span>
-                    <span style={styles.metadataItem}>{track.genre}</span>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         </>
       ) : (
@@ -192,24 +181,6 @@ const styles = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
     width: '100%',
-  },
-
-  metadata: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: tokens.spacing.xs,
-    fontSize: tokens.typography.fontSize.xs,
-    color: tokens.colors.text.tertiary,
-    marginTop: tokens.spacing.sm,
-  },
-
-  metadataItem: {
-    padding: `2px ${tokens.spacing.xs}`,
-  },
-
-  metadataSeparator: {
-    opacity: 0.5,
   },
 
   /* Empty state styles */

@@ -18,9 +18,10 @@ import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from auralis.library.manager import LibraryManager
-from auralis.library.repositories.artist_repository import ArtistRepository
+from auralis.library.repositories import RepositoryFactory
 from auralis.services.artwork_service import ArtworkService
 
 logging.basicConfig(
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_artwork_for_all_artists(
-    artist_repository: ArtistRepository,
+    artist_repository: Any,
     artwork_service: ArtworkService,
     force_refresh: bool = False
 ) -> dict:
@@ -141,14 +142,13 @@ def main():
         else:
             library_path = Path.home() / '.auralis' / 'library.db'
 
-        # Initialize library manager
+        # Initialize library manager (needed for DB bootstrapping/migration)
         logger.info(f"Loading library from: {library_path}")
-        library_manager = LibraryManager(db_path=str(library_path))
+        library_manager = LibraryManager(database_path=str(library_path))
 
-        # Initialize artist repository
-        artist_repository = ArtistRepository(
-            session_factory=library_manager.get_session
-        )
+        # Initialize repository factory and get artist repository
+        repos = RepositoryFactory(library_manager.SessionLocal)
+        artist_repository = repos.artists
 
         # Initialize artwork service
         artwork_service = ArtworkService(

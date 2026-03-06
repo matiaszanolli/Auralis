@@ -26,7 +26,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from .dependencies import require_library_manager, require_repository_factory
+from .dependencies import require_repository_factory
 
 # Magic byte signatures for supported audio formats (issue #2415)
 _AUDIO_MAGIC: tuple[bytes, ...] = (
@@ -59,34 +59,30 @@ router = APIRouter(tags=["files"])
 
 
 def create_files_router(
-    get_library_manager: Callable[[], Any],
-    connection_manager: Any,
+    get_library_manager: Callable[[], Any] | None = None,
+    connection_manager: Any = None,
     get_repository_factory: Callable[[], Any] | None = None
 ) -> APIRouter:
     """
     Factory function to create files router with dependencies.
 
     Args:
-        get_library_manager: Callable that returns current LibraryManager instance
+        get_library_manager: Deprecated, unused. Kept for backward compatibility.
         connection_manager: WebSocket connection manager for broadcasts
-        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
+        get_repository_factory: Callable that returns RepositoryFactory instance
 
     Returns:
         APIRouter: Configured router instance
 
     Note:
-        File upload uses library_manager.add_track() for backward compatibility.
         Directory scanning is handled by routers/library.py (fixes #2123).
     """
 
     def get_repos() -> Any:
-        """Get repository factory or LibraryManager for accessing repositories."""
+        """Get repository factory for accessing repositories."""
         if get_repository_factory:
-            try:
-                return require_repository_factory(get_repository_factory)
-            except (TypeError, AttributeError):
-                pass
-        return require_library_manager(get_library_manager)
+            return require_repository_factory(get_repository_factory)
+        raise HTTPException(status_code=503, detail="Repository factory not available")
 
     @router.post("/api/files/upload")
     async def upload_files(files: list[UploadFile] = File(...)) -> dict[str, Any]:
@@ -107,9 +103,7 @@ def create_files_router(
         if not files:
             raise HTTPException(status_code=400, detail="No files provided")
 
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
+        repos = get_repos()
 
         if not HAS_LIBRARY:
             raise HTTPException(status_code=503, detail="Audio processing library not available")
@@ -187,8 +181,8 @@ def create_files_router(
                         "channels": 1 if audio_data.ndim == 1 else audio_data.shape[1]
                     }
 
-                    # Add track to library
-                    track = library_manager.add_track(track_info)
+                    # Add track to library via repository
+                    track = repos.tracks.add(track_info)
 
                     if track:
                         results.append({
