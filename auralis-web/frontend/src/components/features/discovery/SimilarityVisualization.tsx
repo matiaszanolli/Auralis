@@ -48,26 +48,28 @@ const SimilarityVisualization = ({
       return;
     }
 
-    loadExplanation();
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const result = await similarityService.explainSimilarity(trackId1, trackId2, topN);
+        if (!cancelled) setExplanation(result);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load similarity explanation:', err);
+          setError(err instanceof Error ? err.message : 'Failed to load explanation');
+          setExplanation(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [trackId1, trackId2, topN]);
-
-  const loadExplanation = async () => {
-    if (!trackId1 || !trackId2) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await similarityService.explainSimilarity(trackId1, trackId2, topN);
-      setExplanation(result);
-    } catch (err) {
-      console.error('Failed to load similarity explanation:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load explanation');
-      setExplanation(null);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Loading state
   if (loading) {
