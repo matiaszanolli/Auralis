@@ -165,7 +165,8 @@ class MigrationManager:
                 # Table exists but is empty - this is a fresh database
                 return 0
         except Exception as e:
-            # Table doesn't exist yet
+            # Table doesn't exist yet — rollback so the session stays usable
+            self.session.rollback()
             logger.debug(f"Schema version table not found: {e}")
             return 0
 
