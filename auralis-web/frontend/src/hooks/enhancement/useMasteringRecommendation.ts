@@ -5,7 +5,7 @@
  * Subscribes to mastering_recommendation events and caches recommendations per track.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 export interface MasteringRecommendationData {
@@ -38,22 +38,22 @@ export const useMasteringRecommendation = (trackId?: number) => {
   const { subscribe } = useWebSocketContext();
   const [recommendation, setRecommendation] = useState<MasteringRecommendationData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [cache] = useState<MasteringRecommendationCache>({});
+  const cache = useRef<MasteringRecommendationCache>({});
 
   // Handle incoming mastering recommendation messages
   useEffect(() => {
     if (!trackId) return;
 
     // Check cache first
-    if (cache[trackId]) {
-      setRecommendation(cache[trackId]);
+    if (cache.current[trackId]) {
+      setRecommendation(cache.current[trackId]);
       return;
     }
 
     const handleMasteringRecommendation = (data: any) => {
       if (data.data?.track_id === trackId) {
         const rec = data.data as MasteringRecommendationData;
-        cache[trackId] = rec;
+        cache.current[trackId] = rec;
         setRecommendation(rec);
         setIsLoading(false);
       }
@@ -66,15 +66,15 @@ export const useMasteringRecommendation = (trackId?: number) => {
     setIsLoading(true);
 
     return unsubscribe;
-  }, [trackId, subscribe, cache]);
+  }, [trackId, subscribe]);
 
   // Method to clear cached recommendation
   const clearRecommendation = useCallback(() => {
     setRecommendation(null);
     if (trackId) {
-      delete cache[trackId];
+      delete cache.current[trackId];
     }
-  }, [trackId, cache]);
+  }, [trackId]);
 
   return {
     recommendation,
