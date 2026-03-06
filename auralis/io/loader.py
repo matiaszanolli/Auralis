@@ -11,10 +11,14 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 
+from pathlib import Path
+
 import numpy as np
 import soundfile as sf
 
 from ..utils.logging import debug, info
+from .loaders import load_with_ffmpeg
+from .unified_loader import FFMPEG_FORMATS
 
 
 def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
@@ -31,15 +35,27 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
     debug(f"Loading {file_type} file: {file_path}")
 
     try:
-        # Load audio file using SoundFile
-        audio_data, sample_rate = sf.read(file_path, dtype=np.float32, always_2d=True)
+        # Route FFmpeg-required formats (M4A, AAC, WMA, OPUS, MP3, OGG)
+        # through FFmpeg; use SoundFile for natively supported formats
+        file_ext = Path(file_path).suffix.lower()
+        if file_ext in FFMPEG_FORMATS:
+            audio_data, sample_rate = load_with_ffmpeg(Path(file_path))
+        else:
+            audio_data, sample_rate = sf.read(file_path, dtype=np.float32, always_2d=True)
 
-        # Ensure stereo
-        if audio_data.shape[1] == 1:
-            # Convert mono to stereo
+        # Ensure float32
+        if audio_data.dtype != np.float32:
+            audio_data = audio_data.astype(np.float32)
+
+        # Ensure stereo (2D)
+        if audio_data.ndim == 1:
+            # Mono 1D → stereo 2D
+            audio_data = np.column_stack([audio_data, audio_data])
+        elif audio_data.shape[1] == 1:
+            # Mono 2D → stereo 2D
             audio_data = np.column_stack([audio_data[:, 0], audio_data[:, 0]])
         elif audio_data.shape[1] > 2:
-            # Convert multi-channel to stereo (take first two channels)
+            # Multi-channel → stereo (take first two channels)
             audio_data = audio_data[:, :2].copy()
 
         info(f"Loaded {file_type}: {audio_data.shape[0]} samples, {sample_rate} Hz")
