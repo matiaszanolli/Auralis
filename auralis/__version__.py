@@ -2,7 +2,7 @@
 
 __version__ = "1.0.0"
 __version_info__ = (1, 0, 0)
-__db_schema_version__ = 13  # Added bitrate column to tracks table
+__db_schema_version__ = 14  # Added indexes on frequently-filtered/sorted columns
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.
@@ -24,3 +24,4 @@ FINGERPRINT_ALGORITHM_VERSION = 1
 # Schema v11 - Added artist normalized_name for duplicate detection and merging (2025-12-29)
 # Schema v12 - Added fingerprint_hash for integrity verification (2026-02-22)
 # Schema v13 - Added bitrate column to tracks table (2026-02-22)
+# Schema v14 - Added indexes on favorite, play_count, created_at, similarity_graph (2026-03-05)

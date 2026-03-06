@@ -18,6 +18,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -30,6 +31,9 @@ from .base import Base, TimestampMixin, track_artist, track_genre, track_playlis
 class Track(Base, TimestampMixin):  # type: ignore[misc]
     """Model for audio tracks."""
     __tablename__ = 'tracks'
+    __table_args__ = (
+        Index('ix_tracks_created_at', 'created_at'),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
@@ -68,10 +72,10 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
     lyrics: Mapped[Optional[str]] = mapped_column(Text)  # Plain text or LRC format lyrics
 
     # Playback statistics
-    play_count: Mapped[int] = mapped_column(Integer, default=0)
+    play_count: Mapped[int] = mapped_column(Integer, default=0, index=True)
     last_played: Mapped[Optional[datetime]] = mapped_column(DateTime)
     skip_count: Mapped[int] = mapped_column(Integer, default=0)
-    favorite: Mapped[bool] = mapped_column(Boolean, default=False)
+    favorite: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
     # Relationships
     album: Mapped[Optional[Album]] = relationship("Album", back_populates="tracks")

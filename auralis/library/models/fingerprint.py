@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from sqlalchemy import Float, ForeignKey, Integer, LargeBinary
+from sqlalchemy import Float, ForeignKey, Index, Integer, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -194,9 +194,12 @@ class SimilarityGraph(Base, TimestampMixin):  # type: ignore[misc]
     Each row represents an edge in the similarity graph.
     """
     __tablename__ = 'similarity_graph'
+    __table_args__ = (
+        Index('ix_similarity_graph_track_id_rank', 'track_id', 'rank'),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    track_id: Mapped[int] = mapped_column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False)
+    track_id: Mapped[int] = mapped_column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False, index=True)
     similar_track_id: Mapped[int] = mapped_column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False)
     distance: Mapped[float] = mapped_column(Float, nullable=False)
     similarity_score: Mapped[float] = mapped_column(Float, nullable=False)
