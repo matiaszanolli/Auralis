@@ -11,6 +11,7 @@ Advanced lookahead limiter with ISR and oversampling
 from typing import Any, cast
 
 import numpy as np
+from scipy.ndimage import maximum_filter1d
 
 from ...utils.logging import debug
 from .settings import LimiterSettings
@@ -76,44 +77,82 @@ class AdaptiveLimiter:
         return processed_audio, limit_info
 
     def _process_core(self, audio: np.ndarray) -> tuple[np.ndarray, dict[str, float]]:
-        """Core limiting processing"""
+        """Core limiting processing with per-sample gain envelope"""
         threshold_linear = 10 ** (self.settings.threshold_db / 20)
+        num_samples = len(audio)
 
         # Apply lookahead delay
         delayed_audio = self._apply_lookahead_delay(audio)
 
-        # Detect peaks (including ISR if enabled)
-        if self.settings.isr_enabled:
-            peak_level = self._detect_isr_peaks(audio)
+        # Compute per-sample peak envelope using lookahead window
+        peak_envelope = self._compute_peak_envelope(audio)
+
+        # Per-sample target gains: reduce only where peaks exceed threshold
+        safe_envelope = np.maximum(peak_envelope, 1e-10)
+        target_gains = np.where(
+            peak_envelope > threshold_linear,
+            threshold_linear / safe_envelope,
+            1.0,
+        )
+
+        # Smooth gains with attack/release envelope
+        gain_curve = self.gain_smoother.process_buffer(target_gains)
+        self.current_gain = float(gain_curve[-1]) if num_samples > 0 else self.current_gain
+
+        # Apply per-sample gain curve
+        if audio.ndim == 2:
+            limited_audio = delayed_audio * gain_curve.reshape(-1, 1)
         else:
-            peak_level = np.max(np.abs(audio))
-
-        # Calculate required gain reduction
-        if peak_level > threshold_linear:
-            required_gain = threshold_linear / peak_level
-        else:
-            required_gain = 1.0
-
-        # Apply gain smoothing
-        smoothed_gain = self.gain_smoother.process(required_gain)
-        self.current_gain = smoothed_gain
-
-        # Apply limiting
-        limited_audio = delayed_audio * smoothed_gain
+            limited_audio = delayed_audio * gain_curve
 
         # Update peak hold
-        output_peak = np.max(np.abs(limited_audio))
-        self.peak_hold = max(self.peak_hold * 0.999, output_peak)  # Slow decay
+        peak_level = float(np.max(peak_envelope))
+        output_peak = float(np.max(np.abs(limited_audio)))
+        self.peak_hold = max(self.peak_hold * 0.999, output_peak)
 
+        min_gain = float(np.min(gain_curve)) if num_samples > 0 else 1.0
         limit_info = {
             'input_peak_db': 20 * np.log10(peak_level + 1e-10),
             'output_peak_db': 20 * np.log10(output_peak + 1e-10),
-            'gain_reduction_db': 20 * np.log10(smoothed_gain + 1e-10),
+            'gain_reduction_db': 20 * np.log10(min_gain + 1e-10),
             'threshold_db': self.settings.threshold_db,
             'peak_hold_db': 20 * np.log10(self.peak_hold + 1e-10)
         }
 
         return limited_audio, limit_info
+
+    def _compute_peak_envelope(self, audio: np.ndarray) -> np.ndarray:
+        """Compute per-sample peak envelope with lookahead window"""
+        num_samples = len(audio)
+        lookahead = max(self.lookahead_samples, 1)
+
+        # Get per-sample absolute values, collapsing channels
+        if audio.ndim == 2:
+            abs_audio = np.max(np.abs(audio), axis=1)
+        else:
+            abs_audio = np.abs(audio)
+
+        # Include ISR interpolated peaks if enabled
+        if self.settings.isr_enabled and num_samples >= 2:
+            interpolated = np.abs((audio[:-1] + audio[1:]) / 2)
+            if audio.ndim == 2:
+                interp_max = np.max(interpolated, axis=1)
+            else:
+                interp_max = interpolated
+            # Take maximum of sample and interpolated peaks
+            abs_audio[:-1] = np.maximum(abs_audio[:-1], interp_max)
+
+        # Pad for lookahead and compute sliding-window maximum
+        padded = np.concatenate([abs_audio, np.zeros(lookahead)])
+        peak_envelope = maximum_filter1d(
+            padded,
+            size=lookahead,
+            mode='constant',
+            cval=0.0,
+            origin=-(lookahead // 2),
+        )[:num_samples]
+
+        return peak_envelope
 
     def _apply_lookahead_delay(self, audio: np.ndarray) -> np.ndarray:
         """Apply lookahead delay"""
