@@ -38,7 +38,7 @@ const mockDel = del as ReturnType<typeof vi.fn>;
 
 const mockArtworkResponse: ArtworkResponse = {
   message: 'Artwork extracted successfully',
-  artwork_path: '/path/to/artwork.jpg',
+  artwork_url: '/path/to/artwork.jpg',
   album_id: 1,
   artist: 'Test Artist',
   album: 'Test Album',
@@ -94,7 +94,7 @@ describe('ArtworkService', () => {
     it('should download artwork successfully', async () => {
       const downloadResponse: ArtworkResponse = {
         message: 'Artwork downloaded from MusicBrainz',
-        artwork_path: '/path/to/downloaded.jpg',
+        artwork_url: '/path/to/downloaded.jpg',
         album_id: 1,
         artist: 'Test Artist',
         album: 'Test Album',
@@ -125,7 +125,7 @@ describe('ArtworkService', () => {
 
     it('should download for various album IDs', async () => {
       for (const albumId of [1, 42, 9999]) {
-        mockPost.mockResolvedValueOnce({ message: 'Downloaded', artwork_path: '/a.jpg', album_id: albumId });
+        mockPost.mockResolvedValueOnce({ message: 'Downloaded', artwork_url: '/a.jpg', album_id: albumId });
 
         await downloadArtwork(albumId);
 
@@ -180,19 +180,19 @@ describe('ArtworkService', () => {
       mockPost.mockRejectedValueOnce(new Error('No embedded artwork'));
       await expect(extractArtwork(1)).rejects.toThrow('No embedded artwork');
 
-      mockPost.mockResolvedValueOnce({ message: 'Downloaded from MusicBrainz', artwork_path: '/a.jpg', album_id: 1 });
+      mockPost.mockResolvedValueOnce({ message: 'Downloaded from MusicBrainz', artwork_url: '/a.jpg', album_id: 1 });
       const result = await downloadArtwork(1);
       expect(result.message).toContain('Downloaded');
     });
 
     it('should handle extract -> delete -> re-extract workflow', async () => {
-      mockPost.mockResolvedValueOnce({ message: 'Extracted', artwork_path: '/old.jpg', album_id: 1 });
+      mockPost.mockResolvedValueOnce({ message: 'Extracted', artwork_url: '/old.jpg', album_id: 1 });
       await extractArtwork(1);
 
       mockDel.mockResolvedValueOnce({ message: 'Deleted', album_id: 1 });
       await deleteArtwork(1);
 
-      mockPost.mockResolvedValueOnce({ message: 'Re-extracted', artwork_path: '/new.jpg', album_id: 1 });
+      mockPost.mockResolvedValueOnce({ message: 'Re-extracted', artwork_url: '/new.jpg', album_id: 1 });
       const result = await extractArtwork(1);
       expect(result.message).toBe('Re-extracted');
     });
@@ -200,7 +200,7 @@ describe('ArtworkService', () => {
     it('should handle multiple concurrent operations', async () => {
       const albumIds = [1, 2, 3];
       albumIds.forEach(id => {
-        mockPost.mockResolvedValueOnce({ message: 'Success', artwork_path: `/artwork${id}.jpg`, album_id: id });
+        mockPost.mockResolvedValueOnce({ message: 'Success', artwork_url: `/artwork${id}.jpg`, album_id: id });
       });
 
       const results = await Promise.all(albumIds.map(id => extractArtwork(id)));

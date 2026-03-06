@@ -12,7 +12,7 @@ import type { Album } from '@/types/domain';
  * Transform a single album from API response to domain model
  *
  * Backend contract (snake_case):
- * - artwork_path (string | null)
+ * - artwork_url (string | null)
  * - track_count (number)
  * - total_duration (number)
  *
@@ -27,7 +27,7 @@ export function transformAlbum(apiAlbum: AlbumApiResponse): Album {
     title: apiAlbum.title,
     artist: apiAlbum.artist,
     year: apiAlbum.year ?? undefined,
-    artworkUrl: apiAlbum.artwork_path ?? undefined, // snake → camel, null → undefined
+    artworkUrl: apiAlbum.artwork_url ?? undefined, // snake → camel, null → undefined
     trackCount: apiAlbum.track_count, // snake → camel
     totalDuration: apiAlbum.total_duration, // snake → camel
   };

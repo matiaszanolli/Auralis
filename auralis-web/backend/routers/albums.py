@@ -117,7 +117,7 @@ def create_albums_router(
                     'title': album.title,
                     'artist': album.artist.name if album.artist else 'Unknown Artist',
                     'year': album.year,
-                    'artwork_path': album.artwork_path,
+                    'artwork_url': f"/api/albums/{album.id}/artwork" if album.artwork_path else None,
                     'track_count': len(album.tracks) if hasattr(album, 'tracks') else 0
                 }
 
@@ -158,7 +158,7 @@ def create_albums_router(
                 "album_title": album.title,
                 "artist": album.artist.name if album.artist else 'Unknown Artist',
                 "year": album.year,
-                "artwork_path": album.artwork_path,
+                "artwork_url": f"/api/albums/{album_id}/artwork" if album.artwork_path else None,
                 "tracks": tracks_data,
                 "total_tracks": len(tracks_data)
             }

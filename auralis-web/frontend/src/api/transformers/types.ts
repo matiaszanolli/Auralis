@@ -17,7 +17,7 @@ export interface AlbumApiResponse {
   title: string;
   artist: string;
   year: number | null;
-  artwork_path: string | null; // Backend field name
+  artwork_url: string | null; // Backend field name
   track_count: number; // Backend field name (snake_case)
   total_duration: number; // Backend field name (snake_case)
 }

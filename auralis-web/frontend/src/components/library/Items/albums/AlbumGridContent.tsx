@@ -19,7 +19,7 @@ interface Album {
   track_count: number;
   total_duration: number;
   year?: number;
-  artwork_path?: string;
+  artwork_url?: string;
 }
 
 interface AlbumGridContentProps {
@@ -53,7 +53,7 @@ export const AlbumGridContent = ({
               trackCount={album.track_count}
               duration={album.total_duration}
               year={album.year}
-              hasArtwork={!!album.artwork_path}
+              hasArtwork={!!album.artwork_url}
               onClick={() => onAlbumClick(album.id)}
             />
           </Grid>

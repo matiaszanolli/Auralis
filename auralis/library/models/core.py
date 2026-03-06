@@ -202,7 +202,7 @@ class Album(Base, TimestampMixin):  # type: ignore[misc]
             'year': self.year,
             'total_tracks': self.total_tracks,
             'total_discs': self.total_discs,
-            'artwork_path': artwork_url,  # API URL, not filesystem path
+            'artwork_url': artwork_url,  # API URL, not filesystem path
             'avg_dr_rating': self.avg_dr_rating,
             'avg_lufs': self.avg_lufs,
             'mastering_consistency': self.mastering_consistency,

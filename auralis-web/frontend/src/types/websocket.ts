@@ -335,7 +335,7 @@ export interface ArtworkUpdatedMessage extends WebSocketMessage {
   data: {
     action: 'extracted' | 'downloaded' | 'deleted';
     album_id: number;
-    artwork_path?: string; // absent for 'deleted'
+    artwork_url?: string; // absent for 'deleted'
   };
 }
 

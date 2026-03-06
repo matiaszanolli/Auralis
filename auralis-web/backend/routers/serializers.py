@@ -41,7 +41,7 @@ DEFAULT_ALBUM_FIELDS = {
     'title': 'Unknown Album',
     'artist': 'Unknown Artist',
     'year': None,
-    'artwork_path': None,
+    'artwork_url': None,
     'track_count': 0,
     'total_duration': 0
 }
@@ -178,13 +178,13 @@ def serialize_album(album: Any) -> dict[str, Any]:
     """
     album_dict = serialize_object(album, DEFAULT_ALBUM_FIELDS)
 
-    # Sanitize artwork_path: the fallback getattr path returns a raw filesystem
+    # Sanitize artwork_url: the fallback getattr path returns a raw filesystem
     # path (e.g. /home/user/.auralis/artwork/album5.jpg) instead of an API URL.
     # Convert it here so internal paths are never leaked to the frontend (fixes #2270).
-    raw_artwork = album_dict.get('artwork_path')
+    raw_artwork = album_dict.get('artwork_url')
     if raw_artwork and not str(raw_artwork).startswith('/api/'):
         album_id = album_dict.get('id') or getattr(album, 'id', None)
-        album_dict['artwork_path'] = f"/api/albums/{album_id}/artwork" if album_id else None
+        album_dict['artwork_url'] = f"/api/albums/{album_id}/artwork" if album_id else None
 
     # Calculate total_duration from tracks if available
     if hasattr(album, 'tracks') and album.tracks:

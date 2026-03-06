@@ -15,7 +15,7 @@ describe('albumTransformer', () => {
         title: 'Reign in Blood',
         artist: 'Slayer',
         year: 1986,
-        artwork_path: '/artwork/slayer_reign_in_blood.jpg',
+        artwork_url: '/artwork/slayer_reign_in_blood.jpg',
         track_count: 10,
         total_duration: 1740, // 29 minutes
       };
@@ -41,7 +41,7 @@ describe('albumTransformer', () => {
         title: 'Unknown Album',
         artist: 'Unknown Artist',
         year: null,
-        artwork_path: null,
+        artwork_url: null,
         track_count: 5,
         total_duration: 0,
       };
@@ -60,7 +60,7 @@ describe('albumTransformer', () => {
         title: 'South of Heaven',
         artist: 'Slayer',
         year: 1988,
-        artwork_path: null,
+        artwork_url: null,
         track_count: 10,
         total_duration: 2160,
       };
@@ -77,7 +77,7 @@ describe('albumTransformer', () => {
         title: 'Seasons in the Abyss',
         artist: 'Slayer',
         year: null,
-        artwork_path: '/artwork/slayer_seasons.jpg',
+        artwork_url: '/artwork/slayer_seasons.jpg',
         track_count: 10,
         total_duration: 2520,
       };
@@ -94,7 +94,7 @@ describe('albumTransformer', () => {
         title: 'Empty Album',
         artist: 'Test Artist',
         year: 2023,
-        artwork_path: '/test.jpg',
+        artwork_url: '/test.jpg',
         track_count: 0,
         total_duration: 0,
       };
@@ -111,7 +111,7 @@ describe('albumTransformer', () => {
         title: 'Test',
         artist: 'Test Artist',
         year: null,
-        artwork_path: null,
+        artwork_url: null,
         track_count: 1,
         total_duration: 100,
       };
@@ -134,7 +134,7 @@ describe('albumTransformer', () => {
           title: 'Album 1',
           artist: 'Artist 1',
           year: 2023,
-          artwork_path: '/art1.jpg',
+          artwork_url: '/art1.jpg',
           track_count: 10,
           total_duration: 2400,
         },
@@ -143,7 +143,7 @@ describe('albumTransformer', () => {
           title: 'Album 2',
           artist: 'Artist 2',
           year: null,
-          artwork_path: null,
+          artwork_url: null,
           track_count: 5,
           total_duration: 1200,
         },
@@ -169,7 +169,7 @@ describe('albumTransformer', () => {
           title: 'Solo Album',
           artist: 'Solo Artist',
           year: 2023,
-          artwork_path: '/solo.jpg',
+          artwork_url: '/solo.jpg',
           track_count: 1,
           total_duration: 300,
         },
@@ -191,7 +191,7 @@ describe('albumTransformer', () => {
             title: 'Album 1',
             artist: 'Artist 1',
             year: 2023,
-            artwork_path: '/art1.jpg',
+            artwork_url: '/art1.jpg',
             track_count: 10,
             total_duration: 2400,
           },
@@ -250,7 +250,7 @@ describe('albumTransformer', () => {
             title: 'Test',
             artist: 'Test',
             year: null,
-            artwork_path: null,
+            artwork_url: null,
             track_count: 1,
             total_duration: 100,
           },
@@ -270,13 +270,13 @@ describe('albumTransformer', () => {
   });
 
   describe('field name conversions', () => {
-    it('should convert artwork_path to artworkUrl', () => {
+    it('should convert artwork_url to artworkUrl', () => {
       const apiAlbum: AlbumApiResponse = {
         id: 1,
         title: 'Test',
         artist: 'Test',
         year: null,
-        artwork_path: '/test.jpg',
+        artwork_url: '/test.jpg',
         track_count: 1,
         total_duration: 100,
       };
@@ -284,7 +284,7 @@ describe('albumTransformer', () => {
       const result = transformAlbum(apiAlbum);
 
       expect(result.artworkUrl).toBe('/test.jpg');
-      expect(result).not.toHaveProperty('artwork_path');
+      expect(result).not.toHaveProperty('artwork_url');
     });
 
     it('should convert track_count to trackCount', () => {
@@ -293,7 +293,7 @@ describe('albumTransformer', () => {
         title: 'Test',
         artist: 'Test',
         year: null,
-        artwork_path: null,
+        artwork_url: null,
         track_count: 42,
         total_duration: 100,
       };
@@ -310,7 +310,7 @@ describe('albumTransformer', () => {
         title: 'Test',
         artist: 'Test',
         year: null,
-        artwork_path: null,
+        artwork_url: null,
         track_count: 1,
         total_duration: 3600,
       };
@@ -329,7 +329,7 @@ describe('albumTransformer', () => {
         title: 'Test',
         artist: 'Test',
         year: 2023,
-        artwork_path: '/test.jpg',
+        artwork_url: '/test.jpg',
         track_count: 10,
         total_duration: 2400,
       };
@@ -347,7 +347,7 @@ describe('albumTransformer', () => {
           title: 'Test',
           artist: 'Test',
           year: null,
-          artwork_path: null,
+          artwork_url: null,
           track_count: 1,
           total_duration: 100,
         },

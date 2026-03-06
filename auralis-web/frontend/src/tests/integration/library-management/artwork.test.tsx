@@ -108,8 +108,8 @@ const ArtworkManager = ({ albumId, onUpload, onDelete, onError }: ArtworkManager
       if (!response.ok) throw new Error('Upload failed');
 
       const data = await response.json();
-      setArtworkUrl(data.artwork_path);
-      onUpload?.(data.artwork_path);
+      setArtworkUrl(data.artwork_url);
+      onUpload?.(data.artwork_url);
     } catch (err) {
       setError((err as Error).message);
       onError?.(err as Error);
@@ -200,7 +200,7 @@ describe('Artwork API Integration Tests', () => {
         http.post('http://localhost:8765/api/albums/:id/artwork/extract', () => {
           return HttpResponse.json({
             message: 'Artwork extracted successfully',
-            artwork_path: '/path/to/artwork.jpg',
+            artwork_url: '/path/to/artwork.jpg',
             album_id: 1
           });
         })
@@ -372,7 +372,7 @@ describe('Artwork API Integration Tests', () => {
         http.post('http://localhost:8765/api/albums/:id/artwork/extract', () => {
           return HttpResponse.json({
             message: 'Artwork extracted successfully',
-            artwork_path: '/path/to/artwork.jpg'
+            artwork_url: '/path/to/artwork.jpg'
           });
         })
       );

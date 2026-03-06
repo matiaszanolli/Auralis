@@ -178,7 +178,7 @@ def create_artwork_router(
                 "data": {
                     "action": "extracted",
                     "album_id": album_id,
-                    "artwork_path": artwork_url
+                    "artwork_url": artwork_url
                 }
             })
 
@@ -287,13 +287,13 @@ def create_artwork_router(
                 "data": {
                     "action": "downloaded",
                     "album_id": album_id,
-                    "artwork_path": artwork_url
+                    "artwork_url": artwork_url
                 }
             })
 
             return {
                 "message": "Artwork downloaded successfully",
-                "artwork_path": artwork_url,  # Return URL, not filesystem path
+                "artwork_url": artwork_url,  # API URL, not filesystem path
                 "album_id": album_id,
                 "artist": artist_name,
                 "album": album_name

@@ -50,7 +50,7 @@ const mockAlbumData = {
       track_count: 12,
       total_duration: 3600,
       year: 2023,
-      artwork_path: '/artwork/1.jpg',
+      artwork_url: '/artwork/1.jpg',
     },
     {
       id: 2,
@@ -59,7 +59,7 @@ const mockAlbumData = {
       track_count: 10,
       total_duration: 3000,
       year: 2023,
-      artwork_path: '/artwork/2.jpg',
+      artwork_url: '/artwork/2.jpg',
     },
   ],
   has_more: false,

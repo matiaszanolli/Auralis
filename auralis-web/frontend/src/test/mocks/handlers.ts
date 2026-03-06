@@ -682,7 +682,7 @@ export const handlers = [
 
     return HttpResponse.json({
       message: 'Artwork extracted successfully',
-      artwork_path: `/artwork/album_${albumId}.jpg`,
+      artwork_url: `/artwork/album_${albumId}.jpg`,
       album_id: albumId
     });
   }),
@@ -705,7 +705,7 @@ export const handlers = [
 
     return HttpResponse.json({
       message: 'Artwork downloaded successfully',
-      artwork_path: `/artwork/album_${albumId}_downloaded.jpg`,
+      artwork_url: `/artwork/album_${albumId}_downloaded.jpg`,
       album_id: albumId,
       artist: 'Mock Artist',
       album: 'Mock Album'

@@ -414,7 +414,7 @@ Broadcast when album/track artwork is updated.
   "data": {
     "type": "album" | "track",
     "id": number,
-    "artwork_path": string
+    "artwork_url": string
   }
 }
 ```

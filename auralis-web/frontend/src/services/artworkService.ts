@@ -12,7 +12,7 @@ import { createCrudService } from '../utils/serviceFactory';
 
 export interface ArtworkResponse {
   message: string;
-  artwork_path: string;
+  artwork_url: string;
   album_id: number;
   artist?: string;
   album?: string;

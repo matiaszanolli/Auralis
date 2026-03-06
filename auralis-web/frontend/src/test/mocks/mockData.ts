@@ -27,7 +27,7 @@ export const mockAlbums = Array.from({ length: 20 }, (_, i) => ({
   artist: `Artist ${(i % 10) + 1}`,
   year: 2020 + (i % 5),
   track_count: 10 + (i % 5),
-  artwork_path: `/artwork/album${i + 1}.jpg`,
+  artwork_url: `/artwork/album${i + 1}.jpg`,
   genre: ['Rock', 'Pop', 'Jazz', 'Electronic', 'Classical'][i % 5],
   total_duration: (10 + (i % 5)) * 180,
 }));

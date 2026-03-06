@@ -147,7 +147,7 @@ export const mockAlbum = {
   title: 'Test Album',
   artist: 'Test Artist',
   year: 2024,
-  artwork_path: '/path/to/artwork.jpg',
+  artwork_url: '/path/to/artwork.jpg',
   track_count: 10,
 }
 
@@ -158,7 +158,7 @@ export const mockAlbums = [
     title: 'Another Album',
     artist: 'Test Artist',
     year: 2023,
-    artwork_path: '/path/to/artwork2.jpg',
+    artwork_url: '/path/to/artwork2.jpg',
     track_count: 12,
   },
 ]
