@@ -51,9 +51,9 @@ class TestAlbumArtworkURL:
         album_dict = album.to_dict()
 
         # Should return URL, not filesystem path
-        assert album_dict['artwork_path'] == "/api/albums/123/artwork"
-        assert not album_dict['artwork_path'].startswith("/home/")
-        assert not album_dict['artwork_path'].endswith(".jpg")
+        assert album_dict['artwork_url'] == "/api/albums/123/artwork"
+        assert not album_dict['artwork_url'].startswith("/home/")
+        assert not album_dict['artwork_url'].endswith(".jpg")
 
     def test_album_without_artwork_returns_none(self, db_session):
         """Test that album without artwork_path returns None"""
@@ -70,7 +70,7 @@ class TestAlbumArtworkURL:
         album_dict = album.to_dict()
 
         # Should return None
-        assert album_dict['artwork_path'] is None
+        assert album_dict['artwork_url'] is None
 
     def test_album_with_empty_artwork_returns_none(self, db_session):
         """Test that album with empty artwork_path returns None"""
@@ -87,7 +87,7 @@ class TestAlbumArtworkURL:
         album_dict = album.to_dict()
 
         # Empty string should result in None
-        assert album_dict['artwork_path'] is None
+        assert album_dict['artwork_url'] is None
 
 
 class TestTrackArtworkURL:
@@ -268,7 +268,7 @@ class TestArtworkURLSecurity:
 
         # URL should be exactly: /api/albums/{id}/artwork
         expected_url = "/api/albums/777/artwork"
-        assert album_dict['artwork_path'] == expected_url
+        assert album_dict['artwork_url'] == expected_url
 
 
 if __name__ == "__main__":
