@@ -57,8 +57,9 @@ latest-*.yml
 *.spec.backup
 *.manifest
 *.spec.bak
-# But allow backend spec file for CI builds
+# But allow spec files used by the build system
 !auralis-web/backend/auralis-backend.spec
+!auralis_backend.spec
 auralis-web/backend/dist/
 
 # Audio files

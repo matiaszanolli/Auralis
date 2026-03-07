@@ -19,14 +19,15 @@ const fs = require('fs');
 
 class BuildManager {
   constructor() {
-    this.rootDir = path.join(__dirname, '..');
+    this.rootDir = __dirname;
     this.frontendDir = path.join(this.rootDir, 'auralis-web', 'frontend');
     this.backendDir = path.join(this.rootDir, 'auralis-web', 'backend');
     this.desktopDir = path.join(this.rootDir, 'desktop');
     this.distDir = path.join(this.rootDir, 'dist');
+    this.vendorDspDir = path.join(this.rootDir, 'vendor', 'auralis-dsp');
 
-    this.frontendBuildDir = path.join(this.frontendDir, 'build');
-    this.backendDistDir = path.join(this.backendDir, 'dist');
+    this.frontendBuildDir = path.join(this.frontendDir, 'dist');
+    this.backendDistDir = path.join(this.rootDir, 'dist', 'auralis-backend');
   }
 
   log(category, message) {
@@ -34,14 +35,15 @@ class BuildManager {
     console.log(`[${timestamp}] [${category}] ${message}`);
   }
 
-  async runCommand(cmd, args, cwd, description) {
+  async runCommand(cmd, args, cwd, description, extraEnv) {
     return new Promise((resolve, reject) => {
       this.log('BUILD', `${description}...`);
 
       const process = spawn(cmd, args, {
         cwd: cwd || this.rootDir,
         stdio: 'inherit',
-        shell: true
+        shell: true,
+        env: extraEnv ? { ...require('process').env, ...extraEnv } : undefined
       });
 
       process.on('close', (code) => {
@@ -75,7 +77,15 @@ class BuildManager {
     try {
       await this.runCommand('python', ['--version'], this.rootDir, 'Python version check');
     } catch (error) {
-      throw new Error('Python not found. Please install Python 3.8+');
+      throw new Error('Python not found. Please install Python 3.13+');
+    }
+
+    // Check maturin (for Rust DSP)
+    try {
+      await this.runCommand('maturin', ['--version'], this.rootDir, 'maturin version check');
+    } catch (error) {
+      this.log('BUILD', '⚠️  maturin not found, installing...');
+      await this.runCommand('pip', ['install', 'maturin'], this.rootDir, 'Installing maturin');
     }
 
     // Check PyInstaller
@@ -149,25 +159,58 @@ class BuildManager {
     this.log('BUILD', '✓ Frontend built successfully');
   }
 
+  async buildRustDsp() {
+    this.log('BUILD', '🦀 Building Rust DSP module...');
+
+    if (!fs.existsSync(this.vendorDspDir)) {
+      this.log('BUILD', '⚠️  Rust DSP directory not found, skipping');
+      return;
+    }
+
+    // Build with maturin (release mode, ABI3 compat for Python 3.13)
+    await this.runCommand(
+      'maturin',
+      ['build', '--release'],
+      this.vendorDspDir,
+      'Building Rust DSP with maturin',
+      { PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1' }
+    );
+
+    // Install the built wheel
+    const wheelsDir = path.join(this.vendorDspDir, 'target', 'wheels');
+    if (fs.existsSync(wheelsDir)) {
+      const wheels = fs.readdirSync(wheelsDir).filter(f => f.endsWith('.whl'));
+      if (wheels.length > 0) {
+        await this.runCommand(
+          'pip',
+          ['install', path.join(wheelsDir, wheels[wheels.length - 1]), '--force-reinstall'],
+          this.rootDir,
+          'Installing Rust DSP wheel'
+        );
+      }
+    }
+
+    this.log('BUILD', '✓ Rust DSP built and installed');
+  }
+
   async buildBackend() {
     this.log('BUILD', '🐍 Bundling Python backend with PyInstaller...');
 
-    // Create PyInstaller spec if it doesn't exist
-    const specPath = path.join(this.backendDir, 'auralis-backend.spec');
+    // Use the root spec file
+    const specPath = path.join(this.rootDir, 'auralis_backend.spec');
     if (!fs.existsSync(specPath)) {
-      this.log('BUILD', 'Creating PyInstaller spec file...');
-      await this.createPyInstallerSpec();
+      throw new Error('auralis_backend.spec not found in project root');
     }
 
-    // Run PyInstaller
+    // Run PyInstaller from root directory
     await this.runCommand(
       'pyinstaller',
       [
         '--clean',
         '--noconfirm',
-        'auralis-backend.spec'
+        'auralis_backend.spec'
       ],
-      this.backendDir,
+      this.rootDir,
       'Bundling backend with PyInstaller'
     );
 
@@ -177,121 +220,6 @@ class BuildManager {
     }
 
     this.log('BUILD', '✓ Backend bundled successfully');
-  }
-
-  async createPyInstallerSpec() {
-    const specContent = `# -*- mode: python ; coding: utf-8 -*-
-
-"""
-PyInstaller Spec for Auralis Backend
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Bundles the FastAPI backend with all dependencies into a standalone executable.
-"""
-
-block_cipher = None
-
-# Collect all auralis module files
-from PyInstaller.utils.hooks import collect_all, collect_data_files
-
-auralis_imports = collect_all('auralis')
-fastapi_imports = collect_all('fastapi')
-uvicorn_imports = collect_all('uvicorn')
-
-a = Analysis(
-    ['main.py'],
-    pathex=[],
-    binaries=[],
-    datas=[
-        # Include any data files needed by the backend
-        ('*.py', '.'),
-    ] + auralis_imports[0] + fastapi_imports[0] + uvicorn_imports[0],
-    hiddenimports=[
-        'auralis',
-        'auralis.core',
-        'auralis.core.hybrid_processor',
-        'auralis.core.unified_config',
-        'auralis.dsp',
-        'auralis.io',
-        'auralis.io.unified_loader',
-        'auralis.io.saver',
-        'auralis.analysis',
-        'auralis.learning',
-        'auralis.optimization',
-        'auralis.library',
-        'auralis.player',
-        'fastapi',
-        'uvicorn',
-        'uvicorn.lifespan',
-        'uvicorn.lifespan.on',
-        'uvicorn.protocols',
-        'uvicorn.protocols.http',
-        'uvicorn.protocols.http.auto',
-        'uvicorn.protocols.websockets',
-        'uvicorn.protocols.websockets.auto',
-        'uvicorn.loops',
-        'uvicorn.loops.auto',
-        'pydantic',
-        'sqlalchemy',
-        'numpy',
-        'scipy',
-        'soundfile',
-        'resampy',
-        'processing_engine',
-        'processing_api',
-    ] + auralis_imports[1] + fastapi_imports[1] + uvicorn_imports[1],
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=[
-        'matplotlib',
-        'tkinter',
-        'PyQt5',
-        'PyQt6',
-        'PySide2',
-        'PySide6',
-    ],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
-    noarchive=False,
-)
-
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-
-exe = EXE(
-    pyz,
-    a.scripts,
-    [],
-    exclude_binaries=True,
-    name='auralis-backend',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    console=True,  # Keep console for debugging
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='auralis-backend',
-)
-`;
-
-    const specPath = path.join(this.backendDir, 'auralis-backend.spec');
-    fs.writeFileSync(specPath, specContent);
-    this.log('BUILD', '✓ PyInstaller spec created');
   }
 
   async prepareElectronResources() {
@@ -311,34 +239,25 @@ coll = COLLECT(
       this.log('BUILD', '  ✓ Frontend resources copied');
     }
 
-    // Copy backend build with platform-specific strategy
+    // Copy backend build (COLLECT directory with binary + _internal)
     if (fs.existsSync(this.backendDistDir)) {
       const backendResourceDir = path.join(resourcesDir, 'backend');
       if (fs.existsSync(backendResourceDir)) {
         fs.rmSync(backendResourceDir, { recursive: true, force: true });
       }
-      fs.mkdirSync(backendResourceDir, { recursive: true });
+      this.copyRecursive(this.backendDistDir, backendResourceDir);
+      this.log('BUILD', '  ✓ Backend resources copied');
+    }
 
-      const isWindows = process.platform === 'win32';
-
-      if (isWindows) {
-        // Windows: Binary-only distribution (save ~216 MB)
-        const binaryName = 'auralis-backend.exe';
-        const binaryPath = path.join(this.backendDistDir, binaryName);
-
-        if (fs.existsSync(binaryPath)) {
-          fs.copyFileSync(binaryPath, path.join(backendResourceDir, binaryName));
-          this.log('BUILD', '  ✓ Windows: Binary-only distribution prepared (216 MB saved)');
-        } else {
-          // Fallback: Copy entire directory if binary not found
-          this.copyRecursive(this.backendDistDir, backendResourceDir);
-          this.log('BUILD', '  ⚠ Windows: Binary not found, falling back to full directory copy');
-        }
-      } else {
-        // macOS/Linux: Copy both binary + source (safety fallback)
-        this.copyRecursive(this.backendDistDir, backendResourceDir);
-        this.log('BUILD', '  ✓ macOS/Linux: Binary + source fallback prepared');
+    // Copy auralis core package
+    const auralisDir = path.join(this.rootDir, 'auralis');
+    if (fs.existsSync(auralisDir)) {
+      const auralisResourceDir = path.join(resourcesDir, 'auralis');
+      if (fs.existsSync(auralisResourceDir)) {
+        fs.rmSync(auralisResourceDir, { recursive: true, force: true });
       }
+      this.copyRecursive(auralisDir, auralisResourceDir);
+      this.log('BUILD', '  ✓ Auralis core resources copied');
     }
 
     this.log('BUILD', '✓ Electron resources prepared');
@@ -374,23 +293,28 @@ coll = COLLECT(
       await this.cleanDist();
       console.log('');
 
-      // Step 3: Build frontend
+      // Step 3: Build Rust DSP
+      await this.buildRustDsp();
+      console.log('');
+
+      // Step 4: Build frontend
       await this.buildFrontend();
       console.log('');
 
-      // Step 4: Build backend
+      // Step 5: Build backend
       await this.buildBackend();
       console.log('');
 
-      // Step 5: Prepare Electron resources
+      // Step 6: Prepare Electron resources
       await this.prepareElectronResources();
       console.log('');
 
       this.log('BUILD', '✅ Build complete!');
       this.log('BUILD', '');
       this.log('BUILD', 'Next steps:');
-      this.log('BUILD', '  1. Run "npm run package" to create distributable app');
-      this.log('BUILD', '  2. Or run "npm run package:win/mac/linux" for specific platform');
+      this.log('BUILD', '  cd desktop && npm run build:linux    # AppImage');
+      this.log('BUILD', '  cd desktop && npm run build:mac      # DMG');
+      this.log('BUILD', '  cd desktop && npm run build:win      # NSIS installer');
       console.log('');
 
     } catch (error) {
