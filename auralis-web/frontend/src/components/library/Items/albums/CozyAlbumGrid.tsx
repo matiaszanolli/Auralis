@@ -16,7 +16,8 @@
  * - Falls back to hash-based gradients if fingerprints unavailable
  */
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import { useMemo } from 'react';
+import InfiniteScroll from 'react-infinite-scroll-component';
 import { EmptyState } from '../../../shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
 import { EraSection } from './EraSection';
@@ -52,8 +53,6 @@ export const CozyAlbumGrid = ({
   onAlbumHoverEnd,
   sortBy = 'az',
 }: CozyAlbumGridProps) => {
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-
   // Infinite query with TanStack Query
   const {
     data,
@@ -61,7 +60,6 @@ export const CozyAlbumGrid = ({
     error,
     fetchNextPage,
     hasNextPage,
-    isFetchingNextPage,
   } = useInfiniteAlbums({ limit: 50 });
 
   // Flatten all pages into single array
@@ -96,23 +94,6 @@ export const CozyAlbumGrid = ({
     if (sortBy !== 'era') return [];
     return groupAlbumsByEra(albums);
   }, [albums, sortBy]);
-
-  // Intersection Observer for infinite scroll
-  useEffect(() => {
-    if (!loadMoreRef.current || !hasNextPage || isFetchingNextPage) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          fetchNextPage();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(loadMoreRef.current);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Loading state
   if (isLoading && albums.length === 0) {
@@ -185,28 +166,21 @@ export const CozyAlbumGrid = ({
   };
 
   return (
-    <div
-      style={{
-        height: '100%',
-        overflow: 'auto',
-        padding: tokens.spacing.group,
-      }}
-    >
-      {renderContent()}
-
-      {/* Sentinel element for infinite scroll */}
-      {hasNextPage && (
-        <div
-          ref={loadMoreRef}
-          style={{
-            padding: tokens.spacing.group,
-            textAlign: 'center',
-            minHeight: tokens.spacing.xxl,
-          }}
-        >
-          {isFetchingNextPage ? 'Loading more albums...' : '\u00A0'}
-        </div>
-      )}
+    <div style={{ padding: tokens.spacing.group }}>
+      <InfiniteScroll
+        dataLength={albums.length}
+        next={fetchNextPage}
+        hasMore={hasNextPage ?? false}
+        loader={
+          <div style={{ padding: tokens.spacing.group, textAlign: 'center' }}>
+            Loading more albums...
+          </div>
+        }
+        scrollableTarget="app-main-content-scroll"
+        scrollThreshold={0.8}
+      >
+        {renderContent()}
+      </InfiniteScroll>
     </div>
   );
 };

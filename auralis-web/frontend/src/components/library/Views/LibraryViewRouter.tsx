@@ -13,8 +13,7 @@
  * Returns null if current view should be handled by parent (songs/favorites).
  */
 
-import React, { useState, useCallback } from 'react';
-import { Box } from '@mui/material';
+import { useState, useCallback } from 'react';
 import { CozyAlbumGrid, type AlbumSortOption } from '../Items/albums/CozyAlbumGrid';
 import { RecentlyTouchedSection } from '../Items/albums/RecentlyTouchedSection';
 import { CozyArtistList } from '../Items/artists/CozyArtistList';
@@ -159,7 +158,7 @@ export const LibraryViewRouter = ({
           />
         }
       >
-        <Box sx={{ height: '100%', overflow: 'auto' }}>
+        <>
           {/* Recently Touched Section */}
           <RecentlyTouchedSection
             recentAlbums={recentAlbums}
@@ -175,7 +174,7 @@ export const LibraryViewRouter = ({
             onAlbumHover={handleAlbumHover}
             onAlbumHoverEnd={handleAlbumHoverEnd}
           />
-        </Box>
+        </>
       </ViewContainer>
     );
   }

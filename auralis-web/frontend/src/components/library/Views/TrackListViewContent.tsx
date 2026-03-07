@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import SelectableTrackRow from '../Items/tracks/SelectableTrackRow';
 import GridLoadingState from '../Items/utilities/GridLoadingState';
 import EndOfListIndicator from '../Items/utilities/EndOfListIndicator';
-import { ListViewContainer, VirtualScrollContainer } from './TrackListView.styles';
+import { ListViewContainer } from './TrackListView.styles';
 import type { LibraryTrack as Track } from '@/types/domain';
 
 const ROW_HEIGHT = 56; // 44px row + 4px margin + 8px selectable padding
@@ -46,13 +46,20 @@ export const TrackListViewContent = ({
   onFindSimilar,
   onLoadMore,
 }: TrackListViewContentProps) => {
-  const parentRef = useRef<HTMLDivElement>(null);
+  const scrollElementRef = useRef<HTMLElement | null>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
+
+  // Attach to the app-level scroll container
+  useEffect(() => {
+    scrollElementRef.current = document.getElementById('app-main-content-scroll');
+  }, []);
 
   const virtualizer = useVirtualizer({
     count: tracks.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollElementRef.current,
     estimateSize: () => ROW_HEIGHT,
-    overscan: 5,
+    overscan: 10,
+    scrollMargin: listContainerRef.current?.offsetTop ?? 0,
   });
 
   // Trigger infinite scroll when near the end of the list
@@ -73,7 +80,7 @@ export const TrackListViewContent = ({
 
   return (
     <ListViewContainer elevation={2}>
-      <VirtualScrollContainer ref={parentRef}>
+      <div ref={listContainerRef}>
         <div
           style={{
             height: virtualizer.getTotalSize(),
@@ -92,7 +99,7 @@ export const TrackListViewContent = ({
                   left: 0,
                   width: '100%',
                   height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
+                  transform: `translateY(${virtualRow.start - (virtualizer.options.scrollMargin ?? 0)}px)`,
                 }}
               >
                 <SelectableTrackRow
@@ -117,7 +124,7 @@ export const TrackListViewContent = ({
             );
           })}
         </div>
-      </VirtualScrollContainer>
+      </div>
 
       {/* Loading indicator */}
       {isLoadingMore && (

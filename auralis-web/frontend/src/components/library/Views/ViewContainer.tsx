@@ -36,15 +36,12 @@ export const ViewContainer = ({
     <Box
       sx={{
         display: 'flex',
-        height: '100%',
-        overflow: 'hidden',
       }}
     >
-      {/* Main content area */}
+      {/* Main content area — no overflow, scrolls within app-main-content-scroll */}
       <Box
         sx={{
           flex: 1,
-          overflowY: 'auto',
         }}
       >
         <Container
@@ -95,7 +92,11 @@ export const ViewContainer = ({
         <Box
           sx={{
             flexShrink: 0,
-            height: '100%',
+            position: 'sticky',
+            top: 0,
+            alignSelf: 'flex-start',
+            height: 'fit-content',
+            maxHeight: '100vh',
             overflowY: 'auto',
           }}
         >

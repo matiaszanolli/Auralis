@@ -1,14 +1,11 @@
-import React from 'react';
 import { Grid } from '@mui/material';
 import { TrackCard } from '../../track/TrackCard';
-import InfiniteScrollTrigger from '../Items/utilities/InfiniteScrollTrigger';
 import type { LibraryTrack as Track } from '@/types/domain';
 
 export interface TrackGridViewProps {
   tracks: Track[];
   hasMore: boolean;
   currentTrackId?: number;
-  loadMoreRef: React.RefObject<HTMLDivElement>;
   onTrackPlay: (track: Track) => void;
   onRemoveTrack: (index: number) => Promise<void>;
   onReorderQueue: (newOrder: number[]) => Promise<void>;
@@ -20,12 +17,11 @@ export interface TrackGridViewProps {
  * TrackGridView - Grid layout for track cards
  *
  * Displays tracks as cards with album art and queue management.
+ * Infinite scroll is handled by the parent (TrackListView) via react-infinite-scroll-component.
  */
 export const TrackGridView = ({
   tracks,
-  hasMore,
   currentTrackId: _currentTrackId,
-  loadMoreRef,
   onTrackPlay,
   onRemoveTrack: _onRemoveTrack,
   onReorderQueue: _onReorderQueue,
@@ -33,44 +29,39 @@ export const TrackGridView = ({
   onClearQueue: _onClearQueue,
 }: TrackGridViewProps) => {
   return (
-    <>
-      <Grid container spacing={3}>
-        {tracks.map((track, index) => (
-          <Grid
-            item
-            xs={12}
-            sm={6}
-            md={4}
-            lg={3}
-            key={track.id}
-            className="animate-fade-in-up"
-            sx={{
-              animationDelay: `${index * 0.05}s`,
-              animationFillMode: 'both',
+    <Grid container spacing={3}>
+      {tracks.map((track, index) => (
+        <Grid
+          item
+          xs={12}
+          sm={6}
+          md={4}
+          lg={3}
+          key={track.id}
+          className="animate-fade-in-up"
+          sx={{
+            animationDelay: `${index * 0.05}s`,
+            animationFillMode: 'both',
+          }}
+        >
+          <TrackCard
+            id={track.id}
+            title={track.title}
+            artist={track.artist}
+            album={track.album}
+            albumId={track.albumId ?? undefined}
+            duration={track.duration}
+            albumArt={track.artworkUrl ?? undefined}
+            onPlay={(id) => {
+              const foundTrack = tracks.find((t) => t.id === id);
+              if (foundTrack) {
+                onTrackPlay(foundTrack);
+              }
             }}
-          >
-            <TrackCard
-              id={track.id}
-              title={track.title}
-              artist={track.artist}
-              album={track.album}
-              albumId={track.albumId ?? undefined}
-              duration={track.duration}
-              albumArt={track.artworkUrl ?? undefined}
-              onPlay={(id) => {
-                const foundTrack = tracks.find((t) => t.id === id);
-                if (foundTrack) {
-                  onTrackPlay(foundTrack);
-                }
-              }}
-            />
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* Intersection observer trigger for infinite scroll */}
-      {hasMore && <InfiniteScrollTrigger ref={loadMoreRef} />}
-    </>
+          />
+        </Grid>
+      ))}
+    </Grid>
   );
 };
 

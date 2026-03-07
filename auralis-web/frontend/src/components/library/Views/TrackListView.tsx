@@ -16,14 +16,14 @@
  */
 
 import React from 'react';
+import InfiniteScroll from 'react-infinite-scroll-component';
 import { LibraryGridSkeleton, TrackRowSkeleton } from '../../shared/ui/loaders';
 import { ListLoadingContainer } from '../Styles/Grid.styles';
+import GridLoadingState from '../Items/utilities/GridLoadingState';
 import TrackGridView from './TrackGridView';
 import TrackListViewContent from './TrackListViewContent';
 import { useQueueOperations } from './useQueueOperations';
 import type { LibraryTrack } from '@/types/domain';
-// TODO: Replace with react-infinite-scroll-component like Artists view
-// import { useInfiniteScroll } from '@/hooks/shared';
 
 export type ViewMode = 'grid' | 'list';
 
@@ -81,16 +81,6 @@ export const TrackListView = ({
     handleClearQueue,
   } = useQueueOperations({});
 
-  // TODO: Re-implement infinite scroll with react-infinite-scroll-component
-  // Temporarily disabled - need to update to use library instead of custom hook
-  // const { observerTarget, isFetching } = useInfiniteScroll({
-  //   hasMore,
-  //   isLoading: loading || isLoadingMore,
-  //   onLoadMore: async () => { onLoadMore(); },
-  // });
-  const observerTarget = React.useRef<HTMLDivElement>(null);
-  const isFetching = loading || isLoadingMore;
-
   // Show loading skeletons
   if (loading) {
     return viewMode === 'grid' ? (
@@ -104,29 +94,37 @@ export const TrackListView = ({
     );
   }
 
-  // Grid View
+  // Grid View — wrapped in InfiniteScroll targeting the app scroll container
   if (viewMode === 'grid') {
     return (
-      <TrackGridView
-        tracks={tracks}
+      <InfiniteScroll
+        dataLength={tracks.length}
+        next={onLoadMore}
         hasMore={hasMore}
-        currentTrackId={currentTrackId}
-        loadMoreRef={observerTarget}
-        onTrackPlay={onTrackPlay}
-        onRemoveTrack={handleRemoveTrack}
-        onReorderQueue={handleReorderQueue}
-        onShuffleQueue={handleShuffleQueue}
-        onClearQueue={handleClearQueue}
-      />
+        loader={<GridLoadingState current={tracks.length} total={totalTracks} itemType="tracks" />}
+        scrollableTarget="app-main-content-scroll"
+        scrollThreshold={0.8}
+      >
+        <TrackGridView
+          tracks={tracks}
+          hasMore={false}
+          currentTrackId={currentTrackId}
+          onTrackPlay={onTrackPlay}
+          onRemoveTrack={handleRemoveTrack}
+          onReorderQueue={handleReorderQueue}
+          onShuffleQueue={handleShuffleQueue}
+          onClearQueue={handleClearQueue}
+        />
+      </InfiniteScroll>
     );
   }
 
-  // List View
+  // List View — virtualizer handles its own infinite load trigger
   return (
     <TrackListViewContent
       tracks={tracks}
       hasMore={hasMore}
-      isLoadingMore={isFetching}
+      isLoadingMore={loading || isLoadingMore}
       totalTracks={totalTracks}
       currentTrackId={currentTrackId}
       isPlaying={isPlaying}
