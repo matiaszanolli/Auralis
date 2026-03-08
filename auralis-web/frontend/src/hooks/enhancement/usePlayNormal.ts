@@ -162,6 +162,12 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
   // Pending chunks queue - handles race condition where chunks arrive before stream_start
   const pendingChunksRef = useRef<AudioChunkMessage[]>([]);
 
+  // Flow control: track whether we've told the backend to pause sending.
+  const flowPausedRef = useRef<boolean>(false);
+  // Stable ref for wsContext.send so handleChunk callback doesn't need wsContext in deps
+  const wsSendRef = useRef(wsContext.send);
+  wsSendRef.current = wsContext.send;
+
   // Streaming metadata
   const streamingMetadataRef = useRef<{
     sampleRate: number;
@@ -258,6 +264,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         processedChunks: 0,
       };
 
+      // Reset flow control for new stream
+      flowPausedRef.current = false;
+
       // Update Redux state
       dispatch(
         startStreaming({
@@ -330,6 +339,17 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
 
       // Append to circular buffer
       pcmBufferRef.current.append(samples, metadata.crossfadeSamples);
+
+      // Flow control: tell backend to pause/resume sending based on buffer fill level.
+      // 75% full → pause, 50% full → resume (25% hysteresis prevents rapid toggling).
+      const fillPct = pcmBufferRef.current.getFillPercentage();
+      if (fillPct > 75 && !flowPausedRef.current) {
+        flowPausedRef.current = true;
+        wsSendRef.current({ type: 'buffer_full', data: {} });
+      } else if (fillPct < 50 && flowPausedRef.current) {
+        flowPausedRef.current = false;
+        wsSendRef.current({ type: 'buffer_ready', data: {} });
+      }
 
       // Update tracking
       streamingMetadataRef.current.processedChunks++;

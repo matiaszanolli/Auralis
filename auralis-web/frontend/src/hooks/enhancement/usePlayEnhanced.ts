@@ -223,6 +223,13 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   // so Redux DevTools remains usable during playback (fixes #2535).
   const lastDispatchedProgressRef = useRef<number>(-1);
 
+  // Flow control: track whether we've told the backend to pause sending.
+  // Prevents the backend from flooding the circular buffer and dropping data.
+  const flowPausedRef = useRef<boolean>(false);
+  // Stable ref for wsContext.send so handleChunk callback doesn't need wsContext in deps
+  const wsSendRef = useRef(wsContext.send);
+  wsSendRef.current = wsContext.send;
+
   // Current track info for seek operations
   const currentTrackInfoRef = useRef<{
     trackId: number;
@@ -333,6 +340,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // Reset chunk tracking for new stream
       lastReceivedChunkIndexRef.current = -1;
       lastDispatchedProgressRef.current = -1; // Reset progress throttle (fixes #2535)
+      flowPausedRef.current = false; // Reset flow control for new stream
 
       // Update Redux state
       dispatch(
@@ -433,6 +441,17 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       const progress =
         (streamingMetadataRef.current.processedChunks / streamingMetadataRef.current.totalChunks) * 100;
       const clampedProgress = Math.min(progress, 100);
+
+      // Flow control: tell backend to pause/resume sending based on buffer fill level.
+      // 75% full → pause, 50% full → resume (25% hysteresis prevents rapid toggling).
+      const fillPct = pcmBufferRef.current.getFillPercentage();
+      if (fillPct > 75 && !flowPausedRef.current) {
+        flowPausedRef.current = true;
+        wsSendRef.current({ type: 'buffer_full', data: {} });
+      } else if (fillPct < 50 && flowPausedRef.current) {
+        flowPausedRef.current = false;
+        wsSendRef.current({ type: 'buffer_ready', data: {} });
+      }
 
       // Throttle Redux dispatches: only update at first chunk, every 10%
       // increment, or on completion — avoids O(n_chunks) Redux churn that

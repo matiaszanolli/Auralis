@@ -217,6 +217,9 @@ class WebSocketMessageType(str, Enum):
     SUBSCRIBE_JOB_PROGRESS = "subscribe_job_progress"
     JOB_PROGRESS = "job_progress"
     AUDIO_STREAM_ERROR = "audio_stream_error"
+    RESUME = "resume"
+    BUFFER_FULL = "buffer_full"
+    BUFFER_READY = "buffer_ready"
     PLAYBACK_PAUSED = "playback_paused"
     PLAYBACK_STOPPED = "playback_stopped"
 

@@ -138,6 +138,13 @@ export async function triggerLibraryScan(directories: string[]): Promise<void> {
   await post(ENDPOINTS.LIBRARY_SCAN, { directories, recursive: true, skip_existing: true });
 }
 
+/**
+ * Reset the entire library (delete all tracks, albums, artists, etc.)
+ */
+export async function resetLibrary(): Promise<{ message: string }> {
+  return post(ENDPOINTS.LIBRARY_RESET, {});
+}
+
 export const settingsService = {
   getSettings,
   updateSettings,
@@ -145,6 +152,7 @@ export const settingsService = {
   addScanFolder,
   removeScanFolder,
   triggerLibraryScan,
+  resetLibrary,
 };
 
 export default settingsService;

@@ -69,6 +69,7 @@ export const ENDPOINTS = {
 
   // Library scan
   LIBRARY_SCAN: '/api/library/scan',
+  LIBRARY_RESET: '/api/library/reset',
 
   // Player
   PLAYER_STATUS: '/api/player/status',

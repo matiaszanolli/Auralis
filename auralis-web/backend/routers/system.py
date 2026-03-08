@@ -28,6 +28,16 @@ _active_streaming_tasks_lock = asyncio.Lock()  # Protects all _active_streaming_
 # This avoids destroying the streaming task on pause (#2106).
 _stream_pause_events: dict[int, asyncio.Event] = {}
 
+# Per-WebSocket flow control events: when clear, backend stops sending chunks
+# (frontend buffer is full); when set, backend continues streaming.
+# Separate from pause events — pause is user-initiated, flow is buffer-driven.
+_stream_flow_events: dict[int, asyncio.Event] = {}
+
+
+def get_stream_flow_event(websocket: WebSocket) -> asyncio.Event | None:
+    """Get the flow control event for a WebSocket connection."""
+    return _stream_flow_events.get(id(websocket))
+
 # Global rate limiter for all WebSocket connections (fixes #2156)
 _rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
 
@@ -365,6 +375,10 @@ def create_system_router(
                         pause_event = asyncio.Event()
                         pause_event.set()
                         _stream_pause_events[ws_id] = pause_event
+                        # Create flow control event — set = flowing (not throttled)
+                        flow_event = asyncio.Event()
+                        flow_event.set()
+                        _stream_flow_events[ws_id] = flow_event
                         task = asyncio.create_task(stream_audio())
                         _active_streaming_tasks[ws_id] = task
                     logger.info(f"Started background streaming task for track {track_id}")
@@ -439,6 +453,10 @@ def create_system_router(
                         pause_event = asyncio.Event()
                         pause_event.set()
                         _stream_pause_events[ws_id] = pause_event
+                        # Create flow control event — set = flowing (not throttled)
+                        flow_event = asyncio.Event()
+                        flow_event.set()
+                        _stream_flow_events[ws_id] = flow_event
                         task = asyncio.create_task(stream_normal())
                         _active_streaming_tasks[ws_id] = task
                     logger.info(f"Started background normal streaming task for track {track_id}")
@@ -476,6 +494,23 @@ def create_system_router(
                             "success": True
                         }
                     }))
+
+                elif message.get("type") == "buffer_full":
+                    # Frontend buffer is filling up — pause chunk streaming to
+                    # prevent data being dropped by the circular buffer.
+                    ws_id = id(websocket)
+                    flow_evt = _stream_flow_events.get(ws_id)
+                    if flow_evt is not None:
+                        flow_evt.clear()
+                        logger.debug("Flow control: paused (buffer_full)")
+
+                elif message.get("type") == "buffer_ready":
+                    # Frontend buffer has drained enough — resume chunk streaming.
+                    ws_id = id(websocket)
+                    flow_evt = _stream_flow_events.get(ws_id)
+                    if flow_evt is not None:
+                        flow_evt.set()
+                        logger.debug("Flow control: resumed (buffer_ready)")
 
                 elif message.get("type") == "stop":
                     # Stop audio playback
@@ -650,8 +685,9 @@ def create_system_router(
                 logger.info(f"Cancelling streaming task on disconnect for ws {ws_id}")
                 task.cancel()
 
-            # Clean up pause event (#2106)
+            # Clean up pause event (#2106) and flow control event
             _stream_pause_events.pop(ws_id, None)
+            _stream_flow_events.pop(ws_id, None)
 
             # Clean up rate limiter (fixes #2156)
             _rate_limiter.cleanup(websocket)

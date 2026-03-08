@@ -580,10 +580,14 @@ class AudioStreamController:
 
             for chunk_idx in range(processor.total_chunks):
                 # Honour pause/resume events from the WebSocket handler (#2106).
-                from routers.system import _stream_pause_events
+                from routers.system import _stream_pause_events, _stream_flow_events
                 pause_evt = _stream_pause_events.get(id(websocket))
                 if pause_evt is not None:
                     await pause_evt.wait()
+                # Honour flow control: wait if frontend buffer is full.
+                flow_evt = _stream_flow_events.get(id(websocket))
+                if flow_evt is not None:
+                    await flow_evt.wait()
 
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
@@ -818,10 +822,14 @@ class AudioStreamController:
 
             for chunk_idx in range(total_chunks):
                 # Honour pause/resume events from the WebSocket handler (#2106).
-                from routers.system import _stream_pause_events
+                from routers.system import _stream_pause_events, _stream_flow_events
                 pause_evt = _stream_pause_events.get(id(websocket))
                 if pause_evt is not None:
                     await pause_evt.wait()
+                # Honour flow control: wait if frontend buffer is full.
+                flow_evt = _stream_flow_events.get(id(websocket))
+                if flow_evt is not None:
+                    await flow_evt.wait()
 
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
@@ -1538,6 +1546,16 @@ class AudioStreamController:
 
             # Process and stream chunks starting from start_chunk_idx
             for chunk_idx in range(start_chunk_idx, processor.total_chunks):
+                # Honour pause/resume and flow control events (fixes missing
+                # pause check in seek path — pre-existing bug).
+                from routers.system import _stream_pause_events, _stream_flow_events
+                pause_evt = _stream_pause_events.get(id(websocket))
+                if pause_evt is not None:
+                    await pause_evt.wait()
+                flow_evt = _stream_flow_events.get(id(websocket))
+                if flow_evt is not None:
+                    await flow_evt.wait()
+
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping seek stream")
                     break

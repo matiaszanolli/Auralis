@@ -703,4 +703,55 @@ def create_library_router(
             logger.error(f"Error getting track fingerprint: {e}", exc_info=True)
             raise handle_query_error("get track fingerprint", e)
 
+    @router.post("/api/library/reset")
+    async def reset_library() -> dict[str, Any]:
+        """
+        Reset the entire library — deletes all tracks, albums, artists, genres,
+        fingerprints, playlists, queue state, and play statistics.
+
+        This is a destructive operation. The frontend must confirm before calling.
+        """
+        try:
+            repos = require_repository_factory(get_repository_factory)
+            session = repos.session_factory()
+            try:
+                from auralis.library.models.core import (
+                    Track, Album, Artist, Genre, Playlist,
+                    QueueState, QueueHistory,
+                )
+                from auralis.library.models.base import (
+                    track_artist, track_genre, track_playlist,
+                )
+                from auralis.library.models.fingerprint import TrackFingerprint
+
+                # Delete in dependency order: associations first, then entities
+                session.execute(track_playlist.delete())
+                session.execute(track_genre.delete())
+                session.execute(track_artist.delete())
+
+                session.query(TrackFingerprint).delete()
+                session.query(QueueHistory).delete()
+                session.query(QueueState).delete()
+                session.query(Track).delete()
+                session.query(Playlist).delete()
+                session.query(Album).delete()
+                session.query(Artist).delete()
+                session.query(Genre).delete()
+
+                session.commit()
+                logger.info("Library reset: all tracks, albums, artists, genres, fingerprints, and playlists deleted")
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
+
+            return {"message": "Library has been reset successfully"}
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error resetting library: {e}", exc_info=True)
+            raise handle_query_error("reset library", e)
+
     return router
