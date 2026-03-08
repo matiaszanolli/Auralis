@@ -25,6 +25,8 @@ import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/app/useKeyboardShortcuts';
 import { selectIsPlaying, selectVolume } from './store/slices/playerSlice';
+import { ENDPOINTS } from '@/config/api';
+import type { ViewMode } from '@/components/navigation/ViewToggle';
 import type { Track } from '@/types/domain';
 
 function ComfortableApp() {
@@ -37,9 +39,9 @@ function ComfortableApp() {
     setMobileDrawerOpen,
   } = useAppLayout();
 
-  const [_currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isEnhancementEnabled, setIsEnhancementEnabled] = useState(true); // Auto-mastering state
 
@@ -60,7 +62,7 @@ function ComfortableApp() {
   // Player API helpers for issuing commands to backend
   const togglePlayPause = useCallback(async () => {
     try {
-      const endpoint = isPlaying ? '/api/player/pause' : '/api/player/play';
+      const endpoint = isPlaying ? ENDPOINTS.PLAYER_PAUSE : ENDPOINTS.PLAYER_PLAY;
       await fetch(endpoint, { method: 'POST' });
     } catch (err) {
       console.error('Playback control error:', err);
@@ -69,7 +71,7 @@ function ComfortableApp() {
 
   const nextTrack = useCallback(async () => {
     try {
-      await fetch('/api/player/next', { method: 'POST' });
+      await fetch(ENDPOINTS.PLAYER_NEXT, { method: 'POST' });
     } catch (err) {
       console.error('Next track error:', err);
     }
@@ -77,7 +79,7 @@ function ComfortableApp() {
 
   const previousTrack = useCallback(async () => {
     try {
-      await fetch('/api/player/previous', { method: 'POST' });
+      await fetch(ENDPOINTS.PLAYER_PREVIOUS, { method: 'POST' });
     } catch (err) {
       console.error('Previous track error:', err);
     }
@@ -85,7 +87,7 @@ function ComfortableApp() {
 
   const setVolume = useCallback(async (newVolume: number) => {
     try {
-      await fetch('/api/player/volume', {
+      await fetch(ENDPOINTS.PLAYER_VOLUME, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ volume: newVolume })
@@ -101,7 +103,6 @@ function ComfortableApp() {
   // Event handlers - MUST be defined before useKeyboardShortcuts to avoid TDZ errors
   const handleTrackPlay = async (track: Track) => {
     try {
-      setCurrentTrack(track);
       console.log('Playing track:', track.title);
 
       await setQueue([track], 0);
@@ -267,7 +268,7 @@ function ComfortableApp() {
     }
   ];
 
-  // Use V2 hook with service-based architecture
+  // Keyboard shortcuts via unified hook
   const {
     shortcuts,
     isHelpOpen,
@@ -318,6 +319,10 @@ function ComfortableApp() {
             connectionStatus={isConnected ? 'connected' : 'connecting'}
             isMobile={isMobile}
             onSearchClear={() => setSearchQuery('')}
+            {...(['songs', 'favourites', 'recent'].includes(currentView) ? {
+              viewMode,
+              onViewModeChange: setViewMode,
+            } : {})}
           />
 
           {/* Main content area with library view */}
@@ -325,6 +330,8 @@ function ComfortableApp() {
             <CozyLibraryView
               onTrackPlay={handleTrackPlay}
               view={currentView}
+              searchQuery={searchQuery}
+              viewMode={viewMode}
               isEnhancementEnabled={isEnhancementEnabled}
               onEnhancementToggle={handleMasteringToggle}
             />

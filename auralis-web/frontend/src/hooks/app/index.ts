@@ -6,8 +6,6 @@
  */
 
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
-export { useKeyboardShortcutsV2 } from './useKeyboardShortcutsV2';
 export { useAppDragDrop } from './useAppDragDrop';
-export { useDragAndDrop } from './useDragAndDrop';
 export { useAppLayout } from './useAppLayout';
 export { useCommitId } from './useCommitId';

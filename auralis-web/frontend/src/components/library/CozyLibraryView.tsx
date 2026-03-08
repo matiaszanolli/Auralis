@@ -40,6 +40,10 @@ import { tokens } from '@/design-system';
 interface CozyLibraryViewProps {
   onTrackPlay?: (track: LibraryTrack) => void;
   view?: string;
+  /** Search query from the top bar */
+  searchQuery?: string;
+  /** Grid or list view mode */
+  viewMode?: ViewMode;
   /** Enhancement (auto-mastering) enabled state */
   isEnhancementEnabled?: boolean;
   /** Enhancement toggle callback */
@@ -49,6 +53,8 @@ interface CozyLibraryViewProps {
 const CozyLibraryView = React.memo<CozyLibraryViewProps>(({
   onTrackPlay,
   view = 'songs',
+  searchQuery = '',
+  viewMode = 'grid',
   isEnhancementEnabled = true,
   onEnhancementToggle,
 }) => {
@@ -67,12 +73,6 @@ const CozyLibraryView = React.memo<CozyLibraryViewProps>(({
     isLoadingMore,
     loadMore,
   } = useLibraryWithStats({ view, includeStats: false });
-
-  // ============================================================
-  // LOCAL UI STATE
-  // ============================================================
-  const [searchQuery, _setSearchQuery] = useState('');
-  const [viewMode, _setViewMode] = useState<ViewMode>('grid');
 
   // Filtered tracks (search)
   const filteredTracks = useMemo(() => {

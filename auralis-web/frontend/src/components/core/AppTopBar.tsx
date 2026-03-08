@@ -1,4 +1,3 @@
-import React from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { TopBarContainer, RightSection } from './AppTopBar.styles';
 import AppTopBarLeftSection from './AppTopBarLeftSection';
@@ -6,6 +5,7 @@ import AppTopBarSearchInput from './AppTopBarSearchInput';
 import AppTopBarStatusIndicator from './AppTopBarStatusIndicator';
 import { useSearchInput } from './useSearchInput';
 import { useConnectionStatus } from './useConnectionStatus';
+import { ViewToggle, type ViewMode } from '@/components/navigation/ViewToggle';
 
 /**
  * Props for the AppTopBar component.
@@ -45,6 +45,16 @@ export interface AppTopBarProps {
    * Called when user clicks clear button or clears the field.
    */
   onSearchClear?: () => void;
+
+  /**
+   * Current view mode (grid or list). When provided, shows the ViewToggle.
+   */
+  viewMode?: ViewMode;
+
+  /**
+   * Callback when view mode is changed via the toggle.
+   */
+  onViewModeChange?: (mode: ViewMode) => void;
 }
 
 /**
@@ -88,6 +98,8 @@ export const AppTopBar = ({
   connectionStatus,
   isMobile,
   onSearchClear,
+  viewMode,
+  onViewModeChange,
 }: AppTopBarProps) => {
   const theme = useTheme();
   const mediaIsMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -123,6 +135,10 @@ export const AppTopBar = ({
           onBlur={() => setIsSearchFocused(false)}
           onClear={handleSearchClear}
         />
+
+        {viewMode !== undefined && onViewModeChange && (
+          <ViewToggle value={viewMode} onChange={onViewModeChange} />
+        )}
 
         <AppTopBarStatusIndicator color={statusColor} />
       </RightSection>

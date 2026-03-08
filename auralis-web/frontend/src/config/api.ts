@@ -76,6 +76,8 @@ export const ENDPOINTS = {
   PLAYER_PLAY: '/api/player/play',
   PLAYER_PAUSE: '/api/player/pause',
   PLAYER_STOP: '/api/player/stop',
+  PLAYER_NEXT: '/api/player/next',
+  PLAYER_PREVIOUS: '/api/player/previous',
   PLAYER_SEEK: '/api/player/seek',
   PLAYER_VOLUME: '/api/player/volume',
 } as const;
