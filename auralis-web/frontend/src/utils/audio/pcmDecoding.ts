@@ -1,21 +1,44 @@
 /**
  * PCM Decoding Utilities
  *
- * Decodes base64-encoded PCM samples from WebSocket audio_chunk messages
- * into Float32Array for playback via Web Audio API.
+ * Decodes PCM samples from WebSocket audio_chunk messages into Float32Array
+ * for playback via Web Audio API.
+ *
+ * Supports two transport modes:
+ * - Binary: raw PCM bytes via binary WebSocket frames (preferred, zero-copy)
+ * - Base64: base64-encoded PCM in JSON text messages (legacy fallback)
  *
  * Handles:
- * - Base64 to binary conversion
- * - Binary to Float32 PCM conversion
+ * - ArrayBuffer to Float32 PCM conversion (binary mode)
+ * - Base64 to binary conversion (legacy mode)
  * - Channel layout conversion (mono to stereo, etc.)
  * - Sample rate and channel metadata
  */
 
 /**
+ * Decode raw PCM bytes from an ArrayBuffer to Float32Array (zero-copy path)
+ *
+ * Used when backend sends binary WebSocket frames containing raw float32 PCM.
+ * This is the preferred path — no base64 encode/decode overhead.
+ *
+ * @param buffer ArrayBuffer containing raw float32 PCM bytes
+ * @returns Float32Array view of the PCM data
+ * @throws Error if buffer size is not divisible by 4
+ */
+export function decodeBinaryPCM(buffer: ArrayBuffer): Float32Array {
+  if (buffer.byteLength % 4 !== 0) {
+    throw new Error(
+      `PCM binary data size (${buffer.byteLength}) not divisible by 4 (float32 sample size)`
+    );
+  }
+  return new Float32Array(buffer);
+}
+
+/**
  * Decode base64-encoded PCM samples to Float32Array
  *
- * PCM samples are encoded as base64 in WebSocket messages to minimize bandwidth.
- * This function reverses that encoding for playback.
+ * Legacy path: PCM samples encoded as base64 in JSON WebSocket messages.
+ * Prefer decodeBinaryPCM() for binary frames.
  *
  * @param base64Data Base64-encoded PCM samples (from WebSocket message)
  * @returns Float32Array of decoded PCM samples
@@ -242,23 +265,15 @@ export interface PCMChunkMetadata {
 /**
  * Decode a complete audio_chunk WebSocket message
  *
- * Combines base64 decoding with metadata extraction.
+ * Supports two transport modes:
+ * - Binary (preferred): `data.pcm_binary` is an ArrayBuffer of raw float32 PCM
+ * - Base64 (legacy): `data.samples` is a base64-encoded string
  *
  * @param message WebSocket message object with data and type
+ * @param sampleRate Expected sample rate
+ * @param channels Expected channel count
  * @returns Decoded PCM samples and metadata
  * @throws Error if message format is invalid
- *
- * @example
- * const message = {
- *   type: 'audio_chunk',
- *   data: {
- *     chunk_index: 0,
- *     samples: 'AQIDBA==',
- *     sample_count: 4,
- *     crossfade_samples: 1024
- *   }
- * };
- * const { samples, metadata } = decodeAudioChunkMessage(message, 48000, 2);
  */
 export function decodeAudioChunkMessage(
   message: any,
@@ -274,19 +289,20 @@ export function decodeAudioChunkMessage(
 
   const data = message.data;
 
-  // Validate required fields
-  if (!data.samples || typeof data.samples !== 'string') {
-    throw new Error('Missing or invalid samples field in audio_chunk');
-  }
-
   if (data.sample_count === undefined || data.sample_count <= 0) {
     throw new Error('Invalid sample_count in audio_chunk');
   }
 
-  // Decode base64 PCM
+  // Decode PCM: prefer binary ArrayBuffer, fall back to base64 string
   let samples: Float32Array;
   try {
-    samples = decodePCMBase64(data.samples);
+    if (data.pcm_binary instanceof ArrayBuffer) {
+      samples = decodeBinaryPCM(data.pcm_binary);
+    } else if (data.samples && typeof data.samples === 'string') {
+      samples = decodePCMBase64(data.samples);
+    } else {
+      throw new Error('Missing PCM data: no pcm_binary or samples field');
+    }
   } catch (error) {
     throw new Error(
       `Failed to decode PCM samples: ${error instanceof Error ? error.message : String(error)}`

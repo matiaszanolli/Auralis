@@ -46,6 +46,7 @@ export type WebSocketMessageType =
   | 'audio_stream_start'
   | 'audio_stream_end'
   | 'audio_chunk'
+  | 'audio_chunk_meta'
   | 'audio_stream_error'
   // System messages
   | 'scan_progress'

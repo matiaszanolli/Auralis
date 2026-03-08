@@ -145,6 +145,8 @@ export class WebSocketManager {
     return new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(this.url);
+        // Receive binary frames as ArrayBuffer (not Blob) for zero-copy PCM decoding
+        this.ws.binaryType = 'arraybuffer';
 
         this.ws.onopen = () => {
           console.log('[WebSocketManager] Connected');

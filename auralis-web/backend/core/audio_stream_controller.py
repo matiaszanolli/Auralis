@@ -273,6 +273,24 @@ class AudioStreamController:
             logger.warning(f"Unexpected error sending WebSocket message: {e}")
             return False
 
+    async def _safe_send_bytes(self, websocket: WebSocket, data: bytes) -> bool:
+        """Safely send binary data to WebSocket, handling disconnection gracefully."""
+        if not self._is_websocket_connected(websocket):
+            logger.debug("WebSocket disconnected, skipping binary send")
+            return False
+        try:
+            await websocket.send_bytes(data)
+            return True
+        except RuntimeError as e:
+            if "close message" in str(e).lower():
+                logger.debug(f"WebSocket closed during binary send: {e}")
+            else:
+                logger.warning(f"WebSocket binary send failed: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"Unexpected error sending WebSocket binary: {e}")
+            return False
+
     async def _ensure_fingerprint_available(
         self,
         track_id: int,
@@ -555,11 +573,13 @@ class AudioStreamController:
                 logger.info(f"WebSocket disconnected, cannot start stream")
                 return
 
-            # Process and stream chunks
+            # Process and stream chunks with look-ahead: start processing
+            # chunk N+1 while streaming chunk N to eliminate inter-chunk gaps.
+            lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
+            next_track_prefetched: bool = False
+
             for chunk_idx in range(processor.total_chunks):
                 # Honour pause/resume events from the WebSocket handler (#2106).
-                # When the event is cleared (paused), we block here until it's
-                # set again (resumed) or the task is cancelled.
                 from routers.system import _stream_pause_events
                 pause_evt = _stream_pause_events.get(id(websocket))
                 if pause_evt is not None:
@@ -567,21 +587,59 @@ class AudioStreamController:
 
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
+                    if lookahead_task and not lookahead_task.done():
+                        lookahead_task.cancel()
                     break
 
                 try:
-                    # Process chunk with fast-start for first chunk
-                    await self._process_and_stream_chunk(
-                        chunk_idx, processor, websocket, on_progress
+                    # Get processed chunk: from look-ahead task or process now
+                    if lookahead_task is not None:
+                        try:
+                            pcm_samples, _sr = await lookahead_task
+                        except ConnectionError:
+                            # Client disconnected during look-ahead processing
+                            break
+                        lookahead_task = None
+                    else:
+                        pcm_samples, _sr = await self._process_chunk_only(
+                            chunk_idx, processor, websocket
+                        )
+
+                    # Start look-ahead: process next chunk while we stream current one
+                    if chunk_idx + 1 < processor.total_chunks:
+                        lookahead_task = asyncio.create_task(
+                            self._process_chunk_only(
+                                chunk_idx + 1, processor, websocket
+                            )
+                        )
+
+                    # Stream current chunk (crossfade + send)
+                    await self._stream_processed_chunk(
+                        pcm_samples, chunk_idx, processor, websocket
                     )
 
                     # Progress update
+                    progress = ((chunk_idx + 1) / processor.total_chunks) * 100
                     if on_progress:
-                        # total_chunks is guaranteed non-None due to assertion above
-                        progress = ((chunk_idx + 1) / processor.total_chunks) * 100
                         await on_progress(track_id, progress, f"Processed chunk {chunk_idx + 1}")
 
+                    # Pre-fetch next track at 80% to eliminate cold-start on transitions
+                    if progress >= 80 and not next_track_prefetched:
+                        next_track_prefetched = True
+                        asyncio.create_task(
+                            self._prefetch_next_track(track_id, preset, intensity)
+                        )
+
+                except ConnectionError:
+                    # Client disconnected — clean exit
+                    if lookahead_task and not lookahead_task.done():
+                        lookahead_task.cancel()
+                    break
+
                 except Exception as chunk_error:
+                    # Cancel look-ahead task on error
+                    if lookahead_task and not lookahead_task.done():
+                        lookahead_task.cancel()
                     logger.error(
                         f"Failed to process chunk {chunk_idx}: {chunk_error}",
                         exc_info=True
@@ -754,7 +812,10 @@ class AudioStreamController:
                         frames=frames, dtype='float32', always_2d=True
                     )
 
-            # Stream chunks one at a time without processing
+            # Stream chunks with look-ahead: read chunk N+1 from disk while
+            # streaming chunk N to eliminate I/O gaps.
+            lookahead_read: asyncio.Task[np.ndarray] | None = None
+
             for chunk_idx in range(total_chunks):
                 # Honour pause/resume events from the WebSocket handler (#2106).
                 from routers.system import _stream_pause_events
@@ -764,16 +825,29 @@ class AudioStreamController:
 
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
+                    if lookahead_read and not lookahead_read.done():
+                        lookahead_read.cancel()
                     break
 
                 try:
-                    # Guard: don't waste I/O if the client disconnected (fixes #2076)
-                    if not self._is_websocket_connected(websocket):
-                        break
-                    start_sample = chunk_idx * interval_samples
-                    chunk_audio: np.ndarray = await asyncio.to_thread(
-                        _read_audio_chunk, str(track.filepath), start_sample, chunk_samples
-                    )
+                    # Get chunk audio: from look-ahead task or read now
+                    if lookahead_read is not None:
+                        chunk_audio = await lookahead_read
+                        lookahead_read = None
+                    else:
+                        start_sample = chunk_idx * interval_samples
+                        chunk_audio = await asyncio.to_thread(
+                            _read_audio_chunk, str(track.filepath), start_sample, chunk_samples
+                        )
+
+                    # Start look-ahead: read next chunk while we stream current one
+                    if chunk_idx + 1 < total_chunks:
+                        next_start = (chunk_idx + 1) * interval_samples
+                        lookahead_read = asyncio.create_task(
+                            asyncio.to_thread(
+                                _read_audio_chunk, str(track.filepath), next_start, chunk_samples
+                            )
+                        )
 
                     # Stream the chunk
                     await self._send_pcm_chunk(
@@ -790,6 +864,8 @@ class AudioStreamController:
                         await on_progress(track_id, progress, f"Streamed chunk {chunk_idx + 1}")
 
                 except Exception as chunk_error:
+                    if lookahead_read and not lookahead_read.done():
+                        lookahead_read.cancel()
                     logger.error(f"Failed to stream chunk {chunk_idx}: {chunk_error}", exc_info=True)
                     # Recovery position: start of the failed chunk (issue #2085)
                     normal_recovery_position: float = chunk_idx * chunk_duration
@@ -823,26 +899,27 @@ class AudioStreamController:
             self.active_streams.pop(track_id, None)  # fixes #2076
             self._stream_semaphore.release()
 
-    async def _process_and_stream_chunk(
+    async def _process_chunk_only(
         self,
         chunk_index: int,
         processor: ChunkedAudioProcessor,
-        websocket: WebSocket,
-        on_progress: Callable[[int, float, str], Any] | None = None,
-    ) -> None:
+        websocket: WebSocket | None = None,
+    ) -> tuple[np.ndarray, int]:
         """
-        Process single chunk and stream PCM samples to client.
+        Process a single chunk (cache check + DSP) without streaming.
 
-        Implements caching to avoid reprocessing chunks with same parameters.
-        Applies server-side crossfade to smooth chunk boundaries.
+        Returns the processed PCM samples and sample rate. Used by the
+        look-ahead pipeline so chunk N+1 can be processed while chunk N
+        is being streamed.
 
         Args:
             chunk_index: Index of chunk to process (0-based)
             processor: ChunkedProcessor instance
-            websocket: WebSocket connection to client
-            on_progress: Optional progress callback
+            websocket: Optional WebSocket for disconnect guard
+
+        Returns:
+            Tuple of (pcm_samples, sample_rate)
         """
-        # Use fast-start for first chunk (process quickly)
         fast_start: bool = chunk_index == 0
 
         logger.debug(
@@ -853,10 +930,8 @@ class AudioStreamController:
         # Try to get from cache first
         pcm_samples: np.ndarray | None = None
         sr: int | None = None
-        cache_hit: bool = False
 
         try:
-            # Handle union type: both cache managers have get() method
             if isinstance(self.cache_manager, SimpleChunkCache):
                 cached_result: tuple[np.ndarray, int] | None = self.cache_manager.get(
                     track_id=processor.track_id,
@@ -866,93 +941,191 @@ class AudioStreamController:
                 )
                 if cached_result:
                     pcm_samples, sr = cached_result
-                    cache_hit = True
-                    logger.info(f"✅ Cache HIT: chunk {chunk_index}, preset {processor.preset}")
+                    logger.info(f"Cache HIT: chunk {chunk_index}, preset {processor.preset}")
         except Exception as e:
             logger.debug(f"Cache lookup failed (not critical): {e}")
 
         # Process chunk if not cached
-        if not cache_hit:
+        if pcm_samples is None:
             # Guard: don't waste CPU on DSP if the client disconnected (fixes #2076)
-            if not self._is_websocket_connected(websocket):
-                return
-            logger.debug(f"❌ Cache MISS: Processing chunk {chunk_index}")
-            # Process chunk - returns both path (for durability) and audio array (for streaming)
-            # This avoids the disk round-trip of saving then immediately reading back
-            try:
-                chunk_path, pcm_samples = await processor.process_chunk_safe(chunk_index, fast_start=fast_start)
-                sr = processor.sample_rate
+            if websocket is not None and not self._is_websocket_connected(websocket):
+                raise ConnectionError(f"WebSocket disconnected before processing chunk {chunk_index}")
+            logger.debug(f"Cache MISS: Processing chunk {chunk_index}")
+            _chunk_path, pcm_samples = await processor.process_chunk_safe(chunk_index, fast_start=fast_start)
+            sr = processor.sample_rate
 
+            logger.debug(
+                f"Chunk {chunk_index}: processed {len(pcm_samples)} samples at {sr}Hz"
+            )
+
+            # Store in cache for future use
+            try:
+                if isinstance(self.cache_manager, SimpleChunkCache) and sr is not None:
+                    self.cache_manager.put(
+                        track_id=processor.track_id,
+                        chunk_idx=chunk_index,
+                        preset=processor.preset,
+                        intensity=processor.intensity,
+                        audio=pcm_samples,
+                        sample_rate=sr
+                    )
+            except Exception as e:
+                logger.debug(f"Failed to cache chunk (not critical): {e}")
+
+        assert pcm_samples is not None
+        assert sr is not None
+        return pcm_samples, sr
+
+    async def _stream_processed_chunk(
+        self,
+        pcm_samples: np.ndarray,
+        chunk_index: int,
+        processor: ChunkedAudioProcessor,
+        websocket: WebSocket,
+    ) -> None:
+        """
+        Apply crossfade and stream already-processed PCM samples to client.
+
+        Args:
+            pcm_samples: Processed PCM audio array
+            chunk_index: Index of this chunk
+            processor: ChunkedProcessor instance (for metadata)
+            websocket: WebSocket connection
+        """
+        assert processor.total_chunks is not None
+        assert processor.sample_rate is not None
+
+        # Apply server-side crossfade to smooth chunk boundaries
+        crossfade_duration_ms = 200  # milliseconds
+        crossfade_samples = int(crossfade_duration_ms * processor.sample_rate / 1000)
+
+        # _chunk_tails_lock serialises the read-check-write so concurrent
+        # seeks for the same track_id cannot produce a torn tail (fixes #2326).
+        async with self._chunk_tails_lock:
+            if chunk_index > 0 and processor.track_id in self._chunk_tails:
+                prev_tail = self._chunk_tails[processor.track_id]
+                pcm_samples = self._apply_boundary_crossfade(
+                    prev_tail, pcm_samples, crossfade_samples
+                )
                 logger.debug(
-                    f"Chunk {chunk_index}: processed {len(pcm_samples)} samples at {sr}Hz "
-                    f"(skipped disk read, used array directly)"
+                    f"Applied {crossfade_duration_ms}ms crossfade between chunks "
+                    f"{chunk_index-1} and {chunk_index}"
                 )
 
-                # Store in cache for future use
-                try:
-                    if isinstance(self.cache_manager, SimpleChunkCache) and sr is not None:
-                        self.cache_manager.put(
-                            track_id=processor.track_id,
-                            chunk_idx=chunk_index,
-                            preset=processor.preset,
-                            intensity=processor.intensity,
-                            audio=pcm_samples,
-                            sample_rate=sr
-                        )
-                except Exception as e:
-                    logger.debug(f"Failed to cache chunk (not critical): {e}")
+            # Store tail for next chunk (last N samples) if not the last chunk
+            if chunk_index < processor.total_chunks - 1:
+                tail_samples = min(crossfade_samples, len(pcm_samples))
+                self._chunk_tails[processor.track_id] = pcm_samples[-tail_samples:].copy()
+            else:
+                # Last chunk - clean up tail storage
+                self._chunk_tails.pop(processor.track_id, None)
 
-            except Exception as e:
-                logger.error(f"Failed to process chunk {chunk_index}: {e}")
-                raise
+        # Server already applied the boundary crossfade above; send 0 so the
+        # client does not double-apply it (fixes #2188: double crossfade).
+        await self._send_pcm_chunk(
+            websocket,
+            pcm_samples=pcm_samples,
+            chunk_index=chunk_index,
+            total_chunks=processor.total_chunks,
+            crossfade_samples=0,
+        )
 
-        # Stream PCM samples to client
+    async def _process_and_stream_chunk(
+        self,
+        chunk_index: int,
+        processor: ChunkedAudioProcessor,
+        websocket: WebSocket,
+        on_progress: Callable[[int, float, str], Any] | None = None,
+    ) -> None:
+        """Process single chunk and stream PCM samples to client (legacy entry point)."""
+        pcm_samples, _sr = await self._process_chunk_only(chunk_index, processor, websocket)
+        await self._stream_processed_chunk(pcm_samples, chunk_index, processor, websocket)
+
+    async def _prefetch_next_track(
+        self,
+        current_track_id: int,
+        preset: str,
+        intensity: float,
+    ) -> None:
+        """
+        Pre-process the first chunk of the next track in queue.
+
+        Called at ~80% progress of the current track to eliminate cold-start
+        delay on track transitions. Silently fails — this is an optimization,
+        not a requirement.
+
+        Populates the chunk cache so next track's chunk 0 is a cache hit, and
+        queues fingerprint generation in background.
+        """
+        if not self._get_repository_factory or not self.chunked_processor_class:
+            return
+
         try:
-            # pcm_samples should never be None at this point (either from cache or loaded from disk)
-            assert pcm_samples is not None, "PCM samples must be loaded before streaming"
-            assert sr is not None, "Sample rate must be set before streaming"
-            assert processor.total_chunks is not None, "total_chunks must be set"
-            assert processor.sample_rate is not None, "sample_rate must be set"
+            factory = self._get_repository_factory()
+            queue_state = factory.queue.get_queue_state()
+            if not queue_state or not queue_state.track_ids:
+                return
 
-            # Apply server-side crossfade to smooth chunk boundaries
-            # Use short crossfade (200ms) to prevent clicks without creating artifacts
-            crossfade_duration_ms = 200  # milliseconds
-            crossfade_samples = int(crossfade_duration_ms * processor.sample_rate / 1000)
+            # Parse track IDs and find next track
+            import json as _json
+            track_ids: list[int] = _json.loads(queue_state.track_ids)
+            if not track_ids:
+                return
 
-            # Apply crossfade if not the first chunk.
-            # _chunk_tails_lock serialises the read-check-write so concurrent
-            # seeks for the same track_id cannot produce a torn tail (fixes #2326).
-            async with self._chunk_tails_lock:
-                if chunk_index > 0 and processor.track_id in self._chunk_tails:
-                    prev_tail = self._chunk_tails[processor.track_id]
-                    pcm_samples = self._apply_boundary_crossfade(
-                        prev_tail, pcm_samples, crossfade_samples
-                    )
-                    logger.debug(
-                        f"Applied {crossfade_duration_ms}ms crossfade between chunks "
-                        f"{chunk_index-1} and {chunk_index}"
-                    )
+            current_idx = queue_state.current_index
+            # Find the current track in the queue
+            try:
+                pos = track_ids.index(current_track_id)
+                next_idx = pos + 1
+            except ValueError:
+                # Current track not in queue — use current_index + 1
+                next_idx = current_idx + 1
 
-                # Store tail for next chunk (last N samples) if not the last chunk
-                if chunk_index < processor.total_chunks - 1:
-                    tail_samples = min(crossfade_samples, len(pcm_samples))
-                    self._chunk_tails[processor.track_id] = pcm_samples[-tail_samples:].copy()
+            if next_idx >= len(track_ids):
+                # Check repeat mode
+                if queue_state.repeat_mode == 'all':
+                    next_idx = 0
                 else:
-                    # Last chunk - clean up tail storage
-                    self._chunk_tails.pop(processor.track_id, None)
+                    return  # No next track
 
-            # Server already applied the boundary crossfade above; send 0 so the
-            # client does not double-apply it (fixes #2188: double crossfade).
-            await self._send_pcm_chunk(
-                websocket,
-                pcm_samples=pcm_samples,
-                chunk_index=chunk_index,
-                total_chunks=processor.total_chunks,
-                crossfade_samples=0,
+            next_track_id = track_ids[next_idx]
+            next_track = factory.tracks.get_by_id(next_track_id)
+            if not next_track or not Path(next_track.filepath).exists():
+                return
+
+            logger.info(f"Pre-fetching next track {next_track_id} (chunk 0)")
+
+            # Queue fingerprint generation in background
+            await self._check_or_queue_fingerprint(
+                track_id=next_track_id,
+                filepath=str(next_track.filepath),
+                websocket=None,
             )
+
+            # Check if chunk 0 is already cached
+            if isinstance(self.cache_manager, SimpleChunkCache):
+                cached = self.cache_manager.get(
+                    track_id=next_track_id, chunk_idx=0,
+                    preset=preset, intensity=intensity,
+                )
+                if cached:
+                    logger.info(f"Next track {next_track_id} chunk 0 already cached")
+                    return
+
+            # Create processor and process chunk 0 (populates cache)
+            processor = await asyncio.to_thread(
+                self.chunked_processor_class,
+                track_id=next_track_id,
+                filepath=str(next_track.filepath),
+                preset=preset,
+                intensity=intensity,
+            )
+            await self._process_chunk_only(0, processor)
+            logger.info(f"Pre-fetched next track {next_track_id} chunk 0 into cache")
+
         except Exception as e:
-            logger.error(f"Failed to stream chunk {chunk_index}: {e}")
-            raise
+            # Silent failure — prefetch is an optimization
+            logger.debug(f"Next-track prefetch failed (not critical): {e}")
 
     def _apply_boundary_crossfade(
         self, prev_tail: np.ndarray, current_chunk: np.ndarray, crossfade_samples: int
@@ -1009,10 +1182,14 @@ class AudioStreamController:
         crossfade_samples: int,
     ) -> None:
         """
-        Send PCM samples as audio_chunk message to client.
+        Send PCM samples to client as binary WebSocket frames.
 
-        Splits large PCM data into multiple messages if needed (WebSocket
-        client library has 1MB frame limit, so we split at ~500KB per message).
+        Each frame is preceded by a JSON metadata message (audio_chunk_meta)
+        followed by the raw PCM bytes as a binary frame. This avoids the 33%
+        overhead of base64 encoding while keeping metadata structured.
+
+        Splits large PCM data into multiple frame pairs to stay below the
+        WebSocket 1MB frame limit (~300KB raw per frame).
 
         Args:
             websocket: WebSocket connection
@@ -1025,31 +1202,28 @@ class AudioStreamController:
         if pcm_samples.dtype != np.float32:
             pcm_samples = pcm_samples.astype(np.float32)
 
-        # Convert to base64 for JSON transmission
-        import base64
-
-        # Split into smaller frames to avoid WebSocket client 1MB limit.
-        # Each float32 sample = 4 bytes. Base64 encodes to 4/3 size.
-        # Target: ~400KB base64 per message (safe margin below 1MB limit).
+        # Split into smaller frames to avoid WebSocket 1MB frame limit.
+        # Each float32 sample = 4 bytes. Target ~300KB raw per binary frame.
         #
         # Flatten to 1D first so that len() and slicing always operate on
         # individual float32 values rather than rows (fixes #2257: for stereo
         # 2D arrays len() returned frame-count, producing ~800KB frames).
-        TARGET_BASE64_SIZE: int = 400 * 1024  # 400 KB
+        TARGET_FRAME_BYTES: int = 300 * 1024  # 300 KB raw (was 400KB base64)
         BYTES_PER_SAMPLE: int = 4  # float32
         pcm_flat: np.ndarray = pcm_samples.reshape(-1)
-        samples_per_frame: int = int(TARGET_BASE64_SIZE / (BYTES_PER_SAMPLE * 4/3))
+        samples_per_frame: int = TARGET_FRAME_BYTES // BYTES_PER_SAMPLE
 
         total_samples: int = len(pcm_flat)
         num_frames: int = (total_samples + samples_per_frame - 1) // samples_per_frame
 
+        stream_type = _stream_type_var.get()
+
         # Bounded producer/consumer: limits Python-heap accumulation when the
-        # client is slower than the encoder (backpressure for issue #2122).
-        # The producer encodes one frame at a time and blocks at queue.put()
-        # once _SEND_QUEUE_MAXSIZE frames are queued.  The consumer sends via
-        # _safe_send() which handles disconnects; on disconnect it signals the
-        # producer to stop so we don't keep encoding into a dead stream.
-        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(
+        # client is slower than the sender (backpressure for issue #2122).
+        # Each item is a (metadata_dict, pcm_bytes) tuple; the consumer sends
+        # the JSON metadata first, then the binary frame. On disconnect it
+        # signals the producer to stop.
+        queue: asyncio.Queue[tuple[dict[str, Any], bytes] | None] = asyncio.Queue(
             maxsize=_SEND_QUEUE_MAXSIZE
         )
         abort_event: asyncio.Event = asyncio.Event()
@@ -1063,45 +1237,46 @@ class AudioStreamController:
                     end_idx: int = min(start_idx + samples_per_frame, total_samples)
                     frame_samples: np.ndarray = pcm_flat[start_idx:end_idx]
 
-                    pcm_bytes: bytes = frame_samples.tobytes()
-                    pcm_base64: str = base64.b64encode(pcm_bytes).decode("ascii")
-
-                    message: dict[str, Any] = {
-                        "type": "audio_chunk",
+                    metadata: dict[str, Any] = {
+                        "type": "audio_chunk_meta",
                         "data": {
                             "chunk_index": chunk_index,
                             "chunk_count": total_chunks,
                             "frame_index": frame_idx,
                             "frame_count": num_frames,
-                            "samples": pcm_base64,
                             "sample_count": frame_samples.size,
-                            # Crossfade is applied server-side in _process_and_stream_chunk
-                            # to prevent audible clicks at chunk boundaries.
-                            # Frontend receives pre-crossfaded audio, so no client-side crossfade needed.
-                            "crossfade_samples": crossfade_samples,  # For monitoring/debugging
-                            "stream_type": _stream_type_var.get(),
+                            "crossfade_samples": crossfade_samples,
+                            "stream_type": stream_type,
                         },
                     }
-                    await queue.put(message)
+                    pcm_bytes: bytes = frame_samples.tobytes()
+                    await queue.put((metadata, pcm_bytes))
             finally:
-                await queue.put(None)  # sentinel — always sent so consumer can exit
+                await queue.put(None)  # sentinel
 
         async def _consumer() -> None:
             while True:
-                message = await queue.get()
-                if message is None:
+                item = await queue.get()
+                if item is None:
                     break
-                sent: bool = await self._safe_send(websocket, message)
+                metadata, pcm_bytes = item
+                # Send JSON metadata first, then raw binary PCM
+                sent: bool = await self._safe_send(websocket, metadata)
                 if not sent:
-                    # Client disconnected — stop the producer and drain the queue
                     abort_event.set()
                     while not queue.empty():
                         queue.get_nowait()
                     break
-                frame_idx = message["data"]["frame_index"]
+                sent = await self._safe_send_bytes(websocket, pcm_bytes)
+                if not sent:
+                    abort_event.set()
+                    while not queue.empty():
+                        queue.get_nowait()
+                    break
+                frame_idx = metadata["data"]["frame_index"]
                 logger.debug(
                     f"Streamed chunk {chunk_index} frame {frame_idx}/{num_frames}: "
-                    f"{message['data']['sample_count']} samples"
+                    f"{metadata['data']['sample_count']} samples ({len(pcm_bytes)} bytes)"
                 )
 
         await asyncio.gather(_producer(), _consumer())

@@ -90,6 +90,12 @@ let singletonWSManager: WebSocketManager | null = null;
 let singletonRefCount = 0; // Track number of active providers
 
 /**
+ * Pending audio_chunk_meta message — paired with the next binary frame.
+ * Backend sends metadata as JSON text followed by raw PCM as binary.
+ */
+let pendingAudioChunkMeta: AnyWebSocketMessage | WebSocketMessage | null = null;
+
+/**
  * Module-level subscription maps (must be singletons to survive provider remounts)
  * When React.StrictMode remounts the provider, these stay intact so that
  * subscriptions registered before remount still receive messages.
@@ -126,6 +132,9 @@ export function resetWebSocketSingletons(): void {
 
   // Clear last stream command
   singletonLastStreamCommand = null;
+
+  // Clear pending binary metadata
+  pendingAudioChunkMeta = null;
 
   // Clear all subscriptions
   singletonSubscriptions.clear();
@@ -211,33 +220,86 @@ export const WebSocketProvider = ({
       singletonWSManager = manager;
       wsManagerRef.current = manager;
 
-      // Setup message handler
+      // Dispatch a parsed message to global and type-specific handlers
+      const dispatchMessage = (message: AnyWebSocketMessage | WebSocketMessage) => {
+        // Call global handlers
+        globalHandlersRef.current.forEach(handler => {
+          try {
+            handler(message);
+          } catch (error) {
+            console.error('Error in global WebSocket handler:', error);
+          }
+        });
+
+        // Call type-specific handlers
+        if (message.type) {
+          const handlers = subscriptionsRef.current.get(message.type);
+          if (handlers) {
+            handlers.forEach(handler => {
+              try {
+                handler(message);
+              } catch (error) {
+                console.error(`Error in WebSocket handler for type "${message.type}":`, error);
+              }
+            });
+          }
+        }
+      };
+
+      // Setup message handler (text JSON and binary PCM frames)
       manager.on('message', ((event: MessageEvent) => {
         try {
+          // Binary frame: raw PCM data following an audio_chunk_meta message
+          if (event.data instanceof ArrayBuffer) {
+            if (pendingAudioChunkMeta) {
+              // Attach the binary payload to the pending metadata and dispatch
+              // as an 'audio_chunk' message so existing subscribers work unchanged.
+              const meta = pendingAudioChunkMeta as any;
+              const combined: any = {
+                type: 'audio_chunk',
+                data: {
+                  ...meta.data,
+                  // Raw ArrayBuffer — consumers use decodeBinaryPCM() instead of base64
+                  pcm_binary: event.data,
+                },
+              };
+              pendingAudioChunkMeta = null;
+              dispatchMessage(combined);
+            } else {
+              console.warn('[WebSocket] Received binary frame without preceding audio_chunk_meta');
+            }
+            return;
+          }
+
+          // Handle Blob data (some browsers send binary as Blob)
+          if (event.data instanceof Blob) {
+            const meta = pendingAudioChunkMeta;
+            event.data.arrayBuffer().then((buffer: ArrayBuffer) => {
+              if (meta) {
+                const combined: any = {
+                  type: 'audio_chunk',
+                  data: {
+                    ...(meta as any).data,
+                    pcm_binary: buffer,
+                  },
+                };
+                pendingAudioChunkMeta = null;
+                dispatchMessage(combined);
+              }
+            });
+            return;
+          }
+
+          // Text frame: JSON message
           const message: AnyWebSocketMessage | WebSocketMessage = JSON.parse(event.data);
 
-          // Call global handlers
-          globalHandlersRef.current.forEach(handler => {
-            try {
-              handler(message);
-            } catch (error) {
-              console.error('Error in global WebSocket handler:', error);
-            }
-          });
-
-          // Call type-specific handlers
-          if (message.type) {
-            const handlers = subscriptionsRef.current.get(message.type);
-            if (handlers) {
-              handlers.forEach(handler => {
-                try {
-                  handler(message);
-                } catch (error) {
-                  console.error(`Error in WebSocket handler for type "${message.type}":`, error);
-                }
-              });
-            }
+          // If this is an audio_chunk_meta, stash it and wait for the binary frame
+          if (message.type === 'audio_chunk_meta') {
+            pendingAudioChunkMeta = message;
+            return;
           }
+
+          dispatchMessage(message);
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);
         }
