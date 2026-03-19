@@ -25,7 +25,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.13'
+        python-version: '3.14'
 
     - name: Install linting tools
       run: |
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.12', '3.13']
+        python-version: ['3.14']
 
     steps:
     - uses: actions/checkout@v4
@@ -99,7 +99,7 @@ jobs:
 
     - name: Upload coverage
       uses: codecov/codecov-action@v4
-      if: matrix.python-version == '3.13'
+      if: matrix.python-version == '3.14'
       with:
         file: ./coverage.xml
         flags: unittests
@@ -115,7 +115,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '24'
 
     - name: Install dependencies
       working-directory: auralis-web/frontend
@@ -184,7 +184,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.13'
+        python-version: '3.14'
 
     - name: Install system dependencies
       run: |

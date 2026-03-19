@@ -49,15 +49,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.13
+      - name: Setup Python 3.14
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install system dependencies
         run: |
@@ -169,15 +169,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.13
+      - name: Setup Python 3.14
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -282,15 +282,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.13
+      - name: Setup Python 3.14
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
