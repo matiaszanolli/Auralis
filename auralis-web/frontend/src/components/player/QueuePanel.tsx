@@ -21,13 +21,15 @@
  * @module components/player/QueuePanel
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { tokens } from '@/design-system';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import type { Track } from '@/types/domain';
 
 const QUEUE_ITEM_HEIGHT = 60; // track item height including border
+const DRAG_EDGE_ZONE = 60; // px from edge to trigger auto-scroll
+const DRAG_SCROLL_SPEED = 8; // px per animation frame
 
 interface QueuePanelProps {
   /** Whether panel is collapsed */
@@ -73,6 +75,59 @@ export const QueuePanel = ({
     estimateSize: () => QUEUE_ITEM_HEIGHT,
     overscan: 5,
   });
+
+  // Auto-scroll during drag when cursor is near container edges
+  const scrollDirectionRef = useRef<number>(0); // -1 up, 0 none, 1 down
+  const rafIdRef = useRef<number | null>(null);
+
+  const autoScrollLoop = useCallback(() => {
+    const el = queueScrollRef.current;
+    if (!el || scrollDirectionRef.current === 0) {
+      rafIdRef.current = null;
+      return;
+    }
+    el.scrollTop += scrollDirectionRef.current * DRAG_SCROLL_SPEED;
+    rafIdRef.current = requestAnimationFrame(autoScrollLoop);
+  }, []);
+
+  const handleContainerDragOver = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      if (draggingIndex === null) return;
+      e.preventDefault();
+      const rect = e.currentTarget.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+
+      if (y < DRAG_EDGE_ZONE) {
+        scrollDirectionRef.current = -1;
+      } else if (y > rect.height - DRAG_EDGE_ZONE) {
+        scrollDirectionRef.current = 1;
+      } else {
+        scrollDirectionRef.current = 0;
+      }
+
+      if (scrollDirectionRef.current !== 0 && rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(autoScrollLoop);
+      }
+    },
+    [draggingIndex, autoScrollLoop],
+  );
+
+  const stopAutoScroll = useCallback(() => {
+    scrollDirectionRef.current = 0;
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+  }, []);
+
+  // Clean up rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
 
   if (collapsed) {
     return (
@@ -225,7 +280,13 @@ export const QueuePanel = ({
       )}
 
       {/* Queue List */}
-      <div style={styles.queueContainer} ref={queueScrollRef}>
+      <div
+        style={styles.queueContainer}
+        ref={queueScrollRef}
+        onDragOver={handleContainerDragOver}
+        onDragLeave={stopAutoScroll}
+        onDrop={stopAutoScroll}
+      >
         {queue.length === 0 ? (
           <div style={styles.emptyState}>
             <p>Queue is empty</p>
@@ -252,7 +313,10 @@ export const QueuePanel = ({
                   isHovered={hoveredIndex === index}
                   onRemove={() => handleRemoveTrack(index)}
                   onDragStart={() => setDraggingIndex(index)}
-                  onDragEnd={() => setDraggingIndex(null)}
+                  onDragEnd={() => {
+                    setDraggingIndex(null);
+                    stopAutoScroll();
+                  }}
                   onDragOver={(toIndex) => {
                     if (draggingIndex !== null && draggingIndex !== toIndex) {
                       handleReorderTrack(draggingIndex, toIndex);
