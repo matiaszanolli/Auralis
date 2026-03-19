@@ -23,7 +23,7 @@
  * ```
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 import type { PlayerTrack } from '@/types/domain';
@@ -50,6 +50,12 @@ export const usePlayerAPI = () => {
     queue: [],
     queueIndex: 0
   });
+
+  // Refs for values used in callbacks to keep identity stable across playerState changes
+  const currentTrackIdRef = useRef<number | null>(null);
+  const isPlayingRef = useRef(false);
+  currentTrackIdRef.current = playerState.currentTrack?.id ?? null;
+  isPlayingRef.current = playerState.isPlaying;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,12 +102,12 @@ export const usePlayerAPI = () => {
 
   // Play/pause toggle
   const togglePlayPause = useCallback(async () => {
-    if (playerState.isPlaying) {
+    if (isPlayingRef.current) {
       await pause();
     } else {
       await play();
     }
-  }, [playerState.isPlaying, play, pause]);
+  }, [play, pause]);
 
   // Next track
   const next = useCallback(async () => {
@@ -247,14 +253,14 @@ export const usePlayerAPI = () => {
   // Play specific track (convenience method)
   const playTrack = useCallback(async (track: PlayerTrack) => {
     // Guard: Don't restart if same track is already playing
-    if (playerState.currentTrack?.id === track.id && playerState.isPlaying) {
+    if (currentTrackIdRef.current === track.id && isPlayingRef.current) {
       console.log('✋ Already playing this track, ignoring duplicate play request');
       return;
     }
 
     console.log('▶️ Playing track:', track.title);
     await setQueue([track], 0);
-  }, [setQueue, playerState]);
+  }, [setQueue]);
 
   // WebSocket for real-time updates (using shared WebSocketContext)
   const { subscribe } = useWebSocketContext();
