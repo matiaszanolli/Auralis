@@ -256,20 +256,7 @@ export const selectIsLoading = (state: { queue: QueueState }) => state.queue.isL
 export const selectError = (state: { queue: QueueState }) => state.queue.error;
 export const selectQueueState = (state: { queue: QueueState }) => state.queue;
 
-/**
- * Calculate total remaining time in queue from current index
- */
-export const selectRemainingTime = (state: { queue: QueueState }) => {
-  return state.queue.tracks
-    .slice(state.queue.currentIndex + 1)
-    .reduce((sum, track) => sum + track.duration, 0);
-};
-
-/**
- * Calculate total queue duration
- */
-export const selectTotalQueueTime = (state: { queue: QueueState }) => {
-  return state.queue.tracks.reduce((sum, track) => sum + track.duration, 0);
-};
+// Derived selectors (selectRemainingTime, selectTotalQueueTime) are memoized
+// via createSelector in store/selectors/index.ts — import from there.
 
 export default queueSlice.reducer;
