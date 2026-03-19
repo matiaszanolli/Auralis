@@ -107,11 +107,11 @@ class TrackRepository:
                 ).scalars().first()
                 if not artist:
                     try:
-                        artist = Artist(name=artist_name, normalized_name=normalized)
-                        session.add(artist)
-                        session.flush()
+                        with session.begin_nested():  # savepoint so rollback is scoped
+                            artist = Artist(name=artist_name, normalized_name=normalized)
+                            session.add(artist)
+                            session.flush()
                     except IntegrityError:
-                        session.rollback()
                         artist = session.execute(
                             select(Artist).where(Artist.normalized_name == normalized)
                         ).scalars().first()
@@ -138,11 +138,11 @@ class TrackRepository:
                 genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
                 if not genre:
                     try:
-                        genre = Genre(name=genre_name)
-                        session.add(genre)
-                        session.flush()
+                        with session.begin_nested():  # savepoint so rollback is scoped
+                            genre = Genre(name=genre_name)
+                            session.add(genre)
+                            session.flush()
                     except IntegrityError:
-                        session.rollback()
                         genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
                 genres.append(genre)
 
