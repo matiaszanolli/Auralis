@@ -21,7 +21,7 @@ Before the transformation layer, the codebase had:
 **Example of the problem**:
 ```typescript
 // Backend returns:
-{ id: 1, title: "Album", track_count: 10, artwork_path: "/art.jpg" }
+{ id: 1, title: "Album", track_count: 10, artwork_url: "/art.jpg" }
 
 // Component expects:
 { id: 1, title: "Album", trackCount: 10, artworkUrl: "/art.jpg" }
@@ -58,7 +58,7 @@ export interface AlbumApiResponse {
   title: string;
   artist: string;
   year: number | null;
-  artwork_path: string | null;  // Backend field name (snake_case)
+  artwork_url: string | null;  // Backend field name (snake_case)
   track_count: number;           // Backend field name (snake_case)
   total_duration: number;        // Backend field name (snake_case)
 }
@@ -87,7 +87,7 @@ export function transformAlbum(apiAlbum: AlbumApiResponse): Album {
     title: apiAlbum.title,
     artist: apiAlbum.artist,
     year: apiAlbum.year ?? undefined,              // null → undefined
-    artworkUrl: apiAlbum.artwork_path ?? undefined, // snake → camel
+    artworkUrl: apiAlbum.artwork_url ?? undefined, // snake → camel
     trackCount: apiAlbum.track_count,              // snake → camel
     totalDuration: apiAlbum.total_duration,        // snake → camel
   };
@@ -367,7 +367,7 @@ describe('albumTransformer', () => {
       title: 'Test Album',
       artist: 'Test Artist',
       year: 2023,
-      artwork_path: '/art.jpg',
+      artwork_url: '/art.jpg',
       track_count: 10,
       total_duration: 2400,
     };
@@ -391,7 +391,7 @@ describe('albumTransformer', () => {
       title: 'Test Album',
       artist: 'Test Artist',
       year: null,               // Backend null
-      artwork_path: null,       // Backend null
+      artwork_url: null,       // Backend null
       track_count: 10,
       total_duration: 2400,
     };
@@ -470,7 +470,7 @@ const albums = apiResponse.albums.map(album => ({
   title: album.title,
   artist: album.artist,
   trackCount: album.track_count,      // Manual conversion
-  artworkUrl: album.artwork_path,     // Manual conversion
+  artworkUrl: album.artwork_url,     // Manual conversion
 }));
 ```
 

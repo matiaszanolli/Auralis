@@ -80,7 +80,7 @@ Implemented a production-ready, systematic data transformation layer that provid
 - ✅ Imports use `@/types/domain` consistently
 
 **Fields Verified**:
-- `artworkUrl` (was: `artwork_path`, `artwork_url`)
+- `artworkUrl` (was: `artwork_url`, `artwork_url`)
 - `trackCount` (was: `track_count`)
 - `albumCount` (was: `album_count`)
 - `totalDuration` (was: `total_duration`)
@@ -135,7 +135,7 @@ Implemented a production-ready, systematic data transformation layer that provid
 - Zero duration/track count handling
 - Array transformations (empty, single, multiple)
 - Paginated response handling
-- Field name conversions (artwork_path, track_count, total_duration)
+- Field name conversions (artwork_url, track_count, total_duration)
 - Type safety verification
 
 **Artist Transformer Tests** (13 suites):
@@ -194,7 +194,7 @@ Components (React - camelCase)
 **Data Flow Example**:
 ```typescript
 // 1. Backend returns (snake_case)
-{ id: 1, track_count: 10, artwork_path: "/art.jpg" }
+{ id: 1, track_count: 10, artwork_url: "/art.jpg" }
 
 // 2. Typed as AlbumApiResponse
 const apiResponse: AlbumApiResponse = await fetch(...)
@@ -311,7 +311,7 @@ const albums = apiResponse.albums.map(album => ({
   id: album.id,
   title: album.title,
   trackCount: album.track_count,      // Manual!
-  artworkUrl: album.artwork_path,     // Manual!
+  artworkUrl: album.artwork_url,     // Manual!
 }));
 
 // ❌ Inconsistent type definitions
