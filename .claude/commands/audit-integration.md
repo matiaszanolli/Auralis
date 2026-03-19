@@ -1,8 +1,16 @@
 # Backend-Frontend-Engine Integration Audit
 
-Trace the critical data flows between the Auralis audio engine, FastAPI backend, and React frontend. For each flow, verify that schemas match at every boundary, errors are handled on both sides, audio data is correctly transformed, and WebSocket messages are consistent. Then create GitHub issues for every new confirmed finding.
+Trace the 7 critical data flows between the Auralis audio engine, FastAPI backend, and React frontend.
 
-**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
+**Architecture**: This is an orchestrator. Each flow runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+
+See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
+
+## Parameters (from $ARGUMENTS)
+
+- `--flows <numbers>`: Comma-separated flow numbers (e.g., `1,3,5`). Default: all 7.
+- `--depth shallow|deep`: `shallow` = check key patterns only; `deep` = trace full data paths. Default: `deep`.
+- `--limit <N>`: Stop after N findings. Default: unlimited.
 
 ## Severity Examples
 
@@ -114,9 +122,25 @@ For EVERY flow, systematically check:
 - [ ] **Null handling**: What happens when optional fields are missing on either side?
 - [ ] **Case conversion**: camelCase ↔ snake_case at the API boundary?
 
-## Phase 1: Audit
+## Phase 1: Setup
 
-Write your report to: **`docs/audits/AUDIT_INTEGRATION_<TODAY>.md`** (use today's date).
+1. Parse `$ARGUMENTS` for `--flows`, `--depth`, `--limit`
+2. `mkdir -p /tmp/audit/integration`
+3. Fetch dedup baseline: `gh issue list --limit 200 --json number,title,state,labels > /tmp/audit/integration/issues.json`
+4. Scan `docs/audits/` for prior integration audit reports
+
+## Phase 2: Launch Flow Agents
+
+Launch one Task agent per flow (max 3 concurrent). Each agent writes its output to `/tmp/audit/integration/flow_<N>.md`.
+
+Every agent prompt MUST include:
+- The project root is `/mnt/data/src/matchering`
+- The depth parameter value
+- The limit parameter value (if set)
+- The per-flow verification checklist from this file
+- Reference to dedup file: `/tmp/audit/integration/issues.json`
+- The context management rules from `_audit-common.md`
+- The per-finding format below
 
 ### Per-Finding Format
 
@@ -133,6 +157,32 @@ Write your report to: **`docs/audits/AUDIT_INTEGRATION_<TODAY>.md`** (use today'
 - **Suggested Fix**: Which side should change and how
 ```
 
-## Phase 2: Publish to GitHub
+Flow → Output mapping:
+- Flow 1 (Track Playback) → `/tmp/audit/integration/flow_1.md`
+- Flow 2 (Library Browsing) → `/tmp/audit/integration/flow_2.md`
+- Flow 3 (Audio Enhancement) → `/tmp/audit/integration/flow_3.md`
+- Flow 4 (Library Scanning) → `/tmp/audit/integration/flow_4.md`
+- Flow 5 (WebSocket Lifecycle) → `/tmp/audit/integration/flow_5.md`
+- Flow 6 (Fingerprint & Similarity) → `/tmp/audit/integration/flow_6.md`
+- Flow 7 (Artwork) → `/tmp/audit/integration/flow_7.md`
 
-Use labels: severity label + domain labels (`backend`, `frontend`, `audio-integrity`, `websocket`, `streaming`, `library`, `fingerprint`) + `bug`
+## Phase 3: Merge
+
+1. Read all `/tmp/audit/integration/flow_*.md` files
+2. Combine into `docs/audits/AUDIT_INTEGRATION_<TODAY>.md` with structure:
+   - **Executive Summary** — Total findings by severity, key themes, most impactful boundary mismatches
+   - **Flow Coverage Matrix** — Table of all 7 flows with boundary-check status
+   - **Findings** — Grouped by severity (CRITICAL first), deduplicated across flows
+   - **Relationships** — Shared root causes, cross-flow boundary issues
+   - **Prioritized Fix Order** — What to fix first and why
+3. Remove cross-flow duplicates (same boundary issue found by multiple flows)
+
+## Phase 4: Cleanup
+
+1. `rm -rf /tmp/audit/integration`
+2. Inform user the report is ready
+3. Suggest: `/audit-publish docs/audits/AUDIT_INTEGRATION_<TODAY>.md`
+
+## Labels
+
+Use labels when publishing: severity label + domain labels (`backend`, `frontend`, `audio-integrity`, `websocket`, `streaming`, `library`, `fingerprint`) + `bug`

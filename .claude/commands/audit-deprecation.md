@@ -179,6 +179,15 @@ Write your report to: **`docs/audits/AUDIT_DEPRECATION_<TODAY>.md`** (use today'
 - **Risk**: What breaks if we don't migrate, and when
 ```
 
-## Phase 2: Publish to GitHub
+## Phase 2: Report Finalization
 
-Use labels: severity label + `deprecation` + layer labels (`backend`, `frontend`, `audio-engine`, `rust-dsp`, `config`) + `maintenance`
+1. Save the report to `docs/audits/AUDIT_DEPRECATION_<TODAY>.md`
+2. Do NOT create GitHub issues directly
+3. Inform the user the report is ready and suggest:
+   ```
+   /audit-publish docs/audits/AUDIT_DEPRECATION_<TODAY>.md
+   ```
+
+## Labels
+
+Use labels when publishing: severity label + `deprecation` + layer labels (`backend`, `frontend`, `audio-engine`, `rust-dsp`, `config`) + `maintenance`

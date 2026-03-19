@@ -1,8 +1,16 @@
 # Security-Focused Audit (OWASP Top 10)
 
-Perform a security audit of the Auralis music player aligned with the OWASP Top 10 (2021), then create GitHub issues for every new confirmed finding.
+Perform a deep security audit of the Auralis music player aligned with the OWASP Top 10 (2021).
 
-**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
+**Architecture**: This is an orchestrator. Each OWASP category runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+
+See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
+
+## Parameters (from $ARGUMENTS)
+
+- `--focus <categories>`: Comma-separated OWASP categories (e.g., `A01,A03,A07`). Default: all 10.
+- `--depth shallow|deep`: `shallow` = check key patterns only; `deep` = trace full data flows. Default: `deep`.
+- `--limit <N>`: Stop after N findings. Default: unlimited.
 
 ## Severity Examples
 
@@ -107,9 +115,25 @@ Trace how user-controlled data flows through the system:
 3. **WebSocket messages**: Frontend → WebSocket → audio_stream_controller → processing_engine → chunked_processor → audio engine — are messages validated?
 4. **Library scan paths**: User adds folder → scanner.py → filesystem walk → database insert — can symlinks or special paths escape?
 
-## Phase 1: Audit
+## Phase 1: Setup
 
-Write your report to: **`docs/audits/AUDIT_SECURITY_<TODAY>.md`** (use today's date, format YYYY-MM-DD).
+1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
+2. `mkdir -p /tmp/audit/security`
+3. Fetch dedup baseline: `gh issue list --limit 200 --json number,title,state,labels > /tmp/audit/security/issues.json`
+4. Scan `docs/audits/` for prior security audit reports
+
+## Phase 2: Launch Category Agents
+
+Launch one Task agent per OWASP category (max 3 concurrent). Each agent writes its output to `/tmp/audit/security/a<NN>.md`.
+
+Every agent prompt MUST include:
+- The project root is `/mnt/data/src/matchering`
+- The depth parameter value
+- The limit parameter value (if set)
+- Reference to dedup file: `/tmp/audit/security/issues.json`
+- The key security files table and data flow security traces from this file
+- The context management rules from `_audit-common.md`
+- The per-finding format below
 
 ### Per-Finding Format
 
@@ -126,6 +150,35 @@ Write your report to: **`docs/audits/AUDIT_SECURITY_<TODAY>.md`** (use today's d
 - **Suggested Fix**: Brief direction (1-3 sentences)
 ```
 
-## Phase 2: Publish to GitHub
+Category → Output mapping:
+- A01 (Broken Access Control) → `/tmp/audit/security/a01.md`
+- A02 (Cryptographic Failures) → `/tmp/audit/security/a02.md`
+- A03 (Injection) → `/tmp/audit/security/a03.md`
+- A04 (Insecure Design) → `/tmp/audit/security/a04.md`
+- A05 (Security Misconfiguration) → `/tmp/audit/security/a05.md`
+- A06 (Vulnerable Components) → `/tmp/audit/security/a06.md`
+- A07 (Auth Failures) → `/tmp/audit/security/a07.md`
+- A08 (Data Integrity Failures) → `/tmp/audit/security/a08.md`
+- A09 (Logging Failures) → `/tmp/audit/security/a09.md`
+- A10 (SSRF) → `/tmp/audit/security/a10.md`
 
-Use labels: severity label + `security` + `bug`
+## Phase 3: Merge
+
+1. Read all `/tmp/audit/security/a*.md` files
+2. Combine into `docs/audits/AUDIT_SECURITY_<TODAY>.md` with structure:
+   - **Executive Summary** — Total findings by severity, key themes, most exploitable issues
+   - **Data Flow Security Matrix** — Which flows are safe, which have gaps
+   - **Findings** — Grouped by severity (CRITICAL first), deduplicated across categories
+   - **Relationships** — How findings interact (e.g., A01 + A05 chaining)
+   - **Prioritized Fix Order** — What to fix first and why
+3. Remove cross-category duplicates (same file:line found by multiple categories)
+
+## Phase 4: Cleanup
+
+1. `rm -rf /tmp/audit/security`
+2. Inform user the report is ready
+3. Suggest: `/audit-publish docs/audits/AUDIT_SECURITY_<TODAY>.md`
+
+## Labels
+
+Use labels when publishing: severity label + `security` + `bug`

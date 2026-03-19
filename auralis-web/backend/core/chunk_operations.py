@@ -152,22 +152,23 @@ class ChunkOperations:
         total_duration: float | None = None
     ) -> np.ndarray:
         """
-        Extract the correct segment from a processed chunk based on its position.
+        Extract the correct segment from a context-trimmed chunk based on its position.
 
-        Consolidates logic from chunked_processor._extract_chunk_segment().
+        The input chunk has already had processing context removed by
+        ``ChunkBoundaryManager.trim_context()``, so its length equals
+        CHUNK_DURATION (~15 s).  This method slices it to the playback length:
 
-        Handles first chunk, last chunk, and middle chunks differently to ensure:
-        - No duplicate audio at boundaries
-        - Proper handling of overlap regions
-        - Correct duration for the final segment
+        - Chunk 0: CHUNK_DURATION (15 s) — full first chunk
+        - Middle:  CHUNK_INTERVAL (10 s) — non-overlapping portion
+        - Last:    remaining duration from chunk start to track end
 
         Args:
-            processed_chunk: Full processed chunk (may include overlap/context)
+            processed_chunk: Processed chunk (context already trimmed)
             chunk_index: Index of this chunk
             sample_rate: Sample rate
             chunk_duration: Duration of each chunk in seconds
             chunk_interval: Interval between chunk starts
-            overlap_duration: Overlap duration for crossfading
+            overlap_duration: (unused, kept for call-site compat)
             total_chunks: Total number of chunks (for last chunk detection)
             total_duration: Total duration (for last chunk calculation)
 
@@ -175,11 +176,13 @@ class ChunkOperations:
             Extracted segment ready for encoding
         """
         is_last = (total_chunks is not None) and (chunk_index == total_chunks - 1)
-        overlap_samples = int(round(overlap_duration * sample_rate))
 
         if chunk_index == 0:
-            # First chunk: extract exactly CHUNK_DURATION seconds (or full duration if shorter)
-            expected_samples = int(round(chunk_duration * sample_rate))
+            # First chunk: extract CHUNK_DURATION (or total_duration if shorter, e.g. single-chunk file)
+            max_duration = chunk_duration
+            if is_last and total_duration is not None:
+                max_duration = min(chunk_duration, total_duration)
+            expected_samples = int(round(max_duration * sample_rate))
             extracted = processed_chunk[:expected_samples]
             logger.debug(
                 f"✅ Chunk 0: extracted [0:{expected_samples}] samples "
@@ -187,39 +190,42 @@ class ChunkOperations:
             )
 
         elif is_last:
-            # Last chunk: skip the overlap, extract remaining duration
+            # Last chunk: extract remaining duration (context already trimmed)
             assert total_duration is not None
             chunk_start_time = chunk_index * chunk_interval
             remaining_duration = max(0, total_duration - chunk_start_time)
             expected_samples = int(round(remaining_duration * sample_rate))
 
-            # Skip the overlap region to avoid duplicate audio
-            extracted = processed_chunk[overlap_samples : overlap_samples + expected_samples]
+            extracted = processed_chunk[:expected_samples]
             logger.debug(
                 f"✅ Chunk {chunk_index} (last): starts {chunk_start_time:.1f}s, "
                 f"remaining {remaining_duration:.1f}s, {expected_samples} samples"
             )
 
         else:
-            # Regular chunk: skip the overlap, extract exactly CHUNK_DURATION seconds
-            expected_samples = int(round(chunk_duration * sample_rate))
-            # Skip the overlap region to avoid duplicate audio
-            extracted = processed_chunk[overlap_samples : overlap_samples + expected_samples]
+            # Regular chunk: extract CHUNK_INTERVAL (context already trimmed)
+            expected_samples = int(round(chunk_interval * sample_rate))
+            extracted = processed_chunk[:expected_samples]
             logger.debug(
-                f"✅ Chunk {chunk_index}: skipped {overlap_samples} overlap, "
-                f"extracted {expected_samples} samples ({expected_samples/sample_rate:.2f}s)"
+                f"✅ Chunk {chunk_index}: extracted {expected_samples} samples "
+                f"({expected_samples/sample_rate:.2f}s)"
             )
 
         # Verify and pad/trim if needed (edge case handling)
         current_samples = len(extracted)
 
-        if is_last:
+        if chunk_index == 0:
+            max_dur = chunk_duration
+            if is_last and total_duration is not None:
+                max_dur = min(chunk_duration, total_duration)
+            expected_for_validation = int(round(max_dur * sample_rate))
+        elif is_last:
             assert total_duration is not None
             chunk_start_time = chunk_index * chunk_interval
             remaining_duration = max(0, total_duration - chunk_start_time)
             expected_for_validation = int(round(remaining_duration * sample_rate))
         else:
-            expected_for_validation = int(round(chunk_duration * sample_rate))
+            expected_for_validation = int(round(chunk_interval * sample_rate))
 
         if current_samples < expected_for_validation:
             # Pad with silence if too short

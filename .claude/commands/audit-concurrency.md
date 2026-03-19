@@ -1,8 +1,16 @@
 # Concurrency and State Integrity Audit
 
-Audit Auralis for race conditions, missing locks, thread safety violations, state machine bugs, and unsafe concurrent access patterns in the audio player, processing pipeline, and backend services. Then create GitHub issues for every new confirmed finding.
+Perform a deep audit of Auralis for race conditions, missing locks, thread safety violations, state machine bugs, and unsafe concurrent access.
 
-**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
+**Architecture**: This is an orchestrator. Each dimension runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+
+See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
+
+## Parameters (from $ARGUMENTS)
+
+- `--focus <dimensions>`: Comma-separated dimension numbers or names (e.g., `1,3` or `player,pipeline,backend`). Default: all 5.
+- `--depth shallow|deep`: `shallow` = check key patterns only; `deep` = trace full execution paths. Default: `deep`.
+- `--limit <N>`: Stop after N findings. Default: unlimited.
 
 ## Severity Examples
 
@@ -74,9 +82,24 @@ Audit Auralis for race conditions, missing locks, thread safety violations, stat
 - [ ] WebSocket reconnection — does the frontend correctly re-sync state after reconnect?
 - [ ] Multiple rapid user actions (skip, skip, skip) — does the frontend handle rapid state changes?
 
-## Phase 1: Audit
+## Phase 1: Setup
 
-Write your report to: **`docs/audits/AUDIT_CONCURRENCY_<TODAY>.md`** (use today's date).
+1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
+2. `mkdir -p /tmp/audit/concurrency`
+3. Fetch dedup baseline: `gh issue list --limit 200 --json number,title,state,labels > /tmp/audit/concurrency/issues.json`
+4. Scan `docs/audits/` for prior concurrency audit reports
+
+## Phase 2: Launch Dimension Agents
+
+Launch one Task agent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/concurrency/dim_<N>.md`.
+
+Every agent prompt MUST include:
+- The project root is `/mnt/data/src/matchering`
+- The depth parameter value
+- The limit parameter value (if set)
+- Reference to dedup file: `/tmp/audit/concurrency/issues.json`
+- The context management rules from `_audit-common.md`
+- The per-finding format below
 
 ### Per-Finding Format
 
@@ -92,6 +115,30 @@ Write your report to: **`docs/audits/AUDIT_CONCURRENCY_<TODAY>.md`** (use today'
 - **Suggested Fix**: Lock type, copy pattern, or state machine change needed
 ```
 
-## Phase 2: Publish to GitHub
+Dimension → Output mapping:
+- Dimension 1 (Player Thread Safety) → `/tmp/audit/concurrency/dim_1.md`
+- Dimension 2 (Audio Processing) → `/tmp/audit/concurrency/dim_2.md`
+- Dimension 3 (Backend Streaming) → `/tmp/audit/concurrency/dim_3.md`
+- Dimension 4 (Library & Database) → `/tmp/audit/concurrency/dim_4.md`
+- Dimension 5 (Frontend State) → `/tmp/audit/concurrency/dim_5.md`
 
-Use labels: severity label + `concurrency` + `bug`
+## Phase 3: Merge
+
+1. Read all `/tmp/audit/concurrency/dim_*.md` files
+2. Combine into `docs/audits/AUDIT_CONCURRENCY_<TODAY>.md` with structure:
+   - **Executive Summary** — Total findings by severity, key themes, most impactful races
+   - **Concurrency Matrix** — Components, lock types, thread-safety status
+   - **Findings** — Grouped by severity (CRITICAL first), deduplicated across dimensions
+   - **Relationships** — Shared root causes, compound race conditions
+   - **Prioritized Fix Order** — What to fix first and why
+3. Remove cross-dimension duplicates (same file:line found by multiple dimensions)
+
+## Phase 4: Cleanup
+
+1. `rm -rf /tmp/audit/concurrency`
+2. Inform user the report is ready
+3. Suggest: `/audit-publish docs/audits/AUDIT_CONCURRENCY_<TODAY>.md`
+
+## Labels
+
+Use labels when publishing: severity label + `concurrency` + `bug`

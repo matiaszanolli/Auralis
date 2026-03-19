@@ -98,6 +98,15 @@ Write your report to: **`docs/audits/AUDIT_INCREMENTAL_<TODAY>.md`** (use today'
 - **Suggested Fix**: What needs to change
 ```
 
-## Phase 2: Publish to GitHub
+## Phase 2: Report Finalization
 
-Use labels: severity label + domain labels (`audio-integrity`, `dsp`, `player`, `backend`, `frontend`, `library`, `concurrency`, `websocket`, `streaming`) + `bug`
+1. Save the report to `docs/audits/AUDIT_INCREMENTAL_<TODAY>.md`
+2. Do NOT create GitHub issues directly
+3. Inform the user the report is ready and suggest:
+   ```
+   /audit-publish docs/audits/AUDIT_INCREMENTAL_<TODAY>.md
+   ```
+
+## Labels
+
+Use labels when publishing: severity label + domain labels (`audio-integrity`, `dsp`, `player`, `backend`, `frontend`, `library`, `concurrency`, `websocket`, `streaming`) + `bug`

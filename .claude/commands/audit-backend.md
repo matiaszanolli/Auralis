@@ -1,8 +1,16 @@
 # Backend Audit
 
-Audit the Auralis FastAPI backend for route handler correctness, WebSocket streaming reliability, chunked processing integrity, schema consistency, middleware configuration, async/sync boundary safety, error handling, and test coverage. Then create GitHub issues for every new confirmed finding.
+Perform a deep audit of the Auralis FastAPI backend — routes, WebSocket streaming, chunked processing, schemas, middleware.
 
-**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, deduplication rules, and GitHub issue template.
+**Architecture**: This is an orchestrator. Each dimension runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+
+See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
+
+## Parameters (from $ARGUMENTS)
+
+- `--focus <dimensions>`: Comma-separated dimension numbers or names (e.g., `1,3` or `routes,websocket,schemas`). Default: all 9.
+- `--depth shallow|deep`: `shallow` = check key patterns only; `deep` = trace full call graphs. Default: `deep`.
+- `--limit <N>`: Stop after N findings (useful for time-boxed audits). Default: unlimited.
 
 ## Scope
 
@@ -131,9 +139,24 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 - [ ] Error scenario tests — are corrupt files, missing resources, and timeouts tested?
 - [ ] Concurrency tests — are concurrent request scenarios tested?
 
-## Phase 1: Audit
+## Phase 1: Setup
 
-Write your report to: **`docs/audits/AUDIT_BACKEND_<TODAY>.md`** (use today's date, format YYYY-MM-DD).
+1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
+2. `mkdir -p /tmp/audit/backend`
+3. Fetch dedup baseline: `gh issue list --limit 200 --json number,title,state,labels > /tmp/audit/backend/issues.json`
+4. Scan `docs/audits/` for prior backend audit reports
+
+## Phase 2: Launch Dimension Agents
+
+Launch one Task agent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/backend/dim_<N>.md`.
+
+Every agent prompt MUST include:
+- The project root is `/mnt/data/src/matchering`
+- The depth parameter value
+- The limit parameter value (if set)
+- Reference to dedup file: `/tmp/audit/backend/issues.json`
+- The context management rules from `_audit-common.md`
+- The per-finding format below
 
 ### Per-Finding Format
 
@@ -149,6 +172,34 @@ Write your report to: **`docs/audits/AUDIT_BACKEND_<TODAY>.md`** (use today's da
 - **Suggested Fix**: Brief direction (1-3 sentences)
 ```
 
-## Phase 2: Publish to GitHub
+Dimension → Output mapping:
+- Dimension 1 (Route Handlers) → `/tmp/audit/backend/dim_1.md`
+- Dimension 2 (WebSocket Streaming) → `/tmp/audit/backend/dim_2.md`
+- Dimension 3 (Chunked Processing) → `/tmp/audit/backend/dim_3.md`
+- Dimension 4 (Processing Engine) → `/tmp/audit/backend/dim_4.md`
+- Dimension 5 (Schema Consistency) → `/tmp/audit/backend/dim_5.md`
+- Dimension 6 (Middleware & Config) → `/tmp/audit/backend/dim_6.md`
+- Dimension 7 (Error Handling) → `/tmp/audit/backend/dim_7.md`
+- Dimension 8 (Performance) → `/tmp/audit/backend/dim_8.md`
+- Dimension 9 (Test Coverage) → `/tmp/audit/backend/dim_9.md`
 
-Use labels: severity label + `backend` + `bug`
+## Phase 3: Merge
+
+1. Read all `/tmp/audit/backend/dim_*.md` files
+2. Combine into `docs/audits/AUDIT_BACKEND_<TODAY>.md` with structure:
+   - **Executive Summary** — Total findings by severity, key themes, most impactful issues
+   - **Route Coverage Matrix** — Table of all 18 router files with validation status
+   - **Findings** — Grouped by severity (CRITICAL first), deduplicated across dimensions
+   - **Relationships** — How findings interact, shared root causes
+   - **Prioritized Fix Order** — What to fix first and why
+3. Remove cross-dimension duplicates (same file:line found by multiple dimensions)
+
+## Phase 4: Cleanup
+
+1. `rm -rf /tmp/audit/backend`
+2. Inform user the report is ready
+3. Suggest: `/audit-publish docs/audits/AUDIT_BACKEND_<TODAY>.md`
+
+## Labels
+
+Use labels when publishing: severity label + `backend` + `bug`

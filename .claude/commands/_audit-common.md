@@ -17,14 +17,14 @@ All code lives in a single repo at `/mnt/data/src/matchering`:
 
 ## Severity Framework
 
-All audits use this unified 4-level scale. Each audit adds domain-specific examples.
+See `.claude/commands/_audit-severity.md` for the unified severity scale (CRITICAL / HIGH / MEDIUM / LOW) and classification rules.
 
-| Severity | Definition |
-|----------|-----------|
-| **CRITICAL** | Happening NOW in production. Causes data loss, audio corruption, or exploitable security breach. No workaround. |
-| **HIGH** | Triggered under realistic usage conditions. Must fix before next release. |
-| **MEDIUM** | Requires specific conditions or has workarounds. Fix within 2 sprints. |
-| **LOW** | Code quality, maintainability, or minor inconsistencies. Fix opportunistically. |
+## Context Management Rules
+
+- **Max 1500 lines per Read** — use `offset` and `limit` to paginate files larger than 1500 lines.
+- **Grep before Read** — search for the specific pattern first, then read only relevant sections.
+- **Incremental writes** — append findings to the report as you go; do not hold everything in memory.
+- **One dimension at a time** — complete and write up one dimension before starting the next.
 
 ## Methodology
 
@@ -61,53 +61,13 @@ Before reporting ANY finding:
    - **CLOSED**: Verify the fix is still in place. If regressed, report as "Regression of #NNN"
 5. If no match: Report as NEW
 
-## Phase 2: Publish to GitHub
+## Report Finalization
 
-After completing the audit report, for every finding with **Status: NEW** or **Regression**:
-
-1. **Create a GitHub issue** with:
-   - **Title**: `[<TODAY>] <SEVERITY> - <Short Title>`
-   - **Labels**: severity label (`critical`, `high`, `medium`, `low`) + domain-specific labels (see each audit) + `bug`
-   - **Body** (adapt fields to audit type):
-     ```
-     ## Summary
-     <description>
-
-     ## Evidence / Code Paths
-     - **File**: `<path>:<line-range>`
-     - **Code**: <relevant snippet>
-     - **Call path**: <how execution reaches the problem>
-
-     ## Impact
-     - **Severity**: <SEVERITY>
-     - **What breaks**: <failure mode>
-     - **When**: <trigger conditions>
-     - **Blast radius**: <scope>
-
-     ## Related Issues
-     - #NNN — <relationship>
-
-     ## Proposed Fix
-     <recommended approach>
-
-     ## Acceptance Criteria
-     - [ ] <criterion>
-
-     ## Test Plan
-     - <test description> — assert <expected>
-     ```
-
-2. **Cross-reference**: For each new issue that relates to an existing issue:
+1. Save your report to: `docs/audits/AUDIT_<TYPE>_<TODAY>.md` (YYYY-MM-DD format)
+2. Do NOT create GitHub issues directly during the audit
+3. Inform the user the report is ready and suggest:
    ```
-   gh issue comment <EXISTING_ISSUE> --body "Related: #<NEW_ISSUE> — <brief description>"
-   ```
-
-3. **Print a summary table** at the end:
-   ```
-   | Finding | Severity | Action | Issue |
-   |---------|----------|--------|-------|
-   | <title> | CRITICAL | CREATED | #NNN |
-   | <title> | HIGH | DUPLICATE of #NNN | — |
+   /audit-publish docs/audits/AUDIT_<TYPE>_<TODAY>.md
    ```
 
 ## Domain Labels

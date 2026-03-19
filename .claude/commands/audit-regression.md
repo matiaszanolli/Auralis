@@ -101,20 +101,13 @@ Write your report to: **`docs/audits/AUDIT_REGRESSION_<TODAY>.md`** (use today's
 Results: X PASS, Y PARTIAL, Z FAIL, W N/A
 ```
 
-## Phase 2: Create Issues for FAILs
+## Phase 2: Report Finalization
 
-For any fix with status **FAIL** (regression detected):
+1. Save the report to `docs/audits/AUDIT_REGRESSION_<TODAY>.md`
+2. Do NOT create GitHub issues directly
+3. Inform the user the report is ready and suggest:
+   ```
+   /audit-publish docs/audits/AUDIT_REGRESSION_<TODAY>.md
+   ```
 
-1. Create a GitHub issue:
-   - **Title**: `[<TODAY>] HIGH - Regression: <fix description> no longer present`
-   - **Labels**: `high`, `bug`, + relevant domain label (`audio-integrity`, `player`, `backend`, `library`, `concurrency`)
-   - **Body**: Summary of what regressed, original fix source, what code is now missing, impact, acceptance criteria
-
-## Phase 3: Create Issues for PARTIALs
-
-For any fix with status **PARTIAL** (fix present but no tests):
-
-1. Create a GitHub issue:
-   - **Title**: `[<TODAY>] LOW - Missing regression test: <fix description>`
-   - **Labels**: `low`, `enhancement`
-   - **Body**: Summary of the fix, why a regression test is needed, what the test should assert
+**Note**: When publishing, FAILs become HIGH severity issues and PARTIALs become LOW enhancement issues.

@@ -1,8 +1,16 @@
 # Audio Engine Audit
 
-Audit the Auralis core audio engine for sample integrity, DSP pipeline correctness, player state safety, I/O robustness, parallel processing correctness, analysis reliability, and library/database integrity. Then create GitHub issues for every new confirmed finding.
+Perform a deep audit of the Auralis core audio engine — DSP pipeline, player, analysis, library.
 
-**Shared protocol**: Read `.claude/commands/_audit-common.md` first for project layout, severity framework, methodology, critical invariants, deduplication rules, and GitHub issue template.
+**Architecture**: This is an orchestrator. Each dimension runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+
+See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
+
+## Parameters (from $ARGUMENTS)
+
+- `--focus <dimensions>`: Comma-separated dimension numbers or names (e.g., `1,3` or `sample-integrity,player`). Default: all 7.
+- `--depth shallow|deep`: `shallow` = check key patterns only; `deep` = trace full call graphs. Default: `deep`.
+- `--limit <N>`: Stop after N findings (useful for time-boxed audits). Default: unlimited.
 
 ## Scope
 
@@ -127,9 +135,24 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 - [ ] Cleanup — `cleanup_missing_files` handles large libraries without OOM? (Fix: `bd94fd59`)
 - [ ] Engine disposal — SQLAlchemy engine disposed on close? (Fix: `8adb8d0a`)
 
-## Phase 1: Audit
+## Phase 1: Setup
 
-Write your report to: **`docs/audits/AUDIT_ENGINE_<TODAY>.md`** (use today's date, format YYYY-MM-DD).
+1. Parse `$ARGUMENTS` for `--focus`, `--depth`, `--limit`
+2. `mkdir -p /tmp/audit/engine`
+3. Fetch dedup baseline: `gh issue list --limit 200 --json number,title,state,labels > /tmp/audit/engine/issues.json`
+4. Scan `docs/audits/` for prior engine audit reports
+
+## Phase 2: Launch Dimension Agents
+
+Launch one Task agent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/engine/dim_<N>.md`.
+
+Every agent prompt MUST include:
+- The project root is `/mnt/data/src/matchering`
+- The depth parameter value
+- The limit parameter value (if set)
+- Reference to dedup file: `/tmp/audit/engine/issues.json`
+- The context management rules from `_audit-common.md`
+- The per-finding format below
 
 ### Per-Finding Format
 
@@ -145,6 +168,31 @@ Write your report to: **`docs/audits/AUDIT_ENGINE_<TODAY>.md`** (use today's dat
 - **Suggested Fix**: Brief direction (1-3 sentences)
 ```
 
-## Phase 2: Publish to GitHub
+Dimension → Output mapping:
+- Dimension 1 (Sample Integrity) → `/tmp/audit/engine/dim_1.md`
+- Dimension 2 (DSP Pipeline) → `/tmp/audit/engine/dim_2.md`
+- Dimension 3 (Player State) → `/tmp/audit/engine/dim_3.md`
+- Dimension 4 (Audio I/O) → `/tmp/audit/engine/dim_4.md`
+- Dimension 5 (Parallel Processing) → `/tmp/audit/engine/dim_5.md`
+- Dimension 6 (Analysis) → `/tmp/audit/engine/dim_6.md`
+- Dimension 7 (Library & Database) → `/tmp/audit/engine/dim_7.md`
 
-Use labels: severity label + domain labels (`audio-integrity`, `dsp`, `player`, `library`, `fingerprint`, `performance`) + `bug`
+## Phase 3: Merge
+
+1. Read all `/tmp/audit/engine/dim_*.md` files
+2. Combine into `docs/audits/AUDIT_ENGINE_<TODAY>.md` with structure:
+   - **Executive Summary** — Total findings by severity, key themes, most impactful issues
+   - **Findings** — Grouped by severity (CRITICAL first), deduplicated across dimensions
+   - **Relationships** — How findings interact, shared root causes
+   - **Prioritized Fix Order** — What to fix first and why
+3. Remove cross-dimension duplicates (same file:line found by multiple dimensions)
+
+## Phase 4: Cleanup
+
+1. `rm -rf /tmp/audit/engine`
+2. Inform user the report is ready
+3. Suggest: `/audit-publish docs/audits/AUDIT_ENGINE_<TODAY>.md`
+
+## Labels
+
+Use labels when publishing: severity label + domain labels (`audio-integrity`, `dsp`, `player`, `library`, `fingerprint`, `performance`) + `bug`
