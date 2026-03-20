@@ -1,26 +1,3 @@
-/**
- * Player Controls Integration Tests
- *
- * Complete integration tests for PlayerBarV2 component
- * Part of 200-test frontend integration suite
- *
- * NOTE: These tests are skipped because the PlayerBarV2 component
- * does not exist yet. The actual player component is Player.tsx
- * which has a different API (hook-based, not props-based).
- * Re-enable when PlayerBarV2 is implemented.
- *
- * Test Categories:
- * 1. Initial Render (2 tests)
- * 2. Play/Pause (3 tests)
- * 3. Seek Functionality (3 tests)
- * 4. Volume Control (3 tests)
- * 5. Track Navigation (3 tests)
- * 6. Enhancement Toggle (2 tests)
- * 7. Track Info Display (2 tests)
- * 8. State Updates (2 tests)
- *
- * Total: 20 tests
- */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
