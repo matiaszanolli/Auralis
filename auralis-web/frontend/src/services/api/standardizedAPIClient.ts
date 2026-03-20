@@ -366,7 +366,8 @@ export class StandardizedAPIClient {
     offset: number = 0,
     options?: RequestOptions
   ): Promise<PaginatedResponse<T> | ErrorResponse> {
-    const url = `${endpoint}?limit=${limit}&offset=${offset}`;
+    const separator = endpoint.includes('?') ? '&' : '?';
+    const url = `${endpoint}${separator}limit=${limit}&offset=${offset}`;
     return this.request<T[]>(url, { ...options, method: 'GET' }) as Promise<PaginatedResponse<T> | ErrorResponse>;
   }
 
