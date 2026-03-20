@@ -194,21 +194,21 @@ class ProcessingService {
   }
 
   /**
-   * Submit audio file for processing (Phase 3c: Retry logic added)
+   * Submit audio file for processing.
+   *
+   * Not wrapped in retryWithBackoff — the POST is non-idempotent and
+   * blind retries would cause duplicate processing jobs (#2833).
    */
   async processAudio(
     inputPath: string,
     settings: ProcessingSettings,
     referencePath?: string
   ): Promise<{ job_id: string; status: string; message: string }> {
-    return await retryWithBackoff(
-      () => post('/api/processing/process', {
-        input_path: inputPath,
-        settings,
-        reference_path: referencePath,
-      }),
-      { maxRetries: 3, initialDelayMs: 200 }
-    );
+    return await post('/api/processing/process', {
+      input_path: inputPath,
+      settings,
+      reference_path: referencePath,
+    });
   }
 
   /**
