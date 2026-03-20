@@ -126,7 +126,7 @@ export interface QueueHistoryActions {
  * ```
  */
 export function useQueueHistory(): QueueHistoryActions {
-  const api = useRestAPI();
+  const { get, post, delete: apiDelete } = useRestAPI();
 
   // Local state
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -143,7 +143,7 @@ export function useQueueHistory(): QueueHistoryActions {
   useEffect(() => {
     const fetchInitialHistory = async () => {
       try {
-        const response = await api.get<{
+        const response = await get<{
           history: HistoryEntry[];
           count: number;
         }>('/api/player/queue/history');
@@ -159,7 +159,7 @@ export function useQueueHistory(): QueueHistoryActions {
     };
 
     fetchInitialHistory();
-  }, [api]);
+  }, [get]);
 
   /**
    * Record a queue operation to history
@@ -179,7 +179,7 @@ export function useQueueHistory(): QueueHistoryActions {
       setError(null);
 
       try {
-        const response = await api.post<HistoryEntry>(
+        const response = await post<HistoryEntry>(
           '/api/player/queue/history',
           {
             operation,
@@ -207,7 +207,7 @@ export function useQueueHistory(): QueueHistoryActions {
         throw err;
       }
     },
-    [api]
+    [post]
   );
 
   /**
@@ -225,7 +225,7 @@ export function useQueueHistory(): QueueHistoryActions {
 
     try {
       // Call undo endpoint
-      await api.post('/api/player/queue/undo', {});
+      await post('/api/player/queue/undo', {});
 
       // Remove the undone entry from local history
       setHistory((prev) => prev.slice(1));
@@ -238,7 +238,7 @@ export function useQueueHistory(): QueueHistoryActions {
       setIsLoading(false);
       throw err;
     }
-  }, [api, canUndo]);
+  }, [post, canUndo]);
 
   /**
    * Redo (not yet implemented)
@@ -259,7 +259,7 @@ export function useQueueHistory(): QueueHistoryActions {
     setError(null);
 
     try {
-      await api.delete('/api/player/queue/history');
+      await apiDelete('/api/player/queue/history');
 
       setHistory([]);
       setHistoryCount(0);
@@ -271,7 +271,7 @@ export function useQueueHistory(): QueueHistoryActions {
       setIsLoading(false);
       throw err;
     }
-  }, [api]);
+  }, [apiDelete]);
 
   /**
    * Clear error state
