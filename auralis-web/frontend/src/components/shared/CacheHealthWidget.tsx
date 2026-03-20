@@ -252,7 +252,7 @@ export function CacheHealthWidget({
         )}
 
         {/* Trend Indicator */}
-        <div style={{ fontSize: '18px' }}>{trend}</div>
+        <div style={{ fontSize: tokens.typography.fontSize.lg }}>{trend}</div>
 
         {/* Expand Hint */}
         {interactive && (

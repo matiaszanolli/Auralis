@@ -27,7 +27,7 @@ export const SimilarityOverallScore = ({
         Overall Similarity
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-        <Typography variant="h3" sx={{ color, fontWeight: 700 }}>
+        <Typography variant="h3" sx={{ color, fontWeight: tokens.typography.fontWeight.bold }}>
           {Math.round(score * 100)}%
         </Typography>
         <Chip
@@ -36,7 +36,7 @@ export const SimilarityOverallScore = ({
           sx={{
             backgroundColor: color,
             color: tokens.colors.text.primary,
-            fontWeight: 600,
+            fontWeight: tokens.typography.fontWeight.semibold,
           }}
         />
       </Box>

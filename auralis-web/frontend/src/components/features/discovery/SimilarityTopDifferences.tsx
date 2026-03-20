@@ -38,7 +38,7 @@ export const SimilarityTopDifferences = ({
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
             <Typography
               variant="caption"
-              sx={{ color: tokens.colors.text.primary, fontWeight: 500 }}
+              sx={{ color: tokens.colors.text.primary, fontWeight: tokens.typography.fontWeight.medium }}
             >
               {formatDimensionName(diff.dimension)}
             </Typography>

@@ -135,7 +135,7 @@ export const TrackDisplay = ({
       <div
         style={{
           fontSize: tokens.typography.fontSize.md,
-          fontWeight: 'bold',
+          fontWeight: tokens.typography.fontWeight.bold,
           color: tokens.colors.text.primary,
           whiteSpace: 'nowrap',
           overflow: 'hidden',

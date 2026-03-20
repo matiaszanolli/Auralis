@@ -64,7 +64,7 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
       {isScanning ? (
         <Box sx={{ p: tokens.spacing.md }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontWeight: 500 }}>
+            <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontWeight: tokens.typography.fontWeight.medium }}>
               Scanning…
             </Typography>
             <Typography variant="caption" sx={{ color: tokens.colors.text.metadata }}>

@@ -70,7 +70,7 @@ export const ArtistAvatar = styled(Avatar)({
   height: 56,
   marginRight: '20px',
   background: `linear-gradient(135deg, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.secondary} 100%)`,
-  fontSize: '24px',
+  fontSize: tokens.typography.fontSize.xl,
 });
 
 /**
@@ -78,7 +78,7 @@ export const ArtistAvatar = styled(Avatar)({
  */
 export const ArtistName = styled(Typography)({
   fontSize: '17px',
-  fontWeight: 500,
+  fontWeight: tokens.typography.fontWeight.medium,
   color: tokens.colors.text.primary,
   letterSpacing: '0.01em',
   transition: 'color 0.2s ease',
@@ -88,8 +88,8 @@ export const ArtistName = styled(Typography)({
  * ArtistInfo - Secondary information (album/track counts)
  */
 export const ArtistInfo = styled(Typography)({
-  fontSize: '13px',
-  fontWeight: 400,
+  fontSize: tokens.typography.fontSize.sm,
+  fontWeight: tokens.typography.fontWeight.normal,
   color: tokens.colors.text.tertiary,
   marginTop: '6px',
   letterSpacing: '0.005em',
@@ -111,8 +111,8 @@ export const SectionHeader = styled(Box)({
  * Quiet index header that organizes without dominating
  */
 export const AlphabetDivider = styled(Typography)({
-  fontSize: '12px',
-  fontWeight: 600,
+  fontSize: tokens.typography.fontSize.xs,
+  fontWeight: tokens.typography.fontWeight.semibold,
   color: tokens.colors.text.tertiary,
   textTransform: 'uppercase',
   letterSpacing: '0.08em',

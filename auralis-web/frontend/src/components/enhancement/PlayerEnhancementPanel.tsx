@@ -312,7 +312,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   modeToggleLabel: {
     fontSize: '0.6875rem',
-    fontWeight: 600,
+    fontWeight: tokens.typography.fontWeight.semibold,
     color: tokens.colors.text.tertiary,
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
@@ -331,7 +331,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: `1px solid ${tokens.colors.border.light}`,
     borderRadius: '4px',
     fontSize: '0.8125rem',
-    fontWeight: 500,
+    fontWeight: tokens.typography.fontWeight.medium,
     cursor: 'pointer',
     transition: 'all 150ms ease-in-out',
     whiteSpace: 'nowrap',
@@ -358,7 +358,7 @@ const styles: Record<string, React.CSSProperties> = {
   streamingIndicator: {
     display: 'block',
     fontSize: '0.625rem',
-    fontWeight: 400,
+    fontWeight: tokens.typography.fontWeight.normal,
     marginTop: '2px',
     opacity: 0.8,
   } as React.CSSProperties,

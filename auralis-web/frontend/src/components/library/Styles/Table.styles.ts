@@ -27,7 +27,7 @@ export const StyledTableRow = styled(TableRow)(({ theme: _theme }) => ({
     },
     '& .track-title': {
       color: tokens.colors.accent.primary,
-      fontWeight: 'bold'
+      fontWeight: tokens.typography.fontWeight.bold
     }
   }
 }));

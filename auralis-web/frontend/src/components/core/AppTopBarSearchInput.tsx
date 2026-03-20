@@ -35,7 +35,7 @@ export const AppTopBarSearchInput = ({
       <SearchIcon
         sx={{
           color: tokens.colors.opacityScale.accent.veryStrong,
-          fontSize: '18px',
+          fontSize: tokens.typography.fontSize.lg,
           opacity: 0.6,
         }}
       />
@@ -54,7 +54,7 @@ export const AppTopBarSearchInput = ({
           '& .MuiOutlinedInput-input': {
             padding: 0,
             color: 'var(--silver)',
-            fontSize: '14px',
+            fontSize: tokens.typography.fontSize.base,
             '&::placeholder': {
               color: tokens.colors.opacityScale.accent.standard,
               opacity: 1,

@@ -101,8 +101,8 @@ export const TrackNumberBox = styled(Box)({
 });
 
 export const TrackNumber = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) => ({
-  fontSize: '14px',
-  fontWeight: 500,
+  fontSize: tokens.typography.fontSize.base,
+  fontWeight: tokens.typography.fontWeight.medium,
   color: iscurrent === 'true' ? tokens.colors.accent.primary : tokens.colors.text.secondary,
   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 }));
@@ -125,7 +125,7 @@ export const PlayButton = styled(IconButton)({
   color: tokens.colors.accent.primary,
 
   '& .MuiSvgIcon-root': {
-    fontSize: '20px',
+    fontSize: tokens.typography.fontSize.lg,
   },
 
   '&:hover': {
@@ -164,8 +164,8 @@ export const TrackInfo = styled(Box)({
 });
 
 export const TrackTitle = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) => ({
-  fontSize: '14px',
-  fontWeight: iscurrent === 'true' ? 600 : 500,
+  fontSize: tokens.typography.fontSize.base,
+  fontWeight: iscurrent === 'true' ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.medium,
   color: tokens.colors.text.primary,
   opacity: iscurrent === 'true' ? 1 : 0.9,           // Phase 2: Subtle reduction for non-current (sheet music, not stage)
   overflow: 'hidden',
@@ -176,8 +176,8 @@ export const TrackTitle = styled(Typography)<{ iscurrent?: string }>(({ iscurren
 }));
 
 export const TrackArtist = styled(Typography)({
-  fontSize: '13px',
-  fontWeight: 400,
+  fontSize: tokens.typography.fontSize.sm,
+  fontWeight: tokens.typography.fontWeight.normal,
   color: tokens.colors.text.secondary,
   opacity: 0.7,                                      // Phase 2: Muted metadata (second-level hierarchy)
   overflow: 'hidden',
@@ -188,8 +188,8 @@ export const TrackArtist = styled(Typography)({
 
 export const TrackAlbum = styled(Typography)(
   {
-    fontSize: '13px',
-    fontWeight: 400,
+    fontSize: tokens.typography.fontSize.sm,
+    fontWeight: tokens.typography.fontWeight.normal,
     color: tokens.colors.text.secondary,
     opacity: 0.7,                                    // Phase 2: Muted metadata (second-level hierarchy)
     minWidth: '200px',
@@ -207,8 +207,8 @@ export const TrackAlbum = styled(Typography)(
 );
 
 export const TrackDuration = styled(Typography)({
-  fontSize: '13px',
-  fontWeight: 400,
+  fontSize: tokens.typography.fontSize.sm,
+  fontWeight: tokens.typography.fontWeight.normal,
   color: tokens.colors.text.disabled,
   opacity: 0.5,                                      // Phase 2: Ghosted duration (third-level hierarchy)
   minWidth: '50px',
@@ -232,7 +232,7 @@ export const MoreButton = styled(IconButton)({
   color: tokens.colors.text.secondary,
 
   '& .MuiSvgIcon-root': {
-    fontSize: '20px',
+    fontSize: tokens.typography.fontSize.lg,
   },
 
   '&:hover': {

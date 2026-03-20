@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { settingsService, UserSettings, SettingsUpdate } from '@/services/settingsService';
+import { getElectronAPI } from '@/utils/electron';
 
 export interface UseSettingsDialogProps {
   open: boolean;
@@ -93,9 +94,11 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
     let folder: string | null = null;
 
     // Use Electron folder picker if available
-    if ((window as any).electronAPI && (window as any).electronAPI.selectFolder) {
+    const electronAPI = getElectronAPI();
+    if (electronAPI?.selectFolder) {
       try {
-        folder = await (window as any).electronAPI.selectFolder();
+        const result = await electronAPI.selectFolder();
+        folder = result?.[0] ?? null;
       } catch (err) {
         console.error('Electron folder picker failed:', err);
       }

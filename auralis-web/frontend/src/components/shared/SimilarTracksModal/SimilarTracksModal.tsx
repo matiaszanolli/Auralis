@@ -124,7 +124,7 @@ export const SimilarTracksModal = ({
         borderBottom: `1px solid ${tokens.colors.border.light}`,
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.md }}>
-          <Explore sx={{ color: tokens.colors.accent.primary, fontSize: '28px' }} />
+          <Explore sx={{ color: tokens.colors.accent.primary, fontSize: tokens.typography.fontSize['2xl'] }} />
           <Box>
             <Typography variant="h6" sx={{
               fontFamily: tokens.typography.fontFamily.header,  // Manrope for headers
@@ -255,7 +255,7 @@ export const SimilarTracksModal = ({
                         transform: 'scale(0.8)',
                         transition: tokens.transitions.fast,    // 150ms
                         color: tokens.colors.accent.primary,
-                        fontSize: '20px',
+                        fontSize: tokens.typography.fontSize.lg,
                       }}
                     />
                   </Box>

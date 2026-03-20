@@ -21,7 +21,7 @@ import * as playlistService from '../../../services/playlistService';
 import { tokens } from '@/design-system';
 
 const PlaylistMenuItem = styled(MenuItem)({
-  fontSize: '13px',
+  fontSize: tokens.typography.fontSize.sm,
   color: tokens.colors.text.secondary,
   padding: '8px 16px 8px 48px',
   transition: 'all 0.2s ease',
@@ -33,10 +33,10 @@ const PlaylistMenuItem = styled(MenuItem)({
 });
 
 const CreateNewMenuItem = styled(MenuItem)({
-  fontSize: '13px',
+  fontSize: tokens.typography.fontSize.sm,
   color: tokens.colors.accent.primary,
   padding: '8px 16px 8px 48px',
-  fontWeight: 600,
+  fontWeight: tokens.typography.fontWeight.semibold,
   transition: 'all 0.2s ease',
   '&:hover': {
     background: tokens.colors.opacityScale.accent.lighter,
@@ -45,8 +45,8 @@ const CreateNewMenuItem = styled(MenuItem)({
 });
 
 const SectionLabel = styled(Box)({
-  fontSize: '11px',
-  fontWeight: 600,
+  fontSize: tokens.typography.fontSize.xs,
+  fontWeight: tokens.typography.fontWeight.semibold,
   color: tokens.colors.text.disabled,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
@@ -91,7 +91,7 @@ export const PlaylistSection = ({
       )}
 
       <CreateNewMenuItem onClick={onCreateNewPlaylist}>
-        <Add sx={{ fontSize: '16px', mr: 1 }} />
+        <Add sx={{ fontSize: tokens.typography.fontSize.md, mr: 1 }} />
         Create New Playlist
       </CreateNewMenuItem>
     </>

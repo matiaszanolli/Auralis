@@ -37,7 +37,7 @@ export const StyledCheckbox = styled(Checkbox)(({ theme: _theme }) => ({
     opacity: 1,
   },
   '& .MuiSvgIcon-root': {
-    fontSize: '20px',
+    fontSize: tokens.typography.fontSize.lg,
   },
 }));
 

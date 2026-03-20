@@ -86,7 +86,7 @@ const StyledAlbumArt = styled(Box)<StyledAlbumArtProps>(({ size, useTokens }) =>
 
 const PlaceholderIcon = styled(MusicNoteIcon)(({ theme: _theme }) => ({
   color: tokens.colors.text.tertiary,
-  fontSize: '24px',
+  fontSize: tokens.typography.fontSize.xl,
 }));
 
 export const AlbumArtDisplay = React.memo<AlbumArtDisplayProps>(({

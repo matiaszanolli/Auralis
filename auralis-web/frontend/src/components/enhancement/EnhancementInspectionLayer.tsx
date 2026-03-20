@@ -255,13 +255,13 @@ export const EnhancementInspectionLayer = ({
             )}
             {fingerprintStatus === 'complete' && (
               <>
-                <span style={{ fontSize: '16px' }}>✅</span>
+                <span style={{ fontSize: tokens.typography.fontSize.md }}>✅</span>
                 <span style={styles.fingerprintText}>Audio analysis complete</span>
               </>
             )}
             {(fingerprintStatus === 'error' || fingerprintStatus === 'failed') && (
               <>
-                <span style={{ fontSize: '16px' }}>⚠️</span>
+                <span style={{ fontSize: tokens.typography.fontSize.md }}>⚠️</span>
                 <span style={{ ...styles.fingerprintText, color: tokens.colors.semantic.error }}>
                   {fingerprintMessage || 'Audio analysis failed'}
                 </span>
@@ -528,7 +528,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   presetIcon: {
-    fontSize: '20px',
+    fontSize: tokens.typography.fontSize.lg,
     minWidth: '24px',
     textAlign: 'center' as const,
   },
@@ -554,8 +554,8 @@ const styles: Record<string, React.CSSProperties> = {
   presetCheckmark: {
     marginLeft: 'auto',
     color: tokens.colors.semantic.success,
-    fontSize: '16px',
-    fontWeight: 'bold',
+    fontSize: tokens.typography.fontSize.md,
+    fontWeight: tokens.typography.fontWeight.bold,
   },
 
   intensitySection: {
@@ -631,7 +631,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: tokens.spacing.sm,                      // 8px
-    fontWeight: 500,
+    fontWeight: tokens.typography.fontWeight.medium,
   },
 
   statusMetrics: {

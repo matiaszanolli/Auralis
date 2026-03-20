@@ -33,7 +33,7 @@ export const TrackCardInfo = ({
         <Typography
           variant="subtitle1"
           sx={{
-            fontWeight: isPlaying ? 700 : 600, // Higher contrast for visual anchor
+            fontWeight: isPlaying ? tokens.typography.fontWeight.bold : tokens.typography.fontWeight.semibold, // Higher contrast for visual anchor
             color: tokens.colors.text.primary,
             mb: 1,
             lineHeight: 1.4,
@@ -52,7 +52,7 @@ export const TrackCardInfo = ({
           variant="body2"
           sx={{
             color: tokens.colors.text.secondary,
-            fontWeight: 400, // Reduced from default (less weight variance)
+            fontWeight: tokens.typography.fontWeight.normal, // Reduced from default (less weight variance)
             lineHeight: 1.5, // Increased for secondary text breathing room
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -69,7 +69,7 @@ export const TrackCardInfo = ({
           variant="caption"
           sx={{
             color: tokens.colors.text.tertiary, // Changed from disabled to tertiary (better hierarchy)
-            fontWeight: 400,
+            fontWeight: tokens.typography.fontWeight.normal,
             lineHeight: 1.5,
             overflow: 'hidden',
             textOverflow: 'ellipsis',

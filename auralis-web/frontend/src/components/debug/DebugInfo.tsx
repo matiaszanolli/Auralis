@@ -38,13 +38,13 @@ export const DebugInfo = () => {
         padding: `${spacingXSmall} ${spacingSmall}`,
         borderRadius: '8px',
         fontFamily: 'monospace',
-        fontSize: '12px',
+        fontSize: tokens.typography.fontSize.xs,
         zIndex: 10000,
         border: `1px solid ${tokens.colors.accent.primary}`,
         maxWidth: '300px',
       }}
     >
-      <div style={{ marginBottom: spacingXSmall, fontWeight: 'bold' }}>🎵 Auralis Debug</div>
+      <div style={{ marginBottom: spacingXSmall, fontWeight: tokens.typography.fontWeight.bold }}>🎵 Auralis Debug</div>
       <div>Version: {versionString}</div>
       <div>Commit: {commitId}</div>
       <div>Mode: {import.meta.env.MODE}</div>

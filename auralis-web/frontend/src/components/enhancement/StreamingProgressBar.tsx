@@ -293,7 +293,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: tokens.colors.bg.level1,
     borderRadius: '6px',
     border: `1px solid ${tokens.colors.border.medium}`,
-    fontSize: '12px',
+    fontSize: tokens.typography.fontSize.xs,
   },
 
   section: {
@@ -310,9 +310,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   progressPercent: {
-    fontWeight: 600,
+    fontWeight: tokens.typography.fontWeight.semibold,
     color: tokens.colors.text.primary,
-    fontSize: '13px',
+    fontSize: tokens.typography.fontSize.sm,
   },
 
   progressBarOuter: {
@@ -343,17 +343,17 @@ const styles: Record<string, React.CSSProperties> = {
 
   chunkPercentage: {
     color: tokens.colors.text.secondary,
-    fontSize: '11px',
+    fontSize: tokens.typography.fontSize.xs,
   },
 
   label: {
     color: tokens.colors.text.secondary,
-    fontWeight: 500,
+    fontWeight: tokens.typography.fontWeight.medium,
   },
 
   value: {
     color: tokens.colors.text.primary,
-    fontWeight: 600,
+    fontWeight: tokens.typography.fontWeight.semibold,
   },
 
   bufferHeader: {
@@ -365,8 +365,8 @@ const styles: Record<string, React.CSSProperties> = {
   bufferBadge: {
     padding: '2px 8px',
     borderRadius: '4px',
-    fontSize: '11px',
-    fontWeight: 600,
+    fontSize: tokens.typography.fontSize.xs,
+    fontWeight: tokens.typography.fontWeight.semibold,
   },
 
   bufferBar: {
@@ -402,7 +402,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   metricLabel: {
     color: tokens.colors.text.secondary,
-    fontSize: '11px',
+    fontSize: tokens.typography.fontSize.xs,
   },
 
   timeInfo: {

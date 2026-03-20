@@ -68,14 +68,14 @@ export const LogoText = styled(Typography, {
   shouldForwardProp: (prop) => prop !== 'animated',
 })<{ size: string; animated?: boolean }>(({ size, animated }) => {
   const fontSize = {
-    small: '16px',
-    medium: '20px',
-    large: '28px',
+    small: tokens.typography.fontSize.md,
+    medium: tokens.typography.fontSize.lg,
+    large: tokens.typography.fontSize['2xl'],
   }[size];
 
   return {
     fontSize,
-    fontWeight: 700,
+    fontWeight: tokens.typography.fontWeight.bold,
     background: tokens.gradients.aurora,
     backgroundClip: 'text',
     WebkitBackgroundClip: 'text',

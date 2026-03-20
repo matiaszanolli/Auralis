@@ -1,5 +1,6 @@
 import React from 'react';
 import { MusicNote } from '@mui/icons-material';
+import { tokens } from '@/design-system';
 import { AlbumArtThumbnail } from './TrackRow.styles';
 
 interface TrackRowAlbumArtProps {
@@ -27,7 +28,7 @@ const TrackRowAlbumArtComponent = ({
       {shouldShowImage && albumArt ? (
         <img src={albumArt} alt={album || title} onError={onImageError} />
       ) : (
-        <MusicNote sx={{ color: 'rgba(255, 255, 255, 0.3)', fontSize: '20px' }} />
+        <MusicNote sx={{ color: 'rgba(255, 255, 255, 0.3)', fontSize: tokens.typography.fontSize.lg }} />
       )}
     </AlbumArtThumbnail>
   );

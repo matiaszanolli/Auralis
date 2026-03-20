@@ -51,7 +51,7 @@ export const SimilarTracksListItem = ({
                   variant="body2"
                   sx={{
                     color: tokens.colors.text.primary,
-                    fontWeight: 500,
+                    fontWeight: tokens.typography.fontWeight.medium,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -68,7 +68,7 @@ export const SimilarTracksListItem = ({
                     sx={{
                       height: 20,
                       fontSize: '0.7rem',
-                      fontWeight: 600,
+                      fontWeight: tokens.typography.fontWeight.semibold,
                       backgroundColor: getSimilarityColor(track.similarity_score),
                       color: tokens.colors.text.primary,
                       '& .MuiChip-label': {

@@ -230,7 +230,7 @@ const styles = {
     border: 'none',
     cursor: 'pointer',
     color: tokens.colors.text.secondary,
-    fontSize: '20px',
+    fontSize: tokens.typography.fontSize.lg,
   },
 
   form: {

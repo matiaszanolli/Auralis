@@ -18,8 +18,8 @@ export const ClearButton = styled(IconButton)({
 });
 
 export const ResultCount = styled(Typography)({
-  fontSize: '12px',
-  fontWeight: 500,
+  fontSize: tokens.typography.fontSize.xs,
+  fontWeight: tokens.typography.fontWeight.medium,
   color: tokens.colors.text.secondary,
   padding: '0 12px',
   whiteSpace: 'nowrap',

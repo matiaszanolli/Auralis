@@ -57,7 +57,7 @@ export const RadialCenterHub = ({ preset, size }: RadialCenterHubProps) => {
         variant="caption"
         sx={{
           color: tokens.colors.text.primary,
-          fontWeight: 700,
+          fontWeight: tokens.typography.fontWeight.bold,
           fontSize: 13,
           textTransform: 'uppercase',
           letterSpacing: 1.2,

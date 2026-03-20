@@ -17,5 +17,5 @@ export const TrackCountBox = styled(Box)({
 
 export const TrackCountText = styled(Box)({
   color: tokens.colors.text.secondary,
-  fontSize: '14px',
+  fontSize: tokens.typography.fontSize.base,
 });

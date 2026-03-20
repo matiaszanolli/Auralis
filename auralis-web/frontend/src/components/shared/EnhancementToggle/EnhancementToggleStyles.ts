@@ -32,7 +32,7 @@ export const ToggleButton = styled(IconButton, {
   },
 
   '& .MuiSvgIcon-root': {
-    fontSize: '20px',
+    fontSize: tokens.typography.fontSize.lg,
     transition: tokens.transitions.transform,
     transform: $isEnabled ? 'rotate(0deg)' : 'rotate(-180deg)',
   },

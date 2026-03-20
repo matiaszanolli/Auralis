@@ -55,7 +55,7 @@ export const DropIndicator = styled(Box)(({ theme }) => ({
 
 export const DropIndicatorText = styled(Typography)(({ theme }) => ({
   color: theme.palette.primary.main,
-  fontWeight: 600,
+  fontWeight: tokens.typography.fontWeight.semibold,
   fontSize: '0.875rem',
 }));
 

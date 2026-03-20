@@ -87,7 +87,7 @@ export const TrackCardOverlay = ({
           variant="caption"
           sx={{
             color: isHovered ? tokens.colors.text.primary : tokens.colors.text.tertiary,
-            fontWeight: 500,
+            fontWeight: tokens.typography.fontWeight.medium,
             fontSize: '0.7rem',
             transition: 'color 0.2s ease',
           }}

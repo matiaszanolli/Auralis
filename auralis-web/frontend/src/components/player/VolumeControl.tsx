@@ -229,7 +229,7 @@ export const VolumeControl = ({
           fontSize: tokens.typography.fontSize.sm,
           color: tokens.colors.text.secondary,
           fontFamily: tokens.typography.fontFamily.mono,
-          fontWeight: 'bold',
+          fontWeight: tokens.typography.fontWeight.bold,
         }}
         data-testid="volume-control-percentage"
       >

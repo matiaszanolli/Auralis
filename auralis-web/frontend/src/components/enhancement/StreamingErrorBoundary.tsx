@@ -364,7 +364,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: `1px solid ${tokens.colors.semantic.error}`,
     borderLeftWidth: '4px',
     borderRadius: '6px',
-    fontSize: '13px',
+    fontSize: tokens.typography.fontSize.sm,
     animation: 'slideInDown 300ms ease-out',
   },
 
@@ -382,7 +382,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   icon: {
-    fontSize: '24px',
+    fontSize: tokens.typography.fontSize.xl,
   },
 
   textSection: {
@@ -393,19 +393,19 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   title: {
-    fontWeight: 600,
-    fontSize: '14px',
+    fontWeight: tokens.typography.fontWeight.semibold,
+    fontSize: tokens.typography.fontSize.base,
     color: tokens.colors.text.primary,
   },
 
   description: {
-    fontSize: '12px',
+    fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.text.secondary,
     lineHeight: 1.4,
   },
 
   details: {
-    fontSize: '11px',
+    fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.text.secondary,
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     backgroundColor: tokens.colors.bg.level2,
@@ -417,9 +417,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   retryIndicator: {
-    fontSize: '11px',
+    fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.semantic.warning,
-    fontWeight: 500,
+    fontWeight: tokens.typography.fontWeight.medium,
   },
 
   actions: {
@@ -435,8 +435,8 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '11px',
-    fontWeight: 600,
+    fontSize: tokens.typography.fontSize.xs,
+    fontWeight: tokens.typography.fontWeight.semibold,
     transition: 'all 150ms ease-in-out',
     whiteSpace: 'nowrap',
   },
@@ -448,8 +448,8 @@ const styles: Record<string, React.CSSProperties> = {
     border: `1px solid ${tokens.colors.border.medium}`,
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '11px',
-    fontWeight: 600,
+    fontSize: tokens.typography.fontSize.xs,
+    fontWeight: tokens.typography.fontWeight.semibold,
     transition: 'all 150ms ease-in-out',
     whiteSpace: 'nowrap',
   },
@@ -460,7 +460,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: tokens.colors.semantic.error,
     border: 'none',
     cursor: 'pointer',
-    fontSize: '16px',
+    fontSize: tokens.typography.fontSize.md,
     minWidth: '24px',
     transition: 'opacity 150ms ease-in-out',
   },
@@ -474,8 +474,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   historyTitle: {
-    fontSize: '11px',
-    fontWeight: 600,
+    fontSize: tokens.typography.fontSize.xs,
+    fontWeight: tokens.typography.fontWeight.semibold,
     color: tokens.colors.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
@@ -509,7 +509,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   recoveryHint: {
-    fontSize: '12px',
+    fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.semantic.warning,
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     backgroundColor: tokens.colors.semantic.warning + '10',

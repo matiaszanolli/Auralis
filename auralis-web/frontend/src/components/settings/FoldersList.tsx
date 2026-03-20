@@ -37,7 +37,7 @@ export const FoldersList = ({
           <ListItem sx={{ px: 0, py: 2, flexDirection: 'column', alignItems: 'center', gap: 1 }}>
             <FolderOpenIcon sx={{ fontSize: 36, color: tokens.colors.text.disabled }} />
             <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontWeight: 500 }}>
+              <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontWeight: tokens.typography.fontWeight.medium }}>
                 No music folders added
               </Typography>
               <Typography variant="caption" sx={{ color: tokens.colors.text.metadata }}>
@@ -54,7 +54,7 @@ export const FoldersList = ({
               <ListItemText
                 primary={basename}
                 secondary={folder}
-                primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }}
+                primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: tokens.typography.fontWeight.medium }}
                 secondaryTypographyProps={{
                   fontSize: '0.75rem',
                   color: tokens.colors.text.metadata,

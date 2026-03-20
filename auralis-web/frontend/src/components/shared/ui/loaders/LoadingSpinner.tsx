@@ -82,9 +82,9 @@ const CenteredContainer = styled(Box)({
 });
 
 const LoadingText = styled(Box)(({ theme: _theme }) => ({
-  fontSize: '14px',
+  fontSize: tokens.typography.fontSize.base,
   color: tokens.colors.text.secondary,
-  fontWeight: 500,
+  fontWeight: tokens.typography.fontWeight.medium,
   animation: `${pulse} 2s ease-in-out infinite`,
 }));
 

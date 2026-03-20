@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 
 import { QueueMusic, Add, ExpandMore, ExpandLess } from '@mui/icons-material';
 import { SectionHeader, SectionTitle, AddButton } from './PlaylistList.styles';
-import { Tooltip } from '@/design-system';
+import { Tooltip, tokens } from '@/design-system';
 import { Box } from '@mui/material';
 
 interface PlaylistListHeaderProps {
@@ -50,7 +50,7 @@ export const PlaylistListHeader = ({
       aria-expanded={expanded}
     >
       <SectionTitle>
-        <QueueMusic sx={{ fontSize: '18px' }} />
+        <QueueMusic sx={{ fontSize: tokens.typography.fontSize.lg }} />
         Playlists ({playlistCount})
       </SectionTitle>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

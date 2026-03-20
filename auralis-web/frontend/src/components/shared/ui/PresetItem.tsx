@@ -41,7 +41,7 @@ export const PresetItem = ({
     <Tooltip
       title={
         <Box sx={{ textAlign: 'center', py: 0.5 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: tokens.typography.fontWeight.semibold, mb: 0.5 }}>
             {preset.label}
           </Typography>
           <Typography variant="caption" sx={{ fontSize: 11, opacity: 0.9 }}>

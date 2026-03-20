@@ -131,7 +131,7 @@ export const ActionButton = styled(IconButton)({
     background: tokens.colors.opacityScale.accent.veryLight,
   },
   '& .MuiSvgIcon-root': {
-    fontSize: '18px',
+    fontSize: tokens.typography.fontSize.lg,
   },
 });
 
@@ -147,7 +147,7 @@ export const AddButton = styled(IconButton)({
     background: tokens.colors.opacityScale.accent.veryLight,
   },
   '& .MuiSvgIcon-root': {
-    fontSize: '20px',
+    fontSize: tokens.typography.fontSize.lg,
   },
 });
 

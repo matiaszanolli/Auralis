@@ -38,8 +38,8 @@ export const ToolbarContainer = styled(Paper)(({ theme: _theme }) => ({
 
 export const SelectionCount = styled(Typography)(({ theme: _theme }) => ({
   color: tokens.colors.text.primary,
-  fontWeight: 'bold',
-  fontSize: '16px',
+  fontWeight: tokens.typography.fontWeight.bold,
+  fontSize: tokens.typography.fontSize.md,
   minWidth: '140px',
 }));
 

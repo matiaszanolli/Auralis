@@ -44,7 +44,7 @@ export const AlbumInfo = ({
         <Typography
           variant="subtitle1"
           sx={{
-            fontWeight: 600,
+            fontWeight: tokens.typography.fontWeight.semibold,
             color: tokens.colors.text.primary,
             mb: 1, // Increased from 0.5 for more breathing room
             lineHeight: 1.4, // Improved line height for better readability
@@ -63,7 +63,7 @@ export const AlbumInfo = ({
           variant="body2"
           sx={{
             color: tokens.colors.text.secondary,
-            fontWeight: 400, // Reduced from default (less weight variance)
+            fontWeight: tokens.typography.fontWeight.normal, // Reduced from default (less weight variance)
             lineHeight: 1.5, // Increased for secondary text breathing room
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -80,7 +80,7 @@ export const AlbumInfo = ({
         variant="caption"
         sx={{
           color: tokens.colors.text.tertiary, // Changed from disabled to tertiary (better hierarchy)
-          fontWeight: 400,
+          fontWeight: tokens.typography.fontWeight.normal,
           lineHeight: 1.5,
           display: 'block',
         }}
