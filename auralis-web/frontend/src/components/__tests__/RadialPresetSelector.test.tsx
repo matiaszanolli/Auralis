@@ -5,7 +5,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@/test/test-utils'
+import { render, screen } from '@/test/test-utils'
+import userEvent from '@testing-library/user-event'
 import RadialPresetSelector from '../shared/ui/RadialPresetSelector'
 
 describe('RadialPresetSelector', () => {
@@ -57,7 +58,8 @@ describe('RadialPresetSelector', () => {
   // Interaction Tests
   // ============================================================================
 
-  it('calls onPresetChange when clicking a different preset', () => {
+  it('calls onPresetChange when clicking a different preset', async () => {
+    const user = userEvent.setup()
     const { container } = render(<RadialPresetSelector {...defaultProps} currentPreset="adaptive" />)
 
     // Find the Warm preset button by its icon (WhatshotOutlined)
@@ -65,19 +67,20 @@ describe('RadialPresetSelector', () => {
     const warmButton = warmIcon?.closest('[class*="MuiBox-root"]') as HTMLElement
 
     if (warmButton) {
-      fireEvent.click(warmButton)
+      await user.click(warmButton)
       expect(mockOnPresetChange).toHaveBeenCalledWith('warm')
       expect(mockOnPresetChange).toHaveBeenCalledTimes(1)
     }
   })
 
-  it('does not call onPresetChange when clicking current preset', () => {
+  it('does not call onPresetChange when clicking current preset', async () => {
+    const user = userEvent.setup()
     render(<RadialPresetSelector {...defaultProps} currentPreset="adaptive" />)
 
     // Click the center hub (current Adaptive preset)
     const centerHub = screen.getByText('Adaptive').closest('[class*="MuiBox-root"]') as HTMLElement
     if (centerHub) {
-      fireEvent.click(centerHub)
+      await user.click(centerHub)
     }
 
     // Clicking the center hub shouldn't change preset

@@ -25,6 +25,7 @@
 import React, { ReactElement } from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render as rtlRender, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { PlayerControls } from '../PlayerControls';
 import * as hooks from '@/hooks/websocket/useWebSocketProtocol';
@@ -185,11 +186,12 @@ describe('PlayerControls', () => {
 
   it('should call play when play button clicked and not playing', async () => {
     setupMockStateUpdates({ isPlaying: false });
+    const user = userEvent.setup();
 
     render(<PlayerControls />);
 
     const playButton = screen.getByRole('button', { name: /play/i });
-    fireEvent.click(playButton);
+    await user.click(playButton);
 
     await waitFor(() => {
       expect(mockCommands.play).toHaveBeenCalled();
@@ -198,6 +200,7 @@ describe('PlayerControls', () => {
 
   it('should call pause when pause button clicked and playing', async () => {
     setupMockStateUpdates({ isPlaying: true });
+    const user = userEvent.setup();
 
     render(<PlayerControls />);
 
@@ -207,7 +210,7 @@ describe('PlayerControls', () => {
     });
 
     const pauseButton = screen.getByRole('button', { name: /pause/i });
-    fireEvent.click(pauseButton);
+    await user.click(pauseButton);
 
     await waitFor(() => {
       expect(mockCommands.pause).toHaveBeenCalled();
@@ -229,10 +232,11 @@ describe('PlayerControls', () => {
   // ============================================================================
 
   it('should call next when next button clicked', async () => {
+    const user = userEvent.setup();
     render(<PlayerControls />);
 
     const nextButton = screen.getByRole('button', { name: /next/i });
-    fireEvent.click(nextButton);
+    await user.click(nextButton);
 
     await waitFor(() => {
       expect(mockCommands.next).toHaveBeenCalled();
@@ -240,10 +244,11 @@ describe('PlayerControls', () => {
   });
 
   it('should call previous when previous button clicked', async () => {
+    const user = userEvent.setup();
     render(<PlayerControls />);
 
     const prevButton = screen.getByRole('button', { name: /previous/i });
-    fireEvent.click(prevButton);
+    await user.click(prevButton);
 
     await waitFor(() => {
       expect(mockCommands.previous).toHaveBeenCalled();
@@ -277,11 +282,12 @@ describe('PlayerControls', () => {
   // ============================================================================
 
   it('should toggle mute when mute button clicked', async () => {
+    const user = userEvent.setup();
     render(<PlayerControls />);
 
     // Initially unmuted - button shows speaker icon
     const muteButton = screen.getByRole('button', { name: /mute/i });
-    fireEvent.click(muteButton);
+    await user.click(muteButton);
 
     // After clicking, should show muted state
     await waitFor(() => {
@@ -289,11 +295,12 @@ describe('PlayerControls', () => {
     });
   });
 
-  it('should show muted volume display when muted', () => {
+  it('should show muted volume display when muted', async () => {
+    const user = userEvent.setup();
     render(<PlayerControls />);
 
     const muteButton = screen.getByRole('button', { name: /mute/i });
-    fireEvent.click(muteButton);
+    await user.click(muteButton);
 
     // Volume should show 0% when muted
     expect(screen.getByText('0%')).toBeInTheDocument();
@@ -314,10 +321,11 @@ describe('PlayerControls', () => {
   });
 
   it('should change preset when button clicked', async () => {
+    const user = userEvent.setup();
     render(<PlayerControls showPresetSelector={true} />);
 
     const brightButton = screen.getByTitle('Bright');
-    fireEvent.click(brightButton);
+    await user.click(brightButton);
 
     // Preset change is handled internally by the component state
     // We verify the button is clickable

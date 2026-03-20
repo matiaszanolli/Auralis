@@ -6,7 +6,8 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@/test/test-utils';
+import { render, screen } from '@/test/test-utils';
+import userEvent from '@testing-library/user-event';
 import PlaybackControls from '../PlaybackControls';
 
 describe('PlaybackControls', () => {
@@ -103,7 +104,8 @@ describe('PlaybackControls', () => {
   });
 
   describe('Button Clicks', () => {
-    it('should call onPlay when play button clicked', () => {
+    it('should call onPlay when play button clicked', async () => {
+      const user = userEvent.setup();
       const mockPlay = vi.fn();
       render(
         <PlaybackControls
@@ -115,12 +117,13 @@ describe('PlaybackControls', () => {
         />
       );
 
-      fireEvent.click(screen.getByTestId('playback-controls-play'));
+      await user.click(screen.getByTestId('playback-controls-play'));
 
       expect(mockPlay).toHaveBeenCalledTimes(1);
     });
 
-    it('should call onPause when pause button clicked', () => {
+    it('should call onPause when pause button clicked', async () => {
+      const user = userEvent.setup();
       const mockPause = vi.fn();
       render(
         <PlaybackControls
@@ -132,12 +135,13 @@ describe('PlaybackControls', () => {
         />
       );
 
-      fireEvent.click(screen.getByTestId('playback-controls-pause'));
+      await user.click(screen.getByTestId('playback-controls-pause'));
 
       expect(mockPause).toHaveBeenCalledTimes(1);
     });
 
-    it('should call onNext when next button clicked', () => {
+    it('should call onNext when next button clicked', async () => {
+      const user = userEvent.setup();
       const mockNext = vi.fn();
       render(
         <PlaybackControls
@@ -149,12 +153,13 @@ describe('PlaybackControls', () => {
         />
       );
 
-      fireEvent.click(screen.getByTestId('playback-controls-next'));
+      await user.click(screen.getByTestId('playback-controls-next'));
 
       expect(mockNext).toHaveBeenCalledTimes(1);
     });
 
-    it('should call onPrevious when previous button clicked', () => {
+    it('should call onPrevious when previous button clicked', async () => {
+      const user = userEvent.setup();
       const mockPrevious = vi.fn();
       render(
         <PlaybackControls
@@ -166,12 +171,13 @@ describe('PlaybackControls', () => {
         />
       );
 
-      fireEvent.click(screen.getByTestId('playback-controls-previous'));
+      await user.click(screen.getByTestId('playback-controls-previous'));
 
       expect(mockPrevious).toHaveBeenCalledTimes(1);
     });
 
-    it('should not call callbacks when disabled', () => {
+    it('should not call callbacks when disabled', async () => {
+      const user = userEvent.setup();
       const mockPlay = vi.fn();
       const mockNext = vi.fn();
       render(
@@ -185,14 +191,15 @@ describe('PlaybackControls', () => {
         />
       );
 
-      fireEvent.click(screen.getByTestId('playback-controls-play'));
-      fireEvent.click(screen.getByTestId('playback-controls-next'));
+      await user.click(screen.getByTestId('playback-controls-play'));
+      await user.click(screen.getByTestId('playback-controls-next'));
 
       expect(mockPlay).not.toHaveBeenCalled();
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should not call callbacks when loading', () => {
+    it('should not call callbacks when loading', async () => {
+      const user = userEvent.setup();
       const mockPlay = vi.fn();
       const mockPrevious = vi.fn();
       render(
@@ -206,8 +213,8 @@ describe('PlaybackControls', () => {
         />
       );
 
-      fireEvent.click(screen.getByTestId('playback-controls-play'));
-      fireEvent.click(screen.getByTestId('playback-controls-previous'));
+      await user.click(screen.getByTestId('playback-controls-play'));
+      await user.click(screen.getByTestId('playback-controls-previous'));
 
       expect(mockPlay).not.toHaveBeenCalled();
       expect(mockPrevious).not.toHaveBeenCalled();

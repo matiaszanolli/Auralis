@@ -508,8 +508,9 @@ describe('QueueSearchPanel', () => {
     const listItem = trackItem.closest('li')!;
     fireEvent.mouseEnter(listItem);
 
+    const user = userEvent.setup();
     const removeButton = screen.getByLabelText('Remove from queue');
-    fireEvent.click(removeButton);
+    await user.click(removeButton);
 
     expect(mockRemoveTrack).toHaveBeenCalled();
   });

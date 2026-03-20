@@ -12,7 +12,7 @@
  */
 
 import { vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
+import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import AlbumDetailView from '../Details/AlbumDetailView';
 
@@ -287,6 +287,7 @@ describe.skip('AlbumDetailView', () => {
     });
 
     it('should play track when track row clicked', async () => {
+      const user = userEvent.setup();
       const onTrackPlay = vi.fn();
 
       render(
@@ -299,7 +300,7 @@ describe.skip('AlbumDetailView', () => {
 
       const trackRow = screen.getByText('Come Together').closest('tr');
       if (trackRow) {
-        fireEvent.click(trackRow);
+        await user.click(trackRow);
         expect(onTrackPlay).toHaveBeenCalledWith(mockAlbumData.tracks[0]);
       }
     });
@@ -828,7 +829,7 @@ describe.skip('AlbumDetailView', () => {
       // 3. User clicks on a different track
       const secondTrack = screen.getByText('Something').closest('tr');
       if (secondTrack) {
-        fireEvent.click(secondTrack);
+        await user.click(secondTrack);
         expect(onTrackPlay).toHaveBeenCalledWith(mockAlbumData.tracks[1]);
       }
 

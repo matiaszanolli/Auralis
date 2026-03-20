@@ -24,6 +24,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
+import userEvent from '@testing-library/user-event';
 import { CacheHealthWidget } from '../CacheHealthWidget';
 import * as hooks from '@/hooks/shared/useStandardizedAPI';
 import {
@@ -333,10 +334,11 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should expand to full monitor on click when interactive', async () => {
+    const user = userEvent.setup();
     render(<CacheHealthWidget interactive={true} />);
 
     const widget = screen.getByTestId('cache-health-widget');
-    fireEvent.click(widget);
+    await user.click(widget);
 
     await waitFor(() => {
       expect(screen.getByText(/Cache Health Monitor/i)).toBeInTheDocument();
@@ -344,10 +346,11 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should close expanded view when close button clicked', async () => {
+    const user = userEvent.setup();
     render(<CacheHealthWidget interactive={true} />);
 
     const widget = screen.getByTestId('cache-health-widget');
-    fireEvent.click(widget);
+    await user.click(widget);
 
     await waitFor(() => {
       expect(screen.getByText(/Cache Health Monitor/i)).toBeInTheDocument();
@@ -355,7 +358,7 @@ describe('CacheHealthWidget', () => {
 
     // Close button displays "✕" character
     const closeButton = screen.getByText('✕');
-    fireEvent.click(closeButton);
+    await user.click(closeButton);
 
     await waitFor(() => {
       expect(screen.queryByText(/Cache Health Monitor/i)).not.toBeInTheDocument();
@@ -365,10 +368,11 @@ describe('CacheHealthWidget', () => {
   // Skip: ESC key handling not implemented in component
   // Modal closes via backdrop click or close button only
   it.skip('should close expanded view on ESC key', async () => {
+    const user = userEvent.setup();
     render(<CacheHealthWidget interactive={true} />);
 
     const widget = screen.getByTestId('cache-health-widget');
-    fireEvent.click(widget);
+    await user.click(widget);
 
     await waitFor(() => {
       expect(screen.getByText(/Cache Health Monitor/i)).toBeInTheDocument();
@@ -465,10 +469,11 @@ describe('CacheHealthWidget', () => {
       refetch: mockRefetch,
     }));
 
+    const user = userEvent.setup();
     render(<CacheHealthWidget />);
 
     const retryButton = screen.getByRole('button', { name: /retry/i });
-    fireEvent.click(retryButton);
+    await user.click(retryButton);
 
     await waitFor(() => {
       expect(mockRefetch).toHaveBeenCalled();

@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@/test/test-utils'
+import { render, screen } from '@/test/test-utils'
+import userEvent from '@testing-library/user-event'
 import Sidebar from '../layouts/Sidebar'
 
 describe('Sidebar', () => {
@@ -37,12 +38,13 @@ describe('Sidebar', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
-  it('calls onNavigate when item is clicked', () => {
+  it('calls onNavigate when item is clicked', async () => {
+    const user = userEvent.setup()
     render(<Sidebar onNavigate={mockOnNavigate} />)
 
     const albumsButton = screen.getByText('Albums').closest('button')
     if (albumsButton) {
-      fireEvent.click(albumsButton)
+      await user.click(albumsButton)
       expect(mockOnNavigate).toHaveBeenCalledWith('albums')
     }
   })
@@ -62,22 +64,24 @@ describe('Sidebar', () => {
     expect(screen.queryByText('Albums')).not.toBeInTheDocument()
   })
 
-  it('calls onToggleCollapse when collapse button clicked', () => {
+  it('calls onToggleCollapse when collapse button clicked', async () => {
+    const user = userEvent.setup()
     const { container} = render(<Sidebar onToggleCollapse={mockOnToggleCollapse} />)
 
     const collapseButton = container.querySelector('[data-testid="ChevronLeftIcon"]')?.closest('button')
     if (collapseButton) {
-      fireEvent.click(collapseButton)
+      await user.click(collapseButton)
       expect(mockOnToggleCollapse).toHaveBeenCalledTimes(1)
     }
   })
 
-  it('calls onOpenSettings when settings clicked', () => {
+  it('calls onOpenSettings when settings clicked', async () => {
+    const user = userEvent.setup()
     render(<Sidebar onOpenSettings={mockOnOpenSettings} />)
 
     const settingsButton = screen.getByText('Settings').closest('button')
     if (settingsButton) {
-      fireEvent.click(settingsButton)
+      await user.click(settingsButton)
       expect(mockOnOpenSettings).toHaveBeenCalledTimes(1)
     }
   })

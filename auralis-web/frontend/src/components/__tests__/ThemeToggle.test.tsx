@@ -6,6 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@/test/test-utils'
+import userEvent from '@testing-library/user-event'
 import { useTheme } from '../../contexts/ThemeContext'
 import ThemeToggle from '../shared/ui/ThemeToggle'
 
@@ -119,34 +120,37 @@ describe('ThemeToggle', () => {
   // Interaction Tests
   // ============================================================================
 
-  it('calls toggleTheme when clicked', () => {
+  it('calls toggleTheme when clicked', async () => {
+    const user = userEvent.setup()
     render(<ThemeToggle />)
 
     const button = screen.getByRole('button')
-    fireEvent.click(button)
+    await user.click(button)
 
     expect(mockToggleTheme).toHaveBeenCalledTimes(1)
   })
 
-  it('can be clicked multiple times', () => {
+  it('can be clicked multiple times', async () => {
+    const user = userEvent.setup()
     render(<ThemeToggle />)
 
     const button = screen.getByRole('button')
-    fireEvent.click(button)
-    fireEvent.click(button)
-    fireEvent.click(button)
+    await user.click(button)
+    await user.click(button)
+    await user.click(button)
 
     expect(mockToggleTheme).toHaveBeenCalledTimes(3)
   })
 
-  it('handles rapid clicks gracefully', () => {
+  it('handles rapid clicks gracefully', async () => {
+    const user = userEvent.setup()
     render(<ThemeToggle />)
 
     const button = screen.getByRole('button')
 
     // Rapid fire clicks
     for (let i = 0; i < 10; i++) {
-      fireEvent.click(button)
+      await user.click(button)
     }
 
     expect(mockToggleTheme).toHaveBeenCalledTimes(10)
@@ -261,18 +265,19 @@ describe('ThemeToggle', () => {
     expect(() => render(<ThemeToggle />)).toThrow()
   })
 
-  it.skip('maintains state across re-renders', () => {
+  it.skip('maintains state across re-renders', async () => {
+    const user = userEvent.setup()
     const { rerender } = render(<ThemeToggle />)
 
     const button = screen.getByRole('button')
-    fireEvent.click(button)
+    await user.click(button)
 
     expect(mockToggleTheme).toHaveBeenCalledTimes(1)
 
     rerender(<ThemeToggle />)
 
     // Button should still work after re-render
-    fireEvent.click(button)
+    await user.click(button)
     expect(mockToggleTheme).toHaveBeenCalledTimes(2)
   })
 

@@ -7,6 +7,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@/test/test-utils';
+import userEvent from '@testing-library/user-event';
 import ProgressBar from '../ProgressBar';
 
 describe('ProgressBar', () => {
@@ -166,7 +167,8 @@ describe('ProgressBar', () => {
   });
 
   describe('Click to Seek', () => {
-    it('should call onSeek when clicked at midpoint', () => {
+    it('should call onSeek when clicked at midpoint', async () => {
+      const user = userEvent.setup();
       const mockSeek = vi.fn();
       render(
         <ProgressBar
@@ -180,9 +182,7 @@ describe('ProgressBar', () => {
 
       // In test environment, getBoundingClientRect may return zeros
       // So we just test that onSeek is called with a valid number
-      fireEvent.click(progressBarContainer, {
-        clientX: 50,
-      });
+      await user.click(progressBarContainer);
 
       expect(mockSeek).toHaveBeenCalled();
       // The position will be calculated based on container width
@@ -191,7 +191,8 @@ describe('ProgressBar', () => {
       expect(Number.isFinite(seekPosition)).toBe(true);
     });
 
-    it('should call onSeek when clicked at start', () => {
+    it('should call onSeek when clicked at start', async () => {
+      const user = userEvent.setup();
       const mockSeek = vi.fn();
       render(
         <ProgressBar
@@ -202,16 +203,14 @@ describe('ProgressBar', () => {
       );
 
       const progressBarContainer = screen.getByTestId('progress-bar-container');
-      const rect = progressBarContainer.getBoundingClientRect();
 
-      fireEvent.click(progressBarContainer, {
-        clientX: rect.left,
-      });
+      await user.click(progressBarContainer);
 
       expect(mockSeek).toHaveBeenCalled();
     });
 
-    it('should call onSeek when clicked at end', () => {
+    it('should call onSeek when clicked at end', async () => {
+      const user = userEvent.setup();
       const mockSeek = vi.fn();
       render(
         <ProgressBar
@@ -222,16 +221,14 @@ describe('ProgressBar', () => {
       );
 
       const progressBarContainer = screen.getByTestId('progress-bar-container');
-      const rect = progressBarContainer.getBoundingClientRect();
 
-      fireEvent.click(progressBarContainer, {
-        clientX: rect.right,
-      });
+      await user.click(progressBarContainer);
 
       expect(mockSeek).toHaveBeenCalled();
     });
 
-    it('should not call onSeek when disabled', () => {
+    it('should not call onSeek when disabled', async () => {
+      const user = userEvent.setup();
       const mockSeek = vi.fn();
       render(
         <ProgressBar
@@ -243,16 +240,14 @@ describe('ProgressBar', () => {
       );
 
       const progressBarContainer = screen.getByTestId('progress-bar-container');
-      const rect = progressBarContainer.getBoundingClientRect();
 
-      fireEvent.click(progressBarContainer, {
-        clientX: rect.left + rect.width / 2,
-      });
+      await user.click(progressBarContainer);
 
       expect(mockSeek).not.toHaveBeenCalled();
     });
 
-    it('should not call onSeek with invalid duration', () => {
+    it('should not call onSeek with invalid duration', async () => {
+      const user = userEvent.setup();
       const mockSeek = vi.fn();
       render(
         <ProgressBar
@@ -263,11 +258,8 @@ describe('ProgressBar', () => {
       );
 
       const progressBarContainer = screen.getByTestId('progress-bar-container');
-      const rect = progressBarContainer.getBoundingClientRect();
 
-      fireEvent.click(progressBarContainer, {
-        clientX: rect.left + rect.width / 2,
-      });
+      await user.click(progressBarContainer);
 
       expect(mockSeek).not.toHaveBeenCalled();
     });
@@ -747,7 +739,8 @@ describe('ProgressBar', () => {
       expect(buffered).toHaveStyle('width: 100%');
     });
 
-    it('should handle seeking ahead of buffered content', () => {
+    it('should handle seeking ahead of buffered content', async () => {
+      const user = userEvent.setup();
       const mockSeek = vi.fn();
       render(
         <ProgressBar
@@ -759,12 +752,9 @@ describe('ProgressBar', () => {
       );
 
       const progressBarContainer = screen.getByTestId('progress-bar-container');
-      const rect = progressBarContainer.getBoundingClientRect();
 
-      // Seek to 80% (beyond 50% buffered)
-      fireEvent.click(progressBarContainer, {
-        clientX: rect.left + rect.width * 0.8,
-      });
+      // Seek beyond 50% buffered
+      await user.click(progressBarContainer);
 
       expect(mockSeek).toHaveBeenCalled();
     });

@@ -13,7 +13,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@/test/test-utils';
+import { render, screen, waitFor } from '@/test/test-utils';
+import userEvent from '@testing-library/user-event';
 import SimilarTracks from '../features/discovery/SimilarTracks';
 import similarityService, { SimilarTrack } from '../../services/similarityService';
 
@@ -212,30 +213,35 @@ describe('SimilarTracks', () => {
 
   describe('Track Selection', () => {
     it('should call onTrackSelect when track clicked', async () => {
+      const user = userEvent.setup();
       const onTrackSelect = vi.fn();
       (similarityService.findSimilar as any).mockResolvedValueOnce(mockSimilarTracks);
 
       render(<SimilarTracks trackId={1} onTrackSelect={onTrackSelect} />);
 
       await waitFor(() => {
-        const firstTrack = screen.getByText('Very Similar Track');
-        fireEvent.click(firstTrack);
+        expect(screen.getByText('Very Similar Track')).toBeInTheDocument();
       });
+
+      await user.click(screen.getByText('Very Similar Track'));
 
       expect(onTrackSelect).toHaveBeenCalledWith(2);  // track_id of first similar track
     });
 
     it('should handle multiple track selections', async () => {
+      const user = userEvent.setup();
       const onTrackSelect = vi.fn();
       (similarityService.findSimilar as any).mockResolvedValueOnce(mockSimilarTracks);
 
       render(<SimilarTracks trackId={1} onTrackSelect={onTrackSelect} />);
 
-      await waitFor(async () => {
-        fireEvent.click(screen.getByText('Very Similar Track'));
-        fireEvent.click(screen.getByText('Similar Track'));
-        fireEvent.click(screen.getByText('Somewhat Similar Track'));
+      await waitFor(() => {
+        expect(screen.getByText('Very Similar Track')).toBeInTheDocument();
       });
+
+      await user.click(screen.getByText('Very Similar Track'));
+      await user.click(screen.getByText('Similar Track'));
+      await user.click(screen.getByText('Somewhat Similar Track'));
 
       expect(onTrackSelect).toHaveBeenCalledTimes(3);
       expect(onTrackSelect).toHaveBeenNthCalledWith(1, 2);
@@ -244,14 +250,16 @@ describe('SimilarTracks', () => {
     });
 
     it('should not error if onTrackSelect not provided', async () => {
+      const user = userEvent.setup();
       (similarityService.findSimilar as any).mockResolvedValueOnce(mockSimilarTracks);
 
       render(<SimilarTracks trackId={1} />);
 
       await waitFor(() => {
-        const firstTrack = screen.getByText('Very Similar Track');
-        expect(() => fireEvent.click(firstTrack)).not.toThrow();
+        expect(screen.getByText('Very Similar Track')).toBeInTheDocument();
       });
+
+      await user.click(screen.getByText('Very Similar Track'));
     });
   });
 

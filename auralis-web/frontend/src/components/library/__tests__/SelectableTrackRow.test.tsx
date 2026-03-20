@@ -10,7 +10,7 @@
  */
 
 import { vi } from 'vitest';
-import { render, screen, fireEvent } from '@/test/test-utils';
+import { render, screen } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import SelectableTrackRow from '../Items/tracks/SelectableTrackRow';
 
@@ -202,6 +202,7 @@ describe('SelectableTrackRow', () => {
 
   describe('Event Handling', () => {
     it('should toggle selection when container clicked', async () => {
+      const user = userEvent.setup();
       const onToggleSelect = vi.fn();
 
       render(
@@ -218,7 +219,7 @@ describe('SelectableTrackRow', () => {
       const checkbox = screen.getByRole('checkbox');
       const selectableContainer = checkbox.closest('.MuiBox-root');
       expect(selectableContainer).toBeInTheDocument();
-      fireEvent.click(selectableContainer!);
+      await user.click(selectableContainer!);
       expect(onToggleSelect).toHaveBeenCalled();
     });
 

@@ -14,7 +14,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@/test/test-utils';
+import { render, screen, waitFor } from '@/test/test-utils';
+import userEvent from '@testing-library/user-event';
 import SimilarityVisualization from '../features/discovery/SimilarityVisualization';
 import similarityService, { SimilarityExplanation } from '../../services/similarityService';
 
@@ -292,14 +293,16 @@ describe('SimilarityVisualization', () => {
     });
 
     it('should expand accordion when clicked', async () => {
+      const user = userEvent.setup();
       (similarityService.explainSimilarity as any).mockResolvedValueOnce(mockExplanation);
 
       render(<SimilarityVisualization trackId1={1} trackId2={2} />);
 
-      await waitFor(async () => {
-        const accordion = screen.getByText(/view all 5 dimensions/i);
-        fireEvent.click(accordion);
+      await waitFor(() => {
+        expect(screen.getByText(/view all 5 dimensions/i)).toBeInTheDocument();
       });
+
+      await user.click(screen.getByText(/view all 5 dimensions/i));
 
       // Should show all dimensions after expansion
       await waitFor(() => {
@@ -309,14 +312,16 @@ describe('SimilarityVisualization', () => {
     });
 
     it('should sort dimensions by contribution', async () => {
+      const user = userEvent.setup();
       (similarityService.explainSimilarity as any).mockResolvedValueOnce(mockExplanation);
 
       render(<SimilarityVisualization trackId1={1} trackId2={2} />);
 
-      await waitFor(async () => {
-        const accordion = screen.getByText(/view all 5 dimensions/i);
-        fireEvent.click(accordion);
+      await waitFor(() => {
+        expect(screen.getByText(/view all 5 dimensions/i)).toBeInTheDocument();
       });
+
+      await user.click(screen.getByText(/view all 5 dimensions/i));
 
       // Verify dimensions appear in descending contribution order
       const dimensionTexts = screen.getAllByText(/%$/);  // All contribution percentages end with %

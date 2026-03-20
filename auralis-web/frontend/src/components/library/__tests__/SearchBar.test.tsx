@@ -14,6 +14,7 @@
  */
 
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import SearchBar from '@/components/library/SearchBar';
 
@@ -219,6 +220,7 @@ describe('SearchBar', () => {
     });
 
     it('should clear input and call onSearch with empty string', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const mockOnSearch = vi.fn();
 
       render(<SearchBar onSearch={mockOnSearch} />);
@@ -234,15 +236,14 @@ describe('SearchBar', () => {
 
       const clearButton = screen.getByRole('button', { name: /clear search/i });
 
-      await act(async () => {
-        fireEvent.click(clearButton);
-      });
+      await user.click(clearButton);
 
       expect(input).toHaveValue('');
       expect(mockOnSearch).toHaveBeenCalledWith('');
     });
 
     it('should focus input after clearing', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const mockOnSearch = vi.fn();
 
       render(<SearchBar onSearch={mockOnSearch} />);
@@ -256,9 +257,7 @@ describe('SearchBar', () => {
 
       const clearButton = screen.getByRole('button', { name: /clear search/i });
 
-      await act(async () => {
-        fireEvent.click(clearButton);
-      });
+      await user.click(clearButton);
 
       expect(document.activeElement).toBe(input);
     });

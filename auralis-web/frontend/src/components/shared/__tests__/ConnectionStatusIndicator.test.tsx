@@ -20,6 +20,7 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ConnectionStatusIndicator } from '../ConnectionStatusIndicator';
@@ -212,13 +213,14 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should toggle details on click', async () => {
+    const user = userEvent.setup();
     renderWithMinimalWrapper(<ConnectionStatusIndicator />);
 
     const indicator = screen.getByTestId('connection-indicator');
     // Click the compact indicator (the circular div inside)
     const clickableArea = indicator.querySelector('div');
     if (clickableArea) {
-      fireEvent.click(clickableArea);
+      await user.click(clickableArea);
     }
 
     // Details should show after click

@@ -13,8 +13,9 @@
  * @module components/library/__tests__/TrackList.test
  */
 
-import { render, screen, fireEvent, waitFor, cleanup } from '@/test/test-utils';
+import { render, screen, waitFor, cleanup } from '@/test/test-utils';
 import { vi, afterEach } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import TrackList from '@/components/library/TrackList';
 import { useTracksQuery } from '@/hooks/library/useLibraryQuery';
 import type { Track } from '@/types/domain';
@@ -180,7 +181,8 @@ describe('TrackList', () => {
   });
 
   describe('selection and interaction', () => {
-    it('should call onTrackSelect when track is clicked', () => {
+    it('should call onTrackSelect when track is clicked', async () => {
+      const user = userEvent.setup();
       const mockOnTrackSelect = vi.fn();
 
       vi.mocked(useTracksQuery).mockReturnValue({
@@ -198,12 +200,13 @@ describe('TrackList', () => {
       render(<TrackList onTrackSelect={mockOnTrackSelect} />);
 
       const trackItem = screen.getByText('First Song').closest('[role="button"]');
-      fireEvent.click(trackItem!);
+      await user.click(trackItem!);
 
       expect(mockOnTrackSelect).toHaveBeenCalledWith(mockTrack1);
     });
 
-    it('should highlight selected track', () => {
+    it('should highlight selected track', async () => {
+      const user = userEvent.setup();
       const mockOnTrackSelect = vi.fn();
 
       vi.mocked(useTracksQuery).mockReturnValue({
@@ -223,7 +226,7 @@ describe('TrackList', () => {
       );
 
       const firstTrackItem = screen.getByText('First Song').closest('[role="button"]');
-      fireEvent.click(firstTrackItem!);
+      await user.click(firstTrackItem!);
 
       // Selected item should have aria-selected="true"
       expect(firstTrackItem).toHaveAttribute('aria-selected', 'true');
@@ -232,7 +235,8 @@ describe('TrackList', () => {
       expect(secondTrackItem).toHaveAttribute('aria-selected', 'false');
     });
 
-    it('should update selection when different track is clicked', () => {
+    it('should update selection when different track is clicked', async () => {
+      const user = userEvent.setup();
       const mockOnTrackSelect = vi.fn();
 
       vi.mocked(useTracksQuery).mockReturnValue({
@@ -250,11 +254,11 @@ describe('TrackList', () => {
       render(<TrackList onTrackSelect={mockOnTrackSelect} />);
 
       const firstTrackItem = screen.getByText('First Song').closest('[role="button"]');
-      fireEvent.click(firstTrackItem!);
+      await user.click(firstTrackItem!);
       expect(mockOnTrackSelect).toHaveBeenCalledWith(mockTrack1);
 
       const secondTrackItem = screen.getByText('Second Song').closest('[role="button"]');
-      fireEvent.click(secondTrackItem!);
+      await user.click(secondTrackItem!);
       expect(mockOnTrackSelect).toHaveBeenCalledWith(mockTrack2);
     });
   });

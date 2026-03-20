@@ -19,7 +19,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
+import { render, screen, waitFor } from '@/test/test-utils';
+import userEvent from '@testing-library/user-event';
 import { CacheManagementPanel } from '../CacheManagementPanel';
 import * as hooks from '@/hooks/shared/useStandardizedAPI';
 import {
@@ -116,10 +117,11 @@ describe('CacheManagementPanel', () => {
   });
 
   it('should show confirmation modal when clear cache clicked', async () => {
+    const user = userEvent.setup();
     render(<CacheManagementPanel />);
 
     const clearButton = await screen.findByText('🗑️ Clear All Cache');
-    fireEvent.click(clearButton);
+    await user.click(clearButton);
 
     await waitFor(() => {
       expect(screen.getByText('Clear All Cache?')).toBeInTheDocument();
@@ -143,13 +145,14 @@ describe('CacheManagementPanel', () => {
       refetch: mockRefetch,
     }));
 
+    const user = userEvent.setup();
     render(<CacheManagementPanel />);
 
     const clearButton = await screen.findByText('🗑️ Clear All Cache');
-    fireEvent.click(clearButton);
+    await user.click(clearButton);
 
     const confirmButton = await screen.findByText('Clear All');
-    fireEvent.click(confirmButton);
+    await user.click(confirmButton);
 
     await waitFor(() => {
       expect(mockRefetch).toHaveBeenCalled();
@@ -157,13 +160,14 @@ describe('CacheManagementPanel', () => {
   });
 
   it('should cancel clear cache when cancelled', async () => {
+    const user = userEvent.setup();
     render(<CacheManagementPanel />);
 
     const clearButton = await screen.findByText('🗑️ Clear All Cache');
-    fireEvent.click(clearButton);
+    await user.click(clearButton);
 
     const cancelButton = await screen.findByText('Cancel');
-    fireEvent.click(cancelButton);
+    await user.click(cancelButton);
 
     await waitFor(() => {
       expect(screen.queryByText('Clear All Cache?')).not.toBeInTheDocument();
@@ -184,10 +188,11 @@ describe('CacheManagementPanel', () => {
       refetch: mockRefetch,
     }));
 
+    const user = userEvent.setup();
     render(<CacheManagementPanel />);
 
     const refreshButton = await screen.findByText('🔄 Refresh Stats');
-    fireEvent.click(refreshButton);
+    await user.click(refreshButton);
 
     await waitFor(() => {
       expect(mockRefetch).toHaveBeenCalled();
@@ -245,6 +250,7 @@ describe('CacheManagementPanel', () => {
       refetch: mockRefetch,
     }));
 
+    const user = userEvent.setup();
     render(
       <CacheManagementPanel
         onCacheClearRequest={mockCallback}
@@ -252,10 +258,10 @@ describe('CacheManagementPanel', () => {
     );
 
     const clearButton = await screen.findByText('🗑️ Clear All Cache');
-    fireEvent.click(clearButton);
+    await user.click(clearButton);
 
     const confirmButton = await screen.findByText('Clear All');
-    fireEvent.click(confirmButton);
+    await user.click(confirmButton);
 
     await waitFor(() => {
       expect(mockCallback).toHaveBeenCalled();

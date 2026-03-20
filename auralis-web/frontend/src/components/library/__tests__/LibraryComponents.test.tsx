@@ -15,6 +15,7 @@
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import { vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import AlbumGrid from '@/components/library/AlbumGrid';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import MetadataEditorDialog from '@/components/library/MetadataEditorDialog';
@@ -230,7 +231,8 @@ describe('AlbumCard', () => {
     expect(trackCountElements.length).toBeGreaterThan(0);
   });
 
-  it('should call onClick when clicked', () => {
+  it('should call onClick when clicked', async () => {
+    const user = userEvent.setup();
     const mockOnClick = vi.fn();
 
     const { container } = render(
@@ -246,7 +248,7 @@ describe('AlbumCard', () => {
     );
 
     const card = container.firstChild as HTMLElement;
-    fireEvent.click(card);
+    await user.click(card);
 
     expect(mockOnClick).toHaveBeenCalled();
   });
@@ -353,7 +355,8 @@ describe('MetadataEditorDialog', () => {
     expect(albumInput).toBeInTheDocument();
   });
 
-  it('should call onClose when close button is clicked', () => {
+  it('should call onClose when close button is clicked', async () => {
+    const user = userEvent.setup();
     const mockOnClose = vi.fn();
 
     render(
@@ -366,12 +369,13 @@ describe('MetadataEditorDialog', () => {
     );
 
     const closeButton = screen.getByRole('button', { name: /close/i });
-    fireEvent.click(closeButton);
+    await user.click(closeButton);
 
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('should call onSave with updated metadata', () => {
+  it('should call onSave with updated metadata', async () => {
+    const user = userEvent.setup();
     const mockOnClose = vi.fn();
     const mockOnSave = vi.fn();
 
@@ -388,7 +392,7 @@ describe('MetadataEditorDialog', () => {
     fireEvent.change(titleInput, { target: { value: 'New Title' } });
 
     const saveButton = screen.getByRole('button', { name: /save/i });
-    fireEvent.click(saveButton);
+    await user.click(saveButton);
 
     expect(mockOnSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -447,7 +451,8 @@ describe('MetadataEditorDialog', () => {
     expect(screen.getByText('Failed to save metadata')).toBeInTheDocument();
   });
 
-  it('should allow editing year field', () => {
+  it('should allow editing year field', async () => {
+    const user = userEvent.setup();
     const mockOnClose = vi.fn();
     const mockOnSave = vi.fn();
 
@@ -466,7 +471,7 @@ describe('MetadataEditorDialog', () => {
     fireEvent.change(yearInput, { target: { value: '2024' } });
 
     const saveButton = screen.getByRole('button', { name: /save/i });
-    fireEvent.click(saveButton);
+    await user.click(saveButton);
 
     expect(mockOnSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -475,7 +480,8 @@ describe('MetadataEditorDialog', () => {
     );
   });
 
-  it('should allow editing genre field', () => {
+  it('should allow editing genre field', async () => {
+    const user = userEvent.setup();
     const mockOnClose = vi.fn();
     const mockOnSave = vi.fn();
 
@@ -494,7 +500,7 @@ describe('MetadataEditorDialog', () => {
     fireEvent.change(genreInput, { target: { value: 'Pop' } });
 
     const saveButton = screen.getByRole('button', { name: /save/i });
-    fireEvent.click(saveButton);
+    await user.click(saveButton);
 
     expect(mockOnSave).toHaveBeenCalledWith(
       expect.objectContaining({

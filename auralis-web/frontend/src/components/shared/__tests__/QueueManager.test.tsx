@@ -24,6 +24,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
+import userEvent from '@testing-library/user-event';
 import { QueueManager } from '../QueueManager';
 import * as playbackQueueHook from '@/hooks/player/usePlaybackQueue';
 import {
@@ -186,11 +187,12 @@ describe('QueueManager', () => {
       createMockPlaybackQueue({ removeTrack: mockRemoveTrack })
     );
 
+    const user = userEvent.setup();
     render(<QueueManager />);
 
     const removeButtons = await screen.findAllByRole('button', { name: /remove/i });
     // Click the second button (first is current track and should be disabled)
-    fireEvent.click(removeButtons[1]);
+    await user.click(removeButtons[1]);
 
     await waitFor(() => {
       expect(mockRemoveTrack).toHaveBeenCalledWith(1);
@@ -260,10 +262,11 @@ describe('QueueManager', () => {
   });
 
   it('should open track selection when add button clicked', async () => {
+    const user = userEvent.setup();
     render(<QueueManager showAddTrack={true} />);
 
     const addButton = screen.getByRole('button', { name: /add track/i });
-    fireEvent.click(addButton);
+    await user.click(addButton);
 
     // TODO: Implement track selection UI
     // For now, just verify the button toggles the form state
@@ -299,10 +302,11 @@ describe('QueueManager', () => {
   });
 
   it('should show confirmation when clear button clicked', async () => {
+    const user = userEvent.setup();
     render(<QueueManager />);
 
     const clearButton = screen.getByRole('button', { name: /clear queue/i });
-    fireEvent.click(clearButton);
+    await user.click(clearButton);
 
     await waitFor(() => {
       expect(screen.getByText(/Clear Queue\?/i)).toBeInTheDocument();
@@ -316,11 +320,12 @@ describe('QueueManager', () => {
       createMockPlaybackQueue({ clearQueue: mockClearQueue })
     );
 
+    const user = userEvent.setup();
     render(<QueueManager />);
 
     // Click the main clear queue button (not in a dialog)
     const clearButton = screen.getByRole('button', { name: /clear queue/i });
-    fireEvent.click(clearButton);
+    await user.click(clearButton);
 
     // Wait for confirmation dialog to appear
     await waitFor(() => {
@@ -330,7 +335,7 @@ describe('QueueManager', () => {
     // Find all buttons and click the one that's NOT "Cancel"
     const buttons = screen.getAllByRole('button');
     const confirmButton = buttons.find((btn) => btn.textContent === 'Clear Queue' && btn !== clearButton);
-    fireEvent.click(confirmButton!);
+    await user.click(confirmButton!);
 
     await waitFor(() => {
       expect(mockClearQueue).toHaveBeenCalled();
@@ -344,13 +349,14 @@ describe('QueueManager', () => {
       createMockPlaybackQueue({ clearQueue: mockClearQueue })
     );
 
+    const user = userEvent.setup();
     render(<QueueManager />);
 
     const clearButton = screen.getByRole('button', { name: /clear queue/i });
-    fireEvent.click(clearButton);
+    await user.click(clearButton);
 
     const cancelButton = await screen.findByRole('button', { name: /Cancel/ });
-    fireEvent.click(cancelButton);
+    await user.click(cancelButton);
 
     await waitFor(() => {
       expect(mockClearQueue).not.toHaveBeenCalled();

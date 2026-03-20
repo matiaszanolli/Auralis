@@ -9,7 +9,7 @@
  */
 
 import { vi } from 'vitest';
-import { render, screen, fireEvent } from '@/test/test-utils';
+import { render, screen } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { TrackCard } from '../TrackCard';
 
@@ -69,12 +69,13 @@ describe('TrackCard', () => {
 
   describe('Interactions', () => {
     it('should call onPlay with track id when clicked', async () => {
+      const user = userEvent.setup();
       const onPlay = vi.fn();
       const { container } = render(<TrackCard {...defaultProps} onPlay={onPlay} />);
 
       const card = container.querySelector('[class*="MuiCard"]') || container.firstChild;
       if (card) {
-        fireEvent.click(card);
+        await user.click(card as Element);
       }
 
       expect(onPlay).toHaveBeenCalledWith(1);
