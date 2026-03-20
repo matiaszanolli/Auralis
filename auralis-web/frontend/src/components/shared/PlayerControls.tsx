@@ -216,6 +216,12 @@ export function PlayerControls({
         }}
       >
         <div
+          role="slider"
+          aria-label="Seek"
+          aria-valuenow={Math.round(playerState.currentTime)}
+          aria-valuemin={0}
+          aria-valuemax={Math.round(playerState.duration)}
+          tabIndex={0}
           style={{
             height: '6px',
             background: tokens.colors.bg.elevated,
@@ -231,6 +237,22 @@ export function PlayerControls({
           }}
           onMouseDown={() => setIsSeeking(true)}
           onMouseUp={() => setIsSeeking(false)}
+          onKeyDown={(e) => {
+            const step = 5;
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              handleSeek(Math.min(playerState.currentTime + step, playerState.duration));
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              handleSeek(Math.max(playerState.currentTime - step, 0));
+            } else if (e.key === 'Home') {
+              e.preventDefault();
+              handleSeek(0);
+            } else if (e.key === 'End') {
+              e.preventDefault();
+              handleSeek(playerState.duration);
+            }
+          }}
         >
           <div
             style={{
