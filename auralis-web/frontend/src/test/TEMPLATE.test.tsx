@@ -6,7 +6,8 @@
  */
 
 import { describe, it, beforeEach, afterEach } from 'vitest'
-// import { render, screen, fireEvent, waitFor } from '@/test/test-utils'
+// import { render, screen, waitFor } from '@/test/test-utils'
+// import userEvent from '@testing-library/user-event'
 // import ComponentName from '../ComponentName'
 
 describe('ComponentName', () => {
@@ -51,12 +52,13 @@ describe('ComponentName', () => {
   // User Interaction Tests
   // ============================================================================
 
-  it('handles click events', () => {
+  it('handles click events', async () => {
+    // const user = userEvent.setup()
     // const handleClick = vi.fn()
     // render(<ComponentName onClick={handleClick} />)
     //
     // const button = screen.getByRole('button')
-    // fireEvent.click(button)
+    // await user.click(button)
     //
     // expect(handleClick).toHaveBeenCalledTimes(1)
   })
@@ -74,8 +76,9 @@ describe('ComponentName', () => {
     // const handleSubmit = vi.fn()
     // render(<ComponentName onSubmit={handleSubmit} />)
     //
+    // const user = userEvent.setup()
     // const submitButton = screen.getByRole('button', { name: /submit/i })
-    // fireEvent.click(submitButton)
+    // await user.click(submitButton)
     //
     // await waitFor(() => {
     //   expect(handleSubmit).toHaveBeenCalled()
@@ -133,8 +136,9 @@ describe('ComponentName', () => {
   it('updates state on user action', async () => {
     // render(<ComponentName />)
     //
+    // const user = userEvent.setup()
     // const button = screen.getByRole('button', { name: /increment/i })
-    // fireEvent.click(button)
+    // await user.click(button)
     //
     // await waitFor(() => {
     //   expect(screen.getByText('1')).toBeInTheDocument()

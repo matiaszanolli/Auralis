@@ -71,15 +71,17 @@ describe('MyComponent', () => {
 
 ```tsx
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@/test/test-utils'
+import { render, screen } from '@/test/test-utils'
+import userEvent from '@testing-library/user-event'
 import Button from '../Button'
 
 describe('Button', () => {
-  it('calls onClick when clicked', () => {
+  it('calls onClick when clicked', async () => {
+    const user = userEvent.setup()
     const handleClick = vi.fn()
     render(<Button onClick={handleClick}>Click Me</Button>)
 
-    fireEvent.click(screen.getByText('Click Me'))
+    await user.click(screen.getByText('Click Me'))
     expect(handleClick).toHaveBeenCalledTimes(1)
   })
 })
@@ -234,14 +236,15 @@ Critical paths that must be tested:
 
 ```tsx
 it('submits form with correct data', async () => {
+  const user = userEvent.setup()
   const onSubmit = vi.fn()
   render(<Form onSubmit={onSubmit} />)
 
   const input = screen.getByLabelText('Name')
-  fireEvent.change(input, { target: { value: 'John' } })
+  await user.type(input, 'John')
 
   const submitButton = screen.getByRole('button', { name: /submit/i })
-  fireEvent.click(submitButton)
+  await user.click(submitButton)
 
   await waitFor(() => {
     expect(onSubmit).toHaveBeenCalledWith({ name: 'John' })

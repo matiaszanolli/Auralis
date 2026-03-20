@@ -220,7 +220,6 @@ describe('SearchBar', () => {
     });
 
     it('should clear input and call onSearch with empty string', async () => {
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const mockOnSearch = vi.fn();
 
       render(<SearchBar onSearch={mockOnSearch} />);
@@ -236,14 +235,19 @@ describe('SearchBar', () => {
 
       const clearButton = screen.getByRole('button', { name: /clear search/i });
 
+      // Switch to real timers for userEvent — @testing-library/react's
+      // asyncWrapper calls jest.advanceTimersByTime which doesn't exist
+      // in Vitest's fake timer environment.
+      vi.useRealTimers();
+      const user = userEvent.setup();
       await user.click(clearButton);
+      vi.useFakeTimers();
 
       expect(input).toHaveValue('');
       expect(mockOnSearch).toHaveBeenCalledWith('');
     });
 
     it('should focus input after clearing', async () => {
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const mockOnSearch = vi.fn();
 
       render(<SearchBar onSearch={mockOnSearch} />);
@@ -257,7 +261,10 @@ describe('SearchBar', () => {
 
       const clearButton = screen.getByRole('button', { name: /clear search/i });
 
+      vi.useRealTimers();
+      const user = userEvent.setup();
       await user.click(clearButton);
+      vi.useFakeTimers();
 
       expect(document.activeElement).toBe(input);
     });
