@@ -183,6 +183,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const unsubscribeStreamEndRef = useRef<(() => void) | null>(null);
   const unsubscribeErrorRef = useRef<(() => void) | null>(null);
   const unsubscribeFingerprintRef = useRef<(() => void) | null>(null);
+  const unsubscribeSeekStartedRef = useRef<(() => void) | null>(null);
 
   // Stable callback refs — always hold the latest handler version so that the
   // subscription effect (which only depends on wsContext) never needs to
@@ -252,6 +253,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
     // Reset chunk tracking
     lastReceivedChunkIndexRef.current = -1;
+
+    // Ensure isSeeking doesn't stick if cleanup runs mid-seek (#2873)
+    setIsSeeking(false);
   }, []);
 
   /**
@@ -751,6 +755,14 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       (m: any) => handleFingerprintProgressRef.current?.(m)
     );
 
+    // Subscribe to seek_started to clear isSeeking as soon as the backend
+    // acknowledges the seek request. This acts as a fallback if the subsequent
+    // audio_stream_start (with is_seek=true) is lost on reconnect (#2873).
+    unsubscribeSeekStartedRef.current = wsContext.subscribe(
+      'seek_started',
+      () => setIsSeeking(false)
+    );
+
     console.log('[usePlayEnhanced] Subscribed to streaming messages on mount');
 
     // Cleanup on unmount
@@ -760,6 +772,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       unsubscribeStreamEndRef.current?.();
       unsubscribeErrorRef.current?.();
       unsubscribeFingerprintRef.current?.();
+      unsubscribeSeekStartedRef.current?.();
       console.log('[usePlayEnhanced] Unsubscribed from streaming messages on unmount');
     };
   }, [wsContext]); // Only resubscribe when the WS manager itself changes (reconnect)
@@ -796,6 +809,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // Reset UI state
       setCurrentTime(0);
       setIsPaused(false);
+      setIsSeeking(false);
       setFingerprintStatus('idle');
       setFingerprintMessage(null);
 
