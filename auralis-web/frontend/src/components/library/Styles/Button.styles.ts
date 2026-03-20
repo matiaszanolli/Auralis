@@ -29,7 +29,7 @@ export const GradientButton = styled(Button)({
   '&:hover': {
     background: tokens.gradients.aurora,
     transform: 'scale(1.02)',                             // Subtle scale for organic feel
-    boxShadow: '0 12px 32px rgba(115, 102, 240, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Enhanced glow
+    boxShadow: `0 12px 32px ${tokens.colors.opacityScale.accent.veryStrong}, 0 0 0 1px ${tokens.colors.opacityScale.white.light}`, // Enhanced glow
   },
 
   '&:active': {
@@ -38,7 +38,7 @@ export const GradientButton = styled(Button)({
 
   '&:disabled': {
     background: tokens.colors.opacityScale.accent.strong,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: tokens.colors.opacityScale.white.veryStrong,
   },
 
   transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
@@ -80,7 +80,7 @@ export const SaveButton = styled(Button)(({ theme: _theme }) => ({
   '&:hover': {
     background: tokens.gradients.aurora,
     transform: 'scale(1.02)',                             // Subtle scale for organic feel
-    boxShadow: '0 12px 32px rgba(115, 102, 240, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Enhanced glow
+    boxShadow: `0 12px 32px ${tokens.colors.opacityScale.accent.veryStrong}, 0 0 0 1px ${tokens.colors.opacityScale.white.light}`, // Enhanced glow
   },
 
   '&:active': {
@@ -89,7 +89,7 @@ export const SaveButton = styled(Button)(({ theme: _theme }) => ({
 
   '&:disabled': {
     background: tokens.colors.opacityScale.accent.strong,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: tokens.colors.opacityScale.white.veryStrong,
   },
 
   transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,

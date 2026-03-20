@@ -41,16 +41,16 @@ export const SwitchVariant = React.memo<EnhancementToggleProps>(({
             sx={{
               // Subtle switch styling - not visually loud
               '& .MuiSwitch-switchBase': {
-                color: 'rgba(255, 255, 255, 0.5)',
+                color: tokens.colors.opacityScale.white.veryStrong,
               },
               '& .MuiSwitch-switchBase.Mui-checked': {
-                color: 'rgba(115, 102, 240, 0.9)',
+                color: tokens.colors.opacityScale.accent.vivid,
               },
               '& .MuiSwitch-track': {
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                backgroundColor: tokens.colors.opacityScale.white.lighter,
               },
               '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                backgroundColor: 'rgba(115, 102, 240, 0.35)',
+                backgroundColor: tokens.colors.opacityScale.accent.strong,
               },
             }}
           />
