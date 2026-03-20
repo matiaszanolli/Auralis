@@ -14,6 +14,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { transformBackendTrack, type LibraryTrack } from '@/types/domain';
+import { isElectron, getElectronAPI } from '@/utils/electron';
 
 export interface UseLibraryDataOptions {
   view: string;
@@ -66,10 +67,7 @@ export const useLibraryData = ({
 
   const { success, error, info } = useToast();
 
-  // Check if running in Electron
-  const isElectron = useCallback(() => {
-    return !!(window as any).electronAPI;
-  }, []);
+  const isElectronFn = useCallback(() => isElectron(), []);
 
   // Fetch tracks from API with pagination
   const fetchTracks = useCallback(async (resetPagination = true) => {
@@ -179,9 +177,9 @@ export const useLibraryData = ({
     let folderPath: string | undefined;
 
     // Use native folder picker in Electron
-    if (isElectron()) {
+    if (isElectronFn()) {
       try {
-        const result = await (window as any).electronAPI.selectFolder();
+        const result = await getElectronAPI()!.selectFolder();
         if (result && result.length > 0) {
           folderPath = result[0];
         } else {
@@ -224,7 +222,7 @@ export const useLibraryData = ({
     } finally {
       setScanning(false);
     }
-  }, [isElectron, fetchTracks, webFolderPath, success, error, info]);
+  }, [isElectronFn, fetchTracks, webFolderPath, success, error, info]);
 
   // Auto-load on mount or when view/autoLoad changes.
   // fetchTracks is safe to include now that offset is held in a ref (not closure).
@@ -249,7 +247,7 @@ export const useLibraryData = ({
     fetchTracks,
     loadMore,
     handleScanFolder,
-    isElectron,
+    isElectron: isElectronFn,
     setWebFolderPath,
   };
 };

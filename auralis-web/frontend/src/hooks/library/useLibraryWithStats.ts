@@ -44,6 +44,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { transformBackendTrack, type LibraryStats, type LibraryTrack } from '@/types/domain';
+import { isElectron, getElectronAPI } from '@/utils/electron';
 
 // ============================================================================
 // Types
@@ -114,9 +115,7 @@ export const useLibraryWithStats = ({
   // Utilities
   // ========================================================================
 
-  const isElectron = useCallback(() => {
-    return !!(window as any).electronAPI;
-  }, []);
+  const isElectronFn = useCallback(() => isElectron(), []);
 
   // Mock data loading removed - was unused dead code
 
@@ -255,9 +254,9 @@ export const useLibraryWithStats = ({
   const handleScanFolder = useCallback(async () => {
     let folderPath: string | undefined;
 
-    if (isElectron()) {
+    if (isElectronFn()) {
       try {
-        const result = await (window as any).electronAPI.selectFolder();
+        const result = await getElectronAPI()!.selectFolder();
         if (result && result.length > 0) {
           folderPath = result[0];
         } else {
@@ -299,7 +298,7 @@ export const useLibraryWithStats = ({
     } finally {
       setScanning(false);
     }
-  }, [isElectron, fetchTracks, includeStats]);
+  }, [isElectronFn, fetchTracks, includeStats]);
 
   // ========================================================================
   // Statistics Methods
@@ -373,7 +372,7 @@ export const useLibraryWithStats = ({
     refetchStats,
 
     // Utilities
-    isElectron
+    isElectron: isElectronFn
   };
 };
 

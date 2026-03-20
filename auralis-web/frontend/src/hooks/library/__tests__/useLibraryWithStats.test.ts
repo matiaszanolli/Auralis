@@ -333,7 +333,7 @@ describe('useLibraryWithStats', () => {
     });
 
     it('returns true when window.electronAPI exists', () => {
-      (window as any).electronAPI = {};
+      window.electronAPI = { selectFolder: vi.fn() };
 
       const { result } = renderHook(() =>
         useLibraryWithStats({ view: 'all', autoLoad: false })
@@ -341,7 +341,7 @@ describe('useLibraryWithStats', () => {
 
       expect(result.current.isElectron()).toBe(true);
 
-      delete (window as any).electronAPI;
+      window.electronAPI = undefined;
     });
   });
 

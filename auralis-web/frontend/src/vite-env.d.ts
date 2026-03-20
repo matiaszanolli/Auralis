@@ -7,3 +7,12 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/** Electron preload bridge exposed via contextBridge. */
+interface ElectronAPI {
+  selectFolder(): Promise<string[] | null>;
+}
+
+interface Window {
+  electronAPI?: ElectronAPI;
+}
