@@ -14,6 +14,7 @@ export type WebSocketMessageType =
   | 'player_state'
   | 'playback_started'
   | 'playback_paused'
+  | 'playback_resumed'
   | 'playback_stopped'
   | 'track_loaded'
   | 'track_changed'
@@ -601,6 +602,7 @@ export const ALL_MESSAGE_TYPES: WebSocketMessageType[] = [
   'player_state',
   'playback_started',
   'playback_paused',
+  'playback_resumed',
   'playback_stopped',
   'track_loaded',
   'track_changed',
@@ -629,6 +631,7 @@ export const PLAYER_STATE_TYPES: WebSocketMessageType[] = [
   'player_state',
   'playback_started',
   'playback_paused',
+  'playback_resumed',
   'playback_stopped',
   'track_loaded',
   'track_changed',

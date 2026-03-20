@@ -64,6 +64,7 @@ export function usePlaybackState(): PlaybackState {
       'player_state',
       'playback_started',
       'playback_paused',
+      'playback_resumed',
       'playback_stopped',
       'track_loaded',
       'track_changed',
@@ -82,7 +83,8 @@ export function usePlaybackState(): PlaybackState {
             };
           }
 
-          case 'playback_started': {
+          case 'playback_started':
+          case 'playback_resumed': {
             return {
               ...prevState,
               isPlaying: true,
@@ -218,7 +220,7 @@ export function useIsPlaying(): boolean {
   const [isPlaying, setIsPlaying] = useState(false);
 
   useWebSocketSubscription(
-    ['player_state', 'playback_started', 'playback_paused', 'playback_stopped'],
+    ['player_state', 'playback_started', 'playback_resumed', 'playback_paused', 'playback_stopped'],
     (message) => {
       switch (message.type) {
         case 'player_state': {
@@ -227,6 +229,7 @@ export function useIsPlaying(): boolean {
           break;
         }
         case 'playback_started':
+        case 'playback_resumed':
           setIsPlaying(true);
           break;
         case 'playback_paused':
