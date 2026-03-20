@@ -126,6 +126,7 @@ export const useStaggerAnimation = (options: UseStaggerAnimationOptions = {}) =>
 
   const refs = useRef<(HTMLElement | null)[]>([]);
   const observedIndexes = useRef<Set<number>>(new Set());
+  const timerIds = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -137,9 +138,10 @@ export const useStaggerAnimation = (options: UseStaggerAnimationOptions = {}) =>
             if (index !== -1 && !observedIndexes.current.has(index)) {
               observedIndexes.current.add(index);
 
-              setTimeout(() => {
+              const timerId = setTimeout(() => {
                 entry.target.classList.add(animationClass);
               }, index * delay);
+              timerIds.current.push(timerId);
             }
           }
         });
@@ -151,7 +153,11 @@ export const useStaggerAnimation = (options: UseStaggerAnimationOptions = {}) =>
       if (ref) observer.observe(ref);
     });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      timerIds.current.forEach(id => clearTimeout(id));
+      timerIds.current = [];
+    };
   }, [delay, threshold, animationClass]);
 
   const setRef = (el: HTMLElement | null, index: number) => {
