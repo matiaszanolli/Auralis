@@ -12,6 +12,7 @@ Manages job queue, progress tracking, and result caching.
 """
 
 import asyncio
+import logging
 import sys
 import tempfile
 import uuid
@@ -31,6 +32,31 @@ from auralis.core.unified_config import UnifiedConfig
 from auralis.io.processing import resample_audio
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
+
+
+logger = logging.getLogger(__name__)
+
+# Maps exception types to user-safe messages.  Order matters: first
+# match wins, so put specific types before broad ones.
+_ERROR_CATEGORIES: list[tuple[type[BaseException], str]] = [
+    (FileNotFoundError, "Audio file not found"),
+    (PermissionError, "Permission denied accessing audio file"),
+    (OSError, "Audio file could not be read"),
+    (ValueError, "Invalid audio data or parameters"),
+    (MemoryError, "Insufficient memory to process audio"),
+]
+
+
+def _safe_error_message(exc: Exception) -> str:
+    """Return a user-safe error category for *exc*.
+
+    The raw exception is intentionally NOT included — callers must log
+    it separately so internal paths / library internals stay server-side.
+    """
+    for exc_type, message in _ERROR_CATEGORIES:
+        if isinstance(exc, exc_type):
+            return message
+    return "An unexpected error occurred during processing"
 
 
 class ProcessingStatus(str, Enum):
@@ -532,10 +558,18 @@ class ProcessingEngine:
 
         except Exception as e:
             job.status = ProcessingStatus.FAILED
-            job.error_message = str(e)
+            # Log full exception for debugging; expose only a safe
+            # category string to the API caller (fixes #2741).
+            logger.error(
+                "Processing job %s failed: %s",
+                job.job_id, e, exc_info=True,
+            )
+            job.error_message = _safe_error_message(e)
             job.completed_at = datetime.now()
 
-            await self._notify_progress(job.job_id, 100.0, f"Processing failed: {str(e)}")
+            await self._notify_progress(
+                job.job_id, 100.0, f"Processing failed: {job.error_message}"
+            )
 
 
     async def start_worker(self) -> None:
