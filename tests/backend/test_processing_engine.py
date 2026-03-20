@@ -523,5 +523,46 @@ class TestJobDictBoundedMemory:
         assert job.job_id not in engine.progress_callbacks
 
 
+class TestProcessingTimeout:
+    """Tests for processing timeout (issue #2747)"""
+
+    def test_default_processing_timeout(self):
+        """Default processing timeout is 300 seconds"""
+        engine = ProcessingEngine()
+        assert engine.processing_timeout == 300.0
+
+    def test_processing_timeout_configurable(self):
+        """processing_timeout constructor parameter is stored"""
+        engine = ProcessingEngine(processing_timeout=60.0)
+        assert engine.processing_timeout == 60.0
+
+    @pytest.mark.asyncio
+    async def test_hung_process_times_out_and_fails_job(self, temp_audio_file):
+        """A hung processor.process() times out and marks the job FAILED (fixes #2747)"""
+        engine = ProcessingEngine(max_concurrent_jobs=1, processing_timeout=0.1)
+
+        with patch('core.processing_engine.load_audio') as mock_load, \
+             patch('core.processing_engine.HybridProcessor') as mock_processor_cls:
+
+            mock_load.return_value = (np.zeros((1000, 2)), 44100)
+
+            mock_proc = Mock()
+            # Simulate a hung DSP call that never returns
+            import time
+            mock_proc.process.side_effect = lambda *a, **kw: time.sleep(10)
+            mock_processor_cls.return_value = mock_proc
+
+            job = engine.create_job(
+                input_path=str(temp_audio_file),
+                settings={"mode": "adaptive", "output_format": "wav", "bit_depth": 16},
+            )
+
+            await engine.process_job(job)
+
+            assert job.status == ProcessingStatus.FAILED
+            assert "timed out" in job.error_message
+            assert job.completed_at is not None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

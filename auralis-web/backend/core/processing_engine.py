@@ -91,16 +91,25 @@ class ProcessingEngine:
     adaptive mastering using the HybridProcessor
     """
 
+    # Default ceiling for a single processor.process() call (seconds).
+    # Generous enough for long tracks; short enough to unblock the queue
+    # if a Rust/PyO3 call hangs (fixes #2747).
+    DEFAULT_PROCESSING_TIMEOUT: float = 300.0
+
     def __init__(
         self,
         max_concurrent_jobs: int = 2,
         max_queue_size: int = 20,
         completed_job_ttl_hours: float = 1.0,
+        processing_timeout: float | None = None,
     ) -> None:
         self.jobs: dict[str, ProcessingJob] = {}
         self.max_concurrent_jobs: int = max_concurrent_jobs
         self.max_queue_size: int = max_queue_size
         self.completed_job_ttl_hours: float = completed_job_ttl_hours
+        self.processing_timeout: float = (
+            processing_timeout if processing_timeout is not None else self.DEFAULT_PROCESSING_TIMEOUT
+        )
         self.job_queue: asyncio.Queue[ProcessingJob] = asyncio.Queue(maxsize=max_queue_size)
 
         # Semaphore is the single source of truth for concurrency limiting.
@@ -432,6 +441,9 @@ class ProcessingEngine:
             processor.reset_dynamics()
 
             # Process audio — CPU-bound; offload to thread (fixes #2319)
+            # Wrap with wait_for so a hung DSP/Rust call cannot hold the
+            # semaphore slot indefinitely (fixes #2747).
+            timeout = self.processing_timeout
             if job.mode == "reference" or job.mode == "hybrid":
                 # Load reference audio if needed
                 reference_path = job.settings.get("reference_path")
@@ -444,13 +456,22 @@ class ProcessingEngine:
                         reference_audio = await asyncio.to_thread(
                             resample_audio, reference_audio, reference_sr, sample_rate
                         )
-                    result = await asyncio.to_thread(processor.process, audio, reference_audio)
+                    result = await asyncio.wait_for(
+                        asyncio.to_thread(processor.process, audio, reference_audio),
+                        timeout=timeout,
+                    )
                 else:
                     # Fall back to adaptive mode if no reference
-                    result = await asyncio.to_thread(processor.process, audio)
+                    result = await asyncio.wait_for(
+                        asyncio.to_thread(processor.process, audio),
+                        timeout=timeout,
+                    )
             else:
                 # Adaptive mode
-                result = await asyncio.to_thread(processor.process, audio)
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(processor.process, audio),
+                    timeout=timeout,
+                )
 
             await self._notify_progress(job.job_id, 80.0, "Saving processed audio...")
 
@@ -487,6 +508,19 @@ class ProcessingEngine:
 
             job.status = ProcessingStatus.COMPLETED
             job.completed_at = datetime.now()
+
+        except TimeoutError:
+            # asyncio.wait_for raised TimeoutError — the DSP call hung.
+            # Mark FAILED so the semaphore slot is released (fixes #2747).
+            job.status = ProcessingStatus.FAILED
+            job.error_message = (
+                f"Processing timed out after {self.processing_timeout:.0f}s"
+            )
+            job.completed_at = datetime.now()
+
+            await self._notify_progress(
+                job.job_id, 100.0, job.error_message
+            )
 
         except asyncio.CancelledError:
             # task.cancel() was called — mark cancelled and re-raise so asyncio
