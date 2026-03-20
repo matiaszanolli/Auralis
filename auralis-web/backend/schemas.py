@@ -298,7 +298,7 @@ class WebSocketErrorResponse(BaseModel):
 
 class TrackBase(BaseModel):
     """Minimal track representation for API responses."""
-    id: str = Field(description="Track identifier")
+    id: int = Field(description="Track identifier")
     title: str = Field(description="Track title")
     artist: str = Field(description="Artist name")
     album: str = Field(description="Album name")
@@ -307,14 +307,14 @@ class TrackBase(BaseModel):
 
 class ArtistBase(BaseModel):
     """Minimal artist representation for API responses."""
-    id: str = Field(description="Artist identifier")
+    id: int = Field(description="Artist identifier")
     name: str = Field(description="Artist name")
     track_count: int = Field(description="Number of tracks by this artist")
 
 
 class AlbumBase(BaseModel):
     """Minimal album representation for API responses."""
-    id: str = Field(description="Album identifier")
+    id: int = Field(description="Album identifier")
     title: str = Field(description="Album title")
     artist: str = Field(description="Artist name")
     track_count: int = Field(description="Number of tracks in this album")
