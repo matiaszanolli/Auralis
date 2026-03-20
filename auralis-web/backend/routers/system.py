@@ -638,6 +638,15 @@ def create_system_router(
                                 if _active_streaming_tasks.get(ws_id) is my_task:
                                     _active_streaming_tasks.pop(ws_id, None)
 
+                    # Reset pause/flow-control events so seek stream is not
+                    # blocked by stale paused or buffer_full state (fixes #2744)
+                    pause_event = asyncio.Event()
+                    pause_event.set()
+                    _stream_pause_events[ws_id] = pause_event
+                    flow_event = asyncio.Event()
+                    flow_event.set()
+                    _stream_flow_events[ws_id] = flow_event
+
                     # Register new seek task under lock (fixes #2425)
                     async with _active_streaming_tasks_lock:
                         task = asyncio.create_task(stream_from_position())
