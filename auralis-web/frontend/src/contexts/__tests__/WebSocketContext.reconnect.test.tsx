@@ -124,7 +124,7 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
   it('re-issues play_enhanced after WebSocket reconnects', async () => {
     const { result } = await setup();
 
-    act(() => {
+    await act(async () => {
       result.current.send({ type: 'play_enhanced', data: { track_id: 42, preset: 'adaptive' } });
     });
 
@@ -142,7 +142,7 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
   it('re-issues play_normal after WebSocket reconnects', async () => {
     const { result } = await setup();
 
-    act(() => {
+    await act(async () => {
       result.current.send({ type: 'play_normal', data: { track_id: 7 } });
     });
 
@@ -161,7 +161,7 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
   it('does not re-issue play_enhanced after explicit stop', async () => {
     const { result } = await setup();
 
-    act(() => {
+    await act(async () => {
       result.current.send({ type: 'play_enhanced', data: { track_id: 99 } });
       result.current.send({ type: 'stop' });
     });
@@ -177,7 +177,7 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
   it('does not re-issue play_enhanced after explicit pause', async () => {
     const { result } = await setup();
 
-    act(() => {
+    await act(async () => {
       result.current.send({ type: 'play_enhanced', data: { track_id: 5 } });
       result.current.send({ type: 'pause' });
     });
@@ -191,7 +191,7 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
   it('does not re-issue stream command when stop is sent while disconnected', async () => {
     const { result } = await setup();
 
-    act(() => {
+    await act(async () => {
       result.current.send({ type: 'play_enhanced', data: { track_id: 11 } });
     });
 
@@ -202,7 +202,7 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
     });
 
     // User clicks stop while disconnected (goes to queue)
-    act(() => {
+    await act(async () => {
       result.current.send({ type: 'stop' });
     });
 
@@ -228,7 +228,7 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
     const { result } = renderHook(() => useWebSocketContext(), { wrapper });
     await act(async () => { await Promise.resolve(); });
 
-    act(() => {
+    await act(async () => {
       result.current.send({ type: 'play_enhanced', data: { track_id: 3 } });
     });
 
@@ -250,7 +250,7 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
   it('re-issues stream command on each subsequent reconnect', async () => {
     const { result } = await setup();
 
-    act(() => {
+    await act(async () => {
       result.current.send({ type: 'play_enhanced', data: { track_id: 77 } });
     });
 
@@ -268,7 +268,7 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
   it('uses the most recent stream command when track changes before disconnect', async () => {
     const { result } = await setup();
 
-    act(() => {
+    await act(async () => {
       result.current.send({ type: 'play_enhanced', data: { track_id: 1 } });
       result.current.send({ type: 'play_enhanced', data: { track_id: 2 } });
     });
