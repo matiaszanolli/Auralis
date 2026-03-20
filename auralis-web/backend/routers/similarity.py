@@ -122,7 +122,7 @@ def create_similarity_router(
                     logger.debug(f"Could not enqueue track {track_id}: {q_err}")
 
                 raise HTTPException(
-                    status_code=400,
+                    status_code=404,
                     detail=f"Track {track_id} does not have a fingerprint. Queued for background processing."
                 )
 
@@ -220,9 +220,9 @@ def create_similarity_router(
 
             # Check fingerprints
             if not repos.fingerprints.exists(track_id1):
-                raise HTTPException(status_code=400, detail=f"Track {track_id1} missing fingerprint")
+                raise HTTPException(status_code=404, detail=f"Track {track_id1} missing fingerprint")
             if not repos.fingerprints.exists(track_id2):
-                raise HTTPException(status_code=400, detail=f"Track {track_id2} missing fingerprint")
+                raise HTTPException(status_code=404, detail=f"Track {track_id2} missing fingerprint")
 
             # Calculate similarity
             similarity = get_similarity_system()
