@@ -686,11 +686,12 @@ def create_library_router(
                     "spectral_flatness": fp.spectral_flatness,
                     # Harmonic content (model has harmonic_ratio, pitch_stability, chroma_energy)
                     "harmonic_ratio": fp.harmonic_ratio,
-                    "percussive_ratio": 1.0 - fp.harmonic_ratio,     # derived: inverse of harmonic_ratio
                     "pitch_confidence": fp.pitch_stability,           # model: pitch_stability
                     "chroma_energy_mean": fp.chroma_energy,           # model: chroma_energy
-                    "chroma_energy_variance": None,                   # not in model
-                    "key_strength": fp.pitch_stability,               # closest proxy in model
+                    # 3D Dynamics variation
+                    "dynamic_range_variation": fp.dynamic_range_variation,
+                    "loudness_variation_std": fp.loudness_variation_std,
+                    "peak_consistency": fp.peak_consistency,
                     # 2D Stereo characteristics (model: phase_correlation, not stereo_correlation)
                     "stereo_width": fp.stereo_width,
                     "stereo_correlation": fp.phase_correlation,       # model: phase_correlation
