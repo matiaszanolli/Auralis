@@ -1561,11 +1561,26 @@ class AudioStreamController:
                     break
 
                 try:
-                    # Process chunk with fast-start for first chunk of seek
-                    fast_start = (chunk_idx == start_chunk_idx)
-                    await self._process_and_stream_chunk(
-                        chunk_idx, processor, websocket, on_progress
-                    )
+                    is_first_seek_chunk = (chunk_idx == start_chunk_idx)
+
+                    if is_first_seek_chunk and seek_offset > 0:
+                        # Trim the first chunk to the exact seek position
+                        pcm_samples, _sr = await self._process_chunk_only(
+                            chunk_idx, processor, websocket
+                        )
+                        trim_samples = round(seek_offset * processor.sample_rate)
+                        pcm_samples = pcm_samples[trim_samples:]
+                        logger.debug(
+                            f"Seek trim: removed {trim_samples} samples "
+                            f"({seek_offset:.2f}s) from chunk {chunk_idx}"
+                        )
+                        await self._stream_processed_chunk(
+                            pcm_samples, chunk_idx, processor, websocket
+                        )
+                    else:
+                        await self._process_and_stream_chunk(
+                            chunk_idx, processor, websocket, on_progress
+                        )
 
                     # Progress update
                     if on_progress:
