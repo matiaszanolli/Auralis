@@ -349,6 +349,11 @@ export const useSynchronizedVisualizations = (
 
   const [renderStats, setRenderStats] = useState<{ [key: string]: number }>({});
 
+  // Store visualizations in a ref so the rAF loop doesn't restart
+  // when callers pass an inline array literal.
+  const visualizationsRef = useRef(visualizations);
+  visualizationsRef.current = visualizations;
+
   const renderAll = useCallback(() => {
     if (!masterOptimization.shouldRender()) return;
 
@@ -356,7 +361,7 @@ export const useSynchronizedVisualizations = (
 
     const frameStats: { [key: string]: number } = {};
 
-    visualizations.forEach((viz, index) => {
+    visualizationsRef.current.forEach((viz, index) => {
       const startTime = performance.now();
 
       try {
@@ -381,7 +386,7 @@ export const useSynchronizedVisualizations = (
 
     setRenderStats(frameStats);
     masterOptimization.endRender();
-  }, [visualizations, masterOptimization]);
+  }, [masterOptimization]);
 
   // Auto-render loop
   useEffect(() => {
