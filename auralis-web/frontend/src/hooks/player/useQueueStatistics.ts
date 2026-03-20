@@ -30,7 +30,7 @@
  * @module hooks/player/useQueueStatistics
  */
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { QueueStatistics, type QueueStats, type PropertyDistribution } from '@/utils/queue/queue_statistics';
 import type { Track } from '@/types/domain';
 
@@ -186,11 +186,11 @@ export function useQueueStatistics(queue: Track[]): QueueStatisticsActions {
     return QueueStatistics.assessPlayQuality(stats);
   }, [stats]);
 
-  const getDistributionPercentages = (distribution: PropertyDistribution) => {
+  const getDistributionPercentages = useCallback((distribution: PropertyDistribution) => {
     return QueueStatistics.getDistributionPercentages(distribution, queue.length);
-  };
+  }, [queue.length]);
 
-  const compareWith = (otherQueue: Track[]) => {
+  const compareWith = useCallback((otherQueue: Track[]) => {
     const comparison = QueueStatistics.compareQueues(queue, otherQueue);
     return {
       added: comparison.addedTracks.length,
@@ -198,7 +198,7 @@ export function useQueueStatistics(queue: Track[]): QueueStatisticsActions {
       moved: comparison.movedTracks.length,
       similarity: comparison.similarity,
     };
-  };
+  }, [queue]);
 
   return {
     stats,
