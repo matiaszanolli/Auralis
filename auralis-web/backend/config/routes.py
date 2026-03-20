@@ -182,11 +182,15 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     app.include_router(player_router)
     logger.debug("✅ Player router registered")
 
-    # Include cache management router (if available)
-    if HAS_STREAMLINED_CACHE and globals_dict.get('streamlined_cache'):
+    # Include cache management router (if available).
+    # Register unconditionally when the module is importable; handlers
+    # return 503 until the cache manager is initialised during lifespan
+    # (fixes #2756 — router was never registered because globals_dict
+    # was still empty at setup_routers() time).
+    if HAS_STREAMLINED_CACHE:
         try:
             cache_router: APIRouter = create_streamlined_cache_router(
-                cache_manager=globals_dict['streamlined_cache'],
+                get_cache_manager=lambda: globals_dict.get('streamlined_cache'),
                 broadcast_manager=manager
             )
             app.include_router(cache_router)

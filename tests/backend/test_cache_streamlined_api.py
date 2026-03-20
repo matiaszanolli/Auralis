@@ -43,10 +43,49 @@ def client():
     mock_cache.clear_all = AsyncMock()
 
     app = FastAPI()
-    app.include_router(create_streamlined_cache_router(cache_manager=mock_cache))
+    app.include_router(create_streamlined_cache_router(
+        get_cache_manager=lambda: mock_cache,
+    ))
 
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def client_no_cache():
+    """FastAPI test client with cache router but no cache manager (pre-lifespan)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from routers.cache_streamlined import create_streamlined_cache_router
+
+    app = FastAPI()
+    app.include_router(create_streamlined_cache_router(
+        get_cache_manager=lambda: None,
+    ))
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+class TestCacheNotInitialised:
+    """Endpoints return 503 before cache manager is initialised (fixes #2756)."""
+
+    def test_stats_returns_503(self, client_no_cache):
+        response = client_no_cache.get("/api/cache/stats")
+        assert response.status_code == 503
+
+    def test_health_returns_503(self, client_no_cache):
+        response = client_no_cache.get("/api/cache/health")
+        assert response.status_code == 503
+
+    def test_clear_returns_503(self, client_no_cache):
+        response = client_no_cache.post("/api/cache/clear")
+        assert response.status_code == 503
+
+    def test_track_status_returns_503(self, client_no_cache):
+        response = client_no_cache.get("/api/cache/track/1/status")
+        assert response.status_code == 503
 
 
 class TestGetCacheStats:

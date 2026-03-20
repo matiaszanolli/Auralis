@@ -10,6 +10,7 @@ API endpoints for streamlined two-tier cache management and statistics.
 
 import logging
 from typing import Any
+from collections.abc import Callable
 
 from cache import StreamlinedCacheManager
 from fastapi import APIRouter, HTTPException
@@ -36,15 +37,29 @@ class TrackCacheStatus(BaseModel):
     fully_cached: bool
 
 
+def _require_cache(
+    get_cache_manager: Callable[[], StreamlinedCacheManager | None],
+) -> StreamlinedCacheManager:
+    """Return the cache manager or raise 503 if not yet initialised."""
+    mgr = get_cache_manager()
+    if mgr is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Cache manager is not yet initialised",
+        )
+    return mgr
+
+
 def create_streamlined_cache_router(
-    cache_manager: StreamlinedCacheManager,
+    get_cache_manager: Callable[[], StreamlinedCacheManager | None],
     broadcast_manager: Any | None = None
 ) -> APIRouter:
     """
     Create streamlined cache management router.
 
     Args:
-        cache_manager: StreamlinedCacheManager instance
+        get_cache_manager: Callable that returns the StreamlinedCacheManager
+            (or None before lifespan has initialised it).
         broadcast_manager: Optional broadcast manager for notifications
 
     Returns:
@@ -63,6 +78,7 @@ def create_streamlined_cache_router(
         - Overall hit rates and memory usage
         - Per-track cache completion status
         """
+        cache_manager = _require_cache(get_cache_manager)
         try:
             stats = cache_manager.get_stats()
             return CacheStatsResponse(**stats)
@@ -81,6 +97,7 @@ def create_streamlined_cache_router(
         Returns:
             Cache status including completion percentage and chunk counts
         """
+        cache_manager = _require_cache(get_cache_manager)
         try:
             status = cache_manager.get_track_cache_status(track_id)
 
@@ -111,6 +128,7 @@ def create_streamlined_cache_router(
 
         Use with caution - this will force re-processing of all chunks.
         """
+        cache_manager = _require_cache(get_cache_manager)
         try:
             await cache_manager.clear_all()
 
@@ -134,6 +152,7 @@ def create_streamlined_cache_router(
         Returns:
             Health information including memory usage and worker status
         """
+        cache_manager = _require_cache(get_cache_manager)
         try:
             stats = cache_manager.get_stats()
 
