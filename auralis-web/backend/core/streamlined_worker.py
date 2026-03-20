@@ -49,6 +49,11 @@ class StreamlinedCacheWorker:
         self._building_track_id: int | None = None
         self._building_chunk_idx: int = 0
 
+        # Processor cache: reuse the same ChunkedAudioProcessor across chunks
+        # for a given (track_id, preset, intensity) so DSP state (compressor
+        # envelope, EQ history) is preserved at chunk boundaries (fixes #2737).
+        self._processor_cache: dict[tuple[int, str | None, float], Any] = {}
+
     async def start(self) -> None:
         """Start the background worker."""
         if not self.running:
@@ -214,6 +219,10 @@ class StreamlinedCacheWorker:
         if self._building_track_id != track_id:
             self._building_track_id = track_id
             self._building_chunk_idx = 0
+            # Evict processors for the old track so they can be GC'd
+            self._processor_cache = {
+                k: v for k, v in self._processor_cache.items() if k[0] == track_id
+            }
             logger.info(f"Building Tier 2 cache for track {track_id} ({status.total_chunks} chunks)")
 
         # Find next uncached chunk
@@ -274,13 +283,18 @@ class StreamlinedCacheWorker:
             # Import here to avoid circular dependency
             from core.chunked_processor import ChunkedAudioProcessor
 
-            # Create processor
-            processor = ChunkedAudioProcessor(
-                track_id=track_id,
-                filepath=track.filepath,
-                preset=preset,  # type: ignore[arg-type]  # None for original
-                intensity=intensity
-            )
+            # Reuse processor across chunks so DSP state (compressor envelope,
+            # EQ history) carries over at chunk boundaries (fixes #2737).
+            cache_key = (track_id, preset, intensity)
+            processor = self._processor_cache.get(cache_key)
+            if processor is None:
+                processor = ChunkedAudioProcessor(
+                    track_id=track_id,
+                    filepath=track.filepath,
+                    preset=preset,  # type: ignore[arg-type]  # None for original
+                    intensity=intensity
+                )
+                self._processor_cache[cache_key] = processor
 
             # Process chunk with timeout (using thread-safe async method)
             timeout_seconds = 20 if tier == "tier1" else 60  # Tier 1 is urgent
