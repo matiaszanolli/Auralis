@@ -38,6 +38,8 @@ const ShimmerOverlay = () => (
 
 export interface ArtworkContainerProps {
   albumId: number;
+  /** Album title for accessibility */
+  albumTitle?: string;
   hasArtwork: boolean;
   isHovered: boolean;
   isDownloading: boolean;
@@ -52,6 +54,7 @@ export interface ArtworkContainerProps {
 
 export const ArtworkContainer = ({
   albumId,
+  albumTitle,
   hasArtwork,
   isHovered,
   isDownloading,
@@ -102,7 +105,7 @@ export const ArtworkContainer = ({
         {!hasArtwork && <ShimmerOverlay />}
 
         {/* Play Button Overlay */}
-        <PlayOverlay isHovered={isHovered} onClick={onPlay} />
+        <PlayOverlay isHovered={isHovered} onClick={onPlay} title={albumTitle} />
 
         {/* Loading Overlay */}
         <LoadingOverlay show={isDownloading || isExtracting} />

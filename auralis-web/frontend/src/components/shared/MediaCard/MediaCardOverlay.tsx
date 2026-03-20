@@ -20,6 +20,8 @@ interface MediaCardOverlayProps {
   onPlay: (e: React.MouseEvent) => void;
   /** Optional badge content (duration, track count, etc.) */
   badgeContent?: React.ReactNode;
+  /** Title for accessibility (used in aria-label) */
+  title?: string;
 }
 
 /**
@@ -35,6 +37,7 @@ export const MediaCardOverlay = ({
   isPlaying = false,
   onPlay,
   badgeContent,
+  title,
 }: MediaCardOverlayProps) => {
   const showOverlay = isHovered || isPlaying;
 
@@ -68,6 +71,7 @@ export const MediaCardOverlay = ({
       >
         <IconButton
           onClick={onPlay}
+          aria-label={title ? `Play ${title}` : 'Play'}
           sx={{
             background: tokens.colors.accent.primary,
             color: tokens.colors.text.primary,

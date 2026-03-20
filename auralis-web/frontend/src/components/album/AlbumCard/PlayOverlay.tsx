@@ -15,9 +15,11 @@ import { Box } from '@mui/material';
 export interface PlayOverlayProps {
   isHovered: boolean;
   onClick: (e: React.MouseEvent) => void;
+  /** Title for accessibility (used in aria-label) */
+  title?: string;
 }
 
-export const PlayOverlay = ({ isHovered, onClick }: PlayOverlayProps) => {
+export const PlayOverlay = ({ isHovered, onClick, title }: PlayOverlayProps) => {
   return (
     <Box
       sx={{
@@ -47,6 +49,7 @@ export const PlayOverlay = ({ isHovered, onClick }: PlayOverlayProps) => {
           },
         }}
         onClick={onClick}
+        aria-label={title ? `Play ${title}` : 'Play'}
       >
         <PlayArrow sx={{ fontSize: 32 }} />
       </IconButton>

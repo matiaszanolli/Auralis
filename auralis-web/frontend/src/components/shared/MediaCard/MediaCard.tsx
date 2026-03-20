@@ -196,6 +196,7 @@ export const MediaCard = (props: MediaCardProps) => {
           isPlaying={props.isPlaying}
           onPlay={handlePlayClick}
           badgeContent={metadata.badgeContent}
+          title={props.title}
         />
       </MediaCardArtwork>
 
