@@ -21,9 +21,10 @@ Coverage:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -398,3 +399,82 @@ class TestSimilaritySecurityValidation:
 
         # Should be rejected by validation
         assert response.status_code == 422
+
+
+class TestBlockingCallsOffloaded:
+    """Verify CPU-bound calls run in a thread, not on the event loop (fixes #2738)"""
+
+    @pytest.mark.asyncio
+    async def test_build_graph_uses_to_thread(self):
+        """build_similarity_graph calls graph_builder.build_graph via asyncio.to_thread"""
+        from routers.similarity import create_similarity_router
+
+        mock_graph_builder = Mock()
+        mock_stats = Mock()
+        mock_stats.to_dict.return_value = {
+            "total_tracks": 10,
+            "total_edges": 30,
+            "k_neighbors": 3,
+            "avg_distance": 0.5,
+            "min_distance": 0.1,
+            "max_distance": 0.9,
+            "build_time_seconds": 1.0,
+        }
+        mock_graph_builder.build_graph.return_value = mock_stats
+
+        router = create_similarity_router(
+            get_similarity_system=Mock(),
+            get_graph_builder=lambda: mock_graph_builder,
+            get_repository_factory=Mock(),
+        )
+
+        # Find the build endpoint handler
+        handler = None
+        for route in router.routes:
+            if hasattr(route, "path") and route.path == "/api/similarity/graph/build":
+                handler = route.endpoint
+                break
+
+        assert handler is not None, "Could not find /graph/build endpoint"
+
+        with patch("routers.similarity.asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+            mock_to_thread.return_value = mock_stats
+
+            await handler(k=5, clear_existing=True)
+
+            mock_to_thread.assert_called_once_with(
+                mock_graph_builder.build_graph, k=5, clear_existing=True
+            )
+
+    @pytest.mark.asyncio
+    async def test_fit_uses_to_thread(self):
+        """fit_similarity_system calls similarity.fit via asyncio.to_thread"""
+        from routers.similarity import create_similarity_router
+
+        mock_similarity = Mock()
+        mock_similarity.is_fitted.return_value = False
+
+        mock_repos = Mock()
+        mock_repos.fingerprints.get_count.return_value = 100
+
+        router = create_similarity_router(
+            get_similarity_system=lambda: mock_similarity,
+            get_graph_builder=Mock(),
+            get_repository_factory=lambda: mock_repos,
+        )
+
+        # Find the fit endpoint handler
+        handler = None
+        for route in router.routes:
+            if hasattr(route, "path") and route.path == "/api/similarity/fit":
+                handler = route.endpoint
+                break
+
+        assert handler is not None, "Could not find /fit endpoint"
+
+        with patch("routers.similarity.asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread, \
+             patch("routers.similarity.require_repository_factory", return_value=mock_repos):
+
+            await handler(min_samples=10)
+
+            mock_to_thread.assert_called_once_with(mock_similarity.fit)

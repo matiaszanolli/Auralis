@@ -8,6 +8,7 @@ REST API endpoints for fingerprint-based music similarity
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 from typing import Any
 from collections.abc import Callable
@@ -327,8 +328,9 @@ def create_similarity_router(
                     detail=f"Insufficient fingerprints: {fingerprint_count} < {min_samples}"
                 )
 
-            # Fit the similarity system
-            similarity.fit()
+            # Fit the similarity system — CPU-bound O(N²); offload to thread
+            # so the event loop stays responsive (fixes #2738).
+            await asyncio.to_thread(similarity.fit)
 
             return {
                 "fitted": True,
@@ -368,7 +370,11 @@ def create_similarity_router(
                     detail="Similarity system not fitted. Please fit the system first using POST /api/similarity/fit"
                 )
 
-            stats = graph_builder.build_graph(k=k, clear_existing=clear_existing)
+            # CPU-bound O(N²) K-NN computation; offload to thread so the
+            # event loop stays responsive (fixes #2738).
+            stats = await asyncio.to_thread(
+                graph_builder.build_graph, k=k, clear_existing=clear_existing
+            )
 
             return GraphStatsResponse(**stats.to_dict())
 
