@@ -16,6 +16,7 @@
  */
 
 import { WebSocketManager, classifyErrorSeverity } from '../utils/errorHandling';
+import { getWsUrl } from '../config/api';
 import {
   StreamingStateManager,
   StreamingSubscriptionManager,
@@ -183,7 +184,7 @@ export class RealTimeAnalysisStream {
   }
 
   // Connection Management (Phase 3c: Uses WebSocketManager)
-  async connect(endpoint: string = 'ws://localhost:8080/analysis-stream'): Promise<void> {
+  async connect(endpoint: string = getWsUrl('/analysis-stream')): Promise<void> {
     try {
       this.wsManager = new WebSocketManager(endpoint, {
         maxReconnectAttempts: 10,
