@@ -25,7 +25,7 @@ export const BatchActionButton = ({
 
   return (
     <Tooltip title={title}>
-      <ActionButton onClick={handleClick} size="medium">
+      <ActionButton onClick={handleClick} size="medium" aria-label={title}>
         {icon}
       </ActionButton>
     </Tooltip>
