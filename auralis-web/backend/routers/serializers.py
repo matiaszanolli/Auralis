@@ -60,6 +60,8 @@ DEFAULT_PLAYLIST_FIELDS = {
     'id': None,
     'name': 'Untitled Playlist',
     'track_count': 0,
+    'is_smart': False,
+    'smart_criteria': None,
     'created_at': None,
     'updated_at': None
 }
