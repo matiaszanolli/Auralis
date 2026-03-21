@@ -66,6 +66,7 @@ export const QueuePanel = ({
   // Local state for UI interactions
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const dragTargetRef = useRef<number | null>(null);
 
   // Virtualization
@@ -169,13 +170,16 @@ export const QueuePanel = ({
     }
   };
 
-  const handleClearQueue = async () => {
-    if (confirm('Clear the entire queue?')) {
-      try {
-        await clearQueue();
-      } catch (err) {
-        console.error('Failed to clear queue:', err);
-      }
+  const handleClearQueue = () => {
+    setShowClearConfirm(true);
+  };
+
+  const confirmClearQueue = async () => {
+    setShowClearConfirm(false);
+    try {
+      await clearQueue();
+    } catch (err) {
+      console.error('Failed to clear queue:', err);
     }
   };
 
@@ -345,6 +349,74 @@ export const QueuePanel = ({
           </ul>
         )}
       </div>
+
+      {/* Clear Queue Confirmation Dialog */}
+      {showClearConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowClearConfirm(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Clear queue confirmation"
+            style={{
+              background: tokens.colors.bg.secondary,
+              borderRadius: tokens.borderRadius.md,
+              border: `1px solid ${tokens.colors.border.medium}`,
+              padding: tokens.spacing.lg,
+              maxWidth: '360px',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{
+              margin: `0 0 ${tokens.spacing.lg} 0`,
+              color: tokens.colors.text.primary,
+              fontSize: tokens.typography.fontSize.base,
+            }}>
+              Clear the entire queue?
+            </p>
+            <div style={{ display: 'flex', gap: tokens.spacing.sm, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                style={{
+                  padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
+                  background: 'transparent',
+                  border: `1px solid ${tokens.colors.border.medium}`,
+                  borderRadius: tokens.borderRadius.sm,
+                  color: tokens.colors.text.secondary,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmClearQueue}
+                style={{
+                  padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
+                  background: tokens.colors.semantic.error,
+                  border: 'none',
+                  borderRadius: tokens.borderRadius.sm,
+                  color: tokens.colors.text.primaryFull,
+                  cursor: 'pointer',
+                  fontWeight: tokens.typography.fontWeight.semibold,
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
