@@ -178,7 +178,6 @@ class ProcessingEngine:
         job_id = str(uuid.uuid4())
 
         # Generate output path
-        Path(input_path)
         output_format = settings.get("output_format", "wav")
         output_path = str(self.temp_dir / f"{job_id}_processed.{output_format}")
 
