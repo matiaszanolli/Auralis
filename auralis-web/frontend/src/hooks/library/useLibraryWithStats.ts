@@ -79,6 +79,10 @@ export interface UseLibraryWithStatsReturn {
   handleScanFolder: () => Promise<void>;
   refetchStats: () => Promise<void>;
 
+  // Web folder path (non-Electron scan input)
+  webFolderPath: string;
+  setWebFolderPath: (path: string) => void;
+
   // Utilities
   isElectron: () => boolean;
 }
@@ -110,6 +114,9 @@ export const useLibraryWithStats = ({
   const fetchInProgressRef = useRef(false);
 
   const { success, error: toastError, info } = useToast();
+
+  // Controlled input for folder path in web (non-Electron) environments (fixes #2794).
+  const [webFolderPath, setWebFolderPath] = useState('');
 
   // ========================================================================
   // Utilities
@@ -262,14 +269,18 @@ export const useLibraryWithStats = ({
         } else {
           return;
         }
-      } catch (error) {
-        console.error('Failed to open folder picker:', error);
-        alert('❌ Failed to open folder picker');
+      } catch (err) {
+        console.error('Failed to open folder picker:', err);
+        toastError('Failed to open folder picker');
         return;
       }
     } else {
-      folderPath = prompt('Enter folder path to scan:\n(e.g., /home/user/Music)') || undefined;
-      if (!folderPath) return;
+      // Web browser: read from the controlled input (set via setWebFolderPath).
+      folderPath = webFolderPath.trim() || undefined;
+      if (!folderPath) {
+        info('Enter a folder path in the scan field and try again');
+        return;
+      }
     }
 
     setScanning(true);
@@ -282,7 +293,7 @@ export const useLibraryWithStats = ({
 
       if (response.ok) {
         const result = await response.json();
-        alert(`✅ Scan complete!\nAdded: ${result.files_added || 0} tracks`);
+        success(`Scan complete! Added ${result.files_added || 0} tracks`);
         await fetchTracks();
         // Refresh stats after scan
         if (includeStats) {
@@ -290,15 +301,15 @@ export const useLibraryWithStats = ({
         }
       } else {
         const errorData = await response.json();
-        alert(`❌ Scan failed: ${errorData.detail || 'Unknown error'}`);
+        toastError(`Scan failed: ${errorData.detail || 'Unknown error'}`);
       }
-    } catch (error) {
-      console.error('Scan error:', error);
-      alert(`❌ Error scanning folder: ${error}`);
+    } catch (err) {
+      console.error('Scan error:', err);
+      toastError('Error scanning folder — check the backend is reachable');
     } finally {
       setScanning(false);
     }
-  }, [isElectronFn, fetchTracks, includeStats]);
+  }, [isElectronFn, fetchTracks, includeStats, webFolderPath, success, toastError, info]);
 
   // ========================================================================
   // Statistics Methods
@@ -370,6 +381,10 @@ export const useLibraryWithStats = ({
     loadMore,
     handleScanFolder,
     refetchStats,
+
+    // Web folder path (non-Electron scan input)
+    webFolderPath,
+    setWebFolderPath,
 
     // Utilities
     isElectron: isElectronFn
