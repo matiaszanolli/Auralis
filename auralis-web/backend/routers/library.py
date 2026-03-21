@@ -22,6 +22,7 @@ Endpoints:
 
 import asyncio
 import logging
+import os
 from typing import Any, cast
 from collections.abc import Callable
 
@@ -507,12 +508,16 @@ def create_library_router(
 
                 scanner.set_progress_callback(_progress_callback)
 
-            result = await asyncio.to_thread(
-                scanner.scan_directories,
-                directories=request.directories,
-                recursive=request.recursive,
-                skip_existing=request.skip_existing,
-                check_modifications=True,
+            scan_timeout = float(os.environ.get("AURALIS_SCAN_TIMEOUT", "3600"))
+            result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    scanner.scan_directories,
+                    directories=request.directories,
+                    recursive=request.recursive,
+                    skip_existing=request.skip_existing,
+                    check_modifications=True,
+                ),
+                timeout=scan_timeout,
             )
 
             # Enqueue newly added tracks for background fingerprinting (#2382).
@@ -551,6 +556,11 @@ def create_library_router(
                 "directories_scanned": result.directories_scanned
             }
 
+        except asyncio.TimeoutError:
+            raise HTTPException(
+                status_code=504,
+                detail=f"Library scan timed out after {scan_timeout}s"
+            )
         except HTTPException:
             raise
         except Exception as e:
