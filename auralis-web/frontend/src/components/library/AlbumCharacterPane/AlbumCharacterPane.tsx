@@ -26,6 +26,7 @@ import { tokens } from '@/design-system';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { computeAlbumCharacter } from '@/utils/albumCharacterDescriptors';
 import { EnhancementToggle } from '@/components/shared/EnhancementToggle';
+import { useEnhancement } from '@/contexts/EnhancementContext';
 import { playerSelectors } from '@/store/selectors';
 import { useTrackFingerprint } from '@/hooks/fingerprint';
 
@@ -131,10 +132,6 @@ export interface AlbumCharacterPaneProps {
   albumTitle?: string;
   /** Loading state for hovered album */
   isLoading?: boolean;
-  /** Enhancement enabled state */
-  isEnhancementEnabled?: boolean;
-  /** Enhancement toggle callback */
-  onEnhancementToggle?: (enabled: boolean) => void;
   /**
    * When true, fetches and displays the currently playing track's fingerprint.
    * Takes priority over hovered album fingerprint.
@@ -734,10 +731,13 @@ export const AlbumCharacterPane = ({
   fingerprint: albumFingerprint,
   albumTitle,
   isLoading: albumLoading = false,
-  isEnhancementEnabled = true,
-  onEnhancementToggle,
   showPlayingTrack = true,
 }: AlbumCharacterPaneProps) => {
+  // Enhancement state from context (eliminates prop drilling, fixes #2765)
+  const { settings: enhancementSettings, setEnabled: setEnhancementEnabled } = useEnhancement();
+  const isEnhancementEnabled = enhancementSettings.enabled;
+  const onEnhancementToggle = setEnhancementEnabled;
+
   // Get playback state from Redux
   const isPlayingRaw = useSelector(playerSelectors.selectIsPlaying);
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);

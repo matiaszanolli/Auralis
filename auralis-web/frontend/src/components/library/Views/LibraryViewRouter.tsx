@@ -48,10 +48,6 @@ export interface LibraryViewRouterProps {
 
   // Track actions (can be sync or async, accepts track objects with varying field subsets)
   onTrackPlay?: ((track: any) => void | Promise<void>);
-
-  // Enhancement (auto-mastering) state - passed to AlbumCharacterPane
-  isEnhancementEnabled?: boolean;
-  onEnhancementToggle?: (enabled: boolean) => void;
 }
 
 /**
@@ -72,8 +68,6 @@ export const LibraryViewRouter = ({
   onAlbumClick,
   onArtistClick,
   onTrackPlay,
-  isEnhancementEnabled = true,
-  onEnhancementToggle,
 }: LibraryViewRouterProps) => {
   // Album detail view (from albums or artists view)
   if (selectedAlbumId !== null) {
@@ -153,8 +147,6 @@ export const LibraryViewRouter = ({
             fingerprint={fingerprint ?? null}
             albumTitle={hoveredAlbumTitle}
             isLoading={isLoading && hoveredAlbumId !== null}
-            isEnhancementEnabled={isEnhancementEnabled}
-            onEnhancementToggle={onEnhancementToggle}
           />
         }
       >

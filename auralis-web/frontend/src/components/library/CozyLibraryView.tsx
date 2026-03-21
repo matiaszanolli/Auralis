@@ -44,10 +44,6 @@ interface CozyLibraryViewProps {
   searchQuery?: string;
   /** Grid or list view mode */
   viewMode?: ViewMode;
-  /** Enhancement (auto-mastering) enabled state */
-  isEnhancementEnabled?: boolean;
-  /** Enhancement toggle callback */
-  onEnhancementToggle?: (enabled: boolean) => void;
 }
 
 const CozyLibraryView = React.memo<CozyLibraryViewProps>(({
@@ -55,8 +51,6 @@ const CozyLibraryView = React.memo<CozyLibraryViewProps>(({
   view = 'songs',
   searchQuery = '',
   viewMode = 'grid',
-  isEnhancementEnabled = true,
-  onEnhancementToggle,
 }) => {
 
   // ============================================================
@@ -186,8 +180,6 @@ const CozyLibraryView = React.memo<CozyLibraryViewProps>(({
         onAlbumClick={handleAlbumClick}
         onArtistClick={handleArtistClick}
         onTrackPlay={handlePlayTrack}
-        isEnhancementEnabled={isEnhancementEnabled}
-        onEnhancementToggle={onEnhancementToggle}
       />
     );
   }
@@ -212,8 +204,6 @@ const CozyLibraryView = React.memo<CozyLibraryViewProps>(({
       rightPane={
         <AlbumCharacterPane
           fingerprint={null}
-          isEnhancementEnabled={isEnhancementEnabled}
-          onEnhancementToggle={onEnhancementToggle}
         />
       }
     >

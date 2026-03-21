@@ -43,7 +43,6 @@ function ComfortableApp() {
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isEnhancementEnabled, setIsEnhancementEnabled] = useState(true); // Auto-mastering state
 
   // WebSocket connection for real-time updates (using shared WebSocketContext)
   const wsContext = useWebSocketContext();
@@ -285,12 +284,6 @@ function ComfortableApp() {
     }
   }, [openHelp]);
 
-  const handleMasteringToggle = useCallback((enabled: boolean) => {
-    setIsEnhancementEnabled(enabled);
-    console.log('Mastering:', enabled ? 'enabled' : 'disabled');
-    info(enabled ? '✨ Mastering enabled' : 'Mastering disabled');
-  }, [info]);
-
   const handleSidebarNavigation = useCallback((view: string) => {
     setCurrentView(view);
   }, []);
@@ -332,8 +325,6 @@ function ComfortableApp() {
               view={currentView}
               searchQuery={searchQuery}
               viewMode={viewMode}
-              isEnhancementEnabled={isEnhancementEnabled}
-              onEnhancementToggle={handleMasteringToggle}
             />
           </AppMainContent>
         </Box>
