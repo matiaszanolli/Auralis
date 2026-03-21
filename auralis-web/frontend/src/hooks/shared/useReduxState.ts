@@ -157,7 +157,7 @@ export const useQueue = () => {
 
     // Actions
     add: useCallback(
-      (track: QueueTrack) => dispatch(queueActions.addTrack(track)),
+      (track: QueueTrack, position?: number) => dispatch(queueActions.addTrack(track, position)),
       [dispatch]
     ),
     addMany: useCallback(

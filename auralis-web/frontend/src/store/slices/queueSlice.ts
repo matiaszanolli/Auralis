@@ -37,15 +37,21 @@ const queueSlice = createSlice({
   initialState,
   reducers: {
     /**
-     * Add track to queue
+     * Add track to queue, optionally at a specific position.
+     * If position is omitted or out of range the track is appended.
      */
     addTrack: {
-      reducer(state, action: PayloadAction<Track, string, { timestamp: number }>) {
-        state.tracks.push(action.payload);
+      reducer(state, action: PayloadAction<Track, string, { timestamp: number; position?: number }>) {
+        const pos = action.meta.position;
+        if (pos !== undefined && pos >= 0 && pos <= state.tracks.length) {
+          state.tracks.splice(pos, 0, action.payload);
+        } else {
+          state.tracks.push(action.payload);
+        }
         state.lastUpdated = action.meta.timestamp;
       },
-      prepare(track: Track) {
-        return { payload: track, meta: { timestamp: Date.now() } };
+      prepare(track: Track, position?: number) {
+        return { payload: track, meta: { timestamp: Date.now(), position } };
       },
     },
 
