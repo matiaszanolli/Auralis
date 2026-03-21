@@ -134,7 +134,7 @@ function analyzeSpatial(fp: AudioFingerprint): CharacterTag[] {
   }
 
   // Phase correlation
-  if (fp.phase_correlation < 0.7) {
+  if (fp.stereo_correlation < 0.7) {
     tags.push({ label: 'Spacious', category: 'space' });
   }
 

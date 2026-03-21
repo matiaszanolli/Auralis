@@ -523,7 +523,7 @@ describe('SimilarityVisualization', () => {
         ...mockExplanation,
         top_differences: [
           {
-            dimension: 'phase_correlation',
+            dimension: 'stereo_correlation',
             contribution: 0.100,
             value1: 0.85432,
             value2: 0.92156,

@@ -33,12 +33,12 @@ export interface AudioFingerprint {
 
   // Harmonic (3D)
   harmonic_ratio: number;     // 0-1
-  pitch_stability: number;
-  chroma_energy: number;
+  pitch_confidence: number;
+  chroma_energy_mean: number;
 
   // Stereo (2D)
   stereo_width: number;       // 0-1
-  phase_correlation: number;
+  stereo_correlation: number;
 
   // Temporal (4D) - not used for gradients
   tempo_bpm?: number;
@@ -203,10 +203,10 @@ export function fingerprintToGradientSafe(fingerprint: Partial<AudioFingerprint>
     spectral_rolloff: fingerprint.spectral_rolloff ?? 8000,
     spectral_flatness: fingerprint.spectral_flatness ?? 0.5,
     harmonic_ratio: fingerprint.harmonic_ratio ?? 0.7,
-    pitch_stability: fingerprint.pitch_stability ?? 0.75,
-    chroma_energy: fingerprint.chroma_energy ?? 0.6,
+    pitch_confidence: fingerprint.pitch_confidence ?? 0.75,
+    chroma_energy_mean: fingerprint.chroma_energy_mean ?? 0.6,
     stereo_width: fingerprint.stereo_width ?? 0.5,
-    phase_correlation: fingerprint.phase_correlation ?? 0.95,
+    stereo_correlation: fingerprint.stereo_correlation ?? 0.95,
   };
 
   return fingerprintToGradient(safeFp);
@@ -249,9 +249,9 @@ export function computeMedianFingerprint(fingerprints: AudioFingerprint[]): Audi
     spectral_rolloff: median(fingerprints.map(fp => fp.spectral_rolloff)),
     spectral_flatness: median(fingerprints.map(fp => fp.spectral_flatness)),
     harmonic_ratio: median(fingerprints.map(fp => fp.harmonic_ratio)),
-    pitch_stability: median(fingerprints.map(fp => fp.pitch_stability)),
-    chroma_energy: median(fingerprints.map(fp => fp.chroma_energy)),
+    pitch_confidence: median(fingerprints.map(fp => fp.pitch_confidence)),
+    chroma_energy_mean: median(fingerprints.map(fp => fp.chroma_energy_mean)),
     stereo_width: median(fingerprints.map(fp => fp.stereo_width)),
-    phase_correlation: median(fingerprints.map(fp => fp.phase_correlation)),
+    stereo_correlation: median(fingerprints.map(fp => fp.stereo_correlation)),
   };
 }

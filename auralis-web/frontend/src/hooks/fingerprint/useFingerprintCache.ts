@@ -139,8 +139,8 @@ export function useFingerprintCache(): UseFingerprintCacheReturn {
           upper_mid: 0.45, presence: 0.4, air: 0.25,
           lufs: -14.5, crest_db: 6.2, bass_mid_ratio: 0.8,
           spectral_centroid: 0.55, spectral_rolloff: 0.6, spectral_flatness: 0.3,
-          harmonic_ratio: 0.7, pitch_stability: 0.75, chroma_energy: 0.5,
-          stereo_width: 0.4, phase_correlation: 0.9,
+          harmonic_ratio: 0.7, pitch_confidence: 0.75, chroma_energy_mean: 0.5,
+          stereo_width: 0.4, stereo_correlation: 0.9,
         };
 
         // Store in cache
