@@ -34,6 +34,11 @@ DEFAULT_TRACK_FIELDS = {
     'loudness': None,
     'date_added': None,
     'date_modified': None,
+    # Navigation and favorites (#2851 — required for album track ordering and favorite status)
+    'album_id': None,
+    'track_number': None,
+    'disc_number': None,
+    'favorite': False,
 }
 
 DEFAULT_ALBUM_FIELDS = {
