@@ -5,7 +5,7 @@
  * live scanning status and last scan results.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useWebSocketSubscription } from '../websocket/useWebSocketSubscription';
 import type {
   ScanProgressMessage,
@@ -47,10 +47,16 @@ const INITIAL_STATE: ScanStatus = {
 export function useScanProgress(): ScanStatus {
   const [state, setState] = useState<ScanStatus>(INITIAL_STATE);
 
+  // Track whether library_tracks_removed was received during this scan.
+  // Without this, scan_complete would carry over stale filesRemoved from
+  // the previous scan (fixes #2868).
+  const removedReceivedRef = useRef(false);
+
   useWebSocketSubscription(
     ['library_scan_started', 'scan_progress', 'scan_complete', 'library_tracks_removed'],
     (message) => {
       if (message.type === 'library_scan_started') {
+        removedReceivedRef.current = false;
         setState((prev) => ({
           ...INITIAL_STATE,
           lastResult: prev.lastResult,
@@ -68,15 +74,17 @@ export function useScanProgress(): ScanStatus {
         }));
       } else if (message.type === 'scan_complete') {
         const msg = message as ScanCompleteMessage;
+        const hadRemovals = removedReceivedRef.current;
         setState((prev) => ({
           ...INITIAL_STATE,
           lastResult: {
             filesAdded: msg.data.files_added ?? 0,
-            filesRemoved: prev.lastResult?.filesRemoved ?? 0,
+            filesRemoved: hadRemovals ? (prev.lastResult?.filesRemoved ?? 0) : 0,
             duration: msg.data.duration,
           },
         }));
       } else if (message.type === 'library_tracks_removed') {
+        removedReceivedRef.current = true;
         const msg = message as LibraryTracksRemovedMessage;
         setState((prev) => ({
           ...prev,

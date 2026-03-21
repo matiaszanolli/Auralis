@@ -165,17 +165,15 @@ describe('useScanProgress', () => {
       });
     });
 
-    it('preserves previous filesRemoved count', () => {
+    it('preserves filesRemoved when library_tracks_removed arrived during this scan', () => {
       const { result } = renderHook(() => useScanProgress());
 
-      // Tracks removed before scan complete
+      // Start scan
       act(() => {
-        manager.deliver({
-          type: 'scan_complete',
-          data: { files_added: 0, duration: 1 },
-        } as unknown as WebSocketMessage);
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
       });
 
+      // Tracks removed during this scan
       act(() => {
         manager.deliver({
           type: 'library_tracks_removed',
@@ -183,7 +181,7 @@ describe('useScanProgress', () => {
         } as unknown as WebSocketMessage);
       });
 
-      // New scan completes — should preserve filesRemoved from lastResult
+      // Scan completes — should preserve filesRemoved from this scan
       act(() => {
         manager.deliver({
           type: 'scan_complete',
@@ -192,6 +190,43 @@ describe('useScanProgress', () => {
       });
 
       expect(result.current.lastResult?.filesRemoved).toBe(3);
+    });
+
+    it('resets stale filesRemoved when no removals in current scan (fixes #2868)', () => {
+      const { result } = renderHook(() => useScanProgress());
+
+      // First scan with removals
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      act(() => {
+        manager.deliver({
+          type: 'library_tracks_removed',
+          data: { count: 5 },
+        } as unknown as WebSocketMessage);
+      });
+      act(() => {
+        manager.deliver({
+          type: 'scan_complete',
+          data: { files_added: 10, duration: 2 },
+        } as unknown as WebSocketMessage);
+      });
+
+      expect(result.current.lastResult?.filesRemoved).toBe(5);
+
+      // Second scan with NO removals
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      act(() => {
+        manager.deliver({
+          type: 'scan_complete',
+          data: { files_added: 1, duration: 0.3 },
+        } as unknown as WebSocketMessage);
+      });
+
+      // Should NOT carry over the 5 from the previous scan
+      expect(result.current.lastResult?.filesRemoved).toBe(0);
     });
   });
 
