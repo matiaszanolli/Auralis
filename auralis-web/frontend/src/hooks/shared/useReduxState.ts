@@ -25,6 +25,7 @@ import * as playerActions from '@/store/slices/playerSlice';
 import * as queueActions from '@/store/slices/queueSlice';
 import * as cacheActions from '@/store/slices/cacheSlice';
 import * as connectionActions from '@/store/slices/connectionSlice';
+import { selectFormattedRemainingTime } from '@/store/selectors';
 
 // ============================================================================
 // Player State Hooks
@@ -392,20 +393,8 @@ export const usePlaybackProgress = () => {
 };
 
 /**
- * Format remaining time in queue
+ * Format remaining time in queue (memoized via createSelector, #2812)
  */
 export const useQueueTimeRemaining = () => {
-  const queue = useQueueState();
-  const remaining = queue.tracks
-    .slice(queue.currentIndex + 1)
-    .reduce((sum, track) => sum + track.duration, 0);
-
-  const hours = Math.floor(remaining / 3600);
-  const minutes = Math.floor((remaining % 3600) / 60);
-  const seconds = remaining % 60;
-
-  return {
-    total: remaining,
-    formatted: hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m ${seconds}s`,
-  };
+  return useSelector(selectFormattedRemainingTime);
 };

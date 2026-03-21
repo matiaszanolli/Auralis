@@ -124,6 +124,19 @@ export const selectFormattedQueueTime = createSelector(
   }
 );
 
+export const selectFormattedRemainingTime = createSelector(
+  [selectRemainingTime],
+  (remaining): { total: number; formatted: string } => {
+    const hours = Math.floor(remaining / 3600);
+    const minutes = Math.floor((remaining % 3600) / 60);
+    const seconds = remaining % 60;
+    return {
+      total: remaining,
+      formatted: hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m ${seconds}s`,
+    };
+  }
+);
+
 export const selectQueueStats = createSelector(
   [(state: RootState) => state.queue.tracks, (state: RootState) => state.queue.currentIndex],
   (tracks, currentIndex) => {
