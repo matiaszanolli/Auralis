@@ -54,6 +54,11 @@ export const useVisualizationOptimization = (
   });
   const [qualityLevel, setQualityLevel] = useState(1.0);
 
+  // Stable ref for onStatsUpdate so the interval effect doesn't restart on
+  // every render when callers pass an inline callback (#2775).
+  const onStatsUpdateRef = useRef(onStatsUpdate);
+  onStatsUpdateRef.current = onStatsUpdate;
+
   // Initialize optimizer and monitor — re-run when config props change so the
   // optimizer is never "stuck" at mount-time values (fixes #2701).
   useEffect(() => {
@@ -71,7 +76,7 @@ export const useVisualizationOptimization = (
     };
   }, [autoAdjustQuality, enableMonitoring, configKey]);
 
-  // Stats update loop
+  // Stats update loop — uses ref for onStatsUpdate to keep deps stable (#2775)
   useEffect(() => {
     if (!enableMonitoring) return;
 
@@ -82,12 +87,12 @@ export const useVisualizationOptimization = (
 
         setStats(currentStats);
         setQualityLevel(currentQuality);
-        onStatsUpdate?.(currentStats);
+        onStatsUpdateRef.current?.(currentStats);
       }
     }, 1000); // Update stats every second
 
     return () => clearInterval(interval);
-  }, [enableMonitoring, onStatsUpdate]);
+  }, [enableMonitoring]);
 
   const shouldRender = useCallback((): boolean => {
     if (!optimizerRef.current) return true;
