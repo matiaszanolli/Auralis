@@ -628,8 +628,15 @@ class TrackRepository:
                 select(Artist).where(Artist.normalized_name == normalized)
             ).scalars().first()
             if not artist:
-                artist = Artist(name=artist_name, normalized_name=normalized)
-                session.add(artist)
+                try:
+                    with session.begin_nested():
+                        artist = Artist(name=artist_name, normalized_name=normalized)
+                        session.add(artist)
+                        session.flush()
+                except IntegrityError:
+                    artist = session.execute(
+                        select(Artist).where(Artist.normalized_name == normalized)
+                    ).scalars().first()
             track.artists.append(artist)
 
     def _update_genres(self, session: Session, track: Track, genre_names: list[str]) -> None:
@@ -638,8 +645,13 @@ class TrackRepository:
         for genre_name in genre_names:
             genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
             if not genre:
-                genre = Genre(name=genre_name)
-                session.add(genre)
+                try:
+                    with session.begin_nested():
+                        genre = Genre(name=genre_name)
+                        session.add(genre)
+                        session.flush()
+                except IntegrityError:
+                    genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
             track.genres.append(genre)
 
     def delete(self, track_id: int) -> bool:
