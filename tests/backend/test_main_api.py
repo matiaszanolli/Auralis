@@ -1036,27 +1036,85 @@ class TestFavoritesEndpoints:
             assert data["favorite"] is False
 
 
-@pytest.mark.skip(reason="No REST /api/settings endpoint — settings managed via WebSocket and enhancement router")
 class TestSettingsEndpoints:
-    """Test settings management endpoints"""
+    """Test settings management endpoints (#2757: was incorrectly skipped)"""
+
+    def _mock_settings(self):
+        """Create a mock settings object with to_dict()."""
+        settings = Mock()
+        settings.to_dict.return_value = {
+            'theme': 'dark',
+            'scan_folders': ['/music'],
+            'auto_scan': True,
+        }
+        return settings
 
     def test_get_settings_no_repository(self, client):
-        pass
+        """GET /api/settings returns 503 when settings repo unavailable."""
+        with patch.dict('main.globals_dict', {'settings_repository': None}):
+            response = client.get("/api/settings")
+        assert response.status_code == 503
 
     def test_get_settings_success(self, client):
-        pass
+        """GET /api/settings returns current settings."""
+        mock_repo = Mock()
+        mock_repo.get_settings.return_value = self._mock_settings()
+
+        with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+            response = client.get("/api/settings")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data['theme'] == 'dark'
+        assert data['scan_folders'] == ['/music']
 
     def test_update_settings_success(self, client):
-        pass
+        """PUT /api/settings updates and returns settings."""
+        mock_repo = Mock()
+        mock_repo.update_settings.return_value = self._mock_settings()
+
+        with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+            response = client.put("/api/settings", json={"theme": "light"})
+
+        assert response.status_code == 200
+        assert "Settings updated" in response.json()["message"]
+        mock_repo.update_settings.assert_called_once_with({"theme": "light"})
 
     def test_reset_settings_success(self, client):
-        pass
+        """POST /api/settings/reset returns defaults."""
+        mock_repo = Mock()
+        mock_repo.reset_to_defaults.return_value = self._mock_settings()
+
+        with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+            response = client.post("/api/settings/reset")
+
+        assert response.status_code == 200
+        assert "reset to defaults" in response.json()["message"]
+        mock_repo.reset_to_defaults.assert_called_once()
 
     def test_add_scan_folder_success(self, client):
-        pass
+        """POST /api/settings/scan-folders adds folder."""
+        mock_repo = Mock()
+        mock_repo.add_scan_folder.return_value = self._mock_settings()
+
+        with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+            response = client.post("/api/settings/scan-folders", json={"folder": "/new/music"})
+
+        assert response.status_code == 200
+        assert "Scan folder added" in response.json()["message"]
+        mock_repo.add_scan_folder.assert_called_once_with("/new/music")
 
     def test_remove_scan_folder_success(self, client):
-        pass
+        """POST /api/settings/scan-folders/delete removes folder."""
+        mock_repo = Mock()
+        mock_repo.remove_scan_folder.return_value = self._mock_settings()
+
+        with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+            response = client.post("/api/settings/scan-folders/delete", json={"folder": "/music"})
+
+        assert response.status_code == 200
+        assert "Scan folder removed" in response.json()["message"]
+        mock_repo.remove_scan_folder.assert_called_once_with("/music")
 
 
 class TestAlbumArtistEndpoints:
