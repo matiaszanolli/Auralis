@@ -1544,7 +1544,11 @@ class AudioStreamController:
                 logger.info(f"WebSocket disconnected, cannot start seek stream")
                 return
 
-            # Process and stream chunks starting from start_chunk_idx
+            # Process and stream chunks with look-ahead (same pattern as
+            # normal streaming): process chunk N+1 while streaming chunk N
+            # to eliminate inter-chunk gaps on slow storage.
+            lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
+
             for chunk_idx in range(start_chunk_idx, processor.total_chunks):
                 # Honour pause/resume and flow control events (fixes missing
                 # pause check in seek path — pre-existing bug).
@@ -1558,29 +1562,44 @@ class AudioStreamController:
 
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping seek stream")
+                    if lookahead_task and not lookahead_task.done():
+                        lookahead_task.cancel()
                     break
 
                 try:
-                    is_first_seek_chunk = (chunk_idx == start_chunk_idx)
-
-                    if is_first_seek_chunk and seek_offset > 0:
-                        # Trim the first chunk to the exact seek position
+                    # Get processed chunk: from look-ahead task or process now
+                    if lookahead_task is not None:
+                        try:
+                            pcm_samples, _sr = await lookahead_task
+                        except ConnectionError:
+                            break
+                        lookahead_task = None
+                    else:
                         pcm_samples, _sr = await self._process_chunk_only(
                             chunk_idx, processor, websocket
                         )
+
+                    # Trim the first chunk to the exact seek position
+                    if chunk_idx == start_chunk_idx and seek_offset > 0:
                         trim_samples = round(seek_offset * processor.sample_rate)
                         pcm_samples = pcm_samples[trim_samples:]
                         logger.debug(
                             f"Seek trim: removed {trim_samples} samples "
                             f"({seek_offset:.2f}s) from chunk {chunk_idx}"
                         )
-                        await self._stream_processed_chunk(
-                            pcm_samples, chunk_idx, processor, websocket
+
+                    # Start look-ahead: process next chunk while we stream current one
+                    if chunk_idx + 1 < processor.total_chunks:
+                        lookahead_task = asyncio.create_task(
+                            self._process_chunk_only(
+                                chunk_idx + 1, processor, websocket
+                            )
                         )
-                    else:
-                        await self._process_and_stream_chunk(
-                            chunk_idx, processor, websocket, on_progress
-                        )
+
+                    # Stream current chunk (crossfade + send)
+                    await self._stream_processed_chunk(
+                        pcm_samples, chunk_idx, processor, websocket
+                    )
 
                     # Progress update
                     if on_progress:
@@ -1589,7 +1608,14 @@ class AudioStreamController:
                         progress = (chunks_done / chunks_remaining) * 100
                         await on_progress(track_id, progress, f"Processed chunk {chunk_idx + 1}")
 
+                except ConnectionError:
+                    if lookahead_task and not lookahead_task.done():
+                        lookahead_task.cancel()
+                    break
+
                 except Exception as chunk_error:
+                    if lookahead_task and not lookahead_task.done():
+                        lookahead_task.cancel()
                     logger.error(
                         f"Failed to process chunk {chunk_idx}: {chunk_error}",
                         exc_info=True
