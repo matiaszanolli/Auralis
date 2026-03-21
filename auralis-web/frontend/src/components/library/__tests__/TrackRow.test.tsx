@@ -17,7 +17,7 @@ import TrackRow from '../Items/tracks/TrackRow';
 import { useTrackSelection } from '@/hooks/library/useTrackSelection';
 
 // Mock hooks and components
-vi.mock('../../../hooks/useTrackSelection');
+vi.mock('@/hooks/library/useTrackSelection');
 vi.mock('../../shared/ContextMenu', () => {
   return {
     ContextMenu: function MockContextMenu({ open, onClose }: any) {
