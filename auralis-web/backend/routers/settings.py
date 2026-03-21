@@ -22,6 +22,8 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from security.path_security import validate_scan_path, PathValidationError
+
 logger = logging.getLogger(__name__)
 
 
@@ -93,7 +95,11 @@ def create_settings_router(
         if not body.folder or not body.folder.strip():
             raise HTTPException(status_code=400, detail="folder must be a non-empty path")
         try:
-            settings = _repo().add_scan_folder(body.folder.strip())
+            validated = validate_scan_path(body.folder.strip())
+        except PathValidationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        try:
+            settings = _repo().add_scan_folder(str(validated))
             await _notify_scanner()
             return {"message": f"Scan folder added: {body.folder}", "settings": settings.to_dict()}
         except Exception as exc:
