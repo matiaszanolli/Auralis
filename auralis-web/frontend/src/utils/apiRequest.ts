@@ -29,6 +29,16 @@ export class APIRequestError extends Error {
 
 export interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: Record<string, any>;
+  /**
+   * AbortSignal for cancelling in-flight requests (e.g. on component unmount).
+   *
+   * @example
+   * const controller = new AbortController();
+   * get('/api/library/tracks', { signal: controller.signal });
+   * // On cleanup:
+   * controller.abort();
+   */
+  signal?: AbortSignal;
 }
 
 /**

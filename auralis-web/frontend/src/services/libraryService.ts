@@ -33,17 +33,27 @@ export interface ArtistTracksResponse {
 }
 
 /**
- * Fetch all tracks for a specific artist
+ * Fetch all tracks for a specific artist.
  *
  * @param artistId - The ID of the artist
+ * @param signal - Optional AbortSignal for cancelling the request
  * @returns Promise resolving to artist tracks response
  * @throws APIRequestError on network or API errors
  *
  * @example
+ * // Basic usage
  * const { tracks, artist_name } = await getArtistTracks(42);
+ *
+ * // With cancellation (e.g. in a useEffect cleanup)
+ * const controller = new AbortController();
+ * getArtistTracks(42, controller.signal);
+ * return () => controller.abort();
  */
-export async function getArtistTracks(artistId: number): Promise<ArtistTracksResponse> {
-  return get<ArtistTracksResponse>(ENDPOINTS.ARTIST_TRACKS(artistId));
+export async function getArtistTracks(
+  artistId: number,
+  signal?: AbortSignal,
+): Promise<ArtistTracksResponse> {
+  return get<ArtistTracksResponse>(ENDPOINTS.ARTIST_TRACKS(artistId), { signal });
 }
 
 export default {
