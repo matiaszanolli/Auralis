@@ -598,7 +598,7 @@ export interface TrackInfo {
 // Exports
 // ============================================================================
 
-export const ALL_MESSAGE_TYPES: WebSocketMessageType[] = [
+export const ALL_MESSAGE_TYPES: readonly WebSocketMessageType[] = [
   'player_state',
   'playback_started',
   'playback_paused',
@@ -621,11 +621,25 @@ export const ALL_MESSAGE_TYPES: WebSocketMessageType[] = [
   'enhancement_settings_changed',
   'mastering_recommendation',
   'artwork_updated',
+  'fingerprint_progress',
+  'seek_started',
+  'audio_stream_start',
+  'audio_stream_end',
+  'audio_chunk',
+  'audio_chunk_meta',
+  'audio_stream_error',
   'scan_progress',
   'scan_complete',
   'library_scan_started',
   'library_tracks_removed',
-];
+] as const satisfies readonly WebSocketMessageType[];
+
+// Compile-time exhaustiveness check: fails to compile if a
+// WebSocketMessageType value is missing from ALL_MESSAGE_TYPES.
+type _AssertExhaustive = WebSocketMessageType extends
+  (typeof ALL_MESSAGE_TYPES)[number] ? true : never;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _exhaustiveCheck: _AssertExhaustive = true;
 
 export const PLAYER_STATE_TYPES: WebSocketMessageType[] = [
   'player_state',
