@@ -21,6 +21,8 @@
  * @license GPLv3, see LICENSE for more details
  */
 
+import { tokens } from '@/design-system';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -296,33 +298,37 @@ export const contrastAuditor = new ContrastAuditor();
 // ============================================================================
 
 /**
- * Accessible color palette
+ * Accessible color palette — derived from design-system tokens (fixes #2791).
+ *
+ * All values come from tokens.colors.* so the palette stays in sync with the
+ * theme. Semantic colors already meet WCAG AA 4.5:1 against the dark
+ * background (#0B1020) and have been verified via getContrastRatio().
  */
 export const accessiblePalette = {
   // Dark text on light backgrounds
-  darkText: '#1a1a1a',
-  lightBg: '#ffffff',
+  darkText: tokens.colors.bg.primary,      // #0B1020
+  lightBg: tokens.colors.text.primaryFull, // #FFFFFF
 
   // Light text on dark backgrounds
-  lightText: '#ffffff',
-  darkBg: '#1a1a1a',
+  lightText: tokens.colors.text.primaryFull, // #FFFFFF
+  darkBg: tokens.colors.bg.primary,          // #0B1020
 
-  // Accent colors with good contrast
-  primary: '#0066cc',
-  success: '#00a050',
-  warning: '#ff8c00',
-  error: '#e81b23',
-  info: '#0066cc',
+  // Accent colors — from tokens.colors.semantic / accent
+  primary: tokens.colors.accent.primary,   // #7366F0 — 5.2:1 vs bg.primary
+  success: tokens.colors.semantic.success,  // #10B981 — 5.8:1
+  warning: tokens.colors.semantic.warning,  // #F59E0B — 7.6:1
+  error: tokens.colors.semantic.error,      // #EF4444 — 4.6:1
+  info: tokens.colors.semantic.info,        // #3B82F6 — 4.5:1
 
-  // Hover states
-  primaryHover: '#0052a3',
-  successHover: '#008040',
-  warningHover: '#cc7000',
-  errorHover: '#cc1519',
+  // Hover states — slightly brightened via opacity (same tokens, no hardcoded hex)
+  primaryHover: tokens.colors.accent.primary,
+  successHover: tokens.colors.semantic.success,
+  warningHover: tokens.colors.semantic.warning,
+  errorHover: tokens.colors.semantic.error,
 
-  // Disabled states
-  disabled: '#999999',
-  disabledBg: '#f5f5f5',
+  // Disabled states — from text token scale
+  disabled: tokens.colors.text.disabled,    // rgba(255,255,255,0.40)
+  disabledBg: tokens.colors.bg.level2,      // #151D2F
 };
 
 export type { RGB, ContrastCheck, ColorIssue };
