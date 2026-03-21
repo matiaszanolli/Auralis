@@ -252,6 +252,21 @@ class TestQueueManagement:
         assert "jobs" in data
         assert len(data["jobs"]) == 2
 
+    def test_list_jobs_rejects_negative_limit(self, client, mock_engine):
+        """Negative limit must return 422 (fixes #2729)"""
+        response = client.get("/api/processing/jobs?limit=-1")
+        assert response.status_code == 422
+
+    def test_list_jobs_rejects_zero_limit(self, client, mock_engine):
+        """Zero limit must return 422"""
+        response = client.get("/api/processing/jobs?limit=0")
+        assert response.status_code == 422
+
+    def test_list_jobs_rejects_excessive_limit(self, client, mock_engine):
+        """Limit above 1000 must return 422"""
+        response = client.get("/api/processing/jobs?limit=9999")
+        assert response.status_code == 422
+
     def test_cleanup_old_jobs(self, client, mock_engine):
         """Test cleaning up old jobs"""
         response = client.delete("/api/processing/jobs/cleanup?max_age_hours=24")

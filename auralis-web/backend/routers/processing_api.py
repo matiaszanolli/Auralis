@@ -18,7 +18,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from core.processing_engine import ProcessingEngine, ProcessingStatus
 from pydantic import BaseModel
@@ -324,7 +324,7 @@ async def cancel_job(job_id: str) -> dict[str, Any]:
 
 
 @router.get("/jobs")
-async def list_jobs(status: str | None = None, limit: int = 50) -> dict[str, Any]:
+async def list_jobs(status: str | None = None, limit: int = Query(50, ge=1, le=1000)) -> dict[str, Any]:
     """List all processing jobs, optionally filtered by status"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
