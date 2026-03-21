@@ -12,7 +12,7 @@
  * @component
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StarfieldBackground } from './StarfieldBackground';
 import type { AudioReactivityData } from './StarfieldBackground';
 import { useAudioVisualization } from '@/hooks/audio/useAudioVisualization';
@@ -43,15 +43,16 @@ export const AudioReactiveStarfield = ({
   // Get real-time audio analysis data from Web Audio API
   const audioData = useAudioVisualization(enableAudioReactivity);
 
-  // Convert hook data to starfield's expected format
-  const audioReactivity: AudioReactivityData = {
+  // Memoize to avoid creating a new object on every render (~30fps).
+  // Values are primitives, so useMemo correctly skips when data is unchanged.
+  const audioReactivity: AudioReactivityData = useMemo(() => ({
     bass: audioData.bass,
     mid: audioData.mid,
     treble: audioData.treble,
     loudness: audioData.loudness,
     peak: audioData.peak,
     isActive: audioData.isActive,
-  };
+  }), [audioData.bass, audioData.mid, audioData.treble, audioData.loudness, audioData.peak, audioData.isActive]);
 
   return (
     <StarfieldBackground

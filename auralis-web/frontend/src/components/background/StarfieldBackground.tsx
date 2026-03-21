@@ -497,12 +497,11 @@ export const StarfieldBackground = ({
     isVisibleRef.current = !document.hidden;
   }, []);
 
-  // Update audio ref when audioReactivity prop changes
-  useEffect(() => {
-    if (audioReactivity) {
-      audioRef.current = audioReactivity;
-    }
-  }, [audioReactivity]);
+  // Update audio ref directly — no useEffect needed since the rAF loop
+  // reads from the ref. Avoids ~30 effect setup/cleanup cycles per second.
+  if (audioReactivity) {
+    audioRef.current = audioReactivity;
+  }
 
   // Initialize and cleanup
   useEffect(() => {
