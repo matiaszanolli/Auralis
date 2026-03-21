@@ -53,7 +53,9 @@ export type WebSocketMessageType =
   | 'scan_progress'
   | 'scan_complete'
   | 'library_scan_started'
-  | 'library_tracks_removed';
+  | 'library_tracks_removed'
+  // Error messages (security: rate-limit, schema validation — #2874)
+  | 'error';
 
 // ============================================================================
 // Base Message Interface
@@ -455,6 +457,19 @@ export interface LibraryTracksRemovedMessage extends WebSocketMessage {
   };
 }
 
+/**
+ * WebSocket error message sent by backend security layer (#2874).
+ *
+ * Note: Does NOT extend WebSocketMessage because the backend schema uses
+ * top-level `error`/`message` fields instead of a `data` wrapper.
+ */
+export interface WebSocketErrorMessage {
+  type: 'error';
+  error: string;   // e.g. "rate_limit_exceeded", "validation_error"
+  message: string;  // Human-readable description
+  timestamp?: string;
+}
+
 // ============================================================================
 // Union Type for All Messages
 // ============================================================================
@@ -490,7 +505,8 @@ export type AnyWebSocketMessage =
   | ScanProgressMessage
   | ScanCompleteMessage
   | LibraryScanStartedMessage
-  | LibraryTracksRemovedMessage;
+  | LibraryTracksRemovedMessage
+  | WebSocketErrorMessage;
 
 // ============================================================================
 // Type Guards
@@ -567,6 +583,8 @@ export const isAudioStreamEndMessage        = makeGuard<AudioStreamEndMessage>('
 export const isAudioChunkMessage            = makeGuard<AudioChunkMessage>('audio_chunk');
 export const isAudioStreamErrorMessage      = makeGuard<AudioStreamErrorMessage>('audio_stream_error');
 export const isScanCompleteMessage          = makeGuard<ScanCompleteMessage>('scan_complete');
+export const isWebSocketErrorMessage = (msg: AnyWebSocketMessage | WebSocketMessage): msg is WebSocketErrorMessage =>
+  msg.type === 'error';
 
 // ============================================================================
 // Helper Types from Backend
@@ -632,6 +650,7 @@ export const ALL_MESSAGE_TYPES: readonly WebSocketMessageType[] = [
   'scan_complete',
   'library_scan_started',
   'library_tracks_removed',
+  'error',
 ] as const satisfies readonly WebSocketMessageType[];
 
 // Compile-time exhaustiveness check: fails to compile if a

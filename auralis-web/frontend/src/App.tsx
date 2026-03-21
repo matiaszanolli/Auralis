@@ -7,6 +7,7 @@ import { EnhancementProvider } from './contexts/EnhancementContext';
 import { AudioReactiveStarfield } from './components/background';
 import ComfortableApp from './ComfortableApp';
 import { usePlayerStateSync } from '@/hooks/player/usePlayerStateSync';
+import { useWebSocketErrors } from '@/hooks/websocket/useWebSocketErrors';
 import { store } from './store';
 
 // Create QueryClient instance
@@ -27,7 +28,9 @@ const queryClient = new QueryClient({
 function PlayerStateSync() {
   // Synchronize WebSocket player_state messages to Redux
   usePlayerStateSync();
-  return null; // This hook just sets up the sync, doesn't render anything
+  // Surface WS security errors (rate-limit, schema validation) via toast (#2874)
+  useWebSocketErrors();
+  return null;
 }
 
 /**

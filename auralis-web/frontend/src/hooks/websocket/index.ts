@@ -5,3 +5,4 @@
  */
 
 export { useWebSocketSubscription } from './useWebSocketSubscription';
+export { useWebSocketErrors } from './useWebSocketErrors';
