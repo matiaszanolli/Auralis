@@ -150,7 +150,14 @@ export const StreamingProgressBar = ({
           <span style={styles.progressPercent}>{Math.round(progress)}%</span>
         </div>
 
-        <div style={styles.progressBarOuter}>
+        <div
+          style={styles.progressBarOuter}
+          role="progressbar"
+          aria-valuenow={Math.round(progress)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Download progress"
+        >
           <div
             style={{
               ...styles.progressBarInner,
@@ -194,7 +201,14 @@ export const StreamingProgressBar = ({
           </span>
         </div>
 
-        <div style={styles.bufferBar}>
+        <div
+          style={styles.bufferBar}
+          role="progressbar"
+          aria-valuenow={Math.round(bufferFillWidth)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Buffer status"
+        >
           <div
             style={{
               ...styles.bufferFill,
@@ -258,7 +272,14 @@ export const StreamingProgressBar = ({
 
       {/* Mini Gauge (Buffer Health Visualization) */}
       <div style={styles.gaugeSection}>
-        <div style={styles.gaugeContainer}>
+        <div
+          style={styles.gaugeContainer}
+          role="progressbar"
+          aria-valuenow={Math.round(bufferPercentage)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Buffer health"
+        >
           {[20, 40, 60, 80, 100].map((threshold) => (
             <div
               key={threshold}
