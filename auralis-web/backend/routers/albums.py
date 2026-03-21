@@ -71,7 +71,7 @@ def create_albums_router(
 
             # Get albums with pagination
             if search:
-                albums, total = await asyncio.to_thread(repos.albums.search, search, limit=limit, offset=offset)
+                albums, total = await asyncio.to_thread(repos.albums.search, search, limit=limit, offset=offset, order_by=order_by)
             else:
                 albums, total = await asyncio.to_thread(repos.albums.get_all, limit=limit, offset=offset, order_by=order_by)
             has_more = (offset + len(albums)) < total

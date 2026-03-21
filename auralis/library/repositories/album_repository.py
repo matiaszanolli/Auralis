@@ -120,7 +120,7 @@ class AlbumRepository:
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Album], int]:
+    def search(self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Album], int]:
         """
         Search albums by title or artist name
 
@@ -128,6 +128,7 @@ class AlbumRepository:
             query: Search query string
             limit: Maximum number of results
             offset: Number of results to skip
+            order_by: Column to order by ('title', 'year', 'created_at')
 
         Returns:
             Tuple of (matching albums, total match count) — total enables correct
@@ -150,11 +151,18 @@ class AlbumRepository:
                 .where(search_filter)
             ).scalar_one_or_none() or 0
 
+            # Whitelist order_by to prevent arbitrary attribute access
+            VALID_ORDER_COLUMNS = {'title', 'year', 'created_at'}
+            if order_by not in VALID_ORDER_COLUMNS:
+                order_by = 'title'
+            order_column = getattr(Album, order_by, Album.title)
+
             results = session.execute(
                 select(Album)
                 .join(Album.artist, isouter=True)
                 .where(search_filter)
                 .options(selectinload(Album.artist), selectinload(Album.tracks))
+                .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
             ).scalars().unique().all()
