@@ -424,6 +424,53 @@ class TestQueueBackpressureAPI:
         assert response.status_code == 503
         assert "queue" in response.json()["detail"].lower()
 
+    def test_process_happy_path_returns_200_with_job_id(self, client, mock_engine, tmp_path):
+        """POST /api/processing/process happy path returns 200 with job_id (fixes #2745)"""
+        audio_file = tmp_path / "song.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
+        mock_engine.create_job.return_value = mock_engine.get_job.return_value
+
+        with patch("routers.processing_api.validate_file_path", return_value=audio_file):
+            response = client.post(
+                "/api/processing/process",
+                json={"input_path": str(audio_file), "settings": {"mode": "adaptive"}},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["job_id"] == "test-job-123"
+        assert data["status"] == "queued"
+        assert "message" in data
+        mock_engine.create_job.assert_called_once()
+        mock_engine.submit_job.assert_called_once()
+
+    def test_process_with_reference_path_triggers_matchering(self, client, mock_engine, tmp_path):
+        """POST /api/processing/process with reference_path uses reference mode (fixes #2745)"""
+        audio_file = tmp_path / "song.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
+        ref_file = tmp_path / "reference.wav"
+        ref_file.write_bytes(b"RIFF" + b"\x00" * 40)
+        mock_engine.create_job.return_value = mock_engine.get_job.return_value
+
+        def fake_validate(path):
+            return Path(path)
+
+        with patch("routers.processing_api.validate_file_path", side_effect=fake_validate):
+            response = client.post(
+                "/api/processing/process",
+                json={
+                    "input_path": str(audio_file),
+                    "reference_path": str(ref_file),
+                    "settings": {"mode": "reference"},
+                },
+            )
+
+        assert response.status_code == 200
+        # Verify create_job was called with the reference path
+        call_kwargs = mock_engine.create_job.call_args
+        assert call_kwargs[1]["reference_path"] == str(ref_file)
+        assert call_kwargs[1]["mode"] == "reference"
+
     def test_upload_and_process_returns_503_when_queue_full(self, client, mock_engine):
         """POST /api/processing/upload-and-process returns 503 when queue is full"""
         import asyncio
