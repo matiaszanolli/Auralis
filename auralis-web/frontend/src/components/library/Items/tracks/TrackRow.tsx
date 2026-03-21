@@ -127,6 +127,7 @@ const TrackRowComponent = ({
             isCurrent={isCurrent}
             isPlaying={isPlaying}
             onClick={handlePlayClick}
+            trackTitle={track.title}
           />
         </TrackNumberBox>
 

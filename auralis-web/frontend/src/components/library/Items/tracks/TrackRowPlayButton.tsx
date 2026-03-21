@@ -6,6 +6,8 @@ interface TrackRowPlayButtonProps {
   isCurrent: boolean;
   isPlaying: boolean;
   onClick: (e: React.MouseEvent) => void;
+  /** Track title for accessible label */
+  trackTitle?: string;
 }
 
 /**
@@ -17,9 +19,13 @@ const TrackRowPlayButtonComponent = ({
   isCurrent,
   isPlaying,
   onClick,
+  trackTitle,
 }: TrackRowPlayButtonProps) => {
+  const action = isCurrent && isPlaying ? 'Pause' : 'Play';
+  const label = trackTitle ? `${action} ${trackTitle}` : action;
+
   return (
-    <PlayButton onClick={onClick} size="small" className="play-button">
+    <PlayButton onClick={onClick} size="small" className="play-button" aria-label={label}>
       {isCurrent && isPlaying ? <Pause /> : <PlayArrow />}
     </PlayButton>
   );
@@ -35,7 +41,8 @@ export const TrackRowPlayButton = React.memo<TrackRowPlayButtonProps>(
   (prev, next) => {
     return (
       prev.isCurrent === next.isCurrent &&
-      prev.isPlaying === next.isPlaying
+      prev.isPlaying === next.isPlaying &&
+      prev.trackTitle === next.trackTitle
     );
   }
 );
