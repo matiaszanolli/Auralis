@@ -243,6 +243,7 @@ class LibraryAutoScanner:
                 logger.warning(f"Fingerprint enqueue failed after auto-scan: {fp_err}")
 
         # Remove tracks whose files no longer exist on disk
+        removed = 0
         try:
             removed = await asyncio.to_thread(
                 self._library_manager.tracks.cleanup_missing_files
@@ -268,6 +269,13 @@ class LibraryAutoScanner:
                 }
             }
         )
+
+        # Notify frontend to refresh library views when content changed (#2871)
+        if files_added or removed:
+            await connection_manager_safe_broadcast(
+                self._connection_manager,
+                {"type": "library_updated", "data": {"reason": "scan"}}
+            )
 
     async def _interruptible_sleep(self, seconds: int) -> None:
         """

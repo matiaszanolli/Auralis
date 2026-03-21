@@ -43,6 +43,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
+import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
 import { transformBackendTrack, type LibraryStats, type LibraryTrack } from '@/types/domain';
 import { isElectron, getElectronAPI } from '@/utils/electron';
 
@@ -356,6 +357,17 @@ export const useLibraryWithStats = ({
     // Dependency array only includes view, autoLoad, includeStats to prevent re-render loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, autoLoad, includeStats]);
+
+  // Refresh library data when backend broadcasts library_updated (#2871)
+  useWebSocketSubscription(
+    ['library_updated'],
+    () => {
+      fetchTracks();
+      if (includeStats) {
+        refetchStats();
+      }
+    }
+  );
 
   // ========================================================================
   // Return

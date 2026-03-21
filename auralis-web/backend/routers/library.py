@@ -561,6 +561,13 @@ def create_library_router(
                     }
                 })
 
+                # Notify frontend to refresh library views when content changed (#2871)
+                if result.files_added or result.files_updated:
+                    await connection_manager.broadcast({
+                        "type": "library_updated",
+                        "data": {"reason": "scan"}
+                    })
+
             return {
                 "files_found": result.files_found,
                 "files_added": result.files_added,
