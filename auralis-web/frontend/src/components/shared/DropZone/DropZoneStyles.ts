@@ -30,6 +30,12 @@ export const DropZonePaper = styled(Paper, {
     overflow: 'hidden',
     opacity: $disabled ? 0.5 : 1,
 
+    // WCAG 2.4.7: keyboard focus indicator (#2771)
+    '&:focus-visible': {
+      outline: `2px solid ${tokens.colors.accent.primary}`,
+      outlineOffset: '2px',
+    },
+
     ...((!$disabled && !$scanning) && {
       '&:hover': {
         borderColor: tokens.colors.accent.primary,

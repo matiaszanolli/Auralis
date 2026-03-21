@@ -8,7 +8,7 @@
  * Icon and text content extracted to separate components.
  */
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, type KeyboardEvent } from 'react';
 import { DropZonePaper } from './DropZoneStyles';
 import { useDropZone } from './useDropZone';
 import { DropZoneIcon } from './DropZoneIcon';
@@ -70,14 +70,30 @@ export const DropZone = ({
     }
   }, [disabled, scanning, onFolderSelect]);
 
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleClick();
+      }
+    },
+    [handleClick]
+  );
+
   return (
     <DropZonePaper
       ref={dropZoneRef}
+      tabIndex={disabled ? -1 : 0}
+      role="button"
+      aria-label={scanning ? 'Scanning music folder' : 'Drop a music folder here or press to browse'}
+      aria-disabled={disabled || undefined}
+      aria-busy={scanning || undefined}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDropWrapper}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       $isDragging={isDragging}
       $disabled={disabled}
       $scanning={scanning}
