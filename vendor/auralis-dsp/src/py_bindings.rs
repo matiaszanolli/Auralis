@@ -7,7 +7,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyDict};
-use numpy::{PyArray1, PyArray2, ToPyArray, IntoPyArray};
+use numpy::{PyArray1, PyArray2, IntoPyArray};
 use crate::{hpss, yin, chroma, tempo, envelope, compressor, limiter, fingerprint_compute, biquad_filter, onset_detector, chunk_processor};
 
 /// Extract a human-readable message from a Rust panic payload (issue #2225).
