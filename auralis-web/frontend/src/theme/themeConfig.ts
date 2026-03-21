@@ -1,14 +1,15 @@
 import { createTheme, Theme } from '@mui/material/styles';
+import { tokens } from '@/design-system';
 
 // ============================================================================
-// AURORA GRADIENTS (Shared between themes)
+// AURORA GRADIENTS — derived from tokens (single source of truth, #2766)
 // ============================================================================
 export const gradients = {
-  aurora: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  auroraReverse: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-  neonSunset: 'linear-gradient(135deg, #ff6b9d 0%, #ffa502 100%)',
-  deepOcean: 'linear-gradient(135deg, #4b7bec 0%, #26de81 100%)',
-  electricPurple: 'linear-gradient(135deg, #c44569 0%, #667eea 100%)',
+  aurora: tokens.gradients.aurora,
+  auroraReverse: `linear-gradient(135deg, ${tokens.colors.accent.primary} 100%, #5A5CC4 0%)`,
+  neonSunset: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.energy} 100%)`,
+  deepOcean: `linear-gradient(135deg, ${tokens.colors.semantic.info} 0%, ${tokens.colors.semantic.success} 100%)`,
+  electricPurple: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.primary} 100%)`,
   cosmicBlue: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
   // Light theme gradients (softer)
   auroraLight: 'linear-gradient(135deg, #8b9cf7 0%, #9668c4 100%)',
@@ -16,72 +17,72 @@ export const gradients = {
 };
 
 // ============================================================================
-// DARK THEME COLORS - Auralis Design Language v1.2.0
+// DARK THEME COLORS — derived from tokens (single source of truth, #2766)
 // ============================================================================
 export const darkColors = {
   background: {
-    primary: '#0B1020',      // Deep blue-black (canonical base - Design Language §2.1)
-    secondary: '#101729',    // Slightly lifted navy
-    surface: '#151D2F',      // Surfaces (subtle lift)
-    hover: '#1A2338',        // Hover states
-    glass: 'rgba(21, 29, 47, 0.30)',  // Glassmorphism background (calm by default)
+    primary: tokens.colors.bg.level0,
+    secondary: tokens.colors.bg.level1,
+    surface: tokens.colors.bg.level2,
+    hover: tokens.colors.bg.level3,
+    glass: tokens.glass.subtle.background,
   },
   text: {
-    primary: '#FFFFFF',      // Ultra White - titles, emphasis
-    secondary: '#C1C8EF',    // Lavender Smoke - secondary text, labels
-    disabled: '#4A5073',     // Disabled text (very muted)
+    primary: tokens.colors.text.primaryFull,
+    secondary: tokens.colors.accent.tertiary,
+    disabled: tokens.colors.text.disabled,
   },
   accent: {
-    success: '#10B981',      // Success (positive)
-    error: '#EF4444',        // Error (critical)
-    warning: '#F59E0B',      // Warm Amber - warnings
-    info: '#47D6FF',         // Teal/Cyan - audio state
+    success: tokens.colors.semantic.success,
+    error: tokens.colors.semantic.error,
+    warning: tokens.colors.semantic.warning,
+    info: tokens.colors.accent.secondary,
   },
   neon: {
-    pink: '#ff6b9d',
+    pink: tokens.colors.audioSemantic.harmonic,
     purple: '#c44569',
-    blue: '#4b7bec',
-    cyan: '#26de81',
-    orange: '#ffa502',
+    blue: tokens.colors.semantic.info,
+    cyan: tokens.colors.semantic.success,
+    orange: tokens.colors.accent.energy,
   },
   glass: {
-    border: 'rgba(255, 255, 255, 0.1)',
-    highlight: 'rgba(255, 255, 255, 0.05)',
+    border: tokens.colors.opacityScale.white.light,
+    highlight: tokens.colors.opacityScale.white.veryLight,
   },
 };
 
 // ============================================================================
-// LIGHT THEME COLORS (Clean, minimal, no Vista vibes)
+// LIGHT THEME COLORS (Clean, minimal — uses token brand colors, #2766)
 // ============================================================================
 export const lightColors = {
   background: {
-    primary: '#f8f9fd',      // Soft light blue-gray (main background)
-    secondary: '#ffffff',    // Pure white (surfaces)
-    surface: '#fafbff',      // Very light blue (cards/panels)
-    hover: '#f0f2f8',        // Subtle hover
-    glass: 'rgba(255, 255, 255, 0.7)',  // Glassmorphism background
+    primary: '#f8f9fd',
+    secondary: '#ffffff',
+    surface: '#fafbff',
+    hover: '#f0f2f8',
+    glass: 'rgba(255, 255, 255, 0.7)',
   },
   text: {
-    primary: '#1a1f3a',      // Deep navy (reversed from dark)
-    secondary: '#5a6280',    // Mid-tone gray
-    disabled: '#9ca3b8',     // Light gray
+    primary: '#1a1f3a',
+    secondary: '#5a6280',
+    disabled: '#9ca3b8',
   },
   accent: {
-    success: '#00a388',      // Darker teal for contrast
-    error: '#e63946',        // Darker red
-    warning: '#e68a00',      // Darker orange
-    info: '#3d68d4',         // Darker blue
+    success: '#00a388',
+    error: '#e63946',
+    warning: '#e68a00',
+    info: '#3d68d4',
   },
   neon: {
-    pink: '#d9577e',         // Muted pink
-    purple: '#a03d5a',       // Muted purple
-    blue: '#3d68d4',         // Muted blue
-    cyan: '#1fb874',         // Muted cyan
-    orange: '#e68a00',       // Muted orange
+    pink: '#d9577e',
+    purple: '#a03d5a',
+    blue: '#3d68d4',
+    cyan: '#1fb874',
+    orange: '#e68a00',
   },
   glass: {
-    border: 'rgba(102, 126, 234, 0.15)',     // Subtle purple tint
-    highlight: 'rgba(102, 126, 234, 0.05)',  // Very subtle highlight
+    border: `rgba(115, 102, 240, 0.15)`,    // Uses accent.primary RGB
+    highlight: `rgba(115, 102, 240, 0.05)`,
   },
 };
 
@@ -92,15 +93,15 @@ export const lightColors = {
 export const glassEffects = {
   // Subtle glass panel (cards, sidebars) - Enhanced for glossy aesthetic
   panel: (isDark: boolean) => ({
-    background: isDark ? 'rgba(21, 29, 47, 0.30)' : lightColors.background.glass,
-    backdropFilter: 'blur(20px) saturate(1.1)',     // Stronger blur + saturation boost
+    background: isDark ? tokens.glass.subtle.background : lightColors.background.glass,
+    backdropFilter: 'blur(20px) saturate(1.1)',
     WebkitBackdropFilter: 'blur(20px) saturate(1.1)',
-    border: isDark
-      ? '1px solid rgba(255, 255, 255, 0.10)'       // More visible glass border
-      : '1px solid rgba(102, 126, 234, 0.12)',
+    border: '1px solid ' + (isDark
+      ? tokens.colors.opacityScale.white.light
+      : tokens.colors.opacityScale.accent.light),
     boxShadow: isDark
-      ? '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.05)' // Deeper shadow + inner glow
-      : '0 4px 16px rgba(102, 126, 234, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+      ? '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px ' + tokens.colors.opacityScale.white.veryLight
+      : '0 4px 16px ' + tokens.colors.opacityScale.accent.ultraLight + ', 0 0 0 1px ' + tokens.colors.opacityScale.white.light,
   }),
 
   // Strong glass (modals, popovers) - Maximum glossy effect
@@ -110,12 +111,12 @@ export const glassEffects = {
       : 'rgba(255, 255, 255, 0.85)',
     backdropFilter: 'blur(32px) saturate(1.2)',     // Maximum blur + saturation
     WebkitBackdropFilter: 'blur(32px) saturate(1.2)',
-    border: isDark
-      ? '1px solid rgba(255, 255, 255, 0.15)'       // Most visible border
-      : '1px solid rgba(102, 126, 234, 0.18)',
+    border: '1px solid ' + (isDark
+      ? tokens.colors.opacityScale.white.lighter
+      : tokens.colors.opacityScale.accent.standard),
     boxShadow: isDark
-      ? '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.12)' // Deep shadow + strong inner glow
-      : '0 16px 48px rgba(102, 126, 234, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.15)',
+      ? '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px ' + tokens.colors.opacityScale.white.light
+      : '0 16px 48px ' + tokens.colors.opacityScale.accent.light + ', 0 0 0 1px ' + tokens.colors.opacityScale.white.lighter,
   }),
 
   // Minimal glass (hover states, tooltips) - Medium strength
@@ -125,13 +126,13 @@ export const glassEffects = {
       : 'rgba(255, 255, 255, 0.6)',
     backdropFilter: 'blur(28px) saturate(1.15)',    // Stronger blur + saturation
     WebkitBackdropFilter: 'blur(28px) saturate(1.15)',
-    border: isDark
-      ? '1px solid rgba(255, 255, 255, 0.12)'       // More visible border
-      : '1px solid rgba(102, 126, 234, 0.12)',
+    border: '1px solid ' + (isDark
+      ? tokens.colors.opacityScale.white.light
+      : tokens.colors.opacityScale.accent.light),
   }),
 
   // Glow effect for active elements
-  glow: (isDark: boolean, color: string = '#7366F0') => ({
+  glow: (isDark: boolean, color: string = tokens.colors.accent.primary) => ({
     boxShadow: isDark
       ? `0 0 20px ${color}66, 0 0 40px ${color}33`
       : `0 0 20px ${color}33, 0 0 40px ${color}1a`,
@@ -149,12 +150,12 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
     palette: {
       mode,
       primary: {
-        main: '#7366F0',        // Soft Violet/Indigo - primary brand accent (Design Language §2.1)
+        main: tokens.colors.accent.primary,
         light: '#8B7CF7',
         dark: '#5A5CC4',
       },
       secondary: {
-        main: '#47D6FF',        // Teal/Cyan - audio state (Design Language §2.1)
+        main: tokens.colors.accent.secondary,
         light: '#6FE0FF',
         dark: '#00BCC4',
       },
@@ -181,44 +182,35 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
       },
     },
     typography: {
-      fontFamily: [
-        'Inter',
-        '-apple-system',
-        'BlinkMacSystemFont',
-        '"Segoe UI"',
-        'Roboto',
-        '"Helvetica Neue"',
-        'Arial',
-        'sans-serif',
-      ].join(','),
+      fontFamily: tokens.typography.fontFamily.primary,
       h1: {
-        fontSize: '32px',
-        fontWeight: 700,
+        fontSize: tokens.typography.fontSize['3xl'],
+        fontWeight: tokens.typography.fontWeight.bold,
         letterSpacing: '-0.5px',
       },
       h2: {
-        fontSize: '24px',
-        fontWeight: 600,
+        fontSize: tokens.typography.fontSize.xl,
+        fontWeight: tokens.typography.fontWeight.semibold,
         letterSpacing: '-0.25px',
       },
       h3: {
-        fontSize: '20px',
-        fontWeight: 600,
+        fontSize: tokens.typography.fontSize.lg,
+        fontWeight: tokens.typography.fontWeight.semibold,
       },
       h4: {
-        fontSize: '18px',
-        fontWeight: 600,
+        fontSize: tokens.typography.fontSize.lg,
+        fontWeight: tokens.typography.fontWeight.semibold,
       },
       body1: {
-        fontSize: '16px',
-        lineHeight: 1.5,
+        fontSize: tokens.typography.fontSize.md,
+        lineHeight: tokens.typography.lineHeight.normal,
       },
       body2: {
-        fontSize: '14px',
-        lineHeight: 1.5,
+        fontSize: tokens.typography.fontSize.base,
+        lineHeight: tokens.typography.lineHeight.normal,
       },
       caption: {
-        fontSize: '12px',
+        fontSize: tokens.typography.fontSize.xs,
         color: colors.text.secondary,
         letterSpacing: '0.5px',
       },
@@ -245,7 +237,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
             '&:hover': {
               boxShadow: isDark
                 ? '0 4px 12px rgba(0, 0, 0, 0.3)'
-                : '0 4px 12px rgba(102, 126, 234, 0.2)',
+                : `0 4px 12px ${tokens.colors.opacityScale.accent.standard}`,
             },
           },
         },
@@ -270,16 +262,16 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
       MuiSlider: {
         styleOverrides: {
           root: {
-            color: '#667eea',
+            color: tokens.colors.accent.primary,
             height: 6,
           },
           thumb: {
             width: 16,
             height: 16,
             backgroundColor: '#fff',
-            border: isDark ? 'none' : '2px solid #667eea',
+            border: isDark ? 'none' : `2px solid ${tokens.colors.accent.primary}`,
             '&:hover, &.Mui-focusVisible': {
-              boxShadow: '0 0 0 8px rgba(102, 126, 234, 0.16)',
+              boxShadow: `0 0 0 8px ${tokens.colors.opacityScale.accent.lighter}`,
             },
           },
           track: {
@@ -333,8 +325,8 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
             '&:hover': {
               transform: 'scale(1.1)',
               background: isDark
-                ? 'rgba(255, 255, 255, 0.05)'
-                : 'rgba(102, 126, 234, 0.05)',
+                ? tokens.colors.opacityScale.white.veryLight
+                : tokens.colors.opacityScale.accent.minimal,
             },
           },
         },
