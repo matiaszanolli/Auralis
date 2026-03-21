@@ -34,10 +34,6 @@ _stream_pause_events: dict[int, asyncio.Event] = {}
 _stream_flow_events: dict[int, asyncio.Event] = {}
 
 
-def get_stream_flow_event(websocket: WebSocket) -> asyncio.Event | None:
-    """Get the flow control event for a WebSocket connection."""
-    return _stream_flow_events.get(id(websocket))
-
 # Global rate limiter for all WebSocket connections (fixes #2156)
 _rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
 
