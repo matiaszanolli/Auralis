@@ -66,6 +66,7 @@ export const QueuePanel = ({
   // Local state for UI interactions
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const dragTargetRef = useRef<number | null>(null);
 
   // Virtualization
   const queueScrollRef = useRef<HTMLDivElement>(null);
@@ -312,15 +313,20 @@ export const QueuePanel = ({
                   isDragging={draggingIndex === index}
                   isHovered={hoveredIndex === index}
                   onRemove={() => handleRemoveTrack(index)}
-                  onDragStart={() => setDraggingIndex(index)}
+                  onDragStart={() => {
+                    setDraggingIndex(index);
+                    dragTargetRef.current = null;
+                  }}
                   onDragEnd={() => {
+                    if (draggingIndex !== null && dragTargetRef.current !== null && draggingIndex !== dragTargetRef.current) {
+                      handleReorderTrack(draggingIndex, dragTargetRef.current);
+                    }
                     setDraggingIndex(null);
+                    dragTargetRef.current = null;
                     stopAutoScroll();
                   }}
                   onDragOver={(toIndex) => {
-                    if (draggingIndex !== null && draggingIndex !== toIndex) {
-                      handleReorderTrack(draggingIndex, toIndex);
-                    }
+                    dragTargetRef.current = toIndex;
                   }}
                   onHover={(hovering) =>
                     setHoveredIndex(hovering ? index : null)
