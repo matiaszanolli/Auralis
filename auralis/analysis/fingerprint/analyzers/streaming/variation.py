@@ -148,6 +148,10 @@ class StreamingVariationAnalyzer:
         # Running statistics for global metrics
         self.rms_stats = RunningStatistics()
         self.peak_stats = RunningStatistics()
+        # Crest factor stats for dynamic_range_variation — aligned with
+        # batch path (crest_db std / 6.0) so fingerprints are comparable
+        # across streaming and batch analyzers (fixes #2705).
+        self.crest_stats = RunningStatistics()
 
         # Audio buffer for RMS/peak calculation
         self.audio_buffer: Deque[float] = deque(maxlen=self.frame_length)
@@ -161,6 +165,7 @@ class StreamingVariationAnalyzer:
         self.peak_window.clear()
         self.rms_stats.reset()
         self.peak_stats.reset()
+        self.crest_stats.reset()
         self.audio_buffer.clear()
         self.frame_count = 0
 
@@ -195,9 +200,15 @@ class StreamingVariationAnalyzer:
                 self.rms_window.append(rms_db)
                 self.peak_window.append(peak_val)
 
+                # Crest factor in dB (same formula as batch path)
+                rms_safe = max(rms_val, 1e-10)
+                peak_safe = max(peak_val, 1e-10)
+                crest_db = 20 * np.log10(peak_safe / rms_safe)
+
                 # Update running statistics
                 self.rms_stats.update(rms_db)
                 self.peak_stats.update(peak_val)
+                self.crest_stats.update(float(crest_db))
 
             return self.get_metrics()
 
@@ -211,13 +222,12 @@ class StreamingVariationAnalyzer:
         Returns:
             Dictionary with current metrics estimates
         """
-        # Dynamic range variation: from global peak stats
-        peak_mean = self.peak_stats.get_mean()
-        peak_std = self.peak_stats.get_std()
-        if peak_mean > 0:
-            # Coefficient of variation normalized
-            cv = (peak_std / peak_mean) / 1.0  # scale factor
-            dynamic_range_variation = float(np.clip(cv, 0, 1))
+        # Dynamic range variation: std of crest factors (dB) normalized to
+        # 6 dB range — same algorithm as the batch path in VariationMetrics
+        # .calculate_from_crest_factors() (fixes #2705).
+        if self.crest_stats.count >= 2:
+            crest_std = self.crest_stats.get_std()
+            dynamic_range_variation = float(np.clip(crest_std / 6.0, 0, 1))
         else:
             dynamic_range_variation = 0.5
 
