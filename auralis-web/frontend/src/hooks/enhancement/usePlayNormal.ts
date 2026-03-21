@@ -153,6 +153,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
   const playbackEngineRef = useRef<AudioPlaybackEngine | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
+  // Abort controller for cancelling in-flight fetch on unmount (#2780)
+  const abortRef = useRef<AbortController>();
+
   // Subscription cleanup refs
   const unsubscribeStreamStartRef = useRef<(() => void) | null>(null);
   const unsubscribeChunkRef = useRef<(() => void) | null>(null);
@@ -184,6 +187,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
    * Cleanup streaming resources
    */
   const cleanupStreaming = useCallback(() => {
+    // Cancel any in-flight fetch (#2780)
+    abortRef.current?.abort();
+
     // Unsubscribe from WebSocket messages
     unsubscribeStreamStartRef.current?.();
     unsubscribeChunkRef.current?.();
@@ -447,14 +453,20 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         }
 
         // Load track data from backend so we can set currentTrack (fixes #2258)
+        // AbortController cancels fetch on unmount/re-invocation (#2780)
+        abortRef.current?.abort();
+        abortRef.current = new AbortController();
         try {
-          const response = await fetch(`${API_BASE_URL}/api/library/tracks/${trackId}`);
+          const response = await fetch(`${API_BASE_URL}/api/library/tracks/${trackId}`, {
+            signal: abortRef.current.signal,
+          });
           if (response.ok) {
             const track = await response.json();
             dispatch(setCurrentTrack(track));
             console.log('[usePlayNormal] Set current track:', track.title);
           }
         } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
           console.warn('[usePlayNormal] Failed to load track data:', err);
           // Continue anyway - playback will still work
         }

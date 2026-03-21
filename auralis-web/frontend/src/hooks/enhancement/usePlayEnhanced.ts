@@ -178,6 +178,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const playbackEngineRef = useRef<AudioPlaybackEngine | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
+  // Abort controller for cancelling in-flight fetch on unmount (#2780)
+  const abortRef = useRef<AbortController>();
+
   // Subscription cleanup refs
   const unsubscribeStreamStartRef = useRef<(() => void) | null>(null);
   const unsubscribeChunkRef = useRef<(() => void) | null>(null);
@@ -243,6 +246,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    * Cleanup streaming resources (but NOT subscriptions - managed by mount effect)
    */
   const cleanupStreaming = useCallback(() => {
+    // Cancel any in-flight fetch (#2780)
+    abortRef.current?.abort();
+
     // Clear playback engine and buffer references
     // Note: We don't unsubscribe here - subscriptions are managed by the mount effect
     pcmBufferRef.current = null;
@@ -583,16 +589,20 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         }
 
         // Load track data from backend so we can set currentTrack (fixes #2258)
-        // This ensures the player bar shows the correct track info
+        // AbortController cancels fetch on unmount/re-invocation (#2780)
+        abortRef.current?.abort();
+        abortRef.current = new AbortController();
         try {
-          const response = await fetch(`${API_BASE_URL}/api/library/tracks/${trackId}`);
+          const response = await fetch(`${API_BASE_URL}/api/library/tracks/${trackId}`, {
+            signal: abortRef.current.signal,
+          });
           if (response.ok) {
             const track = await response.json();
-            // Set the track as current in Redux state
             dispatch(setCurrentTrack(track));
             console.log('[usePlayEnhanced] Set current track:', track.title);
           }
         } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
           console.warn('[usePlayEnhanced] Failed to load track data:', err);
           // Continue anyway - playback will still work
         }
