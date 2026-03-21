@@ -24,11 +24,20 @@ import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ConnectionStatusIndicator } from '../ConnectionStatusIndicator';
-import * as hooks from '@/hooks/websocket/useWebSocketProtocol';
 
-// Mock the hooks
-vi.mock('@/hooks/websocket/useWebSocketProtocol', () => ({
-  useWebSocketProtocol: vi.fn(),
+// Mock WebSocketContext
+const mockContextValue = {
+  isConnected: true,
+  connectionStatus: 'connected' as 'connected' | 'connecting' | 'disconnected' | 'error',
+  send: vi.fn(),
+  subscribe: vi.fn(() => () => {}),
+  subscribeAll: vi.fn(() => () => {}),
+  connect: vi.fn(),
+  disconnect: vi.fn(),
+};
+
+vi.mock('@/contexts/WebSocketContext', () => ({
+  useWebSocketContext: () => mockContextValue,
 }));
 
 // Mock fetch for latency measurements
@@ -62,15 +71,9 @@ function renderWithMinimalWrapper(ui: React.ReactElement) {
 describe('ConnectionStatusIndicator', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset the mock for each test to avoid state bleed
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: true,
-      error: undefined,
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    // Reset mock to connected state
+    mockContextValue.isConnected = true;
+    mockContextValue.connectionStatus = 'connected';
   });
 
   afterEach(() => {
@@ -96,14 +99,8 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should render with disconnected status when not connected and no error', () => {
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: false,
-      error: undefined,
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = false;
+    mockContextValue.connectionStatus = 'disconnected';
 
     renderWithMinimalWrapper(<ConnectionStatusIndicator />);
 
@@ -112,14 +109,8 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should render with reconnecting status when error and not connected', () => {
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: false,
-      error: new Error('Connection lost'),
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = false;
+    mockContextValue.connectionStatus = 'error';
 
     renderWithMinimalWrapper(<ConnectionStatusIndicator />);
 
@@ -139,14 +130,8 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should render in compact mode when disconnected', () => {
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: false,
-      error: undefined,
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = false;
+    mockContextValue.connectionStatus = 'disconnected';
 
     renderWithMinimalWrapper(<ConnectionStatusIndicator compact={true} />);
 
@@ -247,14 +232,8 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should show WebSocket as disconnected in details', async () => {
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: false,
-      error: undefined,
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = false;
+    mockContextValue.connectionStatus = 'disconnected';
 
     renderWithMinimalWrapper(<ConnectionStatusIndicator />);
 
@@ -276,14 +255,8 @@ describe('ConnectionStatusIndicator', () => {
 
     expect(screen.getByTestId('connection-indicator')).toHaveAttribute('data-status', 'connected');
 
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: false,
-      error: undefined,
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = false;
+    mockContextValue.connectionStatus = 'disconnected';
 
     // Rerender just the component - wrapper is already applied
     rerender(<ConnectionStatusIndicator />);
@@ -294,27 +267,15 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should transition from disconnected to reconnecting', async () => {
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: false,
-      error: undefined,
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = false;
+    mockContextValue.connectionStatus = 'disconnected';
 
     const { rerender } = renderWithMinimalWrapper(<ConnectionStatusIndicator />);
 
     expect(screen.getByTestId('connection-indicator')).toHaveAttribute('data-status', 'disconnected');
 
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: false,
-      error: new Error('Attempting reconnect'),
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = false;
+    mockContextValue.connectionStatus = 'error';
 
     // Rerender just the component - wrapper is already applied
     rerender(<ConnectionStatusIndicator />);
@@ -325,27 +286,15 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should transition from reconnecting to connected', async () => {
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: false,
-      error: new Error('Reconnecting'),
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = false;
+    mockContextValue.connectionStatus = 'error';
 
     const { rerender } = renderWithMinimalWrapper(<ConnectionStatusIndicator />);
 
     expect(screen.getByTestId('connection-indicator')).toHaveAttribute('data-status', 'reconnecting');
 
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: true,
-      error: undefined,
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = true;
+    mockContextValue.connectionStatus = 'connected';
 
     // Rerender just the component - wrapper is already applied
     rerender(<ConnectionStatusIndicator />);
@@ -360,14 +309,8 @@ describe('ConnectionStatusIndicator', () => {
   // ============================================================================
 
   it('should show reconnect button when reconnecting and details expanded', async () => {
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: false,
-      error: new Error('Connection lost'),
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = false;
+    mockContextValue.connectionStatus = 'error';
 
     renderWithMinimalWrapper(<ConnectionStatusIndicator />);
 
@@ -397,14 +340,8 @@ describe('ConnectionStatusIndicator', () => {
   // ============================================================================
 
   it('should display error message when error exists and details expanded', async () => {
-    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
-      connected: false,
-      error: new Error('Connection timeout'),
-      send: vi.fn(),
-      subscribe: vi.fn(),
-      disconnect: vi.fn(),
-      reconnect: vi.fn(),
-    } as any);
+    mockContextValue.isConnected = false;
+    mockContextValue.connectionStatus = 'error';
 
     renderWithMinimalWrapper(<ConnectionStatusIndicator />);
 
@@ -412,7 +349,7 @@ describe('ConnectionStatusIndicator', () => {
     fireEvent.mouseEnter(indicator);
 
     await waitFor(() => {
-      expect(screen.getByText('Connection timeout')).toBeInTheDocument();
+      expect(screen.getByText('WebSocket connection error')).toBeInTheDocument();
     });
   });
 });

@@ -24,21 +24,32 @@
 
 import React, { ReactElement } from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render as rtlRender, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { PlayerControls } from '../PlayerControls';
-import * as hooks from '@/hooks/websocket/useWebSocketProtocol';
 
-// Mock the hooks
-vi.mock('@/hooks/websocket/useWebSocketProtocol', () => ({
-  usePlayerCommands: vi.fn(),
-  usePlayerStateUpdates: vi.fn(),
+// Mock WebSocketContext
+const mockSend = vi.fn();
+let mockSubscribeCallback: ((message: any) => void) | null = null;
+
+vi.mock('@/contexts/WebSocketContext', () => ({
+  useWebSocketContext: () => ({
+    isConnected: true,
+    connectionStatus: 'connected',
+    send: mockSend,
+    subscribe: (_type: string, handler: (message: any) => void) => {
+      mockSubscribeCallback = handler;
+      return () => { mockSubscribeCallback = null; };
+    },
+    subscribeAll: vi.fn(() => () => {}),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  }),
 }));
 
 /**
- * Minimal wrapper for PlayerControls tests - avoids WebSocket context
- * which causes "Should not already be working" errors due to singleton state
+ * Minimal wrapper for PlayerControls tests
  */
 function MinimalWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -56,66 +67,37 @@ function render(ui: ReactElement) {
 }
 
 /**
- * Default mock commands
+ * Simulate a player_state WebSocket message
  */
-function createMockCommands() {
-  return {
-    play: vi.fn().mockResolvedValue(undefined),
-    pause: vi.fn().mockResolvedValue(undefined),
-    seek: vi.fn().mockResolvedValue(undefined),
-    next: vi.fn().mockResolvedValue(undefined),
-    previous: vi.fn().mockResolvedValue(undefined),
-  };
-}
-
-/**
- * Helper to set up mock state updates
- *
- * Note: The actual usePlayerStateUpdates hook subscribes to WebSocket messages
- * and calls the callback only when updates arrive. In tests, we use useEffect
- * to call the callback once after mount to simulate the initial state.
- */
-function setupMockStateUpdates(state: Record<string, any> = {}) {
+function simulatePlayerState(state: Record<string, any> = {}) {
   const defaultState = {
-    isPlaying: false,
-    currentTrack: {
+    is_playing: false,
+    current_track: {
       id: 1,
       title: 'Test Track',
       artist: 'Test Artist',
       duration: 240,
     },
-    currentTime: 0,
+    current_time: 0,
     duration: 240,
     volume: 70,
-    isMuted: false,
-    preset: 'adaptive',
-    isLoading: false,
+    is_muted: false,
   };
 
-  // Store the callback ref to call it asynchronously (simulates WebSocket update)
-  let storedCallback: ((state: any) => void) | null = null;
-
-  (hooks.usePlayerStateUpdates as any).mockImplementation((callback: (state: any) => void) => {
-    // Store the callback - don't call it synchronously to avoid infinite re-renders
-    storedCallback = callback;
-
-    // Use queueMicrotask to call the callback after render completes
-    queueMicrotask(() => {
-      if (storedCallback) {
-        storedCallback({ ...defaultState, ...state });
-      }
+  if (mockSubscribeCallback) {
+    act(() => {
+      mockSubscribeCallback!({
+        type: 'player_state',
+        data: { ...defaultState, ...state },
+      });
     });
-  });
+  }
 }
 
 describe('PlayerControls', () => {
-  let mockCommands: ReturnType<typeof createMockCommands>;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCommands = createMockCommands();
-    (hooks.usePlayerCommands as any).mockReturnValue(mockCommands);
-    setupMockStateUpdates();
+    mockSubscribeCallback = null;
   });
 
   afterEach(() => {
@@ -150,9 +132,8 @@ describe('PlayerControls', () => {
 
   it('should render time display', async () => {
     render(<PlayerControls />);
+    simulatePlayerState();
 
-    // Time displays are in separate spans: "0:00" and "4:00" (for 240s duration)
-    // Wait for state update from mocked hook
     await waitFor(() => {
       expect(screen.getByText('0:00')).toBeInTheDocument();
       expect(screen.getByText('4:00')).toBeInTheDocument();
@@ -161,8 +142,8 @@ describe('PlayerControls', () => {
 
   it('should render current track info', async () => {
     render(<PlayerControls />);
+    simulatePlayerState();
 
-    // Wait for state update from mocked hook
     await waitFor(() => {
       expect(screen.getByText('Test Track')).toBeInTheDocument();
       expect(screen.getByText('Test Artist')).toBeInTheDocument();
@@ -172,7 +153,6 @@ describe('PlayerControls', () => {
   it('should render preset buttons when enabled', () => {
     render(<PlayerControls showPresetSelector={true} />);
 
-    // Presets are buttons with title attributes
     expect(screen.getByTitle('Adaptive')).toBeInTheDocument();
     expect(screen.getByTitle('Gentle')).toBeInTheDocument();
     expect(screen.getByTitle('Warm')).toBeInTheDocument();
@@ -184,27 +164,22 @@ describe('PlayerControls', () => {
   // Play/Pause Tests
   // ============================================================================
 
-  it('should call play when play button clicked and not playing', async () => {
-    setupMockStateUpdates({ isPlaying: false });
+  it('should send play when play button clicked and not playing', async () => {
     const user = userEvent.setup();
-
     render(<PlayerControls />);
+    simulatePlayerState({ is_playing: false });
 
     const playButton = screen.getByRole('button', { name: /play/i });
     await user.click(playButton);
 
-    await waitFor(() => {
-      expect(mockCommands.play).toHaveBeenCalled();
-    });
+    expect(mockSend).toHaveBeenCalledWith({ type: 'play' });
   });
 
-  it('should call pause when pause button clicked and playing', async () => {
-    setupMockStateUpdates({ isPlaying: true });
+  it('should send pause when pause button clicked and playing', async () => {
     const user = userEvent.setup();
-
     render(<PlayerControls />);
+    simulatePlayerState({ is_playing: true });
 
-    // Wait for state update to show pause button
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument();
     });
@@ -212,15 +187,12 @@ describe('PlayerControls', () => {
     const pauseButton = screen.getByRole('button', { name: /pause/i });
     await user.click(pauseButton);
 
-    await waitFor(() => {
-      expect(mockCommands.pause).toHaveBeenCalled();
-    });
+    expect(mockSend).toHaveBeenCalledWith({ type: 'pause' });
   });
 
   it('should show pause icon when playing', async () => {
-    setupMockStateUpdates({ isPlaying: true });
-
     render(<PlayerControls />);
+    simulatePlayerState({ is_playing: true });
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument();
@@ -231,28 +203,24 @@ describe('PlayerControls', () => {
   // Navigation Tests
   // ============================================================================
 
-  it('should call next when next button clicked', async () => {
+  it('should send next when next button clicked', async () => {
     const user = userEvent.setup();
     render(<PlayerControls />);
 
     const nextButton = screen.getByRole('button', { name: /next/i });
     await user.click(nextButton);
 
-    await waitFor(() => {
-      expect(mockCommands.next).toHaveBeenCalled();
-    });
+    expect(mockSend).toHaveBeenCalledWith({ type: 'next' });
   });
 
-  it('should call previous when previous button clicked', async () => {
+  it('should send previous when previous button clicked', async () => {
     const user = userEvent.setup();
     render(<PlayerControls />);
 
     const prevButton = screen.getByRole('button', { name: /previous/i });
     await user.click(prevButton);
 
-    await waitFor(() => {
-      expect(mockCommands.previous).toHaveBeenCalled();
-    });
+    expect(mockSend).toHaveBeenCalledWith({ type: 'previous' });
   });
 
   // ============================================================================
@@ -270,8 +238,8 @@ describe('PlayerControls', () => {
 
   it('should display current volume level', async () => {
     render(<PlayerControls />);
+    simulatePlayerState({ volume: 70 });
 
-    // Default volume is 70, wait for state update
     await waitFor(() => {
       expect(screen.getByText('70%')).toBeInTheDocument();
     });
@@ -285,11 +253,9 @@ describe('PlayerControls', () => {
     const user = userEvent.setup();
     render(<PlayerControls />);
 
-    // Initially unmuted - button shows speaker icon
     const muteButton = screen.getByRole('button', { name: /mute/i });
     await user.click(muteButton);
 
-    // After clicking, should show muted state
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /unmute/i })).toBeInTheDocument();
     });
@@ -302,7 +268,6 @@ describe('PlayerControls', () => {
     const muteButton = screen.getByRole('button', { name: /mute/i });
     await user.click(muteButton);
 
-    // Volume should show 0% when muted
     expect(screen.getByText('0%')).toBeInTheDocument();
   });
 
@@ -311,11 +276,8 @@ describe('PlayerControls', () => {
   // ============================================================================
 
   it('should highlight selected preset', () => {
-    setupMockStateUpdates({ preset: 'warm' });
-
     render(<PlayerControls showPresetSelector={true} />);
 
-    // Warm preset button should have different styling (border color)
     const warmButton = screen.getByTitle('Warm');
     expect(warmButton).toBeInTheDocument();
   });
@@ -327,8 +289,6 @@ describe('PlayerControls', () => {
     const brightButton = screen.getByTitle('Bright');
     await user.click(brightButton);
 
-    // Preset change is handled internally by the component state
-    // We verify the button is clickable
     expect(brightButton).toBeInTheDocument();
   });
 
@@ -337,11 +297,9 @@ describe('PlayerControls', () => {
   // ============================================================================
 
   it('should show loading indicator when loading', async () => {
-    setupMockStateUpdates({ isLoading: true });
-
     render(<PlayerControls />);
+    simulatePlayerState({ isLoading: true });
 
-    // Loading state shows hourglass emoji, wait for state update
     await waitFor(() => {
       expect(screen.getByText('⏳')).toBeInTheDocument();
     });
@@ -350,7 +308,6 @@ describe('PlayerControls', () => {
   it('should apply disabled styling when disabled prop is true', () => {
     const { container } = render(<PlayerControls disabled={true} />);
 
-    // The wrapper div should have opacity 0.5 when disabled
     const wrapper = container.firstChild as HTMLElement;
     expect(wrapper.style.opacity).toBe('0.5');
   });
@@ -362,15 +319,14 @@ describe('PlayerControls', () => {
   it('should hide track info in compact mode', () => {
     render(<PlayerControls compact={true} />);
 
-    // Compact mode hides track info
     expect(screen.queryByText('Test Track')).not.toBeInTheDocument();
     expect(screen.queryByText('Test Artist')).not.toBeInTheDocument();
   });
 
   it('should show track info in normal mode', async () => {
     render(<PlayerControls compact={false} />);
+    simulatePlayerState();
 
-    // Wait for state update
     await waitFor(() => {
       expect(screen.getByText('Test Track')).toBeInTheDocument();
       expect(screen.getByText('Test Artist')).toBeInTheDocument();
@@ -382,9 +338,8 @@ describe('PlayerControls', () => {
   // ============================================================================
 
   it('should display correct current time', async () => {
-    setupMockStateUpdates({ currentTime: 125, duration: 240 }); // 2:05
-
     render(<PlayerControls />);
+    simulatePlayerState({ current_time: 125, duration: 240 }); // 2:05
 
     await waitFor(() => {
       expect(screen.getByText('2:05')).toBeInTheDocument();
@@ -392,9 +347,8 @@ describe('PlayerControls', () => {
   });
 
   it('should display correct duration', async () => {
-    setupMockStateUpdates({ currentTime: 0, duration: 330 }); // 5:30
-
     render(<PlayerControls />);
+    simulatePlayerState({ current_time: 0, duration: 330 }); // 5:30
 
     await waitFor(() => {
       expect(screen.getByText('5:30')).toBeInTheDocument();

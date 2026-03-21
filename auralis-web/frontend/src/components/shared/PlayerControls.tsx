@@ -15,9 +15,9 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { tokens } from '@/design-system';
-import { usePlayerCommands, usePlayerStateUpdates } from '@/hooks/websocket/useWebSocketProtocol';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 interface PlayerState {
   isPlaying: boolean;
@@ -94,22 +94,31 @@ export function PlayerControls({
   const [localVolume, setLocalVolume] = useState(70);
   const [isSeeking, setIsSeeking] = useState(false);
 
-  const commands = usePlayerCommands();
+  const { send, subscribe } = useWebSocketContext();
 
-  // Subscribe to player state updates
-  usePlayerStateUpdates((state) => {
-    setPlayerState((prev) => ({
-      ...prev,
-      ...state,
-    }));
-  });
+  // Subscribe to player state updates via WebSocketContext
+  useEffect(() => {
+    const unsubscribe = subscribe('player_state', (message) => {
+      const data = message.data as Record<string, any>;
+      setPlayerState((prev) => ({
+        ...prev,
+        isPlaying: data.is_playing ?? prev.isPlaying,
+        currentTime: data.current_time ?? prev.currentTime,
+        duration: data.duration ?? prev.duration,
+        volume: data.volume ?? prev.volume,
+        isMuted: data.is_muted ?? prev.isMuted,
+        currentTrack: data.current_track ?? prev.currentTrack,
+      }));
+    });
+    return unsubscribe;
+  }, [subscribe]);
 
   const handlePlayPause = async () => {
     try {
       if (playerState.isPlaying) {
-        await commands.pause();
+        send({ type: 'pause' });
       } else {
-        await commands.play();
+        send({ type: 'play' });
       }
     } catch (error) {
       console.error('Failed to toggle playback:', error);
@@ -122,7 +131,7 @@ export function PlayerControls({
         ...prev,
         currentTime: position,
       }));
-      await commands.seek(position);
+      send({ type: 'seek', data: { position } });
       setIsSeeking(false);
     } catch (error) {
       console.error('Failed to seek:', error);
@@ -148,7 +157,7 @@ export function PlayerControls({
 
   const handleNext = async () => {
     try {
-      await commands.next();
+      send({ type: 'next' });
     } catch (error) {
       console.error('Failed to skip to next:', error);
     }
@@ -156,7 +165,7 @@ export function PlayerControls({
 
   const handlePrevious = async () => {
     try {
-      await commands.previous();
+      send({ type: 'previous' });
     } catch (error) {
       console.error('Failed to skip to previous:', error);
     }

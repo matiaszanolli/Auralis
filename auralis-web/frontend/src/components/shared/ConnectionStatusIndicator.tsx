@@ -17,7 +17,7 @@
 
 import { useState, useEffect } from 'react';
 import { tokens } from '@/design-system';
-import { useWebSocketProtocol } from '@/hooks/websocket/useWebSocketProtocol';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 type Position = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
@@ -71,7 +71,8 @@ export function ConnectionStatusIndicator({
   position = 'bottom-right',
   compact = false,
 }: ConnectionStatusIndicatorProps) {
-  const { connected: wsConnected, error: wsError } = useWebSocketProtocol();
+  const { isConnected: wsConnected, connectionStatus } = useWebSocketContext();
+  const wsError: Error | null = connectionStatus === 'error' ? new Error('WebSocket connection error') : null;
   const [status, setStatus] = useState<ConnectionStatus>({
     wsConnected: false,
     apiConnected: true,
@@ -88,7 +89,7 @@ export function ConnectionStatusIndicator({
     setStatus((prev) => ({
       ...prev,
       wsConnected,
-      isReconnecting: wsError !== undefined && !wsConnected,
+      isReconnecting: wsError !== null && !wsConnected,
       lastError: wsError,
     }));
 

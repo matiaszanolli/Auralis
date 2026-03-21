@@ -57,10 +57,17 @@ import * as cacheActions from '@/store/slices/cacheSlice';
 import * as connectionActions from '@/store/slices/connectionSlice';
 
 // Mock hooks
-vi.mock('@/hooks/usePlayerCommands');
-vi.mock('@/hooks/usePlayerStateUpdates');
-vi.mock('@/hooks/useQueueCommands');
-vi.mock('@/hooks/useWebSocketProtocol');
+vi.mock('@/contexts/WebSocketContext', () => ({
+  useWebSocketContext: () => ({
+    isConnected: true,
+    connectionStatus: 'connected',
+    send: vi.fn(),
+    subscribe: vi.fn(() => () => {}),
+    subscribeAll: vi.fn(() => () => {}),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  }),
+}));
 vi.mock('@/hooks/useStandardizedAPI');
 
 describe('End-to-End User Flows', () => {
