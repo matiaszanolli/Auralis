@@ -9,17 +9,19 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { useWebSocketContext } from './WebSocketContext';
 import { post } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
+import type { EnhancementPreset } from '@/types/domain';
+import { isEnhancementPreset } from '@/types/domain';
 
 export interface EnhancementSettings {
   enabled: boolean;
-  preset: 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
+  preset: EnhancementPreset;
   intensity: number; // 0.0 - 1.0
 }
 
 interface EnhancementContextType {
   settings: EnhancementSettings;
   setEnabled: (enabled: boolean) => void;
-  setPreset: (preset: string) => void;
+  setPreset: (preset: EnhancementPreset) => void;
   setIntensity: (intensity: number) => void;
   isProcessing: boolean;
   error: Error | null;
@@ -98,7 +100,12 @@ export const EnhancementProvider = ({ children }: EnhancementProviderProps) => {
   }, []);
 
   // Set preset via REST API
-  const setPreset = useCallback(async (preset: string) => {
+  const setPreset = useCallback(async (preset: EnhancementPreset) => {
+    if (!isEnhancementPreset(preset)) {
+      const err = new Error(`Invalid enhancement preset: "${preset}"`);
+      setError(err);
+      throw err;
+    }
     setError(null);
     try {
       setProcessingCount(c => c + 1);
