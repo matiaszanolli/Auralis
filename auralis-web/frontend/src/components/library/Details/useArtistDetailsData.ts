@@ -6,6 +6,8 @@
 
 import { useState, useEffect } from 'react';
 import type { Artist as DomainArtist, DetailTrack } from '@/types/domain';
+import type { ArtistDetailApiResponse } from '@/api/transformers/types';
+import { transformArtistDetail } from '@/api/transformers/artistTransformer';
 
 export interface Album {
   id: number;
@@ -35,14 +37,18 @@ export const useArtistDetailsData = (artistId: number) => {
         throw new Error('Failed to fetch artist details');
       }
 
-      const data = await response.json();
+      const data: ArtistDetailApiResponse = await response.json();
+      const base = transformArtistDetail(data);
 
       const artistData: Artist = {
-        id: data.artist_id,
-        name: data.artist_name,
-        albumCount: data.total_albums ?? 0,
-        trackCount: data.total_tracks ?? 0,
-        albums: data.albums || [],
+        ...base,
+        albums: (data.albums || []).map((a) => ({
+          id: a.id,
+          title: a.title,
+          year: a.year ?? undefined,
+          track_count: a.track_count,
+          total_duration: a.total_duration ?? 0,
+        })),
         tracks: [],
       };
 

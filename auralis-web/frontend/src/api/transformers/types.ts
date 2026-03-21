@@ -128,10 +128,15 @@ export interface AlbumDetailApiResponse extends AlbumApiResponse {
 }
 
 // ============================================================================
-// Artist Detail API Response (with albums)
+// Artist Detail API Response (#2844: matches backend ArtistDetailResponse shape)
 // ============================================================================
 
-export interface ArtistDetailApiResponse extends ArtistApiResponse {
+export interface ArtistDetailApiResponse {
+  artist_id: number;
+  artist_name: string;
   albums: AlbumApiResponse[];
-  top_tracks?: TrackApiResponse[]; // snake_case
+  total_albums: number;
+  total_tracks: number;
+  artwork_url?: string | null;
+  artwork_source?: string | null;
 }
