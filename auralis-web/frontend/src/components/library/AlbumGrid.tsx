@@ -125,26 +125,26 @@ const styles = {
     width: '100%',
 
     // Mobile: 2 columns
-    '@media (max-width: 640px)': {
+    [`@media (max-width: ${tokens.breakpoints.sm})`]: {
       gridTemplateColumns: 'repeat(2, 1fr)',
       gap: tokens.spacing.md,
       padding: `0 ${tokens.spacing.sm}`,
     },
 
     // Tablet: 3 columns
-    '@media (min-width: 641px) and (max-width: 1023px)': {
+    [`@media (min-width: ${tokens.breakpoints.sm}) and (max-width: ${tokens.breakpoints.md})`]: {
       gridTemplateColumns: 'repeat(3, 1fr)',
       gap: tokens.spacing.md,
     },
 
     // Desktop: 4 columns
-    '@media (min-width: 1024px) and (max-width: 1439px)': {
+    [`@media (min-width: ${tokens.breakpoints.md}) and (max-width: ${tokens.breakpoints.lg})`]: {
       gridTemplateColumns: 'repeat(4, 1fr)',
       gap: tokens.spacing.lg,
     },
 
     // Ultra-wide: 5+ columns
-    '@media (min-width: 1440px)': {
+    [`@media (min-width: ${tokens.breakpoints.lg})`]: {
       gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))',
       gap: tokens.spacing.lg,
     },

@@ -108,7 +108,8 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 640px) {
+/* tokens.breakpoints.sm = 600px */
+@media (max-width: 600px) {
   .modesGrid {
     grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
     gap: var(--spacing-xs, 4px);

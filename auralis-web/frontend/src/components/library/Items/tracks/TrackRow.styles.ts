@@ -200,7 +200,7 @@ export const TrackAlbum = styled(Typography)(
     marginRight: tokens.spacing.md,
   },
   {
-    '@media (max-width: 960px)': {
+    [`@media (max-width: ${tokens.breakpoints.md})`]: {
       display: 'none',
     },
   }

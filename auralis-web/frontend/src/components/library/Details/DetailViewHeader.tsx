@@ -51,7 +51,7 @@ const HeaderSection = styled(Box)<{ isplaying?: string }>(({ isplaying }) => ({
   opacity: isplaying === 'true' ? 0.85 : 1,
   transition: `opacity ${tokens.transitions.base}`,      // 400ms smooth fade
 
-  '@media (max-width: 768px)': {
+  [`@media (max-width: ${tokens.breakpoints.md})`]: {
     flexDirection: 'column',
     gap: tokens.spacing.group,                            // 16px - tighter on mobile
     padding: tokens.spacing.lg,
@@ -63,7 +63,7 @@ const ArtworkWrapper = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  '@media (max-width: 768px)': {
+  [`@media (max-width: ${tokens.breakpoints.md})`]: {
     alignSelf: 'center',
   },
 });

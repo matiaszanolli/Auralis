@@ -454,7 +454,7 @@ const styles = {
     padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
     minHeight: '64px',
 
-    '@media (max-width: 768px)': {
+    [`@media (max-width: ${tokens.breakpoints.md})`]: {
       flexDirection: 'column' as const,
       alignItems: 'stretch',
       padding: tokens.spacing.md,
@@ -470,7 +470,7 @@ const styles = {
     minWidth: '200px',
     flex: '1 1 auto',
 
-    '@media (max-width: 768px)': {
+    [`@media (max-width: ${tokens.breakpoints.md})`]: {
       minWidth: 'auto',
       width: '100%',
     },
@@ -483,7 +483,7 @@ const styles = {
     flex: '1 1 auto',
     justifyContent: 'flex-end',
 
-    '@media (max-width: 768px)': {
+    [`@media (max-width: ${tokens.breakpoints.md})`]: {
       width: '100%',
       justifyContent: 'space-between',
     },
