@@ -9,6 +9,7 @@ Extracts 25D audio fingerprints during library scanning
 """
 
 import gc
+import threading
 from pathlib import Path
 from typing import Any, Literal
 
@@ -74,6 +75,7 @@ class FingerprintExtractor:
         self.sampling_interval = sampling_interval
         self.use_rust_server = use_rust_server
         self._rust_server_available: bool | None = None  # Cache availability check
+        self._rust_server_lock = threading.Lock()  # Serialize availability probe
 
         debug(f"FingerprintExtractor initialized with strategy={fingerprint_strategy}, use_rust_server={use_rust_server}")
 
@@ -82,25 +84,30 @@ class FingerprintExtractor:
         if self._rust_server_available is not None:
             return self._rust_server_available
 
-        # Server availability not yet determined, check now
-        available = False
-        try:
-            import socket
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2.0)
-            result = sock.connect_ex(('127.0.0.1', 8766))
-            sock.close()
-            available = result == 0
-            if available:
-                debug("Rust fingerprinting server is available")
-            else:
-                warning("Rust server not available")
-        except Exception as e:
-            warning(f"Rust fingerprinting server not available: {e}")
-            available = False
+        with self._rust_server_lock:
+            # Double-check after acquiring lock
+            if self._rust_server_available is not None:
+                return self._rust_server_available
 
-        self._rust_server_available = available
-        return available
+            # Server availability not yet determined, check now
+            available = False
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2.0)
+                result = sock.connect_ex(('127.0.0.1', 8766))
+                sock.close()
+                available = result == 0
+                if available:
+                    debug("Rust fingerprinting server is available")
+                else:
+                    warning("Rust server not available")
+            except Exception as e:
+                warning(f"Rust fingerprinting server not available: {e}")
+                available = False
+
+            self._rust_server_available = available
+            return available
 
     async def _get_fingerprint_from_rust_server_async(self, track_id: int, filepath: str) -> dict[str, Any] | None:
         """
