@@ -14,7 +14,19 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { keyframes } from '@mui/material';
 import { tokens } from '@/design-system';
+
+const fadeIn = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
 import { EnhancementIdentityLayer } from './EnhancementIdentityLayer';
 import { EnhancementInspectionLayer } from './EnhancementInspectionLayer';
 import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
@@ -148,7 +160,7 @@ export const EnhancementPane = ({
           ref={inspectionRef}
           style={{
             ...styles.inspectionContainer,
-            animation: 'fadeIn 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+            animation: `${fadeIn} 300ms cubic-bezier(0.4, 0, 0.2, 1)`,
           }}
         >
           {/* Close Button */}
@@ -230,21 +242,5 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
   },
 };
-
-// Add CSS animation keyframes for fade-in
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(-8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-`;
-document.head.appendChild(styleSheet);
 
 export default EnhancementPane;

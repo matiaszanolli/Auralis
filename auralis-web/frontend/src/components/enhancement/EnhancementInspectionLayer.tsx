@@ -12,8 +12,13 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
+import { keyframes } from '@mui/material';
 import { tokens } from '@/design-system';
 import type { PresetName } from '@/store/slices/playerSlice';
+
+const spin = keyframes`
+  to { transform: rotate(360deg); }
+`;
 
 export interface EnhancementInspectionLayerProps {
   /** Currently selected preset */
@@ -718,7 +723,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: `2px solid ${tokens.colors.semantic.warning}40`,  // 40% opacity ring
     borderTopColor: tokens.colors.semantic.warning,
     borderRadius: tokens.borderRadius.full,               // 9999px - perfect circle
-    animation: 'spin 1s linear infinite',
+    animation: `${spin} 1s linear infinite`,
   },
 
   fingerprintText: {
@@ -727,14 +732,5 @@ const styles: Record<string, React.CSSProperties> = {
     color: tokens.colors.text.primary,
   },
 };
-
-// Add CSS animation keyframes
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(styleSheet);
 
 export default EnhancementInspectionLayer;

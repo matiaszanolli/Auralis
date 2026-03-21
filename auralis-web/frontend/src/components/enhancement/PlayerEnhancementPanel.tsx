@@ -15,9 +15,15 @@
 
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { keyframes } from '@mui/material';
 import { playerSelectors } from '@/store/selectors';
 import type { RootState } from '@/store';
 import { tokens } from '@/design-system';
+
+const pulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+`;
 
 // Playback hooks
 import { usePlayNormal } from '@/hooks/enhancement/usePlayNormal';
@@ -352,7 +358,7 @@ const styles: Record<string, React.CSSProperties> = {
   } as React.CSSProperties,
 
   modeButtonStreaming: {
-    animation: 'pulse 2s ease-in-out infinite',
+    animation: `${pulse} 2s ease-in-out infinite`,
   } as React.CSSProperties,
 
   streamingIndicator: {
@@ -380,15 +386,5 @@ const styles: Record<string, React.CSSProperties> = {
   },
   */
 };
-
-// Add CSS animation keyframes for streaming pulse effect
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-  }
-`;
-document.head.appendChild(styleSheet);
 
 export default PlayerEnhancementPanel;
