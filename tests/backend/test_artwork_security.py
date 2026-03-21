@@ -202,10 +202,11 @@ class TestArtworkPathTraversalProtection:
                 response = client.get("/api/albums/1/artwork")
 
                 assert response.status_code == 200
-                # Check cache headers
+                # Check cache headers (#2864: ETag-based conditional caching)
                 assert 'cache-control' in response.headers
                 assert 'public' in response.headers['cache-control']
-                assert 'max-age' in response.headers['cache-control']
+                assert 'no-cache' in response.headers['cache-control']
+                assert 'etag' in response.headers
         finally:
             # Cleanup
             test_artwork.unlink(missing_ok=True)

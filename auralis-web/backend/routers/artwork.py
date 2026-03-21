@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse, Response
 
 from .dependencies import require_repository_factory
 
@@ -52,7 +52,7 @@ def create_artwork_router(
         return require_repository_factory(get_repository_factory)
 
     @router.get("/api/albums/{album_id}/artwork")
-    async def get_album_artwork(album_id: int) -> FileResponse:
+    async def get_album_artwork(album_id: int, request: Request) -> Response:
         """
         Get album artwork file (with path traversal protection).
 
@@ -131,13 +131,31 @@ def create_artwork_router(
                 else:
                     media_type = "image/jpeg"  # safest fallback for browsers
 
-            # Return artwork file with validated path
+            # Build ETag from file stat for conditional caching (#2864).
+            stat = requested_path.stat()
+            etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
+
+            # If client already has this version, return 304 (no body).
+            if_none_match = request.headers.get("if-none-match")
+            if if_none_match and if_none_match == etag:
+                return Response(
+                    status_code=304,
+                    headers={
+                        "ETag": etag,
+                        "Cache-Control": "public, no-cache",
+                    },
+                )
+
+            # Return artwork file with ETag for conditional caching.
+            # no-cache = always revalidate, but 304 avoids re-download
+            # when content hasn't changed.
             return FileResponse(
-                str(requested_path),  # Use validated absolute path
+                str(requested_path),
                 media_type=media_type,
                 headers={
-                    "Cache-Control": "public, max-age=31536000",  # Cache for 1 year
-                }
+                    "ETag": etag,
+                    "Cache-Control": "public, no-cache",
+                },
             )
 
         except HTTPException:

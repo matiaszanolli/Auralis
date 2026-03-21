@@ -316,7 +316,8 @@ describe('Artwork API Integration Tests', () => {
             new ArrayBuffer(100),
             {
               headers: {
-                'Cache-Control': 'public, max-age=31536000'
+                'Cache-Control': 'public, no-cache',
+                'ETag': '"mock-etag"'
               }
             }
           );

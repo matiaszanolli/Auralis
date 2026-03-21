@@ -670,7 +670,8 @@ export const handlers = [
     return HttpResponse.arrayBuffer(mockImageData, {
       headers: {
         'Content-Type': 'image/jpeg',
-        'Cache-Control': 'public, max-age=31536000'
+        'Cache-Control': 'public, no-cache',
+        'ETag': '"mock-etag"'
       }
     });
   }),
