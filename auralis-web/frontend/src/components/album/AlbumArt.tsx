@@ -10,6 +10,7 @@ import React from 'react';
 import { Box, styled } from '@mui/material';
 import { ProgressiveImage } from '../shared/ui/media';
 import { tokens } from '@/design-system';
+import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
 
 interface AlbumArtProps {
   albumId?: number;
@@ -94,8 +95,11 @@ export const AlbumArt = ({
   showSkeleton: _showSkeleton = true,
   style,
 }: AlbumArtProps) => {
-  // Construct artwork URL
-  const artworkUrl = albumId ? `/api/albums/${albumId}/artwork` : '';
+  // Subscribe to artwork_updated WS messages for cache-busting (#2867)
+  const artworkRevision = useArtworkRevision(albumId ?? 0);
+  const artworkUrl = albumId
+    ? `/api/albums/${albumId}/artwork${artworkRevision > 0 ? `?v=${artworkRevision}` : ''}`
+    : '';
 
   return (
     <ArtworkContainer

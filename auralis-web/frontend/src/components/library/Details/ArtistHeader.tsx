@@ -109,6 +109,10 @@ export const ArtistHeader = ({
               transition: tokens.transitions.all,
               boxShadow: tokens.shadows.md,
               outline: 'none',
+              '&:focus-visible': {
+                outline: `2px solid ${tokens.colors.accent.primary}`,
+                outlineOffset: '2px',
+              },
               '&:hover': {
                 transform: 'translateY(-2px)',
                 boxShadow: tokens.shadows.glowMd,

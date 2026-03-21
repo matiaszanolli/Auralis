@@ -101,15 +101,15 @@ export const tokens = {
       // Secondary text: 60-70% opacity (labels, descriptions)
       secondary: 'rgba(255, 255, 255, 0.68)',
 
-      // Metadata text: 40-50% opacity (timestamps, counts, technical info)
-      metadata: 'rgba(255, 255, 255, 0.45)',
+      // Metadata text: ≥60% opacity for WCAG AA 4.5:1 against bg.level1 (#2803)
+      metadata: 'rgba(255, 255, 255, 0.60)',
 
-      // Disabled text: <30% opacity
-      disabled: 'rgba(255, 255, 255, 0.25)',
+      // Disabled text: ≥40% opacity for WCAG AA 3:1 large-text minimum (#2803)
+      disabled: 'rgba(255, 255, 255, 0.40)',
 
       // Legacy aliases (for backwards compatibility)
-      tertiary: 'rgba(255, 255, 255, 0.45)',  // Maps to metadata
-      muted: 'rgba(255, 255, 255, 0.35)',     // Between metadata and disabled
+      tertiary: 'rgba(255, 255, 255, 0.60)',  // Maps to metadata
+      muted: 'rgba(255, 255, 255, 0.50)',     // Between metadata and disabled
 
       // Inverse (for light backgrounds)
       inverse: '#0D111A',

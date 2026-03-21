@@ -425,7 +425,7 @@ class TestLibrarySearchWorkflow:
 
         # Add second track to queue
         response = backend.post(
-            "/api/player/queue/add",
+            "/api/player/queue/add-track",
             {"track_id": tracks[1]["id"]}
         )
 

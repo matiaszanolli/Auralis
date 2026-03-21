@@ -505,6 +505,11 @@ const styles = {
     transition: `${tokens.transitions.base}, backdrop-filter ${tokens.transitions.base}`,
     color: tokens.colors.text.primary,
     outline: 'none',
+    // WCAG 2.4.7: visible focus ring for keyboard navigation (#2801)
+    '&:focus-visible': {
+      outline: `2px solid ${tokens.colors.accent.primary}`,
+      outlineOffset: '2px',
+    },
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

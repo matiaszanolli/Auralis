@@ -10,11 +10,11 @@ Coverage (14 active routes):
 - POST /api/player/seek - Seek to position
 - GET /api/player/queue - Get playback queue
 - POST /api/player/queue - Set entire queue
-- POST /api/player/queue/add - Add track to queue
+- POST /api/player/queue/add-track - Add track to queue (with position support)
 - DELETE /api/player/queue/{index} - Remove track from queue
 - PUT /api/player/queue/reorder - Reorder queue
 - POST /api/player/queue/clear - Clear queue
-- POST /api/player/queue/add-track - Add track to queue (alternate)
+- POST /api/player/queue/add-track (regression: legacy /queue/add removed #2725)
 - PUT /api/player/queue/move - Move track in queue
 - POST /api/player/queue/shuffle - Shuffle queue
 - POST /api/player/next - Play next track
@@ -168,25 +168,12 @@ class TestSetQueue:
         assert response.status_code == 422
 
 
-class TestAddToQueue:
-    """Test POST /api/player/queue/add"""
+class TestLegacyQueueAddRemoved:
+    """Regression: legacy POST /api/player/queue/add removed (#2725)"""
 
-    def test_add_to_queue_missing_track_id(self, client):
-        """Test adding without track_id"""
-        response = client.post("/api/player/queue/add", json={})
-
-        assert response.status_code in [400, 422]
-
-    def test_add_to_queue_valid(self, client):
-        """Test adding valid track to queue"""
+    def test_legacy_queue_add_returns_404_or_405(self, client):
+        """Legacy /api/player/queue/add no longer exists."""
         response = client.post("/api/player/queue/add", json={"track_id": 1})
-
-        # May fail if track doesn't exist
-        assert response.status_code in [200, 404, 500]
-
-    def test_add_to_queue_accepts_post_only(self, client):
-        """Test that queue add only accepts POST"""
-        response = client.get("/api/player/queue/add")
         assert response.status_code in [404, 405]
 
 
@@ -387,7 +374,7 @@ class TestPlayerIntegration:
         # 2. Add tracks to queue
         for track_id in [1, 2, 3]:
             add_response = client.post(
-                "/api/player/queue/add",
+                "/api/player/queue/add-track",
                 json={"track_id": track_id}
             )
             # May fail if tracks don't exist
@@ -406,8 +393,8 @@ class TestPlayerIntegration:
         """Test workflow: add to queue → next → previous"""
         # 1. Clear and add tracks
         client.post("/api/player/queue/clear")
-        client.post("/api/player/queue/add", json={"track_id": 1})
-        client.post("/api/player/queue/add", json={"track_id": 2})
+        client.post("/api/player/queue/add-track", json={"track_id": 1})
+        client.post("/api/player/queue/add-track", json={"track_id": 2})
 
         # 2. Play next
         next_response = client.post("/api/player/next")
@@ -464,7 +451,7 @@ class TestPlayerSecurityValidation:
         """Test rapid queue operations"""
         # Rapid adds
         for _ in range(10):
-            client.post("/api/player/queue/add", json={"track_id": 1})
+            client.post("/api/player/queue/add-track", json={"track_id": 1})
 
         # Queue should remain consistent
         queue_response = client.get("/api/player/queue")

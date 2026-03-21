@@ -174,7 +174,7 @@ def test_player_api_next_previous_workflow(library_with_tracks):
 
     # Add tracks to queue
     for track_id in track_ids[:3]:
-        client.post(f"/api/player/queue/add/{track_id}")
+        client.post("/api/player/queue/add-track", json={"track_id": track_id})
 
     # Play first track
     client.post(f"/api/player/play/{track_ids[0]}")
@@ -202,7 +202,7 @@ def test_player_api_queue_management_workflow(library_with_tracks):
     API Integration: Add to queue → Remove → Clear
 
     Tests:
-    - POST /api/player/queue/add/{track_id}
+    - POST /api/player/queue/add-track
     - DELETE /api/player/queue/{index}
     - POST /api/player/queue/clear
     - GET /api/player/queue
@@ -211,7 +211,7 @@ def test_player_api_queue_management_workflow(library_with_tracks):
 
     # Add tracks to queue
     for track_id in track_ids[:3]:
-        response = client.post(f"/api/player/queue/add/{track_id}")
+        response = client.post("/api/player/queue/add-track", json={"track_id": track_id})
         assert response.status_code == 200
 
     # Get queue

@@ -278,7 +278,7 @@ describe('usePlaybackQueue', () => {
       await result.current.addTrack(mockTracks[2]);
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/player/queue/add', {
+    expect(mockPost).toHaveBeenCalledWith('/api/player/queue/add-track', {
       track_id: 3,
       position: undefined,
     });
@@ -323,7 +323,7 @@ describe('usePlaybackQueue', () => {
       await result.current.addTrack(newTrack, 1);
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/player/queue/add', {
+    expect(mockPost).toHaveBeenCalledWith('/api/player/queue/add-track', {
       track_id: 4,
       position: 1,
     });

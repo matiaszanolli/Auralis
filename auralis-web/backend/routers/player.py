@@ -18,7 +18,7 @@ Endpoints:
 - POST /api/player/volume - Set volume
 - GET /api/player/queue - Get queue
 - POST /api/player/queue - Set queue
-- POST /api/player/queue/add - Add to queue
+- POST /api/player/queue/add-track - Add track to queue (with position support)
 - DELETE /api/player/queue/{index} - Remove from queue
 - PUT /api/player/queue/reorder - Reorder queue
 - POST /api/player/queue/clear - Clear queue
@@ -378,37 +378,6 @@ def create_player_router(
         except Exception as e:
             logger.error("Failed to set queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to set queue")
-
-    @router.post("/api/player/queue/add", response_model=None)
-    async def add_to_queue(request: AddTrackToQueueRequest) -> dict[str, Any]:
-        """Add track to playback queue (database-backed, prevents path traversal)."""
-        audio_player = get_audio_player()
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
-
-        # Security: Query track from database to validate file path
-        library_manager = get_library_manager()
-        track = library_manager.tracks.get_by_id(request.track_id)
-        if not track:
-            raise HTTPException(status_code=404, detail=f"Track {request.track_id} not found in library")
-
-        try:
-            track_info = {"filepath": track.filepath, "id": track.id}  # Security: Use validated path from database
-            audio_player.add_to_queue(track_info)
-
-            # Use track_id (not track_path) to avoid leaking server filesystem paths
-            # to all connected WebSocket clients (fixes #2483 / incomplete fix of #2479).
-            await connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {"action": "added", "track_id": track.id}
-            })
-
-            return {"message": "Track added to queue", "track_id": track.id}
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error("Failed to add to queue", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to add to queue")
 
     @router.delete("/api/player/queue/{index}", response_model=None)
     async def remove_from_queue(index: int) -> dict[str, Any]:

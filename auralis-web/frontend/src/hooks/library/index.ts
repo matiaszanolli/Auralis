@@ -18,3 +18,4 @@ export { useRecentlyTouched } from './useRecentlyTouched';
 export type { RecentlyTouchedEntry } from './useRecentlyTouched';
 export { useScanProgress } from './useScanProgress';
 export type { ScanProgress } from './useScanProgress';
+export { useArtworkRevision } from './useArtworkUpdates';

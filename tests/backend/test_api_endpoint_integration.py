@@ -349,13 +349,13 @@ def test_metadata_update_api(client):
 @pytest.mark.api
 def test_queue_add_track_api(client):
     """
-    INTEGRATION TEST: /api/player/queue/add endpoint.
+    INTEGRATION TEST: /api/player/queue/add-track endpoint (#2725).
 
     Validates:
-    - Adding track to queue
+    - Adding track to queue via QueueService
     - Queue state updated
     """
-    # Get a track first (need filepath, not just ID)
+    # Get a track first
     tracks_response = client.get("/api/library/tracks?limit=1")
     if tracks_response.status_code != 200:
         pytest.skip("No tracks available")
@@ -364,16 +364,15 @@ def test_queue_add_track_api(client):
     if not tracks_data.get("tracks"):
         pytest.skip("No tracks in library")
 
-    # Get the track filepath (queue/add endpoint expects filepath, not ID)
     track = tracks_data["tracks"][0]
-    track_filepath = track.get("filepath") or track.get("path")
-    if not track_filepath:
-        pytest.skip("Track has no filepath")
+    track_id = track.get("id")
+    if not track_id:
+        pytest.skip("Track has no id")
 
-    # Add to queue using correct endpoint and parameter
+    # Add to queue using the canonical endpoint
     add_response = client.post(
-        "/api/player/queue/add",
-        params={"track_path": track_filepath}
+        "/api/player/queue/add-track",
+        json={"track_id": track_id}
     )
     assert add_response.status_code in [200, 201, 204], (
         f"Adding to queue should succeed, got {add_response.status_code}: {add_response.text}"

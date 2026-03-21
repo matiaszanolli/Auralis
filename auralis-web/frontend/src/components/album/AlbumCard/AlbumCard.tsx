@@ -19,6 +19,7 @@
 
 import React from 'react';
 import { MediaCard } from '@/components/shared/MediaCard';
+import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 
 export interface AlbumCardProps {
@@ -59,8 +60,11 @@ export const AlbumCard = ({
   onHoverEnter,
   onHoverLeave,
 }: AlbumCardProps) => {
-  // Build artwork URL from albumId if artwork exists
-  const artworkUrl = hasArtwork ? `/api/albums/${albumId}/artwork` : undefined;
+  // Subscribe to artwork_updated WS messages for cache-busting (#2867)
+  const artworkRevision = useArtworkRevision(albumId);
+  const artworkUrl = hasArtwork
+    ? `/api/albums/${albumId}/artwork${artworkRevision > 0 ? `?v=${artworkRevision}` : ''}`
+    : undefined;
 
   return (
     <MediaCard

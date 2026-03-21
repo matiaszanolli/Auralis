@@ -46,6 +46,12 @@ const styles = {
     boxShadow: '0 8px 24px rgba(115, 102, 240, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.08)',
     outline: 'none',
 
+    // WCAG 2.4.7: visible focus ring for keyboard navigation (#2801)
+    '&:focus-visible': {
+      outline: `2px solid ${tokens.colors.accent.primary}`,
+      outlineOffset: '2px',
+    },
+
     // Glass effect on hover (elevated state)
     '&:hover:not(:disabled)': {
       transform: 'scale(1.05)',                           // Subtle scale for organic feel
@@ -85,6 +91,12 @@ const styles = {
     color: tokens.colors.text.primary,
     transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
     outline: 'none',
+
+    // WCAG 2.4.7: visible focus ring for keyboard navigation (#2801)
+    '&:focus-visible': {
+      outline: `2px solid ${tokens.colors.accent.primary}`,
+      outlineOffset: '2px',
+    },
 
     // Glass effect on hover
     '&:hover:not(:disabled)': {

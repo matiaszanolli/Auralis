@@ -295,7 +295,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
       try {
         // Add to backend
-        await post('/api/player/queue/add', {
+        await post('/api/player/queue/add-track', {
           track_id: track.id,
           position: position !== undefined ? position : undefined,
         });
