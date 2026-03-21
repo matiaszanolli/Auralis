@@ -160,7 +160,7 @@ export class AnalysisExportService {
     const segment: string[] = [];
 
     // Use the Web Crypto API for cryptographically secure randomness
-    const cryptoObj = (window.crypto || (window as any).msCrypto);
+    const cryptoObj = (window.crypto || window.msCrypto);
     const randomValues = new Uint32Array(length);
     cryptoObj.getRandomValues(randomValues);
 

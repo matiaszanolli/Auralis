@@ -22,7 +22,7 @@ export type PlaybackState = 'idle' | 'playing' | 'paused' | 'stopped' | 'error';
  * Stores in global for useAudioVisualization hook to access
  */
 function createGlobalAnalyser(audioContext: AudioContext): AnalyserNode {
-  const existing = (window as any).__auralisAnalyser as AnalyserNode | undefined;
+  const existing = window.__auralisAnalyser;
   // Reuse only when the cached node belongs to the same, non-closed context.
   // When usePlayEnhanced replaces an AudioContext (e.g. sample-rate change), the
   // stale analyser belongs to the closed old context; connecting a gainNode from
@@ -34,7 +34,7 @@ function createGlobalAnalyser(audioContext: AudioContext): AnalyserNode {
   const analyser = audioContext.createAnalyser();
   analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.8;
-  (window as any).__auralisAnalyser = analyser;
+  window.__auralisAnalyser = analyser;
 
   return analyser;
 }
@@ -89,7 +89,7 @@ export class AudioPlaybackEngine {
     this.buffer = buffer;
 
     // Register AudioContext globally for visualization hook
-    (window as any).__auralisAudioContext = audioContext;
+    window.__auralisAudioContext = audioContext;
 
     // Create gain node
     this.gainNode = audioContext.createGain();

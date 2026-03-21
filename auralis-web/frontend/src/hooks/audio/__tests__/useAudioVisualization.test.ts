@@ -89,14 +89,14 @@ describe('useAudioVisualization', () => {
     vi.spyOn(performance, 'now').mockImplementation(() => performanceNowRef.value);
 
     // Install fake audio context and analyser on window globals
-    (window as any).__auralisAudioContext = makeFakeAudioContext();
-    (window as any).__auralisAnalyser = makeFakeAnalyser(128);
+    window.__auralisAudioContext = makeFakeAudioContext();
+    window.__auralisAnalyser = makeFakeAnalyser(128);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete (window as any).__auralisAudioContext;
-    delete (window as any).__auralisAnalyser;
+    delete window.__auralisAudioContext;
+    delete window.__auralisAnalyser;
   });
 
   // ============================================================================
@@ -151,7 +151,7 @@ describe('useAudioVisualization', () => {
 
   it('does not update state when audio values are below the delta threshold', () => {
     // Fill analyser with near-silence so smoothed values are tiny
-    (window as any).__auralisAnalyser = makeFakeAnalyser(0);
+    window.__auralisAnalyser = makeFakeAnalyser(0);
 
     let renderCount = 0;
 
@@ -175,7 +175,7 @@ describe('useAudioVisualization', () => {
 
   it('does update state when audio values exceed the delta threshold', () => {
     // Fill analyser with loud audio (value=200) so smoothed delta is large
-    (window as any).__auralisAnalyser = makeFakeAnalyser(200);
+    window.__auralisAnalyser = makeFakeAnalyser(200);
 
     let renderCount = 0;
 
@@ -234,7 +234,7 @@ describe('useAudioVisualization', () => {
   });
 
   it('sets isActive=true after processing audio', () => {
-    (window as any).__auralisAnalyser = makeFakeAnalyser(200);
+    window.__auralisAnalyser = makeFakeAnalyser(200);
 
     const { result } = renderHook(() => useAudioVisualization(true));
 

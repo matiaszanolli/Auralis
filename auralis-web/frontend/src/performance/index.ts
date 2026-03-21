@@ -135,7 +135,7 @@ export function resetPerformanceMetrics(): void {
 export function enablePerformanceMonitoring(): void {
   // Add performance metrics to window for DevTools access
   if (typeof window !== 'undefined') {
-    (window as any).__AURALIS_PERFORMANCE__ = {
+    window.__AURALIS_PERFORMANCE__ = {
       selectors: selectorPerformance,
       rendering: renderMetricsStore,
       bundle: bundleAnalyzer,

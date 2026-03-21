@@ -300,7 +300,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           audioContextRef.current.close();
         }
         // Create new AudioContext with matching sample rate
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         audioContextRef.current = new AudioContextClass({ sampleRate: sourceSampleRate });
         console.log('[usePlayEnhanced] Created AudioContext with sample rate:', sourceSampleRate);
       }

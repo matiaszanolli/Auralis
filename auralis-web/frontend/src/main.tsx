@@ -24,7 +24,7 @@ import ReactDOM from 'react-dom/client';
     console.log(`%c<� Auralis ${import.meta.env.MODE} build`, 'color: #00d4ff; font-weight: bold; font-size: 14px;');
     console.log(`%cCommit: ${commitFromMeta}`, 'color: #00d4ff; font-weight: bold;');
     // Make commit info accessible globally for debugging
-    (window as any).__AURALIS_DEBUG__ = {
+    window.__AURALIS_DEBUG__ = {
       commitId: commitFromMeta,
       buildMode: import.meta.env.MODE,
       version: '1.0.0-beta.13'

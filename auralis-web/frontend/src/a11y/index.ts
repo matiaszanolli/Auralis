@@ -159,7 +159,7 @@ export function enableA11yMonitoring(): void {
 
   // Log to window for DevTools access
   if (typeof window !== 'undefined') {
-    (window as any).__A11Y__ = {
+    window.__A11Y__ = {
       audit: wcagAudit,
       focus: focusManager,
       contrast: contrastAuditor,

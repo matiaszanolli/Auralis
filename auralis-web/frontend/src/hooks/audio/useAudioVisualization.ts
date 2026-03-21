@@ -68,8 +68,8 @@ const DEFAULT_DATA: AudioVisualizationData = {
  */
 function getGlobalAudioContext(): AudioContext | null {
   // Check if there's a global audio context
-  if (typeof window !== 'undefined' && (window as any).__auralisAudioContext) {
-    return (window as any).__auralisAudioContext;
+  if (typeof window !== 'undefined' && window.__auralisAudioContext) {
+    return window.__auralisAudioContext;
   }
   return null;
 }
@@ -79,8 +79,8 @@ function getGlobalAudioContext(): AudioContext | null {
  */
 function getOrCreateAnalyser(audioContext: AudioContext): AnalyserNode {
   // Check for existing analyser
-  if ((window as any).__auralisAnalyser) {
-    return (window as any).__auralisAnalyser;
+  if (window.__auralisAnalyser) {
+    return window.__auralisAnalyser;
   }
 
   // Create new analyser
@@ -90,7 +90,7 @@ function getOrCreateAnalyser(audioContext: AudioContext): AnalyserNode {
 
   // Connect to destination (passthrough)
   // Note: The actual audio chain should connect through this analyser
-  (window as any).__auralisAnalyser = analyser;
+  window.__auralisAnalyser = analyser;
 
   return analyser;
 }
@@ -306,7 +306,7 @@ export function useAudioVisualization(enabled: boolean = true): AudioVisualizati
  * Call this when creating the main audio context
  */
 export function registerAudioContext(audioContext: AudioContext): void {
-  (window as any).__auralisAudioContext = audioContext;
+  window.__auralisAudioContext = audioContext;
 }
 
 /**
