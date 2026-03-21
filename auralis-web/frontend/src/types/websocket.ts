@@ -53,6 +53,7 @@ export type WebSocketMessageType =
   | 'scan_progress'
   | 'scan_complete'
   | 'library_scan_started'
+  | 'library_scan_error'
   | 'library_tracks_removed'
   // Error messages (security: rate-limit, schema validation — #2874)
   | 'error';
@@ -455,6 +456,13 @@ export interface LibraryScanStartedMessage extends WebSocketMessage {
   };
 }
 
+export interface LibraryScanErrorMessage extends WebSocketMessage {
+  type: 'library_scan_error';
+  data: {
+    error: string;
+  };
+}
+
 export interface LibraryTracksRemovedMessage extends WebSocketMessage {
   type: 'library_tracks_removed';
   data: {
@@ -510,6 +518,7 @@ export type AnyWebSocketMessage =
   | ScanProgressMessage
   | ScanCompleteMessage
   | LibraryScanStartedMessage
+  | LibraryScanErrorMessage
   | LibraryTracksRemovedMessage
   | WebSocketErrorMessage;
 
@@ -654,6 +663,7 @@ export const ALL_MESSAGE_TYPES: readonly WebSocketMessageType[] = [
   'scan_progress',
   'scan_complete',
   'library_scan_started',
+  'library_scan_error',
   'library_tracks_removed',
   'error',
 ] as const satisfies readonly WebSocketMessageType[];
@@ -696,5 +706,6 @@ export const LIBRARY_TYPES: WebSocketMessageType[] = [
   'scan_progress',
   'scan_complete',
   'library_scan_started',
+  'library_scan_error',
   'library_tracks_removed',
 ];
