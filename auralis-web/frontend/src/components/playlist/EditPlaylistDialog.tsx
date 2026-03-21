@@ -65,7 +65,7 @@ export const EditPlaylistDialog = ({
           description={description}
           onDescriptionChange={setDescription}
           loading={loading}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyPress}
         />
         <PlaylistTrackCount trackCount={playlist.track_count} />
       </DialogContent>

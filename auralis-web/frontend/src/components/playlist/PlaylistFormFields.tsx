@@ -8,7 +8,7 @@ interface PlaylistFormFieldsProps {
   description: string;
   onDescriptionChange: (value: string) => void;
   loading: boolean;
-  onKeyPress: (e: React.KeyboardEvent) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
 }
 
 /**
@@ -25,7 +25,7 @@ export const PlaylistFormFields = ({
   description,
   onDescriptionChange,
   loading,
-  onKeyPress,
+  onKeyDown,
 }: PlaylistFormFieldsProps) => {
   return (
     <DialogContentBox>
@@ -35,7 +35,7 @@ export const PlaylistFormFields = ({
         fullWidth
         value={name}
         onChange={(e) => onNameChange(e.target.value)}
-        onKeyPress={onKeyPress}
+        onKeyDown={onKeyDown}
         disabled={loading}
         placeholder="Enter playlist name"
       />

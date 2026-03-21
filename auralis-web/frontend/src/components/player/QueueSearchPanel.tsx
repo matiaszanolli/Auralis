@@ -296,7 +296,7 @@ const SearchResultItem = ({
           onClick={handleClick}
           role="button"
           tabIndex={0}
-          onKeyPress={(e) => {
+          onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               handleClick();
             }
