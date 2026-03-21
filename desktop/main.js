@@ -104,12 +104,13 @@ class AuralisApp {
   }
 
   async startPythonBackend() {
-    return new Promise(async (resolve, reject) => {
-      console.log('Starting Python backend...');
-      console.log('Development mode:', this.isDevelopment);
+    console.log('Starting Python backend...');
+    console.log('Development mode:', this.isDevelopment);
 
-      // First, ensure port is free
-      await this.cleanupPort();
+    // First, ensure port is free
+    await this.cleanupPort();
+
+    return new Promise((resolve, reject) => {
 
       let pythonCmd, pythonArgs, cwd;
 
