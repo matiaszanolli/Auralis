@@ -30,7 +30,7 @@ export default defineConfig({
 
   test: {
     // Testing framework: Vitest (fast, Jest-compatible)
-    globals: ['describe', 'it', 'expect', 'beforeEach', 'afterEach', 'vi'], // Use without imports
+    globals: true, // Inject describe, it, expect, vi, etc. without imports
     environment: 'jsdom', // Browser-like DOM for React testing
 
     // Test files
