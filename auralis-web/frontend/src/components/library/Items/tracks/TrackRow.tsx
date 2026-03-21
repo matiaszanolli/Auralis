@@ -98,11 +98,23 @@ const TrackRowComponent = ({
   return (
     <>
       <RowContainer
+        tabIndex={0}
+        role="row"
+        aria-label={`${track.title} by ${track.artist}`}
         iscurrent={isCurrentStr}
         isanyplaying={isAnyPlayingStr}
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
         onContextMenu={handleTrackContextMenu}
+        onKeyDown={(e: React.KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleRowClick();
+          } else if (e.key === ' ') {
+            e.preventDefault();
+            handleRowClick();
+          }
+        }}
       >
         {isCurrent && <ActiveIndicator />}
 

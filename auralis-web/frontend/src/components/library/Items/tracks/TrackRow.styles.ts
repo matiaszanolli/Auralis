@@ -79,6 +79,12 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
     '&:active': {
       transform: 'translateX(2px) scale(0.995)',
     },
+
+    // Keyboard focus ring (fixes #2805: WCAG 2.1.1 keyboard accessibility)
+    '&:focus-visible': {
+      outline: `2px solid ${tokens.colors.accent.primary}`,
+      outlineOffset: '2px',
+    },
   })
 );
 
