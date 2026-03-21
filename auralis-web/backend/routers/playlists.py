@@ -18,6 +18,7 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 from typing import Any, cast
 from collections.abc import Callable
@@ -80,7 +81,7 @@ def create_playlists_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            playlists = repos.playlists.get_all()
+            playlists = await asyncio.to_thread(repos.playlists.get_all)
             return {
                 "playlists": [p.to_dict() for p in playlists],
                 "total": len(playlists)
@@ -107,7 +108,7 @@ def create_playlists_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            playlist = repos.playlists.get_by_id(playlist_id)
+            playlist = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
             if not playlist:
                 raise HTTPException(status_code=404, detail="Playlist not found")
 
@@ -138,7 +139,8 @@ def create_playlists_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            playlist = repos.playlists.create(
+            playlist = await asyncio.to_thread(
+                repos.playlists.create,
                 name=request.name,
                 description=request.description,
                 track_ids=request.track_ids if request.track_ids else None
@@ -193,7 +195,7 @@ def create_playlists_router(
             if not update_data:
                 raise HTTPException(status_code=400, detail="No update data provided")
 
-            success = repos.playlists.update(playlist_id, update_data)
+            success = await asyncio.to_thread(repos.playlists.update, playlist_id, update_data)
 
             if not success:
                 raise HTTPException(status_code=404, detail="Playlist not found or update failed")
@@ -230,7 +232,7 @@ def create_playlists_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            success = repos.playlists.delete(playlist_id)
+            success = await asyncio.to_thread(repos.playlists.delete, playlist_id)
 
             if not success:
                 raise HTTPException(status_code=404, detail="Playlist not found")
@@ -269,7 +271,7 @@ def create_playlists_router(
             repos = require_repository_factory(get_repository_factory)
             added_count = 0
             for track_id in request.track_ids:
-                if repos.playlists.add_track(playlist_id, track_id):
+                if await asyncio.to_thread(repos.playlists.add_track, playlist_id, track_id):
                     added_count += 1
 
             if added_count == 0:
@@ -311,7 +313,7 @@ def create_playlists_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            success = repos.playlists.remove_track(playlist_id, track_id)
+            success = await asyncio.to_thread(repos.playlists.remove_track, playlist_id, track_id)
 
             if not success:
                 raise HTTPException(status_code=404, detail="Playlist or track not found")
@@ -348,7 +350,7 @@ def create_playlists_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            success = repos.playlists.clear(playlist_id)
+            success = await asyncio.to_thread(repos.playlists.clear, playlist_id)
 
             if not success:
                 raise HTTPException(status_code=404, detail="Playlist not found")

@@ -8,6 +8,7 @@ REST API endpoints for artist browsing and management
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 from typing import Any, cast
 from collections.abc import Callable
 
@@ -111,10 +112,11 @@ def create_artists_router(
 
         if search:
             # Search artists by name (now returns tuple with count)
-            artists, total = repos.artists.search(search, limit=limit, offset=offset)
+            artists, total = await asyncio.to_thread(repos.artists.search, search, limit=limit, offset=offset)
         else:
             # Get paginated artists
-            artists, total = repos.artists.get_all(
+            artists, total = await asyncio.to_thread(
+                repos.artists.get_all,
                 limit=limit,
                 offset=offset,
                 order_by=order_by
@@ -162,7 +164,7 @@ def create_artists_router(
         Returns artist information with all their albums.
         """
         repos = require_repository_factory(get_repository_factory)
-        artist = repos.artists.get_by_id(artist_id)
+        artist = await asyncio.to_thread(repos.artists.get_by_id, artist_id)
 
         if not artist:
             raise NotFoundError("Artist", artist_id)
@@ -203,7 +205,7 @@ def create_artists_router(
         Returns all tracks by the artist, sorted by album and track number.
         """
         repos = require_repository_factory(get_repository_factory)
-        artist = repos.artists.get_by_id(artist_id)
+        artist = await asyncio.to_thread(repos.artists.get_by_id, artist_id)
 
         if not artist:
             raise NotFoundError("Artist", artist_id)

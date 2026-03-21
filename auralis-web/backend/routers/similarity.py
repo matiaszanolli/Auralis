@@ -105,18 +105,18 @@ def create_similarity_router(
             repos = require_repository_factory(get_repository_factory)
 
             # Check if track exists
-            track = repos.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
             if not track:
                 raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
 
             # Check if track has fingerprint
-            if not repos.fingerprints.exists(track_id):
+            if not await asyncio.to_thread(repos.fingerprints.exists, track_id):
                 # Enqueue for background processing (Phase 7.4)
                 try:
                     from analysis.fingerprint_queue import get_fingerprint_queue
                     queue = get_fingerprint_queue()
                     if queue:
-                        queue.enqueue(track_id)
+                        await asyncio.to_thread(queue.enqueue, track_id)
                         logger.info(f"📋 Track {track_id} queued for background fingerprinting")
                 except Exception as q_err:
                     logger.debug(f"Could not enqueue track {track_id}: {q_err}")
@@ -131,7 +131,7 @@ def create_similarity_router(
             # Try to use pre-computed graph if available
             graph_builder = get_graph_builder() if use_graph else None
             if graph_builder is not None:
-                neighbors = graph_builder.get_neighbors(track_id, limit=limit)
+                neighbors = await asyncio.to_thread(graph_builder.get_neighbors, track_id, limit=limit)
 
                 if neighbors:
                     # Convert to SimilarTrack objects
@@ -144,7 +144,7 @@ def create_similarity_router(
                         )
 
                         if include_details:
-                            similar_track = repos.tracks.get_by_id(neighbor['similar_track_id'])
+                            similar_track = await asyncio.to_thread(repos.tracks.get_by_id, neighbor['similar_track_id'])
                             if similar_track:
                                 result.title = similar_track.title
                                 result.artist = similar_track.artists[0].name if similar_track.artists else None
@@ -159,13 +159,13 @@ def create_similarity_router(
                 # Real-time calculation (slower but always available)
                 similarity = get_similarity_system()
 
-                if not similarity.is_fitted():
+                if not await asyncio.to_thread(similarity.is_fitted):
                     raise HTTPException(
                         status_code=503,
                         detail="Similarity system not initialized. Please wait for initialization."
                     )
 
-                similarity_results: list[SimilarityResult] = similarity.find_similar(track_id, n=limit)
+                similarity_results: list[SimilarityResult] = await asyncio.to_thread(similarity.find_similar, track_id, n=limit)
 
                 for i, result in enumerate(similarity_results, start=1):  # type: ignore[assignment]
                     similar_track_model: SimilarTrack = SimilarTrack(
@@ -176,7 +176,7 @@ def create_similarity_router(
                     )
 
                     if include_details:
-                        similar_track = repos.tracks.get_by_id(result.track_id)
+                        similar_track = await asyncio.to_thread(repos.tracks.get_by_id, result.track_id)
                         if similar_track:
                             similar_track_model.title = similar_track.title
                             similar_track_model.artist = similar_track.artists[0].name if similar_track.artists else None
@@ -210,8 +210,8 @@ def create_similarity_router(
             repos = require_repository_factory(get_repository_factory)
 
             # Check if tracks exist
-            track1 = repos.tracks.get_by_id(track_id1)
-            track2 = repos.tracks.get_by_id(track_id2)
+            track1 = await asyncio.to_thread(repos.tracks.get_by_id, track_id1)
+            track2 = await asyncio.to_thread(repos.tracks.get_by_id, track_id2)
 
             if not track1:
                 raise HTTPException(status_code=404, detail=f"Track {track_id1} not found")
@@ -219,18 +219,18 @@ def create_similarity_router(
                 raise HTTPException(status_code=404, detail=f"Track {track_id2} not found")
 
             # Check fingerprints
-            if not repos.fingerprints.exists(track_id1):
+            if not await asyncio.to_thread(repos.fingerprints.exists, track_id1):
                 raise HTTPException(status_code=404, detail=f"Track {track_id1} missing fingerprint")
-            if not repos.fingerprints.exists(track_id2):
+            if not await asyncio.to_thread(repos.fingerprints.exists, track_id2):
                 raise HTTPException(status_code=404, detail=f"Track {track_id2} missing fingerprint")
 
             # Calculate similarity
             similarity = get_similarity_system()
 
-            if not similarity.is_fitted():
+            if not await asyncio.to_thread(similarity.is_fitted):
                 raise HTTPException(status_code=503, detail="Similarity system not initialized")
 
-            result = similarity.calculate_similarity(track_id1, track_id2)
+            result = await asyncio.to_thread(similarity.calculate_similarity, track_id1, track_id2)
 
             if not result:
                 raise HTTPException(status_code=500, detail="Failed to calculate similarity")
@@ -272,10 +272,10 @@ def create_similarity_router(
         try:
             similarity = get_similarity_system()
 
-            if not similarity.is_fitted():
+            if not await asyncio.to_thread(similarity.is_fitted):
                 raise HTTPException(status_code=503, detail="Similarity system not initialized")
 
-            explanation = similarity.get_similarity_explanation(track_id1, track_id2, top_n=top_n)
+            explanation = await asyncio.to_thread(similarity.get_similarity_explanation, track_id1, track_id2, top_n=top_n)
 
             if not explanation:
                 raise HTTPException(status_code=404, detail="Could not generate explanation")
@@ -311,8 +311,8 @@ def create_similarity_router(
                 raise HTTPException(status_code=503, detail="Similarity system not available")
 
             # Check if already fitted
-            if similarity.is_fitted():
-                count = repos.fingerprints.get_count()
+            if await asyncio.to_thread(similarity.is_fitted):
+                count = await asyncio.to_thread(repos.fingerprints.get_count)
                 return {
                     "fitted": True,
                     "total_fingerprints": count,
@@ -320,7 +320,7 @@ def create_similarity_router(
                 }
 
             # Get fingerprint count
-            fingerprint_count = repos.fingerprints.get_count()
+            fingerprint_count = await asyncio.to_thread(repos.fingerprints.get_count)
 
             if fingerprint_count < min_samples:
                 raise HTTPException(
@@ -397,7 +397,7 @@ def create_similarity_router(
             if graph_builder is None:
                 return None  # type: ignore[unreachable]
 
-            stats = graph_builder.get_graph_stats()
+            stats = await asyncio.to_thread(graph_builder.get_graph_stats)
             if stats:
                 return GraphStatsResponse(**stats.to_dict())
             return None
@@ -419,7 +419,7 @@ def create_similarity_router(
             if graph_builder is None:
                 return {"edges_deleted": 0}  # type: ignore[unreachable]
 
-            count = graph_builder.clear_graph()
+            count = await asyncio.to_thread(graph_builder.clear_graph)
             return {"edges_deleted": count}
 
         except Exception as e:
@@ -450,7 +450,7 @@ def create_similarity_router(
                     "message": "On-demand fingerprint queue not initialized"
                 }
 
-            stats = queue.get_stats()
+            stats = await asyncio.to_thread(queue.get_stats)
             stats["available"] = True
             return stats
 
@@ -476,12 +476,12 @@ def create_similarity_router(
             repos = require_repository_factory(get_repository_factory)
 
             # Check if track exists
-            track = repos.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
             if not track:
                 raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
 
             # Check if already has fingerprint
-            if repos.fingerprints.exists(track_id):
+            if await asyncio.to_thread(repos.fingerprints.exists, track_id):
                 return {
                     "enqueued": False,
                     "reason": "Track already has fingerprint"
@@ -497,7 +497,7 @@ def create_similarity_router(
                     detail="On-demand fingerprint queue not available"
                 )
 
-            added = queue.enqueue(track_id)
+            added = await asyncio.to_thread(queue.enqueue, track_id)
             return {
                 "enqueued": added,
                 "track_id": track_id,
@@ -531,7 +531,7 @@ def create_similarity_router(
             repos = require_repository_factory(get_repository_factory)
 
             # Get fingerprint stats
-            stats = repos.fingerprints.get_fingerprint_stats()
+            stats = await asyncio.to_thread(repos.fingerprints.get_fingerprint_stats)
             total_tracks = stats['total']
             already_fingerprinted = stats['fingerprinted']
             pending = stats['pending']
@@ -555,14 +555,14 @@ def create_similarity_router(
                 )
 
             # Get tracks without fingerprints
-            missing_tracks = repos.fingerprints.get_missing_fingerprints(limit=limit)
+            missing_tracks = await asyncio.to_thread(repos.fingerprints.get_missing_fingerprints, limit=limit)
 
             # Enqueue each track
             enqueued_count = 0
             skipped_count = 0
 
             for track in missing_tracks:
-                if queue.enqueue(track.id):
+                if await asyncio.to_thread(queue.enqueue, track.id):
                     enqueued_count += 1
                 else:
                     skipped_count += 1  # Already queued or processing
@@ -594,7 +594,7 @@ def create_similarity_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            stats = repos.fingerprints.get_fingerprint_stats()
+            stats = await asyncio.to_thread(repos.fingerprints.get_fingerprint_stats)
 
             return {
                 "total_tracks": stats['total'],

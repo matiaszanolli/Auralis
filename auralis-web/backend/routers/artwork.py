@@ -13,6 +13,7 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 import mimetypes
 from pathlib import Path
@@ -68,7 +69,7 @@ def create_artwork_router(
         try:
             repos = get_repos()
             # Get album to find artwork path
-            album = repos.albums.get_by_id(album_id)
+            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
             if not album:
                 raise HTTPException(status_code=404, detail="Album not found")
@@ -112,11 +113,13 @@ def create_artwork_router(
             media_type, _ = mimetypes.guess_type(str(requested_path))
             if not media_type or not media_type.startswith("image/"):
                 # Read the first 12 bytes to identify the format via magic bytes
-                try:
-                    with open(requested_path, "rb") as _f:
-                        header = _f.read(12)
-                except OSError:
-                    header = b""
+                def _read_header() -> bytes:
+                    try:
+                        with open(requested_path, "rb") as _f:
+                            return _f.read(12)
+                    except OSError:
+                        return b""
+                header = await asyncio.to_thread(_read_header)
                 if header[:8] == b"\x89PNG\r\n\x1a\n":
                     media_type = "image/png"
                 elif header[:3] == b"\xff\xd8\xff":
@@ -161,7 +164,7 @@ def create_artwork_router(
         """
         try:
             repos = get_repos()
-            artwork_path = repos.albums.extract_and_save_artwork(album_id)
+            artwork_path = await asyncio.to_thread(repos.albums.extract_and_save_artwork, album_id)
 
             if not artwork_path:
                 raise HTTPException(
@@ -210,7 +213,7 @@ def create_artwork_router(
         """
         try:
             repos = get_repos()
-            success = repos.albums.delete_artwork(album_id)
+            success = await asyncio.to_thread(repos.albums.delete_artwork, album_id)
 
             if not success:
                 raise HTTPException(status_code=404, detail="Artwork not found")
@@ -248,7 +251,7 @@ def create_artwork_router(
         try:
             repos = get_repos()
             # Get album using repository (includes eager loading of artist)
-            album = repos.albums.get_by_id(album_id)
+            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
             if not album:
                 raise HTTPException(status_code=404, detail="Album not found")
@@ -274,7 +277,7 @@ def create_artwork_router(
                 )
 
             # Save artwork path to database
-            updated_album = repos.albums.update_artwork_path(album_id, artwork_path)
+            updated_album = await asyncio.to_thread(repos.albums.update_artwork_path, album_id, artwork_path)
             if not updated_album:
                 raise HTTPException(status_code=404, detail="Album not found")
 

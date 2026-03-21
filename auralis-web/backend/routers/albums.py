@@ -8,6 +8,7 @@ REST API endpoints for album browsing and management
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 from typing import Any
 from collections.abc import Callable
@@ -70,9 +71,9 @@ def create_albums_router(
 
             # Get albums with pagination
             if search:
-                albums, total = repos.albums.search(search, limit=limit, offset=offset)
+                albums, total = await asyncio.to_thread(repos.albums.search, search, limit=limit, offset=offset)
             else:
-                albums, total = repos.albums.get_all(limit=limit, offset=offset, order_by=order_by)
+                albums, total = await asyncio.to_thread(repos.albums.get_all, limit=limit, offset=offset, order_by=order_by)
             has_more = (offset + len(albums)) < total
 
             return {
@@ -103,7 +104,7 @@ def create_albums_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            album = repos.albums.get_by_id(album_id)
+            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
             if not album:
                 raise NotFoundError("Album", album_id)
@@ -142,7 +143,7 @@ def create_albums_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            album = repos.albums.get_by_id(album_id)
+            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
             if not album:
                 raise NotFoundError("Album", album_id)
@@ -187,7 +188,7 @@ def create_albums_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            album = repos.albums.get_by_id(album_id)
+            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
             if not album:
                 raise NotFoundError("Album", album_id)
@@ -204,7 +205,7 @@ def create_albums_router(
             # Get fingerprints for all tracks
             fingerprints = []
             for track in tracks:
-                fp = repos.fingerprints.get_by_track_id(track.id)
+                fp = await asyncio.to_thread(repos.fingerprints.get_by_track_id, track.id)
                 if fp:
                     fingerprints.append(fp)
 

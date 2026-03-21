@@ -76,7 +76,7 @@ def create_library_router(
         """
         try:
             factory = require_repository_factory(get_repository_factory)
-            stats = factory.stats.get_library_stats()
+            stats = await asyncio.to_thread(factory.stats.get_library_stats)
             return cast(dict[str, Any], stats)
         except HTTPException:
             raise
@@ -115,10 +115,10 @@ def create_library_router(
 
             # Get tracks with pagination
             if search:
-                tracks, total = repos.tracks.search(search, limit=limit, offset=offset)
+                tracks, total = await asyncio.to_thread(repos.tracks.search, search, limit=limit, offset=offset)
                 has_more = (offset + len(tracks)) < total
             else:
-                tracks, total = repos.tracks.get_all(limit=limit, offset=offset, order_by=order_by)
+                tracks, total = await asyncio.to_thread(repos.tracks.get_all, limit=limit, offset=offset, order_by=order_by)
                 has_more = (offset + len(tracks)) < total
 
             return {
@@ -150,7 +150,7 @@ def create_library_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            tracks, total = repos.tracks.get_favorites(limit=limit, offset=offset)
+            tracks, total = await asyncio.to_thread(repos.tracks.get_favorites, limit=limit, offset=offset)
             has_more = (offset + len(tracks)) < total
 
             return {
@@ -181,7 +181,7 @@ def create_library_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            track = repos.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
             if not track:
                 raise NotFoundError("Track", track_id)
             return serialize_tracks([track])[0]
@@ -206,7 +206,7 @@ def create_library_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            repos.tracks.set_favorite(track_id, True)
+            await asyncio.to_thread(repos.tracks.set_favorite, track_id, True)
             logger.info(f"Track {track_id} marked as favorite")
             return {"message": "Track marked as favorite", "track_id": track_id, "favorite": True}
         except HTTPException:
@@ -230,7 +230,7 @@ def create_library_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            repos.tracks.set_favorite(track_id, False)
+            await asyncio.to_thread(repos.tracks.set_favorite, track_id, False)
             logger.info(f"Track {track_id} removed from favorites")
             return {"message": "Track removed from favorites", "track_id": track_id, "favorite": False}
         except HTTPException:
@@ -256,7 +256,7 @@ def create_library_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            track = repos.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
             if not track:
                 raise NotFoundError("Track", track_id)
 
@@ -306,7 +306,7 @@ def create_library_router(
 
                 if lyrics_text:
                     # Save to database for future requests
-                    repos.tracks.update(track_id, lyrics=lyrics_text)
+                    await asyncio.to_thread(repos.tracks.update, track_id, lyrics=lyrics_text)
 
                     return {
                         "track_id": track_id,
@@ -368,11 +368,7 @@ def create_library_router(
             if order_by not in valid_order_by:
                 order_by = "name"
 
-            artists, total = repos.artists.get_all(
-                limit=limit,
-                offset=offset,
-                order_by=order_by
-            )
+            artists, total = await asyncio.to_thread(repos.artists.get_all, limit=limit, offset=offset, order_by=order_by)
 
             # Calculate if there are more results
             has_more = (offset + limit) < total
@@ -405,7 +401,7 @@ def create_library_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            artist = repos.artists.get_by_id(artist_id)
+            artist = await asyncio.to_thread(repos.artists.get_by_id, artist_id)
             if not artist:
                 raise NotFoundError("Artist", artist_id)
 
@@ -433,7 +429,7 @@ def create_library_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            album = repos.albums.get_by_id(album_id)
+            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
             if not album:
                 raise NotFoundError("Album", album_id)
 
@@ -571,7 +567,7 @@ def create_library_router(
             repos = require_repository_factory(get_repository_factory)
 
             # Get fingerprint statistics from repository
-            stats = repos.fingerprints.get_fingerprint_stats()
+            stats = await asyncio.to_thread(repos.fingerprints.get_fingerprint_stats)
 
             total_tracks = stats['total']
             fingerprinted_count = stats['fingerprinted']
@@ -623,7 +619,7 @@ def create_library_router(
             repos = require_repository_factory(get_repository_factory)
 
             # Verify track exists
-            track = repos.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
             if not track:
                 logger.warning(f"❌ Track {track_id} not found in database")
                 raise HTTPException(
@@ -634,7 +630,7 @@ def create_library_router(
             logger.info(f"✓ Track found: {track.title} by {track.artists}")
 
             # Get fingerprint
-            fp = repos.fingerprints.get_by_track_id(track_id)
+            fp = await asyncio.to_thread(repos.fingerprints.get_by_track_id, track_id)
             logger.info(f"🔍 Fingerprint lookup result: {'FOUND' if fp else 'NOT FOUND'}")
             if not fp:
                 # Enqueue for background processing if not available
@@ -726,38 +722,41 @@ def create_library_router(
             )
         try:
             repos = require_repository_factory(get_repository_factory)
-            session = repos.session_factory()
-            try:
-                from auralis.library.models.core import (
-                    Track, Album, Artist, Genre, Playlist,
-                    QueueState, QueueHistory,
-                )
-                from auralis.library.models.base import (
-                    track_artist, track_genre, track_playlist,
-                )
-                from auralis.library.models.fingerprint import TrackFingerprint
 
-                # Delete in dependency order: associations first, then entities
-                session.execute(track_playlist.delete())
-                session.execute(track_genre.delete())
-                session.execute(track_artist.delete())
+            def _reset_all() -> None:
+                session = repos.session_factory()
+                try:
+                    from auralis.library.models.core import (
+                        Track, Album, Artist, Genre, Playlist,
+                        QueueState, QueueHistory,
+                    )
+                    from auralis.library.models.base import (
+                        track_artist, track_genre, track_playlist,
+                    )
+                    from auralis.library.models.fingerprint import TrackFingerprint
 
-                session.query(TrackFingerprint).delete()
-                session.query(QueueHistory).delete()
-                session.query(QueueState).delete()
-                session.query(Track).delete()
-                session.query(Playlist).delete()
-                session.query(Album).delete()
-                session.query(Artist).delete()
-                session.query(Genre).delete()
+                    session.execute(track_playlist.delete())
+                    session.execute(track_genre.delete())
+                    session.execute(track_artist.delete())
 
-                session.commit()
-                logger.info("Library reset: all tracks, albums, artists, genres, fingerprints, and playlists deleted")
-            except Exception:
-                session.rollback()
-                raise
-            finally:
-                session.close()
+                    session.query(TrackFingerprint).delete()
+                    session.query(QueueHistory).delete()
+                    session.query(QueueState).delete()
+                    session.query(Track).delete()
+                    session.query(Playlist).delete()
+                    session.query(Album).delete()
+                    session.query(Artist).delete()
+                    session.query(Genre).delete()
+
+                    session.commit()
+                    logger.info("Library reset: all tracks, albums, artists, genres, fingerprints, and playlists deleted")
+                except Exception:
+                    session.rollback()
+                    raise
+                finally:
+                    session.close()
+
+            await asyncio.to_thread(_reset_all)
 
             return {"message": "Library has been reset successfully"}
 
