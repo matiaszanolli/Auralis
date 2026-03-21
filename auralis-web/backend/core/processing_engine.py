@@ -572,34 +572,40 @@ class ProcessingEngine:
             )
 
 
+    async def _run_job(self, job: ProcessingJob) -> None:
+        """Run a single job inside a concurrency slot, then clean up."""
+        await self._concurrency_semaphore.acquire()
+        self._active_job_count += 1
+
+        task = asyncio.current_task()
+        if task is not None:
+            self._tasks[job.job_id] = task
+
+        try:
+            await self.process_job(job)
+        except asyncio.CancelledError:
+            if job.status != ProcessingStatus.CANCELLED:
+                raise
+        finally:
+            self._tasks.pop(job.job_id, None)
+            self._active_job_count = max(0, self._active_job_count - 1)
+            self._concurrency_semaphore.release()
+            await self.cleanup_old_jobs(self.completed_job_ttl_hours)
+
     async def start_worker(self) -> None:
-        """Start the job processing worker"""
+        """Start the job processing worker.
+
+        Jobs are dispatched as concurrent tasks up to max_concurrent_jobs.
+        The semaphore inside _run_job governs how many execute simultaneously;
+        the worker loop itself never blocks on a running job (#2746).
+        """
         while True:
             try:
-                # Wait for a job
                 job = await self.job_queue.get()
-
-                # Block until a concurrency slot is free (replaces busy-wait, fixes #2332)
-                await self._concurrency_semaphore.acquire()
-                self._active_job_count += 1  # track in-flight jobs without _value (#2459)
-
-                # Wrap in a Task so cancel_job() can call task.cancel() (fixes #2217)
-                task = asyncio.create_task(self.process_job(job))
-                self._tasks[job.job_id] = task
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    # If the job was deliberately cancelled, swallow the error and
-                    # keep the worker running.  If the worker itself is being shut
-                    # down (job.status != CANCELLED), re-raise.
-                    if job.status != ProcessingStatus.CANCELLED:
-                        raise
-                finally:
-                    self._tasks.pop(job.job_id, None)
-                    self._active_job_count = max(0, self._active_job_count - 1)
-                    self._concurrency_semaphore.release()
-                    await self.cleanup_old_jobs(self.completed_job_ttl_hours)
-
+                # Fire-and-forget: _run_job acquires a semaphore slot and
+                # cleans up after itself.  The worker loop immediately
+                # returns to dequeue the next job.
+                asyncio.create_task(self._run_job(job))
             except Exception as e:
                 print(f"Worker error: {e}")
                 await asyncio.sleep(1)
