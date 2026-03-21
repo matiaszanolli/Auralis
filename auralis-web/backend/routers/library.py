@@ -480,6 +480,13 @@ def create_library_router(
 
             scanner = LibraryScanner(library_manager)
 
+            # Broadcast scan started so frontend shows status immediately (#2711)
+            if connection_manager:
+                await connection_manager.broadcast({
+                    "type": "library_scan_started",
+                    "data": {"directories": request.directories}
+                })
+
             # Set up progress callback that bridges sync scanner → async broadcast.
             # asyncio.to_thread runs the scanner in a worker thread, so we use
             # loop.call_soon_threadsafe to schedule the async broadcast safely.
