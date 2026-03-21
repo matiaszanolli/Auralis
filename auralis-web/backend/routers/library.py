@@ -25,7 +25,7 @@ import logging
 from typing import Any, cast
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 
 from schemas import LibraryScanRequest
 
@@ -705,13 +705,25 @@ def create_library_router(
             raise handle_query_error("get track fingerprint", e)
 
     @router.post("/api/library/reset")
-    async def reset_library() -> dict[str, Any]:
+    async def reset_library(
+        x_confirm_reset: str = Header(
+            ...,
+            alias="X-Confirm-Reset",
+            description="Must be 'RESET' to confirm the destructive operation",
+        ),
+    ) -> dict[str, Any]:
         """
         Reset the entire library — deletes all tracks, albums, artists, genres,
         fingerprints, playlists, queue state, and play statistics.
 
-        This is a destructive operation. The frontend must confirm before calling.
+        Requires the ``X-Confirm-Reset: RESET`` header as a safety guard
+        against accidental or CSRF-triggered calls.
         """
+        if x_confirm_reset != "RESET":
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid confirmation header: X-Confirm-Reset must be 'RESET'",
+            )
         try:
             repos = require_repository_factory(get_repository_factory)
             session = repos.session_factory()

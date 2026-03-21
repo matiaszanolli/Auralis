@@ -142,7 +142,9 @@ export async function triggerLibraryScan(directories: string[]): Promise<void> {
  * Reset the entire library (delete all tracks, albums, artists, etc.)
  */
 export async function resetLibrary(): Promise<{ message: string }> {
-  return post(ENDPOINTS.LIBRARY_RESET, {});
+  return post(ENDPOINTS.LIBRARY_RESET, {}, {
+    headers: { 'X-Confirm-Reset': 'RESET' },
+  });
 }
 
 export const settingsService = {

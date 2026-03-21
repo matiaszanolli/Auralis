@@ -2,8 +2,8 @@
 Tests for POST /api/library/reset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Covers: 503 when repository_factory is None, successful reset,
-rollback on failure, and response JSON structure.
+Covers: confirmation header guard, 503 when repository_factory is None,
+successful reset, rollback on failure, and response JSON structure.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -37,6 +37,9 @@ _router = create_library_router(get_repository_factory=_get_factory)
 _app.include_router(_router)
 _client = TestClient(_app)
 
+# Header required for all destructive calls
+CONFIRM_HEADERS = {"X-Confirm-Reset": "RESET"}
+
 
 @pytest.fixture(autouse=True)
 def _reset_factory():
@@ -46,6 +49,54 @@ def _reset_factory():
     _factory_box[0] = None
 
 
+class TestLibraryResetConfirmationGuard:
+    """Test X-Confirm-Reset header requirement (fixes #2733)"""
+
+    def test_returns_422_without_confirmation_header(self):
+        """POST without X-Confirm-Reset header must be rejected."""
+        session = MagicMock()
+        repos = Mock()
+        repos.session_factory.return_value = session
+        _factory_box[0] = repos
+
+        response = _client.post("/api/library/reset")
+
+        assert response.status_code == 422
+        session.execute.assert_not_called()
+        session.commit.assert_not_called()
+
+    def test_returns_400_with_wrong_header_value(self):
+        """POST with incorrect X-Confirm-Reset value must be rejected."""
+        session = MagicMock()
+        repos = Mock()
+        repos.session_factory.return_value = session
+        _factory_box[0] = repos
+
+        response = _client.post(
+            "/api/library/reset",
+            headers={"X-Confirm-Reset": "yes"},
+        )
+
+        assert response.status_code == 400
+        assert "confirmation" in response.json()["detail"].lower()
+        session.execute.assert_not_called()
+
+    def test_succeeds_with_correct_header(self):
+        """POST with X-Confirm-Reset: RESET must proceed normally."""
+        session = MagicMock()
+        repos = Mock()
+        repos.session_factory.return_value = session
+        _factory_box[0] = repos
+
+        response = _client.post(
+            "/api/library/reset",
+            headers=CONFIRM_HEADERS,
+        )
+
+        assert response.status_code == 200
+        session.commit.assert_called_once()
+
+
 class TestLibraryReset:
     """Test POST /api/library/reset"""
 
@@ -53,7 +104,10 @@ class TestLibraryReset:
         """If repository_factory getter returns None, endpoint must return 503."""
         _factory_box[0] = None
 
-        response = _client.post("/api/library/reset")
+        response = _client.post(
+            "/api/library/reset",
+            headers=CONFIRM_HEADERS,
+        )
 
         assert response.status_code == 503
         assert "not available" in response.json()["detail"].lower()
@@ -65,7 +119,10 @@ class TestLibraryReset:
         repos.session_factory.return_value = session
         _factory_box[0] = repos
 
-        response = _client.post("/api/library/reset")
+        response = _client.post(
+            "/api/library/reset",
+            headers=CONFIRM_HEADERS,
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -79,7 +136,7 @@ class TestLibraryReset:
         repos.session_factory.return_value = session
         _factory_box[0] = repos
 
-        _client.post("/api/library/reset")
+        _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
 
         session.commit.assert_called_once()
         session.rollback.assert_not_called()
@@ -92,7 +149,7 @@ class TestLibraryReset:
         repos.session_factory.return_value = session
         _factory_box[0] = repos
 
-        _client.post("/api/library/reset")
+        _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
 
         # session.execute called for association table deletes
         assert session.execute.call_count >= 3
@@ -107,7 +164,10 @@ class TestLibraryReset:
         repos.session_factory.return_value = session
         _factory_box[0] = repos
 
-        response = _client.post("/api/library/reset")
+        response = _client.post(
+            "/api/library/reset",
+            headers=CONFIRM_HEADERS,
+        )
 
         assert response.status_code == 500
         session.rollback.assert_called_once()
@@ -121,7 +181,10 @@ class TestLibraryReset:
         repos.session_factory.return_value = session
         _factory_box[0] = repos
 
-        response = _client.post("/api/library/reset")
+        response = _client.post(
+            "/api/library/reset",
+            headers=CONFIRM_HEADERS,
+        )
 
         assert response.status_code == 200
         data = response.json()
