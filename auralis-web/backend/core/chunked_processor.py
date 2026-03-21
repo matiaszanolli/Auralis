@@ -114,6 +114,9 @@ class ChunkedAudioProcessor:
         self.channels: int | None = None
         self._load_metadata()
 
+        # Expose canonical chunk interval so consumers don't need getattr fallbacks (#2848)
+        self.chunk_interval: float = float(CHUNK_INTERVAL)
+
         # Temp directory for chunks
         self.chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
         self.chunk_dir.mkdir(exist_ok=True)

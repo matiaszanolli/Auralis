@@ -1508,7 +1508,7 @@ class AudioStreamController:
 
             # Calculate which chunk to start from based on position
             # Chunks overlap, so we need to find the chunk that contains this position
-            chunk_interval = getattr(processor, 'chunk_interval', 10.0)  # Default 10s interval
+            chunk_interval = processor.chunk_interval
             start_chunk_idx = int(start_position / chunk_interval)
             start_chunk_idx = max(0, min(start_chunk_idx, processor.total_chunks - 1))
 
