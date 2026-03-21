@@ -36,7 +36,8 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
+from player_state import PlayerState
 from services import (
     NavigationService,
     PlaybackService,
@@ -98,6 +99,89 @@ class SetVolumeRequest(BaseModel):
     @classmethod
     def clamp_volume(cls, v: float) -> float:
         return max(0.0, min(100.0, v))
+
+
+# ============================================================================
+# RESPONSE MODELS (#2751 — OpenAPI schema documentation)
+# ============================================================================
+
+class MessageResponse(BaseModel):
+    """Generic response with a message."""
+    message: str
+
+
+class LoadTrackResponse(BaseModel):
+    """Response for POST /api/player/load."""
+    message: str
+    track_id: int
+
+
+class SeekResponse(BaseModel):
+    """Response for POST /api/player/seek."""
+    message: str
+    position: float
+
+
+class VolumeResponse(BaseModel):
+    """Response for POST /api/player/volume."""
+    message: str
+    volume: float
+
+
+class QueueInfoResponse(BaseModel):
+    """Response for GET /api/player/queue.
+
+    Shape varies by code path: get_queue_info() returns track_count +
+    navigation fields; the fallback returns total_tracks.  Both share
+    tracks and current_index.
+    """
+    tracks: list[Any]
+    current_index: int
+    track_count: int | None = None
+    total_tracks: int | None = None
+    current_track: Any | None = None
+    has_next: bool | None = None
+    has_previous: bool | None = None
+    shuffle_enabled: bool | None = None
+    repeat_enabled: bool | None = None
+
+    model_config = ConfigDict(extra='allow')
+
+
+class SetQueueResponse(BaseModel):
+    """Response for POST /api/player/queue."""
+    message: str
+    track_count: int
+    start_index: int
+
+
+class QueueSizeResponse(BaseModel):
+    """Response for queue operations that return message + queue_size."""
+    message: str
+    queue_size: int
+
+
+class AddTrackToQueueResponse(BaseModel):
+    """Response for POST /api/player/queue/add-track."""
+    message: str
+    track_id: int
+    position: int | None
+    queue_size: int
+
+
+class RemoveFromQueueResponse(BaseModel):
+    """Response for DELETE /api/player/queue/{index}."""
+    message: str
+    index: int
+    queue_size: int
+
+
+class MoveQueueTrackResponse(BaseModel):
+    """Response for PUT /api/player/queue/move."""
+    message: str
+    from_index: int
+    to_index: int
+    queue_size: int
 
 
 def create_player_router(
@@ -167,7 +251,7 @@ def create_player_router(
     # PLAYBACK ENDPOINTS
     # ============================================================================
 
-    @router.get("/api/player/status", response_model=None)
+    @router.get("/api/player/status", response_model=PlayerState)
     async def get_player_status() -> dict[str, Any]:
         """
         Get current player status (single source of truth).
@@ -187,7 +271,7 @@ def create_player_router(
             logger.error("Failed to get player status", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to get player status")
 
-    @router.post("/api/player/load", response_model=None)
+    @router.post("/api/player/load", response_model=LoadTrackResponse)
     async def load_track(request: LoadTrackRequest, background_tasks: BackgroundTasks = None) -> dict[str, Any]:
         """
         Load a track into the player (database-backed, prevents path traversal).
@@ -287,7 +371,7 @@ def create_player_router(
     #     )
     #     # Legacy implementation removed - stop now via usePlayEnhanced hook
 
-    @router.post("/api/player/seek", response_model=None)
+    @router.post("/api/player/seek", response_model=SeekResponse)
     async def seek_position(request: SeekRequest) -> dict[str, Any]:
         """
         Seek to position in seconds.
@@ -325,7 +409,7 @@ def create_player_router(
             logger.error("Failed to seek", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to seek")
 
-    @router.post("/api/player/volume", response_model=None)
+    @router.post("/api/player/volume", response_model=VolumeResponse)
     async def set_volume(body: SetVolumeRequest) -> dict[str, Any]:
         """
         Set playback volume.
@@ -355,7 +439,7 @@ def create_player_router(
     # QUEUE ENDPOINTS
     # ============================================================================
 
-    @router.get("/api/player/queue", response_model=None)
+    @router.get("/api/player/queue", response_model=QueueInfoResponse)
     async def get_queue() -> dict[str, Any]:
         """Get current playback queue."""
         try:
@@ -367,7 +451,7 @@ def create_player_router(
             logger.error("Failed to get queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to get queue")
 
-    @router.post("/api/player/queue", response_model=None)
+    @router.post("/api/player/queue", response_model=SetQueueResponse)
     async def set_queue(request: SetQueueRequest) -> dict[str, Any]:
         """Set the playback queue (updates single source of truth)."""
         try:
@@ -379,7 +463,7 @@ def create_player_router(
             logger.error("Failed to set queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to set queue")
 
-    @router.delete("/api/player/queue/{index}", response_model=None)
+    @router.delete("/api/player/queue/{index}", response_model=RemoveFromQueueResponse)
     async def remove_from_queue(index: int) -> dict[str, Any]:
         """Remove track from queue at specified index."""
         try:
@@ -392,7 +476,7 @@ def create_player_router(
             logger.error("Failed to remove from queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to remove from queue")
 
-    @router.put("/api/player/queue/reorder", response_model=None)
+    @router.put("/api/player/queue/reorder", response_model=QueueSizeResponse)
     async def reorder_queue(request: ReorderQueueRequest) -> dict[str, Any]:
         """Reorder the playback queue."""
         try:
@@ -404,7 +488,7 @@ def create_player_router(
             logger.error("Failed to reorder queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to reorder queue")
 
-    @router.post("/api/player/queue/clear", response_model=None)
+    @router.post("/api/player/queue/clear", response_model=MessageResponse)
     async def clear_queue() -> dict[str, Any]:
         """Clear the entire playback queue."""
         try:
@@ -416,7 +500,7 @@ def create_player_router(
             logger.error("Failed to clear queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to clear queue")
 
-    @router.post("/api/player/queue/add-track", response_model=None)
+    @router.post("/api/player/queue/add-track", response_model=AddTrackToQueueResponse)
     async def add_track_to_queue(request: AddTrackToQueueRequest) -> dict[str, Any]:
         """Add a track to queue at specific position (for drag-and-drop)."""
         try:
@@ -429,7 +513,7 @@ def create_player_router(
             logger.error("Failed to add track to queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to add track to queue")
 
-    @router.put("/api/player/queue/move", response_model=None)
+    @router.put("/api/player/queue/move", response_model=MoveQueueTrackResponse)
     async def move_queue_track(request: MoveQueueTrackRequest) -> dict[str, Any]:
         """Move a track within the queue (for drag-and-drop)."""
         try:
@@ -441,7 +525,7 @@ def create_player_router(
             logger.error("Failed to move track", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to move track")
 
-    @router.post("/api/player/queue/shuffle", response_model=None)
+    @router.post("/api/player/queue/shuffle", response_model=QueueSizeResponse)
     async def shuffle_queue() -> dict[str, Any]:
         """Shuffle the playback queue (keeps current track in place)."""
         try:
@@ -457,7 +541,7 @@ def create_player_router(
     # NAVIGATION ENDPOINTS
     # ============================================================================
 
-    @router.post("/api/player/next", response_model=None)
+    @router.post("/api/player/next", response_model=MessageResponse)
     async def next_track() -> dict[str, Any]:
         """Skip to next track."""
         try:
@@ -469,7 +553,7 @@ def create_player_router(
             logger.error("Failed to skip track", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to skip track")
 
-    @router.post("/api/player/previous", response_model=None)
+    @router.post("/api/player/previous", response_model=MessageResponse)
     async def previous_track() -> dict[str, Any]:
         """Skip to previous track."""
         try:
