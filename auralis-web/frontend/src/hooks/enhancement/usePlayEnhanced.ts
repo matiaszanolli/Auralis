@@ -65,6 +65,7 @@ import type {
   AudioStreamEndMessage,
   AudioStreamErrorMessage,
 } from '@/contexts/WebSocketContext';
+import type { EnhancementPreset } from '@/types/domain';
 
 /**
  * Return type for usePlayEnhanced hook
@@ -76,7 +77,7 @@ export interface UsePlayEnhancedReturn {
    * @param preset Enhancement preset (adaptive, gentle, warm, bright, punchy)
    * @param intensity Enhancement intensity (0.0-1.0)
    */
-  playEnhanced: (trackId: number, preset: string, intensity: number) => Promise<void>;
+  playEnhanced: (trackId: number, preset: EnhancementPreset, intensity: number) => Promise<void>;
 
   /**
    * Seek to a specific position in the current track
@@ -560,7 +561,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    * the playback state and send the message.
    */
   const playEnhanced = useCallback(
-    async (trackId: number, preset: string, intensity: number) => {
+    async (trackId: number, preset: EnhancementPreset, intensity: number) => {
       try {
         // Stop any existing playback
         playbackEngineRef.current?.stopPlayback();

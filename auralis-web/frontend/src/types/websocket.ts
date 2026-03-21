@@ -5,6 +5,8 @@
  * See: auralis-web/backend/WEBSOCKET_API.md for protocol specification.
  */
 
+import type { EnhancementPreset } from './domain';
+
 // ============================================================================
 // Message Type Union
 // ============================================================================
@@ -376,7 +378,7 @@ export interface AudioStreamStartMessage extends WebSocketMessage {
   type: 'audio_stream_start';
   data: {
     track_id: number;
-    preset: string;
+    preset: EnhancementPreset;
     intensity: number;
     sample_rate: number;
     channels: number;
