@@ -350,7 +350,7 @@ export const QueuePanel = ({
         )}
       </div>
 
-      {/* Clear Queue Confirmation Dialog */}
+      {/* Clear Queue Confirmation Dialog (#2800: a11y — focus trap, Escape key) */}
       {showClearConfirm && (
         <div
           style={{
@@ -363,11 +363,12 @@ export const QueuePanel = ({
             zIndex: 1000,
           }}
           onClick={() => setShowClearConfirm(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setShowClearConfirm(false); }}
         >
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Clear queue confirmation"
+            aria-labelledby="clear-queue-dialog-title"
             style={{
               background: tokens.colors.bg.secondary,
               borderRadius: tokens.borderRadius.md,
@@ -378,15 +379,19 @@ export const QueuePanel = ({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <p style={{
-              margin: `0 0 ${tokens.spacing.lg} 0`,
-              color: tokens.colors.text.primary,
-              fontSize: tokens.typography.fontSize.base,
-            }}>
+            <p
+              id="clear-queue-dialog-title"
+              style={{
+                margin: `0 0 ${tokens.spacing.lg} 0`,
+                color: tokens.colors.text.primary,
+                fontSize: tokens.typography.fontSize.base,
+              }}
+            >
               Clear the entire queue?
             </p>
             <div style={{ display: 'flex', gap: tokens.spacing.sm, justifyContent: 'flex-end' }}>
               <button
+                autoFocus
                 onClick={() => setShowClearConfirm(false)}
                 style={{
                   padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
