@@ -15,7 +15,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { tokens } from '@/design-system';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
@@ -82,7 +82,11 @@ export function ConnectionStatusIndicator({
   });
 
   const [showDetails, setShowDetails] = useState(false);
-  const [autoHideTimer, setAutoHideTimer] = useState<NodeJS.Timeout | null>(null);
+  // Use ref for timer so cleanup always reads the current ID (fixes #2767).
+  const autoHideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Guard against setState after unmount (fixes #2767).
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   // Update connection status
   useEffect(() => {
@@ -98,12 +102,13 @@ export function ConnectionStatusIndicator({
       const timer = setTimeout(() => {
         // Keep hidden if connected
       }, 2000);
-      setAutoHideTimer(timer);
+      autoHideTimerRef.current = timer;
     }
 
     return () => {
-      if (autoHideTimer) {
-        clearTimeout(autoHideTimer);
+      if (autoHideTimerRef.current) {
+        clearTimeout(autoHideTimerRef.current);
+        autoHideTimerRef.current = null;
       }
     };
   }, [wsConnected, wsError, showDetails]);
@@ -113,9 +118,9 @@ export function ConnectionStatusIndicator({
     const interval = setInterval(async () => {
       const start = performance.now();
       try {
-        // Make a quick API call to measure latency
         const response = await fetch('/api/health', { method: 'GET' });
         const latency = Math.round(performance.now() - start);
+        if (!mountedRef.current) return;
         if (response.ok) {
           setStatus((prev) => ({
             ...prev,
@@ -124,6 +129,7 @@ export function ConnectionStatusIndicator({
           }));
         }
       } catch {
+        if (!mountedRef.current) return;
         setStatus((prev) => ({
           ...prev,
           apiConnected: false,
