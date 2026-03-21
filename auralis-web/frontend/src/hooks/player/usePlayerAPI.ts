@@ -57,6 +57,21 @@ export const usePlayerAPI = () => {
   currentTrackIdRef.current = playerState.currentTrack?.id ?? null;
   isPlayingRef.current = playerState.isPlaying;
 
+  // Track in-flight commands so the WS handler can skip stale broadcasts that
+  // would overwrite optimistic UI updates (fixes #2783).  We use a counter
+  // (not a boolean) so concurrent commands are handled correctly.
+  const pendingCommandsRef = useRef<number>(0);
+
+  /** Wrap an async action so WS state updates are suppressed while it's in-flight. */
+  const withCommandGuard = useCallback(<T,>(fn: () => Promise<T>): Promise<T> => {
+    pendingCommandsRef.current++;
+    return fn().finally(() => {
+      // Small delay lets the server's confirmation broadcast arrive before
+      // we re-enable WS state updates, preventing the stale-state flicker.
+      setTimeout(() => { pendingCommandsRef.current = Math.max(0, pendingCommandsRef.current - 1); }, 150);
+    });
+  }, []);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,141 +129,141 @@ export const usePlayerAPI = () => {
     setLoading(true);
     setError(null);
 
-    try {
-      const response = await fetch(`/api/player/next`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
+    await withCommandGuard(async () => {
+      try {
+        const response = await fetch(`/api/player/next`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setPlayerState(prev => ({
-          ...prev,
-          currentTrack: data.track || null,
-          queueIndex: data.queue_index || prev.queueIndex + 1,
-          currentTime: 0
-        }));
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Failed to skip to next');
+        if (response.ok) {
+          const data = await response.json();
+          setPlayerState(prev => ({
+            ...prev,
+            currentTrack: data.track || null,
+            queueIndex: data.queue_index || prev.queueIndex + 1,
+            currentTime: 0
+          }));
+        } else {
+          const errorData = await response.json();
+          setError(errorData.detail || 'Failed to skip to next');
+        }
+      } catch (err) {
+        setError('Network error');
+        console.error('Next error:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError('Network error');
-      console.error('Next error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    });
+  }, [withCommandGuard]);
 
   // Previous track
   const previous = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    try {
-      const response = await fetch(`/api/player/previous`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
+    await withCommandGuard(async () => {
+      try {
+        const response = await fetch(`/api/player/previous`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setPlayerState(prev => ({
-          ...prev,
-          currentTrack: data.track || null,
-          queueIndex: data.queue_index || Math.max(0, prev.queueIndex - 1),
-          currentTime: 0
-        }));
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Failed to go to previous');
+        if (response.ok) {
+          const data = await response.json();
+          setPlayerState(prev => ({
+            ...prev,
+            currentTrack: data.track || null,
+            queueIndex: data.queue_index || Math.max(0, prev.queueIndex - 1),
+            currentTime: 0
+          }));
+        } else {
+          const errorData = await response.json();
+          setError(errorData.detail || 'Failed to go to previous');
+        }
+      } catch (err) {
+        setError('Network error');
+        console.error('Previous error:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError('Network error');
-      console.error('Previous error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    });
+  }, [withCommandGuard]);
 
   // Seek to position
   const seek = useCallback(async (position: number) => {
-    try {
-      // Backend expects position as a query parameter, not a request body (fixes #2253)
-      const response = await fetch(`/api/player/seek?position=${position}`, {
-        method: 'POST',
-      });
+    setPlayerState(prev => ({ ...prev, currentTime: position }));
 
-      if (response.ok) {
-        setPlayerState(prev => ({
-          ...prev,
-          currentTime: position
-        }));
+    await withCommandGuard(async () => {
+      try {
+        // Backend expects position as a query parameter, not a request body (fixes #2253)
+        await fetch(`/api/player/seek?position=${position}`, {
+          method: 'POST',
+        });
+      } catch (err) {
+        console.error('Seek error:', err);
       }
-    } catch (err) {
-      console.error('Seek error:', err);
-    }
-  }, []);
+    });
+  }, [withCommandGuard]);
 
   // Set volume
   const setVolume = useCallback(async (volume: number) => {
-    try {
-      // Backend expects volume as query parameter
-      const response = await fetch(`/api/player/volume?volume=${volume}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
+    setPlayerState(prev => ({ ...prev, volume }));
 
-      if (response.ok) {
-        setPlayerState(prev => ({
-          ...prev,
-          volume
-        }));
+    await withCommandGuard(async () => {
+      try {
+        // Backend expects volume as query parameter
+        await fetch(`/api/player/volume?volume=${volume}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        console.error('Volume error:', err);
       }
-    } catch (err) {
-      console.error('Volume error:', err);
-    }
-  }, []);
+    });
+  }, [withCommandGuard]);
 
   // Set queue and optionally start playing
   const setQueue = useCallback(async (tracks: PlayerTrack[], startIndex: number = 0) => {
     setLoading(true);
     setError(null);
 
-    try {
-      const response = await fetch(`/api/player/queue`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tracks: tracks.map(t => t.id),
-          start_index: startIndex
-        })
-      });
+    await withCommandGuard(async () => {
+      try {
+        const response = await fetch(`/api/player/queue`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tracks: tracks.map(t => t.id),
+            start_index: startIndex
+          })
+        });
 
-      if (response.ok) {
-        await response.json();
-        setPlayerState(prev => ({
-          ...prev,
-          queue: tracks,
-          queueIndex: startIndex,
-          currentTrack: tracks[startIndex] || null
-        }));
+        if (response.ok) {
+          await response.json();
+          setPlayerState(prev => ({
+            ...prev,
+            queue: tracks,
+            queueIndex: startIndex,
+            currentTrack: tracks[startIndex] || null
+          }));
 
-        // Auto-play first track
-        if (tracks.length > 0) {
-          await play();
+          // Auto-play first track
+          if (tracks.length > 0) {
+            await play();
+          }
+        } else {
+          const errorData = await response.json();
+          setError(errorData.detail || 'Failed to set queue');
         }
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Failed to set queue');
+      } catch (err) {
+        setError('Network error');
+        console.error('Queue error:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError('Network error');
-      console.error('Queue error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [play]);
+    });
+  }, [play, withCommandGuard]);
 
   // Play specific track (convenience method)
   const playTrack = useCallback(async (track: PlayerTrack) => {
@@ -268,8 +283,12 @@ export const usePlayerAPI = () => {
   useEffect(() => {
     console.log('🎵 usePlayerAPI: Setting up WebSocket subscriptions');
 
-    // Subscribe to player_state messages
+    // Subscribe to player_state messages.
+    // Skip updates while a command is in-flight to avoid overwriting
+    // optimistic state with stale server broadcasts (fixes #2783).
     const unsubscribePlayerState = subscribe('player_state', (message: any) => {
+      if (pendingCommandsRef.current > 0) return;
+
       try {
         const state = message.data;
         setPlayerState({
@@ -281,7 +300,6 @@ export const usePlayerAPI = () => {
           queue: state.queue || [],
           queueIndex: state.queue_index || 0
         });
-        console.log('Player state updated:', state);
       } catch (err) {
         console.error('Error handling player_state message:', err);
       }
