@@ -369,9 +369,9 @@ class ProcessingEngine:
                 dynamics_settings = job.settings["dynamics"]
                 self._apply_ui_dynamics_to_config(config, dynamics_settings)
 
-            # Apply level matching settings
-            if "levelMatching" in job.settings and job.settings["levelMatching"].get("enabled"):
-                level_settings = job.settings["levelMatching"]
+            # Apply level matching settings (accepts both snake_case and legacy camelCase)
+            level_settings = job.settings.get("level_matching") or job.settings.get("levelMatching")
+            if level_settings and level_settings.get("enabled"):
                 config.adaptive.target_lufs = level_settings.get("targetLufs", -16.0)  # type: ignore[attr-defined]
 
         # Genre override

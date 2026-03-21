@@ -471,6 +471,49 @@ class TestQueueBackpressureAPI:
         assert call_kwargs[1]["reference_path"] == str(ref_file)
         assert call_kwargs[1]["mode"] == "reference"
 
+    def test_process_accepts_snake_case_level_matching(self, client, mock_engine, tmp_path):
+        """POST /api/processing/process accepts level_matching in snake_case (fixes #2748)"""
+        audio_file = tmp_path / "song.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
+        mock_engine.create_job.return_value = mock_engine.get_job.return_value
+
+        with patch("routers.processing_api.validate_file_path", return_value=audio_file):
+            response = client.post(
+                "/api/processing/process",
+                json={
+                    "input_path": str(audio_file),
+                    "settings": {
+                        "mode": "adaptive",
+                        "level_matching": {"enabled": True, "targetLufs": -14},
+                    },
+                },
+            )
+
+        assert response.status_code == 200
+        # Verify the setting was passed through to create_job
+        call_kwargs = mock_engine.create_job.call_args[1]
+        assert call_kwargs["settings"]["level_matching"] == {"enabled": True, "targetLufs": -14}
+
+    def test_process_accepts_camel_case_level_matching(self, client, mock_engine, tmp_path):
+        """POST /api/processing/process still accepts legacy levelMatching (fixes #2748)"""
+        audio_file = tmp_path / "song.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
+        mock_engine.create_job.return_value = mock_engine.get_job.return_value
+
+        with patch("routers.processing_api.validate_file_path", return_value=audio_file):
+            response = client.post(
+                "/api/processing/process",
+                json={
+                    "input_path": str(audio_file),
+                    "settings": {
+                        "mode": "adaptive",
+                        "levelMatching": {"enabled": True, "targetLufs": -16},
+                    },
+                },
+            )
+
+        assert response.status_code == 200
+
     def test_upload_and_process_returns_503_when_queue_full(self, client, mock_engine):
         """POST /api/processing/upload-and-process returns 503 when queue is full"""
         import asyncio
