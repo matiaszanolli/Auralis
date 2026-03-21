@@ -64,7 +64,7 @@ class AdaptiveLimiter:
             Tuple of (processed_audio, limiting_info)
         """
         if len(audio) == 0:
-            return audio, {}
+            return audio.copy(), {}
 
         # Oversample if enabled
         if self.settings.oversampling > 1:

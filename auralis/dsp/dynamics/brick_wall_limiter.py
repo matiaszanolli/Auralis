@@ -88,7 +88,7 @@ class BrickWallLimiter:
             Limited audio with same shape as input
         """
         if len(audio) == 0:
-            return audio
+            return audio.copy()
 
         # Handle mono/stereo
         is_mono = audio.ndim == 1

@@ -115,7 +115,7 @@ class AdaptiveCompressor:
             Tuple of (processed_audio, compression_info)
         """
         if len(audio) == 0:
-            return audio, {}
+            return audio.copy(), {}
 
         # Handle lookahead — check the settings flag instead of the buffer,
         # since the buffer is lazily initialized inside _apply_lookahead() (fixes #2592).

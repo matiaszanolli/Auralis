@@ -94,7 +94,7 @@ class DynamicsProcessor:
             Tuple of (processed_audio, dynamics_info)
         """
         if len(audio) == 0:
-            return audio, {}
+            return audio.copy(), {}
 
         processed_audio = audio.copy()
         processing_info = {}
