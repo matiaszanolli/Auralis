@@ -12,6 +12,8 @@ eliminating ~150 lines of duplicate caching logic across 2 files.
 :license: GPLv3
 """
 
+import hashlib
+import json
 import logging
 import threading
 from typing import Any
@@ -98,8 +100,9 @@ class ProcessorFactory:
         if config is None:
             return "default"
 
-        # Use object id as hash (same instance = same hash)
-        return str(id(config))
+        # Content-based hash so equivalent configs share cache entries
+        config_str = json.dumps(config.to_dict(), sort_keys=True)
+        return hashlib.md5(config_str.encode()).hexdigest()
 
     def get_or_create(
         self,
