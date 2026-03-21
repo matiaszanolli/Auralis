@@ -251,7 +251,7 @@ export function QueueManager({
         ) : (
           tracks.map((track, index) => (
             <div
-              key={`${track.id}-${index}`}
+              key={track.id}
               draggable={!isLoading}
               role="listitem"
               onDragStart={() => setDraggedIndex(index)}
