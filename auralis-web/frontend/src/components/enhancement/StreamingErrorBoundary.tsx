@@ -363,7 +363,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: `${tokens.colors.semantic.error}08`,
     border: `1px solid ${tokens.colors.semantic.error}`,
     borderLeftWidth: '4px',
-    borderRadius: '6px',
+    borderRadius: tokens.borderRadius.sm,
     fontSize: tokens.typography.fontSize.sm,
     animation: 'slideInDown 300ms ease-out',
   },
@@ -401,7 +401,7 @@ const styles: Record<string, React.CSSProperties> = {
   description: {
     fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.text.secondary,
-    lineHeight: 1.4,
+    lineHeight: tokens.typography.lineHeight.normal,
   },
 
   details: {

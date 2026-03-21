@@ -312,7 +312,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: tokens.spacing.md,
     padding: tokens.spacing.md,
     backgroundColor: tokens.colors.bg.level1,
-    borderRadius: '6px',
+    borderRadius: tokens.borderRadius.sm,
     border: `1px solid ${tokens.colors.border.medium}`,
     fontSize: tokens.typography.fontSize.xs,
   },
