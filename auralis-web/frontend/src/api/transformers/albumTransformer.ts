@@ -32,7 +32,7 @@ export function transformAlbum(apiAlbum: AlbumApiResponse): Album {
     year: apiAlbum.year ?? undefined,
     artworkUrl: apiAlbum.artwork_url ?? undefined, // snake → camel, null → undefined
     trackCount: apiAlbum.track_count, // snake → camel
-    totalDuration: apiAlbum.total_duration, // snake → camel
+    totalDuration: apiAlbum.total_duration ?? 0, // snake → camel, fallback for missing field (#2843)
   };
 }
 

@@ -212,6 +212,7 @@ class Album(Base, TimestampMixin):  # type: ignore[misc]
             'mastering_consistency': self.mastering_consistency,
             'artist': self.artist.name if self.artist else None,
             'track_count': len(self.tracks),
+            'total_duration': sum(t.duration for t in self.tracks if t.duration),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
