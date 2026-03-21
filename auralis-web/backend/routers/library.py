@@ -520,6 +520,14 @@ def create_library_router(
                 timeout=scan_timeout,
             )
 
+            # Rejected scan (e.g., already in progress) — return 409 instead of
+            # broadcasting scan_complete with zero counts (#2870).
+            if result.rejected:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Scan already in progress"
+                )
+
             # Enqueue newly added tracks for background fingerprinting (#2382).
             # Done here in the async context — asyncio.create_task() inside the
             # scanner thread raised RuntimeError: no running event loop.
