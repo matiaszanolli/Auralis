@@ -19,9 +19,18 @@ export function useOptimisticUpdate<T, Args extends any[]>(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Use a ref to avoid stale closure over state in the execute callback
+  // Refs to avoid recreating execute when callers pass inline options/callbacks
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  const onSuccessRef = useRef(options.onSuccess);
+  onSuccessRef.current = options.onSuccess;
+
+  const onErrorRef = useRef(options.onError);
+  onErrorRef.current = options.onError;
+
+  const asyncOpRef = useRef(asyncOperation);
+  asyncOpRef.current = asyncOperation;
 
   const execute = useCallback(
     async (optimisticValue: T, ...args: Args) => {
@@ -34,11 +43,11 @@ export function useOptimisticUpdate<T, Args extends any[]>(
 
       try {
         // Perform the async operation
-        const result = await asyncOperation(...args);
+        const result = await asyncOpRef.current(...args);
 
         // Update with the actual result
         setState(result);
-        options.onSuccess?.(result);
+        onSuccessRef.current?.(result);
 
         return result;
       } catch (err) {
@@ -46,14 +55,14 @@ export function useOptimisticUpdate<T, Args extends any[]>(
         const error = err as Error;
         setState(previousState);
         setError(error);
-        options.onError?.(error);
+        onErrorRef.current?.(error);
 
         throw error;
       } finally {
         setIsLoading(false);
       }
     },
-    [asyncOperation, options]
+    [] // stable — all varying deps are in refs
   );
 
   const reset = useCallback(() => {
