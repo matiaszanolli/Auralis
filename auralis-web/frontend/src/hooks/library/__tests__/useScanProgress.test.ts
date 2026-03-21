@@ -274,6 +274,60 @@ describe('useScanProgress', () => {
     });
   });
 
+  describe('library_scan_error', () => {
+    it('resets isScanning to false on scan error (fixes #2869)', () => {
+      const { result } = renderHook(() => useScanProgress());
+
+      // Start scanning
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      expect(result.current.isScanning).toBe(true);
+
+      // Scan error arrives
+      act(() => {
+        manager.deliver({
+          type: 'library_scan_error',
+          data: { error: 'Permission denied' },
+        } as unknown as WebSocketMessage);
+      });
+
+      expect(result.current.isScanning).toBe(false);
+      expect(result.current.percentage).toBe(0);
+    });
+
+    it('preserves lastResult from previous scan on error', () => {
+      const { result } = renderHook(() => useScanProgress());
+
+      // Complete a scan first
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      act(() => {
+        manager.deliver({
+          type: 'scan_complete',
+          data: { files_added: 10, duration: 2 },
+        } as unknown as WebSocketMessage);
+      });
+      expect(result.current.lastResult?.filesAdded).toBe(10);
+
+      // Start new scan that fails
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      act(() => {
+        manager.deliver({
+          type: 'library_scan_error',
+          data: { error: 'Disk full' },
+        } as unknown as WebSocketMessage);
+      });
+
+      // Previous result preserved
+      expect(result.current.isScanning).toBe(false);
+      expect(result.current.lastResult?.filesAdded).toBe(10);
+    });
+  });
+
   describe('full lifecycle', () => {
     it('handles start → progress → complete sequence', () => {
       const { result } = renderHook(() => useScanProgress());

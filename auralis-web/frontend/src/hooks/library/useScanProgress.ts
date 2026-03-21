@@ -53,7 +53,7 @@ export function useScanProgress(): ScanStatus {
   const removedReceivedRef = useRef(false);
 
   useWebSocketSubscription(
-    ['library_scan_started', 'scan_progress', 'scan_complete', 'library_tracks_removed'],
+    ['library_scan_started', 'scan_progress', 'scan_complete', 'library_tracks_removed', 'library_scan_error'],
     (message) => {
       if (message.type === 'library_scan_started') {
         removedReceivedRef.current = false;
@@ -82,6 +82,12 @@ export function useScanProgress(): ScanStatus {
             filesRemoved: hadRemovals ? (prev.lastResult?.filesRemoved ?? 0) : 0,
             duration: msg.data.duration,
           },
+        }));
+      } else if (message.type === 'library_scan_error') {
+        // Reset scanning state so the UI doesn't stay stuck (#2869)
+        setState((prev) => ({
+          ...INITIAL_STATE,
+          lastResult: prev.lastResult,
         }));
       } else if (message.type === 'library_tracks_removed') {
         removedReceivedRef.current = true;
