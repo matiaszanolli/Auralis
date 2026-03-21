@@ -656,6 +656,12 @@ class ProcessingEngine:
                         if age_hours > max_age_hours:
                             if Path(job.output_path).exists():
                                 Path(job.output_path).unlink()
+                            # Clean up uploaded input file if it lives in the
+                            # temp upload directory (never delete library files).
+                            upload_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
+                            input_path = Path(job.input_path)
+                            if input_path.exists() and input_path.is_relative_to(upload_dir):
+                                input_path.unlink()
                             jobs_to_remove.append(job_id)
 
             for job_id in jobs_to_remove:
