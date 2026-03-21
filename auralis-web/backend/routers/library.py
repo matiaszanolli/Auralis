@@ -531,6 +531,7 @@ def create_library_router(
                     "data": {
                         "files_processed": result.files_processed,
                         "files_added": result.files_added,
+                        "files_failed": result.files_failed,
                         "duration": result.scan_time,
                     }
                 })

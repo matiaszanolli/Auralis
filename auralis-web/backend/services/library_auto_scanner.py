@@ -263,6 +263,7 @@ class LibraryAutoScanner:
                 "data": {
                     "files_processed": scan_result.files_processed if scan_result else 0,
                     "files_added": scan_result.files_added if scan_result else 0,
+                    "files_failed": scan_result.files_failed if scan_result else 0,
                     "duration": scan_result.scan_time if scan_result else 0,
                 }
             }
