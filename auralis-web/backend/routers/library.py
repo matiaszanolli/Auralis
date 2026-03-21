@@ -333,14 +333,16 @@ def create_library_router(
     async def get_artists(
         limit: int = Query(50, ge=1, le=200),
         offset: int = Query(0, ge=0),
+        search: str | None = None,
         order_by: str = "name"
     ) -> dict[str, Any]:
         """
-        Get paginated list of artists.
+        Get paginated list of artists with optional search.
 
         Query Parameters:
             limit: Number of artists to return (default 50, max 200)
             offset: Number of artists to skip (default 0)
+            search: Optional search query for artist name
             order_by: Field to order by - "name", "album_count", or "track_count" (default "name")
 
         Returns:
@@ -368,7 +370,10 @@ def create_library_router(
             if order_by not in valid_order_by:
                 order_by = "name"
 
-            artists, total = await asyncio.to_thread(repos.artists.get_all, limit=limit, offset=offset, order_by=order_by)
+            if search:
+                artists, total = await asyncio.to_thread(repos.artists.search, search, limit=limit, offset=offset)
+            else:
+                artists, total = await asyncio.to_thread(repos.artists.get_all, limit=limit, offset=offset, order_by=order_by)
 
             # Calculate if there are more results
             has_more = (offset + limit) < total
