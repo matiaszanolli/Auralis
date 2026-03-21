@@ -269,14 +269,25 @@ export const selectQueueState = createSelector(
  * Complete app state snapshot
  */
 export const selectAppSnapshot = createSelector(
-  [selectPlaybackState, selectQueueState, selectCacheMetrics, selectConnectionStatus],
-  (playback, queue, cache, connection) => ({
+  [
+    selectPlaybackState,
+    selectQueueState,
+    selectCacheMetrics,
+    selectConnectionStatus,
+    (state: RootState) => state.player.isLoading,
+    (state: RootState) => state.queue.isLoading,
+    (state: RootState) => state.cache.isLoading,
+    (state: RootState) => state.player.error,
+    (state: RootState) => state.queue.error,
+    (state: RootState) => state.cache.error,
+  ],
+  (playback, queue, cache, connection, playerLoading, queueLoading, cacheLoading, playerError, queueError, cacheError) => ({
     playback,
     queue,
     cache,
     connection,
-    isLoading: false,
-    hasErrors: false,
+    isLoading: playerLoading || queueLoading || cacheLoading,
+    hasErrors: !!(playerError || queueError || cacheError),
   })
 );
 
