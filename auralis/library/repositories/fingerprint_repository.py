@@ -86,7 +86,6 @@ class FingerprintRepository:
 
             if existing:
                 debug(f"Fingerprint already exists for track {track_id}, updating")
-                session.close()
                 return self.update(track_id, fingerprint_data)
 
             # Create new fingerprint
