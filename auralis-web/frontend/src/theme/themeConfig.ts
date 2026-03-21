@@ -81,8 +81,8 @@ export const lightColors = {
     orange: '#e68a00',
   },
   glass: {
-    border: `rgba(115, 102, 240, 0.15)`,    // Uses accent.primary RGB
-    highlight: `rgba(115, 102, 240, 0.05)`,
+    border: tokens.colors.opacityScale.accent.lighter,
+    highlight: tokens.colors.opacityScale.accent.minimal,
   },
 };
 
@@ -216,20 +216,20 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
       },
       button: {
         textTransform: 'none',
-        fontWeight: 600,
+        fontWeight: tokens.typography.fontWeight.semibold,
       },
     },
     shape: {
-      borderRadius: 8,
+      borderRadius: parseInt(tokens.borderRadius.sm),
     },
     components: {
       MuiButton: {
         styleOverrides: {
           root: {
             textTransform: 'none',
-            borderRadius: '8px',
+            borderRadius: tokens.borderRadius.sm,
             padding: '10px 24px',
-            fontWeight: 600,
+            fontWeight: tokens.typography.fontWeight.semibold,
             transition: 'all 0.3s ease',
           },
           contained: {
@@ -335,7 +335,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
         styleOverrides: {
           tooltip: {
             ...glassEffects.strong(isDark),
-            fontSize: '12px',
+            fontSize: tokens.typography.fontSize.xs,
           },
         },
       },
