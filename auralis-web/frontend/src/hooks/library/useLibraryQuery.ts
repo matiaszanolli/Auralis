@@ -184,7 +184,12 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
           totalDuration: album.totalDuration ?? album.total_duration,
         }));
       case 'artists':
-        return response.artists || response.items || [];
+        // Backend returns snake_case fields; transform to camelCase to match Artist interface (fixes #2853).
+        return (response.artists || response.items || []).map((artist: any) => ({
+          ...artist,
+          trackCount: artist.trackCount ?? artist.track_count,
+          albumCount: artist.albumCount ?? artist.album_count,
+        }));
       default:
         return response.items || [];
     }

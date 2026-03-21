@@ -816,6 +816,33 @@ describe('useLibraryQuery', () => {
       expect(result.current.data).toEqual([mockArtist]);
     });
 
+    it('should transform artist snake_case fields to camelCase (fixes #2853)', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        artists: [{ id: 1, name: 'Test', track_count: 25, album_count: 3 }],
+        total: 1,
+        offset: 0,
+        limit: 50,
+        hasMore: false,
+      });
+
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet,
+        post: vi.fn(),
+        put: vi.fn(),
+        patch: vi.fn(),
+        delete: vi.fn(),
+      } as any);
+
+      const { result } = renderHook(() => useArtistsQuery());
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.data[0].trackCount).toBe(25);
+      expect(result.current.data[0].albumCount).toBe(3);
+    });
+
     it('should use useInfiniteScroll for infinite scroll pattern', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         items: [mockTrack],
