@@ -489,3 +489,89 @@ def test_complete_file_no_truncation_warning(sample_wav_file):
 
     assert audio is not None
     assert sr == 44100
+
+
+# ===== FFMPEG Format Loading Tests =====
+
+def _generate_ffmpeg_fixture(tmp_path: Path, fmt: str, ext: str) -> Path:
+    """Generate a 1-second sine-wave fixture file via ffmpeg"""
+    import subprocess
+
+    out_path = tmp_path / f"test_sine.{ext}"
+    cmd = [
+        "ffmpeg", "-y", "-f", "lavfi",
+        "-i", "sine=frequency=440:duration=1:sample_rate=44100",
+        "-ac", "2",
+    ]
+    # Format-specific encoding options
+    if fmt == "mp3":
+        cmd += ["-codec:a", "libmp3lame", "-b:a", "192k"]
+    elif fmt == "ogg":
+        cmd += ["-codec:a", "libvorbis", "-q:a", "5"]
+    elif fmt == "flac":
+        cmd += ["-codec:a", "flac"]
+    elif fmt == "opus":
+        cmd += ["-codec:a", "libopus", "-b:a", "128k"]
+    elif fmt == "m4a":
+        cmd += ["-codec:a", "aac", "-b:a", "192k"]
+
+    cmd.append(str(out_path))
+    subprocess.run(cmd, check=True, capture_output=True)
+    return out_path
+
+
+@pytest.fixture
+def ffmpeg_available():
+    """Skip tests if ffmpeg is not available"""
+    import shutil
+    if not shutil.which("ffmpeg"):
+        pytest.skip("ffmpeg not available")
+
+
+@pytest.mark.parametrize("fmt,ext", [
+    ("mp3", "mp3"),
+    ("ogg", "ogg"),
+    ("flac", "flac"),
+])
+def test_load_ffmpeg_format(tmp_path, ffmpeg_available, fmt, ext):
+    """Test loading audio files that go through the FFMPEG decoding path"""
+    fixture = _generate_ffmpeg_fixture(tmp_path, fmt, ext)
+
+    audio, sr = load_audio(str(fixture))
+
+    assert isinstance(audio, np.ndarray)
+    assert audio.dtype in [np.float32, np.float64]
+    assert sr == 44100
+    assert audio.ndim >= 1
+    assert len(audio) > 0
+    # 1 second at 44100 Hz — allow lossy codec variance
+    assert abs(len(audio) - 44100) < 4500
+
+
+@pytest.mark.parametrize("fmt,ext", [
+    ("mp3", "mp3"),
+    ("ogg", "ogg"),
+    ("flac", "flac"),
+])
+def test_ffmpeg_format_no_nan_or_inf(tmp_path, ffmpeg_available, fmt, ext):
+    """Test that FFMPEG-decoded audio has no NaN or Inf values"""
+    fixture = _generate_ffmpeg_fixture(tmp_path, fmt, ext)
+
+    audio, sr = load_audio(str(fixture))
+
+    assert not np.any(np.isnan(audio))
+    assert not np.any(np.isinf(audio))
+
+
+@pytest.mark.parametrize("fmt,ext", [
+    ("mp3", "mp3"),
+    ("ogg", "ogg"),
+    ("flac", "flac"),
+])
+def test_ffmpeg_format_has_signal(tmp_path, ffmpeg_available, fmt, ext):
+    """Test that FFMPEG-decoded audio contains actual signal (not silence)"""
+    fixture = _generate_ffmpeg_fixture(tmp_path, fmt, ext)
+
+    audio, sr = load_audio(str(fixture))
+
+    assert np.max(np.abs(audio)) > 0.01
