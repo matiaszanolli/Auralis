@@ -355,10 +355,11 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            query.lower()
+            escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            search_term = f"%{escaped}%"
             templates = session.execute(select(QueueTemplate).where(
-                (QueueTemplate.name.ilike(f'%{query}%')) |
-                (QueueTemplate.description.ilike(f'%{query}%'))
+                (QueueTemplate.name.ilike(search_term, escape='\\')) |
+                (QueueTemplate.description.ilike(search_term, escape='\\'))
             )).scalars().all()
             for template in templates:
                 session.expunge(template)

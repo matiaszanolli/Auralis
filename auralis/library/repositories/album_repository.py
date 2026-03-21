@@ -140,8 +140,8 @@ class AlbumRepository:
             escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
             search_term = f"%{escaped}%"
             search_filter = or_(
-                Album.title.ilike(search_term),
-                Artist.name.ilike(search_term)
+                Album.title.ilike(search_term, escape='\\'),
+                Artist.name.ilike(search_term, escape='\\')
             )
 
             total = session.execute(

@@ -323,9 +323,9 @@ class TrackRepository:
 
             # Build shared filter for count and results statements
             search_filter = or_(
-                Track.title.ilike(search_term),
-                Artist.name.ilike(search_term),
-                Album.title.ilike(search_term)
+                Track.title.ilike(search_term, escape='\\'),
+                Artist.name.ilike(search_term, escape='\\'),
+                Album.title.ilike(search_term, escape='\\')
             )
 
             # Get total count

@@ -306,6 +306,23 @@ class TestQueueTemplateSearch:
 
         assert len(results) == 1
 
+    def test_search_escapes_like_metacharacters(self, template_repo):
+        """LIKE metacharacters % and _ should be treated as literals (#2692)"""
+        template_repo.create('test_1', [1])
+        template_repo.create('testX1', [2])
+        template_repo.create('test%all', [3])
+        template_repo.create('testAall', [4])
+
+        # _ should match only literal underscore, not any single character
+        results = template_repo.search('test_1')
+        assert len(results) == 1
+        assert results[0].name == 'test_1'
+
+        # % should match only literal percent, not any sequence
+        results = template_repo.search('test%all')
+        assert len(results) == 1
+        assert results[0].name == 'test%all'
+
 
 class TestQueueTemplateData:
     """Test template data handling"""

@@ -146,7 +146,7 @@ class ArtistRepository:
             # Get total count of matching artists
             total = session.execute(
                 select(func.count()).select_from(Artist)
-                .where(Artist.name.ilike(search_term))
+                .where(Artist.name.ilike(search_term, escape='\\'))
             ).scalar_one()
 
             # Get paginated results.
@@ -159,7 +159,7 @@ class ArtistRepository:
                         selectinload(Artist.tracks).selectinload(Track.genres),
                         selectinload(Artist.albums)
                     )
-                    .where(Artist.name.ilike(search_term))
+                    .where(Artist.name.ilike(search_term, escape='\\'))
                     .order_by(Artist.name)
                     .limit(limit)
                     .offset(offset)

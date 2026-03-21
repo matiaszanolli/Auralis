@@ -283,7 +283,7 @@ class GenreRepository:
             # Search for genres matching the query.
             # Escape LIKE metacharacters to prevent full-table scans on '%'/'_' (fixes #2405).
             escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
-            search_filter = Genre.name.ilike(f"%{escaped}%")
+            search_filter = Genre.name.ilike(f"%{escaped}%", escape='\\')
             total = session.execute(
                 select(func.count()).select_from(Genre).where(search_filter)
             ).scalar_one()
