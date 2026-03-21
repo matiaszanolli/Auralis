@@ -13,7 +13,7 @@ interface OptimizationHookOptions extends Partial<PerformanceConfig> {
 }
 
 interface OptimizationHookResult {
-  optimizer: PerformanceOptimizer;
+  optimizer: PerformanceOptimizer | null;
   stats: PerformanceMetrics;
   qualityLevel: number;
   shouldRender: () => boolean;
@@ -21,7 +21,7 @@ interface OptimizationHookResult {
   startRender: () => void;
   endRender: () => void;
   updateConfig: (config: Partial<PerformanceConfig>) => void;
-  monitor: PerformanceMonitor;
+  monitor: PerformanceMonitor | null;
 }
 
 export const useVisualizationOptimization = (
@@ -144,7 +144,7 @@ export const useVisualizationOptimization = (
   }, []);
 
   return {
-    optimizer: optimizerRef.current!,
+    optimizer: optimizerRef.current ?? null,
     stats,
     qualityLevel,
     shouldRender,
@@ -152,7 +152,7 @@ export const useVisualizationOptimization = (
     startRender,
     endRender,
     updateConfig,
-    monitor: monitorRef.current!
+    monitor: monitorRef.current ?? null
   };
 };
 
