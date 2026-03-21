@@ -612,8 +612,9 @@ const RotatingDescription = ({
 }: RotatingDescriptionProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Rotate descriptions every 8-12 seconds when playing
+  // Rotate descriptions every 10 seconds when playing
   useEffect(() => {
     if (!isPlaying || descriptions.length === 0) {
       setCurrentIndex(0);
@@ -622,13 +623,17 @@ const RotatingDescription = ({
 
     const interval = setInterval(() => {
       setIsVisible(false);
-      setTimeout(() => {
+      // Store timeout handle so cleanup can cancel it (#2770)
+      timeoutRef.current = setTimeout(() => {
         setCurrentIndex((prev) => (prev + 1) % descriptions.length);
         setIsVisible(true);
       }, 400); // Crossfade duration
     }, 10000); // 10 seconds between rotations
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeoutRef.current);
+    };
   }, [isPlaying, descriptions.length]);
 
   const displayText = isPlaying && descriptions.length > 0
