@@ -159,7 +159,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   const [error, setError] = useState<ApiError | null>(null);
 
   // Refs for tracking ongoing requests and query stability
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // Note: request cancellation is handled by useRestAPI's own AbortController.
   const queryKeyRef = useRef<string>('');
   const isFetchingMoreRef = useRef<boolean>(false);
 
@@ -237,12 +237,6 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
       queryKeyRef.current = queryKey;
 
-      // Cancel previous request if any
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-
-      abortControllerRef.current = new AbortController();
       setIsLoading(true);
       setError(null);
 
@@ -343,11 +337,8 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
     executeQuery(0, false);
 
-    // Cleanup on unmount
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      // Cleanup handled by useRestAPI's own unmount abort
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryType, skip, options.search, options.orderBy]);
