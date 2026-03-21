@@ -17,6 +17,7 @@
  */
 
 import React from 'react';
+import { tokens } from '@/design-system';
 import { createTimeoutPromise, globalErrorLogger } from '../utils/errorHandling';
 import {
   calculateRunningAverage,
@@ -682,7 +683,7 @@ export class AnalysisExportService {
     theme: string
   ): Promise<void> {
     // Simplified waveform rendering
-    ctx.strokeStyle = theme === 'dark' ? '#4FC3F7' : '#1976D2';
+    ctx.strokeStyle = theme === 'dark' ? tokens.colors.audioSemantic.spatial : tokens.colors.semantic.info;
     ctx.lineWidth = 2;
 
     ctx.beginPath();
@@ -700,7 +701,7 @@ export class AnalysisExportService {
     ctx.stroke();
 
     // Title
-    ctx.fillStyle = theme === 'dark' ? '#FFFFFF' : '#000000';
+    ctx.fillStyle = theme === 'dark' ? tokens.colors.text.primaryFull : '#000000';
     ctx.font = '20px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('Waveform', x, y - 10);
@@ -716,7 +717,7 @@ export class AnalysisExportService {
   ): Promise<void> {
     // Simplified spectrum rendering
     const barWidth = width / 64;
-    ctx.fillStyle = theme === 'dark' ? '#FFB74D' : '#F57C00';
+    ctx.fillStyle = theme === 'dark' ? tokens.colors.audioSemantic.transient : tokens.colors.semantic.warning;
 
     for (let i = 0; i < 64; i++) {
       const barHeight = Math.random() * height * 0.8;
@@ -724,7 +725,7 @@ export class AnalysisExportService {
     }
 
     // Title
-    ctx.fillStyle = theme === 'dark' ? '#FFFFFF' : '#000000';
+    ctx.fillStyle = theme === 'dark' ? tokens.colors.text.primaryFull : '#000000';
     ctx.font = '20px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('Spectrum Analysis', x, y - 10);
@@ -747,17 +748,17 @@ export class AnalysisExportService {
       const level = Math.random();
 
       // Background
-      ctx.fillStyle = theme === 'dark' ? '#333333' : '#CCCCCC';
+      ctx.fillStyle = theme === 'dark' ? tokens.colors.bg.level2 : '#CCCCCC';
       ctx.fillRect(meterX, y, meterWidth, height);
 
       // Level
       const levelHeight = level * height;
-      ctx.fillStyle = level > 0.8 ? '#FF6B6B' : level > 0.6 ? '#FFB74D' : '#4FC3F7';
+      ctx.fillStyle = level > 0.8 ? tokens.colors.semantic.error : level > 0.6 ? tokens.colors.audioSemantic.transient : tokens.colors.audioSemantic.spatial;
       ctx.fillRect(meterX, y + height - levelHeight, meterWidth, levelHeight);
     }
 
     // Title
-    ctx.fillStyle = theme === 'dark' ? '#FFFFFF' : '#000000';
+    ctx.fillStyle = theme === 'dark' ? tokens.colors.text.primaryFull : '#000000';
     ctx.font = '20px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('Audio Meters', x, y - 10);
@@ -771,7 +772,7 @@ export class AnalysisExportService {
     _height: number,
     theme: string
   ): void {
-    ctx.fillStyle = theme === 'dark' ? '#FFFFFF' : '#000000';
+    ctx.fillStyle = theme === 'dark' ? tokens.colors.text.primaryFull : '#000000';
     ctx.font = '20px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('Analysis Statistics', x, y);
@@ -795,8 +796,8 @@ export class AnalysisExportService {
   private generateSVGVisualization(settings: ExportOptions['visualizationSettings']): string {
     // SVG generation would be implemented here
     return `<svg width="${settings!.width}" height="${settings!.height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100%" height="100%" fill="${settings!.theme === 'dark' ? '#0A0A0A' : '#FFFFFF'}"/>
-      <text x="50%" y="60" text-anchor="middle" fill="${settings!.theme === 'dark' ? '#FFFFFF' : '#000000'}" font-size="48" font-weight="bold">
+      <rect width="100%" height="100%" fill="${settings!.theme === 'dark' ? tokens.colors.bg.level0 : '#FFFFFF'}"/>
+      <text x="50%" y="60" text-anchor="middle" fill="${settings!.theme === 'dark' ? tokens.colors.text.primaryFull : '#000000'}" font-size="48" font-weight="bold">
         Auralis Audio Analysis Report
       </text>
     </svg>`;
