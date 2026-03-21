@@ -114,7 +114,8 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         get_processing_cache=lambda: processing_cache,
         get_multi_tier_buffer=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
         get_player_state_manager=get_component('player_state_manager'),
-        get_processing_engine=lambda: globals_dict.get('processing_engine') if HAS_PROCESSING else None
+        get_processing_engine=lambda: globals_dict.get('processing_engine') if HAS_PROCESSING else None,
+        get_repository_factory=get_component('repository_factory'),
     )
     app.include_router(enhancement_router)
     logger.debug("✅ Enhancement router registered")

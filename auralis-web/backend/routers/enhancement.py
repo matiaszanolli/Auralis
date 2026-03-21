@@ -25,7 +25,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
 from core.chunk_boundaries import CHUNK_INTERVAL  # single source of truth (#2564)
-from security.path_security import PathValidationError, validate_file_path
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
@@ -65,7 +64,8 @@ def create_enhancement_router(
     get_processing_cache: Callable[[], dict[str, Any]] | None = None,
     get_multi_tier_buffer: Callable[[], Any] | None = None,
     get_player_state_manager: Callable[[], Any] | None = None,
-    get_processing_engine: Callable[[], Any] | None = None
+    get_processing_engine: Callable[[], Any] | None = None,
+    get_repository_factory: Callable[[], Any] | None = None,
 ) -> APIRouter:
     """
     Factory function to create enhancement router with dependencies.
@@ -76,6 +76,7 @@ def create_enhancement_router(
         get_processing_cache: Optional callable that returns processing cache dict
         get_player_state_manager: Optional callable that returns PlayerStateManager
         get_processing_engine: Optional callable that returns ProcessingEngine
+        get_repository_factory: Optional callable that returns RepositoryFactory
 
     Returns:
         APIRouter: Configured router instance
@@ -349,52 +350,48 @@ def create_enhancement_router(
         return get_enhancement_settings()
 
     @router.get("/api/player/mastering/recommendation/{track_id}")
-    async def get_mastering_recommendation(track_id: int, filepath: str | None = None, confidence_threshold: float = 0.4) -> dict[str, Any]:
+    async def get_mastering_recommendation(track_id: int, confidence_threshold: float = 0.4) -> dict[str, Any]:
         """
         Get weighted mastering profile recommendation for a track (Priority 4).
 
         Analyzes the track's audio characteristics and returns single or blended
         profile recommendations based on confidence thresholds.
 
+        The filepath is resolved from the database by track_id to prevent
+        mismatched track/file analysis (fixes #2731).
+
         Args:
             track_id: Track database ID
-            filepath: Path to audio file (required for analysis)
             confidence_threshold: Threshold for switching from single to blended recommendations (0.0-1.0)
 
         Returns:
             dict: MasteringRecommendation serialized to JSON with weighted_profiles if hybrid
-                {
-                    "primary_profile_id": "...",
-                    "primary_profile_name": "...",
-                    "confidence_score": 0.73,
-                    "predicted_loudness_change": -0.93,
-                    "predicted_crest_change": 1.4,
-                    "predicted_centroid_change": 100.0,
-                    "weighted_profiles": [  // Only present if hybrid recommendation
-                        {"profile_id": "...", "profile_name": "...", "weight": 0.43},
-                        ...
-                    ],
-                    "reasoning": "..."
-                }
 
         Raises:
-            HTTPException: 400 if filepath not provided or track not found
+            HTTPException: 404 if track not found
+            HTTPException: 503 if repository unavailable
             HTTPException: 500 if analysis fails
         """
-        if not filepath:
-            raise HTTPException(status_code=400, detail="filepath parameter required")
+        # Resolve filepath from DB by track_id (fixes #2731)
+        if get_repository_factory is None:
+            raise HTTPException(status_code=503, detail="Repository not available")
+        repos = get_repository_factory()
+        if repos is None:
+            raise HTTPException(status_code=503, detail="Repository not available")
 
-        # Validate filepath against allowed library directories
-        try:
-            normalized_path = validate_file_path(filepath)
-        except PathValidationError:
-            raise HTTPException(status_code=400, detail="Invalid filepath")
+        track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
+        if not track:
+            raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
+
+        filepath = track.filepath
+        if not filepath:
+            raise HTTPException(status_code=400, detail=f"Track {track_id} has no filepath")
 
         try:
             from core.chunked_processor import ChunkedAudioProcessor
 
             # Run CPU-bound processor off the event loop (#2301)
-            _fp = str(normalized_path)
+            _fp = str(filepath)
             _tid = track_id
             _ct = confidence_threshold
 

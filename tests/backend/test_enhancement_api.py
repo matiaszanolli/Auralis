@@ -167,39 +167,118 @@ class TestGetEnhancementStatus:
 
 
 class TestGetMasteringRecommendation:
-    """Test GET /api/player/mastering/recommendation/{track_id}"""
+    """Test GET /api/player/mastering/recommendation/{track_id} (fixes #2731)
 
-    def test_get_mastering_recommendation_missing_filepath(self, client):
-        """Test recommendation without filepath parameter"""
-        response = client.get("/api/player/mastering/recommendation/1")
+    The endpoint resolves filepath from the DB by track_id — no filepath
+    query parameter is accepted.
+    """
 
-        assert response.status_code == 400
-        assert "filepath parameter required" in response.json()["detail"]
+    # Module-level router is shared — create client once to avoid duplicate routes.
+    _repos_box: list = [None]
 
-    def test_get_mastering_recommendation_absolute_path(self, client):
-        """Test that absolute paths are rejected (security)"""
-        response = client.get("/api/player/mastering/recommendation/1?filepath=/etc/passwd")
+    @classmethod
+    def _get_client(cls):
+        if not hasattr(cls, '_client'):
+            from unittest.mock import Mock
+            from fastapi import FastAPI
+            from fastapi.testclient import TestClient
+            from routers.enhancement import create_enhancement_router
 
-        assert response.status_code == 400
-        assert "Absolute paths are not allowed" in response.json()["detail"]
+            cls._repos_box[0] = Mock()
+            cls._repos_box[0].tracks.get_by_id = Mock(return_value=None)
 
-    def test_get_mastering_recommendation_path_traversal(self, client):
-        """Test that path traversal is rejected (security)"""
-        response = client.get("/api/player/mastering/recommendation/1?filepath=../../etc/passwd")
+            router = create_enhancement_router(
+                get_enhancement_settings=lambda: {"enabled": True, "preset": "adaptive", "intensity": 0.7},
+                connection_manager=Mock(),
+                get_repository_factory=lambda: cls._repos_box[0],
+            )
+            app = FastAPI()
+            app.include_router(router)
+            cls._client = TestClient(app)
+        return cls._client
 
-        assert response.status_code == 400
-        assert "Path traversal" in response.json()["detail"]
+    def setup_method(self):
+        """Reset mock repos before each test."""
+        from unittest.mock import Mock
+        self._get_client()  # ensure client exists
+        self._repos_box[0] = Mock()
+        self._repos_box[0].tracks.get_by_id = Mock(return_value=None)
 
-    def test_get_mastering_recommendation_custom_threshold(self, client):
-        """Test custom confidence threshold parameter"""
-        # This will fail because file doesn't exist, but validates parameter passing
-        response = client.get(
-            "/api/player/mastering/recommendation/1"
-            "?filepath=test.mp3&confidence_threshold=0.6"
+    def test_returns_404_for_nonexistent_track(self):
+        """Call with nonexistent track_id → 404"""
+        client = self._get_client()
+
+        response = client.get("/api/player/mastering/recommendation/999")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    def test_resolves_filepath_from_db(self):
+        """Call with valid track_id → filepath resolved from DB, not query param"""
+        from unittest.mock import Mock, patch
+
+        client = self._get_client()
+        track = Mock()
+        track.filepath = "/music/song.flac"
+        self._repos_box[0].tracks.get_by_id.return_value = track
+
+        mock_rec = Mock()
+        mock_rec.to_dict.return_value = {"primary_profile_id": "pop", "confidence_score": 0.9}
+
+        with patch("core.chunked_processor.ChunkedAudioProcessor") as MockProc:
+            MockProc.return_value.get_mastering_recommendation.return_value = mock_rec
+            response = client.get("/api/player/mastering/recommendation/1")
+
+        assert response.status_code == 200
+        MockProc.assert_called_once()
+        call_kwargs = MockProc.call_args[1]
+        assert call_kwargs["filepath"] == "/music/song.flac"
+        assert call_kwargs["track_id"] == 1
+
+    def test_no_filepath_query_param_accepted(self):
+        """The filepath query parameter must not influence the endpoint"""
+        from unittest.mock import Mock, patch
+
+        client = self._get_client()
+        track = Mock()
+        track.filepath = "/music/real.flac"
+        self._repos_box[0].tracks.get_by_id.return_value = track
+
+        mock_rec = Mock()
+        mock_rec.to_dict.return_value = {"primary_profile_id": "pop"}
+
+        with patch("core.chunked_processor.ChunkedAudioProcessor") as MockProc:
+            MockProc.return_value.get_mastering_recommendation.return_value = mock_rec
+            response = client.get(
+                "/api/player/mastering/recommendation/1?filepath=/evil/path.wav"
+            )
+
+        assert response.status_code == 200
+        call_kwargs = MockProc.call_args[1]
+        assert call_kwargs["filepath"] == "/music/real.flac"
+
+    def test_custom_confidence_threshold(self):
+        """Custom confidence_threshold parameter is passed through"""
+        from unittest.mock import Mock, patch
+
+        client = self._get_client()
+        track = Mock()
+        track.filepath = "/music/song.flac"
+        self._repos_box[0].tracks.get_by_id.return_value = track
+
+        mock_rec = Mock()
+        mock_rec.to_dict.return_value = {"primary_profile_id": "pop"}
+
+        with patch("core.chunked_processor.ChunkedAudioProcessor") as MockProc:
+            MockProc.return_value.get_mastering_recommendation.return_value = mock_rec
+            response = client.get(
+                "/api/player/mastering/recommendation/1?confidence_threshold=0.8"
+            )
+
+        assert response.status_code == 200
+        MockProc.return_value.get_mastering_recommendation.assert_called_once_with(
+            confidence_threshold=0.8
         )
-
-        # Should accept the parameter (even if processing fails)
-        assert response.status_code in [400, 500]  # Not a validation error
 
 
 class TestGetProcessingParameters:
