@@ -15,6 +15,8 @@
  * - Sample rate and channel metadata
  */
 
+import type { AudioChunkMessage } from '@/types/websocket';
+
 /**
  * Decode raw PCM bytes from an ArrayBuffer to Float32Array (zero-copy path)
  *
@@ -276,7 +278,7 @@ export interface PCMChunkMetadata {
  * @throws Error if message format is invalid
  */
 export function decodeAudioChunkMessage(
-  message: any,
+  message: AudioChunkMessage,
   sampleRate: number,
   channels: number
 ): {

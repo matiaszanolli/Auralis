@@ -14,7 +14,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketManager } from '../utils/errorHandling';
 import { WS_BASE_URL } from '../config/api';
-import type { AnyWebSocketMessage, WebSocketMessage } from '../types/websocket';
+import type { AnyWebSocketMessage, AudioChunkMessage, WebSocketMessage } from '../types/websocket';
 
 // Re-export message types so existing consumers can still import from here
 export type { AnyWebSocketMessage } from '../types/websocket';
@@ -93,7 +93,7 @@ let singletonRefCount = 0; // Track number of active providers
  * Pending audio_chunk_meta message — paired with the next binary frame.
  * Backend sends metadata as JSON text followed by raw PCM as binary.
  */
-let pendingAudioChunkMeta: AnyWebSocketMessage | WebSocketMessage | null = null;
+let pendingAudioChunkMeta: AudioChunkMessage | null = null;
 
 /**
  * Module-level subscription maps (must be singletons to survive provider remounts)
@@ -254,12 +254,10 @@ export const WebSocketProvider = ({
             if (pendingAudioChunkMeta) {
               // Attach the binary payload to the pending metadata and dispatch
               // as an 'audio_chunk' message so existing subscribers work unchanged.
-              const meta = pendingAudioChunkMeta as any;
-              const combined: any = {
+              const combined: AudioChunkMessage = {
                 type: 'audio_chunk',
                 data: {
-                  ...meta.data,
-                  // Raw ArrayBuffer — consumers use decodeBinaryPCM() instead of base64
+                  ...pendingAudioChunkMeta.data,
                   pcm_binary: event.data,
                 },
               };
@@ -276,10 +274,10 @@ export const WebSocketProvider = ({
             const meta = pendingAudioChunkMeta;
             event.data.arrayBuffer().then((buffer: ArrayBuffer) => {
               if (meta) {
-                const combined: any = {
+                const combined: AudioChunkMessage = {
                   type: 'audio_chunk',
                   data: {
-                    ...(meta as any).data,
+                    ...meta.data,
                     pcm_binary: buffer,
                   },
                 };
@@ -293,9 +291,10 @@ export const WebSocketProvider = ({
           // Text frame: JSON message
           const message: AnyWebSocketMessage | WebSocketMessage = JSON.parse(event.data);
 
-          // If this is an audio_chunk_meta, stash it and wait for the binary frame
+          // If this is an audio_chunk_meta, stash it and wait for the binary frame.
+          // The meta has the same data shape as AudioChunkMessage (minus pcm_binary/samples).
           if (message.type === 'audio_chunk_meta') {
-            pendingAudioChunkMeta = message;
+            pendingAudioChunkMeta = message as unknown as AudioChunkMessage;
             return;
           }
 

@@ -409,10 +409,13 @@ export interface AudioChunkMessage extends WebSocketMessage {
     chunk_count: number;
     frame_index: number;
     frame_count: number;
-    samples: string; // base64-encoded float32 PCM
+    samples: string; // base64-encoded float32 PCM (legacy transport)
     sample_count: number;
     crossfade_samples: number;
     stream_type?: 'enhanced' | 'normal';
+    /** Raw float32 PCM ArrayBuffer (binary transport, preferred over base64). Injected
+     *  at runtime by WebSocketContext when a binary frame follows audio_chunk_meta (fixes #2764). */
+    pcm_binary?: ArrayBuffer;
   };
 }
 
