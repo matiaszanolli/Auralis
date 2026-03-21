@@ -127,11 +127,15 @@ const playerSlice = createSlice({
     },
 
     /**
-     * Set total duration
+     * Set total duration.
+     * Syncs to currentTrack.duration to prevent divergence (#2774).
      */
     setDuration: {
       reducer(state, action: PayloadAction<number, string, { timestamp: number }>) {
         state.duration = action.payload;
+        if (state.currentTrack) {
+          state.currentTrack.duration = action.payload;
+        }
         state.lastUpdated = action.meta.timestamp;
       },
       prepare(duration: number) {
@@ -244,6 +248,10 @@ const playerSlice = createSlice({
         // streaming progress tracked by usePlayEnhanced (fixes #2352).
         const { streaming, ...rest } = action.payload;
         Object.assign(state, rest);
+        // Keep currentTrack.duration in sync with top-level duration (#2774)
+        if (rest.duration !== undefined && state.currentTrack) {
+          state.currentTrack.duration = rest.duration;
+        }
         if (streaming) {
           if (streaming.normal) Object.assign(state.streaming.normal, streaming.normal);
           if (streaming.enhanced) Object.assign(state.streaming.enhanced, streaming.enhanced);
