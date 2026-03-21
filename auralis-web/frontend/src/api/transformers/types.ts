@@ -16,6 +16,7 @@ export interface AlbumApiResponse {
   id: number;
   title: string;
   artist: string;
+  artist_id: number | null; // FK to artists table (snake_case)
   year: number | null;
   artwork_url: string | null; // Backend field name
   track_count: number; // Backend field name (snake_case)

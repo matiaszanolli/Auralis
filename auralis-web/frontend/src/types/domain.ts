@@ -59,6 +59,7 @@ export interface Album {
   id: number;
   title: string;
   artist: string;
+  artistId?: number; // FK for album→artist navigation
 
   // Optional metadata
   artworkUrl?: string; // camelCase
