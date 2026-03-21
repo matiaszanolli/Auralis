@@ -1257,7 +1257,7 @@ class AudioStreamController:
                             "stream_type": stream_type,
                         },
                     }
-                    pcm_bytes: bytes = frame_samples.tobytes()
+                    pcm_bytes: bytes = frame_samples.astype('<f4').tobytes()
                     await queue.put((metadata, pcm_bytes))
             finally:
                 await queue.put(None)  # sentinel
