@@ -394,6 +394,9 @@ export interface AudioStreamEndMessage extends WebSocketMessage {
   type: 'audio_stream_end';
   data: {
     track_id: number;
+    total_samples?: number;
+    duration?: number;
+    stream_type?: 'enhanced' | 'normal';
   };
 }
 
@@ -417,6 +420,8 @@ export interface AudioStreamErrorMessage extends WebSocketMessage {
   data: {
     track_id: number;
     error: string;
+    code?: string;
+    stream_type?: 'enhanced' | 'normal';
   };
 }
 
