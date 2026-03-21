@@ -228,21 +228,47 @@ class MigrationManager:
                     logger.error(f"Migration {migration_file} contains dangerous operation: {keyword}")
                     return False
 
-            # Execute migration in a transaction
-            with self.engine.begin() as conn:
-                # Split by semicolons and execute each statement
-                statements = [s.strip() for s in sql.split(';') if s.strip()]
-                for statement in statements:
-                    if statement:
-                        conn.execute(text(statement))
+            description = f"Migrated from v{from_version} to v{to_version}"
 
-            # Record the migration
-            self._record_migration(
-                to_version,
-                f"Migrated from v{from_version} to v{to_version}",
-                migration_file
-            )
+            # Execute DDL and record version in the SAME transaction (#2905).
+            #
+            # Python's sqlite3 driver implicitly commits before DDL statements
+            # unless isolation_level is None (manual transaction control).  We
+            # drop to the raw DBAPI connection so BEGIN/COMMIT/ROLLBACK are
+            # fully under our control and DDL + version INSERT are truly atomic.
+            raw_conn = self.engine.raw_connection()
+            try:
+                dbapi_conn = raw_conn.dbapi_connection
+                old_isolation = dbapi_conn.isolation_level
+                dbapi_conn.isolation_level = None
+                cursor = dbapi_conn.cursor()
+                try:
+                    cursor.execute("BEGIN")
 
+                    # Apply DDL statements
+                    statements = [s.strip() for s in sql.split(';') if s.strip()]
+                    for statement in statements:
+                        if statement:
+                            cursor.execute(statement)
+
+                    # Record the migration in the same transaction
+                    cursor.execute(
+                        "INSERT INTO schema_version (version, applied_at, description, migration_script) "
+                        "VALUES (?, ?, ?, ?)",
+                        (to_version, datetime.now().isoformat(), description, migration_file),
+                    )
+
+                    cursor.execute("COMMIT")
+                except BaseException:
+                    cursor.execute("ROLLBACK")
+                    raise
+                finally:
+                    cursor.close()
+                    dbapi_conn.isolation_level = old_isolation
+            finally:
+                raw_conn.close()
+
+            logger.info(f"✅ Recorded migration to v{to_version}: {description}")
             logger.info(f"✅ Migration to v{to_version} completed successfully")
             return True
 
