@@ -11,7 +11,8 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   StandardizedAPIClient,
   CacheAwareAPIClient,
@@ -288,133 +289,57 @@ export function usePaginatedAPI<T = any>(
 // Cache Hooks
 // ============================================================================
 
+// Shared client instance for cache queries (avoids recreating per hook call)
+let _cacheClient: CacheAwareAPIClient | null = null;
+function getCacheClient(): CacheAwareAPIClient {
+  if (!_cacheClient) {
+    _cacheClient = new CacheAwareAPIClient(getAPIClient());
+  }
+  return _cacheClient;
+}
+
 /**
- * Hook for monitoring cache statistics
+ * Hook for monitoring cache statistics (#2806: React Query for dedup)
  */
 export function useCacheStats(): APIRequestState<CacheStats> & {
   refetch: () => Promise<void>;
 } {
-  const apiClient = useRef<CacheAwareAPIClient | null>(null);
-  const [state, setState] = useState<APIRequestState<CacheStats>>({
-    data: null,
-    loading: true,
-    error: null
+  const query = useQuery<CacheStats | null>({
+    queryKey: ['cache', 'stats'],
+    queryFn: () => getCacheClient().getCacheStats(),
+    refetchInterval: 5000,
   });
 
-  useEffect(() => {
-    if (!apiClient.current) {
-      const baseClient = getAPIClient();
-      apiClient.current = new CacheAwareAPIClient(baseClient);
-    }
-  }, []);
-
-  const fetchStats = useCallback(async () => {
-    if (!apiClient.current) return;
-
-    setState(prev => ({ ...prev, loading: true }));
-
-    try {
-      const data = await apiClient.current.getCacheStats();
-      if (data) {
-        setState({
-          data,
-          loading: false,
-          error: null
-        });
-      } else {
-        setState({
-          data: null,
-          loading: false,
-          error: 'Failed to fetch cache stats'
-        });
-      }
-    } catch (error) {
-      setState({
-        data: null,
-        loading: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 5000); // Refresh every 5 seconds
-    return () => clearInterval(interval);
-  }, [fetchStats]);
-
-  return {
-    ...state,
-    refetch: fetchStats
-  };
+  return useMemo(() => ({
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error ? query.error.message : null,
+    refetch: async () => { await query.refetch(); },
+  }), [query.data, query.isLoading, query.error, query.refetch]);
 }
 
 /**
- * Hook for monitoring cache health
+ * Hook for monitoring cache health (#2806: React Query for dedup)
  */
 export function useCacheHealth(): APIRequestState<CacheHealth> & {
   refetch: () => Promise<void>;
   isHealthy: boolean;
   healthStatus: 'healthy' | 'warning' | 'critical';
 } {
-  const apiClient = useRef<CacheAwareAPIClient | null>(null);
-  const [state, setState] = useState<APIRequestState<CacheHealth>>({
-    data: null,
-    loading: true,
-    error: null
+  const query = useQuery<CacheHealth | null>({
+    queryKey: ['cache', 'health'],
+    queryFn: () => getCacheClient().getCacheHealth(),
+    refetchInterval: 10000,
   });
 
-  useEffect(() => {
-    if (!apiClient.current) {
-      const baseClient = getAPIClient();
-      apiClient.current = new CacheAwareAPIClient(baseClient);
-    }
-  }, []);
-
-  const fetchHealth = useCallback(async () => {
-    if (!apiClient.current) return;
-
-    setState(prev => ({ ...prev, loading: true }));
-
-    try {
-      const data = await apiClient.current.getCacheHealth();
-      if (data) {
-        setState({
-          data,
-          loading: false,
-          error: null
-        });
-      } else {
-        setState({
-          data: null,
-          loading: false,
-          error: 'Failed to fetch cache health'
-        });
-      }
-    } catch (error) {
-      setState({
-        data: null,
-        loading: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchHealth();
-    const interval = setInterval(fetchHealth, 10000); // Refresh every 10 seconds
-    return () => clearInterval(interval);
-  }, [fetchHealth]);
-
-  const isHealthy = state.data?.healthy ?? false;
-  const healthStatus = state.data?.healthy ? 'healthy' : 'critical';
-
-  return {
-    ...state,
-    refetch: fetchHealth,
-    isHealthy,
-    healthStatus
-  };
+  return useMemo(() => ({
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error ? query.error.message : null,
+    refetch: async () => { await query.refetch(); },
+    isHealthy: query.data?.healthy ?? false,
+    healthStatus: query.data?.healthy ? 'healthy' as const : 'critical' as const,
+  }), [query.data, query.isLoading, query.error, query.refetch]);
 }
 
 // ============================================================================
