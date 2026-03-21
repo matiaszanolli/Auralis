@@ -6,7 +6,7 @@
  *
  * Communication protocol:
  * - Main thread sends PCM samples via port.postMessage({ samples: Float32Array })
- * - Main thread sends control messages: { command: 'stop' | 'setVolume', ... }
+ * - Main thread sends control messages: { command: 'stop' | 'setVolume' | 'setChannels' | 'clear' }
  * - Processor sends state updates: { type: 'underrun' | 'samplesPlayed', ... }
  */
 
@@ -24,6 +24,8 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
     this._samplesPlayed = 0;
     /** Whether to output audio */
     this._active = true;
+    /** Number of interleaved channels (set via setChannels command, fixes #2842) */
+    this._channels = 2;
 
     this.port.onmessage = (event) => {
       const { data } = event;
@@ -37,6 +39,8 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
         this._buffers = [];
         this._available = 0;
         this._readOffset = 0;
+      } else if (data.command === 'setChannels') {
+        this._channels = data.channels || 2;
       }
     };
   }
@@ -52,17 +56,13 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
     const output = outputs[0];
     if (!output || output.length === 0) return true;
 
-    const left = output[0];
-    const right = output.length > 1 ? output[1] : null;
-    const framesNeeded = left.length;
-
-    // Assume stereo interleaved (L,R,L,R,...)
-    const samplesNeeded = framesNeeded * 2;
+    const channels = this._channels;
+    const framesNeeded = output[0].length;
+    const samplesNeeded = framesNeeded * channels;
 
     if (this._available < samplesNeeded) {
       // Underrun — output silence
-      left.fill(0);
-      if (right) right.fill(0);
+      for (let ch = 0; ch < output.length; ch++) output[ch].fill(0);
       this.port.postMessage({ type: 'underrun' });
       return true;
     }
@@ -73,18 +73,21 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
       const buf = this._buffers[0];
       const remaining = buf.length - this._readOffset;
       const framesToRead = Math.min(
-        Math.floor(remaining / 2),
+        Math.floor(remaining / channels),
         framesNeeded - written
       );
 
       for (let i = 0; i < framesToRead; i++) {
-        const idx = this._readOffset + i * 2;
-        left[written + i] = buf[idx];
-        if (right) right[written + i] = buf[idx + 1];
+        const idx = this._readOffset + i * channels;
+        for (let ch = 0; ch < output.length; ch++) {
+          // For mono source with stereo output, duplicate the single channel.
+          // For multichannel, map channels 1:1.
+          output[ch][written + i] = buf[idx + Math.min(ch, channels - 1)];
+        }
       }
 
-      this._readOffset += framesToRead * 2;
-      this._available -= framesToRead * 2;
+      this._readOffset += framesToRead * channels;
+      this._available -= framesToRead * channels;
       written += framesToRead;
 
       if (this._readOffset >= buf.length) {
@@ -95,8 +98,7 @@ class AuralisPlaybackProcessor extends AudioWorkletProcessor {
 
     // Fill remaining with silence if buffer ran short
     for (let i = written; i < framesNeeded; i++) {
-      left[i] = 0;
-      if (right) right[i] = 0;
+      for (let ch = 0; ch < output.length; ch++) output[ch][i] = 0;
     }
 
     this._samplesPlayed += written;

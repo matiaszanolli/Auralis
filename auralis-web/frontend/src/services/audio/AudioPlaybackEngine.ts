@@ -345,11 +345,15 @@ export class AudioPlaybackEngine {
     if (this.workletNode) return;
 
     try {
+      const channels = this.buffer.getMetadata().channels || 2;
       this.workletNode = new AudioWorkletNode(
         this.audioContext,
         'auralis-playback-processor',
-        { outputChannelCount: [2] }
+        { outputChannelCount: [channels] }
       );
+
+      // Tell the worklet how many channels to deinterleave (#2842)
+      this.workletNode.port.postMessage({ command: 'setChannels', channels });
 
       this.workletNode.port.onmessage = (event: MessageEvent) => {
         const { data } = event;
@@ -378,7 +382,8 @@ export class AudioPlaybackEngine {
   private startFeeding(): void {
     if (this.feedInterval) return;
 
-    const feedChunkSize = this.bufferSize * 2; // stereo interleaved
+    const channels = this.buffer.getMetadata().channels || 2;
+    const feedChunkSize = this.bufferSize * channels; // interleaved samples per feed
 
     this.feedInterval = setInterval(() => {
       if (!this.workletNode || this.state !== 'playing') return;
@@ -437,7 +442,8 @@ export class AudioPlaybackEngine {
 
     try {
       // Create script processor (4096 samples per callback is typical)
-      this.scriptNode = this.audioContext.createScriptProcessor(this.bufferSize, 0, 2);
+      const channels = this.buffer.getMetadata().channels || 2;
+      this.scriptNode = this.audioContext.createScriptProcessor(this.bufferSize, 0, channels);
 
       // Audio processing callback - pulls samples from buffer
       this.scriptNode.onaudioprocess = (event: AudioProcessingEvent) => {
