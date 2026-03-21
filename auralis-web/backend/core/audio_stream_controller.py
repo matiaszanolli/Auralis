@@ -185,7 +185,8 @@ class AudioStreamController:
         self,
         chunked_processor_class: type[ChunkedAudioProcessor] | None = None,
         get_repository_factory: Callable[[], RepositoryFactory] | None = None,
-        cache_manager: StreamlinedCacheManager | SimpleChunkCache | None = None
+        cache_manager: StreamlinedCacheManager | SimpleChunkCache | None = None,
+        get_enhancement_enabled: Callable[[], bool] | None = None,
     ) -> None:
         """
         Initialize AudioStreamController.
@@ -194,9 +195,13 @@ class AudioStreamController:
             chunked_processor_class: ChunkedAudioProcessor class for processing
             get_repository_factory: Callable that returns RepositoryFactory for track lookup
             cache_manager: Optional cache manager for chunk caching.
+            get_enhancement_enabled: Callable that returns whether enhancement is currently
+                enabled. The streaming loop checks this each iteration so toggling
+                enhancement off stops in-flight chunks promptly (fixes #2866).
         """
         self.chunked_processor_class: type[ChunkedAudioProcessor] | None = chunked_processor_class
         self._get_repository_factory: Callable[[], RepositoryFactory] | None = get_repository_factory
+        self._get_enhancement_enabled = get_enhancement_enabled
 
         # Use provided cache manager or fallback to SimpleChunkCache
         self.cache_manager: StreamlinedCacheManager | SimpleChunkCache = cache_manager or SimpleChunkCache()
@@ -579,6 +584,15 @@ class AudioStreamController:
             next_track_prefetched: bool = False
 
             for chunk_idx in range(processor.total_chunks):
+                # Stop streaming if enhancement was toggled off mid-stream (fixes #2866).
+                if self._get_enhancement_enabled and not self._get_enhancement_enabled():
+                    logger.info(
+                        f"Enhancement disabled mid-stream, stopping enhanced stream for track {track_id}"
+                    )
+                    if lookahead_task and not lookahead_task.done():
+                        lookahead_task.cancel()
+                    break
+
                 # Honour pause/resume events from the WebSocket handler (#2106).
                 from routers.system import _stream_pause_events, _stream_flow_events
                 pause_evt = _stream_pause_events.get(id(websocket))
@@ -1552,6 +1566,15 @@ class AudioStreamController:
             lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
 
             for chunk_idx in range(start_chunk_idx, processor.total_chunks):
+                # Stop streaming if enhancement was toggled off mid-stream (fixes #2866).
+                if self._get_enhancement_enabled and not self._get_enhancement_enabled():
+                    logger.info(
+                        f"Enhancement disabled mid-stream, stopping seek stream for track {track_id}"
+                    )
+                    if lookahead_task and not lookahead_task.done():
+                        lookahead_task.cancel()
+                    break
+
                 # Honour pause/resume and flow control events (fixes missing
                 # pause check in seek path — pre-existing bug).
                 from routers.system import _stream_pause_events, _stream_flow_events

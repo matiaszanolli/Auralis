@@ -306,6 +306,11 @@ def create_system_router(
                             controller = AudioStreamController(
                                 chunked_processor_class=ChunkedAudioProcessor,
                                 get_repository_factory=get_repository_factory,
+                                get_enhancement_enabled=(
+                                    (lambda: get_enhancement_settings().get("enabled", True))
+                                    if get_enhancement_settings is not None
+                                    else None
+                                ),
                             )
 
                             if controller.fingerprint_generator:
@@ -601,6 +606,11 @@ def create_system_router(
                             controller = AudioStreamController(
                                 chunked_processor_class=ChunkedAudioProcessor,
                                 get_repository_factory=get_repository_factory,
+                                get_enhancement_enabled=(
+                                    (lambda: get_enhancement_settings().get("enabled", True))
+                                    if get_enhancement_settings is not None
+                                    else None
+                                ),
                             )
 
                             await controller.stream_enhanced_audio_from_position(
