@@ -64,7 +64,7 @@ export type WebSocketMessageType =
 // Base Message Interface
 // ============================================================================
 
-export interface WebSocketMessage<T = any> {
+export interface WebSocketMessage<T = unknown> {
   type: WebSocketMessageType;
   data: T;
   timestamp?: number;

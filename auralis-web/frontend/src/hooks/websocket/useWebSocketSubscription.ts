@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import type { WebSocketMessage, WebSocketMessageType } from '../../types/websocket';
+import type { WebSocketMessage, WebSocketMessageType, AnyWebSocketMessage } from '../../types/websocket';
 
 // Global WebSocket connection (should be managed by WebSocketContext)
 // For now, we'll accept it as a parameter or from context
@@ -166,7 +166,7 @@ export function useWebSocketSubscription(
  */
 export function useWebSocketMessage<T extends WebSocketMessageType>(
   messageType: T,
-  callback: (message: Extract<WebSocketMessage, { type: T }>) => void
+  callback: (message: Extract<AnyWebSocketMessage, { type: T }>) => void
 ): void {
   useWebSocketSubscription([messageType], callback as (msg: WebSocketMessage) => void);
 }
@@ -177,14 +177,14 @@ export function useWebSocketMessage<T extends WebSocketMessageType>(
  */
 export function useWebSocketLatestMessage<T extends WebSocketMessageType>(
   messageType: T
-): Extract<WebSocketMessage, { type: T }> | null {
+): Extract<AnyWebSocketMessage, { type: T }> | null {
   const [latestMessage, setLatestMessage] = useState<
-    Extract<WebSocketMessage, { type: T }> | null
+    Extract<AnyWebSocketMessage, { type: T }> | null
   >(null);
 
   useWebSocketSubscription([messageType], (message) => {
     if (message.type === messageType) {
-      setLatestMessage(message as Extract<WebSocketMessage, { type: T }>);
+      setLatestMessage(message as Extract<AnyWebSocketMessage, { type: T }>);
     }
   });
 
