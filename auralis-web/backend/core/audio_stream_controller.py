@@ -531,11 +531,11 @@ class AudioStreamController:
                 await self._send_error(websocket, track_id, error_msg)
                 return
 
-            # Ensure processor has loaded metadata
-            assert processor.total_chunks is not None
-            assert processor.sample_rate is not None
-            assert processor.channels is not None
-            assert processor.duration is not None
+            # Ensure processor has loaded metadata (raise instead of assert
+            # so guards work under python -O / PyInstaller, fixes #2735)
+            for _attr in ('total_chunks', 'sample_rate', 'channels', 'duration'):
+                if getattr(processor, _attr) is None:
+                    raise ValueError(f"Processor metadata missing: {_attr} is None")
 
             # Register active stream so cleanup can always find it (fixes #2076)
             self.active_streams[track_id] = asyncio.current_task()
@@ -1000,8 +1000,10 @@ class AudioStreamController:
             processor: ChunkedProcessor instance (for metadata)
             websocket: WebSocket connection
         """
-        assert processor.total_chunks is not None
-        assert processor.sample_rate is not None
+        if processor.total_chunks is None:
+            raise ValueError("Processor metadata missing: total_chunks is None")
+        if processor.sample_rate is None:
+            raise ValueError("Processor metadata missing: sample_rate is None")
 
         # Apply server-side crossfade to smooth chunk boundaries
         crossfade_duration_ms = 200  # milliseconds
@@ -1497,11 +1499,11 @@ class AudioStreamController:
                 await self._send_error(websocket, track_id, error_msg)
                 return
 
-            # Ensure processor has loaded metadata
-            assert processor.total_chunks is not None
-            assert processor.sample_rate is not None
-            assert processor.channels is not None
-            assert processor.duration is not None
+            # Ensure processor has loaded metadata (raise instead of assert
+            # so guards work under python -O / PyInstaller, fixes #2735)
+            for _attr in ('total_chunks', 'sample_rate', 'channels', 'duration'):
+                if getattr(processor, _attr) is None:
+                    raise ValueError(f"Processor metadata missing: {_attr} is None")
 
             # Register active stream so cleanup can always find it (fixes #2076)
             self.active_streams[track_id] = asyncio.current_task()
