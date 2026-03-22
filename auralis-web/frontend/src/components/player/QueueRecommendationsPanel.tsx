@@ -338,7 +338,7 @@ const NewArtistsTab = ({ newArtists, onAddTrack }: NewArtistsTabProps) => {
           <div style={styles.artistTracks}>
             {artist.tracks?.slice(0, 2).map((track: any, tIndex: number) => (
               <div
-                key={tIndex}
+                key={track.id ?? tIndex}
                 style={{
                   ...styles.artistTrackItem,
                   ...(hoveredIndex === index ? styles.artistTrackItemVisible : {}),
