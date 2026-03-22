@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import Box from '@mui/material/Box';
 import { tokens } from '@/design-system';
 import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
 
@@ -84,10 +85,11 @@ export function ConfirmationDialog({
             justifyContent: 'flex-end',
           }}
         >
-          <button
+          <Box
+            component="button"
             onClick={onCancel}
             disabled={disabled}
-            style={{
+            sx={{
               padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
               background: tokens.colors.bg.tertiary,
               border: `1px solid ${tokens.colors.border.light}`,
@@ -97,20 +99,18 @@ export function ConfirmationDialog({
               fontSize: tokens.typography.fontSize.sm,
               fontWeight: tokens.typography.fontWeight.medium,
               transition: 'all 0.2s',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = tokens.colors.bg.elevated;
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = tokens.colors.bg.tertiary;
+              '&:hover': {
+                background: tokens.colors.bg.elevated,
+              },
             }}
           >
             {cancelText}
-          </button>
-          <button
+          </Box>
+          <Box
+            component="button"
             onClick={onConfirm}
             disabled={disabled}
-            style={{
+            sx={{
               padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
               background: isDangerous ? tokens.colors.semantic.error : tokens.colors.accent.primary,
               border: 'none',
@@ -121,16 +121,13 @@ export function ConfirmationDialog({
               fontWeight: tokens.typography.fontWeight.semibold,
               opacity: disabled ? 0.6 : 0.9,
               transition: 'all 0.2s',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.opacity = '1';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.opacity = '0.9';
+              '&:hover:not(:disabled)': {
+                opacity: 1,
+              },
             }}
           >
             {confirmText}
-          </button>
+          </Box>
         </div>
       </div>
     </div>

@@ -16,6 +16,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import Box from '@mui/material/Box';
 import { tokens } from '@/design-system';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
@@ -407,12 +408,13 @@ export function ConnectionStatusIndicator({
 
           {/* Reconnect Button */}
           {status.isReconnecting && (
-            <button
+            <Box
+              component="button"
               onClick={() => {
                 // Trigger manual reconnection
                 window.location.reload();
               }}
-              style={{
+              sx={{
                 width: '100%',
                 padding: tokens.spacing.sm,
                 background: tokens.colors.accent.primary,
@@ -424,16 +426,13 @@ export function ConnectionStatusIndicator({
                 cursor: 'pointer',
                 opacity: 0.9,
                 transition: 'all 0.2s',
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.opacity = '1';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.opacity = '0.9';
+                '&:hover': {
+                  opacity: 1,
+                },
               }}
             >
               Reconnect
-            </button>
+            </Box>
           )}
         </div>
       )}

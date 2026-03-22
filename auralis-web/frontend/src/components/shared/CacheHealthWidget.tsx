@@ -15,6 +15,7 @@
  */
 
 import { useState, useCallback, useId } from 'react';
+import Box from '@mui/material/Box';
 import { tokens } from '@/design-system';
 import { useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
 import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
@@ -165,11 +166,11 @@ export function CacheHealthWidget({
 
   return (
     <>
-      <div
+      <Box
         data-testid="cache-health-widget"
         tabIndex={interactive ? 0 : undefined}
         onClick={() => interactive && setShowExpandedMonitor(true)}
-        style={{
+        sx={{
           width: sizeStyles.width,
           height: sizeStyles.height,
           padding: sizeStyles.padding,
@@ -183,18 +184,12 @@ export function CacheHealthWidget({
           cursor: interactive ? 'pointer' : 'default',
           transition: 'all 0.2s',
           position: 'relative',
-        }}
-        onMouseOver={(e) => {
-          if (interactive) {
-            (e.currentTarget as HTMLElement).style.transform = 'scale(1.05)';
-            (e.currentTarget as HTMLElement).style.boxShadow = `0 0 20px ${statusColor}40`;
-          }
-        }}
-        onMouseOut={(e) => {
-          if (interactive) {
-            (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
-            (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-          }
+          ...(interactive && {
+            '&:hover': {
+              transform: 'scale(1.05)',
+              boxShadow: `0 0 20px ${statusColor}40`,
+            },
+          }),
         }}
       >
         {/* Status Indicator */}
@@ -266,7 +261,7 @@ export function CacheHealthWidget({
             Click to expand
           </div>
         )}
-      </div>
+      </Box>
 
       {/* Expanded Monitor Modal */}
       {showExpandedMonitor && interactive && (

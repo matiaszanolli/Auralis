@@ -17,6 +17,7 @@
  */
 
 import { useState, useCallback, useId } from 'react';
+import Box from '@mui/material/Box';
 import { tokens } from '@/design-system';
 import { formatDuration } from '@/utils/timeFormat';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
@@ -156,9 +157,10 @@ export function QueueManager({
           }}
         >
           {showAddTrack && (
-            <button
+            <Box
+              component="button"
               onClick={() => setShowAddTrackForm(!showAddTrackForm)}
-              style={{
+              sx={{
                 padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
                 background: tokens.colors.accent.primary,
                 border: 'none',
@@ -169,22 +171,20 @@ export function QueueManager({
                 fontWeight: tokens.typography.fontWeight.semibold,
                 opacity: 0.9,
                 transition: 'all 0.2s',
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.opacity = '1';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.opacity = '0.9';
+                '&:hover': {
+                  opacity: 1,
+                },
               }}
             >
               + Add Track
-            </button>
+            </Box>
           )}
 
-          <button
+          <Box
+            component="button"
             onClick={() => setShowClearConfirmation(true)}
             disabled={tracks.length === 0}
-            style={{
+            sx={{
               padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
               background: tokens.colors.bg.tertiary,
               border: `1px solid ${tokens.colors.border.light}`,
@@ -194,20 +194,13 @@ export function QueueManager({
               fontSize: tokens.typography.fontSize.sm,
               opacity: tracks.length === 0 ? 0.5 : 0.8,
               transition: 'all 0.2s',
-            }}
-            onMouseOver={(e) => {
-              if (tracks.length > 0) {
-                e.currentTarget.style.opacity = '1';
-              }
-            }}
-            onMouseOut={(e) => {
-              if (tracks.length > 0) {
-                e.currentTarget.style.opacity = '0.8';
-              }
+              '&:hover:not(:disabled)': {
+                opacity: 1,
+              },
             }}
           >
             Clear Queue
-          </button>
+          </Box>
         </div>
       </div>
 
@@ -236,12 +229,12 @@ export function QueueManager({
           </div>
         ) : (
           tracks.map((track, index) => (
-            <div
+            <Box
               key={track.id}
               draggable={!isLoading}
               role="listitem"
               onDragStart={() => setDraggedIndex(index)}
-              onDragOver={(e) => {
+              onDragOver={(e: React.DragEvent) => {
                 e.preventDefault();
               }}
               onDrop={() => {
@@ -252,7 +245,7 @@ export function QueueManager({
               }}
               onDragEnd={() => setDraggedIndex(null)}
               className={index === currentIndex ? 'current' : ''}
-              style={{
+              sx={{
                 padding: tokens.spacing.md,
                 background:
                   index === currentIndex
@@ -270,24 +263,16 @@ export function QueueManager({
                 opacity: isLoading ? 0.6 : 1,
                 transition: 'all 0.2s',
                 userSelect: 'none',
+                ...(!isLoading && {
+                  '&:hover': {
+                    background:
+                      index === currentIndex
+                        ? `${tokens.colors.accent.primary}30`
+                        : tokens.colors.bg.elevated,
+                  },
+                }),
               }}
-              onMouseOver={(e) => {
-                if (!isLoading) {
-                  (e.currentTarget as HTMLElement).style.background =
-                    index === currentIndex
-                      ? `${tokens.colors.accent.primary}30`
-                      : tokens.colors.bg.elevated;
-                }
-              }}
-              onMouseOut={(e) => {
-                if (!isLoading) {
-                  (e.currentTarget as HTMLElement).style.background =
-                    index === currentIndex
-                      ? `${tokens.colors.accent.primary}20`
-                      : tokens.colors.bg.tertiary;
-                }
-              }}
-              onKeyDown={(e) => {
+              onKeyDown={(e: React.KeyboardEvent) => {
                 if (e.key === 'Delete' && index !== currentIndex) {
                   handleRemoveTrack(index);
                 } else if (e.key === 'ArrowUp' && index > 0) {
@@ -363,11 +348,12 @@ export function QueueManager({
               </div>
 
               {/* Remove Button */}
-              <button
+              <Box
+                component="button"
                 onClick={() => handleRemoveTrack(index)}
                 disabled={isLoading || index === currentIndex}
                 aria-label={`Remove ${track.title}`}
-                style={{
+                sx={{
                   width: '32px',
                   height: '32px',
                   border: 'none',
@@ -381,25 +367,16 @@ export function QueueManager({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                }}
-                onMouseOver={(e) => {
-                  if (!isLoading && index !== currentIndex) {
-                    e.currentTarget.style.opacity = '1';
-                    e.currentTarget.style.background = tokens.colors.semantic.error;
-                    e.currentTarget.style.color = tokens.colors.text.primary;
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!isLoading && index !== currentIndex) {
-                    e.currentTarget.style.opacity = '0.7';
-                    e.currentTarget.style.background = tokens.colors.bg.secondary;
-                    e.currentTarget.style.color = tokens.colors.text.secondary;
-                  }
+                  '&:hover:not(:disabled)': {
+                    opacity: 1,
+                    background: tokens.colors.semantic.error,
+                    color: tokens.colors.text.primary,
+                  },
                 }}
               >
                 ✕
-              </button>
-            </div>
+              </Box>
+            </Box>
           ))
         )}
       </div>

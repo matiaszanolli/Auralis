@@ -149,9 +149,10 @@ export const AdvancedSettingsPanel = ({
           and playback history from your library. Your audio files on disk will not
           be affected.
         </div>
-        <button
+        <Box
+          component="button"
           onClick={() => setShowResetConfirm(true)}
-          style={{
+          sx={{
             padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
             background: tokens.colors.semantic.error,
             border: 'none',
@@ -162,16 +163,13 @@ export const AdvancedSettingsPanel = ({
             cursor: 'pointer',
             opacity: 0.9,
             transition: 'all 0.2s',
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.opacity = '1';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.opacity = '0.9';
+            '&:hover': {
+              opacity: 1,
+            },
           }}
         >
           Reset Library
-        </button>
+        </Box>
       </div>
 
       {showResetConfirm && (

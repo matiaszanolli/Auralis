@@ -1,3 +1,4 @@
+import Box from '@mui/material/Box';
 import { tokens } from '@/design-system';
 
 interface TrackInfo {
@@ -80,9 +81,10 @@ export function TrackCacheList({ tracks, onTrackClearClick }: TrackCacheListProp
               </div>
             </div>
 
-            <button
+            <Box
+              component="button"
               onClick={() => onTrackClearClick(trackId)}
-              style={{
+              sx={{
                 padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
                 background: tokens.colors.bg.secondary,
                 border: `1px solid ${tokens.colors.border.light}`,
@@ -91,18 +93,14 @@ export function TrackCacheList({ tracks, onTrackClearClick }: TrackCacheListProp
                 fontSize: tokens.typography.fontSize.xs,
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.color = tokens.colors.semantic.error;
-                e.currentTarget.style.borderColor = tokens.colors.semantic.error;
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.color = tokens.colors.text.secondary;
-                e.currentTarget.style.borderColor = tokens.colors.border.light;
+                '&:hover': {
+                  color: tokens.colors.semantic.error,
+                  borderColor: tokens.colors.semantic.error,
+                },
               }}
             >
               Clear
-            </button>
+            </Box>
           </div>
         ))}
       </div>

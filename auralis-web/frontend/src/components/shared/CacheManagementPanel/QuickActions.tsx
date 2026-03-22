@@ -1,3 +1,4 @@
+import Box from '@mui/material/Box';
 import { tokens } from '@/design-system';
 
 interface QuickActionsProps {
@@ -25,10 +26,11 @@ export function QuickActions({
         gap: tokens.spacing.md,
       }}
     >
-      <button
+      <Box
+        component="button"
         onClick={onClearClick}
         disabled={clearDisabled}
-        style={{
+        sx={{
           padding: tokens.spacing.md,
           background: tokens.colors.semantic.error,
           border: 'none',
@@ -39,25 +41,19 @@ export function QuickActions({
           cursor: clearLoading ? 'not-allowed' : 'pointer',
           opacity: clearLoading ? 0.6 : 0.9,
           transition: 'all 0.2s',
-        }}
-        onMouseOver={(e) => {
-          if (!clearLoading) {
-            e.currentTarget.style.opacity = '1';
-          }
-        }}
-        onMouseOut={(e) => {
-          if (!clearLoading) {
-            e.currentTarget.style.opacity = '0.9';
-          }
+          '&:hover:not(:disabled)': {
+            opacity: 1,
+          },
         }}
       >
         {clearLoading ? 'Clearing...' : '🗑️ Clear All Cache'}
-      </button>
+      </Box>
 
-      <button
+      <Box
+        component="button"
         onClick={onRefreshClick}
         disabled={refreshDisabled}
-        style={{
+        sx={{
           padding: tokens.spacing.md,
           background: tokens.colors.bg.tertiary,
           border: `1px solid ${tokens.colors.border.medium}`,
@@ -68,20 +64,13 @@ export function QuickActions({
           cursor: statsLoading ? 'not-allowed' : 'pointer',
           opacity: statsLoading ? 0.6 : 0.9,
           transition: 'all 0.2s',
-        }}
-        onMouseOver={(e) => {
-          if (!statsLoading) {
-            e.currentTarget.style.opacity = '1';
-          }
-        }}
-        onMouseOut={(e) => {
-          if (!statsLoading) {
-            e.currentTarget.style.opacity = '0.9';
-          }
+          '&:hover:not(:disabled)': {
+            opacity: 1,
+          },
         }}
       >
         {statsLoading ? 'Refreshing...' : '🔄 Refresh Stats'}
-      </button>
+      </Box>
     </div>
   );
 }
