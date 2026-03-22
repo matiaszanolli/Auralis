@@ -84,17 +84,15 @@ export function CacheManagementPanel({
     }
   };
 
-  const handleClearTrack = async (_trackId: string) => {
+  const handleClearTrack = async () => {
     try {
-      // Use the API client to clear specific track cache
-      // Note: clearCache() doesn't support arguments, so we'd need a separate endpoint call
-      // For now, fallback to clearing all cache
+      // Per-track cache clear not supported by backend — clears all cache (#2976)
       await clearCache();
       setShowTrackClearConfirm(false);
       setSelectedTrackForClear(null);
       refetchStats();
     } catch (error) {
-      console.error('Failed to clear track cache:', error);
+      console.error('Failed to clear cache:', error);
     }
   };
 
@@ -177,12 +175,12 @@ export function CacheManagementPanel({
 
       {showTrackClearConfirm && selectedTrackForClear && (
         <ConfirmationDialog
-          title="Clear Track Cache?"
-          message={`This will remove all cached chunks for Track ${selectedTrackForClear}. This action cannot be undone.`}
-          confirmText="Clear"
+          title="Clear All Cache?"
+          message={`Per-track clearing is not yet supported. This will clear all cached audio data (including Track ${selectedTrackForClear}). This action cannot be undone.`}
+          confirmText="Clear All"
           cancelText="Cancel"
           isDangerous={true}
-          onConfirm={() => handleClearTrack(selectedTrackForClear)}
+          onConfirm={() => handleClearTrack()}
           onCancel={() => {
             setShowTrackClearConfirm(false);
             setSelectedTrackForClear(null);
