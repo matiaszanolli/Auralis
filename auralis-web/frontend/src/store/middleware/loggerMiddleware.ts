@@ -126,8 +126,6 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
   const finalConfig: LoggerConfig = { ...defaultConfig, ...config };
 
   return (store) => {
-    let isDispatching = false;
-
     return (next) => (action: unknown): unknown => {
       const act = action as UnknownAction;
       // Skip if disabled
@@ -158,13 +156,6 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
       const timestamp = new Date();
       const startTime = performance.now();
 
-      // Prevent nested logging
-      if (isDispatching) {
-        return next(action);
-      }
-
-      isDispatching = true;
-
       let result: any;
       let error: Error | undefined;
 
@@ -173,8 +164,6 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
       } catch (e) {
         error = e as Error;
       }
-
-      isDispatching = false;
 
       const nextState = store.getState();
       const duration = performance.now() - startTime;
