@@ -110,7 +110,7 @@ class VectorizedEQProcessor:
         spectrum[:num_bins] *= gain_curve
 
         # Apply gains to negative frequencies (vectorized, maintain symmetry)
-        spectrum[num_bins:] *= np.conj(gain_curve[1:-1][::-1])
+        spectrum[num_bins:] *= gain_curve[1:-1][::-1]
 
         # Transform back to time domain
         processed_audio = np.real(ifft(spectrum))

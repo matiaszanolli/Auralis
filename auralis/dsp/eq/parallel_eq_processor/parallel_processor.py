@@ -131,7 +131,7 @@ class ParallelEQProcessor:
 
         # Apply all gains in a single pass (vectorized)
         spectrum[:num_bins] *= gain_curve
-        spectrum[num_bins:] *= np.conj(gain_curve[1:-1][::-1])
+        spectrum[num_bins:] *= gain_curve[1:-1][::-1]
 
         processed_audio = np.real(ifft(spectrum))
         return cast(np.ndarray, processed_audio[:len(audio_mono)])
