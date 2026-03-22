@@ -41,8 +41,8 @@ export const KeyboardShortcutsList = ({
             <span>{cat.icon}</span>
             {cat.category}
           </CategoryTitle>
-          {cat.shortcuts.map((shortcut, index) => (
-            <ShortcutRow key={index}>
+          {cat.shortcuts.map((shortcut) => (
+            <ShortcutRow key={shortcut.description}>
               <ShortcutDescription>
                 {shortcut.description}
               </ShortcutDescription>
