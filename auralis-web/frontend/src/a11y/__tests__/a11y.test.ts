@@ -270,27 +270,24 @@ describe('Accessibility Suite', () => {
   // ============================================================================
 
   describe('Color Contrast', () => {
-    // Note: Tests using getContrastRatio/checkContrast are skipped because
-    // parseColor() uses Canvas API (getImageData) which is not supported in happy-dom.
-    // These functions work correctly in browser environments.
-
-    it.skip('should calculate contrast ratio', () => {
+    it('should calculate contrast ratio', () => {
       const ratio = getContrastRatio('#ffffff', '#000000');
       expect(ratio).toBeCloseTo(21, 0); // Max contrast
     });
 
-    it.skip('should check WCAG AA compliance', () => {
+    it('should check WCAG AA compliance', () => {
       const check = checkContrast('#ffffff', '#666666');
       expect(check.aa).toBe(true);
     });
 
-    it.skip('should fail low contrast', () => {
+    it('should fail low contrast', () => {
       const check = checkContrast('#ffffff', '#f5f5f5');
       expect(check.aa).toBe(false);
     });
 
-    it.skip('should check large text AA', () => {
-      const check = checkContrast('#ffffff', '#cccccc');
+    it('should check large text AA', () => {
+      // #767676 on #ffffff gives ~4.54:1 ratio, passes large text AA (≥3:1)
+      const check = checkContrast('#ffffff', '#767676');
       expect(check.largeTextAA).toBe(true);
     });
 
@@ -428,12 +425,13 @@ describe('Accessibility Suite', () => {
       document.body.removeChild(page);
     });
 
-    // Skip: contrastAuditor uses Canvas API (getImageData) not supported in happy-dom
-    it.skip('should audit color contrast', () => {
+    it('should audit color contrast', () => {
       const container = document.createElement('div');
-      container.style.color = '#ffffff';
-      container.style.backgroundColor = '#ffffff';
-      container.textContent = 'Low contrast text';
+      const span = document.createElement('span');
+      span.style.color = '#ffffff';
+      span.style.backgroundColor = '#ffffff';
+      span.textContent = 'Low contrast text';
+      container.appendChild(span);
       document.body.appendChild(container);
 
       const issues = contrastAuditor.auditContainer(container);

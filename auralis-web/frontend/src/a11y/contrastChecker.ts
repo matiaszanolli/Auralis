@@ -63,7 +63,15 @@ export function parseColor(color: string): RGB | null {
   // Remove whitespace
   color = color.trim();
 
-  // Handle named colors
+  // Fast path for hex colors (no Canvas needed)
+  const hex = hexToRgb(color);
+  if (hex) return hex;
+
+  // Fast path for rgb()/rgba() strings
+  const rgbMatch = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(color);
+  if (rgbMatch) return { r: parseInt(rgbMatch[1]), g: parseInt(rgbMatch[2]), b: parseInt(rgbMatch[3]) };
+
+  // Fallback to Canvas for named colors, hsl(), etc.
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
   const ctx = canvas.getContext('2d');
