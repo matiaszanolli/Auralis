@@ -16,9 +16,13 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { QueueTrack as Track } from '@/types/domain';
 
+export type RepeatMode = 'off' | 'all' | 'one';
+
 export interface QueueState {
   tracks: Track[];
   currentIndex: number;
+  isShuffled: boolean;
+  repeatMode: RepeatMode;
   isLoading: boolean;
   error: string | null;
   lastUpdated: number;
@@ -27,6 +31,8 @@ export interface QueueState {
 const initialState: QueueState = {
   tracks: [],
   currentIndex: 0,
+  isShuffled: false,
+  repeatMode: 'off',
   isLoading: false,
   error: null,
   lastUpdated: 0,
@@ -228,6 +234,20 @@ const queueSlice = createSlice({
     },
 
     /**
+     * Set shuffle state
+     */
+    setIsShuffled(state, action: PayloadAction<boolean>) {
+      state.isShuffled = action.payload;
+    },
+
+    /**
+     * Set repeat mode
+     */
+    setRepeatMode(state, action: PayloadAction<RepeatMode>) {
+      state.repeatMode = action.payload;
+    },
+
+    /**
      * Reset queue state
      */
     resetQueue(state) {
@@ -249,12 +269,16 @@ export const {
   setIsLoading,
   setError,
   clearError,
+  setIsShuffled,
+  setRepeatMode,
   resetQueue,
 } = queueSlice.actions;
 
 // Selectors
 export const selectQueueTracks = (state: { queue: QueueState }) => state.queue.tracks;
 export const selectCurrentIndex = (state: { queue: QueueState }) => state.queue.currentIndex;
+export const selectIsShuffled = (state: { queue: QueueState }) => state.queue.isShuffled;
+export const selectRepeatMode = (state: { queue: QueueState }) => state.queue.repeatMode;
 export const selectCurrentQueueTrack = (state: { queue: QueueState }) =>
   state.queue.tracks[state.queue.currentIndex] || null;
 export const selectQueueLength = (state: { queue: QueueState }) => state.queue.tracks.length;

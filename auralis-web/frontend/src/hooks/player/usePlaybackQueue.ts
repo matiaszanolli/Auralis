@@ -48,9 +48,13 @@ import {
   setQueue as reduxSetQueue,
   setCurrentIndex as reduxSetCurrentIndex,
   clearQueue as reduxClearQueue,
+  setIsShuffled as reduxSetIsShuffled,
+  setRepeatMode as reduxSetRepeatMode,
   selectQueueTracks,
   selectCurrentIndex,
   selectCurrentQueueTrack,
+  selectIsShuffled,
+  selectRepeatMode,
 } from '@/store/slices/queueSlice';
 import type { Track, QueueTrack } from '@/types/domain';
 import type { ApiError } from '@/types/api';
@@ -156,14 +160,12 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   const { get, post, put, delete: apiDelete } = useRestAPI();
   const dispatch = useDispatch<AppDispatch>();
 
-  // Queue tracks and index live in Redux (single source of truth)
+  // All queue state lives in Redux (single source of truth)
   const tracks = useSelector(selectQueueTracks);
   const currentIndex = useSelector(selectCurrentIndex);
   const currentTrack = useSelector(selectCurrentQueueTrack);
-
-  // Shuffle/repeat are queue-control state not shared with other consumers
-  const [isShuffled, setIsShuffled] = useState(false);
-  const [repeatMode, setRepeatModeState] = useState<'off' | 'all' | 'one'>('off');
+  const isShuffled = useSelector(selectIsShuffled);
+  const repeatMode = useSelector(selectRepeatMode);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -201,14 +203,14 @@ export function usePlaybackQueue(): PlaybackQueueActions {
           break;
 
         case 'queue_shuffled':
-          if (data.is_shuffled != null) setIsShuffled(data.is_shuffled);
-          else if (data.isShuffled != null) setIsShuffled(data.isShuffled);
+          if (data.is_shuffled != null) dispatch(reduxSetIsShuffled(data.is_shuffled));
+          else if (data.isShuffled != null) dispatch(reduxSetIsShuffled(data.isShuffled));
           if (data.tracks) dispatch(reduxSetQueue(data.tracks));
           break;
 
         case 'repeat_mode_changed':
-          if (data.repeat_mode) setRepeatModeState(data.repeat_mode);
-          else if (data.repeatMode) setRepeatModeState(data.repeatMode);
+          if (data.repeat_mode) dispatch(reduxSetRepeatMode(data.repeat_mode));
+          else if (data.repeatMode) dispatch(reduxSetRepeatMode(data.repeatMode));
           break;
       }
     }
@@ -228,12 +230,12 @@ export function usePlaybackQueue(): PlaybackQueueActions {
           dispatch(reduxSetCurrentIndex(
             (response.current_index as number) ?? (response.currentIndex as number) ?? 0
           ));
-          setIsShuffled(
+          dispatch(reduxSetIsShuffled(
             (response.is_shuffled as boolean) ?? (response.isShuffled as boolean) ?? false
-          );
-          setRepeatModeState(
+          ));
+          dispatch(reduxSetRepeatMode(
             (response.repeat_mode as QueueState['repeatMode']) ?? (response.repeatMode as QueueState['repeatMode']) ?? 'off'
-          );
+          ));
         }
       } catch (err) {
         // Silently fail - user can still interact with empty queue
@@ -432,7 +434,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     const newShuffle = !stateRef.current.isShuffled;
     const previousShuffle = stateRef.current.isShuffled;
 
-    setIsShuffled(newShuffle);
+    dispatch(reduxSetIsShuffled(newShuffle));
 
     try {
       // Send to backend
@@ -443,7 +445,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
       // Server will broadcast confirmation via WebSocket
     } catch (err) {
       // Rollback on error
-      setIsShuffled(previousShuffle);
+      dispatch(reduxSetIsShuffled(previousShuffle));
 
       const apiError = err instanceof Error
         ? { message: err.message, code: 'SHUFFLE_ERROR', status: 500 }
@@ -481,7 +483,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
       // Optimistic update
       const previousMode = stateRef.current.repeatMode;
 
-      setRepeatModeState(mode);
+      dispatch(reduxSetRepeatMode(mode));
 
       try {
         // Send to backend
@@ -492,7 +494,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         // Server will broadcast confirmation via WebSocket
       } catch (err) {
         // Rollback on error
-        setRepeatModeState(previousMode);
+        dispatch(reduxSetRepeatMode(previousMode));
 
         const apiError = err instanceof Error
           ? { message: err.message, code: 'REPEAT_MODE_ERROR', status: 500 }
