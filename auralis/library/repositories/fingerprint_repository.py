@@ -12,6 +12,7 @@ from typing import Any
 from collections.abc import Callable
 
 from sqlalchemy import and_, delete, func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info, warning
@@ -475,7 +476,7 @@ class FingerprintRepository:
                 debug(f"Track {track_id} claimed by worker")
                 return claimed_track
 
-            except Exception:
+            except IntegrityError:
                 # Another worker already claimed this track (UNIQUE constraint)
                 # Rollback and return None - next iteration will get a different track
                 session.rollback()
