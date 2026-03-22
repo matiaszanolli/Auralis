@@ -1,6 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
-const log = require('electron-log');
+const log = require('electron-log/main');
 const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
