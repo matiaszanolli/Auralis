@@ -22,7 +22,7 @@ import numpy as np
 
 from ...dsp.advanced_dynamics import DynamicsProcessor
 from ...dsp.realtime_adaptive_eq import RealtimeAdaptiveEQ
-from ...utils.logging import debug
+from ...utils.logging import debug, warning
 from ..analysis.content_analysis_facade import (
     ContentAnalysisFacade,  # Phase 5: Unified analysis
 )
@@ -83,9 +83,11 @@ class RealtimeDSPPipeline:
 
             return processed_chunk
 
+        except (AssertionError, ValueError, TypeError):
+            raise  # Programming errors must not be swallowed
         except Exception as e:
-            debug(f"Real-time processing failed: {e}")
-            return audio_chunk  # Return unprocessed on error
+            warning(f"Real-time processing failed, passing through raw audio: {e}")
+            return audio_chunk  # Return unprocessed on transient error
 
     # REMOVED (Phase 5 refactoring): _quick_content_analysis()
     # Now handled by ContentAnalysisFacade.analyze_quick()

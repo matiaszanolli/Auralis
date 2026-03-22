@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 
 from ...dsp.psychoacoustic_eq import PsychoacousticEQ
-from ...utils.logging import debug
+from ...utils.logging import debug, warning
 
 
 class EQProcessor:
@@ -55,8 +55,10 @@ class EQProcessor:
             debug("Psychoacoustic EQ processing completed successfully")
             return processed
 
+        except (AssertionError, ValueError, TypeError):
+            raise  # Programming errors must not be swallowed
         except Exception as e:
-            debug(f"Psychoacoustic EQ failed, falling back to simple EQ: {e}")
+            warning(f"Psychoacoustic EQ failed, falling back to simple EQ: {e}")
             return self._apply_simple_eq_fallback(audio, targets)
 
     def _targets_to_eq_curve(self, targets: dict[str, Any],
