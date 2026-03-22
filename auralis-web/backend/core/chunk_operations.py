@@ -232,6 +232,10 @@ class ChunkOperations:
         if current_samples < expected_for_validation:
             # Pad with silence if too short
             padding_needed = expected_for_validation - current_samples
+            if extracted.ndim not in (1, 2):
+                raise ValueError(
+                    f"Chunk {chunk_index}: expected 1-D or 2-D audio array, got shape {extracted.shape}"
+                )
             num_channels = extracted.shape[1] if extracted.ndim > 1 else 1
             padding = np.zeros((padding_needed, num_channels), dtype=np.float32)
 
