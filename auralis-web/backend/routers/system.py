@@ -372,6 +372,14 @@ def create_system_router(
                         if old_task and not old_task.done():
                             logger.info(f"Cancelling existing streaming task for ws {ws_id}")
                             old_task.cancel()
+                            # Await cancellation so the old task releases pause/flow events (#3219)
+                            try:
+                                await old_task
+                            except (asyncio.CancelledError, Exception):
+                                pass
+                        # Clear stale events before creating fresh ones (#3219)
+                        _stream_pause_events.pop(ws_id, None)
+                        _stream_flow_events.pop(ws_id, None)
                         # Create pause event for this stream — set = running (#2106)
                         pause_event = asyncio.Event()
                         pause_event.set()
@@ -450,6 +458,14 @@ def create_system_router(
                         if old_task and not old_task.done():
                             logger.info(f"Cancelling existing streaming task for ws {ws_id}")
                             old_task.cancel()
+                            # Await cancellation so the old task releases pause/flow events (#3219)
+                            try:
+                                await old_task
+                            except (asyncio.CancelledError, Exception):
+                                pass
+                        # Clear stale events before creating fresh ones (#3219)
+                        _stream_pause_events.pop(ws_id, None)
+                        _stream_flow_events.pop(ws_id, None)
                         # Create pause event for this stream — set = running (#2106)
                         pause_event = asyncio.Event()
                         pause_event.set()
