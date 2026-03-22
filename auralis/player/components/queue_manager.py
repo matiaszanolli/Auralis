@@ -23,6 +23,8 @@ class QueueManager:
         self.shuffle_enabled = False
         self.repeat_enabled = False
         self._lock = threading.RLock()
+        self._pre_shuffle_tracks: list[dict[str, Any]] | None = None
+        self._pre_shuffle_index: int = -1
 
     def add_track(self, track_info: dict[str, Any]) -> None:
         """Add a track to the queue"""
@@ -204,6 +206,10 @@ class QueueManager:
             if len(self.tracks) <= 1:
                 return
 
+            # Snapshot the original order so unshuffle() can restore it
+            self._pre_shuffle_tracks = list(self.tracks)
+            self._pre_shuffle_index = self.current_index
+
             current_track = self.get_current_track()
             current_track_id = current_track.get('id') if current_track else None
 
@@ -218,6 +224,29 @@ class QueueManager:
                         self.tracks[0], self.tracks[i] = self.tracks[i], self.tracks[0]
                         self.current_index = 0
                         break
+
+    def unshuffle(self) -> bool:
+        """Restore the pre-shuffle queue order. Returns True if restored."""
+        with self._lock:
+            if self._pre_shuffle_tracks is None:
+                return False
+
+            current_track = self.get_current_track()
+            current_track_id = current_track.get('id') if current_track else None
+
+            self.tracks = self._pre_shuffle_tracks
+            self.current_index = self._pre_shuffle_index
+
+            # If the current track moved, find it in the restored order
+            if current_track_id is not None:
+                for i, track in enumerate(self.tracks):
+                    if track.get('id') == current_track_id:
+                        self.current_index = i
+                        break
+
+            self._pre_shuffle_tracks = None
+            self._pre_shuffle_index = -1
+            return True
 
     def get_queue(self) -> list[dict[str, Any]]:
         """

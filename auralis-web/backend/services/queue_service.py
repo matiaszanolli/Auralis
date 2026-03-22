@@ -503,6 +503,48 @@ class QueueService:
             logger.error(f"Failed to shuffle queue: {e}")
             raise
 
+    async def unshuffle_queue(self) -> dict[str, Any]:
+        """
+        Restore the pre-shuffle queue order.
+
+        Returns:
+            dict: Success message and queue size
+
+        Raises:
+            Exception: If operation fails
+        """
+        if not self.audio_player or not hasattr(self.audio_player, 'queue'):
+            raise ValueError("Queue manager not available")
+
+        try:
+            queue_manager = self.audio_player.queue
+
+            if not queue_manager.unshuffle():
+                return {
+                    "message": "No shuffle to undo",
+                    "queue_size": queue_manager.get_queue_size()
+                }
+
+            updated_queue = queue_manager.get_queue()
+
+            await self.connection_manager.broadcast({
+                "type": "queue_updated",
+                "data": {
+                    "action": "unshuffled",
+                    "queue_size": len(updated_queue)
+                }
+            })
+
+            logger.info(f"Queue unshuffled ({len(updated_queue)} tracks)")
+            return {
+                "message": "Queue restored to original order",
+                "queue_size": len(updated_queue)
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to unshuffle queue: {e}")
+            raise
+
     async def clear_queue(self) -> dict[str, Any]:
         """
         Clear the entire playback queue.

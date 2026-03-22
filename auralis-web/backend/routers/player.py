@@ -531,11 +531,14 @@ def create_player_router(
             raise HTTPException(status_code=500, detail="Failed to move track")
 
     @router.post("/api/player/queue/shuffle", response_model=QueueSizeResponse)
-    async def shuffle_queue() -> dict[str, Any]:
-        """Shuffle the playback queue (keeps current track in place)."""
+    async def shuffle_queue(enabled: bool = True) -> dict[str, Any]:
+        """Shuffle or unshuffle the playback queue."""
         try:
             service = get_queue_service()
-            return await service.shuffle_queue()
+            if enabled:
+                return await service.shuffle_queue()
+            else:
+                return await service.unshuffle_queue()
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:

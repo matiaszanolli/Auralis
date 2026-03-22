@@ -437,7 +437,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     dispatch(reduxSetIsShuffled(newShuffle));
 
     try {
-      // Send to backend
+      // Send enabled as query param — backend reads it as ?enabled=true/false
       await post('/api/player/queue/shuffle', undefined, {
         enabled: newShuffle,
       });
