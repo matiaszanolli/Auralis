@@ -275,13 +275,15 @@ export function createErrorTrackingMiddleware(
           }
 
           // Attempt recovery based on category
-          // Avoid infinite loops: don't dispatch connection errors if we're already processing one
+          // Defer dispatch to avoid re-entrant dispatch mid-action-processing (#3023).
           if (
             trackedError.category === ErrorCategory.NETWORK &&
             !actionType?.startsWith('connection/')
           ) {
-            // Network errors - trigger reconnection attempt
-            store.dispatch(connectionActions.setError(trackedError.message));
+            // Network errors - trigger reconnection attempt (deferred)
+            Promise.resolve().then(() => {
+              store.dispatch(connectionActions.setError(trackedError.message));
+            });
           }
         }
 
