@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import SelectableTrackRow from '@/components/library/Items/tracks/SelectableTrackRow';
 import GridLoadingState from '@/components/library/Items/utilities/GridLoadingState';
@@ -48,6 +48,17 @@ export const TrackListViewContent = ({
 }: TrackListViewContentProps) => {
   const scrollElementRef = useRef<HTMLElement | null>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
+
+  // Stable callback refs to avoid recreating row callbacks on every render
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
+  const onTrackPlayRef = useRef(onTrackPlay);
+  onTrackPlayRef.current = onTrackPlay;
+
+  const handlePlay = useCallback((trackId: number) => {
+    const foundTrack = tracksRef.current.find((t) => t.id === trackId);
+    if (foundTrack) onTrackPlayRef.current(foundTrack);
+  }, []);
 
   // Attach to the app-level scroll container
   useEffect(() => {
@@ -110,12 +121,7 @@ export const TrackListViewContent = ({
                   isPlaying={isPlaying && currentTrackId === track.id}
                   isCurrent={currentTrackId === track.id}
                   isAnyPlaying={isPlaying}
-                  onPlay={(trackId) => {
-                    const foundTrack = tracks.find((t) => t.id === trackId);
-                    if (foundTrack) {
-                      onTrackPlay(foundTrack);
-                    }
-                  }}
+                  onPlay={handlePlay}
                   onPause={onPause}
                   onEditMetadata={onEditMetadata}
                   onFindSimilar={onFindSimilar}
