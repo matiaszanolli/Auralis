@@ -16,7 +16,7 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000,
+        zIndex: tokens.zIndex.dropdown,
       }}
       onClick={onCancel}
     >

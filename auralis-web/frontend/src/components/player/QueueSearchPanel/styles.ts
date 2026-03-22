@@ -14,7 +14,7 @@ export const panelStyles = {
     alignItems: 'flex-start',
     justifyContent: 'center',
     paddingTop: tokens.spacing.xl,
-    zIndex: 1000,
+    zIndex: tokens.zIndex.dropdown,
   },
 
   panel: {

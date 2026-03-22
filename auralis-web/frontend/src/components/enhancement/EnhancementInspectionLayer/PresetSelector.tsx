@@ -167,7 +167,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: tokens.glass.medium.border,
     boxShadow: tokens.glass.medium.boxShadow,
     borderRadius: tokens.borderRadius.md,
-    zIndex: 1000,
+    zIndex: tokens.zIndex.dropdown,
     maxHeight: '300px',
     overflowY: 'auto',
   },

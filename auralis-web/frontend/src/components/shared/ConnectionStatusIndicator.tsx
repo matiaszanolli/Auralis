@@ -46,7 +46,7 @@ interface ConnectionStatus {
 function getPositionStyles(position: Position) {
   const baseStyles = {
     position: 'fixed' as const,
-    zIndex: 100,
+    zIndex: tokens.zIndex.fixed,
     margin: tokens.spacing.lg,
   };
 

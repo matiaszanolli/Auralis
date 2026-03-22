@@ -443,7 +443,7 @@ export const ProgressBar = ({
               pointerEvents: 'none',
               border: `1px solid ${tokens.colors.accent.primary}`,
               boxShadow: tokens.shadows.md,
-              zIndex: 1000,
+              zIndex: tokens.zIndex.dropdown,
             }}
             data-testid="progress-bar-tooltip"
           >

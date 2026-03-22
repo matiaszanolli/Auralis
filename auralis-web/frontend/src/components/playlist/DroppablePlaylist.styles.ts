@@ -50,7 +50,7 @@ export const DropIndicator = styled(Box)({
   border: `2px dashed ${tokens.colors.opacityScale.accent.veryStrong}`,
   borderRadius: tokens.spacing.xs,
   pointerEvents: 'none',
-  zIndex: 1,
+  zIndex: tokens.zIndex.content,
 });
 
 export const DropIndicatorText = styled(Typography)({

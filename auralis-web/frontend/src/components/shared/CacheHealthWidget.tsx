@@ -278,7 +278,7 @@ export function CacheHealthWidget({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000,
+            zIndex: tokens.zIndex.dropdown,
             padding: tokens.spacing.lg,
           }}
           onClick={() => setShowExpandedMonitor(false)}

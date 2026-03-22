@@ -434,7 +434,7 @@ const styles = {
     // Glass bevel: top highlight + outer shadow
     boxShadow: `0 -8px 32px ${tokens.colors.opacityScale.dark.standard}, inset 0 1px 0 rgba(255, 255, 255, 0.10)`,
 
-    zIndex: 1000,
+    zIndex: tokens.zIndex.dropdown,
     padding: 0,
     gap: 0,
   },

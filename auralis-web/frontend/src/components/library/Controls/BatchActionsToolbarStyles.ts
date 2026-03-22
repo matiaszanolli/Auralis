@@ -13,7 +13,7 @@ export const ToolbarContainer = styled(Paper)(({ theme: _theme }) => ({
   top: '80px',
   left: '50%',
   transform: 'translateX(-50%)',
-  zIndex: 1200,
+  zIndex: tokens.zIndex.fixed,
   background: `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.veryStrong} 0%, rgba(118, 75, 162, 0.95) 100%)`,
   backdropFilter: 'blur(20px)',
   border: `1px solid ${tokens.colors.opacityScale.accent.light}`,

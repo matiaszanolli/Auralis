@@ -151,7 +151,7 @@ export const MediaCard = React.memo(function MediaCard(props: MediaCardProps) {
           opacity: 0,
           transition: `opacity ${tokens.transitions.base}`,
           pointerEvents: 'none',
-          zIndex: 1,
+          zIndex: tokens.zIndex.content,
         },
 
         // Expressive by state - alive when hovered (Design Language §1.3, §5)

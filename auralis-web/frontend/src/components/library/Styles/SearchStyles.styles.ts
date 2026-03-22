@@ -69,7 +69,7 @@ export const ResultsContainer = styled(Paper)({
   border: `1px solid ${tokens.colors.opacityScale.accent.lighter}`,
   borderRadius: tokens.spacing.sm,
   boxShadow: containerShadows.resultsPanel,
-  zIndex: 1000
+  zIndex: tokens.zIndex.dropdown
 });
 
 /**

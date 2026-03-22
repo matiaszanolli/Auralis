@@ -205,7 +205,7 @@ export const AlbumCharacterPane = ({
       {enhancementSection}
 
       {/* Header with subtle glow */}
-      <Box sx={{ mb: tokens.spacing.xl, position: 'relative', zIndex: 1 }}>
+      <Box sx={{ mb: tokens.spacing.xl, position: 'relative', zIndex: tokens.zIndex.content }}>
         <Typography
           variant="h6"
           sx={{
@@ -231,23 +231,23 @@ export const AlbumCharacterPane = ({
         )}
       </Box>
 
-      <Box sx={{ position: 'relative', zIndex: 1 }}>
+      <Box sx={{ position: 'relative', zIndex: tokens.zIndex.content }}>
         <WaveformVisualization fingerprint={displayFingerprint} isAnimating={isAnimating} intensity={intensity} />
       </Box>
 
-      <Box sx={{ position: 'relative', zIndex: 1 }}>
+      <Box sx={{ position: 'relative', zIndex: tokens.zIndex.content }}>
         <GlowingArc isAnimating={isAnimating} intensity={intensity} energyLevel={character.energyLevel} />
       </Box>
 
-      <Box sx={{ position: 'relative', zIndex: 1 }}>
+      <Box sx={{ position: 'relative', zIndex: tokens.zIndex.content }}>
         <CharacterTags tags={character.tags} isAnimating={isAnimating} intensity={intensity} />
       </Box>
 
-      <Box sx={{ position: 'relative', zIndex: 1 }}>
+      <Box sx={{ position: 'relative', zIndex: tokens.zIndex.content }}>
         <EnergyField energy={character.energyLevel} isAnimating={isAnimating} intensity={intensity} />
       </Box>
 
-      <Box sx={{ mt: tokens.spacing.xl, position: 'relative', zIndex: 1 }}>
+      <Box sx={{ mt: tokens.spacing.xl, position: 'relative', zIndex: tokens.zIndex.content }}>
         <RotatingDescription
           descriptions={character.rotatingDescriptions}
           staticDescription={character.description}
@@ -261,7 +261,7 @@ export const AlbumCharacterPane = ({
           mt: tokens.spacing.xxl,
           pt: tokens.spacing.lg,
           position: 'relative',
-          zIndex: 1,
+          zIndex: tokens.zIndex.content,
           boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
           opacity: 0.7 + intensity * 0.2,
           transition: `opacity ${tokens.transitions.slow}`,

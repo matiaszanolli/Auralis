@@ -194,7 +194,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.colors.opacityScale.dark.intense,
-    zIndex: 1000,
+    zIndex: tokens.zIndex.dropdown,
   },
 
   dialog: {

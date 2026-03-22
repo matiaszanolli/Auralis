@@ -61,7 +61,7 @@ export const WaveIcon = styled('svg')<{ size: number }>(({ size }) => ({
   width: size * 0.6,
   height: size * 0.6,
   position: 'relative',
-  zIndex: 1,
+  zIndex: tokens.zIndex.content,
 }));
 
 export const LogoText = styled(Typography, {

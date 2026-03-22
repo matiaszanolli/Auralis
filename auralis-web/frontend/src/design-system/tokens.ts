@@ -554,6 +554,8 @@ export const tokens = {
    */
   zIndex: {
     base: 0,
+    content: 1,
+    elevated: 10,
     dropdown: 1000,
     sticky: 1020,
     fixed: 1030,
@@ -562,6 +564,7 @@ export const tokens = {
     popover: 1060,
     tooltip: 1070,
     toast: 1300,
+    debug: 10000,
   },
 
   /**

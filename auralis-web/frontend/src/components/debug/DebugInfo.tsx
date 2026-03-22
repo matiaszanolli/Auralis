@@ -39,7 +39,7 @@ export const DebugInfo = () => {
         borderRadius: '8px',
         fontFamily: 'monospace',
         fontSize: tokens.typography.fontSize.xs,
-        zIndex: 10000,
+        zIndex: tokens.zIndex.debug,
         border: `1px solid ${tokens.colors.accent.primary}`,
         maxWidth: '300px',
       }}

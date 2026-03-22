@@ -35,7 +35,7 @@ export function ConfirmationDialog({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1300,
+        zIndex: tokens.zIndex.toast,
       }}
       onClick={onCancel}
     >

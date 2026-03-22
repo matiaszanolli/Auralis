@@ -219,7 +219,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     top: tokens.spacing.sm,                               // 8px from top
     right: tokens.spacing.sm,                             // 8px from right
-    zIndex: 10,                                           // Above InspectionLayer content
+    zIndex: tokens.zIndex.elevated,                        // Above InspectionLayer content
 
     width: '32px',
     height: '32px',
