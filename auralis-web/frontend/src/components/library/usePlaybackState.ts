@@ -1,10 +1,15 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import { useToast } from '@/components/shared/Toast';
 import type { LibraryTrack as Track } from '@/types/domain';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { selectIsPlaying, selectCurrentTrack } from '@/store/slices/playerSlice';
 
 /**
  * usePlaybackState - Library playback state management
+ *
+ * Reads isPlaying and currentTrackId from Redux (single source of truth)
+ * and provides action methods that send WebSocket messages.
  *
  * IMPORTANT: This hook sends WebSocket messages directly instead of using
  * usePlayEnhanced, because usePlayEnhanced has cleanup effects that would
@@ -13,11 +18,12 @@ import { useWebSocketContext } from '@/contexts/WebSocketContext';
  * The Player component's usePlayEnhanced instance handles the actual streaming.
  */
 export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
-  const [currentTrackId, setCurrentTrackId] = useState<number | undefined>(undefined);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const { success } = useToast();
+  // Read from Redux — single source of truth for playback state
+  const isPlaying = useSelector(selectIsPlaying);
+  const currentTrack = useSelector(selectCurrentTrack);
+  const currentTrackId = currentTrack?.id;
 
-  // Use WebSocket context directly (shared singleton connection)
+  const { success } = useToast();
   const wsContext = useWebSocketContext();
 
   const handlePlayTrack = useCallback(async (track: Track) => {
@@ -44,11 +50,7 @@ export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
         },
       });
 
-      console.log('[usePlaybackState] Sent play_enhanced message for track:', track.id);
-
-      // Update local UI state (Redux will sync via WebSocket)
-      setCurrentTrackId(track.id);
-      setIsPlaying(true);
+      // Redux state will sync via WebSocket player_state broadcast
       success(`Now playing: ${track.title}`);
       onTrackPlay?.(track);
     } catch (err) {
@@ -57,11 +59,10 @@ export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
   }, [success, onTrackPlay, wsContext]);
 
   const handlePause = useCallback(() => {
-    // Send pause message via WebSocket
     wsContext.send({
       type: 'pause_playback',
     });
-    setIsPlaying(false);
+    // Redux state will sync via WebSocket player_state broadcast
   }, [wsContext]);
 
   return {
