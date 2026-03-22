@@ -89,6 +89,8 @@ class ChunkOperations:
         context_duration = 5.0 if with_context else 0.0
         load_start = max(0.0, chunk_start - context_duration)
         load_end = chunk_end + context_duration
+        if total_duration is not None:
+            load_end = min(load_end, total_duration)
 
         # Load audio segment
         try:
