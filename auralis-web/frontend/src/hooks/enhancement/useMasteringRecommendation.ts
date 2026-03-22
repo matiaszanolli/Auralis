@@ -34,10 +34,13 @@ interface MasteringRecommendationCache {
   [trackId: number]: MasteringRecommendationData;
 }
 
+const RECOMMENDATION_TIMEOUT_MS = 10_000;
+
 export const useMasteringRecommendation = (trackId?: number) => {
   const { subscribe } = useWebSocketContext();
   const [recommendation, setRecommendation] = useState<MasteringRecommendationData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTimedOut, setIsTimedOut] = useState(false);
   const cache = useRef<MasteringRecommendationCache>({});
 
   // Handle incoming mastering recommendation messages
@@ -50,12 +53,16 @@ export const useMasteringRecommendation = (trackId?: number) => {
       return;
     }
 
+    let timedOut = false;
+
     const handleMasteringRecommendation = (data: any) => {
       if (data.data?.track_id === trackId) {
         const rec = data.data as MasteringRecommendationData;
         cache.current[trackId] = rec;
         setRecommendation(rec);
         setIsLoading(false);
+        setIsTimedOut(false);
+        clearTimeout(timeout);
       }
     };
 
@@ -64,8 +71,20 @@ export const useMasteringRecommendation = (trackId?: number) => {
 
     // Start loading indicator
     setIsLoading(true);
+    setIsTimedOut(false);
 
-    return unsubscribe;
+    // Timeout fallback: reset loading after 10s if no WS response (#2994)
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      setIsLoading(false);
+      setIsTimedOut(true);
+    }, RECOMMENDATION_TIMEOUT_MS);
+
+    return () => {
+      unsubscribe?.();
+      clearTimeout(timeout);
+      if (!timedOut) setIsLoading(false);
+    };
   }, [trackId, subscribe]);
 
   // Method to clear cached recommendation
@@ -79,6 +98,7 @@ export const useMasteringRecommendation = (trackId?: number) => {
   return {
     recommendation,
     isLoading,
+    isTimedOut,
     clearRecommendation,
     isHybrid: recommendation?.is_hybrid ?? false
   };
