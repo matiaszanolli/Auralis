@@ -14,11 +14,11 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { useState, useId } from 'react';
+import { useState } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheStats, useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
 import { useStandardizedAPI } from '@/hooks/shared/useStandardizedAPI';
-import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
+import { ConfirmationDialog } from '@/components/shared/ui/ConfirmationDialog';
 
 interface CacheManagementPanelProps {
   /**
@@ -33,138 +33,6 @@ interface CacheManagementPanelProps {
    * Show advanced options
    */
   showAdvanced?: boolean;
-}
-
-/**
- * Confirmation modal for cache clearing
- */
-function ConfirmationModal({
-  title,
-  message,
-  confirmText = 'Clear',
-  cancelText = 'Cancel',
-  isDangerous = false,
-  onConfirm,
-  onCancel,
-}: {
-  title: string;
-  message: string;
-  confirmText?: string;
-  cancelText?: string;
-  isDangerous?: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const dialogRef = useDialogAccessibility(onCancel);
-  const titleId = useId();
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-      }}
-      onClick={onCancel}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        style={{
-          background: tokens.colors.bg.secondary,
-          borderRadius: '12px',
-          border: `1px solid ${tokens.colors.border.medium}`,
-          padding: tokens.spacing.lg,
-          maxWidth: '400px',
-          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3
-          id={titleId}
-          style={{
-            margin: `0 0 ${tokens.spacing.md} 0`,
-            fontSize: tokens.typography.fontSize.lg,
-            fontWeight: tokens.typography.fontWeight.semibold,
-            color: tokens.colors.text.primary,
-          }}
-        >
-          {title}
-        </h3>
-
-        <p
-          style={{
-            margin: `0 0 ${tokens.spacing.lg} 0`,
-            fontSize: tokens.typography.fontSize.base,
-            color: tokens.colors.text.secondary,
-            lineHeight: tokens.typography.lineHeight.normal,
-          }}
-        >
-          {message}
-        </p>
-
-        <div
-          style={{
-            display: 'flex',
-            gap: tokens.spacing.md,
-            justifyContent: 'flex-end',
-          }}
-        >
-          <button
-            onClick={onCancel}
-            style={{
-              padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-              background: tokens.colors.bg.tertiary,
-              border: `1px solid ${tokens.colors.border.light}`,
-              borderRadius: '6px',
-              color: tokens.colors.text.primary,
-              cursor: 'pointer',
-              fontSize: tokens.typography.fontSize.sm,
-              fontWeight: tokens.typography.fontWeight.medium,
-              transition: 'all 0.2s',
-            }}
-            onMouseOver={(e) => {
-              (e.target as HTMLButtonElement).style.background = tokens.colors.bg.elevated;
-            }}
-            onMouseOut={(e) => {
-              (e.target as HTMLButtonElement).style.background = tokens.colors.bg.tertiary;
-            }}
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            style={{
-              padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-              background: isDangerous ? tokens.colors.semantic.error : tokens.colors.accent.primary,
-              border: 'none',
-              borderRadius: '6px',
-              color: tokens.colors.text.primary,
-              cursor: 'pointer',
-              fontSize: tokens.typography.fontSize.sm,
-              fontWeight: tokens.typography.fontWeight.medium,
-              transition: 'all 0.2s',
-              opacity: 0.9,
-            }}
-            onMouseOver={(e) => {
-              (e.target as HTMLButtonElement).style.opacity = '1';
-            }}
-            onMouseOut={(e) => {
-              (e.target as HTMLButtonElement).style.opacity = '0.9';
-            }}
-          >
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 /**
@@ -671,7 +539,7 @@ export function CacheManagementPanel({
 
       {/* Modals */}
       {showClearConfirmation && (
-        <ConfirmationModal
+        <ConfirmationDialog
           title="Clear All Cache?"
           message={`This will remove ${cacheStats.overall.total_chunks} cached chunks (${cacheStats.overall.total_size_mb.toFixed(1)} MB). This action cannot be undone.`}
           confirmText="Clear All"
@@ -683,7 +551,7 @@ export function CacheManagementPanel({
       )}
 
       {showTrackClearConfirm && selectedTrackForClear && (
-        <ConfirmationModal
+        <ConfirmationDialog
           title="Clear Track Cache?"
           message={`This will remove all cached chunks for Track ${selectedTrackForClear}. This action cannot be undone.`}
           confirmText="Clear"

@@ -1,4 +1,4 @@
-import { useState, useCallback, useId } from 'react';
+import { useState, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -9,7 +9,7 @@ import {
 import { tokens } from '@/design-system';
 import { SettingsUpdate, resetLibrary } from '@/services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
-import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
+import { ConfirmationDialog } from '@/components/shared/ui/ConfirmationDialog';
 
 interface AdvancedSettingsPanelProps {
   cacheSize: number;
@@ -175,8 +175,12 @@ export const AdvancedSettingsPanel = ({
       </div>
 
       {showResetConfirm && (
-        <ResetLibraryConfirmation
-          isResetting={isResetting}
+        <ConfirmationDialog
+          title="Reset Library?"
+          message="This will permanently delete all tracks, albums, artists, playlists, fingerprints, and playback history. Your audio files on disk will not be deleted. This action cannot be undone."
+          confirmText={isResetting ? 'Resetting...' : 'Yes, Reset Library'}
+          isDangerous
+          disabled={isResetting}
           onConfirm={handleResetLibrary}
           onCancel={() => setShowResetConfirm(false)}
         />
@@ -184,118 +188,5 @@ export const AdvancedSettingsPanel = ({
     </Box>
   );
 };
-
-function ResetLibraryConfirmation({
-  isResetting,
-  onConfirm,
-  onCancel,
-}: {
-  isResetting: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const dialogRef = useDialogAccessibility(onCancel);
-  const titleId = useId();
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1300,
-      }}
-      onClick={onCancel}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        style={{
-          background: tokens.colors.bg.secondary,
-          borderRadius: '12px',
-          border: `1px solid ${tokens.colors.semantic.error}`,
-          padding: tokens.spacing.lg,
-          maxWidth: '420px',
-          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3
-          id={titleId}
-          style={{
-            margin: `0 0 ${tokens.spacing.md} 0`,
-            fontSize: tokens.typography.fontSize.lg,
-            fontWeight: tokens.typography.fontWeight.semibold,
-            color: tokens.colors.semantic.error,
-          }}
-        >
-          Reset Library?
-        </h3>
-
-        <p
-          style={{
-            margin: `0 0 ${tokens.spacing.lg} 0`,
-            fontSize: tokens.typography.fontSize.base,
-            color: tokens.colors.text.secondary,
-            lineHeight: tokens.typography.lineHeight.normal,
-          }}
-        >
-          This will permanently delete all tracks, albums, artists, playlists,
-          fingerprints, and playback history. Your audio files on disk will not
-          be deleted. This action cannot be undone.
-        </p>
-
-        <div
-          style={{
-            display: 'flex',
-            gap: tokens.spacing.md,
-            justifyContent: 'flex-end',
-          }}
-        >
-          <button
-            onClick={onCancel}
-            disabled={isResetting}
-            style={{
-              padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-              background: tokens.colors.bg.tertiary,
-              border: `1px solid ${tokens.colors.border.light}`,
-              borderRadius: '6px',
-              color: tokens.colors.text.primary,
-              cursor: isResetting ? 'not-allowed' : 'pointer',
-              fontSize: tokens.typography.fontSize.sm,
-              fontWeight: tokens.typography.fontWeight.medium,
-              transition: 'all 0.2s',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={isResetting}
-            style={{
-              padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-              background: tokens.colors.semantic.error,
-              border: 'none',
-              borderRadius: '6px',
-              color: tokens.colors.text.primary,
-              cursor: isResetting ? 'not-allowed' : 'pointer',
-              fontSize: tokens.typography.fontSize.sm,
-              fontWeight: tokens.typography.fontWeight.semibold,
-              opacity: isResetting ? 0.6 : 0.9,
-              transition: 'all 0.2s',
-            }}
-          >
-            {isResetting ? 'Resetting...' : 'Yes, Reset Library'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default AdvancedSettingsPanel;
