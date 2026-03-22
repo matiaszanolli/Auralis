@@ -358,38 +358,41 @@ export interface PaginatedResponse<T> {
 // Type Guards
 // ============================================================================
 
-export function isTrack(value: any): value is Track {
+export function isTrack(value: unknown): value is Track {
   return (
     typeof value === 'object' &&
-    typeof value.id === 'number' &&
-    typeof value.title === 'string' &&
-    typeof value.artist === 'string' &&
-    typeof value.album === 'string' &&
-    typeof value.duration === 'number'
+    value !== null &&
+    typeof (value as Track).id === 'number' &&
+    typeof (value as Track).title === 'string' &&
+    typeof (value as Track).artist === 'string' &&
+    typeof (value as Track).album === 'string' &&
+    typeof (value as Track).duration === 'number'
   );
 }
 
-export function isAlbum(value: any): value is Album {
+export function isAlbum(value: unknown): value is Album {
   return (
     typeof value === 'object' &&
-    typeof value.id === 'number' &&
-    typeof value.title === 'string' &&
-    typeof value.artist === 'string' &&
-    typeof value.trackCount === 'number' // camelCase
+    value !== null &&
+    typeof (value as Album).id === 'number' &&
+    typeof (value as Album).title === 'string' &&
+    typeof (value as Album).artist === 'string' &&
+    typeof (value as Album).trackCount === 'number' // camelCase
   );
 }
 
-export function isArtist(value: any): value is Artist {
+export function isArtist(value: unknown): value is Artist {
   return (
     typeof value === 'object' &&
-    typeof value.id === 'number' &&
-    typeof value.name === 'string' &&
-    typeof value.trackCount === 'number' // camelCase
+    value !== null &&
+    typeof (value as Artist).id === 'number' &&
+    typeof (value as Artist).name === 'string' &&
+    typeof (value as Artist).trackCount === 'number' // camelCase
   );
 }
 
-export function isEnhancementPreset(value: any): value is EnhancementPreset {
-  return ENHANCEMENT_PRESETS.includes(value);
+export function isEnhancementPreset(value: unknown): value is EnhancementPreset {
+  return ENHANCEMENT_PRESETS.includes(value as EnhancementPreset);
 }
 
 // ============================================================================
