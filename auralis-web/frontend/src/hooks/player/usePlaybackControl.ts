@@ -26,11 +26,10 @@
  */
 
 import { useCallback, useState, useRef } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
-import { usePlaybackState } from '@/hooks/player/usePlaybackState';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { setIsPlaying } from '@/store/slices/playerSlice';
+import { selectCurrentTrack, selectDuration, setIsPlaying } from '@/store/slices/playerSlice';
 import type { ApiError } from '@/types/api';
 import type { AppDispatch } from '@/store';
 
@@ -89,7 +88,8 @@ export interface PlaybackControlActions {
  */
 export function usePlaybackControl(): PlaybackControlActions {
   const api = useRestAPI();
-  const playbackState = usePlaybackState();
+  const currentTrack = useSelector(selectCurrentTrack);
+  const duration = useSelector(selectDuration);
   const { send } = useWebSocketContext();
   const dispatch = useDispatch<AppDispatch>();
 
@@ -101,10 +101,10 @@ export function usePlaybackControl(): PlaybackControlActions {
   const executingCommand = useRef<string | null>(null);
 
   // Ref so the play callback can read the latest track ID without taking
-  // playbackState.currentTrack as a dep (position updates create new object
+  // currentTrack as a dep (position updates create new object
   // references every ~1 s, which would recreate play on every tick — #2354).
-  const currentTrackRef = useRef(playbackState.currentTrack);
-  currentTrackRef.current = playbackState.currentTrack;
+  const currentTrackRef = useRef(currentTrack);
+  currentTrackRef.current = currentTrack;
 
   /**
    * Play - Start playback or resume if paused
@@ -216,7 +216,7 @@ export function usePlaybackControl(): PlaybackControlActions {
     executingCommand.current = 'seek';
 
     // Validate position
-    const validPosition = Math.max(0, Math.min(position, playbackState.duration || position));
+    const validPosition = Math.max(0, Math.min(position, duration || position));
 
     try {
       // Backend expects position in JSON body
@@ -230,7 +230,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [api, playbackState.duration]);
+  }, [api, duration]);
 
   /**
    * Next - Skip to next track in queue
