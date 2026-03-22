@@ -177,11 +177,13 @@ export const StreamingErrorDisplay = ({
   const [errorHistory, setErrorHistory] = useState<StreamingError[]>([]);
   const [isDismissing, setIsDismissing] = useState(false);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Clean up retry timer on unmount (#2981)
+  // Clean up timers on unmount (#2981, #3074)
   useEffect(() => {
     return () => {
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
     };
   }, []);
 
@@ -231,8 +233,9 @@ export const StreamingErrorDisplay = ({
    * Handle dismiss
    */
   const handleDismiss = useCallback(() => {
+    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
     setIsDismissing(true);
-    setTimeout(() => {
+    dismissTimerRef.current = setTimeout(() => {
       setIsVisible(false);
       setIsDismissing(false);
     }, 150);
