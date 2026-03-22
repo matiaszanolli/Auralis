@@ -96,15 +96,15 @@ export const QueueSearchPanel = ({
     }
   }, [durationFilter, setFilters]);
 
-  if (!isOpen) {
-    return null;
-  }
-
   const handleClearSearch = useCallback(() => {
     setSearchQuery('');
     setDurationFilter('all');
     clearFilters();
   }, [setSearchQuery, clearFilters]);
+
+  if (!isOpen) {
+    return null;
+  }
 
   const handleRemoveTrack = async (result: SearchResult) => {
     try {
