@@ -42,7 +42,7 @@ export interface TrackedError {
   category: ErrorCategory;
   message: string;
   action: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   stack?: string;
   retryCount: number;
   maxRetries: number;
