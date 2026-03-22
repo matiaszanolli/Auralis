@@ -405,7 +405,7 @@ jobs:
           ls -R ./artifacts
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.prepare.outputs.version }}
           name: Auralis v${{ needs.prepare.outputs.version }}
