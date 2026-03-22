@@ -35,7 +35,7 @@ import { selectFormattedRemainingTime } from '@/store/selectors';
  * Access entire player state
  */
 export const usePlayerState = () => {
-  return useSelector((state: RootState) => state.player);
+  return useSelector((state: RootState) => state.player, shallowEqual);
 };
 
 /**
@@ -249,7 +249,7 @@ export const useCache = () => {
  * Access entire connection state
  */
 export const useConnectionState = () => {
-  return useSelector((state: RootState) => state.connection);
+  return useSelector((state: RootState) => state.connection, shallowEqual);
 };
 
 /**
