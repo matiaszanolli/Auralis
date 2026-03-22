@@ -772,19 +772,20 @@ def create_library_router(
                         track_artist, track_genre, track_playlist,
                     )
                     from auralis.library.models.fingerprint import TrackFingerprint
+                    from sqlalchemy import delete
 
                     session.execute(track_playlist.delete())
                     session.execute(track_genre.delete())
                     session.execute(track_artist.delete())
 
-                    session.query(TrackFingerprint).delete()
-                    session.query(QueueHistory).delete()
-                    session.query(QueueState).delete()
-                    session.query(Track).delete()
-                    session.query(Playlist).delete()
-                    session.query(Album).delete()
-                    session.query(Artist).delete()
-                    session.query(Genre).delete()
+                    session.execute(delete(TrackFingerprint))
+                    session.execute(delete(QueueHistory))
+                    session.execute(delete(QueueState))
+                    session.execute(delete(Track))
+                    session.execute(delete(Playlist))
+                    session.execute(delete(Album))
+                    session.execute(delete(Artist))
+                    session.execute(delete(Genre))
 
                     session.commit()
                     logger.info("Library reset: all tracks, albums, artists, genres, fingerprints, and playlists deleted")
