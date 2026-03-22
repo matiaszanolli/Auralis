@@ -145,27 +145,31 @@ class AudioFileManager:
 
     def get_duration(self) -> float:
         """Get current audio duration in seconds"""
-        if self.audio_data is None:
-            return 0.0
-        return len(self.audio_data) / self.sample_rate
+        with self._audio_lock:
+            if self.audio_data is None:
+                return 0.0
+            return len(self.audio_data) / self.sample_rate
 
     def get_total_samples(self) -> int:
         """Get total number of samples in current audio"""
-        if self.audio_data is None:
-            return 0
-        return len(self.audio_data)
+        with self._audio_lock:
+            if self.audio_data is None:
+                return 0
+            return len(self.audio_data)
 
     def get_channel_count(self) -> int:
         """Get number of audio channels"""
-        if self.audio_data is None:
-            return 0
-        if len(self.audio_data.shape) == 1:
-            return 1
-        return cast(int, self.audio_data.shape[1])
+        with self._audio_lock:
+            if self.audio_data is None:
+                return 0
+            if len(self.audio_data.shape) == 1:
+                return 1
+            return cast(int, self.audio_data.shape[1])
 
     def is_loaded(self) -> bool:
         """Check if audio file is loaded"""
-        return self.audio_data is not None
+        with self._audio_lock:
+            return self.audio_data is not None
 
     def has_reference(self) -> bool:
         """Check if reference audio is loaded"""
