@@ -247,7 +247,11 @@ const playerSlice = createSlice({
         // includes a partial streaming object doesn't clobber the client-side
         // streaming progress tracked by usePlayEnhanced (fixes #2352).
         const { streaming, ...rest } = action.payload;
-        Object.assign(state, rest);
+        // Filter out undefined values to avoid clobbering valid state (#3025)
+        const defined = Object.fromEntries(
+          Object.entries(rest).filter(([, v]) => v !== undefined)
+        );
+        Object.assign(state, defined);
         // Keep currentTrack.duration in sync with top-level duration (#2774)
         if (rest.duration !== undefined && state.currentTrack) {
           state.currentTrack.duration = rest.duration;
