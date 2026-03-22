@@ -5,21 +5,21 @@ import { tokens } from '@/design-system';
 import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 import { useSelector } from 'react-redux';
 import { selectCurrentTrack } from '@/store/slices/playerSlice';
-import EnhancementToggle from '../../shared/EnhancementToggle/EnhancementToggle';
-import AudioCharacteristics from '../sections/AudioCharacteristics';
-import ProcessingParameters from '../sections/ProcessingParameters';
-import MasteringRecommendation from '../sections/MasteringRecommendation';
-import InfoBox from '../sections/MasteringRecommendation/InfoBox';
-import { EmptyState } from '../../shared/ui/feedback';
-import LoadingState from '../sections/LoadingState';
+import EnhancementToggle from '@/components/shared/EnhancementToggle/EnhancementToggle';
+import AudioCharacteristics from '@/components/enhancement-pane/sections/AudioCharacteristics';
+import ProcessingParameters from '@/components/enhancement-pane/sections/ProcessingParameters';
+import MasteringRecommendation from '@/components/enhancement-pane/sections/MasteringRecommendation';
+import InfoBox from '@/components/enhancement-pane/sections/MasteringRecommendation/InfoBox';
+import { EmptyState } from '@/components/shared/ui/feedback';
+import LoadingState from '@/components/enhancement-pane/sections/LoadingState';
 import useMasteringRecommendation from '@/hooks/enhancement/useMasteringRecommendation';
 import {
   ExpandedPaneContainer,
   PaneHeader,
   PaneContent,
   DisabledStateContainer,
-} from '../EnhancementPane.styles';
-import { ProcessingParams } from '../hooks/useEnhancementParameters';
+} from '@/components/enhancement-pane/EnhancementPane.styles';
+import { ProcessingParams } from '@/components/enhancement-pane/hooks/useEnhancementParameters';
 import { IconButton } from '@/design-system';
 import { Box, Typography, Stack } from '@mui/material';
 

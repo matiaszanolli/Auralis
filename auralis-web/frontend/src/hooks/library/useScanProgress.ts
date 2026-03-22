@@ -6,12 +6,12 @@
  */
 
 import { useRef, useState } from 'react';
-import { useWebSocketSubscription } from '../websocket/useWebSocketSubscription';
+import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
 import type {
   ScanProgressMessage,
   ScanCompleteMessage,
   LibraryTracksRemovedMessage,
-} from '../../types/websocket';
+} from '@/types/websocket';
 
 export interface ScanProgress {
   isScanning: boolean;

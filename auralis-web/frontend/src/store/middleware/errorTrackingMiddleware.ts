@@ -20,7 +20,7 @@
  */
 
 import type { Middleware } from '@reduxjs/toolkit';
-import * as connectionActions from '../slices/connectionSlice';
+import * as connectionActions from '@/store/slices/connectionSlice';
 
 // ============================================================================
 // Error Types and Interfaces

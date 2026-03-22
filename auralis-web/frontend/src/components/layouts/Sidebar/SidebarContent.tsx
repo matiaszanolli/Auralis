@@ -8,7 +8,7 @@ import { LibraryMusic, Album, Person, Favorite, History } from '@mui/icons-mater
 import { tokens } from '@/design-system';
 import { SectionLabel } from './SidebarStyles';
 import NavigationSection from './NavigationSection';
-import PlaylistList from '../../playlist/PlaylistList';
+import PlaylistList from '@/components/playlist/PlaylistList';
 
 interface SidebarContentProps {
   selectedItem: string;

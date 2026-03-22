@@ -14,7 +14,7 @@
 import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiBadge, { BadgeProps as MuiBadgeProps } from '@mui/material/Badge';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export interface BadgeProps extends Omit<MuiBadgeProps, 'variant' | 'color'> {
   /**

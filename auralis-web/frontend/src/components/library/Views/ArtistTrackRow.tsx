@@ -5,7 +5,7 @@
 import React from 'react';
 import { TableCell, Typography, Box } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
-import { StyledTableRow, PlayIcon } from '../Styles/Table.styles';
+import { StyledTableRow, PlayIcon } from '@/components/library/Styles/Table.styles';
 import type { DetailTrack as Track } from '@/types/domain';
 import { tokens } from '@/design-system';
 

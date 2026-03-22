@@ -16,12 +16,12 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Provider as ReduxProvider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { ThemeProvider } from '../contexts/ThemeContext'
-import { ToastProvider } from '../components/shared/Toast'
-import playerReducer from '../store/slices/playerSlice'
-import queueReducer from '../store/slices/queueSlice'
-import cacheReducer from '../store/slices/cacheSlice'
-import connectionReducer from '../store/slices/connectionSlice'
+import { ThemeProvider } from '@/contexts/ThemeContext'
+import { ToastProvider } from '@/components/shared/Toast'
+import playerReducer from '@/store/slices/playerSlice'
+import queueReducer from '@/store/slices/queueSlice'
+import cacheReducer from '@/store/slices/cacheSlice'
+import connectionReducer from '@/store/slices/connectionSlice'
 
 /**
  * Mock WebSocket Context for Testing

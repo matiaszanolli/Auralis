@@ -17,9 +17,9 @@
 
 import React from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
-import { LibraryGridSkeleton, TrackRowSkeleton } from '../../shared/ui/loaders';
-import { ListLoadingContainer } from '../Styles/Grid.styles';
-import GridLoadingState from '../Items/utilities/GridLoadingState';
+import { LibraryGridSkeleton, TrackRowSkeleton } from '@/components/shared/ui/loaders';
+import { ListLoadingContainer } from '@/components/library/Styles/Grid.styles';
+import GridLoadingState from '@/components/library/Items/utilities/GridLoadingState';
 import TrackGridView from './TrackGridView';
 import TrackListViewContent from './TrackListViewContent';
 import { useQueueOperations } from './useQueueOperations';

@@ -16,7 +16,7 @@ import MuiCircularProgress, {
   CircularProgressProps as MuiCircularProgressProps,
 } from '@mui/material/CircularProgress';
 import { styled } from '@mui/material/styles';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export type CircularProgressProps = MuiCircularProgressProps;
 

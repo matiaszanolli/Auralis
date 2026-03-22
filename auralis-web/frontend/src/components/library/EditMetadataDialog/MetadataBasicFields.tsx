@@ -4,7 +4,7 @@
 
 import React from 'react';
 import Grid2 from '@mui/material/Unstable_Grid2';
-import { StyledTextField } from '../Styles/FormFields.styles';
+import { StyledTextField } from '@/components/library/Styles/FormFields.styles';
 import type { MetadataFields } from './useMetadataForm';
 
 interface MetadataBasicFieldsProps {

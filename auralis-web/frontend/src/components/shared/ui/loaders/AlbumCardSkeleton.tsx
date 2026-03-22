@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import { SkeletonBox } from '../../../library/Styles/Skeleton.styles';
+import { SkeletonBox } from '@/components/library/Styles/Skeleton.styles';
 
 /**
  * AlbumCardSkeleton - Loading skeleton for album card

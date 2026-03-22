@@ -6,7 +6,7 @@ import React from 'react';
 
 import { ChevronLeft } from '@mui/icons-material';
 import { tokens } from '@/design-system';
-import { AuroraLogo } from '../../navigation/AuroraLogo';
+import { AuroraLogo } from '@/components/navigation/AuroraLogo';
 import { IconButton } from '@/design-system';
 import { Box, Divider } from '@mui/material';
 

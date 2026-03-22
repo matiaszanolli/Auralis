@@ -18,7 +18,7 @@
 
 import { useMemo } from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
-import { EmptyState } from '../../../shared/ui/feedback';
+import { EmptyState } from '@/components/shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
 import { EraSection } from './EraSection';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';

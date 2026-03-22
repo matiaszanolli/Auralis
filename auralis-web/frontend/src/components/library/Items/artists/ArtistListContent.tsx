@@ -1,7 +1,7 @@
 import React from 'react';
 import { Typography } from '@mui/material';
 import InfiniteScroll from 'react-infinite-scroll-component';
-import { ContextMenu, ContextMenuAction } from '../../../shared/ContextMenu';
+import { ContextMenu, ContextMenuAction } from '@/components/shared/ContextMenu';
 import { ArtistListLoadingIndicator } from './ArtistListLoadingIndicator';
 import { ArtistListHeader } from './ArtistListHeader';
 import { ArtistSection } from './ArtistSection';

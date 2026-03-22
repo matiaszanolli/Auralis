@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Collapse } from '@mui/material';
 import { List } from '@/design-system';
-import { ContextMenu, ContextMenuAction } from '../shared/ContextMenu';
+import { ContextMenu, ContextMenuAction } from '@/components/shared/ContextMenu';
 import { DroppablePlaylist } from './DroppablePlaylist';
 import { EmptyState } from './PlaylistList.styles';
-import * as playlistService from '../../services/playlistService';
+import * as playlistService from '@/services/playlistService';
 
 interface PlaylistListContentProps {
   playlists: playlistService.Playlist[];

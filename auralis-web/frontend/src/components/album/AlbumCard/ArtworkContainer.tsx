@@ -11,7 +11,7 @@
 
 import React, { useState } from 'react';
 import { Box } from '@mui/material';
-import { AlbumArt } from '../AlbumArt';
+import { AlbumArt } from '@/components/album/AlbumArt';
 import { PlayOverlay } from './PlayOverlay';
 import { LoadingOverlay } from './LoadingOverlay';
 import { NoArtworkButtons } from './NoArtworkButtons';

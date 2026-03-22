@@ -22,8 +22,8 @@
 
 import React from 'react';
 import { DialogContent } from '@mui/material';
-import { ShortcutDefinition } from '../../services/keyboardShortcutsService';
-import { StyledDialog } from '../library/Styles/Dialog.styles';
+import { ShortcutDefinition } from '@/services/keyboardShortcutsService';
+import { StyledDialog } from '@/components/library/Styles/Dialog.styles';
 import { useShortcutFormatting } from './useShortcutFormatting';
 import { KeyboardShortcutsHeader } from './KeyboardShortcutsHeader';
 import { KeyboardShortcutsEmpty } from './KeyboardShortcutsEmpty';

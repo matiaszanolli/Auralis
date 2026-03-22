@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import * as playlistService from '../../services/playlistService';
-import { useToast } from '../shared/Toast';
+import * as playlistService from '@/services/playlistService';
+import { useToast } from '@/components/shared/Toast';
 
 interface UseCreatePlaylistFormProps {
   initialTrackIds?: number[];

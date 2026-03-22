@@ -16,7 +16,7 @@ import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiButton, { ButtonProps as MuiButtonProps } from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export interface ButtonProps extends Omit<MuiButtonProps, 'variant' | 'size' | 'color'> {
   /**

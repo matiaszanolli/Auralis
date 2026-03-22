@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import * as queueService from '../../../services/queueService';
-import { useToast } from '../../shared/Toast';
+import * as queueService from '@/services/queueService';
+import { useToast } from '@/components/shared/Toast';
 
 export interface UseQueueOperationsProps {
   onRemoveTrack?: () => void;

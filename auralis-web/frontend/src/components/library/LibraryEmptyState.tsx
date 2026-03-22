@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { EmptyState, EmptyLibrary, NoSearchResults } from '../shared/ui/feedback';
+import { EmptyState, EmptyLibrary, NoSearchResults } from '@/components/shared/ui/feedback';
 
 interface LibraryEmptyStateProps {
   view: string;

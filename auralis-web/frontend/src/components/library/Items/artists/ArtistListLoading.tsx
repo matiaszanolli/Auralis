@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ListContainer } from '../../Styles/ArtistList.styles';
+import { ListContainer } from '@/components/library/Styles/ArtistList.styles';
 import { List } from '@/design-system';
 import { Box, ListItem, Skeleton } from '@mui/material';
 

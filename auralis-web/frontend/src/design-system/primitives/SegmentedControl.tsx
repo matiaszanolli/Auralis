@@ -19,7 +19,7 @@
 
 import React from 'react';
 import { styled } from '@mui/material/styles';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export interface SegmentedControlOption {
   value: string;

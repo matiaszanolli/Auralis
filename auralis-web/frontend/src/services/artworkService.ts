@@ -7,8 +7,8 @@
  * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
  */
 
-import { API_BASE_URL } from '../config/api';
-import { createCrudService } from '../utils/serviceFactory';
+import { API_BASE_URL } from '@/config/api';
+import { createCrudService } from '@/utils/serviceFactory';
 
 export interface ArtworkResponse {
   message: string;

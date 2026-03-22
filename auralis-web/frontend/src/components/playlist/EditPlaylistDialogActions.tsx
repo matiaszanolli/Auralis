@@ -1,6 +1,6 @@
 import React from 'react';
 import { DialogActions } from '@mui/material';
-import { CancelButton, GradientButton } from '../library/Styles/Button.styles';
+import { CancelButton, GradientButton } from '@/components/library/Styles/Button.styles';
 
 interface EditPlaylistDialogActionsProps {
   loading: boolean;

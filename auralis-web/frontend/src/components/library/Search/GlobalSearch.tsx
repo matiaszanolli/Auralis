@@ -1,9 +1,9 @@
 import React from 'react';
-import { SearchContainer } from '../Styles/SearchStyles.styles';
+import { SearchContainer } from '@/components/library/Styles/SearchStyles.styles';
 import SearchInput from './SearchInput';
 import ResultsContainerComponent from './ResultsContainer';
 import ResultAvatar from './ResultAvatar';
-import { useSearchLogic } from '../Hooks/useSearchLogic';
+import { useSearchLogic } from '@/components/library/Hooks/useSearchLogic';
 
 export interface SearchResult {
   type: 'track' | 'album' | 'artist';

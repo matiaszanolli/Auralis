@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { post, del } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
-import { useToast } from '../shared/Toast';
+import { useToast } from '@/components/shared/Toast';
 
 interface UseBatchOperationsProps {
   selectedTracks: Set<number>;

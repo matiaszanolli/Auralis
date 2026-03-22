@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { List } from '@/design-system';
-import { AlphabetDivider } from '../../Styles/ArtistList.styles';
+import { AlphabetDivider } from '@/components/library/Styles/ArtistList.styles';
 import { ArtistListItem } from './ArtistListItem';
 import type { Artist } from '@/types/domain';
 

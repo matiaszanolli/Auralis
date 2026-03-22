@@ -12,8 +12,8 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { get } from '../utils/apiRequest';
-import { ENDPOINTS } from '../config/api';
+import { get } from '@/utils/apiRequest';
+import { ENDPOINTS } from '@/config/api';
 
 export interface TrackInArtist {
   id: number;

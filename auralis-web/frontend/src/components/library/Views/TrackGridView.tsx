@@ -1,5 +1,5 @@
 import Grid2 from '@mui/material/Unstable_Grid2';
-import { TrackCard } from '../../track/TrackCard';
+import { TrackCard } from '@/components/track/TrackCard';
 import type { LibraryTrack as Track } from '@/types/domain';
 
 export interface TrackGridViewProps {

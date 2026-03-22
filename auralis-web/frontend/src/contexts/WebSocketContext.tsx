@@ -12,12 +12,12 @@
  */
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { WebSocketManager } from '../utils/errorHandling';
-import { WS_BASE_URL } from '../config/api';
-import type { AnyWebSocketMessage, AudioChunkMessage, WebSocketMessage, WebSocketMessageType } from '../types/websocket';
+import { WebSocketManager } from '@/utils/errorHandling';
+import { WS_BASE_URL } from '@/config/api';
+import type { AnyWebSocketMessage, AudioChunkMessage, WebSocketMessage, WebSocketMessageType } from '@/types/websocket';
 
 // Re-export message types so existing consumers can still import from here
-export type { AnyWebSocketMessage } from '../types/websocket';
+export type { AnyWebSocketMessage } from '@/types/websocket';
 export type {
   WebSocketMessage,
   AudioStreamStartMessage,
@@ -31,7 +31,7 @@ export type {
   PlaylistCreatedMessage,
   PlaylistUpdatedMessage,
   PlaylistDeletedMessage,
-} from '../types/websocket';
+} from '@/types/websocket';
 
 // ============================================================================
 // Outgoing (client → server) message type

@@ -11,9 +11,9 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { ApiError } from '../../types/api';
-import { ApiErrorHandler } from '../../types/api';
-import { API_BASE_URL } from '../../config/api';
+import type { ApiError } from '@/types/api';
+import { ApiErrorHandler } from '@/types/api';
+import { API_BASE_URL } from '@/config/api';
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 /**

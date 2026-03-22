@@ -5,7 +5,7 @@
  * Persists across browser sessions and prevents re-computation.
  */
 
-import type { AudioFingerprint } from '../../types/domain';
+import type { AudioFingerprint } from '@/types/domain';
 
 /** Cache entry extends AudioFingerprint with persistence metadata */
 interface CachedFingerprint extends AudioFingerprint {

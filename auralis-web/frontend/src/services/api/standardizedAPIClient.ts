@@ -11,7 +11,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { API_BASE_URL } from '../../config/api';
+import { API_BASE_URL } from '@/config/api';
 
 // ============================================================================
 // API Response Types (matching backend schemas)

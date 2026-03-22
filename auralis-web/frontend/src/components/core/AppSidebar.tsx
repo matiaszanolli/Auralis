@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
-import Sidebar from '../layouts/Sidebar';
+import Sidebar from '@/components/layouts/Sidebar';
 import { MobileSidebarDrawer } from './MobileSidebarDrawer';
 
 /**

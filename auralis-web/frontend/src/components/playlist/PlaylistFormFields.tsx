@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyledTextField } from '../library/Styles/FormFields.styles';
+import { StyledTextField } from '@/components/library/Styles/FormFields.styles';
 import { DialogContentBox } from './EditPlaylistDialog.styles';
 
 interface PlaylistFormFieldsProps {

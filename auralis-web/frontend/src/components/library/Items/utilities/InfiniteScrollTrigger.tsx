@@ -33,7 +33,7 @@
  */
 
 import React from 'react';
-import { InfiniteScrollTrigger as StyledTrigger } from '../../Styles/Grid.styles';
+import { InfiniteScrollTrigger as StyledTrigger } from '@/components/library/Styles/Grid.styles';
 
 interface InfiniteScrollTriggerProps {
   ref?: React.Ref<HTMLDivElement>;

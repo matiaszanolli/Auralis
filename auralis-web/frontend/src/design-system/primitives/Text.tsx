@@ -1,5 +1,5 @@
 import React from 'react';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export interface TextProps {
   children: React.ReactNode;

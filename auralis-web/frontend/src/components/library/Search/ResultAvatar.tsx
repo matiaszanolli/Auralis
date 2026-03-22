@@ -7,8 +7,8 @@ import {
 import {
   ArtistSearchAvatar,
   DefaultSearchAvatar
-} from '../Styles/SearchStyles.styles';
-import AlbumArt from '../../album/AlbumArt';
+} from '@/components/library/Styles/SearchStyles.styles';
+import AlbumArt from '@/components/album/AlbumArt';
 
 interface SearchResult {
   type: 'track' | 'album' | 'artist';

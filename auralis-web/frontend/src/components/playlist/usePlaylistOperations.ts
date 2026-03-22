@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { useToast } from '../shared/Toast';
-import * as playlistService from '../../services/playlistService';
+import { useToast } from '@/components/shared/Toast';
+import * as playlistService from '@/services/playlistService';
 
 interface UsePlaylistOperationsProps {
   selectedPlaylistId?: number;

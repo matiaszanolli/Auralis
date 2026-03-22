@@ -7,7 +7,7 @@ import {
 } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import DetailViewHeader from './DetailViewHeader';
-import { ArtistAvatarCircle } from '../Styles/ArtistDetail.styles';
+import { ArtistAvatarCircle } from '@/components/library/Styles/ArtistDetail.styles';
 import { IconButton, Button } from '@/design-system';
 import { Box, Typography } from '@mui/material';
 import type { Artist } from '@/types/domain';

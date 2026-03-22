@@ -31,8 +31,8 @@
 import React, { useState, useEffect } from 'react';
 import { Box, IconButton } from '@mui/material';
 import { Add } from '@mui/icons-material';
-import * as playlistService from '../../services/playlistService';
-import { useContextMenu } from '../shared/ContextMenu';
+import * as playlistService from '@/services/playlistService';
+import { useContextMenu } from '@/components/shared/ContextMenu';
 import CreatePlaylistDialog from './CreatePlaylistDialog';
 import EditPlaylistDialog from './EditPlaylistDialog';
 import { PlaylistSection } from './PlaylistList.styles';

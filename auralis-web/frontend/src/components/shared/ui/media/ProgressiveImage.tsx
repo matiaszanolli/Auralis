@@ -20,9 +20,9 @@ import React from 'react';
 import { Box, styled } from '@mui/material';
 import { MusicNote } from '@mui/icons-material';
 import { tokens } from '@/design-system';
-import { SkeletonContainer } from '../../../library/Styles/Skeleton.styles';
-import { fadeIn } from '../../../library/Styles/Animation.styles';
-import { Skeleton } from '../loaders';
+import { SkeletonContainer } from '@/components/library/Styles/Skeleton.styles';
+import { fadeIn } from '@/components/library/Styles/Animation.styles';
+import { Skeleton } from '@/components/shared/ui/loaders';
 import { useProgressiveImageLoader } from './useProgressiveImageLoader';
 
 interface ProgressiveImageProps {

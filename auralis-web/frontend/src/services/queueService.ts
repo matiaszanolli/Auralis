@@ -10,8 +10,8 @@
  * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
  */
 
-import { ENDPOINTS } from '../config/api';
-import { createCrudService } from '../utils/serviceFactory';
+import { ENDPOINTS } from '@/config/api';
+import { createCrudService } from '@/utils/serviceFactory';
 
 export interface QueueTrack {
   id: number;

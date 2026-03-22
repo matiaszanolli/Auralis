@@ -2,8 +2,8 @@
  * BatchActionsToolbar Styled Components
  */
 
-import { cardShadows } from '../Styles/Shadow.styles';
-import { spacingPresets } from '../Styles/Spacing.styles';
+import { cardShadows } from '@/components/library/Styles/Shadow.styles';
+import { spacingPresets } from '@/components/library/Styles/Spacing.styles';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Paper, Typography, styled } from '@mui/material';

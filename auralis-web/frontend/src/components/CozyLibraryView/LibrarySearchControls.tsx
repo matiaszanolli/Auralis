@@ -4,8 +4,8 @@ import {
   FolderOpen,
   Refresh
 } from '@mui/icons-material';
-import SearchBar from '../navigation/SearchBar';
-import ViewToggle, { ViewMode } from '../navigation/ViewToggle';
+import SearchBar from '@/components/navigation/SearchBar';
+import ViewToggle, { ViewMode } from '@/components/navigation/ViewToggle';
 import { tokens } from '@/design-system';
 import { Tooltip, IconButton } from '@/design-system';
 import { Box, Paper, Typography } from '@mui/material';

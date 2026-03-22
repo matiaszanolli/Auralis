@@ -6,12 +6,12 @@ import {
 } from '@mui/material';
 import Grid2 from '@mui/material/Unstable_Grid2';
 import { tokens } from '@/design-system';
-import AlbumArt from '../../album/AlbumArt';
+import AlbumArt from '@/components/album/AlbumArt';
 import {
   AlbumCard,
   AlbumTitle,
   AlbumInfo
-} from '../Styles/ArtistDetail.styles';
+} from '@/components/library/Styles/ArtistDetail.styles';
 
 interface Album {
   id: number;

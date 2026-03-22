@@ -15,8 +15,8 @@
  * - Centralized error classification
  */
 
-import { WebSocketManager, classifyErrorSeverity } from '../utils/errorHandling';
-import { getWsUrl } from '../config/api';
+import { WebSocketManager, classifyErrorSeverity } from '@/utils/errorHandling';
+import { getWsUrl } from '@/config/api';
 import {
   StreamingStateManager,
   StreamingSubscriptionManager,
@@ -24,7 +24,7 @@ import {
   createStreamingState,
   createSubscriptionManager,
   createBackpressureManager,
-} from '../utils/streamingInfrastructure';
+} from '@/utils/streamingInfrastructure';
 
 interface AudioStreamConfig {
   sampleRate: number;

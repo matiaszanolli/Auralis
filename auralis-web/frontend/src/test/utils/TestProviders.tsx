@@ -6,7 +6,7 @@
  */
 
 import React, { ReactNode } from 'react';
-import { WebSocketProvider } from '../../contexts/WebSocketContext';
+import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
 interface TestProvidersProps {
   children: ReactNode;

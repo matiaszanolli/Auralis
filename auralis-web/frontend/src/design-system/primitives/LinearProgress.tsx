@@ -15,7 +15,7 @@ import MuiLinearProgress, {
   LinearProgressProps as MuiLinearProgressProps,
 } from '@mui/material/LinearProgress';
 import { styled } from '@mui/material/styles';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export type LinearProgressProps = MuiLinearProgressProps;
 

@@ -6,14 +6,14 @@
  */
 
 import { useState } from 'react';
-import { useWebSocketSubscription } from '../websocket/useWebSocketSubscription';
-import { transformPlayerState } from '../../types/websocket';
-import type { TrackInfo } from '../../types/websocket';
+import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
+import { transformPlayerState } from '@/types/websocket';
+import type { TrackInfo } from '@/types/websocket';
 import type {
   PositionChangedMessage,
   VolumeChangedMessage,
   PlayerStateMessage,
-} from '../../types/websocket';
+} from '@/types/websocket';
 
 export interface PlaybackState {
   currentTrack: TrackInfo | null;

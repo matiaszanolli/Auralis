@@ -13,7 +13,7 @@
 import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiTooltip, { TooltipProps as MuiTooltipProps } from '@mui/material/Tooltip';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export type TooltipProps = MuiTooltipProps;
 

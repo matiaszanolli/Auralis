@@ -16,7 +16,7 @@ import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiIconButton, { IconButtonProps as MuiIconButtonProps } from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export interface IconButtonProps extends Omit<MuiIconButtonProps, 'size' | 'color'> {
   /**

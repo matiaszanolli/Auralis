@@ -9,9 +9,9 @@
  * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
  */
 
-import { post, del } from '../utils/apiRequest';
-import { ENDPOINTS } from '../config/api';
-import { createCrudService } from '../utils/serviceFactory';
+import { post, del } from '@/utils/apiRequest';
+import { ENDPOINTS } from '@/config/api';
+import { createCrudService } from '@/utils/serviceFactory';
 
 export interface Playlist {
   id: number;

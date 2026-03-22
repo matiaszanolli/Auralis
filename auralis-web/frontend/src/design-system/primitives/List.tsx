@@ -15,7 +15,7 @@
 import React from 'react';
 import MuiList, { ListProps as MuiListProps } from '@mui/material/List';
 import { styled } from '@mui/material/styles';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export type ListProps = MuiListProps;
 

@@ -8,7 +8,7 @@
  * - Request/response logging
  */
 
-import { getApiUrl } from '../config/api';
+import { getApiUrl } from '@/config/api';
 
 export interface APIError {
   message: string;

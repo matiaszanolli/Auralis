@@ -9,7 +9,7 @@ import {
 import {
   SearchContainer,
   SearchField
-} from '../Styles/SearchStyles.styles';
+} from '@/components/library/Styles/SearchStyles.styles';
 import { tokens, CircularProgress } from '@/design-system';
 
 interface SearchInputProps {

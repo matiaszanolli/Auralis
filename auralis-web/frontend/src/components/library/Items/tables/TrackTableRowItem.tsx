@@ -6,10 +6,10 @@ import React from 'react';
 import { TableCell, Typography, IconButton } from '@mui/material';
 import { MoreVert } from '@mui/icons-material';
 import { tokens } from '@/design-system';
-import { StyledTableRow } from '../../Styles/Table.styles';
-import { TrackPlayIndicator } from '../tracks/TrackPlayIndicator';
-import { ContextMenu } from '../../../shared/ContextMenu';
-import { useTrackContextMenu } from '../tracks/useTrackContextMenu';
+import { StyledTableRow } from '@/components/library/Styles/Table.styles';
+import { TrackPlayIndicator } from '@/components/library/Items/tracks/TrackPlayIndicator';
+import { ContextMenu } from '@/components/shared/ContextMenu';
+import { useTrackContextMenu } from '@/components/library/Items/tracks/useTrackContextMenu';
 
 import type { DetailTrack as Track } from '@/types/domain';
 

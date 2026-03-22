@@ -6,11 +6,11 @@
 
 import React from 'react';
 import Grid2 from '@mui/material/Unstable_Grid2';
-import { AlbumCard } from '../../../album/AlbumCard/AlbumCard';
-import { GridContainer } from '../../Styles/Grid.styles';
-import InfiniteScrollTrigger from '../utilities/InfiniteScrollTrigger';
-import EndOfListIndicator from '../utilities/EndOfListIndicator';
-import GridLoadingState from '../utilities/GridLoadingState';
+import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
+import { GridContainer } from '@/components/library/Styles/Grid.styles';
+import InfiniteScrollTrigger from '@/components/library/Items/utilities/InfiniteScrollTrigger';
+import EndOfListIndicator from '@/components/library/Items/utilities/EndOfListIndicator';
+import GridLoadingState from '@/components/library/Items/utilities/GridLoadingState';
 
 interface Album {
   id: number;

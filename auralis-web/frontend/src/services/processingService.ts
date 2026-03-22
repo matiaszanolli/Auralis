@@ -14,9 +14,9 @@
  * @license GPLv3
  */
 
-import { WebSocketManager, retryWithBackoff } from '../utils/errorHandling';
-import { get, post, del, getBlob } from '../utils/apiRequest';
-import { getApiUrl, WS_BASE_URL } from '../config/api';
+import { WebSocketManager, retryWithBackoff } from '@/utils/errorHandling';
+import { get, post, del, getBlob } from '@/utils/apiRequest';
+import { getApiUrl, WS_BASE_URL } from '@/config/api';
 
 export interface ProcessingSettings {
   mode: 'adaptive' | 'reference' | 'hybrid';

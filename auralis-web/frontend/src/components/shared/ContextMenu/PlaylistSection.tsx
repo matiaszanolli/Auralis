@@ -17,7 +17,7 @@ import {
   styled,
 } from '@mui/material';
 import { PlaylistAdd, Add } from '@mui/icons-material';
-import * as playlistService from '../../../services/playlistService';
+import * as playlistService from '@/services/playlistService';
 import { tokens } from '@/design-system';
 
 const PlaylistMenuItem = styled(MenuItem)({

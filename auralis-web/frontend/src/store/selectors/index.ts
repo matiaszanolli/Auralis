@@ -14,7 +14,7 @@
 
 import { createSelector } from '@reduxjs/toolkit';
 import type { QueueTrack } from '@/types/domain';
-import type { RootState } from '../index';
+import type { RootState } from '@/store/index';
 
 // ============================================================================
 // Helper

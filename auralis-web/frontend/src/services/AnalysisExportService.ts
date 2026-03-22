@@ -18,7 +18,7 @@
 
 import React from 'react';
 import { tokens } from '@/design-system';
-import { createTimeoutPromise, globalErrorLogger } from '../utils/errorHandling';
+import { createTimeoutPromise, globalErrorLogger } from '@/utils/errorHandling';
 import {
   calculateRunningAverage,
   extractNumericValues,
@@ -27,7 +27,7 @@ import {
   CanvasRenderingUtils,
   DataTransformer,
   ProgressCallback,
-} from '../utils/exportInfrastructure';
+} from '@/utils/exportInfrastructure';
 
 interface ExportMetadata {
   timestamp: string;

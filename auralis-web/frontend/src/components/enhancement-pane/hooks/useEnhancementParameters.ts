@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getApiUrl } from '../../../config/api';
+import { getApiUrl } from '@/config/api';
 
 export interface ProcessingParams {
   // 3D space coordinates (0-1)

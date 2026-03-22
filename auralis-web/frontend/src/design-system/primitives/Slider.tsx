@@ -14,7 +14,7 @@
 import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiSlider, { SliderProps as MuiSliderProps } from '@mui/material/Slider';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export interface SliderProps extends Omit<MuiSliderProps, 'size' | 'color'> {
   /**

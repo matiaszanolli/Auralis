@@ -1,6 +1,6 @@
 import React from 'react';
 import { Table, TableBody, TableRow, TableCell, Typography } from '@mui/material';
-import { TracksTableContainer } from '../Styles/ArtistDetail.styles';
+import { TracksTableContainer } from '@/components/library/Styles/ArtistDetail.styles';
 import TracksTableHeader from './TracksTableHeader';
 import ArtistTrackRow from './ArtistTrackRow';
 import useDurationFormatter from './useDurationFormatter';

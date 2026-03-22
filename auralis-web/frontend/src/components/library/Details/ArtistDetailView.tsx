@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Container } from '@mui/material';
 import { tokens } from '@/design-system';
-import { EmptyState } from '../../shared/ui/feedback';
+import { EmptyState } from '@/components/shared/ui/feedback';
 import DetailLoading from './DetailLoading';
 import type { DetailTrack as Track } from '@/types/domain';
 import { useArtistDetailsData } from './useArtistDetailsData';

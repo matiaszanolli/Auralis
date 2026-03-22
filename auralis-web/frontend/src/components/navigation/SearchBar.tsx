@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box } from '@mui/material';
-import { SearchTextField } from '../library/Styles/FormFields.styles';
+import { SearchTextField } from '@/components/library/Styles/FormFields.styles';
 import { SearchInputAdornments } from './SearchInputAdornments';
 import { SearchKeyboardHint } from './SearchKeyboardHint';
 

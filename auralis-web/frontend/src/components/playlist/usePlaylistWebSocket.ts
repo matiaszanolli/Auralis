@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useWebSocketContext } from '../../contexts/WebSocketContext';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 interface UsePlaylistWebSocketProps {
   onPlaylistCreated: () => void;

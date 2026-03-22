@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ShortcutDefinition } from '../../services/keyboardShortcutsService';
+import { ShortcutDefinition } from '@/services/keyboardShortcutsService';
 
 export interface GroupedShortcuts {
   [category: string]: ShortcutDefinition[];

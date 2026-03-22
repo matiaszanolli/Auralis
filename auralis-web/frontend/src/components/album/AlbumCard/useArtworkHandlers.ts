@@ -9,8 +9,8 @@
  */
 
 import { useState } from 'react';
-import { downloadArtwork, extractArtwork, deleteArtwork } from '../../../services/artworkService';
-import { useToast } from '../../shared/Toast';
+import { downloadArtwork, extractArtwork, deleteArtwork } from '@/services/artworkService';
+import { useToast } from '@/components/shared/Toast';
 
 export const useArtworkHandlers = (albumId: number, onArtworkUpdated?: () => void) => {
   const [downloading, setDownloading] = useState(false);

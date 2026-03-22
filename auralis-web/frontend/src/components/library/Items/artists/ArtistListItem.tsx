@@ -5,7 +5,7 @@ import {
   StyledListItemButton,
   ArtistName,
   ArtistInfo
-} from '../../Styles/ArtistList.styles';
+} from '@/components/library/Styles/ArtistList.styles';
 import type { Artist } from '@/types/domain';
 
 interface ArtistListItemProps {

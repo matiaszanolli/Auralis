@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
-import { getTrackContextActions } from '../../../shared/ContextMenu';
-import { useToast } from '../../../shared/Toast';
+import { getTrackContextActions } from '@/components/shared/ContextMenu';
+import { useToast } from '@/components/shared/Toast';
 import { useQueue } from '@/hooks/shared/useReduxState';
 import * as playlistService from '@/services/playlistService';
 import type { LibraryTrack as Track } from '@/types/domain';

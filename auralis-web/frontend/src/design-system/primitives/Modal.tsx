@@ -19,7 +19,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import IconButton from './IconButton';
 import CloseIcon from '@mui/icons-material/Close';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export interface ModalProps extends Omit<MuiDialogProps, 'title'> {
   /**

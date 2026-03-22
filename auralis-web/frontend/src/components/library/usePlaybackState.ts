@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useToast } from '../shared/Toast';
+import { useToast } from '@/components/shared/Toast';
 import type { LibraryTrack as Track } from '@/types/domain';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 

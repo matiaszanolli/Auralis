@@ -19,7 +19,7 @@ import {
   LoadingIndicatorBox,
   LoadingSpinner,
   LoadingText
-} from '../../Styles/Grid.styles';
+} from '@/components/library/Styles/Grid.styles';
 
 interface GridLoadingStateProps {
   current?: number;

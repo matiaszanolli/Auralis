@@ -7,8 +7,8 @@
 import React from 'react';
 import { Box, Tab, Tabs } from '@mui/material';
 import { tokens } from '@/design-system';
-import AlbumsTab from '../Views/AlbumsTab';
-import TracksTab from '../Views/TracksTab';
+import AlbumsTab from '@/components/library/Views/AlbumsTab';
+import TracksTab from '@/components/library/Views/TracksTab';
 import type { DetailTrack as Track } from '@/types/domain';
 import { type Artist } from './useArtistDetailsData';
 

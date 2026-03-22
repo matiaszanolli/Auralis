@@ -6,7 +6,7 @@ import { IconButton, Tooltip } from '@/design-system';
 import {
   CollapsedPaneContainer,
   CollapsedIconContainer,
-} from '../EnhancementPane.styles';
+} from '@/components/enhancement-pane/EnhancementPane.styles';
 
 interface CollapsedProps {
   onToggleCollapse?: () => void;

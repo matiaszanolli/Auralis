@@ -54,6 +54,7 @@ import {
 } from '@/store/slices/queueSlice';
 import type { Track, QueueTrack } from '@/types/domain';
 import type { ApiError } from '@/types/api';
+import { isQueueChangedMessage, isQueueShuffledMessage, isRepeatModeChangedMessage } from '@/types/websocket';
 import type { AppDispatch } from '@/store';
 
 /**

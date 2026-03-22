@@ -16,7 +16,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@/store';
-import type { WebSocketMessage, WebSocketMessageType, AnyWebSocketMessage } from '../../types/websocket';
+import type { WebSocketMessage, WebSocketMessageType, AnyWebSocketMessage } from '@/types/websocket';
 
 // Global WebSocket connection (should be managed by WebSocketContext)
 // For now, we'll accept it as a parameter or from context

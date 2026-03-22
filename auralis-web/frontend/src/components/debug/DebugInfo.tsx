@@ -1,7 +1,7 @@
 import React from 'react'
 import { useCommitId, getVersionString } from '@/hooks/app/useCommitId'
 import { tokens } from '@/design-system'
-import { spacingSmall, spacingXSmall } from '../library/Styles/Spacing.styles'
+import { spacingSmall, spacingXSmall } from '@/components/library/Styles/Spacing.styles'
 
 /**
  * Debug info component - displays build and commit information

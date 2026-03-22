@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { getPlaylistContextActions } from '../shared/ContextMenu';
-import { useToast } from '../shared/Toast';
-import * as playlistService from '../../services/playlistService';
+import { getPlaylistContextActions } from '@/components/shared/ContextMenu';
+import { useToast } from '@/components/shared/Toast';
+import * as playlistService from '@/services/playlistService';
 
 interface UsePlaylistContextActionsProps {
   playlist: playlistService.Playlist | null;

@@ -1,9 +1,9 @@
 import { useMemo, useCallback, useState } from 'react';
-import { getArtistContextActions } from '../../../shared/ContextMenu';
-import { useToast } from '../../../shared/Toast';
-import { getArtistTracks } from '../../../../services/libraryService';
-import { useQueue } from '../../../../hooks/shared/useReduxState';
-import { usePlayer } from '../../../../hooks/shared/useReduxState';
+import { getArtistContextActions } from '@/components/shared/ContextMenu';
+import { useToast } from '@/components/shared/Toast';
+import { getArtistTracks } from '@/services/libraryService';
+import { useQueue } from '@/hooks/shared/useReduxState';
+import { usePlayer } from '@/hooks/shared/useReduxState';
 import type { Artist } from '@/types/domain';
 
 interface UseContextMenuActionsProps {

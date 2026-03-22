@@ -14,7 +14,7 @@
 import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiCard, { CardProps as MuiCardProps } from '@mui/material/Card';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export interface CardProps extends Omit<MuiCardProps, 'variant'> {
   /**

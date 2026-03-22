@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Divider, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
-import { ShortcutDefinition } from '../../services/keyboardShortcutsService';
+import { ShortcutDefinition } from '@/services/keyboardShortcutsService';
 import {
   CategorySection,
   ShortcutRow,

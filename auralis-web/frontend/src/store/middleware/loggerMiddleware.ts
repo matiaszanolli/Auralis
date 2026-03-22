@@ -20,7 +20,7 @@
  */
 
 import type { Middleware, UnknownAction } from '@reduxjs/toolkit';
-import type { RootState } from '../index';
+import type { RootState } from '@/store/index';
 
 // ============================================================================
 // Logger Configuration

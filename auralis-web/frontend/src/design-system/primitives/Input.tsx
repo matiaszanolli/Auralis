@@ -15,7 +15,7 @@ import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiTextField, { TextFieldProps as MuiTextFieldProps } from '@mui/material/TextField';
 import { InputAdornment } from '@mui/material';
-import { tokens } from '../tokens';
+import { tokens } from '@/design-system/tokens';
 
 export interface InputProps extends Omit<MuiTextFieldProps, 'variant' | 'size' | 'color'> {
   /**

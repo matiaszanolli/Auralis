@@ -14,13 +14,13 @@
  */
 
 import { useState, useCallback } from 'react';
-import { CozyAlbumGrid, type AlbumSortOption } from '../Items/albums/CozyAlbumGrid';
-import { RecentlyTouchedSection } from '../Items/albums/RecentlyTouchedSection';
-import { CozyArtistList } from '../Items/artists/CozyArtistList';
-import AlbumDetailView from '../Details/AlbumDetailView';
-import ArtistDetailView from '../Details/ArtistDetailView';
+import { CozyAlbumGrid, type AlbumSortOption } from '@/components/library/Items/albums/CozyAlbumGrid';
+import { RecentlyTouchedSection } from '@/components/library/Items/albums/RecentlyTouchedSection';
+import { CozyArtistList } from '@/components/library/Items/artists/CozyArtistList';
+import AlbumDetailView from '@/components/library/Details/AlbumDetailView';
+import ArtistDetailView from '@/components/library/Details/ArtistDetailView';
 import { ViewContainer } from './ViewContainer';
-import { AlbumCharacterPane } from '../AlbumCharacterPane';
+import { AlbumCharacterPane } from '@/components/library/AlbumCharacterPane';
 import { SegmentedControl } from '@/design-system';
 import { useAlbumFingerprint } from '@/hooks/fingerprint/useAlbumFingerprint';
 import { useRecentlyTouched } from '@/hooks/library';

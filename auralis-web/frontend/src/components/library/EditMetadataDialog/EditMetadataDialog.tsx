@@ -29,7 +29,7 @@ import {
   SaveButton,
   CancelButtonForDialog,
   DialogPaperProps,
-} from '../Styles/Dialog.styles';
+} from '@/components/library/Styles/Dialog.styles';
 import { useMetadataForm, MetadataFields } from './useMetadataForm';
 
 export interface EditMetadataDialogProps {

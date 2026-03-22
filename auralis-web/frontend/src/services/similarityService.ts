@@ -14,7 +14,7 @@
  * Refactored using Service Factory Pattern (Phase 5b) to eliminate class boilerplate.
  */
 
-import { createCrudService } from '../utils/serviceFactory';
+import { createCrudService } from '@/utils/serviceFactory';
 
 const API_BASE = '/similarity';
 

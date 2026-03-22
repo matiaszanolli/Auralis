@@ -21,7 +21,7 @@ import React from 'react';
 import {
   EndOfListIndicator as StyledContainer,
   EndOfListText as StyledText
-} from '../../Styles/Grid.styles';
+} from '@/components/library/Styles/Grid.styles';
 
 interface EndOfListIndicatorProps {
   children?: React.ReactNode;

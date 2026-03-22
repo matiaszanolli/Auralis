@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { List } from '@/design-system';
-import { ResultsContainer } from '../Styles/SearchStyles.styles';
+import { ResultsContainer } from '@/components/library/Styles/SearchStyles.styles';
 import ResultGroup from './ResultGroup';
 
 interface SearchResult {

@@ -25,8 +25,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import * as playlistService from '../../../services/playlistService';
-import CreatePlaylistDialog from '../../playlist/CreatePlaylistDialog';
+import * as playlistService from '@/services/playlistService';
+import CreatePlaylistDialog from '@/components/playlist/CreatePlaylistDialog';
 import { PlaylistSection } from './PlaylistSection';
 import { ContextMenuAction } from './contextMenuActions';
 import { StyledMenu } from './ContextMenu.styles';

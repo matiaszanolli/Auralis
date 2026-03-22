@@ -1,8 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import SelectableTrackRow from '../Items/tracks/SelectableTrackRow';
-import GridLoadingState from '../Items/utilities/GridLoadingState';
-import EndOfListIndicator from '../Items/utilities/EndOfListIndicator';
+import SelectableTrackRow from '@/components/library/Items/tracks/SelectableTrackRow';
+import GridLoadingState from '@/components/library/Items/utilities/GridLoadingState';
+import EndOfListIndicator from '@/components/library/Items/utilities/EndOfListIndicator';
 import { ListViewContainer } from './TrackListView.styles';
 import type { LibraryTrack as Track } from '@/types/domain';
 

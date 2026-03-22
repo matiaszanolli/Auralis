@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { SwipeableDrawer } from '@mui/material';
-import Sidebar from '../layouts/Sidebar';
+import Sidebar from '@/components/layouts/Sidebar';
 
 interface MobileSidebarDrawerProps {
   open: boolean;

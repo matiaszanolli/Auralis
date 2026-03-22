@@ -19,9 +19,9 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { getFingerprintCache } from '../../services/fingerprint/FingerprintCache';
+import { getFingerprintCache } from '@/services/fingerprint/FingerprintCache';
 // Import the canonical 25D AudioFingerprint from its single source of truth
-// (fixes #2280: the old import from '../../types/domain' used a different,
+// (fixes #2280: the old import from '@/types/domain' used a different,
 // incompatible schema with fields like trackId/loudness/crest/rms/centroid).
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 
