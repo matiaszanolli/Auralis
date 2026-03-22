@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { Track } from '@/types/domain';
 import type { TrackRecommendation } from '@/utils/queue/queue_recommender';
 import { styles } from './styles';
 
 interface RecommendationTabProps {
   title: string;
   recommendations: TrackRecommendation[];
-  onAddTrack: (track: any) => void;
+  onAddTrack: (track: Track) => void;
 }
 
 export const RecommendationTab = ({

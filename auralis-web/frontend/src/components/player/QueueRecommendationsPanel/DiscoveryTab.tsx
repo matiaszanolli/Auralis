@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { Track } from '@/types/domain';
 import { styles } from './styles';
 
 interface DiscoveryTabProps {
-  tracks: any[];
-  onAddTrack: (track: any) => void;
+  tracks: Track[];
+  onAddTrack: (track: Track) => void;
 }
 
 export const DiscoveryTab = ({ tracks, onAddTrack }: DiscoveryTabProps) => {

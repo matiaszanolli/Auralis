@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { Track } from '@/types/domain';
+import type { DiscoveryArtist } from '@/hooks/player/useQueueRecommendations';
 import { styles } from './styles';
 
 interface NewArtistsTabProps {
-  newArtists: any[];
-  onAddTrack: (track: any) => void;
+  newArtists: DiscoveryArtist[];
+  onAddTrack: (track: Track) => void;
 }
 
 export const NewArtistsTab = ({ newArtists, onAddTrack }: NewArtistsTabProps) => {
@@ -35,7 +37,7 @@ export const NewArtistsTab = ({ newArtists, onAddTrack }: NewArtistsTabProps) =>
           </div>
 
           <div style={styles.artistTracks}>
-            {artist.tracks?.slice(0, 2).map((track: any, tIndex: number) => (
+            {artist.tracks?.slice(0, 2).map((track, tIndex) => (
               <div
                 key={track.id ?? tIndex}
                 style={{

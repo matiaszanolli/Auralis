@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { Track } from '@/types/domain';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { useQueueRecommendations } from '@/hooks/player/useQueueRecommendations';
 import { RecommendationTab } from './RecommendationTab';
@@ -9,8 +10,8 @@ import { styles } from './styles';
 interface QueueRecommendationsPanelProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  availableTracks?: any[];
-  onAddTrack?: (track: any) => void;
+  availableTracks?: Track[];
+  onAddTrack?: (track: Track) => void;
 }
 
 export const QueueRecommendationsPanel = ({
@@ -47,7 +48,7 @@ export const QueueRecommendationsPanel = ({
     );
   }
 
-  const handleAddTrack = async (track: any) => {
+  const handleAddTrack = async (track: Track) => {
     try {
       if (onAddTrack) {
         onAddTrack(track);
