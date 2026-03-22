@@ -197,10 +197,16 @@ export const usePlayerAPI = () => {
     await withCommandGuard(async () => {
       try {
         // Backend expects position as a query parameter, not a request body (fixes #2253)
-        await fetch(`/api/player/seek?position=${position}`, {
+        const response = await fetch(`/api/player/seek?position=${position}`, {
           method: 'POST',
         });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          setError(errorData.detail || 'Failed to seek');
+        }
       } catch (err) {
+        setError('Network error');
         console.error('Seek error:', err);
       }
     });
@@ -213,11 +219,17 @@ export const usePlayerAPI = () => {
     await withCommandGuard(async () => {
       try {
         // Backend expects volume as query parameter
-        await fetch(`/api/player/volume?volume=${volume}`, {
+        const response = await fetch(`/api/player/volume?volume=${volume}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          setError(errorData.detail || 'Failed to set volume');
+        }
       } catch (err) {
+        setError('Network error');
         console.error('Volume error:', err);
       }
     });
