@@ -19,7 +19,7 @@ from collections.abc import Callable
 import numpy as np
 from scipy.signal.windows import hann
 
-from ..utils.logging import debug, info
+from ..utils.logging import debug, info, warning
 
 
 @dataclass
@@ -238,10 +238,13 @@ class ParallelBandProcessor:
 
                 # Collect results — list comprehension avoids shared-reference aliasing
                 # that [np.array([])] * num_bands would create (#2424).
-                band_results: list[np.ndarray] = [np.array([]) for _ in range(num_bands)]
+                band_results: list[np.ndarray] = [np.zeros_like(audio) for _ in range(num_bands)]
                 for future in as_completed(futures):
-                    idx, result = future.result()
-                    band_results[idx] = result
+                    try:
+                        idx, result = future.result()
+                        band_results[idx] = result
+                    except Exception as exc:
+                        warning(f"Band processing failed (process pool): {exc}")
         else:
             # Threading for lighter operations
             with ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -252,10 +255,13 @@ class ParallelBandProcessor:
                 ]
 
                 # Collect results — list comprehension avoids shared-reference aliasing (#2424)
-                band_results = [np.array([]) for _ in range(num_bands)]
+                band_results = [np.zeros_like(audio) for _ in range(num_bands)]
                 for future in as_completed(futures):
-                    idx, result = future.result()
-                    band_results[idx] = result
+                    try:
+                        idx, result = future.result()
+                        band_results[idx] = result
+                    except Exception as exc:
+                        warning(f"Band processing failed (thread pool): {exc}")
 
         # Sum all band results
         output: np.ndarray = np.sum(band_results, axis=0)
