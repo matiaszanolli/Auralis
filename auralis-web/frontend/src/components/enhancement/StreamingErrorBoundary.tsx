@@ -269,6 +269,7 @@ export const StreamingErrorDisplay = ({
   return (
     <div
       role="alert"
+      aria-live="assertive"
       style={{
         ...styles.container,
         opacity: isDismissing ? 0 : 1,
