@@ -396,11 +396,29 @@ export function isEnhancementPreset(value: any): value is EnhancementPreset {
 // Backend → Frontend Transformers
 // ============================================================================
 
+/** Shape of a track object as returned by the backend API (snake_case). */
+export interface TrackApiResponse {
+  id: number;
+  title?: string;
+  artist?: string;
+  artists?: string[];
+  album?: string;
+  album_id?: number;
+  duration?: number;
+  filepath?: string;
+  file_path?: string;
+  artwork_url?: string | null;
+  album_art?: string | null;
+  genre?: string | null;
+  year?: number | null;
+  favorite?: boolean;
+}
+
 /**
  * Transform a raw backend track object (snake_case) to a LibraryTrack (camelCase).
  * Single source of truth for backend→frontend track mapping.
  */
-export function transformBackendTrack(track: Record<string, any>): LibraryTrack {
+export function transformBackendTrack(track: TrackApiResponse): LibraryTrack {
   return {
     id: track.id,
     title: track.title ?? '',
