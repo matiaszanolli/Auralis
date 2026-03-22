@@ -11,7 +11,7 @@
  * Design: "Inspection, not settings" - glass effect, detailed but not overwhelming
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { keyframes } from '@mui/material';
 import { tokens } from '@/design-system';
 import type { PresetName } from '@/store/slices/playerSlice';
@@ -149,6 +149,34 @@ export const EnhancementInspectionLayer = ({
   onDismissError,
 }: EnhancementInspectionLayerProps) => {
   const [showPresetMenu, setShowPresetMenu] = React.useState(false);
+  const presetContainerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Close dropdown on outside click or Escape; restore focus to trigger
+  useEffect(() => {
+    if (!showPresetMenu) return;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (presetContainerRef.current && !presetContainerRef.current.contains(e.target as Node)) {
+        setShowPresetMenu(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowPresetMenu(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showPresetMenu]);
 
   /**
    * Handle intensity slider change
@@ -279,20 +307,15 @@ export const EnhancementInspectionLayer = ({
       {/* Preset Selection */}
       <div style={styles.presetSection}>
         <label style={styles.sectionLabel}>Preset</label>
-        <div style={styles.presetSelectorContainer}>
+        <div ref={presetContainerRef} style={styles.presetSelectorContainer}>
           <button
+            ref={triggerRef}
             style={{
               ...styles.presetSelector,
               opacity: disabled ? 0.5 : 1,
               cursor: disabled ? 'not-allowed' : 'pointer',
             }}
             onClick={() => !disabled && setShowPresetMenu(!showPresetMenu)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' && showPresetMenu) {
-                setShowPresetMenu(false);
-                e.stopPropagation();
-              }
-            }}
             disabled={disabled}
             aria-haspopup="listbox"
             aria-expanded={showPresetMenu}
@@ -325,8 +348,6 @@ export const EnhancementInspectionLayer = ({
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       handlePresetSelect(preset.name);
-                    } else if (e.key === 'Escape') {
-                      setShowPresetMenu(false);
                     }
                   }}
                 >
