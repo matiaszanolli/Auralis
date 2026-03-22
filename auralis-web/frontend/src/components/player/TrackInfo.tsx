@@ -38,13 +38,13 @@ export const TrackInfo = () => {
             {track.artworkUrl ? (
               <img
                 src={track.artworkUrl}
-                alt={track.title}
+                alt={`Artwork for ${track.title}`}
                 style={styles.artwork}
                 loading="lazy"
               />
             ) : (
               <div style={styles.artworkPlaceholder}>
-                <span style={styles.artworkPlaceholderIcon}>♪</span>
+                <span style={styles.artworkPlaceholderIcon} aria-hidden="true">♪</span>
               </div>
             )}
           </div>
