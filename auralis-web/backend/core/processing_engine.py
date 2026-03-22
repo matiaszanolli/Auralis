@@ -606,7 +606,7 @@ class ProcessingEngine:
                 # returns to dequeue the next job.
                 asyncio.create_task(self._run_job(job))
             except Exception as e:
-                print(f"Worker error: {e}")
+                logger.exception(f"Worker error: {e}")
                 await asyncio.sleep(1)
 
     def cancel_job(self, job_id: str) -> bool:
