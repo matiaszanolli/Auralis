@@ -23,7 +23,7 @@ class SafetyLimiter:
     Consolidates safety checks across normalization pipelines.
     """
 
-    SAFETY_THRESHOLD_DB = 1.0    # dBFS - threshold for applying limiter (allow more boost headroom)
+    SAFETY_THRESHOLD_DB = -0.1   # dBFS - threshold for applying limiter (prevent digital clipping)
     SOFT_CLIP_THRESHOLD = 0.89   # Linear amplitude threshold for soft_clip (~-1 dB)
 
     @staticmethod
@@ -50,7 +50,7 @@ class SafetyLimiter:
             # Measure result
             final_peak = np.max(np.abs(audio))
             final_peak_db = DBConversion.to_db(final_peak)
-            print(f"[Safety Limiter] Peak reduced to {final_peak_db:.2f} dB")
+            ProcessingLogger.safety_check("Safety Limiter (post)", final_peak_db)
 
             return audio, True
 
@@ -81,7 +81,7 @@ class PeakNormalizer:
         peak_db = DBConversion.to_db(peak)
 
         if preset_name:
-            print(f"[Peak Normalization] Preset: {preset_name}, Target: {target_peak_db:.2f} dB")
+            ProcessingLogger.post_stage("Peak Normalization", 0.0, target_peak_db, f"Preset: {preset_name}")
 
         if peak > 0.001:  # Avoid division by zero
             target_peak = DBConversion.to_linear(target_peak_db)
