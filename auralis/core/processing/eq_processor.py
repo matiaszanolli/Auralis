@@ -90,8 +90,8 @@ class EQProcessor:
             # Treble (4000+ Hz)
             'treble_boost': targets.get("treble_enhancement_db", 0.0),
 
-            # Overall intensity
-            'mastering_intensity': targets.get("mastering_intensity", 0.5)
+            # Overall intensity (continuous mode uses 'eq_blend' key)
+            'mastering_intensity': targets.get("mastering_intensity", targets.get("eq_blend", 0.5))
         }
 
         # Apply content-aware adjustments
