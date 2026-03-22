@@ -155,6 +155,20 @@ export const QueuePanel = ({
     }
   };
 
+  // Stable callbacks for virtualized list items (avoid per-render recreation)
+  const handleDragEnd = useCallback(() => {
+    if (draggingIndex !== null && dragTargetRef.current !== null && draggingIndex !== dragTargetRef.current) {
+      handleReorderTrack(draggingIndex, dragTargetRef.current);
+    }
+    setDraggingIndex(null);
+    dragTargetRef.current = null;
+    stopAutoScroll();
+  }, [draggingIndex, stopAutoScroll]);
+
+  const handleDragOver = useCallback((toIndex: number) => {
+    dragTargetRef.current = toIndex;
+  }, []);
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -221,17 +235,8 @@ export const QueuePanel = ({
                     setDraggingIndex(index);
                     dragTargetRef.current = null;
                   }}
-                  onDragEnd={() => {
-                    if (draggingIndex !== null && dragTargetRef.current !== null && draggingIndex !== dragTargetRef.current) {
-                      handleReorderTrack(draggingIndex, dragTargetRef.current);
-                    }
-                    setDraggingIndex(null);
-                    dragTargetRef.current = null;
-                    stopAutoScroll();
-                  }}
-                  onDragOver={(toIndex) => {
-                    dragTargetRef.current = toIndex;
-                  }}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={handleDragOver}
                   onHover={(hovering) =>
                     setHoveredIndex(hovering ? index : null)
                   }
