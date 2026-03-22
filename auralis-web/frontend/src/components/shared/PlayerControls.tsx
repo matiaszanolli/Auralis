@@ -18,6 +18,7 @@
 
 import { useState } from 'react';
 import { tokens } from '@/design-system';
+import { formatDuration } from '@/utils/timeFormat';
 import { usePlayer } from '@/hooks/shared/useReduxState';
 import { usePlaybackControl } from '@/hooks/player/usePlaybackControl';
 import type { PresetName } from '@/store/slices/playerSlice';
@@ -35,18 +36,6 @@ const PRESETS = [
   { name: 'Bright', icon: '✨', value: 'bright' },
   { name: 'Punchy', icon: '💥', value: 'punchy' },
 ] as const;
-
-function formatTime(seconds: number): string {
-  if (!isFinite(seconds)) return '0:00';
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
-}
 
 // --- Sub-components (each < 100 lines) ---
 
@@ -149,8 +138,8 @@ function ProgressBar({
           color: tokens.colors.text.tertiary,
         }}
       >
-        <span>{formatTime(currentTime)}</span>
-        <span>{formatTime(duration)}</span>
+        <span>{formatDuration(currentTime)}</span>
+        <span>{formatDuration(duration)}</span>
       </div>
     </div>
   );

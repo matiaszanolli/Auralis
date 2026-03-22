@@ -15,6 +15,7 @@
 
 import React, { useMemo } from 'react';
 import { tokens } from '@/design-system';
+import { formatTime } from '@/utils/timeFormat';
 
 /**
  * Props for StreamingProgressBar component
@@ -44,16 +45,6 @@ export interface StreamingProgressBarProps {
   /** Optional: current playback time in seconds */
   currentTime?: number;
 }
-
-/**
- * Format seconds into MM:SS format
- */
-const formatTime = (seconds: number): string => {
-  if (!isFinite(seconds) || seconds < 0) return '0:00';
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
 
 /**
  * Format bytes into human-readable format

@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { formatTime } from '@/utils/timeFormat';
 
 // ============================================================================
 // Types
@@ -40,17 +41,6 @@ export interface PlayerBarV2Props {
   onEnhancementToggle: () => void;
   onPrevious: () => void;
   onNext: () => void;
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function formatTime(seconds: number): string {
-  const total = Math.floor(seconds);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 // ============================================================================

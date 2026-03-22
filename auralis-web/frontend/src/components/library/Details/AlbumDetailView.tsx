@@ -17,6 +17,7 @@
 import React, { useState, useCallback } from 'react';
 
 import { tokens } from '@/design-system';
+import { formatDuration } from '@/utils/timeFormat';
 import { EmptyState } from '../../shared/ui/feedback';
 import { SimilarTracksModal } from '../../shared/SimilarTracksModal';
 import AlbumTrackTable from '../Items/tables/AlbumTrackTable';
@@ -70,13 +71,6 @@ export const AlbumDetailView = ({
     setSimilarTrackId(null);
     setSimilarTrackTitle('');
   }, []);
-
-  const formatDuration = (seconds: number): string => {
-    const totalSeconds = Math.floor(seconds);
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const handlePlayAlbum = () => {
     if (album?.tracks && album.tracks.length > 0 && onTrackPlay) {

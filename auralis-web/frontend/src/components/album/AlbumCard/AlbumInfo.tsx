@@ -11,6 +11,7 @@ import React from 'react';
 
 import { tokens } from '@/design-system';
 import { Tooltip } from '@/design-system';
+import { formatHumanDuration } from '@/utils/timeFormat';
 import { CardContent, Typography } from '@mui/material';
 
 interface AlbumInfoProps {
@@ -20,15 +21,6 @@ interface AlbumInfoProps {
   duration?: number;
   year?: number;
 }
-
-const formatDuration = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
-};
 
 export const AlbumInfo = ({
   title,
@@ -87,7 +79,7 @@ export const AlbumInfo = ({
       >
         {trackCount > 0 && `${trackCount} ${trackCount === 1 ? 'track' : 'tracks'}`}
         {duration && trackCount > 0 && ' • '}
-        {duration && formatDuration(duration)}
+        {duration && formatHumanDuration(duration)}
         {year && ' • '}
         {year}
       </Typography>

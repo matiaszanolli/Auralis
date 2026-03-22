@@ -23,20 +23,12 @@
 import React from 'react';
 import { Card } from '@/design-system';
 import { tokens } from '@/design-system';
+import { formatDuration } from '@/utils/timeFormat';
 import { MediaCardArtwork } from './MediaCardArtwork';
 import { MediaCardOverlay } from './MediaCardOverlay';
 import { MediaCardInfo } from './MediaCardInfo';
 import { useMediaCardState } from './useMediaCardState';
 import type { MediaCardProps } from './MediaCard.types';
-
-/**
- * Format duration in seconds to MM:SS
- */
-const formatDuration = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
 
 /**
  * Build metadata strings based on variant

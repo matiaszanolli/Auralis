@@ -14,6 +14,7 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { keyframes } from '@mui/material';
 import { tokens } from '@/design-system';
+import { formatTime } from '@/utils/timeFormat';
 import type { PresetName } from '@/store/slices/playerSlice';
 
 const spin = keyframes`
@@ -199,16 +200,6 @@ export const EnhancementInspectionLayer = ({
     },
     [onPresetChange]
   );
-
-  /**
-   * Format duration from seconds
-   */
-  const formatTime = (seconds: number): string => {
-    if (!isFinite(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   /**
    * Calculate estimated remaining time

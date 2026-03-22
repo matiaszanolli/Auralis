@@ -18,6 +18,7 @@
 
 import { useState, useCallback, useId } from 'react';
 import { tokens } from '@/design-system';
+import { formatDuration } from '@/utils/timeFormat';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
 
@@ -36,21 +37,6 @@ interface QueueManagerProps {
    * Show add track functionality
    */
   showAddTrack?: boolean;
-}
-
-/**
- * Format time display
- */
-function formatTime(seconds: number): string {
-  if (!isFinite(seconds)) return '0:00';
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
 /**
@@ -159,7 +145,7 @@ export function QueueManager({
               color: tokens.colors.text.tertiary,
             }}
           >
-            {tracks.length} tracks • {formatTime(remainingDuration)} remaining
+            {tracks.length} tracks • {formatDuration(remainingDuration)} remaining
           </div>
         </div>
 
@@ -356,7 +342,7 @@ export function QueueManager({
                   textAlign: 'right',
                 }}
               >
-                {formatTime(track.duration)}
+                {formatDuration(track.duration)}
               </div>
 
               {/* Remove Button */}
@@ -416,7 +402,7 @@ export function QueueManager({
           <span>
             {currentIndex + 1} / {tracks.length}
           </span>
-          <span>Total: {formatTime(totalDuration)}</span>
+          <span>Total: {formatDuration(totalDuration)}</span>
         </div>
       )}
 
