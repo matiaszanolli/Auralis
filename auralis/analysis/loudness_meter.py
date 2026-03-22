@@ -77,7 +77,7 @@ class LoudnessMeter:
         a2 = (A + 1) - (A - 1) * cos_w0 - 2 * np.sqrt(A) * alpha
 
         self.rlb_filter_b = np.array([b0, b1, b2]) / a0
-        self.rlb_filter_a = np.array([1, a1, a2]) / a0
+        self.rlb_filter_a = np.array([a0, a1, a2]) / a0
 
         # Initialize filter states
         self.pre_filter_zi: Any | None = None
@@ -94,10 +94,15 @@ class LoudnessMeter:
         if audio_chunk.ndim == 1:
             # Mono
             if self.pre_filter_zi is None:
-                self.pre_filter_zi = signal.lfilter_zi(
-                    self.pre_filter_b, self.pre_filter_a)
-                self.rlb_filter_zi = signal.lfilter_zi(
-                    self.rlb_filter_b, self.rlb_filter_a)
+                # Scale initial conditions by first sample to minimize transients
+                self.pre_filter_zi = (
+                    signal.lfilter_zi(self.pre_filter_b, self.pre_filter_a)
+                    * audio_chunk[0]
+                )
+                self.rlb_filter_zi = (
+                    signal.lfilter_zi(self.rlb_filter_b, self.rlb_filter_a)
+                    * audio_chunk[0]
+                )
 
             # Apply pre-filter
             filtered_tuple = signal.lfilter(
@@ -118,17 +123,16 @@ class LoudnessMeter:
         else:
             # Stereo - apply to each channel
             if self.pre_filter_zi is None:
+                pre_zi = signal.lfilter_zi(self.pre_filter_b, self.pre_filter_a)
+                rlb_zi = signal.lfilter_zi(self.rlb_filter_b, self.rlb_filter_a)
+                # Scale initial conditions by first sample per channel
                 self.pre_filter_zi = np.column_stack([
-                    signal.lfilter_zi(
-                        self.pre_filter_b, self.pre_filter_a),
-                    signal.lfilter_zi(
-                        self.pre_filter_b, self.pre_filter_a)
+                    pre_zi * audio_chunk[0, 0],
+                    pre_zi * audio_chunk[0, 1]
                 ])
                 self.rlb_filter_zi = np.column_stack([
-                    signal.lfilter_zi(
-                        self.rlb_filter_b, self.rlb_filter_a),
-                    signal.lfilter_zi(
-                        self.rlb_filter_b, self.rlb_filter_a)
+                    rlb_zi * audio_chunk[0, 0],
+                    rlb_zi * audio_chunk[0, 1]
                 ])
 
             k_weighted = np.zeros_like(audio_chunk)

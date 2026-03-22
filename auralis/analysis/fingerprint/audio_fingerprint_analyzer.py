@@ -26,6 +26,7 @@ from typing import Any, Literal
 
 import numpy as np
 
+from auralis.analysis.loudness_meter import LoudnessMeter
 from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyzer
 from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import (
     SampledHarmonicAnalyzer,
@@ -319,8 +320,19 @@ class AudioFingerprintAnalyzer:
             Dict with 3 dynamics features
         """
         try:
-            # 1. LUFS (approximate using RMS)
-            lufs = 20 * np.log10(rms + 1e-10) + 0.691  # Approximate conversion
+            # 1. LUFS (K-weighted per ITU-R BS.1770)
+            meter = LoudnessMeter(sample_rate=sr)
+            # Feed audio through the meter in block-sized chunks
+            block_size = meter.block_size
+            for start in range(0, len(audio), block_size):
+                chunk = audio[start:start + block_size]
+                if len(chunk) >= block_size:
+                    meter.measure_chunk(chunk)
+            measurement = meter.finalize_measurement()
+            lufs = measurement.integrated_lufs
+            if not np.isfinite(lufs):
+                # Fall back to RMS approximation for very short/silent segments
+                lufs = 20 * np.log10(rms + 1e-10) + 0.691
 
             # 2. Crest factor
             peak = np.max(np.abs(audio))
