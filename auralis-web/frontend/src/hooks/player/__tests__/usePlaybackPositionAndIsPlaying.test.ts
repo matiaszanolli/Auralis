@@ -1,9 +1,9 @@
 /**
- * usePlaybackPosition & useIsPlaying Hook Tests
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * usePlaybackPosition Hook Tests
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Tests for the two focused playback hooks that subscribe to WebSocket
- * messages for position tracking and play/pause state.
+ * Tests for the focused playback position hook that subscribes to WebSocket
+ * messages for position tracking.
  *
  * Test strategy:
  *   - Mock useWebSocketSubscription to capture the callback
@@ -13,7 +13,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { usePlaybackPosition, useIsPlaying } from '../usePlaybackState';
+import { usePlaybackPosition } from '../usePlaybackState';
 
 // ---------------------------------------------------------------------------
 // Mock useWebSocketSubscription
@@ -93,69 +93,3 @@ describe('usePlaybackPosition', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// useIsPlaying
-// ---------------------------------------------------------------------------
-
-describe('useIsPlaying', () => {
-  beforeEach(() => {
-    capturedCallback = null;
-  });
-
-  it('returns false as initial state', () => {
-    const { result } = renderHook(() => useIsPlaying());
-
-    expect(result.current).toBe(false);
-  });
-
-  it('returns true on player_state with is_playing=true', () => {
-    const { result } = renderHook(() => useIsPlaying());
-
-    act(() => {
-      capturedCallback!({
-        type: 'player_state',
-        data: {
-          is_playing: true,
-        },
-      });
-    });
-
-    expect(result.current).toBe(true);
-  });
-
-  it('returns false on playback_paused message', () => {
-    const { result } = renderHook(() => useIsPlaying());
-
-    // Start playing first
-    act(() => {
-      capturedCallback!({
-        type: 'player_state',
-        data: { is_playing: true },
-      });
-    });
-    expect(result.current).toBe(true);
-
-    // Pause
-    act(() => {
-      capturedCallback!({
-        type: 'playback_paused',
-        data: {},
-      });
-    });
-
-    expect(result.current).toBe(false);
-  });
-
-  it('returns true on playback_started message', () => {
-    const { result } = renderHook(() => useIsPlaying());
-
-    act(() => {
-      capturedCallback!({
-        type: 'playback_started',
-        data: {},
-      });
-    });
-
-    expect(result.current).toBe(true);
-  });
-});

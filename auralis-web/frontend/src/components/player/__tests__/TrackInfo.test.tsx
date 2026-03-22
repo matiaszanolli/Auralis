@@ -5,9 +5,21 @@
 import { render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import TrackInfo from '@/components/player/TrackInfo';
-import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
+import { selectCurrentTrack } from '@/store/slices/playerSlice';
 
-vi.mock('@/hooks/player/usePlaybackState');
+vi.mock('react-redux', async () => {
+  const actual = await vi.importActual('react-redux');
+  return { ...actual, useSelector: vi.fn() };
+});
+
+import { useSelector } from 'react-redux';
+
+function mockCurrentTrack(track: ReturnType<typeof selectCurrentTrack>) {
+  vi.mocked(useSelector).mockImplementation((selector: any) => {
+    if (selector === selectCurrentTrack) return track;
+    return undefined;
+  });
+}
 
 describe('TrackInfo', () => {
   beforeEach(() => {
@@ -15,15 +27,14 @@ describe('TrackInfo', () => {
   });
 
   it('should display track information when track is loaded', () => {
-    vi.mocked(useCurrentTrack).mockReturnValue({
+    mockCurrentTrack({
       id: 1,
       title: 'Song Title',
       artist: 'Artist Name',
       album: 'Album Name',
       duration: 180,
-      filepath: '/path/to/song.wav',
-      artwork_url: 'https://example.com/artwork.jpg',
-    } as any);
+      artworkUrl: 'https://example.com/artwork.jpg',
+    });
 
     render(<TrackInfo />);
 
@@ -33,15 +44,14 @@ describe('TrackInfo', () => {
   });
 
   it('should display artwork image when available', () => {
-    vi.mocked(useCurrentTrack).mockReturnValue({
+    mockCurrentTrack({
       id: 1,
       title: 'Song Title',
       artist: 'Artist Name',
       album: 'Album Name',
       duration: 180,
-      filepath: '/path/to/song.wav',
-      artwork_url: 'https://example.com/artwork.jpg',
-    } as any);
+      artworkUrl: 'https://example.com/artwork.jpg',
+    });
 
     render(<TrackInfo />);
 
@@ -50,7 +60,7 @@ describe('TrackInfo', () => {
   });
 
   it('should show placeholder when no track is loaded', () => {
-    vi.mocked(useCurrentTrack).mockReturnValue(null);
+    mockCurrentTrack(null);
 
     render(<TrackInfo />);
 
@@ -58,13 +68,12 @@ describe('TrackInfo', () => {
   });
 
   it('should display year and genre when available', () => {
-    vi.mocked(useCurrentTrack).mockReturnValue({
+    mockCurrentTrack({
       id: 1,
       title: 'Song Title',
       artist: 'Artist Name',
       album: 'Album Name',
       duration: 180,
-      filepath: '/path/to/song.wav',
       year: 2023,
       genre: 'Rock',
     } as any);
