@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './components/shared/Toast';
 import { WebSocketProvider } from './contexts/WebSocketContext';
-import { EnhancementProvider } from './contexts/EnhancementContext';
+
 import { AudioReactiveStarfield } from './components/background';
 import ComfortableApp from './ComfortableApp';
 import { usePlayerStateSync } from '@/hooks/player/usePlayerStateSync';
@@ -45,10 +45,8 @@ function AppContent() {
         <WebSocketProvider>
           {/* PlayerStateSync hook must be inside WebSocketProvider */}
           <PlayerStateSync />
-          <EnhancementProvider>
-            {/* Audio streaming handled exclusively via WebSocket using usePlayEnhanced hook */}
-            <ComfortableApp />
-          </EnhancementProvider>
+          {/* Audio streaming handled exclusively via WebSocket using usePlayEnhanced hook */}
+          <ComfortableApp />
         </WebSocketProvider>
       </ToastProvider>
     </ThemeProvider>

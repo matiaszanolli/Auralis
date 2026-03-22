@@ -32,15 +32,20 @@ import cacheReducer from '@/store/slices/cacheSlice';
 import connectionReducer from '@/store/slices/connectionSlice';
 
 // Mock the hooks to avoid WebSocket singleton issues
-vi.mock('@/contexts/EnhancementContext', () => ({
-  useEnhancement: vi.fn(() => ({
-    settings: { enabled: true, preset: 'adaptive', intensity: 1.0 },
+vi.mock('@/hooks/enhancement/useEnhancementControl', () => ({
+  useEnhancementControl: vi.fn(() => ({
+    state: { enabled: true, preset: 'adaptive', intensity: 1.0, lastUpdated: 0 },
+    enabled: true,
+    preset: 'adaptive',
+    intensity: 1.0,
+    toggleEnabled: vi.fn(),
     setEnabled: vi.fn(),
     setPreset: vi.fn(),
     setIntensity: vi.fn(),
-    isProcessing: false,
+    isLoading: false,
+    error: null,
+    clearError: vi.fn(),
   })),
-  EnhancementProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock('@/components/enhancement-pane/hooks/useEnhancementParameters', () => ({

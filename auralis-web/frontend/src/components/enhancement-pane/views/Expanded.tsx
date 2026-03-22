@@ -2,7 +2,7 @@ import React from 'react';
 
 import { ChevronRight, AutoAwesome } from '@mui/icons-material';
 import { tokens } from '@/design-system';
-import { useEnhancement } from '../../../contexts/EnhancementContext';
+import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 import { useSelector } from 'react-redux';
 import { selectCurrentTrack } from '@/store/slices/playerSlice';
 import EnhancementToggle from '../../shared/EnhancementToggle/EnhancementToggle';
@@ -41,7 +41,7 @@ export const Expanded = ({
   onToggleCollapse,
   onMasteringToggle,
 }: ExpandedProps) => {
-  const { settings, setEnabled, isProcessing } = useEnhancement();
+  const { state: settings, setEnabled, isLoading: isProcessing } = useEnhancementControl();
   const currentTrack = useSelector(selectCurrentTrack);
   const trackId = currentTrack?.id;
   const { recommendation, isLoading } = useMasteringRecommendation(trackId);

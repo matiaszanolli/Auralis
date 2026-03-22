@@ -26,7 +26,7 @@ import { tokens } from '@/design-system';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { computeAlbumCharacter } from '@/utils/albumCharacterDescriptors';
 import { EnhancementToggle } from '@/components/shared/EnhancementToggle';
-import { useEnhancement } from '@/contexts/EnhancementContext';
+import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 import { playerSelectors } from '@/store/selectors';
 import { useTrackFingerprint } from '@/hooks/fingerprint';
 
@@ -738,10 +738,8 @@ export const AlbumCharacterPane = ({
   isLoading: albumLoading = false,
   showPlayingTrack = true,
 }: AlbumCharacterPaneProps) => {
-  // Enhancement state from context (eliminates prop drilling, fixes #2765)
-  const { settings: enhancementSettings, setEnabled: setEnhancementEnabled } = useEnhancement();
-  const isEnhancementEnabled = enhancementSettings.enabled;
-  const onEnhancementToggle = setEnhancementEnabled;
+  // Enhancement state from unified hook (eliminates prop drilling, fixes #2765)
+  const { enabled: isEnhancementEnabled, setEnabled: onEnhancementToggle } = useEnhancementControl();
 
   // Get playback state from Redux
   const isPlayingRaw = useSelector(playerSelectors.selectIsPlaying);

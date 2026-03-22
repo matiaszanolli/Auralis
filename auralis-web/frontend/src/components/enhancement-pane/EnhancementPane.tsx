@@ -12,7 +12,7 @@ import React from 'react';
 import Collapsed from './views/Collapsed';
 import Expanded from './views/Expanded';
 import { useEnhancementParameters } from './hooks/useEnhancementParameters';
-import { useEnhancement } from '../../contexts/EnhancementContext';
+import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 
 interface EnhancementPaneProps {
   collapsed?: boolean;
@@ -25,8 +25,8 @@ const EnhancementPane = React.memo<EnhancementPaneProps>(({
   onToggleCollapse,
   onMasteringToggle,
 }) => {
-  const { settings } = useEnhancement();
-  const { params, isAnalyzing } = useEnhancementParameters({ enabled: settings.enabled });
+  const { enabled } = useEnhancementControl();
+  const { params, isAnalyzing } = useEnhancementParameters({ enabled });
 
   // Collapsed view
   if (collapsed) {

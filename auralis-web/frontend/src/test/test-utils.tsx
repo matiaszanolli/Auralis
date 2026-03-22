@@ -70,48 +70,6 @@ function MockWebSocketProvider({ children }: { children: ReactNode }) {
 // Export mock context hook for tests that need to access it
 export const useWebSocketContext = () => useContext(MockWebSocketContext);
 
-/**
- * Mock Enhancement Context for Testing
- * Provides a simple implementation without WebSocket dependencies.
- */
-interface MockEnhancementContextValue {
-  settings: {
-    enabled: boolean;
-    preset: string;
-    intensity: number;
-  };
-  setEnabled: (enabled: boolean) => void;
-  setPreset: (preset: string) => void;
-  setIntensity: (intensity: number) => void;
-  isProcessing: boolean;
-}
-
-const MockEnhancementContext = createContext<MockEnhancementContextValue>({
-  settings: { enabled: true, preset: 'adaptive', intensity: 1.0 },
-  setEnabled: () => {},
-  setPreset: () => {},
-  setIntensity: () => {},
-  isProcessing: false,
-});
-
-function MockEnhancementProvider({ children }: { children: ReactNode }) {
-  const value: MockEnhancementContextValue = {
-    settings: { enabled: true, preset: 'adaptive', intensity: 1.0 },
-    setEnabled: () => {},
-    setPreset: () => {},
-    setIntensity: () => {},
-    isProcessing: false,
-  };
-
-  return (
-    <MockEnhancementContext.Provider value={value}>
-      {children}
-    </MockEnhancementContext.Provider>
-  );
-}
-
-// Export mock enhancement hook for tests
-export const useEnhancement = () => useContext(MockEnhancementContext);
 
 /**
  * Wrapper component that provides all necessary context providers
@@ -170,11 +128,9 @@ export function AllProviders({ children }: AllProvidersProps) {
         <BrowserRouter>
           <MockWebSocketProvider>
             <ThemeProvider>
-              <MockEnhancementProvider>
-                <ToastProvider>
-                  {children}
-                </ToastProvider>
-              </MockEnhancementProvider>
+              <ToastProvider>
+                {children}
+              </ToastProvider>
             </ThemeProvider>
           </MockWebSocketProvider>
         </BrowserRouter>

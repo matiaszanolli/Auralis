@@ -40,20 +40,6 @@ vi.mock('../contexts/WebSocketContext', () => {
   };
 });
 
-// ============================================================
-// Mock Enhancement Context Module
-// ============================================================
-// This mock prevents EnhancementContext from using real WebSocket
-vi.mock('../contexts/EnhancementContext', () => ({
-  useEnhancement: vi.fn(() => ({
-    settings: { enabled: true, preset: 'adaptive', intensity: 1.0 },
-    setEnabled: vi.fn(),
-    setPreset: vi.fn(),
-    setIntensity: vi.fn(),
-    isProcessing: false,
-  })),
-  EnhancementProvider: ({ children }: { children: React.ReactNode }) => children,
-}));
 
 // Create jest global alias for Vitest compatibility
 // This allows jest.mock() calls to work in tests

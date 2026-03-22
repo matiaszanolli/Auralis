@@ -78,6 +78,9 @@ export interface EnhancementControlActions {
   /** Toggle enhancement on/off */
   toggleEnabled: () => Promise<void>;
 
+  /** Set enhancement enabled/disabled explicitly */
+  setEnabled: (enabled: boolean) => Promise<void>;
+
   /** Change enhancement preset */
   setPreset: (preset: EnhancementPreset) => Promise<void>;
 
@@ -217,6 +220,15 @@ export function useEnhancementControl(): EnhancementControlActions {
   }, [post]);
 
   /**
+   * Set enhancement enabled/disabled explicitly
+   */
+  const setEnabled = useCallback(async (enabled: boolean): Promise<void> => {
+    // Only toggle if the requested state differs from current
+    if (enabledRef.current === enabled) return;
+    await toggleEnabled();
+  }, [toggleEnabled]);
+
+  /**
    * Change enhancement preset
    *
    * @param preset New preset: 'adaptive', 'gentle', 'warm', 'bright', 'punchy'
@@ -306,6 +318,7 @@ export function useEnhancementControl(): EnhancementControlActions {
     preset: state.preset,
     intensity: state.intensity,
     toggleEnabled,
+    setEnabled,
     setPreset,
     setIntensity,
     isLoading,
