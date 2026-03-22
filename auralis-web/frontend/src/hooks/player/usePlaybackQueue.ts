@@ -54,7 +54,7 @@ import {
 } from '@/store/slices/queueSlice';
 import type { Track, QueueTrack } from '@/types/domain';
 import type { ApiError } from '@/types/api';
-import { isQueueChangedMessage, isQueueShuffledMessage, isRepeatModeChangedMessage } from '@/types/websocket';
+
 import type { AppDispatch } from '@/store';
 
 /**
@@ -191,14 +191,25 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   useWebSocketSubscription(
     ['queue_changed', 'queue_shuffled', 'repeat_mode_changed'],
     (message) => {
-      if (isQueueChangedMessage(message)) {
-        dispatch(reduxSetQueue(message.data.tracks));
-        dispatch(reduxSetCurrentIndex(message.data.currentIndex));
-      } else if (isQueueShuffledMessage(message)) {
-        setIsShuffled(message.data.isShuffled);
-        if (message.data.tracks) dispatch(reduxSetQueue(message.data.tracks));
-      } else if (isRepeatModeChangedMessage(message)) {
-        setRepeatModeState(message.data.repeatMode);
+      const { type, data } = message as any;
+
+      switch (type) {
+        case 'queue_changed':
+          if (data.tracks) dispatch(reduxSetQueue(data.tracks));
+          if (data.current_index != null) dispatch(reduxSetCurrentIndex(data.current_index));
+          else if (data.currentIndex != null) dispatch(reduxSetCurrentIndex(data.currentIndex));
+          break;
+
+        case 'queue_shuffled':
+          if (data.is_shuffled != null) setIsShuffled(data.is_shuffled);
+          else if (data.isShuffled != null) setIsShuffled(data.isShuffled);
+          if (data.tracks) dispatch(reduxSetQueue(data.tracks));
+          break;
+
+        case 'repeat_mode_changed':
+          if (data.repeat_mode) setRepeatModeState(data.repeat_mode);
+          else if (data.repeatMode) setRepeatModeState(data.repeatMode);
+          break;
       }
     }
   );
@@ -209,13 +220,20 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   useEffect(() => {
     const fetchInitialQueue = async () => {
       try {
-        const response = await get<QueueState>('/api/player/queue');
+        const response = await get<Record<string, unknown>>('/api/player/queue');
 
         if (response) {
-          dispatch(reduxSetQueue(response.tracks || []));
-          dispatch(reduxSetCurrentIndex(response.currentIndex ?? 0));
-          setIsShuffled(response.isShuffled ?? false);
-          setRepeatModeState(response.repeatMode ?? 'off');
+          // Backend sends snake_case; map to our state shape
+          dispatch(reduxSetQueue((response.tracks as QueueState['tracks']) || []));
+          dispatch(reduxSetCurrentIndex(
+            (response.current_index as number) ?? (response.currentIndex as number) ?? 0
+          ));
+          setIsShuffled(
+            (response.is_shuffled as boolean) ?? (response.isShuffled as boolean) ?? false
+          );
+          setRepeatModeState(
+            (response.repeat_mode as QueueState['repeatMode']) ?? (response.repeatMode as QueueState['repeatMode']) ?? 'off'
+          );
         }
       } catch (err) {
         // Silently fail - user can still interact with empty queue
