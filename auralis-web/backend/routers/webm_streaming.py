@@ -198,7 +198,7 @@ def create_webm_streaming_router(
                 codecs="PCM_16",
                 format_version="unified-v1.0",
                 chunk_playable_duration=chunk_interval,  # Non-first chunks play for interval duration
-                overlap_duration=5  # 5s overlap between chunks (context trimmed at backend)
+                overlap_duration=max(0, chunk_duration - chunk_interval)
             )
 
             logger.info(f"Stream metadata for track {track_id}: {total_chunks} chunks, {duration:.1f}s, "
