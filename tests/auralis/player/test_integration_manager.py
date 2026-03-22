@@ -18,6 +18,7 @@ Covers:
 - cleanup: resets processor effects
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -256,7 +257,7 @@ class TestAutoSelectReference:
         cb = MagicMock()
         m.add_callback(cb)
 
-        with patch("os.path.exists", return_value=True):
+        with patch("pathlib.Path.exists", return_value=True):
             m._auto_select_reference(track)
 
         m.file_manager.load_reference.assert_called_once_with(ref_path)
@@ -274,7 +275,7 @@ class TestAutoSelectReference:
         m = _make_manager(factory_returns=factory)
         m.file_manager.load_reference.return_value = True
 
-        with patch("os.path.exists", return_value=False):
+        with patch("pathlib.Path.exists", return_value=False):
             m._auto_select_reference(track)
 
         # load_reference should NOT have been called for the missing file
@@ -292,7 +293,7 @@ class TestAutoSelectReference:
         # First call (recommended) fails, second call (similar) succeeds
         m.file_manager.load_reference.side_effect = [False, True]
 
-        with patch("os.path.exists", return_value=True):
+        with patch("pathlib.Path.exists", return_value=True):
             m._auto_select_reference(track)
 
         assert m.file_manager.load_reference.call_count == 2
@@ -308,7 +309,7 @@ class TestAutoSelectReference:
         cb = MagicMock()
         m.add_callback(cb)
 
-        with patch("os.path.exists", return_value=True):
+        with patch("pathlib.Path.exists", return_value=True):
             m._auto_select_reference(track)
 
         m.file_manager.load_reference.assert_called_once_with(sim1.filepath)
@@ -326,7 +327,7 @@ class TestAutoSelectReference:
         m = _make_manager(factory_returns=factory)
         m.file_manager.load_reference.return_value = True
 
-        with patch("os.path.exists", return_value=True):
+        with patch("pathlib.Path.exists", return_value=True):
             m._auto_select_reference(track)
 
         m.file_manager.load_reference.assert_called_once_with(sim1.filepath)
@@ -341,10 +342,10 @@ class TestAutoSelectReference:
         m = _make_manager(factory_returns=factory)
         m.file_manager.load_reference.return_value = True
 
-        def _exists(p):
-            return p == "/music/present.flac"
+        def _exists(self):
+            return str(self) == "/music/present.flac"
 
-        with patch("os.path.exists", side_effect=_exists):
+        with patch.object(Path, "exists", autospec=True, side_effect=_exists):
             m._auto_select_reference(track)
 
         m.file_manager.load_reference.assert_called_once_with(present.filepath)
@@ -358,7 +359,7 @@ class TestAutoSelectReference:
         cb = MagicMock()
         m.add_callback(cb)
 
-        with patch("os.path.exists", return_value=False):
+        with patch("pathlib.Path.exists", return_value=False):
             m._auto_select_reference(track)
 
         cb.assert_not_called()

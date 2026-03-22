@@ -58,7 +58,7 @@ class QueueController:
     @property
     def tracks(self) -> list[dict[str, Any]]:
         """Get list of tracks in queue"""
-        return self.queue.tracks  # type: ignore[no-any-return]
+        return self.queue.get_queue()  # type: ignore[no-any-return]
 
     @property
     def current_index(self) -> int:
@@ -207,8 +207,8 @@ class QueueController:
                 track_info = track.to_dict()
                 self.queue.add_track(track_info)
 
-            # Snapshot again to avoid TOCTOU between the bool check and len() use.
-            tracks_snapshot = list(self.queue.tracks)
+            # Snapshot under lock to avoid TOCTOU between the bool check and len() use.
+            tracks_snapshot = self.queue.get_queue()
             if tracks_snapshot:
                 self.queue.current_index = min(start_index, len(tracks_snapshot) - 1)
                 info(f"Loaded playlist: {playlist.name} ({len(tracks_snapshot)} tracks)")
@@ -242,15 +242,15 @@ class QueueController:
 
     def is_queue_empty(self) -> bool:
         """Check if queue is empty"""
-        return len(self.queue.tracks) == 0
+        return self.queue.get_queue_size() == 0
 
     def get_track_count(self) -> int:
         """Get number of tracks in queue"""
-        return len(self.queue.tracks)
+        return self.queue.get_queue_size()
 
     def get_queue_size(self) -> int:
         """Get queue size (alias for get_track_count)"""
-        return len(self.queue.tracks)
+        return self.queue.get_queue_size()
 
     def remove_track(self, index: int) -> bool:
         """Remove track at specified index"""
@@ -279,6 +279,6 @@ class QueueController:
             else:
                 # Assume it's a filepath
                 self.queue.add_track({'filepath': track})
-        set_queue_snapshot = list(self.queue.tracks)
+        set_queue_snapshot = self.queue.get_queue()
         if set_queue_snapshot and start_index >= 0:
             self.queue.current_index = min(start_index, len(set_queue_snapshot) - 1)
