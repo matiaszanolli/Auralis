@@ -13,7 +13,6 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { useEffect } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheStats } from '@/hooks/shared/useStandardizedAPI';
 import { CacheStats } from '@/services/api/standardizedAPIClient';
@@ -182,19 +181,11 @@ function TierCard({ tier, stats }: { tier: 'tier1' | 'tier2'; stats: CacheStats[
  * Cache Statistics Dashboard Component
  */
 export function CacheStatsDashboard({
-  refreshInterval = 5000,
   showTracks = false,
 }: CacheStatsDashboardProps) {
-  const { data: cacheStats, loading, error, refetch } = useCacheStats();
+  const { data: cacheStats, loading, error } = useCacheStats();
 
-  // Set up auto-refresh
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refetch();
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [refreshInterval, refetch]);
+  // useCacheStats already polls internally — no extra setInterval needed (#2802)
 
   if (loading && !cacheStats) {
     return (
@@ -422,7 +413,7 @@ export function CacheStatsDashboard({
           textAlign: 'center',
         }}
       >
-        Auto-refreshing every {refreshInterval / 1000}s
+        Auto-refreshing every 5s
       </div>
     </div>
   );
