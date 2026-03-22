@@ -57,7 +57,15 @@ class _DebounceHandler(FileSystemEventHandler):  # type: ignore[misc]
         self._schedule()
 
     def _schedule(self) -> None:
-        # Cancel pending timer and reset; fires 500ms after last event
+        # Cancel pending timer and reset; fires 500ms after last event.
+        # Use call_soon_threadsafe because watchdog callbacks run on a
+        # background thread, and call_later is not thread-safe (#2863).
+        if self._pending is not None:
+            self._pending.cancel()
+        self._loop.call_soon_threadsafe(self._schedule_on_loop)
+
+    def _schedule_on_loop(self) -> None:
+        """Schedule the debounced callback from within the event loop thread."""
         if self._pending is not None:
             self._pending.cancel()
         self._pending = self._loop.call_later(
