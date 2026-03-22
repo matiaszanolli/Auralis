@@ -635,10 +635,16 @@ def create_system_router(
                         }
                     }))
 
+                    # Determine if enhancement is enabled (#3187)
+                    enhancement_enabled = True
+                    if get_enhancement_settings is not None:
+                        enhancement_enabled = get_enhancement_settings().get("enabled", True)
+
                     # Define streaming coroutine with seek position
                     async def stream_from_position():
                         # Capture task identity to prevent orphaned task race (fixes #2164)
                         my_task = asyncio.current_task()
+                        stream_type = "enhanced" if enhancement_enabled else "normal"
                         try:
                             from core.chunked_processor import ChunkedAudioProcessor
 
@@ -652,13 +658,21 @@ def create_system_router(
                                 ),
                             )
 
-                            await controller.stream_enhanced_audio_from_position(
-                                track_id=track_id,
-                                preset=preset,
-                                intensity=intensity,
-                                websocket=websocket,
-                                start_position=position,
-                            )
+                            if enhancement_enabled:
+                                await controller.stream_enhanced_audio_from_position(
+                                    track_id=track_id,
+                                    preset=preset,
+                                    intensity=intensity,
+                                    websocket=websocket,
+                                    start_position=position,
+                                )
+                            else:
+                                # Route to normal streaming with seek offset (#3187)
+                                await controller.stream_normal_audio(
+                                    track_id=track_id,
+                                    websocket=websocket,
+                                    start_position=position,
+                                )
                         except asyncio.CancelledError:
                             logger.info(f"Seek streaming task cancelled for track {track_id}")
                         except Exception as e:
@@ -671,7 +685,7 @@ def create_system_router(
                                             "track_id": track_id,
                                             "error": str(e),
                                             "code": "SEEK_ERROR",
-                                            "stream_type": "enhanced",
+                                            "stream_type": stream_type,
                                         }
                                     })
                                 )

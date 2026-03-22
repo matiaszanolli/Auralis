@@ -228,7 +228,7 @@ class AudioStreamController:
                 self.fingerprint_init_error = str(e)
                 logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
 
-        self.active_streams: dict[int, Any] = {}  # track_id -> streaming task
+        self.active_streams: dict[int, Any] = {}  # id(websocket) -> streaming task
         # Use the module-level semaphore shared across all instances (fixes #2469)
         self._stream_semaphore: asyncio.Semaphore = _global_stream_semaphore
 
@@ -543,7 +543,7 @@ class AudioStreamController:
                     raise ValueError(f"Processor metadata missing: {_attr} is None")
 
             # Register active stream so cleanup can always find it (fixes #2076)
-            self.active_streams[track_id] = asyncio.current_task()
+            self.active_streams[id(websocket)] = asyncio.current_task()
 
             # Phase 7.5: Non-blocking fingerprint check
             # Check if fingerprint exists in cache - if not, queue for background generation
@@ -707,13 +707,14 @@ class AudioStreamController:
         finally:
             # Clean up chunk tail storage for this track
             self._chunk_tails.pop(track_id, None)
-            self.active_streams.pop(track_id, None)  # fixes #2076
+            self.active_streams.pop(id(websocket), None)  # fixes #2076
             self._stream_semaphore.release()
 
     async def stream_normal_audio(
         self,
         track_id: int,
         websocket: WebSocket,
+        start_position: float = 0.0,
         on_progress: Callable[[int, float, str], Any] | None = None
     ) -> None:
         """
@@ -794,15 +795,23 @@ class AudioStreamController:
 
             total_chunks = max(1, int(np.ceil(total_frames / interval_samples)))
 
+            # Calculate start chunk for seek (#3187)
+            start_chunk = 0
+            if start_position > 0:
+                start_sample = int(start_position * sample_rate)
+                start_chunk = min(start_sample // interval_samples, total_chunks - 1)
+            remaining_chunks = total_chunks - start_chunk
+
             # Register active stream so cleanup can always find it (fixes #2076)
-            self.active_streams[track_id] = asyncio.current_task()
+            self.active_streams[id(websocket)] = asyncio.current_task()
 
             logger.info(
                 f"Starting normal audio stream: track={track_id}, "
                 f"duration={duration:.1f}s, chunks={total_chunks}, sr={sample_rate}Hz"
+                + (f", seek={start_position:.1f}s (chunk {start_chunk})" if start_chunk > 0 else "")
             )
 
-            # Send stream start message
+            # Send stream start message (report remaining chunks for seek)
             if not await self._send_stream_start(
                 websocket,
                 track_id=track_id,
@@ -810,9 +819,9 @@ class AudioStreamController:
                 intensity=1.0,   # Full intensity (original)
                 sample_rate=sample_rate,
                 channels=channels,
-                total_chunks=total_chunks,
+                total_chunks=remaining_chunks,
                 chunk_duration=chunk_duration,
-                total_duration=duration,
+                total_duration=duration - (start_chunk * chunk_duration),
             ):
                 logger.info(f"WebSocket disconnected, cannot start stream")
                 return
@@ -834,7 +843,7 @@ class AudioStreamController:
             # streaming chunk N to eliminate I/O gaps.
             lookahead_read: asyncio.Task[np.ndarray] | None = None
 
-            for chunk_idx in range(total_chunks):
+            for chunk_idx in range(start_chunk, total_chunks):
                 # Honour pause/resume events from the WebSocket handler (#2106).
                 from routers.system import _stream_pause_events, _stream_flow_events
                 pause_evt = _stream_pause_events.get(id(websocket))
@@ -918,7 +927,7 @@ class AudioStreamController:
                 if self._is_websocket_connected(websocket):
                     await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
-            self.active_streams.pop(track_id, None)  # fixes #2076
+            self.active_streams.pop(id(websocket), None)  # fixes #2076
             self._stream_semaphore.release()
 
     async def _process_chunk_only(
@@ -1520,7 +1529,7 @@ class AudioStreamController:
                     raise ValueError(f"Processor metadata missing: {_attr} is None")
 
             # Register active stream so cleanup can always find it (fixes #2076)
-            self.active_streams[track_id] = asyncio.current_task()
+            self.active_streams[id(websocket)] = asyncio.current_task()
 
             # Calculate which chunk to start from based on position
             # Chunks overlap, so we need to find the chunk that contains this position
@@ -1670,7 +1679,7 @@ class AudioStreamController:
                     await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
             self._chunk_tails.pop(track_id, None)  # fixes orphaned state
-            self.active_streams.pop(track_id, None)  # fixes #2076
+            self.active_streams.pop(id(websocket), None)  # fixes #2076
             self._stream_semaphore.release()
 
     async def _send_stream_start_with_seek(
