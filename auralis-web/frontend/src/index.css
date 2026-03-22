@@ -301,7 +301,7 @@ button:focus-visible {
    RESPONSIVE DESIGN
    ======================================== */
 
-@media (max-width: 768px) {
+@media (max-width: 900px) { /* matches tokens.breakpoints.md */
   :root {
     font-size: 14px; /* Slightly smaller base font on mobile */
   }
