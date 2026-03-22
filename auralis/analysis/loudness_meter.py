@@ -256,13 +256,11 @@ class LoudnessMeter:
             return float(-np.inf)
 
     def _calculate_true_peak(self, audio_chunk: np.ndarray) -> float:
-        """Calculate true peak with oversampling"""
-        # Simplified true peak calculation
-        # In a full implementation, this would use proper oversampling
+        """Calculate true peak with oversampling (ITU-R BS.1770-4 compliant)"""
         if audio_chunk.ndim == 1:
-            oversampled = np.repeat(audio_chunk, self.oversample_factor)
+            oversampled = signal.resample_poly(audio_chunk, self.oversample_factor, 1)
         else:
-            oversampled = np.repeat(audio_chunk, self.oversample_factor, axis=0)
+            oversampled = signal.resample_poly(audio_chunk, self.oversample_factor, 1, axis=0)
 
         true_peak = float(np.max(np.abs(oversampled)))
 
