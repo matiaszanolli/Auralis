@@ -833,19 +833,20 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   }, [wsContext.isConnected, dispatch]);
 
   /**
-   * Update playback time periodically
-   * Note: We always run the interval, not conditional on playbackEngineRef.current,
-   * because the engine is created later when streaming starts. The interval safely
-   * checks if the engine exists before reading the time.
+   * Update playback time periodically — only while playing.
+   * The interval starts/stops with isPlaying to avoid gratuitous re-renders
+   * when idle (fixes #2991).
    */
   useEffect(() => {
+    if (!isPlaying) return;
+
     const interval = setInterval(() => {
       const time = playbackEngineRef.current?.getCurrentPlaybackTime() || 0;
-      setCurrentTime(time);
-    }, 100); // Update 10x per second
+      setCurrentTime((prev) => (time === prev ? prev : time));
+    }, 100);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isPlaying]);
 
   /**
    * Cleanup on unmount - stop playback but DON'T unsubscribe (handled above)
