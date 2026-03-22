@@ -49,7 +49,7 @@ def _has_valid_audio_magic(data: bytes) -> bool:
 
 # Import only if available
 try:
-    from auralis.io.unified_loader import load_audio
+    from auralis.io.unified_loader import load_audio, SUPPORTED_FORMATS
     HAS_LIBRARY = True
 except ImportError:
     HAS_LIBRARY = False
@@ -109,7 +109,7 @@ def create_files_router(
             raise HTTPException(status_code=503, detail="Audio processing library not available")
 
         results: list[dict[str, Any]] = []
-        supported_extensions = ('.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac')
+        supported_extensions = tuple(SUPPORTED_FORMATS.keys())
 
         for file in files:
             try:
