@@ -54,14 +54,12 @@ export function transformArtistsResponse(apiResponse: ArtistsApiResponse) {
 }
 
 /**
- * Transform artist detail response (different shape from list endpoint, #2844)
- *
- * Backend uses artist_id/artist_name instead of id/name in the detail response.
+ * Transform artist detail response
  */
 export function transformArtistDetail(apiDetail: ArtistDetailApiResponse): Artist {
   return {
-    id: apiDetail.artist_id,
-    name: apiDetail.artist_name,
+    id: apiDetail.id ?? apiDetail.artist_id,
+    name: apiDetail.name ?? apiDetail.artist_name,
     artworkUrl: apiDetail.artwork_url ?? undefined,
     albumCount: apiDetail.total_albums,
     trackCount: apiDetail.total_tracks,

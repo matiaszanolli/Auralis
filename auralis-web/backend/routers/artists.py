@@ -62,8 +62,8 @@ class AlbumInArtist(BaseModel):
 
 class ArtistDetailResponse(BaseModel):
     """Detailed artist information with albums and tracks"""
-    artist_id: int
-    artist_name: str
+    id: int
+    name: str
     albums: list[AlbumInArtist]
     total_albums: int
     total_tracks: int
@@ -73,8 +73,8 @@ class ArtistDetailResponse(BaseModel):
 
 class ArtistTracksResponse(BaseModel):
     """Artist's tracks response"""
-    artist_id: int
-    artist_name: str
+    id: int
+    name: str
     tracks: list[TrackInArtist]
     total_tracks: int
 
@@ -188,8 +188,8 @@ def create_artists_router(
         albums.sort(key=lambda a: (-(a.year or 0), a.title))
 
         return ArtistDetailResponse(
-            artist_id=cast(int, artist.id),
-            artist_name=cast(str, artist.name),
+            id=cast(int, artist.id),
+            name=cast(str, artist.name),
             albums=albums,
             total_albums=len(albums),
             total_tracks=len(artist.tracks) if artist.tracks else 0,
@@ -231,8 +231,8 @@ def create_artists_router(
         ))
 
         return ArtistTracksResponse(
-            artist_id=cast(int, artist.id),
-            artist_name=cast(str, artist.name),
+            id=cast(int, artist.id),
+            name=cast(str, artist.name),
             tracks=tracks,
             total_tracks=len(tracks)
         )

@@ -26,8 +26,8 @@ export interface TrackInArtist {
 }
 
 export interface ArtistTracksResponse {
-  artist_id: number;
-  artist_name: string;
+  id: number;
+  name: string;
   tracks: TrackInArtist[];
   total_tracks: number;
 }
