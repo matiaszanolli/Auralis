@@ -35,22 +35,39 @@ class StatsRepository:
         """
         session = self.get_session()
         try:
-            stats = {
-                'total_tracks': session.execute(select(func.count(Track.id))).scalar_one_or_none() or 0,
-                'total_albums': session.execute(select(func.count(Album.id))).scalar_one_or_none() or 0,
-                'total_artists': session.execute(select(func.count(Artist.id))).scalar_one_or_none() or 0,
-                'total_genres': session.execute(select(func.count(Genre.id))).scalar_one_or_none() or 0,
-                'total_playlists': session.execute(select(func.count(Playlist.id))).scalar_one_or_none() or 0,
-                'total_duration': session.execute(select(func.sum(Track.duration))).scalar_one_or_none() or 0,
-                'total_filesize': session.execute(select(func.sum(Track.filesize))).scalar_one_or_none() or 0,
-                'total_plays': session.execute(select(func.sum(Track.play_count))).scalar_one_or_none() or 0,
-                'favorite_count': session.execute(select(func.count(Track.id)).where(Track.favorite == True)).scalar_one_or_none() or 0,
+            # Single atomic query for all track-level stats (counts, sums, averages)
+            track_stats_row = session.execute(select(
+                func.count(Track.id).label('total_tracks'),
+                func.coalesce(func.sum(Track.duration), 0).label('total_duration'),
+                func.coalesce(func.sum(Track.filesize), 0).label('total_filesize'),
+                func.coalesce(func.sum(Track.play_count), 0).label('total_plays'),
+                func.count(Track.id).filter(Track.favorite == True).label('favorite_count'),
+                func.avg(Track.dr_rating).filter(Track.dr_rating.isnot(None)).label('avg_dr'),
+                func.avg(Track.lufs_level).filter(Track.lufs_level.isnot(None)).label('avg_lufs'),
+            )).one()
+
+            # Single query for entity counts (albums, artists, genres, playlists)
+            entity_counts = session.execute(select(
+                select(func.count(Album.id)).correlate(None).scalar_subquery().label('total_albums'),
+                select(func.count(Artist.id)).correlate(None).scalar_subquery().label('total_artists'),
+                select(func.count(Genre.id)).correlate(None).scalar_subquery().label('total_genres'),
+                select(func.count(Playlist.id)).correlate(None).scalar_subquery().label('total_playlists'),
+            )).one()
+
+            stats: dict[str, Any] = {
+                'total_tracks': track_stats_row.total_tracks or 0,
+                'total_albums': entity_counts.total_albums or 0,
+                'total_artists': entity_counts.total_artists or 0,
+                'total_genres': entity_counts.total_genres or 0,
+                'total_playlists': entity_counts.total_playlists or 0,
+                'total_duration': track_stats_row.total_duration or 0,
+                'total_filesize': track_stats_row.total_filesize or 0,
+                'total_plays': track_stats_row.total_plays or 0,
+                'favorite_count': track_stats_row.favorite_count or 0,
             }
 
-            # Calculate average audio quality metrics
-            avg_dr = session.execute(select(func.avg(Track.dr_rating)).where(Track.dr_rating.isnot(None))).scalar_one_or_none()
-            avg_lufs = session.execute(select(func.avg(Track.lufs_level)).where(Track.lufs_level.isnot(None))).scalar_one_or_none()
-
+            avg_dr = track_stats_row.avg_dr
+            avg_lufs = track_stats_row.avg_lufs
             stats['average_dr'] = float(avg_dr) if avg_dr else None
             stats['average_lufs'] = float(avg_lufs) if avg_lufs else None
 
