@@ -81,6 +81,15 @@ export const ProgressBar = ({
   const [liveSeekTime, setLiveSeekTime] = useState<number | null>(null);
   const lastAriaAnnounceRef = useRef<number>(0);
 
+  // Stable refs for values used in drag handlers to avoid recreating
+  // callbacks on every playback tick (#3103)
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
+  const currentTimeRef = useRef(currentTime);
+  currentTimeRef.current = currentTime;
+  const onSeekRef = useRef(onSeek);
+  onSeekRef.current = onSeek;
+
   // Calculate progress percentage
   const progressPercentage = useMemo(() => {
     if (!Number.isFinite(duration) || duration <= 0) {
@@ -100,17 +109,17 @@ export const ProgressBar = ({
     return formatSecondToTime(hoverPosition, duration >= 3600);
   }, [hoverPosition, duration]);
 
-  // Handle mouse position calculation
+  // Handle mouse position calculation (stable — reads from refs)
   const getPositionFromEvent = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
-      if (!containerRef.current) return currentTime;
+      if (!containerRef.current) return currentTimeRef.current;
 
       const rect = containerRef.current.getBoundingClientRect();
-      const x = ('clientX' in event ? event.clientX : (event as any).pageX) - rect.left;
+      const x = ('clientX' in event ? event.clientX : (event as MouseEvent).pageX) - rect.left;
       const percentage = Math.max(0, Math.min(1, x / rect.width));
-      return percentage * duration;
+      return percentage * durationRef.current;
     },
-    [duration, currentTime]
+    []
   );
 
   // Handle click to seek
@@ -153,15 +162,13 @@ export const ProgressBar = ({
     [disabled, duration, getPositionFromEvent, onSeek]
   );
 
-  // Handle drag during mouse move
+  // Handle drag during mouse move (stable — reads from refs)
   const handleGlobalMouseMove = useCallback(
     (event: MouseEvent) => {
-      if (!isDragging || !containerRef.current) {
-        return;
-      }
+      if (!containerRef.current) return;
 
       const position = getPositionFromEvent(event);
-      onSeek(position);
+      onSeekRef.current(position);
 
       // Throttle ARIA live region updates to ~4Hz during drag (fixes #2538)
       const now = Date.now();
@@ -170,7 +177,7 @@ export const ProgressBar = ({
         setLiveSeekTime(position);
       }
     },
-    [isDragging, getPositionFromEvent, onSeek]
+    [getPositionFromEvent]
   );
 
   // Handle drag end
@@ -285,7 +292,7 @@ export const ProgressBar = ({
       document.removeEventListener('mousemove', handleGlobalMouseMove);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [isDragging, handleGlobalMouseMove, handleGlobalMouseUp]);
+  }, [isDragging, handleGlobalMouseMove, handleGlobalMouseUp]); // handlers are stable (empty/minimal deps)
 
   // Aria labels and values
   const finalAriaLabel = useMemo(() => {
