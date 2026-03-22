@@ -180,7 +180,6 @@ export class RealTimeAnalysisStream {
       this.notifyStatusChange();
     });
 
-    this.startBufferProcessing();
   }
 
   // Connection Management (Phase 3c: Uses WebSocketManager)
@@ -244,8 +243,9 @@ export class RealTimeAnalysisStream {
     // Send configuration
     this.sendConfiguration();
 
-    // Start heartbeat
+    // Start heartbeat and buffer processing
     this.startHeartbeat();
+    this.startBufferProcessing();
 
     this.notifyStatusChange();
   }

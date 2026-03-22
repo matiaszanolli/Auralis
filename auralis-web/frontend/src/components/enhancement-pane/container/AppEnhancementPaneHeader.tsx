@@ -38,7 +38,7 @@ export const AppEnhancementPaneHeader = ({
             color: 'rgba(255, 255, 255, 0.5)',
             padding: '4px',
             '&:hover': {
-              color: 'var(--silver)',
+              color: tokens.colors.text.secondary,
               background: tokens.colors.opacityScale.accent.veryLight,
             },
           }}

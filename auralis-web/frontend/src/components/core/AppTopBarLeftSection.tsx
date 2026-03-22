@@ -26,7 +26,7 @@ export const AppTopBarLeftSection = ({
         <IconButton
           onClick={onOpenMobileDrawer}
           sx={{
-            color: 'var(--silver)',
+            color: tokens.colors.text.secondary,
             padding: '8px',
             '&:hover': {
               background: tokens.colors.opacityScale.accent.veryLight,

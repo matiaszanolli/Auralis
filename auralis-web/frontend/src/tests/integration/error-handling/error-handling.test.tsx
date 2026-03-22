@@ -295,11 +295,17 @@ describe('Error Handling API Integration Tests', () => {
 
   describe('Network Errors', () => {
     it('should handle network timeout', async () => {
-      // Arrange
+      // Arrange — use request.signal so the timer is cancelled when the
+      // request is aborted (prevents dangling 10s setTimeout, fixes #3064).
       server.use(
-        http.get('http://localhost:8765/api/test/timeout', async () => {
-          // Simulate timeout with long delay
-          await new Promise(resolve => setTimeout(resolve, 10000));
+        http.get('http://localhost:8765/api/test/timeout', async ({ request }) => {
+          await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(resolve, 10000);
+            request.signal.addEventListener('abort', () => {
+              clearTimeout(timer);
+              reject(request.signal.reason);
+            });
+          });
           return HttpResponse.json({ data: 'too late' });
         })
       );

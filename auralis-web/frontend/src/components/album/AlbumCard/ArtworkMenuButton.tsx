@@ -18,6 +18,7 @@ export const ArtworkMenuButton = ({ onClick }: ArtworkMenuButtonProps) => {
   return (
     <IconButton
       onClick={onClick}
+      aria-label="Album artwork options"
       sx={{
         position: 'absolute',
         top: 8,

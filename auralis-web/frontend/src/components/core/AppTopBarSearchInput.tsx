@@ -53,7 +53,7 @@ export const AppTopBarSearchInput = ({
           },
           '& .MuiOutlinedInput-input': {
             padding: 0,
-            color: 'var(--silver)',
+            color: tokens.colors.text.secondary,
             fontSize: tokens.typography.fontSize.base,
             '&::placeholder': {
               color: tokens.colors.opacityScale.accent.standard,
@@ -73,7 +73,7 @@ export const AppTopBarSearchInput = ({
             color: tokens.colors.opacityScale.accent.veryStrong,
             padding: '4px',
             '&:hover': {
-              color: 'var(--silver)',
+              color: tokens.colors.text.secondary,
             },
           }}
         >
