@@ -111,6 +111,7 @@ export function useRestAPI() {
 
         // Detect stale response: if a newer request started after this one, discard this response (fixes #2439).
         if (seq !== requestSequences.current.get(endpoint)) {
+          response.body?.cancel();
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
 
@@ -165,6 +166,7 @@ export function useRestAPI() {
 
         // Detect stale response (fixes #2439).
         if (seq !== requestSequences.current.get(endpoint)) {
+          response.body?.cancel();
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
 
@@ -212,6 +214,7 @@ export function useRestAPI() {
 
         // Detect stale response (fixes #2439).
         if (seq !== requestSequences.current.get(endpoint)) {
+          response.body?.cancel();
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
 
@@ -259,6 +262,7 @@ export function useRestAPI() {
 
         // Detect stale response (fixes #2439).
         if (seq !== requestSequences.current.get(endpoint)) {
+          response.body?.cancel();
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
 
@@ -304,6 +308,7 @@ export function useRestAPI() {
 
         // Detect stale response (fixes #2439).
         if (seq !== requestSequences.current.get(endpoint)) {
+          response.body?.cancel();
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
       } catch (err) {
