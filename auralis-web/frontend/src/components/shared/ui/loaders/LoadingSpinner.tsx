@@ -38,7 +38,7 @@ export const LoadingSpinner = ({
   const gradientId = `gradient-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
-    <SpinnerContainer className={className}>
+    <SpinnerContainer className={className} role="status" aria-label="Loading">
       <GradientSVG width={0} height={0}>
         <defs>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
