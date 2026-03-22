@@ -7,7 +7,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyDict};
-use numpy::{PyArray1, PyArray2, IntoPyArray};
+use numpy::{PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2, IntoPyArray};
 use crate::{hpss, yin, chroma, tempo, envelope, compressor, limiter, fingerprint_compute, biquad_filter, onset_detector, chunk_processor};
 
 /// Extract a human-readable message from a Rust panic payload (issue #2225).
@@ -89,17 +89,13 @@ fn auralis_dsp(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[pyo3(signature = (audio, sr = 44100, kernel_h = None, kernel_p = None))]
 fn hpss_wrapper(
     py: Python<'_>,
-    audio: &PyArray1<f64>,
+    audio: PyReadonlyArray1<'_, f64>,
     sr: usize,
     kernel_h: Option<usize>,
     kernel_p: Option<usize>,
 ) -> PyResult<(Py<PyArray1<f64>>, Py<PyArray1<f64>>)> {
     // Convert numpy array to Rust vec
-    let audio_vec: Vec<f64> = audio.to_vec().map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            format!("Failed to convert audio array: {}", e),
-        )
-    })?;
+    let audio_vec: Vec<f64> = audio.as_array().to_vec();
 
     // Build HPSS config with optional parameters
     let mut config = hpss::HpssConfig::default();
@@ -122,8 +118,8 @@ fn hpss_wrapper(
     })?;
 
     // Convert results back to numpy arrays
-    let harmonic_py = harmonic.into_pyarray_bound(py).unbind();
-    let percussive_py = percussive.into_pyarray_bound(py).unbind();
+    let harmonic_py = harmonic.into_pyarray(py).unbind();
+    let percussive_py = percussive.into_pyarray(py).unbind();
 
     Ok((harmonic_py, percussive_py))
 }
@@ -150,17 +146,13 @@ fn hpss_wrapper(
 #[pyo3(signature = (audio, sr = 44100, fmin = 65.4, fmax = 2093.0))]
 fn yin_wrapper(
     py: Python<'_>,
-    audio: &PyArray1<f64>,
+    audio: PyReadonlyArray1<'_, f64>,
     sr: usize,
     fmin: f64,
     fmax: f64,
 ) -> PyResult<Py<PyArray1<f64>>> {
     // Convert numpy array to Rust vec
-    let audio_vec: Vec<f64> = audio.to_vec().map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            format!("Failed to convert audio array: {}", e),
-        )
-    })?;
+    let audio_vec: Vec<f64> = audio.as_array().to_vec();
 
     // Release GIL during CPU-bound computation (#2447).
     let f0 = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -173,7 +165,7 @@ fn yin_wrapper(
     })?;
 
     // Convert result to numpy array
-    let f0_py = f0.into_pyarray_bound(py).unbind();
+    let f0_py = f0.into_pyarray(py).unbind();
 
     Ok(f0_py)
 }
@@ -199,15 +191,11 @@ fn yin_wrapper(
 #[pyo3(signature = (audio, sr = 44100))]
 fn chroma_cqt_wrapper(
     py: Python<'_>,
-    audio: &PyArray1<f64>,
+    audio: PyReadonlyArray1<'_, f64>,
     sr: usize,
 ) -> PyResult<Py<PyArray2<f64>>> {
     // Convert numpy array to Rust vec
-    let audio_vec: Vec<f64> = audio.to_vec().map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            format!("Failed to convert audio array: {}", e),
-        )
-    })?;
+    let audio_vec: Vec<f64> = audio.as_array().to_vec();
 
     // Release GIL during CPU-bound computation (#2447).
     let chroma = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -220,7 +208,7 @@ fn chroma_cqt_wrapper(
     })?;
 
     // Convert result to numpy array
-    let chroma_py = chroma.into_pyarray_bound(py).unbind();
+    let chroma_py = chroma.into_pyarray(py).unbind();
 
     Ok(chroma_py)
 }
@@ -251,7 +239,7 @@ fn chroma_cqt_wrapper(
 #[pyo3(signature = (audio, sr = 44100, n_fft = None, hop_length = None, threshold_multiplier = None, min_bpm = None, max_bpm = None))]
 fn detect_tempo_wrapper(
     py: Python<'_>,
-    audio: &PyArray1<f64>,
+    audio: PyReadonlyArray1<'_, f64>,
     sr: usize,
     n_fft: Option<usize>,
     hop_length: Option<usize>,
@@ -260,11 +248,7 @@ fn detect_tempo_wrapper(
     max_bpm: Option<f64>,
 ) -> PyResult<f64> {
     // Convert numpy array to Rust vec
-    let audio_vec: Vec<f64> = audio.to_vec().map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            format!("Failed to convert audio array: {}", e),
-        )
-    })?;
+    let audio_vec: Vec<f64> = audio.as_array().to_vec();
 
     // Build tempo config with optional parameters
     let mut config = tempo::TempoConfig::default();
@@ -321,17 +305,13 @@ fn detect_tempo_wrapper(
 #[pyo3(signature = (input_levels, sample_rate = 44100, attack_ms = 10.0, release_ms = 100.0))]
 fn envelope_follow_wrapper(
     py: Python<'_>,
-    input_levels: &PyArray1<f32>,
+    input_levels: PyReadonlyArray1<'_, f32>,
     sample_rate: usize,
     attack_ms: f32,
     release_ms: f32,
 ) -> PyResult<Py<PyArray1<f32>>> {
     // Convert numpy array to Rust vec
-    let levels_vec: Vec<f32> = input_levels.to_vec().map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            format!("Failed to convert input_levels array: {}", e),
-        )
-    })?;
+    let levels_vec: Vec<f32> = input_levels.as_array().to_vec();
 
     // Release GIL during CPU-bound computation (#2447).
     let envelope = py.allow_threads(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -344,7 +324,7 @@ fn envelope_follow_wrapper(
     })?;
 
     // Convert result to numpy array
-    let envelope_py = envelope.into_pyarray_bound(py).unbind();
+    let envelope_py = envelope.into_pyarray(py).unbind();
 
     Ok(envelope_py)
 }
@@ -392,7 +372,7 @@ fn envelope_follow_wrapper(
 ))]
 fn compress_wrapper(
     py: Python<'_>,
-    audio: &PyArray1<f32>,
+    audio: PyReadonlyArray1<'_, f32>,
     sample_rate: usize,
     threshold_db: f32,
     ratio: f32,
@@ -405,11 +385,7 @@ fn compress_wrapper(
     detection_mode: &str,
 ) -> PyResult<(Py<PyArray1<f32>>, PyObject)> {
     // Convert numpy array to Rust vec
-    let audio_vec: Vec<f32> = audio.to_vec().map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            format!("Failed to convert audio array: {}", e),
-        )
-    })?;
+    let audio_vec: Vec<f32> = audio.as_array().to_vec();
 
     // Parse detection mode
     let mode = match detection_mode.to_lowercase().as_str() {
@@ -445,10 +421,10 @@ fn compress_wrapper(
     })?;
 
     // Convert result to numpy array
-    let compressed_py = compressed.into_pyarray_bound(py).unbind();
+    let compressed_py = compressed.into_pyarray(py).unbind();
 
     // Convert compression info to Python dict
-    let info_dict = pyo3::types::PyDict::new_bound(py);
+    let info_dict = pyo3::types::PyDict::new(py);
     info_dict.set_item("input_level_db", info.input_level_db)?;
     info_dict.set_item("gain_reduction_db", info.gain_reduction_db)?;
     info_dict.set_item("output_gain", info.output_gain)?;
@@ -493,7 +469,7 @@ fn compress_wrapper(
 ))]
 fn limit_wrapper(
     py: Python<'_>,
-    audio: &PyArray1<f32>,
+    audio: PyReadonlyArray1<'_, f32>,
     sample_rate: usize,
     threshold_db: f32,
     release_ms: f32,
@@ -502,11 +478,7 @@ fn limit_wrapper(
     oversampling: usize,
 ) -> PyResult<(Py<PyArray1<f32>>, PyObject)> {
     // Convert numpy array to Rust vec
-    let audio_vec: Vec<f32> = audio.to_vec().map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            format!("Failed to convert audio array: {}", e),
-        )
-    })?;
+    let audio_vec: Vec<f32> = audio.as_array().to_vec();
 
     // Validate oversampling factor
     if oversampling != 1 && oversampling != 2 && oversampling != 4 {
@@ -536,10 +508,10 @@ fn limit_wrapper(
     })?;
 
     // Convert result to numpy array
-    let limited_py = limited.into_pyarray_bound(py).unbind();
+    let limited_py = limited.into_pyarray(py).unbind();
 
     // Convert limiting info to Python dict
-    let info_dict = pyo3::types::PyDict::new_bound(py);
+    let info_dict = pyo3::types::PyDict::new(py);
     info_dict.set_item("input_peak_db", info.input_peak_db)?;
     info_dict.set_item("output_peak_db", info.output_peak_db)?;
     info_dict.set_item("gain_reduction_db", info.gain_reduction_db)?;
@@ -577,16 +549,12 @@ fn limit_wrapper(
 #[pyfunction]
 fn compute_fingerprint_wrapper(
     py: Python<'_>,
-    audio: &PyArray1<f32>,
+    audio: PyReadonlyArray1<'_, f32>,
     sample_rate: u32,
     channels: u32,
 ) -> PyResult<PyObject> {
     // Convert numpy array to Rust vec
-    let audio_vec: Vec<f32> = audio.to_vec().map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            format!("Failed to convert audio array: {}", e),
-        )
-    })?;
+    let audio_vec: Vec<f32> = audio.as_array().to_vec();
 
     if audio_vec.is_empty() {
         return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
@@ -623,7 +591,7 @@ fn compute_fingerprint_wrapper(
     })?;
 
     // Convert fingerprint to Python dict
-    let dict = PyDict::new_bound(py);
+    let dict = PyDict::new(py);
 
     // Frequency (7D)
     dict.set_item("sub_bass", fingerprint.sub_bass)?;
@@ -684,14 +652,14 @@ fn compute_fingerprint_wrapper(
 #[pyo3(signature = (audio, sr, bass_gain_db = 0.0, mid_gain_db = 0.0, treble_gain_db = 0.0))]
 fn apply_multiband_eq_wrapper(
     py: Python<'_>,
-    audio: &PyArray2<f64>,
+    audio: PyReadonlyArray2<'_, f64>,
     sr: usize,
     bass_gain_db: f64,
     mid_gain_db: f64,
     treble_gain_db: f64,
 ) -> PyResult<Py<PyArray2<f64>>> {
     // Convert to ndarray
-    let audio_array = audio.readonly().as_array().to_owned();
+    let audio_array = audio.as_array().to_owned();
 
     // Create multi-band EQ
     let num_channels = audio_array.shape()[0];
@@ -713,7 +681,7 @@ fn apply_multiband_eq_wrapper(
         )
     })?;
 
-    Ok(output.into_pyarray_bound(py).unbind())
+    Ok(output.into_pyarray(py).unbind())
 }
 
 /// Python wrapper for onset detection
@@ -731,14 +699,12 @@ fn apply_multiband_eq_wrapper(
 #[pyo3(signature = (audio, sr, hop_length = 512))]
 fn detect_onsets_wrapper(
     py: Python<'_>,
-    audio: &PyArray1<f64>,
+    audio: PyReadonlyArray1<'_, f64>,
     sr: usize,
     hop_length: usize,
 ) -> PyResult<Py<PyDict>> {
     // Convert to ndarray
-    let audio_vec = audio.to_vec().map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!("Failed to convert audio: {}", e))
-    })?;
+    let audio_vec = audio.as_array().to_vec();
     let audio_array = ndarray::Array1::from(audio_vec);
 
     // Release GIL during CPU-bound computation (#2447).
@@ -753,13 +719,13 @@ fn detect_onsets_wrapper(
     })?;
 
     // Convert to Python dict
-    let dict = PyDict::new_bound(py);
+    let dict = PyDict::new(py);
     let onset_frames: Vec<usize> = result.onset_frames;
     let onset_times = detector.frames_to_time(&onset_frames);
 
     dict.set_item("onset_frames", onset_frames)?;
     dict.set_item("onset_times", onset_times)?;
-    dict.set_item("onset_strength", result.onset_strength.into_pyarray_bound(py))?;
+    dict.set_item("onset_strength", result.onset_strength.into_pyarray(py))?;
 
     Ok(dict.into())
 }
@@ -781,12 +747,12 @@ fn detect_onsets_wrapper(
 #[pyo3(signature = (audio, chunk_size = 131072, overlap = 2205))]
 fn process_chunks_wrapper(
     py: Python<'_>,
-    audio: &PyArray2<f64>,
+    audio: PyReadonlyArray2<'_, f64>,
     chunk_size: usize,
     overlap: usize,
 ) -> PyResult<Py<PyDict>> {
     // Convert to ndarray
-    let audio_array = audio.readonly().as_array().to_owned();
+    let audio_array = audio.as_array().to_owned();
 
     let num_channels = audio_array.shape()[0];
     let config = chunk_processor::ChunkConfig {
@@ -809,8 +775,8 @@ fn process_chunks_wrapper(
     })?;
 
     // Collect stats
-    let dict = PyDict::new_bound(py);
-    dict.set_item("output", output.into_pyarray_bound(py))?;
+    let dict = PyDict::new(py);
+    dict.set_item("output", output.into_pyarray(py))?;
     dict.set_item("chunk_size", chunk_size)?;
     dict.set_item("overlap", overlap)?;
 
