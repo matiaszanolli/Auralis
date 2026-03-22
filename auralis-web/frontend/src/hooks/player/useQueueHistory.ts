@@ -36,7 +36,7 @@
  * @module hooks/player/useQueueHistory
  */
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import type { ApiError } from '@/types/api';
 
@@ -134,8 +134,9 @@ export function useQueueHistory(): QueueHistoryActions {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  // Computed state
-  const canUndo = history.length > 0;
+  // Ref for stable callback access to history
+  const historyRef = useRef(history);
+  historyRef.current = history;
 
   /**
    * Fetch initial history on mount
@@ -216,7 +217,7 @@ export function useQueueHistory(): QueueHistoryActions {
    * @throws Error if undo fails or no history available
    */
   const undo = useCallback(async (): Promise<void> => {
-    if (!canUndo) {
+    if (historyRef.current.length === 0) {
       throw new Error('No history available to undo');
     }
 
@@ -238,7 +239,7 @@ export function useQueueHistory(): QueueHistoryActions {
       setIsLoading(false);
       throw err;
     }
-  }, [post, canUndo]);
+  }, [post]);
 
   /**
    * Redo (not yet implemented)
