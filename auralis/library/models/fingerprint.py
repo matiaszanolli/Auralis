@@ -87,7 +87,7 @@ class TrackFingerprint(Base, TimestampMixin):  # type: ignore[misc]
     fingerprint_blob: Mapped[bytes | None] = mapped_column(LargeBinary(25), nullable=True)
 
     # Relationship
-    track: Mapped[Track] = relationship("Track", backref="fingerprint", uselist=False)
+    track: Mapped[Track] = relationship("Track", back_populates="fingerprint", uselist=False)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert fingerprint to dictionary"""
@@ -206,7 +206,7 @@ class SimilarityGraph(Base, TimestampMixin):  # type: ignore[misc]
     rank: Mapped[int] = mapped_column(Integer, nullable=False)  # 1=most similar, 2=second most, etc.
 
     # Relationships
-    track: Mapped[Track] = relationship("Track", foreign_keys=[track_id], backref="similar_tracks")
+    track: Mapped[Track] = relationship("Track", foreign_keys=[track_id], back_populates="similar_tracks")
     similar_track: Mapped[Track] = relationship("Track", foreign_keys=[similar_track_id])
 
     def to_dict(self) -> dict[str, Any]:
