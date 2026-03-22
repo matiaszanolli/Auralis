@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import type { AnyWebSocketMessage, WebSocketMessage } from '@/types/websocket';
 
 export interface MasteringRecommendationData {
   track_id: number;
@@ -55,9 +56,10 @@ export const useMasteringRecommendation = (trackId?: number) => {
 
     let timedOut = false;
 
-    const handleMasteringRecommendation = (data: any) => {
-      if (data.data?.track_id === trackId) {
-        const rec = data.data as MasteringRecommendationData;
+    const handleMasteringRecommendation = (message: AnyWebSocketMessage | WebSocketMessage) => {
+      const payload = (message as { data?: MasteringRecommendationData }).data;
+      if (payload?.track_id === trackId) {
+        const rec = payload;
         cache.current[trackId] = rec;
         setRecommendation(rec);
         setIsLoading(false);
