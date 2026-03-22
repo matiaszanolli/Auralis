@@ -396,12 +396,12 @@ export const selectorPerformance = new SelectorPerformanceTracker();
  * Prefer using createSelector from @reduxjs/toolkit for new selectors.
  * This factory is retained for backwards compatibility with performance/index.ts.
  */
-export function createMemoizedSelector<T>(
+export function createMemoizedSelector<T, Args extends unknown[] = unknown[]>(
   name: string,
-  selectInputs: (state: RootState) => any[],
-  computeFn: (...args: any[]) => T
+  selectInputs: (state: RootState) => [...Args],
+  computeFn: (...args: Args) => T
 ): (state: RootState) => T {
-  let lastInputs: any[] | undefined;
+  let lastInputs: unknown[] | undefined;
   let resultCache: T | undefined;
 
   return (state: RootState): T => {
