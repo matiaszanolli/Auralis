@@ -49,7 +49,7 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
       transform: 'translateX(4px) scale(1.005)', // Subtle scale for depth
       boxShadow: iscurrent === 'true'
         ? `0 6px 20px rgba(115, 102, 240, 0.2), 0 0 0 1px ${tokens.colors.opacityScale.accent.veryLight}`
-        : '0 2px 8px rgba(0, 0, 0, 0.15)',
+        : `0 2px 8px ${tokens.colors.opacityScale.dark.lighter}`,
       opacity: 1, // Full opacity on hover even when dimmed
 
       '& .track-number': {

@@ -109,7 +109,7 @@ const styles = {
 
     '&:active:not(:disabled)': {
       transform: 'scale(0.95)',                           // Press inward for tactile feedback
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+      boxShadow: `0 2px 8px ${tokens.colors.opacityScale.dark.light}`,
     },
 
     ':disabled': {

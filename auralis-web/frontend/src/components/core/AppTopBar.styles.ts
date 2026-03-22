@@ -11,7 +11,7 @@ export const TopBarContainer = styled(Box)({
   background: 'rgba(21, 29, 47, 0.55)',
   backdropFilter: 'blur(8px) saturate(1.05)',
   // Glass bevel: top highlight + bottom shadow (no hard borders)
-  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.20)',
+  boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 ${tokens.colors.opacityScale.dark.standard}`,
   height: 70,
   gap: tokens.spacing.md,
 });

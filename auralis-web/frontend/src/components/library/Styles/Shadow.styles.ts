@@ -89,7 +89,7 @@ export const glowShadows = {
  */
 export const notificationShadows = {
   // Toast/notification shadow (4px offset, 12px blur)
-  toast: '0 4px 12px rgba(0, 0, 0, 0.3)',
+  toast: `0 4px 12px ${tokens.colors.opacityScale.dark.strong}`,
 };
 
 /**

@@ -42,14 +42,14 @@ export const StyledListItemButton = styled(ButtonBase)({
   background: 'rgba(21, 29, 47, 0.25)',
   backdropFilter: 'blur(4px) saturate(1.02)',
   // Glass bevel
-  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 -1px 0 rgba(0, 0, 0, 0.08)',
+  boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 -1px 0 ${tokens.colors.opacityScale.dark.light}`,
 
   '&:hover': {
     // Enhanced glass on hover
     background: 'rgba(21, 29, 47, 0.40)',
     backdropFilter: 'blur(8px) saturate(1.05)',
     // Stronger glass bevel
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.12)',
+    boxShadow: `0 4px 16px ${tokens.colors.opacityScale.dark.lighter}, inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 ${tokens.colors.opacityScale.dark.lighter}`,
     transform: 'translateY(-1px)',
 
     '& .artist-name': {
