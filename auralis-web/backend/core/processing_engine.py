@@ -633,7 +633,7 @@ class ProcessingEngine:
 
         return False
 
-    async def cleanup_old_jobs(self, max_age_hours: int = 24) -> int:
+    async def cleanup_old_jobs(self, max_age_hours: float = 24) -> int:
         """Clean up old completed jobs and their files.
 
         Protected by _jobs_lock so that concurrent invocations (worker finally-
