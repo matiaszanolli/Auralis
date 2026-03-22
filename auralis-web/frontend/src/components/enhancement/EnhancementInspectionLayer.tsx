@@ -287,20 +287,31 @@ export const EnhancementInspectionLayer = ({
               cursor: disabled ? 'not-allowed' : 'pointer',
             }}
             onClick={() => !disabled && setShowPresetMenu(!showPresetMenu)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && showPresetMenu) {
+                setShowPresetMenu(false);
+                e.stopPropagation();
+              }
+            }}
             disabled={disabled}
-            title="Select enhancement preset"
+            aria-haspopup="listbox"
+            aria-expanded={showPresetMenu}
+            aria-label="Select enhancement preset"
           >
             <span style={styles.presetIcon}>{PRESETS[selectedPreset].icon}</span>
             <span style={styles.presetLabel}>{PRESETS[selectedPreset].label}</span>
-            <span style={styles.presetDropdownIcon}>▼</span>
+            <span style={styles.presetDropdownIcon} aria-hidden="true">▼</span>
           </button>
 
           {/* Preset Menu */}
           {showPresetMenu && (
-            <div style={styles.presetMenu}>
+            <div style={styles.presetMenu} role="listbox" aria-label="Enhancement presets">
               {Object.values(PRESETS).map((preset) => (
                 <div
                   key={preset.name}
+                  role="option"
+                  tabIndex={0}
+                  aria-selected={selectedPreset === preset.name}
                   style={{
                     ...styles.presetItem,
                     backgroundColor:
@@ -310,6 +321,14 @@ export const EnhancementInspectionLayer = ({
                     cursor: 'pointer',
                   }}
                   onClick={() => handlePresetSelect(preset.name)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handlePresetSelect(preset.name);
+                    } else if (e.key === 'Escape') {
+                      setShowPresetMenu(false);
+                    }
+                  }}
                 >
                   <div style={styles.presetIcon}>{preset.icon}</div>
                   <div>
@@ -319,7 +338,7 @@ export const EnhancementInspectionLayer = ({
                     </div>
                   </div>
                   {selectedPreset === preset.name && (
-                    <div style={styles.presetCheckmark}>✓</div>
+                    <div style={styles.presetCheckmark} aria-hidden="true">✓</div>
                   )}
                 </div>
               ))}
@@ -343,7 +362,7 @@ export const EnhancementInspectionLayer = ({
             onChange={handleIntensityChange}
             style={styles.intensitySlider}
             disabled={disabled}
-            title="Adjust enhancement intensity (0-100%)"
+            aria-label={`Enhancement intensity: ${(intensity * 100).toFixed(0)}%`}
           />
         </div>
       )}
