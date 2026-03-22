@@ -50,9 +50,9 @@ interface StreamingError {
 }
 
 /**
- * Props for StreamingErrorBoundary component
+ * Props for StreamingErrorDisplay component
  */
-export interface StreamingErrorBoundaryProps {
+export interface StreamingErrorDisplayProps {
   /** Error message to display */
   error: string | null;
 
@@ -157,11 +157,11 @@ const getSeverityColor = (severity: ErrorSeverity): string => {
 };
 
 /**
- * StreamingErrorBoundary Component
+ * StreamingErrorDisplay Component
  *
  * Displays streaming errors with recovery options and auto-dismiss behavior.
  */
-export const StreamingErrorBoundary = ({
+export const StreamingErrorDisplay = ({
   error,
   errorType = StreamingErrorType.UNKNOWN,
   onRetry,
@@ -171,7 +171,7 @@ export const StreamingErrorBoundary = ({
   allowFallback = true,
   trackId: _trackId,
   showHistory = false,
-}: StreamingErrorBoundaryProps) => {
+}: StreamingErrorDisplayProps) => {
   const [isVisible, setIsVisible] = useState(!!error);
   const [retryCount, setRetryCount] = useState(0);
   const [errorHistory, setErrorHistory] = useState<StreamingError[]>([]);
@@ -360,7 +360,7 @@ export const StreamingErrorBoundary = ({
 };
 
 /**
- * Styles for StreamingErrorBoundary
+ * Styles for StreamingErrorDisplay
  */
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -530,7 +530,7 @@ const styles: Record<string, React.CSSProperties> = {
  * StreamingErrorBoundaryWrapper — real React error boundary (class component).
  *
  * Catches render-time exceptions from children and displays the
- * StreamingErrorBoundary UI as a fallback. Supports retry via
+ * StreamingErrorDisplay UI as a fallback. Supports retry via
  * state reset (#2960).
  */
 
@@ -558,7 +558,7 @@ export class StreamingErrorBoundaryWrapper extends React.Component<
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
-    console.error('[StreamingErrorBoundary] Caught render error:', error, info);
+    console.error('[StreamingErrorDisplay] Caught render error:', error, info);
   }
 
   handleRetry = (): void => {
@@ -568,7 +568,7 @@ export class StreamingErrorBoundaryWrapper extends React.Component<
   render(): React.ReactNode {
     if (this.state.hasError) {
       return (
-        <StreamingErrorBoundary
+        <StreamingErrorDisplay
           error={this.state.error}
           errorType={StreamingErrorType.UNKNOWN}
           onRetry={this.handleRetry}
@@ -583,4 +583,4 @@ export class StreamingErrorBoundaryWrapper extends React.Component<
   }
 }
 
-export default StreamingErrorBoundary;
+export default StreamingErrorDisplay;

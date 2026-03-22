@@ -11,8 +11,9 @@ export type { EnhancedPlaybackControlsProps } from './EnhancedPlaybackControls';
 export { StreamingProgressBar } from './StreamingProgressBar';
 export type { StreamingProgressBarProps } from './StreamingProgressBar';
 
-export { StreamingErrorBoundary, StreamingErrorType, ErrorSeverity } from './StreamingErrorBoundary';
-export type { StreamingErrorBoundaryProps } from './StreamingErrorBoundary';
+export { StreamingErrorDisplay, StreamingErrorDisplay as StreamingErrorBoundary, StreamingErrorBoundaryWrapper, StreamingErrorType, ErrorSeverity } from './StreamingErrorBoundary';
+export type { StreamingErrorDisplayProps, StreamingErrorDisplayProps as StreamingErrorBoundaryProps } from './StreamingErrorBoundary';
+
 
 export { PlayerEnhancementPanel } from './PlayerEnhancementPanel';
 export type { PlayerEnhancementPanelProps } from './PlayerEnhancementPanel';
