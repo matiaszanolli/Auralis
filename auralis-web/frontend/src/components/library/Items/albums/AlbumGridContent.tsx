@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Grid } from '@mui/material';
+import Grid2 from '@mui/material/Unstable_Grid2';
 import { AlbumCard } from '../../../album/AlbumCard/AlbumCard';
 import { GridContainer } from '../../Styles/Grid.styles';
 import InfiniteScrollTrigger from '../utilities/InfiniteScrollTrigger';
@@ -43,9 +43,9 @@ export const AlbumGridContent = ({
 }: AlbumGridContentProps) => {
   return (
     <GridContainer ref={containerRef}>
-      <Grid container spacing={3}>
+      <Grid2 container spacing={3}>
         {albums.map((album) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={album.id}>
+          <Grid2 xs={12} sm={6} md={4} lg={3} key={album.id}>
             <AlbumCard
               albumId={album.id}
               title={album.title}
@@ -56,9 +56,9 @@ export const AlbumGridContent = ({
               hasArtwork={!!album.artwork_url}
               onClick={() => onAlbumClick(album.id)}
             />
-          </Grid>
+          </Grid2>
         ))}
-      </Grid>
+      </Grid2>
 
       {hasMore && <InfiniteScrollTrigger ref={loadMoreTriggerRef} />}
 

@@ -4,7 +4,8 @@ import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { useSimilarityFormatting } from './useSimilarityFormatting';
 import { LinearProgress } from '@/design-system';
-import { Box, Grid, Typography, Accordion, AccordionSummary, AccordionDetails,  } from '@mui/material';
+import { Box, Typography, Accordion, AccordionSummary, AccordionDetails,  } from '@mui/material';
+import Grid2 from '@mui/material/Unstable_Grid2';
 
 export interface Contribution {
   dimension: string;
@@ -47,11 +48,11 @@ export const SimilarityAllDimensions = ({
         </Typography>
       </AccordionSummary>
       <AccordionDetails sx={{ px: 2, pb: 2 }}>
-        <Grid container spacing={1}>
+        <Grid2 container spacing={1}>
           {contributions
             .sort((a, b) => b.contribution - a.contribution)
             .map((contrib) => (
-              <Grid item xs={12} key={contrib.dimension}>
+              <Grid2 xs={12} key={contrib.dimension}>
                 <Box sx={{ py: 0.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
                     <Typography
@@ -87,9 +88,9 @@ export const SimilarityAllDimensions = ({
                     }}
                   />
                 </Box>
-              </Grid>
+              </Grid2>
             ))}
-        </Grid>
+        </Grid2>
       </AccordionDetails>
     </Accordion>
   );

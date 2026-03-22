@@ -1,10 +1,10 @@
 import React from 'react';
 import {
   Box,
-  Grid,
   Paper,
   Typography
 } from '@mui/material';
+import Grid2 from '@mui/material/Unstable_Grid2';
 import { tokens } from '@/design-system';
 import AlbumArt from '../../album/AlbumArt';
 import {
@@ -75,9 +75,9 @@ export const AlbumsTab = ({
       </Box>
 
       {/* Albums grid */}
-      <Grid container spacing={3}>
+      <Grid2 container spacing={3}>
         {albums.map((album) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={album.id}>
+          <Grid2 xs={12} sm={6} md={4} lg={3} xl={2} key={album.id}>
             <AlbumCard onClick={() => onAlbumClick(album.id)}>
               <AlbumArt
                 albumId={album.id}
@@ -94,9 +94,9 @@ export const AlbumsTab = ({
                 </AlbumInfo>
               </Box>
             </AlbumCard>
-          </Grid>
+          </Grid2>
         ))}
-      </Grid>
+      </Grid2>
     </Box>
   );
 };

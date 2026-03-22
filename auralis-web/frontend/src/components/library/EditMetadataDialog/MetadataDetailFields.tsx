@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { Grid } from '@mui/material';
+import Grid2 from '@mui/material/Unstable_Grid2';
 import { StyledTextField } from '../Styles/FormFields.styles';
 import type { MetadataFields } from './useMetadataForm';
 
@@ -19,7 +19,7 @@ export const MetadataDetailFields = ({
   return (
     <>
       {/* Genre & Year */}
-      <Grid item xs={12} sm={6}>
+      <Grid2 xs={12} sm={6}>
         <StyledTextField
           fullWidth
           label="Genre"
@@ -27,9 +27,9 @@ export const MetadataDetailFields = ({
           onChange={(e) => onChange('genre', e.target.value)}
           variant="outlined"
         />
-      </Grid>
+      </Grid2>
 
-      <Grid item xs={12} sm={6}>
+      <Grid2 xs={12} sm={6}>
         <StyledTextField
           fullWidth
           label="Year"
@@ -38,10 +38,10 @@ export const MetadataDetailFields = ({
           onChange={(e) => onChange('year', e.target.value)}
           variant="outlined"
         />
-      </Grid>
+      </Grid2>
 
       {/* Track & Disc Numbers */}
-      <Grid item xs={6} sm={3}>
+      <Grid2 xs={6} sm={3}>
         <StyledTextField
           fullWidth
           label="Track #"
@@ -50,9 +50,9 @@ export const MetadataDetailFields = ({
           onChange={(e) => onChange('track', e.target.value)}
           variant="outlined"
         />
-      </Grid>
+      </Grid2>
 
-      <Grid item xs={6} sm={3}>
+      <Grid2 xs={6} sm={3}>
         <StyledTextField
           fullWidth
           label="Disc #"
@@ -61,10 +61,10 @@ export const MetadataDetailFields = ({
           onChange={(e) => onChange('disc', e.target.value)}
           variant="outlined"
         />
-      </Grid>
+      </Grid2>
 
       {/* Composer */}
-      <Grid item xs={12} sm={6}>
+      <Grid2 xs={12} sm={6}>
         <StyledTextField
           fullWidth
           label="Composer"
@@ -72,7 +72,7 @@ export const MetadataDetailFields = ({
           onChange={(e) => onChange('composer', e.target.value)}
           variant="outlined"
         />
-      </Grid>
+      </Grid2>
     </>
   );
 };

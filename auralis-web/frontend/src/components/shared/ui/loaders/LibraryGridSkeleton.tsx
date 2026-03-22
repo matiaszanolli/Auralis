@@ -1,5 +1,5 @@
 import React from 'react';
-import { Grid } from '@mui/material';
+import Grid2 from '@mui/material/Unstable_Grid2';
 import { AlbumCardSkeleton } from './AlbumCardSkeleton';
 
 interface LibraryGridSkeletonProps {
@@ -17,13 +17,13 @@ export const LibraryGridSkeleton = ({
   count = 12,
 }: LibraryGridSkeletonProps) => {
   return (
-    <Grid container spacing={3}>
+    <Grid2 container spacing={3}>
       {Array.from({ length: count }).map((_, index) => (
-        <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+        <Grid2 xs={12} sm={6} md={4} lg={3} key={index}>
           <AlbumCardSkeleton />
-        </Grid>
+        </Grid2>
       ))}
-    </Grid>
+    </Grid2>
   );
 };
 

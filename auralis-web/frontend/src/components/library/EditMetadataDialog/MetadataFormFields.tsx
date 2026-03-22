@@ -9,7 +9,8 @@
  */
 
 import React from 'react';
-import { Grid, Box } from '@mui/material';
+import { Box } from '@mui/material';
+import Grid2 from '@mui/material/Unstable_Grid2';
 import { CircularProgress } from '@/design-system';
 import MetadataBasicFields from './MetadataBasicFields';
 import MetadataDetailFields from './MetadataDetailFields';
@@ -36,11 +37,11 @@ export const MetadataFormFields = ({
   }
 
   return (
-    <Grid container spacing={2}>
+    <Grid2 container spacing={2}>
       <MetadataBasicFields metadata={metadata} onChange={onChange} />
       <MetadataDetailFields metadata={metadata} onChange={onChange} />
       <MetadataExtendedFields metadata={metadata} onChange={onChange} />
-    </Grid>
+    </Grid2>
   );
 };
 
