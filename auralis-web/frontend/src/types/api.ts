@@ -142,7 +142,7 @@ export interface MetadataUpdateRequest {
   album?: string;
   genre?: string;
   year?: number;
-  [key: string]: any; // Allow additional fields
+  [key: string]: unknown; // Allow additional fields
 }
 
 export interface MetadataBatchUpdateRequest {
