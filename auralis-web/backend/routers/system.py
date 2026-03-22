@@ -12,6 +12,7 @@ from collections.abc import Callable
 
 from core.audio_stream_controller import AudioStreamController
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import (
     WebSocketRateLimiter,
     validate_and_parse_message,
@@ -129,6 +130,25 @@ def create_system_router(
             return
 
         await manager.connect(websocket)
+        connection_id = str(id(websocket))
+        heartbeat = HeartbeatManager(interval_seconds=30, timeout_seconds=10)
+
+        async def _heartbeat_loop() -> None:
+            """Send pings and evict stale connections."""
+            while True:
+                await asyncio.sleep(heartbeat.interval_seconds)
+                if heartbeat.is_stale(connection_id):
+                    logger.warning(f"WebSocket {connection_id} stale — closing")
+                    await websocket.close(code=1001, reason="Heartbeat timeout")
+                    return
+                try:
+                    await websocket.send_text(json.dumps({"type": "ping"}))
+                    heartbeat.mark_ping(connection_id)
+                except Exception:
+                    return  # Connection already dead
+
+        heartbeat_task = asyncio.create_task(_heartbeat_loop())
+
         # Immediately send current enhancement settings so a reconnecting
         # frontend syncs its Redux store without waiting for the next broadcast
         # (fixes #2507). Ignore errors — connection may have been rejected above.
@@ -184,9 +204,12 @@ def create_system_router(
                 if message.get("type") == "ping":
                     await websocket.send_text(json.dumps({"type": "pong"}))
 
+                elif message.get("type") == "pong":
+                    heartbeat.mark_pong(connection_id)
+
                 elif message.get("type") == "heartbeat":
                     # Keepalive sent by RealTimeAnalysisStream every 30s — no response needed
-                    pass
+                    heartbeat.mark_pong(connection_id)  # Treat as proof of life
 
                 elif message.get("type") == "processing_settings_update":
                     # Handle processing settings updates
@@ -707,6 +730,7 @@ def create_system_router(
             logger.error(f"Unexpected WebSocket error: {e}", exc_info=True)
         finally:
             # Always clean up on disconnect
+            heartbeat_task.cancel()
             ws_id = id(websocket)
 
             # Cancel any active streaming task — idempotent pop under lock (fixes #2425)
