@@ -170,8 +170,14 @@ export function ConnectionStatusIndicator({
       onMouseLeave={() => setShowDetails(false)}
     >
       {/* Compact Indicator */}
-      <div
+      <button
         onClick={() => setShowDetails(!showDetails)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && showDetails) {
+            setShowDetails(false);
+            e.stopPropagation();
+          }
+        }}
         style={{
           padding: tokens.spacing.sm,
           background: tokens.colors.bg.secondary,
@@ -189,7 +195,8 @@ export function ConnectionStatusIndicator({
             : `0 0 10px ${statusColor}, inset 0 0 10px ${statusColor}20`,
           animation: status.isReconnecting ? 'pulse 1s infinite' : 'none',
         }}
-        title={statusText}
+        aria-label={statusText}
+        aria-expanded={showDetails}
       >
         <div
           style={{
@@ -200,7 +207,7 @@ export function ConnectionStatusIndicator({
             boxShadow: `0 0 6px ${statusColor}`,
           }}
         />
-      </div>
+      </button>
 
       {/* Expanded Details */}
       {showDetails && (
