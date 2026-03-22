@@ -24,12 +24,13 @@ from sqlalchemy.orm import sessionmaker
 # Add parent directories to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
+from auralis.library.constants import DEFAULT_DB_PATH
 from auralis.library.utils.artist_normalizer import normalize_artist_name
 
 
 def get_database_path() -> Path:
     """Get the database path from user home directory"""
-    return Path.home() / '.auralis' / 'library.db'
+    return DEFAULT_DB_PATH
 
 
 def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = False) -> dict[str, any]:

@@ -23,6 +23,7 @@ from sqlalchemy.orm import sessionmaker
 
 from ..utils.logging import error, info, warning
 from .cache import cached_query, get_cache_stats, invalidate_cache
+from .constants import DEFAULT_DB_PATH
 from .migration_manager import check_and_migrate_database
 from .models import Base, Playlist, Track
 from .repositories import (
@@ -88,10 +89,8 @@ class LibraryManager:
         )
 
         if database_path is None:
-            # Default to user's music directory
-            music_dir = Path.home() / "Music" / "Auralis"
-            music_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-            database_path = str(music_dir / "auralis_library.db")
+            DEFAULT_DB_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            database_path = str(DEFAULT_DB_PATH)
 
         self.database_path = database_path
 

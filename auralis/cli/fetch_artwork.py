@@ -140,7 +140,8 @@ def main():
         if args.library_path:
             library_path = Path(args.library_path)
         else:
-            library_path = Path.home() / '.auralis' / 'library.db'
+            from auralis.library.constants import DEFAULT_DB_PATH
+            library_path = DEFAULT_DB_PATH
 
         # Initialize library manager (needed for DB bootstrapping/migration)
         logger.info(f"Loading library from: {library_path}")

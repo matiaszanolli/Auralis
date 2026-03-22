@@ -88,7 +88,8 @@ class FingerprintService:
                              When omitted a minimal engine is created from db_path.
         """
         if db_path is None:
-            db_path = Path.home() / ".auralis" / "library.db"
+            from auralis.library.constants import DEFAULT_DB_PATH
+            db_path = DEFAULT_DB_PATH
 
         self.db_path = Path(db_path)
         self.fingerprint_strategy = fingerprint_strategy
