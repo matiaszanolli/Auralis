@@ -36,11 +36,4 @@ export const getAlbumColor = (albumName: string | undefined | null): string => {
   return gradientList[index];
 };
 
-/**
- * Format duration in MM:SS format
- */
-export const formatDuration = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
+export { formatDuration } from '@/utils/timeFormat';

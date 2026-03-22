@@ -8,6 +8,7 @@
  */
 
 import { useMemo } from 'react';
+import { formatDuration } from '@/utils/timeFormat';
 
 /**
  * Formatted display strings for player UI
@@ -31,29 +32,8 @@ export interface PlayerDisplayInfo {
   fullTimeWithRemaining: string; // e.g., "1:30 / 3:45 (-2:15)"
 }
 
-/**
- * Format seconds to mm:ss or h:mm:ss
- * @param seconds Time in seconds
- * @param showHours Show hours even if 0 (default: false)
- * @returns Formatted time string
- */
-function formatTime(seconds: number, showHours = false): string {
-  if (!Number.isFinite(seconds) || seconds < 0) {
-    return '0:00';
-  }
-
-  const totalSeconds = Math.floor(seconds);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const secs = totalSeconds % 60;
-
-  // Show hours if > 0 or if requested
-  if (hours > 0 || showHours) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
-}
+// Use the shared formatDuration (shows hours when > 0) as formatTime
+const formatTime = (seconds: number, _showHours = false): string => formatDuration(seconds);
 
 /**
  * Configuration for display hook

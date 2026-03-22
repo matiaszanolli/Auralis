@@ -442,17 +442,8 @@ export function transformBackendTrack(track: TrackApiResponse): LibraryTrack {
 // Utility Functions
 // ============================================================================
 
-export function formatDuration(seconds: number): string {
-  if (!isFinite(seconds)) return '0:00';
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
-}
+// Re-export from canonical location for backwards compatibility
+export { formatDuration } from '@/utils/timeFormat';
 
 export function parseDuration(formatted: string): number {
   const parts = formatted.split(':').map(p => parseInt(p, 10));

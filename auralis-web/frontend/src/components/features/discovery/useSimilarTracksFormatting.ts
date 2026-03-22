@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { tokens } from '@/design-system';
+import { formatDuration as formatDurationShared } from '@/utils/timeFormat';
 
 export const useSimilarTracksFormatting = () => {
   const getSimilarityColor = useCallback((score: number): string => {
@@ -11,9 +12,7 @@ export const useSimilarTracksFormatting = () => {
 
   const formatDuration = useCallback((seconds?: number): string => {
     if (!seconds) return '';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return formatDurationShared(seconds);
   }, []);
 
   return { getSimilarityColor, formatDuration };
