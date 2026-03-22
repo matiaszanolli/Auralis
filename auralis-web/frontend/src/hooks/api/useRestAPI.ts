@@ -33,9 +33,10 @@ export function useRestAPI() {
   // (fixes #2467: no hook-level abort on unmount caused setState on dead state).
   const activeControllers = useRef(new Set<AbortController>());
 
-  // Request sequence counter to detect stale responses (fixes #2439: overlapping calls
-  // completing out of order can overwrite state with older data).
-  const requestSequence = useRef(0);
+  // Per-endpoint sequence counters to detect stale responses (fixes #2439, #3055).
+  // Scoped per endpoint so concurrent requests to different endpoints don't
+  // invalidate each other.
+  const requestSequences = useRef(new Map<string, number>());
 
   useEffect(() => {
     return () => {
@@ -90,7 +91,7 @@ export function useRestAPI() {
    */
   const get = useCallback(
     async <T = unknown>(endpoint: string): Promise<T> => {
-      const seq = ++requestSequence.current;
+      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
@@ -109,7 +110,7 @@ export function useRestAPI() {
         }
 
         // Detect stale response: if a newer request started after this one, discard this response (fixes #2439).
-        if (seq !== requestSequence.current) {
+        if (seq !== requestSequences.current.get(endpoint)) {
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
 
@@ -143,7 +144,7 @@ export function useRestAPI() {
    */
   const post = useCallback(
     async <T = unknown>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
-      const seq = ++requestSequence.current;
+      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
@@ -163,7 +164,7 @@ export function useRestAPI() {
         }
 
         // Detect stale response (fixes #2439).
-        if (seq !== requestSequence.current) {
+        if (seq !== requestSequences.current.get(endpoint)) {
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
 
@@ -190,7 +191,7 @@ export function useRestAPI() {
    */
   const put = useCallback(
     async <T = unknown>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
-      const seq = ++requestSequence.current;
+      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
@@ -210,7 +211,7 @@ export function useRestAPI() {
         }
 
         // Detect stale response (fixes #2439).
-        if (seq !== requestSequence.current) {
+        if (seq !== requestSequences.current.get(endpoint)) {
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
 
@@ -237,7 +238,7 @@ export function useRestAPI() {
    */
   const patch = useCallback(
     async <T = unknown>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
-      const seq = ++requestSequence.current;
+      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
@@ -257,7 +258,7 @@ export function useRestAPI() {
         }
 
         // Detect stale response (fixes #2439).
-        if (seq !== requestSequence.current) {
+        if (seq !== requestSequences.current.get(endpoint)) {
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
 
@@ -283,7 +284,7 @@ export function useRestAPI() {
    */
   const delete_ = useCallback(
     async (endpoint: string): Promise<void> => {
-      const seq = ++requestSequence.current;
+      const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
       setError(null);
@@ -302,7 +303,7 @@ export function useRestAPI() {
         }
 
         // Detect stale response (fixes #2439).
-        if (seq !== requestSequence.current) {
+        if (seq !== requestSequences.current.get(endpoint)) {
           throw Object.assign(new Error('Stale response'), { name: 'StaleRequestError' });
         }
       } catch (err) {
