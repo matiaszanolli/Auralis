@@ -4,11 +4,8 @@
    FONTS
    ======================================== */
 
-/* Import Inter (Primary UI Font) - Multiple weights */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-/* Import Manrope (Identity/Headers Font) - Auralis Design Language v1.2.0 §3 */
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+/* Import Asap (canonical UI font) - matches tokens.typography.fontFamily */
+@import url('https://fonts.googleapis.com/css2?family=Asap:wght@300;400;500;600;700;800&display=swap');
 
 /* ========================================
    CSS VARIABLES - AURALIS BRAND KIT
@@ -37,8 +34,8 @@
   --error: #EF4444;
 
   /* Typography - Design Language v1.2.0 §3 */
-  --font-heading: 'Manrope', Arial, sans-serif;  /* Identity, headers, track titles */
-  --font-body: 'Inter', 'Segoe UI', sans-serif;  /* Information, controls, metadata */
+  --font-heading: 'Asap', Arial, sans-serif;      /* Identity, headers, track titles */
+  --font-body: 'Asap', 'Segoe UI', sans-serif;   /* Information, controls, metadata */
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;  /* Technical readouts */
 
   /* Spacing (4px grid) */
@@ -84,7 +81,7 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Inter', var(--font-body);
+  font-family: var(--font-body);
   font-weight: 400;
   font-size: 1rem;
   line-height: 1.5;
@@ -261,7 +258,7 @@ code {
    ======================================== */
 
 button {
-  font-family: 'Inter', var(--font-heading);
+  font-family: var(--font-heading);
   font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-normal);
