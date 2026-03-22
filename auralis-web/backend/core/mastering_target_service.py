@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
-import soundfile as sf
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from auralis.io.unified_loader import load_audio
@@ -197,8 +196,8 @@ class MasteringTargetService:
             try:
                 from auralis_dsp import compute_fingerprint
 
-                # Load audio file
-                full_audio, sr = sf.read(filepath, dtype='float32')
+                # Load audio file (unified loader handles FFMPEG formats)
+                full_audio, sr = load_audio(filepath)
 
                 # Handle stereo/mono
                 if full_audio.ndim == 1:
@@ -212,7 +211,7 @@ class MasteringTargetService:
                     else:
                         audio_array = full_audio
 
-                logger.debug(f"Audio loaded via soundfile: {len(audio_array)} samples, SR={sr}, CH={channels}")
+                logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sr}, CH={channels}")
 
                 # Call PyO3 Rust fingerprinting
                 fingerprint_data = compute_fingerprint(audio_array, sr, channels)

@@ -21,8 +21,9 @@ from typing import Any
 from collections.abc import Callable
 
 import numpy as np
-import soundfile as sf
 from sqlalchemy.orm import Session
+
+from auralis.io.unified_loader import load_audio
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +215,7 @@ class FingerprintGenerator:
         try:
             # Load audio file (this is I/O bound, fine in main process)
             logger.debug(f"Loading audio file: {filepath}")
-            audio, sample_rate = sf.read(filepath, dtype='float32')
+            audio, sample_rate = load_audio(filepath)
 
             # Handle stereo/mono
             if audio.ndim == 1:
