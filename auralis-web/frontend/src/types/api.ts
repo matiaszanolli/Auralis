@@ -363,7 +363,7 @@ export interface StreamingUrlResponse {
 // ============================================================================
 
 export class ApiErrorHandler {
-  static parse(error: any): ApiError {
+  static parse(error: unknown): ApiError {
     if (error instanceof Error) {
       // Extract the real HTTP status from 'HTTP ${status}: ${text}' messages thrown
       // by useRestAPI, so callers see the actual code rather than always 500 (#2361).
@@ -374,14 +374,14 @@ export class ApiErrorHandler {
       };
     }
 
-    if (typeof error === 'object' && 'status' in error && 'message' in error) {
+    if (typeof error === 'object' && error !== null && 'status' in error && 'message' in error) {
       return error as ApiError;
     }
 
     return {
       status: 500,
       message: 'Unknown error',
-      details: error,
+      details: { raw: String(error) },
     };
   }
 
