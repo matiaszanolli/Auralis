@@ -114,7 +114,7 @@ class ParallelFFTProcessor:
         # Create chunks
         chunks = []
         for i in range(0, len(audio) - fft_size + 1, hop_size):
-            chunk = audio[i:i + fft_size]
+            chunk = audio[i:i + fft_size].copy()
             chunks.append((chunk, window, fft_size))
 
         # Decide on parallel vs sequential based on chunk count and config
