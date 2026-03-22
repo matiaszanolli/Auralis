@@ -54,6 +54,8 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
 
   return (
     <Box
+      aria-live="polite"
+      role="status"
       sx={{
         ...tokens.glass.subtle,
         borderRadius: tokens.borderRadius.sm,
