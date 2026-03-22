@@ -40,8 +40,8 @@ class MetadataUpdateRequest(BaseModel):
     albumartist: str | None = None
     year: int | None = None
     genre: str | None = None
-    track: int | None = None
-    disc: int | None = None
+    track: int | None = Field(None, alias="track_number")
+    disc: int | None = Field(None, alias="disc_number")
     comment: str | None = None
     bpm: int | None = None
     composer: str | None = None
@@ -49,7 +49,7 @@ class MetadataUpdateRequest(BaseModel):
     lyrics: str | None = None
     copyright: str | None = None
 
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "forbid", "populate_by_name": True}
 
 
 class BatchMetadataUpdateRequest(BaseModel):
