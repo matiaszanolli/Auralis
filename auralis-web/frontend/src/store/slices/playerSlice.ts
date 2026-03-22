@@ -74,8 +74,8 @@ const initialState: PlayerState = {
   error: null,
   lastUpdated: 0,
   streaming: {
-    normal: initialStreamingInfo,
-    enhanced: initialStreamingInfo,
+    normal: { ...initialStreamingInfo },
+    enhanced: { ...initialStreamingInfo },
   },
 };
 
@@ -267,7 +267,13 @@ const playerSlice = createSlice({
      * Reset player state
      */
     resetPlayer(state) {
-      Object.assign(state, initialState);
+      Object.assign(state, {
+        ...initialState,
+        streaming: {
+          normal: { ...initialStreamingInfo },
+          enhanced: { ...initialStreamingInfo },
+        },
+      });
     },
 
     // ========================================================================
