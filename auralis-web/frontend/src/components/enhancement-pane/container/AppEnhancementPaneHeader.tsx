@@ -33,6 +33,8 @@ export const AppEnhancementPaneHeader = ({
       <Tooltip title={isCollapsed ? 'Expand' : 'Collapse'}>
         <IconButton
           onClick={onToggleCollapse}
+          aria-label={isCollapsed ? 'Expand enhancement pane' : 'Collapse enhancement pane'}
+          aria-expanded={!isCollapsed}
           size="small"
           sx={{
             color: 'rgba(255, 255, 255, 0.5)',
