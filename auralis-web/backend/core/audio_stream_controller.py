@@ -770,7 +770,30 @@ class AudioStreamController:
             self._stream_semaphore.release()
             return
 
+        # For compressed formats (MP3, M4A, etc.), convert to temp WAV first
+        # since sf.SoundFile only supports PCM formats (#3225).
+        temp_wav_path: str | None = None
+        streaming_filepath = str(track.filepath)
+
         try:
+            from auralis.io.unified_loader import FFMPEG_FORMATS
+            file_ext = Path(track.filepath).suffix.lower()
+            if file_ext in FFMPEG_FORMATS:
+                import tempfile
+                from auralis.io.unified_loader import load_audio
+                temp_dir = tempfile.mkdtemp(prefix='auralis_stream_')
+                audio_data, sr = await asyncio.to_thread(
+                    load_audio, str(track.filepath), "audio", temp_dir
+                )
+                # Write to temp WAV for chunked streaming
+                temp_wav_path = str(Path(temp_dir) / 'stream.wav')
+                import soundfile as _sf
+                await asyncio.to_thread(
+                    _sf.write, temp_wav_path, audio_data, sr, format='WAV', subtype='FLOAT'
+                )
+                streaming_filepath = temp_wav_path
+                logger.info(f"Converted {file_ext} to temp WAV for normal streaming")
+
             # Read file metadata only — do NOT load audio data yet (#2121).
             # sf.read() would allocate ~200 MB for a 10-min stereo track; instead
             # we open the SoundFile, record its shape, and close it immediately.
@@ -779,7 +802,7 @@ class AudioStreamController:
                     return audio_file.samplerate, audio_file.channels, len(audio_file)
 
             sample_rate, channels, total_frames = await asyncio.to_thread(
-                _get_audio_info, str(track.filepath)
+                _get_audio_info, streaming_filepath
             )
 
             duration = total_frames / sample_rate
@@ -827,8 +850,7 @@ class AudioStreamController:
                 return
 
             # Helper: open → seek → read → close for a single chunk (#2121).
-            # Peak memory per stream is now one chunk (~13 MB for 15 s stereo 44.1 kHz)
-            # instead of the full file (~200 MB for 10 min).
+            # Uses streaming_filepath (temp WAV for compressed formats, original for PCM).
             def _read_audio_chunk(filepath: str, start: int, frames: int) -> np.ndarray:
                 with sf.SoundFile(filepath) as audio_file:
                     audio_file.seek(start)
@@ -868,7 +890,7 @@ class AudioStreamController:
                     else:
                         start_sample = chunk_idx * interval_samples
                         chunk_audio = await asyncio.to_thread(
-                            _read_audio_chunk, str(track.filepath), start_sample, chunk_samples
+                            _read_audio_chunk, streaming_filepath, start_sample, chunk_samples
                         )
 
                     # Start look-ahead: read next chunk while we stream current one
@@ -876,7 +898,7 @@ class AudioStreamController:
                         next_start = (chunk_idx + 1) * interval_samples
                         lookahead_read = asyncio.create_task(
                             asyncio.to_thread(
-                                _read_audio_chunk, str(track.filepath), next_start, chunk_samples
+                                _read_audio_chunk, streaming_filepath, next_start, chunk_samples
                             )
                         )
 
@@ -929,6 +951,13 @@ class AudioStreamController:
         finally:
             self.active_streams.pop(id(websocket), None)  # fixes #2076
             self._stream_semaphore.release()
+            # Clean up temp WAV created for compressed format streaming (#3225)
+            if temp_wav_path:
+                import shutil
+                try:
+                    shutil.rmtree(Path(temp_wav_path).parent, ignore_errors=True)
+                except Exception:
+                    pass
 
     async def _process_chunk_only(
         self,
