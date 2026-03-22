@@ -351,6 +351,7 @@ export const StarfieldBackground = ({
   const startTimeRef = useRef<number>(Date.now());
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
   const isVisibleRef = useRef<boolean>(true);
+  const uniformsRef = useRef<Record<string, WebGLUniformLocation | null>>({});
   const audioRef = useRef<AudioReactivityData>({
     bass: 0, mid: 0, treble: 0, loudness: 0, peak: 0, isActive: false
   });
@@ -417,6 +418,17 @@ export const StarfieldBackground = ({
 
     programRef.current = program;
 
+    // Cache uniform locations (called once, not per frame — fixes #3099)
+    const uniformNames = [
+      'u_time', 'u_resolution', 'u_mouse', 'u_parallaxStrength',
+      'u_bass', 'u_mid', 'u_treble', 'u_loudness', 'u_peak', 'u_isPlaying',
+    ];
+    const locs: Record<string, WebGLUniformLocation | null> = {};
+    for (const name of uniformNames) {
+      locs[name] = gl.getUniformLocation(program, name);
+    }
+    uniformsRef.current = locs;
+
     // Create fullscreen quad
     const vertices = new Float32Array([
       -1, -1,
@@ -458,24 +470,22 @@ export const StarfieldBackground = ({
 
     gl.useProgram(program);
 
-    // Set uniforms
+    // Set uniforms (locations cached after program link — fixes #3099)
+    const u = uniformsRef.current;
     const timeElapsed = (Date.now() - startTimeRef.current) / 1000 * speed;
-    gl.uniform1f(gl.getUniformLocation(program, 'u_time'), timeElapsed);
-    gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), width, height);
-    gl.uniform2f(gl.getUniformLocation(program, 'u_mouse'), mouseRef.current.x, mouseRef.current.y);
-    gl.uniform1f(
-      gl.getUniformLocation(program, 'u_parallaxStrength'),
-      enableParallax ? parallaxStrength : 0
-    );
+    gl.uniform1f(u.u_time, timeElapsed);
+    gl.uniform2f(u.u_resolution, width, height);
+    gl.uniform2f(u.u_mouse, mouseRef.current.x, mouseRef.current.y);
+    gl.uniform1f(u.u_parallaxStrength, enableParallax ? parallaxStrength : 0);
 
     // Set audio reactivity uniforms
     const audio = audioRef.current;
-    gl.uniform1f(gl.getUniformLocation(program, 'u_bass'), audio.bass);
-    gl.uniform1f(gl.getUniformLocation(program, 'u_mid'), audio.mid);
-    gl.uniform1f(gl.getUniformLocation(program, 'u_treble'), audio.treble);
-    gl.uniform1f(gl.getUniformLocation(program, 'u_loudness'), audio.loudness);
-    gl.uniform1f(gl.getUniformLocation(program, 'u_peak'), audio.peak);
-    gl.uniform1f(gl.getUniformLocation(program, 'u_isPlaying'), audio.isActive ? 1.0 : 0.0);
+    gl.uniform1f(u.u_bass, audio.bass);
+    gl.uniform1f(u.u_mid, audio.mid);
+    gl.uniform1f(u.u_treble, audio.treble);
+    gl.uniform1f(u.u_loudness, audio.loudness);
+    gl.uniform1f(u.u_peak, audio.peak);
+    gl.uniform1f(u.u_isPlaying, audio.isActive ? 1.0 : 0.0);
 
     // Draw
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
