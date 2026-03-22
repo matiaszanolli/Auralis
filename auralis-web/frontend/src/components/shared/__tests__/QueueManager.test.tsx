@@ -36,7 +36,7 @@ vi.mock('@/contexts/WebSocketContext', () => ({
   useWebSocketContext: () => ({
     subscribe: vi.fn(() => vi.fn()),
     unsubscribe: vi.fn(),
-    sendMessage: vi.fn(),
+    send: vi.fn(),
     isConnected: true,
   }),
   WebSocketProvider: ({ children }: any) => children,

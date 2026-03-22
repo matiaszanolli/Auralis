@@ -17,8 +17,6 @@ import { usePlaybackControl } from '@/hooks/player/usePlaybackControl';
 import playerReducer from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
 
-// Mock sendMessage - defined before vi.mock calls for hoisting
-const mockSendMessage = vi.fn();
 // Stable send mock — must be the same reference across renders so that
 // play's [send] dep does not trigger unnecessary recreation (#2354).
 const mockSend = vi.fn();
@@ -27,7 +25,6 @@ const mockSend = vi.fn();
 // vi.mock is hoisted to top of file, ensuring mock is applied before imports
 vi.mock('@/contexts/WebSocketContext', () => ({
   useWebSocketContext: () => ({
-    sendMessage: mockSendMessage,
     isConnected: true,
     connectionStatus: 'connected' as const,
     subscribe: vi.fn(() => () => {}),
@@ -105,14 +102,14 @@ describe('usePlaybackControl', () => {
   });
 
   describe('play()', () => {
-    it('should call sendMessage with play_normal when play is invoked', async () => {
+    it('should call send with play_normal when play is invoked', async () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.play();
       });
 
-      expect(mockSendMessage).toHaveBeenCalledWith({
+      expect(mockSend).toHaveBeenCalledWith({
         type: 'play_normal',
         data: { track_id: 123 },
       });
@@ -131,8 +128,8 @@ describe('usePlaybackControl', () => {
 
     it('should handle play errors gracefully', async () => {
       const errorMessage = 'WebSocket send failed';
-      // play() uses WebSocket sendMessage, so make it throw
-      mockSendMessage.mockImplementationOnce(() => {
+      // play() uses WebSocket send, so make it throw
+      mockSend.mockImplementationOnce(() => {
         throw new Error(errorMessage);
       });
 
@@ -152,24 +149,24 @@ describe('usePlaybackControl', () => {
   });
 
   describe('pause()', () => {
-    it('should call sendMessage with pause type when pause is invoked', async () => {
+    it('should call send with pause type when pause is invoked', async () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.pause();
       });
 
-      // pause() uses WebSocket sendMessage, not REST API
-      expect(mockSendMessage).toHaveBeenCalledWith({
+      // pause() uses WebSocket send, not REST API
+      expect(mockSend).toHaveBeenCalledWith({
         type: 'pause',
         data: {},
       });
     });
 
     it('should handle pause errors', async () => {
-      // pause() uses sendMessage which doesn't throw in normal operation
-      // This test verifies that if sendMessage throws, the error is captured
-      mockSendMessage.mockImplementationOnce(() => {
+      // pause() uses send which doesn't throw in normal operation
+      // This test verifies that if send throws, the error is captured
+      mockSend.mockImplementationOnce(() => {
         throw new Error('Pause failed');
       });
 
@@ -386,15 +383,15 @@ describe('usePlaybackControl', () => {
   });
 
   describe('stop()', () => {
-    it('should call sendMessage with stop type when stop is invoked', async () => {
+    it('should call send with stop type when stop is invoked', async () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.stop();
       });
 
-      // stop() uses WebSocket sendMessage, not REST API
-      expect(mockSendMessage).toHaveBeenCalledWith({
+      // stop() uses WebSocket send, not REST API
+      expect(mockSend).toHaveBeenCalledWith({
         type: 'stop',
         data: {},
       });

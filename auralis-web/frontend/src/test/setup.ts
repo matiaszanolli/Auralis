@@ -20,7 +20,6 @@ vi.mock('../contexts/WebSocketContext', () => {
   const mockSubscribe = vi.fn(() => () => {});
   const mockSubscribeAll = vi.fn(() => () => {});
   const mockSend = vi.fn();
-  const mockSendMessage = vi.fn();
   const mockConnect = vi.fn();
   const mockDisconnect = vi.fn();
 
@@ -31,7 +30,6 @@ vi.mock('../contexts/WebSocketContext', () => {
       subscribe: mockSubscribe,
       subscribeAll: mockSubscribeAll,
       send: mockSend,
-      sendMessage: mockSendMessage,
       connect: mockConnect,
       disconnect: mockDisconnect,
     })),
