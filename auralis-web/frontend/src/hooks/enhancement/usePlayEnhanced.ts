@@ -494,12 +494,14 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // Calculate buffered duration correctly (divide by sampleRate * channels for stereo)
       const bufferedDuration = bufferedSamples / (streamingMetadataRef.current.sampleRate * streamingMetadataRef.current.channels);
 
-      console.debug('[usePlayEnhanced] Chunk received:', {
-        chunkIndex: metadata.chunkIndex,
-        frames: `${metadata.frameIndex + 1}/${metadata.frameCount}`,
-        samples: metadata.sampleCount,
-        buffered: `${bufferedDuration.toFixed(1)}s`,
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[usePlayEnhanced] Chunk received:', {
+          chunkIndex: metadata.chunkIndex,
+          frames: `${metadata.frameIndex + 1}/${metadata.frameCount}`,
+          samples: metadata.sampleCount,
+          buffered: `${bufferedDuration.toFixed(1)}s`,
+        });
+      }
     } catch (error) {
       const errorMsg = `Failed to process audio chunk: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[usePlayEnhanced]', errorMsg);
