@@ -25,6 +25,7 @@ from routers.player import create_player_router
 from routers.playlists import create_playlists_router
 from routers.settings import create_settings_router
 from routers.similarity import create_similarity_router
+from routers.webm_streaming import create_webm_streaming_router
 
 # Import router factories
 from routers.system import create_system_router
@@ -211,5 +212,17 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
             logger.info("✅ Similarity router registered")
         except Exception as e:
             logger.warning(f"⚠️  Failed to register similarity router: {e}")
+
+    # Create and include webm streaming router
+    try:
+        streaming_router: APIRouter = create_webm_streaming_router(
+            get_multi_tier_buffer=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
+            chunked_audio_processor_class=chunked_audio_processor_class,
+            get_repository_factory=get_component('repository_factory'),
+        )
+        app.include_router(streaming_router)
+        logger.info("✅ WebM streaming router registered")
+    except Exception as e:
+        logger.warning(f"⚠️  Failed to register webm streaming router: {e}")
 
     logger.info("✅ All routers configured and registered")
