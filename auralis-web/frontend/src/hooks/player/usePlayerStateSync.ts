@@ -32,6 +32,8 @@ import {
   setPreset,
 } from '@/store/slices/playerSlice';
 import { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
+import type { PresetName } from '@/store/slices/playerSlice';
+import type { RawPlayerStateData, TrackInfo } from '@/types/websocket';
 
 /**
  * Hook to sync WebSocket player_state messages to Redux (player + queue)
@@ -50,9 +52,9 @@ export function usePlayerStateSync() {
     }
 
     // Subscribe to player_state messages from backend
-    const unsubscribe = subscribe('player_state', (message: any) => {
+    const unsubscribe = subscribe('player_state', (message) => {
       try {
-        const state = message.data;
+        const state = (message as { data: RawPlayerStateData }).data;
 
         // ============================================================
         // PLAYER STATE SYNCHRONIZATION
@@ -60,14 +62,15 @@ export function usePlayerStateSync() {
 
         // Sync current track
         if (state.current_track) {
+          const track: TrackInfo = state.current_track;
           dispatch(
             setCurrentTrack({
-              id: state.current_track.id,
-              title: state.current_track.title,
-              artist: state.current_track.artist,
-              album: state.current_track.album || '',
-              duration: state.current_track.duration || 0,
-              artworkUrl: state.current_track.album_art,
+              id: track.id,
+              title: track.title,
+              artist: track.artist,
+              album: track.album || '',
+              duration: track.duration || 0,
+              artworkUrl: track.artwork_url,
             })
           );
         } else if (state.current_track === null) {
@@ -75,33 +78,23 @@ export function usePlayerStateSync() {
         }
 
         // Sync playback state
-        if (state.is_playing !== undefined) {
-          dispatch(setIsPlaying(state.is_playing));
-        }
+        dispatch(setIsPlaying(state.is_playing));
 
         // Sync playback position
-        if (state.current_time !== undefined) {
-          dispatch(setCurrentTime(state.current_time));
-        }
+        dispatch(setCurrentTime(state.current_time));
 
         // Sync duration
-        if (state.duration !== undefined) {
-          dispatch(setDuration(state.duration));
-        }
+        dispatch(setDuration(state.duration));
 
         // Sync volume
-        if (state.volume !== undefined) {
-          dispatch(setVolume(state.volume));
-        }
+        dispatch(setVolume(state.volume));
 
         // Sync mute state
-        if (state.is_muted !== undefined) {
-          dispatch(setMuted(state.is_muted));
-        }
+        dispatch(setMuted(state.is_muted));
 
         // Sync audio preset
         if (state.current_preset) {
-          dispatch(setPreset(state.current_preset));
+          dispatch(setPreset(state.current_preset as PresetName));
         }
 
         // ============================================================
@@ -110,21 +103,19 @@ export function usePlayerStateSync() {
 
         // Sync queue tracks
         if (state.queue && Array.isArray(state.queue)) {
-          const tracks = state.queue.map((t: any) => ({
+          const tracks = state.queue.map((t: TrackInfo) => ({
             id: t.id,
             title: t.title,
             artist: t.artist,
             album: t.album || '',
             duration: t.duration || 0,
-            artworkUrl: t.album_art,
+            artworkUrl: t.artwork_url,
           }));
           dispatch(setQueue(tracks));
         }
 
         // Sync queue position (index)
-        if (state.queue_index !== undefined) {
-          dispatch(setCurrentIndex(state.queue_index));
-        }
+        dispatch(setCurrentIndex(state.queue_index));
 
         if (process.env.NODE_ENV !== 'production') {
           console.log('[usePlayerStateSync] Redux updated from WebSocket:', state);
