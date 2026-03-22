@@ -15,6 +15,7 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 from typing import Any
 from collections.abc import Callable
@@ -68,7 +69,7 @@ def create_settings_router(
     @router.get("/api/settings")
     async def get_settings() -> dict[str, Any]:
         """Get current user settings."""
-        settings = _repo().get_settings()
+        settings = await asyncio.to_thread(_repo().get_settings)
         if not settings:
             raise HTTPException(status_code=404, detail="Settings not found")
         return settings.to_dict()
@@ -82,7 +83,7 @@ def create_settings_router(
         Unknown fields are silently ignored (whitelist enforced by SettingsRepository).
         """
         try:
-            settings = _repo().update_settings(updates)
+            settings = await asyncio.to_thread(_repo().update_settings, updates)
             await _notify_scanner()
             return {"message": "Settings updated", "settings": settings.to_dict()}
         except Exception as exc:
@@ -99,7 +100,7 @@ def create_settings_router(
         except PathValidationError as e:
             raise HTTPException(status_code=400, detail=str(e))
         try:
-            settings = _repo().add_scan_folder(str(validated))
+            settings = await asyncio.to_thread(_repo().add_scan_folder, str(validated))
             await _notify_scanner()
             return {"message": f"Scan folder added: {body.folder}", "settings": settings.to_dict()}
         except Exception as exc:
@@ -110,7 +111,7 @@ def create_settings_router(
     async def remove_scan_folder(body: _ScanFolderRequest) -> dict[str, Any]:
         """Remove a folder from the list of scanned directories."""
         try:
-            settings = _repo().remove_scan_folder(body.folder)
+            settings = await asyncio.to_thread(_repo().remove_scan_folder, body.folder)
             await _notify_scanner()
             return {"message": f"Scan folder removed: {body.folder}", "settings": settings.to_dict()}
         except Exception as exc:
@@ -121,7 +122,7 @@ def create_settings_router(
     async def reset_settings() -> dict[str, Any]:
         """Reset all settings to their default values."""
         try:
-            settings = _repo().reset_to_defaults()
+            settings = await asyncio.to_thread(_repo().reset_to_defaults)
             await _notify_scanner()
             return {"message": "Settings reset to defaults", "settings": settings.to_dict()}
         except Exception as exc:
