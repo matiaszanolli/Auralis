@@ -43,6 +43,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import type { AnyWebSocketMessage } from '@/types/websocket';
 import { API_BASE_URL } from '@/config/api';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
@@ -197,7 +198,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const handleChunkRef = useRef<((m: AudioChunkMessage) => void) | null>(null);
   const handleStreamEndRef = useRef<((m: AudioStreamEndMessage) => void) | null>(null);
   const handleStreamErrorRef = useRef<((m: AudioStreamErrorMessage) => void) | null>(null);
-  const handleFingerprintProgressRef = useRef<((m: any) => void) | null>(null);
+  const handleFingerprintProgressRef = useRef<((m: AnyWebSocketMessage) => void) | null>(null);
 
   // Timer ref for fingerprint status auto-clear (fixes #2353)
   const fingerprintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -747,23 +748,23 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     // Subscribe to streaming messages immediately on mount
     unsubscribeStreamStartRef.current = wsContext.subscribe(
       'audio_stream_start',
-      (m: any) => handleStreamStartRef.current?.(m)
+      (m) => handleStreamStartRef.current?.(m as AudioStreamStartMessage)
     );
     unsubscribeChunkRef.current = wsContext.subscribe(
       'audio_chunk',
-      (m: any) => handleChunkRef.current?.(m)
+      (m) => handleChunkRef.current?.(m as AudioChunkMessage)
     );
     unsubscribeStreamEndRef.current = wsContext.subscribe(
       'audio_stream_end',
-      (m: any) => handleStreamEndRef.current?.(m)
+      (m) => handleStreamEndRef.current?.(m as AudioStreamEndMessage)
     );
     unsubscribeErrorRef.current = wsContext.subscribe(
       'audio_stream_error',
-      (m: any) => handleStreamErrorRef.current?.(m)
+      (m) => handleStreamErrorRef.current?.(m as AudioStreamErrorMessage)
     );
     unsubscribeFingerprintRef.current = wsContext.subscribe(
       'fingerprint_progress',
-      (m: any) => handleFingerprintProgressRef.current?.(m)
+      (m) => handleFingerprintProgressRef.current?.(m as AnyWebSocketMessage)
     );
 
     // Subscribe to seek_started to clear isSeeking as soon as the backend
