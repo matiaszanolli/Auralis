@@ -20,7 +20,6 @@ Dependencies:
 
 import logging
 from collections import deque
-from typing import Deque
 
 import numpy as np
 
@@ -91,7 +90,7 @@ class WindowedBuffer:
         Args:
             window_size: Maximum number of values to maintain
         """
-        self.buffer: Deque[float] = deque(maxlen=window_size)
+        self.buffer: deque[float] = deque(maxlen=window_size)
         self.window_size = window_size
 
     def append(self, value: float) -> None:
@@ -156,7 +155,7 @@ class StreamingVariationAnalyzer:
         self.crest_stats = RunningStatistics()
 
         # Audio buffer for RMS/peak calculation
-        self.audio_buffer: Deque[float] = deque(maxlen=self.frame_length)
+        self.audio_buffer: deque[float] = deque(maxlen=self.frame_length)
 
         # Frame counter tracking input updates (not metric updates)
         self.frame_count = 0

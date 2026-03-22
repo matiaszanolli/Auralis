@@ -9,7 +9,7 @@ Real-time EQ adaptation engine based on content analysis
 """
 
 from collections import deque
-from typing import Any, Deque
+from typing import Any
 
 import numpy as np
 
@@ -22,8 +22,8 @@ class AdaptationEngine:
 
     def __init__(self, settings: RealtimeEQSettings):
         self.settings = settings
-        self.analysis_history: Deque[Any] = deque(maxlen=10)  # Store last 10 analysis frames
-        self.gain_history: Deque[np.ndarray] = deque(maxlen=5)  # Store last 5 gain calculations
+        self.analysis_history: deque[Any] = deque(maxlen=10)  # Store last 10 analysis frames
+        self.gain_history: deque[np.ndarray] = deque(maxlen=5)  # Store last 5 gain calculations
         self.adaptation_state = {
             'target_gains': np.zeros(26),  # 26 critical bands
             'current_gains': np.zeros(26),

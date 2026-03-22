@@ -13,7 +13,8 @@ import logging
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from typing import Any, Deque
+from typing import Any
+from collections import deque
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class LearningSystem:
         Args:
             max_history: Maximum number of predictions to keep in history
         """
-        self.prediction_history: Deque[PredictionAccuracy] = deque(maxlen=max_history)
+        self.prediction_history: deque[PredictionAccuracy] = deque(maxlen=max_history)
 
         # Accuracy tracking by different dimensions
         self.accuracy_by_preset: dict[str, list[bool]] = defaultdict(list)

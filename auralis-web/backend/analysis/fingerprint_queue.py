@@ -22,7 +22,7 @@ import logging
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Deque
+from typing import Any
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class QueueStats:
 @dataclass
 class FingerprintQueueState:
     """Internal state for the fingerprint queue."""
-    queue: Deque[int] = field(default_factory=deque)
+    queue: deque[int] = field(default_factory=deque)
     queued_set: set[int] = field(default_factory=set)  # For O(1) dedup lookup
     processing: int | None = None
     completed: int = 0

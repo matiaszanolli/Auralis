@@ -12,7 +12,7 @@ import logging
 import time
 from collections import deque
 from dataclasses import asdict, dataclass
-from typing import Any, Deque
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class MetricsCollector:
         Args:
             history_size: Number of metrics snapshots to keep in history
         """
-        self.metrics_history: Deque[PerformanceMetrics] = deque(maxlen=history_size)
+        self.metrics_history: deque[PerformanceMetrics] = deque(maxlen=history_size)
         self.collection_count = 0
 
         # References to system components (set externally)
