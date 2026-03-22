@@ -16,7 +16,7 @@
 
 import { createCrudService } from '@/utils/serviceFactory';
 
-const API_BASE = '/similarity';
+const API_BASE = '/api/similarity';
 
 export interface SimilarTrack {
   track_id: number;
