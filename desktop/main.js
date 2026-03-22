@@ -110,79 +110,77 @@ class AuralisApp {
     // First, ensure port is free
     await this.cleanupPort();
 
-    return new Promise((resolve, reject) => {
+    let pythonCmd, pythonArgs, cwd;
 
-      let pythonCmd, pythonArgs, cwd;
+    if (this.isDevelopment) {
+      // Development: Run Python script directly
+      pythonCmd = 'python';
+      pythonArgs = [path.join(__dirname, '..', 'auralis-web', 'backend', 'main.py')];
+      cwd = path.join(__dirname, '..');
+    } else {
+      // Production: Run Python backend from resources
+      // Platform-specific backend selection
+      const isWindows = process.platform === 'win32';
+      const backendPath = path.join(process.resourcesPath, 'backend', 'auralis-backend');
+      const backendExe = isWindows ? `${backendPath}.exe` : backendPath;
+      const pythonScript = path.join(process.resourcesPath, 'backend', 'main.py');
 
-      if (this.isDevelopment) {
-        // Development: Run Python script directly
-        pythonCmd = 'python';
-        pythonArgs = [path.join(__dirname, '..', 'auralis-web', 'backend', 'main.py')];
-        cwd = path.join(__dirname, '..');
+      if (fs.existsSync(backendExe)) {
+        // Use compiled binary if available
+        pythonCmd = backendExe;
+        pythonArgs = [];
+        cwd = path.join(process.resourcesPath, 'backend');
+      } else if (!isWindows && fs.existsSync(pythonScript)) {
+        // macOS/Linux: Fallback to Python script from resources
+        console.log('Binary not found, using Python script from resources');
+        pythonCmd = 'python3';
+        pythonArgs = [pythonScript];
+        cwd = path.join(process.resourcesPath, 'backend');
       } else {
-        // Production: Run Python backend from resources
-        // Platform-specific backend selection
-        const isWindows = process.platform === 'win32';
-        const backendPath = path.join(process.resourcesPath, 'backend', 'auralis-backend');
-        const backendExe = isWindows ? `${backendPath}.exe` : backendPath;
-        const pythonScript = path.join(process.resourcesPath, 'backend', 'main.py');
+        // Error: Backend not available
+        const errorMessage = isWindows
+          ? `Auralis backend not found.\n\nPlease reinstall Auralis.\n\nAlternatively, install Python 3.13+:\nhttps://python.org`
+          : `Backend not found. Tried:\n  Binary: ${backendExe}\n  Script: ${pythonScript}`;
 
-        if (fs.existsSync(backendExe)) {
-          // Use compiled binary if available
-          pythonCmd = backendExe;
-          pythonArgs = [];
-          cwd = path.join(process.resourcesPath, 'backend');
-        } else if (!isWindows && fs.existsSync(pythonScript)) {
-          // macOS/Linux: Fallback to Python script from resources
-          console.log('Binary not found, using Python script from resources');
-          pythonCmd = 'python3';
-          pythonArgs = [pythonScript];
-          cwd = path.join(process.resourcesPath, 'backend');
-        } else {
-          // Error: Backend not available
-          const errorMessage = isWindows
-            ? `Auralis backend not found.\n\nPlease reinstall Auralis.\n\nAlternatively, install Python 3.13+:\nhttps://python.org`
-            : `Backend not found. Tried:\n  Binary: ${backendExe}\n  Script: ${pythonScript}`;
+        console.error(errorMessage);
 
-          console.error(errorMessage);
-
-          if (isWindows) {
-            // Show user-friendly dialog for Windows
-            dialog.showErrorBox('Backend Not Found', errorMessage);
-          }
-
-          reject(new Error('Backend executable or script not found'));
-          return;
+        if (isWindows) {
+          // Show user-friendly dialog for Windows
+          dialog.showErrorBox('Backend Not Found', errorMessage);
         }
+
+        throw new Error('Backend executable or script not found');
       }
+    }
 
-      console.log(`Executing: ${pythonCmd} ${pythonArgs.join(' ')}`);
-      console.log(`Working directory: ${cwd}`);
+    console.log(`Executing: ${pythonCmd} ${pythonArgs.join(' ')}`);
+    console.log(`Working directory: ${cwd}`);
 
-      // Set up Python path to include auralis package
-      const pythonPath = this.isDevelopment
-        ? path.join(__dirname, '..')
-        : process.resourcesPath;
+    // Set up Python path to include auralis package
+    const pythonPath = this.isDevelopment
+      ? path.join(__dirname, '..')
+      : process.resourcesPath;
 
-      const fullPythonPath = pythonPath + (process.env.PYTHONPATH ? path.delimiter + process.env.PYTHONPATH : '');
-      console.log(`Python path for auralis: ${pythonPath}`);
-      console.log(`Full PYTHONPATH: ${fullPythonPath}`);
-      console.log(`Is development mode: ${this.isDevelopment}`);
+    const fullPythonPath = pythonPath + (process.env.PYTHONPATH ? path.delimiter + process.env.PYTHONPATH : '');
+    console.log(`Python path for auralis: ${pythonPath}`);
+    console.log(`Full PYTHONPATH: ${fullPythonPath}`);
+    console.log(`Is development mode: ${this.isDevelopment}`);
 
-      this.pythonProcess = spawn(pythonCmd, pythonArgs, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        cwd: cwd,
-        detached: true,  // Create new process group for easy cleanup
-        env: {
-          ...process.env,
-          PYTHONUNBUFFERED: '1',
-          // Tell backend it's running in Electron
-          ELECTRON_MODE: '1',
-          // Add auralis package to Python path
-          PYTHONPATH: fullPythonPath
-        }
-      });
+    this.pythonProcess = spawn(pythonCmd, pythonArgs, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: cwd,
+      detached: true,  // Create new process group for easy cleanup
+      env: {
+        ...process.env,
+        PYTHONUNBUFFERED: '1',
+        // Tell backend it's running in Electron
+        ELECTRON_MODE: '1',
+        // Add auralis package to Python path
+        PYTHONPATH: fullPythonPath
+      }
+    });
 
+    return new Promise((resolve, reject) => {
       let startupOutput = '';
       let resolved = false;
 
