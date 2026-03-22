@@ -92,8 +92,9 @@ export function usePlayerStateSync() {
         // Sync mute state
         dispatch(setMuted(state.is_muted));
 
-        // Sync audio preset
-        if (state.current_preset) {
+        // Sync audio preset (validate before dispatching to prevent store corruption)
+        const VALID_PRESETS: readonly string[] = ['adaptive', 'gentle', 'warm', 'bright', 'punchy'];
+        if (state.current_preset && VALID_PRESETS.includes(state.current_preset)) {
           dispatch(setPreset(state.current_preset as PresetName));
         }
 
