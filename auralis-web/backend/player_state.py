@@ -12,7 +12,7 @@ This ensures consistency across WebSocket and REST endpoints.
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PlaybackState(str, Enum):
@@ -31,7 +31,7 @@ class TrackInfo(BaseModel):
     artist: str
     album: str
     duration: float
-    file_path: str
+    file_path: str = Field(exclude=True)  # Server-only; excluded from API responses (#3205)
     album_art: str | None = None
     is_enhanced: bool = False
 
