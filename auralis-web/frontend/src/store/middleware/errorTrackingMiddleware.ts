@@ -56,7 +56,7 @@ export interface ErrorTrackingConfig {
   onRecovery?: (error: TrackedError) => void;
   logToConsole?: boolean;
   logToServer?: boolean;
-  recoveryStrategies?: Map<string, () => Record<string, any>>;
+  recoveryStrategies?: Map<string, () => Record<string, unknown>>;
 }
 
 // ============================================================================
@@ -360,9 +360,9 @@ function captureErrorToServer(error: TrackedError): void {
  * Retry action with exponential backoff
  */
 export async function retryAction(
-  action: Record<string, any>,
+  action: Record<string, unknown>,
   maxRetries: number = 3
-): Promise<any> {
+): Promise<unknown> {
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
