@@ -129,6 +129,8 @@ export const TrackList = ({
       <div ref={parentRef} style={styles.trackList}>
         {/* Inner container sized to total virtual height */}
         <div
+          role="listbox"
+          aria-label="Track list"
           style={{
             height: virtualizer.getTotalSize(),
             width: '100%',
