@@ -237,7 +237,7 @@ class ContinuousMode:
     def _apply_eq(self, audio: np.ndarray, eq_processor: Any, params: Any) -> np.ndarray:
         """Apply EQ using generated parameters with adaptive guidance"""
 
-        eq_curve = params.eq_curve
+        eq_curve = dict(params.eq_curve)
 
         # Apply adaptive guidance if recording type was detected
         if self.last_adaptive_params is not None:
