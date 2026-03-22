@@ -204,8 +204,9 @@ class GaplessPlaybackEngine:
         Returns:
             bool: True if successfully advanced, False if no next track
         """
-        # Get next track from queue (advances queue index)
-        next_track = self.queue.next_track()
+        # Peek first — only advance the queue index after a successful load
+        # so a failed load_file() doesn't permanently corrupt navigation (#2882).
+        next_track = self.queue.peek_next_track()
         if not next_track:
             info("No next track to advance to")
             return False
@@ -254,6 +255,9 @@ class GaplessPlaybackEngine:
             # Use prebuffered audio (gapless!)
             info(f"Using prebuffered track (gapless): {file_path}")
 
+            # Commit the queue advance now that we know the load will succeed.
+            self.queue.next_track()
+
             with self.update_lock:
                 # Hold _audio_lock while swapping audio_data so get_audio_chunk()
                 # cannot slice the old (shorter) array after we replace it (#2423).
@@ -277,6 +281,8 @@ class GaplessPlaybackEngine:
                 info(f"Prebuffer not available, loading: {file_path}")
             if not self.file_manager.load_file(file_path):
                 return False
+            # Load succeeded — now commit the queue advance.
+            self.queue.next_track()
 
         # Start prebuffering next track for smooth chain
         self.start_prebuffering()
