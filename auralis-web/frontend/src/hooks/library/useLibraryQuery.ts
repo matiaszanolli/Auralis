@@ -179,14 +179,14 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         return response.tracks || response.items || [];
       case 'albums':
         // Backend returns snake_case fields; transform to camelCase to match Album interface (fixes #2378).
-        return (response.albums || response.items || []).map((album: any) => ({
+        return (response.albums || response.items || []).map((album: Record<string, unknown>) => ({
           ...album,
           trackCount: album.trackCount ?? album.track_count,
           totalDuration: album.totalDuration ?? album.total_duration,
         }));
       case 'artists':
         // Backend returns snake_case fields; transform to camelCase to match Artist interface (fixes #2853).
-        return (response.artists || response.items || []).map((artist: any) => ({
+        return (response.artists || response.items || []).map((artist: Record<string, unknown>) => ({
           ...artist,
           trackCount: artist.trackCount ?? artist.track_count,
           albumCount: artist.albumCount ?? artist.album_count,
