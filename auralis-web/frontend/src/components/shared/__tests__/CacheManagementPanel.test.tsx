@@ -21,7 +21,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { CacheManagementPanel } from '../CacheManagementPanel';
+import { CacheManagementPanel } from '../CacheManagementPanel/index';
 import * as hooks from '@/hooks/shared/useStandardizedAPI';
 import {
   mockCacheStats,
