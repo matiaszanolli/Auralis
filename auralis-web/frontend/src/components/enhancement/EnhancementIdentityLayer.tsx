@@ -99,8 +99,15 @@ export const EnhancementIdentityLayer = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={onRevealInspection}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onRevealInspection?.();
+        }
+      }}
       role="button"
       tabIndex={0}
+      aria-label="Toggle enhancement identity"
       title="Click for detailed controls"
     >
       {/* Preset Display - Icon + Label Only */}
