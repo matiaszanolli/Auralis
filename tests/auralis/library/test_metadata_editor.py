@@ -279,7 +279,7 @@ class TestBatchUpdate:
             MetadataUpdate(2, '/path/to/track2.mp3', {'title': 'Title 2'})
         ]
 
-        with patch('os.path.exists', return_value=True), \
+        with patch('pathlib.Path.exists', return_value=True), \
              patch.object(editor.backup_manager, 'create_backup', return_value=True), \
              patch.object(editor.backup_manager, 'cleanup_backup', return_value=True), \
              patch.object(editor, 'write_metadata', return_value=True):
@@ -305,7 +305,7 @@ class TestBatchUpdate:
                 raise ValueError("Test error")
             return True
 
-        with patch('os.path.exists', return_value=True), \
+        with patch('pathlib.Path.exists', return_value=True), \
              patch.object(editor.backup_manager, 'create_backup', return_value=True), \
              patch.object(editor.backup_manager, 'restore_backup', return_value=True) as mock_restore, \
              patch.object(editor, 'write_metadata', side_effect=mock_write):
@@ -363,7 +363,7 @@ class TestBackupRestore:
         """Test restoring from backup"""
         editor = MetadataEditor()
 
-        with patch('os.path.exists', return_value=True), \
+        with patch('pathlib.Path.exists', return_value=True), \
              patch('shutil.move') as mock_move:
 
             editor._restore_backup('/path/to/test.mp3')
@@ -374,7 +374,7 @@ class TestBackupRestore:
         """Test restore when backup doesn't exist"""
         editor = MetadataEditor()
 
-        with patch('os.path.exists', return_value=False), \
+        with patch('pathlib.Path.exists', return_value=False), \
              patch('shutil.move') as mock_move:
 
             editor._restore_backup('/path/to/test.mp3')

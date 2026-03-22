@@ -10,7 +10,7 @@ Result types and output format specifications
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
-import os
+from pathlib import Path
 
 import soundfile as sf
 
@@ -34,8 +34,7 @@ class Result:
             use_limiter: Whether to apply limiting
             normalize: Whether to normalize the output
         """
-        _, file_ext = os.path.splitext(file)
-        file_ext = file_ext[1:].upper()
+        file_ext = Path(file).suffix[1:].upper()
 
         if not sf.check_format(file_ext):
             raise TypeError(f"{file_ext} format is not supported")

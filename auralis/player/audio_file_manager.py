@@ -8,8 +8,8 @@ Responsibilities:
 - Auto-resampling to target sample rate
 """
 
-import os
 import threading
+from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -52,7 +52,7 @@ class AudioFileManager:
             bool: True if successful
         """
         try:
-            if not os.path.exists(file_path):
+            if not Path(file_path).exists():
                 error(f"File not found: {file_path}")
                 return False
 
@@ -85,7 +85,7 @@ class AudioFileManager:
             bool: True if successful
         """
         try:
-            if not os.path.exists(file_path):
+            if not Path(file_path).exists():
                 error(f"Reference file not found: {file_path}")
                 return False
 

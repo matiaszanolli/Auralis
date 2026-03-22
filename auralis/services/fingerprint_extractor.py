@@ -326,7 +326,7 @@ class FingerprintExtractor:
                 # of 32-48GB with 16 concurrent workers. Rust server uses efficient Claxon
                 # decoder (200-300MB), so just skip Python fallback for large files.
                 if not fingerprint:
-                    file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
+                    file_size_mb = Path(filepath).stat().st_size / (1024 * 1024)
 
                     # Hard limit: Skip Python fallback for files > 300MB to prevent OOM
                     if file_size_mb > 300:
@@ -377,12 +377,11 @@ class FingerprintExtractor:
                 # Write .25d sidecar file (if not cached and feature enabled)
                 if not cached and self.use_sidecar_files and self.sidecar_manager:
                     # Extract basic track metadata for sidecar file
-                    import os
                     metadata = {
                         'track_id': track_id,
                         'filename': filepath_obj.name,
                         'file_extension': filepath_obj.suffix,
-                        'file_size_bytes': os.path.getsize(filepath),
+                        'file_size_bytes': filepath_obj.stat().st_size,
                         'extracted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
                     }
 

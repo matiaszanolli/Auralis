@@ -636,7 +636,7 @@ class TrackRepository:
                 except IntegrityError:
                     artist = session.execute(
                         select(Artist).where(Artist.normalized_name == normalized)
-                    ).scalars().first()
+                    ).scalars().one()
             track.artists.append(artist)
 
     def _update_genres(self, session: Session, track: Track, genre_names: list[str]) -> None:
@@ -651,7 +651,7 @@ class TrackRepository:
                         session.add(genre)
                         session.flush()
                 except IntegrityError:
-                    genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
+                    genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().one()
             track.genres.append(genre)
 
     def delete(self, track_id: int) -> bool:
@@ -793,7 +793,7 @@ class TrackRepository:
         Raises:
             Exception: If cleanup fails
         """
-        import os
+        from pathlib import Path
 
         session = self.get_session()
         try:
@@ -812,15 +812,14 @@ class TrackRepository:
 
                 missing_ids = []
                 for row in rows:
-                    filepath = str(row.filepath)
-                    parent = os.path.dirname(filepath)
+                    filepath_path = Path(str(row.filepath))
                     # If the parent directory itself is absent the volume is
                     # likely unmounted (NFS/SMB). Skip this file rather than
                     # permanently deleting it from the library (fixes #2525).
-                    if not os.path.exists(parent):
-                        debug(f"Parent directory inaccessible, skipping: {parent}")
+                    if not filepath_path.parent.exists():
+                        debug(f"Parent directory inaccessible, skipping: {filepath_path.parent}")
                         continue
-                    if not os.path.exists(filepath):
+                    if not filepath_path.exists():
                         missing_ids.append(row.id)
 
                 if missing_ids:

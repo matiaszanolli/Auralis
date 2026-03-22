@@ -87,15 +87,14 @@ def is_audio_file(filepath: str) -> bool:
     Returns:
         bool: True if the file appears to be an audio file
     """
-    import os
+    from pathlib import Path
 
     audio_extensions = {
         '.wav', '.mp3', '.flac', '.aiff', '.aif', '.m4a', '.ogg',
         '.wma', '.opus', '.ac3', '.dts', '.mp2', '.ape', '.wv'
     }
 
-    _, ext = os.path.splitext(filepath.lower())
-    return ext in audio_extensions
+    return Path(filepath).suffix.lower() in audio_extensions
 
 
 def check_file_permissions(filepath: str) -> bool:
@@ -108,9 +107,11 @@ def check_file_permissions(filepath: str) -> bool:
     Returns:
         bool: True if file is readable
     """
+    from pathlib import Path
     import os
 
     try:
-        return os.path.isfile(filepath) and os.access(filepath, os.R_OK)
+        path = Path(filepath)
+        return path.is_file() and os.access(filepath, os.R_OK)
     except OSError:
         return False

@@ -8,8 +8,8 @@ File backup and restore operations for safe metadata editing
 :license: GPLv3, see LICENSE for more details.
 """
 
-import os
 import shutil
+from pathlib import Path
 
 from ...utils.logging import debug, error, info, warning
 
@@ -48,10 +48,10 @@ class BackupManager:
         Returns:
             True if restored successfully, False otherwise
         """
-        backup_path = filepath + '.bak'
-        if os.path.exists(backup_path):
+        backup_path = Path(filepath + '.bak')
+        if backup_path.exists():
             try:
-                shutil.move(backup_path, filepath)
+                shutil.move(str(backup_path), filepath)
                 info(f"Restored from backup: {filepath}")
                 return True
             except Exception as e:
@@ -70,10 +70,10 @@ class BackupManager:
         Returns:
             True if backup removed, False otherwise
         """
-        backup_path = filepath + '.bak'
-        if os.path.exists(backup_path):
+        backup_path = Path(filepath + '.bak')
+        if backup_path.exists():
             try:
-                os.remove(backup_path)
+                backup_path.unlink()
                 debug(f"Removed backup: {backup_path}")
                 return True
             except Exception as e:

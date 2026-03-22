@@ -8,7 +8,7 @@ Audio file metadata editing orchestrator
 :license: GPLv3, see LICENSE for more details.
 """
 
-import os
+from pathlib import Path
 from typing import Any
 
 try:
@@ -75,7 +75,7 @@ class MetadataEditor:
         Returns:
             List of field names that can be edited
         """
-        ext = os.path.splitext(filepath)[1].lower().lstrip('.')
+        ext = Path(filepath).suffix.lower().lstrip('.')
         format_key = get_format_key(ext)
         return list(TAG_MAPPINGS.get(format_key, {}).keys())
 
@@ -93,7 +93,7 @@ class MetadataEditor:
             FileNotFoundError: If file doesn't exist
             ValueError: If file format not supported
         """
-        if not os.path.exists(filepath):
+        if not Path(filepath).exists():
             raise FileNotFoundError(f"File not found: {filepath}")
 
         try:
@@ -102,7 +102,7 @@ class MetadataEditor:
                 raise ValueError(f"Unsupported or invalid audio file: {filepath}")
 
             metadata = {}
-            ext = os.path.splitext(filepath)[1].lower().lstrip('.')
+            ext = Path(filepath).suffix.lower().lstrip('.')
 
             # Determine format and read metadata
             if isinstance(audio_file, FLAC) or ext == 'flac':
@@ -140,7 +140,7 @@ class MetadataEditor:
             FileNotFoundError: If file doesn't exist
             ValueError: If file format not supported
         """
-        if not os.path.exists(filepath):
+        if not Path(filepath).exists():
             raise FileNotFoundError(f"File not found: {filepath}")
 
         # Create backup if requested
@@ -152,7 +152,7 @@ class MetadataEditor:
             if audio_file is None:
                 raise ValueError(f"Unsupported or invalid audio file: {filepath}")
 
-            ext = os.path.splitext(filepath)[1].lower().lstrip('.')
+            ext = Path(filepath).suffix.lower().lstrip('.')
 
             # Write format-specific metadata
             if isinstance(audio_file, FLAC) or ext == 'flac':
@@ -222,7 +222,7 @@ class MetadataEditor:
 
         # Phase 1 — Validate all files exist before touching any.
         for update in updates:
-            if not os.path.exists(update.filepath):
+            if not Path(update.filepath).exists():
                 return {
                     'total': total,
                     'successful': 0,

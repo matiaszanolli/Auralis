@@ -9,9 +9,9 @@ Responsibilities:
 - Session statistics
 """
 
-import os
 import threading
 import time
+from pathlib import Path
 from typing import Any, cast
 from collections.abc import Callable
 
@@ -164,7 +164,7 @@ class IntegrationManager:
         """Automatically select a suitable reference track"""
         try:
             # Try recommended reference first
-            if track.recommended_reference and os.path.exists(track.recommended_reference):
+            if track.recommended_reference and Path(track.recommended_reference).exists():
                 if self.file_manager.load_reference(cast(str, track.recommended_reference)):
                     info(f"Using recommended reference: {track.recommended_reference}")
                     self._notify_callbacks({
@@ -178,7 +178,7 @@ class IntegrationManager:
             references, _ = repos.tracks.find_similar(track, limit=3)
 
             for ref_track in references:
-                if os.path.exists(cast(str, ref_track.filepath)):
+                if Path(cast(str, ref_track.filepath)).exists():
                     if self.file_manager.load_reference(cast(str, ref_track.filepath)):
                         ref_name = f"{ref_track.title} by {ref_track.artists[0].name if ref_track.artists else 'Unknown'}"
                         info(f"Auto-selected reference: {ref_name}")
