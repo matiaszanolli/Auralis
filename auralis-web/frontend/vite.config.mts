@@ -121,6 +121,7 @@ export default defineConfig(({ mode }) => {
       drop: mode === 'production' ? ['console', 'debugger'] : [],
     },
     build: {
+      target: 'esnext',
       outDir: 'dist',
       sourcemap: false,
       rollupOptions: {
