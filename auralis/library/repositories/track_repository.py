@@ -224,6 +224,28 @@ class TrackRepository:
         finally:
             session.close()
 
+    def get_by_ids(self, track_ids: list[int]) -> dict[int, Track]:
+        """Get multiple tracks by ID in a single query (WHERE IN).
+
+        Returns a dict mapping track_id -> Track for found tracks.
+        """
+        if not track_ids:
+            return {}
+        session = self.get_session()
+        try:
+            tracks = session.execute(
+                select(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .where(Track.id.in_(track_ids))
+            ).scalars().unique().all()
+            result = {}
+            for track in tracks:
+                session.expunge(track)
+                result[track.id] = track
+            return result
+        finally:
+            session.close()
+
     def get_by_path(self, filepath: str) -> Track | None:
         """Get track by file path with relationships loaded"""
         session = self.get_session()

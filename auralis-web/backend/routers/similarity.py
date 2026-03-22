@@ -136,21 +136,12 @@ def create_similarity_router(
                 if neighbors:
                     # Convert to SimilarTrack objects
                     for neighbor in neighbors:
-                        result = SimilarTrack(
+                        results.append(SimilarTrack(
                             track_id=neighbor['similar_track_id'],
                             distance=neighbor['distance'],
                             similarity_score=neighbor['similarity_score'],
                             rank=neighbor['rank']
-                        )
-
-                        if include_details:
-                            similar_track = await asyncio.to_thread(repos.tracks.get_by_id, neighbor['similar_track_id'])
-                            if similar_track:
-                                result.title = similar_track.title
-                                result.artist = similar_track.artists[0].name if similar_track.artists else None
-                                result.album = similar_track.album.title if similar_track.album else None
-
-                        results.append(result)
+                        ))
                 else:
                     # Graph not built yet, fall back to real-time calculation
                     graph_builder = None
@@ -167,22 +158,24 @@ def create_similarity_router(
 
                 similarity_results: list[SimilarityResult] = await asyncio.to_thread(similarity.find_similar, track_id, n=limit)
 
-                for i, result in enumerate(similarity_results, start=1):  # type: ignore[assignment]
-                    similar_track_model: SimilarTrack = SimilarTrack(
-                        track_id=result.track_id,
-                        distance=result.distance,
-                        similarity_score=result.similarity_score,
+                for i, sim_result in enumerate(similarity_results, start=1):
+                    results.append(SimilarTrack(
+                        track_id=sim_result.track_id,
+                        distance=sim_result.distance,
+                        similarity_score=sim_result.similarity_score,
                         rank=i
-                    )
+                    ))
 
-                    if include_details:
-                        similar_track = await asyncio.to_thread(repos.tracks.get_by_id, result.track_id)
-                        if similar_track:
-                            similar_track_model.title = similar_track.title
-                            similar_track_model.artist = similar_track.artists[0].name if similar_track.artists else None
-                            similar_track_model.album = similar_track.album.title if similar_track.album else None
-
-                    results.append(similar_track_model)
+            # Batch-fetch track details in a single WHERE IN query (#3228)
+            if include_details and results:
+                track_ids = [r.track_id for r in results]
+                tracks_map = await asyncio.to_thread(repos.tracks.get_by_ids, track_ids)
+                for r in results:
+                    t = tracks_map.get(r.track_id)
+                    if t:
+                        r.title = t.title
+                        r.artist = t.artists[0].name if t.artists else None
+                        r.album = t.album.title if t.album else None
 
             return results
 
