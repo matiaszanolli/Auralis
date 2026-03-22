@@ -155,6 +155,13 @@ export interface PlaybackPausedMessage extends WebSocketMessage {
   };
 }
 
+export interface PlaybackResumedMessage extends WebSocketMessage {
+  type: 'playback_resumed';
+  data: {
+    state: 'playing';
+  };
+}
+
 export interface PlaybackStoppedMessage extends WebSocketMessage {
   type: 'playback_stopped';
   data: {
@@ -496,6 +503,7 @@ export type AnyWebSocketMessage =
   | PlayerStateMessage
   | PlaybackStartedMessage
   | PlaybackPausedMessage
+  | PlaybackResumedMessage
   | PlaybackStoppedMessage
   | TrackLoadedMessage
   | TrackChangedMessage
@@ -541,6 +549,10 @@ export function isPlaybackStartedMessage(msg: WebSocketMessage): msg is Playback
 
 export function isPlaybackPausedMessage(msg: WebSocketMessage): msg is PlaybackPausedMessage {
   return msg.type === 'playback_paused';
+}
+
+export function isPlaybackResumedMessage(msg: WebSocketMessage): msg is PlaybackResumedMessage {
+  return msg.type === 'playback_resumed';
 }
 
 export function isMasteringRecommendationMessage(msg: WebSocketMessage): msg is MasteringRecommendationMessage {
