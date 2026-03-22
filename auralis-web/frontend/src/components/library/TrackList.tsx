@@ -162,9 +162,10 @@ export const TrackList = ({
                   height: `${virtualItem.size}px`,
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
-                role="button"
+                role="option"
                 tabIndex={0}
-                aria-pressed={isSelected}
+                aria-selected={isSelected}
+                aria-label={`${track.title} by ${track.artist}`}
               >
                 {/* Track number */}
                 <span style={styles.trackNumber}>{virtualItem.index + 1}</span>
