@@ -13,7 +13,9 @@
  *   );
  */
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@/store';
 import type { WebSocketMessage, WebSocketMessageType, AnyWebSocketMessage } from '../../types/websocket';
 
 // Global WebSocket connection (should be managed by WebSocketContext)
@@ -203,28 +205,14 @@ export interface WebSocketStatus {
   latency: number; // milliseconds
 }
 
-let connectionStatusCallback: ((status: WebSocketStatus) => void) | null = null;
-
-export function setConnectionStatusCallback(
-  callback: (status: WebSocketStatus) => void
-): void {
-  connectionStatusCallback = callback;
-}
-
 export function useWebSocketStatus(): WebSocketStatus {
-  const [status, _setStatus] = useState<WebSocketStatus>({
-    isConnected: false,
-    isConnecting: false,
-    lastError: null,
-    reconnectAttempts: 0,
-    latency: 0,
-  });
+  const connection = useSelector((state: RootState) => state.connection);
 
-  useEffect(() => {
-    if (connectionStatusCallback) {
-      connectionStatusCallback(status);
-    }
-  }, [status]);
-
-  return status;
+  return useMemo(() => ({
+    isConnected: connection.wsConnected,
+    isConnecting: connection.reconnectAttempts > 0 && !connection.wsConnected,
+    lastError: connection.lastError ? new Error(connection.lastError) : null,
+    reconnectAttempts: connection.reconnectAttempts,
+    latency: connection.latency,
+  }), [connection.wsConnected, connection.reconnectAttempts, connection.lastError, connection.latency]);
 }
