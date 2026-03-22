@@ -63,7 +63,7 @@ export const CozyAlbumGrid = ({
   } = useInfiniteAlbums({ limit: 50 });
 
   // Flatten all pages into single array
-  const albums = data?.pages.flatMap(page => page.albums) ?? [];
+  const albums = useMemo(() => data?.pages.flatMap(page => page.albums) ?? [], [data?.pages]);
 
   // Extract album IDs for batch fingerprint fetching
   const albumIds = useMemo(() => albums.map(album => album.id), [albums]);
