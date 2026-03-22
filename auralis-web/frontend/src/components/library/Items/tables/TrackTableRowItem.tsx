@@ -95,10 +95,11 @@ export const TrackTableRowItem = ({
         <IconButton
           size="small"
           onClick={handleMoreClick}
+          aria-label={`More options for ${track.title}`}
           sx={{
             opacity: 0,
             transition: tokens.transitions.fast,
-            '.MuiTableRow-root:hover &': {
+            '.MuiTableRow-root:hover &, &:focus-visible': {
               opacity: 1,
             },
             color: tokens.colors.text.secondary,
