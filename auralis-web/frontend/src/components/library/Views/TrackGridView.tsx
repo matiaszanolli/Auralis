@@ -37,10 +37,10 @@ export const TrackGridView = ({
           lg={3}
           key={track.id}
           className="animate-fade-in-up"
-          sx={{
+          sx={index < 10 ? {
             animationDelay: `${index * 0.05}s`,
             animationFillMode: 'both',
-          }}
+          } : undefined}
         >
           <TrackCard
             id={track.id}
