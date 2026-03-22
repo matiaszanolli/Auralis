@@ -191,22 +191,14 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   useWebSocketSubscription(
     ['queue_changed', 'queue_shuffled', 'repeat_mode_changed'],
     (message) => {
-      const { type, data } = message as any;
-
-      switch (type) {
-        case 'queue_changed':
-          if (data.tracks) dispatch(reduxSetQueue(data.tracks));
-          if (data.currentIndex != null) dispatch(reduxSetCurrentIndex(data.currentIndex));
-          break;
-
-        case 'queue_shuffled':
-          if (data.isShuffled != null) setIsShuffled(data.isShuffled);
-          if (data.tracks) dispatch(reduxSetQueue(data.tracks));
-          break;
-
-        case 'repeat_mode_changed':
-          if (data.repeatMode) setRepeatModeState(data.repeatMode);
-          break;
+      if (isQueueChangedMessage(message)) {
+        dispatch(reduxSetQueue(message.data.tracks));
+        dispatch(reduxSetCurrentIndex(message.data.currentIndex));
+      } else if (isQueueShuffledMessage(message)) {
+        setIsShuffled(message.data.isShuffled);
+        if (message.data.tracks) dispatch(reduxSetQueue(message.data.tracks));
+      } else if (isRepeatModeChangedMessage(message)) {
+        setRepeatModeState(message.data.repeatMode);
       }
     }
   );
