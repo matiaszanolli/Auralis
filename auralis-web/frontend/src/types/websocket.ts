@@ -79,7 +79,7 @@ export interface WebSocketMessage<T = unknown> {
  * Matches the Pydantic PlayerState model in backend/player_state.py.
  */
 export interface RawPlayerStateData {
-  state: string;
+  state: 'playing' | 'paused' | 'stopped' | 'loading';
   is_playing: boolean;
   is_paused: boolean;
   current_track: TrackInfo | null;
@@ -91,7 +91,7 @@ export interface RawPlayerStateData {
   queue_index: number;
   queue_size: number;
   shuffle_enabled: boolean;
-  repeat_mode: string;
+  repeat_mode: 'off' | 'all' | 'one';
   mastering_enabled: boolean;
   current_preset: string;
   analysis?: Record<string, unknown> | null;
