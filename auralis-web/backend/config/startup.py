@@ -339,6 +339,26 @@ def create_lifespan(deps: dict[str, Any]):
                     await globals_dict['processing_engine'].stop_worker()
                 logger.info("✅ Processing Engine stopped")
 
+            # Stop audio player and release hardware resources (#3210)
+            if 'audio_player' in globals_dict and globals_dict['audio_player']:
+                try:
+                    player = globals_dict['audio_player']
+                    if hasattr(player, 'stop'):
+                        player.stop()
+                    if hasattr(player, 'cleanup'):
+                        player.cleanup()
+                    logger.info("✅ Audio Player stopped")
+                except Exception as player_err:
+                    logger.warning(f"⚠️  Audio player shutdown error: {player_err}")
+
+            # Shut down LibraryManager last — WAL checkpoint + engine dispose (#3210)
+            if 'library_manager' in globals_dict and globals_dict['library_manager']:
+                try:
+                    globals_dict['library_manager'].shutdown()
+                    logger.info("✅ Library Manager shut down (WAL checkpointed)")
+                except Exception as lm_err:
+                    logger.warning(f"⚠️  Library manager shutdown error: {lm_err}")
+
             logger.info("✅ Application shutdown complete")
         except Exception as e:
             logger.error(f"Error during shutdown: {e}")
