@@ -172,9 +172,18 @@ export const MediaCard = React.memo(function MediaCard(props: MediaCardProps) {
           transition: `${tokens.transitions.fast}`,  // Faster response (150ms)
         },
       }}
+      tabIndex={0}
+      role="button"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={props.onClick}
+      onKeyDown={(e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          props.onClick?.();
+        }
+      }}
+      aria-label={`${props.title}${'artist' in props && props.artist ? ` by ${props.artist}` : ''}`}
     >
       {/* Artwork Section */}
       <MediaCardArtwork
