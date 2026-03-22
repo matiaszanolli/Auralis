@@ -391,6 +391,7 @@ export const EnhancementInspectionLayer = ({
             onClick={onPlayEnhanced}
             disabled={disabled}
             title="Play with enhanced audio processing"
+            aria-label="Play with enhanced audio processing"
           >
             ▶ Play Enhanced
           </button>
@@ -400,6 +401,7 @@ export const EnhancementInspectionLayer = ({
               style={styles.controlButton}
               onClick={onTogglePause}
               title={isPaused ? 'Resume playback' : 'Pause playback'}
+              aria-label={isPaused ? 'Resume playback' : 'Pause playback'}
             >
               {isPaused ? '▶ Resume' : '⏸ Pause'}
             </button>
@@ -408,6 +410,7 @@ export const EnhancementInspectionLayer = ({
               style={styles.controlButton}
               onClick={onStop}
               title="Stop enhanced playback"
+              aria-label="Stop enhanced playback"
             >
               ⏹ Stop
             </button>
@@ -467,6 +470,7 @@ export const EnhancementInspectionLayer = ({
               style={styles.errorDismiss}
               onClick={onDismissError}
               title="Dismiss error"
+              aria-label="Dismiss error"
             >
               ✕
             </button>
