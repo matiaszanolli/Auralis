@@ -41,17 +41,27 @@
  */
 
 import { useCallback, useState, useEffect, useRef, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
-import type { Track } from '@/types/domain';
+import {
+  setQueue as reduxSetQueue,
+  setCurrentIndex as reduxSetCurrentIndex,
+  clearQueue as reduxClearQueue,
+  selectQueueTracks,
+  selectCurrentIndex,
+  selectCurrentQueueTrack,
+} from '@/store/slices/queueSlice';
+import type { Track, QueueTrack } from '@/types/domain';
 import type { ApiError } from '@/types/api';
+import type { AppDispatch } from '@/store';
 
 /**
  * Queue state and metadata
  */
 export interface QueueState {
   /** Tracks in queue */
-  tracks: Track[];
+  tracks: (Track | QueueTrack)[];
 
   /** Current index in queue (0-based) */
   currentIndex: number;
@@ -74,13 +84,13 @@ export interface PlaybackQueueActions {
   state: QueueState;
 
   /** Shortcut to queue.tracks */
-  queue: Track[];
+  queue: (Track | QueueTrack)[];
 
   /** Current queue index */
   currentIndex: number;
 
   /** Current track in queue (or null) */
-  currentTrack: Track | null;
+  currentTrack: Track | QueueTrack | null;
 
   /** Whether shuffle is enabled */
   isShuffled: boolean;
@@ -123,17 +133,6 @@ export interface PlaybackQueueActions {
 }
 
 /**
- * Initial queue state
- */
-const INITIAL_STATE: QueueState = {
-  tracks: [],
-  currentIndex: 0,
-  isShuffled: false,
-  repeatMode: 'off',
-  lastUpdated: Date.now(),
-};
-
-/**
  * Hook for managing audio playback queue
  *
  * @returns Queue management actions and state
@@ -154,11 +153,28 @@ const INITIAL_STATE: QueueState = {
  */
 export function usePlaybackQueue(): PlaybackQueueActions {
   const { get, post, put, delete: apiDelete } = useRestAPI();
+  const dispatch = useDispatch<AppDispatch>();
 
-  // Local state
-  const [state, setState] = useState<QueueState>(INITIAL_STATE);
+  // Queue tracks and index live in Redux (single source of truth)
+  const tracks = useSelector(selectQueueTracks);
+  const currentIndex = useSelector(selectCurrentIndex);
+  const currentTrack = useSelector(selectCurrentQueueTrack);
+
+  // Shuffle/repeat are queue-control state not shared with other consumers
+  const [isShuffled, setIsShuffled] = useState(false);
+  const [repeatMode, setRepeatModeState] = useState<'off' | 'all' | 'one'>('off');
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+
+  // Compose a QueueState view for the public API
+  const state: QueueState = useMemo(() => ({
+    tracks,
+    currentIndex,
+    isShuffled,
+    repeatMode,
+    lastUpdated: Date.now(),
+  }), [tracks, currentIndex, isShuffled, repeatMode]);
 
   /**
    * Ref to track latest state without causing callback recreation
@@ -169,41 +185,28 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
   /**
    * Subscribe to real-time queue updates via WebSocket
+   * Dispatch to Redux so all consumers see the same data.
    */
   useWebSocketSubscription(
     ['queue_changed', 'queue_shuffled', 'repeat_mode_changed'],
     (message) => {
       const { type, data } = message as any;
 
-      setState((prevState) => {
-        switch (type) {
-          case 'queue_changed':
-            return {
-              ...prevState,
-              tracks: data.tracks || prevState.tracks,
-              currentIndex: data.currentIndex ?? prevState.currentIndex,
-              lastUpdated: Date.now(),
-            };
+      switch (type) {
+        case 'queue_changed':
+          if (data.tracks) dispatch(reduxSetQueue(data.tracks));
+          if (data.currentIndex != null) dispatch(reduxSetCurrentIndex(data.currentIndex));
+          break;
 
-          case 'queue_shuffled':
-            return {
-              ...prevState,
-              isShuffled: data.isShuffled ?? prevState.isShuffled,
-              tracks: data.tracks || prevState.tracks,
-              lastUpdated: Date.now(),
-            };
+        case 'queue_shuffled':
+          if (data.isShuffled != null) setIsShuffled(data.isShuffled);
+          if (data.tracks) dispatch(reduxSetQueue(data.tracks));
+          break;
 
-          case 'repeat_mode_changed':
-            return {
-              ...prevState,
-              repeatMode: data.repeatMode ?? prevState.repeatMode,
-              lastUpdated: Date.now(),
-            };
-
-          default:
-            return prevState;
-        }
-      });
+        case 'repeat_mode_changed':
+          if (data.repeatMode) setRepeatModeState(data.repeatMode);
+          break;
+      }
     }
   );
 
@@ -216,13 +219,10 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         const response = await get<QueueState>('/api/player/queue');
 
         if (response) {
-          setState({
-            tracks: response.tracks || [],
-            currentIndex: response.currentIndex ?? 0,
-            isShuffled: response.isShuffled ?? false,
-            repeatMode: response.repeatMode ?? 'off',
-            lastUpdated: Date.now(),
-          });
+          dispatch(reduxSetQueue(response.tracks || []));
+          dispatch(reduxSetCurrentIndex(response.currentIndex ?? 0));
+          setIsShuffled(response.isShuffled ?? false);
+          setRepeatModeState(response.repeatMode ?? 'off');
         }
       } catch (err) {
         // Silently fail - user can still interact with empty queue
@@ -231,7 +231,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     };
 
     fetchInitialQueue();
-  }, [get]);
+  }, [get, dispatch]);
 
   /**
    * Set entire queue with optional start index
@@ -245,16 +245,12 @@ export function usePlaybackQueue(): PlaybackQueueActions {
       setIsLoading(true);
       setError(null);
 
-      // Optimistic update - use ref to get latest state without dependency
-      const previousState = stateRef.current;
+      // Optimistic update via Redux
+      const previousTracks = stateRef.current.tracks;
+      const previousIndex = stateRef.current.currentIndex;
 
-      setState({
-        tracks,
-        currentIndex: startIndex,
-        isShuffled: stateRef.current.isShuffled,
-        repeatMode: stateRef.current.repeatMode,
-        lastUpdated: Date.now(),
-      });
+      dispatch(reduxSetQueue(tracks));
+      dispatch(reduxSetCurrentIndex(startIndex));
 
       try {
         // Send to backend
@@ -266,7 +262,8 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         // Server will broadcast confirmation via WebSocket
       } catch (err) {
         // Rollback on error
-        setState(previousState);
+        dispatch(reduxSetQueue(previousTracks));
+        dispatch(reduxSetCurrentIndex(previousIndex));
 
         const apiError = err instanceof Error
           ? { message: err.message, code: 'QUEUE_SET_ERROR', status: 500 }
@@ -278,7 +275,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         setIsLoading(false);
       }
     },
-    [post]
+    [post, dispatch]
   );
 
   /**
@@ -422,13 +419,9 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
     // Use ref to get latest state without dependency
     const newShuffle = !stateRef.current.isShuffled;
-    const previousState = stateRef.current;
+    const previousShuffle = stateRef.current.isShuffled;
 
-    setState((prevState) => ({
-      ...prevState,
-      isShuffled: newShuffle,
-      lastUpdated: Date.now(),
-    }));
+    setIsShuffled(newShuffle);
 
     try {
       // Send to backend
@@ -439,7 +432,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
       // Server will broadcast confirmation via WebSocket
     } catch (err) {
       // Rollback on error
-      setState(previousState);
+      setIsShuffled(previousShuffle);
 
       const apiError = err instanceof Error
         ? { message: err.message, code: 'SHUFFLE_ERROR', status: 500 }
@@ -474,14 +467,10 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         throw apiError;
       }
 
-      // Optimistic update - use ref to get latest state without dependency
-      const previousState = stateRef.current;
+      // Optimistic update
+      const previousMode = stateRef.current.repeatMode;
 
-      setState((prevState) => ({
-        ...prevState,
-        repeatMode: mode,
-        lastUpdated: Date.now(),
-      }));
+      setRepeatModeState(mode);
 
       try {
         // Send to backend
@@ -492,7 +481,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         // Server will broadcast confirmation via WebSocket
       } catch (err) {
         // Rollback on error
-        setState(previousState);
+        setRepeatModeState(previousMode);
 
         const apiError = err instanceof Error
           ? { message: err.message, code: 'REPEAT_MODE_ERROR', status: 500 }
@@ -516,16 +505,11 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     setIsLoading(true);
     setError(null);
 
-    // Optimistic update - use ref to get latest state without dependency
-    const previousState = stateRef.current;
+    // Optimistic update via Redux
+    const previousTracks = stateRef.current.tracks;
+    const previousIndex = stateRef.current.currentIndex;
 
-    setState({
-      tracks: [],
-      currentIndex: 0,
-      isShuffled: stateRef.current.isShuffled,
-      repeatMode: stateRef.current.repeatMode,
-      lastUpdated: Date.now(),
-    });
+    dispatch(reduxClearQueue());
 
     try {
       // Send to backend
@@ -534,7 +518,8 @@ export function usePlaybackQueue(): PlaybackQueueActions {
       // Server will broadcast confirmation via WebSocket
     } catch (err) {
       // Rollback on error
-      setState(previousState);
+      dispatch(reduxSetQueue(previousTracks));
+      dispatch(reduxSetCurrentIndex(previousIndex));
 
       const apiError = err instanceof Error
         ? { message: err.message, code: 'CLEAR_QUEUE_ERROR', status: 500 }
@@ -545,7 +530,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     } finally {
       setIsLoading(false);
     }
-  }, [post]);
+  }, [post, dispatch]);
 
   /**
    * Clear error state
@@ -553,9 +538,6 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   const clearError = useCallback(() => {
     setError(null);
   }, []);
-
-  // Get current track from queue
-  const currentTrack = state.tracks[state.currentIndex] || null;
 
   // Memoize return value so object identity is stable when deps haven't changed,
   // preventing cascading re-renders in consumers (fixes #2465).
