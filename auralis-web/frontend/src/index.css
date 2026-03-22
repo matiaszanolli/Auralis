@@ -315,7 +315,7 @@ button:focus-visible {
   }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 901px) { /* matches tokens.breakpoints.md + 1 */
   .mobile-only {
     display: none !important;
   }
