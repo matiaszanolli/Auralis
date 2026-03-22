@@ -178,7 +178,7 @@ class EQProcessor:
 
             # Pad chunk if necessary
             if len(chunk) < chunk_size:
-                padded_chunk = np.zeros((chunk_size,) + chunk.shape[1:])
+                padded_chunk = np.zeros((chunk_size,) + chunk.shape[1:], dtype=chunk.dtype)
                 padded_chunk[:len(chunk)] = chunk
                 chunk = padded_chunk
 
