@@ -48,7 +48,7 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
     }
   }, []);
 
-  const handleSettingChange = useCallback((key: keyof SettingsUpdate, value: any) => {
+  const handleSettingChange = useCallback((key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => {
     setPendingChanges((prev) => ({ ...prev, [key]: value }));
   }, []);
 
@@ -161,11 +161,11 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
   }, []);
 
   const getValue = useCallback(
-    <K extends keyof SettingsUpdate>(key: K): any => {
+    <K extends keyof SettingsUpdate>(key: K): SettingsUpdate[K] | null => {
       if (key in pendingChanges) {
-        return pendingChanges[key as keyof SettingsUpdate];
+        return pendingChanges[key] as SettingsUpdate[K];
       }
-      return settings ? (settings[key as keyof UserSettings] as any) : null;
+      return settings ? (settings[key as keyof UserSettings] as SettingsUpdate[K]) : null;
     },
     [settings, pendingChanges]
   );
