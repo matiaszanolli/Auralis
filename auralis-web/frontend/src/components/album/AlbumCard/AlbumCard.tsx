@@ -46,7 +46,7 @@ export interface AlbumCardProps {
  * TODO: Re-implement artwork management (download/extract/delete) via
  * MediaCard extension or separate overlay component.
  */
-export const AlbumCard = ({
+export const AlbumCard = React.memo(function AlbumCard({
   albumId,
   title,
   artist,
@@ -59,7 +59,7 @@ export const AlbumCard = ({
   onArtworkUpdated,
   onHoverEnter,
   onHoverLeave,
-}: AlbumCardProps) => {
+}: AlbumCardProps) {
   // Subscribe to artwork_updated WS messages for cache-busting (#2867)
   const artworkRevision = useArtworkRevision(albumId);
   const artworkUrl = hasArtwork
@@ -84,6 +84,6 @@ export const AlbumCard = ({
       onHoverLeave={onHoverLeave}
     />
   );
-};
+});
 
 export default AlbumCard;

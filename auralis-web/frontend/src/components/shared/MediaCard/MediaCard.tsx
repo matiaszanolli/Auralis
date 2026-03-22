@@ -101,7 +101,7 @@ const getMetadata = (props: MediaCardProps) => {
  * />
  * ```
  */
-export const MediaCard = (props: MediaCardProps) => {
+export const MediaCard = React.memo(function MediaCard(props: MediaCardProps) {
   const { isHovered, setIsHovered } = useMediaCardState();
   const metadata = getMetadata(props);
 
@@ -209,6 +209,6 @@ export const MediaCard = (props: MediaCardProps) => {
       />
     </Card>
   );
-};
+});
 
 export default MediaCard;

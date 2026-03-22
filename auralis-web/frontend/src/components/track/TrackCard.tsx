@@ -30,7 +30,7 @@ interface TrackCardProps {
  * Wrapper around MediaCard with track-specific props.
  * Provides backwards compatibility for existing track grid views.
  */
-export const TrackCard = ({
+export const TrackCard = React.memo(function TrackCard({
   id,
   title,
   artist,
@@ -40,7 +40,7 @@ export const TrackCard = ({
   albumArt,
   isPlaying = false,
   onPlay,
-}: TrackCardProps) => {
+}: TrackCardProps) {
   // For tracks, clicking anywhere on the card should trigger playback
   const handleClick = () => {
     onPlay(id);
@@ -61,6 +61,6 @@ export const TrackCard = ({
       onClick={handleClick}
     />
   );
-};
+});
 
 export default TrackCard;
