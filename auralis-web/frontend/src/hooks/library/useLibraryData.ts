@@ -65,7 +65,9 @@ export const useLibraryData = ({
   // Controlled input for folder path in web (non-Electron) environments (fixes #2359).
   const [webFolderPath, setWebFolderPath] = useState('');
 
-  const { success, error, info } = useToast();
+  const toast = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   const isElectronFn = useCallback(() => isElectron(), []);
 
@@ -110,23 +112,23 @@ export const useLibraryData = ({
         console.log(`Pagination: ${currentOffset + (data.tracks?.length || 0)}/${data.total || 0}, has_more: ${data.has_more}`);
 
         if (resetPagination && data.tracks && data.tracks.length > 0) {
-          success(`Loaded ${data.tracks.length} of ${data.total} ${view === 'favourites' ? 'favorites' : 'tracks'}`);
+          toastRef.current.success(`Loaded ${data.tracks.length} of ${data.total} ${view === 'favourites' ? 'favorites' : 'tracks'}`);
         } else if (resetPagination && view === 'favourites') {
-          info('No favorites yet. Click the heart icon on tracks to add them!');
+          toastRef.current.info('No favorites yet. Click the heart icon on tracks to add them!');
         }
       } else {
         console.error('Failed to fetch tracks');
         // Show error state — never fall back to mock data in production (fixes #2344).
-        error('Failed to load library. Check that the Auralis backend is running.');
+        toastRef.current.error('Failed to load library. Check that the Auralis backend is running.');
       }
     } catch (err) {
       console.error('Error fetching tracks:', err);
       // Show error state — never fall back to mock data in production (fixes #2344).
-      error('Cannot connect to Auralis server. Retry when the backend is available.');
+      toastRef.current.error('Cannot connect to Auralis server. Retry when the backend is available.');
     } finally {
       setLoading(false);
     }
-  }, [view, success, error, info]);
+  }, [view]);
 
   // Load more tracks (for infinite scroll).
   // Uses ref-based guard to prevent duplicate fetches from concurrent scroll events (fixes #2603).
@@ -165,7 +167,7 @@ export const useLibraryData = ({
       }
     } catch (err) {
       console.error('Error loading more tracks:', err);
-      error('Failed to load more tracks. Please try again.');
+      toastRef.current.error('Failed to load more tracks. Please try again.');
     } finally {
       isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
@@ -188,14 +190,14 @@ export const useLibraryData = ({
         }
       } catch (err) {
         console.error('Failed to open folder picker:', err);
-        error('Failed to open folder picker');
+        toastRef.current.error('Failed to open folder picker');
         return;
       }
     } else {
       // Web browser: read from the controlled input (set via setWebFolderPath).
       folderPath = webFolderPath.trim() || undefined;
       if (!folderPath) {
-        info('Enter a folder path in the scan field and try again');
+        toastRef.current.info('Enter a folder path in the scan field and try again');
         return;
       }
     }
@@ -210,20 +212,20 @@ export const useLibraryData = ({
 
       if (response.ok) {
         const result = await response.json();
-        success(`Scan complete — ${result.files_added || 0} track(s) added`);
+        toastRef.current.success(`Scan complete — ${result.files_added || 0} track(s) added`);
         // Refresh the library
         await fetchTracks();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        error(`Scan failed: ${errorData.detail || 'Unknown error'}`);
+        toastRef.current.error(`Scan failed: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (err) {
       console.error('Scan error:', err);
-      error('Error scanning folder — check the backend is reachable');
+      toastRef.current.error('Error scanning folder — check the backend is reachable');
     } finally {
       setScanning(false);
     }
-  }, [isElectronFn, fetchTracks, webFolderPath, success, error, info]);
+  }, [isElectronFn, fetchTracks, webFolderPath]);
 
   // Auto-load on mount or when view/autoLoad changes.
   // fetchTracks is safe to include now that offset is held in a ref (not closure).
