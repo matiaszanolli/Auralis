@@ -97,7 +97,7 @@ class FingerprintService:
 
         if session_factory is None:
             self._engine = _make_engine(self.db_path)
-            session_factory = sessionmaker(bind=self._engine)
+            session_factory = sessionmaker(self._engine)
         else:
             self._engine = None
 

@@ -143,7 +143,7 @@ class MigrationManager:
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.close()
 
-        Session = sessionmaker(bind=self.engine)
+        Session = sessionmaker(self.engine)
         self.session = Session()
         self.migrations_dir = Path(__file__).parent / "migrations"
 

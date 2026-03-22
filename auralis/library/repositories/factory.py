@@ -37,7 +37,7 @@ class RepositoryFactory:
     Example:
         ```python
         # In startup
-        session_factory = sessionmaker(bind=engine)
+        session_factory = sessionmaker(engine)
         repository_factory = RepositoryFactory(session_factory)
 
         # In routers (dependency injection)

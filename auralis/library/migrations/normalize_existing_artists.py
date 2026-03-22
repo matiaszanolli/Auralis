@@ -52,7 +52,7 @@ def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = Fals
         return {'error': 'Database not found'}
 
     engine = create_engine(f'sqlite:///{db_path}')
-    Session = sessionmaker(bind=engine)
+    Session = sessionmaker(engine)
     session = Session()
 
     # Check if normalized_name column exists, add it if not

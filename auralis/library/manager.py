@@ -150,7 +150,7 @@ class LibraryManager:
             cursor.execute("PRAGMA busy_timeout=60000")  # 60s
             cursor.close()
 
-        self.SessionLocal = sessionmaker(bind=self.engine)
+        self.SessionLocal = sessionmaker(self.engine)
 
         # Create tables if they don't exist (for fresh databases)
         Base.metadata.create_all(self.engine)
