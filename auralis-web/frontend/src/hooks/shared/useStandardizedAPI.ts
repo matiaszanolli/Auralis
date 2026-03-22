@@ -196,6 +196,7 @@ export function usePaginatedAPI<T = any>(
 } {
   const apiClient = useRef<StandardizedAPIClient | null>(null);
   const limit = options?.initialLimit ?? 50;
+  const timeout = options?.timeout;
 
   const [pagination, setPagination] = useState({
     limit,
@@ -226,7 +227,7 @@ export function usePaginatedAPI<T = any>(
         endpoint,
         limit,
         offset,
-        { timeout: options?.timeout }
+        { timeout }
       );
 
       if (isSuccessResponse<T[]>(response)) {
@@ -259,7 +260,7 @@ export function usePaginatedAPI<T = any>(
         error: error instanceof Error ? error.message : 'Failed to fetch page'
       });
     }
-  }, [endpoint, limit, options?.timeout]);
+  }, [endpoint, limit, timeout]);
 
   useEffect(() => {
     fetchPage(0);
