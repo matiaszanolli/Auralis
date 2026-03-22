@@ -383,12 +383,14 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         setIsPaused(false);
       }
 
-      console.debug('[usePlayNormal] Chunk received:', {
-        chunkIndex: metadata.chunkIndex,
-        frames: `${metadata.frameIndex + 1}/${metadata.frameCount}`,
-        samples: metadata.sampleCount,
-        buffered: `${(bufferedSamples / streamingMetadataRef.current.sampleRate).toFixed(1)}s`,
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[usePlayNormal] Chunk received:', {
+          chunkIndex: metadata.chunkIndex,
+          frames: `${metadata.frameIndex + 1}/${metadata.frameCount}`,
+          samples: metadata.sampleCount,
+          buffered: `${(bufferedSamples / streamingMetadataRef.current.sampleRate).toFixed(1)}s`,
+        });
+      }
     } catch (error) {
       const errorMsg = `Failed to process audio chunk: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[usePlayNormal]', errorMsg);
