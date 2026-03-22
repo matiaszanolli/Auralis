@@ -177,8 +177,15 @@ class AudioPlayer:
         if self.file_manager.load_file(file_path):
             self.playback.stop()
 
-            # Load fingerprint for adaptive mastering (non-blocking, cache-backed)
-            self._load_fingerprint_for_file(file_path)
+            # Load fingerprint in background thread to avoid blocking the caller.
+            # The processor uses profile-based mastering until the fingerprint
+            # arrives, then switches to fingerprint-adaptive mastering seamlessly.
+            threading.Thread(
+                target=self._load_fingerprint_for_file,
+                args=(file_path,),
+                daemon=True,
+                name="fingerprint-loader",
+            ).start()
 
             # Start prebuffering next track
             self.gapless.start_prebuffering()
