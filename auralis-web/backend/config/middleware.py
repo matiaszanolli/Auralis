@@ -26,7 +26,7 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
     """
     Middleware to disable caching for frontend static files.
 
-    Only applies to frontend assets (.html, .js, .tsx, .jsx), not API responses.
+    Only applies to frontend assets (.html, .js, .css), not API responses.
     API streaming responses must NOT have cache-control headers modified.
     """
 
@@ -36,7 +36,7 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
         # Only disable caching for frontend static files (not API endpoints)
         # API streaming responses must NOT have cache-control headers modified
         if not request.url.path.startswith('/api') and not request.url.path.startswith('/ws'):
-            if request.url.path.endswith(('.html', '.js', '.tsx', '.jsx')) or request.url.path == '/':
+            if request.url.path.endswith(('.html', '.js', '.css')) or request.url.path == '/':
                 response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
                 response.headers["Pragma"] = "no-cache"
                 response.headers["Expires"] = "0"
