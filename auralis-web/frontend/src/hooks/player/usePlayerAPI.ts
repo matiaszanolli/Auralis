@@ -27,6 +27,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 import type { PlayerTrack } from '@/types/domain';
+import type { RawPlayerStateData, WebSocketMessage } from '@/types/websocket';
 
 interface PlayerState {
   currentTrack: PlayerTrack | null;
@@ -80,7 +81,7 @@ export const usePlayerAPI = () => {
     try {
       const response = await fetch(`/api/player/status`);
       if (response.ok) {
-        const data = await response.json();
+        const data: RawPlayerStateData = await response.json();
         setPlayerState(prev => ({
           ...prev,
           currentTrack: data.current_track || null,
@@ -298,11 +299,11 @@ export const usePlayerAPI = () => {
     // Subscribe to player_state messages.
     // Skip updates while a command is in-flight to avoid overwriting
     // optimistic state with stale server broadcasts (fixes #2783).
-    const unsubscribePlayerState = subscribe('player_state', (message: any) => {
+    const unsubscribePlayerState = subscribe('player_state', (message) => {
       if (pendingCommandsRef.current > 0) return;
 
       try {
-        const state = message.data;
+        const state = (message as WebSocketMessage<RawPlayerStateData>).data;
         setPlayerState({
           currentTrack: state.current_track || null,
           isPlaying: state.is_playing || false,
