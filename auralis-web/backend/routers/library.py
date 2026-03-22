@@ -554,10 +554,13 @@ def create_library_router(
                 await connection_manager.broadcast({
                     "type": "scan_complete",
                     "data": {
-                        "files_processed": result.files_processed,
+                        "files_found": result.files_found,
                         "files_added": result.files_added,
+                        "files_updated": result.files_updated,
+                        "files_skipped": result.files_skipped,
                         "files_failed": result.files_failed,
-                        "duration": result.scan_time,
+                        "scan_time": result.scan_time,
+                        "directories_scanned": result.directories_scanned,
                     }
                 })
 
