@@ -99,10 +99,10 @@ export function ConfirmationDialog({
               transition: 'all 0.2s',
             }}
             onMouseOver={(e) => {
-              (e.target as HTMLButtonElement).style.background = tokens.colors.bg.elevated;
+              e.currentTarget.style.background = tokens.colors.bg.elevated;
             }}
             onMouseOut={(e) => {
-              (e.target as HTMLButtonElement).style.background = tokens.colors.bg.tertiary;
+              e.currentTarget.style.background = tokens.colors.bg.tertiary;
             }}
           >
             {cancelText}
@@ -123,10 +123,10 @@ export function ConfirmationDialog({
               transition: 'all 0.2s',
             }}
             onMouseOver={(e) => {
-              (e.target as HTMLButtonElement).style.opacity = '1';
+              e.currentTarget.style.opacity = '1';
             }}
             onMouseOut={(e) => {
-              (e.target as HTMLButtonElement).style.opacity = '0.9';
+              e.currentTarget.style.opacity = '0.9';
             }}
           >
             {confirmText}

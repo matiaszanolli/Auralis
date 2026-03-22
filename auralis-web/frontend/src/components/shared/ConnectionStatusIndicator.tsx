@@ -424,10 +424,10 @@ export function ConnectionStatusIndicator({
                 transition: 'all 0.2s',
               }}
               onMouseOver={(e) => {
-                (e.target as HTMLButtonElement).style.opacity = '1';
+                e.currentTarget.style.opacity = '1';
               }}
               onMouseOut={(e) => {
-                (e.target as HTMLButtonElement).style.opacity = '0.9';
+                e.currentTarget.style.opacity = '0.9';
               }}
             >
               Reconnect

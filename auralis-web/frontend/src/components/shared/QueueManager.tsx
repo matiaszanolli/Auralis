@@ -171,10 +171,10 @@ export function QueueManager({
                 transition: 'all 0.2s',
               }}
               onMouseOver={(e) => {
-                (e.target as HTMLButtonElement).style.opacity = '1';
+                e.currentTarget.style.opacity = '1';
               }}
               onMouseOut={(e) => {
-                (e.target as HTMLButtonElement).style.opacity = '0.9';
+                e.currentTarget.style.opacity = '0.9';
               }}
             >
               + Add Track
@@ -197,12 +197,12 @@ export function QueueManager({
             }}
             onMouseOver={(e) => {
               if (tracks.length > 0) {
-                (e.target as HTMLButtonElement).style.opacity = '1';
+                e.currentTarget.style.opacity = '1';
               }
             }}
             onMouseOut={(e) => {
               if (tracks.length > 0) {
-                (e.target as HTMLButtonElement).style.opacity = '0.8';
+                e.currentTarget.style.opacity = '0.8';
               }
             }}
           >
@@ -367,16 +367,16 @@ export function QueueManager({
                 }}
                 onMouseOver={(e) => {
                   if (!isLoading && index !== currentIndex) {
-                    (e.target as HTMLButtonElement).style.opacity = '1';
-                    (e.target as HTMLButtonElement).style.background = tokens.colors.semantic.error;
-                    (e.target as HTMLButtonElement).style.color = tokens.colors.text.primary;
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.background = tokens.colors.semantic.error;
+                    e.currentTarget.style.color = tokens.colors.text.primary;
                   }
                 }}
                 onMouseOut={(e) => {
                   if (!isLoading && index !== currentIndex) {
-                    (e.target as HTMLButtonElement).style.opacity = '0.7';
-                    (e.target as HTMLButtonElement).style.background = tokens.colors.bg.secondary;
-                    (e.target as HTMLButtonElement).style.color = tokens.colors.text.secondary;
+                    e.currentTarget.style.opacity = '0.7';
+                    e.currentTarget.style.background = tokens.colors.bg.secondary;
+                    e.currentTarget.style.color = tokens.colors.text.secondary;
                   }
                 }}
               >

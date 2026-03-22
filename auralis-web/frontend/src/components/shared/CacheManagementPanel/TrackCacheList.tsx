@@ -93,12 +93,12 @@ export function TrackCacheList({ tracks, onTrackClearClick }: TrackCacheListProp
                 transition: 'all 0.2s',
               }}
               onMouseOver={(e) => {
-                (e.target as HTMLButtonElement).style.color = tokens.colors.semantic.error;
-                (e.target as HTMLButtonElement).style.borderColor = tokens.colors.semantic.error;
+                e.currentTarget.style.color = tokens.colors.semantic.error;
+                e.currentTarget.style.borderColor = tokens.colors.semantic.error;
               }}
               onMouseOut={(e) => {
-                (e.target as HTMLButtonElement).style.color = tokens.colors.text.secondary;
-                (e.target as HTMLButtonElement).style.borderColor = tokens.colors.border.light;
+                e.currentTarget.style.color = tokens.colors.text.secondary;
+                e.currentTarget.style.borderColor = tokens.colors.border.light;
               }}
             >
               Clear

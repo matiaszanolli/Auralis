@@ -42,12 +42,12 @@ export function QuickActions({
         }}
         onMouseOver={(e) => {
           if (!clearLoading) {
-            (e.target as HTMLButtonElement).style.opacity = '1';
+            e.currentTarget.style.opacity = '1';
           }
         }}
         onMouseOut={(e) => {
           if (!clearLoading) {
-            (e.target as HTMLButtonElement).style.opacity = '0.9';
+            e.currentTarget.style.opacity = '0.9';
           }
         }}
       >
@@ -71,12 +71,12 @@ export function QuickActions({
         }}
         onMouseOver={(e) => {
           if (!statsLoading) {
-            (e.target as HTMLButtonElement).style.opacity = '1';
+            e.currentTarget.style.opacity = '1';
           }
         }}
         onMouseOut={(e) => {
           if (!statsLoading) {
-            (e.target as HTMLButtonElement).style.opacity = '0.9';
+            e.currentTarget.style.opacity = '0.9';
           }
         }}
       >
