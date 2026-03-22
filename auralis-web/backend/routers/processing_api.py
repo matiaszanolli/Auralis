@@ -21,7 +21,7 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from core.processing_engine import ProcessingEngine, ProcessingStatus
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from security.path_security import PathValidationError, validate_file_path
 
 logger = logging.getLogger(__name__)
@@ -67,8 +67,6 @@ def set_processing_engine(engine: ProcessingEngine) -> None:
 # Pydantic models for request/response
 class ProcessingSettings(BaseModel):
     """Processing settings from UI"""
-    model_config = {"populate_by_name": True}
-
     mode: str = "adaptive"  # "adaptive", "reference", "hybrid"
     output_format: str = "wav"  # "wav", "flac", "mp3"
     bit_depth: int = 16  # 16, 24, 32
@@ -81,7 +79,7 @@ class ProcessingSettings(BaseModel):
     dynamics: dict[str, Any] | None = None
 
     # Level matching settings
-    level_matching: dict[str, Any] | None = Field(None, alias="levelMatching")
+    level_matching: dict[str, Any] | None = None
 
     # Genre override
     genre_override: str | None = None

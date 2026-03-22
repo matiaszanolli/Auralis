@@ -51,7 +51,7 @@ export interface ProcessingSettings {
   };
 
   // Level matching settings
-  levelMatching?: {
+  level_matching?: {
     enabled: boolean;
     targetLufs: number;
     maxGain: number;
