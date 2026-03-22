@@ -17,7 +17,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector, useDispatch, shallowEqual } from 'react-redux';
 import { useCallback, useMemo } from 'react';
 import type { RootState, AppDispatch } from '@/store';
 import type { PlayerTrack, QueueTrack } from '@/types/domain';
@@ -122,7 +122,7 @@ export const usePlayer = () => {
  * Access entire queue state
  */
 export const useQueueState = () => {
-  return useSelector((state: RootState) => state.queue);
+  return useSelector((state: RootState) => state.queue, shallowEqual);
 };
 
 /**
@@ -130,7 +130,7 @@ export const useQueueState = () => {
  */
 export const useQueue = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const state = useSelector((state: RootState) => state.queue);
+  const state = useSelector((state: RootState) => state.queue, shallowEqual);
 
   // Memoize O(n) queue duration computations — only recalculate when tracks or
   // currentIndex change, not on every 10Hz position_changed re-render (fixes #2545).
