@@ -290,9 +290,26 @@ export function QueueManager({
               onKeyDown={(e) => {
                 if (e.key === 'Delete' && index !== currentIndex) {
                   handleRemoveTrack(index);
+                } else if (e.key === 'ArrowUp' && index > 0) {
+                  e.preventDefault();
+                  handleReorder(index, index - 1);
+                  // Focus follows the moved item
+                  requestAnimationFrame(() => {
+                    const items = e.currentTarget.parentElement?.querySelectorAll('[role="listitem"]');
+                    (items?.[index - 1] as HTMLElement)?.focus();
+                  });
+                } else if (e.key === 'ArrowDown' && index < tracks.length - 1) {
+                  e.preventDefault();
+                  handleReorder(index, index + 1);
+                  requestAnimationFrame(() => {
+                    const items = e.currentTarget.parentElement?.querySelectorAll('[role="listitem"]');
+                    (items?.[index + 1] as HTMLElement)?.focus();
+                  });
                 }
               }}
               tabIndex={0}
+              aria-roledescription="Reorderable item"
+              aria-label={`${track.title} by ${track.artist}, position ${index + 1} of ${tracks.length}`}
             >
               {/* Drag Handle & Index */}
               <div
