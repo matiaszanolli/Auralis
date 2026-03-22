@@ -83,7 +83,7 @@ export const GlowingArc = ({ isAnimating, intensity, energyLevel }: GlowingArcPr
           width: '8px',
           height: '8px',
           borderRadius: '50%',
-          background: `linear-gradient(135deg, rgba(115, 102, 240, 1), rgba(0, 200, 220, 1))`,
+          background: `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.full}, rgba(0, 200, 220, 1))`,
           boxShadow: `0 0 ${12 + glowIntensity * 8}px rgba(115, 102, 240, ${0.5 + glowIntensity * 0.3})`,
           transition: `all ${tokens.transitions.slow}`,
         }}

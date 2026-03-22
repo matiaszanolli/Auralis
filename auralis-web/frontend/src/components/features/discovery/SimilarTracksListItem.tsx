@@ -39,7 +39,7 @@ export const SimilarTracksListItem = ({
             px: 2,
             py: 1.5,
             '&:hover': {
-              backgroundColor: 'rgba(115, 102, 240, 0.08)'
+              backgroundColor: tokens.colors.opacityScale.accent.ultraLight
             }
           }}
         >
@@ -98,7 +98,7 @@ export const SimilarTracksListItem = ({
         </ListItemButton>
       </ListItem>
       {index < totalCount - 1 && (
-        <Divider sx={{ borderColor: 'rgba(115, 102, 240, 0.05)' }} />
+        <Divider sx={{ borderColor: tokens.colors.opacityScale.accent.minimal }} />
       )}
     </>
   );

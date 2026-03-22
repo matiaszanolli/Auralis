@@ -101,7 +101,7 @@ const SegmentButton = styled('button')<{
     ? 'rgba(255, 255, 255, 0.08)'
     : 'transparent',
   boxShadow: isSelected
-    ? 'inset 0 0 8px rgba(115, 102, 240, 0.1)'
+    ? `inset 0 0 8px ${tokens.colors.opacityScale.accent.veryLight}`
     : 'none',
 
   // Transitions

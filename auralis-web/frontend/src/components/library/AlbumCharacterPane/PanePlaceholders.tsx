@@ -48,7 +48,7 @@ export const EmptyStatePane = ({ containerStyles, enhancementSection }: EmptySta
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        zIndex: 1,
+        zIndex: tokens.zIndex.content,
       }}
     >
       <Typography
@@ -88,7 +88,7 @@ export const PendingStatePane = ({ containerStyles, enhancementSection, displayT
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        zIndex: 1,
+        zIndex: tokens.zIndex.content,
         gap: tokens.spacing.md,
       }}
     >
@@ -139,14 +139,14 @@ interface LoadingStatePaneProps {
 export const LoadingStatePane = ({ containerStyles, enhancementSection, isTrackPlaying }: LoadingStatePaneProps) => (
   <Box sx={containerStyles}>
     <FloatingParticles isAnimating={true} intensity={0.6} count={10} />
-    <Box sx={{ position: 'relative', zIndex: 1 }}>
+    <Box sx={{ position: 'relative', zIndex: tokens.zIndex.content }}>
       {enhancementSection}
       <LinearProgress
         sx={{
           mb: tokens.spacing.lg,
-          background: 'rgba(115, 102, 240, 0.15)',
+          background: tokens.colors.opacityScale.accent.lighter,
           '& .MuiLinearProgress-bar': {
-            background: 'linear-gradient(90deg, rgba(115, 102, 240, 0.8), rgba(0, 200, 220, 0.8))',
+            background: `linear-gradient(90deg, ${tokens.colors.opacityScale.accent.vivid}, rgba(0, 200, 220, 0.8))`,
           },
         }}
       />
@@ -155,7 +155,7 @@ export const LoadingStatePane = ({ containerStyles, enhancementSection, isTrackP
         sx={{
           color: tokens.colors.text.tertiary,
           textAlign: 'center',
-          textShadow: '0 0 12px rgba(115, 102, 240, 0.3)',
+          textShadow: `0 0 12px ${tokens.colors.opacityScale.accent.strong}`,
         }}
       >
         {isTrackPlaying ? 'Analyzing track character...' : 'Analyzing album character...'}
@@ -185,7 +185,7 @@ export const NoFingerprintPane = ({ containerStyles, enhancementSection, isTrack
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        zIndex: 1,
+        zIndex: tokens.zIndex.content,
       }}
     >
       <Typography
