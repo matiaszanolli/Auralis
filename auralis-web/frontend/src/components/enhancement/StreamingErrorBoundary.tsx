@@ -13,7 +13,7 @@
  * - Severity-based styling (warning, error, critical)
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { tokens } from '@/design-system';
 
 /**
@@ -176,6 +176,14 @@ export const StreamingErrorBoundary = ({
   const [retryCount, setRetryCount] = useState(0);
   const [errorHistory, setErrorHistory] = useState<StreamingError[]>([]);
   const [isDismissing, setIsDismissing] = useState(false);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Clean up retry timer on unmount (#2981)
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, []);
 
   /**
    * Get error info for display
@@ -206,7 +214,7 @@ export const StreamingErrorBoundary = ({
 
     // Exponential backoff: 1s, 2s, 4s, 8s
     const backoffMs = Math.min(1000 * Math.pow(2, newCount - 1), 8000);
-    setTimeout(() => {
+    retryTimerRef.current = setTimeout(() => {
       onRetry();
     }, backoffMs);
   }, [retryCount, onRetry, error, errorType, errorInfo.severity]);
