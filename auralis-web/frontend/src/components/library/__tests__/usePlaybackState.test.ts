@@ -12,12 +12,6 @@ import { renderHook, act } from '@testing-library/react';
 import { usePlaybackState } from '../usePlaybackState';
 
 // Mock dependencies
-vi.mock('../../../hooks/usePlayerAPI', () => ({
-  usePlayerAPI: vi.fn(() => ({
-    playTrack: vi.fn().mockResolvedValue(undefined),
-  })),
-}));
-
 vi.mock('../../shared/Toast', () => ({
   useToast: vi.fn(() => ({
     success: vi.fn(),
