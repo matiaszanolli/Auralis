@@ -27,9 +27,9 @@
   --aurora-pink: #F472B6;
 
   /* Gradients */
-  --aurora-gradient: linear-gradient(135deg, #06B6D4 0%, #7C3AED 50%, #F472B6 100%);
-  --aurora-horizontal: linear-gradient(90deg, #06B6D4, #7C3AED, #F472B6);
-  --aurora-vertical: linear-gradient(180deg, #06B6D4, #7C3AED, #F472B6);
+  --aurora-gradient: linear-gradient(135deg, #06B6D4 0%, #7366F0 50%, #F472B6 100%);
+  --aurora-horizontal: linear-gradient(90deg, #06B6D4, #7366F0, #F472B6);
+  --aurora-vertical: linear-gradient(180deg, #06B6D4, #7366F0, #F472B6);
 
   /* Semantic Colors */
   --success: #10B981;
@@ -63,9 +63,9 @@
   --elevation-2: 0 4px 6px rgba(0, 0, 0, 0.4);
   --elevation-3: 0 10px 15px rgba(0, 0, 0, 0.5);
 
-  --glow-subtle: 0 0 10px rgba(124, 58, 237, 0.3);
-  --glow-medium: 0 0 20px rgba(124, 58, 237, 0.5);
-  --glow-strong: 0 0 30px rgba(124, 58, 237, 0.7);
+  --glow-subtle: 0 0 10px rgba(115, 102, 240, 0.3);
+  --glow-medium: 0 0 20px rgba(115, 102, 240, 0.5);
+  --glow-strong: 0 0 30px rgba(115, 102, 240, 0.7);
 
   /* Transitions */
   --transition-fast: 150ms ease;
@@ -181,7 +181,7 @@ code {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(124, 58, 237, 0.4);
+  background: rgba(115, 102, 240, 0.4);
   border-radius: var(--radius-sm);
   border: 2px solid var(--midnight-blue);
   transition: all var(--transition-normal);
@@ -246,7 +246,7 @@ code {
 
 .dropzone:hover {
   border-color: var(--aurora-violet);
-  background: rgba(124, 58, 237, 0.05);
+  background: rgba(115, 102, 240, 0.05);
   box-shadow: var(--glow-subtle);
 }
 
@@ -374,7 +374,7 @@ button:focus-visible {
 
 .spectrum-glow {
   background: var(--aurora-vertical);
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.5);
+  box-shadow: 0 0 20px rgba(115, 102, 240, 0.5);
 }
 
 .spectrum-bar {
@@ -408,7 +408,7 @@ button:focus-visible {
 }
 
 .card:hover {
-  border-color: rgba(124, 58, 237, 0.3);
+  border-color: rgba(115, 102, 240, 0.3);
   box-shadow: var(--glow-subtle);
 }
 
@@ -434,7 +434,7 @@ textarea {
 input:focus,
 textarea:focus {
   border-color: var(--aurora-violet);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 0 0 3px rgba(115, 102, 240, 0.2);
   outline: none;
 }
 
