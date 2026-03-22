@@ -75,9 +75,11 @@ interface UseSimilarTracksReturn {
 }
 
 /**
- * In-memory cache for similarity results
+ * In-memory LRU cache for similarity results (max 50 entries).
  * Key: `${trackId}:${limit}:${includeDetails}`, Value: SimilarTrack[]
+ * Map iteration order is insertion order, so oldest entries are first.
  */
+const CACHE_MAX_ENTRIES = 50;
 const similarityCache = new Map<string, SimilarTrack[]>();
 
 /**
@@ -128,6 +130,9 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
       const cacheKey = getCacheKey(trackId, limit, includeDetails);
       const cached = similarityCache.get(cacheKey);
       if (cached) {
+        // Promote to most-recent for LRU ordering
+        similarityCache.delete(cacheKey);
+        similarityCache.set(cacheKey, cached);
         setSimilarTracks(cached);
         setLoading(false);
         setError(null);
@@ -178,6 +183,11 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
         // Check if this is still the current request (prevent race condition)
         if (currentRequestRef.current === trackId) {
           setSimilarTracks(results);
+          // LRU eviction: remove oldest entries when cache exceeds max size
+          if (similarityCache.size >= CACHE_MAX_ENTRIES) {
+            const oldestKey = similarityCache.keys().next().value!;
+            similarityCache.delete(oldestKey);
+          }
           similarityCache.set(cacheKey, results);
           setLoading(false);
         }
