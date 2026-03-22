@@ -359,10 +359,16 @@ export const useSynchronizedVisualizations = (
   const visualizationsRef = useRef(visualizations);
   visualizationsRef.current = visualizations;
 
-  const renderAll = useCallback(() => {
-    if (!masterOptimization.shouldRender()) return;
+  // Store masterOptimization in a ref so renderAll doesn't depend on
+  // the object identity (recreated each render), preventing rAF restarts (#3046).
+  const masterOptRef = useRef(masterOptimization);
+  masterOptRef.current = masterOptimization;
 
-    masterOptimization.startRender();
+  const renderAll = useCallback(() => {
+    const opt = masterOptRef.current;
+    if (!opt.shouldRender()) return;
+
+    opt.startRender();
 
     const frameStats: { [key: string]: number } = {};
 
@@ -378,7 +384,7 @@ export const useSynchronizedVisualizations = (
 
         // Use master optimization for data processing
         const optimizedData = Array.isArray(viz.data) && typeof viz.data[0] === 'number'
-          ? masterOptimization.optimizeData(viz.data)
+          ? opt.optimizeData(viz.data)
           : viz.data;
 
         viz.renderFn(ctx, optimizedData);
@@ -390,8 +396,8 @@ export const useSynchronizedVisualizations = (
     });
 
     setRenderStats(frameStats);
-    masterOptimization.endRender();
-  }, [masterOptimization]);
+    opt.endRender();
+  }, []);
 
   // Auto-render loop
   useEffect(() => {
