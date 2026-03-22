@@ -265,6 +265,7 @@ export const StreamingErrorDisplay = ({
 
   return (
     <div
+      role="alert"
       style={{
         ...styles.container,
         opacity: isDismissing ? 0 : 1,
