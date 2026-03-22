@@ -17,7 +17,7 @@ export { SectionLabel, SectionDescription } from './Typography.styles';
  * StyledDialog - Base dialog with glass effect (Design Language v1.2.0 §4.2)
  * Used by: SettingsDialog, CreatePlaylistDialog, EditPlaylistDialog, KeyboardShortcutsHelp
  */
-export const StyledDialog = styled(Dialog)(({ theme: _theme }) => ({
+export const StyledDialog = styled(Dialog)({
   '& .MuiDialog-paper': {
     // Glass effect for elevated dialog (upgraded to strong for maximum prominence)
     background: tokens.glass.strong.background,
@@ -26,35 +26,35 @@ export const StyledDialog = styled(Dialog)(({ theme: _theme }) => ({
     boxShadow: tokens.glass.strong.boxShadow,             // Deep shadow + strong inner glow
     borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
   }
-}));
+});
 
 /**
  * StyledDialogTitle - Dialog header with aurora gradient background
  */
-export const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
+export const StyledDialogTitle = styled(DialogTitle)({
   background: tokens.gradients.aurora,
   color: tokens.colors.text.primary,
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: theme.spacing(2, 3)
-}));
+  padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+});
 
 /**
  * SectionContainer - Reusable section styling for dialog content
  */
-export const SectionContainer = styled(Box)(({ theme }) => ({
-  marginBottom: theme.spacing(3)
-}));
+export const SectionContainer = styled(Box)({
+  marginBottom: tokens.spacing.md,
+});
 
 /**
  * MetadataDialogActions - Dialog actions bar for EditMetadataDialog
  * Features border-top separator and padding
  */
-export const MetadataDialogActions = styled(DialogActions)(({ theme }) => ({
+export const MetadataDialogActions = styled(DialogActions)({
   borderTop: `1px solid ${tokens.colors.border.light}`,
-  padding: theme.spacing(2)
-}));
+  padding: tokens.spacing.sm,
+});
 
 /**
  * DialogPaperProps - Standard PaperProps for EditMetadataDialog

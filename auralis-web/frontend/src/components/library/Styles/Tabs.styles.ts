@@ -19,14 +19,14 @@ import { tokens } from '@/design-system';
  * Compact styling (minHeight 48, fontSize 0.95rem) for dialog content
  * Used by: SettingsDialog, CreatePlaylistDialog, EditPlaylistDialog
  */
-export const DialogTabs = styled(Tabs)(({ theme }) => ({
+export const DialogTabs = styled(Tabs)({
   borderBottom: `1px solid ${tokens.colors.border.light}`,
   minHeight: 48,
   '& .MuiTab-root': {
     textTransform: 'none',
     fontSize: tokens.typography.fontSize.base,
     minHeight: 48,
-    color: theme.palette.text.secondary,
+    color: tokens.colors.text.secondary,
     '&.Mui-selected': {
       color: tokens.colors.accent.primary
     }
@@ -34,16 +34,16 @@ export const DialogTabs = styled(Tabs)(({ theme }) => ({
   '& .MuiTabs-indicator': {
     backgroundColor: tokens.colors.accent.primary
   }
-}));
+});
 
 /**
  * DetailViewTabs - Tab navigation for detail view interfaces
  * Larger styling (fontSize 1rem, marginBottom 3, minWidth 120) for artist/album views
  * Used by: ArtistDetailView, AlbumDetailView
  */
-export const DetailViewTabs = styled(Tabs)(({ theme }) => ({
+export const DetailViewTabs = styled(Tabs)({
   borderBottom: `1px solid ${tokens.colors.border.light}`,
-  marginBottom: theme.spacing(3),
+  marginBottom: tokens.spacing.md,
   '& .MuiTab-root': {
     textTransform: 'none',
     fontSize: tokens.typography.fontSize.md,
@@ -56,7 +56,7 @@ export const DetailViewTabs = styled(Tabs)(({ theme }) => ({
   '& .MuiTabs-indicator': {
     backgroundColor: tokens.colors.accent.primary
   }
-}));
+});
 
 /**
  * NOTE: StyledTabs is exported from ArtistDetail.styles.ts as a re-export of DetailViewTabs

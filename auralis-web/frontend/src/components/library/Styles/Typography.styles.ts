@@ -22,37 +22,37 @@ import { tokens } from '@/design-system';
  * Used for: form section titles, dialog section headers
  * Features: bold weight, primary color, margin-bottom
  */
-export const SectionLabel = styled(Typography)(({ theme }) => ({
+export const SectionLabel = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.semibold,
   color: tokens.colors.text.primary,
-  marginBottom: theme.spacing(1),
-}));
+  marginBottom: tokens.spacing.xs,
+});
 
 /**
  * SectionDescription - Secondary section text
  * Used for: form section descriptions, helper text
  * Features: dimmed color, small font, reduced margin
  */
-export const SectionDescription = styled(Typography)(({ theme }) => ({
+export const SectionDescription = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
   color: tokens.colors.text.secondary,
-  marginTop: theme.spacing(0.5),
-}));
+  marginTop: '2px',
+});
 
 /**
  * CategoryHeader - Section category header with uppercase styling
  * Used for: search results category headers, list section headers
  * Features: uppercase, bold, letter-spacing, padding
  */
-export const CategoryHeader = styled(Typography)(({ theme }) => ({
+export const CategoryHeader = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
   fontWeight: tokens.typography.fontWeight.bold,
   textTransform: 'uppercase',
   color: tokens.colors.text.secondary,
-  padding: theme.spacing(2, 2, 1, 2),
+  padding: `${tokens.spacing.sm} ${tokens.spacing.sm} ${tokens.spacing.xs} ${tokens.spacing.sm}`,
   letterSpacing: tokens.typography.letterSpacing.loose,
-}));
+});
 
 /**
  * ResultTitle - Search result item title
@@ -70,40 +70,40 @@ export const ResultTitle = styled(Typography)({
  * Used for: search results secondary info, artist/album info
  * Features: dimmed color, slightly smaller font
  */
-export const ResultSubtitle = styled(Typography)(({ theme: _theme }) => ({
+export const ResultSubtitle = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
   color: tokens.colors.text.secondary,
-}));
+});
 
 /**
  * SmallText - Compact text for dense UI
  * Used for: metadata, timestamps, utility text
  * Features: small font, secondary color
  */
-export const SmallText = styled(Typography)(({ theme: _theme }) => ({
+export const SmallText = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
   color: tokens.colors.text.secondary,
   fontWeight: tokens.typography.fontWeight.normal,
-}));
+});
 
 /**
  * SecondaryText - Dimmed secondary text
  * Used for: inactive elements, helper text, disabled state
  * Features: disabled color, normal weight
  */
-export const SecondaryText = styled(Typography)(({ theme: _theme }) => ({
+export const SecondaryText = styled(Typography)({
   color: tokens.colors.text.secondary,
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.normal,
-}));
+});
 
 /**
  * HelperText - Small helper or hint text
  * Used for: form helper text, tooltips, hints
  * Features: very small, disabled color, reduced line height
  */
-export const HelperText = styled(Typography)(({ theme: _theme }) => ({
+export const HelperText = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
   color: tokens.colors.text.muted,
   lineHeight: tokens.typography.lineHeight.tight,
-}));
+});

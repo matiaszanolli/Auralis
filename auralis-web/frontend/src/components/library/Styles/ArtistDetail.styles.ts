@@ -17,9 +17,9 @@ export { DetailViewTabs as StyledTabs } from './Tabs.styles';
  * AlbumCard - Card container for album displays in artist view
  * Features hover elevation and color transition on album title
  */
-export const AlbumCard = styled(Paper)(({ theme }) => ({
+export const AlbumCard = styled(Paper)({
   background: tokens.colors.opacityScale.accent.ultraLight,
-  borderRadius: theme.spacing(2),
+  borderRadius: tokens.spacing.sm,
   overflow: 'hidden',
   cursor: 'pointer',
   transition: tokens.transitions.all,
@@ -31,32 +31,32 @@ export const AlbumCard = styled(Paper)(({ theme }) => ({
       color: tokens.colors.accent.primary
     }
   }
-}));
+});
 
 /**
  * AlbumTitle - Title typography for album cards
  */
-export const AlbumTitle = styled(Typography)(({ theme: _theme }) => ({
+export const AlbumTitle = styled(Typography)({
   fontSize: tokens.typography.fontSize.md,
   fontWeight: tokens.typography.fontWeight.semibold,
   color: tokens.colors.text.primary,
   marginBottom: 4,
   transition: tokens.transitions.color
-}));
+});
 
 /**
  * AlbumInfo - Secondary information typography for album cards (year, track count)
  */
-export const AlbumInfo = styled(Typography)(({ theme: _theme }) => ({
+export const AlbumInfo = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
   color: tokens.colors.text.secondary
-}));
+});
 
 /**
  * TracksTableContainer - Container for the tracks table with styling
  */
-export const TracksTableContainer = styled(TableContainer)(({ theme }) => ({
+export const TracksTableContainer = styled(TableContainer)({
   background: tokens.colors.opacityScale.accent.ultraLight,
-  borderRadius: theme.spacing(2),
+  borderRadius: tokens.spacing.sm,
   backdropFilter: 'blur(10px)'
-}));
+});

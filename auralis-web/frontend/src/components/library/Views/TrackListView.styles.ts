@@ -1,11 +1,12 @@
 import { styled } from '@mui/material/styles';
 import { Paper, Box } from '@mui/material';
+import { tokens } from '@/design-system';
 
 export const ListViewContainer = styled(Paper)(({ theme }) => ({
   background: 'rgba(255,255,255,0.05)',
   borderRadius: theme.shape.borderRadius * 3,
   overflow: 'hidden',
-  padding: theme.spacing(2),
+  padding: tokens.spacing.sm,
 }));
 
 export const TrackItemWrapper = styled(Box)({

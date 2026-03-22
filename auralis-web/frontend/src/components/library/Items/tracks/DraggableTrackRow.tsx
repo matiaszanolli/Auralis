@@ -12,15 +12,16 @@ import type { LibraryTrack as Track } from '@/types/domain';
 import { styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import { tokens } from '@/design-system';
 
-const DragHandle = styled(Box)(({ theme }) => ({
+const DragHandle = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   width: '24px',
-  marginRight: theme.spacing(1),
+  marginRight: tokens.spacing.xs,
   cursor: 'grab',
-  color: theme.palette.text.secondary,
+  color: tokens.colors.text.secondary,
   opacity: 0.6,
   transition: 'opacity 0.2s ease',
 
@@ -31,7 +32,7 @@ const DragHandle = styled(Box)(({ theme }) => ({
   '&:active': {
     cursor: 'grabbing',
   },
-}));
+});
 
 const DraggableContainer = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'isDragging',
