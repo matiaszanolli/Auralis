@@ -100,4 +100,4 @@ const SelectableTrackRow = ({
   );
 };
 
-export default SelectableTrackRow;
+export default React.memo(SelectableTrackRow);
