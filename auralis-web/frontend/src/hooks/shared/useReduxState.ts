@@ -24,6 +24,7 @@ import type { PlayerTrack, QueueTrack } from '@/types/domain';
 import * as playerActions from '@/store/slices/playerSlice';
 import * as queueActions from '@/store/slices/queueSlice';
 import * as cacheActions from '@/store/slices/cacheSlice';
+import type { CacheStats, CacheHealth } from '@/services/api/standardizedAPIClient';
 import * as connectionActions from '@/store/slices/connectionSlice';
 import { selectFormattedRemainingTime } from '@/store/selectors';
 
@@ -223,11 +224,11 @@ export const useCache = () => {
 
     // Actions
     setStats: useCallback(
-      (stats: any) => dispatch(cacheActions.setCacheStats(stats)),
+      (stats: CacheStats) => dispatch(cacheActions.setCacheStats(stats)),
       [dispatch]
     ),
     setHealth: useCallback(
-      (health: any) => dispatch(cacheActions.setCacheHealth(health)),
+      (health: CacheHealth) => dispatch(cacheActions.setCacheHealth(health)),
       [dispatch]
     ),
     clear: useCallback(
