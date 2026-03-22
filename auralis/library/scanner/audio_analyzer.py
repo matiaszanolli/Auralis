@@ -14,6 +14,7 @@ from pathlib import Path
 
 import soundfile as sf
 
+from ...io.loaders.ffmpeg_loader import _probe_audio
 from ...utils.logging import debug
 from ..scan_models import AudioFileInfo
 from .config import HASH_CHUNK_SIZE
@@ -53,7 +54,7 @@ class AudioAnalyzer:
                 modified_time=datetime.fromtimestamp(file_stat.st_mtime)
             )
 
-            # Extract audio properties using soundfile
+            # Extract audio properties using soundfile (WAV, FLAC, AIFF)
             try:
                 sf_info = sf.info(file_path)
                 info_obj.duration = sf_info.duration
@@ -62,6 +63,16 @@ class AudioAnalyzer:
                 info_obj.format = sf_info.format
             except Exception as e:
                 debug(f"SoundFile analysis failed for {file_path}: {e}")
+                # Fall back to ffprobe for formats SoundFile doesn't support
+                # (MP3, OGG, M4A, etc.)
+                probe = _probe_audio(path)
+                if probe['duration'] is not None:
+                    info_obj.duration = probe['duration']
+                if probe['sample_rate'] is not None:
+                    info_obj.sample_rate = probe['sample_rate']
+                if probe['channels'] is not None:
+                    info_obj.channels = probe['channels']
+                info_obj.format = path.suffix.lstrip('.').upper()
 
             # Generate file hash for duplicate detection
             try:
