@@ -562,7 +562,7 @@ def create_similarity_router(
             skipped_count = 0
 
             for track in missing_tracks:
-                if await asyncio.to_thread(queue.enqueue, track.id):
+                if queue.enqueue(track.id):
                     enqueued_count += 1
                 else:
                     skipped_count += 1  # Already queued or processing
