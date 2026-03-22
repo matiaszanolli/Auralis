@@ -65,7 +65,7 @@ export const PlaybackControls = ({
             }}
             onClick={onPlayEnhanced}
             disabled={disabled}
-            title="Play with enhanced audio processing"
+            aria-label="Play with enhanced audio processing"
           >
             &#x25B6; Play Enhanced
           </button>
@@ -74,7 +74,7 @@ export const PlaybackControls = ({
             <button
               style={styles.controlButton}
               onClick={onTogglePause}
-              title={isPaused ? 'Resume playback' : 'Pause playback'}
+              aria-label={isPaused ? 'Resume playback' : 'Pause playback'}
             >
               {isPaused ? '\u25B6 Resume' : '\u23F8 Pause'}
             </button>
@@ -82,7 +82,7 @@ export const PlaybackControls = ({
             <button
               style={styles.controlButton}
               onClick={onStop}
-              title="Stop enhanced playback"
+              aria-label="Stop enhanced playback"
             >
               &#x23F9; Stop
             </button>
@@ -98,7 +98,7 @@ export const PlaybackControls = ({
             <button
               style={styles.errorDismiss}
               onClick={onDismissError}
-              title="Dismiss error"
+              aria-label="Dismiss error"
             >
               &#x2715;
             </button>
