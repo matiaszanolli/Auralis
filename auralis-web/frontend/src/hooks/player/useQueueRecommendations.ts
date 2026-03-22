@@ -28,7 +28,7 @@
  * @module hooks/player/useQueueRecommendations
  */
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { QueueRecommender, type TrackRecommendation } from '@/utils/queue/queue_recommender';
 import type { Track } from '@/types/domain';
 
@@ -188,7 +188,7 @@ export function useQueueRecommendations(
   }, [currentTrack, queue, availableTracks]);
 
   // Utility: Get recommendations for specific track
-  const getRecommendationsFor = (track: Track, count: number = 5) => {
+  const getRecommendationsFor = useCallback((track: Track, count: number = 5) => {
     return QueueRecommender.recommendSimilarTracks(
       track,
       availableTracks,
@@ -197,17 +197,17 @@ export function useQueueRecommendations(
         excludeQueue: true,
       }
     );
-  };
+  }, [availableTracks]);
 
   // Utility: Get tracks by artist
-  const getByArtist = (artist: string, count: number = 10) => {
+  const getByArtist = useCallback((artist: string, count: number = 10) => {
     return QueueRecommender.getByArtist(artist, availableTracks, count, queue);
-  };
+  }, [availableTracks, queue]);
 
   // Utility: Get albums by artist
-  const getAlbumsByArtist = (artist: string) => {
+  const getAlbumsByArtist = useCallback((artist: string) => {
     return QueueRecommender.getAlbumsByArtist(artist, availableTracks);
-  };
+  }, [availableTracks]);
 
   return {
     forYouRecommendations,
