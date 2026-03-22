@@ -526,4 +526,61 @@ const styles: Record<string, React.CSSProperties> = {
   },
 };
 
+/**
+ * StreamingErrorBoundaryWrapper — real React error boundary (class component).
+ *
+ * Catches render-time exceptions from children and displays the
+ * StreamingErrorBoundary UI as a fallback. Supports retry via
+ * state reset (#2960).
+ */
+
+interface ErrorBoundaryWrapperProps {
+  children: React.ReactNode;
+  onFallback?: () => void;
+}
+
+interface ErrorBoundaryWrapperState {
+  hasError: boolean;
+  error: string | null;
+}
+
+export class StreamingErrorBoundaryWrapper extends React.Component<
+  ErrorBoundaryWrapperProps,
+  ErrorBoundaryWrapperState
+> {
+  constructor(props: ErrorBoundaryWrapperProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryWrapperState {
+    return { hasError: true, error: error.message };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    console.error('[StreamingErrorBoundary] Caught render error:', error, info);
+  }
+
+  handleRetry = (): void => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render(): React.ReactNode {
+    if (this.state.hasError) {
+      return (
+        <StreamingErrorBoundary
+          error={this.state.error}
+          errorType={StreamingErrorType.UNKNOWN}
+          onRetry={this.handleRetry}
+          onFallback={this.props.onFallback}
+          autoDismissMs={0}
+          allowRetry={true}
+          allowFallback={!!this.props.onFallback}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default StreamingErrorBoundary;
