@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
 
 /**
@@ -79,17 +79,17 @@ export const useAppLayout = (): LayoutState & LayoutActions => {
     }
   }, [isTablet]);
 
-  const toggleSidebarCollapse = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
-  };
+  const toggleSidebarCollapse = useCallback(() => {
+    setSidebarCollapsed(prev => !prev);
+  }, []);
 
-  const toggleMobileDrawer = () => {
-    setMobileDrawerOpen(!mobileDrawerOpen);
-  };
+  const toggleMobileDrawer = useCallback(() => {
+    setMobileDrawerOpen(prev => !prev);
+  }, []);
 
-  const togglePresetPaneCollapse = () => {
-    setPresetPaneCollapsed(!presetPaneCollapsed);
-  };
+  const togglePresetPaneCollapse = useCallback(() => {
+    setPresetPaneCollapsed(prev => !prev);
+  }, []);
 
   return {
     // State
