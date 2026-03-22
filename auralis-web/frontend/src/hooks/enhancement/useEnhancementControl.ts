@@ -181,13 +181,18 @@ export function useEnhancementControl(): EnhancementControlActions {
   // API twice with the same value (fixes #2404).
   const isTogglingRef = useRef(false);
 
+  // Keep a ref in sync with the latest enabled value so toggleEnabled never
+  // reads a stale closure (fixes #2990 — WS race overwrites correct state).
+  const enabledRef = useRef(state.enabled);
+  useEffect(() => { enabledRef.current = state.enabled; }, [state.enabled]);
+
   const toggleEnabled = useCallback(async (): Promise<void> => {
     if (isTogglingRef.current) return;
     isTogglingRef.current = true;
     setIsLoading(true);
     setError(null);
 
-    const newEnabled = !state.enabled;
+    const newEnabled = !enabledRef.current;
 
     try {
       await post('/api/player/enhancement/toggle', { enabled: newEnabled });
@@ -209,7 +214,7 @@ export function useEnhancementControl(): EnhancementControlActions {
       isTogglingRef.current = false;
       setIsLoading(false);
     }
-  }, [post, state.enabled]);
+  }, [post]);
 
   /**
    * Change enhancement preset
