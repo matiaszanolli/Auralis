@@ -231,6 +231,11 @@ class ChunkBoundaryManager:
         # Trim start context if not first chunk
         if trim_start_samples > 0:
             actual_trim_start = min(trim_start_samples, max_trim_samples)
+            if actual_trim_start < trim_start_samples:
+                logger.warning(
+                    f"Chunk {chunk_index}: start trim capped by max_trim_fraction={max_trim_fraction} "
+                    f"(requested {trim_start_samples} samples, capped to {actual_trim_start})"
+                )
             if chunk_length > actual_trim_start:
                 audio_chunk = audio_chunk[actual_trim_start:]
                 logger.debug(
@@ -247,6 +252,11 @@ class ChunkBoundaryManager:
         if trim_end_samples > 0:
             chunk_length = len(audio_chunk)  # Update after potential start trim
             actual_trim_end = min(trim_end_samples, max_trim_samples)
+            if actual_trim_end < trim_end_samples:
+                logger.warning(
+                    f"Chunk {chunk_index}: end trim capped by max_trim_fraction={max_trim_fraction} "
+                    f"(requested {trim_end_samples} samples, capped to {actual_trim_end})"
+                )
             if chunk_length > actual_trim_end:
                 audio_chunk = audio_chunk[:-actual_trim_end]
                 logger.debug(
