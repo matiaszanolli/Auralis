@@ -702,10 +702,10 @@ const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsProps) => 
               // Multi-layer glow effect
               boxShadow: `
                 inset 0 1px 0 rgba(255, 255, 255, ${0.08 + glowIntensity * 0.08}),
-                inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+                inset 0 -1px 0 ${tokens.colors.opacityScale.dark.lighter},
                 ${glowIntensity > 0.1
                   ? `0 0 ${8 + glowIntensity * 10}px hsla(${tagHue}, 70%, 55%, ${0.15 + glowIntensity * 0.25})`
-                  : '0 2px 4px rgba(0, 0, 0, 0.1)'}
+                  : `0 2px 4px ${tokens.colors.opacityScale.dark.light}`}
               `,
               // Glow animation when animating
               animation: isAnimating
@@ -716,7 +716,7 @@ const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsProps) => 
                 background: `rgba(40, 55, 85, ${0.5 + glowIntensity * 0.2})`,
                 boxShadow: `
                   inset 0 1px 0 rgba(255, 255, 255, 0.12),
-                  inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+                  inset 0 -1px 0 ${tokens.colors.opacityScale.dark.standard},
                   0 0 16px hsla(${tagHue}, 70%, 55%, 0.35)
                 `,
               },
@@ -859,7 +859,7 @@ export const AlbumCharacterPane = ({
               color: tokens.colors.text.tertiary,
               textAlign: 'center',
               fontSize: tokens.typography.fontSize.sm,
-              textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+              textShadow: `0 2px 8px ${tokens.colors.opacityScale.dark.strong}`,
             }}
           >
             Play a track to see its sonic character
@@ -894,7 +894,7 @@ export const AlbumCharacterPane = ({
               color: tokens.colors.text.secondary,
               textAlign: 'center',
               fontSize: tokens.typography.fontSize.sm,
-              textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+              textShadow: `0 2px 8px ${tokens.colors.opacityScale.dark.strong}`,
             }}
           >
             {displayTitle || 'Now Playing'}
@@ -981,7 +981,7 @@ export const AlbumCharacterPane = ({
               color: tokens.colors.text.tertiary,
               textAlign: 'center',
               fontSize: tokens.typography.fontSize.sm,
-              textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+              textShadow: `0 2px 8px ${tokens.colors.opacityScale.dark.strong}`,
             }}
           >
             {currentTrack?.id

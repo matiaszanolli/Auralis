@@ -28,7 +28,7 @@ export const PlayOverlay = ({ isHovered, onClick, title }: PlayOverlayProps) => 
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: isHovered ? 'rgba(0, 0, 0, 0.19)' : 'transparent',
+        background: isHovered ? tokens.colors.opacityScale.dark.standard : 'transparent',
         backdropFilter: isHovered ? 'blur(4px)' : 'none',
         transition: 'all 0.3s ease',
         opacity: isHovered ? 1 : 0,

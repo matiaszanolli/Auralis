@@ -43,7 +43,7 @@ export const RadialCenterHub = ({ preset, size }: RadialCenterHubProps) => {
           fontSize: 32,
           color: tokens.colors.text.primary,
           mb: 0.5,
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+          filter: `drop-shadow(0 2px 4px ${tokens.colors.opacityScale.dark.strong})`,
           animation: 'pulse 2s ease-in-out infinite',
           '@keyframes pulse': {
             '0%, 100%': { transform: 'scale(1)' },
@@ -61,7 +61,7 @@ export const RadialCenterHub = ({ preset, size }: RadialCenterHubProps) => {
           fontSize: 13,
           textTransform: 'uppercase',
           letterSpacing: 1.2,
-          textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+          textShadow: `0 2px 4px ${tokens.colors.opacityScale.dark.strong}`,
         }}
       >
         {preset.label}

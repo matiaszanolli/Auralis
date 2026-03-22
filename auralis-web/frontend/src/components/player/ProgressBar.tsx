@@ -368,7 +368,7 @@ export const ProgressBar = ({
             backgroundColor: tokens.colors.bg.tertiary,
             borderRadius: tokens.borderRadius.full,
             overflow: 'hidden',
-            boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.2)',
+            boxShadow: `inset 0 1px 3px ${tokens.colors.opacityScale.dark.standard}`,
           }}
           data-testid="progress-bar-track"
         >

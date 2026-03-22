@@ -193,7 +193,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: tokens.colors.opacityScale.dark.intense,
     zIndex: 1000,
   },
 

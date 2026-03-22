@@ -167,7 +167,7 @@ export const MediaCard = React.memo(function MediaCard(props: MediaCardProps) {
           transform: 'scale(1.03)',                  // Scale-based float (Design Language §5 - no translateY)
           background: tokens.glass.medium.background, // Upgrade to medium glass
           backdropFilter: tokens.glass.medium.backdropFilter,
-          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Enhanced elevation shadow
+          boxShadow: `0 12px 32px ${tokens.colors.opacityScale.dark.strong}, 0 0 0 1px rgba(255, 255, 255, 0.12)`, // Enhanced elevation shadow
 
           '&::before': {
             opacity: 0.5,                            // Subtle shimmer, not loud

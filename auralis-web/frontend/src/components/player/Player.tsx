@@ -432,7 +432,7 @@ const styles = {
     backdropFilter: 'blur(10px) saturate(1.08)',          // Moderate blur preserves starfield
     border: 'none',
     // Glass bevel: top highlight + outer shadow
-    boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.10)',
+    boxShadow: `0 -8px 32px ${tokens.colors.opacityScale.dark.standard}, inset 0 1px 0 rgba(255, 255, 255, 0.10)`,
 
     zIndex: 1000,
     padding: 0,

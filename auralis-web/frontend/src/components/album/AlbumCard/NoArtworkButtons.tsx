@@ -37,7 +37,7 @@ export const NoArtworkButtons = ({
         left: 0,
         right: 0,
         p: 1,
-        background: 'linear-gradient(to top, rgba(0,0,0,0.42), transparent)',
+        background: `linear-gradient(to top, ${tokens.colors.opacityScale.dark.veryStrong}, transparent)`,
         display: 'flex',
         gap: 0.5,
         justifyContent: 'center',

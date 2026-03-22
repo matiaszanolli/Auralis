@@ -212,7 +212,7 @@ export function ConnectionStatusIndicator({
             border: `1px solid ${tokens.colors.border.medium}`,
             borderRadius: '8px',
             minWidth: '280px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+            boxShadow: `0 4px 20px ${tokens.colors.opacityScale.dark.veryStrong}`,
           }}
           onClick={(e) => e.stopPropagation()}
         >

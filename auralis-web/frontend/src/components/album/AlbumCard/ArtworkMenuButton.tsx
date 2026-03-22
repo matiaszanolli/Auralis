@@ -24,9 +24,9 @@ export const ArtworkMenuButton = ({ onClick }: ArtworkMenuButtonProps) => {
         top: 8,
         right: 8,
         color: tokens.colors.text.primary,
-        background: 'rgba(0, 0, 0, 0.19)',
+        background: tokens.colors.opacityScale.dark.standard,
         backdropFilter: 'blur(10px)',
-        '&:hover': { background: 'rgba(0, 0, 0, 0.42)' },
+        '&:hover': { background: tokens.colors.opacityScale.dark.veryStrong },
       }}
     >
       <MoreVert />

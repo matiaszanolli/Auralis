@@ -356,7 +356,7 @@ export const QueuePanel = ({
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
+            background: tokens.colors.opacityScale.dark.intense,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -375,7 +375,7 @@ export const QueuePanel = ({
               border: `1px solid ${tokens.colors.border.medium}`,
               padding: tokens.spacing.lg,
               maxWidth: '360px',
-              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+              boxShadow: `0 10px 40px ${tokens.colors.opacityScale.dark.strong}`,
             }}
             onClick={(e) => e.stopPropagation()}
           >

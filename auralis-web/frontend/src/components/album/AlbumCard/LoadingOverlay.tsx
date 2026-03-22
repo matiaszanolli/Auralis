@@ -24,7 +24,7 @@ export const LoadingOverlay = ({ show }: LoadingOverlayProps) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.42)',
+        background: tokens.colors.opacityScale.dark.veryStrong,
         backdropFilter: 'blur(4px)',
       }}
     >

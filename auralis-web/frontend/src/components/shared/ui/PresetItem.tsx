@@ -79,7 +79,7 @@ export const PresetItem = ({
             ? `0 0 30px ${presetColor}99`
             : isHovered
             ? `0 0 20px ${presetColor}66`
-            : '0 2px 8px rgba(0, 0, 0, 0.19)',
+            : `0 2px 8px ${tokens.colors.opacityScale.dark.standard}`,
           zIndex: isActive ? 10 : isHovered ? 5 : 1,
           '&:hover': {
             transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px)) scale(1.05)`,
@@ -98,7 +98,7 @@ export const PresetItem = ({
               ? tokens.colors.text.primary
               : tokens.colors.text.secondary,
             transition: 'all 0.3s ease',
-            filter: isActive ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' : 'none',
+            filter: isActive ? `drop-shadow(0 2px 4px ${tokens.colors.opacityScale.dark.strong})` : 'none',
           }}
         >
           {preset.icon}

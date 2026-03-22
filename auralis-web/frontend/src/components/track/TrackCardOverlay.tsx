@@ -52,7 +52,7 @@ export const TrackCardOverlay = ({
       {/* Play button overlay */}
       <PlayOverlay
         sx={{
-          background: isHovered ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
+          background: isHovered ? tokens.colors.opacityScale.dark.intense : 'transparent',
           backdropFilter: isHovered ? 'blur(4px)' : 'none',
           opacity: isHovered ? 1 : 0,
         }}

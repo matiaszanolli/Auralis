@@ -274,7 +274,7 @@ export function CacheHealthWidget({
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
+            background: tokens.colors.opacityScale.dark.intense,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
