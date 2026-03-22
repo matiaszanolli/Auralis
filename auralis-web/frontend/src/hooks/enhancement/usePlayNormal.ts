@@ -589,6 +589,27 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     }
   }, [isPlaying, isPaused]);
 
+  /**
+   * Handle WebSocket disconnection - clean up playback state to prevent
+   * stale engine on reconnect (mirrors usePlayEnhanced, fixes #2847).
+   */
+  useEffect(() => {
+    if (!wsContext.isConnected && playbackEngineRef.current) {
+      console.log('[usePlayNormal] WebSocket disconnected - cleaning up playback state');
+
+      playbackEngineRef.current.stopPlayback();
+      playbackEngineRef.current = null;
+      pcmBufferRef.current = null;
+      streamingMetadataRef.current = null;
+      pendingChunksRef.current = [];
+
+      setCurrentTime(0);
+      setIsPaused(false);
+
+      dispatch(resetStreaming('normal'));
+    }
+  }, [wsContext.isConnected, dispatch]);
+
   return {
     playNormal,
     stopPlayback,
