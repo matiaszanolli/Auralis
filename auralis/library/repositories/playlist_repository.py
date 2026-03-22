@@ -12,6 +12,7 @@ from typing import Any
 from collections.abc import Callable
 
 from sqlalchemy import select
+from ..models.base import track_playlist
 from sqlalchemy.orm import Session, selectinload
 
 from ...utils.logging import debug, error, info
@@ -192,8 +193,18 @@ class PlaylistRepository:
             if not playlist or not track:
                 return False
 
-            # Remove if already in playlist
-            if track in playlist.tracks:
+            # Check membership via EXISTS subquery (avoids lazy-loading all tracks)
+            already_exists = session.scalar(
+                select(
+                    select(track_playlist)
+                    .where(track_playlist.c.playlist_id == playlist.id)
+                    .where(track_playlist.c.track_id == track.id)
+                    .exists()
+                )
+            )
+
+            if already_exists:
+                # Remove first so we can re-insert at the desired position
                 playlist.tracks.remove(track)
 
             # Add at specific position or append
