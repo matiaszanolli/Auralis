@@ -161,6 +161,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   // Refs for tracking ongoing requests and query stability
   // Note: request cancellation is handled by useRestAPI's own AbortController.
   const queryKeyRef = useRef<string>('');
+  const isFetchingRef = useRef<boolean>(false);
   const isFetchingMoreRef = useRef<boolean>(false);
 
   // Constants
@@ -230,12 +231,13 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       // Generate query key for deduplication
       const queryKey = `${queryType}:${url}:${targetOffset}`;
 
-      // Skip if same query already in flight
-      if (queryKeyRef.current === queryKey && isLoading) {
+      // Skip if same query already in flight (use ref to avoid stale closure)
+      if (queryKeyRef.current === queryKey && isFetchingRef.current) {
         return;
       }
 
       queryKeyRef.current = queryKey;
+      isFetchingRef.current = true;
 
       setIsLoading(true);
       setError(null);
@@ -270,6 +272,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
         setError(apiError);
       } finally {
+        isFetchingRef.current = false;
         setIsLoading(false);
       }
     },
@@ -281,8 +284,8 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
    * Includes deduplication to prevent concurrent fetch requests
    */
   const fetchMore = useCallback(async (): Promise<void> => {
-    // Guard: Skip if already fetching, no more items, or currently loading
-    if (isFetchingMoreRef.current || !hasMore || isLoading) {
+    // Guard: Skip if already fetching, no more items, or query in flight
+    if (isFetchingMoreRef.current || !hasMore || isFetchingRef.current) {
       return;
     }
 
@@ -311,7 +314,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       // Always clear the fetching flag
       isFetchingMoreRef.current = false;
     }
-  }, [api, offset, limit, hasMore, isLoading, buildEndpoint, extractItemsFromResponse]);
+  }, [api, offset, limit, hasMore, buildEndpoint, extractItemsFromResponse]);
 
   /**
    * Refetch - Reset and fetch from beginning
