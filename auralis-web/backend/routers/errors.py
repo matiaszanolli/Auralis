@@ -77,12 +77,15 @@ def handle_query_error(operation: str, error: Exception) -> NoReturn:
     """
     Centralized error handler for query operations.
 
+    Maps transient SQLite/SQLAlchemy errors to HTTP 503 (retryable) and
+    reserves HTTP 500 for truly unexpected failures (#3222).
+
     Args:
         operation: Description of the operation that failed (e.g., "get tracks")
         error: The exception that was raised
 
     Raises:
-        HTTPException: 500 with standardized error message
+        HTTPException: 503 for transient DB errors, 500 for others
 
     Example:
         try:
@@ -91,4 +94,10 @@ def handle_query_error(operation: str, error: Exception) -> NoReturn:
             raise handle_query_error("get tracks", e)
     """
     logger.error(f"Query error during {operation}: {error}", exc_info=True)
+
+    # Transient SQLite errors → 503 so clients know to retry
+    from sqlalchemy.exc import OperationalError
+    if isinstance(error, OperationalError):
+        raise ServiceUnavailableError(f"Database temporarily unavailable during {operation}")
+
     raise InternalServerError(operation, error)
