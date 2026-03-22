@@ -192,6 +192,7 @@ export function usePaginatedAPI<T = any>(
     goToPage: (pageNumber: number) => Promise<void>;
   };
   refetch: () => Promise<void>;
+  reset: () => void;
 } {
   const apiClient = useRef<StandardizedAPIClient | null>(null);
   const limit = options?.initialLimit ?? 50;
@@ -264,26 +265,43 @@ export function usePaginatedAPI<T = any>(
     fetchPage(0);
   }, [fetchPage]);
 
+  const reset = useCallback(() => {
+    setState({ data: [], loading: false, error: null });
+    setPagination({ limit, offset: 0, total: 0, hasMore: false });
+  }, [limit]);
+
+  const nextPage = useCallback(async () => {
+    if (pagination.hasMore) {
+      await fetchPage(pagination.offset + limit);
+    }
+  }, [pagination.hasMore, pagination.offset, limit, fetchPage]);
+
+  const prevPage = useCallback(async () => {
+    if (pagination.offset > 0) {
+      await fetchPage(Math.max(0, pagination.offset - limit));
+    }
+  }, [pagination.offset, limit, fetchPage]);
+
+  const goToPage = useCallback(async (pageNumber: number) => {
+    const offset = (pageNumber - 1) * limit;
+    await fetchPage(offset);
+  }, [limit, fetchPage]);
+
+  const refetch = useCallback(
+    () => fetchPage(pagination.offset),
+    [fetchPage, pagination.offset]
+  );
+
   return {
     ...state,
     pagination: {
       ...pagination,
-      nextPage: async () => {
-        if (pagination.hasMore) {
-          await fetchPage(pagination.offset + limit);
-        }
-      },
-      prevPage: async () => {
-        if (pagination.offset > 0) {
-          await fetchPage(Math.max(0, pagination.offset - limit));
-        }
-      },
-      goToPage: async (pageNumber: number) => {
-        const offset = (pageNumber - 1) * limit;
-        await fetchPage(offset);
-      }
+      nextPage,
+      prevPage,
+      goToPage,
     },
-    refetch: () => fetchPage(pagination.offset)
+    refetch,
+    reset,
   };
 }
 
