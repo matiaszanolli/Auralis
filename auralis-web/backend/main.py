@@ -156,7 +156,7 @@ logger.info(f"Looking for frontend at: {frontend_path}")
 # Only mount static files in production (when not running --dev)
 # In development, Vite serves the frontend and proxies API requests
 # StaticFiles mount at "/" interferes with WebSocket routes, so we must avoid it in dev mode
-is_dev_mode = "--dev" in sys.argv or os.environ.get("DEV_MODE")
+is_dev_mode = "--dev" in sys.argv or os.environ.get("DEV_MODE", "").lower() in ("1", "true", "yes")
 
 if not is_dev_mode and frontend_path.exists():
     logger.info(f"✅ Serving frontend from: {frontend_path} (production mode)")

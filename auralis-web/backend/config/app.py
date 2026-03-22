@@ -32,7 +32,7 @@ def create_app(lifespan: Any = None) -> FastAPI:
     """
     # Only expose Swagger UI / ReDoc in development mode to avoid leaking the
     # full API schema in production (fixes #2418).
-    is_dev = bool(os.environ.get("DEV_MODE")) or "--dev" in sys.argv
+    is_dev = os.environ.get("DEV_MODE", "").lower() in ("1", "true", "yes") or "--dev" in sys.argv
     app = FastAPI(
         title="Auralis Web API",
         description="Modern web backend for Auralis audio processing",
