@@ -200,34 +200,40 @@ export function createErrorTrackingMiddleware(
 
   return (store) => {
     return (next) => (action: unknown): unknown => {
-      const act = action as Record<string, any>;
+      // Runtime guards to safely access action properties without Record<string, any> cast (#3044)
+      const actionType = (action != null && typeof action === 'object' && 'type' in action && typeof (action as { type: unknown }).type === 'string')
+        ? (action as { type: string }).type
+        : undefined;
+      const actionPayload = (action != null && typeof action === 'object' && 'payload' in action)
+        ? (action as { payload: unknown }).payload
+        : undefined;
+
       try {
         const result = next(action);
 
         // Check if action contains error
         let shouldTrackError = false;
         let errorMessage: string = 'Unknown error';
-        let errorContext: Record<string, any> | undefined;
+        let errorContext: Record<string, unknown> | undefined;
 
         // Case 1: Object payload with error indicators
-        if (act.payload && typeof act.payload === 'object') {
-          const payload = act.payload as Record<string, any>;
+        if (actionPayload && typeof actionPayload === 'object') {
+          const payload = actionPayload as Record<string, unknown>;
 
-          if (payload.error || act.type?.includes('Error') || act.type?.includes('Failure')) {
+          if (payload.error || actionType?.includes('Error') || actionType?.includes('Failure')) {
             shouldTrackError = true;
-            errorMessage = payload.error || payload.message || act.type || 'Unknown error';
+            errorMessage = String(payload.error || payload.message || actionType || 'Unknown error');
             errorContext = payload;
           }
         }
         // Case 2: String payload for error actions (e.g., player/setError)
         else if (
-          act.payload &&
-          typeof act.payload === 'string' &&
-          (act.type?.includes('Error') || act.type?.includes('Failure') || act.type?.includes('setError'))
+          typeof actionPayload === 'string' &&
+          (actionType?.includes('Error') || actionType?.includes('Failure') || actionType?.includes('setError'))
         ) {
           shouldTrackError = true;
-          errorMessage = act.payload;
-          errorContext = { message: act.payload };
+          errorMessage = actionPayload;
+          errorContext = { message: actionPayload };
         }
 
         if (shouldTrackError) {
@@ -236,7 +242,7 @@ export function createErrorTrackingMiddleware(
             timestamp: Date.now(),
             category: categorizeError(String(errorMessage)),
             message: String(errorMessage),
-            action: act.type,
+            action: actionType ?? 'unknown',
             context: errorContext,
             retryCount: 0,
             maxRetries: 3,
@@ -248,7 +254,7 @@ export function createErrorTrackingMiddleware(
           // Log if enabled
           if (finalConfig.logToConsole) {
             console.error(`[Error Tracked] ${trackedError.category}: ${trackedError.message}`, {
-              action: act.type,
+              action: actionType,
               context: errorContext,
             });
           }
@@ -272,7 +278,7 @@ export function createErrorTrackingMiddleware(
           // Avoid infinite loops: don't dispatch connection errors if we're already processing one
           if (
             trackedError.category === ErrorCategory.NETWORK &&
-            !act.type?.startsWith('connection/')
+            !actionType?.startsWith('connection/')
           ) {
             // Network errors - trigger reconnection attempt
             store.dispatch(connectionActions.setError(trackedError.message));
@@ -290,7 +296,7 @@ export function createErrorTrackingMiddleware(
           timestamp: Date.now(),
           category: categorizeError(errorMessage),
           message: errorMessage,
-          action: act.type,
+          action: actionType ?? 'unknown',
           stack: error instanceof Error ? error.stack : undefined,
           retryCount: 0,
           maxRetries: 3,
