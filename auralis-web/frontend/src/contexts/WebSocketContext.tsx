@@ -14,7 +14,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketManager } from '../utils/errorHandling';
 import { WS_BASE_URL } from '../config/api';
-import type { AnyWebSocketMessage, AudioChunkMessage, WebSocketMessage } from '../types/websocket';
+import type { AnyWebSocketMessage, AudioChunkMessage, WebSocketMessage, WebSocketMessageType } from '../types/websocket';
 
 // Re-export message types so existing consumers can still import from here
 export type { AnyWebSocketMessage } from '../types/websocket';
@@ -58,7 +58,7 @@ interface WebSocketContextValue {
   connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
 
   // Subscription management
-  subscribe: (messageType: string, handler: MessageHandler) => () => void;
+  subscribe: (messageType: WebSocketMessageType, handler: MessageHandler) => () => void;
   subscribeAll: (handler: MessageHandler) => () => void;
 
   // Send messages
@@ -377,7 +377,7 @@ export const WebSocketProvider = ({
   /**
    * Subscribe to specific message type
    */
-  const subscribe = useCallback((messageType: string, handler: MessageHandler) => {
+  const subscribe = useCallback((messageType: WebSocketMessageType, handler: MessageHandler) => {
     if (!subscriptionsRef.current.has(messageType)) {
       subscriptionsRef.current.set(messageType, new Set());
     }

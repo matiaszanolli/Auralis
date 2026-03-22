@@ -531,7 +531,7 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
       await waitFor(() => expect(result.current.isConnected).toBe(true));
 
       const handler = vi.fn();
-      const unsubscribe = result.current.subscribe('favorite_toggled', handler);
+      const unsubscribe = result.current.subscribe('library_updated', handler);
 
       // Assert - Verify subscribe returns unsubscribe function
       expect(typeof unsubscribe).toBe('function');
