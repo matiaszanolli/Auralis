@@ -122,8 +122,8 @@ describe('playerSelectors (simple)', () => {
     expect(playerSelectors.selectCurrentTrack(store.getState() as RootState)).toBeNull();
   });
 
-  it('selectVolume returns the initial volume (70)', () => {
-    expect(playerSelectors.selectVolume(store.getState() as RootState)).toBe(70);
+  it('selectVolume returns the initial volume (80, per #2251)', () => {
+    expect(playerSelectors.selectVolume(store.getState() as RootState)).toBe(80);
   });
 
   it('reflects dispatched state changes', () => {
