@@ -116,6 +116,7 @@ export const useLibraryWithStats = ({
   // Prevent multiple simultaneous fetches (debounce protection)
   const fetchInProgressRef = useRef(false);
   const statsAbortRef = useRef<AbortController | null>(null);
+  const refetchStatsRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const { success, error: toastError, info } = useToast();
 
@@ -298,7 +299,7 @@ export const useLibraryWithStats = ({
         await fetchTracks();
         // Refresh stats after scan
         if (includeStats) {
-          await refetchStats();
+          await refetchStatsRef.current();
         }
       } else {
         const errorData = await response.json();
@@ -346,6 +347,7 @@ export const useLibraryWithStats = ({
       }
     }
   }, [includeStats]);
+  refetchStatsRef.current = refetchStats;
 
   // ========================================================================
   // Effects
