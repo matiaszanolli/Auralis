@@ -409,7 +409,7 @@ class TestDeprecatedFeatures:
         """
         # These are legacy imports that should still work
         try:
-            from auralis.analysis.quality_metrics import QualityMetrics
+            from auralis.analysis.quality.quality_metrics import QualityMetrics
             from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ
             from auralis.dsp.unified import spectral_centroid
             success = True
