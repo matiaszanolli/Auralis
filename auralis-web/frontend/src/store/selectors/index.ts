@@ -13,6 +13,7 @@
  */
 
 import { createSelector } from '@reduxjs/toolkit';
+import type { QueueTrack } from '@/types/domain';
 import type { RootState } from '../index';
 
 // ============================================================================
@@ -313,7 +314,7 @@ export const makeSelectTracksInRange = (start: number, end: number) =>
  * Filter tracks by criteria.
  * Usage: const selector = useMemo(() => makeSelectFilteredTracks(pred), [pred]);
  */
-export const makeSelectFilteredTracks = (predicate: (track: any) => boolean) =>
+export const makeSelectFilteredTracks = (predicate: (track: QueueTrack) => boolean) =>
   createSelector([(state: RootState) => state.queue.tracks], (tracks) => tracks.filter(predicate));
 
 /**
