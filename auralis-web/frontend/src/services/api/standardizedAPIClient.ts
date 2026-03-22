@@ -269,6 +269,20 @@ export class StandardizedAPIClient {
 
         clearTimeout(timeoutId);
 
+        // Guard against non-JSON error responses (e.g. 502 HTML pages) (#2987).
+        // Surface immediately without retry instead of letting json() throw.
+        const contentType = response.headers?.get?.('content-type') ?? '';
+        if (!response.ok && !contentType.includes('application/json')) {
+          const text = await response.text();
+          console.error(`[API Error] ${method} ${endpoint}: ${response.status} (non-JSON)`, text.slice(0, 200));
+          return {
+            status: 'error',
+            error: `http_${response.status}`,
+            message: `Server returned ${response.status} with non-JSON response`,
+            timestamp: new Date().toISOString()
+          } as ErrorResponse;
+        }
+
         const data = await response.json();
 
         // Cache successful responses with LRU eviction
