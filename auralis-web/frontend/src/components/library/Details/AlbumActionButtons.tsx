@@ -112,6 +112,7 @@ export const AlbumActionButtons = ({
       <Tooltip title="Add to queue">
         <IconButton
           onClick={onAddToQueue}
+          aria-label="Add to queue"
           sx={{
             color: tokens.colors.text.secondary,
             border: `1px solid ${tokens.colors.border.light}`,
@@ -133,6 +134,7 @@ export const AlbumActionButtons = ({
       <Tooltip title="More options">
         <IconButton
           onClick={onMoreOptions}
+          aria-label="More options"
           sx={{
             color: tokens.colors.text.secondary,
             border: `1px solid ${tokens.colors.border.light}`,
