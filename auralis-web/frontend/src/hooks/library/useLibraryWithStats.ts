@@ -115,6 +115,7 @@ export const useLibraryWithStats = ({
 
   // Prevent multiple simultaneous fetches (debounce protection)
   const fetchInProgressRef = useRef(false);
+  const statsAbortRef = useRef<AbortController | null>(null);
 
   const { success, error: toastError, info } = useToast();
 
@@ -318,10 +319,15 @@ export const useLibraryWithStats = ({
   const refetchStats = useCallback(async () => {
     if (!includeStats) return;
 
+    // Abort any in-flight stats request before starting a new one
+    statsAbortRef.current?.abort();
+    const controller = new AbortController();
+    statsAbortRef.current = controller;
+
     setStatsLoading(true);
     setStatsError(null);
     try {
-      const response = await fetch('/api/library/stats');
+      const response = await fetch('/api/library/stats', { signal: controller.signal });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -330,12 +336,14 @@ export const useLibraryWithStats = ({
       const data = await response.json();
       setStats(data);
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       const message = err instanceof Error ? err.message : 'Failed to fetch stats';
       console.error('Error fetching library stats:', err);
       setStatsError(message);
-      // Don't treat stats failure as fatal - still allow library view to work
     } finally {
-      setStatsLoading(false);
+      if (!controller.signal.aborted) {
+        setStatsLoading(false);
+      }
     }
   }, [includeStats]);
 
@@ -356,6 +364,7 @@ export const useLibraryWithStats = ({
         refetchStats();
       }
     }
+    return () => { statsAbortRef.current?.abort(); };
     // Dependency array only includes view, autoLoad, includeStats to prevent re-render loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, autoLoad, includeStats]);
