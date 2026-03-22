@@ -21,6 +21,7 @@ interface TrackCardOverlayProps {
   hasArtwork: boolean;
   isHovered: boolean;
   onPlay: (e: React.MouseEvent) => void;
+  title?: string;
 }
 
 export const TrackCardOverlay = ({
@@ -28,6 +29,7 @@ export const TrackCardOverlay = ({
   hasArtwork,
   isHovered,
   onPlay,
+  title,
 }: TrackCardOverlayProps) => {
   return (
     <>
@@ -68,6 +70,7 @@ export const TrackCardOverlay = ({
               transform: 'scale(1.1)',
             },
           }}
+          aria-label={title ? `Play ${title}` : 'Play'}
           onClick={onPlay}
         >
           <PlayArrow sx={{ fontSize: 32 }} />
