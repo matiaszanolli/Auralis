@@ -332,7 +332,7 @@ class AudioFingerprintAnalyzer:
             lufs = measurement.integrated_lufs
             if not np.isfinite(lufs):
                 # Fall back to RMS approximation for very short/silent segments
-                lufs = 20 * np.log10(rms + 1e-10) + 0.691
+                lufs = 20 * np.log10(rms + 1e-10) - 0.691
 
             # 2. Crest factor
             peak = np.max(np.abs(audio))
