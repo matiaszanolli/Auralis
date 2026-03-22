@@ -58,6 +58,19 @@ class SetIntensityRequest(BaseModel):
         return max(0.0, min(1.0, v))
 
 
+class EnhancementSettings(BaseModel):
+    """Current enhancement settings."""
+    enabled: bool
+    preset: str
+    intensity: float
+
+
+class EnhancementSettingsResponse(BaseModel):
+    """Response for enhancement mutation endpoints."""
+    message: str
+    settings: EnhancementSettings
+
+
 def create_enhancement_router(
     get_enhancement_settings: Callable[[], dict[str, Any]],
     connection_manager: Any,
@@ -150,7 +163,7 @@ def create_enhancement_router(
         except Exception as e:
             logger.error(f"❌ Background chunk pre-processing failed: {e}")
 
-    @router.post("/api/player/enhancement/toggle")
+    @router.post("/api/player/enhancement/toggle", response_model=EnhancementSettingsResponse)
     async def toggle_enhancement(body: ToggleEnhancementRequest) -> dict[str, Any]:
         """
         Enable or disable real-time audio enhancement.
@@ -212,7 +225,7 @@ def create_enhancement_router(
             logger.error(f"Failed to toggle enhancement: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to toggle enhancement")
 
-    @router.post("/api/player/enhancement/preset")
+    @router.post("/api/player/enhancement/preset", response_model=EnhancementSettingsResponse)
     async def set_enhancement_preset(body: SetPresetRequest) -> dict[str, Any]:
         """
         Change the enhancement preset.
@@ -272,7 +285,7 @@ def create_enhancement_router(
             logger.error(f"Failed to change preset: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to change preset")
 
-    @router.post("/api/player/enhancement/intensity")
+    @router.post("/api/player/enhancement/intensity", response_model=EnhancementSettingsResponse)
     async def set_enhancement_intensity(body: SetIntensityRequest) -> dict[str, Any]:
         """
         Adjust the enhancement intensity.
@@ -339,7 +352,7 @@ def create_enhancement_router(
             logger.error(f"Failed to set intensity: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to set intensity")
 
-    @router.get("/api/player/enhancement/status")
+    @router.get("/api/player/enhancement/status", response_model=EnhancementSettings)
     async def get_enhancement_status() -> dict[str, Any]:
         """
         Get current enhancement settings.
