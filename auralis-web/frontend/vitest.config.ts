@@ -130,15 +130,6 @@ export default defineConfig({
       // Run `npm run test:types` separately for type checking
     },
 
-    // Transformations
-    transformMode: {
-      web: [/\.[jt]sx$/],
-      ssr: [],
-    },
-
-    // Environment setup
-    environmentSetupModule: undefined,
-
     // API options
     api: false, // Disable API by default (faster)
 

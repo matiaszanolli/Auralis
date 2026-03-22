@@ -145,41 +145,5 @@ export default defineConfig(({ mode }) => {
       // Increase chunk size warning threshold
       chunkSizeWarningLimit: 1000,
     },
-    test: {
-      globals: true,
-      environment: 'jsdom',
-      setupFiles: ['./src/test/setup.ts'],
-      css: true,
-      // Memory management: limit concurrent test threads to prevent memory explosion
-      pool: 'threads',
-      poolOptions: {
-        threads: {
-          maxThreads: 2,
-          minThreads: 1,
-        },
-      },
-      // Timeout settings for memory cleanup
-      testTimeout: 30000,
-      hookTimeout: 10000,
-      teardownTimeout: 5000,
-      // Per-test isolation for better cleanup
-      isolate: true,
-      // Clear mocks between tests
-      clearMocks: true,
-      // Restore mocks between tests
-      restoreMocks: true,
-      coverage: {
-        provider: 'v8',
-        reporter: ['text', 'json', 'html'],
-        exclude: [
-          'node_modules/',
-          'src/test/',
-          '**/*.d.ts',
-          '**/*.config.*',
-          '**/mockData',
-          'build/',
-        ],
-      },
-    },
   }
 })
