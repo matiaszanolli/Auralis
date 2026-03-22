@@ -487,9 +487,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
       try {
         // Send to backend
-        await post('/api/player/queue/repeat', undefined, {
-          mode,
-        });
+        await post('/api/player/queue/repeat', { mode });
 
         // Server will broadcast confirmation via WebSocket
       } catch (err) {

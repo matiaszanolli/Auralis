@@ -32,7 +32,7 @@ Endpoints:
 
 import logging
 import math
-from typing import Any
+from typing import Any, Literal
 from collections.abc import Callable
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
@@ -99,6 +99,11 @@ class SetVolumeRequest(BaseModel):
     @classmethod
     def clamp_volume(cls, v: float) -> float:
         return max(0.0, min(100.0, v))
+
+
+class RepeatModeRequest(BaseModel):
+    """Request model for setting repeat mode."""
+    mode: Literal["off", "all", "one"]
 
 
 # ============================================================================
@@ -536,6 +541,31 @@ def create_player_router(
         except Exception as e:
             logger.error("Failed to shuffle queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to shuffle queue")
+
+    @router.post("/api/player/queue/repeat", response_model=MessageResponse)
+    async def set_repeat_mode(request: RepeatModeRequest) -> dict[str, Any]:
+        """Set the playback repeat mode (off, all, one)."""
+        try:
+            state_manager = get_player_state_manager()
+            if not state_manager:
+                raise ValueError("Player state manager not available")
+
+            # Map frontend "off" to backend "none" (backend uses "none"/"all"/"one")
+            backend_mode = "none" if request.mode == "off" else request.mode
+            await state_manager.update_state(repeat_mode=backend_mode)
+
+            # Broadcast to all connected clients
+            await connection_manager.broadcast({
+                "type": "repeat_mode_changed",
+                "data": {"repeat_mode": request.mode},
+            })
+
+            return {"message": f"Repeat mode set to {request.mode}"}
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception:
+            logger.error("Failed to set repeat mode", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to set repeat mode")
 
     # ============================================================================
     # NAVIGATION ENDPOINTS
