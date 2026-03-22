@@ -33,13 +33,8 @@ export const store = configureStore({
     connection: connectionReducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({
-      serializableCheck: {
-        // Ignore error objects which aren't serializable
-        ignoredActions: ['connection/setError', 'cache/setError'],
-        ignoredPaths: ['connection.lastError', 'cache.error'],
-      },
-    }).concat(createErrorTrackingMiddleware({ logToConsole: true }))
+    getDefaultMiddleware()
+      .concat(createErrorTrackingMiddleware({ logToConsole: true }))
       .concat(createLoggerMiddleware()),
   devTools: process.env.NODE_ENV !== 'production',
 });
