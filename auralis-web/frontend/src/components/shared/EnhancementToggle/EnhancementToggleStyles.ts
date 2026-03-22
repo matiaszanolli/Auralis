@@ -71,7 +71,7 @@ export const SwitchPaper = styled(Paper, {
     border: `1px solid rgba(255, 255, 255, ${$isEnabled ? 0.08 : 0.05})`,
     // Subtle inner glow when enabled
     boxShadow: $isEnabled
-      ? 'inset 0 0 12px rgba(115, 102, 240, 0.08)'
+      ? `inset 0 0 12px ${tokens.colors.opacityScale.accent.ultraLight}`
       : 'none',
     transition: tokens.transitions.all,
     opacity: $isProcessing ? 0.7 : 1,

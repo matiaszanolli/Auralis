@@ -71,7 +71,7 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
     borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
     margin: `${tokens.spacing.xs} ${tokens.spacing.cluster}`, // 4px vertical, 8px horizontal
     transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
-    background: selected ? 'rgba(115, 102, 240, 0.06)' : 'transparent', // Calm by default
+    background: selected ? tokens.colors.opacityScale.accent.minimal : 'transparent', // Calm by default
     borderLeft: 'none',                                   // No borders - surfaces not cards (§4.1)
     position: 'relative',
 
@@ -90,7 +90,7 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
 
     '&:hover': {
       background: selected
-        ? 'rgba(115, 102, 240, 0.10)'                     // Subtle increase
+        ? tokens.colors.opacityScale.accent.veryLight       // Subtle increase
         : tokens.glass.subtle.background,                 // Glass effect on hover
       transform: 'translateX(2px)',                       // Subtle movement
       backdropFilter: tokens.glass.subtle.backdropFilter, // 20px blur for glossy feel

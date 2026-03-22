@@ -43,7 +43,7 @@ const styles = {
     transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
 
     // Enhanced shadow for depth + inner glow
-    boxShadow: '0 8px 24px rgba(115, 102, 240, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+    boxShadow: `0 8px 24px ${tokens.colors.opacityScale.accent.strong}, 0 0 0 1px rgba(255, 255, 255, 0.08)`,
     outline: 'none',
 
     // WCAG 2.4.7: visible focus ring for keyboard navigation (#2801)
@@ -55,12 +55,12 @@ const styles = {
     // Glass effect on hover (elevated state)
     '&:hover:not(:disabled)': {
       transform: 'scale(1.05)',                           // Subtle scale for organic feel
-      boxShadow: '0 12px 32px rgba(115, 102, 240, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.12)',
+      boxShadow: `0 12px 32px ${tokens.colors.opacityScale.accent.veryStrong}, 0 0 0 1px rgba(255, 255, 255, 0.12)`,
     },
 
     '&:active:not(:disabled)': {
       transform: 'scale(0.98)',                           // Press feedback
-      boxShadow: '0 4px 16px rgba(115, 102, 240, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.15)',
+      boxShadow: `0 4px 16px ${tokens.colors.opacityScale.accent.intense}, 0 0 0 1px rgba(255, 255, 255, 0.15)`,
     },
 
     ':disabled': {

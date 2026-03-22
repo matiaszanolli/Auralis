@@ -23,7 +23,7 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
       background: `linear-gradient(90deg, ${tokens.colors.opacityScale.accent.light} 0%, transparent 100%)`,
       border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
       boxShadow: `
-        0 4px 16px rgba(115, 102, 240, 0.15),
+        0 4px 16px ${tokens.colors.opacityScale.accent.lighter},
         0 0 0 1px ${tokens.colors.opacityScale.accent.veryLight},
         inset 0 0 20px ${tokens.colors.opacityScale.accent.ultraLight}
       `,
@@ -48,7 +48,7 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
         : tokens.colors.opacityScale.accent.ultraLight,
       transform: 'translateX(4px) scale(1.005)', // Subtle scale for depth
       boxShadow: iscurrent === 'true'
-        ? `0 6px 20px rgba(115, 102, 240, 0.2), 0 0 0 1px ${tokens.colors.opacityScale.accent.veryLight}`
+        ? `0 6px 20px ${tokens.colors.opacityScale.accent.standard}, 0 0 0 1px ${tokens.colors.opacityScale.accent.veryLight}`
         : `0 2px 8px ${tokens.colors.opacityScale.dark.lighter}`,
       opacity: 1, // Full opacity on hover even when dimmed
 
