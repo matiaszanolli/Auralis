@@ -11,12 +11,6 @@ rustfft = "6.1"
 realfft = "3.3"
 pyo3 = { version = "0.23", features = ["extension-module"] }
 numpy = "0.23"
-# HTTP server dependencies (legacy)
-actix-web = "4"
-actix-rt = "2"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-dirs = "5"
 # gRPC dependencies
 tonic = "0.12"
 prost = "0.13"
@@ -25,10 +19,6 @@ tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
 [lib]
 name = "auralis_dsp"
 crate-type = ["cdylib", "rlib"]  # Build as Python extension + Rust library
-
-[[bin]]
-name = "fingerprint-server"
-path = "src/bin/fingerprint_server.rs"
 
 [[bin]]
 name = "grpc-fingerprint-server"
