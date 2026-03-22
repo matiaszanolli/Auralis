@@ -106,6 +106,11 @@ export function usePlaybackControl(): PlaybackControlActions {
   const currentTrackRef = useRef(currentTrack);
   currentTrackRef.current = currentTrack;
 
+  // Ref so seek reads the latest duration without taking it as a dep
+  // (duration updates at ~1 Hz via WS, which would recreate seek — #2992).
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
+
   /**
    * Play - Start playback or resume if paused
    * Uses WebSocket 'play_normal' message for normal (unprocessed) audio streaming
@@ -216,7 +221,7 @@ export function usePlaybackControl(): PlaybackControlActions {
     executingCommand.current = 'seek';
 
     // Validate position
-    const validPosition = Math.max(0, Math.min(position, duration || position));
+    const validPosition = Math.max(0, Math.min(position, durationRef.current || position));
 
     try {
       // Backend expects position in JSON body
@@ -230,7 +235,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [api, duration]);
+  }, [api]);
 
   /**
    * Next - Skip to next track in queue
