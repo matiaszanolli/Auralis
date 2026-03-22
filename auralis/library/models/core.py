@@ -125,6 +125,7 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
                 'duration': self.duration,
                 'sample_rate': self.sample_rate,
                 'bit_depth': self.bit_depth,
+                'bitrate': self.bitrate,
                 'channels': self.channels,
                 'format': self.format,
                 'filesize': self.filesize,
