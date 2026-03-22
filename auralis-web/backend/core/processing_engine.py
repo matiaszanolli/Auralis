@@ -448,6 +448,8 @@ class ProcessingEngine:
         if job.status == ProcessingStatus.CANCELLED:
             return
 
+        processor = None
+        config = None
         try:
             job.status = ProcessingStatus.PROCESSING
             job.started_at = datetime.now()
@@ -465,8 +467,7 @@ class ProcessingEngine:
             # Get or create processor — exclusively owned until returned (#3201)
             processor = await self._get_or_create_processor(job.mode, config)
 
-            try:
-                await self._notify_progress(job.job_id, 40.0, "Processing audio...")
+            await self._notify_progress(job.job_id, 40.0, "Processing audio...")
 
             # Reset EQ state before each job so cached processors don't bleed
             # the previous track's psychoacoustic EQ curve into the new track (fixes #2400).
@@ -541,9 +542,9 @@ class ProcessingEngine:
 
             job.status = ProcessingStatus.COMPLETED
             job.completed_at = datetime.now()
-            finally:
-                # Return processor to cache for reuse (#3201)
-                await self._return_processor(job.mode, config, processor)
+
+            # Return processor to cache for reuse (#3201)
+            await self._return_processor(job.mode, config, processor)
 
         except TimeoutError:
             # asyncio.wait_for raised TimeoutError — the DSP call hung.
@@ -553,6 +554,8 @@ class ProcessingEngine:
                 f"Processing timed out after {self.processing_timeout:.0f}s"
             )
             job.completed_at = datetime.now()
+            if processor is not None and config is not None:
+                await self._return_processor(job.mode, config, processor)
 
             await self._notify_progress(
                 job.job_id, 100.0, job.error_message
@@ -564,6 +567,8 @@ class ProcessingEngine:
             if job.status == ProcessingStatus.PROCESSING:
                 job.status = ProcessingStatus.CANCELLED
                 job.completed_at = datetime.now()
+            if processor is not None and config is not None:
+                await self._return_processor(job.mode, config, processor)
             raise
 
         except Exception as e:
