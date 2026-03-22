@@ -212,6 +212,8 @@ export function ConnectionStatusIndicator({
       {/* Expanded Details */}
       {showDetails && (
         <div
+          role="region"
+          aria-label="Connection status details"
           style={{
             marginTop: tokens.spacing.sm,
             padding: tokens.spacing.lg,
