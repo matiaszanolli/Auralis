@@ -31,6 +31,12 @@ export interface MasteringRecommendationData {
   }>;
 }
 
+/** WebSocket message shape for mastering_recommendation events */
+interface MasteringRecommendationMessage {
+  type: 'mastering_recommendation';
+  data: MasteringRecommendationData;
+}
+
 interface MasteringRecommendationCache {
   [trackId: number]: MasteringRecommendationData;
 }
@@ -56,8 +62,8 @@ export const useMasteringRecommendation = (trackId?: number) => {
 
     let timedOut = false;
 
-    const handleMasteringRecommendation = (message: AnyWebSocketMessage | WebSocketMessage) => {
-      const payload = (message as { data?: MasteringRecommendationData }).data;
+    const handleMasteringRecommendation = (message: MasteringRecommendationMessage) => {
+      const payload = message.data;
       if (payload?.track_id === trackId) {
         const rec = payload;
         cache.current[trackId] = rec;
@@ -69,7 +75,10 @@ export const useMasteringRecommendation = (trackId?: number) => {
     };
 
     // Subscribe to mastering recommendation messages
-    const unsubscribe = subscribe('mastering_recommendation', handleMasteringRecommendation);
+    const unsubscribe = subscribe(
+      'mastering_recommendation',
+      handleMasteringRecommendation as (msg: AnyWebSocketMessage | WebSocketMessage) => void
+    );
 
     // Start loading indicator
     setIsLoading(true);
