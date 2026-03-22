@@ -18,7 +18,6 @@ import numpy as np
 from auralis.analysis.dynamic_range import DynamicRangeAnalyzer
 from auralis.analysis.loudness_meter import LoudnessMeter
 from auralis.analysis.phase_correlation import PhaseCorrelationAnalyzer
-from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
 from auralis.io.unified_loader import load_audio
 from auralis.learning.reference_library import (
     Genre,
@@ -83,7 +82,6 @@ class ReferenceAnalyzer:
     """
 
     def __init__(self) -> None:
-        self.spectrum_analyzer = SpectrumAnalyzer()
         self.loudness_meter = LoudnessMeter()
         self.phase_analyzer = PhaseCorrelationAnalyzer()
 
