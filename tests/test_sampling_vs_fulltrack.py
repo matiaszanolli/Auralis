@@ -27,8 +27,8 @@ import numpy as np
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auralis.analysis.fingerprint.harmonic_analyzer import HarmonicAnalyzer
-from auralis.analysis.fingerprint.harmonic_analyzer_sampled import (
+from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import (
     SampledHarmonicAnalyzer,
 )
 from auralis.io.unified_loader import load_audio

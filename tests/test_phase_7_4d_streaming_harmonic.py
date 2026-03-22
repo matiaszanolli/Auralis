@@ -19,7 +19,7 @@ import librosa
 import numpy as np
 import pytest
 
-from auralis.analysis.fingerprint.streaming_harmonic_analyzer import (
+from auralis.analysis.fingerprint.analyzers.streaming.harmonic import (
     HarmonicRunningStats,
     StreamingHarmonicAnalyzer,
 )

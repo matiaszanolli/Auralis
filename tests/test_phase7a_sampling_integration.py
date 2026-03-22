@@ -29,8 +29,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
-from auralis.analysis.fingerprint.harmonic_analyzer import HarmonicAnalyzer
-from auralis.analysis.fingerprint.harmonic_analyzer_sampled import (
+from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import (
     SampledHarmonicAnalyzer,
 )
 from auralis.core.unified_config import UnifiedConfig

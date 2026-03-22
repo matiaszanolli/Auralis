@@ -24,12 +24,12 @@ from typing import Callable
 import numpy as np
 import pytest
 
-from auralis.analysis.fingerprint.harmonic_analyzer_sampled import (
+from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import (
     SampledHarmonicAnalyzer,
 )
 from auralis.analysis.fingerprint.parameter_mapper import EQParameterMapper
-from auralis.analysis.fingerprint.spectral_analyzer import SpectralAnalyzer
-from auralis.analysis.fingerprint.variation_analyzer import VariationAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.spectral import SpectralAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.variation import VariationAnalyzer
 
 
 class TestVariationAnalyzerOptimization:
