@@ -67,3 +67,7 @@ class ParallelProcessor:
     def shutdown(self) -> None:
         """Shutdown thread pool"""
         self.executor.shutdown(wait=True)
+
+    def __del__(self) -> None:
+        """Ensure executor threads are cleaned up on garbage collection."""
+        self.executor.shutdown(wait=False)
