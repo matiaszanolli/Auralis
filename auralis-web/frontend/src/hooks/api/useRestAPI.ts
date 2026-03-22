@@ -89,7 +89,7 @@ export function useRestAPI() {
    * GET request.
    */
   const get = useCallback(
-    async <T = any>(endpoint: string): Promise<T> => {
+    async <T = unknown>(endpoint: string): Promise<T> => {
       const seq = ++requestSequence.current;
       inflightCount.current += 1;
       setIsLoading(true);
@@ -142,7 +142,7 @@ export function useRestAPI() {
    *   await api.post('/api/player/seek', undefined, { position: 120 });
    */
   const post = useCallback(
-    async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
+    async <T = unknown>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
       const seq = ++requestSequence.current;
       inflightCount.current += 1;
       setIsLoading(true);
@@ -189,7 +189,7 @@ export function useRestAPI() {
    * Supports both JSON body and query parameters.
    */
   const put = useCallback(
-    async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
+    async <T = unknown>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
       const seq = ++requestSequence.current;
       inflightCount.current += 1;
       setIsLoading(true);
@@ -236,7 +236,7 @@ export function useRestAPI() {
    * Supports both JSON body and query parameters.
    */
   const patch = useCallback(
-    async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
+    async <T = unknown>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
       const seq = ++requestSequence.current;
       inflightCount.current += 1;
       setIsLoading(true);
@@ -342,7 +342,7 @@ export function useRestAPI() {
  * Hook for making a single GET request on mount.
  * Useful for loading initial data.
  */
-export function useQuery<T = any>(endpoint: string, skip: boolean = false) {
+export function useQuery<T = unknown>(endpoint: string, skip: boolean = false) {
   const { get } = useRestAPI();
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(!skip);
@@ -374,7 +374,7 @@ export function useQuery<T = any>(endpoint: string, skip: boolean = false) {
  * Hook for making a single POST request.
  * Returns a function to trigger the request.
  */
-export function useMutation<T = any>(endpoint: string, method: 'POST' | 'PUT' | 'DELETE' = 'POST') {
+export function useMutation<T = unknown>(endpoint: string, method: 'POST' | 'PUT' | 'DELETE' = 'POST') {
   const { post, put, delete: apiDelete } = useRestAPI();
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(false);
