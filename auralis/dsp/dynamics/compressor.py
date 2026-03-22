@@ -39,9 +39,7 @@ class AdaptiveCompressor:
         self.settings = settings
         self.sample_rate = sample_rate
 
-        # Initialize envelope followers
-        self.peak_follower = EnvelopeFollower(sample_rate, 0.1, 1.0)  # Peak detection
-        self.rms_follower = EnvelopeFollower(sample_rate, 10.0, 100.0)  # RMS detection
+        # Initialize envelope follower for gain smoothing
         self.gain_follower = EnvelopeFollower(sample_rate, settings.attack_ms, settings.release_ms)
 
         # Lookahead buffer (will be initialized on first use to match audio dimensions)
@@ -84,21 +82,6 @@ class AdaptiveCompressor:
         # Below knee: gain_reduction stays 0.0 (already initialized)
         return gain_reduction
 
-    def _detect_input_level(self, audio: np.ndarray, detection_mode: str = "rms") -> float:
-        """Detect input level using specified mode"""
-        if detection_mode == "peak":
-            peak_level = np.max(np.abs(audio))
-            return float(self.peak_follower.process(peak_level))
-        elif detection_mode == "rms":
-            rms_level = np.sqrt(np.mean(audio ** 2))
-            return float(self.rms_follower.process(rms_level))
-        else:  # hybrid
-            peak_level = np.max(np.abs(audio))
-            rms_level = np.sqrt(np.mean(audio ** 2))
-            # Weighted combination
-            combined = 0.7 * rms_level + 0.3 * peak_level
-            return float(combined)
-
     def process(self, audio: np.ndarray, detection_mode: str = "rms") -> tuple[np.ndarray, dict[str, float]]:
         """
         Process audio through compressor with per-sample gain envelope.
@@ -109,7 +92,7 @@ class AdaptiveCompressor:
 
         Args:
             audio: Input audio
-            detection_mode: 'peak', 'rms', or 'hybrid'
+            detection_mode: Unused, kept for API compatibility
 
         Returns:
             Tuple of (processed_audio, compression_info)
@@ -222,8 +205,6 @@ class AdaptiveCompressor:
 
     def reset(self) -> None:
         """Reset compressor state"""
-        self.peak_follower.reset()
-        self.rms_follower.reset()
         self.gain_follower.reset()
         self.gain_reduction = 0.0
         self.previous_gain = 1.0
