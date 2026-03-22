@@ -27,7 +27,7 @@ export interface ApiListResponse<T = unknown> {
 export interface ApiError {
   status: number;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 // ============================================================================
