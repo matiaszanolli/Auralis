@@ -165,6 +165,8 @@ class ProcessingEngine:
 
         # Per-job asyncio Tasks so cancel_job() can stop them (fixes #2217)
         self._tasks: dict[str, asyncio.Task[None]] = {}
+        self._stopping: bool = False
+        self._worker_task: asyncio.Task[None] | None = None
 
     def create_job(
         self,
@@ -591,6 +593,43 @@ class ProcessingEngine:
             self._concurrency_semaphore.release()
             await self.cleanup_old_jobs(self.completed_job_ttl_hours)
 
+    async def stop_worker(self) -> None:
+        """Stop the worker loop and cancel all in-progress jobs.
+
+        Cancels all running tasks, drains the queue, and signals the
+        start_worker loop to exit via the _stopping flag.
+        """
+        self._stopping = True
+        logger.info("Stopping processing engine worker...")
+
+        # Cancel all in-progress tasks
+        for job_id, task in list(self._tasks.items()):
+            if not task.done():
+                task.cancel()
+                job = self.jobs.get(job_id)
+                if job and job.status == ProcessingStatus.PROCESSING:
+                    job.status = ProcessingStatus.CANCELLED
+                    job.completed_at = datetime.now()
+
+        # Drain the queue
+        while not self.job_queue.empty():
+            try:
+                job = self.job_queue.get_nowait()
+                job.status = ProcessingStatus.CANCELLED
+                job.completed_at = datetime.now()
+            except asyncio.QueueEmpty:
+                break
+
+        # Cancel the worker task itself
+        if self._worker_task and not self._worker_task.done():
+            self._worker_task.cancel()
+            try:
+                await self._worker_task
+            except asyncio.CancelledError:
+                pass
+
+        logger.info("Processing engine worker stopped")
+
     async def start_worker(self) -> None:
         """Start the job processing worker.
 
@@ -598,7 +637,9 @@ class ProcessingEngine:
         The semaphore inside _run_job governs how many execute simultaneously;
         the worker loop itself never blocks on a running job (#2746).
         """
-        while True:
+        self._stopping = False
+        self._worker_task = asyncio.current_task()
+        while not self._stopping:
             try:
                 job = await self.job_queue.get()
                 # Fire-and-forget: _run_job acquires a semaphore slot and

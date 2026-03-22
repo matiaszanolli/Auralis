@@ -335,8 +335,7 @@ def create_lifespan(deps: dict[str, Any]):
 
             # Stop processing engine
             if 'processing_engine' in globals_dict and globals_dict['processing_engine']:
-                if hasattr(globals_dict['processing_engine'], 'stop_worker'):
-                    await globals_dict['processing_engine'].stop_worker()
+                await globals_dict['processing_engine'].stop_worker()
                 logger.info("✅ Processing Engine stopped")
 
             # Stop audio player and release hardware resources (#3210)
