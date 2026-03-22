@@ -24,6 +24,8 @@ from typing import Deque
 
 import numpy as np
 
+from ...common_metrics import MetricUtils
+
 logger = logging.getLogger(__name__)
 
 
@@ -241,9 +243,8 @@ class StreamingVariationAnalyzer:
             peak_mean = self.peak_stats.get_mean()
             peak_std = self.peak_stats.get_std()
             if peak_mean > 0:
-                cv = peak_std / peak_mean
-                # Convert CV to consistency (lower CV = higher consistency)
-                peak_consistency = float(np.clip(1.0 - cv, 0, 1))
+                # Use same formula as batch path: 1/(1+CV) via MetricUtils
+                peak_consistency = MetricUtils.stability_from_cv(peak_std, peak_mean)
             else:
                 peak_consistency = 0.5
 
