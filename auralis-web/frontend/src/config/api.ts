@@ -63,9 +63,9 @@ export const ENDPOINTS = {
   TRACK_FAVORITE: (trackId: number) => `/api/library/tracks/${trackId}/favorite`,
 
   // Enhancement
-  ENHANCEMENT_TOGGLE: (enabled: boolean) => `/api/player/enhancement/toggle?enabled=${enabled}`,
-  ENHANCEMENT_PRESET: (preset: string) => `/api/player/enhancement/preset?preset=${preset}`,
-  ENHANCEMENT_INTENSITY: (intensity: number) => `/api/player/enhancement/intensity?intensity=${intensity}`,
+  ENHANCEMENT_TOGGLE: '/api/player/enhancement/toggle',
+  ENHANCEMENT_PRESET: '/api/player/enhancement/preset',
+  ENHANCEMENT_INTENSITY: '/api/player/enhancement/intensity',
 
   // Library scan
   LIBRARY_SCAN: '/api/library/scan',
