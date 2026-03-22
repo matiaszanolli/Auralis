@@ -134,16 +134,10 @@ export function CacheHealthMonitor({
   refreshInterval = 10000,
   onHealthStatusChange,
 }: CacheHealthMonitorProps) {
-  const { data: cacheHealth, loading, error, isHealthy, refetch } = useCacheHealth();
+  const { data: cacheHealth, loading, error, isHealthy } = useCacheHealth();
 
-  // Set up auto-refresh
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refetch();
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [refreshInterval, refetch]);
+  // Polling is handled by React Query's refetchInterval in useCacheHealth.
+  // No manual setInterval needed (#3079).
 
   // Notify about health status changes
   useEffect(() => {
