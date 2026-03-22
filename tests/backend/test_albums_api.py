@@ -482,3 +482,64 @@ class TestAlbumsAPIDualModeParametrized:
         assert total == 1, f"{mode}: Expected total=1"
         assert results[0].title == "Dark Side of the Moon", f"{mode}: Search result mismatch"
         source.albums.search.assert_called_once_with("Dark Side", limit=10)
+
+
+class TestGetAlbumFingerprint:
+    """Test GET /api/albums/{id}/fingerprint endpoint"""
+
+    def test_fingerprint_success(self, client, mock_album, mock_repos):
+        """Known album with fingerprinted tracks returns 200 with fingerprint"""
+        # Album with tracks that have fingerprints
+        track = Mock(spec=['id'])
+        track.id = 1
+        mock_album.tracks = [track]
+        mock_repos.albums.get_by_id.return_value = mock_album
+
+        fp = Mock()
+        # Set all 25 DB columns to known values
+        for col in ['sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct',
+                     'upper_mid_pct', 'presence_pct', 'air_pct', 'lufs',
+                     'crest_db', 'bass_mid_ratio', 'tempo_bpm',
+                     'rhythm_stability', 'transient_density', 'silence_ratio',
+                     'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
+                     'harmonic_ratio', 'pitch_stability', 'chroma_energy',
+                     'dynamic_range_variation', 'loudness_variation_std',
+                     'peak_consistency', 'stereo_width', 'phase_correlation']:
+            setattr(fp, col, 0.5)
+
+        mock_repos.fingerprints = Mock()
+        mock_repos.fingerprints.get_by_track_id.return_value = fp
+
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
+            response = client.get("/api/albums/1/fingerprint")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["album_id"] == 1
+        assert data["fingerprinted_track_count"] == 1
+        assert "fingerprint" in data
+        assert data["fingerprint"]["lufs"] == 0.5
+
+    def test_fingerprint_album_not_found(self, client, mock_repos):
+        """Unknown album ID returns 404"""
+        mock_repos.albums.get_by_id.return_value = None
+
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
+            response = client.get("/api/albums/999/fingerprint")
+
+        assert response.status_code == 404
+
+    def test_fingerprint_no_fingerprints(self, client, mock_album, mock_repos):
+        """Album with tracks but no fingerprints returns 404"""
+        track = Mock(spec=['id'])
+        track.id = 1
+        mock_album.tracks = [track]
+        mock_repos.albums.get_by_id.return_value = mock_album
+
+        mock_repos.fingerprints = Mock()
+        mock_repos.fingerprints.get_by_track_id.return_value = None
+
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
+            response = client.get("/api/albums/1/fingerprint")
+
+        assert response.status_code == 404
