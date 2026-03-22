@@ -29,6 +29,9 @@ export function useOptimisticUpdate<T, Args extends any[]>(
   const onErrorRef = useRef(options.onError);
   onErrorRef.current = options.onError;
 
+  const initialStateRef = useRef(initialState);
+  initialStateRef.current = initialState;
+
   const asyncOpRef = useRef(asyncOperation);
   asyncOpRef.current = asyncOperation;
 
@@ -66,10 +69,10 @@ export function useOptimisticUpdate<T, Args extends any[]>(
   );
 
   const reset = useCallback(() => {
-    setState(initialState);
+    setState(initialStateRef.current);
     setError(null);
     setIsLoading(false);
-  }, [initialState]);
+  }, []);
 
   return {
     state,
