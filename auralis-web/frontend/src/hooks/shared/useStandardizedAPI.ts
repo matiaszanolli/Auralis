@@ -159,10 +159,12 @@ export function useStandardizedAPI<T = unknown>(
     }
   }, [fetch, ...(options?.deps ?? [])]);
 
+  const reset = useCallback(() => setState({ data: null, loading: false, error: null }), []);
+
   return {
     ...state,
     refetch: fetch,
-    reset: () => setState({ data: null, loading: false, error: null })
+    reset,
   };
 }
 
