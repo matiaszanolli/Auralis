@@ -90,10 +90,27 @@ export const MediaCardArtwork = ({
         borderRadius: `${tokens.borderRadius.lg}px ${tokens.borderRadius.lg}px 0 0`,
         overflow: 'hidden',
         background: artworkUrl
-          ? `url(${artworkUrl}) center/cover no-repeat`
+          ? undefined
           : getPlaceholderGradient(fingerprint, fallbackText),
       }}
     >
+      {/* Artwork image with native lazy loading (#3036) */}
+      {artworkUrl && (
+        <Box
+          component="img"
+          src={artworkUrl}
+          alt={fallbackText}
+          loading="lazy"
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+          }}
+        />
+      )}
       {/* Overlay container (play button, badges, etc.) */}
       {children && (
         <Box
