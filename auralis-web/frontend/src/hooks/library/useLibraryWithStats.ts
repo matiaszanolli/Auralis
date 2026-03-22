@@ -73,6 +73,7 @@ export interface UseLibraryWithStatsReturn {
   isLoadingMore: boolean;
   scanning: boolean;
   statsLoading: boolean;
+  statsError: string | null;
 
   // Methods - Data
   fetchTracks: (resetPagination?: boolean) => Promise<void>;
@@ -110,6 +111,7 @@ export const useLibraryWithStats = ({
   // Statistics State
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(includeStats);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   // Prevent multiple simultaneous fetches (debounce protection)
   const fetchInProgressRef = useRef(false);
@@ -320,6 +322,7 @@ export const useLibraryWithStats = ({
     if (!includeStats) return;
 
     setStatsLoading(true);
+    setStatsError(null);
     try {
       const response = await fetch('/api/library/stats');
 
@@ -330,7 +333,9 @@ export const useLibraryWithStats = ({
       const data = await response.json();
       setStats(data);
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch stats';
       console.error('Error fetching library stats:', err);
+      setStatsError(message);
       // Don't treat stats failure as fatal - still allow library view to work
     } finally {
       setStatsLoading(false);
@@ -387,6 +392,7 @@ export const useLibraryWithStats = ({
     isLoadingMore,
     scanning,
     statsLoading,
+    statsError,
 
     // Methods - Data
     fetchTracks,
