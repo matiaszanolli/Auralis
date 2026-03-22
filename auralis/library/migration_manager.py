@@ -10,6 +10,7 @@ Handles database schema versioning and migrations
 
 import logging
 import platform
+import re
 import shutil
 import sqlite3
 from contextlib import contextmanager
@@ -220,13 +221,19 @@ class MigrationManager:
             with open(migration_path) as f:
                 sql = f.read()
 
-            # Validate migration SQL before execution (#2083)
-            _DANGEROUS_KEYWORDS = {'DROP TABLE', 'DROP DATABASE', 'TRUNCATE', 'DELETE FROM'}
+            # Validate migration SQL before execution (#2083, #2925)
+            _DANGEROUS_KEYWORDS = {'DROP TABLE', 'DROP DATABASE'}
             sql_upper = sql.upper()
             for keyword in _DANGEROUS_KEYWORDS:
                 if keyword in sql_upper:
                     logger.error(f"Migration {migration_file} contains dangerous operation: {keyword}")
                     return False
+
+            # Block unqualified DELETE FROM (no WHERE clause) — intentional
+            # data wipes.  DELETE FROM ... WHERE ... is allowed (#2925).
+            if re.search(r'DELETE\s+FROM\s+\w+\s*(;|$)', sql_upper, re.MULTILINE):
+                logger.error(f"Migration {migration_file} contains unqualified DELETE FROM (missing WHERE clause)")
+                return False
 
             description = f"Migrated from v{from_version} to v{to_version}"
 
