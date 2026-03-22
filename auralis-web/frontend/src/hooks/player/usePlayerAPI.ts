@@ -317,30 +317,11 @@ export const usePlayerAPI = () => {
       }
     });
 
-    // Subscribe to legacy player_update messages (fallback)
-    const unsubscribePlayerUpdate = subscribe('player_update', (message: any) => {
-      try {
-        setPlayerState(prev => ({
-          ...prev,
-          currentTrack: message.current_track || prev.currentTrack,
-          isPlaying: message.is_playing !== undefined ? message.is_playing : prev.isPlaying,
-          currentTime: message.current_time !== undefined ? message.current_time : prev.currentTime,
-          duration: message.duration !== undefined ? message.duration : prev.duration,
-          volume: message.volume !== undefined ? message.volume : prev.volume
-        }));
-      } catch (err) {
-        console.error('Error handling player_update message:', err);
-      }
-    });
-
     // Fetch initial player status
     fetchPlayerStatus();
 
-    // Cleanup: unsubscribe from both message types
     return () => {
-      console.log('🎵 usePlayerAPI: Cleaning up WebSocket subscriptions');
       unsubscribePlayerState();
-      unsubscribePlayerUpdate();
     };
   }, [subscribe, fetchPlayerStatus]);
 
