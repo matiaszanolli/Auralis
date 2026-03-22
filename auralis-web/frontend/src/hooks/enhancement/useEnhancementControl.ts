@@ -127,6 +127,8 @@ const INITIAL_STATE: EnhancementState = {
  */
 export function useEnhancementControl(): EnhancementControlActions {
   const { get, post } = useRestAPI();
+  const getRef = useRef(get);
+  getRef.current = get;
 
   // State
   const [state, setState] = useState<EnhancementState>(INITIAL_STATE);
@@ -157,7 +159,7 @@ export function useEnhancementControl(): EnhancementControlActions {
   useEffect(() => {
     const fetchInitialState = async () => {
       try {
-        const response = await get<EnhancementState>('/api/player/enhancement/status');
+        const response = await getRef.current<EnhancementState>('/api/player/enhancement/status');
 
         if (response) {
           setState({
@@ -174,7 +176,7 @@ export function useEnhancementControl(): EnhancementControlActions {
     };
 
     fetchInitialState();
-  }, [get]);
+  }, []);
 
   /**
    * Toggle enhancement on/off
