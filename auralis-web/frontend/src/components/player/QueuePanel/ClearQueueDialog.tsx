@@ -19,12 +19,12 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
         zIndex: 1000,
       }}
       onClick={onCancel}
-      onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="clear-queue-dialog-title"
+        onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}
         style={{
           background: tokens.colors.bg.secondary,
           borderRadius: tokens.borderRadius.md,
@@ -35,16 +35,17 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <p
+        <h2
           id="clear-queue-dialog-title"
           style={{
             margin: `0 0 ${tokens.spacing.lg} 0`,
             color: tokens.colors.text.primary,
             fontSize: tokens.typography.fontSize.base,
+            fontWeight: tokens.typography.fontWeight.semibold,
           }}
         >
           Clear the entire queue?
-        </p>
+        </h2>
         <div style={{ display: 'flex', gap: tokens.spacing.sm, justifyContent: 'flex-end' }}>
           <button
             autoFocus
