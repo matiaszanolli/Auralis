@@ -165,6 +165,7 @@ export const useLibraryData = ({
       }
     } catch (err) {
       console.error('Error loading more tracks:', err);
+      error('Failed to load more tracks. Please try again.');
     } finally {
       isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
