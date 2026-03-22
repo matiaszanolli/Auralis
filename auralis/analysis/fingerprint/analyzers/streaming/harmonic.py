@@ -22,6 +22,7 @@ Dependencies:
 """
 
 import logging
+from collections import deque
 from typing import Any
 
 import numpy as np
