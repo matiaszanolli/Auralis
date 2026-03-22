@@ -134,7 +134,7 @@ async def process_audio(request: ProcessRequest) -> ProcessResponse:
                 raise HTTPException(status_code=400, detail="Invalid or inaccessible reference path")
 
         # Create processing job
-        job = _processing_engine.create_job(
+        job = await _processing_engine.create_job(
             input_path=str(validated_input),
             settings=request.settings.model_dump(),
             mode=request.settings.mode,
@@ -216,7 +216,7 @@ async def upload_and_process(
         logger.info(f"Uploaded file saved to {input_path}")
 
         # Create and submit job
-        job = _processing_engine.create_job(
+        job = await _processing_engine.create_job(
             input_path=str(input_path),
             settings=processing_settings.model_dump(),
             mode=processing_settings.mode

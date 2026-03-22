@@ -168,7 +168,7 @@ class ProcessingEngine:
         self._stopping: bool = False
         self._worker_task: asyncio.Task[None] | None = None
 
-    def create_job(
+    async def create_job(
         self,
         input_path: str,
         settings: dict[str, Any],
@@ -195,7 +195,8 @@ class ProcessingEngine:
         if mode == "hybrid" and reference_path:
             job.settings["reference_path"] = reference_path
 
-        self.jobs[job_id] = job
+        async with self._jobs_lock:
+            self.jobs[job_id] = job
 
         return job
 
@@ -209,8 +210,8 @@ class ProcessingEngine:
         try:
             self.job_queue.put_nowait(job)
         except asyncio.QueueFull:
-            # Remove the pre-registered job entry so it doesn't linger
-            self.jobs.pop(job.job_id, None)
+            async with self._jobs_lock:
+                self.jobs.pop(job.job_id, None)
             raise
         return job.job_id
 
@@ -297,24 +298,28 @@ class ProcessingEngine:
         async with self._processor_lock:
             cache_key = self._get_processor_cache_key(mode, config)
 
+            # Pop from cache so no concurrent job shares this instance (#3201).
+            # Caller must return it via _return_processor() after use.
             if cache_key in self.processors:
-                return self.processors[cache_key]
+                return self.processors.pop(cache_key)
 
             # Construction is CPU-bound (200-500 ms) — run off the event loop
             # so we don't stall request handling while the lock is held.
             processor = await asyncio.to_thread(HybridProcessor, config)
+
+            return processor
+
+    async def _return_processor(self, mode: str, config: 'UnifiedConfig', processor: 'HybridProcessor') -> None:
+        """Return a processor to the cache after job completion (#3201)."""
+        async with self._processor_lock:
+            cache_key = self._get_processor_cache_key(mode, config)
             self.processors[cache_key] = processor
 
             # Keep cache size bounded (max 5 different processor configurations).
-            # Use list() snapshot of keys so eviction never races with a concurrent
-            # iteration (e.g. get_statistics) even if the lock is weakened later
-            # (fixes #2328).  pop() with default is safe if the key disappeared.
             if len(self.processors) > 5:
                 cache_keys = list(self.processors)
                 if cache_keys:
                     self.processors.pop(cache_keys[0], None)
-
-            return processor
 
     def _create_processor_config(self, job: ProcessingJob) -> UnifiedConfig:
         """
@@ -457,10 +462,11 @@ class ProcessingEngine:
             # Create processor config
             config = self._create_processor_config(job)
 
-            # Get or create processor for this job (with caching for repeated configs)
+            # Get or create processor — exclusively owned until returned (#3201)
             processor = await self._get_or_create_processor(job.mode, config)
 
-            await self._notify_progress(job.job_id, 40.0, "Processing audio...")
+            try:
+                await self._notify_progress(job.job_id, 40.0, "Processing audio...")
 
             # Reset EQ state before each job so cached processors don't bleed
             # the previous track's psychoacoustic EQ curve into the new track (fixes #2400).
@@ -535,6 +541,9 @@ class ProcessingEngine:
 
             job.status = ProcessingStatus.COMPLETED
             job.completed_at = datetime.now()
+            finally:
+                # Return processor to cache for reuse (#3201)
+                await self._return_processor(job.mode, config, processor)
 
         except TimeoutError:
             # asyncio.wait_for raised TimeoutError — the DSP call hung.
