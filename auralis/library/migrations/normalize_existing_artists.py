@@ -82,23 +82,33 @@ def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = Fals
     }
 
     try:
-        # Phase 1: Compute normalized_name for all artists
+        # Phase 1: Compute normalized_name for all artists (batched)
         print("Phase 1: Computing normalized names for all artists...")
 
-        artists = session.execute(text("SELECT id, name FROM artists")).fetchall()
-        stats['total_artists'] = len(artists)
+        batch_size = 1000
+        last_id = 0
+        while True:
+            batch = session.execute(
+                text("SELECT id, name FROM artists WHERE id > :last_id ORDER BY id LIMIT :limit"),
+                {'last_id': last_id, 'limit': batch_size}
+            ).fetchall()
+            if not batch:
+                break
 
-        for artist_id, name in artists:
-            normalized = normalize_artist_name(name)
+            for artist_id, name in batch:
+                normalized = normalize_artist_name(name)
+                if not dry_run:
+                    session.execute(
+                        text("UPDATE artists SET normalized_name = :normalized WHERE id = :id"),
+                        {'normalized': normalized, 'id': artist_id}
+                    )
+                stats['artists_updated'] += 1
+                last_id = artist_id
+
             if not dry_run:
-                session.execute(
-                    text("UPDATE artists SET normalized_name = :normalized WHERE id = :id"),
-                    {'normalized': normalized, 'id': artist_id}
-                )
-            stats['artists_updated'] += 1
+                session.commit()
 
-        if not dry_run:
-            session.commit()
+        stats['total_artists'] = stats['artists_updated']
 
         print(f"  {'Would update' if dry_run else 'Updated'} {stats['artists_updated']} artists with normalized names")
 
@@ -232,6 +242,7 @@ def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = Fals
         raise
     finally:
         session.close()
+        engine.dispose()
 
 
 def main():
