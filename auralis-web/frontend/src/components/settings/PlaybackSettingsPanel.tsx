@@ -11,7 +11,7 @@ interface PlaybackSettingsPanelProps {
   crossfadeDuration: number;
   replayGainEnabled: boolean;
   volume: number;
-  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
 }
 
 /**
@@ -70,7 +70,7 @@ export const PlaybackSettingsPanel = ({
           <SectionLabel>Crossfade Duration: {crossfadeDuration.toFixed(1)}s</SectionLabel>
           <Slider
             value={crossfadeDuration}
-            onChange={(_e, v) => onSettingChange('crossfade_duration', v)}
+            onChange={(_e, v) => onSettingChange('crossfade_duration', v as number)}
             min={0}
             max={10}
             step={0.5}
@@ -102,7 +102,7 @@ export const PlaybackSettingsPanel = ({
         <SectionLabel>Default Volume: {Math.round(volume * 100)}%</SectionLabel>
         <Slider
           value={volume}
-          onChange={(_e, v) => onSettingChange('volume', v)}
+          onChange={(_e, v) => onSettingChange('volume', v as number)}
           min={0}
           max={1}
           step={0.01}

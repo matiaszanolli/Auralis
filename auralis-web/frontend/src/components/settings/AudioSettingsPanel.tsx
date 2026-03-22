@@ -14,7 +14,7 @@ interface AudioSettingsPanelProps {
   outputDevice: string;
   bitDepth: number;
   sampleRate: number;
-  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
 }
 
 /**

@@ -11,7 +11,7 @@ import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 interface SettingsDialogContentProps {
   activeTab: number;
   getValue: <K extends keyof SettingsUpdate>(key: K) => any;
-  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
   onAddFolder: () => Promise<void>;
   onRemoveFolder: (folder: string) => void;
   onScanNow: () => void;

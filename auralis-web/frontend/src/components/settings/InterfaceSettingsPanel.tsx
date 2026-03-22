@@ -16,7 +16,7 @@ interface InterfaceSettingsPanelProps {
   theme: string;
   showVisualizations: boolean;
   miniPlayerOnClose: boolean;
-  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
 }
 
 /**

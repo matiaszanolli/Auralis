@@ -10,7 +10,7 @@ import { SectionContainer, SectionLabel, SectionDescription } from '@/components
 interface AutoScanSettingsProps {
   autoScan: boolean;
   scanInterval: number;
-  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
 }
 
 const INTERVAL_OPTIONS: { label: string; seconds: number }[] = [

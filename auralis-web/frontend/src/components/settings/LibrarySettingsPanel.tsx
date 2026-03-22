@@ -10,7 +10,7 @@ interface LibrarySettingsPanelProps {
   scanFolders: string[];
   autoScan: boolean;
   scanInterval: number;
-  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
   onAddFolder: () => Promise<void>;
   onRemoveFolder: (folder: string) => void;
   onScanNow: () => void;

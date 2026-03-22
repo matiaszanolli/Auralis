@@ -16,7 +16,7 @@ interface AdvancedSettingsPanelProps {
   maxConcurrentScans: number;
   enableAnalytics: boolean;
   debugMode: boolean;
-  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
 }
 
 /**
