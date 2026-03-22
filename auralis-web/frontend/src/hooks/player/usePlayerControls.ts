@@ -154,7 +154,7 @@ export function usePlayerControls({
   const seekTimeoutRef = useRef<NodeJS.Timeout>();
   const lastSeekRef = useRef<number>(0);
 
-  const log = useCallback((msg: string, data?: any) => {
+  const log = useCallback((msg: string, data?: unknown) => {
     if (debug) {
       console.log(`[usePlayerControls] ${msg}`, data ?? '');
     }
