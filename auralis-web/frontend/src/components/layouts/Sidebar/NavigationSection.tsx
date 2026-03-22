@@ -31,6 +31,7 @@ export const NavigationSection = ({
         <ListItem key={item.id} disablePadding>
           <StyledListItemButton
             isactive={selectedItem === item.id ? 'true' : 'false'}
+            aria-current={selectedItem === item.id ? 'page' : undefined}
             onClick={() => onItemClick(item.id)}
           >
             <ListItemIcon
