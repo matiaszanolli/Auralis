@@ -343,8 +343,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
     return () => {
       // Cleanup handled by useRestAPI's own unmount abort
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryType, skip, options.search, options.orderBy, options.limit]);
+  }, [queryType, skip, options.search, options.orderBy, options.limit, options.endpoint, executeQuery]);
 
   return {
     data,
