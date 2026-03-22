@@ -11,7 +11,7 @@ Models for database schema version tracking
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import DateTime, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -25,9 +25,9 @@ class SchemaVersion(Base):  # type: ignore[misc]
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
-    applied_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    description: Mapped[Optional[str]] = mapped_column(Text)
-    migration_script: Mapped[Optional[str]] = mapped_column(Text)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    description: Mapped[str | None] = mapped_column(Text)
+    migration_script: Mapped[str | None] = mapped_column(Text)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert schema version to dictionary"""

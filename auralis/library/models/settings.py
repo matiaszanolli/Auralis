@@ -10,7 +10,7 @@ Models for user settings and preferences
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import Boolean, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -25,8 +25,8 @@ class UserSettings(Base, TimestampMixin):  # type: ignore[misc]
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     # Library Settings
-    scan_folders: Mapped[Optional[str]] = mapped_column(Text)  # JSON array of folder paths
-    file_types: Mapped[Optional[str]] = mapped_column(Text, default='mp3,flac,wav,m4a,ogg,aac,wma')  # Comma-separated
+    scan_folders: Mapped[str | None] = mapped_column(Text)  # JSON array of folder paths
+    file_types: Mapped[str | None] = mapped_column(Text, default='mp3,flac,wav,m4a,ogg,aac,wma')  # Comma-separated
     auto_scan: Mapped[bool] = mapped_column(Boolean, default=False)
     scan_interval: Mapped[int] = mapped_column(Integer, default=3600)  # Seconds
 
@@ -38,18 +38,18 @@ class UserSettings(Base, TimestampMixin):  # type: ignore[misc]
     volume: Mapped[float] = mapped_column(Float, default=0.8)  # 0.0-1.0
 
     # Audio Settings
-    output_device: Mapped[Optional[str]] = mapped_column(String, default='default')
+    output_device: Mapped[str | None] = mapped_column(String, default='default')
     bit_depth: Mapped[int] = mapped_column(Integer, default=16)  # 16, 24, 32
     sample_rate: Mapped[int] = mapped_column(Integer, default=44100)  # Hz
 
     # Interface Settings
-    theme: Mapped[Optional[str]] = mapped_column(String, default='dark')
-    language: Mapped[Optional[str]] = mapped_column(String, default='en')
+    theme: Mapped[str | None] = mapped_column(String, default='dark')
+    language: Mapped[str | None] = mapped_column(String, default='en')
     show_visualizations: Mapped[bool] = mapped_column(Boolean, default=True)
     mini_player_on_close: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Enhancement Settings
-    default_preset: Mapped[Optional[str]] = mapped_column(String, default='adaptive')
+    default_preset: Mapped[str | None] = mapped_column(String, default='adaptive')
     auto_enhance: Mapped[bool] = mapped_column(Boolean, default=False)
     enhancement_intensity: Mapped[float] = mapped_column(Float, default=1.0)  # 0.0-1.0
 

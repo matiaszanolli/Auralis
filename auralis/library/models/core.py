@@ -11,7 +11,7 @@ Core models for tracks, albums, artists, genres, and playlists
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -38,47 +38,47 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
     filepath: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    duration: Mapped[Optional[float]] = mapped_column(Float)
-    sample_rate: Mapped[Optional[int]] = mapped_column(Integer)
-    bit_depth: Mapped[Optional[int]] = mapped_column(Integer)
-    bitrate: Mapped[Optional[int]] = mapped_column(Integer)  # kbps; matches the field listed in TrackRepository.update (fixes #2411)
-    channels: Mapped[Optional[int]] = mapped_column(Integer)
-    format: Mapped[Optional[str]] = mapped_column(String)
-    filesize: Mapped[Optional[int]] = mapped_column(Integer)
+    duration: Mapped[float | None] = mapped_column(Float)
+    sample_rate: Mapped[int | None] = mapped_column(Integer)
+    bit_depth: Mapped[int | None] = mapped_column(Integer)
+    bitrate: Mapped[int | None] = mapped_column(Integer)  # kbps; matches the field listed in TrackRepository.update (fixes #2411)
+    channels: Mapped[int | None] = mapped_column(Integer)
+    format: Mapped[str | None] = mapped_column(String)
+    filesize: Mapped[int | None] = mapped_column(Integer)
 
     # Audio analysis data
-    peak_level: Mapped[Optional[float]] = mapped_column(Float)
-    rms_level: Mapped[Optional[float]] = mapped_column(Float)
-    dr_rating: Mapped[Optional[float]] = mapped_column(Float)  # Dynamic Range rating
-    lufs_level: Mapped[Optional[float]] = mapped_column(Float)  # LUFS loudness
+    peak_level: Mapped[float | None] = mapped_column(Float)
+    rms_level: Mapped[float | None] = mapped_column(Float)
+    dr_rating: Mapped[float | None] = mapped_column(Float)  # Dynamic Range rating
+    lufs_level: Mapped[float | None] = mapped_column(Float)  # LUFS loudness
 
     # Auralis-specific analysis
-    mastering_quality: Mapped[Optional[float]] = mapped_column(Float)  # Quality score 0-1
-    recommended_reference: Mapped[Optional[str]] = mapped_column(String)  # Best reference track path
-    processing_profile: Mapped[Optional[str]] = mapped_column(String)  # Optimal mastering profile
+    mastering_quality: Mapped[float | None] = mapped_column(Float)  # Quality score 0-1
+    recommended_reference: Mapped[str | None] = mapped_column(String)  # Best reference track path
+    processing_profile: Mapped[str | None] = mapped_column(String)  # Optimal mastering profile
 
     # 25D Fingerprint analysis
-    fingerprint_status: Mapped[Optional[str]] = mapped_column(String, default='pending')  # pending, processing, complete, error
-    fingerprint_computed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)  # When fingerprint was last computed
-    fingerprint_error_message: Mapped[Optional[str]] = mapped_column(Text)  # Error message if extraction failed
-    fingerprint_vector: Mapped[Optional[str]] = mapped_column(Text)  # Serialized 25D fingerprint (JSON)
+    fingerprint_status: Mapped[str | None] = mapped_column(String, default='pending')  # pending, processing, complete, error
+    fingerprint_computed_at: Mapped[datetime | None] = mapped_column(DateTime)  # When fingerprint was last computed
+    fingerprint_error_message: Mapped[str | None] = mapped_column(Text)  # Error message if extraction failed
+    fingerprint_vector: Mapped[str | None] = mapped_column(Text)  # Serialized 25D fingerprint (JSON)
 
     # Metadata
-    album_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('albums.id'))
-    track_number: Mapped[Optional[int]] = mapped_column(Integer)
-    disc_number: Mapped[Optional[int]] = mapped_column(Integer)
-    year: Mapped[Optional[int]] = mapped_column(Integer)
-    comments: Mapped[Optional[str]] = mapped_column(Text)
-    lyrics: Mapped[Optional[str]] = mapped_column(Text)  # Plain text or LRC format lyrics
+    album_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('albums.id'))
+    track_number: Mapped[int | None] = mapped_column(Integer)
+    disc_number: Mapped[int | None] = mapped_column(Integer)
+    year: Mapped[int | None] = mapped_column(Integer)
+    comments: Mapped[str | None] = mapped_column(Text)
+    lyrics: Mapped[str | None] = mapped_column(Text)  # Plain text or LRC format lyrics
 
     # Playback statistics
     play_count: Mapped[int] = mapped_column(Integer, default=0, index=True)
-    last_played: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_played: Mapped[datetime | None] = mapped_column(DateTime)
     skip_count: Mapped[int] = mapped_column(Integer, default=0)
     favorite: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
     # Relationships
-    album: Mapped[Optional[Album]] = relationship("Album", back_populates="tracks")
+    album: Mapped[Album | None] = relationship("Album", back_populates="tracks")
     artists: Mapped[list[Artist]] = relationship("Artist", secondary=track_artist, back_populates="tracks")
     genres: Mapped[list[Genre]] = relationship("Genre", secondary=track_genre, back_populates="tracks")
     playlists: Mapped[list[Playlist]] = relationship("Playlist", secondary=track_playlist, back_populates="tracks")
@@ -170,21 +170,21 @@ class Album(Base, TimestampMixin):  # type: ignore[misc]
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
-    artist_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('artists.id'))
-    year: Mapped[Optional[int]] = mapped_column(Integer)
-    total_tracks: Mapped[Optional[int]] = mapped_column(Integer)
-    total_discs: Mapped[Optional[int]] = mapped_column(Integer)
+    artist_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('artists.id'))
+    year: Mapped[int | None] = mapped_column(Integer)
+    total_tracks: Mapped[int | None] = mapped_column(Integer)
+    total_discs: Mapped[int | None] = mapped_column(Integer)
 
     # Album artwork
-    artwork_path: Mapped[Optional[str]] = mapped_column(String)  # Path to extracted album artwork
+    artwork_path: Mapped[str | None] = mapped_column(String)  # Path to extracted album artwork
 
     # Album-level analysis
-    avg_dr_rating: Mapped[Optional[float]] = mapped_column(Float)
-    avg_lufs: Mapped[Optional[float]] = mapped_column(Float)
-    mastering_consistency: Mapped[Optional[float]] = mapped_column(Float)  # How consistent the mastering is across tracks
+    avg_dr_rating: Mapped[float | None] = mapped_column(Float)
+    avg_lufs: Mapped[float | None] = mapped_column(Float)
+    mastering_consistency: Mapped[float | None] = mapped_column(Float)  # How consistent the mastering is across tracks
 
     # Relationships
-    artist: Mapped[Optional[Artist]] = relationship("Artist", back_populates="albums")
+    artist: Mapped[Artist | None] = relationship("Artist", back_populates="albums")
     tracks: Mapped[list[Track]] = relationship("Track", back_populates="album")
 
     def to_dict(self) -> dict[str, Any]:
@@ -224,16 +224,16 @@ class Artist(Base, TimestampMixin):  # type: ignore[misc]
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    normalized_name: Mapped[Optional[str]] = mapped_column(String, index=True)  # Canonical form for duplicate detection
+    normalized_name: Mapped[str | None] = mapped_column(String, index=True)  # Canonical form for duplicate detection
 
     # Artist statistics
     total_plays: Mapped[int] = mapped_column(Integer, default=0)
-    avg_mastering_quality: Mapped[Optional[float]] = mapped_column(Float)
+    avg_mastering_quality: Mapped[float | None] = mapped_column(Float)
 
     # Artwork metadata (Phase 2: Real artist imagery)
-    artwork_url: Mapped[Optional[str]] = mapped_column(Text)  # External URL to artist image
-    artwork_source: Mapped[Optional[str]] = mapped_column(String)  # 'musicbrainz', 'discogs', 'lastfm', etc.
-    artwork_fetched_at: Mapped[Optional[datetime]] = mapped_column(DateTime)  # Last fetch timestamp
+    artwork_url: Mapped[str | None] = mapped_column(Text)  # External URL to artist image
+    artwork_source: Mapped[str | None] = mapped_column(String)  # 'musicbrainz', 'discogs', 'lastfm', etc.
+    artwork_fetched_at: Mapped[datetime | None] = mapped_column(DateTime)  # Last fetch timestamp
 
     # Relationships
     albums: Mapped[list[Album]] = relationship("Album", back_populates="artist")
@@ -264,9 +264,9 @@ class Genre(Base, TimestampMixin):  # type: ignore[misc]
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
 
     # Genre characteristics for auto-mastering
-    preferred_profile: Mapped[Optional[str]] = mapped_column(String, default='balanced')  # warm, bright, punchy, balanced
-    typical_dr_range: Mapped[Optional[str]] = mapped_column(String)  # "8-12" for example
-    typical_lufs_range: Mapped[Optional[str]] = mapped_column(String)  # "-14 to -10" for example
+    preferred_profile: Mapped[str | None] = mapped_column(String, default='balanced')  # warm, bright, punchy, balanced
+    typical_dr_range: Mapped[str | None] = mapped_column(String)  # "8-12" for example
+    typical_lufs_range: Mapped[str | None] = mapped_column(String)  # "-14 to -10" for example
 
     # Relationships
     tracks: Mapped[list[Track]] = relationship("Track", secondary=track_genre, back_populates="genres")
@@ -291,13 +291,13 @@ class Playlist(Base, TimestampMixin):  # type: ignore[misc]
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
     is_smart: Mapped[bool] = mapped_column(Boolean, default=False)
-    smart_criteria: Mapped[Optional[str]] = mapped_column(Text)  # JSON string for smart playlist rules
+    smart_criteria: Mapped[str | None] = mapped_column(Text)  # JSON string for smart playlist rules
 
     # Playlist-level mastering settings
     auto_master_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    mastering_profile: Mapped[Optional[str]] = mapped_column(String, default='balanced')
+    mastering_profile: Mapped[str | None] = mapped_column(String, default='balanced')
     normalize_levels: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
@@ -351,7 +351,7 @@ class QueueState(Base, TimestampMixin):  # type: ignore[misc]
     repeat_mode: Mapped[str] = mapped_column(String, default='off', nullable=False)
 
     # Timestamp for optimistic sync detection
-    synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert queue state to dictionary"""
@@ -411,7 +411,7 @@ class QueueHistory(Base, TimestampMixin):  # type: ignore[misc]
     # For 'add'/'remove': contains index or track_id
     # For 'reorder': contains fromIndex and toIndex
     # For 'shuffle': contains shuffle_mode info
-    operation_metadata: Mapped[Optional[str]] = mapped_column(Text, default='{}')
+    operation_metadata: Mapped[str | None] = mapped_column(Text, default='{}')
 
     def to_dict(self) -> dict[str, Any]:
         """Convert history entry to dictionary"""
@@ -474,7 +474,7 @@ class QueueTemplate(Base, TimestampMixin):  # type: ignore[misc]
     repeat_mode: Mapped[str] = mapped_column(String, default='off', nullable=False)
 
     # Optional description/notes about the template
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Template tags for organization
     tags: Mapped[str] = mapped_column(Text, default='[]', nullable=False)
@@ -486,7 +486,7 @@ class QueueTemplate(Base, TimestampMixin):  # type: ignore[misc]
     load_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Last time this template was loaded
-    last_loaded: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_loaded: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert template to dictionary"""
