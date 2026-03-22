@@ -12,7 +12,7 @@
  * ```
  */
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 interface UseScrollAnimationOptions {
   /**
@@ -160,9 +160,9 @@ export const useStaggerAnimation = (options: UseStaggerAnimationOptions = {}) =>
     };
   }, [delay, threshold, animationClass]);
 
-  const setRef = (el: HTMLElement | null, index: number) => {
+  const setRef = useCallback((el: HTMLElement | null, index: number) => {
     refs.current[index] = el;
-  };
+  }, []);
 
   return { refs, setRef };
 };
