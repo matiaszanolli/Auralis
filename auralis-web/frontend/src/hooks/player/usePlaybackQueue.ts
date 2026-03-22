@@ -55,6 +55,7 @@ import {
   selectCurrentQueueTrack,
   selectIsShuffled,
   selectRepeatMode,
+  selectLastUpdated,
 } from '@/store/slices/queueSlice';
 import type { Track, QueueTrack } from '@/types/domain';
 import type { ApiError } from '@/types/api';
@@ -166,18 +167,19 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   const currentTrack = useSelector(selectCurrentQueueTrack);
   const isShuffled = useSelector(selectIsShuffled);
   const repeatMode = useSelector(selectRepeatMode);
+  const lastUpdated = useSelector(selectLastUpdated);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  // Compose a QueueState view for the public API
+  // Compose a QueueState view from Redux (single source of truth)
   const state: QueueState = useMemo(() => ({
     tracks,
     currentIndex,
     isShuffled,
     repeatMode,
-    lastUpdated: Date.now(),
-  }), [tracks, currentIndex, isShuffled, repeatMode]);
+    lastUpdated,
+  }), [tracks, currentIndex, isShuffled, repeatMode, lastUpdated]);
 
   /**
    * Ref to track latest state without causing callback recreation

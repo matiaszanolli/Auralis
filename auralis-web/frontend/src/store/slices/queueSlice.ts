@@ -284,6 +284,7 @@ export const selectCurrentQueueTrack = (state: { queue: QueueState }) =>
 export const selectQueueLength = (state: { queue: QueueState }) => state.queue.tracks.length;
 export const selectIsLoading = (state: { queue: QueueState }) => state.queue.isLoading;
 export const selectError = (state: { queue: QueueState }) => state.queue.error;
+export const selectLastUpdated = (state: { queue: QueueState }) => state.queue.lastUpdated;
 // selectQueueState is exported from store/selectors/index.ts (memoized).
 
 // Derived selectors (selectRemainingTime, selectTotalQueueTime) are memoized
