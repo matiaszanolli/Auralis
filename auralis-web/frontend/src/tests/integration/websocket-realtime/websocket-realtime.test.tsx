@@ -595,8 +595,7 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
       });
 
       // Assert - handler should not be called again
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      expect(handler).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
     });
 
     it('should handle multiple subscribers to same message type', async () => {
@@ -656,8 +655,7 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
       }
 
       // Assert - should log error but not crash
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      expect(result.current.isConnected).toBe(true);
+      await waitFor(() => expect(result.current.isConnected).toBe(true));
 
       // Cleanup
       consoleErrorSpy.mockRestore();
@@ -695,12 +693,11 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
         data: { current: 50, total: 100, percentage: 50 },
       });
 
-      // Wait a moment for messages to be processed
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       // Assert - connection should remain stable despite unknown messages
-      expect(result.current.isConnected).toBe(wasConnected);
-      expect(result.current.isConnected).toBe(true);
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(wasConnected);
+        expect(result.current.isConnected).toBe(true);
+      });
 
       // Should not have thrown any unhandled errors
       // (console.error calls are handled gracefully within the context)
