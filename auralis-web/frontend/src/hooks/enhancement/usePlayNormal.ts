@@ -452,6 +452,26 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
           throw new Error('WebSocket not connected. Please wait for connection and try again.');
         }
 
+        // Subscribe to streaming messages BEFORE fetch and play command (#2962).
+        // This eliminates the race window where chunks arrive during the
+        // async fetch but no listener is registered yet.
+        unsubscribeStreamStartRef.current = wsContext.subscribe(
+          'audio_stream_start',
+          handleStreamStart as any
+        );
+        unsubscribeChunkRef.current = wsContext.subscribe(
+          'audio_chunk',
+          handleChunk as any
+        );
+        unsubscribeStreamEndRef.current = wsContext.subscribe(
+          'audio_stream_end',
+          handleStreamEnd as any
+        );
+        unsubscribeErrorRef.current = wsContext.subscribe(
+          'audio_stream_error',
+          handleStreamError as any
+        );
+
         // Load track data from backend so we can set currentTrack (fixes #2258)
         // AbortController cancels fetch on unmount/re-invocation (#2780)
         abortRef.current?.abort();
@@ -470,24 +490,6 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
           console.warn('[usePlayNormal] Failed to load track data:', err);
           // Continue anyway - playback will still work
         }
-
-        // Subscribe to streaming messages (fresh subscriptions after cleanup)
-        unsubscribeStreamStartRef.current = wsContext.subscribe(
-          'audio_stream_start',
-          handleStreamStart as any
-        );
-        unsubscribeChunkRef.current = wsContext.subscribe(
-          'audio_chunk',
-          handleChunk as any
-        );
-        unsubscribeStreamEndRef.current = wsContext.subscribe(
-          'audio_stream_end',
-          handleStreamEnd as any
-        );
-        unsubscribeErrorRef.current = wsContext.subscribe(
-          'audio_stream_error',
-          handleStreamError as any
-        );
 
         // Send play_normal message to backend
         wsContext.send({
