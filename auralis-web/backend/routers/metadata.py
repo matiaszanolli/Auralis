@@ -135,7 +135,7 @@ def create_metadata_router(
             raise HTTPException(status_code=404, detail=f"Audio file not found: {e}")
         except Exception as e:
             logger.error(f"Failed to get editable fields for track {track_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get editable fields: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get editable fields")
 
     @router.get("/api/metadata/tracks/{track_id}")
     async def get_track_metadata(track_id: int) -> dict[str, Any]:
@@ -180,7 +180,7 @@ def create_metadata_router(
             raise HTTPException(status_code=404, detail=f"Audio file not found: {e}")
         except Exception as e:
             logger.error(f"Failed to get metadata for track {track_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get metadata: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get metadata")
 
     @router.put("/api/metadata/tracks/{track_id}")
     async def update_track_metadata(track_id: int, request: MetadataUpdateRequest) -> dict[str, Any]:
@@ -274,7 +274,7 @@ def create_metadata_router(
             raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
         except Exception as e:
             logger.error(f"Failed to update metadata for track {track_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to update metadata: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update metadata")
 
     @router.post("/api/metadata/batch")
     async def batch_update_metadata(request: BatchMetadataRequest) -> dict[str, Any]:
@@ -369,6 +369,6 @@ def create_metadata_router(
 
         except Exception as e:
             logger.error(f"Batch metadata update failed: {e}")
-            raise HTTPException(status_code=500, detail=f"Batch update failed: {e}")
+            raise HTTPException(status_code=500, detail="Batch update failed")
 
     return router

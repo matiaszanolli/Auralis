@@ -209,7 +209,7 @@ def create_webm_streaming_router(
             raise
         except Exception as e:
             logger.error(f"Failed to get stream metadata: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get stream metadata: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get stream metadata")
 
     @router.get("/api/stream/{track_id}/chunk/{chunk_idx}")
     async def stream_chunk(
@@ -374,7 +374,7 @@ def create_webm_streaming_router(
                         logger.error(f"Traceback: {traceback.format_exc()}")
                         raise HTTPException(
                             status_code=500,
-                            detail=f"Chunk processing failed: {str(e)}"
+                            detail="Chunk processing failed"
                         )
 
             # Calculate latency
@@ -410,7 +410,7 @@ def create_webm_streaming_router(
             latency_ms = (time.time() - start_time) * 1000
             logger.error(f"Chunk streaming failed after {latency_ms:.1f}ms: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail=f"Chunk streaming failed: {e}")
+            raise HTTPException(status_code=500, detail="Chunk streaming failed")
 
     async def _get_original_wav_chunk(
         filepath: str,
@@ -476,7 +476,7 @@ def create_webm_streaming_router(
             logger.error(f"Chunk audio shape: {chunk_audio.shape}, dtype: {chunk_audio.dtype}")
             raise HTTPException(
                 status_code=500,
-                detail=f"WAV encoding failed: {str(e)}"
+                detail="WAV encoding failed"
             )
 
     return router

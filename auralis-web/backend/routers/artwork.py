@@ -162,7 +162,7 @@ def create_artwork_router(
             raise
         except Exception as e:
             logger.error(f"Failed to get artwork: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get artwork: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get artwork")
 
     @router.post("/api/albums/{album_id}/artwork/extract")
     async def extract_album_artwork(album_id: int) -> dict[str, Any]:
@@ -213,7 +213,7 @@ def create_artwork_router(
             raise
         except Exception as e:
             logger.error(f"Failed to extract artwork: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to extract artwork: {e}")
+            raise HTTPException(status_code=500, detail="Failed to extract artwork")
 
     @router.delete("/api/albums/{album_id}/artwork")
     async def delete_album_artwork(album_id: int) -> dict[str, Any]:
@@ -248,7 +248,7 @@ def create_artwork_router(
             raise
         except Exception as e:
             logger.error(f"Failed to delete artwork: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to delete artwork: {e}")
+            raise HTTPException(status_code=500, detail="Failed to delete artwork")
 
     @router.post("/api/albums/{album_id}/artwork/download")
     async def download_album_artwork(album_id: int) -> dict[str, Any]:
@@ -324,6 +324,6 @@ def create_artwork_router(
             raise
         except Exception as e:
             logger.error(f"Failed to download artwork: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to download artwork: {e}")
+            raise HTTPException(status_code=500, detail="Failed to download artwork")
 
     return router

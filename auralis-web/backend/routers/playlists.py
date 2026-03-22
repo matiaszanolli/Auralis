@@ -90,7 +90,7 @@ def create_playlists_router(
             raise
         except Exception as e:
             logger.error(f"Failed to get playlists: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get playlists: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get playlists")
 
     @router.get("/api/playlists/{playlist_id}")
     async def get_playlist(playlist_id: int) -> dict[str, Any]:
@@ -121,7 +121,7 @@ def create_playlists_router(
             raise
         except Exception as e:
             logger.error(f"Failed to get playlist: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get playlist: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get playlist")
 
     @router.post("/api/playlists")
     async def create_playlist(request: CreatePlaylistRequest) -> dict[str, Any]:
@@ -166,7 +166,7 @@ def create_playlists_router(
             raise
         except Exception as e:
             logger.error(f"Failed to create playlist: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to create playlist: {e}")
+            raise HTTPException(status_code=500, detail="Failed to create playlist")
 
     @router.put("/api/playlists/{playlist_id}")
     async def update_playlist(playlist_id: int, request: UpdatePlaylistRequest) -> dict[str, Any]:
@@ -214,7 +214,7 @@ def create_playlists_router(
             raise
         except Exception as e:
             logger.error(f"Failed to update playlist: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to update playlist: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update playlist")
 
     @router.delete("/api/playlists/{playlist_id}")
     async def delete_playlist(playlist_id: int) -> dict[str, Any]:
@@ -250,7 +250,7 @@ def create_playlists_router(
             raise
         except Exception as e:
             logger.error(f"Failed to delete playlist: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to delete playlist: {e}")
+            raise HTTPException(status_code=500, detail="Failed to delete playlist")
 
     @router.post("/api/playlists/{playlist_id}/tracks")
     async def add_tracks_to_playlist(playlist_id: int, request: AddTracksRequest) -> dict[str, Any]:
@@ -294,7 +294,7 @@ def create_playlists_router(
             raise
         except Exception as e:
             logger.error(f"Failed to add tracks to playlist: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to add tracks: {e}")
+            raise HTTPException(status_code=500, detail="Failed to add tracks")
 
     @router.delete("/api/playlists/{playlist_id}/tracks/{track_id}")
     async def remove_track_from_playlist(playlist_id: int, track_id: int) -> dict[str, Any]:
@@ -332,7 +332,7 @@ def create_playlists_router(
             raise
         except Exception as e:
             logger.error(f"Failed to remove track from playlist: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to remove track: {e}")
+            raise HTTPException(status_code=500, detail="Failed to remove track")
 
     @router.delete("/api/playlists/{playlist_id}/tracks")
     async def clear_playlist(playlist_id: int) -> dict[str, Any]:
@@ -369,6 +369,6 @@ def create_playlists_router(
             raise
         except Exception as e:
             logger.error(f"Failed to clear playlist: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to clear playlist: {e}")
+            raise HTTPException(status_code=500, detail="Failed to clear playlist")
 
     return router
