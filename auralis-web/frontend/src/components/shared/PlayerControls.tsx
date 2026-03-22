@@ -304,7 +304,8 @@ function PresetSelector({
         <button
           key={preset.value}
           onClick={() => onSelect(preset.value)}
-          title={preset.name}
+          aria-label={preset.name}
+          aria-pressed={activePreset === preset.value}
           style={{
             flex: 1,
             padding: tokens.spacing.sm,
