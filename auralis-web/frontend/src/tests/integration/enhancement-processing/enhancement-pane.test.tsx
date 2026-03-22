@@ -66,12 +66,14 @@ vi.mock('@/components/enhancement-pane/hooks/useEnhancementParameters', () => ({
   })),
 }));
 
-// Mock mastering recommendation hook
+// Mock mastering recommendation hook (shape must match real return type — fixes #2969)
 vi.mock('@/hooks/enhancement/useMasteringRecommendation', () => {
   const mockFn = () => ({
     recommendation: null,
     isLoading: false,
-    error: null,
+    isTimedOut: false,
+    clearRecommendation: vi.fn(),
+    isHybrid: false,
   });
   return {
     useMasteringRecommendation: mockFn,
