@@ -8,7 +8,7 @@ import { tokens } from '@/design-system';
  */
 export const SimilarTracksHeader = () => {
   return (
-    <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid rgba(102, 126, 234, 0.1)` }}>
+    <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${tokens.colors.opacityScale.accent.veryLight}` }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <SparklesIcon sx={{ fontSize: 20, color: tokens.colors.accent.primary }} />
         <Typography variant="subtitle2" sx={{ color: tokens.colors.text.primary, fontWeight: tokens.typography.fontWeight.semibold }}>

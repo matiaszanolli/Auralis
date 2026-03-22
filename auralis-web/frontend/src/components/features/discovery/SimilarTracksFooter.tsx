@@ -12,7 +12,7 @@ interface SimilarTracksFooterProps {
  */
 export const SimilarTracksFooter = ({ useGraph, tracksCount }: SimilarTracksFooterProps) => {
   return (
-    <Box sx={{ px: 2, py: 1, borderTop: `1px solid rgba(102, 126, 234, 0.1)` }}>
+    <Box sx={{ px: 2, py: 1, borderTop: `1px solid ${tokens.colors.opacityScale.accent.veryLight}` }}>
       <Typography variant="caption" sx={{ color: tokens.colors.text.secondary, fontSize: '0.7rem' }}>
         {useGraph ? '⚡ Fast lookup' : '🔍 Real-time search'} • {tracksCount} tracks
       </Typography>

@@ -29,7 +29,7 @@ export const KeyboardShortcutsHeader = ({ onClose }: KeyboardShortcutsHeaderProp
         sx={{
           color: tokens.colors.text.primary,
           '&:hover': {
-            background: 'rgba(102, 126, 234, 0.05)',
+            background: tokens.colors.opacityScale.accent.minimal,
           },
         }}
       >
