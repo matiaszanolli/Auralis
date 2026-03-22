@@ -663,7 +663,7 @@ class AudioStreamController:
                         exc_info=True
                     )
                     # Compute recovery position: start of the failed chunk (issue #2085)
-                    recovery_position: float = chunk_idx * processor.chunk_duration
+                    recovery_position: float = chunk_idx * processor.chunk_interval
                     # Evict any stale cache entry for the failed chunk so a retry
                     # processes it fresh rather than replaying corrupt data (issue #2085)
                     if isinstance(self.cache_manager, SimpleChunkCache):
