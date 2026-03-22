@@ -29,7 +29,8 @@ import { useCallback, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { selectCurrentTrack, selectDuration, setIsPlaying } from '@/store/slices/playerSlice';
+import { selectCurrentTrack, selectDuration, setIsPlaying, setCurrentTrack, setCurrentTime } from '@/store/slices/playerSlice';
+import { clearQueue } from '@/store/slices/queueSlice';
 import type { ApiError } from '@/types/api';
 import type { AppDispatch } from '@/store';
 
@@ -189,8 +190,12 @@ export function usePlaybackControl(): PlaybackControlActions {
     executingCommand.current = 'stop';
 
     try {
-      // Update Redux state immediately so playback engines can respond
+      // Update Redux state immediately so UI reflects stopped state
+      // before the WS broadcast arrives (all dispatches are idempotent)
       dispatch(setIsPlaying(false));
+      dispatch(setCurrentTrack(null));
+      dispatch(setCurrentTime(0));
+      dispatch(clearQueue());
 
       // Send WebSocket message to stop backend streaming
       send({
@@ -198,7 +203,7 @@ export function usePlaybackControl(): PlaybackControlActions {
         data: {},
       });
 
-      // Server broadcasts 'playback_stopped' message which updates usePlaybackState
+      // Server broadcasts 'playback_stopped' message which confirms the state
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'STOP_ERROR', status: 500 } : err as ApiError;
       setError(apiError);
@@ -207,7 +212,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [send]);
+  }, [send, dispatch]);
 
   /**
    * Seek - Seek to position in seconds
