@@ -22,7 +22,7 @@ export const Collapsed = ({
 }: CollapsedProps) => {
   return (
     <CollapsedPaneContainer>
-      <IconButton onClick={onToggleCollapse} sx={{ color: tokens.colors.text.primary }}>
+      <IconButton onClick={onToggleCollapse} aria-label="Expand enhancement pane" aria-expanded={false} sx={{ color: tokens.colors.text.primary }}>
         <ChevronLeft />
       </IconButton>
       <CollapsedIconContainer>

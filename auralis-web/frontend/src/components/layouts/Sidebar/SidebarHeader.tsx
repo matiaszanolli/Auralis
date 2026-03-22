@@ -28,6 +28,8 @@ export const SidebarHeader = ({ onToggleCollapse }: SidebarHeaderProps) => {
         <AuroraLogo size="medium" showText animated />
         <IconButton
           onClick={onToggleCollapse}
+          aria-label="Collapse sidebar"
+          aria-expanded={true}
           size="small"
           sx={{
             color: tokens.colors.text.secondary,
