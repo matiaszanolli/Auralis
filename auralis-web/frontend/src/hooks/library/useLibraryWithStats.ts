@@ -226,15 +226,12 @@ export const useLibraryWithStats = ({
 
     try {
       const limit = 50;
-      // Get current offset value using updater function pattern
+      // Compute new offset from current value and update state
       let newOffset = 0;
       setOffset((prevOffset) => {
         newOffset = prevOffset + limit;
         return newOffset;
       });
-
-      // Wait for state update to complete
-      await new Promise((resolve) => setTimeout(resolve, 0));
 
       const endpoint =
         view === 'favourites'
