@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from fastapi import FastAPI
-from routers.processing_api import router, set_processing_engine
+from routers.processing_api import router, set_processing_engine, _is_valid_audio_magic
 from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
 
 
@@ -613,3 +613,43 @@ class TestProcessingAPIDualModeParametrized:
         assert result.filepath == "/path/to/audio.wav", f"{mode}: Track filepath mismatch"
         assert result.title == "Test Track", f"{mode}: Track title mismatch"
         source.tracks.get_by_id.assert_called_once_with(1)
+
+
+# ===========================================================================
+# _is_valid_audio_magic unit tests
+# ===========================================================================
+
+class TestIsValidAudioMagic:
+    """Tests for the magic-byte validation gate."""
+
+    @pytest.mark.parametrize("header,desc", [
+        (b"RIFF\x00\x00\x00\x00", "WAV"),
+        (b"fLaC\x00\x00\x00\x00", "FLAC"),
+        (b"OggS\x00\x00\x00\x00", "OGG"),
+        (b"ID3\x00\x00\x00\x00\x00", "MP3 ID3v2"),
+        (b"\xff\xfb\x00\x00\x00\x00\x00\x00", "MP3 sync 0xfffb"),
+        (b"\x00\x00\x00\x1cftyp", "M4A/MP4"),
+        (b"FORM\x00\x00\x00\x00", "AIFF FORM"),
+    ])
+    def test_accepts_valid_audio_magic(self, header: bytes, desc: str):
+        assert _is_valid_audio_magic(header) is True, f"Should accept {desc}"
+
+    def test_rejects_mime_valid_but_magic_invalid(self):
+        """Primary defence: file claims audio MIME but has non-audio magic bytes.
+
+        Regression test for issue #3232.
+        """
+        # PNG header — a file that might be served as audio/mpeg by a
+        # misconfigured client but is clearly not audio.
+        png_header = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+        assert _is_valid_audio_magic(png_header) is False
+
+    def test_rejects_pdf_magic(self):
+        pdf_header = b"%PDF-1.4" + b"\x00" * 100
+        assert _is_valid_audio_magic(pdf_header) is False
+
+    def test_rejects_too_short(self):
+        assert _is_valid_audio_magic(b"\xff\xfb") is False
+
+    def test_rejects_empty(self):
+        assert _is_valid_audio_magic(b"") is False
