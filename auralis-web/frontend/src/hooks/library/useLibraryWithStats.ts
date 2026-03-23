@@ -228,11 +228,11 @@ export const useLibraryWithStats = ({
 
     try {
       const limit = 50;
-      // Compute new offset from current value and update state
+      // Compute new offset from current value without committing it yet
       let newOffset = 0;
       setOffset((prevOffset) => {
         newOffset = prevOffset + limit;
-        return newOffset;
+        return prevOffset; // Don't advance yet — wait for successful fetch
       });
 
       const endpoint =
@@ -246,6 +246,8 @@ export const useLibraryWithStats = ({
 
         const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
 
+        // Commit the offset advance only after a successful fetch
+        setOffset(newOffset);
         setTracks((prev) => [...prev, ...transformedTracks]);
         setHasMore(data.has_more || false);
         setTotalTracks(data.total || 0);
