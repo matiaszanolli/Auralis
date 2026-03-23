@@ -45,7 +45,7 @@ const DEBUG = import.meta.env.DEV;
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import type { AnyWebSocketMessage } from '@/types/websocket';
+import type { FingerprintProgressMessage } from '@/types/websocket';
 import { API_BASE_URL } from '@/config/api';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
@@ -162,7 +162,7 @@ export interface UsePlayEnhancedReturn {
    * Fingerprint analysis status (idle, analyzing, complete, failed, error)
    * Shows user feedback during audio analysis phase
    */
-  fingerprintStatus: 'idle' | 'analyzing' | 'complete' | 'failed' | 'error';
+  fingerprintStatus: 'idle' | 'analyzing' | 'complete' | 'failed' | 'error' | 'cached' | 'queued';
 
   /**
    * Fingerprint analysis message for user display
@@ -200,7 +200,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const handleChunkRef = useRef<((m: AudioChunkMessage) => void) | null>(null);
   const handleStreamEndRef = useRef<((m: AudioStreamEndMessage) => void) | null>(null);
   const handleStreamErrorRef = useRef<((m: AudioStreamErrorMessage) => void) | null>(null);
-  const handleFingerprintProgressRef = useRef<((m: AnyWebSocketMessage) => void) | null>(null);
+  const handleFingerprintProgressRef = useRef<((m: FingerprintProgressMessage) => void) | null>(null);
 
   // Timer ref for fingerprint status auto-clear (fixes #2353)
   const fingerprintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -223,7 +223,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
-  const [fingerprintStatus, setFingerprintStatus] = useState<'idle' | 'analyzing' | 'complete' | 'failed' | 'error'>('idle');
+  const [fingerprintStatus, setFingerprintStatus] = useState<'idle' | 'analyzing' | 'complete' | 'failed' | 'error' | 'cached' | 'queued'>('idle');
   const [fingerprintMessage, setFingerprintMessage] = useState<string | null>(null);
 
   // Tracks the last progress value dispatched to Redux to throttle per-chunk
@@ -560,7 +560,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   /**
    * Handle fingerprint_progress message from backend
    */
-  const handleFingerprintProgress = useCallback((message: any) => {
+  const handleFingerprintProgress = useCallback((message: FingerprintProgressMessage) => {
     const { status, message: progressMessage } = message.data || {};
 
     DEBUG && console.log('[usePlayEnhanced] Fingerprint progress:', { status, message: progressMessage });
@@ -784,7 +784,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     );
     unsubscribeFingerprintRef.current = wsContext.subscribe(
       'fingerprint_progress',
-      (m) => handleFingerprintProgressRef.current?.(m as AnyWebSocketMessage)
+      (m) => handleFingerprintProgressRef.current?.(m as FingerprintProgressMessage)
     );
 
     // Subscribe to seek_started to clear isSeeking as soon as the backend
