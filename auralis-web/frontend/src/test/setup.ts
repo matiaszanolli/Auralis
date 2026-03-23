@@ -32,6 +32,7 @@ vi.mock('../contexts/WebSocketContext', () => {
       send: mockSend,
       connect: mockConnect,
       disconnect: mockDisconnect,
+      setResumePositionGetter: vi.fn(),
     })),
     WebSocketProvider: ({ children }: { children: React.ReactNode }) => children,
     resetWebSocketSingletons: vi.fn(),

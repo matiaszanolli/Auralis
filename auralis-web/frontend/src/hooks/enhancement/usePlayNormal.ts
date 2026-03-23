@@ -213,11 +213,32 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       // Only process messages intended for this hook (#2104)
       if (message.data.stream_type && message.data.stream_type !== 'normal') return;
 
+      const isSeek = (message.data as any).is_seek === true;
+
       console.log('[usePlayNormal] Stream started:', {
         trackId: message.data.track_id,
         chunks: message.data.total_chunks,
         duration: message.data.total_duration,
+        isSeek,
       });
+
+      // Resume guard: if we already have a live engine+buffer (e.g. after WS
+      // reconnect), skip recreation and let new chunks append seamlessly (#3185).
+      if (isSeek && playbackEngineRef.current && pcmBufferRef.current) {
+        console.log('[usePlayNormal] Resuming stream into existing buffer');
+        if (streamingMetadataRef.current) {
+          streamingMetadataRef.current.totalChunks = message.data.total_chunks;
+          streamingMetadataRef.current.processedChunks = 0;
+        }
+        pendingChunksRef.current = [];
+        dispatch(startStreaming({
+          streamType: 'normal',
+          trackId: message.data.track_id,
+          totalChunks: message.data.total_chunks,
+          intensity: 1.0,
+        }));
+        return;
+      }
 
       // Initialize PCMStreamBuffer
       const buffer = new PCMStreamBuffer();
@@ -589,26 +610,22 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     }
   }, [isPlaying, isPaused]);
 
-  /**
-   * Handle WebSocket disconnection - clean up playback state to prevent
-   * stale engine on reconnect (mirrors usePlayEnhanced, fixes #2847).
-   */
+  // Register resume position getter for WS reconnect (#3185)
+  useEffect(() => {
+    wsContext.setResumePositionGetter(() =>
+      playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0
+    );
+    return () => wsContext.setResumePositionGetter(null);
+  }, [wsContext]);
+
+  // On WS disconnect: preserve playback engine and buffer so buffered audio
+  // continues playing while reconnect happens (#3185, replaces #2847 teardown).
   useEffect(() => {
     if (!wsContext.isConnected && playbackEngineRef.current) {
-      console.log('[usePlayNormal] WebSocket disconnected - cleaning up playback state');
-
-      playbackEngineRef.current.stopPlayback();
-      playbackEngineRef.current = null;
-      pcmBufferRef.current = null;
-      streamingMetadataRef.current = null;
-      pendingChunksRef.current = [];
-
-      setCurrentTime(0);
-      setIsPaused(false);
-
-      dispatch(resetStreaming('normal'));
+      console.log('[usePlayNormal] WebSocket disconnected - keeping playback engine alive');
+      // DO NOT destroy engine/buffer/state — let buffered audio play through.
     }
-  }, [wsContext.isConnected, dispatch]);
+  }, [wsContext.isConnected]);
 
   return {
     playNormal,

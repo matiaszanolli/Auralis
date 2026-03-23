@@ -293,9 +293,13 @@ def create_system_router(
                             intensity = 1.0
                         logger.warning("Enhancement settings not available, using validated message data")
 
+                    # Resume position for WS reconnect (#3185)
+                    start_position = float(data.get("start_position", 0.0) or 0.0)
+
                     logger.info(
                         f"Received play_enhanced: track_id={track_id}, "
                         f"preset={preset}, intensity={intensity}"
+                        + (f", resume_at={start_position:.1f}s" if start_position > 0 else "")
                     )
 
                     if not enhancement_enabled:
@@ -341,12 +345,22 @@ def create_system_router(
                             else:
                                 logger.warning("⚠️  FingerprintGenerator not available - using database/cached fingerprints only")
 
-                            await controller.stream_enhanced_audio(
-                                track_id=track_id,
-                                preset=preset,
-                                intensity=intensity,
-                                websocket=websocket,
-                            )
+                            if start_position > 0:
+                                # Resume from position (WS reconnect, #3185)
+                                await controller.stream_enhanced_audio_from_position(
+                                    track_id=track_id,
+                                    preset=preset,
+                                    intensity=intensity,
+                                    websocket=websocket,
+                                    start_position=start_position,
+                                )
+                            else:
+                                await controller.stream_enhanced_audio(
+                                    track_id=track_id,
+                                    preset=preset,
+                                    intensity=intensity,
+                                    websocket=websocket,
+                                )
                         except asyncio.CancelledError:
                             logger.info(f"Streaming task cancelled for track {track_id}")
                         except ImportError as e:
@@ -430,7 +444,13 @@ def create_system_router(
                         )
                         continue
 
-                    logger.info(f"Received play_normal: track_id={track_id}")
+                    # Resume position for WS reconnect (#3185)
+                    start_position = float(data.get("start_position", 0.0) or 0.0)
+
+                    logger.info(
+                        f"Received play_normal: track_id={track_id}"
+                        + (f", resume_at={start_position:.1f}s" if start_position > 0 else "")
+                    )
 
                     ws_id = id(websocket)
 
@@ -448,6 +468,7 @@ def create_system_router(
                             await controller.stream_normal_audio(
                                 track_id=track_id,
                                 websocket=websocket,
+                                start_position=start_position,
                             )
                         except asyncio.CancelledError:
                             logger.info(f"Normal streaming task cancelled for track {track_id}")

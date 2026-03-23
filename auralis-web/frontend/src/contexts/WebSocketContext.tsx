@@ -67,6 +67,9 @@ interface WebSocketContextValue {
   // Manual connection control
   connect: () => void;
   disconnect: () => void;
+
+  // Stream resumption: register a callback that returns current playback position (#3185)
+  setResumePositionGetter: (getter: (() => number) | null) => void;
 }
 
 // ============================================================================
@@ -110,6 +113,7 @@ const singletonGlobalHandlers: Set<MessageHandler> = new Set();
  * Cleared when the client sends an explicit stop or pause.
  */
 let singletonLastStreamCommand: OutgoingWebSocketMessage | null = null;
+let singletonResumePositionGetter: (() => number) | null = null;
 
 /**
  * Reset all WebSocket singletons - ONLY FOR TESTING
@@ -130,8 +134,9 @@ export function resetWebSocketSingletons(): void {
   // Reset ref count
   singletonRefCount = 0;
 
-  // Clear last stream command
+  // Clear last stream command and resume position getter
   singletonLastStreamCommand = null;
+  singletonResumePositionGetter = null;
 
   // Clear pending binary metadata
   pendingAudioChunkMeta = null;
@@ -319,11 +324,19 @@ export const WebSocketProvider = ({
         }
 
         // Re-issue the last active stream command after reconnect (issue #2385).
-        // Only re-issues commands that were sent while connected (not queued ones,
-        // which are already flushed above). Cleared by explicit stop/pause.
+        // Inject the current playback position so the backend resumes from where
+        // the user is listening, not from the beginning (#3185).
         if (singletonLastStreamCommand) {
-          console.log(`🔄 Reconnected - re-issuing stream command: ${singletonLastStreamCommand.type}`);
-          manager.send(JSON.stringify(singletonLastStreamCommand));
+          const resumePos = singletonResumePositionGetter?.() ?? 0;
+          const resumeCommand = {
+            ...singletonLastStreamCommand,
+            data: {
+              ...(singletonLastStreamCommand.data ?? {}),
+              start_position: resumePos,
+            },
+          };
+          console.log(`🔄 Reconnected - re-issuing stream command: ${singletonLastStreamCommand.type} at ${resumePos.toFixed(1)}s`);
+          manager.send(JSON.stringify(resumeCommand));
         }
       });
 
@@ -456,7 +469,10 @@ export const WebSocketProvider = ({
     subscribeAll,
     send,
     connect,
-    disconnect
+    disconnect,
+    setResumePositionGetter: (getter: (() => number) | null) => {
+      singletonResumePositionGetter = getter;
+    },
   };
 
   return (

@@ -291,6 +291,24 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         setIsSeeking(false);
       }
 
+      // Resume guard: if we already have a live engine+buffer (e.g. after WS
+      // reconnect), skip recreation and let new chunks append seamlessly (#3185).
+      if (isSeek && playbackEngineRef.current && pcmBufferRef.current) {
+        console.log('[usePlayEnhanced] Resuming stream into existing buffer');
+        if (streamingMetadataRef.current) {
+          streamingMetadataRef.current.totalChunks = message.data.total_chunks;
+          streamingMetadataRef.current.processedChunks = 0;
+        }
+        pendingChunksRef.current = [];
+        dispatch(startStreaming({
+          streamType: 'enhanced',
+          trackId: message.data.track_id,
+          totalChunks: message.data.total_chunks,
+          intensity: 1.0,
+        }));
+        return;
+      }
+
       // Initialize PCMStreamBuffer
       const buffer = new PCMStreamBuffer();
       buffer.initialize(message.data.sample_rate, message.data.channels);
@@ -791,6 +809,15 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     };
   }, [wsContext]); // Only resubscribe when the WS manager itself changes (reconnect)
 
+  // Register resume position getter so WebSocketContext can inject playback
+  // position into the reconnect stream command (#3185).
+  useEffect(() => {
+    wsContext.setResumePositionGetter(() =>
+      playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0
+    );
+    return () => wsContext.setResumePositionGetter(null);
+  }, [wsContext]);
+
   /**
    * Handle WebSocket disconnection - clean up playback state to prevent stale state on reconnect.
    *
@@ -800,18 +827,13 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    *
    * By cleaning up on disconnect, we ensure a fresh state when the new stream starts.
    */
+  // On WS disconnect: preserve playback engine and buffer so buffered audio
+  // continues playing while reconnect happens. Only clean up non-essential state.
+  // The reconnect handler in WebSocketContext will re-issue the stream command
+  // with the current playback position (#3185).
   useEffect(() => {
     if (!wsContext.isConnected && playbackEngineRef.current) {
-      console.log('[usePlayEnhanced] WebSocket disconnected - cleaning up playback state');
-
-      // Stop playback engine to prevent buffer underruns
-      playbackEngineRef.current.stopPlayback();
-      playbackEngineRef.current = null;
-
-      // Clear PCM buffer and metadata
-      pcmBufferRef.current = null;
-      streamingMetadataRef.current = null;
-      pendingChunksRef.current = [];
+      console.log('[usePlayEnhanced] WebSocket disconnected - keeping playback engine alive');
 
       // Cancel orphaned fingerprint timeout so stale callback cannot fire against
       // the next stream context after disconnect (fixes #2536).
@@ -820,17 +842,10 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         fingerprintTimeoutRef.current = null;
       }
 
-      // Reset UI state
-      setCurrentTime(0);
-      setIsPaused(false);
-      setIsSeeking(false);
-      setFingerprintStatus('idle');
-      setFingerprintMessage(null);
-
-      // Reset Redux streaming state
-      dispatch(resetStreaming('enhanced'));
+      // DO NOT destroy engine/buffer/state — let buffered audio play through.
+      // The engine's existing buffer underrun handling will pause if it runs dry.
     }
-  }, [wsContext.isConnected, dispatch]);
+  }, [wsContext.isConnected]);
 
   /**
    * Update playback time periodically — only while playing.
