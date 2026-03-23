@@ -541,7 +541,8 @@ describe('useRestAPI Hook', () => {
         }
       });
 
-      expect(result.current.error).toBeDefined();
+      // AbortErrors should be swallowed — no error state surfaced to consumers
+      expect(result.current.error).toBeNull();
     });
   });
 
