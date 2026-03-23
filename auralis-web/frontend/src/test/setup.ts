@@ -5,7 +5,7 @@
  */
 
 import '@testing-library/jest-dom' // @ts-ignore: type definitions not available
-import { cleanup } from '@testing-library/react'
+import { cleanup, act } from '@testing-library/react'
 import { afterEach, beforeAll, afterAll, vi } from 'vitest'
 import { server } from './mocks/server'
 
@@ -54,21 +54,17 @@ vi.mock('../contexts/WebSocketContext', () => {
 // Ensure React scheduler is idle before each test
 // This prevents "Should not already be working" errors from leaking between tests
 beforeEach(async () => {
-  // Yield to the event loop to allow any pending microtasks to complete
-  await new Promise(resolve => setTimeout(resolve, 0))
+  // Flush pending React work deterministically
+  await act(async () => {});
 })
 
-// Cleanup after each test case with aggressive memory management
+// Cleanup after each test case
 afterEach(async () => {
   // 1. React Testing Library cleanup (unmount all components)
-  // This must happen first to trigger React's cleanup lifecycle
   cleanup()
 
-  // 2. Flush all pending React work by yielding to the event loop multiple times
-  // This is critical to prevent "Should not already be working" errors
-  // React's concurrent scheduler may have pending work that needs to complete
-  await new Promise(resolve => setTimeout(resolve, 0))
-  await new Promise(resolve => setTimeout(resolve, 0))
+  // 2. Flush all pending React work deterministically via act()
+  await act(async () => {});
 
   // 3. Clear all vi mocks
   vi.clearAllMocks()
@@ -80,9 +76,6 @@ afterEach(async () => {
   if (global.gc) {
     global.gc()
   }
-
-  // 6. Final yield to ensure React scheduler is completely idle
-  await new Promise(resolve => setTimeout(resolve, 10))
 })
 
 // Mock window.matchMedia (used by MUI components for responsive design)
@@ -230,28 +223,13 @@ beforeAll(() => {
   })
 })
 
-// Reset handlers after each test with proper cleanup
-afterEach(async () => {
-  // 1. Reset all MSW handlers
+// Reset handlers after each test
+afterEach(() => {
   server.resetHandlers()
-
-  // 2. Clear any pending requests
-  await new Promise(resolve => setTimeout(resolve, 0))
 })
 
-// Clean up after all tests - comprehensive cleanup
-afterAll(async () => {
-  // 1. Stop MSW server
+// Clean up after all tests
+afterAll(() => {
   server.close()
-
-  // 2. Clear any remaining timeouts
   vi.clearAllTimers()
-
-  // 3. Final garbage collection
-  if (global.gc) {
-    global.gc()
-  }
-
-  // 4. Wait for cleanup
-  await new Promise(resolve => setTimeout(resolve, 100))
 })
