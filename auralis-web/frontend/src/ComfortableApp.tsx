@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { Box } from '@mui/material';
 import { useSelector } from 'react-redux';
 
@@ -128,7 +128,7 @@ function ComfortableApp() {
 
   // Keyboard shortcuts - FIXED FOR BETA.11.1
   // Using new service-based architecture to avoid minification issues
-  const keyboardShortcutsArray: KeyboardShortcut[] = [
+  const keyboardShortcutsArray: KeyboardShortcut[] = useMemo(() => [
     // Playback controls
     {
       key: ' ',
@@ -267,7 +267,8 @@ function ComfortableApp() {
         setSettingsOpen(true);
       }
     }
-  ];
+  ], [togglePlayPause, isPlaying, nextTrack, previousTrack, volume, setVolume,
+      searchQuery, setSearchQuery, settingsOpen, setSettingsOpen, setCurrentView, info]);
 
   // Ref to break circular dependency: array references openHelp, but
   // openHelp comes from the hook that receives the array (fixes #3077).
