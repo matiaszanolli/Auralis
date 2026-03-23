@@ -352,7 +352,7 @@ export function useCacheStats(): APIRequestState<CacheStats> & {
 /**
  * Hook for monitoring cache health (#2806: React Query for dedup)
  */
-export function useCacheHealth(): APIRequestState<CacheHealth> & {
+export function useCacheHealth(refreshInterval: number = 10000): APIRequestState<CacheHealth> & {
   refetch: () => Promise<void>;
   isHealthy: boolean;
   healthStatus: 'healthy' | 'warning' | 'critical';
@@ -360,7 +360,7 @@ export function useCacheHealth(): APIRequestState<CacheHealth> & {
   const query = useQuery<CacheHealth | null>({
     queryKey: ['cache', 'health'],
     queryFn: () => getCacheClient().getCacheHealth(),
-    refetchInterval: 10000,
+    refetchInterval: refreshInterval,
   });
 
   return useMemo(() => ({
