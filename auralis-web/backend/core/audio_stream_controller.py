@@ -673,9 +673,7 @@ class AudioStreamController:
                             preset=preset,
                             intensity=intensity,
                         )
-                    # Proactively remove crossfade tail; the outer finally also does
-                    # this, but being explicit ensures it happens before the error
-                    # message is sent (issue #2085)
+                    # Proactively remove crossfade tail so the next chunk starts clean
                     self._chunk_tails.pop(track_id, None)
                     await self._send_error(
                         websocket,
@@ -683,7 +681,8 @@ class AudioStreamController:
                         f"Failed to process audio chunk {chunk_idx}",
                         recovery_position=recovery_position,
                     )
-                    return
+                    # Skip failed chunk and continue with remaining chunks (#3190)
+                    continue
 
             # Stream complete
             logger.info(f"Audio stream complete: track={track_id}")
@@ -928,7 +927,8 @@ class AudioStreamController:
                         f"Failed to stream audio chunk {chunk_idx}",
                         recovery_position=normal_recovery_position,
                     )
-                    return
+                    # Skip failed chunk and continue with remaining chunks (#3190)
+                    continue
 
             # Stream complete
             logger.info(f"Normal audio stream complete: track={track_id}")
@@ -1696,7 +1696,8 @@ class AudioStreamController:
                         track_id,
                         f"Failed to process audio chunk {chunk_idx}",
                     )
-                    return
+                    # Skip failed chunk and continue (#3190)
+                    continue
 
             # Stream complete
             logger.info(f"Seek stream complete: track={track_id}")
