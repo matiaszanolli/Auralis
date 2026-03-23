@@ -106,8 +106,8 @@ export async function getSettings(): Promise<UserSettings> {
 /**
  * Update user settings
  */
-export async function updateSettings(updates: SettingsUpdate): Promise<{ message: string; settings: UserSettings }> {
-  return crudService.update(0, updates) as Promise<any>;
+export async function updateSettings(updates: SettingsUpdate): Promise<UserSettings> {
+  return crudService.update(0, updates);
 }
 
 /**
