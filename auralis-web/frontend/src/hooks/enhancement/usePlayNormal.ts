@@ -286,7 +286,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
 
       // Register underrun callback
       engine.onUnderrun(() => {
-        console.warn('[usePlayNormal] Buffer underrun detected');
+        DEBUG && console.warn('[usePlayNormal] Buffer underrun detected');
       });
 
       // Store metadata
@@ -514,7 +514,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
           }
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') return;
-          console.warn('[usePlayNormal] Failed to load track data:', err);
+          DEBUG && console.warn('[usePlayNormal] Failed to load track data:', err);
           // Continue anyway - playback will still work
         }
 

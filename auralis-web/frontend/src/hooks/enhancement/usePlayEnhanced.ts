@@ -358,7 +358,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
       // Register underrun callback
       engine.onUnderrun(() => {
-        console.warn('[usePlayEnhanced] Buffer underrun detected');
+        DEBUG && console.warn('[usePlayEnhanced] Buffer underrun detected');
       });
 
       // Store metadata
@@ -443,7 +443,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // This can happen if the stream_start message was missed during WebSocket reconnection
       const lastChunk = lastReceivedChunkIndexRef.current;
       if (lastChunk >= 0 && incomingChunkIndex < lastChunk - 1) {
-        console.warn('[usePlayEnhanced] Out-of-sequence chunk detected:', {
+        DEBUG && console.warn('[usePlayEnhanced] Out-of-sequence chunk detected:', {
           expected: lastChunk + 1,
           received: incomingChunkIndex,
           message: 'New stream may have started without audio_stream_start. This can cause audio discontinuity.',
@@ -624,7 +624,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           }
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') return;
-          console.warn('[usePlayEnhanced] Failed to load track data:', err);
+          DEBUG && console.warn('[usePlayEnhanced] Failed to load track data:', err);
           // Continue anyway - playback will still work
         }
 
@@ -708,12 +708,12 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    */
   const seekTo = useCallback((position: number) => {
     if (!currentTrackInfoRef.current) {
-      console.warn('[usePlayEnhanced] Cannot seek: no track info available');
+      DEBUG && console.warn('[usePlayEnhanced] Cannot seek: no track info available');
       return;
     }
 
     if (!wsContext.isConnected) {
-      console.warn('[usePlayEnhanced] Cannot seek: WebSocket not connected');
+      DEBUG && console.warn('[usePlayEnhanced] Cannot seek: WebSocket not connected');
       return;
     }
 
