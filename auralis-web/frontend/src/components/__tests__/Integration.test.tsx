@@ -235,7 +235,7 @@ describe('Component Integration Tests', () => {
     const state = store.getState();
 
     expect(state.cache.stats).toEqual(stats);
-    expect(state.cache.lastUpdate).toBeGreaterThan(0);
+    expect(state.cache.lastUpdated).toBeGreaterThan(0);
   });
 
   // ============================================================================
@@ -562,7 +562,7 @@ describe('Component Integration Tests', () => {
     expect(state.player.lastUpdated).toBeGreaterThanOrEqual(before);
     expect(state.player.lastUpdated).toBeLessThanOrEqual(after);
     expect(state.queue.lastUpdated).toBeGreaterThanOrEqual(before);
-    expect(state.cache.lastUpdate).toBeGreaterThanOrEqual(before);
+    expect(state.cache.lastUpdated).toBeGreaterThanOrEqual(before);
   });
 
   // ============================================================================

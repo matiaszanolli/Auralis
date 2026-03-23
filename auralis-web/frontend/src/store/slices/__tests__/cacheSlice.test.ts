@@ -31,7 +31,7 @@ const initialState: CacheState = {
   health: null,
   isLoading: false,
   error: null,
-  lastUpdate: 0,
+  lastUpdated: 0,
 };
 
 const mockStats: CacheStats = {
@@ -75,13 +75,13 @@ describe('cacheSlice', () => {
   it('setCacheStats sets stats and timestamp', () => {
     const state = reducer(initialState, setCacheStats(mockStats));
     expect(state.stats).toEqual(mockStats);
-    expect(state.lastUpdate).toBeGreaterThan(0);
+    expect(state.lastUpdated).toBeGreaterThan(0);
   });
 
   it('setCacheHealth sets health and timestamp', () => {
     const state = reducer(initialState, setCacheHealth(mockHealth));
     expect(state.health).toEqual(mockHealth);
-    expect(state.lastUpdate).toBeGreaterThan(0);
+    expect(state.lastUpdated).toBeGreaterThan(0);
   });
 
   it('updateCache sets both stats and health', () => {
@@ -145,7 +145,7 @@ describe('cacheSlice', () => {
       health: mockHealth,
       isLoading: true,
       error: 'err',
-      lastUpdate: 1000,
+      lastUpdated: 1000,
     };
     const root = { cache: state };
 

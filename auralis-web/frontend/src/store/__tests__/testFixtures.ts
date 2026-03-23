@@ -151,7 +151,7 @@ export const emptyStoreState: RootState = {
     health: null,
     isLoading: false,
     error: null,
-    lastUpdate: 0,
+    lastUpdated: 0,
   },
   connection: {
     wsConnected: false,

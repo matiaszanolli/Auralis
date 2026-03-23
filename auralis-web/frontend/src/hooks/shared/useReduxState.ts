@@ -213,7 +213,7 @@ export const useCache = () => {
     health: state.health,
     isLoading: state.isLoading,
     error: state.error,
-    lastUpdate: state.lastUpdate,
+    lastUpdated: state.lastUpdated,
 
     // Computed health
     isHealthy: state.health?.healthy ?? false,

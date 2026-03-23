@@ -21,7 +21,7 @@ export interface CacheState {
   health: CacheHealth | null;
   isLoading: boolean;
   error: string | null;
-  lastUpdate: number;
+  lastUpdated: number;
 }
 
 const initialState: CacheState = {
@@ -29,7 +29,7 @@ const initialState: CacheState = {
   health: null,
   isLoading: false,
   error: null,
-  lastUpdate: 0,
+  lastUpdated: 0,
 };
 
 const cacheSlice = createSlice({
@@ -42,7 +42,7 @@ const cacheSlice = createSlice({
     setCacheStats: {
       reducer(state, action: PayloadAction<CacheStats, string, { timestamp: number }>) {
         state.stats = action.payload;
-        state.lastUpdate = action.meta.timestamp;
+        state.lastUpdated = action.meta.timestamp;
       },
       prepare(stats: CacheStats) {
         return { payload: stats, meta: { timestamp: Date.now() } };
@@ -55,7 +55,7 @@ const cacheSlice = createSlice({
     setCacheHealth: {
       reducer(state, action: PayloadAction<CacheHealth, string, { timestamp: number }>) {
         state.health = action.payload;
-        state.lastUpdate = action.meta.timestamp;
+        state.lastUpdated = action.meta.timestamp;
       },
       prepare(health: CacheHealth) {
         return { payload: health, meta: { timestamp: Date.now() } };
@@ -83,7 +83,7 @@ const cacheSlice = createSlice({
         if (action.payload.health) {
           state.health = action.payload.health;
         }
-        state.lastUpdate = action.meta.timestamp;
+        state.lastUpdated = action.meta.timestamp;
       },
       prepare(params: { stats?: CacheStats; health?: CacheHealth }) {
         return { payload: params, meta: { timestamp: Date.now() } };
@@ -129,7 +129,7 @@ const cacheSlice = createSlice({
           },
           tracks: {},
         };
-        state.lastUpdate = action.meta.timestamp;
+        state.lastUpdated = action.meta.timestamp;
       },
       prepare() {
         return { payload: undefined, meta: { timestamp: Date.now() } };
@@ -163,7 +163,9 @@ export const selectIsHealthy = (state: { cache: CacheState }) =>
   state.cache.health?.healthy ?? false;
 export const selectIsLoading = (state: { cache: CacheState }) => state.cache.isLoading;
 export const selectError = (state: { cache: CacheState }) => state.cache.error;
-export const selectLastUpdate = (state: { cache: CacheState }) => state.cache.lastUpdate;
+export const selectLastUpdated = (state: { cache: CacheState }) => state.cache.lastUpdated;
+/** @deprecated Use selectLastUpdated */
+export const selectLastUpdate = selectLastUpdated;
 export const selectCacheState = (state: { cache: CacheState }) => state.cache;
 
 /**

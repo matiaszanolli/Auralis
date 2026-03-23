@@ -151,7 +151,7 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
       store = createCacheStore();
     });
 
-    it('should set lastUpdate from action meta timestamp', () => {
+    it('should set lastUpdated from action meta timestamp', () => {
       const fixedTime = 7777777777;
       vi.spyOn(Date, 'now').mockReturnValue(fixedTime);
 
@@ -174,7 +174,7 @@ describe('Deterministic Timestamps (fixes #2232)', () => {
 
       store.dispatch(action);
       const state = store.getState().cache;
-      expect(state.lastUpdate).toBe(fixedTime);
+      expect(state.lastUpdated).toBe(fixedTime);
 
       vi.restoreAllMocks();
     });
