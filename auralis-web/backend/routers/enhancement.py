@@ -360,7 +360,11 @@ def create_enhancement_router(
         Returns:
             dict: Current enhancement settings (enabled, preset, intensity)
         """
-        return get_enhancement_settings()
+        try:
+            return get_enhancement_settings()
+        except Exception as e:
+            logger.error("Failed to get enhancement status", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to get enhancement status") from e
 
     @router.get("/api/player/mastering/recommendation/{track_id}")
     async def get_mastering_recommendation(track_id: int, confidence_threshold: float = 0.4) -> dict[str, Any]:
