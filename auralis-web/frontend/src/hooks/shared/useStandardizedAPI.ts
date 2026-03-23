@@ -90,6 +90,10 @@ export function useStandardizedAPI<T = unknown>(
   const bodyRef = useRef(options?.body);
   bodyRef.current = options?.body;
 
+  // Guard against setState after unmount (#3234)
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   // Initialize API client
   useEffect(() => {
     if (!apiClient.current) {
@@ -122,6 +126,8 @@ export function useStandardizedAPI<T = unknown>(
         response = await apiClient.current.get<T>(endpoint, requestOptions);
       }
 
+      if (!mountedRef.current) return;
+
       if (isSuccessResponse<T>(response)) {
         setState({
           data: response.data,
@@ -140,6 +146,7 @@ export function useStandardizedAPI<T = unknown>(
         });
       }
     } catch (error) {
+      if (!mountedRef.current) return;
       setState({
         data: null,
         loading: false,
