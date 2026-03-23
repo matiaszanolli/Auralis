@@ -161,9 +161,12 @@ export function useStandardizedAPI<T = unknown>(
   // Spread options.deps so individual values are compared, not the array reference.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (autoFetch) {
-      fetch();
-    }
+    if (!autoFetch) return;
+
+    const controller = new AbortController();
+    fetch();
+
+    return () => controller.abort();
   }, [fetch, ...(options?.deps ?? [])]);
 
   const reset = useCallback(() => setState({ data: null, loading: false, error: null }), []);
