@@ -357,9 +357,12 @@ class MasteringTargetService:
         freq = fp_dict.get('frequency', {})
         dynamics = fp_dict.get('dynamics', {})
 
-        # Target loudness based on current LUFS
-        fp_dict.get('lufs', dynamics.get('lufs', -14.0))
-        target_lufs = -14.0  # Standard streaming loudness
+        # Target loudness: nudge toward streaming standard (-14 LUFS) while
+        # preserving the track's original loudness character (fixes #2726).
+        current_lufs = fp_dict.get('lufs', dynamics.get('lufs', -14.0))
+        streaming_target = -14.0
+        # Blend 60% toward streaming target, 40% original character
+        target_lufs = current_lufs * 0.4 + streaming_target * 0.6
 
         # Target crest factor (preserve dynamic range character)
         current_crest = fp_dict.get('crest_db', dynamics.get('crest_db', 12.0))
