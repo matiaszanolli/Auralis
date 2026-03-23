@@ -41,6 +41,8 @@
  * @see useLibraryStats.ts (deprecated, use this instead)
  */
 
+const DEBUG = import.meta.env.DEV;
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
@@ -139,7 +141,7 @@ export const useLibraryWithStats = ({
     async (resetPagination = true) => {
       // Prevent multiple simultaneous fetches (anti-spam/debounce)
       if (fetchInProgressRef.current) {
-        console.log('[useLibraryWithStats] Fetch already in progress, skipping');
+        DEBUG && console.log('[useLibraryWithStats] Fetch already in progress, skipping');
         return;
       }
 
@@ -176,12 +178,12 @@ export const useLibraryWithStats = ({
             setTracks((prev) => [...prev, ...transformedTracks]);
           }
 
-          console.log(
+          DEBUG && console.log(
             'Loaded',
             data.tracks?.length || 0,
             view === 'favourites' ? 'favorite tracks' : 'tracks from library'
           );
-          console.log(
+          DEBUG && console.log(
             `Pagination: ${currentOffset + (data.tracks?.length || 0)}/${data.total || 0}, has_more: ${data.has_more}`
           );
 
@@ -216,7 +218,7 @@ export const useLibraryWithStats = ({
   const loadMore = useCallback(async () => {
     // Check guards using refs and state getters to avoid dependency loop
     if (fetchInProgressRef.current) {
-      console.log('[useLibraryWithStats] loadMore already in progress, skipping');
+      DEBUG && console.log('[useLibraryWithStats] loadMore already in progress, skipping');
       return;
     }
 
@@ -252,7 +254,7 @@ export const useLibraryWithStats = ({
         setHasMore(data.has_more || false);
         setTotalTracks(data.total || 0);
 
-        console.log(`Loaded more: ${newOffset + transformedTracks.length}/${data.total || 0}`);
+        DEBUG && console.log(`Loaded more: ${newOffset + transformedTracks.length}/${data.total || 0}`);
       }
     } catch (err) {
       console.error('Error loading more tracks:', err);
@@ -359,12 +361,12 @@ export const useLibraryWithStats = ({
   // NOTE: Only depend on view, autoLoad, and includeStats to avoid infinite loops
   // fetchTracks and refetchStats are functions that change frequently due to dependencies on toast functions
   useEffect(() => {
-    console.log(`[useLibraryWithStats] useEffect triggered for view="${view}", autoLoad=${autoLoad}, includeStats=${includeStats}`);
+    DEBUG && console.log(`[useLibraryWithStats] useEffect triggered for view="${view}", autoLoad=${autoLoad}, includeStats=${includeStats}`);
     if (autoLoad) {
-      console.log(`[useLibraryWithStats] Calling fetchTracks() for view="${view}"`);
+      DEBUG && console.log(`[useLibraryWithStats] Calling fetchTracks() for view="${view}"`);
       fetchTracks();
       if (includeStats) {
-        console.log(`[useLibraryWithStats] Calling refetchStats()`);
+        DEBUG && console.log(`[useLibraryWithStats] Calling refetchStats()`);
         refetchStats();
       }
     }
