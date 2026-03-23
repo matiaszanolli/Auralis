@@ -535,10 +535,11 @@ const styles = {
     padding: tokens.spacing.md,
 
     // Glass effect for error banner (strong presence)
-    background: 'rgba(255, 68, 68, 0.15)',                // Error tint with transparency
+    // Uses canonical #EF4444 = rgb(239, 68, 68) from tokens.colors.semantic.error
+    background: 'rgba(239, 68, 68, 0.15)',                // Error tint with transparency
     backdropFilter: 'blur(20px) saturate(1.1)',           // Glass blur
-    border: '1px solid rgba(255, 68, 68, 0.3)',           // Error border
-    boxShadow: '0 4px 16px rgba(255, 68, 68, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',           // Error border
+    boxShadow: '0 4px 16px rgba(239, 68, 68, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05)',
 
     borderRadius: tokens.borderRadius.md,                 // 12px - softer curves
     margin: tokens.spacing.sm,
