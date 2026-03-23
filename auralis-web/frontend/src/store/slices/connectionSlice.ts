@@ -158,7 +158,11 @@ const connectionSlice = createSlice({
           { timestamp: number }
         >
       ) {
-        Object.assign(state, action.payload);
+        // Filter out undefined values to avoid overwriting valid state
+        const defined = Object.fromEntries(
+          Object.entries(action.payload).filter(([, v]) => v !== undefined)
+        );
+        Object.assign(state, defined);
         state.lastUpdated = action.meta.timestamp;
       },
       prepare(connectionState: Partial<Omit<ConnectionState, 'lastUpdated'>>) {
