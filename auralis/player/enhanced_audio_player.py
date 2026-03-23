@@ -173,10 +173,8 @@ class AudioPlayer:
         Returns:
             bool: True if successful
         """
-        self.playback.set_loading()
-
         if self.file_manager.load_file(file_path):
-            self.playback.stop()
+            self.playback.load_and_stop()
 
             # Load fingerprint in background thread to avoid blocking the caller.
             # The processor uses profile-based mastering until the fingerprint

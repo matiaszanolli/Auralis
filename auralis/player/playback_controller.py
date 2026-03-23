@@ -192,6 +192,26 @@ class PlaybackController:
             state_info = {"state": self.state.value, "action": "loading", "prev_state": prev.value}
         self._notify_callbacks(state_info)
 
+    def load_and_stop(self) -> bool:
+        """Atomically transition from current state through LOADING to STOPPED.
+
+        Prevents concurrent observers from seeing the intermediate LOADING
+        state, which caused previous_track() to skip resume (#3293).
+
+        Returns:
+            True if the transition succeeded, False if already stopped.
+        """
+        with self._lock:
+            if self.state == PlaybackState.STOPPED:
+                return False
+            self.state = PlaybackState.STOPPED
+            self.position = 0
+            info("Playback stopped (atomic load)")
+            state_info = {"state": self.state.value, "action": "stop"}
+
+        self._notify_callbacks(state_info)
+        return True
+
     def set_error(self) -> None:
         """Set state to ERROR"""
         with self._lock:
