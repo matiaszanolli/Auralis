@@ -58,7 +58,7 @@ export function CacheManagementPanel({
       <div
         style={{
           padding: tokens.spacing.lg,
-          background: 'rgba(239, 68, 68, 0.1)',
+          background: tokens.colors.utility.errorBg,
           borderRadius: '8px',
           color: tokens.colors.semantic.error,
           fontSize: tokens.typography.fontSize.sm,

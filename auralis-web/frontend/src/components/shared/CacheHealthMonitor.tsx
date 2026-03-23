@@ -165,7 +165,7 @@ export function CacheHealthMonitor({
       <div
         style={{
           padding: tokens.spacing.lg,
-          background: 'rgba(239, 68, 68, 0.1)',
+          background: tokens.colors.utility.errorBg,
           borderRadius: '8px',
           color: tokens.colors.semantic.error,
           fontSize: tokens.typography.fontSize.sm,
@@ -196,7 +196,7 @@ export function CacheHealthMonitor({
           padding: tokens.spacing.lg,
           background:
             healthStatus === 'critical'
-              ? 'rgba(239, 68, 68, 0.1)'
+              ? tokens.colors.utility.errorBg
               : healthStatus === 'warning'
                 ? 'rgba(245, 158, 11, 0.1)'
                 : 'rgba(0, 212, 170, 0.1)',

@@ -112,7 +112,7 @@ export function CacheHealthWidget({
           width: sizeStyles.width,
           height: sizeStyles.height,
           padding: sizeStyles.padding,
-          background: 'rgba(239, 68, 68, 0.1)',
+          background: tokens.colors.utility.errorBg,
           borderRadius: '12px',
           border: `1px solid ${tokens.colors.semantic.error}`,
           display: 'flex',

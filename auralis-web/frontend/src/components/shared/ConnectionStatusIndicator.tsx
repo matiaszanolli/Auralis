@@ -114,9 +114,11 @@ export function ConnectionStatusIndicator({
     };
   }, [wsConnected, wsError, showDetails]);
 
-  // Measure latency with heartbeats
+  // Measure latency with heartbeats — pauses when tab is hidden (#3257)
   useEffect(() => {
-    const interval = setInterval(async () => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const pollHealth = async () => {
       const start = performance.now();
       try {
         const response = await fetch('/api/health', { method: 'GET' });
@@ -137,9 +139,37 @@ export function ConnectionStatusIndicator({
           latency: 0,
         }));
       }
-    }, 5000);
+    };
 
-    return () => clearInterval(interval);
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(pollHealth, 5000);
+      }
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        pollHealth(); // Immediate check on return
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   // Don't show if everything is connected and compact mode
@@ -389,7 +419,7 @@ export function ConnectionStatusIndicator({
               style={{
                 marginBottom: tokens.spacing.md,
                 padding: tokens.spacing.sm,
-                background: 'rgba(239, 68, 68, 0.1)',
+                background: tokens.colors.utility.errorBg,
                 borderRadius: '4px',
                 border: `1px solid ${tokens.colors.semantic.error}20`,
               }}
