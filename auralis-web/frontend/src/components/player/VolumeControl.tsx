@@ -164,7 +164,7 @@ export const VolumeControl = ({
             e.currentTarget.style.background = 'transparent';
             e.currentTarget.style.backdropFilter = 'none';
           }
-          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.10)';
+          e.currentTarget.style.borderColor = tokens.colors.opacityScale.white.light;
           e.currentTarget.style.transform = 'scale(1)';
         }}
       >
