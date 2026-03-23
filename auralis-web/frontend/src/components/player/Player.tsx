@@ -19,6 +19,8 @@
  * ```
  */
 
+const DEBUG = import.meta.env.DEV;
+
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
@@ -111,10 +113,10 @@ const Player = () => {
   // Sends seek message to backend which restarts streaming from the target chunk
   const handleSeek = (position: number) => {
     if (!isStreaming && !currentTrack?.id) {
-      console.warn('[Player] Cannot seek: no track playing');
+      DEBUG && console.warn('[Player] Cannot seek: no track playing');
       return;
     }
-    console.log('[Player] Seeking to position:', position);
+    DEBUG && console.log('[Player] Seeking to position:', position);
     seekTo(position);
   };
 
@@ -123,7 +125,7 @@ const Player = () => {
     try {
       // Check if we have more tracks in the queue
       if (currentQueueIndex >= queueTracks.length - 1) {
-        console.log('[Player] Already at last track in queue');
+        DEBUG && console.log('[Player] Already at last track in queue');
         return;
       }
 
@@ -140,7 +142,7 @@ const Player = () => {
         dispatch(setCurrentTrack(nextTrackData));
 
         // Start playing the new track
-        console.log('[Player] Playing next track:', nextTrackData.title);
+        DEBUG && console.log('[Player] Playing next track:', nextTrackData.title);
         await playEnhanced(nextTrackData.id, 'adaptive', 1.0);
       }
     } catch (err) {
@@ -153,7 +155,7 @@ const Player = () => {
     try {
       // Check if we have previous tracks in the queue
       if (currentQueueIndex <= 0) {
-        console.log('[Player] Already at first track in queue');
+        DEBUG && console.log('[Player] Already at first track in queue');
         return;
       }
 
@@ -170,7 +172,7 @@ const Player = () => {
         dispatch(setCurrentTrack(prevTrackData));
 
         // Start playing the new track
-        console.log('[Player] Playing previous track:', prevTrackData.title);
+        DEBUG && console.log('[Player] Playing previous track:', prevTrackData.title);
         await playEnhanced(prevTrackData.id, 'adaptive', 1.0);
       }
     } catch (err) {
@@ -182,7 +184,7 @@ const Player = () => {
   // Handles three states: not streaming → start, streaming → pause, paused → resume
   const handlePlayPause = async () => {
     if (!currentTrack?.id) {
-      console.warn('[Player] No track loaded, cannot play');
+      DEBUG && console.warn('[Player] No track loaded, cannot play');
       return;
     }
 
@@ -190,15 +192,15 @@ const Player = () => {
       // If already streaming, toggle pause/resume
       if (isStreaming) {
         if (isPaused) {
-          console.log('[Player] Resuming playback');
+          DEBUG && console.log('[Player] Resuming playback');
           resumePlayback();
         } else {
-          console.log('[Player] Pausing playback');
+          DEBUG && console.log('[Player] Pausing playback');
           pausePlayback();
         }
       } else {
         // Not streaming - start new stream
-        console.log('[Player] Starting WebSocket audio streaming for track:', currentTrack.id);
+        DEBUG && console.log('[Player] Starting WebSocket audio streaming for track:', currentTrack.id);
         await playEnhanced(currentTrack.id, 'adaptive', 1.0);
       }
     } catch (err) {
@@ -215,7 +217,7 @@ const Player = () => {
       const volumeForRedux = Math.round(vol * 100);
       dispatch(setVolume(volumeForRedux));
 
-      console.log('[Player] Volume changed:', vol, '(Redux:', volumeForRedux, ')');
+      DEBUG && console.log('[Player] Volume changed:', vol, '(Redux:', volumeForRedux, ')');
     } catch (err) {
       console.error('[Player] Volume command error:', err);
     }
@@ -243,7 +245,7 @@ const Player = () => {
 
     if (isComplete && nearEnd && hasMoreTracks && !hasAutoAdvancedRef.current) {
       hasAutoAdvancedRef.current = true;
-      console.log('[Player] Track ended, auto-advancing to next track');
+      DEBUG && console.log('[Player] Track ended, auto-advancing to next track');
       handleNext();
     }
   }, [streamingState, wsCurrentTime, trackDuration, currentQueueIndex, queueTracks.length, handleNext]);
