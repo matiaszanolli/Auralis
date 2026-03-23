@@ -269,9 +269,10 @@ class FingerprintGenerator:
             logger.error(f"Rust fingerprinting error for track {track_id}: {e}")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error during fingerprint generation for track {track_id}: {e}")
-            import traceback
-            logger.debug(traceback.format_exc())
+            logger.error(
+                f"Unexpected error during fingerprint generation for track {track_id}: {e}",
+                exc_info=True,
+            )
             return None
 
     @staticmethod
