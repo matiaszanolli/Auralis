@@ -1218,25 +1218,18 @@ class AudioStreamController:
         if actual_crossfade <= 0:
             return current_chunk
 
-        # Get crossfade regions
-        tail_region = prev_tail[-actual_crossfade:]
-        head_region = current_chunk[:actual_crossfade]
-
-        # Create equal-power fade curves (smoother than linear)
-        fade_out = np.cos(np.linspace(0, np.pi / 2, actual_crossfade)) ** 2
+        # The previous chunk was already sent in full (including its tail),
+        # so mixing prev_tail into the current head would duplicate those
+        # samples as audible pre-echo. Instead, just fade IN the current
+        # chunk's head to smooth the energy transition at the boundary.
         fade_in = np.sin(np.linspace(0, np.pi / 2, actual_crossfade)) ** 2
 
         # Handle stereo
-        if tail_region.ndim == 2:
-            fade_out = fade_out[:, np.newaxis]
+        if current_chunk.ndim == 2:
             fade_in = fade_in[:, np.newaxis]
 
-        # Apply crossfade
-        crossfaded = tail_region * fade_out + head_region * fade_in
-
-        # Replace beginning of current chunk with crossfaded region
         result = current_chunk.copy()
-        result[:actual_crossfade] = crossfaded
+        result[:actual_crossfade] *= fade_in
 
         return result
 
