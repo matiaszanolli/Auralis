@@ -45,6 +45,7 @@ from core.mastering_target_service import (
 )
 from core.processor_factory import (
     ProcessorFactory,  # Phase 2: Replaced ProcessorManager
+    get_processor_factory,  # Singleton accessor
 )
 
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
@@ -130,7 +131,7 @@ class ChunkedAudioProcessor:
         self._boundary_manager: Any = ChunkBoundaryManager(total_duration_valid, sample_rate_valid)
         self._level_manager: Any = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)
         self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
-        self._processor_factory: Any = ProcessorFactory()  # Phase 2: Unified processor factory
+        self._processor_factory: Any = get_processor_factory()  # Phase 2: Use singleton
         self._mastering_target_service: Any = MasteringTargetService()  # Phase 4: Unified fingerprint/target management
         self._cache_manager: Any = ChunkCacheManager(self.chunk_cache)  # Phase 5.1: Cache management
         # CRITICAL: Threading lock for processor thread-safety
