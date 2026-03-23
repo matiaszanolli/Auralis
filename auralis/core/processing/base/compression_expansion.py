@@ -91,6 +91,7 @@ class CompressionStrategies:
         Returns:
             Compressed audio array
         """
+        audio = audio.copy()
         before = MeasurementUtilities.measure_audio(audio)
 
         ratio = comp_params['ratio']
@@ -197,6 +198,7 @@ class ExpansionStrategies:
         Returns:
             Expanded audio array
         """
+        audio = audio.copy()
         before = MeasurementUtilities.measure_audio(audio)
 
         target_increase = exp_params['target_crest_increase']
