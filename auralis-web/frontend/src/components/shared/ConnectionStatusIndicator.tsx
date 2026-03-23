@@ -72,7 +72,7 @@ export function ConnectionStatusIndicator({
   position = 'bottom-right',
   compact = false,
 }: ConnectionStatusIndicatorProps) {
-  const { isConnected: wsConnected, connectionStatus } = useWebSocketContext();
+  const { isConnected: wsConnected, connectionStatus, connect } = useWebSocketContext();
   const wsError: Error | null = connectionStatus === 'error' ? new Error('WebSocket connection error') : null;
   const [status, setStatus] = useState<ConnectionStatus>({
     wsConnected: false,
@@ -441,8 +441,8 @@ export function ConnectionStatusIndicator({
             <Box
               component="button"
               onClick={() => {
-                // Trigger manual reconnection
-                window.location.reload();
+                // Trigger manual WebSocket reconnection without full page reload
+                connect();
               }}
               sx={{
                 width: '100%',
