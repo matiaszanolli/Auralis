@@ -275,8 +275,8 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       if (message.data.stream_type && message.data.stream_type !== 'enhanced') return;
 
       // Check if this is a seek operation
-      const isSeek = (message.data as any).is_seek === true;
-      const seekPosition = (message.data as any).seek_position || 0;
+      const isSeek = message.data.is_seek === true;
+      const seekPosition = message.data.seek_position || 0;
 
       console.log('[usePlayEnhanced] Stream started:', {
         trackId: message.data.track_id,
