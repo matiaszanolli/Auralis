@@ -34,6 +34,8 @@ const initialState: QueueState = {
   isLoading: false,
   error: null,
   lastUpdated: 0,
+  isShuffled: false,
+  repeatMode: 'off',
 };
 
 const mockTrack = (id: number): QueueTrack => ({

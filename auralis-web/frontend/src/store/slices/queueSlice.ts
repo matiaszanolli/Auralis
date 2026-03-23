@@ -175,10 +175,15 @@ const queueSlice = createSlice({
      */
     nextTrack: {
       reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
+        if (state.repeatMode === 'one') return; // stay on current track
         if (state.currentIndex < state.tracks.length - 1) {
           state.currentIndex += 1;
-          state.lastUpdated = action.meta.timestamp;
+        } else if (state.repeatMode === 'all') {
+          state.currentIndex = 0; // wrap to first track
+        } else {
+          return; // 'off' at end — do nothing
         }
+        state.lastUpdated = action.meta.timestamp;
       },
       prepare() {
         return { payload: undefined, meta: { timestamp: Date.now() } };
@@ -190,10 +195,15 @@ const queueSlice = createSlice({
      */
     previousTrack: {
       reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
+        if (state.repeatMode === 'one') return; // stay on current track
         if (state.currentIndex > 0) {
           state.currentIndex -= 1;
-          state.lastUpdated = action.meta.timestamp;
+        } else if (state.repeatMode === 'all') {
+          state.currentIndex = state.tracks.length - 1; // wrap to last track
+        } else {
+          return; // 'off' at start — do nothing
         }
+        state.lastUpdated = action.meta.timestamp;
       },
       prepare() {
         return { payload: undefined, meta: { timestamp: Date.now() } };
