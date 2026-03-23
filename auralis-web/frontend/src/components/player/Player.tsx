@@ -66,6 +66,9 @@ const Player = () => {
   // Queue panel visibility state
   const [queuePanelOpen, setQueuePanelOpen] = useState(false);
 
+  // Store pre-mute volume so unmute restores the user's prior level
+  const preMuteVolumeRef = useRef<number>(0.5);
+
   // Redux state for current playback info (typed selectors fix #2463)
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
   const playerVolume = useSelector(playerSelectors.selectVolume);
@@ -316,8 +319,12 @@ const Player = () => {
             onVolumeChange={handleVolumeChange}
             isMuted={isMuted}
             onMuteToggle={async () => {
-              const newVolume = isMuted ? 0.5 : 0;
-              await handleVolumeChange(newVolume);
+              if (isMuted) {
+                await handleVolumeChange(preMuteVolumeRef.current);
+              } else {
+                preMuteVolumeRef.current = volume / 100;
+                await handleVolumeChange(0);
+              }
             }}
             disabled={hasError}
           />
