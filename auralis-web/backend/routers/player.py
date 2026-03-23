@@ -438,6 +438,8 @@ def create_player_router(
             # Convert 0-100 to 0.0-1.0 for service layer (clamping already done by model)
             normalized_volume = body.volume / 100.0
             result = await service.set_volume(normalized_volume)
+            # Convert back to 0-100 for API response (fixes #3204)
+            result["volume"] = body.volume
             return result
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))

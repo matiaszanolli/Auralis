@@ -277,16 +277,17 @@ class PlaybackService:
             if hasattr(self.audio_player, 'set_volume'):
                 self.audio_player.set_volume(volume)
 
-            # Broadcast volume change
+            # Broadcast volume change (0-100 scale matching PlayerState)
+            volume_100 = round(volume * 100)
             await self.connection_manager.broadcast({
                 "type": "volume_changed",
-                "data": {"volume": volume}
+                "data": {"volume": volume_100}
             })
 
             logger.info(f"🔊 Volume set to {volume:.0%}")
             return {
                 "message": "Volume set",
-                "volume": volume
+                "volume": volume_100
             }
 
         except Exception as e:
