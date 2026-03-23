@@ -166,6 +166,12 @@ export const MediaCard = React.memo(function MediaCard(props: MediaCardProps) {
           },
         },
 
+        // Keyboard focus indicator (WCAG 2.4.7)
+        '&:focus-visible': {
+          outline: `2px solid ${tokens.colors.accent.primary}`,
+          outlineOffset: '2px',
+        },
+
         // Active/pressed state - tactile feedback (Design Language §5)
         '&:active': {
           transform: 'scale(0.98)',                  // Press inward for tactile feel
