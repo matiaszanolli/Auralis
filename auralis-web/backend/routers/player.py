@@ -139,16 +139,10 @@ class VolumeResponse(BaseModel):
 
 
 class QueueInfoResponse(BaseModel):
-    """Response for GET /api/player/queue.
-
-    Shape varies by code path: get_queue_info() returns track_count +
-    navigation fields; the fallback returns total_tracks.  Both share
-    tracks and current_index.
-    """
+    """Response for GET /api/player/queue."""
     tracks: list[Any]
     current_index: int
     track_count: int | None = None
-    total_tracks: int | None = None
     current_track: Any | None = None
     has_next: bool | None = None
     has_previous: bool | None = None

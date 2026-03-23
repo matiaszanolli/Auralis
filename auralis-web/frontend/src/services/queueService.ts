@@ -25,7 +25,7 @@ export interface QueueTrack {
 export interface QueueResponse {
   tracks: QueueTrack[];
   current_index: number;
-  total_tracks: number;
+  track_count: number;
 }
 
 export interface SetQueueRequest {
@@ -55,7 +55,7 @@ export async function getQueue(): Promise<QueueResponse> {
     return result[0];
   }
   // Return empty queue response if list is empty
-  return { tracks: [], current_index: 0, total_tracks: 0 };
+  return { tracks: [], current_index: 0, track_count: 0 };
 }
 
 /**

@@ -134,10 +134,10 @@ class QueueService:
                     return {
                         "tracks": list(queue_obj.queue),  # type: ignore[attr-defined]
                         "current_index": queue_obj.current_index,
-                        "total_tracks": len(queue_obj.queue)  # type: ignore[attr-defined]
+                        "track_count": len(queue_obj.queue)  # type: ignore[attr-defined]
                     }
             else:
-                return {"tracks": [], "current_index": 0, "total_tracks": 0}
+                return {"tracks": [], "current_index": 0, "track_count": 0}
         except Exception as e:
             logger.error(f"Failed to get queue info: {e}")
             raise
