@@ -146,7 +146,7 @@ def create_artists_router(
                 artwork_source=artist.artwork_source,
             ))
 
-        has_more = (offset + limit) < total
+        has_more = (offset + len(artist_responses)) < total
 
         return ArtistsListResponse(
             artists=artist_responses,

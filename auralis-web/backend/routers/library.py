@@ -377,7 +377,7 @@ def create_library_router(
                 artists, total = await asyncio.to_thread(repos.artists.get_all, limit=limit, offset=offset, order_by=order_by)
 
             # Calculate if there are more results
-            has_more = (offset + limit) < total
+            has_more = (offset + len(artists)) < total
 
             return {
                 "artists": serialize_artists(artists),

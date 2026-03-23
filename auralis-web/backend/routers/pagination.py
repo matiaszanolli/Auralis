@@ -80,14 +80,15 @@ class PaginatedResponse(BaseModel, Generic[T]):
             PaginatedResponse instance with has_more calculated
 
         Note:
-            has_more is calculated as: (offset + limit) < total
+            has_more is calculated as: (offset + len(items)) < total
+            Using len(items) instead of limit handles partial last pages correctly.
         """
         return cls(
             items=items,
             total=total,
             offset=offset,
             limit=limit,
-            has_more=(offset + limit) < total
+            has_more=(offset + len(items)) < total
         )
 
 
