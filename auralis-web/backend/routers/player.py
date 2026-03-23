@@ -101,6 +101,11 @@ class SetVolumeRequest(BaseModel):
         return max(0.0, min(100.0, v))
 
 
+class ShuffleRequest(BaseModel):
+    """Request model for shuffle toggle."""
+    enabled: bool = True
+
+
 class RepeatModeRequest(BaseModel):
     """Request model for setting repeat mode."""
     mode: Literal["off", "all", "one"]
@@ -531,11 +536,11 @@ def create_player_router(
             raise HTTPException(status_code=500, detail="Failed to move track")
 
     @router.post("/api/player/queue/shuffle", response_model=QueueSizeResponse)
-    async def shuffle_queue(enabled: bool = True) -> dict[str, Any]:
+    async def shuffle_queue(request: ShuffleRequest) -> dict[str, Any]:
         """Shuffle or unshuffle the playback queue."""
         try:
             service = get_queue_service()
-            if enabled:
+            if request.enabled:
                 return await service.shuffle_queue()
             else:
                 return await service.unshuffle_queue()
