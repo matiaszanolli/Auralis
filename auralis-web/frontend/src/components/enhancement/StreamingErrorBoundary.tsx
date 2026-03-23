@@ -423,7 +423,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     backgroundColor: tokens.colors.bg.level2,
     borderRadius: tokens.borderRadius.sm,
-    fontFamily: 'monospace',
+    fontFamily: tokens.typography.fontFamily.mono,
     maxHeight: '60px',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -509,7 +509,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   historyTime: {
-    fontFamily: 'monospace',
+    fontFamily: tokens.typography.fontFamily.mono,
     color: tokens.colors.text.secondary,
     minWidth: '60px',
   },

@@ -37,7 +37,7 @@ export const DebugInfo = () => {
         color: tokens.colors.accent.primary,
         padding: `${spacingXSmall} ${spacingSmall}`,
         borderRadius: '8px',
-        fontFamily: 'monospace',
+        fontFamily: tokens.typography.fontFamily.mono,
         fontSize: tokens.typography.fontSize.xs,
         zIndex: tokens.zIndex.debug,
         border: `1px solid ${tokens.colors.accent.primary}`,
