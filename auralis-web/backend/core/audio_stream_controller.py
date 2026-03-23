@@ -1436,6 +1436,9 @@ class AudioStreamController:
                 seek/retry (set when a specific chunk fails, issue #2085).
             error_code: Machine-readable error code for frontend recovery logic
         """
+        if not self._is_websocket_connected(websocket):
+            return
+
         data: dict[str, Any] = {
             "track_id": track_id,
             "error": error_message,
