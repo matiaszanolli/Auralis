@@ -172,37 +172,41 @@ impl Limiter {
         // Apply lookahead delay
         let delayed_audio = self.apply_lookahead_delay(audio);
 
-        // Detect peaks (including ISR if enabled)
-        let peak_level = if self.config.isr_enabled {
-            self.detect_isr_peaks(audio)
-        } else {
-            audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max)
-        };
+        // Per-sample gain envelope to avoid block-uniform pumping (#3311).
+        // Each sample gets its own peak detection → gain calculation →
+        // envelope-follower step, so the limiter reacts smoothly within a block.
+        let mut limited_audio = Vec::with_capacity(audio.len());
+        let mut input_peak: f32 = 0.0;
+        let mut output_peak: f32 = 0.0;
+        let mut last_gain: f32 = 1.0;
 
-        // Calculate required gain reduction
-        let required_gain = if peak_level > threshold_linear {
-            threshold_linear / peak_level
-        } else {
-            1.0
-        };
+        for (i, &sample) in audio.iter().enumerate() {
+            let peak = sample.abs();
+            input_peak = input_peak.max(peak);
 
-        // Apply gain smoothing
-        let smoothed_gain = self.gain_smoother.process(required_gain);
-        self.current_gain = smoothed_gain;
+            let required_gain = if peak > threshold_linear {
+                threshold_linear / peak
+            } else {
+                1.0
+            };
 
-        // Apply limiting
-        let limited_audio: Vec<f32> = delayed_audio.iter()
-            .map(|&sample| sample * smoothed_gain)
-            .collect();
+            let smoothed_gain = self.gain_smoother.process(required_gain);
+            last_gain = smoothed_gain;
+
+            let out_sample = delayed_audio[i] * smoothed_gain;
+            output_peak = output_peak.max(out_sample.abs());
+            limited_audio.push(out_sample);
+        }
+
+        self.current_gain = last_gain;
 
         // Update peak hold
-        let output_peak = limited_audio.iter().map(|&x| x.abs()).fold(0.0f32, f32::max);
         self.peak_hold = (self.peak_hold * 0.999).max(output_peak);  // Slow decay
 
         let info = LimitingInfo {
-            input_peak_db: 20.0 * peak_level.max(1e-10).log10(),
+            input_peak_db: 20.0 * input_peak.max(1e-10).log10(),
             output_peak_db: 20.0 * output_peak.max(1e-10).log10(),
-            gain_reduction_db: 20.0 * smoothed_gain.max(1e-10).log10(),
+            gain_reduction_db: 20.0 * last_gain.max(1e-10).log10(),
             threshold_db: self.config.threshold_db,
             peak_hold_db: 20.0 * self.peak_hold.max(1e-10).log10(),
         };
