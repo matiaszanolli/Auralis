@@ -11,6 +11,7 @@ Psychoacoustic EQ integration and processing
 from typing import Any
 
 import numpy as np
+from scipy.signal.windows import hann
 
 from ...dsp.psychoacoustic_eq import PsychoacousticEQ
 from ...utils.logging import debug, warning
@@ -170,7 +171,7 @@ class EQProcessor:
 
         # Hann synthesis window — satisfies COLA at 50% overlap so windowed
         # chunks accumulate to unity gain with no extra normalisation step.
-        synthesis_window = np.hanning(chunk_size)
+        synthesis_window = hann(chunk_size)
 
         for i in range(0, len(audio), chunk_size // 2):  # 50% overlap
             end_idx = min(i + chunk_size, len(audio))
