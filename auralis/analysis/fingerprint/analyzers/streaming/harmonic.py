@@ -43,13 +43,19 @@ _PITCH_RESERVOIR_SIZE = 1000
 class HarmonicRunningStats:
     """Running statistics for harmonic metrics."""
 
-    def __init__(self) -> None:
-        """Initialize harmonic stats."""
+    def __init__(self, rng: np.random.Generator | None = None) -> None:
+        """Initialize harmonic stats.
+
+        Args:
+            rng: Instance-level RNG for reservoir sampling. Defaults to
+                 np.random.default_rng() (isolated from global state, #2898).
+        """
         self.count = 0
         self.harmonic_sum = 0.0
         # Reservoir sample of voiced pitch frames (uniform, not tail-biased)
         self._pitch_reservoir: list[float] = []
         self._pitch_total = 0  # total voiced frames seen across all chunks
+        self._rng = rng or np.random.default_rng()
         self.chroma_sum = 0.0
 
     def update_harmonic(self, ratio: float) -> None:
@@ -76,7 +82,7 @@ class HarmonicRunningStats:
             if len(self._pitch_reservoir) < _PITCH_RESERVOIR_SIZE:
                 self._pitch_reservoir.append(float(v))
             else:
-                j = int(np.random.randint(0, self._pitch_total))
+                j = int(self._rng.integers(0, self._pitch_total))
                 if j < _PITCH_RESERVOIR_SIZE:
                     self._pitch_reservoir[j] = float(v)
 
