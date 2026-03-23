@@ -51,8 +51,7 @@ vi.mock('@/hooks/api/useRestAPI', () => ({
   }),
 }));
 
-// Mock usePlaybackState - it's WebSocket-based, not Redux-based
-// Provides currentTrack for play() to use
+// Mock usePlaybackState — shape must match PlaybackState interface (fixes #3009)
 vi.mock('@/hooks/player/usePlaybackState', () => ({
   usePlaybackState: () => ({
     currentTrack: {
@@ -64,13 +63,14 @@ vi.mock('@/hooks/player/usePlaybackState', () => ({
       filepath: '/path/to/track.mp3',
     },
     isPlaying: false,
-    volume: 1.0,
+    volume: 80,
     position: 0,
     duration: 180,
     queue: [],
-    queueIndex: 0,
-    repeatMode: 'none' as const,
-    isShuffled: false,
+    queueIndex: -1,
+    gaplessEnabled: true,
+    crossfadeEnabled: true,
+    crossfadeDuration: 3.0,
     isLoading: false,
     error: null,
   }),
