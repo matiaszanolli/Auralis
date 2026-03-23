@@ -136,6 +136,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         timestamps = self._windows.get(key, [])
         timestamps = [t for t in timestamps if now - t < window_sec]
 
+        if not timestamps:
+            self._windows.pop(key, None)
+
         if len(timestamps) >= max_requests:
             self._windows[key] = timestamps
             retry_after = int(window_sec - (now - timestamps[0])) + 1
