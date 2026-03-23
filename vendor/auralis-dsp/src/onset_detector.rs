@@ -55,6 +55,9 @@ impl OnsetDetector {
 
     /// Compute onset strength envelope using spectral flux
     fn compute_onset_strength(&self, audio: &ArrayView1<f64>) -> Array1<f64> {
+        if audio.len() < self.fft_size {
+            return Array1::zeros(0);
+        }
         let num_frames = (audio.len() - self.fft_size) / self.hop_length + 1;
         let mut onset_env = Array1::zeros(num_frames);
 
@@ -218,6 +221,24 @@ mod tests {
         // Frame 0 = 0s, Frame 10 = 10*512/44100 ≈ 0.116s
         assert_eq!(times[0], 0.0);
         assert!((times[1] - 0.116).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_short_audio_no_panic() {
+        // Audio shorter than fft_size should return empty, not panic/wrap
+        let audio = Array1::zeros(100); // Much shorter than fft_size=2048
+        let detector = OnsetDetector::new(44100.0, 2048, 512);
+        let result = detector.detect(&audio.view());
+        assert!(result.onset_frames.is_empty());
+        assert_eq!(result.onset_strength.len(), 0);
+    }
+
+    #[test]
+    fn test_empty_audio_no_panic() {
+        let audio = Array1::zeros(0);
+        let detector = OnsetDetector::new(44100.0, 2048, 512);
+        let result = detector.detect(&audio.view());
+        assert!(result.onset_frames.is_empty());
     }
 
     #[test]
