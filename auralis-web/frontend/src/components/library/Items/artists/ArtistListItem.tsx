@@ -30,6 +30,7 @@ export const ArtistListItem = ({
   return (
     <StyledListItem>
       <StyledListItemButton
+        aria-label={artist.name}
         onClick={() => onClick(artist)}
         onContextMenu={(e) => onContextMenu(e, artist)}
       >
