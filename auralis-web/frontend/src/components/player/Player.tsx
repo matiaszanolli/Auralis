@@ -111,14 +111,14 @@ const Player = () => {
 
   // Handle seeking via WebSocket
   // Sends seek message to backend which restarts streaming from the target chunk
-  const handleSeek = (position: number) => {
+  const handleSeek = useCallback((position: number) => {
     if (!isStreaming && !currentTrack?.id) {
       DEBUG && console.warn('[Player] Cannot seek: no track playing');
       return;
     }
     DEBUG && console.log('[Player] Seeking to position:', position);
     seekTo(position);
-  };
+  }, [isStreaming, currentTrack?.id, seekTo]);
 
   // Next track: Stop current stream, update queue index, start new stream
   const handleNext = useCallback(async () => {
@@ -182,7 +182,7 @@ const Player = () => {
 
   // Unified Play/Pause toggle handler
   // Handles three states: not streaming → start, streaming → pause, paused → resume
-  const handlePlayPause = async () => {
+  const handlePlayPause = useCallback(async () => {
     if (!currentTrack?.id) {
       DEBUG && console.warn('[Player] No track loaded, cannot play');
       return;
@@ -206,9 +206,9 @@ const Player = () => {
     } catch (err) {
       console.error('[Player] Play/Pause command error:', err);
     }
-  };
+  }, [currentTrack?.id, isStreaming, isPaused, resumePlayback, pausePlayback, playEnhanced]);
 
-  const handleVolumeChange = async (vol: number) => {
+  const handleVolumeChange = useCallback(async (vol: number) => {
     try {
       // Volume is 0-1 range in WebSocket/AudioEngine, 0-100 in Redux/Backend
       setStreamingVolume(vol);
@@ -221,7 +221,7 @@ const Player = () => {
     } catch (err) {
       console.error('[Player] Volume command error:', err);
     }
-  };
+  }, [setStreamingVolume, dispatch]);
 
   // Auto-advance to next track when current track ends
   // Detects when streaming is complete and playback has reached near the end
