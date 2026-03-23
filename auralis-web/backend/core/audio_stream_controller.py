@@ -31,6 +31,7 @@ import hashlib
 import json
 import logging
 import threading
+import uuid
 
 # Per-task stream-type context variable (fixes #2493).
 # Each asyncio Task inherits its own copy of the context, so concurrent
@@ -170,6 +171,19 @@ class SimpleChunkCache:
                 logger.debug(f"Invalidated stale cache entry: chunk {chunk_idx} of track {track_id}")
 
 
+def ws_id(websocket: WebSocket) -> str:
+    """Return a stable UUID for this websocket, assigned on first call.
+
+    Using ws_id(websocket) is unsafe because CPython reuses memory addresses
+    after GC, which could associate stale state with a new connection.
+    """
+    uid = getattr(websocket, '_auralis_id', None)
+    if uid is None:
+        uid = str(uuid.uuid4())
+        websocket._auralis_id = uid  # type: ignore[attr-defined]
+    return uid
+
+
 class AudioStreamController:
     """
     Manages real-time audio streaming via WebSocket.
@@ -228,7 +242,7 @@ class AudioStreamController:
                 self.fingerprint_init_error = str(e)
                 logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
 
-        self.active_streams: dict[int, Any] = {}  # id(websocket) -> streaming task
+        self.active_streams: dict[str, Any] = {}  # ws_id(websocket) -> streaming task
         self._active_streams_lock: asyncio.Lock = asyncio.Lock()  # Protects active_streams (#3182)
         # Use the module-level semaphore shared across all instances (fixes #2469)
         self._stream_semaphore: asyncio.Semaphore = _global_stream_semaphore
@@ -545,7 +559,7 @@ class AudioStreamController:
 
             # Register active stream so cleanup can always find it (fixes #2076, #3182)
             async with self._active_streams_lock:
-                self.active_streams[id(websocket)] = asyncio.current_task()
+                self.active_streams[ws_id(websocket)] = asyncio.current_task()
 
             # Phase 7.5: Non-blocking fingerprint check
             # Check if fingerprint exists in cache - if not, queue for background generation
@@ -597,11 +611,11 @@ class AudioStreamController:
 
                 # Honour pause/resume events from the WebSocket handler (#2106).
                 from routers.system import _stream_pause_events, _stream_flow_events
-                pause_evt = _stream_pause_events.get(id(websocket))
+                pause_evt = _stream_pause_events.get(ws_id(websocket))
                 if pause_evt is not None:
                     await pause_evt.wait()
                 # Honour flow control: wait if frontend buffer is full.
-                flow_evt = _stream_flow_events.get(id(websocket))
+                flow_evt = _stream_flow_events.get(ws_id(websocket))
                 if flow_evt is not None:
                     await flow_evt.wait()
 
@@ -709,7 +723,7 @@ class AudioStreamController:
             # Clean up chunk tail storage for this track
             self._chunk_tails.pop(track_id, None)
             async with self._active_streams_lock:  # fixes #2076, #3182
-                self.active_streams.pop(id(websocket), None)
+                self.active_streams.pop(ws_id(websocket), None)
             self._stream_semaphore.release()
 
     async def stream_normal_audio(
@@ -829,7 +843,7 @@ class AudioStreamController:
 
             # Register active stream so cleanup can always find it (fixes #2076, #3182)
             async with self._active_streams_lock:
-                self.active_streams[id(websocket)] = asyncio.current_task()
+                self.active_streams[ws_id(websocket)] = asyncio.current_task()
 
             logger.info(
                 f"Starting normal audio stream: track={track_id}, "
@@ -871,11 +885,11 @@ class AudioStreamController:
             for chunk_idx in range(start_chunk, total_chunks):
                 # Honour pause/resume events from the WebSocket handler (#2106).
                 from routers.system import _stream_pause_events, _stream_flow_events
-                pause_evt = _stream_pause_events.get(id(websocket))
+                pause_evt = _stream_pause_events.get(ws_id(websocket))
                 if pause_evt is not None:
                     await pause_evt.wait()
                 # Honour flow control: wait if frontend buffer is full.
-                flow_evt = _stream_flow_events.get(id(websocket))
+                flow_evt = _stream_flow_events.get(ws_id(websocket))
                 if flow_evt is not None:
                     await flow_evt.wait()
 
@@ -954,7 +968,7 @@ class AudioStreamController:
                     await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
             async with self._active_streams_lock:  # fixes #2076, #3182
-                self.active_streams.pop(id(websocket), None)
+                self.active_streams.pop(ws_id(websocket), None)
             self._stream_semaphore.release()
             # Clean up temp WAV created for compressed format streaming (#3225)
             if temp_wav_path:
@@ -1570,7 +1584,7 @@ class AudioStreamController:
 
             # Register active stream so cleanup can always find it (fixes #2076, #3182)
             async with self._active_streams_lock:
-                self.active_streams[id(websocket)] = asyncio.current_task()
+                self.active_streams[ws_id(websocket)] = asyncio.current_task()
 
             # Calculate which chunk to start from based on position
             # Chunks overlap, so we need to find the chunk that contains this position
@@ -1628,10 +1642,10 @@ class AudioStreamController:
                 # Honour pause/resume and flow control events (fixes missing
                 # pause check in seek path — pre-existing bug).
                 from routers.system import _stream_pause_events, _stream_flow_events
-                pause_evt = _stream_pause_events.get(id(websocket))
+                pause_evt = _stream_pause_events.get(ws_id(websocket))
                 if pause_evt is not None:
                     await pause_evt.wait()
-                flow_evt = _stream_flow_events.get(id(websocket))
+                flow_evt = _stream_flow_events.get(ws_id(websocket))
                 if flow_evt is not None:
                     await flow_evt.wait()
 
@@ -1722,7 +1736,7 @@ class AudioStreamController:
         finally:
             self._chunk_tails.pop(track_id, None)  # fixes orphaned state
             async with self._active_streams_lock:  # fixes #2076, #3182
-                self.active_streams.pop(id(websocket), None)
+                self.active_streams.pop(ws_id(websocket), None)
             self._stream_semaphore.release()
 
     async def _send_stream_start_with_seek(

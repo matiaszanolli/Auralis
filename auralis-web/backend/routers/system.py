@@ -10,7 +10,7 @@ import logging
 from typing import Any
 from collections.abc import Callable
 
-from core.audio_stream_controller import AudioStreamController
+from core.audio_stream_controller import AudioStreamController, ws_id as _ws_id
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import (
@@ -22,17 +22,17 @@ from websocket.websocket_security import (
 logger = logging.getLogger(__name__)
 
 # Track active streaming tasks per WebSocket to allow cancellation
-_active_streaming_tasks: dict[int, asyncio.Task] = {}
+_active_streaming_tasks: dict[str, asyncio.Task] = {}
 _active_streaming_tasks_lock = asyncio.Lock()  # Protects all _active_streaming_tasks access (fixes #2425)
 
 # Per-WebSocket pause events: when clear, streaming loops sleep; when set, they proceed.
 # This avoids destroying the streaming task on pause (#2106).
-_stream_pause_events: dict[int, asyncio.Event] = {}
+_stream_pause_events: dict[str, asyncio.Event] = {}
 
 # Per-WebSocket flow control events: when clear, backend stops sending chunks
 # (frontend buffer is full); when set, backend continues streaming.
 # Separate from pause events — pause is user-initiated, flow is buffer-driven.
-_stream_flow_events: dict[int, asyncio.Event] = {}
+_stream_flow_events: dict[str, asyncio.Event] = {}
 
 
 # Global rate limiter for all WebSocket connections (fixes #2156)
@@ -130,7 +130,7 @@ def create_system_router(
             return
 
         await manager.connect(websocket)
-        connection_id = str(id(websocket))
+        connection_id = _ws_id(websocket)
         heartbeat = HeartbeatManager(interval_seconds=30, timeout_seconds=10)
 
         async def _heartbeat_loop() -> None:
@@ -190,7 +190,7 @@ def create_system_router(
                 # Security: Check rate limit (fixes #2156)
                 allowed, error_msg = _rate_limiter.check_rate_limit(websocket)
                 if not allowed:
-                    logger.warning(f"Rate limit exceeded for WebSocket {id(websocket)}: {error_msg}")
+                    logger.warning(f"Rate limit exceeded for WebSocket {_ws_id(websocket)}: {error_msg}")
                     await send_error_response(websocket, "rate_limit_exceeded", error_msg)
                     continue
 
@@ -321,7 +321,7 @@ def create_system_router(
                             logger.error(f"Failed to send enhancement disabled error: {e}")
                         continue  # Skip to next message
 
-                    ws_id = id(websocket)
+                    ws_id = _ws_id(websocket)
 
                     # Define streaming coroutine
                     async def stream_audio():
@@ -452,7 +452,7 @@ def create_system_router(
                         + (f", resume_at={start_position:.1f}s" if start_position > 0 else "")
                     )
 
-                    ws_id = id(websocket)
+                    ws_id = _ws_id(websocket)
 
                     # Define streaming coroutine
                     async def stream_normal():
@@ -526,7 +526,7 @@ def create_system_router(
                     # Pause audio streaming by clearing the pause event so the
                     # streaming task sleeps instead of being destroyed (#2106).
                     logger.info("Received pause command via WebSocket")
-                    ws_id = id(websocket)
+                    ws_id = _ws_id(websocket)
                     pause_evt = _stream_pause_events.get(ws_id)
                     if pause_evt is not None:
                         pause_evt.clear()
@@ -543,7 +543,7 @@ def create_system_router(
                 elif message.get("type") == "resume":
                     # Resume a paused streaming task by setting the pause event (#2106).
                     logger.info("Received resume command via WebSocket")
-                    ws_id = id(websocket)
+                    ws_id = _ws_id(websocket)
                     pause_evt = _stream_pause_events.get(ws_id)
                     if pause_evt is not None:
                         pause_evt.set()
@@ -559,7 +559,7 @@ def create_system_router(
                 elif message.get("type") == "buffer_full":
                     # Frontend buffer is filling up — pause chunk streaming to
                     # prevent data being dropped by the circular buffer.
-                    ws_id = id(websocket)
+                    ws_id = _ws_id(websocket)
                     flow_evt = _stream_flow_events.get(ws_id)
                     if flow_evt is not None:
                         flow_evt.clear()
@@ -567,7 +567,7 @@ def create_system_router(
 
                 elif message.get("type") == "buffer_ready":
                     # Frontend buffer has drained enough — resume chunk streaming.
-                    ws_id = id(websocket)
+                    ws_id = _ws_id(websocket)
                     flow_evt = _stream_flow_events.get(ws_id)
                     if flow_evt is not None:
                         flow_evt.set()
@@ -578,7 +578,7 @@ def create_system_router(
                     logger.info("Received stop command via WebSocket")
 
                     # Cancel active streaming task if any (fixes #2425 — idempotent pop under lock)
-                    ws_id = id(websocket)
+                    ws_id = _ws_id(websocket)
                     async with _active_streaming_tasks_lock:
                         task = _active_streaming_tasks.pop(ws_id, None)
                     if task and not task.done():
@@ -634,7 +634,7 @@ def create_system_router(
                     )
 
                     # Pop prior task under lock; cancel and await outside lock to avoid deadlock (fixes #2425, #2430)
-                    ws_id = id(websocket)
+                    ws_id = _ws_id(websocket)
                     async with _active_streaming_tasks_lock:
                         for k in [k for k, v in _active_streaming_tasks.items() if v.done()]:
                             _active_streaming_tasks.pop(k, None)
@@ -766,7 +766,7 @@ def create_system_router(
         finally:
             # Always clean up on disconnect
             heartbeat_task.cancel()
-            ws_id = id(websocket)
+            ws_id = _ws_id(websocket)
 
             # Cancel any active streaming task — idempotent pop under lock (fixes #2425)
             async with _active_streaming_tasks_lock:
