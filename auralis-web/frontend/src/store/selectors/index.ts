@@ -116,9 +116,8 @@ export const selectTotalQueueTime = createSelector(
 );
 
 export const selectFormattedQueueTime = createSelector(
-  [(state: RootState) => state.queue.tracks],
-  (tracks): string => {
-    const total = tracks.reduce((sum, track) => sum + track.duration, 0);
+  [selectTotalQueueTime],
+  (total): string => {
     const hours = Math.floor(total / 3600);
     const minutes = Math.floor((total % 3600) / 60);
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
