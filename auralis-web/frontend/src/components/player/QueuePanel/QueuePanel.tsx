@@ -108,44 +108,44 @@ export const QueuePanel = ({
     );
   }
 
-  const handleRemoveTrack = async (index: number) => {
+  const handleRemoveTrack = useCallback(async (index: number) => {
     try {
       await removeTrack(index);
     } catch (err) {
       console.error('Failed to remove track from queue:', err);
     }
-  };
+  }, [removeTrack]);
 
-  const handleToggleShuffle = async () => {
+  const handleToggleShuffle = useCallback(async () => {
     try {
       await toggleShuffle();
     } catch (err) {
       console.error('Failed to toggle shuffle:', err);
     }
-  };
+  }, [toggleShuffle]);
 
-  const handleSetRepeatMode = async (mode: 'off' | 'all' | 'one') => {
+  const handleSetRepeatMode = useCallback(async (mode: 'off' | 'all' | 'one') => {
     try {
       await setRepeatMode(mode);
     } catch (err) {
       console.error('Failed to set repeat mode:', err);
     }
-  };
+  }, [setRepeatMode]);
 
-  const handleClearQueue = () => {
+  const handleClearQueue = useCallback(() => {
     setShowClearConfirm(true);
-  };
+  }, []);
 
-  const confirmClearQueue = async () => {
+  const confirmClearQueue = useCallback(async () => {
     setShowClearConfirm(false);
     try {
       await clearQueue();
     } catch (err) {
       console.error('Failed to clear queue:', err);
     }
-  };
+  }, [clearQueue]);
 
-  const handleReorderTrack = async (fromIndex: number, toIndex: number) => {
+  const handleReorderTrack = useCallback(async (fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex) return;
 
     try {
@@ -153,7 +153,7 @@ export const QueuePanel = ({
     } catch (err) {
       console.error('Failed to reorder track:', err);
     }
-  };
+  }, [reorderTrack]);
 
   // Stable callbacks for virtualized list items (avoid per-render recreation)
   const handleDragEnd = useCallback(() => {
