@@ -331,14 +331,14 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     height: '6px',
     backgroundColor: tokens.colors.border.light,
-    borderRadius: '3px',
+    borderRadius: tokens.borderRadius.sm,
     overflow: 'hidden',
   },
 
   progressBarInner: {
     height: '100%',
     transition: 'width 300ms ease-out',
-    borderRadius: '3px',
+    borderRadius: tokens.borderRadius.sm,
   },
 
   chunkInfo: {
@@ -376,7 +376,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   bufferBadge: {
     padding: '2px 8px',
-    borderRadius: '4px',
+    borderRadius: tokens.borderRadius.sm,
     fontSize: tokens.typography.fontSize.xs,
     fontWeight: tokens.typography.fontWeight.semibold,
   },
@@ -385,7 +385,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     height: '4px',
     backgroundColor: tokens.colors.border.light,
-    borderRadius: '2px',
+    borderRadius: tokens.borderRadius.sm,
     overflow: 'hidden',
     marginBottom: tokens.spacing.xs,
   },
@@ -393,7 +393,7 @@ const styles: Record<string, React.CSSProperties> = {
   bufferFill: {
     height: '100%',
     transition: 'width 200ms ease-out',
-    borderRadius: '2px',
+    borderRadius: tokens.borderRadius.sm,
   },
 
   bufferDetails: {
@@ -409,7 +409,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     padding: '4px 8px',
     backgroundColor: tokens.colors.bg.level2,
-    borderRadius: '4px',
+    borderRadius: tokens.borderRadius.sm,
   },
 
   metricLabel: {
@@ -429,7 +429,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '2px',
     padding: '8px',
     backgroundColor: tokens.colors.bg.level2,
-    borderRadius: '4px',
+    borderRadius: tokens.borderRadius.sm,
   },
 
   speedInfo: {
@@ -438,7 +438,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     padding: '8px',
     backgroundColor: tokens.colors.bg.level2,
-    borderRadius: '4px',
+    borderRadius: tokens.borderRadius.sm,
   },
 
   gaugeSection: {
@@ -457,7 +457,7 @@ const styles: Record<string, React.CSSProperties> = {
   gaugeMark: {
     flex: 1,
     height: '8px',
-    borderRadius: '2px',
+    borderRadius: tokens.borderRadius.sm,
     transition: 'background-color 200ms ease-out',
     backgroundColor: tokens.colors.border.light,
   },
