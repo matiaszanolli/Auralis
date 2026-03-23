@@ -40,10 +40,16 @@ export interface IconButtonProps extends Omit<MuiIconButtonProps, 'size' | 'colo
   active?: boolean;
 }
 
-const StyledIconButton = styled(MuiIconButton, {
+type StyledIconButtonProps = Omit<MuiIconButtonProps, 'size' | 'color'> & {
+  variant?: IconButtonProps['variant'];
+  size?: IconButtonProps['size'];
+  active?: boolean;
+};
+
+const StyledIconButton = styled(MuiIconButton as React.ComponentType<Omit<MuiIconButtonProps, 'size' | 'color'>>, {
   shouldForwardProp: (prop) =>
     !['variant', 'size', 'active'].includes(prop as string),
-})<IconButtonProps>(({ variant = 'default', size = 'md', active, disabled }) => {
+})<StyledIconButtonProps>(({ variant = 'default', size = 'md', active, disabled }) => {
   // Map Material-UI sizes to design system sizes
   const normalizedSize = (() => {
     switch (size) {
@@ -174,7 +180,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>((
       size={size}
       active={active}
       disabled={disabled}
-      {...(props as any)}
+      {...props}
     >
       {children}
     </StyledIconButton>

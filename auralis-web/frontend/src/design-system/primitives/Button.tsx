@@ -50,10 +50,16 @@ export interface ButtonProps extends Omit<MuiButtonProps, 'variant' | 'size' | '
   endIcon?: React.ReactNode;
 }
 
-const StyledButton = styled(MuiButton, {
+type StyledButtonProps = Omit<MuiButtonProps, 'variant' | 'size' | 'color'> & {
+  variant?: ButtonProps['variant'];
+  size?: ButtonProps['size'];
+  loading?: boolean;
+};
+
+const StyledButton = styled(MuiButton as React.ComponentType<Omit<MuiButtonProps, 'variant' | 'size' | 'color'>>, {
   shouldForwardProp: (prop) =>
     !['variant', 'size', 'loading'].includes(prop as string),
-})<{ variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; size?: 'sm' | 'md' | 'lg' | 'small' | 'medium' | 'large'; loading?: boolean }>(({ variant = 'primary', size = 'md', disabled, loading }) => {
+})<StyledButtonProps>(({ variant = 'primary', size = 'md', disabled, loading }) => {
   // Base styles
   const baseStyles = {
     fontFamily: tokens.typography.fontFamily.primary,
@@ -201,7 +207,7 @@ export const Button = ({
       loading={loading}
       startIcon={!loading ? startIcon : undefined}
       endIcon={!loading ? endIcon : undefined}
-      {...(props as any)}
+      {...props}
     >
       {loading && <LoadingSpinner size={20} />}
       <span style={{ visibility: loading ? 'hidden' : 'visible' }}>

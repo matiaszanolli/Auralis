@@ -38,10 +38,19 @@ export interface CardProps extends Omit<MuiCardProps, 'variant'> {
   selected?: boolean;
 }
 
-const StyledCard = styled(MuiCard, {
+// Use Omit on MuiCardProps to remove conflicting 'variant', then add our custom props.
+// shouldForwardProp prevents custom props from reaching MUI's <Card>.
+type StyledCardProps = Omit<MuiCardProps, 'variant'> & {
+  variant?: CardProps['variant'];
+  padding?: CardProps['padding'];
+  hoverable?: boolean;
+  selected?: boolean;
+};
+
+const StyledCard = styled(MuiCard as React.ComponentType<Omit<MuiCardProps, 'variant'>>, {
   shouldForwardProp: (prop) =>
     !['variant', 'padding', 'hoverable', 'selected'].includes(prop as string),
-})<{ variant?: 'default' | 'elevated' | 'outlined'; padding?: 'none' | 'sm' | 'md' | 'lg'; hoverable?: boolean; selected?: boolean }>(({ variant = 'default', padding = 'md', hoverable, selected }) => {
+})<StyledCardProps>(({ variant = 'default', padding = 'md', hoverable, selected }) => {
   // Padding styles
   const paddingStyles = {
     none: { padding: 0 },
@@ -126,7 +135,7 @@ export const Card = ({
       padding={padding}
       hoverable={hoverable}
       selected={selected}
-      {...(props as any)}
+      {...props}
     >
       {children}
     </StyledCard>

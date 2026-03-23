@@ -11,7 +11,6 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiTextField, { TextFieldProps as MuiTextFieldProps } from '@mui/material/TextField';
 import { InputAdornment } from '@mui/material';
@@ -44,10 +43,15 @@ export interface InputProps extends Omit<MuiTextFieldProps, 'variant' | 'size' |
   errorMessage?: string;
 }
 
-const StyledTextField = styled(MuiTextField, {
+type StyledTextFieldProps = Omit<MuiTextFieldProps, 'variant' | 'size' | 'color'> & {
+  variant?: InputProps['variant'];
+  size?: InputProps['size'];
+};
+
+const StyledTextField = styled(MuiTextField as React.ComponentType<Omit<MuiTextFieldProps, 'variant' | 'size' | 'color'>>, {
   shouldForwardProp: (prop) =>
     !['variant', 'size'].includes(prop as string),
-})<InputProps>(({ variant = 'default', size = 'md', error }) => {
+})<StyledTextFieldProps>(({ variant = 'default', size = 'md', error }) => {
   // Size styles
   const sizeStyles = {
     sm: {
@@ -184,7 +188,7 @@ export const Input = ({
           </InputAdornment>
         ) : undefined,
       }}
-      {...(props as any)}
+      {...props}
     />
   );
 };

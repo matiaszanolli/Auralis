@@ -11,7 +11,6 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiBadge, { BadgeProps as MuiBadgeProps } from '@mui/material/Badge';
 import { tokens } from '@/design-system/tokens';
@@ -33,9 +32,13 @@ export interface BadgeProps extends Omit<MuiBadgeProps, 'variant' | 'color'> {
   dot?: boolean;
 }
 
-const StyledBadge = styled(MuiBadge, {
+type StyledBadgeProps = Omit<MuiBadgeProps, 'variant' | 'color'> & {
+  variant?: BadgeProps['variant'];
+};
+
+const StyledBadge = styled(MuiBadge as React.ComponentType<Omit<MuiBadgeProps, 'variant' | 'color'>>, {
   shouldForwardProp: (prop) => prop !== 'variant',
-})<{ variant?: 'default' | 'primary' | 'success' | 'warning' | 'error' }>(({ variant = 'default' }) => {
+})<StyledBadgeProps>(({ variant = 'default' }) => {
   const variantStyles = {
     default: {
       '& .MuiBadge-badge': {
@@ -94,7 +97,7 @@ export const Badge = ({
       variant={variant}
       badgeContent={dot ? undefined : value}
       invisible={!value && !dot}
-      {...(props as any)}
+      {...props}
     >
       {children}
     </StyledBadge>

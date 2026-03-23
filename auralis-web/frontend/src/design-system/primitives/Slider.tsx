@@ -11,7 +11,6 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiSlider, { SliderProps as MuiSliderProps } from '@mui/material/Slider';
 import { tokens } from '@/design-system/tokens';
@@ -33,10 +32,15 @@ export interface SliderProps extends Omit<MuiSliderProps, 'size' | 'color'> {
   showValue?: boolean;
 }
 
-const StyledSlider = styled(MuiSlider, {
+type StyledSliderProps = Omit<MuiSliderProps, 'size' | 'color'> & {
+  variant?: SliderProps['variant'];
+  size?: SliderProps['size'];
+};
+
+const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps, 'size' | 'color'>>, {
   shouldForwardProp: (prop) =>
     !['variant', 'size'].includes(prop as string),
-})<SliderProps>(({ variant = 'default', size = 'md' }) => {
+})<StyledSliderProps>(({ variant = 'default', size = 'md' }) => {
   // Size styles
   const sizeStyles = {
     sm: {
@@ -170,7 +174,7 @@ export const Slider = ({
       variant={variant}
       size={size}
       valueLabelDisplay={showValue ? 'auto' : 'off'}
-      {...(props as any)}
+      {...props}
     />
   );
 };
