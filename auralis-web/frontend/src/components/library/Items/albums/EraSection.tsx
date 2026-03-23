@@ -100,8 +100,8 @@ export const EraSection = ({
               duration={album.totalDuration}
               year={album.year}
               fingerprint={fingerprint}
-              onClick={() => onAlbumClick?.(album.id)}
-              onHoverEnter={(id) => onAlbumHover?.(id, album.title, album.artist)}
+              onClick={onAlbumClick}
+              onHoverEnter={onAlbumHover ? (id) => onAlbumHover(id, album.title, album.artist) : undefined}
               onHoverLeave={onAlbumHoverEnd}
             />
           );

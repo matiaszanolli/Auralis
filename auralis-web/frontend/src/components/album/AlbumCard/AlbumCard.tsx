@@ -31,7 +31,7 @@ export interface AlbumCardProps {
   duration?: number;
   year?: number;
   fingerprint?: Partial<AudioFingerprint>;
-  onClick?: () => void;
+  onClick?: (albumId: number) => void;
   onArtworkUpdated?: () => void;
   onHoverEnter?: (albumId: number) => void;
   onHoverLeave?: () => void;
@@ -78,7 +78,7 @@ export const AlbumCard = React.memo(function AlbumCard({
       artworkUrl={artworkUrl}
       hasArtwork={hasArtwork}
       fingerprint={fingerprint}
-      onClick={onClick}
+      onClick={onClick ? () => onClick(albumId) : undefined}
       onArtworkUpdated={onArtworkUpdated}
       onHoverEnter={onHoverEnter}
       onHoverLeave={onHoverLeave}

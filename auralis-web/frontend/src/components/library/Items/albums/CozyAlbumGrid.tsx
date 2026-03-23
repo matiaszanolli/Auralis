@@ -156,9 +156,9 @@ export const CozyAlbumGrid = ({
             year={album.year}
             hasArtwork={!!album.artworkUrl}
             fingerprint={fingerprints.get(album.id) ?? undefined}
-            onClick={() => onAlbumClick?.(album.id)}
-            onHoverEnter={() => onAlbumHover?.(album.id, album.title, album.artist)}
-            onHoverLeave={() => onAlbumHoverEnd?.()}
+            onClick={onAlbumClick}
+            onHoverEnter={onAlbumHover ? () => onAlbumHover(album.id, album.title, album.artist) : undefined}
+            onHoverLeave={onAlbumHoverEnd}
           />
         ))}
       </div>
