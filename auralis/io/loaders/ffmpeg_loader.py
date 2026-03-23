@@ -124,7 +124,11 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
     else:
         temp_dir = Path(tempfile.gettempdir())
 
-    temp_wav = temp_dir / f"auralis_temp_{os.getpid()}_{file_path.stem}.wav"
+    # Use mkstemp for unique temp filenames — prevents collision when two
+    # threads concurrently load files with the same stem (#2908).
+    fd, temp_wav_str = tempfile.mkstemp(suffix='.wav', dir=str(temp_dir), prefix='auralis_')
+    os.close(fd)  # Close fd so FFmpeg can write to the path
+    temp_wav = Path(temp_wav_str)
 
     try:
         # Convert to WAV using FFmpeg
