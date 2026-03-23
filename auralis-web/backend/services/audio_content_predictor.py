@@ -136,15 +136,13 @@ class AudioContentAnalyzer:
 
         Uses minimal dependencies for speed.
         """
+        chunk_duration = 10.0
+        start_sec = chunk_idx * chunk_duration
+
         try:
-            # Try soundfile first (fastest)
+            # Try soundfile first (fastest for WAV/FLAC)
             import soundfile as sf
 
-            # Calculate chunk position (10 seconds per chunk - Beta.9)
-            chunk_duration = 10.0
-            start_sec = chunk_idx * chunk_duration
-
-            # Read just this chunk
             with sf.SoundFile(filepath) as f:
                 sample_rate = f.samplerate
                 start_frame = int(start_sec * sample_rate)
@@ -159,8 +157,24 @@ class AudioContentAnalyzer:
 
                 return audio
 
+        except Exception:
+            pass  # Fall through to unified loader for MP3/OGG/etc.
+
+        try:
+            from auralis.io.unified_loader import load_audio
+
+            audio_full, sample_rate = load_audio(filepath)
+            start_frame = int(start_sec * sample_rate)
+            num_frames = int(chunk_duration * sample_rate)
+            audio = audio_full[start_frame:start_frame + num_frames]
+
+            if len(audio.shape) > 1:
+                audio = np.mean(audio, axis=1).astype(np.float32)
+
+            return audio
+
         except Exception as e:
-            logger.warning(f"Fast chunk load failed: {e}")
+            logger.warning(f"Chunk load failed for {filepath}: {e}")
             return None
 
     def _get_default_features(self) -> AudioFeatures:
