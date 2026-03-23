@@ -466,3 +466,48 @@ class TestPlayerSecurityValidation:
 
         # Should reject or handle gracefully
         assert response.status_code in [200, 400, 422]
+
+
+class TestRepeatMode:
+    """Test POST /api/player/queue/repeat"""
+
+    def test_set_repeat_all(self, client):
+        """Test enabling repeat-all mode"""
+        response = client.post(
+            "/api/player/queue/repeat",
+            json={"mode": "all"}
+        )
+        assert response.status_code == 200
+        assert "message" in response.json()
+
+    def test_set_repeat_one(self, client):
+        """Test enabling repeat-one mode"""
+        response = client.post(
+            "/api/player/queue/repeat",
+            json={"mode": "one"}
+        )
+        assert response.status_code == 200
+
+    def test_set_repeat_off(self, client):
+        """Test disabling repeat mode"""
+        response = client.post(
+            "/api/player/queue/repeat",
+            json={"mode": "off"}
+        )
+        assert response.status_code == 200
+
+    def test_set_repeat_invalid_mode(self, client):
+        """Test that invalid repeat mode is rejected"""
+        response = client.post(
+            "/api/player/queue/repeat",
+            json={"mode": "invalid"}
+        )
+        assert response.status_code == 422
+
+    def test_set_repeat_missing_mode(self, client):
+        """Test that missing mode field is rejected"""
+        response = client.post(
+            "/api/player/queue/repeat",
+            json={}
+        )
+        assert response.status_code == 422
