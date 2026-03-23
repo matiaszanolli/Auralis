@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { Box } from '@mui/material';
 import { useSelector } from 'react-redux';
 
@@ -255,7 +255,7 @@ function ComfortableApp() {
       description: 'Show keyboard shortcuts',
       category: 'Global',
       handler: () => {
-        // Will be set below
+        openHelpRef.current?.();
       }
     },
     {
@@ -269,6 +269,10 @@ function ComfortableApp() {
     }
   ];
 
+  // Ref to break circular dependency: array references openHelp, but
+  // openHelp comes from the hook that receives the array (fixes #3077).
+  const openHelpRef = useRef<(() => void) | null>(null);
+
   // Keyboard shortcuts via unified hook
   const {
     shortcuts,
@@ -278,13 +282,8 @@ function ComfortableApp() {
     formatShortcut
   } = useKeyboardShortcuts(keyboardShortcutsArray);
 
-  // Set the help shortcut handler (needs openHelp from hook)
-  useEffect(() => {
-    const helpShortcut = keyboardShortcutsArray.find(s => s.key === '?');
-    if (helpShortcut) {
-      helpShortcut.handler = openHelp;
-    }
-  }, [openHelp]);
+  // Keep ref in sync with latest openHelp
+  openHelpRef.current = openHelp;
 
   const handleSidebarNavigation = useCallback((view: string) => {
     setCurrentView(view);
