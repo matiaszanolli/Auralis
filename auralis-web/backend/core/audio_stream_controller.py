@@ -1290,7 +1290,13 @@ class AudioStreamController:
         )
         abort_event: asyncio.Event = asyncio.Event()
 
+        # Monotonic sequence counter for text+binary frame pairing.
+        # The client can use this to detect desync if frames are ever
+        # dropped or reordered (fixes #3189).
+        frame_seq = 0
+
         async def _producer() -> None:
+            nonlocal frame_seq
             try:
                 for frame_idx in range(num_frames):
                     if abort_event.is_set():
@@ -1302,6 +1308,7 @@ class AudioStreamController:
                     metadata: dict[str, Any] = {
                         "type": "audio_chunk_meta",
                         "data": {
+                            "seq": frame_seq,
                             "chunk_index": chunk_index,
                             "chunk_count": total_chunks,
                             "frame_index": frame_idx,
@@ -1311,6 +1318,7 @@ class AudioStreamController:
                             "stream_type": stream_type,
                         },
                     }
+                    frame_seq += 1
                     pcm_bytes: bytes = frame_samples.astype('<f4').tobytes()
                     await queue.put((metadata, pcm_bytes))
             finally:
