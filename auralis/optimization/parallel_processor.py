@@ -310,8 +310,13 @@ class ParallelBandProcessor:
                 for group in band_groups
             ]
 
-            # Collect group results
-            group_results: list[np.ndarray] = [future.result() for future in futures]
+            # Collect group results — failed groups produce silence, not a crash
+            group_results: list[np.ndarray] = [np.zeros_like(audio) for _ in range(num_groups)]
+            for i, future in enumerate(futures):
+                try:
+                    group_results[i] = future.result()
+                except Exception as exc:
+                    warning(f"Band group {i} processing failed: {exc}")
 
         # Sum all group results
         output: np.ndarray = np.sum(group_results, axis=0)
