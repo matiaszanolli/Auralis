@@ -19,6 +19,8 @@ from functools import wraps
 from typing import Any
 from collections.abc import Callable
 
+import threading
+
 import numpy as np
 
 from ..utils.logging import info
@@ -163,13 +165,16 @@ class PerformanceOptimizer:
 
 # Global performance optimizer instance
 _global_optimizer: PerformanceOptimizer | None = None
+_global_optimizer_lock = threading.Lock()
 
 
 def get_performance_optimizer(config: PerformanceConfig | None = None) -> PerformanceOptimizer:
-    """Get global performance optimizer instance"""
+    """Get global performance optimizer instance (thread-safe double-check)"""
     global _global_optimizer
     if _global_optimizer is None:
-        _global_optimizer = PerformanceOptimizer(config)
+        with _global_optimizer_lock:
+            if _global_optimizer is None:
+                _global_optimizer = PerformanceOptimizer(config)
     return _global_optimizer
 
 
