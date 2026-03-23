@@ -130,7 +130,7 @@ export function useQueueHistory(): QueueHistoryActions {
 
   // Local state
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [historyCount, setHistoryCount] = useState(0);
+  const historyCount = history.length;
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
@@ -151,7 +151,6 @@ export function useQueueHistory(): QueueHistoryActions {
 
         if (response) {
           setHistory(response.history || []);
-          setHistoryCount(response.count || 0);
         }
       } catch (err) {
         // Silently fail - history is optional
@@ -197,7 +196,6 @@ export function useQueueHistory(): QueueHistoryActions {
         if (response) {
           // Update local history
           setHistory((prev) => [response, ...prev]);
-          setHistoryCount((prev) => prev + 1);
         }
 
         setIsLoading(false);
@@ -230,7 +228,6 @@ export function useQueueHistory(): QueueHistoryActions {
 
       // Remove the undone entry from local history
       setHistory((prev) => prev.slice(1));
-      setHistoryCount((prev) => Math.max(0, prev - 1));
 
       setIsLoading(false);
     } catch (err) {
@@ -263,7 +260,6 @@ export function useQueueHistory(): QueueHistoryActions {
       await apiDelete('/api/player/queue/history');
 
       setHistory([]);
-      setHistoryCount(0);
 
       setIsLoading(false);
     } catch (err) {
