@@ -215,26 +215,31 @@ async def upload_and_process(
 
         logger.info(f"Uploaded file saved to {input_path}")
 
-        # Create and submit job
-        job = await _processing_engine.create_job(
-            input_path=str(input_path),
-            settings=processing_settings.model_dump(),
-            mode=processing_settings.mode
-        )
-
+        # Create and submit job — clean up temp file on failure (#3223)
         try:
-            job_id = await _processing_engine.submit_job(job)
-        except asyncio.QueueFull:
-            raise HTTPException(
-                status_code=503,
-                detail="Processing queue is full, please try again later",
+            job = await _processing_engine.create_job(
+                input_path=str(input_path),
+                settings=processing_settings.model_dump(),
+                mode=processing_settings.mode
             )
 
-        return ProcessResponse(
-            job_id=job_id,
-            status="queued",
-            message=f"File {file.filename} uploaded and queued for processing"
-        )
+            try:
+                job_id = await _processing_engine.submit_job(job)
+            except asyncio.QueueFull:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Processing queue is full, please try again later",
+                )
+
+            return ProcessResponse(
+                job_id=job_id,
+                status="queued",
+                message=f"File {file.filename} uploaded and queued for processing"
+            )
+        except Exception:
+            # Clean up orphaned temp file on any failure after write
+            input_path.unlink(missing_ok=True)
+            raise
 
     except HTTPException:
         raise
