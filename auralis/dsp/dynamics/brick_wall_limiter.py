@@ -112,17 +112,19 @@ class BrickWallLimiter:
         # Collapse channels: take the per-sample maximum across all channels.
         per_sample_max = abs_padded.max(axis=1)  # shape: (num_samples + lookahead,)
 
-        # maximum_filter1d with a negative origin shifts the window forward so
-        # it looks *ahead* rather than centred on the current sample.
-        # origin = -(size // 2) places the right edge of the window at the
-        # current sample, i.e. the window spans [i, i + lookahead_samples).
+        # maximum_filter1d origin convention: positive origin shifts the
+        # window toward *larger* indices (future samples).  With
+        # origin=+(lookahead // 2) the window spans approximately
+        # [i, i + lookahead), giving true lookahead peak detection.
+        # The previous negative origin looked *backward*, defeating the
+        # purpose of the lookahead delay (fixes #3308).
         lookahead = self.lookahead_samples
         peak_envelope = maximum_filter1d(
             per_sample_max,
             size=lookahead,
             mode='constant',
             cval=0.0,
-            origin=-(lookahead // 2),
+            origin=+(lookahead // 2),
         )[:num_samples]  # trim padding tail
 
         # Vectorized target-gain computation: threshold / peak where above
