@@ -270,13 +270,13 @@ class ContinuousMode:
                   f"Mid {adaptive_params.mid_adjustment_db:+.2f} dB, "
                   f"Treble {adaptive_params.treble_adjustment_db:+.2f} dB")
 
-        # Create targets dict for EQ processor (compatible with existing API)
+        # Create targets dict using EQProcessor._targets_to_eq_curve() key names
         targets = {
-            'low_shelf_gain_db': eq_curve['low_shelf_gain'],
-            'low_mid_gain_db': eq_curve['low_mid_gain'],
-            'mid_gain_db': eq_curve['mid_gain'],
-            'high_mid_gain_db': eq_curve['high_mid_gain'],
-            'high_shelf_gain_db': eq_curve['high_shelf_gain'],
+            'bass_boost_db': eq_curve['low_shelf_gain'],
+            'preset_low_mid_gain': eq_curve['low_mid_gain'],
+            'midrange_clarity_db': eq_curve['mid_gain'],
+            'preset_high_mid_gain': eq_curve['high_mid_gain'],
+            'treble_enhancement_db': eq_curve['high_shelf_gain'],
             'eq_blend': params.eq_blend,
         }
 
