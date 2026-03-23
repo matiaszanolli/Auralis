@@ -90,9 +90,24 @@ impl ChunkProcessor {
             let write_end = end.min(total_samples);
             let write_samples = write_end - write_start;
 
-            output
-                .slice_mut(ndarray::s![.., write_start..write_end])
-                .assign(&processed.slice(ndarray::s![.., ..write_samples]));
+            // In the overlap region (first `overlap` samples of non-first chunks),
+            // accumulate rather than overwrite for correct OLA reconstruction.
+            if chunk_idx > 0 && overlap > 0 {
+                let ola_samples = overlap.min(write_samples);
+                output
+                    .slice_mut(ndarray::s![.., write_start..write_start + ola_samples])
+                    .scaled_add(1.0, &processed.slice(ndarray::s![.., ..ola_samples]));
+                // Write remaining non-overlap region
+                if write_samples > ola_samples {
+                    output
+                        .slice_mut(ndarray::s![.., write_start + ola_samples..write_end])
+                        .assign(&processed.slice(ndarray::s![.., ola_samples..write_samples]));
+                }
+            } else {
+                output
+                    .slice_mut(ndarray::s![.., write_start..write_end])
+                    .assign(&processed.slice(ndarray::s![.., ..write_samples]));
+            }
 
             // Save overlap for next chunk
             if current_chunk_size == chunk_size && overlap > 0 {
