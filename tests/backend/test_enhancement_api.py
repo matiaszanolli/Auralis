@@ -101,7 +101,7 @@ class TestSetEnhancementIntensity:
     def test_set_intensity_valid(self, client):
         """Test setting valid intensity values"""
         for intensity in [0.0, 0.5, 1.0]:
-            response = client.post(f"/api/player/enhancement/intensity?intensity={intensity}")
+            response = client.post("/api/player/enhancement/intensity", json={"intensity": intensity})
 
             assert response.status_code == 200
             data = response.json()
@@ -110,36 +110,36 @@ class TestSetEnhancementIntensity:
     def test_set_intensity_boundary_values(self, client):
         """Test intensity at exact boundaries"""
         # Test minimum
-        response = client.post("/api/player/enhancement/intensity?intensity=0.0")
+        response = client.post("/api/player/enhancement/intensity", json={"intensity": 0.0})
         assert response.status_code == 200
 
         # Test maximum
-        response = client.post("/api/player/enhancement/intensity?intensity=1.0")
+        response = client.post("/api/player/enhancement/intensity", json={"intensity": 1.0})
         assert response.status_code == 200
 
     def test_set_intensity_below_minimum(self, client):
-        """Test intensity below 0.0"""
-        response = client.post("/api/player/enhancement/intensity?intensity=-0.1")
+        """Test intensity below 0.0 is clamped to 0.0"""
+        response = client.post("/api/player/enhancement/intensity", json={"intensity": -0.1})
 
-        assert response.status_code == 400
-        assert "between 0.0 and 1.0" in response.json()["detail"]
+        assert response.status_code == 200
+        assert response.json()["settings"]["intensity"] == 0.0
 
     def test_set_intensity_above_maximum(self, client):
-        """Test intensity above 1.0"""
-        response = client.post("/api/player/enhancement/intensity?intensity=1.1")
+        """Test intensity above 1.0 is clamped to 1.0"""
+        response = client.post("/api/player/enhancement/intensity", json={"intensity": 1.1})
 
-        assert response.status_code == 400
-        assert "between 0.0 and 1.0" in response.json()["detail"]
+        assert response.status_code == 200
+        assert response.json()["settings"]["intensity"] == 1.0
 
     def test_set_intensity_missing_parameter(self, client):
-        """Test intensity change without parameter"""
+        """Test intensity change without body"""
         response = client.post("/api/player/enhancement/intensity")
 
         assert response.status_code == 422
 
     def test_set_intensity_invalid_type(self, client):
         """Test intensity with non-numeric value"""
-        response = client.post("/api/player/enhancement/intensity?intensity=invalid")
+        response = client.post("/api/player/enhancement/intensity", json={"intensity": "invalid"})
 
         assert response.status_code == 422
 
