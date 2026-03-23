@@ -1,8 +1,8 @@
 /**
- * End-to-End User Flow Tests
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * Redux Flow Tests
+ * ~~~~~~~~~~~~~~~~
  *
- * E2E tests for common user workflows involving multiple components.
+ * Unit tests for Redux action/reducer flows (dispatch → state assertions).
  *
  * Test Scenarios:
  * 1. Complete Playback Flow
