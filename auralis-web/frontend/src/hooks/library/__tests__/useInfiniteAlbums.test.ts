@@ -6,7 +6,7 @@
  * @module hooks/library/__tests__/useInfiniteAlbums.test
  */
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -174,8 +174,8 @@ describe('useInfiniteAlbums', () => {
       wrapper: createWrapper(),
     });
 
-    // Give it time to potentially fire
-    await new Promise((r) => setTimeout(r, 50));
+    // Flush microtasks to ensure any async effects have settled
+    await act(async () => {});
 
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(result.current.data).toBeUndefined();

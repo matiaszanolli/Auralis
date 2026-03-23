@@ -165,8 +165,8 @@ describe('useLibraryStats', () => {
 
     const { result } = renderHook(() => useLibraryStats());
 
-    // Give it time to process
-    await new Promise((r) => setTimeout(r, 50));
+    // Flush microtasks to let the hook settle
+    await act(async () => {});
 
     // AbortError should be silently ignored
     expect(result.current.error).toBeNull();

@@ -741,8 +741,8 @@ describe('useRestAPI Hook', () => {
     it('should skip fetch when skip is true', async () => {
       const { result } = renderHook(() => useQuery('/api/test', true));
 
-      // Wait a bit to ensure no fetch was triggered
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Flush microtasks to ensure no fetch was triggered
+      await act(async () => {});
 
       expect(result.current.data).toBeNull();
       expect(result.current.isLoading).toBe(false);

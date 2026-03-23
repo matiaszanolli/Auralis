@@ -140,8 +140,8 @@ describe('useStandardizedAPI', () => {
       useStandardizedAPI('/api/test', { autoFetch: false })
     );
 
-    // Give it time to potentially fire
-    await new Promise((r) => setTimeout(r, 50));
+    // Flush microtasks to ensure no fetch was triggered
+    await act(async () => {});
 
     expect(mockGet).not.toHaveBeenCalled();
     expect(result.current.loading).toBe(true);

@@ -163,6 +163,8 @@ describe('StandardizedAPIClient', () => {
   });
 
   it('should respect cache TTL', async () => {
+    vi.useFakeTimers();
+
     const shortTTLClient = new StandardizedAPIClient({
       ...mockConfig,
       cacheTTL: 100
@@ -178,12 +180,14 @@ describe('StandardizedAPIClient', () => {
     await shortTTLClient.get('/api/test');
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
-    // Wait for cache to expire
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Advance past cache TTL
+    vi.advanceTimersByTime(150);
 
     // Second request (cache expired)
     await shortTTLClient.get('/api/test');
     expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
   });
 
   it('should retry on network failures', async () => {
@@ -391,6 +395,8 @@ describe('StandardizedAPIClient', () => {
   });
 
   it('should delete stale entries eagerly on read', async () => {
+    vi.useFakeTimers();
+
     const expiredClient = new StandardizedAPIClient({ ...mockConfig, cacheTTL: 1 });
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -401,14 +407,16 @@ describe('StandardizedAPIClient', () => {
     await expiredClient.get('/api/stale');
     expect(expiredClient.getCacheStats().size).toBe(1);
 
-    // Wait for TTL to expire
-    await new Promise(resolve => setTimeout(resolve, 10));
+    // Advance past TTL
+    vi.advanceTimersByTime(10);
 
     // Second GET — cache miss, stale entry removed
     await expiredClient.get('/api/stale');
     expect(mockFetch).toHaveBeenCalledTimes(2);
     // After the stale read-delete + re-set, still just 1 entry
     expect(expiredClient.getCacheStats().size).toBe(1);
+
+    vi.useRealTimers();
   });
 });
 

@@ -8,7 +8,7 @@
  */
 
 import { vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useSimilarTracksLoader } from '../useSimilarTracksLoader';
 import similarityService from '@/services/similarityService';
 
@@ -205,8 +205,8 @@ describe('useSimilarTracksLoader', () => {
         })
       );
 
-      // Give it a moment to see if fetch would be called
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Flush microtasks to see if fetch would be called
+      await act(async () => {});
 
       expect(similarityService.findSimilar).not.toHaveBeenCalled();
       expect(result.current.similarTracks).toEqual([]);
