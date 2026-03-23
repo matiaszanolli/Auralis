@@ -27,8 +27,10 @@ export const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsPro
 
         return (
           <Chip
-            key={index}
+            key={`${tag.category}-${tag.label}`}
             label={tag.label}
+            aria-label={`${tag.category}: ${tag.label}`}
+            role="status"
             size="small"
             sx={{
               // Glass background
