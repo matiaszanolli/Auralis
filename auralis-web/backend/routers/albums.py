@@ -10,7 +10,7 @@ REST API endpoints for album browsing and management
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Literal
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
@@ -44,7 +44,7 @@ def create_albums_router(
         limit: int = Query(50, ge=1, le=200),
         offset: int = Query(0, ge=0),
         search: str | None = None,
-        order_by: str = 'title'
+        order_by: Literal['title', 'year', 'created_at'] = 'title'
     ) -> Any:
         """
         Get albums from library with optional search and pagination.
