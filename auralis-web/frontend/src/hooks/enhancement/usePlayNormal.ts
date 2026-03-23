@@ -219,7 +219,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       // Only process messages intended for this hook (#2104)
       if (message.data.stream_type && message.data.stream_type !== 'normal') return;
 
-      const isSeek = (message.data as any).is_seek === true;
+      const isSeek = message.data.is_seek === true;
 
       DEBUG && console.log('[usePlayNormal] Stream started:', {
         trackId: message.data.track_id,
