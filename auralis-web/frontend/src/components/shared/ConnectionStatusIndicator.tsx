@@ -227,6 +227,8 @@ export function ConnectionStatusIndicator({
           animation: status.isReconnecting ? 'pulse 1s infinite' : 'none',
         }}
         aria-label={statusText}
+        aria-live="assertive"
+        role="status"
         aria-expanded={showDetails}
       >
         <div
