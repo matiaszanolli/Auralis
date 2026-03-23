@@ -46,7 +46,7 @@ except ImportError:
 # ProcessPoolExecutor requires functions to be defined at module level for pickling.
 
 # Number of worker processes for fingerprinting (1-2 is sufficient, keeps memory low)
-_FINGERPRINT_WORKERS = min(2, (os.cpu_count() or 4) // 2)
+_FINGERPRINT_WORKERS = max(1, min(2, (os.cpu_count() or 2) // 2))
 
 # Module-level ProcessPoolExecutor (lazy initialized)
 _fingerprint_executor: ProcessPoolExecutor | None = None
