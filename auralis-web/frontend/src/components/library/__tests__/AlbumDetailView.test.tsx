@@ -49,9 +49,29 @@ const mockAlbumData = {
   ],
 };
 
+/**
+ * Helper: build the transformed DetailTrack shape that useAlbumDetails produces.
+ * The hook maps raw API fields (snake_case) to the DetailTrack interface (camelCase)
+ * and adds default values for missing fields.
+ */
+const transformedTrack = (raw: Record<string, any>) => ({
+  id: raw.id,
+  title: raw.title ?? '',
+  artist: raw.artist ?? '',
+  album: raw.album ?? '',
+  duration: raw.duration ?? 0,
+  filepath: raw.filepath ?? raw.file_path ?? '',
+  artworkUrl: raw.artwork_url ?? null,
+  genre: raw.genre ?? null,
+  year: raw.year ?? null,
+  trackNumber: raw.track_number ?? null,
+  discNumber: raw.disc_number ?? null,
+  albumId: raw.album_id ?? null,
+  favorite: raw.favorite ?? undefined,
+});
 
-describe.skip('AlbumDetailView', () => {
-  // SKIPPED: Large component test (1005 lines). Run separately with increased heap.
+
+describe('AlbumDetailView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFetch.mockResolvedValue({
@@ -278,7 +298,7 @@ describe.skip('AlbumDetailView', () => {
         const buttonParent = playButton.closest('button');
         if (buttonParent) {
           await user.click(buttonParent);
-          expect(onTrackPlay).toHaveBeenCalledWith(mockAlbumData.tracks[0]);
+          expect(onTrackPlay).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
         }
       } catch {
         // Fallback: album rendered, button may not be clickable in test
@@ -301,7 +321,7 @@ describe.skip('AlbumDetailView', () => {
       const trackRow = screen.getByText('Come Together').closest('tr');
       if (trackRow) {
         await user.click(trackRow);
-        expect(onTrackPlay).toHaveBeenCalledWith(mockAlbumData.tracks[0]);
+        expect(onTrackPlay).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
       }
     });
 
@@ -510,8 +530,8 @@ describe.skip('AlbumDetailView', () => {
         expect(screen.getByText('Abbey Road')).toBeInTheDocument();
       });
 
-      const backButtons = screen.queryAllByTestId(/back|arrow/i);
-      expect(backButtons.length).toBeLessThanOrEqual(1);
+      // The back button uses aria-label "Go back to albums library" — verify it's absent
+      expect(screen.queryByLabelText(/go back/i)).not.toBeInTheDocument();
     });
   });
 
@@ -525,10 +545,11 @@ describe.skip('AlbumDetailView', () => {
         <AlbumDetailView albumId={1} />
       );
 
-      // Should show loading UI (skeletons or progress)
+      // MUI Skeleton components render with class MuiSkeleton-root;
+      // the loading container also has role="status"
       expect(
-        screen.queryAllByTestId(/skeleton/i).length > 0 ||
-        document.querySelector('[role="progressbar"]') !== null
+        document.querySelector('.MuiSkeleton-root') !== null ||
+        document.querySelector('[role="status"]') !== null
       ).toBeTruthy();
     });
 
@@ -589,7 +610,10 @@ describe.skip('AlbumDetailView', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/failed|error|not found/i)).toBeInTheDocument();
+        // EmptyState renders title "Error Loading Album" and may render a description too;
+        // use getAllByText to tolerate multiple matches, then assert at least one exists.
+        const matches = screen.getAllByText(/failed|error|not found/i);
+        expect(matches.length).toBeGreaterThan(0);
       });
     });
 
@@ -604,15 +628,12 @@ describe.skip('AlbumDetailView', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/failed|error|not found/i)).toBeInTheDocument();
+        const matches = screen.getAllByText(/failed|error|not found/i);
+        expect(matches.length).toBeGreaterThan(0);
       });
 
-      try {
-        expect(screen.getByTestId(/back|arrow/i)).toBeInTheDocument();
-      } catch {
-        // Fallback: error displayed, back button may not have testId
-        expect(screen.getByText(/failed|error|not found/i)).toBeInTheDocument();
-      }
+      // In error state with onBack, a "Back to Albums" button is rendered
+      expect(screen.getByText(/back to albums/i)).toBeInTheDocument();
     });
 
     it('should handle network errors', async () => {
@@ -623,7 +644,8 @@ describe.skip('AlbumDetailView', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/failed|error|network/i)).toBeInTheDocument();
+        const matches = screen.getAllByText(/failed|error|network/i);
+        expect(matches.length).toBeGreaterThan(0);
       });
     });
 
@@ -651,7 +673,10 @@ describe.skip('AlbumDetailView', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/4:19|4:43|3:05/)).toBeInTheDocument();
+        // formatDuration(259) = "4:19", formatDuration(183) = "3:03", formatDuration(185) = "3:05"
+        // Use getAllByText because multiple duration cells may match
+        const durations = screen.getAllByText(/4:19|3:03|3:05/);
+        expect(durations.length).toBeGreaterThan(0);
       });
     });
 
@@ -667,13 +692,14 @@ describe.skip('AlbumDetailView', () => {
     });
 
     it('should format duration > 1 hour correctly', async () => {
+      // Total needs to exceed 3600s: 259 + 183 + 185 + 3600 = 4227s = 1 hr 10 min
       mockFetch.mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
           tracks: [
             ...mockAlbumData.tracks,
-            { id: 4, title: 'Long Track', artist: 'The Beatles', duration: 1800 },
+            { id: 4, title: 'Long Track', artist: 'The Beatles', duration: 3600 },
           ],
         }),
       });
@@ -770,12 +796,13 @@ describe.skip('AlbumDetailView', () => {
         expect(screen.getByText('Abbey Road')).toBeInTheDocument();
       });
 
-      const header = container.querySelector('[class*="Header"]') || container.querySelector('section');
+      // DetailViewHeader renders a styled Box with the `isplaying` attribute
+      const header = container.querySelector('[isplaying]');
       expect(header).toBeInTheDocument();
     });
 
     it('should display album art and info side by side', async () => {
-      render(
+      const { container } = render(
         <AlbumDetailView albumId={1} />
       );
 
@@ -783,14 +810,18 @@ describe.skip('AlbumDetailView', () => {
         expect(screen.getByTestId('album-artwork')).toBeInTheDocument();
       });
 
+      // In jsdom getBoundingClientRect returns all zeros, so we verify layout
+      // structurally: the header uses flex row (the isplaying container) and
+      // artwork + title are sibling children within it.
+      const header = container.querySelector('[isplaying]');
+      expect(header).toBeInTheDocument();
+
       const artwork = screen.getByTestId('album-artwork');
       const title = screen.getByText('Abbey Road');
 
-      const artworkRect = artwork.getBoundingClientRect();
-      const titleRect = title.getBoundingClientRect();
-
-      // Album art should be to the left of title
-      expect(artworkRect.left).toBeLessThan(titleRect.left);
+      // Both artwork and title should be descendants of the same flex header
+      expect(header!.contains(artwork)).toBe(true);
+      expect(header!.contains(title)).toBe(true);
     });
   });
 
@@ -816,31 +847,23 @@ describe.skip('AlbumDetailView', () => {
       });
 
       // 2. User clicks play album
-      try {
-        const playButton = screen.getByText(/play album/i).closest('button');
-        if (playButton) {
-          await user.click(playButton);
-          expect(onTrackPlay).toHaveBeenCalledWith(mockAlbumData.tracks[0]);
-        }
-      } catch {
-        // Fallback: play button may not be interactive
+      const playButton = screen.getByText(/play album/i).closest('button');
+      if (playButton) {
+        await user.click(playButton);
+        expect(onTrackPlay).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
       }
 
       // 3. User clicks on a different track
       const secondTrack = screen.getByText('Something').closest('tr');
       if (secondTrack) {
         await user.click(secondTrack);
-        expect(onTrackPlay).toHaveBeenCalledWith(mockAlbumData.tracks[1]);
+        expect(onTrackPlay).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[1]));
       }
 
-      // 4. User clicks back
-      try {
-        const backButton = screen.getByTestId(/back|arrow/i);
-        await user.click(backButton);
-        expect(onBack).toHaveBeenCalled();
-      } catch {
-        // Fallback: back button may not be interactive
-      }
+      // 4. User clicks back via the back IconButton (aria-label "Go back to albums library")
+      const backButton = screen.getByLabelText(/go back/i);
+      await user.click(backButton);
+      expect(onBack).toHaveBeenCalled();
     });
 
     it('should maintain state through interactions', async () => {
@@ -929,6 +952,7 @@ describe.skip('AlbumDetailView', () => {
     });
 
     it('should handle very long track title', async () => {
+      const longTitle = 'A'.repeat(100);
       mockFetch.mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -936,7 +960,7 @@ describe.skip('AlbumDetailView', () => {
           tracks: [
             {
               id: 1,
-              title: 'A'.repeat(100),
+              title: longTitle,
               artist: 'The Beatles',
               duration: 259,
               track_number: 1,
@@ -950,16 +974,18 @@ describe.skip('AlbumDetailView', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/A+/)).toBeInTheDocument();
+        // Match the exact long title string to avoid matching other elements containing 'A'
+        expect(screen.getByText(longTitle)).toBeInTheDocument();
       });
     });
 
     it('should handle very long artist name', async () => {
+      const longArtist = 'B'.repeat(100);
       mockFetch.mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
-          artist: 'B'.repeat(100),
+          artist: longArtist,
         }),
       });
 
@@ -968,7 +994,9 @@ describe.skip('AlbumDetailView', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/B+/)).toBeInTheDocument();
+        // Match the exact long artist string to avoid matching other elements containing 'B'
+        const matches = screen.getAllByText(longArtist);
+        expect(matches.length).toBeGreaterThan(0);
       });
     });
   });
