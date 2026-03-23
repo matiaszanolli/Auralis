@@ -86,8 +86,11 @@ export interface UseLibraryQueryResult<T> {
   /** Total count of items matching query */
   total: number;
 
-  /** True while fetch is in progress */
+  /** True while initial fetch is in progress */
   isLoading: boolean;
+
+  /** True while fetchMore pagination request is in progress */
+  isLoadingMore: boolean;
 
   /** Last error from query */
   error: ApiError | null;
@@ -156,6 +159,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(options.offset || 0);
   const [isLoading, setIsLoading] = useState(!options.skip);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
   // Refs for tracking ongoing requests and query stability
@@ -291,6 +295,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
     // Mark as fetching to prevent concurrent calls
     isFetchingMoreRef.current = true;
+    setIsLoadingMore(true);
 
     const nextOffset = offset + limit;
 
@@ -311,8 +316,9 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
       setError(apiError);
     } finally {
-      // Always clear the fetching flag
+      // Always clear the fetching flags
       isFetchingMoreRef.current = false;
+      setIsLoadingMore(false);
     }
   }, [api, offset, limit, hasMore, buildEndpoint, extractItemsFromResponse]);
 
@@ -349,6 +355,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
     data,
     total,
     isLoading,
+    isLoadingMore,
     error,
     offset,
     hasMore,
@@ -421,7 +428,7 @@ export function useInfiniteScroll<T extends Track | Album | Artist = Track>(
   queryType: LibraryQueryType,
   options?: LibraryQueryOptions
 ) {
-  const { data, isLoading, error, hasMore, fetchMore, clearError } = useLibraryQuery<T>(
+  const { data, isLoading, isLoadingMore, error, hasMore, fetchMore, clearError } = useLibraryQuery<T>(
     queryType,
     { ...options, skip: options?.skip ?? false }
   );
@@ -429,6 +436,7 @@ export function useInfiniteScroll<T extends Track | Album | Artist = Track>(
   return {
     items: data,
     isLoading,
+    isLoadingMore,
     error,
     hasMore,
     getMoreItems: fetchMore,
