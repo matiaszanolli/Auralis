@@ -50,17 +50,21 @@ def normalize(audio: np.ndarray, target_level: float = 1.0) -> np.ndarray:
 
 def amplify(audio: np.ndarray, gain_db: float) -> np.ndarray:
     """
-    Apply gain to audio signal
+    Apply gain to audio signal.
+
+    Always returns a new array; the input is never mutated.
 
     Args:
         audio: Input audio signal
         gain_db: Gain in decibels
 
     Returns:
-        Amplified audio signal
+        Amplified audio signal (new array)
     """
+    audio = audio.copy()
     gain_linear = 10 ** (gain_db / 20)
-    return audio * gain_linear
+    audio *= gain_linear
+    return audio
 
 
 def mid_side_encode(stereo_audio: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
