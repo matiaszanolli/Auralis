@@ -60,6 +60,11 @@ export const EnergyField = ({ energy, isAnimating, intensity }: EnergyFieldProps
 
       {/* Energy gradient field */}
       <Box
+        role="meter"
+        aria-label="Energy level"
+        aria-valuenow={Math.round(percentage)}
+        aria-valuemin={0}
+        aria-valuemax={100}
         sx={{
           position: 'relative',
           height: '8px',
