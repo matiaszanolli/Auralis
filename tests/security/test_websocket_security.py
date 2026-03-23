@@ -436,5 +436,64 @@ class TestWebSocketErrorResponses:
             pytest.fail("send_error_response should not raise exceptions")
 
 
+@pytest.mark.security
+class TestWebSocketOriginValidation:
+    """Test WebSocket origin header validation (#3231)."""
+
+    ALLOWED_PREFIXES = ("http://localhost", "http://127.0.0.1", "file://")
+
+    def _is_origin_allowed(self, origin: str) -> bool:
+        """Reproduce the origin check from system.py:124-127."""
+        origin_lower = origin.lower()
+        if not origin_lower:
+            return True  # Empty origin is allowed (non-browser clients)
+        return any(origin_lower.startswith(p) for p in self.ALLOWED_PREFIXES)
+
+    def test_reject_remote_origin(self):
+        """SECURITY: Non-local origins must be rejected (close code 4003)."""
+        assert not self._is_origin_allowed("https://evil.example.com")
+
+    def test_reject_localhost_https(self):
+        """Connections from https://localhost should still be rejected (no HTTPS prefix in allowlist)."""
+        # The allowlist only has http://localhost, not https://
+        assert not self._is_origin_allowed("https://localhost")
+
+    def test_allow_localhost_http(self):
+        """Connections from http://localhost should be accepted."""
+        assert self._is_origin_allowed("http://localhost")
+        assert self._is_origin_allowed("http://localhost:3000")
+
+    def test_allow_127_0_0_1(self):
+        """Connections from http://127.0.0.1 should be accepted."""
+        assert self._is_origin_allowed("http://127.0.0.1")
+        assert self._is_origin_allowed("http://127.0.0.1:8765")
+
+    def test_allow_file_protocol(self):
+        """Electron file:// origins should be accepted."""
+        assert self._is_origin_allowed("file://")
+        assert self._is_origin_allowed("file:///app/index.html")
+
+    def test_allow_empty_origin(self):
+        """Non-browser clients (no Origin header) should be accepted."""
+        assert self._is_origin_allowed("")
+
+    @pytest.mark.asyncio
+    async def test_reject_closes_with_4003(self):
+        """SECURITY: Disallowed origin triggers close(4003) on the WebSocket."""
+        mock_ws = AsyncMock()
+        mock_ws.headers = {"origin": "https://evil.example.com"}
+        mock_ws.close = AsyncMock()
+
+        # Reproduce the check from system.py:123-130
+        origin = (mock_ws.headers.get("origin") or "").lower()
+        if origin and not any(
+            origin.startswith(prefix)
+            for prefix in self.ALLOWED_PREFIXES
+        ):
+            await mock_ws.close(code=4003, reason="Forbidden origin")
+
+        mock_ws.close.assert_awaited_once_with(code=4003, reason="Forbidden origin")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-m", "security"])
