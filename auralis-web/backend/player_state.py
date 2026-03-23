@@ -99,6 +99,14 @@ def create_track_info(track: Any) -> TrackInfo | None:
         elif isinstance(track.album, str):
             album_name = track.album
 
+    # Build artwork URL from album ID
+    album_art_url: str | None = None
+    album_id = getattr(track, 'album_id', None)
+    if not album_id and hasattr(track, 'album') and track.album and not isinstance(track.album, str) and hasattr(track.album, 'id'):
+        album_id = track.album.id  # type: ignore[union-attr]
+    if album_id:
+        album_art_url = f"/api/albums/{album_id}/artwork"
+
     return TrackInfo(
         id=track.id,
         title=track.title or "Unknown Title",
@@ -106,6 +114,6 @@ def create_track_info(track: Any) -> TrackInfo | None:
         album=album_name,
         duration=track.duration or 0.0,
         file_path=track.filepath,
-        album_art=None,  # TODO: Implement album art
+        album_art=album_art_url,
         is_enhanced=False
     )
