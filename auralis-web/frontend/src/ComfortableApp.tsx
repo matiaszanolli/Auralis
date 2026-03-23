@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Box } from '@mui/material';
 import { useSelector } from 'react-redux';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
 import Player from './components/player/Player';
-import CozyLibraryView from './components/library/CozyLibraryView';
-import SettingsDialog from './components/settings/SettingsDialog';
-import KeyboardShortcutsHelp from './components/shared/KeyboardShortcutsHelp';
+
+// Route-level code splitting: heavy views loaded on demand (fixes #2811)
+const CozyLibraryView = lazy(() => import('./components/library/CozyLibraryView'));
+const SettingsDialog = lazy(() => import('./components/settings/SettingsDialog'));
+const KeyboardShortcutsHelp = lazy(() => import('./components/shared/KeyboardShortcutsHelp'));
 
 // Core app layout components
 import {
@@ -320,12 +322,14 @@ function ComfortableApp() {
 
           {/* Main content area with library view */}
           <AppMainContent>
-            <CozyLibraryView
-              onTrackPlay={handleTrackPlay}
-              view={currentView}
-              searchQuery={searchQuery}
-              viewMode={viewMode}
-            />
+            <Suspense fallback={null}>
+              <CozyLibraryView
+                onTrackPlay={handleTrackPlay}
+                view={currentView}
+                searchQuery={searchQuery}
+                viewMode={viewMode}
+              />
+            </Suspense>
           </AppMainContent>
         </Box>
 
@@ -334,22 +338,26 @@ function ComfortableApp() {
       </AppContainer>
 
       {/* Settings Dialog */}
-      <SettingsDialog
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onSettingsChange={(settings) => {
-          console.log('Settings changed:', settings);
-          success('Settings saved successfully');
-        }}
-      />
+      <Suspense fallback={null}>
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          onSettingsChange={(settings) => {
+            console.log('Settings changed:', settings);
+            success('Settings saved successfully');
+          }}
+        />
+      </Suspense>
 
       {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsHelp
-        open={isHelpOpen}
-        shortcuts={shortcuts}
-        onClose={closeHelp}
-        formatShortcut={formatShortcut}
-      />
+      <Suspense fallback={null}>
+        <KeyboardShortcutsHelp
+          open={isHelpOpen}
+          shortcuts={shortcuts}
+          onClose={closeHelp}
+          formatShortcut={formatShortcut}
+        />
+      </Suspense>
 
       {/* Bottom Player Bar - Fixed at bottom of viewport, not inside flex layout */}
       <Box sx={{ flexShrink: 0 }}>

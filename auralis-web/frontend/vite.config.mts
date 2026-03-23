@@ -142,8 +142,7 @@ export default defineConfig(({ mode }) => {
           chunkFileNames: '[name]-[hash].js',
         },
       },
-      // Increase chunk size warning threshold
-      chunkSizeWarningLimit: 1000,
+      chunkSizeWarningLimit: 500,
     },
   }
 })
