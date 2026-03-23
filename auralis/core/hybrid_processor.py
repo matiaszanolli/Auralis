@@ -252,6 +252,13 @@ class HybridProcessor:
         # Delegate to reference matching
         processed = apply_reference_matching(target_audio, reference_audio)
 
+        # Apply brick-wall limiter for final peak control (same as adaptive/hybrid)
+        processed = self.brick_wall_limiter.process(processed)
+        assert processed.shape == target_audio.shape, (
+            f"Sample count mismatch after limiter (reference): "
+            f"expected {target_audio.shape}, got {processed.shape}"
+        )
+
         # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
         # silently masking them with zero-replacement (fixes #2520).
         processed = validate_audio_finite(processed, context="reference mode output", repair=False)
