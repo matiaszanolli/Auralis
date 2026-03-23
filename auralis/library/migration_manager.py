@@ -353,6 +353,13 @@ class MigrationManager:
         logger.info(f"✅ Database successfully migrated to v{target_version}")
         return True
 
+    def __enter__(self) -> "MigrationManager":
+        return self
+
+    def __exit__(self, exc_type: type | None, exc_val: BaseException | None, exc_tb: object) -> bool:
+        self.close()
+        return False
+
     def close(self) -> None:
         """Close database connection and dispose engine (issue #2395)."""
         self.session.close()
@@ -445,62 +452,60 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
     Raises:
         TimeoutError: If migration lock cannot be acquired
     """
-    manager = MigrationManager(db_path)
-
-    try:
-        current_version = manager.get_current_version()
-        target_version = __db_schema_version__
-
-        # Already up-to-date - no lock needed
-        if current_version == target_version:
-            logger.info(f"Database is up-to-date (v{current_version})")
-            return True
-
-        # Version too new
-        if current_version > target_version:
-            logger.error(
-                f"Database version (v{current_version}) is newer than "
-                f"application (v{target_version}). Please upgrade the application."
-            )
-            return False
-
-        # Migration needed - acquire inter-process lock
-        logger.info(f"Database migration needed: v{current_version} → v{target_version}")
-
-        with migration_lock(db_path):
-            # Re-check version after acquiring lock (another process may have migrated)
+    with MigrationManager(db_path) as manager:
+        try:
             current_version = manager.get_current_version()
+            target_version = __db_schema_version__
+
+            # Already up-to-date - no lock needed
             if current_version == target_version:
-                logger.info(f"Database already migrated by another process (v{current_version})")
+                logger.info(f"Database is up-to-date (v{current_version})")
                 return True
 
-            # Backup before migration
-            if auto_backup and current_version > 0:
-                try:
-                    backup_path = backup_database(db_path)
-                    logger.info(f"Created backup: {backup_path}")
-                except Exception as e:
-                    logger.error(f"Failed to create backup: {e}")
-                    logger.error("❌ Aborting migration - backup failed")
-                    return False
+            # Version too new
+            if current_version > target_version:
+                logger.error(
+                    f"Database version (v{current_version}) is newer than "
+                    f"application (v{target_version}). Please upgrade the application."
+                )
+                return False
 
-            # Perform migration
-            success = manager.migrate_to_latest()
+            # Migration needed - acquire inter-process lock
+            logger.info(f"Database migration needed: v{current_version} → v{target_version}")
 
-            if success:
-                logger.info("✅ Database migration completed successfully")
-            else:
-                logger.error("❌ Database migration failed")
+            with migration_lock(db_path):
+                # Re-check version after acquiring lock (another process may have migrated)
+                current_version = manager.get_current_version()
+                if current_version == target_version:
+                    logger.info(f"Database already migrated by another process (v{current_version})")
+                    return True
 
-            return success
+                # Backup before migration
+                if auto_backup and current_version > 0:
+                    try:
+                        backup_path = backup_database(db_path)
+                        logger.info(f"Created backup: {backup_path}")
+                    except Exception as e:
+                        logger.error(f"Failed to create backup: {e}")
+                        logger.error("❌ Aborting migration - backup failed")
+                        return False
 
-    except TimeoutError as e:
-        logger.error(f"❌ {e}")
-        return False
+                # Perform migration
+                success = manager.migrate_to_latest()
 
-    except Exception as e:
-        logger.error(f"❌ Error during migration check: {e}")
-        return False
+                if success:
+                    logger.info("✅ Database migration completed successfully")
+                else:
+                    logger.error("❌ Database migration failed")
 
-    finally:
-        manager.close()
+                return success
+
+        except TimeoutError as e:
+            logger.error(f"❌ {e}")
+            return False
+
+        except Exception as e:
+            logger.error(f"❌ Error during migration check: {e}")
+            return False
+
+    return False  # unreachable, satisfies type checker
