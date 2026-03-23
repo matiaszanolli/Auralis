@@ -71,6 +71,9 @@ class IntegrationManager:
         self.total_play_time = 0.0
         self.session_start_time = time.time()
         self._stats_lock = threading.Lock()  # guards tracks_played (fixes #2472)
+        # Cross-component lock: ensures position + sample_rate are read atomically
+        # during gapless transitions when file_manager swaps to the new track (fixes #2899).
+        self._position_lock = threading.RLock()
 
         # Register to receive playback state changes
         self.playback.add_callback(self._on_playback_state_change)
@@ -109,13 +112,14 @@ class IntegrationManager:
         # Initialize state_info if None
         if state_info is None:
             state_info = {}
-        # Enrich state info with current context
-        state_info.update({
-            'position_seconds': self._get_position_seconds(),
-            'duration_seconds': self.file_manager.get_duration(),
-            'current_file': self.file_manager.current_file,
-            'current_track': self.current_track.to_dict() if self.current_track else None,
-        })
+        # Enrich state info with current context (atomic snapshot, fixes #2899)
+        with self._position_lock:
+            state_info.update({
+                'position_seconds': self._get_position_seconds(),
+                'duration_seconds': self.file_manager.get_duration(),
+                'current_file': self.file_manager.current_file,
+                'current_track': self.current_track.to_dict() if self.current_track else None,
+            })
         self._notify_callbacks(state_info)
 
     def load_track_from_library(self, track_id: int) -> bool:
@@ -214,14 +218,17 @@ class IntegrationManager:
         """Get comprehensive playback information"""
         queue_info = self.queue.get_queue_info()
 
-        return {
-            'playback': {
+        with self._position_lock:
+            playback_info = {
                 'state': self.playback.state.value,
                 'position_seconds': self._get_position_seconds(),
                 'duration_seconds': self.file_manager.get_duration(),
                 'current_file': self.file_manager.current_file,
                 'is_playing': self.playback.is_playing(),
-            },
+            }
+
+        return {
+            'playback': playback_info,
             'queue': queue_info,
             'library': {
                 'current_track': self.current_track.to_dict() if self.current_track else None,
@@ -246,11 +253,16 @@ class IntegrationManager:
         })
 
     def _get_position_seconds(self) -> float:
-        """Get current playback position in seconds (clamped to duration)"""
-        if self.file_manager.audio_data is None:
-            return 0.0
-        position_seconds = self.playback.position / self.file_manager.sample_rate
-        duration = self.file_manager.get_duration()
+        """Get current playback position in seconds (clamped to duration).
+
+        Reads position and sample_rate atomically under _position_lock to prevent
+        nonsensical values during gapless track transitions (fixes #2899).
+        """
+        with self._position_lock:
+            if self.file_manager.audio_data is None:
+                return 0.0
+            position_seconds = self.playback.position / self.file_manager.sample_rate
+            duration = self.file_manager.get_duration()
         return min(position_seconds, duration)
 
     def cleanup(self) -> None:
