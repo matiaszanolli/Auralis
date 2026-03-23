@@ -684,6 +684,7 @@ class ProcessingEngine:
             task = self._tasks.get(job_id)
             if task and not task.done():
                 task.cancel()
+            self.progress_callbacks.pop(job_id, None)
             return True
 
         return False
