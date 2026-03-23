@@ -197,7 +197,7 @@ export const useQueue = () => {
  * Access entire cache state
  */
 export const useCacheState = () => {
-  return useSelector((state: RootState) => state.cache);
+  return useSelector((state: RootState) => state.cache, shallowEqual);
 };
 
 /**
@@ -205,7 +205,7 @@ export const useCacheState = () => {
  */
 export const useCache = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const state = useSelector((state: RootState) => state.cache);
+  const state = useSelector((state: RootState) => state.cache, shallowEqual);
 
   return {
     // State
@@ -258,7 +258,7 @@ export const useConnectionState = () => {
  */
 export const useConnection = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const state = useSelector((state: RootState) => state.connection);
+  const state = useSelector((state: RootState) => state.connection, shallowEqual);
 
   return {
     // State
