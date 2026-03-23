@@ -33,6 +33,7 @@ export function CacheManagementPanel({
   const { data: cacheHealth, loading: _healthLoading, error: healthError } = useCacheHealth();
   const { refetch: clearCache, loading: clearLoading } = useStandardizedAPI('/api/cache/clear', {
     method: 'POST',
+    autoFetch: false,
   });
 
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
