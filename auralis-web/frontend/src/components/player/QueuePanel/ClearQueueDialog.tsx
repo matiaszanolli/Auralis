@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { tokens } from '@/design-system';
 
 interface ClearQueueDialogProps {
@@ -7,6 +7,34 @@ interface ClearQueueDialogProps {
 }
 
 export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap: keep Tab/Shift+Tab within the dialog (#3007)
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { onCancel(); return; }
+    if (e.key !== 'Tab') return;
+
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusable || focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }, [onCancel]);
+
+  // Restore focus on unmount
+  const triggerRef = useRef(document.activeElement as HTMLElement | null);
+  useEffect(() => {
+    return () => { triggerRef.current?.focus(); };
+  }, []);
+
   return (
     <div
       style={{
@@ -21,10 +49,11 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
       onClick={onCancel}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="clear-queue-dialog-title"
-        onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}
+        onKeyDown={handleKeyDown}
         style={{
           background: tokens.colors.bg.secondary,
           borderRadius: tokens.borderRadius.md,
