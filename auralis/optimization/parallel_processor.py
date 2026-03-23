@@ -11,7 +11,7 @@ High-performance parallel processing for audio DSP operations
 import threading
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from functools import wraps
+from functools import partial, wraps
 from multiprocessing import cpu_count
 from typing import Any
 from collections.abc import Callable
@@ -488,6 +488,11 @@ def create_parallel_processor(config: ParallelConfig | None = None) -> ParallelA
 
 
 # Convenience decorator for automatic parallelization
+def _parallelize_call_item(func: Callable, args: tuple, kwargs: dict, item: Any) -> Any:
+    """Module-level helper for @parallelize — picklable by multiprocessing."""
+    return func(item, *args, **kwargs)
+
+
 def parallelize(max_workers: int | None = None) -> Callable[[Callable[[Any], Any]], Callable[[list[Any]], list[Any]]]:
     """Decorator to automatically parallelize a function over a list"""
     def decorator(func: Callable[[Any], Any]) -> Callable[[list[Any]], list[Any]]:
@@ -495,8 +500,9 @@ def parallelize(max_workers: int | None = None) -> Callable[[Callable[[Any], Any
         def wrapper(data_list: list[Any], *args: Any, **kwargs: Any) -> list[Any]:
             processor = get_parallel_processor()
 
-            def process_item(item: Any) -> Any:
-                return func(item, *args, **kwargs)
+            # Use functools.partial with a module-level function so the
+            # callable is picklable for ProcessPoolExecutor (#3304).
+            process_item = partial(_parallelize_call_item, func, args, kwargs)
 
             return processor.process_batch(data_list, process_item, max_workers)
 
