@@ -104,19 +104,18 @@ class BatchProcessor:
             and track_record is the Track object if newly added, None otherwise
         """
         try:
-            # Check if file already exists in library
-            if skip_existing:
-                existing_track = self.library_manager.get_track_by_filepath(file_path)
-                if existing_track:
-                    if check_modifications:
-                        # Check if file was modified since last scan
-                        file_stat = Path(file_path).stat()
-                        file_mtime = datetime.fromtimestamp(file_stat.st_mtime)
+            # Check if file already exists in library (query once, reuse below)
+            existing_track = self.library_manager.get_track_by_filepath(file_path) if skip_existing else None
+            if existing_track:
+                if check_modifications:
+                    # Check if file was modified since last scan
+                    file_stat = Path(file_path).stat()
+                    file_mtime = datetime.fromtimestamp(file_stat.st_mtime)
 
-                        if existing_track.updated_at and existing_track.updated_at >= file_mtime:
-                            return 'skipped', None  # File hasn't been modified
-                    else:
-                        return 'skipped', None  # Skip existing files
+                    if existing_track.updated_at and existing_track.updated_at >= file_mtime:
+                        return 'skipped', None  # File hasn't been modified
+                else:
+                    return 'skipped', None  # Skip existing files
 
             # Extract file information
             audio_info = self.audio_analyzer.extract_audio_info(file_path)
@@ -132,8 +131,8 @@ class BatchProcessor:
             track_info = self.metadata_extractor.audio_info_to_track_info(audio_info)
 
             # Add or update track in library
-            if skip_existing and self.library_manager.get_track_by_filepath(file_path):
-                # Update existing track
+            if existing_track:
+                # Update existing track (reuses query from above)
                 track = self.library_manager.update_track_by_filepath(file_path, track_info)
                 return ('updated', None) if track else ('failed', None)
             else:
