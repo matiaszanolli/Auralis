@@ -40,6 +40,8 @@
  * @module hooks/enhancement/usePlayEnhanced
  */
 
+const DEBUG = import.meta.env.DEV;
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
@@ -278,7 +280,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       const isSeek = message.data.is_seek === true;
       const seekPosition = message.data.seek_position || 0;
 
-      console.log('[usePlayEnhanced] Stream started:', {
+      DEBUG && console.log('[usePlayEnhanced] Stream started:', {
         trackId: message.data.track_id,
         chunks: message.data.total_chunks,
         duration: message.data.total_duration,
@@ -294,7 +296,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // Resume guard: if we already have a live engine+buffer (e.g. after WS
       // reconnect), skip recreation and let new chunks append seamlessly (#3185).
       if (isSeek && playbackEngineRef.current && pcmBufferRef.current) {
-        console.log('[usePlayEnhanced] Resuming stream into existing buffer');
+        DEBUG && console.log('[usePlayEnhanced] Resuming stream into existing buffer');
         if (streamingMetadataRef.current) {
           streamingMetadataRef.current.totalChunks = message.data.total_chunks;
           streamingMetadataRef.current.processedChunks = 0;
@@ -321,14 +323,14 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       if (!audioContextRef.current || audioContextRef.current.sampleRate !== sourceSampleRate) {
         // Close existing context if sample rate differs
         if (audioContextRef.current) {
-          console.log('[usePlayEnhanced] Closing AudioContext (sample rate mismatch)',
+          DEBUG && console.log('[usePlayEnhanced] Closing AudioContext (sample rate mismatch)',
             audioContextRef.current.sampleRate, '→', sourceSampleRate);
           audioContextRef.current.close();
         }
         // Create new AudioContext with matching sample rate
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         audioContextRef.current = new AudioContextClass({ sampleRate: sourceSampleRate });
-        console.log('[usePlayEnhanced] Created AudioContext with sample rate:', sourceSampleRate);
+        DEBUG && console.log('[usePlayEnhanced] Created AudioContext with sample rate:', sourceSampleRate);
       }
 
       // Initialize AudioPlaybackEngine
@@ -384,7 +386,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
       // Process any chunks that arrived before stream_start (race condition handling)
       if (pendingChunksRef.current.length > 0) {
-        console.log('[usePlayEnhanced] Processing queued chunks:', pendingChunksRef.current.length);
+        DEBUG && console.log('[usePlayEnhanced] Processing queued chunks:', pendingChunksRef.current.length);
         const queuedChunks = [...pendingChunksRef.current];
         pendingChunksRef.current = []; // Clear queue before processing
 
@@ -429,7 +431,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
       // If stream not yet initialized, queue the chunk instead of dropping it
       if (!pcmBufferRef.current || !streamingMetadataRef.current) {
-        console.log('[usePlayEnhanced] Queuing chunk until stream initialized:', {
+        DEBUG && console.log('[usePlayEnhanced] Queuing chunk until stream initialized:', {
           chunkIndex: incomingChunkIndex,
           queueLength: pendingChunksRef.current.length + 1,
         });
@@ -504,7 +506,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // Auto-start when engine's own minimum threshold is met (fixes #2478).
       const engine = playbackEngineRef.current;
       if (engine && !engine.isPlaying() && bufferedSamples >= engine.getMinBufferSamples()) {
-        console.log('[usePlayEnhanced] Starting playback with buffer:', (bufferedSamples / (streamingMetadataRef.current.sampleRate * streamingMetadataRef.current.channels)).toFixed(1) + 's');
+        DEBUG && console.log('[usePlayEnhanced] Starting playback with buffer:', (bufferedSamples / (streamingMetadataRef.current.sampleRate * streamingMetadataRef.current.channels)).toFixed(1) + 's');
         engine.startPlayback();
         setIsPaused(false);
       }
@@ -512,14 +514,12 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // Calculate buffered duration correctly (divide by sampleRate * channels for stereo)
       const bufferedDuration = bufferedSamples / (streamingMetadataRef.current.sampleRate * streamingMetadataRef.current.channels);
 
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug('[usePlayEnhanced] Chunk received:', {
-          chunkIndex: metadata.chunkIndex,
-          frames: `${metadata.frameIndex + 1}/${metadata.frameCount}`,
-          samples: metadata.sampleCount,
-          buffered: `${bufferedDuration.toFixed(1)}s`,
-        });
-      }
+      DEBUG && console.debug('[usePlayEnhanced] Chunk received:', {
+        chunkIndex: metadata.chunkIndex,
+        frames: `${metadata.frameIndex + 1}/${metadata.frameCount}`,
+        samples: metadata.sampleCount,
+        buffered: `${bufferedDuration.toFixed(1)}s`,
+      });
     } catch (error) {
       const errorMsg = `Failed to process audio chunk: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[usePlayEnhanced]', errorMsg);
@@ -534,7 +534,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     // Only process messages intended for this hook (#2104)
     if (message.data.stream_type && message.data.stream_type !== 'enhanced') return;
 
-    console.log('[usePlayEnhanced] Stream ended:', {
+    DEBUG && console.log('[usePlayEnhanced] Stream ended:', {
       trackId: message.data.track_id,
       totalSamples: message.data.total_samples,
       duration: message.data.duration,
@@ -563,7 +563,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const handleFingerprintProgress = useCallback((message: any) => {
     const { status, message: progressMessage } = message.data || {};
 
-    console.log('[usePlayEnhanced] Fingerprint progress:', { status, message: progressMessage });
+    DEBUG && console.log('[usePlayEnhanced] Fingerprint progress:', { status, message: progressMessage });
 
     setFingerprintStatus(status || 'idle');
     setFingerprintMessage(progressMessage || null);
@@ -620,7 +620,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           if (response.ok) {
             const track = await response.json();
             dispatch(setCurrentTrack(track));
-            console.log('[usePlayEnhanced] Set current track:', track.title);
+            DEBUG && console.log('[usePlayEnhanced] Set current track:', track.title);
           }
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -654,7 +654,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           },
         });
 
-        console.log('[usePlayEnhanced] Play enhanced requested (buffering...):', {
+        DEBUG && console.log('[usePlayEnhanced] Play enhanced requested (buffering...):', {
           trackId,
           preset,
           intensity,
@@ -719,7 +719,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
     const { trackId, preset, intensity } = currentTrackInfoRef.current;
 
-    console.log('[usePlayEnhanced] Seeking to:', position, 'seconds');
+    DEBUG && console.log('[usePlayEnhanced] Seeking to:', position, 'seconds');
 
     // Set seeking state
     setIsSeeking(true);
@@ -795,7 +795,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       () => setIsSeeking(false)
     );
 
-    console.log('[usePlayEnhanced] Subscribed to streaming messages on mount');
+    DEBUG && console.log('[usePlayEnhanced] Subscribed to streaming messages on mount');
 
     // Cleanup on unmount
     return () => {
@@ -805,7 +805,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       unsubscribeErrorRef.current?.();
       unsubscribeFingerprintRef.current?.();
       unsubscribeSeekStartedRef.current?.();
-      console.log('[usePlayEnhanced] Unsubscribed from streaming messages on unmount');
+      DEBUG && console.log('[usePlayEnhanced] Unsubscribed from streaming messages on unmount');
     };
   }, [wsContext]); // Only resubscribe when the WS manager itself changes (reconnect)
 
@@ -833,7 +833,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   // with the current playback position (#3185).
   useEffect(() => {
     if (!wsContext.isConnected && playbackEngineRef.current) {
-      console.log('[usePlayEnhanced] WebSocket disconnected - keeping playback engine alive');
+      DEBUG && console.log('[usePlayEnhanced] WebSocket disconnected - keeping playback engine alive');
 
       // Cancel orphaned fingerprint timeout so stale callback cannot fire against
       // the next stream context after disconnect (fixes #2536).
