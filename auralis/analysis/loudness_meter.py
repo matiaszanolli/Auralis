@@ -46,6 +46,7 @@ class LoudnessMeter:
 
         # Peak tracking across all chunks
         self._peak: float = 0.0
+        self._true_peak: float = 0.0  # 4× oversampled true peak (linear domain)
 
         # True peak measurement
         self.true_peak_buffer_size = 4
@@ -190,10 +191,14 @@ class LoudnessMeter:
         Returns:
             Dictionary with LUFS measurements
         """
-        # Track sample peak across all chunks
+        # Track sample peak and true peak across all chunks
         chunk_peak = float(np.max(np.abs(audio_chunk)))
         if chunk_peak > self._peak:
             self._peak = chunk_peak
+
+        chunk_true_peak = self._calculate_true_peak_linear(audio_chunk)
+        if chunk_true_peak > self._true_peak:
+            self._true_peak = chunk_true_peak
 
         # Apply K-weighting
         k_weighted = self.apply_k_weighting(audio_chunk)
@@ -263,14 +268,18 @@ class LoudnessMeter:
         else:
             return float(-np.inf)
 
-    def _calculate_true_peak(self, audio_chunk: np.ndarray) -> float:
-        """Calculate true peak with oversampling (ITU-R BS.1770-4 compliant)"""
+    def _calculate_true_peak_linear(self, audio_chunk: np.ndarray) -> float:
+        """Calculate true peak in linear domain with 4× oversampling (ITU-R BS.1770-4)"""
         if audio_chunk.ndim == 1:
             oversampled = signal.resample_poly(audio_chunk, self.oversample_factor, 1)
         else:
             oversampled = signal.resample_poly(audio_chunk, self.oversample_factor, 1, axis=0)
 
-        true_peak = float(np.max(np.abs(oversampled)))
+        return float(np.max(np.abs(oversampled)))
+
+    def _calculate_true_peak(self, audio_chunk: np.ndarray) -> float:
+        """Calculate true peak in dBFS with oversampling (ITU-R BS.1770-4 compliant)"""
+        true_peak = self._calculate_true_peak_linear(audio_chunk)
 
         if true_peak > 0:
             return float(20 * np.log10(true_peak))
@@ -336,7 +345,7 @@ class LoudnessMeter:
             short_term_lufs=float(short_term) if np.isfinite(short_term) else -np.inf,
             loudness_range=float(loudness_range),
             peak_level_dbfs=float(20 * np.log10(self._peak + 1e-10)),
-            true_peak_dbfs=float(20 * np.log10(self._peak + 1e-10)),  # Sample peak (true peak requires oversampling)
+            true_peak_dbfs=float(20 * np.log10(self._true_peak + 1e-10)),
             gating_blocks_used=len(final_gated_blocks) if 'final_gated_blocks' in locals() else 0,
             measurement_duration=len(self.block_buffer) * 0.1  # 100ms per block
         )
@@ -346,5 +355,6 @@ class LoudnessMeter:
         self.block_buffer.clear()
         self.gated_blocks.clear()
         self._peak = 0.0
+        self._true_peak = 0.0
         self.pre_filter_zi = None
         self.rlb_filter_zi = None
