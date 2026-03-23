@@ -170,7 +170,17 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
 
         // Parse response (backend uses snake_case, convert to camelCase)
         const data = await response.json();
-        const results: SimilarTrack[] = data.map((item: any) => ({
+        interface RawSimilarTrack {
+          track_id: number;
+          distance: number;
+          similarity_score: number;
+          rank: number;
+          title: string;
+          artist: string;
+          album: string;
+        }
+
+        const results: SimilarTrack[] = (data as RawSimilarTrack[]).map((item) => ({
           trackId: item.track_id,
           distance: item.distance,
           similarityScore: item.similarity_score,
