@@ -1424,6 +1424,7 @@ class AudioStreamController:
         track_id: int,
         error_message: str,
         recovery_position: float | None = None,
+        error_code: str = "STREAMING_ERROR",
     ) -> None:
         """Send audio_stream_error message to client.
 
@@ -1433,11 +1434,12 @@ class AudioStreamController:
             error_message: Human-readable error description
             recovery_position: Seconds into the track from which the client may
                 seek/retry (set when a specific chunk fails, issue #2085).
+            error_code: Machine-readable error code for frontend recovery logic
         """
         data: dict[str, Any] = {
             "track_id": track_id,
             "error": error_message,
-            "code": "STREAMING_ERROR",
+            "code": error_code,
             "stream_type": _stream_type_var.get(),
         }
         if recovery_position is not None:
@@ -1561,7 +1563,7 @@ class AudioStreamController:
             except TimeoutError:
                 error_msg = "Audio processor initialization timed out during seek. File may be corrupt or on slow storage."
                 logger.error(f"Processor instantiation timed out for track {track_id} during seek (30s)")
-                await self._send_error(websocket, track_id, error_msg)
+                await self._send_error(websocket, track_id, error_msg, error_code="SEEK_ERROR")
                 return
 
             # Ensure processor has loaded metadata (raise instead of assert
