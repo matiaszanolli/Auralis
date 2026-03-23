@@ -81,12 +81,15 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
             logger.warning(f"⚠️  Processing API router not available: {e}")
 
     # Create and include system router (health, version, WebSocket)
+    # Issue #2740: Pass get_state_manager so reconnecting WebSocket clients
+    # receive a full player state snapshot immediately on connect.
     system_router: APIRouter = create_system_router(
         manager=manager,
         get_processing_engine=get_component('processing_engine'),
         HAS_AURALIS=deps.get('HAS_AURALIS', False),
         get_repository_factory=get_component('repository_factory'),
-        get_enhancement_settings=lambda: enhancement_settings
+        get_enhancement_settings=lambda: enhancement_settings,
+        get_state_manager=get_component('player_state_manager'),
     )
     app.include_router(system_router)
     logger.debug("✅ System router registered")
