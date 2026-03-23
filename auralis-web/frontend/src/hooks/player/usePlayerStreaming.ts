@@ -180,6 +180,10 @@ export function usePlayerStreaming({
   const [state, setState] = useState<PlayerStreamingState>(initialState);
   const wsContext = useWebSocketContext();
   const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Issue #2784: Store drift-correction timeout so it can be cancelled on
+  // cleanup or before scheduling a new correction (prevents overlapping
+  // corrections on rapid seek).
+  const driftCorrectionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Get buffered ranges from audio element
   const getBufferedRanges = useCallback((audio: HTMLAudioElement): BufferedRange[] => {
@@ -273,7 +277,13 @@ export function usePlayerStreaming({
         if (drift > 1) {
           // Large drift (>1 second): speed up/slow down playback
           audioElement.playbackRate = drift > 0 ? 0.95 : 1.05;
-          setTimeout(() => {
+          // Issue #2784: Cancel any previous drift-correction timeout before
+          // scheduling a new one — prevents overlapping corrections on rapid seek.
+          if (driftCorrectionRef.current !== null) {
+            clearTimeout(driftCorrectionRef.current);
+          }
+          driftCorrectionRef.current = setTimeout(() => {
+            driftCorrectionRef.current = null;
             audioElement.playbackRate = 1.0;
           }, Math.min(drift * 1500, 2000)); // Correction time proportional to drift
         } else {
@@ -310,6 +320,11 @@ export function usePlayerStreaming({
 
     return () => {
       unsubscribes.forEach((unsub) => unsub());
+      // Issue #2784: Cancel pending drift-correction timeout on cleanup
+      if (driftCorrectionRef.current !== null) {
+        clearTimeout(driftCorrectionRef.current);
+        driftCorrectionRef.current = null;
+      }
     };
   }, [wsContext, audioElement, driftThreshold, onDriftDetected, log]);
 
