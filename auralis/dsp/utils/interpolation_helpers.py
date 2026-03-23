@@ -118,7 +118,6 @@ def _apply_window_smoothing(envelope: np.ndarray, start_idx: int, end_idx: int,
     else:  # hamming
         window = hamming(width)
 
-    mask = envelope[start_idx:end_idx + 1] > 0
     envelope[start_idx:end_idx + 1] *= window
 
 
