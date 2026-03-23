@@ -13,10 +13,12 @@ Features:
 """
 
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+logger = logging.getLogger(__name__)
 
 from .mastering_fingerprint import analyze_album
 from .mastering_profile import (
@@ -349,9 +351,9 @@ class BatchAnalyzer:
     def export_profiles_yaml(self, output_path: str) -> None:
         """Export all built profiles to YAML file."""
         try:
-            pass
+            import yaml  # noqa: F401 — check availability before proceeding
         except ImportError:
-            print("Warning: yaml not available, using JSON instead")
+            logger.warning("yaml not available, falling back to JSON export")
             return self.export_profiles_json(output_path)
 
         db = MasteringProfileDatabase()
@@ -359,7 +361,7 @@ class BatchAnalyzer:
             db.add_profile(profile)
 
         db.to_yaml_file(output_path)
-        print(f"Exported {len(self.profiles)} profiles to {output_path}")
+        logger.info(f"Exported {len(self.profiles)} profiles to {output_path}")
 
     def export_profiles_json(self, output_path: str) -> None:
         """Export all built profiles to JSON file."""
