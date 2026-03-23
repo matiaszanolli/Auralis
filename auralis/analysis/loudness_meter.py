@@ -44,6 +44,9 @@ class LoudnessMeter:
         self.block_buffer: list[float] = []
         self.gated_blocks: list[float] = []
 
+        # Peak tracking across all chunks
+        self._peak: float = 0.0
+
         # True peak measurement
         self.true_peak_buffer_size = 4
         self._init_true_peak_filter()
@@ -187,6 +190,11 @@ class LoudnessMeter:
         Returns:
             Dictionary with LUFS measurements
         """
+        # Track sample peak across all chunks
+        chunk_peak = float(np.max(np.abs(audio_chunk)))
+        if chunk_peak > self._peak:
+            self._peak = chunk_peak
+
         # Apply K-weighting
         k_weighted = self.apply_k_weighting(audio_chunk)
 
@@ -327,8 +335,8 @@ class LoudnessMeter:
             momentary_lufs=float(momentary) if np.isfinite(momentary) else -np.inf,
             short_term_lufs=float(short_term) if np.isfinite(short_term) else -np.inf,
             loudness_range=float(loudness_range),
-            peak_level_dbfs=-np.inf,  # Would be calculated from all chunks
-            true_peak_dbfs=-np.inf,   # Would be calculated from all chunks
+            peak_level_dbfs=float(20 * np.log10(self._peak + 1e-10)),
+            true_peak_dbfs=float(20 * np.log10(self._peak + 1e-10)),  # Sample peak (true peak requires oversampling)
             gating_blocks_used=len(final_gated_blocks) if 'final_gated_blocks' in locals() else 0,
             measurement_duration=len(self.block_buffer) * 0.1  # 100ms per block
         )
@@ -337,5 +345,6 @@ class LoudnessMeter:
         """Reset the meter for a new measurement"""
         self.block_buffer.clear()
         self.gated_blocks.clear()
+        self._peak = 0.0
         self.pre_filter_zi = None
         self.rlb_filter_zi = None
