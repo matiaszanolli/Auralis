@@ -229,6 +229,7 @@ class AudioStreamController:
                 logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
 
         self.active_streams: dict[int, Any] = {}  # id(websocket) -> streaming task
+        self._active_streams_lock: asyncio.Lock = asyncio.Lock()  # Protects active_streams (#3182)
         # Use the module-level semaphore shared across all instances (fixes #2469)
         self._stream_semaphore: asyncio.Semaphore = _global_stream_semaphore
 
@@ -542,8 +543,9 @@ class AudioStreamController:
                 if getattr(processor, _attr) is None:
                     raise ValueError(f"Processor metadata missing: {_attr} is None")
 
-            # Register active stream so cleanup can always find it (fixes #2076)
-            self.active_streams[id(websocket)] = asyncio.current_task()
+            # Register active stream so cleanup can always find it (fixes #2076, #3182)
+            async with self._active_streams_lock:
+                self.active_streams[id(websocket)] = asyncio.current_task()
 
             # Phase 7.5: Non-blocking fingerprint check
             # Check if fingerprint exists in cache - if not, queue for background generation
@@ -706,7 +708,8 @@ class AudioStreamController:
         finally:
             # Clean up chunk tail storage for this track
             self._chunk_tails.pop(track_id, None)
-            self.active_streams.pop(id(websocket), None)  # fixes #2076
+            async with self._active_streams_lock:  # fixes #2076, #3182
+                self.active_streams.pop(id(websocket), None)
             self._stream_semaphore.release()
 
     async def stream_normal_audio(
@@ -824,8 +827,9 @@ class AudioStreamController:
                 start_chunk = min(start_sample // interval_samples, total_chunks - 1)
             remaining_chunks = total_chunks - start_chunk
 
-            # Register active stream so cleanup can always find it (fixes #2076)
-            self.active_streams[id(websocket)] = asyncio.current_task()
+            # Register active stream so cleanup can always find it (fixes #2076, #3182)
+            async with self._active_streams_lock:
+                self.active_streams[id(websocket)] = asyncio.current_task()
 
             logger.info(
                 f"Starting normal audio stream: track={track_id}, "
@@ -949,7 +953,8 @@ class AudioStreamController:
                 if self._is_websocket_connected(websocket):
                     await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
-            self.active_streams.pop(id(websocket), None)  # fixes #2076
+            async with self._active_streams_lock:  # fixes #2076, #3182
+                self.active_streams.pop(id(websocket), None)
             self._stream_semaphore.release()
             # Clean up temp WAV created for compressed format streaming (#3225)
             if temp_wav_path:
@@ -1565,8 +1570,9 @@ class AudioStreamController:
                 if getattr(processor, _attr) is None:
                     raise ValueError(f"Processor metadata missing: {_attr} is None")
 
-            # Register active stream so cleanup can always find it (fixes #2076)
-            self.active_streams[id(websocket)] = asyncio.current_task()
+            # Register active stream so cleanup can always find it (fixes #2076, #3182)
+            async with self._active_streams_lock:
+                self.active_streams[id(websocket)] = asyncio.current_task()
 
             # Calculate which chunk to start from based on position
             # Chunks overlap, so we need to find the chunk that contains this position
@@ -1717,7 +1723,8 @@ class AudioStreamController:
                     await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
             self._chunk_tails.pop(track_id, None)  # fixes orphaned state
-            self.active_streams.pop(id(websocket), None)  # fixes #2076
+            async with self._active_streams_lock:  # fixes #2076, #3182
+                self.active_streams.pop(id(websocket), None)
             self._stream_semaphore.release()
 
     async def _send_stream_start_with_seek(
