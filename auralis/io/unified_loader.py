@@ -218,12 +218,19 @@ def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
 
         duration = float(probe_data.get('format', {}).get('duration', 0))
 
+        def safe_int(value: Any, default: int = 0) -> int:
+            """Convert to int, returning default for non-numeric values like 'N/A'."""
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return default
+
         return {
-            'sample_rate': int(audio_stream.get('sample_rate', 0)),
-            'channels': int(audio_stream.get('channels', 0)),
+            'sample_rate': safe_int(audio_stream.get('sample_rate', 0)),
+            'channels': safe_int(audio_stream.get('channels', 0)),
             'duration_seconds': duration,
             'codec': audio_stream.get('codec_name', 'Unknown'),
-            'bit_rate': int(audio_stream.get('bit_rate', 0))
+            'bit_rate': safe_int(audio_stream.get('bit_rate', 0))
         }
 
     except subprocess.TimeoutExpired:
