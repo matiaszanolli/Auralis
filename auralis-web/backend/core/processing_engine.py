@@ -701,27 +701,35 @@ class ProcessingEngine:
         """
         now = datetime.now()
         jobs_to_remove: list[str] = []
+        files_to_delete: list[Path] = []
 
+        # Phase 1: identify expired jobs and collect file paths under lock
         async with self._jobs_lock:
+            upload_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
             for job_id, job in self.jobs.items():
                 if job.status in [ProcessingStatus.COMPLETED, ProcessingStatus.FAILED, ProcessingStatus.CANCELLED]:
                     if job.completed_at is not None:
                         age_hours = (now - job.completed_at).total_seconds() / 3600
                         if age_hours > max_age_hours:
-                            if Path(job.output_path).exists():
-                                Path(job.output_path).unlink()
-                            # Clean up uploaded input file if it lives in the
-                            # temp upload directory (never delete library files).
-                            upload_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
+                            output_path = Path(job.output_path)
+                            if output_path.exists():
+                                files_to_delete.append(output_path)
                             input_path = Path(job.input_path)
                             if input_path.exists() and input_path.is_relative_to(upload_dir):
-                                input_path.unlink()
+                                files_to_delete.append(input_path)
                             jobs_to_remove.append(job_id)
 
             for job_id in jobs_to_remove:
                 del self.jobs[job_id]
                 if job_id in self.progress_callbacks:
                     del self.progress_callbacks[job_id]
+
+        # Phase 2: delete files outside the lock to avoid blocking
+        for file_path in files_to_delete:
+            try:
+                file_path.unlink(missing_ok=True)
+            except OSError as e:
+                logger.warning(f"Failed to delete {file_path}: {e}")
 
         return len(jobs_to_remove)
 
