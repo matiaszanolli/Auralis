@@ -107,7 +107,7 @@ def create_metadata_router(
         try:
             repos = require_repository_factory(get_repository_factory)
             # Get track from database
-            track = repos.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
 
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
@@ -154,7 +154,7 @@ def create_metadata_router(
         try:
             repos = require_repository_factory(get_repository_factory)
             # Get track from database
-            track = repos.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
 
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
@@ -200,7 +200,7 @@ def create_metadata_router(
         try:
             repos = require_repository_factory(get_repository_factory)
             # Get track from database
-            track = repos.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
 
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
@@ -233,7 +233,9 @@ def create_metadata_router(
                 raise HTTPException(status_code=500, detail="Failed to write metadata to file")
 
             # Update database record using repository
-            updated_track = repos.tracks.update_metadata(track_id, **metadata_updates)
+            updated_track = await asyncio.to_thread(
+                lambda: repos.tracks.update_metadata(track_id, **metadata_updates)
+            )
             if not updated_track:
                 raise HTTPException(status_code=404, detail="Track not found for update")
 
@@ -301,7 +303,7 @@ def create_metadata_router(
             track_map = {}  # Map track_id to track object
 
             for update_req in request.updates:
-                track = repos.tracks.get_by_id(update_req.track_id)
+                track = await asyncio.to_thread(repos.tracks.get_by_id, update_req.track_id)
                 if not track:
                     logger.warning(f"Track {update_req.track_id} not found, skipping")
                     continue
@@ -339,7 +341,9 @@ def create_metadata_router(
 
                         if updates:
                             # Update database record using repository
-                            updated_track = repos.tracks.update_metadata(track_id, **updates)
+                            updated_track = await asyncio.to_thread(
+                                lambda tid=track_id, u=updates: repos.tracks.update_metadata(tid, **u)
+                            )
                             if updated_track:
                                 successful_track_ids.append(track_id)
 
