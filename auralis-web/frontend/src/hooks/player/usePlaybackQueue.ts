@@ -44,6 +44,7 @@ import { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
+import type { WebSocketMessage } from '@/types/websocket';
 import {
   setQueue as reduxSetQueue,
   setCurrentIndex as reduxSetCurrentIndex,
@@ -195,7 +196,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   useWebSocketSubscription(
     ['queue_changed', 'queue_shuffled', 'repeat_mode_changed'],
     (message) => {
-      const { type, data } = message as any;
+      const { type, data } = message as WebSocketMessage<Record<string, any>>;
 
       switch (type) {
         case 'queue_changed':
