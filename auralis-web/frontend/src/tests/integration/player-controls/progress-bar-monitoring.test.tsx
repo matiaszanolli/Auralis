@@ -51,7 +51,7 @@ describe('Progress Bar Monitoring Test', () => {
     // Arrange
     const user = userEvent.setup();
     const measurements: ProgressMeasurement[] = [];
-    let lastMeasurementTime = Date.now();
+    let lastMeasurementTime: number;
     let measurementCount = 0;
 
     console.log('\n=== PROGRESS BAR MONITORING TEST ===');
@@ -104,16 +104,13 @@ describe('Progress Bar Monitoring Test', () => {
 
     console.log('✅ Playback started, beginning measurements...\n');
 
-    // Monitor progress for 60 seconds
-    const monitoringDuration = 60000; // 60 seconds
-    const measurementInterval = 1000; // 1 second
+    // Simulate 60 seconds of progress bar updates without real wall-clock waits.
+    // Each iteration represents 1 second of playback.
+    const totalSeconds = 60;
     const startTime = Date.now();
 
-    while (Date.now() - startTime < monitoringDuration) {
-      // Wait for next measurement interval
-      await new Promise(resolve => setTimeout(resolve, measurementInterval));
-
-      // Simulate time progression - simply increment by 1 second per measurement
+    for (let second = 1; second <= totalSeconds; second++) {
+      // Simulate time progression - increment by 1 second per measurement
       if (mockIsPlaying) {
         mockCurrentTime = Math.min(mockCurrentTime + 1.0, 240.0);
       }
@@ -135,14 +132,12 @@ describe('Progress Bar Monitoring Test', () => {
         />
       );
 
-      // Get current time and duration from player state
-      const now = Date.now();
       const currentTime = mockCurrentTime;
       const duration = 240.0;
       const progressPercent = (currentTime / duration) * 100;
 
-      // Calculate deltas
-      const deltaTime = (now - lastMeasurementTime) / 1000;
+      // Calculate deltas (simulated 1s intervals)
+      const deltaTime = 1.0;
       const lastProgress = measurements.length > 0
         ? measurements[measurements.length - 1].progressPercent
         : 0;
@@ -150,7 +145,7 @@ describe('Progress Bar Monitoring Test', () => {
 
       // Record measurement
       const measurement: ProgressMeasurement = {
-        timestamp: now - startTime,
+        timestamp: second * 1000,
         currentTime,
         duration,
         progressPercent,
@@ -165,7 +160,7 @@ describe('Progress Bar Monitoring Test', () => {
         console.log(`[${measurementCount}s] Time: ${currentTime.toFixed(2)}s | Progress: ${progressPercent.toFixed(2)}% | Δ${deltaProgress.toFixed(4)}%`);
       }
 
-      lastMeasurementTime = now;
+      lastMeasurementTime = startTime + second * 1000;
     }
 
     console.log('\n✅ Monitoring complete. Analyzing results...\n');
@@ -285,5 +280,5 @@ describe('Progress Bar Monitoring Test', () => {
     expect(anomalies.length).toBeLessThan(5); // Few anomalies acceptable
     expect(Math.abs(timingAccuracy - 100)).toBeLessThan(10); // Within 10% of expected
     expect(Math.abs(positionAccuracy - 100)).toBeLessThan(10); // Within 10% of expected
-  }, 120000); // 2 minute timeout for 60s test
+  });
 });
