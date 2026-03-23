@@ -138,8 +138,10 @@ export function usePlaybackControl(): PlaybackControlActions {
         },
       });
 
-      // Server broadcasts audio stream messages which are handled by WebSocket context
-      // No need to manually update - it happens via WebSocket listeners
+      // Server broadcasts audio stream messages which are handled by WebSocket context.
+      // Yield to let React commit the isLoading=true render before clearing,
+      // so consumers can show a loading indicator (#3271).
+      await new Promise(resolve => setTimeout(resolve, 0));
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'PLAY_ERROR', status: 500 } : err as ApiError;
       setError(apiError);
