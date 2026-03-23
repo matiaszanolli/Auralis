@@ -195,10 +195,11 @@ describe('PlayerBarV2 Integration Tests', () => {
         await user.click(progressSlider);
       }
 
-      // Assert - onSeek should be called when slider is interacted with
-      // Note: May not be called immediately depending on interaction
-      // This test verifies the slider exists and is interactive
+      // Assert - slider must exist and onSeek must be invoked
       expect(sliders.length).toBeGreaterThan(0);
+      if (progressSlider) {
+        expect(mockHandlers.onSeek).toHaveBeenCalledWith(expect.any(Number));
+      }
     });
 
     it('should update current time display correctly', () => {
