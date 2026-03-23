@@ -77,6 +77,9 @@ class PlaybackController:
             elif self.state == PlaybackState.STOPPED:
                 self.state = PlaybackState.PLAYING
                 info("Playback started")
+            elif self.state == PlaybackState.ERROR:
+                warning("play() rejected: player is in ERROR state — load a new file first")
+                return False
             else:
                 return False
             # Snapshot inside lock, notify outside (issue #2291)
