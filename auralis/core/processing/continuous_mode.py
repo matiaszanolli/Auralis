@@ -450,7 +450,6 @@ class ContinuousMode:
         # changed the peak-to-RMS relationship. LUFS normalization is more
         # perceptually meaningful and is already applied in step 1.
         # Only apply peak limiting if absolutely necessary to prevent clipping.
-        params.peak_target_db
         current_peak_db = DBConversion.to_db(np.max(np.abs(audio)))
 
         if current_peak_db > 0.0:
