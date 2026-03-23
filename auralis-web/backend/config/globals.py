@@ -8,6 +8,7 @@ These are initialized during application startup and used throughout the backend
 :license: GPLv3
 """
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -48,6 +49,7 @@ class ConnectionManager:
     def __init__(self) -> None:
         """Initialize connection manager with empty connections list."""
         self.active_connections: list[WebSocket] = []
+        self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket) -> None:
         """
@@ -68,12 +70,13 @@ class ConnectionManager:
             return
 
         await websocket.accept()
-        self.active_connections.append(websocket)
+        async with self._lock:
+            self.active_connections.append(websocket)
         client = websocket.client
         client_id = f"{client.host}:{client.port}" if client else "unknown"
         logger.info(f"WebSocket connected from {client_id}. Total connections: {len(self.active_connections)}")
 
-    def disconnect(self, websocket: WebSocket) -> None:
+    async def disconnect(self, websocket: WebSocket) -> None:
         """
         Unregister a WebSocket connection.
 
@@ -82,11 +85,12 @@ class ConnectionManager:
         """
         client = websocket.client
         client_id = f"{client.host}:{client.port}" if client else "unknown"
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-            logger.info(f"WebSocket disconnected from {client_id}. Total connections: {len(self.active_connections)}")
-        else:
-            logger.debug(f"WebSocket disconnect called for {client_id} but connection not in list (already removed)")
+        async with self._lock:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
+                logger.info(f"WebSocket disconnected from {client_id}. Total connections: {len(self.active_connections)}")
+            else:
+                logger.debug(f"WebSocket disconnect called for {client_id} but connection not in list (already removed)")
 
     async def broadcast(self, message: dict[str, Any]) -> None:
         """
@@ -98,22 +102,24 @@ class ConnectionManager:
             message: Dictionary message to broadcast (will be JSON encoded)
         """
         stale_connections: list[WebSocket] = []
+
+        async with self._lock:
+            connections_snapshot = list(self.active_connections)
+
         message_json = json.dumps(message)
 
-        for connection in list(self.active_connections):  # snapshot: disconnect() may modify during await
+        for connection in connections_snapshot:
             try:
                 await connection.send_text(message_json)
             except Exception as e:
-                # Connection is stale, mark for removal
                 stale_connections.append(connection)
                 logger.debug(f"Marking stale connection for removal: {e}")
 
-        # Remove stale connections
-        for stale in stale_connections:
-            if stale in self.active_connections:
-                self.active_connections.remove(stale)
-
         if stale_connections:
+            async with self._lock:
+                for stale in stale_connections:
+                    if stale in self.active_connections:
+                        self.active_connections.remove(stale)
             logger.info(f"Removed {len(stale_connections)} stale connection(s). Active: {len(self.active_connections)}")
 
 

@@ -783,6 +783,6 @@ def create_system_router(
             _rate_limiter.cleanup(websocket)
 
             # Remove from connection manager
-            manager.disconnect(websocket)
+            await manager.disconnect(websocket)
 
     return router
