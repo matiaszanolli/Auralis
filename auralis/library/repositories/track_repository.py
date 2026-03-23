@@ -845,11 +845,20 @@ class TrackRepository:
                         missing_ids.append(row.id)
 
                 if missing_ids:
-                    session.execute(
-                        delete(Track).where(Track.id.in_(missing_ids))
-                    )
-                    session.commit()
-                    removed_count += len(missing_ids)
+                    # Re-verify paths immediately before deletion to narrow the
+                    # TOCTOU window (a file could reappear between the initial
+                    # exists() check and this point). Fixes #3310.
+                    still_missing = []
+                    for tid in missing_ids:
+                        track = session.get(Track, tid)
+                        if track and not Path(str(track.filepath)).exists():
+                            still_missing.append(tid)
+                    if still_missing:
+                        session.execute(
+                            delete(Track).where(Track.id.in_(still_missing))
+                        )
+                        session.commit()
+                        removed_count += len(still_missing)
 
                 last_id = rows[-1].id  # advance cursor past this batch
 
