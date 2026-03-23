@@ -169,19 +169,30 @@ class EQProcessor:
         chunk_size = self.psychoacoustic_eq.fft_size
         processed_audio = np.zeros_like(audio)
 
-        # Hann synthesis window — satisfies COLA at 50% overlap so windowed
-        # chunks accumulate to unity gain with no extra normalisation step.
-        synthesis_window = hann(chunk_size)
+        # WOLA (Weighted Overlap-Add) with sqrt-Hann windows for both
+        # analysis and synthesis.  At 50% overlap:
+        #   sum_k { sqrt(hann)[n-kH] * sqrt(hann)[n-kH] } = hann sums to 1
+        # This satisfies the COLA constraint and avoids the ~6 dB ripple
+        # that occurred when only a synthesis window was applied (#3294).
+        wola_window = np.sqrt(hann(chunk_size))
 
         for i in range(0, len(audio), chunk_size // 2):  # 50% overlap
             end_idx = min(i + chunk_size, len(audio))
-            chunk = audio[i:end_idx]
+            chunk = audio[i:end_idx].copy()
 
             # Pad chunk if necessary
             if len(chunk) < chunk_size:
                 padded_chunk = np.zeros((chunk_size,) + chunk.shape[1:], dtype=chunk.dtype)
                 padded_chunk[:len(chunk)] = chunk
                 chunk = padded_chunk
+
+            # Apply analysis window before processing
+            valid_length = end_idx - i
+            analysis_slice = wola_window[:chunk_size]
+            if audio.ndim == 2:
+                chunk = chunk * analysis_slice[:, np.newaxis]
+            else:
+                chunk = chunk * analysis_slice
 
             # Process chunk with psychoacoustic EQ
             processed_chunk = self.psychoacoustic_eq.process_realtime_chunk(
@@ -190,8 +201,7 @@ class EQProcessor:
 
             # Apply synthesis window and accumulate into output (overlap-add).
             # Using += instead of = so overlapping regions are summed, not overwritten.
-            valid_length = end_idx - i
-            window_slice = synthesis_window[:valid_length]
+            window_slice = wola_window[:valid_length]
             if audio.ndim == 2:
                 processed_audio[i:end_idx] += processed_chunk[:valid_length] * window_slice[:, np.newaxis]
             else:
