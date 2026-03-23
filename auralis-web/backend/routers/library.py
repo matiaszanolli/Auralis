@@ -500,14 +500,16 @@ def create_library_router(
                     percentage = round(progress_frac * 100) if progress_frac else (
                         round(processed / total * 100) if total > 0 else 0
                     )
+                    stage = progress_data.get('stage', 'processing')
                     asyncio.run_coroutine_threadsafe(
                         connection_manager.broadcast({
                             "type": "scan_progress",
                             "data": {
                                 "current": processed,
                                 "total": total,
-                                "percentage": percentage,
+                                "percentage": percentage if stage != 'discovering' else None,
                                 "current_file": progress_data.get('current_file') or progress_data.get('file'),
+                                "phase": stage,
                             }
                         }),
                         loop,

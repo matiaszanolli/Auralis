@@ -17,8 +17,10 @@ export interface ScanProgress {
   isScanning: boolean;
   current: number;
   total: number;
-  percentage: number;
+  /** 0-100 during processing; null during discovery (show indeterminate indicator) */
+  percentage: number | null;
   currentFile: string | null;
+  phase: 'discovering' | 'processing' | 'fingerprinting';
 }
 
 export interface ScanResult {
@@ -37,6 +39,7 @@ const INITIAL_STATE: ScanStatus = {
   total: 0,
   percentage: 0,
   currentFile: null,
+  phase: 'processing',
   lastResult: null,
 };
 
@@ -71,6 +74,7 @@ export function useScanProgress(): ScanStatus {
           total: msg.data.total,
           percentage: msg.data.percentage,
           currentFile: msg.data.current_file ?? null,
+          phase: msg.data.phase ?? 'processing',
         }));
       } else if (message.type === 'scan_complete') {
         const msg = message as ScanCompleteMessage;

@@ -447,8 +447,9 @@ export interface ScanProgressMessage extends WebSocketMessage {
   data: {
     current: number; // Files processed
     total: number; // Total files
-    percentage: number; // 0-100
+    percentage: number | null; // 0-100, null during discovery phase
     current_file?: string;
+    phase?: 'discovering' | 'processing' | 'fingerprinting';
   };
 }
 

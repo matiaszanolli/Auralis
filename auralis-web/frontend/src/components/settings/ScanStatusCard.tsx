@@ -74,8 +74,8 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
             </Typography>
           </Box>
           <LinearProgress
-            variant={total > 0 ? 'determinate' : 'indeterminate'}
-            value={percentage}
+            variant={percentage != null ? 'determinate' : 'indeterminate'}
+            value={percentage ?? 0}
             sx={{
               borderRadius: 2,
               height: 4,
