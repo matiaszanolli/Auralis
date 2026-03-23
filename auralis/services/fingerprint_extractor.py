@@ -362,6 +362,14 @@ class FingerprintExtractor:
             }
             fingerprint = {k: v for k, v in fingerprint.items() if k in expected_keys}
 
+            # Reject empty/incomplete fingerprints so zero-vectors are never stored (#3306)
+            if len(fingerprint) < len(expected_keys):
+                warning(
+                    f"Fingerprint incomplete for track {track_id}: "
+                    f"{len(fingerprint)}/{len(expected_keys)} dimensions. Skipping storage."
+                )
+                return False
+
             # Add fingerprint_version so the DB row records which algorithm produced it.
             # Uses the single authoritative constant — bump FINGERPRINT_ALGORITHM_VERSION
             # in auralis/__version__.py to trigger re-fingerprinting of old rows.

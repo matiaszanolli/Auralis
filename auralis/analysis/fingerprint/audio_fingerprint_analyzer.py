@@ -191,16 +191,28 @@ class AudioFingerprintAnalyzer:
                 }
 
                 # Collect results as they complete
+                failed_analyzers: list[str] = []
                 for future in as_completed(futures):
                     analyzer_name = futures[future]
-                    features = future.result()
-                    fingerprint.update(features)
+                    try:
+                        features = future.result()
+                        fingerprint.update(features)
+                    except Exception as exc:
+                        logger.error(f"Sub-analyzer '{analyzer_name}' failed: {exc}")
+                        failed_analyzers.append(analyzer_name)
+                        continue
 
                     # Mark harmonic analysis method
                     if analyzer_name == 'harmonic':
                         fingerprint["_harmonic_analysis_method"] = ("sampled"
                                                                    if self.fingerprint_strategy == "sampling"
                                                                    else "full-track")
+
+                if failed_analyzers:
+                    logger.warning(
+                        f"Fingerprint incomplete: {len(failed_analyzers)} sub-analyzer(s) failed "
+                        f"({', '.join(failed_analyzers)}). Missing dimensions will be zero."
+                    )
             except KeyboardInterrupt:
                 # Wait for already-running threads to finish before re-raising so
                 # they cannot write partial results to `fingerprint` after this
@@ -238,7 +250,7 @@ class AudioFingerprintAnalyzer:
 
         except Exception as e:
             logger.error(f"Audio fingerprint analysis failed: {e}")
-            return self._get_default_fingerprint()
+            return {}
 
     def _analyze_frequency_cached(self, audio: np.ndarray, sr: int,
                                    fft: np.ndarray, magnitude: np.ndarray,
