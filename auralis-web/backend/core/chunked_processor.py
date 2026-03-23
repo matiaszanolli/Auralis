@@ -767,7 +767,7 @@ class ChunkedAudioProcessor:
             await self.process_chunk_safe(chunk_idx, fast_start=(chunk_idx == 0))
 
         # Concatenate chunks with proper crossfading
-        logger.info("Concatenating all processed chunks with crossfading")
+        logger.info("Concatenating all processed chunks")
         all_chunks: list[np.ndarray] = []
 
         for chunk_idx in range(self.total_chunks):
@@ -775,21 +775,11 @@ class ChunkedAudioProcessor:
             chunk_audio, _ = load_audio(str(chunk_path))
             all_chunks.append(chunk_audio)
 
-        # Apply crossfade between consecutive chunks
-        overlap_samples = int(OVERLAP_DURATION * self.sample_rate)
-
-        if len(all_chunks) == 1:
-            # Single chunk, no crossfading needed
-            full_audio = all_chunks[0]
-        else:
-            # Start with first chunk
-            result = all_chunks[0]
-
-            for i in range(1, len(all_chunks)):
-                # Crossfade current result with next chunk
-                result = apply_crossfade_between_chunks(result, all_chunks[i], overlap_samples)
-
-            full_audio = result
+        # Chunks are stored as contiguous, non-overlapping segments — simple
+        # concatenation preserves correct duration (#2750).  The previous
+        # crossfade incorrectly blended unrelated audio at boundaries and
+        # shortened output by (N-1) × 5s.
+        full_audio = np.concatenate(all_chunks, axis=0)
 
         # Save full file
         assert self.sample_rate is not None
