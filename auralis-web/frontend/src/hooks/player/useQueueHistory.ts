@@ -59,7 +59,7 @@ export interface HistoryEntry {
   };
 
   /** Operation-specific metadata */
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 
   /** When operation was recorded */
   createdAt: string;
@@ -85,7 +85,7 @@ export interface QueueHistoryActions {
   recordOperation: (
     operation: 'set' | 'add' | 'remove' | 'reorder' | 'shuffle' | 'clear',
     stateSnapshot: HistoryEntry['stateSnapshot'],
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ) => Promise<void>;
 
   /** Undo the last queue operation */
@@ -174,7 +174,7 @@ export function useQueueHistory(): QueueHistoryActions {
     async (
       operation: 'set' | 'add' | 'remove' | 'reorder' | 'shuffle' | 'clear',
       stateSnapshot: HistoryEntry['stateSnapshot'],
-      metadata?: Record<string, any>
+      metadata?: Record<string, unknown>
     ): Promise<void> => {
       setIsLoading(true);
       setError(null);
