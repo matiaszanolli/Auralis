@@ -166,13 +166,15 @@ function calculateRelevance(
  * console.log(filteredTracks); // Filtered results
  * ```
  */
+let _queueSearchWarned = false;
+
 export function useQueueSearch(queue: Track[]): QueueSearchActions {
-  // Guard: Warn if queue exceeds safe size
-  if (queue.length > 1000) {
+  // Guard: Warn once in dev if queue exceeds safe size
+  if (import.meta.env.DEV && queue.length > 1000 && !_queueSearchWarned) {
+    _queueSearchWarned = true;
     console.warn(
       `⚠️ useQueueSearch: Queue size (${queue.length}) exceeds safe limit (1000). ` +
       `This hook is designed for playback queues only (100-500 tracks), not entire libraries. ` +
-      `Using with large datasets will cause severe performance degradation or crashes. ` +
       `See: PHASE_7_ARCHITECTURAL_FIX.md for guidance.`
     );
   }
