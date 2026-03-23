@@ -40,6 +40,8 @@
  * @module hooks/enhancement/usePlayNormal
  */
 
+const DEBUG = import.meta.env.DEV;
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
@@ -201,6 +203,10 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     playbackEngineRef.current = null;
     streamingMetadataRef.current = null;
 
+    // Close AudioContext to release browser audio resources (#3088)
+    audioContextRef.current?.close();
+    audioContextRef.current = null;
+
     // Clear pending chunks queue
     pendingChunksRef.current = [];
   }, []);
@@ -215,7 +221,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
 
       const isSeek = (message.data as any).is_seek === true;
 
-      console.log('[usePlayNormal] Stream started:', {
+      DEBUG && console.log('[usePlayNormal] Stream started:', {
         trackId: message.data.track_id,
         chunks: message.data.total_chunks,
         duration: message.data.total_duration,
@@ -225,7 +231,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       // Resume guard: if we already have a live engine+buffer (e.g. after WS
       // reconnect), skip recreation and let new chunks append seamlessly (#3185).
       if (isSeek && playbackEngineRef.current && pcmBufferRef.current) {
-        console.log('[usePlayNormal] Resuming stream into existing buffer');
+        DEBUG && console.log('[usePlayNormal] Resuming stream into existing buffer');
         if (streamingMetadataRef.current) {
           streamingMetadataRef.current.totalChunks = message.data.total_chunks;
           streamingMetadataRef.current.processedChunks = 0;
@@ -252,14 +258,14 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       if (!audioContextRef.current || audioContextRef.current.sampleRate !== sourceSampleRate) {
         // Close existing context if sample rate differs
         if (audioContextRef.current) {
-          console.log('[usePlayNormal] Closing AudioContext (sample rate mismatch)',
+          DEBUG && console.log('[usePlayNormal] Closing AudioContext (sample rate mismatch)',
             audioContextRef.current.sampleRate, '→', sourceSampleRate);
           audioContextRef.current.close();
         }
         // Create new AudioContext with matching sample rate
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         audioContextRef.current = new AudioContextClass({ sampleRate: sourceSampleRate });
-        console.log('[usePlayNormal] Created AudioContext with sample rate:', sourceSampleRate);
+        DEBUG && console.log('[usePlayNormal] Created AudioContext with sample rate:', sourceSampleRate);
       }
 
       // Initialize AudioPlaybackEngine
@@ -306,7 +312,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
 
       // Process any chunks that arrived before stream_start (race condition handling)
       if (pendingChunksRef.current.length > 0) {
-        console.log('[usePlayNormal] Processing queued chunks:', pendingChunksRef.current.length);
+        DEBUG && console.log('[usePlayNormal] Processing queued chunks:', pendingChunksRef.current.length);
         const queuedChunks = [...pendingChunksRef.current];
         pendingChunksRef.current = []; // Clear queue before processing
 
@@ -349,7 +355,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
 
       // If stream not yet initialized, queue the chunk instead of dropping it
       if (!pcmBufferRef.current || !streamingMetadataRef.current) {
-        console.log('[usePlayNormal] Queuing chunk until stream initialized:', {
+        DEBUG && console.log('[usePlayNormal] Queuing chunk until stream initialized:', {
           chunkIndex: message.data?.chunk_index,
           queueLength: pendingChunksRef.current.length + 1,
         });
@@ -404,14 +410,12 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         setIsPaused(false);
       }
 
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug('[usePlayNormal] Chunk received:', {
-          chunkIndex: metadata.chunkIndex,
-          frames: `${metadata.frameIndex + 1}/${metadata.frameCount}`,
-          samples: metadata.sampleCount,
-          buffered: `${(bufferedSamples / streamingMetadataRef.current.sampleRate).toFixed(1)}s`,
-        });
-      }
+      DEBUG && console.debug('[usePlayNormal] Chunk received:', {
+        chunkIndex: metadata.chunkIndex,
+        frames: `${metadata.frameIndex + 1}/${metadata.frameCount}`,
+        samples: metadata.sampleCount,
+        buffered: `${(bufferedSamples / streamingMetadataRef.current.sampleRate).toFixed(1)}s`,
+      });
     } catch (error) {
       const errorMsg = `Failed to process audio chunk: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[usePlayNormal]', errorMsg);
@@ -426,7 +430,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     // Only process messages intended for this hook (#2104)
     if (message.data.stream_type && message.data.stream_type !== 'normal') return;
 
-    console.log('[usePlayNormal] Stream ended:', {
+    DEBUG && console.log('[usePlayNormal] Stream ended:', {
       trackId: message.data.track_id,
       totalSamples: message.data.total_samples,
       duration: message.data.duration,
@@ -506,7 +510,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
           if (response.ok) {
             const track = await response.json();
             dispatch(setCurrentTrack(track));
-            console.log('[usePlayNormal] Set current track:', track.title);
+            DEBUG && console.log('[usePlayNormal] Set current track:', track.title);
           }
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -522,7 +526,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
           },
         });
 
-        console.log('[usePlayNormal] Play normal requested:', { trackId });
+        DEBUG && console.log('[usePlayNormal] Play normal requested:', { trackId });
       } catch (error) {
         const errorMsg = `Failed to start normal playback: ${error instanceof Error ? error.message : String(error)}`;
         console.error('[usePlayNormal]', errorMsg);
@@ -622,7 +626,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
   // continues playing while reconnect happens (#3185, replaces #2847 teardown).
   useEffect(() => {
     if (!wsContext.isConnected && playbackEngineRef.current) {
-      console.log('[usePlayNormal] WebSocket disconnected - keeping playback engine alive');
+      DEBUG && console.log('[usePlayNormal] WebSocket disconnected - keeping playback engine alive');
       // DO NOT destroy engine/buffer/state — let buffered audio play through.
     }
   }, [wsContext.isConnected]);
