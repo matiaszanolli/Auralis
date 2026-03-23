@@ -279,8 +279,8 @@ const QualityRating = ({ assessment }: QualityRatingProps) => {
 
       {assessment.issues.length > 0 && (
         <div style={styles.issuesList}>
-          {assessment.issues.map((issue, index) => (
-            <div key={`issue-${index}`} style={styles.issueItem}>
+          {assessment.issues.map((issue) => (
+            <div key={issue} style={styles.issueItem}>
               • {issue}
             </div>
           ))}
