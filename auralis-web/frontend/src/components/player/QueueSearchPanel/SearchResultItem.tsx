@@ -38,8 +38,10 @@ export const SearchResultItem = ({
           onClick={handleClick}
           role="button"
           tabIndex={0}
+          aria-label={`Play ${result.track.title} by ${result.track.artist}`}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
               handleClick();
             }
           }}
