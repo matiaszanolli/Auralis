@@ -53,7 +53,17 @@ export const PresetItem = ({
       arrow
     >
       <Box
+        role="button"
+        tabIndex={isActive ? -1 : 0}
+        aria-pressed={isActive}
+        aria-label={preset.label}
         onClick={() => !isActive && onSelect(preset.value)}
+        onKeyDown={(e: React.KeyboardEvent) => {
+          if (!isActive && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            onSelect(preset.value);
+          }
+        }}
         onMouseEnter={() => onHover(preset.value)}
         onMouseLeave={() => onHover(null)}
         sx={{
