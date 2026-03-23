@@ -130,6 +130,7 @@ class AudioPlayer:
 
     def stop(self) -> bool:
         """Stop playback"""
+        self._auto_advancing.clear()
         return self.playback.stop()
 
     def seek(self, position_seconds: float) -> bool:
@@ -547,6 +548,7 @@ class AudioPlayer:
     def cleanup(self) -> None:
         """Clean up resources"""
         self.stop()
+        self.file_manager.clear_all()
         self.gapless.cleanup()
         self.integration.cleanup()
         info("AudioPlayer cleanup completed")
