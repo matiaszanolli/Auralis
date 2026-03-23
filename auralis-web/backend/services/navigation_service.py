@@ -75,11 +75,9 @@ class NavigationService:
                 success = self.audio_player.next_track()
 
                 if success:
-                    # Update state if available
+                    # Broadcast track change if queue is available
                     if self.player_state_manager and hasattr(self.audio_player, 'queue'):
-                        self.player_state_manager.get_state()
                         if hasattr(self.audio_player.queue, 'current_index'):
-                            # Broadcast track change
                             await self.connection_manager.broadcast({
                                 "type": "track_changed",
                                 "data": {"action": "next"}
@@ -117,11 +115,9 @@ class NavigationService:
                 success = self.audio_player.previous_track()
 
                 if success:
-                    # Update state if available
+                    # Broadcast track change if queue is available
                     if self.player_state_manager and hasattr(self.audio_player, 'queue'):
-                        self.player_state_manager.get_state()
                         if hasattr(self.audio_player.queue, 'current_index'):
-                            # Broadcast track change
                             await self.connection_manager.broadcast({
                                 "type": "track_changed",
                                 "data": {"action": "previous"}
