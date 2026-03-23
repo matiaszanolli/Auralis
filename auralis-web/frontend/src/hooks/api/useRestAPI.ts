@@ -47,7 +47,7 @@ export function useRestAPI() {
   /**
    * Build full URL from endpoint path with optional query parameters.
    */
-  const buildUrl = useCallback((endpoint: string, queryParams?: Record<string, any>): string => {
+  const buildUrl = useCallback((endpoint: string, queryParams?: Record<string, string | number | boolean>): string => {
     let url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
 
     if (queryParams && Object.keys(queryParams).length > 0) {
@@ -144,7 +144,7 @@ export function useRestAPI() {
    *   await api.post('/api/player/seek', undefined, { position: 120 });
    */
   const post = useCallback(
-    async <T = unknown>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
+    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>): Promise<T> => {
       const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
@@ -192,7 +192,7 @@ export function useRestAPI() {
    * Supports both JSON body and query parameters.
    */
   const put = useCallback(
-    async <T = unknown>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
+    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>): Promise<T> => {
       const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
@@ -240,7 +240,7 @@ export function useRestAPI() {
    * Supports both JSON body and query parameters.
    */
   const patch = useCallback(
-    async <T = unknown>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
+    async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>): Promise<T> => {
       const seq = (requestSequences.current.get(endpoint) ?? 0) + 1; requestSequences.current.set(endpoint, seq);
       inflightCount.current += 1;
       setIsLoading(true);
@@ -387,7 +387,7 @@ export function useMutation<T = unknown>(endpoint: string, method: 'POST' | 'PUT
   const [error, setError] = useState<ApiError | null>(null);
 
   const mutate = useCallback(
-    async (payload?: any) => {
+    async (payload?: Record<string, unknown>) => {
       try {
         setIsLoading(true);
         let result: T;
