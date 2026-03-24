@@ -166,12 +166,17 @@ class AdaptiveCompressor:
         if self.lookahead_buffer is not None and self.lookahead_buffer.ndim != audio.ndim:
             self.lookahead_buffer = None
 
-        # Initialize buffer on first use with correct shape
+        # Initialize buffer on first use — mirror-pad from the start of the
+        # audio so the gain-computer sees valid signal context instead of
+        # silence, avoiding a zero-sample artifact at track start (#3291).
         if self.lookahead_buffer is None:
             if audio.ndim == 1:
-                self.lookahead_buffer = np.zeros(self.lookahead_samples)
+                pad = audio[:self.lookahead_samples]
+                self.lookahead_buffer = np.pad(pad, (self.lookahead_samples - len(pad), 0), mode='reflect')
             else:
-                self.lookahead_buffer = np.zeros((self.lookahead_samples, audio.shape[1]))
+                pad = audio[:self.lookahead_samples]
+                deficit = self.lookahead_samples - len(pad)
+                self.lookahead_buffer = np.pad(pad, ((deficit, 0), (0, 0)), mode='reflect')
 
         # Buffer is guaranteed to be non-None after initialization
         buffer_size = self.lookahead_buffer.shape[0]

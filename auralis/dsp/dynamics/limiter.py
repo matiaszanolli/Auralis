@@ -156,12 +156,15 @@ class AdaptiveLimiter:
 
     def _apply_lookahead_delay(self, audio: np.ndarray) -> np.ndarray:
         """Apply lookahead delay"""
-        # Initialize buffer on first use with correct shape
+        # Initialize buffer — mirror-pad to avoid zero-sample artifact (#3291)
         if self.lookahead_buffer is None:
             if audio.ndim == 1:
-                self.lookahead_buffer = np.zeros(self.lookahead_samples)
+                pad = audio[:self.lookahead_samples]
+                self.lookahead_buffer = np.pad(pad, (self.lookahead_samples - len(pad), 0), mode='reflect')
             else:
-                self.lookahead_buffer = np.zeros((self.lookahead_samples, audio.shape[1]))
+                pad = audio[:self.lookahead_samples]
+                deficit = self.lookahead_samples - len(pad)
+                self.lookahead_buffer = np.pad(pad, ((deficit, 0), (0, 0)), mode='reflect')
 
         # Buffer is guaranteed to be non-None after initialization
         buffer_size = self.lookahead_buffer.shape[0]
