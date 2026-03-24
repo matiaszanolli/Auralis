@@ -19,7 +19,7 @@
  * ```
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import type { PresetName } from '@/store/slices/playerSlice';
 import { playerSelectors } from '@/store/selectors';
@@ -100,6 +100,11 @@ export const useEnhancedPlaybackShortcuts = (
   const currentIntensity = streaming.intensity || 1.0;
   const isEnhancedMode = streaming.state === 'streaming';
 
+  // Ref to always read the latest intensity inside the keydown handler,
+  // avoiding stale closures during rapid key presses (#3274).
+  const intensityRef = useRef(currentIntensity);
+  intensityRef.current = currentIntensity;
+
   /**
    * Handle keyboard event
    */
@@ -136,7 +141,7 @@ export const useEnhancedPlaybackShortcuts = (
       // Shift+↑: Increase intensity by 0.1
       if (event.key === 'ArrowUp') {
         event.preventDefault();
-        const newIntensity = Math.min(1.0, currentIntensity + 0.1);
+        const newIntensity = Math.min(1.0, intensityRef.current + 0.1);
         if (debug) console.log(`[useEnhancedPlaybackShortcuts] Increase intensity: ${newIntensity}`);
         onIntensityChange?.(newIntensity);
         return;
@@ -145,13 +150,13 @@ export const useEnhancedPlaybackShortcuts = (
       // Shift+↓: Decrease intensity by 0.1
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        const newIntensity = Math.max(0.0, currentIntensity - 0.1);
+        const newIntensity = Math.max(0.0, intensityRef.current - 0.1);
         if (debug) console.log(`[useEnhancedPlaybackShortcuts] Decrease intensity: ${newIntensity}`);
         onIntensityChange?.(newIntensity);
         return;
       }
     },
-    [enabled, trackId, isEnhancedMode, currentIntensity, onPresetChange, onIntensityChange, onEnhancedToggle, debug]
+    [enabled, trackId, isEnhancedMode, onPresetChange, onIntensityChange, onEnhancedToggle, debug]
   );
 
   /**
