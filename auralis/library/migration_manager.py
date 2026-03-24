@@ -256,7 +256,18 @@ class MigrationManager:
                     statements = [s.strip() for s in sql.split(';') if s.strip()]
                     for statement in statements:
                         if statement:
-                            cursor.execute(statement)
+                            try:
+                                cursor.execute(statement)
+                            except Exception as stmt_err:
+                                # Tolerate "duplicate column" errors from ADD COLUMN
+                                # on databases where the column was added outside
+                                # the migration system.
+                                if "duplicate column" in str(stmt_err).lower():
+                                    logger.warning(
+                                        f"Column already exists, skipping: {statement[:80]}"
+                                    )
+                                else:
+                                    raise
 
                     # Record the migration in the same transaction
                     cursor.execute(
