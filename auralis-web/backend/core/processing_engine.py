@@ -95,11 +95,15 @@ class ProcessingJob:
         self.completed_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert job to dictionary for API responses"""
+        """Convert job to dictionary for API responses.
+
+        Exposes filenames only (no absolute paths) to avoid leaking
+        server-side directory structure (#3322).
+        """
         return {
             "job_id": self.job_id,
-            "input_path": self.input_path,
-            "output_path": self.output_path,
+            "input_file": Path(self.input_path).name,
+            "output_file": Path(self.output_path).name,
             "mode": self.mode,
             "status": self.status.value,
             "progress": self.progress,
@@ -215,13 +219,15 @@ class ProcessingEngine:
             raise
         return job.job_id
 
-    def get_job(self, job_id: str) -> ProcessingJob | None:
+    async def get_job(self, job_id: str) -> ProcessingJob | None:
         """Get job by ID"""
-        return self.jobs.get(job_id)
+        async with self._jobs_lock:
+            return self.jobs.get(job_id)
 
-    def register_progress_callback(self, job_id: str, callback: Callable[..., Any]) -> None:
+    async def register_progress_callback(self, job_id: str, callback: Callable[..., Any]) -> None:
         """Register a callback for job progress updates"""
-        self.progress_callbacks[job_id] = callback
+        async with self._jobs_lock:
+            self.progress_callbacks[job_id] = callback
 
     def unregister_progress_callback(self, job_id: str) -> None:
         """Remove a progress callback (e.g. on WebSocket disconnect)."""
