@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
+import numpy as np
+
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from auralis.io.unified_loader import load_audio
@@ -211,6 +213,8 @@ class MasteringTargetService:
                     else:
                         audio_array = full_audio
 
+                # Rust FFI requires float32 C-contiguous array
+                audio_array = np.ascontiguousarray(audio_array, dtype=np.float32)
                 logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sr}, CH={channels}")
 
                 # Call PyO3 Rust fingerprinting

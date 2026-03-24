@@ -16,7 +16,7 @@ import asyncio
 import atexit
 import logging
 import os
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from collections.abc import Callable
 
@@ -39,28 +39,29 @@ except ImportError:
 
 
 # =============================================================================
-# PROCESS POOL EXECUTOR FOR FINGERPRINTING
+# THREAD POOL EXECUTOR FOR FINGERPRINTING
 # =============================================================================
-# Uses a separate process to run CPU-intensive fingerprinting operations.
-# This ensures playback threads are NEVER blocked by fingerprint computation.
-# ProcessPoolExecutor requires functions to be defined at module level for pickling.
+# Uses a thread pool to run fingerprinting off the asyncio event loop.
+# PyO3 Rust code releases the GIL, so threads get true parallelism
+# without the overhead of ProcessPoolExecutor (pickling, process spawn,
+# module re-import — which can exceed 10s timeout in AppImage environments).
 
-# Number of worker processes for fingerprinting (1-2 is sufficient, keeps memory low)
+# Number of worker threads for fingerprinting
 _FINGERPRINT_WORKERS = max(1, min(2, (os.cpu_count() or 2) // 2))
 
-# Module-level ProcessPoolExecutor (lazy initialized)
-_fingerprint_executor: ProcessPoolExecutor | None = None
+# Module-level ThreadPoolExecutor (lazy initialized)
+_fingerprint_executor: ThreadPoolExecutor | None = None
 
 
-def _get_fingerprint_executor() -> ProcessPoolExecutor:
-    """Get or create the fingerprint ProcessPoolExecutor (lazy initialization)."""
+def _get_fingerprint_executor() -> ThreadPoolExecutor:
+    """Get or create the fingerprint ThreadPoolExecutor (lazy initialization)."""
     global _fingerprint_executor
     if _fingerprint_executor is None:
-        _fingerprint_executor = ProcessPoolExecutor(
+        _fingerprint_executor = ThreadPoolExecutor(
             max_workers=_FINGERPRINT_WORKERS,
-            mp_context=None,  # Use default spawn method (safest for PyO3)
+            thread_name_prefix="fingerprint",
         )
-        logger.info(f"🔧 Created fingerprint ProcessPoolExecutor with {_FINGERPRINT_WORKERS} workers")
+        logger.info(f"🔧 Created fingerprint ThreadPoolExecutor with {_FINGERPRINT_WORKERS} workers")
     return _fingerprint_executor
 
 
@@ -68,7 +69,7 @@ def shutdown_fingerprint_executor() -> None:
     """Shutdown the fingerprint executor gracefully."""
     global _fingerprint_executor
     if _fingerprint_executor is not None:
-        logger.info("🛑 Shutting down fingerprint ProcessPoolExecutor...")
+        logger.info("🛑 Shutting down fingerprint ThreadPoolExecutor...")
         _fingerprint_executor.shutdown(wait=False, cancel_futures=True)
         _fingerprint_executor = None
 
@@ -233,19 +234,19 @@ class FingerprintGenerator:
             audio_array = np.asarray(audio_array, dtype=np.float32)
             logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sample_rate}, CH={channels}, dtype={audio_array.dtype}")
 
-            # Get the ProcessPoolExecutor for fingerprinting (separate process)
+            # Run fingerprint computation in a thread pool worker.
+            # PyO3 Rust releases the GIL so this gives true parallelism
+            # without ProcessPoolExecutor's serialization overhead.
             executor = _get_fingerprint_executor()
             loop = asyncio.get_running_loop()
 
-            # Run fingerprint computation in a SEPARATE PROCESS
-            # This ensures playback threads are never blocked by CPU-intensive Rust operations
-            logger.debug(f"🔄 Submitting fingerprint computation to ProcessPoolExecutor for track {track_id}")
+            logger.debug(f"🔄 Submitting fingerprint computation to ThreadPoolExecutor for track {track_id}")
 
             fingerprint = await asyncio.wait_for(
                 loop.run_in_executor(
-                    executor,  # Use ProcessPoolExecutor (separate process!)
-                    _compute_fingerprint_in_process,  # Module-level function for pickling
-                    audio_array.copy(),  # Pass a copy (will be pickled to subprocess)
+                    executor,
+                    _compute_fingerprint_in_process,
+                    audio_array,
                     int(sample_rate),
                     int(channels)
                 ),
@@ -256,7 +257,7 @@ class FingerprintGenerator:
                 logger.error(f"Fingerprint computation returned None for track {track_id}")
                 return None
 
-            logger.info(f"✅ PyO3 Rust generated fingerprint for track {track_id} in <{self.TIMEOUT}s (subprocess)")
+            logger.info(f"✅ PyO3 Rust generated fingerprint for track {track_id}")
             return fingerprint
 
         except FileNotFoundError:
