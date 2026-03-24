@@ -779,6 +779,10 @@ def create_system_router(
         finally:
             # Always clean up on disconnect
             heartbeat_task.cancel()
+            try:
+                await heartbeat_task
+            except asyncio.CancelledError:
+                pass
             ws_id = _ws_id(websocket)
 
             # Cancel any active streaming task — idempotent pop under lock (fixes #2425)
