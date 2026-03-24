@@ -202,12 +202,9 @@ def create_albums_router(
                     detail=f"Album {album_id} has no tracks"
                 )
 
-            # Get fingerprints for all tracks
-            fingerprints = []
-            for track in tracks:
-                fp = await asyncio.to_thread(repos.fingerprints.get_by_track_id, track.id)
-                if fp:
-                    fingerprints.append(fp)
+            # Get fingerprints for all tracks in a single query (#3334)
+            track_ids = [track.id for track in tracks]
+            fingerprints = await asyncio.to_thread(repos.fingerprints.get_by_track_ids, track_ids)
 
             if not fingerprints:
                 raise HTTPException(

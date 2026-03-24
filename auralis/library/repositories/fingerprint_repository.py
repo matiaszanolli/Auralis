@@ -114,6 +114,29 @@ class FingerprintRepository:
             session.expunge_all()
             session.close()
 
+    def get_by_track_ids(self, track_ids: list[int]) -> list[TrackFingerprint]:
+        """
+        Get fingerprints for multiple tracks in a single query.
+
+        Args:
+            track_ids: List of track IDs
+
+        Returns:
+            List of TrackFingerprint objects (only for tracks that have fingerprints)
+        """
+        if not track_ids:
+            return []
+        session = self.get_session()
+        try:
+            fingerprints = session.execute(
+                select(TrackFingerprint).where(TrackFingerprint.track_id.in_(track_ids))
+            ).scalars().all()
+            for fp in fingerprints:
+                session.expunge(fp)
+            return list(fingerprints)
+        finally:
+            session.close()
+
     def get_by_track_id(self, track_id: int) -> TrackFingerprint | None:
         """
         Get fingerprint by track ID
