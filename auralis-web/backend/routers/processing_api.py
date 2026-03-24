@@ -289,7 +289,7 @@ async def get_job_status(job_id: str) -> JobStatusResponse:
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
 
-    job = _processing_engine.get_job(job_id)
+    job = await _processing_engine.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -311,7 +311,7 @@ async def download_result(job_id: str) -> FileResponse:
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
 
-    job = _processing_engine.get_job(job_id)
+    job = await _processing_engine.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -355,7 +355,7 @@ async def cancel_job(job_id: str) -> dict[str, Any]:
     success = _processing_engine.cancel_job(job_id)
     if not success:
         # Check if job exists to provide correct error
-        job = _processing_engine.get_job(job_id)
+        job = await _processing_engine.get_job(job_id)
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
         raise HTTPException(status_code=400, detail="Job cannot be cancelled (already completed)")

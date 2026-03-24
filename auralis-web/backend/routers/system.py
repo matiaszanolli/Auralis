@@ -760,7 +760,7 @@ def create_system_router(
                                 }
                             }))
 
-                        processing_engine.register_progress_callback(job_id, progress_callback)
+                        await processing_engine.register_progress_callback(job_id, progress_callback)
                         _subscribed_job_ids.add(job_id)
 
                 else:
