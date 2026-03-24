@@ -125,8 +125,9 @@ class FingerprintGenerator:
     never blocked by fingerprinting operations, even under heavy load.
     """
 
-    # Generation timeout (seconds) - PyO3 calls are fast
-    TIMEOUT = 10
+    # Generation timeout (seconds) — includes audio loading + Rust computation.
+    # Long tracks or hi-res files can take 15-20s to load and process.
+    TIMEOUT = 30
 
     def __init__(self, session_factory: Callable[[], Session], get_repository_factory: Callable[..., Any]) -> None:
         """

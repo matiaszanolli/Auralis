@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 # Track active streaming tasks per WebSocket to allow cancellation
 _active_streaming_tasks: dict[str, asyncio.Task] = {}
 _active_streaming_tasks_lock = asyncio.Lock()  # Protects all _active_streaming_tasks access (fixes #2425)
+# Track which track ID is currently streaming per WS (for deduplication)
+_active_streaming_track_ids: dict[str, int] = {}
 
 # Per-WebSocket pause events: when clear, streaming loops sleep; when set, they proceed.
 # This avoids destroying the streaming task on pause (#2106).
@@ -329,6 +331,19 @@ def create_system_router(
 
                     ws_id = _ws_id(websocket)
 
+                    # Deduplicate: if the same track is already streaming, skip
+                    async with _active_streaming_tasks_lock:
+                        existing_track = _active_streaming_track_ids.get(ws_id)
+                        existing_task = _active_streaming_tasks.get(ws_id)
+                        if (existing_track == track_id
+                                and existing_task is not None
+                                and not existing_task.done()):
+                            logger.info(
+                                f"Ignoring duplicate play_enhanced for track {track_id} "
+                                f"(already streaming on ws {ws_id})"
+                            )
+                            continue
+
                     # Define streaming coroutine
                     async def stream_audio():
                         # Capture task identity to prevent orphaned task race (fixes #2164)
@@ -406,6 +421,7 @@ def create_system_router(
                             async with _active_streaming_tasks_lock:
                                 if _active_streaming_tasks.get(ws_id) is my_task:
                                     _active_streaming_tasks.pop(ws_id, None)
+                                    _active_streaming_track_ids.pop(ws_id, None)
 
                     # Atomically: clean up done tasks, cancel prior stream, register new task (fixes #2425, #2430)
                     async with _active_streaming_tasks_lock:
@@ -433,6 +449,7 @@ def create_system_router(
                         _stream_flow_events[ws_id] = flow_event
                         task = asyncio.create_task(stream_audio())
                         _active_streaming_tasks[ws_id] = task
+                        _active_streaming_track_ids[ws_id] = track_id
                     logger.info(f"Started background streaming task for track {track_id}")
 
                 elif message.get("type") == "play_normal":
@@ -501,6 +518,7 @@ def create_system_router(
                             async with _active_streaming_tasks_lock:
                                 if _active_streaming_tasks.get(ws_id) is my_task:
                                     _active_streaming_tasks.pop(ws_id, None)
+                                    _active_streaming_track_ids.pop(ws_id, None)
 
                     # Atomically: clean up done tasks, cancel prior stream, register new task (fixes #2425, #2430)
                     async with _active_streaming_tasks_lock:
@@ -729,6 +747,7 @@ def create_system_router(
                             async with _active_streaming_tasks_lock:
                                 if _active_streaming_tasks.get(ws_id) is my_task:
                                     _active_streaming_tasks.pop(ws_id, None)
+                                    _active_streaming_track_ids.pop(ws_id, None)
 
                     # Reset pause/flow-control events so seek stream is not
                     # blocked by stale paused or buffer_full state (fixes #2744)
