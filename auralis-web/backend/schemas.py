@@ -221,7 +221,10 @@ class WebSocketMessageType(str, Enum):
     BUFFER_FULL = "buffer_full"
     BUFFER_READY = "buffer_ready"
     PLAYBACK_PAUSED = "playback_paused"
+    PLAYBACK_RESUMED = "playback_resumed"
     PLAYBACK_STOPPED = "playback_stopped"
+    PLAYER_STATE = "player_state"
+    ENHANCEMENT_SETTINGS_CHANGED = "enhancement_settings_changed"
 
 
 class WebSocketMessageBase(BaseModel):
