@@ -108,6 +108,41 @@ class JobStatusResponse(BaseModel):
     result_data: dict[str, Any] | None = None
 
 
+class CancelJobResponse(BaseModel):
+    """Response after cancelling a job"""
+    message: str
+    job_id: str
+
+
+class JobListResponse(BaseModel):
+    """Response listing processing jobs"""
+    jobs: list[dict[str, Any]]
+    total: int
+
+
+class QueueStatusResponse(BaseModel):
+    """Current processing queue status"""
+    queued: int = 0
+    processing: int = 0
+    completed: int = 0
+    failed: int = 0
+    cancelled: int = 0
+    total: int = 0
+
+    model_config = {"extra": "allow"}
+
+
+class PresetsResponse(BaseModel):
+    """Available processing presets"""
+    presets: dict[str, Any]
+
+
+class CleanupResponse(BaseModel):
+    """Response after cleaning up old jobs"""
+    message: str
+    removed: int
+
+
 @router.post("/process", response_model=ProcessResponse)
 async def process_audio(request: ProcessRequest) -> ProcessResponse:
     """
@@ -311,7 +346,7 @@ async def download_result(job_id: str) -> FileResponse:
     )
 
 
-@router.post("/job/{job_id}/cancel")
+@router.post("/job/{job_id}/cancel", response_model=CancelJobResponse)
 async def cancel_job(job_id: str) -> dict[str, Any]:
     """Cancel a queued or processing job"""
     if not _processing_engine:
@@ -328,7 +363,7 @@ async def cancel_job(job_id: str) -> dict[str, Any]:
     return {"message": "Job cancelled successfully", "job_id": job_id}
 
 
-@router.get("/jobs")
+@router.get("/jobs", response_model=JobListResponse)
 async def list_jobs(status: str | None = None, limit: int = Query(50, ge=1, le=1000)) -> dict[str, Any]:
     """List all processing jobs, optionally filtered by status"""
     if not _processing_engine:
@@ -356,7 +391,7 @@ async def list_jobs(status: str | None = None, limit: int = Query(50, ge=1, le=1
     }
 
 
-@router.get("/queue/status")
+@router.get("/queue/status", response_model=QueueStatusResponse)
 async def get_queue_status() -> dict[str, Any]:
     """Get current processing queue status"""
     if not _processing_engine:
@@ -365,7 +400,7 @@ async def get_queue_status() -> dict[str, Any]:
     return _processing_engine.get_queue_status()
 
 
-@router.get("/presets")
+@router.get("/presets", response_model=PresetsResponse)
 async def get_processing_presets() -> dict[str, Any]:
     """Get available processing presets"""
     presets = {
@@ -480,7 +515,7 @@ async def get_processing_presets() -> dict[str, Any]:
     return {"presets": presets}
 
 
-@router.delete("/jobs/cleanup")
+@router.delete("/jobs/cleanup", response_model=CleanupResponse)
 async def cleanup_old_jobs(max_age_hours: float = Query(24, ge=0)) -> dict[str, Any]:
     """Clean up completed jobs older than specified hours"""
     if not _processing_engine:
