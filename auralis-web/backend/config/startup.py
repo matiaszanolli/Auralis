@@ -147,6 +147,20 @@ def create_lifespan(deps: dict[str, Any]):
                 )
                 logger.info("✅ Settings Repository initialized")
 
+                # Register user-configured scan folders as allowed directories
+                # so validate_file_path accepts files from custom locations.
+                try:
+                    import json
+                    from security.path_security import register_allowed_directory
+                    settings = globals_dict['settings_repository'].get_settings()
+                    if settings and settings.scan_folders:
+                        folders = json.loads(settings.scan_folders) if isinstance(settings.scan_folders, str) else settings.scan_folders
+                        for folder in folders:
+                            register_allowed_directory(Path(folder))
+                        logger.info(f"✅ Registered {len(folders)} scan folder(s) as allowed directories")
+                except Exception as e:
+                    logger.warning(f"⚠️  Failed to register scan folders: {e}")
+
                 # Start the library auto-scanner service.
                 # Replaces the old one-shot ~/Music scan with a proper service that:
                 # - reads scan_folders from user settings (not hardcoded)

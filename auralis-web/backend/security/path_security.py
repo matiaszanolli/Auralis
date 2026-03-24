@@ -24,6 +24,17 @@ DEFAULT_ALLOWED_DIRS = [
     Path.home() / "Documents",  # Documents directory
 ]
 
+# Extra directories registered at runtime (populated by startup.py after
+# reading user-configured scan folders from the database).
+_extra_allowed_dirs: list[Path] = []
+
+
+def register_allowed_directory(directory: Path) -> None:
+    """Register an additional allowed directory (called during startup or when adding scan folders)."""
+    resolved = directory.resolve()
+    if resolved not in _extra_allowed_dirs:
+        _extra_allowed_dirs.append(resolved)
+
 
 class PathValidationError(Exception):
     """Raised when path validation fails."""
@@ -47,6 +58,9 @@ def get_allowed_directories() -> list[Path]:
     xdg_music = os.environ.get('XDG_MUSIC_DIR')
     if xdg_music:
         allowed_dirs.append(Path(xdg_music))
+
+    # Include user-configured scan folders registered at runtime
+    allowed_dirs.extend(_extra_allowed_dirs)
 
     # Resolve all paths to absolute and normalize
     return [path.resolve() for path in allowed_dirs if path.exists()]
@@ -210,6 +224,56 @@ def validate_file_path(
         raise PathValidationError(f"File is not readable: {resolved_path}")
 
     logger.info(f"File path validation successful: {resolved_path}")
+    return resolved_path
+
+
+def validate_user_chosen_directory(directory: str) -> Path:
+    """
+    Validate a directory path explicitly chosen by the user (e.g., via file picker).
+
+    Auralis is a single-user desktop app. When the user explicitly selects a
+    folder to scan, we trust their choice and only enforce basic safety checks
+    (no traversal, must exist, must be readable) without restricting to
+    predefined allowed directories.
+
+    Args:
+        directory: Directory path chosen by the user
+
+    Returns:
+        Resolved absolute Path object if valid
+
+    Raises:
+        PathValidationError: If path fails basic safety checks
+    """
+    if not directory:
+        raise PathValidationError("Directory path cannot be empty")
+
+    try:
+        path = Path(directory)
+    except (ValueError, TypeError) as e:
+        raise PathValidationError(f"Invalid path format: {e}")
+
+    try:
+        resolved_path = path.resolve()
+    except (OSError, RuntimeError) as e:
+        raise PathValidationError(f"Failed to resolve path: {e}")
+
+    if ".." in Path(directory).parts:
+        raise PathValidationError(
+            "Path traversal sequences (..) are not allowed. "
+            "Please use absolute paths."
+        )
+
+    if not resolved_path.exists():
+        raise PathValidationError(f"Directory does not exist: {resolved_path}")
+
+    if not resolved_path.is_dir():
+        raise PathValidationError(f"Path is not a directory: {resolved_path}")
+
+    if not os.access(resolved_path, os.R_OK):
+        raise PathValidationError(f"Directory is not readable: {resolved_path}")
+
+    logger.info(f"User-chosen directory validated: {resolved_path}")
     return resolved_path
 
 
