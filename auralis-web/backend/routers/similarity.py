@@ -550,15 +550,19 @@ def create_similarity_router(
             # Get tracks without fingerprints
             missing_tracks = await asyncio.to_thread(repos.fingerprints.get_missing_fingerprints, limit=limit)
 
-            # Enqueue each track
-            enqueued_count = 0
-            skipped_count = 0
+            # Enqueue each track (offloaded to thread to avoid blocking
+            # the event loop for large libraries — #3335)
+            def _enqueue_batch() -> tuple[int, int]:
+                enqueued = 0
+                skipped = 0
+                for track in missing_tracks:
+                    if queue.enqueue(track.id):
+                        enqueued += 1
+                    else:
+                        skipped += 1
+                return enqueued, skipped
 
-            for track in missing_tracks:
-                if queue.enqueue(track.id):
-                    enqueued_count += 1
-                else:
-                    skipped_count += 1  # Already queued or processing
+            enqueued_count, skipped_count = await asyncio.to_thread(_enqueue_batch)
 
             logger.info(f"📋 Batch enqueued {enqueued_count} tracks for fingerprinting ({skipped_count} skipped)")
 
