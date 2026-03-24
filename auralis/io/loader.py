@@ -21,6 +21,11 @@ from .loaders import load_with_ffmpeg
 from .unified_loader import FFMPEG_FORMATS
 
 
+# Maximum audio duration (seconds) that can be loaded into RAM.
+# 2 hours of stereo float32 at 96 kHz ≈ 5.3 GB — a safe upper bound.
+MAX_DURATION_SECONDS = 7200
+
+
 def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
     """
     Load an audio file
@@ -31,6 +36,9 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
 
     Returns:
         tuple: (audio_data, sample_rate)
+
+    Raises:
+        RuntimeError: If the file exceeds MAX_DURATION_SECONDS
     """
     debug(f"Loading {file_type} file: {file_path}")
 
@@ -40,8 +48,21 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
         file_ext = Path(file_path).suffix.lower()
         if file_ext in FFMPEG_FORMATS:
             audio_data, sample_rate = load_with_ffmpeg(Path(file_path))
+            # Guard FFmpeg path: check duration after decode (#3300)
+            duration = len(audio_data) / max(sample_rate, 1)
+            if duration > MAX_DURATION_SECONDS:
+                raise RuntimeError(
+                    f"Audio file exceeds maximum duration "
+                    f"({duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
+                )
         else:
             file_info = sf.info(file_path)
+            # Guard against OOM: reject files that would exhaust RAM (#3300)
+            if file_info.duration > MAX_DURATION_SECONDS:
+                raise RuntimeError(
+                    f"Audio file exceeds maximum duration "
+                    f"({file_info.duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
+                )
             audio_data, sample_rate = sf.read(file_path, dtype=np.float32, always_2d=True)
             if len(audio_data) < file_info.frames:
                 warning(
