@@ -338,11 +338,14 @@ async def list_jobs(status: str | None = None, limit: int = Query(50, ge=1, le=1
 
     # Filter by status if provided
     if status:
-        try:
-            status_enum = ProcessingStatus(status)
-            jobs = [j for j in jobs if j.status == status_enum]
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+        valid_statuses = [s.value for s in ProcessingStatus]
+        if status not in valid_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+            )
+        status_enum = ProcessingStatus(status)
+        jobs = [j for j in jobs if j.status == status_enum]
 
     # Limit results
     jobs = jobs[:limit]
