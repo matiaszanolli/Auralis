@@ -273,8 +273,10 @@ def create_lifespan(deps: dict[str, Any]):
 
                 globals_dict['processing_engine'] = ProcessingEngine(max_concurrent_jobs=2)
                 set_processing_engine(globals_dict['processing_engine'])
-                # Start the processing worker
-                asyncio.create_task(globals_dict['processing_engine'].start_worker())
+                # Start the processing worker — retain strong reference to prevent GC
+                globals_dict['_processing_worker_task'] = asyncio.create_task(
+                    globals_dict['processing_engine'].start_worker()
+                )
                 logger.info("✅ Processing Engine initialized")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Processing Engine: {e}")
