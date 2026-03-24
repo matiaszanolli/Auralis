@@ -548,33 +548,14 @@ class ChunkedAudioProcessor:
 
         logger.info(f"Processing chunk {chunk_index}/{self.total_chunks} (preset: {self.preset}, fast_start: {fast_start})")
 
-        # NEW (Beta.9, updated Phase 4): Extract fingerprint on first chunk if not cached
-        # DELEGATE TO MASTERING TARGET SERVICE (Phase 4 refactoring)
-        if self.fingerprint is None and chunk_index == 0 and self.preset is not None:
-            logger.info(f"🔍 Extracting fingerprint for track {self.track_id} via MasteringTargetService...")
-
-            try:
-                # Extract fingerprint via service (handles saving to .25d file)
-                result = self._mastering_target_service.extract_fingerprint_from_audio(
-                    filepath=self.filepath,
-                    sample_rate=self.sample_rate,
-                    save_to_file=True
-                )
-
-                if result is not None:
-                    self.fingerprint, self.mastering_targets = result
-                    logger.info(f"✅ Fingerprint extracted and targets generated via MasteringTargetService")
-
-                    # Set targets on processor for fixed-target mode
-                    if self.processor is not None:
-                        self.processor.set_fixed_mastering_targets(self.mastering_targets)
-                        logger.info(f"🎯 Applied newly extracted mastering targets to processor")
-
-            except Exception as e:
-                logger.error(f"Fingerprint extraction failed: {e}, using default processing")
-                # Continue with normal processing (HybridProcessor will analyze per-chunk)
-                self.fingerprint = None
-                self.mastering_targets = None
+        # Skip synchronous fingerprint extraction during chunk processing.
+        # Loading the full audio file to compute a fingerprint blocks the first
+        # chunk for 5-30s (depending on file size/format), causing the frontend
+        # to time out and re-send play requests.  The background fingerprint
+        # queue handles extraction asynchronously; subsequent plays will use
+        # the cached result.  HybridProcessor analyzes per-chunk as fallback.
+        if self.fingerprint is None and chunk_index == 0:
+            logger.info(f"ℹ️  No cached fingerprint for track {self.track_id} — using per-chunk adaptive processing")
 
         # Process chunk using shared core logic
         processed_chunk = self._process_chunk_core(chunk_index, fast_start)
