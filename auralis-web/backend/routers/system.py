@@ -583,6 +583,10 @@ def create_system_router(
                         task = _active_streaming_tasks.pop(ws_id, None)
                     if task and not task.done():
                         task.cancel()
+                        try:
+                            await task
+                        except (asyncio.CancelledError, Exception):
+                            pass  # Expected — task is being stopped
                         logger.info("Cancelled active streaming task")
 
                     # Broadcast stop state to client
