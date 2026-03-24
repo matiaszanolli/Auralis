@@ -223,15 +223,27 @@ class ProcessingEngine:
         """Register a callback for job progress updates"""
         self.progress_callbacks[job_id] = callback
 
+    def unregister_progress_callback(self, job_id: str) -> None:
+        """Remove a progress callback (e.g. on WebSocket disconnect)."""
+        self.progress_callbacks.pop(job_id, None)
+
     async def _notify_progress(self, job_id: str, progress: float, message: str = "") -> None:
-        """Notify progress callback"""
+        """Notify progress callback.
+
+        Silences and removes callbacks that raise (e.g. dead WebSocket),
+        so a WS disconnect does not abort the processing job (#3325).
+        """
         job = self.jobs.get(job_id)
         if job:
             job.progress = progress
 
             if job_id in self.progress_callbacks:
                 callback = self.progress_callbacks[job_id]
-                await callback(job_id, progress, message)
+                try:
+                    await callback(job_id, progress, message)
+                except Exception:
+                    logger.debug("Progress callback for job %s failed, removing", job_id)
+                    self.progress_callbacks.pop(job_id, None)
 
     def _get_processor_cache_key(self, mode: str, config: UnifiedConfig) -> str:
         """

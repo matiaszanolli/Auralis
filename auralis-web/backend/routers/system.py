@@ -181,6 +181,9 @@ def create_system_router(
             except Exception:
                 pass  # Best-effort: don't fail the connection
 
+        # Track job IDs this WS subscribed to, for cleanup on disconnect (#3325)
+        _subscribed_job_ids: set[str] = set()
+
         try:
             while True:
                 # Wait for messages from client.
@@ -758,6 +761,7 @@ def create_system_router(
                             }))
 
                         processing_engine.register_progress_callback(job_id, progress_callback)
+                        _subscribed_job_ids.add(job_id)
 
                 else:
                     # Unknown message type (fixes #2417)
@@ -790,6 +794,13 @@ def create_system_router(
 
             # Clean up rate limiter (fixes #2156)
             _rate_limiter.cleanup(websocket)
+
+            # Remove stale progress callbacks on WS disconnect (#3325)
+            if _subscribed_job_ids:
+                processing_engine = get_processing_engine()
+                if processing_engine:
+                    for jid in _subscribed_job_ids:
+                        processing_engine.unregister_progress_callback(jid)
 
             # Remove from connection manager
             await manager.disconnect(websocket)
