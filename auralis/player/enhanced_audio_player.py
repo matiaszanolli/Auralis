@@ -112,6 +112,7 @@ class AudioPlayer:
         # Control flags
         self.auto_advance = True
         self._auto_advancing = threading.Event()
+        self._stop_requested = threading.Event()  # Prevents auto-advance after stop() (#3296)
 
         info("Enhanced AudioPlayer initialized (refactored architecture, RepositoryFactory support enabled, fingerprinting enabled)")
 
@@ -119,6 +120,7 @@ class AudioPlayer:
 
     def play(self) -> bool:
         """Start playback"""
+        self._stop_requested.clear()
         if not self.file_manager.is_loaded():
             warning("No audio file loaded")
             return False
@@ -130,6 +132,7 @@ class AudioPlayer:
 
     def stop(self) -> bool:
         """Stop playback"""
+        self._stop_requested.set()
         self._auto_advancing.clear()
         return self.playback.stop()
 
@@ -390,6 +393,8 @@ class AudioPlayer:
     def _auto_advance_next(self) -> None:
         """Auto-advance to next track (background thread, runs at most once)"""
         try:
+            if self._stop_requested.is_set():
+                return  # User called stop() — don't start next track (#3296)
             if self.playback.is_playing():
                 self.next_track()
         except Exception:
