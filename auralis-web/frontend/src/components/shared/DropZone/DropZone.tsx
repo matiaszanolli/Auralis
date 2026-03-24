@@ -13,6 +13,7 @@ import { DropZonePaper } from './DropZoneStyles';
 import { useDropZone } from './useDropZone';
 import { DropZoneIcon } from './DropZoneIcon';
 import { DropZoneText } from './DropZoneText';
+import { getElectronAPI } from '@/utils/electron';
 
 export interface DropZoneProps {
   onFolderDrop: (folderPath: string) => void;
@@ -57,17 +58,24 @@ export const DropZone = ({
     [handleDrop, onFolderDrop]
   );
 
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback(async () => {
     if (disabled || scanning) return;
+    if (!onFolderSelect) return;
 
-    // Trigger folder selection dialog
-    if (onFolderSelect) {
-      // In web browser, show input prompt
-      const folderPath = prompt('Enter folder path to scan:');
-      if (folderPath) {
-        onFolderSelect(folderPath);
+    // Use Electron folder picker if available
+    const electronAPI = getElectronAPI();
+    if (electronAPI?.selectFolder) {
+      try {
+        const result = await electronAPI.selectFolder();
+        if (result?.[0]) {
+          onFolderSelect(result[0]);
+        }
+      } catch (err) {
+        console.error('Folder picker failed:', err);
       }
     }
+    // prompt() is not supported in Electron — omit the web fallback
+    // since this app runs exclusively as a desktop Electron app.
   }, [disabled, scanning, onFolderSelect]);
 
   const handleKeyDown = useCallback(

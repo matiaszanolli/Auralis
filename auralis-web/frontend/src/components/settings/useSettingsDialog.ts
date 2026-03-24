@@ -104,11 +104,8 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
       }
     }
 
-    // Fallback to prompt for web
-    if (!folder) {
-      folder = prompt('Enter folder path:');
-    }
-
+    // prompt() is not supported in Electron — if the picker was cancelled
+    // or unavailable, bail out silently.
     if (!folder) return;
 
     setError(null);
