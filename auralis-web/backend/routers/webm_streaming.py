@@ -37,7 +37,7 @@ from collections.abc import Callable
 
 # Import WAV encoder (replacing WebM for browser compatibility)
 from encoding.wav_encoder import WAVEncoderError, encode_to_wav
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Path as PathParam, Query, Response
 from pydantic import BaseModel
 
 from .dependencies import require_repository_factory
@@ -214,7 +214,7 @@ def create_webm_streaming_router(
     @router.get("/api/stream/{track_id}/chunk/{chunk_idx}")
     async def stream_chunk(
         track_id: int,
-        chunk_idx: int,
+        chunk_idx: int = PathParam(..., ge=0, description="Chunk index (must be non-negative)"),
         preset: str = Query("adaptive", description="Processing preset (for cache key)"),
         intensity: float = Query(1.0, ge=0.0, le=1.0, description="Processing intensity (for cache key)"),
         enhanced: bool = Query(True, description="Whether enhancement was requested (for cache key)")
