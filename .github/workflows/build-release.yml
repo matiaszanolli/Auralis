@@ -1,0 +1,257 @@
+name: Build Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.2.1-beta.2)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      is_prerelease: ${{ steps.get_version.outputs.is_prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event.inputs.version }}" != "" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [[ "$VERSION" =~ (beta|alpha|rc) ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+          echo "Building version: $VERSION"
+
+  build-linux:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsndfile1 libffi-dev libasound2-dev libportaudio2 portaudio19-dev
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel maturin
+          pip install -r requirements.txt
+
+      - name: Build Rust DSP module
+        run: |
+          cd vendor/auralis-dsp
+          maturin build --release
+          pip install target/wheels/*.whl
+
+      - name: Build frontend
+        run: |
+          cd auralis-web/frontend
+          npm install
+          npm run build
+
+      - name: Prepare desktop resources
+        run: |
+          rsync -a --delete auralis-web/frontend/dist/ desktop/resources/frontend/
+          rsync -a --delete auralis-web/backend/ desktop/resources/backend/ \
+            --exclude='__pycache__' --exclude='*.pyc' --exclude='build' --exclude='dist'
+          rsync -a --delete auralis/ desktop/resources/auralis/ \
+            --exclude='__pycache__' --exclude='*.pyc'
+
+      - name: Build Electron app (Linux)
+        run: |
+          cd desktop
+          npm install
+          npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-binaries
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+          retention-days: 30
+
+  build-windows:
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel maturin
+          pip install -r requirements.txt
+
+      - name: Build Rust DSP module
+        shell: pwsh
+        run: |
+          cd vendor/auralis-dsp
+          maturin build --release
+          $wheel = Get-ChildItem target/wheels/*.whl | Select-Object -First 1
+          pip install $wheel.FullName
+
+      - name: Build frontend
+        run: |
+          cd auralis-web/frontend
+          npm install
+          npm run build
+
+      - name: Prepare desktop resources
+        shell: pwsh
+        run: |
+          # Sync frontend
+          if (Test-Path desktop/resources/frontend) { Remove-Item -Recurse -Force desktop/resources/frontend }
+          Copy-Item -Recurse auralis-web/frontend/dist desktop/resources/frontend
+
+          # Sync backend (exclude pycache)
+          if (Test-Path desktop/resources/backend) { Remove-Item -Recurse -Force desktop/resources/backend }
+          Copy-Item -Recurse auralis-web/backend desktop/resources/backend
+          Get-ChildItem -Recurse desktop/resources/backend -Include __pycache__,*.pyc | Remove-Item -Recurse -Force
+
+          # Sync auralis core
+          if (Test-Path desktop/resources/auralis) { Remove-Item -Recurse -Force desktop/resources/auralis }
+          Copy-Item -Recurse auralis desktop/resources/auralis
+          Get-ChildItem -Recurse desktop/resources/auralis -Include __pycache__,*.pyc | Remove-Item -Recurse -Force
+
+      - name: Build Electron app (Windows)
+        run: |
+          cd desktop
+          npm install
+          npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-binaries
+          path: |
+            dist/*.exe
+            dist/*.exe.blockmap
+          retention-days: 30
+
+  build-macos:
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: brew install protobuf libsndfile portaudio
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel maturin
+          pip install -r requirements.txt
+
+      - name: Build Rust DSP module
+        run: |
+          cd vendor/auralis-dsp
+          maturin build --release
+          pip install target/wheels/*.whl
+
+      - name: Build frontend
+        run: |
+          cd auralis-web/frontend
+          npm install
+          npm run build
+
+      - name: Prepare desktop resources
+        run: |
+          rsync -a --delete auralis-web/frontend/dist/ desktop/resources/frontend/
+          rsync -a --delete auralis-web/backend/ desktop/resources/backend/ \
+            --exclude='__pycache__' --exclude='*.pyc' --exclude='build' --exclude='dist'
+          rsync -a --delete auralis/ desktop/resources/auralis/ \
+            --exclude='__pycache__' --exclude='*.pyc'
+
+      - name: Build Electron app (macOS)
+        run: |
+          cd desktop
+          npm install
+          npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-binaries
+          path: |
+            dist/*.dmg
+          retention-days: 30
+
+  create-release:
+    needs: [prepare, build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: Display artifacts
+        run: find ./artifacts -type f | sort
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: Auralis v${{ needs.prepare.outputs.version }}
+          draft: true
+          prerelease: ${{ needs.prepare.outputs.is_prerelease }}
+          generate_release_notes: true
+          files: |
+            artifacts/*.AppImage
+            artifacts/*.deb
+            artifacts/*.exe
+            artifacts/*.dmg

@@ -5,16 +5,16 @@ Single source of truth for version across the entire project.
 
 from typing import Any
 
-__version__ = "1.2.1-beta.1"
-__version_info__ = (1, 2, 1, "beta", 1)
-__build_date__ = "2026-02-20"
+__version__ = "1.2.1-beta.2"
+__version_info__ = (1, 2, 1, "beta", 2)
+__build_date__ = "2026-03-23"
 __git_commit__ = ""  # Auto-populated during build
 
 # Version components for programmatic access
 VERSION_MAJOR = 1
 VERSION_MINOR = 2
 VERSION_PATCH = 1
-VERSION_PRERELEASE = "beta.1"  # Empty string for stable releases
+VERSION_PRERELEASE = "beta.2"  # Empty string for stable releases
 VERSION_BUILD = ""  # Optional build metadata
 
 # Semantic version string
