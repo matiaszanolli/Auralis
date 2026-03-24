@@ -136,11 +136,13 @@ setup_middleware(app)
 setup_routers(app, deps)
 
 # Frontend static file serving
-if hasattr(sys, 'frozen') and hasattr(sys, '_MEIPASS') and os.environ.get('ELECTRON_MODE') == '1':
-    # PyInstaller bundle running in Electron AppImage
-    # Frontend is in resources/frontend, not in the PyInstaller bundle
-    # Use working directory to find resources (cwd is resources/backend)
+if os.environ.get('ELECTRON_MODE') == '1':
+    # Running inside Electron (frozen binary or script)
+    # Frontend is in resources/frontend alongside resources/backend
     frontend_path = Path(os.getcwd()).parent / "frontend"
+    if not frontend_path.exists():
+        # Fallback: resolve relative to this script
+        frontend_path = Path(__file__).resolve().parent.parent / "frontend"
     logger.info(f"Electron mode: looking for frontend at {frontend_path}")
 elif hasattr(sys, 'frozen') and hasattr(sys, '_MEIPASS'):
     # PyInstaller bundle but not Electron - frontend might be bundled
@@ -149,7 +151,7 @@ elif hasattr(sys, 'frozen') and hasattr(sys, '_MEIPASS'):
     logger.info(f"PyInstaller mode: _MEIPASS={meipass}")
 else:
     # Development mode - look in regular location
-    frontend_path = Path(__file__).parent.parent / "frontend" / "build"
+    frontend_path = Path(__file__).parent.parent / "frontend" / "dist"
 
 logger.info(f"Looking for frontend at: {frontend_path}")
 
