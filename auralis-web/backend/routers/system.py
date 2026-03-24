@@ -7,6 +7,7 @@ Infrastructure endpoints for system monitoring and real-time communication.
 import asyncio
 import json
 import logging
+import math
 from typing import Any
 from collections.abc import Callable
 
@@ -295,6 +296,8 @@ def create_system_router(
 
                     # Resume position for WS reconnect (#3185)
                     start_position = float(data.get("start_position", 0.0) or 0.0)
+                    if not math.isfinite(start_position):
+                        start_position = 0.0
 
                     logger.info(
                         f"Received play_enhanced: track_id={track_id}, "
@@ -446,6 +449,8 @@ def create_system_router(
 
                     # Resume position for WS reconnect (#3185)
                     start_position = float(data.get("start_position", 0.0) or 0.0)
+                    if not math.isfinite(start_position):
+                        start_position = 0.0
 
                     logger.info(
                         f"Received play_normal: track_id={track_id}"
@@ -614,7 +619,7 @@ def create_system_router(
                         )
                         continue
 
-                    if not isinstance(position, (int, float)) or position < 0:
+                    if not isinstance(position, (int, float)) or not math.isfinite(position) or position < 0:
                         logger.warning(f"Invalid seek position: {position!r}")
                         await send_error_response(
                             websocket,
