@@ -74,7 +74,7 @@ class AudioFileManager:
             error(f"Failed to load file {file_path}: {e}")
             return False
 
-    def load_reference(self, file_path: str) -> bool:
+    def load_reference(self, file_path: str) -> np.ndarray | None:
         """
         Load a reference file for mastering.
 
@@ -82,12 +82,12 @@ class AudioFileManager:
             file_path: Path to the reference audio file
 
         Returns:
-            bool: True if successful
+            The loaded reference audio data, or None on failure.
         """
         try:
             if not Path(file_path).exists():
                 error(f"Reference file not found: {file_path}")
-                return False
+                return None
 
             # Load outside the lock (I/O may be slow); then swap atomically.
             reference_data, ref_sample_rate = load(file_path, "reference")
@@ -96,13 +96,15 @@ class AudioFileManager:
                 self.reference_file = file_path
 
             info(f"Reference loaded: {file_path}")
-            info(f"Reference duration: {len(self.reference_data) / ref_sample_rate:.1f}s")
+            info(f"Reference duration: {len(reference_data) / ref_sample_rate:.1f}s")
 
-            return True
+            # Return the local copy — avoids TOCTOU race reading self.reference_data
+            # after releasing the lock (#3302).
+            return reference_data
 
         except Exception as e:
             error(f"Failed to load reference {file_path}: {e}")
-            return False
+            return None
 
     def get_audio_chunk(
         self,

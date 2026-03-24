@@ -241,14 +241,14 @@ class AudioPlayer:
         Returns:
             bool: True if successful
         """
-        success = self.file_manager.load_reference(file_path)
-        if success:
-            self.processor.set_reference_audio(self.file_manager.reference_data)  # type: ignore[arg-type]
+        ref_data = self.file_manager.load_reference(file_path)
+        if ref_data is not None:
+            self.processor.set_reference_audio(ref_data)
             self.integration._notify_callbacks({
                 'action': 'reference_loaded',
                 'file': file_path
             })
-        return success
+        return ref_data is not None
 
     def load_track_from_library(self, track_id: int) -> bool:
         """

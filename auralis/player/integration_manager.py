@@ -169,7 +169,7 @@ class IntegrationManager:
         try:
             # Try recommended reference first
             if track.recommended_reference and Path(track.recommended_reference).exists():
-                if self.file_manager.load_reference(cast(str, track.recommended_reference)):
+                if self.file_manager.load_reference(cast(str, track.recommended_reference)) is not None:
                     info(f"Using recommended reference: {track.recommended_reference}")
                     self._notify_callbacks({
                         'action': 'reference_loaded',
@@ -183,7 +183,7 @@ class IntegrationManager:
 
             for ref_track in references:
                 if Path(cast(str, ref_track.filepath)).exists():
-                    if self.file_manager.load_reference(cast(str, ref_track.filepath)):
+                    if self.file_manager.load_reference(cast(str, ref_track.filepath)) is not None:
                         ref_name = f"{ref_track.title} by {ref_track.artists[0].name if ref_track.artists else 'Unknown'}"
                         info(f"Auto-selected reference: {ref_name}")
                         self._notify_callbacks({
