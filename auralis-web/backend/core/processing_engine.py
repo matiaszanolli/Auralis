@@ -704,20 +704,17 @@ class ProcessingEngine:
         jobs_to_remove: list[str] = []
         files_to_delete: list[Path] = []
 
-        # Phase 1: identify expired jobs and collect file paths under lock
+        # Phase 1: identify expired jobs under lock (no blocking I/O)
+        candidate_paths: list[tuple[Path, Path]] = []  # (output_path, input_path)
+        upload_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
+
         async with self._jobs_lock:
-            upload_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
             for job_id, job in self.jobs.items():
                 if job.status in [ProcessingStatus.COMPLETED, ProcessingStatus.FAILED, ProcessingStatus.CANCELLED]:
                     if job.completed_at is not None:
                         age_hours = (now - job.completed_at).total_seconds() / 3600
                         if age_hours > max_age_hours:
-                            output_path = Path(job.output_path)
-                            if output_path.exists():
-                                files_to_delete.append(output_path)
-                            input_path = Path(job.input_path)
-                            if input_path.exists() and input_path.is_relative_to(upload_dir):
-                                files_to_delete.append(input_path)
+                            candidate_paths.append((Path(job.output_path), Path(job.input_path)))
                             jobs_to_remove.append(job_id)
 
             for job_id in jobs_to_remove:
@@ -725,7 +722,16 @@ class ProcessingEngine:
                 if job_id in self.progress_callbacks:
                     del self.progress_callbacks[job_id]
 
-        # Phase 2: delete files outside the lock to avoid blocking
+        # Phase 2: filesystem checks and deletions outside the lock (#3327)
+        for output_path, input_path in candidate_paths:
+            try:
+                if output_path.exists():
+                    files_to_delete.append(output_path)
+                if input_path.exists() and input_path.is_relative_to(upload_dir):
+                    files_to_delete.append(input_path)
+            except OSError:
+                pass  # Path check failed — skip
+
         for file_path in files_to_delete:
             try:
                 file_path.unlink(missing_ok=True)
