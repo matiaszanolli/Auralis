@@ -514,7 +514,7 @@ class AudioStreamController:
         # Get track from library
         try:
             factory = self._get_repository_factory()
-            track = factory.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(factory.tracks.get_by_id, track_id)
             if not track:
                 await self._send_error(websocket, track_id, "Track not found")
                 self._stream_semaphore.release()
@@ -768,7 +768,7 @@ class AudioStreamController:
         # Get track from library
         try:
             factory = self._get_repository_factory()
-            track = factory.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(factory.tracks.get_by_id, track_id)
             if not track:
                 await self._send_error(websocket, track_id, "Track not found")
                 self._stream_semaphore.release()
@@ -1170,7 +1170,7 @@ class AudioStreamController:
                     return  # No next track
 
             next_track_id = track_ids[next_idx]
-            next_track = factory.tracks.get_by_id(next_track_id)
+            next_track = await asyncio.to_thread(factory.tracks.get_by_id, next_track_id)
             if not next_track or not Path(next_track.filepath).exists():
                 return
 
@@ -1539,7 +1539,7 @@ class AudioStreamController:
         # Get track from library
         try:
             factory = self._get_repository_factory()
-            track = factory.tracks.get_by_id(track_id)
+            track = await asyncio.to_thread(factory.tracks.get_by_id, track_id)
             if not track:
                 await self._send_error(websocket, track_id, "Track not found")
                 self._stream_semaphore.release()
