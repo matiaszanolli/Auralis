@@ -76,6 +76,7 @@ const SelectableTrackRow = ({
         checked={isSelected}
         onClick={handleCheckboxClick}
         size="small"
+        inputProps={{ 'aria-label': `Select ${track.title}` }}
       />
       <TrackContainer>
         <TrackRow
