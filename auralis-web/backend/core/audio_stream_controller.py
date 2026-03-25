@@ -1193,6 +1193,9 @@ class AudioStreamController:
                     logger.info(f"Next track {next_track_id} chunk 0 already cached")
                     return
 
+            # Clear any stale tail from a previous play of this track
+            self._chunk_tails.pop(next_track_id, None)
+
             # Create processor and process chunk 0 (populates cache)
             processor = await asyncio.to_thread(
                 self.chunked_processor_class,
