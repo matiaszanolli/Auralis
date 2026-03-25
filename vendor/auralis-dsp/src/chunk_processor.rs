@@ -167,11 +167,25 @@ where
         let chunk = audio.slice(ndarray::s![start..end]);
         let processed = process_fn(&chunk);
 
-        // Write to output
+        // Write to output with overlap-add (matching process_chunks behaviour)
         let write_len = processed.len().min(total_samples - start);
-        output
-            .slice_mut(ndarray::s![start..(start + write_len)])
-            .assign(&processed.slice(ndarray::s![..write_len]));
+        if chunk_idx > 0 && overlap > 0 {
+            // Accumulate in the overlap region
+            let ola_samples = overlap.min(write_len);
+            output
+                .slice_mut(ndarray::s![start..start + ola_samples])
+                .scaled_add(1.0, &processed.slice(ndarray::s![..ola_samples]));
+            // Assign the non-overlap remainder
+            if write_len > ola_samples {
+                output
+                    .slice_mut(ndarray::s![start + ola_samples..start + write_len])
+                    .assign(&processed.slice(ndarray::s![ola_samples..write_len]));
+            }
+        } else {
+            output
+                .slice_mut(ndarray::s![start..start + write_len])
+                .assign(&processed.slice(ndarray::s![..write_len]));
+        }
     }
 
     output
