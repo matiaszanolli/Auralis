@@ -758,10 +758,11 @@ def create_system_router(
                     flow_event.set()
                     _stream_flow_events[ws_id] = flow_event
 
-                    # Register new seek task under lock (fixes #2425)
+                    # Register new seek task under lock (fixes #2425, #3348)
                     async with _active_streaming_tasks_lock:
                         task = asyncio.create_task(stream_from_position())
                         _active_streaming_tasks[ws_id] = task
+                        _active_streaming_track_ids[ws_id] = track_id
                     logger.info(f"Started seek streaming task for track {track_id} at {position}s")
 
                 elif message.get("type") == "subscribe_job_progress":
