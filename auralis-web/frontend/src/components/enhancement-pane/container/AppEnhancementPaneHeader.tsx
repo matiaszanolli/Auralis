@@ -37,7 +37,7 @@ export const AppEnhancementPaneHeader = ({
           aria-expanded={!isCollapsed}
           size="small"
           sx={{
-            color: 'rgba(255, 255, 255, 0.5)',
+            color: tokens.colors.text.secondary,
             padding: '4px',
             '&:hover': {
               color: tokens.colors.text.secondary,
