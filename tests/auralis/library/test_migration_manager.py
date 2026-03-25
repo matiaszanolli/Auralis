@@ -30,14 +30,15 @@ def test_get_current_version_returns_zero_on_fresh_db(empty_db):
 
 
 def test_session_usable_after_get_current_version_on_fresh_db(empty_db):
-    """Session must remain usable after get_current_version() fails to find the table.
+    """Sessions must remain usable after get_current_version() fails to find the table.
 
-    Regression test for commit 9c66abd4 / issue #2694: without rollback after the
-    failed query, the session enters an invalidated state and subsequent operations
-    raise InvalidRequestError.
+    Regression test for commit 9c66abd4 / issue #2694: the session-per-call
+    design means each call gets a fresh session, so there is no invalidated
+    state to worry about.  Verify by opening a new session and running a query.
     """
     empty_db.get_current_version()
 
-    # Session should still be usable — a simple query must not raise
-    result = empty_db.session.execute(text("SELECT 1")).scalar()
+    # A fresh session should work fine after get_current_version()
+    with empty_db._get_session() as session:
+        result = session.execute(text("SELECT 1")).scalar()
     assert result == 1

@@ -52,10 +52,11 @@ class TestMigrationManager:
         assert manager.get_current_version() == __db_schema_version__
 
         # Verify schema_version table exists and has entry
-        schema_version = manager.session.query(SchemaVersion).first()
-        assert schema_version is not None
-        assert schema_version.version == __db_schema_version__
-        assert schema_version.description == "Initial schema"
+        with manager._get_session() as session:
+            schema_version = session.query(SchemaVersion).first()
+            assert schema_version is not None
+            assert schema_version.version == __db_schema_version__
+            assert schema_version.description == "Initial schema"
 
         manager.close()
 
@@ -92,13 +93,13 @@ class TestMigrationManager:
         manager.initialize_fresh_database()
 
         # Manually set version to future version
-        future_version = SchemaVersion(
-            version=999,
-            description="Future version",
-            migration_script="test"
-        )
-        manager.session.add(future_version)
-        manager.session.commit()
+        with manager._get_session() as session:
+            future_version = SchemaVersion(
+                version=999,
+                description="Future version",
+                migration_script="test"
+            )
+            session.add(future_version)
 
         # Should detect version mismatch
         assert manager.get_current_version() == 999
@@ -113,10 +114,11 @@ class TestMigrationManager:
         manager.initialize_fresh_database()
 
         # Query schema_version table
-        versions = manager.session.query(SchemaVersion).all()
-        assert len(versions) == 1
-        assert versions[0].version == __db_schema_version__
-        assert versions[0].applied_at is not None
+        with manager._get_session() as session:
+            versions = session.query(SchemaVersion).all()
+            assert len(versions) == 1
+            assert versions[0].version == __db_schema_version__
+            assert versions[0].applied_at is not None
 
         manager.close()
 

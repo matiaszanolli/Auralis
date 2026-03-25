@@ -143,9 +143,21 @@ class MigrationManager:
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.close()
 
-        Session = sessionmaker(self.engine)
-        self.session = Session()
+        self._SessionFactory = sessionmaker(self.engine)
         self.migrations_dir = Path(__file__).parent / "migrations"
+
+    @contextmanager
+    def _get_session(self):
+        """Yield a short-lived session that is always closed."""
+        session = self._SessionFactory()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def get_current_version(self) -> int:
         """
@@ -155,19 +167,17 @@ class MigrationManager:
             Current schema version number, or 0 if no version table exists
         """
         try:
-            # Try to query the schema_version table
-            result = self.session.execute(
-                select(SchemaVersion).order_by(SchemaVersion.version.desc())
-            ).scalars().first()
+            with self._get_session() as session:
+                result = session.execute(
+                    select(SchemaVersion).order_by(SchemaVersion.version.desc())
+                ).scalars().first()
 
-            if result:
-                return int(result.version)
-            else:
-                # Table exists but is empty - this is a fresh database
-                return 0
+                if result:
+                    return int(result.version)
+                else:
+                    # Table exists but is empty - this is a fresh database
+                    return 0
         except Exception as e:
-            # Table doesn't exist yet — rollback so the session stays usable
-            self.session.rollback()
             logger.debug(f"Schema version table not found: {e}")
             return 0
 
@@ -180,21 +190,14 @@ class MigrationManager:
             description: Description of the migration
             migration_script: Name of the migration script file
         """
-        schema_version = SchemaVersion(
-            version=version,
-            description=description,
-            migration_script=migration_script
-        )
-        self.session.add(schema_version)
-        try:
-            self.session.commit()
-            logger.info(f"✅ Recorded migration to v{version}: {description}")
-        except Exception as e:
-            # Roll back so the session stays usable and the DB isn't left with a
-            # partially-applied migration record (fixes #2313).
-            self.session.rollback()
-            logger.error(f"❌ Failed to record migration v{version}: {e}")
-            raise
+        with self._get_session() as session:
+            schema_version = SchemaVersion(
+                version=version,
+                description=description,
+                migration_script=migration_script
+            )
+            session.add(schema_version)
+        logger.info(f"✅ Recorded migration to v{version}: {description}")
 
     def apply_migration(self, from_version: int, to_version: int) -> bool:
         """
@@ -292,7 +295,6 @@ class MigrationManager:
 
         except Exception as e:
             logger.error(f"❌ Migration failed: {e}")
-            self.session.rollback()
             raise
 
     def initialize_fresh_database(self) -> bool:
@@ -372,8 +374,7 @@ class MigrationManager:
         return False
 
     def close(self) -> None:
-        """Close database connection and dispose engine (issue #2395)."""
-        self.session.close()
+        """Dispose engine and release all connections (issue #2395)."""
         self.engine.dispose()
 
 

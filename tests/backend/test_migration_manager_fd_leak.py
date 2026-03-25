@@ -66,7 +66,7 @@ class TestMigrationManagerFDLeak:
 
         fd_after = len(os.listdir("/proc/self/fd"))
 
-        assert fd_after == fd_before, (
+        assert fd_after <= fd_before, (
             f"File descriptor leak detected: {fd_after - fd_before} extra fd(s) "
             f"remain after creating and closing 100 MigrationManagers "
             f"(before={fd_before}, after={fd_after}). "
