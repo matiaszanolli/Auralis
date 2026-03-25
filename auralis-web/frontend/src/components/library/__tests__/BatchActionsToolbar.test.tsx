@@ -77,11 +77,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        expect(screen.getByRole('button', { name: /playlist/i })).toBeInTheDocument();
-      } catch {
-        expect(screen.getByTitle(/playlist/i) || document.querySelector('[title*="Playlist"]')).toBeTruthy();
-      }
+      expect(screen.getByRole('button', { name: /playlist/i })).toBeInTheDocument();
     });
 
     it('should render add to queue button', () => {
@@ -93,11 +89,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        expect(screen.getByRole('button', { name: /queue/i })).toBeInTheDocument();
-      } catch {
-        expect(screen.getByTitle(/queue/i) || document.querySelector('[title*="Queue"]')).toBeTruthy();
-      }
+      expect(screen.getByRole('button', { name: /queue/i })).toBeInTheDocument();
     });
 
     it('should render favorite button', () => {
@@ -109,11 +101,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        expect(screen.getByRole('button', { name: /favorite/i })).toBeInTheDocument();
-      } catch {
-        expect(screen.getByTitle(/favorite/i) || document.querySelector('[title*="Favorite"]')).toBeTruthy();
-      }
+      expect(screen.getByRole('button', { name: /favorite/i })).toBeInTheDocument();
     });
 
     it('should render delete button', () => {
@@ -125,11 +113,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
-      } catch {
-        expect(screen.getByTitle(/delete|remove/i) || document.querySelector('[title*="Delete"]')).toBeTruthy();
-      }
+      expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
     });
 
     it('should render more actions button', () => {
@@ -141,11 +125,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        expect(screen.getByRole('button', { name: /more/i })).toBeInTheDocument();
-      } catch {
-        expect(screen.getByTitle(/more/i) || document.querySelector('[title*="More"]')).toBeTruthy();
-      }
+      expect(screen.getByRole('button', { name: /more/i })).toBeInTheDocument();
     });
 
     it('should render close button', () => {
@@ -156,12 +136,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        const closeButtons = screen.getAllByRole('button', { name: /close|clear/i });
-        expect(closeButtons.length).toBeGreaterThan(0);
-      } catch {
-        expect(screen.getAllByRole('button').length).toBeGreaterThan(0);
-      }
+      expect(screen.getAllByRole('button', { name: /close|clear/i }).length).toBeGreaterThan(0);
     });
   });
 
@@ -178,13 +153,9 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        const button = screen.getByRole('button', { name: /playlist/i });
-        await user.click(button);
-        expect(onAddToPlaylist).toHaveBeenCalled();
-      } catch {
-        expect(onAddToPlaylist).toBeDefined();
-      }
+      const button = screen.getByRole('button', { name: /playlist/i });
+      await user.click(button);
+      expect(onAddToPlaylist).toHaveBeenCalled();
     });
 
     it('should call onAddToQueue when clicked', async () => {
@@ -199,13 +170,9 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        const button = screen.getByRole('button', { name: /queue/i });
-        await user.click(button);
-        expect(onAddToQueue).toHaveBeenCalled();
-      } catch {
-        expect(onAddToQueue).toBeDefined();
-      }
+      const button = screen.getByRole('button', { name: /queue/i });
+      await user.click(button);
+      expect(onAddToQueue).toHaveBeenCalled();
     });
 
     it('should call onToggleFavorite when clicked', async () => {
@@ -220,13 +187,9 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        const button = screen.getByRole('button', { name: /favorite/i });
-        await user.click(button);
-        expect(onToggleFavorite).toHaveBeenCalled();
-      } catch {
-        expect(onToggleFavorite).toBeDefined();
-      }
+      const button = screen.getByRole('button', { name: /favorite/i });
+      await user.click(button);
+      expect(onToggleFavorite).toHaveBeenCalled();
     });
 
     it('should call onRemove when clicked', async () => {
@@ -241,13 +204,9 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        const button = screen.getByRole('button', { name: /delete/i });
-        await user.click(button);
-        expect(onRemove).toHaveBeenCalled();
-      } catch {
-        expect(onRemove).toBeDefined();
-      }
+      const button = screen.getByRole('button', { name: /delete/i });
+      await user.click(button);
+      expect(onRemove).toHaveBeenCalled();
     });
 
     it('should call onClearSelection when close clicked', async () => {
@@ -261,13 +220,9 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        const closeButtons = screen.getAllByRole('button', { name: /close|clear/i });
-        await user.click(closeButtons[closeButtons.length - 1]); // Click the close button
-        expect(onClearSelection).toHaveBeenCalled();
-      } catch {
-        expect(onClearSelection).toBeDefined();
-      }
+      const closeButtons = screen.getAllByRole('button', { name: /close|clear/i });
+      await user.click(closeButtons[closeButtons.length - 1]);
+      expect(onClearSelection).toHaveBeenCalled();
     });
   });
 
@@ -283,13 +238,9 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        const moreButton = screen.getByRole('button', { name: /more/i });
-        await user.click(moreButton);
-        expect(screen.getByText(/edit metadata/i)).toBeInTheDocument();
-      } catch {
-        expect(screen.queryByText(/edit metadata/i) || screen.getByText(/5 tracks selected/i)).toBeTruthy();
-      }
+      const moreButton = screen.getByRole('button', { name: /more/i });
+      await user.click(moreButton);
+      expect(screen.getByText(/edit metadata/i)).toBeInTheDocument();
     });
 
     it('should call onEditMetadata from menu', async () => {
@@ -304,15 +255,11 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        const moreButton = screen.getByRole('button', { name: /more/i });
-        await user.click(moreButton);
-        const editOption = screen.getByText(/edit metadata/i);
-        await user.click(editOption);
-        expect(onEditMetadata).toHaveBeenCalled();
-      } catch {
-        expect(onEditMetadata).toBeDefined();
-      }
+      const moreButton = screen.getByRole('button', { name: /more/i });
+      await user.click(moreButton);
+      const editOption = screen.getByText(/edit metadata/i);
+      await user.click(editOption);
+      expect(onEditMetadata).toHaveBeenCalled();
     });
 
     it('should close menu after action', async () => {
@@ -326,17 +273,13 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      try {
-        const moreButton = screen.getByRole('button', { name: /more/i });
-        await user.click(moreButton);
-        const editOption = screen.getByText(/edit metadata/i);
-        await user.click(editOption);
-        await waitFor(() => {
-          expect(screen.queryByText(/edit metadata/i)).not.toBeInTheDocument();
-        });
-      } catch {
-        expect(screen.getByText(/3 tracks selected/)).toBeInTheDocument();
-      }
+      const moreButton = screen.getByRole('button', { name: /more/i });
+      await user.click(moreButton);
+      const editOption = screen.getByText(/edit metadata/i);
+      await user.click(editOption);
+      await waitFor(() => {
+        expect(screen.queryByText(/edit metadata/i)).not.toBeInTheDocument();
+      });
     });
   });
 
@@ -553,19 +496,14 @@ describe('BatchActionsToolbar', () => {
 
   describe('Animation', () => {
     it('should render with slide animation class', () => {
-      const { container } = render(
+      render(
         <BatchActionsToolbar
             selectedCount={3}
             onClearSelection={vi.fn()}
           />
       );
 
-      try {
-        const toolbar = container.querySelector('[class*="styled"]');
-        expect(toolbar).toBeInTheDocument();
-      } catch {
-        expect(screen.getByText(/3 tracks selected/)).toBeInTheDocument();
-      }
+      expect(screen.getByText(/3 tracks selected/)).toBeInTheDocument();
     });
   });
 
