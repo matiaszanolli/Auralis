@@ -194,7 +194,7 @@ export const QueuePanel = ({
       />
 
       {error && (
-        <div style={styles.errorBanner}>
+        <div style={styles.errorBanner} role="alert">
           <span>{error.message}</span>
         </div>
       )}
