@@ -262,6 +262,21 @@ const Player = () => {
     return volume === 0 || state.isMuted === true;
   }, [volume, state.isMuted]);
 
+  // Stable mute toggle handler (fixes #3163 — last inline handler)
+  const handleMuteToggle = useCallback(async () => {
+    if (isMuted) {
+      await handleVolumeChange(preMuteVolumeRef.current);
+    } else {
+      preMuteVolumeRef.current = volume / 100;
+      await handleVolumeChange(0);
+    }
+  }, [isMuted, volume, handleVolumeChange]);
+
+  // Stable queue toggle handler
+  const handleQueueToggle = useCallback(() => {
+    setQueuePanelOpen(prev => !prev);
+  }, []);
+
   return (
     <Box
       data-testid="player"
@@ -320,20 +335,13 @@ const Player = () => {
             volume={volume / 100}
             onVolumeChange={handleVolumeChange}
             isMuted={isMuted}
-            onMuteToggle={async () => {
-              if (isMuted) {
-                await handleVolumeChange(preMuteVolumeRef.current);
-              } else {
-                preMuteVolumeRef.current = volume / 100;
-                await handleVolumeChange(0);
-              }
-            }}
+            onMuteToggle={handleMuteToggle}
             disabled={hasError}
           />
 
           {/* Queue Button - Compact with glass effects */}
           <button
-            onClick={() => setQueuePanelOpen(!queuePanelOpen)}
+            onClick={handleQueueToggle}
             style={{
               ...styles.queueButton,
               // Active state: medium glass effect with accent color
