@@ -317,16 +317,27 @@ export const WebSocketProvider = ({
           setConnectionStatus('connected');
         }
 
-        // Send queued messages (commands sent while disconnected)
+        // Send queued messages (commands sent while disconnected).
+        // Track whether any queued message supersedes the saved stream command
+        // so we don't re-issue a stale play after reconnect (#3345).
+        let queueHadStreamCommand = false;
         while (messageQueueRef.current.length > 0) {
           const message = messageQueueRef.current.shift();
+          if (message?.type === 'play_enhanced' || message?.type === 'play_normal') {
+            singletonLastStreamCommand = message;
+            queueHadStreamCommand = true;
+          } else if (message?.type === 'stop' || message?.type === 'pause') {
+            singletonLastStreamCommand = null;
+            queueHadStreamCommand = true;
+          }
           manager.send(JSON.stringify(message));
         }
 
         // Re-issue the last active stream command after reconnect (issue #2385).
+        // Skip if the queue already contained a fresh play/stop command (#3345).
         // Inject the current playback position so the backend resumes from where
         // the user is listening, not from the beginning (#3185).
-        if (singletonLastStreamCommand) {
+        if (singletonLastStreamCommand && !queueHadStreamCommand) {
           const resumePos = singletonResumePositionGetter?.() ?? 0;
           const resumeCommand = {
             ...singletonLastStreamCommand,
