@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { post, del } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
 import { useToast } from '@/components/shared/Toast';
@@ -108,10 +108,10 @@ export const useBatchOperations = ({
     await onFetchTracks();
   }, [selectedTracks, onClearSelection, onFetchTracks, success, error]);
 
-  return {
+  return useMemo(() => ({
     handleBulkAddToQueue,
     handleBulkAddToPlaylist,
     handleBulkRemove,
     handleBulkToggleFavorite,
-  };
+  }), [handleBulkAddToQueue, handleBulkAddToPlaylist, handleBulkRemove, handleBulkToggleFavorite]);
 };
