@@ -145,6 +145,7 @@ export const SimilarTracksModal = ({
         </Box>
         <IconButton
           onClick={onClose}
+          aria-label="Close similar tracks"
           sx={{
             color: tokens.colors.text.secondary,
             '&:hover': {
