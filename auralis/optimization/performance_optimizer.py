@@ -49,6 +49,7 @@ class PerformanceOptimizer:
         # Optimization state
         self.optimization_enabled: bool = True
         self.gc_counter: int = 0
+        self._gc_lock = threading.Lock()
 
         info(f"Performance optimizer initialized with config: {self.config}")
 
@@ -119,11 +120,12 @@ class PerformanceOptimizer:
 
         @wraps(process_func)
         def optimized_wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Periodic garbage collection
-            self.gc_counter += 1
-            if self.gc_counter >= self.config.garbage_collect_interval:
-                self._cleanup()
-                self.gc_counter = 0
+            # Periodic garbage collection (thread-safe counter)
+            with self._gc_lock:
+                self.gc_counter += 1
+                if self.gc_counter >= self.config.garbage_collect_interval:
+                    self._cleanup()
+                    self.gc_counter = 0
 
             return cached_func(*args, **kwargs)
 
