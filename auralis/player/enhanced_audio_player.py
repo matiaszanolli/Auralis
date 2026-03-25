@@ -264,10 +264,8 @@ class AudioPlayer:
         Returns:
             bool: True if successful
         """
-        self.playback.set_loading()
-
         if self.integration.load_track_from_library(track_id):
-            self.playback.stop()
+            self.playback.load_and_stop()
             self.gapless.start_prebuffering()
             return True
         else:
