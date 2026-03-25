@@ -68,12 +68,15 @@ class FileDiscovery:
                     visited_inodes = set()
                 yield from self._walk_directory(directory_path, visited_inodes, depth=0)
             else:
-                for ext in AUDIO_EXTENSIONS:
-                    for file_path in directory_path.glob(f"*{ext}"):
-                        if self.should_stop:
-                            return
-                        if not self.should_skip_path(file_path) and file_path.is_file():
-                            yield str(file_path)
+                for file_path in directory_path.iterdir():
+                    if self.should_stop:
+                        return
+                    if (
+                        file_path.is_file()
+                        and file_path.suffix.lower() in AUDIO_EXTENSIONS
+                        and not self.should_skip_path(file_path)
+                    ):
+                        yield str(file_path)
 
         except PermissionError:
             warning(f"Permission denied accessing directory: {directory}")
