@@ -69,7 +69,8 @@ interface WebSocketContextValue {
   disconnect: () => void;
 
   // Stream resumption: register a callback that returns current playback position (#3185)
-  setResumePositionGetter: (getter: (() => number) | null) => void;
+  // Keyed by stream type to avoid race between usePlayEnhanced and usePlayNormal (#3373)
+  setResumePositionGetter: (streamType: string, getter: (() => number) | null) => void;
 }
 
 // ============================================================================
@@ -113,7 +114,7 @@ const singletonGlobalHandlers: Set<MessageHandler> = new Set();
  * Cleared when the client sends an explicit stop or pause.
  */
 let singletonLastStreamCommand: OutgoingWebSocketMessage | null = null;
-let singletonResumePositionGetter: (() => number) | null = null;
+const singletonResumePositionGetters: Record<string, () => number> = {};
 
 /**
  * Reset all WebSocket singletons - ONLY FOR TESTING
@@ -134,9 +135,11 @@ export function resetWebSocketSingletons(): void {
   // Reset ref count
   singletonRefCount = 0;
 
-  // Clear last stream command and resume position getter
+  // Clear last stream command and resume position getters
   singletonLastStreamCommand = null;
-  singletonResumePositionGetter = null;
+  for (const key in singletonResumePositionGetters) {
+    delete singletonResumePositionGetters[key];
+  }
 
   // Clear pending binary metadata
   pendingAudioChunkMeta = null;
@@ -338,7 +341,7 @@ export const WebSocketProvider = ({
         // Inject the current playback position so the backend resumes from where
         // the user is listening, not from the beginning (#3185).
         if (singletonLastStreamCommand && !queueHadStreamCommand) {
-          const resumePos = singletonResumePositionGetter?.() ?? 0;
+          const resumePos = singletonResumePositionGetters[singletonLastStreamCommand.type]?.() ?? 0;
           const resumeCommand = {
             ...singletonLastStreamCommand,
             data: {
@@ -481,8 +484,12 @@ export const WebSocketProvider = ({
     send,
     connect,
     disconnect,
-    setResumePositionGetter: (getter: (() => number) | null) => {
-      singletonResumePositionGetter = getter;
+    setResumePositionGetter: (streamType: string, getter: (() => number) | null) => {
+      if (getter) {
+        singletonResumePositionGetters[streamType] = getter;
+      } else {
+        delete singletonResumePositionGetters[streamType];
+      }
     },
   };
 

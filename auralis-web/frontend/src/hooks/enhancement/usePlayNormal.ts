@@ -616,10 +616,10 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
 
   // Register resume position getter for WS reconnect (#3185)
   useEffect(() => {
-    wsContext.setResumePositionGetter(() =>
+    wsContext.setResumePositionGetter('play_normal', () =>
       playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0
     );
-    return () => wsContext.setResumePositionGetter(null);
+    return () => wsContext.setResumePositionGetter('play_normal', null);
   }, [wsContext]);
 
   // On WS disconnect: preserve playback engine and buffer so buffered audio

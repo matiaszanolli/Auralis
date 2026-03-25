@@ -812,10 +812,10 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   // Register resume position getter so WebSocketContext can inject playback
   // position into the reconnect stream command (#3185).
   useEffect(() => {
-    wsContext.setResumePositionGetter(() =>
+    wsContext.setResumePositionGetter('play_enhanced', () =>
       playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0
     );
-    return () => wsContext.setResumePositionGetter(null);
+    return () => wsContext.setResumePositionGetter('play_enhanced', null);
   }, [wsContext]);
 
   /**
