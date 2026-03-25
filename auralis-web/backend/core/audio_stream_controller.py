@@ -1709,10 +1709,12 @@ class AudioStreamController:
                         f"Failed to process chunk {chunk_idx}: {chunk_error}",
                         exc_info=True
                     )
+                    recovery_position = chunk_idx * chunk_interval
                     await self._send_error(
                         websocket,
                         track_id,
                         f"Failed to process audio chunk {chunk_idx}",
+                        recovery_position=recovery_position,
                     )
                     # Skip failed chunk and continue (#3190)
                     continue
