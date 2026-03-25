@@ -16,7 +16,7 @@
  * ```
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import TrackRow from './TrackRow';
 import { SelectableContainer, StyledCheckbox, TrackContainer } from './SelectableTrackRow.styles';
 import { useTrackRowSelection } from './useTrackRowSelection';
@@ -27,7 +27,7 @@ interface SelectableTrackRowProps {
   track: Track;
   index: number;
   isSelected: boolean;
-  onToggleSelect: (event: React.MouseEvent) => void;
+  onToggleSelect: (trackId: number, event: React.MouseEvent) => void;
   isPlaying?: boolean;
   isCurrent?: boolean;
   isAnyPlaying?: boolean; // Phase 1: Global playback state
@@ -62,8 +62,15 @@ const SelectableTrackRow = ({
   onShowInfo,
   onDelete,
 }: SelectableTrackRowProps) => {
+  // Bind track.id to the selection handler so the parent can pass a
+  // single stable callback for all rows (fixes inline arrow in #3413)
+  const boundToggleSelect = useCallback(
+    (event: React.MouseEvent) => onToggleSelect(track.id, event),
+    [onToggleSelect, track.id]
+  );
+
   const { handleContainerClick, handleCheckboxClick } = useTrackRowSelection({
-    onToggleSelect,
+    onToggleSelect: boundToggleSelect,
   });
 
   return (

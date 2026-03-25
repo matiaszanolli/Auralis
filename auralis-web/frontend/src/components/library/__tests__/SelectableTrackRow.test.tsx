@@ -160,7 +160,7 @@ describe('SelectableTrackRow', () => {
       const checkbox = screen.getByRole('checkbox');
       await user.click(checkbox);
 
-      expect(onToggleSelect).toHaveBeenCalledWith(expect.any(Object));
+      expect(onToggleSelect).toHaveBeenCalledWith(mockTrack.id, expect.any(Object));
     });
   });
 

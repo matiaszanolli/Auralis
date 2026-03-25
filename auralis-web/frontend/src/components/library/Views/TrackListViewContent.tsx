@@ -117,7 +117,7 @@ export const TrackListViewContent = ({
                   track={track}
                   index={virtualRow.index}
                   isSelected={isSelected(track.id)}
-                  onToggleSelect={(e) => onToggleSelect(track.id, e)}
+                  onToggleSelect={onToggleSelect}
                   isPlaying={isPlaying && currentTrackId === track.id}
                   isCurrent={currentTrackId === track.id}
                   isAnyPlaying={isPlaying}
