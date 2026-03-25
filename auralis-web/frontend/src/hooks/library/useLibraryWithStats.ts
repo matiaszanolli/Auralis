@@ -46,7 +46,7 @@ const DEBUG = import.meta.env.DEV;
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
-import { transformBackendTrack, type LibraryStats, type LibraryTrack } from '@/types/domain';
+import { transformBackendTrack, type LibraryStats, type LibraryTrack, type TrackApiResponse } from '@/types/domain';
 import { isElectron, getElectronAPI } from '@/utils/electron';
 
 // ============================================================================
@@ -171,7 +171,7 @@ export const useLibraryWithStats = ({
 
         const response = await fetch(endpoint, { signal: controller.signal });
         if (response.ok) {
-          const data = await response.json();
+          const data: { tracks?: TrackApiResponse[]; has_more?: boolean; total?: number } = await response.json();
 
           const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
 
@@ -255,7 +255,7 @@ export const useLibraryWithStats = ({
 
       const response = await fetch(endpoint, { signal: controller.signal });
       if (response.ok) {
-        const data = await response.json();
+        const data: { tracks?: TrackApiResponse[]; has_more?: boolean; total?: number } = await response.json();
 
         const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
 
@@ -310,7 +310,7 @@ export const useLibraryWithStats = ({
       });
 
       if (response.ok) {
-        const result = await response.json();
+        const result: { files_added?: number } = await response.json();
         success(`Scan complete! Added ${result.files_added || 0} tracks`);
         await fetchTracks();
         // Refresh stats after scan
@@ -318,7 +318,7 @@ export const useLibraryWithStats = ({
           await refetchStatsRef.current();
         }
       } else {
-        const errorData = await response.json();
+        const errorData: { detail?: string } = await response.json();
         toastError(`Scan failed: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (err) {
@@ -350,7 +350,7 @@ export const useLibraryWithStats = ({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: LibraryStats = await response.json();
       setStats(data);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
