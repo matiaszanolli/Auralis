@@ -71,6 +71,7 @@ export const SearchBar = ({
         value={internalValue}
         onChange={handleChange}
         autoFocus={autoFocus}
+        inputProps={{ 'aria-label': 'Search' }}
         InputProps={{
           startAdornment: <SearchInputAdornments.Start />,
           endAdornment: (
