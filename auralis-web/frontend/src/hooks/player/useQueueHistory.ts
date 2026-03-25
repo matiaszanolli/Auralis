@@ -139,6 +139,12 @@ export function useQueueHistory(): QueueHistoryActions {
   const historyRef = useRef(history);
   historyRef.current = history;
 
+  // Guard against setState after unmount (#3253)
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   /**
    * Fetch initial history on mount
    */
@@ -150,7 +156,7 @@ export function useQueueHistory(): QueueHistoryActions {
           count: number;
         }>('/api/player/queue/history');
 
-        if (response) {
+        if (isMountedRef.current && response) {
           setHistory(response.history || []);
         }
       } catch (err) {
@@ -194,18 +200,20 @@ export function useQueueHistory(): QueueHistoryActions {
           }
         );
 
-        if (response) {
+        if (isMountedRef.current && response) {
           // Update local history
           setHistory((prev) => [response, ...prev]);
         }
 
-        setIsLoading(false);
+        if (isMountedRef.current) setIsLoading(false);
       } catch (err) {
-        const apiError: ApiError = isApiError(err)
-          ? err
-          : { status: 0, message: err instanceof Error ? err.message : 'Unknown error' };
-        setError(apiError);
-        setIsLoading(false);
+        if (isMountedRef.current) {
+          const apiError: ApiError = isApiError(err)
+            ? err
+            : { status: 0, message: err instanceof Error ? err.message : 'Unknown error' };
+          setError(apiError);
+          setIsLoading(false);
+        }
         throw err;
       }
     },
@@ -229,14 +237,17 @@ export function useQueueHistory(): QueueHistoryActions {
       // Call undo endpoint
       await post('/api/player/queue/undo', {});
 
-      // Remove the undone entry from local history
-      setHistory((prev) => prev.slice(1));
-
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        // Remove the undone entry from local history
+        setHistory((prev) => prev.slice(1));
+        setIsLoading(false);
+      }
     } catch (err) {
-      const apiError = err as ApiError;
-      setError(apiError);
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        const apiError = err as ApiError;
+        setError(apiError);
+        setIsLoading(false);
+      }
       throw err;
     }
   }, [post]);
@@ -262,13 +273,16 @@ export function useQueueHistory(): QueueHistoryActions {
     try {
       await apiDelete('/api/player/queue/history');
 
-      setHistory([]);
-
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setHistory([]);
+        setIsLoading(false);
+      }
     } catch (err) {
-      const apiError = err as ApiError;
-      setError(apiError);
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        const apiError = err as ApiError;
+        setError(apiError);
+        setIsLoading(false);
+      }
       throw err;
     }
   }, [apiDelete]);
