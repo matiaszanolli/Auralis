@@ -88,28 +88,23 @@ const Player = () => {
 
   const handleNext = useCallback(async () => {
     try {
-      // Check if we have more tracks in the queue
-      if (currentQueueIndex >= queueTracks.length - 1) {
+      const nextIndex = currentQueueIndex + 1;
+      if (nextIndex >= queueTracks.length) {
         DEBUG && console.log('[Player] Already at last track in queue');
         return;
       }
 
-      // Stop current playback
+      const nextTrackData = queueTracks[nextIndex];
+      if (!nextTrackData) return;
+
+      // Stop current playback, then update Redux state in one batch
       stopPlayback();
-
-      // Update queue index
       dispatch(nextTrack());
+      dispatch(setCurrentTrack(nextTrackData));
 
-      // Get next track from queue
-      const nextTrackData = queueTracks[currentQueueIndex + 1];
-      if (nextTrackData) {
-        // Update current track in player state
-        dispatch(setCurrentTrack(nextTrackData));
-
-        // Start playing the new track
-        DEBUG && console.log('[Player] Playing next track:', nextTrackData.title);
-        await playEnhanced(nextTrackData.id, 'adaptive', 1.0);
-      }
+      // Play using the locally-computed track (not re-read from Redux)
+      DEBUG && console.log('[Player] Playing next track:', nextTrackData.title);
+      await playEnhanced(nextTrackData.id, 'adaptive', 1.0);
     } catch (err) {
       console.error('[Player] Next command error:', err);
     }
@@ -117,28 +112,23 @@ const Player = () => {
 
   const handlePrevious = useCallback(async () => {
     try {
-      // Check if we have previous tracks in the queue
-      if (currentQueueIndex <= 0) {
+      const prevIndex = currentQueueIndex - 1;
+      if (prevIndex < 0) {
         DEBUG && console.log('[Player] Already at first track in queue');
         return;
       }
 
-      // Stop current playback
+      const prevTrackData = queueTracks[prevIndex];
+      if (!prevTrackData) return;
+
+      // Stop current playback, then update Redux state in one batch
       stopPlayback();
-
-      // Update queue index
       dispatch(previousTrack());
+      dispatch(setCurrentTrack(prevTrackData));
 
-      // Get previous track from queue
-      const prevTrackData = queueTracks[currentQueueIndex - 1];
-      if (prevTrackData) {
-        // Update current track in player state
-        dispatch(setCurrentTrack(prevTrackData));
-
-        // Start playing the new track
-        DEBUG && console.log('[Player] Playing previous track:', prevTrackData.title);
-        await playEnhanced(prevTrackData.id, 'adaptive', 1.0);
-      }
+      // Play using the locally-computed track (not re-read from Redux)
+      DEBUG && console.log('[Player] Playing previous track:', prevTrackData.title);
+      await playEnhanced(prevTrackData.id, 'adaptive', 1.0);
     } catch (err) {
       console.error('[Player] Previous command error:', err);
     }
