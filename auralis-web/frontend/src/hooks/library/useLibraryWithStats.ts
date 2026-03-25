@@ -376,15 +376,14 @@ export const useLibraryWithStats = ({
   }, [view, autoLoad, includeStats]);
 
   // Refresh library data when backend broadcasts library_updated (#2871)
-  useWebSocketSubscription(
-    ['library_updated'],
-    () => {
-      fetchTracks();
-      if (includeStats) {
-        refetchStats();
-      }
+  const handleLibraryUpdated = useCallback(() => {
+    fetchTracks();
+    if (includeStats) {
+      refetchStats();
     }
-  );
+  }, [fetchTracks, includeStats, refetchStats]);
+
+  useWebSocketSubscription(['library_updated'], handleLibraryUpdated);
 
   // ========================================================================
   // Return
