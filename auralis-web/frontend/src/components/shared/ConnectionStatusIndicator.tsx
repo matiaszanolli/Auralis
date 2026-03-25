@@ -19,6 +19,9 @@ import { useState, useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import { tokens } from '@/design-system';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { useConnectionState } from '@/hooks/shared/useReduxState';
+import { useDispatch } from 'react-redux';
+import { setAPIConnected, setLatency } from '@/store/slices/connectionSlice';
 
 type Position = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
@@ -31,14 +34,6 @@ interface ConnectionStatusIndicatorProps {
    * Compact layout
    */
   compact?: boolean;
-}
-
-interface ConnectionStatus {
-  wsConnected: boolean;
-  apiConnected: boolean;
-  latency: number;
-  isReconnecting: boolean;
-  lastError: Error | null;
 }
 
 /**
@@ -67,39 +62,28 @@ function getPositionStyles(position: Position) {
 
 /**
  * Connection Status Indicator Component
+ *
+ * Reads connection state from Redux (single source of truth) and
+ * dispatches API health-poll results back to the store (#3380).
  */
 export function ConnectionStatusIndicator({
   position = 'bottom-right',
   compact = false,
 }: ConnectionStatusIndicatorProps) {
-  const { isConnected: wsConnected, connectionStatus, connect } = useWebSocketContext();
-  const wsError: Error | null = connectionStatus === 'error' ? new Error('WebSocket connection error') : null;
-  const [status, setStatus] = useState<ConnectionStatus>({
-    wsConnected: false,
-    apiConnected: true,
-    latency: 0,
-    isReconnecting: false,
-    lastError: null,
-  });
+  const dispatch = useDispatch();
+  const { connect } = useWebSocketContext();
+  const status = useConnectionState();
 
   const [showDetails, setShowDetails] = useState(false);
   // Use ref for timer so cleanup always reads the current ID (fixes #2767).
   const autoHideTimerRef = useRef<NodeJS.Timeout | null>(null);
-  // Guard against setState after unmount (fixes #2767).
+  // Guard against dispatch after unmount.
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
 
-  // Update connection status
+  // Auto-hide details panel when connection is restored
   useEffect(() => {
-    setStatus((prev) => ({
-      ...prev,
-      wsConnected,
-      isReconnecting: wsError !== null && !wsConnected,
-      lastError: wsError,
-    }));
-
-    // Auto-hide details panel when connection is restored
-    if (wsConnected && showDetails) {
+    if (status.wsConnected && showDetails) {
       const timer = setTimeout(() => {
         if (mountedRef.current) {
           setShowDetails(false);
@@ -114,9 +98,10 @@ export function ConnectionStatusIndicator({
         autoHideTimerRef.current = null;
       }
     };
-  }, [wsConnected, wsError, showDetails]);
+  }, [status.wsConnected, showDetails]);
 
   // Measure latency with heartbeats — pauses when tab is hidden (#3257)
+  // Results dispatched to Redux so all consumers see the same values (#3380)
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
 
@@ -124,22 +109,16 @@ export function ConnectionStatusIndicator({
       const start = performance.now();
       try {
         const response = await fetch('/api/health', { method: 'GET' });
-        const latency = Math.round(performance.now() - start);
         if (!mountedRef.current) return;
+        const latency = Math.round(performance.now() - start);
         if (response.ok) {
-          setStatus((prev) => ({
-            ...prev,
-            apiConnected: true,
-            latency,
-          }));
+          dispatch(setAPIConnected(true));
+          dispatch(setLatency(latency));
         }
       } catch {
         if (!mountedRef.current) return;
-        setStatus((prev) => ({
-          ...prev,
-          apiConnected: false,
-          latency: 0,
-        }));
+        dispatch(setAPIConnected(false));
+        dispatch(setLatency(0));
       }
     };
 
@@ -172,7 +151,7 @@ export function ConnectionStatusIndicator({
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []);
+  }, [dispatch]);
 
   // Don't show if everything is connected and compact mode
   if (compact && status.wsConnected && status.apiConnected && !showDetails) {
@@ -180,15 +159,16 @@ export function ConnectionStatusIndicator({
   }
 
   const isHealthy = status.wsConnected && status.apiConnected;
+  const isReconnecting = status.lastError !== null && !status.wsConnected;
   const statusColor = isHealthy
     ? tokens.colors.semantic.success
-    : status.isReconnecting
+    : isReconnecting
       ? tokens.colors.semantic.warning
       : tokens.colors.semantic.error;
 
   const statusText = isHealthy
     ? 'Connected'
-    : status.isReconnecting
+    : isReconnecting
       ? 'Reconnecting...'
       : 'Disconnected';
 
@@ -197,7 +177,7 @@ export function ConnectionStatusIndicator({
   return (
     <div
       data-testid="connection-indicator"
-      data-status={isHealthy ? 'connected' : status.isReconnecting ? 'reconnecting' : 'disconnected'}
+      data-status={isHealthy ? 'connected' : isReconnecting ? 'reconnecting' : 'disconnected'}
       style={positionStyles}
       onMouseEnter={() => setShowDetails(true)}
       onMouseLeave={() => setShowDetails(false)}
@@ -226,7 +206,7 @@ export function ConnectionStatusIndicator({
           boxShadow: isHealthy
             ? 'none'
             : `0 0 10px ${statusColor}, inset 0 0 10px ${statusColor}20`,
-          animation: status.isReconnecting ? 'pulse 1s infinite' : 'none',
+          animation: isReconnecting ? 'pulse 1s infinite' : 'none',
         }}
         aria-label={statusText}
         aria-live="assertive"
@@ -278,7 +258,7 @@ export function ConnectionStatusIndicator({
                 borderRadius: '50%',
                 background: statusColor,
                 boxShadow: `0 0 6px ${statusColor}`,
-                animation: status.isReconnecting ? 'pulse 1s infinite' : 'none',
+                animation: isReconnecting ? 'pulse 1s infinite' : 'none',
               }}
             />
             <div
@@ -435,13 +415,13 @@ export function ConnectionStatusIndicator({
                   wordBreak: 'break-word',
                 }}
               >
-                {status.lastError.message}
+                {status.lastError}
               </div>
             </div>
           )}
 
           {/* Reconnect Button */}
-          {status.isReconnecting && (
+          {isReconnecting && (
             <Box
               component="button"
               onClick={() => {
