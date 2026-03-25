@@ -369,18 +369,24 @@ class AudioPlayer:
         if chunk_size is None:
             chunk_size = self.config.buffer_size
 
-        # Return silence if not playing
-        if not self.file_manager.is_loaded() or not self.playback.is_playing():
-            return np.zeros((chunk_size, 2), dtype=np.float32)
+        # Hold _audio_lock across the is_loaded check, position read, chunk
+        # fetch, and end-of-track test so a concurrent stop()/load_file()
+        # cannot unload audio between is_loaded() and the slice (#3295).
+        with self.file_manager._audio_lock:
+            # Return silence if not playing
+            if not self.file_manager.is_loaded() or not self.playback.is_playing():
+                return np.zeros((chunk_size, 2), dtype=np.float32)
 
-        # Atomically read position and advance to prevent seek race (#2153)
-        pos = self.playback.read_and_advance_position(chunk_size)
+            # Atomically read position and advance to prevent seek race (#2153)
+            pos = self.playback.read_and_advance_position(chunk_size)
 
-        # Get raw audio chunk using the captured position
-        chunk = self.file_manager.get_audio_chunk(pos, chunk_size)
+            # Get raw audio chunk using the captured position
+            chunk = self.file_manager.get_audio_chunk(pos, chunk_size)
 
-        # Check for end of track — use atomic flag to prevent concurrent auto-advance
-        if pos + chunk_size >= self.file_manager.get_total_samples():
+            # Check for end of track — use atomic flag to prevent concurrent auto-advance
+            end_of_track = pos + chunk_size >= self.file_manager.get_total_samples()
+
+        if end_of_track:
             if self.auto_advance and not self.queue.is_queue_empty():
                 if not self._auto_advancing.is_set():
                     self._auto_advancing.set()
