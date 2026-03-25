@@ -510,6 +510,32 @@ class StreamlinedCacheManager:
         self.mastering_recommendations.clear()
         logger.info("Cleared all mastering recommendations from cache")
 
+    async def clear_track(self, track_id: int) -> int:
+        """Clear all cached data for a single track.
+
+        Returns the number of cache entries removed.
+        """
+        async with self._lock:
+            # Remove Tier 1 entries for this track
+            t1_keys = [k for k in self.tier1_cache if str(track_id) in str(k)]
+            for key in t1_keys:
+                del self.tier1_cache[key]
+
+            # Remove Tier 2 entries for this track
+            t2_keys = [
+                k for k, chunk in self.tier2_cache.items()
+                if chunk.track_id == track_id
+            ]
+            for key in t2_keys:
+                del self.tier2_cache[key]
+
+            # Remove track status
+            self.track_status.pop(track_id, None)
+
+            removed = len(t1_keys) + len(t2_keys)
+            logger.info(f"Cleared cache for track {track_id} ({removed} entries)")
+            return removed
+
     async def clear_all(self) -> None:
         """Clear all caches."""
         async with self._lock:

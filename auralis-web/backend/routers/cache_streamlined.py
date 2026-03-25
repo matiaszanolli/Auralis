@@ -121,6 +121,17 @@ def create_streamlined_cache_router(
             logger.error(f"Error getting track cache status: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @router.delete("/track/{track_id}")
+    async def clear_track_cache(track_id: int) -> dict[str, Any]:
+        """Clear cached data for a single track."""
+        cache_manager = _require_cache(get_cache_manager)
+        try:
+            removed = await cache_manager.clear_track(track_id)
+            return {"message": f"Cleared cache for track {track_id}", "removed": removed}
+        except Exception as e:
+            logger.error(f"Error clearing cache for track {track_id}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     @router.post("/clear")
     async def clear_cache() -> dict[str, str]:
         """
