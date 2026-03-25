@@ -355,7 +355,7 @@ export function useCacheStats(): APIRequestState<CacheStats> & {
 export function useCacheHealth(refreshInterval: number = 10000): APIRequestState<CacheHealth> & {
   refetch: () => Promise<void>;
   isHealthy: boolean;
-  healthStatus: 'healthy' | 'warning' | 'critical';
+  healthStatus: 'healthy' | 'critical';
 } {
   const query = useQuery<CacheHealth | null>({
     queryKey: ['cache', 'health'],

@@ -103,7 +103,7 @@ describe('CacheHealthWidget', () => {
       loading: false,
       error: null,
       isHealthy: false,
-      healthStatus: 'warning' as const,
+      healthStatus: 'critical' as const,
       refetch: vi.fn(),
     }));
 
@@ -218,7 +218,7 @@ describe('CacheHealthWidget', () => {
       loading: false,
       error: null,
       isHealthy: true,
-      healthStatus: 'warning' as const,
+      healthStatus: 'healthy' as const,
       refetch: vi.fn(),
     }));
 

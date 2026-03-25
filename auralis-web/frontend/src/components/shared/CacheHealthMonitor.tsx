@@ -197,16 +197,12 @@ export function CacheHealthMonitor({
           background:
             healthStatus === 'critical'
               ? tokens.colors.utility.errorBg
-              : healthStatus === 'warning'
-                ? 'rgba(245, 158, 11, 0.1)'
-                : 'rgba(0, 212, 170, 0.1)',
+              : 'rgba(0, 212, 170, 0.1)',
           borderRadius: '8px',
           border: `1px solid ${
             healthStatus === 'critical'
               ? tokens.colors.semantic.error
-              : healthStatus === 'warning'
-                ? tokens.colors.semantic.warning
-                : tokens.colors.semantic.success
+              : tokens.colors.semantic.success
           }`,
           display: 'flex',
           alignItems: 'center',
