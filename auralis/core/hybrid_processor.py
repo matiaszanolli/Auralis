@@ -468,13 +468,20 @@ def _apply_module_optimizations() -> None:
 
     This prevents redundant wrapping of methods every time HybridProcessor is created.
     Optimizations are cached and reused across all instances.
+
+    Guarded by an idempotency flag so repeated calls (e.g., in worker
+    processes that re-import the module) do not double-wrap (#3353).
     """
+    if getattr(AdaptiveMode, '_optimized', False):
+        return
+
     try:
         perf_opt = get_performance_optimizer()
 
         # Optimize AdaptiveMode.process at the class level
         original_process = AdaptiveMode.process
         AdaptiveMode.process = perf_opt.optimize_real_time_processing(original_process)  # type: ignore[method-assign]
+        AdaptiveMode._optimized = True  # type: ignore[attr-defined]
 
         # Note: We don't optimize HybridProcessor.process_realtime_chunk at module level
         # because it's an instance method. It will use the optimizer's cached methods
