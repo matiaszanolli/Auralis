@@ -117,6 +117,7 @@ export const useLibraryWithStats = ({
 
   // Prevent multiple simultaneous fetches (debounce protection)
   const fetchInProgressRef = useRef(false);
+  const fetchAbortRef = useRef<AbortController | null>(null);
   const statsAbortRef = useRef<AbortController | null>(null);
   const refetchStatsRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
@@ -163,7 +164,12 @@ export const useLibraryWithStats = ({
             ? `/api/library/tracks/favorites?limit=${limit}&offset=${currentOffset}`
             : `/api/library/tracks?limit=${limit}&offset=${currentOffset}`;
 
-        const response = await fetch(endpoint);
+        // Abort any prior in-flight fetch so we don't apply stale results
+        fetchAbortRef.current?.abort();
+        const controller = new AbortController();
+        fetchAbortRef.current = controller;
+
+        const response = await fetch(endpoint, { signal: controller.signal });
         if (response.ok) {
           const data = await response.json();
 
@@ -200,6 +206,7 @@ export const useLibraryWithStats = ({
           toastError('Failed to load library');
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error('Error fetching tracks:', err);
         const errorMsg = 'Failed to connect to server';
         setError(errorMsg);
@@ -242,7 +249,11 @@ export const useLibraryWithStats = ({
           ? `/api/library/tracks/favorites?limit=${limit}&offset=${newOffset}`
           : `/api/library/tracks?limit=${limit}&offset=${newOffset}`;
 
-      const response = await fetch(endpoint);
+      fetchAbortRef.current?.abort();
+      const controller = new AbortController();
+      fetchAbortRef.current = controller;
+
+      const response = await fetch(endpoint, { signal: controller.signal });
       if (response.ok) {
         const data = await response.json();
 
@@ -257,6 +268,7 @@ export const useLibraryWithStats = ({
         DEBUG && console.log(`Loaded more: ${newOffset + transformedTracks.length}/${data.total || 0}`);
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Error loading more tracks:', err);
     } finally {
       setIsLoadingMore(false);
@@ -370,7 +382,10 @@ export const useLibraryWithStats = ({
         refetchStats();
       }
     }
-    return () => { statsAbortRef.current?.abort(); };
+    return () => {
+      fetchAbortRef.current?.abort();
+      statsAbortRef.current?.abort();
+    };
     // Dependency array only includes view, autoLoad, includeStats to prevent re-render loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, autoLoad, includeStats]);
