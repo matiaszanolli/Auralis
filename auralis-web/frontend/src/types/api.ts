@@ -30,6 +30,18 @@ export interface ApiError {
   details?: Record<string, unknown>;
 }
 
+/** Type guard for ApiError — checks structural shape since ApiError is an interface */
+export function isApiError(err: unknown): err is ApiError {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'status' in err &&
+    'message' in err &&
+    typeof (err as ApiError).status === 'number' &&
+    typeof (err as ApiError).message === 'string'
+  );
+}
+
 // ============================================================================
 // Player API
 // ============================================================================

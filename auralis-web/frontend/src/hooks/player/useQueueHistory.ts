@@ -38,6 +38,7 @@
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
+import { isApiError } from '@/types/api';
 import type { ApiError } from '@/types/api';
 
 /**
@@ -200,7 +201,9 @@ export function useQueueHistory(): QueueHistoryActions {
 
         setIsLoading(false);
       } catch (err) {
-        const apiError = err as ApiError;
+        const apiError: ApiError = isApiError(err)
+          ? err
+          : { status: 0, message: err instanceof Error ? err.message : 'Unknown error' };
         setError(apiError);
         setIsLoading(false);
         throw err;
