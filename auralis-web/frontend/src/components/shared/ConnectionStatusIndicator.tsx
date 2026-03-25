@@ -98,10 +98,12 @@ export function ConnectionStatusIndicator({
       lastError: wsError,
     }));
 
-    // Auto-hide when connected
-    if (wsConnected && !showDetails) {
+    // Auto-hide details panel when connection is restored
+    if (wsConnected && showDetails) {
       const timer = setTimeout(() => {
-        // Keep hidden if connected
+        if (mountedRef.current) {
+          setShowDetails(false);
+        }
       }, 2000);
       autoHideTimerRef.current = timer;
     }
