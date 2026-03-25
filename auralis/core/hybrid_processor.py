@@ -130,6 +130,10 @@ class HybridProcessor:
         # Initialize performance optimizer (optimizations applied once at module level)
         self.performance_optimizer = get_performance_optimizer()
 
+        # Per-instance lock: prevents concurrent process() calls from
+        # interleaving writes to mutable state (fixes #3349).
+        self._process_lock = threading.Lock()
+
         # Processing state
         self.current_targets: dict[str, Any] | None = None
         self.processing_history: list[Any] = []
@@ -189,6 +193,18 @@ class HybridProcessor:
         Returns:
             Processed audio array (if no file output specified)
         """
+        with self._process_lock:
+            return self._process_impl(target, reference, results, preview_target, preview_result)
+
+    def _process_impl(
+        self,
+        target: str | np.ndarray,
+        reference: str | np.ndarray | None = None,
+        results: str | list[str] | Result | list[Result] | None = None,
+        preview_target: Result | None = None,
+        preview_result: Result | None = None
+    ) -> np.ndarray | None:
+        """Inner implementation called under _process_lock."""
         info(f"Starting hybrid processing in {self.config.adaptive.mode} mode")
 
         # Load target audio (simplified for now - will be enhanced with unified I/O)
