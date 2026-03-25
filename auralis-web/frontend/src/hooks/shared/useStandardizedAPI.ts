@@ -62,11 +62,11 @@ export function useStandardizedAPI<T = unknown>(
   endpoint: string,
   options?: {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-    body?: Record<string, any>;
+    body?: Record<string, unknown>;
     autoFetch?: boolean;
     timeout?: number;
     cache?: boolean;
-    deps?: any[];
+    deps?: readonly unknown[];
   }
 ): APIRequestState<T> & {
   refetch: () => Promise<void>;
@@ -185,7 +185,7 @@ export function useStandardizedAPI<T = unknown>(
 /**
  * Hook for paginated API requests
  */
-export function usePaginatedAPI<T = any>(
+export function usePaginatedAPI<T = unknown>(
   endpoint: string,
   options?: {
     initialLimit?: number;
