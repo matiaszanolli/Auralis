@@ -766,7 +766,8 @@ def create_system_router(
 
                 elif message.get("type") == "subscribe_job_progress":
                     # Subscribe to job progress updates
-                    job_id = message.get("job_id")
+                    data = message.get("data", {})
+                    job_id = data.get("job_id")
                     processing_engine = get_processing_engine()
                     if job_id and processing_engine:
                         async def progress_callback(job_id: str, progress: float, message: str) -> None:
