@@ -124,7 +124,7 @@ export const AdvancedSettingsPanel = ({
           padding: tokens.spacing.lg,
           borderRadius: '8px',
           border: `1px solid ${tokens.colors.semantic.error}`,
-          background: 'rgba(239, 68, 68, 0.06)',
+          background: tokens.colors.utility.errorBg,
         }}
       >
         <div

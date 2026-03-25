@@ -197,7 +197,7 @@ export function CacheHealthMonitor({
           background:
             healthStatus === 'critical'
               ? tokens.colors.utility.errorBg
-              : 'rgba(0, 212, 170, 0.1)',
+              : tokens.colors.utility.successBg,
           borderRadius: '8px',
           border: `1px solid ${
             healthStatus === 'critical'

@@ -197,6 +197,9 @@ export const tokens = {
       error: '#EF4444',
       errorHover: '#DC2626',
       errorBg: 'rgba(239, 68, 68, 0.10)',
+
+      // Success backgrounds
+      successBg: 'rgba(16, 185, 129, 0.10)',
     },
   },
 
