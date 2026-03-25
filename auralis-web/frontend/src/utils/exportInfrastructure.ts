@@ -115,7 +115,8 @@ export class CanvasRenderingUtils {
    */
   static setBackground(context: CanvasRenderingContext): void {
     const { ctx, width, height, theme } = context;
-    ctx.fillStyle = theme === 'dark' ? '#0A0A0A' : '#FFFFFF';
+    const colors = CanvasRenderingUtils.getThemeColors(theme);
+    ctx.fillStyle = colors.background;
     ctx.fillRect(0, 0, width, height);
   }
 
@@ -129,7 +130,8 @@ export class CanvasRenderingUtils {
     title: string
   ): void {
     const { ctx, theme } = context;
-    ctx.fillStyle = theme === 'dark' ? '#FFFFFF' : '#000000';
+    const colors = CanvasRenderingUtils.getThemeColors(theme);
+    ctx.fillStyle = colors.text;
     ctx.font = '20px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(title, x, y);
@@ -146,7 +148,8 @@ export class CanvasRenderingUtils {
     height: number
   ): void {
     const { ctx, theme } = context;
-    ctx.strokeStyle = theme === 'dark' ? '#333333' : '#CCCCCC';
+    const colors = CanvasRenderingUtils.getThemeColors(theme);
+    ctx.strokeStyle = colors.border;
     ctx.lineWidth = 1;
     ctx.strokeRect(x, y, width, height);
   }
