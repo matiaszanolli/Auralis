@@ -13,6 +13,8 @@
  * Used in: Player.tsx right section for easy access to enhanced playback
  */
 
+const DEBUG = import.meta.env.DEV;
+
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { keyframes } from '@mui/material';
@@ -89,7 +91,7 @@ export const PlayerEnhancementPanel = ({
 
   // Debug: Log when component mounts/updates
   useEffect(() => {
-    console.log('[PlayerEnhancementPanel] ✅ Component mounted/updated!', {
+    DEBUG && console.log('[PlayerEnhancementPanel] ✅ Component mounted/updated!', {
       trackId,
       isVisible,
       currentTrack: currentTrack?.title,
@@ -97,16 +99,9 @@ export const PlayerEnhancementPanel = ({
     });
   }, [trackId, isVisible, currentTrack?.title, playMode]);
 
-  // Determine panel visibility
+  // Determine panel visibility (pure computation — no side effects)
   const shouldShow = useMemo(() => {
-    const show = isVisible && (trackId || currentTrack?.id);
-    console.log('[PlayerEnhancementPanel] Visibility check:', {
-      isVisible,
-      trackId,
-      currentTrackId: currentTrack?.id,
-      shouldShow: show,
-    });
-    return show;
+    return isVisible && (trackId || currentTrack?.id);
   }, [isVisible, trackId, currentTrack?.id]);
 
   // Use provided trackId or fall back to current track
@@ -143,7 +138,7 @@ export const PlayerEnhancementPanel = ({
       if (mode === playMode) return; // Already in this mode
       if (!activeTrackId) return; // No track to play
 
-      console.log(`[PlayerEnhancementPanel] Switching to ${mode} mode for track ${activeTrackId}`);
+      DEBUG && console.log(`[PlayerEnhancementPanel] Switching to ${mode} mode for track ${activeTrackId}`);
 
       // Stop any current playback first
       playNormal.stopPlayback();
@@ -154,10 +149,10 @@ export const PlayerEnhancementPanel = ({
 
       // Start playback in the new mode
       if (mode === 'normal') {
-        console.log('[PlayerEnhancementPanel] Starting normal (original) playback');
+        DEBUG && console.log('[PlayerEnhancementPanel] Starting normal (original) playback');
         await playNormal.playNormal(activeTrackId);
       } else {
-        console.log('[PlayerEnhancementPanel] Starting enhanced playback');
+        DEBUG && console.log('[PlayerEnhancementPanel] Starting enhanced playback');
         // Use 'adaptive' preset with full intensity as default
         await playbackControls.playEnhanced(activeTrackId, 'adaptive', 1.0);
       }
@@ -254,11 +249,11 @@ export const PlayerEnhancementPanel = ({
             errorType={mapErrorToType(streaming.error)}
             onRetry={() => {
               // Retry is handled by the hook internally
-              console.log('[PlayerEnhancementPanel] Retry streaming');
+              DEBUG && console.log('[PlayerEnhancementPanel] Retry streaming');
             }}
             onFallback={() => {
               // Switch to regular playback
-              console.log('[PlayerEnhancementPanel] Falling back to regular playback');
+              DEBUG && console.log('[PlayerEnhancementPanel] Falling back to regular playback');
             }}
             autoDismissMs={0} // Don't auto-dismiss, user must handle
             allowRetry={true}
