@@ -1,29 +1,14 @@
 /**
- * Player - Phase 5 Orchestration Component
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- *
- * Master player component that integrates all 6 Phase 4 UI components
- * (TimeDisplay, BufferingIndicator, ProgressBar, PlaybackControls, VolumeControl, TrackDisplay)
- * with the 3 core hooks (usePlayerStreaming, usePlayerControls, usePlayerDisplay).
- *
- * This is a thin orchestration layer that:
- * - Wires hook data to component props
- * - Coordinates streaming controls and display
- * - Provides responsive layout
- * - Audio streaming handled exclusively via WebSocket (usePlayEnhanced hook)
- *
- * @component
- * @example
- * ```tsx
- * <Player />
- * ```
+ * Player - Orchestration component integrating UI components with streaming hooks.
+ * Audio streaming handled via WebSocket (usePlayEnhanced hook).
  */
 
 const DEBUG = import.meta.env.DEV;
 
-import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
+import { styles } from './Player.styles';
 
 // Phase 4 UI Components
 import TimeDisplay from './TimeDisplay';
@@ -50,18 +35,6 @@ import {
 import { setCurrentTrack, setVolume } from '@/store/slices/playerSlice';
 import { playerSelectors } from '@/store/selectors';
 
-/**
- * Player Component
- *
- * Full-featured music player with streaming synchronization,
- * playback controls, volume control, progress tracking, and time display.
- *
- * Architecture:
- * - Layer 1: Hooks (usePlayerStreaming, usePlayerControls, usePlayerDisplay)
- * - Layer 2: 6 UI Components (props-based, no internal state)
- * - Layer 3: Responsive layout with design tokens
- * - WebSocket Streaming: Audio playback via usePlayEnhanced hook (not HTML5 audio)
- */
 const Player = () => {
   const dispatch = useDispatch();
 
@@ -81,8 +54,6 @@ const Player = () => {
   const queueTracks = useSelector(selectQueueTracks);
   const currentQueueIndex = useSelector(selectCurrentIndex);
 
-  // WebSocket Audio Streaming Hook (replaces REST API playback)
-  // Provides: playEnhanced, seekTo, pausePlayback, resumePlayback, stopPlayback, setVolume
   const {
     playEnhanced,
     seekTo,
@@ -107,10 +78,6 @@ const Player = () => {
   // Use streaming progress as buffered percentage (chunks received / total chunks)
   const wsBufferedPercentage = totalChunks > 0 ? (processedChunks / totalChunks) * 100 : 0;
 
-  // Note: usePlayerStreaming is not used - all streaming is via WebSocket (usePlayEnhanced)
-
-  // Handle seeking via WebSocket
-  // Sends seek message to backend which restarts streaming from the target chunk
   const handleSeek = useCallback((position: number) => {
     if (!isStreaming && !currentTrack?.id) {
       DEBUG && console.warn('[Player] Cannot seek: no track playing');
@@ -120,7 +87,6 @@ const Player = () => {
     seekTo(position);
   }, [isStreaming, currentTrack?.id, seekTo]);
 
-  // Next track: Stop current stream, update queue index, start new stream
   const handleNext = useCallback(async () => {
     try {
       // Check if we have more tracks in the queue
@@ -150,7 +116,6 @@ const Player = () => {
     }
   }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced]);
 
-  // Previous track: Stop current stream, update queue index, start new stream
   const handlePrevious = useCallback(async () => {
     try {
       // Check if we have previous tracks in the queue
@@ -180,8 +145,6 @@ const Player = () => {
     }
   }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced]);
 
-  // Unified Play/Pause toggle handler
-  // Handles three states: not streaming → start, streaming → pause, paused → resume
   const handlePlayPause = useCallback(async () => {
     if (!currentTrack?.id) {
       DEBUG && console.warn('[Player] No track loaded, cannot play');
@@ -223,8 +186,6 @@ const Player = () => {
     }
   }, [setStreamingVolume, dispatch]);
 
-  // Auto-advance to next track when current track ends
-  // Detects when streaming is complete and playback has reached near the end
   const hasAutoAdvancedRef = useRef(false);
   const trackDuration = currentTrack?.duration ?? 0;
 
@@ -250,9 +211,6 @@ const Player = () => {
     }
   }, [streamingState, wsCurrentTime, trackDuration, currentQueueIndex, queueTracks.length, handleNext]);
 
-  // Note: usePlayerDisplay not used - TimeDisplay component handles formatting
-
-  // Extract volume from Redux state (0-100 range)
   const volume = useMemo(() => {
     return state.volume ?? 50;
   }, [state.volume]);
@@ -385,31 +343,6 @@ const Player = () => {
         />
       </Box>
 
-      {/* Enhancement Panel - REMOVED: Redundant playback mode controls */}
-      {/* {(() => {
-        console.log('[Player] 🔍 Checking Enhancement Panel condition:', {
-          currentTrack: currentTrack?.title || 'NO TRACK',
-          hasTrack: !!currentTrack,
-          trackId: currentTrack?.id,
-        });
-        return currentTrack && (
-          <Box sx={styles.enhancementPanelWrapper}>
-            <PlayerEnhancementPanel
-              trackId={currentTrack?.id}
-              isVisible={!!currentTrack}
-              playbackControls={{
-                playEnhanced,
-                stopPlayback,
-                pausePlayback,
-                resumePlayback,
-                isStreaming,
-                isPaused,
-              }}
-            />
-          </Box>
-        );
-      })()} */}
-
       {/* Error State Indicator */}
       {hasError && (
         <Box sx={styles.errorBanner} role="alert" aria-live="assertive">
@@ -420,153 +353,6 @@ const Player = () => {
       )}
     </Box>
   );
-};
-
-/**
- * Component styles using design tokens (Design Language v1.2.0)
- *
- * Layout:
- * - Top: Track display + current time
- * - Middle: Progress bar with buffering
- * - Bottom: Playback controls + volume
- *
- * Glass Effects: Applied to main container for elevated, glossy aesthetic
- * Organic Spacing: Cluster (8px), Group (16px), Section (32px) for natural rhythm
- *
- * Responsive breakpoints:
- * - Desktop (1024px+): Full width side-by-side
- * - Tablet (768-1024px): Stacked, adjusted spacing
- * - Mobile (<768px): Compact, minimal spacing
- */
-const styles = {
-  player: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    width: '100%',
-
-    // Glass effect for PlayerBar - semi-transparent for starfield visibility
-    background: 'rgba(16, 23, 41, 0.50)',                 // 50% opacity for starfield visibility
-    backdropFilter: 'blur(10px) saturate(1.08)',          // Moderate blur preserves starfield
-    border: 'none',
-    // Glass bevel: top highlight + outer shadow
-    boxShadow: `0 -8px 32px ${tokens.colors.opacityScale.dark.standard}, inset 0 1px 0 rgba(255, 255, 255, 0.10)`,
-
-    zIndex: tokens.zIndex.dropdown,
-    padding: 0,
-    gap: 0,
-  },
-
-  progressBarContainer: {
-    width: '100%',
-    height: 'auto',
-    padding: `${tokens.spacing.cluster} ${tokens.spacing.lg}`,  // 8px top, organic spacing
-    paddingBottom: tokens.spacing.xs,
-  },
-
-  mainRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.spacing.group,                            // 16px - organic group spacing
-    padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
-    minHeight: '64px',
-
-    [`@media (max-width: ${tokens.breakpoints.md})`]: {
-      flexDirection: 'column' as const,
-      alignItems: 'stretch',
-      padding: tokens.spacing.md,
-      minHeight: 'auto',
-      gap: tokens.spacing.md,
-    },
-  },
-
-  trackInfoSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacing.md,
-    minWidth: '200px',
-    flex: '1 1 auto',
-
-    [`@media (max-width: ${tokens.breakpoints.md})`]: {
-      minWidth: 'auto',
-      width: '100%',
-    },
-  },
-
-  rightSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacing.md,
-    flex: '1 1 auto',
-    justifyContent: 'flex-end',
-
-    [`@media (max-width: ${tokens.breakpoints.md})`]: {
-      width: '100%',
-      justifyContent: 'space-between',
-    },
-  },
-
-  queueButton: {
-    width: '40px',
-    height: '40px',
-    padding: 0,
-
-    // Glass effect for queue button (idle state)
-    background: 'transparent',
-    border: tokens.glass.subtle.border,                   // Subtle glass border
-    borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
-
-    cursor: 'pointer',
-    fontSize: tokens.typography.fontSize.lg,              // 20px for impact
-    fontWeight: tokens.typography.fontWeight.medium,
-    transition: `${tokens.transitions.base}, backdrop-filter ${tokens.transitions.base}`,
-    color: tokens.colors.text.primary,
-    outline: 'none',
-    // WCAG 2.4.7: visible focus ring for keyboard navigation (#2801)
-    '&:focus-visible': {
-      outline: `2px solid ${tokens.colors.accent.primary}`,
-      outlineOffset: '2px',
-    },
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  queuePanelWrapper: {
-    // Glass effect for expanded queue panel
-    background: tokens.glass.subtle.background,           // Subtle glass background
-    backdropFilter: tokens.glass.subtle.backdropFilter,   // 20px blur for consistency
-    borderTop: tokens.glass.subtle.border,                // Subtle glass border separator
-    boxShadow: tokens.glass.subtle.boxShadow,             // Depth + inner glow
-
-    padding: tokens.spacing.lg,
-    maxHeight: '400px',
-    overflowY: 'auto' as const,
-  },
-
-  // enhancementPanelWrapper: REMOVED - No longer used after removing playback mode panel
-
-  errorBanner: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: tokens.spacing.md,
-
-    // Glass effect for error banner (strong presence)
-    // Uses canonical #EF4444 = rgb(239, 68, 68) from tokens.colors.semantic.error
-    background: 'rgba(239, 68, 68, 0.15)',                // Error tint with transparency
-    backdropFilter: 'blur(20px) saturate(1.1)',           // Glass blur
-    border: '1px solid rgba(239, 68, 68, 0.3)',           // Error border
-    boxShadow: '0 4px 16px rgba(239, 68, 68, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05)',
-
-    borderRadius: tokens.borderRadius.md,                 // 12px - softer curves
-    margin: tokens.spacing.sm,
-  },
-
-  errorText: {
-    color: tokens.colors.text.primary,
-    fontSize: tokens.typography.fontSize.sm,
-    fontWeight: tokens.typography.fontWeight.bold,
-  },
 };
 
 export default Player;
