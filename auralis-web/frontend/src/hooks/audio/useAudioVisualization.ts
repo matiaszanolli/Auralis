@@ -177,7 +177,8 @@ export function useAudioVisualization(enabled: boolean = true): AudioVisualizati
   // Animation loop for reading audio data
   const updateVisualization = useCallback(() => {
     if (!analyserRef.current || !frequencyDataRef.current || !isAudioActive) {
-      animationFrameRef.current = requestAnimationFrame(updateVisualization);
+      // Don't schedule another frame — the useEffect will restart the
+      // loop when conditions change (#3400).
       return;
     }
 
@@ -186,7 +187,6 @@ export function useAudioVisualization(enabled: boolean = true): AudioVisualizati
     const audioContext = getGlobalAudioContext();
 
     if (!audioContext) {
-      animationFrameRef.current = requestAnimationFrame(updateVisualization);
       return;
     }
 
