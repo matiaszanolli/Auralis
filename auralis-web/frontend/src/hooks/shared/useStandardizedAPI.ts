@@ -341,12 +341,16 @@ export function useCacheStats(): APIRequestState<CacheStats> & {
     refetchInterval: 5000,
   });
 
+  const refetchRef = useRef(query.refetch);
+  refetchRef.current = query.refetch;
+  const stableRefetch = useCallback(async () => { await refetchRef.current(); }, []);
+
   return useMemo(() => ({
     data: query.data ?? null,
     loading: query.isLoading,
     error: query.error ? query.error.message : null,
-    refetch: async () => { await query.refetch(); },
-  }), [query.data, query.isLoading, query.error, query.refetch]);
+    refetch: stableRefetch,
+  }), [query.data, query.isLoading, query.error, stableRefetch]);
 }
 
 /**
@@ -363,14 +367,18 @@ export function useCacheHealth(refreshInterval: number = 10000): APIRequestState
     refetchInterval: refreshInterval,
   });
 
+  const refetchRef = useRef(query.refetch);
+  refetchRef.current = query.refetch;
+  const stableRefetch = useCallback(async () => { await refetchRef.current(); }, []);
+
   return useMemo(() => ({
     data: query.data ?? null,
     loading: query.isLoading,
     error: query.error ? query.error.message : null,
-    refetch: async () => { await query.refetch(); },
+    refetch: stableRefetch,
     isHealthy: query.data?.healthy ?? false,
     healthStatus: query.data?.healthy ? 'healthy' as const : 'critical' as const,
-  }), [query.data, query.isLoading, query.error, query.refetch]);
+  }), [query.data, query.isLoading, query.error, stableRefetch]);
 }
 
 // ============================================================================
