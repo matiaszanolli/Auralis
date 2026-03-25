@@ -516,7 +516,7 @@ async def get_processing_presets() -> dict[str, Any]:
 
 
 @router.delete("/jobs/cleanup", response_model=CleanupResponse)
-async def cleanup_old_jobs(max_age_hours: float = Query(24, ge=0)) -> dict[str, Any]:
+async def cleanup_old_jobs(max_age_hours: float = Query(24, gt=0)) -> dict[str, Any]:
     """Clean up completed jobs older than specified hours"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
