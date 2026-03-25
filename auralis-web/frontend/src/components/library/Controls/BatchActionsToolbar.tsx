@@ -78,7 +78,7 @@ const BatchActionsToolbar = ({
   } = useBatchActionsMenu();
 
   return (
-    <ToolbarContainer elevation={8}>
+    <ToolbarContainer elevation={8} role="toolbar" aria-label="Batch actions">
       <SelectionCount>
         {selectedCount} {selectedCount === 1 ? 'track' : 'tracks'} selected
       </SelectionCount>
