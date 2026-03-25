@@ -19,6 +19,8 @@ import {
   StreamingErrorType, ErrorSeverity, type StreamingError,
 } from './StreamingErrorBoundary.styles';
 
+// Canonical imports: always import these from this file (or the barrel index.ts),
+// not directly from StreamingErrorBoundary.styles.ts.
 export { StreamingErrorType, ErrorSeverity };
 
 export interface StreamingErrorDisplayProps {

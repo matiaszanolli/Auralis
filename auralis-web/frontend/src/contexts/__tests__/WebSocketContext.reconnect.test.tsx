@@ -281,4 +281,93 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
     expect(plays).toHaveLength(3);
     expect(plays[2].data.track_id).toBe(2);
   });
+
+  // --------------------------------------------------------------------------
+  // Keyed resume position getter (#3373)
+  // --------------------------------------------------------------------------
+
+  it('injects start_position from the matching stream-type getter on reconnect', async () => {
+    const { result } = await setup();
+
+    // Register getters for both stream types with different positions
+    await act(async () => {
+      result.current.setResumePositionGetter('play_enhanced', () => 42.5);
+      result.current.setResumePositionGetter('play_normal', () => 99.0);
+    });
+
+    // Send a play_enhanced command then disconnect/reconnect
+    await act(async () => {
+      result.current.send({ type: 'play_enhanced', data: { track_id: 10 } });
+    });
+    await act(async () => { mockMgr.emit('close'); });
+    await act(async () => { mockMgr.emit('open'); });
+
+    const plays = sentMessages(mockMgr).filter(m => m.type === 'play_enhanced');
+    expect(plays).toHaveLength(2);
+    // The re-issued command must use the play_enhanced getter (42.5), not play_normal (99.0)
+    expect(plays[1].data.start_position).toBe(42.5);
+  });
+
+  it('uses play_normal getter when reconnecting a normal stream', async () => {
+    const { result } = await setup();
+
+    await act(async () => {
+      result.current.setResumePositionGetter('play_enhanced', () => 10.0);
+      result.current.setResumePositionGetter('play_normal', () => 55.3);
+    });
+
+    await act(async () => {
+      result.current.send({ type: 'play_normal', data: { track_id: 5 } });
+    });
+    await act(async () => { mockMgr.emit('close'); });
+    await act(async () => { mockMgr.emit('open'); });
+
+    const plays = sentMessages(mockMgr).filter(m => m.type === 'play_normal');
+    expect(plays).toHaveLength(2);
+    expect(plays[1].data.start_position).toBe(55.3);
+  });
+
+  it('falls back to 0 when no getter registered for the stream type', async () => {
+    const { result } = await setup();
+
+    // Register only play_normal, but send play_enhanced
+    await act(async () => {
+      result.current.setResumePositionGetter('play_normal', () => 30.0);
+    });
+
+    await act(async () => {
+      result.current.send({ type: 'play_enhanced', data: { track_id: 1 } });
+    });
+    await act(async () => { mockMgr.emit('close'); });
+    await act(async () => { mockMgr.emit('open'); });
+
+    const plays = sentMessages(mockMgr).filter(m => m.type === 'play_enhanced');
+    expect(plays).toHaveLength(2);
+    expect(plays[1].data.start_position).toBe(0);
+  });
+
+  it('cleanup removes only the specific stream-type getter', async () => {
+    const { result } = await setup();
+
+    await act(async () => {
+      result.current.setResumePositionGetter('play_enhanced', () => 20.0);
+      result.current.setResumePositionGetter('play_normal', () => 60.0);
+    });
+
+    // Simulate usePlayEnhanced unmounting — removes only its getter
+    await act(async () => {
+      result.current.setResumePositionGetter('play_enhanced', null);
+    });
+
+    // play_normal stream reconnects — should still get 60.0
+    await act(async () => {
+      result.current.send({ type: 'play_normal', data: { track_id: 3 } });
+    });
+    await act(async () => { mockMgr.emit('close'); });
+    await act(async () => { mockMgr.emit('open'); });
+
+    const plays = sentMessages(mockMgr).filter(m => m.type === 'play_normal');
+    expect(plays).toHaveLength(2);
+    expect(plays[1].data.start_position).toBe(60.0);
+  });
 });

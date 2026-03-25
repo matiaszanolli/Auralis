@@ -137,7 +137,7 @@ export function resetWebSocketSingletons(): void {
 
   // Clear last stream command and resume position getters
   singletonLastStreamCommand = null;
-  for (const key in singletonResumePositionGetters) {
+  for (const key of Object.keys(singletonResumePositionGetters)) {
     delete singletonResumePositionGetters[key];
   }
 
