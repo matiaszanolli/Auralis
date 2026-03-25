@@ -166,7 +166,7 @@ export const CozyAlbumGrid = ({
   };
 
   return (
-    <div style={{ padding: tokens.spacing.group }}>
+    <div role="grid" aria-label="Album grid" style={{ padding: tokens.spacing.group }}>
       <InfiniteScroll
         dataLength={albums.length}
         next={fetchNextPage}
