@@ -1,5 +1,6 @@
 import React from 'react';
 import { SkeletonBox } from '@/components/library/Styles/Skeleton.styles';
+import { tokens } from '@/design-system';
 
 interface SkeletonProps {
   width?: string | number;
@@ -23,12 +24,12 @@ interface SkeletonProps {
 export const Skeleton = ({
   width = '100%',
   height = '20px',
-  borderRadius = '4px',
+  borderRadius = tokens.borderRadius.sm,
   variant = 'rectangular',
 }: SkeletonProps) => {
   const getBorderRadius = () => {
     if (variant === 'circular') return '50%';
-    if (variant === 'text') return '4px';
+    if (variant === 'text') return tokens.borderRadius.sm;
     return borderRadius;
   };
 
