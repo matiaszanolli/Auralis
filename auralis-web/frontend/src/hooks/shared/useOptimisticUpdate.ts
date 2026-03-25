@@ -10,7 +10,7 @@ interface OptimisticUpdateOptions<T> {
  * Hook for optimistic UI updates
  * Updates the UI immediately and rolls back if the operation fails
  */
-export function useOptimisticUpdate<T, Args extends any[]>(
+export function useOptimisticUpdate<T, Args extends unknown[]>(
   initialState: T,
   asyncOperation: (...args: Args) => Promise<T>,
   options: OptimisticUpdateOptions<T> = {}
