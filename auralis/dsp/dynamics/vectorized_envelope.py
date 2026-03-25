@@ -66,8 +66,8 @@ class VectorizedEnvelopeFollower:
         if len(input_levels) == 0:
             return np.array([])
 
-        # Allocate output
-        output = np.zeros_like(input_levels, dtype=np.float64)
+        # Allocate output — match input dtype to avoid unnecessary copy
+        output = np.zeros_like(input_levels, dtype=np.float32)
 
         # Process first sample
         current_env = self.envelope
@@ -87,7 +87,7 @@ class VectorizedEnvelopeFollower:
         # Update state
         self.envelope = current_env
 
-        return np.asarray(output, dtype=np.float32)
+        return output
 
     def process_buffer_numba(self, input_levels: np.ndarray) -> np.ndarray:
         """
@@ -113,7 +113,7 @@ class VectorizedEnvelopeFollower:
         if len(output) > 0:
             self.envelope = output[-1]
 
-        return np.asarray(output, dtype=np.float32)
+        return output.astype(np.float32, copy=False)
 
     def process_buffer(self, input_levels: np.ndarray) -> np.ndarray:
         """
