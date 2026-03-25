@@ -766,6 +766,13 @@ def create_library_router(
         try:
             repos = require_repository_factory(get_repository_factory)
 
+            # Pause background workers so in-flight DB ops don't race the
+            # reset (fixes #3342).
+            from analysis.fingerprint_queue import get_fingerprint_queue
+            fprint_queue = get_fingerprint_queue()
+            if fprint_queue:
+                await fprint_queue.stop()
+
             def _reset_all() -> None:
                 session = repos.session_factory()
                 try:
@@ -801,6 +808,10 @@ def create_library_router(
                     session.close()
 
             await asyncio.to_thread(_reset_all)
+
+            # Restart background workers after reset completes
+            if fprint_queue:
+                await fprint_queue.start()
 
             return {"message": "Library has been reset successfully"}
 
