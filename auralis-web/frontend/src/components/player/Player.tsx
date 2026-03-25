@@ -5,7 +5,7 @@
 
 const DEBUG = import.meta.env.DEV;
 
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
 import { styles } from './Player.styles';
@@ -48,7 +48,6 @@ const Player = () => {
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
   const playerVolume = useSelector(playerSelectors.selectVolume);
   const playerIsMuted = useSelector(playerSelectors.selectIsMuted);
-  const state = { volume: playerVolume, isMuted: playerIsMuted };
 
   // Queue state for next/previous functionality
   const queueTracks = useSelector(selectQueueTracks);
@@ -211,14 +210,10 @@ const Player = () => {
     }
   }, [streamingState, wsCurrentTime, trackDuration, currentQueueIndex, queueTracks.length, handleNext]);
 
-  const volume = useMemo(() => {
-    return state.volume ?? 50;
-  }, [state.volume]);
+  const volume = playerVolume ?? 50;
 
   // Muted state - check if volume is 0 or explicitly muted
-  const isMuted = useMemo(() => {
-    return volume === 0 || state.isMuted === true;
-  }, [volume, state.isMuted]);
+  const isMuted = volume === 0 || playerIsMuted === true;
 
   // Stable mute toggle handler (fixes #3163 — last inline handler)
   const handleMuteToggle = useCallback(async () => {
