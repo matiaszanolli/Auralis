@@ -213,6 +213,8 @@ export const QueuePanel = ({
           </div>
         ) : (
           <ul
+            role="listbox"
+            aria-label="Queue tracks"
             style={{
               ...styles.queueList,
               height: virtualizer.getTotalSize(),

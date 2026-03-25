@@ -44,8 +44,9 @@ export const QueueTrackItem = ({
         ...((isHovered || isFocused) ? styles.trackItemHovered : {}),
         ...positionStyle,
       }}
+      role="option"
       tabIndex={0}
-      aria-current={isCurrentTrack ? 'true' : undefined}
+      aria-selected={isCurrentTrack}
       aria-label={`${track.title} by ${track.artist}, ${formatDuration(track.duration)}`}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
