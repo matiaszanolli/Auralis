@@ -294,7 +294,9 @@ class AudioPlayer:
             # called.  seek(0, ...) is the lock-safe way to do this.
             self.playback.seek(0, self.file_manager.get_total_samples())
 
-            if was_playing:
+            # Re-check state to avoid restarting playback after a
+            # concurrent stop() call (#3361).
+            if was_playing and not self.playback.is_stopped():
                 self.playback.play()
 
             return True
@@ -308,7 +310,9 @@ class AudioPlayer:
         if prev_track:
             file_path = prev_track.get('file_path') or prev_track.get('path')
             if file_path and self.load_file(file_path):
-                if was_playing:
+                # Re-check state to avoid restarting playback after a
+                # concurrent stop() call (#3361).
+                if was_playing and not self.playback.is_stopped():
                     self.playback.play()
                 return True
         return False
