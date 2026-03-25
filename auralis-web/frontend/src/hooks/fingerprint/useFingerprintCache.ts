@@ -249,11 +249,16 @@ export function useCachedFingerprint(trackId: number): AudioFingerprint | null {
  * Hook to get fingerprint cache statistics.
  */
 export function useFingerprintCacheStats() {
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<{
+    total: number;
+    sizeMB: number;
+    oldestTimestamp: number | null;
+    newestTimestamp: number | null;
+  }>({
     total: 0,
     sizeMB: 0,
-    oldestTimestamp: null as number | null,
-    newestTimestamp: null as number | null,
+    oldestTimestamp: null,
+    newestTimestamp: null,
   });
 
   useEffect(() => {
