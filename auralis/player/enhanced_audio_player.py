@@ -112,6 +112,7 @@ class AudioPlayer:
         # Control flags
         self.auto_advance = True
         self._auto_advancing = threading.Event()
+        self._advance_generation = 0  # Monotonic counter for compare-and-clear (#3350)
         self._stop_requested = threading.Event()  # Prevents auto-advance after stop() (#3296)
 
         info("Enhanced AudioPlayer initialized (refactored architecture, RepositoryFactory support enabled, fingerprinting enabled)")
@@ -390,8 +391,11 @@ class AudioPlayer:
             if self.auto_advance and not self.queue.is_queue_empty():
                 if not self._auto_advancing.is_set():
                     self._auto_advancing.set()
+                    self._advance_generation += 1
+                    gen = self._advance_generation
                     threading.Thread(
                         target=self._auto_advance_next,
+                        args=(gen,),
                         daemon=True
                     ).start()
 
@@ -400,7 +404,7 @@ class AudioPlayer:
 
         return processed_chunk
 
-    def _auto_advance_next(self) -> None:
+    def _auto_advance_next(self, generation: int) -> None:
         """Auto-advance to next track (background thread, runs at most once)"""
         try:
             if self._stop_requested.is_set():
@@ -415,7 +419,11 @@ class AudioPlayer:
             # the finally block regardless of outcome (fixes #2441).
             self.playback.stop()
         finally:
-            self._auto_advancing.clear()
+            # Only clear the flag if no newer advance has been spawned (#3350).
+            # Without this check, a rapid next-track could set the flag for a
+            # new advance, and this finally block would clear it prematurely.
+            if self._advance_generation == generation:
+                self._auto_advancing.clear()
 
     # ========== Effects Control (delegates to IntegrationManager) ==========
 
