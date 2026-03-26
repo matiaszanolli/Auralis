@@ -152,6 +152,7 @@ export const ArtistHeader = ({
 
           {/* More Options Button */}
           <IconButton
+            aria-label={`More options for ${artist.name}`}
             sx={{
               color: tokens.colors.text.secondary,
               border: `1px solid ${tokens.colors.border.light}`,
