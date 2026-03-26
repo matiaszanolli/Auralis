@@ -150,13 +150,16 @@ class AudioPlayer:
         Returns:
             bool: True if successful
         """
-        # Check if a file is loaded before seeking
-        if not self.file_manager.is_loaded():
-            warning("No audio file loaded")
-            return False
+        # Snapshot file state atomically so a concurrent load_file() cannot
+        # change the track between the bounds check and the seek (#3357).
+        with self.file_manager._audio_lock:
+            if not self.file_manager.is_loaded():
+                warning("No audio file loaded")
+                return False
+            max_samples = self.file_manager.get_total_samples()
+            sample_rate = self.file_manager.sample_rate
 
-        max_samples = self.file_manager.get_total_samples()
-        position_samples = int(position_seconds * self.file_manager.sample_rate)
+        position_samples = int(position_seconds * sample_rate)
         return self.playback.seek(position_samples, max_samples)
 
     @property
