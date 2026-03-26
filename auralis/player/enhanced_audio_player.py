@@ -535,8 +535,13 @@ class AudioPlayer:
 
     @audio_data.setter
     def audio_data(self, value: Any) -> None:
-        """Set audio data (for compatibility)"""
-        self.file_manager.audio_data = value
+        """Set audio data under lock with dtype enforcement (#3443)"""
+        import numpy as np
+        with self.file_manager._audio_lock:
+            if value is not None and isinstance(value, np.ndarray):
+                if value.dtype not in (np.float32, np.float64):
+                    value = value.astype(np.float32)
+            self.file_manager.audio_data = value
 
     @property
     def reference_data(self) -> Any:
