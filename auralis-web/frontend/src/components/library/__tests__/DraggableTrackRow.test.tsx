@@ -14,8 +14,8 @@ import { render, screen } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { DraggableTrackRow } from '../Items/tracks/DraggableTrackRow';
 
-// Mock TrackRow component
-vi.mock('../TrackRow', () => ({
+// Mock TrackRow component — path must match the import in DraggableTrackRow.tsx
+vi.mock('../Items/tracks/TrackRow', () => ({
   TrackRow: function MockTrackRow({ track, onPlay }: any) {
     return (
       <div data-testid={`track-row-${track.id}`}>
