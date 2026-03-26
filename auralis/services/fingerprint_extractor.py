@@ -340,6 +340,12 @@ class FingerprintExtractor:
                     debug(f"Loading audio for fingerprint: {filepath}")
                     audio, sr = load_audio(filepath)
 
+                    # Cap at 90 s to match FingerprintService and prevent OOM
+                    # on long files (podcasts, DJ mixes) (#2896).
+                    max_samples = int(90.0 * sr)
+                    if len(audio) > max_samples:
+                        audio = audio[:max_samples]
+
                     try:
                         debug(f"Extracting fingerprint for track {track_id}")
                         fingerprint = self.analyzer.analyze(audio, sr)
