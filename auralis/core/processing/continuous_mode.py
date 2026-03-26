@@ -180,8 +180,7 @@ class ContinuousMode:
                 debug("Fingerprint extraction returned empty — skipping continuous processing")
                 return processed_audio
 
-            print(f"[Continuous Space] Fingerprint extracted:")
-            print(f"  Bass: {fingerprint['bass_pct']:.1f}%, Crest: {fingerprint['crest_db']:.1f} dB, LUFS: {fingerprint['lufs']:.1f}")
+            debug(f"[Continuous Space] Fingerprint extracted: Bass: {fingerprint['bass_pct']:.1f}%, Crest: {fingerprint['crest_db']:.1f} dB, LUFS: {fingerprint['lufs']:.1f}")
 
             # Step 1b: Detect recording type from fingerprint (NEW - Phase 5)
             recording_type, adaptive_params = self.recording_type_detector.detect(
@@ -191,27 +190,27 @@ class ContinuousMode:
             self.last_recording_type = recording_type
             self.last_adaptive_params = adaptive_params
 
-            print(f"[Recording Type Detector] Detected: {recording_type.value} (confidence: {adaptive_params.confidence:.1%})")
-            print(f"[Recording Type Detector] Philosophy: {adaptive_params.mastering_philosophy}")
-            print(f"[Recording Type Detector] Bass: {adaptive_params.bass_adjustment_db:+.2f} dB, Treble: {adaptive_params.treble_adjustment_db:+.2f} dB")
+            debug(f"[Recording Type Detector] Detected: {recording_type.value} (confidence: {adaptive_params.confidence:.1%})")
+            debug(f"[Recording Type Detector] Philosophy: {adaptive_params.mastering_philosophy}")
+            debug(f"[Recording Type Detector] Bass: {adaptive_params.bass_adjustment_db:+.2f} dB, Treble: {adaptive_params.treble_adjustment_db:+.2f} dB")
 
             # Step 2: Map to 3D processing space
             coords = self.space_mapper.map_fingerprint_to_space(fingerprint)
             self.last_coordinates = coords
 
-            print(f"[Continuous Space] Coordinates: {coords}")
+            debug(f"[Continuous Space] Coordinates: {coords}")
 
             # Step 3: Get user preference (from preset if using legacy mode)
             preset_name = self.config.mastering_profile or 'adaptive'
             preference = PreferenceVector.from_preset_name(preset_name)
 
-            print(f"[Continuous Space] Preference: {preference}")
+            debug(f"[Continuous Space] Preference: {preference}")
 
             # Step 4: Generate processing parameters
             params = self.param_generator.generate_parameters(coords, preference)
             self.last_parameters = params
 
-            print(f"[Continuous Space] Parameters: {params}")
+            debug(f"[Continuous Space] Parameters: {params}")
 
         # Step 5: Apply processing stages with generated parameters
 
@@ -286,7 +285,7 @@ class ContinuousMode:
         # Apply EQ
         audio = eq_processor.apply_psychoacoustic_eq(audio, targets, content_profile)
 
-        print(f"[EQ] Applied curve with blend {params.eq_blend:.2f}: "
+        debug(f"[EQ] Applied curve with blend {params.eq_blend:.2f}: "
               f"bass {eq_curve['low_shelf_gain']:+.1f} dB, "
               f"mid {eq_curve['low_mid_gain']:+.1f} dB, "
               f"air {eq_curve['high_shelf_gain']:+.1f} dB")
@@ -412,12 +411,12 @@ class ContinuousMode:
 
             # Skip expansion if already close to clipping
             if pre_peak_db > -2.0 and target_width > current_width:
-                print(f"[Stereo Width] SKIPPED expansion due to high peak ({pre_peak_db:.2f} dB)")
+                debug(f"[Stereo Width] SKIPPED expansion due to high peak ({pre_peak_db:.2f} dB)")
                 return audio
 
             audio = adjust_stereo_width(audio, target_width)
             post_width = stereo_width_analysis(audio)
-            print(f"[Stereo Width] {current_width:.2f} → {post_width:.2f} (target: {target_width:.2f})")
+            debug(f"[Stereo Width] {current_width:.2f} → {post_width:.2f} (target: {target_width:.2f})")
 
         return audio
 
@@ -474,7 +473,7 @@ class ContinuousMode:
         final_rms_db = DBConversion.to_db(final_rms)
         final_crest = final_peak_db - final_rms_db
 
-        print(f"[Final] Peak: {final_peak_db:.2f} dB, RMS: {final_rms_db:.2f} dB, "
+        debug(f"[Final] Peak: {final_peak_db:.2f} dB, RMS: {final_rms_db:.2f} dB, "
               f"Crest: {final_crest:.2f} dB, LUFS: {final_lufs:.1f}")
 
         return audio
