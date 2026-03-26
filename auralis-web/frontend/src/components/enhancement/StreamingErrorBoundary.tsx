@@ -238,8 +238,8 @@ export const StreamingErrorDisplay = ({
         <div style={styles.historySection}>
           <div style={styles.historyTitle}>Recent Errors ({errorHistory.length})</div>
           <div style={styles.historyList}>
-            {errorHistory.slice(-3).map((err, idx) => (
-              <div key={idx} style={styles.historyItem}>
+            {errorHistory.slice(-3).map((err) => (
+              <div key={err.timestamp} style={styles.historyItem}>
                 <span style={styles.historyTime}>
                   {new Date(err.timestamp).toLocaleTimeString()}
                 </span>
