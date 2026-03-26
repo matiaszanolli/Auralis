@@ -452,11 +452,14 @@ class ContinuousMode:
         # Only apply peak limiting if absolutely necessary to prevent clipping.
         current_peak_db = DBConversion.to_db(np.max(np.abs(audio)))
 
-        if current_peak_db > 0.0:
-            # Audio is clipping - apply peak limiting only
-            peak_adjustment = min(0.0 - current_peak_db, 0.0)  # At most bring to 0 dB
+        # -0.3 dBFS ceiling preserves headroom for inter-sample peaks
+        SAFE_CEILING_DB = -0.3
+
+        if current_peak_db > SAFE_CEILING_DB:
+            # Audio exceeds safe ceiling - apply peak limiting
+            peak_adjustment = min(SAFE_CEILING_DB - current_peak_db, 0.0)
             audio = amplify(audio, peak_adjustment)
-            debug(f"[Peak Limiting] {current_peak_db:.2f} → {0.0:.2f} dB (emergency limiting)")
+            debug(f"[Peak Limiting] {current_peak_db:.2f} → {SAFE_CEILING_DB:.2f} dB (emergency limiting)")
         else:
             debug(f"[Peak Normalization] SKIPPED - audio peak at {current_peak_db:.2f} dB is safe")
 
