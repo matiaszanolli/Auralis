@@ -75,7 +75,7 @@ class RealtimeProcessor:
                 if effect_name == 'level_matching' and self.level_matcher:
                     self.level_matcher.enabled = enabled
                 elif effect_name == 'auto_mastering' and self.auto_master:
-                    self.auto_master.enabled = enabled
+                    self.auto_master.set_enabled(enabled)
 
                 info(f"Effect {effect_name}: {'enabled' if enabled else 'disabled'}")
 
@@ -170,8 +170,8 @@ class RealtimeProcessor:
                 self.level_matcher.gain_smoother = AdaptiveGainSmoother()
 
             if self.auto_master:
-                self.auto_master.profile = "balanced"
-                self.auto_master.enabled = False
+                self.auto_master.set_profile("balanced")
+                self.auto_master.set_enabled(False)
 
             # Reset effect states
             for effect in self.effects_enabled:

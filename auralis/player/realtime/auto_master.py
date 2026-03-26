@@ -8,6 +8,7 @@ Automatic mastering with genre-aware processing
 :license: GPLv3, see LICENSE for more details.
 """
 
+import threading
 from typing import Any
 
 import numpy as np
@@ -30,6 +31,7 @@ class AutoMasterProcessor:
     """
 
     def __init__(self, config: PlayerConfig):
+        self._lock = threading.Lock()
         self.config = config
         self.enabled = False
         self.profile = "balanced"  # balanced, warm, bright, punchy
@@ -67,19 +69,26 @@ class AutoMasterProcessor:
 
         debug(f"AutoMasterProcessor initialized with profile: {self.profile}")
 
+    def set_enabled(self, enabled: bool) -> None:
+        """Thread-safe setter for enabled flag (#3356)."""
+        with self._lock:
+            self.enabled = enabled
+
     def set_profile(self, profile: str) -> None:
         """Set mastering profile"""
-        if profile in self.profiles:
-            self.profile = profile
-            info(f"Auto-master profile set to: {profile}")
-        else:
-            warning(f"Unknown profile: {profile}, using balanced")
-            self.profile = "balanced"
+        with self._lock:
+            if profile in self.profiles:
+                self.profile = profile
+                info(f"Auto-master profile set to: {profile}")
+            else:
+                warning(f"Unknown profile: {profile}, using balanced")
+                self.profile = "balanced"
 
     def set_use_transient_enhancement(self, enabled: bool) -> None:
         """Enable/disable low-mid transient enhancement"""
-        self.use_transient_enhancement = enabled
-        info(f"Transient enhancement {'enabled' if enabled else 'disabled'}")
+        with self._lock:
+            self.use_transient_enhancement = enabled
+            info(f"Transient enhancement {'enabled' if enabled else 'disabled'}")
 
     def set_fingerprint(self, fingerprint: dict) -> None:
         """
@@ -88,8 +97,11 @@ class AutoMasterProcessor:
         Args:
             fingerprint: 25D fingerprint dictionary from FingerprintService
         """
-        self.fingerprint = fingerprint
-        self.adaptive_params = self._generate_adaptive_parameters(fingerprint)
+        # Generate params outside lock (pure computation, no side effects)
+        params = self._generate_adaptive_parameters(fingerprint)
+        with self._lock:
+            self.fingerprint = fingerprint
+            self.adaptive_params = params
         info(f"Auto-master fingerprint set: LUFS {fingerprint.get('lufs', 0):.1f}, "
              f"crest {fingerprint.get('crest_db', 0):.1f} dB")
 
@@ -134,6 +146,11 @@ class AutoMasterProcessor:
 
     def process(self, audio: np.ndarray) -> np.ndarray:
         """Apply automatic mastering with fingerprint-aware adaptive processing"""
+        with self._lock:
+            return self._process_locked(audio)
+
+    def _process_locked(self, audio: np.ndarray) -> np.ndarray:
+        """Inner processing — caller must hold self._lock."""
         if not self.enabled:
             return audio
 
@@ -216,6 +233,10 @@ class AutoMasterProcessor:
 
     def get_stats(self) -> dict[str, Any]:
         """Get auto-master statistics"""
+        with self._lock:
+            return self._get_stats_locked()
+
+    def _get_stats_locked(self) -> dict[str, Any]:
         return {
             'enabled': self.enabled,
             'profile': self.profile,
