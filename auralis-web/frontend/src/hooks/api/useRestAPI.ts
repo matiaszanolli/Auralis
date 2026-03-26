@@ -341,7 +341,10 @@ export function useRestAPI() {
     [get, post, put, patch, delete_, clearError]
   );
 
-  return { ...stableMethods, isLoading, error };
+  return useMemo(
+    () => ({ ...stableMethods, isLoading, error }),
+    [stableMethods, isLoading, error]
+  );
 }
 
 /**
