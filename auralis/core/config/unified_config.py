@@ -163,6 +163,16 @@ class UnifiedConfig:
         # Options: 10.0 (50% coverage, 75x speedup), 15.0 (33%, 116x), 20.0 (25%, 169x)
         self.fingerprint_sampling_interval: float = 20.0
 
+        # Cross-dimensional guard (Phase 8 - mastering quality framework)
+        # When True, each processing stage is measured and cross-dimensional
+        # side effects are detected and compensated.
+        self.enable_cross_dimensional_guard: bool = True
+
+        # Quality gate: run QualityMetrics.compare_quality() on selected chunks
+        # to verify output quality does not regress vs input.
+        self.quality_gate_enabled: bool = True
+        self.quality_gate_interval: int = 5  # Run every Nth chunk (0 = first only)
+
         debug(f"Unified config initialized: mode={self.adaptive.mode}, "
               f"continuous_space={self.use_continuous_space}, "
               f"fingerprint_strategy={self.fingerprint_strategy}, "
