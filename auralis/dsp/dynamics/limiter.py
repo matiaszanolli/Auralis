@@ -144,14 +144,20 @@ class AdaptiveLimiter:
             # Take maximum of sample and interpolated peaks
             abs_audio[:-1] = np.maximum(abs_audio[:-1], interp_max)
 
-        # Pad for lookahead and compute sliding-window maximum
+        # Pad for lookahead and compute sliding-window maximum.
+        # maximum_filter1d origin convention: positive origin shifts the
+        # window toward *larger* indices (future samples).  With
+        # origin=+(lookahead // 2) the window spans approximately
+        # [i, i + lookahead), giving true lookahead peak detection.
+        # The previous negative origin looked *backward*, defeating the
+        # purpose of the lookahead delay (mirrors BrickWallLimiter fix #3308).
         padded = np.concatenate([abs_audio, np.zeros(lookahead)])
         peak_envelope = maximum_filter1d(
             padded,
             size=lookahead,
             mode='constant',
             cval=0.0,
-            origin=-(lookahead // 2),
+            origin=+(lookahead // 2),
         )[:num_samples]
 
         return peak_envelope
