@@ -132,12 +132,15 @@ class PsychoacousticEQ:
         spectrum = fft(windowed_audio)
         magnitude = np.abs(spectrum[:self.fft_size // 2 + 1])
 
-        # Convert to dB and compensate for Hanning window coherent amplitude gain.
-        # The Hanning window has a coherent gain of 0.5 (−6.02 dB), so windowed
-        # magnitudes read ~6 dB lower than the unwindowed synthesis path.  Adding
-        # 6.02 dB here aligns analysis magnitudes with the EQ synthesis scale,
-        # preventing adaptive gain curves from over-boosting by that margin (fixes #2518).
-        magnitude_db = 20 * np.log10(magnitude + 1e-10) + 6.02
+        # Convert to dB — no window-gain correction applied.
+        # The Hann window reduces leakage but its coherent-gain offset must NOT
+        # be compensated here: target curves and the 25D fingerprint model both
+        # operate on the raw (uncorrected) magnitude scale.  The previous +6.02
+        # correction introduced a systematic bias that inflated band energies,
+        # skewing adaptive gains and degrading non-spectral fingerprint dimensions
+        # (LUFS, crest, dynamic range) that the EQ doesn't directly optimise
+        # (fixes #3428, reverts #2518).
+        magnitude_db = 20 * np.log10(magnitude + 1e-10)
 
         # Calculate energy in each critical band
         band_energies = self._calculate_band_energies(magnitude_db)
@@ -205,7 +208,18 @@ class PsychoacousticEQ:
                                band_energies: np.ndarray,
                                masking_thresholds: np.ndarray,
                                target_curve: np.ndarray) -> np.ndarray:
-        """Calculate target gains for each band"""
+        """Calculate target gains for each band.
+
+        ``target_curve`` contains *relative* dB gains (boost/cut) per band,
+        NOT absolute magnitude levels.  The previous formula
+        ``target_level - current_level`` treated them as absolute targets,
+        producing nonsensical gains (e.g. 3 - 40 = -37) that were silently
+        clipped to -12 dB, causing a systematic ~3 dB excess cut (#3428).
+
+        Now: ``required_gain = target_level`` directly, with masking-aware
+        attenuation applied only when the band energy is below the masking
+        threshold (i.e. boosting a masked band is wasteful).
+        """
         target_gains = np.zeros(len(self.critical_bands))
 
         # Guard against NaN/Inf from silent audio or log10(0) (fixes #2513)
@@ -213,20 +227,13 @@ class PsychoacousticEQ:
         masking_thresholds = np.where(np.isfinite(masking_thresholds), masking_thresholds, 0.0)
 
         for i, band in enumerate(self.critical_bands):
-            # Find target level for this band
-            if i < len(target_curve):
-                target_level = target_curve[i]
-            else:
-                target_level = 0.0  # Default to no change
+            # target_curve values are relative dB gains (boost/cut)
+            required_gain = target_curve[i] if i < len(target_curve) else 0.0
 
-            # Calculate required gain
+            # Apply masking-aware adjustment: reduce boost for masked bands
             current_level = band_energies[i]
-            required_gain = target_level - current_level
-
-            # Apply masking-aware adjustment
             masking_threshold = masking_thresholds[i]
             if current_level < masking_threshold:
-                # Below masking threshold - reduce gain to avoid artifacts
                 required_gain *= 0.5
 
             # Apply perceptual weighting

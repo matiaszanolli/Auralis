@@ -437,6 +437,42 @@ class TestEQCurrentAPI:
 
         self.tearDown()
 
+    def test_flat_eq_preserves_level(self):
+        """A sine tone through flat adaptive EQ should exit at the same level (±0.5 dB).
+
+        Regression test for #3428: the +6.02 coherent-gain correction inflated
+        analysis magnitudes, causing adaptive gains to over-cut and shifting
+        output level by ~3 dB.
+        """
+        self.setUp()
+        eq = PsychoacousticEQ(self.settings)
+
+        # Generate a 1 kHz tone (stereo, one FFT frame)
+        n = self.settings.fft_size
+        t = np.arange(n) / self.sample_rate
+        tone = np.column_stack([
+            np.sin(2 * np.pi * 1000 * t),
+            np.sin(2 * np.pi * 1000 * t),
+        ]).astype(np.float32)
+
+        # Flat target curve (all zeros — no boost/cut intended)
+        flat_target = np.zeros(len(eq.critical_bands))
+
+        # Process several chunks so the adaptive gains converge
+        for _ in range(10):
+            output = eq.process_realtime_chunk(tone, flat_target)
+
+        input_rms = np.sqrt(np.mean(tone ** 2))
+        output_rms = np.sqrt(np.mean(output ** 2))
+        level_diff_db = 20 * np.log10(output_rms / (input_rms + 1e-10))
+
+        assert abs(level_diff_db) < 0.5, (
+            f"Flat EQ changed level by {level_diff_db:.2f} dB (expected <0.5 dB). "
+            "Spectrum analysis magnitude correction may be wrong."
+        )
+
+        self.tearDown()
+
 
 class TestApplyEQGainsDtypePreservation:
     """Verify apply_eq_gains/apply_eq_mono preserve input dtype (issue #2200).
