@@ -145,6 +145,11 @@ class PlaybackController:
             self.position += advance_by
             return pos
 
+    def get_position_snapshot(self) -> int:
+        """Return current position sample atomically (thread-safe)."""
+        with self._lock:
+            return self.position
+
     def seek(self, position_samples: int, max_samples: int) -> bool:
         """
         Seek to a position (in samples).

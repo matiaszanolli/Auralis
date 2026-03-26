@@ -255,13 +255,15 @@ class IntegrationManager:
     def _get_position_seconds(self) -> float:
         """Get current playback position in seconds (clamped to duration).
 
-        Reads position and sample_rate atomically under _position_lock to prevent
-        nonsensical values during gapless track transitions (fixes #2899).
+        Reads position via PlaybackController.get_position_snapshot() which
+        holds PlaybackController._lock, then reads sample_rate under
+        _position_lock to guard against gapless track transitions (#2899, #3363).
         """
         with self._position_lock:
             if self.file_manager.audio_data is None:
                 return 0.0
-            position_seconds = self.playback.position / self.file_manager.sample_rate
+            position_samples = self.playback.get_position_snapshot()
+            position_seconds = position_samples / self.file_manager.sample_rate
             duration = self.file_manager.get_duration()
         return min(position_seconds, duration)
 
