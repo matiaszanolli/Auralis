@@ -107,24 +107,28 @@ class KNNGraphBuilder:
                 debug("Clearing existing similarity graph...")
                 self.graph_repo.clear_all()
 
-            # Get all fingerprints
-            all_fingerprints = self.similarity.fingerprint_repo.get_all()
-            total_tracks = len(all_fingerprints)
+            # Stream fingerprints in batches via cursor pagination to avoid
+            # loading the entire fingerprint matrix into RAM (#3454).
+            repo = self.similarity.fingerprint_repo
 
-            if total_tracks == 0:
+            # Peek to get total count (lightweight query)
+            first_batch = repo.get_all(limit=1)
+            if not first_batch:
                 warning("No fingerprints found, cannot build graph")
                 return GraphStats(0, 0, k, 0, 0, 0, 0)
 
-            info(f"Processing {total_tracks} tracks in batches of {batch_size}...")
-
             total_edges = 0
-            all_distances = []
+            all_distances: list[float] = []
+            processed = 0
+            offset = 0
 
-            # Process in batches
-            for i in range(0, total_tracks, batch_size):
-                batch = all_fingerprints[i:i + batch_size]
+            while True:
+                batch = repo.get_all(limit=batch_size, offset=offset)
+                if not batch:
+                    break
+                offset += len(batch)
+
                 batch_edges_data = []
-
                 for fp in batch:
                     # Find k nearest neighbors
                     results = self.similarity.find_similar(
@@ -150,8 +154,11 @@ class KNNGraphBuilder:
                     batch_edges = self.graph_repo.add_edges(batch_edges_data)
                     total_edges += batch_edges
 
-                progress = ((i + len(batch)) / total_tracks) * 100
-                debug(f"Progress: {progress:.1f}% ({i + len(batch)}/{total_tracks} tracks, {len(batch_edges_data)} edges)")
+                processed += len(batch)
+                debug(f"Progress: {processed} tracks processed, {len(batch_edges_data)} edges in batch")
+
+            total_tracks = processed
+            info(f"Processed {total_tracks} tracks in batches of {batch_size}")
 
             # Calculate statistics
             if all_distances:
