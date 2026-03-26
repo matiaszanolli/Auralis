@@ -146,43 +146,53 @@ class SettingsRepository:
         return self.update_settings({'scan_folders': folders})
 
     def add_scan_folder(self, folder: str) -> UserSettings:
-        """
-        Add a new folder to scan list
+        """Add a new folder to scan list (atomic read-modify-write, #3339)."""
+        session = self.get_session()
+        try:
+            settings = session.execute(
+                select(UserSettings).with_for_update()
+            ).scalars().first()
+            if not settings:
+                settings = UserSettings()
+                session.add(settings)
 
-        Args:
-            folder: Folder path to add
+            folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
+            if folder not in folders:
+                folders.append(folder)
+                settings.scan_folders = json.dumps(folders)  # type: ignore[assignment]
 
-        Returns:
-            Updated UserSettings object
-        """
-        settings = self.get_settings()
-        if settings and settings.scan_folders:
-            folders = json.loads(str(settings.scan_folders))
-        else:
-            folders = []
-
-        if folder not in folders:
-            folders.append(folder)
-
-        return self.update_settings({'scan_folders': folders})
+            session.commit()
+            session.refresh(settings)
+            session.expunge(settings)
+            return settings
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def remove_scan_folder(self, folder: str) -> UserSettings:
-        """
-        Remove a folder from scan list
+        """Remove a folder from scan list (atomic read-modify-write, #3339)."""
+        session = self.get_session()
+        try:
+            settings = session.execute(
+                select(UserSettings).with_for_update()
+            ).scalars().first()
+            if not settings:
+                settings = UserSettings()
+                session.add(settings)
 
-        Args:
-            folder: Folder path to remove
+            folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
+            if folder in folders:
+                folders.remove(folder)
+                settings.scan_folders = json.dumps(folders)  # type: ignore[assignment]
 
-        Returns:
-            Updated UserSettings object
-        """
-        settings = self.get_settings()
-        if settings and settings.scan_folders:
-            folders = json.loads(str(settings.scan_folders))
-        else:
-            folders = []
-
-        if folder in folders:
-            folders.remove(folder)
-
-        return self.update_settings({'scan_folders': folders})
+            session.commit()
+            session.refresh(settings)
+            session.expunge(settings)
+            return settings
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
