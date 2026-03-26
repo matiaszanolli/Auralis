@@ -10,12 +10,13 @@ ML-based genre classification with comprehensive feature extraction
 
 from .feature_extractor import FeatureExtractor
 from .features import AudioFeatures
-from .genre_classifier import MLGenreClassifier, create_ml_genre_classifier
+from .genre_classifier import RuleBasedGenreClassifier, MLGenreClassifier, create_ml_genre_classifier
 from .genre_weights import initialize_genre_weights
 
 __all__ = [
     'AudioFeatures',
     'FeatureExtractor',
+    'RuleBasedGenreClassifier',
     'MLGenreClassifier',
     'create_ml_genre_classifier',
     'initialize_genre_weights',

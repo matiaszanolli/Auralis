@@ -15,13 +15,14 @@ from .ml.feature_extractor import FeatureExtractor
 
 # Re-export everything from the new modular structure
 from .ml.features import AudioFeatures
-from .ml.genre_classifier import MLGenreClassifier, create_ml_genre_classifier
+from .ml.genre_classifier import RuleBasedGenreClassifier, MLGenreClassifier, create_ml_genre_classifier
 from .ml.genre_weights import initialize_genre_weights
 
 # Maintain all public exports for backward compatibility
 __all__ = [
     'AudioFeatures',
     'FeatureExtractor',
+    'RuleBasedGenreClassifier',
     'MLGenreClassifier',
     'create_ml_genre_classifier',
     'initialize_genre_weights',

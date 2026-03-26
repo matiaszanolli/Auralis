@@ -19,20 +19,15 @@ from .features import AudioFeatures
 from .genre_weights import initialize_genre_weights
 
 
-class MLGenreClassifier:
+class RuleBasedGenreClassifier:
     """
-    Machine Learning-based genre classifier
+    Rule-based genre classifier using hand-coded feature weights.
 
-    Uses extracted audio features to classify music genres
+    Uses extracted audio features to classify music genres.
     """
 
-    def __init__(self, model_path: str | None = None):
-        """
-        Initialize genre classifier
-
-        Args:
-            model_path: Optional path to saved model weights
-        """
+    def __init__(self):
+        """Initialize genre classifier"""
         self.feature_extractor = FeatureExtractor()
         self.genres = [
             "classical", "rock", "electronic", "jazz", "pop",
@@ -156,18 +151,19 @@ class MLGenreClassifier:
         }
 
 
-@lru_cache(maxsize=4)
-def create_ml_genre_classifier(model_path: str | None = None) -> MLGenreClassifier:
+# Backward-compat alias (#2916)
+MLGenreClassifier = RuleBasedGenreClassifier
+
+
+@lru_cache(maxsize=1)
+def create_ml_genre_classifier() -> RuleBasedGenreClassifier:
     """
-    Factory function to create ML genre classifier.
+    Factory function to create genre classifier.
 
-    Results are cached by model_path so FeatureExtractor and genre weights
-    are only allocated once per unique model path (fixes #2528).
-
-    Args:
-        model_path: Optional path to saved model weights
+    Result is cached so FeatureExtractor and genre weights
+    are only allocated once (fixes #2528).
 
     Returns:
-        Cached MLGenreClassifier instance
+        Cached RuleBasedGenreClassifier instance
     """
-    return MLGenreClassifier(model_path)
+    return RuleBasedGenreClassifier()
