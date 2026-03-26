@@ -303,8 +303,13 @@ class AudioPlayer:
         return False
 
     def previous_track(self) -> bool:
-        """Skip to previous track in queue"""
+        """Skip to previous track in queue.
+
+        The queue index is only kept if the file loads successfully;
+        on failure the index is rolled back so the queue stays valid (#3442).
+        """
         was_playing = self.playback.is_playing()
+        saved_index = self.queue.queue.current_index
         prev_track = self.queue.previous_track()
         if prev_track:
             file_path = prev_track.get('file_path') or prev_track.get('path')
@@ -314,6 +319,8 @@ class AudioPlayer:
                 if was_playing and not self.playback.is_stopped():
                     self.playback.play()
                 return True
+            # File load failed — roll back queue index
+            self.queue.queue.current_index = saved_index
         return False
 
     def add_to_queue(self, track_info: dict[str, Any]) -> None:
