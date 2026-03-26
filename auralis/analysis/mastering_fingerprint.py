@@ -31,6 +31,7 @@ import librosa
 import numpy as np
 
 from .fingerprint.common_metrics import AudioMetrics
+from ..utils.logging import warning
 
 
 @dataclass
@@ -223,8 +224,14 @@ def analyze_album(album_dir: str, sr: int = 44100) -> dict[str, Any]:
         'spread': [],
     }
 
+    failed_files: list[str] = []
     for audio_file in audio_files:
-        fp = MasteringFingerprint.from_audio_file(str(audio_file), sr=sr)
+        try:
+            fp = MasteringFingerprint.from_audio_file(str(audio_file), sr=sr)
+        except Exception as exc:
+            warning(f"Failed to analyze '{audio_file.name}': {exc}")
+            failed_files.append(audio_file.name)
+            continue
         if fp:
             track_name = audio_file.stem
             fingerprints[track_name] = fp.to_dict()
@@ -248,6 +255,7 @@ def analyze_album(album_dir: str, sr: int = 44100) -> dict[str, Any]:
         'tracks': fingerprints,
         'statistics': avg_stats,
         'track_count': len(fingerprints),
+        'failed_files': failed_files,
     }
 
 
