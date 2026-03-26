@@ -111,6 +111,13 @@ class ParallelFFTProcessor:
         if window is None:
             window = self.get_window(fft_size)
 
+        # Guard: zero-pad sub-FFT-size audio to produce a single valid frame
+        # instead of silently returning empty (fixes #3439).
+        if len(audio) < fft_size:
+            padded = np.zeros(fft_size, dtype=audio.dtype)
+            padded[:len(audio)] = audio
+            return [self._process_fft_chunk(padded, window, fft_size)]
+
         # Create chunks
         chunks = []
         for i in range(0, len(audio) - fft_size + 1, hop_size):
