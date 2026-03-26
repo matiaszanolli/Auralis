@@ -34,6 +34,7 @@ class ArtistRepository:
                     select(Artist)
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.genres),
+                        selectinload(Artist.tracks).selectinload(Track.album),
                         selectinload(Artist.albums).selectinload(Album.tracks)
                     )
                     .where(Artist.id == artist_id)
@@ -54,6 +55,7 @@ class ArtistRepository:
                     select(Artist)
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.genres),
+                        selectinload(Artist.tracks).selectinload(Track.album),
                         selectinload(Artist.albums)
                     )
                     .where(Artist.name == name)
