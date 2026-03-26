@@ -14,6 +14,8 @@ export const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsPro
 
   return (
     <Box
+      role="list"
+      aria-label="Character tags"
       sx={{
         display: 'flex',
         flexWrap: 'wrap',
@@ -30,7 +32,7 @@ export const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsPro
             key={`${tag.category}-${tag.label}`}
             label={tag.label}
             aria-label={`${tag.category}: ${tag.label}`}
-            role="status"
+            role="listitem"
             size="small"
             sx={{
               // Glass background
