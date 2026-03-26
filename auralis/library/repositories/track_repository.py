@@ -117,7 +117,7 @@ class TrackRepository:
                         ).scalars().first()
                 artists.append(artist)
 
-            # Get or create album
+            # Get or create album (same IntegrityError guard as artists, fixes #3365)
             album = None
             if track_info.get('album'):
                 album_filter = Album.title == track_info['album']
@@ -125,12 +125,19 @@ class TrackRepository:
                     album_filter = and_(album_filter, Album.artist_id == artists[0].id)
                 album = session.execute(select(Album).where(album_filter)).scalars().first()
                 if not album and artists:
-                    album = Album(
-                        title=track_info['album'],
-                        artist_id=artists[0].id,
-                        year=track_info.get('year')
-                    )
-                    session.add(album)
+                    try:
+                        with session.begin_nested():
+                            album = Album(
+                                title=track_info['album'],
+                                artist_id=artists[0].id,
+                                year=track_info.get('year')
+                            )
+                            session.add(album)
+                            session.flush()
+                    except IntegrityError:
+                        album = session.execute(
+                            select(Album).where(album_filter)
+                        ).scalars().first()
 
             # Get or create genres (same IntegrityError handling as artists, fixes #2594)
             genres = []
