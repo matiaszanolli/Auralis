@@ -108,6 +108,9 @@ class AudioPlayer:
         # concurrently with the playback thread reading it for adaptive DSP
         # parameters (fixes #2491).
         self._fingerprint_lock = threading.Lock()
+        # Monotonic counter incremented on each track load; fingerprint
+        # callbacks check their generation matches before applying (#3445).
+        self._track_generation: int = 0
 
         # Control flags
         self.auto_advance = True
@@ -180,12 +183,16 @@ class AudioPlayer:
         if self.file_manager.load_file(file_path):
             self.playback.load_and_stop()
 
+            # Bump generation so in-flight fingerprint threads discard stale results (#3445)
+            self._track_generation += 1
+            generation = self._track_generation
+
             # Load fingerprint in background thread to avoid blocking the caller.
             # The processor uses profile-based mastering until the fingerprint
             # arrives, then switches to fingerprint-adaptive mastering seamlessly.
             threading.Thread(
                 target=self._load_fingerprint_for_file,
-                args=(file_path,),
+                args=(file_path, generation),
                 daemon=True,
                 name="fingerprint-loader",
             ).start()
@@ -202,7 +209,7 @@ class AudioPlayer:
             self.playback.set_error()
             return False
 
-    def _load_fingerprint_for_file(self, file_path: str) -> None:
+    def _load_fingerprint_for_file(self, file_path: str, generation: int) -> None:
         """
         Load 25D fingerprint for file and apply to processor for adaptive mastering.
 
@@ -211,10 +218,17 @@ class AudioPlayer:
 
         Args:
             file_path: Path to audio file
+            generation: Track generation counter — result is discarded if the
+                track has changed since this thread was started (#3445).
         """
         try:
             audio_path = Path(file_path)
             fingerprint = self.fingerprint_service.get_or_compute(audio_path)
+
+            # Discard result if a new track was loaded while we were computing
+            if self._track_generation != generation:
+                debug(f"Discarding stale fingerprint for {audio_path.name} (generation {generation} != {self._track_generation})")
+                return
 
             if fingerprint:
                 with self._fingerprint_lock:
@@ -231,9 +245,10 @@ class AudioPlayer:
 
         except Exception as e:
             warning(f"Error loading fingerprint: {e}")
-            with self._fingerprint_lock:
-                self._current_fingerprint = None
-            self.processor.set_fingerprint(None)
+            if self._track_generation == generation:
+                with self._fingerprint_lock:
+                    self._current_fingerprint = None
+                self.processor.set_fingerprint(None)
 
     def load_reference(self, file_path: str) -> bool:
         """
