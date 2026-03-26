@@ -44,8 +44,10 @@ class AdaptiveLimiter:
         self.lookahead_samples = int(settings.lookahead_ms * sample_rate / 1000)
         self.lookahead_buffer: np.ndarray | None = None
 
-        # Gain smoothing
-        self.gain_smoother = EnvelopeFollower(sample_rate, 0.1, settings.release_ms)
+        # Gain smoothing — for gain curves the signal drops when limiting
+        # (opposite of audio peaks), so swap attack/release: the "release"
+        # coeff drives fast gain reduction, "attack" coeff drives slow recovery.
+        self.gain_smoother = EnvelopeFollower(sample_rate, settings.release_ms, 0.1)
 
         # State
         self.current_gain = 1.0
