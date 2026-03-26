@@ -36,12 +36,16 @@ class QueueManager:
         with self._lock:
             self.tracks.extend(track_list)
 
+    def _get_current_track_unlocked(self) -> dict[str, Any] | None:
+        """Get current track info (caller must hold self._lock)."""
+        if 0 <= self.current_index < len(self.tracks):
+            return self.tracks[self.current_index]
+        return None
+
     def get_current_track(self) -> dict[str, Any] | None:
         """Get current track info"""
         with self._lock:
-            if 0 <= self.current_index < len(self.tracks):
-                return self.tracks[self.current_index]
-            return None
+            return self._get_current_track_unlocked()
 
     def peek_next(self) -> dict[str, Any] | None:
         """
@@ -77,7 +81,7 @@ class QueueManager:
             else:
                 return None
 
-            return self.get_current_track()
+            return self._get_current_track_unlocked()
 
     def previous_track(self) -> dict[str, Any] | None:
         """Move to previous track"""
@@ -92,7 +96,7 @@ class QueueManager:
             else:
                 return None
 
-            return self.get_current_track()
+            return self._get_current_track_unlocked()
 
     def clear(self) -> None:
         """Clear the queue"""
@@ -210,7 +214,7 @@ class QueueManager:
             self._pre_shuffle_tracks = list(self.tracks)
             self._pre_shuffle_index = self.current_index
 
-            current_track = self.get_current_track()
+            current_track = self._get_current_track_unlocked()
             current_track_id = current_track.get('id') if current_track else None
 
             # Shuffle all tracks
@@ -231,7 +235,7 @@ class QueueManager:
             if self._pre_shuffle_tracks is None:
                 return False
 
-            current_track = self.get_current_track()
+            current_track = self._get_current_track_unlocked()
             current_track_id = current_track.get('id') if current_track else None
 
             self.tracks = self._pre_shuffle_tracks
@@ -303,7 +307,7 @@ class QueueManager:
         with self._lock:
             if 0 <= index < len(self.tracks):
                 self.current_index = index
-                return self.get_current_track()
+                return self._get_current_track_unlocked()
             return None
 
 
