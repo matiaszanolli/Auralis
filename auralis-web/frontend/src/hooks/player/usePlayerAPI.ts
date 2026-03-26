@@ -291,11 +291,9 @@ export const usePlayerAPI = () => {
   }, [setQueue]);
 
   // WebSocket for real-time updates (using shared WebSocketContext)
-  const { subscribe } = useWebSocketContext();
+  const { subscribe, connectionStatus } = useWebSocketContext();
 
   useEffect(() => {
-    console.log('🎵 usePlayerAPI: Setting up WebSocket subscriptions');
-
     // Subscribe to player_state messages.
     // Skip updates while a command is in-flight to avoid overwriting
     // optimistic state with stale server broadcasts (fixes #2783).
@@ -318,13 +316,15 @@ export const usePlayerAPI = () => {
       }
     });
 
-    // Fetch initial player status
+    // Fetch player status on mount and after every WS reconnect (#3341).
+    // This re-syncs the private playerState from the backend so stale
+    // position/track data from before the disconnect is replaced.
     fetchPlayerStatus();
 
     return () => {
       unsubscribePlayerState();
     };
-  }, [subscribe, fetchPlayerStatus]);
+  }, [subscribe, fetchPlayerStatus, connectionStatus]);
 
   // NOTE: Periodic polling DISABLED - WebSocket provides real-time updates
   // The PlayerStateManager broadcasts player_state messages automatically:
