@@ -8,6 +8,8 @@ Main scanner orchestrator
 :license: GPLv3, see LICENSE for more details.
 """
 
+import os
+import threading
 import time
 from typing import Any
 from collections.abc import Callable
@@ -47,6 +49,11 @@ class LibraryScanner:
         self.fingerprint_queue: Any | None = fingerprint_queue
         self.progress_callback: Callable[[dict[str, Any]], None] | None = None
         self.should_stop: bool = False
+
+        # Per-directory deduplication: prevents concurrent scans of the same
+        # folder from producing duplicate DB entries (fixes #3455).
+        self._active_paths: set[str] = set()
+        self._active_paths_lock = threading.Lock()
 
         # Initialize components
         self.file_discovery: Any = FileDiscovery()
@@ -109,6 +116,19 @@ class LibraryScanner:
             result.rejected = True
             return result
         # --- End concurrency guard ---
+
+        # --- Per-directory dedup guard (#3455) ---
+        normalized = [os.path.normpath(os.path.abspath(d)) for d in directories]
+        with self._active_paths_lock:
+            already_scanning = [d for d in normalized if d in self._active_paths]
+            if already_scanning:
+                warning(
+                    f"Scan rejected: directories already being scanned: {already_scanning}"
+                )
+                result.rejected = True
+                return result
+            self._active_paths.update(normalized)
+        # --- End per-directory dedup guard ---
 
         info(f"Starting library scan of {len(directories)} directories")
 
@@ -188,6 +208,9 @@ class LibraryScanner:
             return result
 
         finally:
+            # Release per-directory dedup guard (#3455)
+            with self._active_paths_lock:
+                self._active_paths.difference_update(normalized)
             try:
                 self.library_manager.release_scan_slot()
             except AttributeError:
