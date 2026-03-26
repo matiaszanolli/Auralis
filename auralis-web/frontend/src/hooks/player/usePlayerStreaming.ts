@@ -155,7 +155,7 @@ export function usePlayerStreaming({
   debug = false,
 }: UsePlayerStreamingConfig): PlayerStreamingState {
   // Convert drift threshold from milliseconds to seconds for comparison
-  const driftThresholdSeconds = driftThreshold / 1000;
+  const driftThresholdSeconds = useMemo(() => driftThreshold / 1000, [driftThreshold]);
 
   const log = useCallback((msg: string, data?: unknown) => {
     if (debug) {
