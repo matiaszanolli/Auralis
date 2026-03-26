@@ -289,8 +289,7 @@ export const selectQueueTracks = (state: { queue: QueueState }) => state.queue.t
 export const selectCurrentIndex = (state: { queue: QueueState }) => state.queue.currentIndex;
 export const selectIsShuffled = (state: { queue: QueueState }) => state.queue.isShuffled;
 export const selectRepeatMode = (state: { queue: QueueState }) => state.queue.repeatMode;
-export const selectCurrentQueueTrack = (state: { queue: QueueState }) =>
-  state.queue.tracks[state.queue.currentIndex] || null;
+// selectCurrentQueueTrack: use the memoized version from store/selectors/index.ts (#3382)
 export const selectQueueLength = (state: { queue: QueueState }) => state.queue.tracks.length;
 export const selectIsLoading = (state: { queue: QueueState }) => state.queue.isLoading;
 export const selectError = (state: { queue: QueueState }) => state.queue.error;

@@ -20,11 +20,11 @@ import reducer, {
   resetQueue,
   selectQueueTracks,
   selectCurrentIndex,
-  selectCurrentQueueTrack,
   selectQueueLength,
   selectIsLoading,
   selectError,
 } from '../queueSlice';
+import { selectCurrentQueueTrack } from '@/store/selectors';
 import type { QueueState } from '../queueSlice';
 import type { QueueTrack } from '@/types/domain';
 
@@ -222,7 +222,7 @@ describe('queueSlice', () => {
 
     expect(selectQueueTracks(root)).toHaveLength(2);
     expect(selectCurrentIndex(root)).toBe(1);
-    expect(selectCurrentQueueTrack(root)?.id).toBe(2);
+    expect(selectCurrentQueueTrack(root as any)?.id).toBe(2);
     expect(selectQueueLength(root)).toBe(2);
     expect(selectIsLoading(root)).toBe(false);
     expect(selectError(root)).toBeNull();
@@ -230,6 +230,6 @@ describe('queueSlice', () => {
 
   it('selectCurrentQueueTrack returns null for empty queue', () => {
     const root = { queue: initialState };
-    expect(selectCurrentQueueTrack(root)).toBeNull();
+    expect(selectCurrentQueueTrack(root as any)).toBeNull();
   });
 });

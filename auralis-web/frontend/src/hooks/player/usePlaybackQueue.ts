@@ -53,11 +53,11 @@ import {
   setRepeatMode as reduxSetRepeatMode,
   selectQueueTracks,
   selectCurrentIndex,
-  selectCurrentQueueTrack,
   selectIsShuffled,
   selectRepeatMode,
   selectLastUpdated,
 } from '@/store/slices/queueSlice';
+import { selectCurrentQueueTrack } from '@/store/selectors';
 import type { Track, QueueTrack } from '@/types/domain';
 import type { ApiError } from '@/types/api';
 
