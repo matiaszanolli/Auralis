@@ -13,8 +13,9 @@
  * @module hooks/usePlayerStreaming
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import type { PositionChangedMessage } from '@/types/websocket';
 
 /**
  * Buffered range: [start, end] in seconds
@@ -262,8 +263,9 @@ export function usePlayerStreaming({
     const unsubscribes: (() => void)[] = [];
 
     // Handle position_changed event (external seek)
-    const unsubscribePosition = wsContext.subscribe('position_changed', (msg: any) => {
-      const serverPosition = msg.data.position;
+    const unsubscribePosition = wsContext.subscribe('position_changed', (msg) => {
+      const posMsg = msg as PositionChangedMessage;
+      const serverPosition = posMsg.data.position;
       const localPosition = audioElement.currentTime;
       const drift = Math.abs(localPosition - serverPosition);
 
