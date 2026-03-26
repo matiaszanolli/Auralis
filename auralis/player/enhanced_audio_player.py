@@ -342,15 +342,18 @@ class AudioPlayer:
         """Add a track to the playback queue"""
         self.queue.add_track(track_info)
 
-        # If nothing is loaded, load this track
-        if not self.file_manager.is_loaded():
-            file_path = track_info.get('file_path') or track_info.get('filepath')
-            track_id = track_info.get('id')
+        # Auto-load if nothing is playing. The check and load must be
+        # atomic to prevent a concurrent load_file() from being
+        # overwritten between the check and the load (#3359).
+        with self.file_manager._audio_lock:
+            if not self.file_manager.is_loaded():
+                file_path = track_info.get('file_path') or track_info.get('filepath')
+                track_id = track_info.get('id')
 
-            if track_id:
-                self.load_track_from_library(track_id)
-            elif file_path:
-                self.load_file(file_path)
+                if track_id:
+                    self.load_track_from_library(track_id)
+                elif file_path:
+                    self.load_file(file_path)
 
     def add_track_to_queue(self, track_id: int) -> bool:
         """Add a track from the library to the queue"""
