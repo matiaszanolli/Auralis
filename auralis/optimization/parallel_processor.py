@@ -234,34 +234,40 @@ class ParallelBandProcessor:
                 ]
 
                 # Execute in parallel
-                futures = [executor.submit(self._process_single_band_static, task) for task in tasks]
+                future_to_band = {
+                    executor.submit(self._process_single_band_static, task): i
+                    for i, task in enumerate(tasks)
+                }
 
-                # Collect results — list comprehension avoids shared-reference aliasing
-                # that [np.array([])] * num_bands would create (#2424).
-                band_results: list[np.ndarray] = [np.zeros_like(audio) for _ in range(num_bands)]
-                for future in as_completed(futures):
+                # Pre-compute unprocessed band signals as fallback for failed bands
+                # (return original filtered signal instead of silence — fixes #3430).
+                band_fallbacks: list[np.ndarray] = [band_filters[i](audio) for i in range(num_bands)]
+                band_results: list[np.ndarray] = list(band_fallbacks)
+                for future in as_completed(future_to_band):
+                    band_i = future_to_band[future]
                     try:
                         idx, result = future.result()
                         band_results[idx] = result
                     except Exception as exc:
-                        warning(f"Band processing failed (process pool): {exc}")
+                        warning(f"Band {band_i} processing failed (process pool), using unprocessed signal: {exc}")
         else:
             # Threading for lighter operations
             with ThreadPoolExecutor(max_workers=num_workers) as executor:
                 # Submit tasks
-                futures = [
-                    executor.submit(self._process_single_band, audio, band_filters[i], band_gains[i], i)
+                futures_with_idx = [
+                    (i, executor.submit(self._process_single_band, audio, band_filters[i], band_gains[i], i))
                     for i in range(num_bands)
                 ]
 
-                # Collect results — list comprehension avoids shared-reference aliasing (#2424)
-                band_results = [np.zeros_like(audio) for _ in range(num_bands)]
-                for future in as_completed(futures):
+                # Pre-compute unprocessed band signals as fallback (#3430)
+                band_fallbacks = [band_filters[i](audio) for i in range(num_bands)]
+                band_results = list(band_fallbacks)
+                for band_i, future in futures_with_idx:
                     try:
                         idx, result = future.result()
                         band_results[idx] = result
                     except Exception as exc:
-                        warning(f"Band processing failed (thread pool): {exc}")
+                        warning(f"Band {band_i} processing failed (thread pool), using unprocessed signal: {exc}")
 
         # Sum all band results
         output: np.ndarray = np.sum(band_results, axis=0)
@@ -310,13 +316,17 @@ class ParallelBandProcessor:
                 for group in band_groups
             ]
 
-            # Collect group results — failed groups produce silence, not a crash
+            # Collect group results — failed groups fall back to unprocessed
+            # band sum for that group rather than silence (fixes #3430).
             group_results: list[np.ndarray] = [np.zeros_like(audio) for _ in range(num_groups)]
             for i, future in enumerate(futures):
                 try:
                     group_results[i] = future.result()
                 except Exception as exc:
-                    warning(f"Band group {i} processing failed: {exc}")
+                    warning(f"Band group {i} processing failed, using unprocessed signal: {exc}")
+                    # Fall back to unprocessed sum of this group's bands
+                    for band_idx in band_groups[i]:
+                        group_results[i] += band_filters[band_idx](audio)
 
         # Sum all group results
         output: np.ndarray = np.sum(group_results, axis=0)
