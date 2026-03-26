@@ -113,6 +113,7 @@ class ArtistRepository:
                     select(Artist)
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.genres),
+                        selectinload(Artist.tracks).selectinload(Track.album),
                         selectinload(Artist.albums)
                     )
                     .order_by(order_column)
@@ -159,6 +160,7 @@ class ArtistRepository:
                     select(Artist)
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.genres),
+                        selectinload(Artist.tracks).selectinload(Track.album),
                         selectinload(Artist.albums)
                     )
                     .where(Artist.name.ilike(search_term, escape='\\'))
@@ -190,6 +192,7 @@ class ArtistRepository:
                 session.execute(
                     select(Artist)
                     .options(
+                        selectinload(Artist.tracks).selectinload(Track.album),
                         selectinload(Artist.tracks),
                         selectinload(Artist.albums),
                     )
