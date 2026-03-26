@@ -13,6 +13,7 @@ from typing import Any, cast
 import numpy as np
 
 from ...dsp.unified import normalize
+from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug, info
 from ..processors.reference_mode import apply_reference_matching
 
@@ -99,6 +100,10 @@ class HybridMode:
         # Blend the two results
         blended_audio = (reference_matched * (1 - adaptation_strength) +
                         adaptive_processed * adaptation_strength)
+
+        # Catch NaN/Inf before normalization — normalize() would propagate
+        # them silently into the output (#3429).
+        blended_audio = validate_audio_finite(blended_audio, context="hybrid_mode blend", repair=True)
 
         # Normalize to -0.1 dB peak (matching Matchering behavior)
         return normalize(blended_audio, 0.9886)
