@@ -167,47 +167,51 @@ class EQProcessor:
 
         # Process audio in chunks for psychoacoustic EQ
         chunk_size = self.psychoacoustic_eq.fft_size
-        processed_audio = np.zeros_like(audio)
+        hop_size = chunk_size // 2
+        original_length = len(audio)
 
         # WOLA (Weighted Overlap-Add) with sqrt-Hann windows for both
         # analysis and synthesis.  At 50% overlap:
         #   sum_k { sqrt(hann)[n-kH] * sqrt(hann)[n-kH] } = hann sums to 1
         # This satisfies the COLA constraint and avoids the ~6 dB ripple
         # that occurred when only a synthesis window was applied (#3294).
+        #
+        # The output buffer is extended by chunk_size so that the terminal
+        # chunk's full synthesis window fits without truncation.  The final
+        # output is trimmed to original_length (#3437).
+        out_shape = (original_length + chunk_size,) + audio.shape[1:]
+        processed_audio = np.zeros(out_shape, dtype=audio.dtype)
         wola_window = np.sqrt(hann(chunk_size))
 
-        for i in range(0, len(audio), chunk_size // 2):  # 50% overlap
-            end_idx = min(i + chunk_size, len(audio))
+        for i in range(0, original_length, hop_size):
+            end_idx = min(i + chunk_size, original_length)
             chunk = audio[i:end_idx].copy()
 
-            # Pad chunk if necessary
+            # Pad terminal chunk to full frame so the FFT and window are
+            # well-defined (zero-padding keeps the spectrum correct).
             if len(chunk) < chunk_size:
                 padded_chunk = np.zeros((chunk_size,) + chunk.shape[1:], dtype=chunk.dtype)
                 padded_chunk[:len(chunk)] = chunk
                 chunk = padded_chunk
 
             # Apply analysis window before processing
-            valid_length = end_idx - i
-            analysis_slice = wola_window[:chunk_size]
             if audio.ndim == 2:
-                chunk = chunk * analysis_slice[:, np.newaxis]
+                chunk = chunk * wola_window[:, np.newaxis]
             else:
-                chunk = chunk * analysis_slice
+                chunk = chunk * wola_window
 
             # Process chunk with psychoacoustic EQ
             processed_chunk = self.psychoacoustic_eq.process_realtime_chunk(
                 chunk, target_curve, content_profile
             )
 
-            # Apply synthesis window and accumulate into output (overlap-add).
-            # Using += instead of = so overlapping regions are summed, not overwritten.
-            window_slice = wola_window[:valid_length]
+            # Apply full synthesis window and accumulate (overlap-add).
             if audio.ndim == 2:
-                processed_audio[i:end_idx] += processed_chunk[:valid_length] * window_slice[:, np.newaxis]
+                processed_audio[i:i + chunk_size] += processed_chunk[:chunk_size] * wola_window[:, np.newaxis]
             else:
-                processed_audio[i:end_idx] += processed_chunk[:valid_length] * window_slice
+                processed_audio[i:i + chunk_size] += processed_chunk[:chunk_size] * wola_window
 
-        return processed_audio
+        return processed_audio[:original_length]
 
     def _eq_curve_to_array(self, eq_curve: dict[str, float]) -> np.ndarray:
         """
