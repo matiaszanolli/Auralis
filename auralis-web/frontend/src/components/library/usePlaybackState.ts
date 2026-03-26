@@ -60,7 +60,7 @@ export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
 
   const handlePause = useCallback(() => {
     wsContext.send({
-      type: 'pause_playback',
+      type: 'pause',
     });
     // Redux state will sync via WebSocket player_state broadcast
   }, [wsContext]);
