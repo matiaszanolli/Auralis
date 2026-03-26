@@ -75,7 +75,8 @@ def _apply_spectral_tilt_correction(
     else:
         result = low / gain + high * gain
 
-    return result
+    # Preserve input dtype — sosfilt upcasts float32 to float64
+    return result.astype(audio.dtype, copy=False)
 
 
 class ContinuousMode:
@@ -122,6 +123,7 @@ class ContinuousMode:
         # Cross-dimensional analysis (populated after each process() call)
         self.last_journal: PipelineJournal | None = None
         self.last_side_effects: list[Any] = []
+        self.last_quality_comparison: dict[str, Any] | None = None
 
     def _convert_targets_to_parameters(self, targets: dict[str, Any]) -> ProcessingParameters:
         """
@@ -269,6 +271,8 @@ class ContinuousMode:
         # 5b. Apply psychoacoustic EQ with generated curve
         pre_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
         processed_audio = self._apply_eq(processed_audio, eq_processor, params)
+        # Snapshot RAW post-EQ state for guard analysis (before compensation)
+        journal.snapshot(processed_audio, STAGE_EQ)
         # Compensation: EQ should change spectral shape, not overall loudness.
         # Restore pre-EQ LUFS so downstream stages operate from correct baseline.
         if self.config.enable_cross_dimensional_guard and pre_eq_lufs is not None:
@@ -279,11 +283,12 @@ class ContinuousMode:
                     correction = max(-3.0, min(3.0, -lufs_drift))  # Cap at ±3 dB
                     processed_audio = amplify(processed_audio, correction)
                     debug(f"[Guard] EQ LUFS compensation: {correction:+.1f} dB (drift was {lufs_drift:+.1f})")
-        journal.snapshot(processed_audio, STAGE_EQ)
 
         # 5c. Apply dynamics processing (compression or expansion)
         pre_dyn_snap = journal.get(STAGE_EQ)
         processed_audio = self._apply_dynamics(processed_audio, params)
+        # Snapshot RAW post-dynamics state for guard analysis
+        journal.snapshot(processed_audio, STAGE_DYNAMICS)
         # Compensation: compression should not shift spectral tilt.
         # Apply corrective gain to the affected band if tilt exceeds 10%.
         if self.config.enable_cross_dimensional_guard and pre_dyn_snap is not None:
@@ -293,22 +298,25 @@ class ContinuousMode:
             bass_shift = post_dyn_bass - pre_dyn_snap.bass_energy_pct
             high_shift = post_dyn_high - pre_dyn_snap.high_energy_pct
             if abs(bass_shift) > 0.10 or abs(high_shift) > 0.10:
-                # Apply a gentle corrective tilt (max ±2 dB)
-                tilt_correction = max(-2.0, min(2.0, -bass_shift * 10.0))
+                # Apply a gentle corrective tilt (max ±2 dB).
+                # Use whichever shift is larger to determine correction direction.
+                dominant_shift = bass_shift if abs(bass_shift) >= abs(high_shift) else -high_shift
+                tilt_correction = max(-2.0, min(2.0, -dominant_shift * 10.0))
                 if abs(tilt_correction) > 0.3:
                     processed_audio = _apply_spectral_tilt_correction(
                         processed_audio, tilt_correction, self.config.internal_sample_rate
                     )
                     debug(f"[Guard] Dynamics spectral tilt compensation: {tilt_correction:+.1f} dB")
-        journal.snapshot(processed_audio, STAGE_DYNAMICS)
 
         # 5d. Apply stereo width adjustment
         processed_audio = self._apply_stereo_width(processed_audio, params)
+        # Snapshot RAW post-stereo state for guard analysis
+        journal.snapshot(processed_audio, STAGE_STEREO)
         # Compensation: stereo processing should not degrade phase correlation.
         if self.config.enable_cross_dimensional_guard:
             if processed_audio.ndim == 2 and processed_audio.shape[1] == 2:
                 from .stage_snapshot import _compute_phase_correlation
-                post_phase = _compute_phase_correlation(processed_audio)
+                post_phase = _compute_phase_correlation(processed_audio, self.config.internal_sample_rate)
                 pre_phase = (journal.get(STAGE_DYNAMICS) or journal.get(STAGE_EQ))
                 pre_phase_val = pre_phase.phase_correlation if pre_phase else None
                 if post_phase is not None and pre_phase_val is not None:
@@ -322,7 +330,6 @@ class ContinuousMode:
                         corrected[:, 1] = processed_audio[:, 1] * (1 - blend) + mid * blend
                         processed_audio = corrected
                         debug(f"[Guard] Phase compensation: blended 50% toward mid (phase was {post_phase:.2f})")
-        journal.snapshot(processed_audio, STAGE_STEREO)
 
         # 5e. Apply final normalization to target LUFS and peak
         pre_norm_crest = journal.get(STAGE_STEREO)
@@ -336,9 +343,15 @@ class ContinuousMode:
                 post_crest_db = post_peak_db - post_rms_db
                 crest_crush = post_crest_db - pre_norm_crest.crest_db
                 if crest_crush < -4.0:
-                    # Pull back normalization gain to preserve dynamics
+                    # Pull back normalization gain to preserve dynamics,
+                    # then re-apply peak ceiling so output LUFS stays close to target.
                     pullback_db = max(-3.0, crest_crush + 4.0)  # Restore up to 3 dB
                     processed_audio = amplify(processed_audio, pullback_db)
+                    # Re-clamp peaks to -0.3 dBFS after pullback
+                    peak = np.max(np.abs(processed_audio))
+                    ceiling = 10.0 ** (-0.3 / 20.0)  # ~0.966
+                    if peak > ceiling:
+                        processed_audio = processed_audio * (ceiling / peak)
                     debug(f"[Guard] Crest preservation: {pullback_db:+.1f} dB pullback (crush was {crest_crush:+.1f})")
         journal.snapshot(processed_audio, STAGE_NORMALIZATION)
 
@@ -356,7 +369,7 @@ class ContinuousMode:
                     self._quality_metrics = QualityMetrics(self.config.internal_sample_rate)
                 comparison = self._quality_metrics.compare_quality(target_audio, processed_audio)
                 self.last_quality_comparison = comparison
-                score_delta = comparison.get('score_difference', 0)
+                score_delta = comparison.get('difference', 0)
                 if score_delta < -10:
                     warning(f"[Quality Gate] Output scored {score_delta:.1f} points below input "
                             f"(input={comparison.get('audio1_score', 0):.0f}, "

@@ -59,11 +59,12 @@ def _compute_3band_energy(audio: np.ndarray, sample_rate: int) -> tuple[float, f
     return float(bass), float(mid), float(high)
 
 
-def _compute_phase_correlation(audio: np.ndarray) -> float | None:
-    """Fast phase correlation between L/R channels."""
+def _compute_phase_correlation(audio: np.ndarray, sample_rate: int = 44100) -> float | None:
+    """Fast phase correlation between L/R channels (truncated to 2s for speed)."""
     if audio.ndim != 2 or audio.shape[1] != 2:
         return None
-    left, right = audio[:, 0], audio[:, 1]
+    max_samples = min(len(audio), sample_rate * 2)
+    left, right = audio[:max_samples, 0], audio[:max_samples, 1]
     if np.std(left) < 1e-9 or np.std(right) < 1e-9:
         return 1.0  # mono/silence → perfect correlation
     return float(np.corrcoef(left, right)[0, 1])
@@ -87,7 +88,7 @@ class PipelineJournal:
 
         is_stereo = audio.ndim == 2 and audio.shape[1] == 2
         width = stereo_width_analysis(audio) if is_stereo else None
-        phase = _compute_phase_correlation(audio) if is_stereo else None
+        phase = _compute_phase_correlation(audio, self.sample_rate) if is_stereo else None
 
         snap = StageSnapshot(
             stage_name=stage_name,
