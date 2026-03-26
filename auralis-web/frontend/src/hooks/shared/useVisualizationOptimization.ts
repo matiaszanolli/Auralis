@@ -169,10 +169,10 @@ interface CanvasRenderOptions {
   optimization?: OptimizationHookOptions;
 }
 
-export const useOptimizedCanvas = (
+export const useOptimizedCanvas = <T = unknown>(
   canvasRef: React.RefObject<HTMLCanvasElement>,
-  renderFunction: (ctx: CanvasRenderingContext2D | WebGLRenderingContext, optimizedData: any) => void,
-  data: any,
+  renderFunction: (ctx: CanvasRenderingContext2D | WebGLRenderingContext, optimizedData: T | number[]) => void,
+  data: T,
   options: CanvasRenderOptions
 ) => {
   const optimization = useVisualizationOptimization(options.optimization);
@@ -341,8 +341,8 @@ export const useWebGLRenderer = (
 export const useSynchronizedVisualizations = (
   visualizations: Array<{
     ref: React.RefObject<HTMLCanvasElement>;
-    renderFn: (ctx: any, data: any) => void;
-    data: any;
+    renderFn: (ctx: CanvasRenderingContext2D | WebGLRenderingContext, data: unknown) => void;
+    data: unknown;
     options?: CanvasRenderOptions;
   }>
 ) => {
