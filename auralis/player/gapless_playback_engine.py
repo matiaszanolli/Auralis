@@ -241,7 +241,8 @@ class GaplessPlaybackEngine:
 
         if prebuffer_matches:
             # Validate sample rate matches current playback (#2408)
-            current_sr = self.file_manager.sample_rate
+            with self.file_manager._audio_lock:
+                current_sr = self.file_manager.sample_rate
             if current_sr is not None and sample_rate != current_sr:
                 warning(
                     f"Sample rate mismatch: prebuffered={sample_rate}Hz, "
