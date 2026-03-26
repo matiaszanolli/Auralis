@@ -151,9 +151,12 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
                 window=self.window
             )
 
-            # Process FFT results in parallel
+            # Process FFT results in parallel.
+            # Use _process_fft_no_smoothing to avoid racing on the shared
+            # smoothing_buffer — temporal smoothing across randomly-ordered
+            # parallel chunks is meaningless anyway (#3433).
             with ThreadPoolExecutor(max_workers=self.settings.max_workers) as executor:  # type: ignore[attr-defined]
-                chunk_results = list(executor.map(self._process_fft_to_spectrum, fft_results))
+                chunk_results = list(executor.map(self._process_fft_no_smoothing, fft_results))
         else:
             # Sequential fallback for small files
             chunk_results = self._process_chunks_sequential(audio_data, hop_size, num_chunks)
@@ -210,6 +213,33 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
                 chunk_results.append(result)
 
         return chunk_results
+
+    def _process_fft_no_smoothing(self, fft_result: np.ndarray) -> dict[str, Any]:
+        """Process a single FFT result without temporal smoothing.
+
+        Used by the parallel batch path where chunks execute out-of-order
+        across threads — smoothing would race on shared state (#3433).
+        """
+        magnitude = np.abs(fft_result[:self.settings.fft_size // 2 + 1])
+        spectrum = self._map_to_bands_vectorized(magnitude)
+        weighted_spectrum = spectrum + self.weighting_curve
+
+        peak_frequency = self.frequency_bins[np.argmax(weighted_spectrum)]
+        spectrum_sum = np.sum(weighted_spectrum)
+        spectral_centroid = SafeOperations.safe_divide(
+            np.sum(self.frequency_bins * weighted_spectrum),
+            spectrum_sum,
+            fallback=0.0
+        )
+        spectral_rolloff = self._calculate_rolloff_vectorized(weighted_spectrum)
+
+        return {
+            'spectrum': weighted_spectrum,
+            'peak_frequency': float(peak_frequency),
+            'spectral_centroid': float(spectral_centroid),
+            'spectral_rolloff': float(spectral_rolloff),
+            'total_energy': float(np.sum(weighted_spectrum))
+        }
 
     def _process_fft_to_spectrum(self, fft_result: np.ndarray) -> dict[str, Any]:
         """
