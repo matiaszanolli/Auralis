@@ -192,11 +192,8 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     // Cancel any in-flight fetch (#2780)
     abortRef.current?.abort();
 
-    // Unsubscribe from WebSocket messages
-    unsubscribeStreamStartRef.current?.();
-    unsubscribeChunkRef.current?.();
-    unsubscribeStreamEndRef.current?.();
-    unsubscribeErrorRef.current?.();
+    // NOTE: WS subscriptions are managed by a dedicated useEffect (#3377)
+    // and must NOT be unsubscribed here — they persist for the hook's lifetime.
 
     // Clear references
     pcmBufferRef.current = null;
@@ -453,19 +450,40 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     cleanupStreaming();
   }, [dispatch, cleanupStreaming]);
 
+  // Register WS subscriptions once on mount, not per playNormal() call (#3377).
+  // Handlers are stable useCallback refs so deps won't cause churn.
+  useEffect(() => {
+    unsubscribeStreamStartRef.current = wsContext.subscribe(
+      'audio_stream_start',
+      handleStreamStart as any
+    );
+    unsubscribeChunkRef.current = wsContext.subscribe(
+      'audio_chunk',
+      handleChunk as any
+    );
+    unsubscribeStreamEndRef.current = wsContext.subscribe(
+      'audio_stream_end',
+      handleStreamEnd as any
+    );
+    unsubscribeErrorRef.current = wsContext.subscribe(
+      'audio_stream_error',
+      handleStreamError as any
+    );
+
+    return () => {
+      unsubscribeStreamStartRef.current?.();
+      unsubscribeChunkRef.current?.();
+      unsubscribeStreamEndRef.current?.();
+      unsubscribeErrorRef.current?.();
+    };
+  }, [wsContext, handleStreamStart, handleChunk, handleStreamEnd, handleStreamError]);
+
   /**
    * Start normal audio playback
    */
   const playNormal = useCallback(
     async (trackId: number) => {
       try {
-        // CRITICAL: Clean up any existing subscriptions BEFORE creating new ones
-        // This prevents subscription accumulation when playNormal is called multiple times
-        unsubscribeStreamStartRef.current?.();
-        unsubscribeChunkRef.current?.();
-        unsubscribeStreamEndRef.current?.();
-        unsubscribeErrorRef.current?.();
-
         // Stop any existing playback
         playbackEngineRef.current?.stopPlayback();
         pcmBufferRef.current = null;
@@ -478,26 +496,6 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         if (!wsContext.isConnected) {
           throw new Error('WebSocket not connected. Please wait for connection and try again.');
         }
-
-        // Subscribe to streaming messages BEFORE fetch and play command (#2962).
-        // This eliminates the race window where chunks arrive during the
-        // async fetch but no listener is registered yet.
-        unsubscribeStreamStartRef.current = wsContext.subscribe(
-          'audio_stream_start',
-          handleStreamStart as any
-        );
-        unsubscribeChunkRef.current = wsContext.subscribe(
-          'audio_chunk',
-          handleChunk as any
-        );
-        unsubscribeStreamEndRef.current = wsContext.subscribe(
-          'audio_stream_end',
-          handleStreamEnd as any
-        );
-        unsubscribeErrorRef.current = wsContext.subscribe(
-          'audio_stream_error',
-          handleStreamError as any
-        );
 
         // Load track data from backend so we can set currentTrack (fixes #2258)
         // AbortController cancels fetch on unmount/re-invocation (#2780)
@@ -534,7 +532,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         cleanupStreaming();
       }
     },
-    [wsContext, dispatch, handleStreamStart, handleChunk, handleStreamEnd, handleStreamError, cleanupStreaming]
+    [wsContext, dispatch, cleanupStreaming]
   );
 
   /**
