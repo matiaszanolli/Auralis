@@ -33,7 +33,9 @@ export const LibraryHeader = React.memo<LibraryHeaderProps>(({ view }) => {
           WebkitTextFillColor: 'transparent'
         }}
       >
-        {view === 'favourites' ? '❤️ Your Favorites' : '🎵 Your Music Collection'}
+        {view === 'favourites'
+          ? <><span aria-hidden="true">❤️ </span>Your Favorites</>
+          : <><span aria-hidden="true">🎵 </span>Your Music Collection</>}
       </Typography>
       <Typography
         variant="subtitle1"
