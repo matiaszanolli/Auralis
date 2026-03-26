@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from ..utils.logging import debug, info, warning
+from ..utils.logging import debug, info
 from .loaders import load_with_ffmpeg
 from .unified_loader import FFMPEG_FORMATS
 
@@ -65,7 +65,7 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
                 )
             audio_data, sample_rate = sf.read(file_path, dtype=np.float32, always_2d=True)
             if len(audio_data) < file_info.frames:
-                warning(
+                raise RuntimeError(
                     f"Truncated audio file '{file_path}': "
                     f"expected {file_info.frames} frames, got {len(audio_data)}"
                 )
