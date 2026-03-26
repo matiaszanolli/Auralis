@@ -11,7 +11,6 @@ Handles database schema versioning and migrations
 import logging
 import platform
 import re
-import shutil
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
@@ -422,7 +421,12 @@ def backup_database(db_path: str, backup_dir: str | None = None) -> str:
 
 def restore_database(backup_path: str, db_path: str) -> bool:
     """
-    Restore database from backup.
+    Restore database from backup using the SQLite Online Backup API.
+
+    Uses sqlite3.Connection.backup() instead of shutil.copy2 to avoid
+    WAL corruption: the backup API reads through the WAL and produces a
+    consistent snapshot, and the restored file starts in rollback-journal
+    mode so no stale -wal/-shm files can interfere (fixes #3452).
 
     Args:
         backup_path: Path to backup file
@@ -438,8 +442,21 @@ def restore_database(backup_path: str, db_path: str) -> bool:
         raise FileNotFoundError(f"Backup file not found: {backup_path}")
 
     try:
-        # Copy backup over current database
-        shutil.copy2(backup_path_obj, db_path_obj)
+        # Remove stale WAL/SHM sidecar files from the target before restoring.
+        # If these files persist from a prior session they can cause the newly
+        # restored database to open with an inconsistent WAL state.
+        for suffix in ('-wal', '-shm'):
+            sidecar = db_path_obj.with_suffix(db_path_obj.suffix + suffix)
+            if sidecar.exists():
+                sidecar.unlink()
+
+        # Use SQLite Online Backup API (same as backup_database) to restore.
+        # This reads through the backup's WAL (if any) and writes a fully
+        # consistent main database file.
+        with sqlite3.connect(str(backup_path_obj)) as src:
+            with sqlite3.connect(str(db_path_obj)) as dst:
+                src.backup(dst)
+
         logger.info(f"✅ Database restored from: {backup_path}")
         return True
 
