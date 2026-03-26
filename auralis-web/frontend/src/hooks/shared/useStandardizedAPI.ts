@@ -101,8 +101,9 @@ export function useStandardizedAPI<T = unknown>(
     }
   }, []);
 
-  // Fetch data
-  const fetch = useCallback(async () => {
+  // Fetch data.  Accepts an optional AbortSignal so callers (including the
+  // auto-fetch effect) can cancel in-flight requests on unmount (#3393).
+  const fetch = useCallback(async (signal?: AbortSignal) => {
     if (!apiClient.current) return;
 
     setState(prev => ({ ...prev, loading: true, error: null }));
@@ -111,7 +112,8 @@ export function useStandardizedAPI<T = unknown>(
       const requestOptions: RequestOptions = {
         method,
         timeout,
-        cache
+        cache,
+        signal,
       };
 
       let response: SuccessResponse<T> | ErrorResponse;
@@ -147,6 +149,8 @@ export function useStandardizedAPI<T = unknown>(
       }
     } catch (error) {
       if (!mountedRef.current) return;
+      // Don't surface abort errors as UI errors
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       setState({
         data: null,
         loading: false,
@@ -164,7 +168,7 @@ export function useStandardizedAPI<T = unknown>(
     if (!autoFetch) return;
 
     const controller = new AbortController();
-    fetch();
+    fetch(controller.signal);
 
     return () => controller.abort();
   }, [fetch, ...(options?.deps ?? [])]);

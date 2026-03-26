@@ -168,6 +168,8 @@ export interface RequestOptions {
   cacheTTL?: number;
   /** Allow retrying this request on failure even if the method is non-idempotent. */
   idempotent?: boolean;
+  /** External AbortSignal for caller-controlled cancellation (e.g. unmount). */
+  signal?: AbortSignal;
 }
 
 /**
@@ -257,6 +259,14 @@ export class StandardizedAPIClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+        // Forward external signal (unmount cancellation) to internal controller (#3393)
+        const onExternalAbort = () => controller.abort();
+        if (options.signal?.aborted) {
+          controller.abort();
+        } else {
+          options.signal?.addEventListener('abort', onExternalAbort, { once: true });
+        }
+
         const response = await fetch(url, {
           method,
           headers: {
@@ -268,6 +278,7 @@ export class StandardizedAPIClient {
         });
 
         clearTimeout(timeoutId);
+        options.signal?.removeEventListener('abort', onExternalAbort);
 
         // Guard against non-JSON error responses (e.g. 502 HTML pages) (#2987).
         // Surface immediately without retry instead of letting json() throw.
