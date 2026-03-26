@@ -229,9 +229,10 @@ class ProcessingEngine:
         async with self._jobs_lock:
             self.progress_callbacks[job_id] = callback
 
-    def unregister_progress_callback(self, job_id: str) -> None:
+    async def unregister_progress_callback(self, job_id: str) -> None:
         """Remove a progress callback (e.g. on WebSocket disconnect)."""
-        self.progress_callbacks.pop(job_id, None)
+        async with self._jobs_lock:
+            self.progress_callbacks.pop(job_id, None)
 
     async def _notify_progress(self, job_id: str, progress: float, message: str = "") -> None:
         """Notify progress callback.
@@ -243,13 +244,16 @@ class ProcessingEngine:
         if job:
             job.progress = progress
 
-            if job_id in self.progress_callbacks:
-                callback = self.progress_callbacks[job_id]
+            async with self._jobs_lock:
+                callback = self.progress_callbacks.get(job_id)
+
+            if callback:
                 try:
                     await callback(job_id, progress, message)
                 except Exception:
                     logger.debug("Progress callback for job %s failed, removing", job_id)
-                    self.progress_callbacks.pop(job_id, None)
+                    async with self._jobs_lock:
+                        self.progress_callbacks.pop(job_id, None)
 
     def _get_processor_cache_key(self, mode: str, config: UnifiedConfig) -> str:
         """

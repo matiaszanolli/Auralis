@@ -825,7 +825,7 @@ def create_system_router(
                 processing_engine = get_processing_engine()
                 if processing_engine:
                     for jid in _subscribed_job_ids:
-                        processing_engine.unregister_progress_callback(jid)
+                        await processing_engine.unregister_progress_callback(jid)
 
             # Remove from connection manager
             await manager.disconnect(websocket)
