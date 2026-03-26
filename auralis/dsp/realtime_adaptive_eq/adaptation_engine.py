@@ -71,7 +71,10 @@ class AdaptationEngine:
         min_gain = getattr(self.settings, 'min_gain_db', -12.0)
 
         # Adaptive EQ based on energy balance
-        mean_energy = np.mean(band_energies[band_energies > -60])  # Ignore very low energy bands
+        audible = band_energies[band_energies > -60]
+        if len(audible) == 0:
+            return target_gains  # All bands below threshold — no adaptation
+        mean_energy = np.mean(audible)
 
         for i, energy in enumerate(band_energies):
             if energy > -60:  # Only process audible content
