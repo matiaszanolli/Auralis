@@ -186,19 +186,7 @@ class AudioPlayer:
         if self.file_manager.load_file(file_path):
             self.playback.load_and_stop()
 
-            # Bump generation so in-flight fingerprint threads discard stale results (#3445)
-            self._track_generation += 1
-            generation = self._track_generation
-
-            # Load fingerprint in background thread to avoid blocking the caller.
-            # The processor uses profile-based mastering until the fingerprint
-            # arrives, then switches to fingerprint-adaptive mastering seamlessly.
-            threading.Thread(
-                target=self._load_fingerprint_for_file,
-                args=(file_path, generation),
-                daemon=True,
-                name="fingerprint-loader",
-            ).start()
+            self._schedule_fingerprint_load(file_path)
 
             # Start prebuffering next track
             self.gapless.start_prebuffering()
@@ -211,6 +199,28 @@ class AudioPlayer:
         else:
             self.playback.set_error()
             return False
+
+    def _schedule_fingerprint_load(self, file_path: str) -> None:
+        """
+        Bump the generation counter and spawn a background fingerprint loader.
+
+        Called by every track-load entry point (``load_file``,
+        ``load_track_from_library``, gapless ``next_track``) so that stale
+        in-flight fingerprint threads are invalidated and the new track gets
+        its adaptive-mastering fingerprint applied (#3445, #3463).
+
+        Args:
+            file_path: Path of the now-current audio file.
+        """
+        self._track_generation += 1
+        generation = self._track_generation
+
+        threading.Thread(
+            target=self._load_fingerprint_for_file,
+            args=(file_path, generation),
+            daemon=True,
+            name="fingerprint-loader",
+        ).start()
 
     def _load_fingerprint_for_file(self, file_path: str, generation: int) -> None:
         """
@@ -284,6 +294,14 @@ class AudioPlayer:
         """
         if self.integration.load_track_from_library(track_id):
             self.playback.load_and_stop()
+            # IntegrationManager.load_track_from_library() calls
+            # file_manager.load_file() internally, which sets current_file.
+            # Schedule the fingerprint loader here (the player wrapper
+            # bypasses AudioPlayer.load_file()) so adaptive mastering picks
+            # up the new track instead of keeping the previous one (#3463).
+            current_file = self.file_manager.current_file
+            if current_file:
+                self._schedule_fingerprint_load(current_file)
             self.gapless.start_prebuffering()
             return True
         else:
@@ -310,6 +328,15 @@ class AudioPlayer:
             # the playback.stop() that normally resets position is never
             # called.  seek(0, ...) is the lock-safe way to do this.
             self.playback.seek(0, self.file_manager.get_total_samples())
+
+            # The gapless advance also bypasses AudioPlayer.load_file(), so
+            # schedule the fingerprint loader here too — otherwise adaptive
+            # mastering keeps the previous track's fingerprint, and any
+            # in-flight fingerprint thread for the previous file would pass
+            # the staleness guard and be applied to the new track (#3463).
+            current_file = self.file_manager.current_file
+            if current_file:
+                self._schedule_fingerprint_load(current_file)
 
             # Re-check state to avoid restarting playback after a
             # concurrent stop() call (#3361).
