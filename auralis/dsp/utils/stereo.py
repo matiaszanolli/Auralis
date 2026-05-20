@@ -136,10 +136,14 @@ def adjust_stereo_width_multiband(
     sos_highmid = butter(2, [freq_highmid_lo, freq_highmid_hi], btype='band', output='sos')
     sos_high = butter(2, freq_high, btype='high', output='sos')
 
-    # Extract bands (for width calculation only, not recombination)
-    band_lowmid = sosfiltfilt(sos_lowmid, stereo_audio, axis=0)
-    band_highmid = sosfiltfilt(sos_highmid, stereo_audio, axis=0)
-    band_high = sosfiltfilt(sos_high, stereo_audio, axis=0)
+    # Extract bands (for width calculation only, not recombination).
+    # sosfiltfilt always returns float64; cast back to the input dtype so
+    # the final `stereo_audio + diff_*` add doesn't silently promote a
+    # float32 signal to float64 (#3468). resonance_notcher.py uses the
+    # same wrap; keep them consistent.
+    band_lowmid = np.asarray(sosfiltfilt(sos_lowmid, stereo_audio, axis=0), dtype=stereo_audio.dtype)
+    band_highmid = np.asarray(sosfiltfilt(sos_highmid, stereo_audio, axis=0), dtype=stereo_audio.dtype)
+    band_high = np.asarray(sosfiltfilt(sos_high, stereo_audio, axis=0), dtype=stereo_audio.dtype)
 
     # Calculate expansion amount from base factor
     expansion = width_factor - 0.5  # 0 to 0.5 range
@@ -173,4 +177,11 @@ def adjust_stereo_width_multiband(
     diff_highmid = band_highmid_w - band_highmid
     diff_high = band_high_w - band_high
 
-    return stereo_audio + diff_lowmid + diff_highmid + diff_high
+    # Cast the final sum back to the input dtype. Even with the band-level
+    # cast above, the per-band width factors are `np.float64` scalars (because
+    # `expansion_factor` calls `np.log`), so `adjust_stereo_width` ends up
+    # multiplying the side signal by a float64 scalar and promotes its
+    # output. Cast once at the end to preserve the project's float32
+    # invariant for downstream mastering stages (#3468).
+    result = stereo_audio + diff_lowmid + diff_highmid + diff_high
+    return np.asarray(result, dtype=stereo_audio.dtype)
