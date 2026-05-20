@@ -40,8 +40,15 @@ class LoudnessMeter:
         self.short_term_blocks = 30  # 3 seconds worth of blocks
         self.momentary_blocks = 4   # 400ms worth of blocks
 
-        # Storage for measurements
+        # Storage for measurements.
+        # `block_buffer` is bounded to `short_term_blocks` so the short-term
+        # and momentary windows stay accurate. `integrated_buffer` is
+        # unbounded and holds every block ever measured; ITU-R BS.1770
+        # integrated LUFS is defined as the gated mean over the whole
+        # measurement, so the integrated calculation must NOT see the
+        # truncated buffer (#3466).
         self.block_buffer: list[float] = []
+        self.integrated_buffer: list[float] = []
         self.gated_blocks: list[float] = []
 
         # Peak tracking across all chunks
@@ -206,8 +213,10 @@ class LoudnessMeter:
         # Calculate block loudness
         block_loudness = self.calculate_block_loudness(k_weighted)
 
-        # Add to block buffer
+        # Add to block buffer (bounded for short-term/momentary windows)
+        # and integrated buffer (unbounded for ITU-R BS.1770 integrated).
         self.block_buffer.append(block_loudness)
+        self.integrated_buffer.append(block_loudness)
 
         # Maintain buffer size for short-term measurement
         if len(self.block_buffer) > self.short_term_blocks:
@@ -293,7 +302,7 @@ class LoudnessMeter:
         Returns:
             Complete LUFS measurement result
         """
-        if not self.block_buffer:
+        if not self.integrated_buffer:
             return LUFSMeasurement(
                 integrated_lufs=-np.inf,
                 momentary_lufs=-np.inf,
@@ -305,8 +314,11 @@ class LoudnessMeter:
                 measurement_duration=0.0
             )
 
-        # Absolute gating at -70 LUFS
-        gated_blocks = [b for b in self.block_buffer if b >= -70.0]
+        # Absolute gating at -70 LUFS. Read from `integrated_buffer` (not
+        # the bounded `block_buffer`) so the integrated LUFS reflects the
+        # entire measurement window per ITU-R BS.1770, not just the last
+        # `short_term_blocks` chunks (#3466).
+        gated_blocks = [b for b in self.integrated_buffer if b >= -70.0]
 
         if not gated_blocks:
             integrated_lufs = -np.inf
@@ -347,12 +359,16 @@ class LoudnessMeter:
             peak_level_dbfs=float(20 * np.log10(self._peak + 1e-10)),
             true_peak_dbfs=float(20 * np.log10(self._true_peak + 1e-10)),
             gating_blocks_used=len(final_gated_blocks) if 'final_gated_blocks' in locals() else 0,
-            measurement_duration=len(self.block_buffer) * 0.1  # 100ms per block
+            # 100 ms hop between blocks (block_size=400 ms, overlap=300 ms).
+            # Reflect the *full* measurement, not the bounded short-term
+            # buffer, so callers receive the true track duration (#3466).
+            measurement_duration=len(self.integrated_buffer) * 0.1
         )
 
     def reset(self) -> None:
         """Reset the meter for a new measurement"""
         self.block_buffer.clear()
+        self.integrated_buffer.clear()
         self.gated_blocks.clear()
         self._peak = 0.0
         self._true_peak = 0.0
