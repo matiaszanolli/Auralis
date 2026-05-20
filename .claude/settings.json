@@ -18,7 +18,10 @@
       "Bash(__NEW_LINE_43998b5414ed0246__ gh issue close 2404 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
       "Bash(__NEW_LINE_9fc41cf59050eb89__ gh issue close 2403 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
       "Bash(__NEW_LINE_9fc41cf59050eb89__ gh issue close 2383 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
-      "Bash(__NEW_LINE_9fc41cf59050eb89__ gh issue close 2483 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)"
+      "Bash(__NEW_LINE_9fc41cf59050eb89__ gh issue close 2483 --comment \"Fixed in commit \\\\`$COMMIT\\\\` \\(batch 6\\).:*)",
+      "Bash(gh issue:*)",
+      "Bash(__NEW_LINE_f581a4a833675a3a__ gh:*)",
+      "Bash(__NEW_LINE_f581a4a833675a3a__ echo:*)"
     ]
   }
 }

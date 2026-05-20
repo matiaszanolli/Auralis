@@ -99,10 +99,20 @@ echo ""
 
 # Step 3: Replace audio in video
 echo "🎬 Step 3/3: Replacing audio in video..."
+
+# Pick an audio codec the output container supports.
+# WebM only accepts Opus/Vorbis; everything else gets AAC.
+OUT_EXT="${OUTPUT_FILE##*.}"
+case "${OUT_EXT,,}" in
+    webm|ogg|ogv) AUDIO_CODEC="libopus"; AUDIO_BITRATE="192k" ;;
+    mkv)          AUDIO_CODEC="libopus"; AUDIO_BITRATE="192k" ;;
+    *)            AUDIO_CODEC="aac";     AUDIO_BITRATE="320k" ;;
+esac
+
 # Copy video stream, replace audio stream, copy all other streams
 ffmpeg -i "$INPUT_FILE" -i "$TEMP_MASTERED" \
     -map 0:v:0 -map 1:a:0 -map 0:s? -map 0:d? -map 0:t? \
-    -c:v copy -c:a aac -b:a 320k -c:s copy \
+    -c:v copy -c:a "$AUDIO_CODEC" -b:a "$AUDIO_BITRATE" -c:s copy \
     -shortest \
     "$OUTPUT_FILE" -y -loglevel warning -stats
 echo "  ✓ Video created"

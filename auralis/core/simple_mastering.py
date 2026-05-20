@@ -23,7 +23,7 @@ from ..dsp.dynamics.soft_clipper import soft_clip
 from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ..dsp.utils.stereo import adjust_stereo_width_multiband
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
-from .dsp import ParallelEQUtilities
+from .dsp import HarmonicExciter, ParallelEQUtilities
 from .mastering_branches import MaterialClassifier
 from .mastering_config import SimpleMasteringConfig
 from .processing.base import ExpansionStrategies
@@ -829,6 +829,105 @@ class SimpleMasteringPipeline:
             'stage': 'presence_enhance',
             'boost_db': boost_db,
             'presence_content': presence_content
+        }
+
+    def _apply_harmonic_exciter(
+        self,
+        audio: np.ndarray,
+        presence_pct: float,
+        air_pct: float,
+        spectral_rolloff: float,
+        intensity: float,
+        sample_rate: int,
+        verbose: bool
+    ) -> tuple[np.ndarray, dict | None]:
+        """
+        Generate upper-octave harmonics for dark / bandwidth-limited sources.
+
+        Shelf EQ can only amplify what already exists. For lo-fi captures or
+        low-bitrate audio where everything above ~6 kHz has been brick-walled,
+        the air/presence shelves are lifting near-silence and the result still
+        sounds dull. This stage saturates a midrange donor band and high-passes
+        the result, mixing the newly generated harmonics in parallel so the
+        downstream presence/air shelves have something to work with.
+
+        Activates only when the spectrum is genuinely dark — bright material is
+        untouched.
+
+        Args:
+            audio: Stereo audio [2, samples]
+            presence_pct: Fingerprint presence percentage (4-6 kHz, 0-1)
+            air_pct: Fingerprint air percentage (6-20 kHz, 0-1)
+            spectral_rolloff: Frequency below which most energy lies (0-1)
+            intensity: Processing intensity 0.0-1.0
+            sample_rate: Audio sample rate in Hz
+            verbose: Print progress
+
+        Returns:
+            (processed_audio, stage_info or None if exciter did not engage)
+        """
+        # Brightness metric: weighted blend of HF energy and where the spectrum
+        # rolls off. 0 = fully dark, 1 = fully bright. presence/air are most
+        # diagnostic; spectral_rolloff only contributes once it's clearly in
+        # bright territory (>60% of Nyquist ≈ >13 kHz at 44.1k). Below that,
+        # rolloff just confirms darkness and shouldn't suppress excitation.
+        rolloff_brightness = max(0.0, (spectral_rolloff - 0.60) / 0.40)
+        brightness = (
+            presence_pct * 2.0   # presence at 50% counts as fully bright
+            + air_pct * 3.0      # air at ~33% counts as fully bright
+            + rolloff_brightness * 0.4
+        )
+        brightness = float(np.clip(brightness, 0.0, 1.0))
+        darkness = 1.0 - brightness
+
+        # Only engage on genuinely dark material.
+        activate_threshold = 1.0 - self.config.EXCITER_DARKNESS_ACTIVATE
+        if darkness < activate_threshold:
+            return audio, None
+
+        # Smooth ramp from activate_threshold → 1.0 (fully dark)
+        excite_factor = SmoothCurveUtilities.ramp_to_s_curve(
+            darkness, activate_threshold, 1.0
+        )
+
+        # Wet level scales with darkness AND intensity. MIN_WET is the level
+        # at the activation threshold (subtle); MAX_WET is the ceiling at
+        # full darkness (obvious). Intensity scales the *ceiling* only, so the
+        # floor stays audible even at low intensities.
+        min_wet_db = self.config.EXCITER_MIN_WET_DB
+        max_wet_db = self.config.EXCITER_MAX_WET_DB * intensity
+        # Guard against intensity > 1.0 pushing max below min (e.g. with
+        # extreme adaptive intensity, max_wet_db could become more negative).
+        if max_wet_db < min_wet_db:
+            max_wet_db = min_wet_db
+        wet_db = min_wet_db + (max_wet_db - min_wet_db) * excite_factor
+
+        # Drive also scales with darkness — darker source can take more drive
+        # because the new harmonics have to fight more upstream rolloff.
+        drive_db = self.config.EXCITER_DRIVE_DB * (0.7 + 0.3 * excite_factor)
+
+        processed = HarmonicExciter.apply(
+            audio,
+            sample_rate=sample_rate,
+            wet_db=wet_db,
+            drive_db=drive_db,
+            donor_low_hz=self.config.EXCITER_DONOR_LOW_HZ,
+            donor_high_hz=self.config.EXCITER_DONOR_HIGH_HZ,
+            hp_cutoff_hz=self.config.EXCITER_HP_CUTOFF_HZ,
+            asymmetry=self.config.EXCITER_ASYMMETRY,
+        )
+
+        if verbose:
+            print(
+                f"   Harmonic exciter: {wet_db:+.1f} dB wet, "
+                f"{drive_db:.1f} dB drive (darkness {darkness:.2f})"
+            )
+
+        return processed, {
+            'stage': 'harmonic_exciter',
+            'wet_db': wet_db,
+            'drive_db': drive_db,
+            'darkness': darkness,
         }
 
     def _apply_air_enhancement(

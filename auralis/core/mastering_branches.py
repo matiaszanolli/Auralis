@@ -211,6 +211,15 @@ class CompressedLoudBranch(ProcessingBranch):
         pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
         processed = processed * pre_eq_gain
 
+        # Harmonic exciter (only engages on dark/bandwidth-limited material).
+        # Runs BEFORE presence/air so those shelves can lift the new harmonics.
+        processed, exciter_info = self.pipeline._apply_harmonic_exciter(
+            processed, unpacker.presence_pct, unpacker.air_pct, unpacker.spectral_rolloff,
+            effective_intensity * config.COMPRESSED_LOUD_INTENSITY_FACTOR,
+            sample_rate, verbose
+        )
+        recorder.add(exciter_info)
+
         # Spectral enhancements (presence & air)
         processed, presence_info = self.pipeline._apply_presence_enhancement(
             processed, unpacker.presence_pct, unpacker.upper_mid_pct,
@@ -281,6 +290,15 @@ class DynamicLoudBranch(ProcessingBranch):
         pre_eq_headroom_db = config.PRE_EQ_HEADROOM_DB
         pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
         processed = processed * pre_eq_gain
+
+        # Harmonic exciter (only engages on dark/bandwidth-limited material).
+        # Runs BEFORE presence/air so those shelves can lift the new harmonics.
+        processed, exciter_info = self.pipeline._apply_harmonic_exciter(
+            processed, unpacker.presence_pct, unpacker.air_pct, unpacker.spectral_rolloff,
+            effective_intensity * config.DYNAMIC_LOUD_INTENSITY_FACTOR,
+            sample_rate, verbose
+        )
+        recorder.add(exciter_info)
 
         # Gentle spectral enhancements (reduced intensity for well-mastered tracks)
         processed, presence_info = self.pipeline._apply_presence_enhancement(
@@ -375,6 +393,16 @@ class QuietBranch(ProcessingBranch):
             effective_intensity, sample_rate, verbose
         )
         recorder.add(warmth_info)
+
+        # Harmonic exciter — generate new HF content for bandwidth-limited or
+        # dark sources. Runs after mid-warmth (donor band is now shaped) and
+        # before presence/air (so those shelves can lift the new harmonics).
+        # Engages only when air/presence/rolloff indicate genuinely dark material.
+        processed, exciter_info = self.pipeline._apply_harmonic_exciter(
+            processed, unpacker.presence_pct, unpacker.air_pct, unpacker.spectral_rolloff,
+            effective_intensity, sample_rate, verbose
+        )
+        recorder.add(exciter_info)
 
         # Presence enhancement for dull mixes
         processed, presence_info = self.pipeline._apply_presence_enhancement(

@@ -170,6 +170,45 @@ class SimpleMasteringConfig:
     """Maximum air enhancement boost"""
 
     # =========================================================================
+    # Harmonic Exciter
+    # =========================================================================
+    # Generates upper-octave harmonics from midrange for bandwidth-limited /
+    # dark sources where shelf EQ has nothing to lift (e.g. low-bitrate audio
+    # that has been brick-walled below 8 kHz). Disabled for material that
+    # already has natural high-frequency content.
+
+    EXCITER_DONOR_LOW_HZ: float = 1000.0
+    """Lower bound of donor bandpass for harmonic generation"""
+
+    EXCITER_DONOR_HIGH_HZ: float = 5500.0
+    """Upper bound of donor bandpass. Wider donor → harmonics reach further up
+    the spectrum (3rd harmonic of 5.5 kHz lands in air). Pulling this above
+    the HP cutoff is intentional — the HP still rejects the original donor band,
+    only the *newly generated* harmonics pass through to mix with dry."""
+
+    EXCITER_HP_CUTOFF_HZ: float = 4500.0
+    """High-pass on saturated signal — keeps only newly generated harmonics"""
+
+    EXCITER_DRIVE_DB: float = 15.0
+    """Pre-gain into the saturator. Higher = richer harmonics + more IMD"""
+
+    EXCITER_ASYMMETRY: float = 0.3
+    """Saturator bias (0 = odd harmonics only; 0.3 adds tube-like even harmonics)"""
+
+    EXCITER_MAX_WET_DB: float = -6.0
+    """Wet ceiling (parallel mix). -6 dB ≈ 50% wet for fully-dark material at
+    intensity 1.0; -12 dB ≈ 25% wet. Used as the *ceiling* of a darkness-scaled
+    ramp, so bright material stays gentle while dark/bandwidth-limited sources
+    get a real lift."""
+
+    EXCITER_MIN_WET_DB: float = -18.0
+    """Wet floor at the activation threshold (just-barely-dark material)."""
+
+    EXCITER_DARKNESS_ACTIVATE: float = 0.55
+    """Darkness threshold below which exciter is bypassed. Computed from
+    presence_pct + air_pct + spectral_rolloff. 0 = fully dark, 1 = fully bright"""
+
+    # =========================================================================
     # Progress Reporting
     # =========================================================================
 
