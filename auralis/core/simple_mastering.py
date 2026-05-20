@@ -527,17 +527,21 @@ class SimpleMasteringPipeline:
         if not notches:
             return notches
 
-        # Map (low, high) Hz → fingerprint key name. Matches the band
-        # definitions used by the fingerprint service.
+        # Map (low, high) Hz → fingerprint key name → reference target (median
+        # across n=27 reference tracks across 8 genres). The previous values
+        # were "pop-master" theoretical numbers; these are measured medians
+        # from actual well-mastered records. Critically: presence/brillance/air
+        # targets used to be 11%/6%/4% which made even normal records appear
+        # "deficient" — now correctly set to ~1.5%/0.4%/0.1%.
         BAND_LOOKUP = [
-            ((20, 60),     'sub_bass_pct',  0.05),
-            ((60, 250),    'bass_pct',      0.22),
-            ((250, 500),   'low_mid_pct',   0.14),
-            ((500, 2000),  'mid_pct',       0.24),
-            ((2000, 4000), 'upper_mid_pct', 0.14),
-            ((4000, 8000), 'presence_pct',  0.11),
-            ((8000, 12000),'brilliance_pct',0.06),
-            ((12000, 24000),'air_pct',      0.04),
+            ((20, 60),       'sub_bass_pct',   0.087),
+            ((60, 250),      'bass_pct',       0.460),
+            ((250, 500),     'low_mid_pct',    0.136),
+            ((500, 2000),    'mid_pct',        0.171),
+            ((2000, 4000),   'upper_mid_pct',  0.055),
+            ((4000, 8000),   'presence_pct',   0.015),
+            ((8000, 12000),  'brilliance_pct', 0.004),
+            ((12000, 24000), 'air_pct',        0.001),
         ]
 
         out: list[Notch] = []
@@ -685,30 +689,30 @@ class SimpleMasteringPipeline:
         Apply a focused Up-Mid bell boost (1.5-3.5 kHz) for sources where
         vocal consonants and snare attack are buried.
 
-        Activates only when Up-Mid is meaningfully below `CLARITY_TARGET_PCT`.
-        Bypasses cleanly on tracks that already have good Up-Mid energy so
-        we don't risk making them harsh. Boost scales with deficiency.
+        Tolerance-band trigger: bypasses cleanly when Up-Mid is at or above
+        CLARITY_TOL_LOW (= p25 of 27-track reference distribution). Only
+        engages when the source is genuinely deficient, ramping smoothly from
+        the tolerance edge to the configured floor.
 
-        Also tempered by the absolute Up-Mid floor: if the band is
-        essentially silent (< ~2% of total energy), a big boost would
-        amplify noise/codec artifacts more than musical content. In that
-        case the boost is scaled down — we still help, but gently.
+        Also tempered by the absolute Up-Mid floor (<2% of total energy):
+        a big boost on essentially-silent content amplifies noise/codec
+        artifacts more than music. Scale boost down in that case.
         """
-        target = self.config.CLARITY_TARGET_PCT
-        if upper_mid_pct >= target:
+        tol_low = self.config.CLARITY_TOL_LOW
+        if upper_mid_pct >= tol_low:
+            # Inside the natural reference range — no action.
             return audio, None
 
-        # Deficit shape: full boost at 0% Up-Mid, no boost at target.
-        deficit_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(
-            upper_mid_pct, 0.0, target
+        # How far below the tolerance band? Smooth ramp from 0 at the edge
+        # to 1 at (tol_low - CLARITY_BOOST_RANGE_PCT).
+        deficit = tol_low - upper_mid_pct
+        deficit_factor = SmoothCurveUtilities.ramp_to_s_curve(
+            deficit, 0.0, self.config.CLARITY_BOOST_RANGE_PCT
         )
 
-        # Absolute-floor temper: when there's essentially no Up-Mid energy
-        # to amplify, a big boost is amplifying noise. Scale down boost
-        # smoothly when below ABSOLUTE_FLOOR_PCT.
-        ABSOLUTE_FLOOR_PCT = 0.02  # below 2% Up-Mid, start tempering
+        # Absolute-floor temper: amplifying near-silence is noise amplification.
+        ABSOLUTE_FLOOR_PCT = 0.005  # below 0.5% Up-Mid, start tempering
         if upper_mid_pct < ABSOLUTE_FLOOR_PCT:
-            # Linear ramp: 0% energy → 50% of boost; 2% energy → 100% of boost
             floor_temper = 0.5 + 0.5 * (upper_mid_pct / ABSOLUTE_FLOOR_PCT)
         else:
             floor_temper = 1.0
@@ -884,24 +888,21 @@ class SimpleMasteringPipeline:
         verbose: bool
     ) -> tuple[np.ndarray, dict | None]:
         """
-        Continuous bass balance: smoothly blend between adding low-end weight
-        (when bass is thin) and de-mudding (when bass is excessive). Both
-        contributions are independently smooth functions of `bass_pct` around
-        a single reference target — at the target both naturally vanish, so
-        there is no threshold or regime boundary.
+        Tolerance-band bass balance: do nothing while the source sits inside
+        the natural variance band [BASS_TOL_LOW, BASS_TOL_HIGH] derived from a
+        27-track reference distribution. Only correct when outside the band,
+        with strength ramping smoothly from the nearest band edge.
 
-        Two different EQ shapes are used because the *musical intent* differs:
+        This replaces the older "push toward single target" philosophy. The
+        evidence shows reference records vary widely (Bass p25-p75 = 35%-53%);
+        forcing all of them toward 46% would over-correct genre character.
 
-        - **Boost path**: low-shelf at 100 Hz. Adding weight wants to be wide
-          and include the sub band — that's where the "fullness" lives.
-        - **Cut path**: bell at 150 Hz (100-220 Hz). De-mudding is surgical
-          and must avoid the kick fundamental (50-80 Hz) and sub-bass. A
-          low-shelf cut attenuates sub MORE than the muddy region we want
-          to target, which is the opposite of what we want.
+        Two EQ shapes — the *musical intent* differs:
 
-        Both paths can fire simultaneously, but in practice they don't: the
-        boost path is only nonzero below the target and the cut path is
-        only nonzero above it.
+        - **Boost path**: low-shelf at 100 Hz when bass_pct < BASS_TOL_LOW.
+          Adding weight wants to be wide and include the sub band.
+        - **Cut path**: bell at 100-220 Hz when bass_pct > BASS_TOL_HIGH.
+          De-mudding is surgical and must avoid kick fundamental and sub-bass.
 
         Args:
             audio: Stereo audio [2, samples]
@@ -914,20 +915,20 @@ class SimpleMasteringPipeline:
             (processed_audio, stage_info or None if both contributions are
              below the audibility floor)
         """
-        target = self.config.BASS_TARGET_PCT
+        tol_low = self.config.BASS_TOL_LOW
+        tol_high = self.config.BASS_TOL_HIGH
 
-        # Boost component — "how far below target are we?". S-curve smoothed
-        # so the derivative at target is zero (no jagged step in/out).
-        deficit = max(0.0, target - bass_pct)
+        # Boost component — only fires when source is BELOW the tolerance band.
+        # Inside the band, deficit = 0 by definition.
+        deficit = max(0.0, tol_low - bass_pct)
         boost_factor = SmoothCurveUtilities.ramp_to_s_curve(
             deficit, 0.0, self.config.BASS_BOOST_RANGE_PCT
         )
         boost_db = self.config.MAX_BASS_BOOST_DB * intensity * boost_factor
 
-        # Cut component — "how far above target are we?". Same S-curve shape
-        # mirrored so the two contributions form a continuous curve through
-        # the target point.
-        excess = max(0.0, bass_pct - target)
+        # Cut component — only fires when source is ABOVE the tolerance band.
+        # Inside the band, excess = 0 by definition.
+        excess = max(0.0, bass_pct - tol_high)
         cut_factor = SmoothCurveUtilities.ramp_to_s_curve(
             excess, 0.0, self.config.BASS_CUT_RANGE_PCT
         )
@@ -998,18 +999,14 @@ class SimpleMasteringPipeline:
 
         This gives precise dB control unlike HP+blend which can cause -10dB+ loss.
 
-        Continuous curve from SUB_TARGET_PCT outward — at the target there is
-        no action; as sub-bass content rises above target the cut smoothly
-        ramps up. The HP at low frequency is reserved for *extreme* excess
-        (> SUB_HP_ACTIVATE_PCT) because most acoustic music has legitimately
-        high sub content from kick and bass-instrument fundamentals.
+        Tolerance-band cut: do nothing while sub_bass_pct sits inside the
+        natural variance range (≤ SUB_TOL_HIGH = p75 of 27-track reference).
+        Only correct above that. The HP is reserved for genuine pathological
+        rumble (> SUB_HP_ACTIVATE_PCT, ≈ p95+).
         """
-        target = self.config.SUB_TARGET_PCT
-        excess = max(0.0, sub_bass_pct - target)
-
-        # Single smooth ramp from target to (target + SUB_CUT_RANGE_PCT).
-        # No skip threshold at the bottom — at the target the cut is zero
-        # by construction.
+        # Excess relative to the tolerance band's upper edge. Inside the
+        # band (sub_bass_pct ≤ SUB_TOL_HIGH) this is 0 and no cut applies.
+        excess = max(0.0, sub_bass_pct - self.config.SUB_TOL_HIGH)
         excess_factor = SmoothCurveUtilities.ramp_to_s_curve(
             excess, 0.0, self.config.SUB_CUT_RANGE_PCT
         )

@@ -164,20 +164,34 @@ class SimpleMasteringConfig:
     -3 dB because live folk/world recordings can legitimately have 50-60%
     bass; we want to gently tame mud, not fight the source's character."""
 
-    BASS_TARGET_PCT: float = 0.22
-    """Reference target for bass-band energy share. Below this we boost,
-    above this we cut; both contributions taper to zero AT this value, so
-    the curve is continuous with no hard threshold."""
+    # === EVIDENCE-BASED TOLERANCE BANDS (derived from n=27 reference set across 8 genres) ===
+    # Philosophy: do nothing while the source sits inside a *natural variance band*
+    # (p25-p75 across well-mastered records). Only correct when outside. This
+    # respects per-genre character — a jazz record's natural Bass at 30% and a
+    # reggae record's at 58% should both pass through untouched.
 
-    BASS_BOOST_RANGE_PCT: float = 0.22
-    """How far below target counts as 'maximum deficit'. At bass_pct=0, the
-    deficit is BASS_BOOST_RANGE_PCT below target → full boost."""
+    BASS_TARGET_PCT: float = 0.46
+    """Median bass share across the 27-track reference set (was 0.22 — the old
+    value was a 'pop-master' fiction; real records, even bright ones, sit much
+    higher). Used as the natural-fit center for diagnostics; tolerance band is
+    BASS_TOL_LOW / BASS_TOL_HIGH."""
 
-    BASS_CUT_RANGE_PCT: float = 0.55
-    """How far above target counts as 'maximum excess'. At bass_pct=77%
-    we hit max cut; at typical bass-heavy live recordings (45-60%) the cut
-    is proportionally modest. Bass-dominant sources are usually a character
-    choice, not a mastering problem to brute-force-fix."""
+    BASS_TOL_LOW: float = 0.35
+    """Lower edge of the bass tolerance band (p25 across reference). Below this
+    the boost path engages."""
+
+    BASS_TOL_HIGH: float = 0.55
+    """Upper edge of the bass tolerance band (p75 across reference). Above this
+    the de-mud cut engages."""
+
+    BASS_BOOST_RANGE_PCT: float = 0.20
+    """How far BELOW the tolerance band counts as 'maximum deficit'. At
+    bass_pct = (BASS_TOL_LOW - this), we hit max boost."""
+
+    BASS_CUT_RANGE_PCT: float = 0.20
+    """How far ABOVE the tolerance band counts as 'maximum excess'. At
+    bass_pct = (BASS_TOL_HIGH + this), we hit max cut. Live folk/world
+    tracks at 55-60% bass now fall *inside* the band → no action."""
 
     BASS_DEMUD_LOW_HZ: float = 100.0
     """Lower bound of the de-mud bell"""
@@ -346,15 +360,25 @@ class SimpleMasteringConfig:
     CLARITY_HIGH_HZ: float = 3500.0
     """Upper bound of clarity bell"""
 
-    CLARITY_TARGET_PCT: float = 0.12
-    """Target Up-Mid energy share. Sources with less get a boost."""
+    CLARITY_TARGET_PCT: float = 0.055
+    """Median Up-Mid share across the 27-track reference set (was 0.12 —
+    'pop-master' fiction). Real records sit at 5.5% Up-Mid; even bright prog
+    tracks max out around 12%."""
 
-    CLARITY_MAX_BOOST_DB: float = 2.5
-    """Maximum clarity boost for severely deficient sources. Reduced from
-    4.0 after A/B analysis: +5 dB at 3 kHz combined with exciter's +7 dB at
-    5 kHz produced a +9 dB spectral tilt that listeners perceived as
-    'high-passed'. 2.5 dB still meaningfully lifts vocal consonant region
-    without over-tilting the spectrum."""
+    CLARITY_TOL_LOW: float = 0.015
+    """Lower edge of the Up-Mid tolerance band (p25 across reference). Below
+    this the clarity boost engages. Above this — i.e., already inside the
+    natural variance band — do nothing."""
+
+    CLARITY_BOOST_RANGE_PCT: float = 0.015
+    """How far below CLARITY_TOL_LOW counts as 'maximum deficit'. At
+    upper_mid_pct = 0, we hit max boost."""
+
+    CLARITY_MAX_BOOST_DB: float = 2.0
+    """Maximum clarity boost for severely deficient sources. Reduced further
+    based on evidence-based Up-Mid distribution: even adding +2 dB to a 0%-
+    source brings it only marginally toward the 5.5% median, while bigger
+    boosts visibly over-tilt the spectrum."""
 
     # =========================================================================
     # Sub-Bass Control (continuous curve, like bass balance)
@@ -363,24 +387,31 @@ class SimpleMasteringConfig:
     # live recordings (with legitimately high sub-bass content from kick and
     # upright bass fundamentals) get only modest treatment.
 
-    SUB_TARGET_PCT: float = 0.07
-    """Reference target for sub-band energy. Slightly above the 5% pop
-    reference because most acoustic music has more sub than studio masters."""
+    SUB_TARGET_PCT: float = 0.087
+    """Median sub-band share across the 27-track reference set. Higher than
+    the previous 0.07 because real records (even non-electronic genres) carry
+    more sub content than studio-pop references suggested."""
 
-    SUB_CUT_RANGE_PCT: float = 0.25
-    """How far above target counts as 'maximum excess'. Sub at 32% gets full
-    cut; typical bass-heavy live recordings (15-20% sub) get only a fraction.
-    Wider range than before because musical sub-bass content was being cut
-    along with rumble."""
+    SUB_TOL_HIGH: float = 0.13
+    """Upper edge of the sub tolerance band (p75 across reference). Below
+    this — i.e., inside the natural range — no action. Above this the cut
+    engages smoothly. Note: the lower edge isn't enforced; thin sub is
+    a stylistic choice (jazz can be at 0.6% sub naturally)."""
 
-    MAX_SUB_CUT_DB: float = -1.5
-    """Maximum sub-bass parallel cut (negative boost). Gentler than the
-    previous -2 dB ceiling — musical low-end is easy to lose."""
+    SUB_CUT_RANGE_PCT: float = 0.20
+    """How far ABOVE SUB_TOL_HIGH counts as 'maximum excess'. Sub at 33%
+    (= 0.13 + 0.20) hits full cut; reference tracks at 12-15% sit inside
+    the band and get no cut."""
 
-    SUB_HP_ACTIVATE_PCT: float = 0.25
-    """HP only fires above this sub-content threshold. Previously 0.12,
-    which incorrectly triggered on tracks with strong musical kick content
-    (folk/world music typically has 15-20% sub from acoustic instruments)."""
+    MAX_SUB_CUT_DB: float = -1.2
+    """Maximum sub-bass parallel cut. Slightly gentler than before because
+    the tolerance band already filters out most legitimate sub content."""
+
+    SUB_HP_ACTIVATE_PCT: float = 0.33
+    """HP only fires above this sub-content threshold — well above the p90
+    of the reference distribution (22.9%) and into 'truly excessive' rumble
+    territory. Previously 0.25, which still triggered on dense electronic
+    tracks; 0.33 reserves it for genuine sub-rumble pathology."""
 
     SUBBASS_HP_FREQ_HZ: float = 25.0
     """High-pass cutoff for rumble removal. Lowered from 35 to 25 Hz so
