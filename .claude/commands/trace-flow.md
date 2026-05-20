@@ -1,3 +1,8 @@
+---
+description: "Trace a user action through frontend, backend, and engine layers with file:line references"
+argument-hint: "<flow-name | scenario-description>"
+---
+
 # Cross-Layer Flow Tracing
 
 Trace a user action through all 3 layers (frontend, backend, engine) with specific file:line references.

@@ -1,3 +1,8 @@
+---
+description: "Audit for race conditions, missing locks, thread-safety violations, state-machine bugs, unsafe concurrent access"
+argument-hint: "[--focus <dimensions>] [--depth shallow|deep] [--limit <N>]"
+---
+
 # Concurrency and State Integrity Audit
 
 Perform a deep audit of Auralis for race conditions, missing locks, thread safety violations, state machine bugs, and unsafe concurrent access.
@@ -50,7 +55,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ### Dimension 3: Backend WebSocket & Streaming
 
-**Key files**: `auralis-web/backend/audio_stream_controller.py`, `auralis-web/backend/chunked_processor.py`, `auralis-web/backend/processing_engine.py`, `auralis-web/backend/main.py`
+**Key files**: `auralis-web/backend/core/audio_stream_controller.py`, `auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/main.py`
 
 **Check**:
 - [ ] Multiple WebSocket clients — can two clients request different tracks simultaneously?

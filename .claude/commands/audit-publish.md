@@ -1,3 +1,8 @@
+---
+description: "Validate findings from an audit report and create GitHub issues for each confirmed, new finding"
+argument-hint: "<path-to-audit-report.md>"
+---
+
 # Publish Audit Findings as GitHub Issues
 
 Validate findings from an audit report and create GitHub issues for each confirmed, new finding.
@@ -123,6 +128,23 @@ For each finding that is CONFIRMED + NEW (or REGRESSION), create a GitHub issue:
 1. **Unit test**: <what to test> — assert <expected result>
 2. **Integration test** (if applicable): <what to test> — assert <expected result>
 ```
+
+## Step 4b: Snapshot Issue Locally
+
+For each newly created issue (number `$N`), persist a local snapshot to `.claude/issues/$N/` so `fix-issue` and future audits can reference it offline:
+
+```bash
+mkdir -p ".claude/issues/$N"
+gh issue view "$N" --json number,title,body,labels,state \
+  > ".claude/issues/$N/ISSUE.json"
+gh issue view "$N" > ".claude/issues/$N/ISSUE.md"
+# Record provenance so future audits know this came from a specific report
+echo "Source audit: $ARGUMENTS"     >  ".claude/issues/$N/PROVENANCE.md"
+echo "Created: $(date -Iseconds)"   >> ".claude/issues/$N/PROVENANCE.md"
+echo "Finding ID: <finding-id>"     >> ".claude/issues/$N/PROVENANCE.md"
+```
+
+This is the local mirror of GitHub state. Treat the GitHub issue as the source of truth — `.claude/issues/$N/` is a cache that may go stale and gets refreshed by `fix-issue` Phase 1.
 
 ## Step 5: Cross-Reference Related Issues
 

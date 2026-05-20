@@ -1,3 +1,8 @@
+---
+description: "Run a preset audit workflow (pre-release, audio-deep, security-deep, etc.) — executes a sequence of audits"
+argument-hint: "<preset-name>"
+---
+
 # Audit Suite — Preset Workflows
 
 Run a predefined sequence of audits. This command **actually executes** each audit in the preset by launching a Task agent per audit.

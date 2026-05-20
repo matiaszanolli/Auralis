@@ -1,3 +1,8 @@
+---
+description: "Deep security audit aligned with OWASP Top 10 (2021) — across backend, library, frontend"
+argument-hint: "[--focus <categories>] [--depth shallow|deep] [--limit <N>]"
+---
+
 # Security-Focused Audit (OWASP Top 10)
 
 Perform a deep security audit of the Auralis music player aligned with the OWASP Top 10 (2021).
@@ -97,8 +102,8 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 |------|---------|
 | `auralis-web/backend/main.py` | FastAPI app, CORS, middleware config |
 | `auralis-web/backend/routers/` | All 18 route handlers |
-| `auralis-web/backend/audio_stream_controller.py` | WebSocket streaming |
-| `auralis-web/backend/chunked_processor.py` | Audio chunk processing |
+| `auralis-web/backend/core/audio_stream_controller.py` | WebSocket streaming |
+| `auralis-web/backend/core/chunked_processor.py` | Audio chunk processing |
 | `auralis/io/unified_loader.py` | File loading (FFmpeg, SoundFile) |
 | `auralis/library/scanner.py` | Filesystem scanning |
 | `auralis/library/manager.py` | Database access orchestration |

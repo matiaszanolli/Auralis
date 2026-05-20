@@ -1,3 +1,8 @@
+---
+description: "Verify previously fixed issues have not regressed; check that the fix code is still present and tests exist"
+argument-hint: "[--since <date>] [--commits <N>]"
+---
+
 # Regression Verification Audit
 
 Verify that ALL previously fixed issues and recent critical fixes have not regressed. For each fix, confirm the code is still present and check whether regression tests exist.
@@ -36,7 +41,7 @@ These are known critical invariants that must ALWAYS be verified, regardless of 
 
 | Fix Description | Commit | File(s) to Check | What to Verify |
 |----------------|--------|-------------------|----------------|
-| Equal-power crossfade between mastering chunks | `0a5df7a3` | `auralis-web/backend/chunked_processor.py` | Crossfade uses equal-power (sqrt) curve, not linear. Overlap region is 3s. |
+| Equal-power crossfade between mastering chunks | `0a5df7a3` | `auralis-web/backend/core/chunked_processor.py` | Crossfade uses equal-power (sqrt) curve, not linear. Overlap region is 3s. |
 | Parallel processing for sub-bass control | `8bc5b217` | `auralis/core/simple_mastering.py` | Sub-bass processing uses parallel path to prevent excessive loss |
 | Double-windowing removal in EQ | `cca59d9c` | `auralis/dsp/` | No double-windowing in VectorizedEQProcessor |
 | Audio loading thread safety | `53cef6b4` | `auralis/analysis/fingerprint/` | Audio loading doesn't block on KeyboardInterrupt |

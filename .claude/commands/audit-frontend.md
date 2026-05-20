@@ -1,3 +1,8 @@
+---
+description: "Deep audit of the React frontend — components, Redux, hooks, TypeScript, design system, accessibility"
+argument-hint: "[--focus <dimensions>] [--depth shallow|deep] [--limit <N>]"
+---
+
 # Frontend Audit
 
 Perform a deep audit of the Auralis React frontend — components, Redux, hooks, TypeScript, design system, accessibility.

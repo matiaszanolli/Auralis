@@ -1,3 +1,8 @@
+---
+description: "Audit for deprecated APIs, libraries, patterns, language features across Python, TS/React, Rust, third-party deps"
+argument-hint: "[--focus python|frontend|rust|deps] [--depth shallow|deep]"
+---
+
 # Deprecation Audit
 
 Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and language features across Python, TypeScript/React, Rust, and all third-party dependencies. Then create GitHub issues for every new confirmed finding.

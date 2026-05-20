@@ -1,3 +1,8 @@
+---
+description: "Audit only code changed in a recent commit range; create GitHub issues for any new findings"
+argument-hint: "[--commits <N>] [--since <date>]"
+---
+
 # Incremental / Delta Audit
 
 Audit only the code that has changed in a recent commit range, then create GitHub issues for any new findings.

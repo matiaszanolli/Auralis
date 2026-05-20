@@ -1,3 +1,8 @@
+---
+description: "Trace 7 critical data flows across audio engine, FastAPI backend, and React frontend"
+argument-hint: "[--focus <flow-names>] [--depth shallow|deep] [--limit <N>]"
+---
+
 # Backend-Frontend-Engine Integration Audit
 
 Trace the 7 critical data flows between the Auralis audio engine, FastAPI backend, and React frontend.
@@ -29,7 +34,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 |------|-------|------|
 | User clicks play | Frontend | `src/hooks/player/` hooks, `src/store/` player slice |
 | REST request | Frontend | `src/services/` API client |
-| Play endpoint | Backend | `routers/player.py` or `routers/streaming.py` |
+| Play endpoint | Backend | `auralis-web/backend/routers/player.py` or `auralis-web/backend/routers/webm_streaming.py` |
 | Audio loading | Engine | `auralis/io/unified_loader.py` |
 | Processing | Engine | `auralis/core/hybrid_processor.py` → `simple_mastering.py` |
 | Chunking | Backend | `chunked_processor.py` (30s chunks, 3s crossfade) |

@@ -1,3 +1,8 @@
+---
+description: "Deep audit of the core audio engine — DSP pipeline, player, analysis, library, parallel processing"
+argument-hint: "[--focus <dimensions>] [--depth shallow|deep] [--limit <N>]"
+---
+
 # Audio Engine Audit
 
 Perform a deep audit of the Auralis core audio engine — DSP pipeline, player, analysis, library.

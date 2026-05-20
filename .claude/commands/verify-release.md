@@ -1,3 +1,8 @@
+---
+description: "Run the full pre-release checklist and emit a READY / NOT READY verdict"
+argument-hint: "[<target-version>]"
+---
+
 # Pre-Release Verification Gate
 
 Run complete pre-release checklist. Produces READY / NOT READY verdict.

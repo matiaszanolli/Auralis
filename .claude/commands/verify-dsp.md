@@ -1,3 +1,8 @@
+---
+description: "Verify the 6 audio processing invariants across the DSP pipeline (read-only, no fixes)"
+argument-hint: "[<file-path> | <glob> | <git-range>]"
+---
+
 # DSP Invariant Verification
 
 Verify all 6 audio processing invariants across the DSP pipeline. This is a **read-only** audit — it reports violations but does NOT fix them.
@@ -22,7 +27,7 @@ Determine scope from arguments:
 | Audio I/O | `auralis/io/unified_loader.py`, `results.py` |
 | Player RT Processing | `auralis/player/realtime_processor.py` |
 | Parallel Processing | `auralis/optimization/parallel_processor.py` |
-| Backend Chunking | `auralis-web/backend/chunked_processor.py` |
+| Backend Chunking | `auralis-web/backend/core/chunked_processor.py` |
 | Rust DSP Bindings | `vendor/auralis-dsp/src/*.rs` |
 
 ## The 6 Invariants

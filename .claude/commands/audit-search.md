@@ -1,3 +1,8 @@
+---
+description: "Recommend which audit(s) to run based on recent changes and audit history — the starting point, not an audit itself"
+argument-hint: "[--since <date>] [--limit <N>]"
+---
+
 # Audit Advisor & Orchestrator
 
 Analyze recent changes and audit history to recommend which audit(s) to run, in what order, and with what focus. This is NOT an audit itself — it's the starting point that tells you what to audit.

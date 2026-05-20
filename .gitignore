@@ -187,3 +187,6 @@ fingerprint-server/**/target/
 # MY stuff - hands out, you evil creature
 research/
 
+# Local audit issue snapshots (per-machine cache, not source of truth)
+.claude/issues/
+

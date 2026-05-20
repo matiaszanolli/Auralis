@@ -1,3 +1,8 @@
+---
+description: "Deep audit of the FastAPI backend — routers, WebSocket streaming, chunked processing, schemas, middleware"
+argument-hint: "[--focus <dimensions>] [--depth shallow|deep] [--limit <N>]"
+---
+
 # Backend Audit
 
 Perform a deep audit of the Auralis FastAPI backend — routes, WebSocket streaming, chunked processing, schemas, middleware.
@@ -18,9 +23,9 @@ This audit covers ONLY the backend code:
 
 - **App Entry**: `auralis-web/backend/main.py` (FastAPI app, CORS, middleware)
 - **Routers**: `auralis-web/backend/routers/` (18 route handlers: player, library, albums, artists, playlists, enhancement, metadata, artwork, system, similarity, streaming, etc.)
-- **WebSocket Streaming**: `auralis-web/backend/audio_stream_controller.py`
-- **Chunked Processor**: `auralis-web/backend/chunked_processor.py` (30s chunks, 3s crossfade)
-- **Processing Engine**: `auralis-web/backend/processing_engine.py`
+- **WebSocket Streaming**: `auralis-web/backend/core/audio_stream_controller.py`
+- **Chunked Processor**: `auralis-web/backend/core/chunked_processor.py` (30s chunks, 3s crossfade)
+- **Processing Engine**: `auralis-web/backend/core/processing_engine.py`
 - **Schemas**: `auralis-web/backend/schemas.py`
 - **Services**: `auralis-web/backend/services/`
 - **Core/Config**: `auralis-web/backend/core/`, `auralis-web/backend/config/`

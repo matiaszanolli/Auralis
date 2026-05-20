@@ -1,3 +1,8 @@
+---
+description: "Generate regression and unit tests following established project patterns"
+argument-hint: "[<file-path> | <issue-#> | <commit-hash>]"
+---
+
 # Test Generation
 
 Generate regression and unit tests following established project patterns.

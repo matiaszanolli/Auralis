@@ -1,3 +1,8 @@
+---
+description: "Cross-reference REST endpoints, Pydantic/TS schemas, and WS message types; reports mismatches (no fixes)"
+argument-hint: "[rest|websocket|all]"
+---
+
 # Backend-Frontend API Contract Sync
 
 Cross-reference all REST endpoints, Pydantic/TypeScript schemas, and WebSocket message types between the FastAPI backend and React frontend. Reports mismatches — does NOT fix them.
@@ -25,7 +30,7 @@ Read `auralis-web/backend/schemas.py` and any schema files in `auralis-web/backe
 ### WebSocket Messages (Backend sends)
 
 Scan these files for all `send_text(json.dumps({...}))` and `send_json({...})` calls:
-- `auralis-web/backend/audio_stream_controller.py`
+- `auralis-web/backend/core/audio_stream_controller.py`
 - `auralis-web/backend/routers/system.py`
 - `auralis-web/backend/services/library_auto_scanner.py`
 - Any other file that sends WebSocket messages
