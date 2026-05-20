@@ -616,12 +616,36 @@ class FingerprintRepository:
         cols_str = ', '.join(cols)
         named_placeholders = ', '.join([f':{col}' for col in cols])
 
+        # Use INSERT ... ON CONFLICT DO UPDATE rather than INSERT OR REPLACE.
+        # REPLACE deletes the existing row and inserts a new one, which:
+        #   - resets the `id` PK to a fresh auto-increment value
+        #   - wipes `created_at` and any column not listed (e.g. the
+        #     quantized `fingerprint_blob` set by store_fingerprint)
+        #   - causes a race window between the implicit DELETE and INSERT
+        # ON CONFLICT updates only the listed columns in-place and is also
+        # atomic, which closes the concurrent-insert race (#3467, #3459).
+        #
+        # On INSERT we must supply `fingerprint_version` because it is
+        # NOT NULL and its default is a Python-side ORM default (not a
+        # SQL default), so raw INSERT does not see it. On UPDATE we only
+        # refresh the 25 dimension columns — `fingerprint_blob` and
+        # `fingerprint_version` stay as whatever store_fingerprint set.
+        update_clause = ', '.join(f"{col} = excluded.{col}" for col in cols)
+
         session = self.get_session()
         try:
-            params: dict[str, Any] = {'track_id': track_id, **fingerprint_data}
+            params: dict[str, Any] = {
+                'track_id': track_id,
+                'fp_version': FINGERPRINT_ALGORITHM_VERSION,
+                **fingerprint_data,
+            }
 
             session.execute(
-                text(f"INSERT OR REPLACE INTO track_fingerprints (track_id, {cols_str}) VALUES (:track_id, {named_placeholders})"),
+                text(
+                    f"INSERT INTO track_fingerprints (track_id, fingerprint_version, {cols_str}) "
+                    f"VALUES (:track_id, :fp_version, {named_placeholders}) "
+                    f"ON CONFLICT (track_id) DO UPDATE SET {update_clause}"
+                ),
                 params,
             )
             session.commit()
@@ -682,6 +706,13 @@ class FingerprintRepository:
         cols_str = ', '.join(cols)
         named_placeholders = ', '.join([f':{col}' for col in cols])
 
+        # ON CONFLICT DO UPDATE keeps the `id` PK stable and the existing
+        # `created_at` intact (cf. #3467 sibling); only the listed columns
+        # are written. fingerprint_blob and fingerprint_version are listed
+        # here, so they're always refreshed on update.
+        all_cols = cols + ['fingerprint_blob', 'fingerprint_version']
+        update_clause = ', '.join(f"{col} = excluded.{col}" for col in all_cols)
+
         session = self.get_session()
         try:
             # Quantize fingerprint
@@ -696,9 +727,10 @@ class FingerprintRepository:
 
             session.execute(
                 text(f"""
-                    INSERT OR REPLACE INTO track_fingerprints
+                    INSERT INTO track_fingerprints
                     (track_id, {cols_str}, fingerprint_blob, fingerprint_version)
                     VALUES (:track_id, {named_placeholders}, :fingerprint_blob, :fp_version)
+                    ON CONFLICT (track_id) DO UPDATE SET {update_clause}
                 """),
                 params,
             )
