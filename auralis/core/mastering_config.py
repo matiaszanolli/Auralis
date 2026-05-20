@@ -155,7 +155,36 @@ class SimpleMasteringConfig:
     # =========================================================================
 
     MAX_BASS_BOOST_DB: float = 2.0
-    """Maximum bass enhancement boost"""
+    """Maximum bass enhancement boost (when bass content is well below target)"""
+
+    MAX_BASS_CUT_DB: float = 2.0
+    """Maximum bass de-mud cut (bell @ 150 Hz, when bass is well above target).
+    Applied as a bell — not a shelf — so the kick fundamental and sub-bass are
+    preserved while the muddy bass body (100-220 Hz) is tamed. Reduced from
+    -3 dB because live folk/world recordings can legitimately have 50-60%
+    bass; we want to gently tame mud, not fight the source's character."""
+
+    BASS_TARGET_PCT: float = 0.22
+    """Reference target for bass-band energy share. Below this we boost,
+    above this we cut; both contributions taper to zero AT this value, so
+    the curve is continuous with no hard threshold."""
+
+    BASS_BOOST_RANGE_PCT: float = 0.22
+    """How far below target counts as 'maximum deficit'. At bass_pct=0, the
+    deficit is BASS_BOOST_RANGE_PCT below target → full boost."""
+
+    BASS_CUT_RANGE_PCT: float = 0.55
+    """How far above target counts as 'maximum excess'. At bass_pct=77%
+    we hit max cut; at typical bass-heavy live recordings (45-60%) the cut
+    is proportionally modest. Bass-dominant sources are usually a character
+    choice, not a mastering problem to brute-force-fix."""
+
+    BASS_DEMUD_LOW_HZ: float = 100.0
+    """Lower bound of the de-mud bell"""
+
+    BASS_DEMUD_HIGH_HZ: float = 220.0
+    """Upper bound of the de-mud bell. 100-220 Hz brackets the live-recording
+    'boxiness' zone without touching kick fundamental (50-80 Hz) or sub-bass."""
 
     MAX_SUB_BASS_CUT_DB: float = -1.0
     """Maximum sub-bass cut (negative boost)"""
@@ -195,11 +224,12 @@ class SimpleMasteringConfig:
     EXCITER_ASYMMETRY: float = 0.3
     """Saturator bias (0 = odd harmonics only; 0.3 adds tube-like even harmonics)"""
 
-    EXCITER_MAX_WET_DB: float = -6.0
-    """Wet ceiling (parallel mix). -6 dB ≈ 50% wet for fully-dark material at
-    intensity 1.0; -12 dB ≈ 25% wet. Used as the *ceiling* of a darkness-scaled
-    ramp, so bright material stays gentle while dark/bandwidth-limited sources
-    get a real lift."""
+    EXCITER_MAX_WET_DB: float = -9.0
+    """Wet ceiling (parallel mix). -9 dB ≈ 35% wet for fully-dark material at
+    intensity 1.0. Reduced from -6 dB after A/B analysis showed the previous
+    setting produced a +7 dB peak at 5 kHz on dark sources, contributing to
+    a +9 dB spectral tilt that listeners perceived as 'high-passed'. -9 dB
+    still delivers obvious 'crispness' lift without the over-correction."""
 
     EXCITER_MIN_WET_DB: float = -18.0
     """Wet floor at the activation threshold (just-barely-dark material)."""
@@ -207,6 +237,159 @@ class SimpleMasteringConfig:
     EXCITER_DARKNESS_ACTIVATE: float = 0.55
     """Darkness threshold below which exciter is bypassed. Computed from
     presence_pct + air_pct + spectral_rolloff. 0 = fully dark, 1 = fully bright"""
+
+    EXCITER_CASCADE_ENABLED: bool = True
+    """Run a second-pass exciter on Stage 1's output. Stage 1 generates
+    harmonics 4-8 kHz from the 1-5.5 kHz donor. Stage 2 uses those new
+    4-8 kHz harmonics as its donor to generate further harmonics in
+    8-16 kHz, extending the 'brightness' across the full upper spectrum
+    instead of concentrating it in 4-7 kHz. Empirically lifts Brilliance
+    (8-12 kHz) by +3 dB on very dark sources where a single pass barely
+    reaches above 8 kHz."""
+
+    EXCITER_CASCADE_DONOR_LOW_HZ: float = 3000.0
+    """Lower bound of cascade donor (overlaps with Stage 1's output range)."""
+
+    EXCITER_CASCADE_DONOR_HIGH_HZ: float = 8000.0
+    """Upper bound of cascade donor — the post-Stage-1 region with new content."""
+
+    EXCITER_CASCADE_HP_CUTOFF_HZ: float = 8000.0
+    """High-pass on Stage 2 — keep only the newly-newly-generated harmonics
+    (above the cascade donor band)."""
+
+    EXCITER_CASCADE_DRIVE_DB: float = 12.0
+    """Stage 2 drive. Slightly less than Stage 1 because the donor is already
+    saturated content; less drive = lower-order harmonics = cleaner sound."""
+
+    EXCITER_CASCADE_WET_OFFSET_DB: float = -3.0
+    """Stage 2 wet is computed as Stage 1 wet + this offset. The cascade
+    is a secondary effect and should be quieter than the primary stage."""
+
+    # =========================================================================
+    # Resonance Notcher (de-mud / de-honk)
+    # =========================================================================
+    # Surgical narrow notches in 150-1200 Hz to tame room modes and recording
+    # resonances that mask midrange detail. Only fires on prominent peaks,
+    # so clean recordings see no intervention.
+
+    NOTCH_MIN_FREQ_HZ: float = 150.0
+    """Lower bound of resonance search range"""
+
+    NOTCH_MAX_FREQ_HZ: float = 1200.0
+    """Upper bound. Above this, sharp peaks are usually instrument timbre."""
+
+    NOTCH_MIN_PROMINENCE_DB: float = 8.0
+    """Minimum peak prominence above local floor to count as a resonance"""
+
+    NOTCH_MAX_COUNT: int = 3
+    """Cap on simultaneous notches. 5 notches clustered in one band can
+    cumulatively scoop the band; 3 keeps the surgical character."""
+
+    NOTCH_MAX_DEPTH_DB: float = -4.0
+    """Strongest cut allowed at the most-prominent peak. -5 dB combined with
+    Q=6 cumulatively scoops the band when 3 notches cluster; -4 dB stays
+    audible-as-de-emphasis without over-cutting the broad band."""
+
+    NOTCH_MIN_BAND_HEALTH: float = 0.6
+    """Skip notches whose target band is below this health (band_pct/target).
+    Below this threshold the band is already severely deficient — adding a
+    notch makes it worse. A/B data on Cerca de la revolución showed -2.2 pp
+    Mid scoop on a source where Mid was at 12.8% vs 24% target (health 0.53),
+    even with proportional depth scaling. Skipping entirely below 0.6 is
+    safer than gouging an already-thin band."""
+
+    NOTCH_CAPPED_HEALTH: float = 0.7
+    """Below this band health (but above NOTCH_MIN_BAND_HEALTH), the notch
+    is allowed but its depth is hard-capped to NOTCH_LOW_HEALTH_CAP_DB.
+    We acknowledge the resonance exists but tread lightly."""
+
+    NOTCH_LOW_HEALTH_CAP_DB: float = -1.0
+    """Hard cap on notch depth in the cautious health zone (0.6-0.7)."""
+
+    # =========================================================================
+    # Transient Shaper (kick / bass attack restoration)
+    # =========================================================================
+    # Restores attack on compressed low-end. Activates when the band's
+    # measured crest factor suggests it's been levelled (compressed sustain).
+
+    TRANSIENT_BASS_LOW_HZ: float = 60.0
+    """Lower bound of bass band for transient shaping (kick fundamental)"""
+
+    TRANSIENT_BASS_HIGH_HZ: float = 250.0
+    """Upper bound of bass band — includes kick body and low bass notes"""
+
+    TRANSIENT_LO_MID_LOW_HZ: float = 250.0
+    """Lower bound of lo-mid band (kick beater, snare body)"""
+
+    TRANSIENT_LO_MID_HIGH_HZ: float = 500.0
+    """Upper bound of lo-mid band"""
+
+    TRANSIENT_MAX_BOOST_DB: float = 5.0
+    """Maximum attack boost at peak transient moments (×intensity)"""
+
+    TRANSIENT_ACTIVATE_CREST_DB: float = 20.0
+    """Below this overall-crest, transients are considered worth shaping.
+    Most real-world tracks have crest 10-18 dB; 20 dB threshold ensures we
+    engage on nearly all material and bypass only the most pristine acoustic
+    recordings. Strength ramps smoothly down as crest approaches the threshold."""
+
+    # =========================================================================
+    # Clarity Boost (Up-Mid bell for vocal/snare definition)
+    # =========================================================================
+    # Separate from the broad presence band. Targets 1.5-3.5 kHz, where vocal
+    # consonants and snare attack live. Activates when Up-Mid energy is below
+    # CLARITY_TARGET_PCT.
+
+    CLARITY_LOW_HZ: float = 1500.0
+    """Lower bound of clarity bell"""
+
+    CLARITY_HIGH_HZ: float = 3500.0
+    """Upper bound of clarity bell"""
+
+    CLARITY_TARGET_PCT: float = 0.12
+    """Target Up-Mid energy share. Sources with less get a boost."""
+
+    CLARITY_MAX_BOOST_DB: float = 2.5
+    """Maximum clarity boost for severely deficient sources. Reduced from
+    4.0 after A/B analysis: +5 dB at 3 kHz combined with exciter's +7 dB at
+    5 kHz produced a +9 dB spectral tilt that listeners perceived as
+    'high-passed'. 2.5 dB still meaningfully lifts vocal consonant region
+    without over-tilting the spectrum."""
+
+    # =========================================================================
+    # Sub-Bass Control (continuous curve, like bass balance)
+    # =========================================================================
+    # Smooth ramp from target outward. Wide range so that even bass-forward
+    # live recordings (with legitimately high sub-bass content from kick and
+    # upright bass fundamentals) get only modest treatment.
+
+    SUB_TARGET_PCT: float = 0.07
+    """Reference target for sub-band energy. Slightly above the 5% pop
+    reference because most acoustic music has more sub than studio masters."""
+
+    SUB_CUT_RANGE_PCT: float = 0.25
+    """How far above target counts as 'maximum excess'. Sub at 32% gets full
+    cut; typical bass-heavy live recordings (15-20% sub) get only a fraction.
+    Wider range than before because musical sub-bass content was being cut
+    along with rumble."""
+
+    MAX_SUB_CUT_DB: float = -1.5
+    """Maximum sub-bass parallel cut (negative boost). Gentler than the
+    previous -2 dB ceiling — musical low-end is easy to lose."""
+
+    SUB_HP_ACTIVATE_PCT: float = 0.25
+    """HP only fires above this sub-content threshold. Previously 0.12,
+    which incorrectly triggered on tracks with strong musical kick content
+    (folk/world music typically has 15-20% sub from acoustic instruments)."""
+
+    SUBBASS_HP_FREQ_HZ: float = 25.0
+    """High-pass cutoff for rumble removal. Lowered from 35 to 25 Hz so
+    kick fundamentals (50-80 Hz) are well clear of the filter's rolloff."""
+
+    SUBBASS_HP_ORDER: int = 1
+    """Filter order for sub-bass HP. 1st-order = 6 dB/oct (gentle) instead
+    of the previous 2nd-order (12 dB/oct), so the rolloff above the cutoff
+    is much shallower."""
 
     # =========================================================================
     # Progress Reporting

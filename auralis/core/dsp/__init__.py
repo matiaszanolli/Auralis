@@ -10,8 +10,13 @@ Core digital signal processing utilities.
 
 from .harmonic_exciter import HarmonicExciter
 from .parallel_eq import ParallelEQUtilities
+from .resonance_notcher import Notch, ResonanceNotcher
+from .transient_shaper import TransientShaper
 
 __all__ = [
     'HarmonicExciter',
+    'Notch',
     'ParallelEQUtilities',
+    'ResonanceNotcher',
+    'TransientShaper',
 ]

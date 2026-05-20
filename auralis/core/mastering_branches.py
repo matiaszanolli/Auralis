@@ -174,6 +174,13 @@ class CompressedLoudBranch(ProcessingBranch):
         processed = audio.copy()
         recorder = StageRecorder()
 
+        # Resonance notches first — surgical narrow cuts before any broad EQ,
+        # so subsequent stages see the post-notch energy balance.
+        processed, notch_info = self.pipeline._apply_resonance_notches(
+            processed, sample_rate, verbose
+        )
+        recorder.add(notch_info)
+
         # Check for hyper-compression
         if unpacker.crest_db < config.HYPER_COMPRESSED_THRESHOLD_CREST:
             # Hyper-compressed: skip expansion entirely
@@ -219,6 +226,14 @@ class CompressedLoudBranch(ProcessingBranch):
             sample_rate, verbose
         )
         recorder.add(exciter_info)
+
+        # Clarity boost — Up-Mid bell for sources missing vocal/snare definition.
+        processed, clarity_info = self.pipeline._apply_clarity_boost(
+            processed, unpacker.upper_mid_pct,
+            effective_intensity * config.COMPRESSED_LOUD_INTENSITY_FACTOR,
+            sample_rate, verbose
+        )
+        recorder.add(clarity_info)
 
         # Spectral enhancements (presence & air)
         processed, presence_info = self.pipeline._apply_presence_enhancement(
@@ -275,6 +290,12 @@ class DynamicLoudBranch(ProcessingBranch):
         processed = audio.copy()
         recorder = StageRecorder()
 
+        # Resonance notches — surgical, no harm if there are none to apply.
+        processed, notch_info = self.pipeline._apply_resonance_notches(
+            processed, sample_rate, verbose
+        )
+        recorder.add(notch_info)
+
         if verbose:
             print(f"   Dynamic loud → preserving original")
         recorder.add({'stage': 'passthrough'})
@@ -299,6 +320,14 @@ class DynamicLoudBranch(ProcessingBranch):
             sample_rate, verbose
         )
         recorder.add(exciter_info)
+
+        # Clarity boost — Up-Mid bell for vocal/snare definition.
+        processed, clarity_info = self.pipeline._apply_clarity_boost(
+            processed, unpacker.upper_mid_pct,
+            effective_intensity * config.DYNAMIC_LOUD_INTENSITY_FACTOR,
+            sample_rate, verbose
+        )
+        recorder.add(clarity_info)
 
         # Gentle spectral enhancements (reduced intensity for well-mastered tracks)
         processed, presence_info = self.pipeline._apply_presence_enhancement(
@@ -360,6 +389,14 @@ class QuietBranch(ProcessingBranch):
         processed = audio.copy()
         recorder = StageRecorder()
 
+        # Resonance notches first — surgical narrow cuts in 150-1200 Hz so all
+        # subsequent EQ stages see the post-notch energy balance. No-op if no
+        # resonances were detected for this file.
+        processed, notch_info = self.pipeline._apply_resonance_notches(
+            processed, sample_rate, verbose
+        )
+        recorder.add(notch_info)
+
         # Calculate adaptive makeup gain
         makeup_gain, _ = AdaptiveLoudnessControl.calculate_adaptive_gain(
             unpacker.lufs, effective_intensity, unpacker.crest_db,
@@ -374,18 +411,27 @@ class QuietBranch(ProcessingBranch):
             processed = amplify(processed, makeup_gain)
             recorder.add({'stage': 'makeup_gain', 'gain_db': makeup_gain})
 
-        # Bass enhancement for tracks lacking low-end
+        # Bass enhancement OR de-congestion (bidirectional based on bass_pct)
         processed, bass_info = self.pipeline._apply_bass_enhancement(
             processed, unpacker.bass_pct, effective_intensity, sample_rate, verbose
         )
         recorder.add(bass_info)
 
-        # Sub-bass control - tighten rumble
+        # Sub-bass control - tighten rumble (with HP for bursty rumble)
         processed, sub_bass_info = self.pipeline._apply_sub_bass_control(
             processed, unpacker.sub_bass_pct, unpacker.bass_pct,
             effective_intensity, sample_rate, verbose
         )
         recorder.add(sub_bass_info)
+
+        # Transient shaper — restore attack on compressed kick/bass. Applied
+        # after bass EQ (so we shape the final levels) but before mid-warmth
+        # (so the warmth doesn't sustain over the restored attacks).
+        processed, transient_info = self.pipeline._apply_transient_shaper(
+            processed, unpacker.bass_pct, unpacker.low_mid_pct,
+            unpacker.crest_db, effective_intensity, sample_rate, verbose
+        )
+        recorder.add(transient_info)
 
         # Mid-range warmth for thin mixes
         processed, warmth_info = self.pipeline._apply_mid_warmth(
@@ -403,6 +449,16 @@ class QuietBranch(ProcessingBranch):
             effective_intensity, sample_rate, verbose
         )
         recorder.add(exciter_info)
+
+        # Clarity boost — Up-Mid bell for vocal/snare definition. Sits between
+        # the exciter (which fed new harmonics into 4-8 kHz) and the presence
+        # shelf (which lifts 2-8 kHz broadly). The clarity bell narrows the
+        # focus to 1.5-3.5 kHz where consonants and attack-snap live.
+        processed, clarity_info = self.pipeline._apply_clarity_boost(
+            processed, unpacker.upper_mid_pct,
+            effective_intensity, sample_rate, verbose
+        )
+        recorder.add(clarity_info)
 
         # Presence enhancement for dull mixes
         processed, presence_info = self.pipeline._apply_presence_enhancement(

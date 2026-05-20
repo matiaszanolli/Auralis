@@ -23,7 +23,7 @@ from ..dsp.dynamics.soft_clipper import soft_clip
 from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ..dsp.utils.stereo import adjust_stereo_width_multiband
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
-from .dsp import HarmonicExciter, ParallelEQUtilities
+from .dsp import HarmonicExciter, Notch, ParallelEQUtilities, ResonanceNotcher, TransientShaper
 from .mastering_branches import MaterialClassifier
 from .mastering_config import SimpleMasteringConfig
 from .processing.base import ExpansionStrategies
@@ -41,6 +41,10 @@ class SimpleMasteringPipeline:
         self._fingerprint_service: FingerprintService | None = None
         self.config = config or SimpleMasteringConfig()
         self._fp_service_lock = threading.Lock()  # Protects lazy init (fixes #2434)
+        # Per-file resonance notches. Populated by master_file before chunked
+        # processing, consumed by _apply_resonance_notches. Cleared at the start
+        # of each master_file call so notches don't leak between files in batch.
+        self._notches: list[Notch] = []
 
     @property
     def fingerprint_service(self) -> FingerprintService:
@@ -111,6 +115,53 @@ class SimpleMasteringPipeline:
             print(f"   Duration: {duration:.1f}s")
             print(f"   Channels: {channels}")
             self._print_fingerprint(fingerprint)
+
+        # Step 2b: Detect resonances once per file.
+        # Run on a representative 30s window from the middle of the file —
+        # avoids loading the full file but gives enough data for the FFT
+        # averaging to find stable spectral peaks. The same notch list is
+        # applied to every chunk during processing.
+        self._notches = []
+        step_start = time.perf_counter()
+        notch_sample_seconds = 30
+        notch_window = min(total_frames, sr * notch_sample_seconds)
+        notch_start = max(0, (total_frames - notch_window) // 2)
+        with sf.SoundFile(str(input_path)) as audio_file:
+            audio_file.seek(notch_start)
+            notch_sample = audio_file.read(notch_window).astype(np.float32)
+        # SoundFile returns (samples, channels); ResonanceNotcher handles both
+        # mono and stereo input internally.
+        detected = ResonanceNotcher.detect(
+            notch_sample,
+            sample_rate=sr,
+            min_freq=self.config.NOTCH_MIN_FREQ_HZ,
+            max_freq=self.config.NOTCH_MAX_FREQ_HZ,
+            min_prominence_db=self.config.NOTCH_MIN_PROMINENCE_DB,
+            max_notches=self.config.NOTCH_MAX_COUNT,
+            max_depth_db=self.config.NOTCH_MAX_DEPTH_DB,
+        )
+
+        # Band-context awareness: scale each notch's depth by the energy
+        # share of the band it lands in. If the target band is already
+        # under-represented (e.g. Mid at 10% vs 24% target), full-depth
+        # notching gouges an already-deficient band — so we shrink the cut
+        # proportionally. Notch on a well-energized band → full depth;
+        # notch on a deficient band → reduced depth (or skipped entirely
+        # below NOTCH_MIN_BAND_HEALTH).
+        self._notches = self._contextualize_notches(detected, fingerprint)
+        timings['detect_notches'] = time.perf_counter() - step_start
+        if verbose:
+            if self._notches:
+                print(f"\n🎯 Resonance notches detected ({len(self._notches)}):")
+                for n in self._notches:
+                    print(f"   {n.freq_hz:6.0f} Hz   {n.depth_db:+5.1f} dB (Q={n.q:.1f})")
+            elif detected:
+                # Resonances exist but all skipped by band-context filter
+                print(f"\n🎯 Resonances detected but skipped — target bands too deficient")
+                print(f"   ({len(detected)} candidates: " +
+                      ", ".join(f"{n.freq_hz:.0f}Hz" for n in detected) + ")")
+            else:
+                print("\n🎯 No prominent resonances detected — skipping notch stage")
 
         # Step 3: Process in chunks (memory efficient)
         if verbose:
@@ -452,6 +503,243 @@ class SimpleMasteringPipeline:
 
         return processed
 
+    def _contextualize_notches(self, notches: list[Notch], fingerprint: dict) -> list[Notch]:
+        """
+        Filter and scale each notch's depth based on the target band's health.
+
+        Three regimes (driven by `band_pct / band_target` ratio):
+
+        - **health ≥ NOTCH_CAPPED_HEALTH (≥0.7)**: full notch — band is well-
+          energized, scaling depth proportionally is safe.
+        - **NOTCH_MIN_BAND_HEALTH ≤ health < NOTCH_CAPPED_HEALTH (0.6-0.7)**:
+          allow the notch but hard-cap its depth to NOTCH_LOW_HEALTH_CAP_DB
+          (e.g. -1 dB). The resonance is real but we tread lightly because
+          the band is borderline thin.
+        - **health < NOTCH_MIN_BAND_HEALTH (<0.6)**: skip entirely. Notching
+          an already-deficient band makes the perceived scoop worse than
+          leaving the resonance alone.
+
+        These thresholds were tuned from A/B analysis on a source where Mid
+        was at 53% of target — proportional scaling alone still produced
+        -2.2 pp of additional Mid scoop, contributing to the perceived
+        'high-passed' sound.
+        """
+        if not notches:
+            return notches
+
+        # Map (low, high) Hz → fingerprint key name. Matches the band
+        # definitions used by the fingerprint service.
+        BAND_LOOKUP = [
+            ((20, 60),     'sub_bass_pct',  0.05),
+            ((60, 250),    'bass_pct',      0.22),
+            ((250, 500),   'low_mid_pct',   0.14),
+            ((500, 2000),  'mid_pct',       0.24),
+            ((2000, 4000), 'upper_mid_pct', 0.14),
+            ((4000, 8000), 'presence_pct',  0.11),
+            ((8000, 12000),'brilliance_pct',0.06),
+            ((12000, 24000),'air_pct',      0.04),
+        ]
+
+        out: list[Notch] = []
+        for n in notches:
+            # Find which band this notch lands in
+            band_pct = None
+            band_target = None
+            for (lo, hi), key, tgt in BAND_LOOKUP:
+                if lo <= n.freq_hz < hi:
+                    band_pct = fingerprint.get(key, tgt)
+                    band_target = tgt
+                    break
+
+            if band_pct is None or band_target is None:
+                out.append(n)
+                continue
+
+            # Health metric: ratio of actual to target energy share, capped at 1.0.
+            # 1.0 = well-energized band, 0.5 = half-energized, etc.
+            health = min(1.0, band_pct / band_target) if band_target > 0 else 1.0
+
+            if health < self.config.NOTCH_MIN_BAND_HEALTH:
+                # Band is severely deficient — leave the resonance alone.
+                continue
+
+            # Proportional scaling for moderately-deficient bands. The 0.7+
+            # zone gets full proportional depth; the 0.6-0.7 zone is capped
+            # to a hard floor regardless of the configured max depth.
+            scaled_depth = n.depth_db * health
+
+            if health < self.config.NOTCH_CAPPED_HEALTH:
+                # Cap to the low-health cap (compare absolute values; both negative)
+                if abs(scaled_depth) > abs(self.config.NOTCH_LOW_HEALTH_CAP_DB):
+                    scaled_depth = self.config.NOTCH_LOW_HEALTH_CAP_DB
+
+            out.append(Notch(freq_hz=n.freq_hz, depth_db=scaled_depth, q=n.q))
+
+        return out
+
+    def _apply_resonance_notches(
+        self,
+        audio: np.ndarray,
+        sample_rate: int,
+        verbose: bool,
+    ) -> tuple[np.ndarray, dict | None]:
+        """
+        Apply pre-detected narrow notches to tame room modes and recording
+        resonances. Notches are detected once per file by `master_file()` and
+        applied to every chunk via `self._notches`.
+
+        Returns audio unchanged if no notches were detected.
+        """
+        if not self._notches:
+            return audio, None
+
+        processed = ResonanceNotcher.apply(audio, sample_rate, self._notches)
+        if verbose:
+            freqs = ", ".join(f"{n.freq_hz:.0f}Hz" for n in self._notches)
+            print(f"   Resonance notches: {len(self._notches)} cuts @ {freqs}")
+        return processed, {
+            'stage': 'resonance_notches',
+            'count': len(self._notches),
+            'notches': [(n.freq_hz, n.depth_db) for n in self._notches],
+        }
+
+    def _apply_transient_shaper(
+        self,
+        audio: np.ndarray,
+        bass_pct: float,
+        low_mid_pct: float,
+        crest_db: float,
+        intensity: float,
+        sample_rate: int,
+        verbose: bool,
+    ) -> tuple[np.ndarray, dict | None]:
+        """
+        Restore kick/bass attack on compressed low-end.
+
+        Activates when the overall crest factor suggests the bass/lo-mid
+        bands have been compressed flat. The fingerprint's `crest_db` is a
+        global metric, but in practice global crest <= TRANSIENT_ACTIVATE_CREST_DB
+        is a strong signal that the low end has been levelled — that's the
+        type of recording where kicks lose their punch.
+
+        Only fires when the band has enough energy to warrant attack
+        restoration (skip if the band is essentially silent).
+        """
+        # Smooth ramp: full strength at crest 13 dB or below, zero at threshold.
+        threshold = self.config.TRANSIENT_ACTIVATE_CREST_DB
+        if crest_db >= threshold:
+            return audio, None
+
+        # Compressed-ness factor: 0 at threshold, 1 at very compressed (8 dB)
+        compress_factor = SmoothCurveUtilities.ramp_to_s_curve(
+            threshold - crest_db, 0.0, threshold - 8.0
+        )
+
+        max_boost = self.config.TRANSIENT_MAX_BOOST_DB * intensity
+        boost_db = max_boost * compress_factor
+
+        if boost_db < 0.5:
+            return audio, None
+
+        # Bass band — skip if essentially no bass to shape
+        if bass_pct >= 0.05:
+            audio = TransientShaper.apply(
+                audio, sample_rate,
+                band_low_hz=self.config.TRANSIENT_BASS_LOW_HZ,
+                band_high_hz=self.config.TRANSIENT_BASS_HIGH_HZ,
+                attack_boost_db=boost_db,
+            )
+
+        # Lo-mid band — use a slightly gentler boost (lo-mid attacks are less
+        # critical and overshaping them can sound un-natural).
+        if low_mid_pct >= 0.05:
+            audio = TransientShaper.apply(
+                audio, sample_rate,
+                band_low_hz=self.config.TRANSIENT_LO_MID_LOW_HZ,
+                band_high_hz=self.config.TRANSIENT_LO_MID_HIGH_HZ,
+                attack_boost_db=boost_db * 0.7,
+            )
+
+        if verbose:
+            print(
+                f"   Transient shaper: +{boost_db:.1f} dB attack on "
+                f"{self.config.TRANSIENT_BASS_LOW_HZ:.0f}-{self.config.TRANSIENT_BASS_HIGH_HZ:.0f}Hz "
+                f"(crest {crest_db:.1f} dB)"
+            )
+
+        return audio, {
+            'stage': 'transient_shaper',
+            'boost_db': boost_db,
+            'crest_db': crest_db,
+        }
+
+    def _apply_clarity_boost(
+        self,
+        audio: np.ndarray,
+        upper_mid_pct: float,
+        intensity: float,
+        sample_rate: int,
+        verbose: bool,
+    ) -> tuple[np.ndarray, dict | None]:
+        """
+        Apply a focused Up-Mid bell boost (1.5-3.5 kHz) for sources where
+        vocal consonants and snare attack are buried.
+
+        Activates only when Up-Mid is meaningfully below `CLARITY_TARGET_PCT`.
+        Bypasses cleanly on tracks that already have good Up-Mid energy so
+        we don't risk making them harsh. Boost scales with deficiency.
+
+        Also tempered by the absolute Up-Mid floor: if the band is
+        essentially silent (< ~2% of total energy), a big boost would
+        amplify noise/codec artifacts more than musical content. In that
+        case the boost is scaled down — we still help, but gently.
+        """
+        target = self.config.CLARITY_TARGET_PCT
+        if upper_mid_pct >= target:
+            return audio, None
+
+        # Deficit shape: full boost at 0% Up-Mid, no boost at target.
+        deficit_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(
+            upper_mid_pct, 0.0, target
+        )
+
+        # Absolute-floor temper: when there's essentially no Up-Mid energy
+        # to amplify, a big boost is amplifying noise. Scale down boost
+        # smoothly when below ABSOLUTE_FLOOR_PCT.
+        ABSOLUTE_FLOOR_PCT = 0.02  # below 2% Up-Mid, start tempering
+        if upper_mid_pct < ABSOLUTE_FLOOR_PCT:
+            # Linear ramp: 0% energy → 50% of boost; 2% energy → 100% of boost
+            floor_temper = 0.5 + 0.5 * (upper_mid_pct / ABSOLUTE_FLOOR_PCT)
+        else:
+            floor_temper = 1.0
+
+        max_boost = self.config.CLARITY_MAX_BOOST_DB * intensity
+        boost_db = max_boost * deficit_factor * floor_temper
+
+        if boost_db < 0.3:
+            return audio, None
+
+        processed = ParallelEQUtilities.apply_bandpass_boost(
+            audio,
+            boost_db=boost_db,
+            low_hz=self.config.CLARITY_LOW_HZ,
+            high_hz=self.config.CLARITY_HIGH_HZ,
+            sample_rate=sample_rate,
+        )
+
+        if verbose:
+            print(
+                f"   Clarity boost: +{boost_db:.1f} dB @ "
+                f"{self.config.CLARITY_LOW_HZ:.0f}-{self.config.CLARITY_HIGH_HZ:.0f}Hz "
+                f"(Up-Mid {upper_mid_pct:.1%})"
+            )
+
+        return processed, {
+            'stage': 'clarity_boost',
+            'boost_db': boost_db,
+            'upper_mid_pct': upper_mid_pct,
+        }
+
     def _apply_stereo_expansion(
         self,
         audio: np.ndarray,
@@ -596,14 +884,24 @@ class SimpleMasteringPipeline:
         verbose: bool
     ) -> tuple[np.ndarray, dict | None]:
         """
-        Apply adaptive bass enhancement using a low-shelf filter.
+        Continuous bass balance: smoothly blend between adding low-end weight
+        (when bass is thin) and de-mudding (when bass is excessive). Both
+        contributions are independently smooth functions of `bass_pct` around
+        a single reference target — at the target both naturally vanish, so
+        there is no threshold or regime boundary.
 
-        Boosts low frequencies for tracks that need more bass presence.
-        The boost scales inversely with detected bass percentage - tracks
-        with less bass get more boost.
+        Two different EQ shapes are used because the *musical intent* differs:
 
-        Uses a gentle low-shelf filter to avoid harsh transient artifacts
-        from reverberant kick drums common in 80s productions.
+        - **Boost path**: low-shelf at 100 Hz. Adding weight wants to be wide
+          and include the sub band — that's where the "fullness" lives.
+        - **Cut path**: bell at 150 Hz (100-220 Hz). De-mudding is surgical
+          and must avoid the kick fundamental (50-80 Hz) and sub-bass. A
+          low-shelf cut attenuates sub MORE than the muddy region we want
+          to target, which is the opposite of what we want.
+
+        Both paths can fire simultaneously, but in practice they don't: the
+        boost path is only nonzero below the target and the cut path is
+        only nonzero above it.
 
         Args:
             audio: Stereo audio [2, samples]
@@ -613,47 +911,68 @@ class SimpleMasteringPipeline:
             verbose: Print progress
 
         Returns:
-            (processed_audio, stage_info or None if no enhancement applied)
+            (processed_audio, stage_info or None if both contributions are
+             below the audibility floor)
         """
-        # Smooth bass enhancement curve
-        # Full boost below 20%, gradual fade from 20% to 50%, none above 50%
-        if bass_pct >= 0.50:
-            return audio, None  # Already bass-heavy
+        target = self.config.BASS_TARGET_PCT
 
-        # Smooth curve using cosine fade for natural transition
-        # bass 0-20%: full boost potential
-        # bass 20-50%: smooth fade
-        if bass_pct <= 0.20:
-            bass_factor = 1.0
-        else:
-            # Cosine fade from 0.20 to 0.50
-            fade_position = (bass_pct - 0.20) / 0.30  # 0.0 → 1.0
-            bass_factor = 0.5 * (1.0 + np.cos(np.pi * fade_position))
-
-        # Calculate boost based on bass deficiency and fade factor
-        # Max boost at very low bass (< 15%)
-        max_boost_db = 2.5 * intensity * bass_factor
-        bass_deficiency = max(0.0, 0.30 - bass_pct) / 0.30  # How much bass is missing
-        boost_db = max_boost_db * bass_deficiency
-
-        if boost_db < 0.5:
-            return audio, None  # Too small to matter
-
-        # Apply parallel low-shelf boost using utility
-        processed = ParallelEQUtilities.apply_low_shelf_boost(
-            audio,
-            boost_db=boost_db,
-            freq_hz=self.config.BASS_SHELF_HZ,
-            sample_rate=sample_rate
+        # Boost component — "how far below target are we?". S-curve smoothed
+        # so the derivative at target is zero (no jagged step in/out).
+        deficit = max(0.0, target - bass_pct)
+        boost_factor = SmoothCurveUtilities.ramp_to_s_curve(
+            deficit, 0.0, self.config.BASS_BOOST_RANGE_PCT
         )
+        boost_db = self.config.MAX_BASS_BOOST_DB * intensity * boost_factor
+
+        # Cut component — "how far above target are we?". Same S-curve shape
+        # mirrored so the two contributions form a continuous curve through
+        # the target point.
+        excess = max(0.0, bass_pct - target)
+        cut_factor = SmoothCurveUtilities.ramp_to_s_curve(
+            excess, 0.0, self.config.BASS_CUT_RANGE_PCT
+        )
+        cut_db = -self.config.MAX_BASS_CUT_DB * intensity * cut_factor
+
+        # Audibility floor for each contribution. Below ~0.3 dB the filter's
+        # work is below the threshold of perception, so skip it (avoids tiny
+        # numerical artifacts from filter ringing).
+        AUDIBILITY_FLOOR_DB = 0.3
+        applied = []
+        processed = audio
+
+        if boost_db >= AUDIBILITY_FLOOR_DB:
+            processed = ParallelEQUtilities.apply_low_shelf_boost(
+                processed,
+                boost_db=boost_db,
+                freq_hz=self.config.BASS_SHELF_HZ,
+                sample_rate=sample_rate,
+            )
+            applied.append(f"+{boost_db:.1f}dB <{self.config.BASS_SHELF_HZ:.0f}Hz")
+
+        if abs(cut_db) >= AUDIBILITY_FLOOR_DB:
+            processed = ParallelEQUtilities.apply_bandpass_boost(
+                processed,
+                boost_db=cut_db,
+                low_hz=self.config.BASS_DEMUD_LOW_HZ,
+                high_hz=self.config.BASS_DEMUD_HIGH_HZ,
+                sample_rate=sample_rate,
+            )
+            applied.append(
+                f"{cut_db:.1f}dB @{self.config.BASS_DEMUD_LOW_HZ:.0f}-"
+                f"{self.config.BASS_DEMUD_HIGH_HZ:.0f}Hz"
+            )
+
+        if not applied:
+            return audio, None
 
         if verbose:
-            print(f"   Bass enhance: +{boost_db:.1f} dB below {self.config.BASS_SHELF_HZ:.0f}Hz")
+            print(f"   Bass balance: {' / '.join(applied)}  (bass={bass_pct:.0%})")
 
         return processed, {
-            'stage': 'bass_enhance',
+            'stage': 'bass_balance',
             'boost_db': boost_db,
-            'bass_pct': bass_pct
+            'cut_db': cut_db,
+            'bass_pct': bass_pct,
         }
 
     def _apply_sub_bass_control(
@@ -678,38 +997,65 @@ class SimpleMasteringPipeline:
         - Add the reduction DIFFERENCE on top of original
 
         This gives precise dB control unlike HP+blend which can cause -10dB+ loss.
+
+        Continuous curve from SUB_TARGET_PCT outward — at the target there is
+        no action; as sub-bass content rises above target the cut smoothly
+        ramps up. The HP at low frequency is reserved for *extreme* excess
+        (> SUB_HP_ACTIVATE_PCT) because most acoustic music has legitimately
+        high sub content from kick and bass-instrument fundamentals.
         """
-        # Smooth curve: only act if sub-bass is excessive (> 8%)
-        if sub_bass_pct < 0.08:
-            return audio, None  # Sub-bass is fine or already handled by bass enhancement
+        target = self.config.SUB_TARGET_PCT
+        excess = max(0.0, sub_bass_pct - target)
 
-        # Smooth curve for rumble reduction
-        rumble_factor = SmoothCurveUtilities.ramp_to_s_curve(
-            sub_bass_pct, 0.08, 0.15
+        # Single smooth ramp from target to (target + SUB_CUT_RANGE_PCT).
+        # No skip threshold at the bottom — at the target the cut is zero
+        # by construction.
+        excess_factor = SmoothCurveUtilities.ramp_to_s_curve(
+            excess, 0.0, self.config.SUB_CUT_RANGE_PCT
         )
+        reduction_db = self.config.MAX_SUB_CUT_DB * intensity * excess_factor
 
-        # Calculate reduction amount (gentle)
-        max_reduction_db = -2.0 * intensity  # Max -2dB reduction
-        reduction_db = max_reduction_db * rumble_factor
+        # Apply parallel low-shelf reduction (negative boost). Always applied
+        # — even sub-decibel cuts add up over many tracks and keep the curve
+        # continuous through the target.
+        processed = audio
+        if abs(reduction_db) >= 0.1:
+            processed = ParallelEQUtilities.apply_low_shelf_boost(
+                processed,
+                boost_db=reduction_db,
+                freq_hz=self.config.SUB_BASS_CUTOFF_HZ,
+                sample_rate=sample_rate,
+            )
 
-        if abs(reduction_db) < 0.3:
+        # HP only for severely excessive sub-bass — well above the threshold
+        # where musical kick/bass instruments live. Threshold and filter
+        # order are now in config so they can be tuned without code changes.
+        applied_hp = False
+        if sub_bass_pct >= self.config.SUB_HP_ACTIVATE_PCT:
+            nyq = sample_rate / 2.0
+            hp_norm = min(0.99, max(0.005, self.config.SUBBASS_HP_FREQ_HZ / nyq))
+            hp_sos = butter(self.config.SUBBASS_HP_ORDER, hp_norm, btype='high', output='sos')
+            axis = -1 if processed.ndim > 1 else 0
+            processed = np.asarray(
+                sosfilt(hp_sos, processed, axis=axis), dtype=processed.dtype
+            )
+            applied_hp = True
+
+        if abs(reduction_db) < 0.1 and not applied_hp:
             return audio, None
 
-        # Apply parallel low-shelf reduction (negative boost)
-        processed = ParallelEQUtilities.apply_low_shelf_boost(
-            audio,
-            boost_db=reduction_db,  # Negative value for reduction
-            freq_hz=self.config.SUB_BASS_CUTOFF_HZ,
-            sample_rate=sample_rate
-        )
-
         if verbose:
-            print(f"   Sub-bass tighten: {reduction_db:.1f} dB @ <{self.config.SUB_BASS_CUTOFF_HZ:.0f}Hz")
+            msg = f"   Sub-bass tighten: {reduction_db:.1f} dB @ <{self.config.SUB_BASS_CUTOFF_HZ:.0f}Hz"
+            if applied_hp:
+                msg += (f" + HP @ {self.config.SUBBASS_HP_FREQ_HZ:.0f}Hz "
+                        f"(order {self.config.SUBBASS_HP_ORDER})")
+            print(msg)
 
         return processed, {
             'stage': 'sub_bass_control',
             'reduction_db': reduction_db,
-            'sub_bass_pct': sub_bass_pct
+            'sub_bass_pct': sub_bass_pct,
+            'hp_applied': applied_hp,
         }
 
     def _apply_mid_warmth(
@@ -917,10 +1263,33 @@ class SimpleMasteringPipeline:
             asymmetry=self.config.EXCITER_ASYMMETRY,
         )
 
+        # Cascade pass: use Stage 1's output as donor for Stage 2. The 4-8 kHz
+        # harmonics generated by Stage 1 become donor content, and Stage 2
+        # saturates them to push new harmonics into 8-16 kHz — broadening
+        # the brightness across the full upper spectrum instead of
+        # concentrating it in 4-7 kHz. Empirically lifts Brilliance by
+        # ~+3 dB on very dark sources where Stage 1 alone can't reach above
+        # 8 kHz with audible amplitude.
+        cascade_wet_db = None
+        if self.config.EXCITER_CASCADE_ENABLED:
+            cascade_wet_db = wet_db + self.config.EXCITER_CASCADE_WET_OFFSET_DB
+            processed = HarmonicExciter.apply(
+                processed,
+                sample_rate=sample_rate,
+                wet_db=cascade_wet_db,
+                drive_db=self.config.EXCITER_CASCADE_DRIVE_DB,
+                donor_low_hz=self.config.EXCITER_CASCADE_DONOR_LOW_HZ,
+                donor_high_hz=self.config.EXCITER_CASCADE_DONOR_HIGH_HZ,
+                hp_cutoff_hz=self.config.EXCITER_CASCADE_HP_CUTOFF_HZ,
+                asymmetry=self.config.EXCITER_ASYMMETRY,
+            )
+
         if verbose:
+            cascade_msg = (f", cascade {cascade_wet_db:+.1f} dB"
+                          if cascade_wet_db is not None else "")
             print(
                 f"   Harmonic exciter: {wet_db:+.1f} dB wet, "
-                f"{drive_db:.1f} dB drive (darkness {darkness:.2f})"
+                f"{drive_db:.1f} dB drive (darkness {darkness:.2f}){cascade_msg}"
             )
 
         return processed, {

@@ -93,7 +93,9 @@ echo ""
 
 # Step 2: Master the audio with auto_master.py
 echo "🎚️  Step 2/3: Mastering audio..."
-python3 auto_master.py "$TEMP_AUDIO" -o "$TEMP_MASTERED" -i "$INTENSITY"
+# Resolve auto_master.py relative to this script so the caller's CWD doesn't matter
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python3 "${SCRIPT_DIR}/auto_master.py" "$TEMP_AUDIO" -o "$TEMP_MASTERED" -i "$INTENSITY"
 echo "  ✓ Audio mastered"
 echo ""
 
