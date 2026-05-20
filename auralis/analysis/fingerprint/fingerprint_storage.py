@@ -159,10 +159,14 @@ class FingerprintStorage:
             fingerprint = content.get('fingerprint')
             targets = content.get('mastering_targets')
 
-            if not fingerprint or not targets:
+            # Targets may legitimately be empty until mastering-target
+            # derivation runs (fingerprint_service.py writes `{}` here, and
+            # mastering targets get computed lazily by callers). Only reject
+            # when the fingerprint itself is missing/empty (#3464, #3451).
+            if not fingerprint:
                 return None
 
-            return (fingerprint, targets)
+            return (fingerprint, targets or {})
 
         except (json.JSONDecodeError, OSError, KeyError) as e:
             # Corrupted or invalid cache file
