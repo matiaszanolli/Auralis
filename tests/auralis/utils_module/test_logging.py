@@ -37,6 +37,40 @@ def test_code_class_attributes():
     assert hasattr(Code, 'ERROR_INVALID_AUDIO')
 
 
+def test_code_error_corrupted_defined():
+    """Regression for #3465: ffmpeg_loader.py references Code.ERROR_CORRUPTED
+    when ffprobe fails to determine sample_rate/channels. Without this
+    constant, the intended `raise ModuleError(...)` raises AttributeError
+    on the f-string evaluation instead."""
+    assert hasattr(Code, 'ERROR_CORRUPTED'), \
+        "Code.ERROR_CORRUPTED must exist — referenced by ffmpeg_loader"
+    assert isinstance(Code.ERROR_CORRUPTED, str)
+    assert len(Code.ERROR_CORRUPTED) > 0
+
+
+def test_no_unresolved_code_references_in_auralis():
+    """Static check: every Code.X referenced anywhere in `auralis/` must
+    resolve. Prevents future regressions of the #3465 class — a missing
+    constant turns the intended ModuleError into AttributeError at runtime."""
+    import re
+    from pathlib import Path
+
+    auralis_root = Path(__file__).resolve().parents[3] / "auralis"
+    assert auralis_root.is_dir(), f"auralis/ not found at {auralis_root}"
+
+    known_codes = {name for name in dir(Code) if not name.startswith("_")}
+    referenced_codes: set[str] = set()
+    for py_file in auralis_root.rglob("*.py"):
+        for match in re.findall(r'Code\.([A-Z_]+)', py_file.read_text()):
+            referenced_codes.add(match)
+
+    missing = referenced_codes - known_codes
+    assert not missing, (
+        f"Code.X references in auralis/ that don't resolve on the Code class: "
+        f"{sorted(missing)}. Add the constant in auralis/utils/logging.py."
+    )
+
+
 def test_code_values():
     """Test Code class values"""
     assert isinstance(Code.INFO_LOADING, str)
