@@ -14,8 +14,9 @@ has been smoothed out. This stage restores the attack without re-adding peaks
 that the dynamic range would normally allow.
 
 Algorithm (per band):
-    1. Bandpass the signal to isolate the target frequency range.
-    2. Compute two envelope followers:
+    1. Bandpass the signal to isolate the target frequency range (zero-phase
+       so the band stays time-aligned with the dry signal — see #3470).
+    2. Compute two envelope followers (causal one-poles on |band|):
          fast_env — short attack (~5 ms), short release (~30 ms)
          slow_env — long attack (~50 ms), longer release (~150 ms)
     3. attack_env = max(0, fast_env - slow_env), normalized by slow_env
@@ -34,7 +35,7 @@ output equals the input.
 """
 
 import numpy as np
-from scipy.signal import butter, sosfilt
+from scipy.signal import butter, sosfilt, sosfiltfilt
 
 
 class TransientShaper:
@@ -85,9 +86,15 @@ class TransientShaper:
         bp = butter(order, [lo_n, hi_n], btype='band', output='sos')
         axis = -1 if audio.ndim > 1 else 0
 
-        # Extract band; preserve dtype (sosfilt returns float64, same issue
-        # as ParallelEQUtilities / HarmonicExciter).
-        band = np.asarray(sosfilt(bp, audio, axis=axis), dtype=audio.dtype)
+        # Extract band with sosfiltfilt (zero-phase). Causal sosfilt
+        # would delay `band` by the filter's group delay, and the final
+        # `audio + delta` add would re-inject the transient boost at
+        # T+D when the dry transient was at T — smearing instead of
+        # sharpening the attack (#3470, sibling of #3469).
+        # The _onepole envelope follower below stays causal: it tracks
+        # the signal as a derived control feature, not mixed into dry.
+        # sosfiltfilt always returns float64; cast back to preserve dtype.
+        band = np.asarray(sosfiltfilt(bp, audio, axis=axis), dtype=audio.dtype)
 
         # Envelope detector: one-pole low-pass on |band|. The time constant
         # determines how fast the envelope follows. Same fast/slow envelopes
