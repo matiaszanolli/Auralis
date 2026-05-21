@@ -20,6 +20,11 @@ Signal flow:
                                           if requested)                │
                                           ─► gain (wet level) ────────┘
 
+Both the donor bandpass and the post-saturation HP use zero-phase
+filtering (sosfiltfilt) so the generated harmonics stay time-aligned
+with the un-delayed dry signal at the same frequencies; otherwise the
+wet+dry sum would form a comb filter at high frequencies (#3469).
+
 The asymmetry option biases the saturation curve so it generates both even
 and odd harmonics. Even harmonics sound "warm/musical" (tube-like); pure odd
 harmonics (symmetric tanh) sound "harsher/edgier" (solid-state). The default
@@ -30,7 +35,7 @@ mixes both, biased toward even, so it lifts air without sounding fizzy.
 """
 
 import numpy as np
-from scipy.signal import butter, sosfilt
+from scipy.signal import butter, sosfiltfilt
 
 
 class HarmonicExciter:
@@ -117,9 +122,17 @@ class HarmonicExciter:
 
         axis = -1 if audio.ndim > 1 else 0
 
-        # sosfilt always returns float64; cast back so we don't promote the
-        # mixed signal (same dtype concern as ParallelEQUtilities, issue #2158).
-        donor = np.asarray(sosfilt(bp_sos, audio, axis=axis), dtype=audio.dtype)
+        # Use sosfiltfilt (zero-phase) on both the donor bandpass and the
+        # post-saturation high-pass. Causal sosfilt would delay the
+        # generated harmonics relative to the un-delayed dry signal at
+        # the same frequencies, producing a frequency-domain comb at
+        # multiples of 1 / (2 × total_group_delay) Hz when the wet+dry
+        # are summed (#3469).
+        #
+        # sosfiltfilt always returns float64; cast back so we don't
+        # promote the mixed signal (same dtype concern as
+        # ParallelEQUtilities, issue #2158).
+        donor = np.asarray(sosfiltfilt(bp_sos, audio, axis=axis), dtype=audio.dtype)
         driven = donor * np.asarray(drive_linear, dtype=audio.dtype)
 
         if asymmetry > 0.0:
@@ -131,6 +144,6 @@ class HarmonicExciter:
         else:
             saturated = np.tanh(driven)
 
-        harmonics = np.asarray(sosfilt(hp_sos, saturated, axis=axis), dtype=audio.dtype)
+        harmonics = np.asarray(sosfiltfilt(hp_sos, saturated, axis=axis), dtype=audio.dtype)
 
         return (audio + harmonics * np.asarray(wet_linear, dtype=audio.dtype)).astype(audio.dtype)
