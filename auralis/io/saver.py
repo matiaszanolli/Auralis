@@ -33,6 +33,14 @@ def save(file_path: str, audio_data: np.ndarray, sample_rate: int, subtype: str 
         if audio_data.dtype != np.float32:
             audio_data = audio_data.astype(np.float32)
 
+        # Clamp to the PCM-valid range before encoding. libsndfile clamps
+        # out-of-range PCM samples in current builds, but historically
+        # wrapped on some. wav_encoder.py / webm_encoder.py already clip
+        # defensively; this matches the project's audio invariants and
+        # makes encode-boundary clipping deterministic across libsndfile
+        # builds (#3471).
+        audio_data = np.clip(audio_data, -1.0, 1.0)
+
         # Save the audio file
         sf.write(file_path, audio_data, sample_rate, subtype=subtype)
 

@@ -447,3 +447,79 @@ def test_save_no_nan_or_inf(tmp_path, sample_stereo_audio):
     audio_loaded, _ = sf.read(str(output_path))
     assert not np.any(np.isnan(audio_loaded))
     assert not np.any(np.isinf(audio_loaded))
+
+
+# ===== Encode-Boundary Clamp Regression (#3471) =====
+#
+# Before the fix, save() called sf.write directly with a PCM subtype and
+# relied on libsndfile to clamp out-of-range samples. wav_encoder.py and
+# webm_encoder.py already clipped defensively; saver.py did not. The
+# tests below pin the defensive clamp so the saver doesn't drift back
+# to relying on libsndfile-specific behavior across builds.
+
+
+def test_save_pcm16_clamps_out_of_range_positive(tmp_path):
+    """Samples > 1.0 must be clamped to +1.0 before PCM_16 encoding."""
+    sr = 44100
+    # Hot signal exceeding +1.0 — could appear from a buggy upstream stage.
+    audio = np.full((1024, 2), 1.5, dtype=np.float32)
+
+    output_path = tmp_path / "hot_positive.wav"
+    save(str(output_path), audio, sr, subtype='PCM_16')
+
+    loaded, _ = sf.read(str(output_path))
+    # PCM_16 max value normalizes to ≈ 0.99997 on read.
+    assert loaded.max() <= 1.0 + 1e-4
+    assert loaded.min() >= -1.0 - 1e-4
+    # Confirm the clamp happened (not a wrap that would land near 0 or -1).
+    assert loaded.max() > 0.9
+
+
+def test_save_pcm16_clamps_out_of_range_negative(tmp_path):
+    """Samples < -1.0 must be clamped to -1.0 before PCM_16 encoding."""
+    sr = 44100
+    audio = np.full((1024, 2), -1.5, dtype=np.float32)
+
+    output_path = tmp_path / "hot_negative.wav"
+    save(str(output_path), audio, sr, subtype='PCM_16')
+
+    loaded, _ = sf.read(str(output_path))
+    assert loaded.min() >= -1.0 - 1e-4
+    assert loaded.max() <= 1.0 + 1e-4
+    assert loaded.min() < -0.9
+
+
+def test_save_in_range_audio_unchanged(tmp_path):
+    """Clamp must be a no-op for audio already in [-1.0, 1.0]."""
+    sr = 44100
+    rng = np.random.RandomState(0)
+    # Bounded random signal, well inside ±0.8.
+    audio = (0.8 * rng.randn(1024, 2)).astype(np.float32)
+    audio = np.clip(audio, -0.9, 0.9)  # ensure no test-data outliers
+
+    output_path = tmp_path / "in_range.wav"
+    save(str(output_path), audio, sr, subtype='PCM_16')
+
+    loaded, _ = sf.read(str(output_path))
+    # PCM_16 round-trip introduces quantization noise (≈ 1/32768 ≈ 3e-5)
+    # but the signal shape must match within that tolerance.
+    assert np.allclose(loaded, audio, atol=2e-4)
+
+
+def test_save_mixed_range_clamps_only_outliers(tmp_path):
+    """Signal with both in-range body and out-of-range spikes: body
+    preserved, spikes clamped."""
+    sr = 44100
+    audio = np.full((1024, 2), 0.5, dtype=np.float32)
+    audio[100:110] = 1.8  # short overshoot region
+    audio[200:210] = -1.8
+
+    output_path = tmp_path / "mixed.wav"
+    save(str(output_path), audio, sr, subtype='PCM_16')
+
+    loaded, _ = sf.read(str(output_path))
+    # Body still ≈ 0.5.
+    assert np.allclose(loaded[300:400], 0.5, atol=2e-4)
+    # Overshoots clamped.
+    assert loaded[100:110].max() <= 1.0 + 1e-4
+    assert loaded[200:210].min() >= -1.0 - 1e-4
