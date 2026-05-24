@@ -55,6 +55,11 @@ class LoudnessMeter:
         self._peak: float = 0.0
         self._true_peak: float = 0.0  # 4× oversampled true peak (linear domain)
 
+        # Total sample count for accurate measurement_duration (#3307).
+        # measure_chunk callers may feed arbitrary block sizes, so we cannot
+        # infer duration from len(integrated_buffer) * a hardcoded hop time.
+        self._total_samples: int = 0
+
         # True peak measurement
         self.true_peak_buffer_size = 4
         self._init_true_peak_filter()
@@ -198,6 +203,10 @@ class LoudnessMeter:
         Returns:
             Dictionary with LUFS measurements
         """
+        # Accumulate real sample count for measurement_duration (#3307).
+        # Works for mono (1-D) and stereo (2-D): len() returns sample-axis size.
+        self._total_samples += len(audio_chunk)
+
         # Track sample peak and true peak across all chunks
         chunk_peak = float(np.max(np.abs(audio_chunk)))
         if chunk_peak > self._peak:
@@ -359,10 +368,11 @@ class LoudnessMeter:
             peak_level_dbfs=float(20 * np.log10(self._peak + 1e-10)),
             true_peak_dbfs=float(20 * np.log10(self._true_peak + 1e-10)),
             gating_blocks_used=len(final_gated_blocks) if 'final_gated_blocks' in locals() else 0,
-            # 100 ms hop between blocks (block_size=400 ms, overlap=300 ms).
-            # Reflect the *full* measurement, not the bounded short-term
-            # buffer, so callers receive the true track duration (#3466).
-            measurement_duration=len(self.integrated_buffer) * 0.1
+            # Derive duration from actual samples fed (#3307). Prior code
+            # multiplied call count by 0.1 s which assumed a 100 ms hop —
+            # wrong for any caller that feeds non-100 ms chunks (e.g. the
+            # fingerprint analyzer feeds 400 ms blocks).
+            measurement_duration=self._total_samples / self.sample_rate
         )
 
     def reset(self) -> None:
@@ -372,5 +382,6 @@ class LoudnessMeter:
         self.gated_blocks.clear()
         self._peak = 0.0
         self._true_peak = 0.0
+        self._total_samples = 0
         self.pre_filter_zi = None
         self.rlb_filter_zi = None

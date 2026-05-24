@@ -86,11 +86,12 @@ def test_integrated_lufs_uses_all_blocks_after_30():
     # integrated_buffer must be unbounded
     assert len(meter.integrated_buffer) >= 60
 
-    # measurement_duration must reflect the FULL signal, not the bounded buffer
+    # measurement_duration must reflect the FULL signal as actual seconds
+    # of audio fed (#3307), not call count × hardcoded 0.1 s.
     measurement = meter.finalize_measurement()
-    expected_seconds = len(meter.integrated_buffer) * 0.1
+    expected_seconds = (len(meter.integrated_buffer) * meter.block_size) / SR
     assert measurement.measurement_duration == pytest.approx(expected_seconds)
-    assert measurement.measurement_duration >= 6.0  # 60 blocks × 0.1 s
+    assert measurement.measurement_duration >= 24.0  # 60 blocks × 0.4 s
 
 
 def test_reset_clears_both_buffers():
@@ -115,3 +116,60 @@ def test_short_term_window_still_bounded():
     _feed(meter, _stereo_sine(amplitude=10 ** (-18 / 20), duration_s=duration))
 
     assert len(meter.block_buffer) == meter.short_term_blocks
+
+
+# ---------------------------------------------------------------------------
+# #3307 — measurement_duration must reflect actual sample count
+# ---------------------------------------------------------------------------
+
+def test_measurement_duration_matches_audio_for_400ms_chunks():
+    """Feeding 400 ms blocks (fingerprint analyzer path) must report
+    duration equal to call_count × 0.4 s, not × 0.1 s."""
+    meter = LoudnessMeter(SR)
+    audio = _stereo_sine(amplitude=10 ** (-20 / 20), duration_s=10.0)
+    _feed(meter, audio)
+
+    measurement = meter.finalize_measurement()
+    # Only complete 400 ms blocks are fed by _feed; expected duration is
+    # n_blocks * block_size / SR. For a 10 s clip with 400 ms blocks,
+    # 25 blocks fit exactly, so duration is exactly 10 s.
+    expected = (len(meter.integrated_buffer) * meter.block_size) / SR
+    assert measurement.measurement_duration == pytest.approx(expected, abs=1e-3)
+    assert measurement.measurement_duration == pytest.approx(10.0, abs=1e-3)
+
+
+def test_measurement_duration_matches_audio_for_arbitrary_chunks():
+    """Acceptance criterion (#3307): measurement_duration must match the
+    actual audio duration passed to the meter within ±1 ms, regardless of
+    block size. Verifies the fix is correct for non-standard chunk sizes
+    (here: 1024-sample chunks, ~23.2 ms each — unrelated to the assumed
+    100 ms hop or 400 ms block)."""
+    meter = LoudnessMeter(SR)
+    duration_s = 5.0
+    audio = _stereo_sine(amplitude=10 ** (-20 / 20), duration_s=duration_s)
+
+    chunk = 1024
+    fed = 0
+    for start in range(0, len(audio), chunk):
+        block = audio[start:start + chunk]
+        meter.measure_chunk(block)
+        fed += len(block)
+
+    measurement = meter.finalize_measurement()
+    expected_duration = fed / SR
+    assert measurement.measurement_duration == pytest.approx(expected_duration, abs=1e-3)
+    # Audio length equals fed length (no truncation), so duration ≈ 5.0 s.
+    assert measurement.measurement_duration == pytest.approx(duration_s, abs=1e-3)
+
+
+def test_reset_clears_total_samples():
+    """A second measurement after reset must not inherit the prior count."""
+    meter = LoudnessMeter(SR)
+    _feed(meter, _stereo_sine(amplitude=10 ** (-20 / 20), duration_s=3.0))
+    assert meter.finalize_measurement().measurement_duration > 0
+
+    meter.reset()
+    assert meter._total_samples == 0
+    # Empty meter reports 0.0 (the early-return branch).
+    assert meter.finalize_measurement().measurement_duration == 0.0
+
