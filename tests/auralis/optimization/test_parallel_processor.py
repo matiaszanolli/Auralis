@@ -11,7 +11,6 @@ Tests the parallel processing optimization modules.
 """
 
 import threading
-from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
@@ -176,6 +175,82 @@ class TestParallelBandProcessor:
         """Test processor initialization"""
         assert processor.config is not None
         assert isinstance(processor.config, ParallelConfig)
+
+    def test_thread_workers_receive_independent_copies(self, processor):
+        """Regression for #3355 / CONC-11.
+
+        ParallelBandProcessor must pass an independent copy of the input
+        array to each thread worker so that an in-place mutation by one
+        band filter cannot corrupt sibling workers' inputs. We verify
+        directly that no worker's input shares memory with the original.
+        """
+        audio = np.linspace(-0.5, 0.5, 4096, dtype=np.float32)
+
+        worker_sharings: list[bool] = []
+        record_lock = threading.Lock()
+
+        def isolation_check_filter(x: np.ndarray) -> np.ndarray:
+            # Only inspect calls from worker threads — the main-thread
+            # fallback computation legitimately uses the original `audio`.
+            if threading.current_thread() is not threading.main_thread():
+                with record_lock:
+                    worker_sharings.append(bool(np.shares_memory(x, audio)))
+            return x * 0.5
+
+        num_bands = 4
+        band_filters = [isolation_check_filter for _ in range(num_bands)]
+        band_gains = np.zeros(num_bands, dtype=np.float32)
+
+        processor.config.enable_parallel = True
+        processor.config.use_multiprocessing = False
+        processor.config.band_grouping = False
+
+        processor.process_bands_parallel(audio, band_filters, band_gains)
+
+        assert len(worker_sharings) == num_bands, (
+            f"Expected {num_bands} worker observations, got {len(worker_sharings)}"
+        )
+        assert not any(worker_sharings), (
+            f"Worker inputs shared memory with the original `audio` "
+            f"({worker_sharings}) — #3355 regressed"
+        )
+
+    def test_band_groups_workers_receive_independent_copies(self, processor):
+        """Regression for #3355 / CONC-11 — band-grouping path.
+
+        `_process_band_groups` also dispatches to a ThreadPoolExecutor and
+        must hand each group worker its own copy of the input audio.
+        """
+        audio = np.linspace(-0.5, 0.5, 4096, dtype=np.float32)
+
+        worker_sharings: list[bool] = []
+        record_lock = threading.Lock()
+
+        def isolation_check_filter(x: np.ndarray) -> np.ndarray:
+            if threading.current_thread() is not threading.main_thread():
+                with record_lock:
+                    worker_sharings.append(bool(np.shares_memory(x, audio)))
+            return x * 0.5
+
+        num_bands = 4
+        band_filters = [isolation_check_filter for _ in range(num_bands)]
+        band_gains = np.zeros(num_bands, dtype=np.float32)
+        band_groups = [[0, 1], [2, 3]]
+
+        processor.config.enable_parallel = True
+        processor.config.use_multiprocessing = False
+        processor.config.band_grouping = True
+
+        processor.process_bands_parallel(
+            audio, band_filters, band_gains, band_groups=band_groups
+        )
+
+        # 2 groups × 2 bands per group = 4 worker filter calls.
+        assert len(worker_sharings) == num_bands
+        assert not any(worker_sharings), (
+            f"Group worker inputs shared memory with the original `audio` "
+            f"({worker_sharings}) — #3355 regressed"
+        )
 
 
 class TestParallelFeatureExtractor:

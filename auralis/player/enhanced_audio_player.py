@@ -98,7 +98,6 @@ class AudioPlayer:
             self.queue,
             self.processor,
             get_repository_factory,
-            library_manager
         )
 
         # Fingerprinting service for adaptive mastering

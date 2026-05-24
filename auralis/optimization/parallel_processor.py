@@ -230,13 +230,17 @@ class ParallelBandProcessor:
         # Determine worker count
         num_workers = min(self.config.max_workers, num_bands)
 
-        # Process bands in parallel
+        # Process bands in parallel.
+        # Each worker receives its own copy of the input audio so that an
+        # in-place mutation by one band filter cannot corrupt sibling
+        # workers' inputs (fixes #3355 / CONC-11). The process-pool path
+        # copies via pickling, but we copy explicitly there too for symmetry.
         if self.config.use_multiprocessing:
             # Multiprocessing for heavy filtering
             with ProcessPoolExecutor(max_workers=num_workers) as executor:
                 # Prepare tasks
                 tasks = [
-                    (audio, band_filters[i], band_gains[i], i)
+                    (audio.copy(), band_filters[i], band_gains[i], i)
                     for i in range(num_bands)
                 ]
 
@@ -260,14 +264,18 @@ class ParallelBandProcessor:
         else:
             # Threading for lighter operations
             with ThreadPoolExecutor(max_workers=num_workers) as executor:
-                # Submit tasks
+                # Pre-compute unprocessed band signals as fallback (#3430) BEFORE
+                # submitting workers so the main thread's reads of `audio` don't
+                # race with concurrent workers (#3355).
+                band_fallbacks = [band_filters[i](audio) for i in range(num_bands)]
+
+                # Submit tasks — each worker gets its own copy of `audio`
+                # so an in-place band filter cannot corrupt siblings (#3355).
                 futures_with_idx = [
-                    (i, executor.submit(self._process_single_band, audio, band_filters[i], band_gains[i], i))
+                    (i, executor.submit(self._process_single_band, audio.copy(), band_filters[i], band_gains[i], i))
                     for i in range(num_bands)
                 ]
 
-                # Pre-compute unprocessed band signals as fallback (#3430)
-                band_fallbacks = [band_filters[i](audio) for i in range(num_bands)]
                 band_results = list(band_fallbacks)
                 for band_i, future in futures_with_idx:
                     try:
@@ -317,9 +325,10 @@ class ParallelBandProcessor:
         num_workers = min(self.config.max_workers, num_groups)
 
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # Submit group processing tasks
+            # Each group worker receives its own copy of `audio` so an
+            # in-place band filter cannot corrupt sibling groups (#3355).
             futures = [
-                executor.submit(self._process_band_group, audio, band_filters, band_gains, group)
+                executor.submit(self._process_band_group, audio.copy(), band_filters, band_gains, group)
                 for group in band_groups
             ]
 

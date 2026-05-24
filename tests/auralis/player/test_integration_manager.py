@@ -21,6 +21,7 @@ Covers:
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
+import numpy as np
 import pytest
 
 from auralis.player.integration_manager import IntegrationManager
@@ -138,6 +139,62 @@ class TestCallbacks:
         m.add_callback(good_cb)
         m._notify_callbacks({'action': 'test'})
         good_cb.assert_called_once()
+
+    def test_callbacks_notified_in_registration_order(self):
+        """Regression for #3354 / PTS-10.
+
+        The documented contract is that callbacks fire in registration
+        order; downstream code relies on this for deterministic UI updates.
+        """
+        m = _make_manager()
+        call_log: list[str] = []
+        m.add_callback(lambda _info: call_log.append("first"))
+        m.add_callback(lambda _info: call_log.append("second"))
+        m.add_callback(lambda _info: call_log.append("third"))
+        m._notify_callbacks({'action': 'test'})
+        assert call_log == ["first", "second", "third"]
+
+    def test_first_event_flag_initially_false(self):
+        """Regression for #3354 — flag starts unset so pre-playback
+        registration does not warn."""
+        m = _make_manager()
+        assert m._first_event_dispatched is False
+
+    def test_first_event_flag_set_after_dispatch(self):
+        """Regression for #3354 — flag flips after the first dispatch so
+        subsequent late registrations can be detected."""
+        m = _make_manager()
+        m._notify_callbacks({'action': 'test'})
+        assert m._first_event_dispatched is True
+
+    def test_late_registration_warns(self):
+        """Regression for #3354 / PTS-10.
+
+        Registering a callback after the first event has already been
+        dispatched must emit a warning (deferred registration silently
+        loses earlier events otherwise).
+        """
+        m = _make_manager()
+        m._notify_callbacks({'action': 'startup_event'})
+
+        late_cb = MagicMock()
+        with patch("auralis.player.integration_manager.warning") as warn:
+            m.add_callback(late_cb)
+
+        assert late_cb in m.callbacks  # warn, not reject
+        assert warn.called, "Expected late-registration warning to be emitted"
+        msg = warn.call_args[0][0]
+        assert "3354" in msg or "after first event" in msg.lower(), (
+            f"Unexpected warning text: {msg!r}"
+        )
+
+    def test_early_registration_does_not_warn(self):
+        """Regression for #3354 — registration before the first event
+        must not warn (it is the recommended path)."""
+        m = _make_manager()
+        with patch("auralis.player.integration_manager.warning") as warn:
+            m.add_callback(MagicMock())
+        assert not warn.called
 
 
 # ---------------------------------------------------------------------------
@@ -282,7 +339,7 @@ class TestAutoSelectReference:
         m.file_manager.load_reference.assert_not_called()
 
     def test_skips_recommended_reference_when_load_fails(self):
-        """When load_reference returns False, fall through to similar tracks."""
+        """When load_reference returns None, fall through to similar tracks."""
         ref_path = "/music/reference.flac"
         track = _make_track(recommended_reference=ref_path)
         similar = _make_track(track_id=2, filepath="/music/similar.flac")
@@ -290,8 +347,11 @@ class TestAutoSelectReference:
         factory.tracks.find_similar.return_value = ([similar], 1)
         m = _make_manager(factory_returns=factory)
 
-        # First call (recommended) fails, second call (similar) succeeds
-        m.file_manager.load_reference.side_effect = [False, True]
+        # AudioFileManager.load_reference returns ndarray | None — None on
+        # failure. The production check uses `is not None`, so a Falsy non-None
+        # value (e.g. False) would incorrectly be treated as success.
+        success_payload = np.zeros(8, dtype=np.float32)
+        m.file_manager.load_reference.side_effect = [None, success_payload]
 
         with patch("pathlib.Path.exists", return_value=True):
             m._auto_select_reference(track)
@@ -474,7 +534,10 @@ class TestGetPositionSeconds:
         m = _make_manager()
         m.file_manager.audio_data = object()  # any non-None value
         m.file_manager.sample_rate = 44100
-        m.playback.position = 44100  # 1 second at 44100 Hz
+        m.file_manager.get_duration.return_value = 100.0  # so min() works
+        # Production reads position via get_position_snapshot(), not the
+        # `position` attribute, so the mock must expose a real int return.
+        m.playback.get_position_snapshot.return_value = 44100  # 1s at 44.1kHz
         assert m._get_position_seconds() == pytest.approx(1.0)
 
 

@@ -30,6 +30,21 @@ class IntegrationManager:
     Handles library integration and effect management.
 
     Phase 6C: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
+
+    Callback registration order (fixes #3354 / PTS-10)
+    --------------------------------------------------
+    1. The internal enricher ``_on_playback_state_change`` is registered
+       with ``PlaybackController`` as the **final** step of ``__init__``. It
+       enriches state dicts with file/track context before any external
+       callback receives them. This must remain the last line of ``__init__``
+       so that ``_position_lock`` and ``file_manager`` are guaranteed to be
+       initialized before the first event can fire.
+    2. External callbacks added via :py:meth:`add_callback` are notified in
+       *registration order* by ``_notify_callbacks``. Callers that depend on
+       seeing every state change (e.g. UI synchronisers) **must** register
+       before playback starts; registration after the first event has been
+       dispatched is allowed but emits a warning, since earlier events were
+       missed.
     """
 
     def __init__(
@@ -39,7 +54,6 @@ class IntegrationManager:
         queue: QueueController,
         processor: Any,  # RealtimeProcessor
         get_repository_factory: Callable[[], Any],
-        library_manager: Any | None = None
     ):
         """
         Initialize integration manager.
@@ -50,7 +64,6 @@ class IntegrationManager:
             queue: QueueController instance
             processor: RealtimeProcessor instance
             get_repository_factory: Callable that returns RepositoryFactory instance (REQUIRED)
-            library_manager: Deprecated, kept for backward compatibility only
         """
         self.playback = playback
         self.file_manager = file_manager
@@ -65,6 +78,9 @@ class IntegrationManager:
         # External callbacks (application-level)
         self.callbacks: list[Callable[[dict[str, Any]], None]] = []
         self._callbacks_lock = threading.Lock()  # Protects callbacks list (fixes #2433)
+        # Tracks whether any event has already been delivered; late
+        # registration is allowed but warns about missed earlier events (#3354).
+        self._first_event_dispatched: bool = False
 
         # Statistics
         self.tracks_played = 0
@@ -93,14 +109,31 @@ class IntegrationManager:
         )
 
     def add_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
-        """Register callback for integration events (thread-safe, fixes #2433)"""
+        """Register a callback for integration events.
+
+        Thread-safe (fixes #2433). Callbacks are invoked in registration
+        order by :py:meth:`_notify_callbacks` (fixes #3354).
+
+        Register all callbacks **before** playback begins. Callbacks added
+        after the first state event has already been dispatched are still
+        accepted, but a warning is emitted because they will not see any
+        events that fired prior to registration.
+        """
         with self._callbacks_lock:
+            already_dispatched = self._first_event_dispatched
             self.callbacks.append(callback)
+        if already_dispatched:
+            warning(
+                "IntegrationManager.add_callback called after first event "
+                "dispatched; earlier state events were missed by this "
+                "callback (see #3354 — register callbacks before play()/load)."
+            )
 
     def _notify_callbacks(self, state_info: dict[str, Any]) -> None:
         """Notify all callbacks (snapshot pattern to avoid holding lock during execution, fixes #2433)"""
         with self._callbacks_lock:
             snapshot = list(self.callbacks)
+            self._first_event_dispatched = True
         for callback in snapshot:
             try:
                 callback(state_info)
