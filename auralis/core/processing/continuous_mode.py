@@ -689,8 +689,12 @@ class ContinuousMode:
         else:
             debug(f"[Peak Normalization] SKIPPED - audio peak at {current_peak_db:.2f} dB is safe")
 
-        # Step 3: Safety limiter (CRITICAL FIX - was missing in previous version)
-        audio, limiter_applied = SafetyLimiter.apply_if_needed(audio)
+        # Step 3: HF-aware safety limiter (Phase 5). Pre/de-emphasis around
+        # the wideband soft-clip preserves cymbal/sibilance transient char
+        # that the naive wideband path used to flatten — the second half of
+        # the user's "Iron Maiden HF overdrive" complaint.
+        from .hf_aware_limiter import apply_hf_aware_limiter
+        audio, limiter_applied = apply_hf_aware_limiter(audio, self.config.internal_sample_rate)
 
         # Final measurements
         final_peak = np.max(np.abs(audio))
