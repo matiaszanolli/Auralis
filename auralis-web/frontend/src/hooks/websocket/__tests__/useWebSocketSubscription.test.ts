@@ -160,7 +160,55 @@ describe('useWebSocketSubscription Hook', () => {
       );
     });
 
-    it('should re-subscribe when callback changes', () => {
+    it('should NOT re-subscribe when message types are reordered (#3366)', () => {
+      // Pre-fix the effect dep key was `messageTypes.join('\x00')`, which is
+      // order-sensitive. Reordering the same set forced an unsubscribe +
+      // re-subscribe that could drop in-flight messages between the two.
+      const callback = vi.fn();
+      const { rerender } = renderHook(
+        ({ types }) => useWebSocketSubscription(types, callback),
+        {
+          initialProps: {
+            types: ['player_state', 'queue_changed', 'playback_started'] as WebSocketMessageType[],
+          },
+        }
+      );
+
+      expect(mockSubscribe).toHaveBeenCalledTimes(1);
+
+      // Same set, different order — must not trigger another subscribe call.
+      rerender({
+        types: ['queue_changed', 'playback_started', 'player_state'] as WebSocketMessageType[],
+      });
+      rerender({
+        types: ['playback_started', 'player_state', 'queue_changed'] as WebSocketMessageType[],
+      });
+
+      expect(mockSubscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it('should NOT re-subscribe when same array contents are passed by new reference (#2487)', () => {
+      // Regression for the original fix this hook had: inline array literals
+      // create new references each render; the sorted+joined string must stay
+      // value-stable so the effect doesn't tear down + rebuild every render.
+      const callback = vi.fn();
+      const { rerender } = renderHook(
+        ({ types }) => useWebSocketSubscription(types, callback),
+        {
+          initialProps: { types: ['player_state', 'queue_changed'] as WebSocketMessageType[] },
+        }
+      );
+
+      expect(mockSubscribe).toHaveBeenCalledTimes(1);
+      rerender({ types: ['player_state', 'queue_changed'] as WebSocketMessageType[] });
+
+      expect(mockSubscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it('should NOT re-subscribe when callback identity changes (#2464)', () => {
+      // Per #2464, the hook captures the latest callback via callbackRef so
+      // a new callback reference does NOT tear down the existing subscription
+      // (the previously-expected behavior in this test was a stale assertion).
       const callback1 = vi.fn();
       const callback2 = vi.fn();
 
@@ -173,13 +221,17 @@ describe('useWebSocketSubscription Hook', () => {
 
       expect(mockSubscribe).toHaveBeenCalledTimes(1);
 
-      // Change callback
+      // Change callback — subscription stays, but new callback is called on
+      // subsequent messages (verified separately in callback-routing tests).
       rerender({ cb: callback2 });
 
-      expect(mockSubscribe).toHaveBeenCalledTimes(2);
+      expect(mockSubscribe).toHaveBeenCalledTimes(1);
     });
 
-    it('should re-subscribe on rerender due to useCallback dependency', () => {
+    it('should NOT re-subscribe on plain rerender (#2487)', () => {
+      // Per #2487, inline message-type arrays produce new references each
+      // render, but the value-stable joined key prevents the effect from
+      // re-running. The previously-expected behavior in this test was stale.
       const callback = vi.fn();
       const { rerender } = renderHook(() =>
         useWebSocketSubscription(['player_state'], callback)
@@ -189,9 +241,7 @@ describe('useWebSocketSubscription Hook', () => {
 
       rerender();
 
-      // useCallback([callback]) creates new memoized callback on each render
-      // This causes re-subscription, which is expected behavior
-      expect(mockSubscribe).toHaveBeenCalledTimes(2);
+      expect(mockSubscribe).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -704,7 +754,11 @@ describe('useWebSocketSubscription Hook', () => {
       }).toThrow(); // The error will propagate, but hook should remain stable
     });
 
-    it('should re-subscribe on rerender even with same callback reference', () => {
+    it('should NOT re-subscribe on rerender with same callback reference (#2487)', () => {
+      // Stable callback + stable message-type contents + same manager version
+      // = effect dep is stable across renders. The hook must NOT churn the
+      // subscription on every parent render — the previously-expected behavior
+      // here was a stale assertion from before #2464 / #2487 landed.
       const callback = vi.fn();
       const { rerender } = renderHook(() =>
         useWebSocketSubscription(['player_state'], callback)
@@ -712,12 +766,9 @@ describe('useWebSocketSubscription Hook', () => {
 
       const initialSubscribeCount = mockSubscribe.mock.calls.length;
 
-      // Rerender with same callback reference
       rerender();
 
-      // useCallback([callback]) dependency causes re-subscription on every render
-      // This is expected behavior - hook prioritizes fresh subscriptions
-      expect(mockSubscribe).toHaveBeenCalledTimes(initialSubscribeCount + 1);
+      expect(mockSubscribe).toHaveBeenCalledTimes(initialSubscribeCount);
     });
 
     it('should handle duplicate message types in subscription array', () => {

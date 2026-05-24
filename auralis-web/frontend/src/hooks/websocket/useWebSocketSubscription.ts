@@ -113,6 +113,13 @@ export function useWebSocketSubscription(
     return () => { _managerVersionListeners.delete(listener); };
   }, []);
 
+  // Order-independent stable key for the effect dependency (fixes #3366).
+  // Pre-fix `messageTypes.join('\x00')` was content-stable but order-sensitive:
+  // ['a','b'] vs ['b','a'] produced different keys and forced an unnecessary
+  // unsubscribe + re-subscribe (in-flight messages could be dropped during
+  // the gap). Sorting before join makes the key permutation-invariant.
+  const messageTypesKey = [...messageTypes].sort().join('\x00');
+
   useEffect(() => {
     let isActive = true;
     // Stable wrapper that delegates to the latest callbackRef without changing identity.
@@ -151,9 +158,10 @@ export function useWebSocketSubscription(
       unsubscribeRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messageTypes.join('\x00'), managerVersion]); // Value-stable string key: callers that pass inline array
-  // literals get a new reference every render but the joined string is identical, preventing
-  // subscription teardown + rebuild on every render (fixes #2487).
+  }, [messageTypesKey, managerVersion]); // Value-stable, ORDER-INDEPENDENT key: callers
+  // that pass inline array literals get a new reference every render but the sorted+joined
+  // string is identical, preventing subscription teardown + rebuild on every render
+  // (fixes #2487) and on argument reordering (fixes #3366).
   // managerVersion increments on each WS reconnect to trigger re-subscription (fixes #2544).
 
   // Return a way to manually unsubscribe (rarely used)
