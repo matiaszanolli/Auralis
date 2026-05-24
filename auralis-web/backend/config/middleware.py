@@ -8,6 +8,7 @@ and security headers.
 :license: GPLv3
 """
 
+import asyncio
 import logging
 import time
 from typing import Any, cast
@@ -96,6 +97,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # {client_key: [timestamp, ...]}
         self._windows: dict[str, list[float]] = {}
         self._request_count = 0
+        # Serialize the get → prune → check → write critical section so the
+        # rate limit is exact even if a future refactor introduces an await
+        # inside the block (#3329). Single-threaded asyncio makes the lock
+        # nearly free under normal conditions.
+        self._lock: asyncio.Lock = asyncio.Lock()
 
     def _evict_stale_keys(self, now: float) -> None:
         """Remove dict entries whose timestamps have all expired."""
@@ -126,30 +132,33 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         key = f"{client_ip}:{path}"
         now = time.monotonic()
 
-        # Periodic eviction of stale keys to prevent unbounded growth (#2630)
-        self._request_count += 1
-        if self._request_count >= self._EVICTION_INTERVAL:
-            self._request_count = 0
-            self._evict_stale_keys(now)
+        # Critical section (#3329): eviction + sliding-window get/check/write
+        # must be atomic with respect to other concurrent dispatches.
+        async with self._lock:
+            # Periodic eviction of stale keys to prevent unbounded growth (#2630)
+            self._request_count += 1
+            if self._request_count >= self._EVICTION_INTERVAL:
+                self._request_count = 0
+                self._evict_stale_keys(now)
 
-        # Prune expired entries and check limit
-        timestamps = self._windows.get(key, [])
-        timestamps = [t for t in timestamps if now - t < window_sec]
+            # Prune expired entries and check limit
+            timestamps = self._windows.get(key, [])
+            timestamps = [t for t in timestamps if now - t < window_sec]
 
-        if not timestamps:
-            self._windows.pop(key, None)
+            if not timestamps:
+                self._windows.pop(key, None)
 
-        if len(timestamps) >= max_requests:
+            if len(timestamps) >= max_requests:
+                self._windows[key] = timestamps
+                retry_after = int(window_sec - (now - timestamps[0])) + 1
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Too many requests"},
+                    headers={"Retry-After": str(retry_after)},
+                )
+
+            timestamps.append(now)
             self._windows[key] = timestamps
-            retry_after = int(window_sec - (now - timestamps[0])) + 1
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "Too many requests"},
-                headers={"Retry-After": str(retry_after)},
-            )
-
-        timestamps.append(now)
-        self._windows[key] = timestamps
 
         return await call_next(request)
 
