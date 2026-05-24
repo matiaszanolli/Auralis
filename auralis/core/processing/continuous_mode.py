@@ -125,6 +125,10 @@ class ContinuousMode:
         self.last_side_effects: list[Any] = []
         self.last_quality_comparison: dict[str, Any] | None = None
 
+        # Quality-gate sampling counter (#3460): only run the gate on selected
+        # process() calls per config.quality_gate_interval.
+        self._quality_gate_call_count: int = 0
+
     def _convert_targets_to_parameters(self, targets: dict[str, Any]) -> ProcessingParameters:
         """
         Convert dict-based mastering targets to ProcessingParameters object.
@@ -361,25 +365,36 @@ class ContinuousMode:
         self.last_journal = journal
         self.last_side_effects = side_effects
 
-        # Step 7: Quality gate — verify output does not regress vs input
+        # Step 7: Quality gate — verify output does not regress vs input.
+        # Sampled per config.quality_gate_interval (#3460): runs on call 0
+        # and every Nth call thereafter. interval <= 0 means call 0 only.
         if self.config.quality_gate_enabled:
-            try:
-                from ...analysis.quality.quality_metrics import QualityMetrics
-                if not hasattr(self, '_quality_metrics'):
-                    self._quality_metrics = QualityMetrics(self.config.internal_sample_rate)
-                comparison = self._quality_metrics.compare_quality(target_audio, processed_audio)
-                self.last_quality_comparison = comparison
-                score_delta = comparison.get('difference', 0)
-                if score_delta < -10:
-                    warning(f"[Quality Gate] Output scored {score_delta:.1f} points below input "
-                            f"(input={comparison.get('audio1_score', 0):.0f}, "
-                            f"output={comparison.get('audio2_score', 0):.0f})")
-                else:
-                    debug(f"[Quality Gate] OK — delta={score_delta:+.1f} "
-                          f"(input={comparison.get('audio1_score', 0):.0f}, "
-                          f"output={comparison.get('audio2_score', 0):.0f})")
-            except Exception as e:
-                debug(f"[Quality Gate] Skipped — {e}")
+            interval = self.config.quality_gate_interval
+            should_gate = (
+                self._quality_gate_call_count == 0
+                if interval <= 0
+                else self._quality_gate_call_count % interval == 0
+            )
+            self._quality_gate_call_count += 1
+            if should_gate:
+                try:
+                    from ...analysis.quality.quality_metrics import QualityMetrics
+                    if not hasattr(self, '_quality_metrics'):
+                        self._quality_metrics = QualityMetrics(self.config.internal_sample_rate)
+                    comparison = self._quality_metrics.compare_quality(target_audio, processed_audio)
+                    self.last_quality_comparison = comparison
+                    score_delta = comparison.get('difference', 0)
+                    if score_delta < -10:
+                        warning(f"[Quality Gate] Output scored {score_delta:.1f} points below input "
+                                f"(input={comparison.get('audio1_score', 0):.0f}, "
+                                f"output={comparison.get('audio2_score', 0):.0f})")
+                    else:
+                        debug(f"[Quality Gate] OK — delta={score_delta:+.1f} "
+                              f"(input={comparison.get('audio1_score', 0):.0f}, "
+                              f"output={comparison.get('audio2_score', 0):.0f})")
+                # Narrow catch (#3462): let ImportError / AttributeError surface real bugs.
+                except (ValueError, RuntimeError) as e:
+                    debug(f"[Quality Gate] Skipped — {e}")
 
         return processed_audio
 

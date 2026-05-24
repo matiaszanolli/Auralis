@@ -284,3 +284,162 @@ class TestGuardDisabled:
         assert hasattr(config, 'quality_gate_enabled')
         assert config.quality_gate_enabled is True
         assert config.quality_gate_interval == 5
+
+    # ----- Behavioral tests for the guard flag (#3461) -----
+
+    @staticmethod
+    def _build_mode(*, guard_enabled: bool, quality_gate_enabled: bool = False):
+        """Construct a real ContinuousMode wired with real analyzers but a flag override."""
+        from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+            AudioFingerprintAnalyzer,
+        )
+        from auralis.core.analysis.content_analyzer import ContentAnalyzer
+        from auralis.core.processing.continuous_mode import ContinuousMode
+
+        config = UnifiedConfig()
+        config.enable_cross_dimensional_guard = guard_enabled
+        config.quality_gate_enabled = quality_gate_enabled
+        return ContinuousMode(config, ContentAnalyzer(), AudioFingerprintAnalyzer())
+
+    @staticmethod
+    def _identity_eq():
+        class _Identity:
+            def apply_psychoacoustic_eq(self, audio, targets, profile):  # noqa: ARG002
+                return audio
+        return _Identity()
+
+    def test_disabled_guard_skips_spectral_tilt_compensation(self, stereo_noise: np.ndarray):
+        """When guard is disabled, _apply_spectral_tilt_correction must never be called.
+
+        That helper is invoked exclusively from inside the dynamics-stage guard
+        block, so a single spy on it pins the flag's wiring.
+        """
+        from unittest.mock import patch
+
+        mode = self._build_mode(guard_enabled=False)
+        with patch(
+            'auralis.core.processing.continuous_mode._apply_spectral_tilt_correction'
+        ) as mock_tilt:
+            mode.process(stereo_noise.copy(), self._identity_eq())
+        assert mock_tilt.call_count == 0
+
+    def test_disabled_guard_output_is_deterministic(self, stereo_noise: np.ndarray):
+        """Same input + guard off -> bit-identical output across runs.
+
+        Proves the disabled path takes no state-dependent branches; serves
+        as the np.array_equal anchor requested in #3461.
+        """
+        mode_a = self._build_mode(guard_enabled=False)
+        mode_b = self._build_mode(guard_enabled=False)
+        out_a = mode_a.process(stereo_noise.copy(), self._identity_eq())
+        out_b = mode_b.process(stereo_noise.copy(), self._identity_eq())
+        assert np.array_equal(out_a, out_b)
+
+
+# ---------------------------------------------------------------------------
+# Test: Quality Gate Sampling Interval (#3460)
+# ---------------------------------------------------------------------------
+
+class TestQualityGateInterval:
+    """Verify quality_gate_interval gates execution of QualityMetrics.compare_quality."""
+
+    @staticmethod
+    def _mode_with_interval(interval: int):
+        from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+            AudioFingerprintAnalyzer,
+        )
+        from auralis.core.analysis.content_analyzer import ContentAnalyzer
+        from auralis.core.processing.continuous_mode import ContinuousMode
+
+        config = UnifiedConfig()
+        config.enable_cross_dimensional_guard = False  # keep test focused
+        config.quality_gate_enabled = True
+        config.quality_gate_interval = interval
+        return ContinuousMode(config, ContentAnalyzer(), AudioFingerprintAnalyzer())
+
+    @staticmethod
+    def _identity_eq():
+        class _Identity:
+            def apply_psychoacoustic_eq(self, audio, targets, profile):  # noqa: ARG002
+                return audio
+        return _Identity()
+
+    def _run(self, mode, audio, n: int) -> int:
+        """Call process() n times, return how many times compare_quality was invoked."""
+        from unittest.mock import patch
+
+        with patch(
+            'auralis.analysis.quality.quality_metrics.QualityMetrics.compare_quality',
+            return_value={'difference': 0, 'audio1_score': 50, 'audio2_score': 50},
+        ) as mock_cmp:
+            for _ in range(n):
+                mode.process(audio.copy(), self._identity_eq())
+        return mock_cmp.call_count
+
+    def test_interval_1_runs_every_call(self, stereo_noise: np.ndarray):
+        mode = self._mode_with_interval(1)
+        assert self._run(mode, stereo_noise, 5) == 5
+
+    def test_interval_5_runs_on_call_0_and_5(self, stereo_noise: np.ndarray):
+        mode = self._mode_with_interval(5)
+        # Calls 0, 5 of 6 = 2 invocations
+        assert self._run(mode, stereo_noise, 6) == 2
+
+    def test_interval_3_samples_every_third_call(self, stereo_noise: np.ndarray):
+        mode = self._mode_with_interval(3)
+        # Calls 0, 3, 6 of 7 = 3 invocations
+        assert self._run(mode, stereo_noise, 7) == 3
+
+    def test_interval_zero_runs_first_call_only(self, stereo_noise: np.ndarray):
+        mode = self._mode_with_interval(0)
+        assert self._run(mode, stereo_noise, 5) == 1
+
+
+# ---------------------------------------------------------------------------
+# Test: Quality Gate exception narrowing (#3462)
+# ---------------------------------------------------------------------------
+
+class TestQualityGateExceptionScope:
+    """Quality gate must not swallow programming errors or missing dependencies."""
+
+    @staticmethod
+    def _mode():
+        from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+            AudioFingerprintAnalyzer,
+        )
+        from auralis.core.analysis.content_analyzer import ContentAnalyzer
+        from auralis.core.processing.continuous_mode import ContinuousMode
+
+        config = UnifiedConfig()
+        config.enable_cross_dimensional_guard = False
+        config.quality_gate_enabled = True
+        config.quality_gate_interval = 1
+        return ContinuousMode(config, ContentAnalyzer(), AudioFingerprintAnalyzer())
+
+    @staticmethod
+    def _identity_eq():
+        class _Identity:
+            def apply_psychoacoustic_eq(self, audio, targets, profile):  # noqa: ARG002
+                return audio
+        return _Identity()
+
+    def test_import_error_propagates(self, stereo_noise: np.ndarray, monkeypatch):
+        """A missing QualityMetrics import must NOT be silently swallowed."""
+        import auralis.analysis.quality.quality_metrics as qm_mod
+
+        monkeypatch.delattr(qm_mod, 'QualityMetrics')
+        mode = self._mode()
+        with pytest.raises((ImportError, AttributeError)):
+            mode.process(stereo_noise.copy(), self._identity_eq())
+
+    def test_value_error_in_compare_quality_is_swallowed(self, stereo_noise: np.ndarray):
+        """Expected assessment-time exceptions stay caught — pipeline doesn't crash."""
+        from unittest.mock import patch
+
+        mode = self._mode()
+        with patch(
+            'auralis.analysis.quality.quality_metrics.QualityMetrics.compare_quality',
+            side_effect=ValueError("simulated assessment error"),
+        ):
+            # Must not raise — ValueError is in the narrowed catch.
+            mode.process(stereo_noise.copy(), self._identity_eq())
