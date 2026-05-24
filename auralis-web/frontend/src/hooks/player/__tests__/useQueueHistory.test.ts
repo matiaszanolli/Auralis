@@ -182,6 +182,70 @@ describe('useQueueHistory', () => {
     });
   });
 
+  describe('isLoading reset on failure (#3399 regression)', () => {
+    // Pre-fix: setIsLoading(false) was duplicated in both try and catch
+    // branches; any divergence between them (or a future maintainer adding
+    // a setter that throws before the catch's reset ran) would leave
+    // isLoading stuck at true. Post-fix it lives in a single `finally`.
+
+    it('recordOperation: isLoading returns to false after API failure', async () => {
+      mockPost.mockRejectedValue({ message: 'fail', status: 500 });
+      const { result } = renderHook(() => useQueueHistory());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        try {
+          await result.current.recordOperation('add', {
+            trackIds: [], currentIndex: 0, isShuffled: false, repeatMode: 'off',
+          });
+        } catch { /* expected */ }
+      });
+
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it('undo: isLoading returns to false after API failure', async () => {
+      const entries = [makeEntry(1, 'add')];
+      mockGet.mockResolvedValue({ history: entries, count: 1 });
+      mockPost.mockRejectedValue({ message: 'fail', status: 500 });
+
+      const { result } = renderHook(() => useQueueHistory());
+      await waitFor(() => expect(result.current.historyCount).toBe(1));
+
+      await act(async () => {
+        try { await result.current.undo(); } catch { /* expected */ }
+      });
+
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it('clearHistory: isLoading returns to false after API failure', async () => {
+      mockDelete.mockRejectedValue({ message: 'fail', status: 500 });
+      const { result } = renderHook(() => useQueueHistory());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        try { await result.current.clearHistory(); } catch { /* expected */ }
+      });
+
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it('isLoading also resets on success (smoke check)', async () => {
+      mockPost.mockResolvedValue(makeEntry(1));
+      const { result } = renderHook(() => useQueueHistory());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.recordOperation('add', {
+          trackIds: [], currentIndex: 0, isShuffled: false, repeatMode: 'off',
+        });
+      });
+
+      expect(result.current.isLoading).toBe(false);
+    });
+  });
+
   describe('clearError', () => {
     it('should reset error to null', async () => {
       mockPost.mockRejectedValue({ message: 'fail', status: 500 });

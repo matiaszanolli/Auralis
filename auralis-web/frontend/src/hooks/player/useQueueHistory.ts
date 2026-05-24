@@ -204,17 +204,17 @@ export function useQueueHistory(): QueueHistoryActions {
           // Update local history
           setHistory((prev) => [response, ...prev]);
         }
-
-        if (isMountedRef.current) setIsLoading(false);
       } catch (err) {
         if (isMountedRef.current) {
           const apiError: ApiError = isApiError(err)
             ? err
             : { status: 0, message: err instanceof Error ? err.message : 'Unknown error' };
           setError(apiError);
-          setIsLoading(false);
         }
         throw err;
+      } finally {
+        // Always reset loading state — single source of truth (#3399).
+        if (isMountedRef.current) setIsLoading(false);
       }
     },
     [post]
@@ -240,15 +240,16 @@ export function useQueueHistory(): QueueHistoryActions {
       if (isMountedRef.current) {
         // Remove the undone entry from local history
         setHistory((prev) => prev.slice(1));
-        setIsLoading(false);
       }
     } catch (err) {
       if (isMountedRef.current) {
         const apiError = err as ApiError;
         setError(apiError);
-        setIsLoading(false);
       }
       throw err;
+    } finally {
+      // Always reset loading state — single source of truth (#3399).
+      if (isMountedRef.current) setIsLoading(false);
     }
   }, [post]);
 
@@ -275,15 +276,16 @@ export function useQueueHistory(): QueueHistoryActions {
 
       if (isMountedRef.current) {
         setHistory([]);
-        setIsLoading(false);
       }
     } catch (err) {
       if (isMountedRef.current) {
         const apiError = err as ApiError;
         setError(apiError);
-        setIsLoading(false);
       }
       throw err;
+    } finally {
+      // Always reset loading state — single source of truth (#3399).
+      if (isMountedRef.current) setIsLoading(false);
     }
   }, [apiDelete]);
 
