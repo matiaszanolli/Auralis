@@ -6,8 +6,8 @@ cursor.execute, text()) only appears in allowed locations:
 - auralis/library/repositories/ (repository implementations)
 - auralis/library/migration_manager.py (migrations)
 - auralis/library/migrations/ (SQL migration files)
-- auralis/analysis/fingerprint/fingerprint_service.py (sqlite3 cache)
 - auralis/library/manager.py (PRAGMA statements only)
+- auralis/analysis/fingerprint/fingerprint_service.py (PRAGMA statements only)
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3
@@ -24,8 +24,8 @@ ALLOWED_SQL_PATHS = {
     "auralis/library/repositories",
     "auralis/library/migration_manager.py",
     "auralis/library/migrations",
-    "auralis/analysis/fingerprint/fingerprint_service.py",
     "auralis/library/manager.py",
+    "auralis/analysis/fingerprint/fingerprint_service.py",
 }
 
 # Patterns that indicate raw SQL usage

@@ -272,6 +272,20 @@ class TrackRepository:
         """Alias for get_by_path for backward compatibility"""
         return self.get_by_path(filepath)
 
+    def get_id_by_filepath(self, filepath: str) -> int | None:
+        """Return the track id for a filepath, or None if not present.
+
+        Lightweight id-only lookup for callers that do not need the full
+        Track object or its relationships (e.g. fingerprint cache joins).
+        """
+        session = self.get_session()
+        try:
+            return session.execute(
+                select(Track.id).where(Track.filepath == filepath)
+            ).scalar_one_or_none()
+        finally:
+            session.close()
+
     def update_by_filepath(self, filepath: str, track_info: dict[str, Any]) -> Track | None:
         """
         Update track by filepath

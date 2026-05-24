@@ -18,15 +18,15 @@ from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
-from auralis.library.models import Track
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
+from auralis.library.repositories.track_repository import TrackRepository
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +103,7 @@ class FingerprintService:
 
         self._session_factory = session_factory
         self._fingerprint_repo = FingerprintRepository(session_factory)
+        self._track_repo = TrackRepository(session_factory)
 
     def get_or_compute(self, audio_path: Path, audio: np.ndarray | None = None, sr: int | None = None) -> dict | None:
         """
@@ -159,14 +160,7 @@ class FingerprintService:
             if not self.db_path.exists():
                 return None
 
-            session = self._session_factory()
-            try:
-                track_id = session.execute(
-                    select(Track.id).where(Track.filepath == filepath)
-                ).scalar_one_or_none()
-            finally:
-                session.close()
-
+            track_id = self._track_repo.get_id_by_filepath(filepath)
             if track_id is None:
                 return None
 
@@ -247,14 +241,7 @@ class FingerprintService:
             if not self.db_path.exists():
                 return False
 
-            session = self._session_factory()
-            try:
-                track_id = session.execute(
-                    select(Track.id).where(Track.filepath == filepath)
-                ).scalar_one_or_none()
-            finally:
-                session.close()
-
+            track_id = self._track_repo.get_id_by_filepath(filepath)
             if track_id is None:
                 # Track not in library yet; nothing to associate the fingerprint with.
                 return False
