@@ -10,6 +10,7 @@ REST API endpoints for fingerprint-based music similarity
 
 import asyncio
 import logging
+import uuid
 from typing import Any
 from collections.abc import Callable
 
@@ -25,6 +26,19 @@ from auralis.analysis.fingerprint import (
 from .dependencies import require_repository_factory
 
 logger = logging.getLogger(__name__)
+
+
+def _internal_error_response(user_message: str, exc: BaseException) -> HTTPException:
+    """Log the full exception server-side; return a generic HTTPException.
+
+    Generates a short correlation id so a user-reported failure can be
+    matched to its server-side log entry without exposing `str(exc)` —
+    which may contain file paths, SQL fragments, dependency versions, or
+    other internals — back to the API caller (#3331).
+    """
+    ref = uuid.uuid4().hex[:8]
+    logger.exception("[similarity:%s] %s", ref, user_message, exc_info=exc)
+    return HTTPException(status_code=500, detail=f"{user_message} (ref {ref})")
 
 
 # Response models
@@ -182,7 +196,7 @@ def create_similarity_router(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error finding similar tracks: {str(e)}")
+            raise _internal_error_response("Error finding similar tracks", e) from e
 
     @router.get("/tracks/{track_id1}/compare/{track_id2}", response_model=SimilarTrack)
     async def compare_tracks(
@@ -241,7 +255,7 @@ def create_similarity_router(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error comparing tracks: {str(e)}")
+            raise _internal_error_response("Error comparing tracks", e) from e
 
     @router.get("/tracks/{track_id1}/explain/{track_id2}", response_model=SimilarityExplanation)
     async def explain_similarity(
@@ -278,7 +292,7 @@ def create_similarity_router(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error explaining similarity: {str(e)}")
+            raise _internal_error_response("Error explaining similarity", e) from e
 
     @router.post("/fit")
     async def fit_similarity_system(
@@ -334,7 +348,7 @@ def create_similarity_router(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error fitting similarity system: {str(e)}")
+            raise _internal_error_response("Error fitting similarity system", e) from e
 
     @router.post("/graph/build")
     async def build_similarity_graph(
@@ -374,7 +388,7 @@ def create_similarity_router(
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error building graph: {str(e)}")
+            raise _internal_error_response("Error building graph", e) from e
 
     @router.get("/graph/stats", response_model=GraphStatsResponse | None)
     async def get_graph_stats() -> GraphStatsResponse | None:
@@ -396,7 +410,7 @@ def create_similarity_router(
             return None
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error getting graph stats: {str(e)}")
+            raise _internal_error_response("Error getting graph stats", e) from e
 
     @router.delete("/graph")
     async def clear_similarity_graph() -> dict[str, Any]:
@@ -416,7 +430,7 @@ def create_similarity_router(
             return {"edges_deleted": count}
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error clearing graph: {str(e)}")
+            raise _internal_error_response("Error clearing graph", e) from e
 
     @router.get("/fingerprint-queue/status")
     async def get_fingerprint_queue_status() -> dict[str, Any]:
@@ -448,10 +462,15 @@ def create_similarity_router(
             return stats
 
         except Exception as e:
-            logger.error(f"Error getting fingerprint queue status: {e}")
+            # Same #3331 leak class as the HTTPException paths but via a
+            # 200-OK response body: log the full exception server-side,
+            # return only a correlation id so callers can report it.
+            ref = uuid.uuid4().hex[:8]
+            logger.exception("[similarity:%s] Error getting fingerprint queue status", ref, exc_info=e)
             return {
                 "available": False,
-                "error": str(e)
+                "error": "internal_error",
+                "ref": ref,
             }
 
     @router.post("/fingerprint-queue/enqueue/{track_id}")
@@ -500,8 +519,7 @@ def create_similarity_router(
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error enqueueing track {track_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Error enqueueing track: {str(e)}")
+            raise _internal_error_response(f"Error enqueueing track {track_id}", e) from e
 
     @router.post("/fingerprint-queue/enqueue-all")
     async def enqueue_all_missing_fingerprints(
@@ -578,8 +596,7 @@ def create_similarity_router(
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error batch enqueueing tracks: {e}")
-            raise HTTPException(status_code=500, detail=f"Error enqueueing tracks: {str(e)}")
+            raise _internal_error_response("Error batch enqueueing tracks", e) from e
 
     @router.get("/fingerprint-stats")
     async def get_fingerprint_stats() -> dict[str, Any]:
@@ -602,7 +619,6 @@ def create_similarity_router(
             }
 
         except Exception as e:
-            logger.error(f"Error getting fingerprint stats: {e}")
-            raise HTTPException(status_code=500, detail=f"Error getting stats: {str(e)}")
+            raise _internal_error_response("Error getting fingerprint stats", e) from e
 
     return router
