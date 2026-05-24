@@ -42,3 +42,16 @@ def test_session_usable_after_get_current_version_on_fresh_db(empty_db):
     with empty_db._get_session() as session:
         result = session.execute(text("SELECT 1")).scalar()
     assert result == 1
+
+
+def test_engine_sets_busy_timeout_pragma(empty_db):
+    """Regression for #3312: connect-listener must set PRAGMA busy_timeout=60000
+    so concurrent migration access retries for up to 60 s instead of failing
+    immediately with 'database is locked'."""
+    with empty_db._get_session() as session:
+        # PRAGMA returns the value in milliseconds.
+        timeout_ms = session.execute(text("PRAGMA busy_timeout")).scalar()
+    assert timeout_ms == 60000, (
+        f"Expected PRAGMA busy_timeout=60000 (60s), got {timeout_ms}. "
+        "MigrationManager must apply the busy_timeout in its connect listener."
+    )

@@ -140,6 +140,9 @@ class MigrationManager:
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.execute("PRAGMA foreign_keys=ON")
+            # Explicit busy timeout at PRAGMA level for consistent behavior
+            # under concurrent migration access (#3312, matches LibraryManager #2091).
+            cursor.execute("PRAGMA busy_timeout=60000")  # 60s
             cursor.close()
 
         self._SessionFactory = sessionmaker(self.engine)
