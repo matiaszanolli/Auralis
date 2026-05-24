@@ -135,7 +135,8 @@ describe('useLibraryWithStats', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/library/tracks/favorites')
+        expect.stringContaining('/api/library/tracks/favorites'),
+        expect.anything()  // fetch is called with (url, { signal }) — match the 2nd arg
       );
     });
 
@@ -151,7 +152,8 @@ describe('useLibraryWithStats', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringMatching(/\/api\/library\/tracks\?/)
+        expect.stringMatching(/\/api\/library\/tracks\?/),
+        expect.anything()
       );
     });
 
@@ -276,6 +278,108 @@ describe('useLibraryWithStats', () => {
     });
   });
 
+  describe('loadMore offset advance (#3378 sibling regression)', () => {
+    it('loadMore actually requests the NEXT page, not page 0 again', async () => {
+      // Pre-fix sibling bug found while testing #3378: loadMore tried to
+      // read the current offset synchronously via setOffset(prev => ...),
+      // but React 18 doesn't run the updater synchronously, so newOffset
+      // stayed 0 and loadMore re-fetched page 0. The existing "appends
+      // tracks" test only checked tracks.length (50→100 with duplicate
+      // pages from the mock), masking it.
+      mockFetch.mockResolvedValueOnce(makeTracksResponse(50, 200, true));
+      const { result } = renderHook(() =>
+        useLibraryWithStats({ view: 'all', autoLoad: false })
+      );
+
+      await act(async () => {
+        await result.current.fetchTracks();
+      });
+
+      mockFetch.mockResolvedValueOnce(makeTracksResponse(50, 200, true));
+      await act(async () => {
+        await result.current.loadMore();
+      });
+      await waitFor(() => {
+        expect(result.current.tracks).toHaveLength(100);
+      });
+
+      // The second call (loadMore) must have asked for offset=50, not 0.
+      const calls = mockFetch.mock.calls;
+      const loadMoreUrl = calls[calls.length - 1]?.[0] as string;
+      expect(loadMoreUrl).toContain('offset=50');
+      expect(loadMoreUrl).not.toMatch(/[?&]offset=0(\b|&)/);
+    });
+  });
+
+  describe('fetchTracks offset closure (#3378 regression)', () => {
+    it('fetchTracks(false) uses the live offset, not a stale closure value', async () => {
+      // Pre-fix: fetchTracks captured `offset` at definition time, so a call
+      // to fetchTracks(false) AFTER loadMore advanced the offset would still
+      // request `?offset=0`. Post-fix: it reads offsetRef.current and
+      // requests the live value.
+      mockFetch.mockResolvedValueOnce(makeTracksResponse(50, 200, true));
+      const { result } = renderHook(() =>
+        useLibraryWithStats({ view: 'all', autoLoad: false })
+      );
+
+      // Initial fetch — fills page 0
+      await act(async () => {
+        await result.current.fetchTracks();
+      });
+
+      // loadMore advances offset (existing passing test confirms tracks→100)
+      mockFetch.mockResolvedValueOnce(makeTracksResponse(50, 200, true));
+      await act(async () => {
+        await result.current.loadMore();
+      });
+      await waitFor(() => {
+        expect(result.current.tracks).toHaveLength(100);
+      });
+
+      // Now call fetchTracks(false) — the URL must request offset=50, not 0.
+      mockFetch.mockResolvedValueOnce(makeTracksResponse(50, 200, true));
+      await act(async () => {
+        await result.current.fetchTracks(false);
+      });
+
+      const calls = mockFetch.mock.calls;
+      const lastCallUrl = calls[calls.length - 1]?.[0] as string;
+      expect(lastCallUrl).toContain('offset=50');
+      // And explicitly: not still the stale offset=0
+      expect(lastCallUrl).not.toMatch(/[?&]offset=0(\b|&)/);
+    });
+
+    it('fetchTracks(true) always requests offset=0 regardless of current offset', async () => {
+      // Verifies the reset path still works after the closure fix.
+      mockFetch.mockResolvedValueOnce(makeTracksResponse(50, 200, true));
+      const { result } = renderHook(() =>
+        useLibraryWithStats({ view: 'all', autoLoad: false })
+      );
+
+      await act(async () => {
+        await result.current.fetchTracks();
+      });
+
+      mockFetch.mockResolvedValueOnce(makeTracksResponse(50, 200, true));
+      await act(async () => {
+        await result.current.loadMore();
+      });
+      await waitFor(() => {
+        expect(result.current.tracks).toHaveLength(100);
+      });
+
+      // Reset: even with the live offset advanced, fetchTracks(true) → page 0
+      mockFetch.mockResolvedValueOnce(makeTracksResponse(50, 200, true));
+      await act(async () => {
+        await result.current.fetchTracks(true);
+      });
+
+      const calls = mockFetch.mock.calls;
+      const lastCallUrl = calls[calls.length - 1]?.[0] as string;
+      expect(lastCallUrl).toMatch(/[?&]offset=0(\b|&)/);
+    });
+  });
+
   describe('refetchStats', () => {
     it('fetches library stats', async () => {
       mockFetch.mockResolvedValueOnce(makeStatsResponse());
@@ -365,7 +469,8 @@ describe('useLibraryWithStats', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/favorites')
+          expect.stringContaining('/favorites'),
+          expect.anything()  // fetch is called with (url, { signal })
         );
       });
     });

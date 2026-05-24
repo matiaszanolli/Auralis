@@ -121,6 +121,16 @@ export const useLibraryWithStats = ({
   const statsAbortRef = useRef<AbortController | null>(null);
   const refetchStatsRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
+  // Mirror `offset` into a ref so fetchTracks(false) can read the live value
+  // without `offset` being in its useCallback deps (which would force the
+  // callback to be re-created every time offset changes — defeating
+  // useCallback and risking the downstream re-render loops the existing
+  // deps comment warns about). Pre-fix the closure captured `offset` at
+  // callback definition time and never advanced — fetchTracks(false) silently
+  // re-fetched page 0 instead of the next page (#3378).
+  const offsetRef = useRef(0);
+  offsetRef.current = offset;
+
   const { success, error: toastError, info } = useToast();
 
   // Controlled input for folder path in web (non-Electron) environments (fixes #2794).
@@ -157,7 +167,10 @@ export const useLibraryWithStats = ({
 
       try {
         const limit = 50;
-        const currentOffset = resetPagination ? 0 : offset;
+        // Read live offset via ref so the callback closure can't drift
+        // (#3378). Without this, fetchTracks(false) always saw the offset
+        // value from when the callback was created.
+        const currentOffset = resetPagination ? 0 : offsetRef.current;
 
         const endpoint =
           view === 'favourites'
@@ -237,12 +250,14 @@ export const useLibraryWithStats = ({
 
     try {
       const limit = 50;
-      // Compute new offset from current value without committing it yet
-      let newOffset = 0;
-      setOffset((prevOffset) => {
-        newOffset = prevOffset + limit;
-        return prevOffset; // Don't advance yet — wait for successful fetch
-      });
+      // Compute new offset from the live ref. The previous pattern used
+      // `setOffset(prev => { newOffset = prev + limit; return prev; })`
+      // expecting the updater to run synchronously — but React batches
+      // state updates and the closure variable stayed at 0, so loadMore
+      // silently re-fetched page 0 every time. The existing test only
+      // checked tracks.length (which went 50→100 because both pages were
+      // identical mock data), masking the bug. Caught while fixing #3378.
+      const newOffset = offsetRef.current + limit;
 
       const endpoint =
         view === 'favourites'
