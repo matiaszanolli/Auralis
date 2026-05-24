@@ -88,7 +88,14 @@ class ContinuousMode:
     for that specific position.
     """
 
-    def __init__(self, config: Any, content_analyzer: Any, fingerprint_analyzer: Any, recording_type_detector: Any | None = None) -> None:
+    def __init__(
+        self,
+        config: Any,
+        content_analyzer: Any,
+        fingerprint_analyzer: Any,
+        recording_type_detector: Any | None = None,
+        fingerprint_repository: Any | None = None,
+    ) -> None:
         """
         Initialize continuous space processor.
 
@@ -97,10 +104,21 @@ class ContinuousMode:
             content_analyzer: ContentAnalyzer for audio analysis
             fingerprint_analyzer: AudioFingerprintAnalyzer for 25D fingerprints
             recording_type_detector: Optional RecordingTypeDetector instance (shared from parent)
+            fingerprint_repository: Optional FingerprintRepository used to fetch
+                the reference cloud (is_reference=True fingerprints). When
+                provided AND the cloud is non-empty, the EQ stage uses the
+                continuous delta-from-target derivation (Phase 4). Otherwise
+                falls back to the legacy deficit-based curve.
         """
         self.config: UnifiedConfig = config
         self.content_analyzer: ContentAnalyzer = content_analyzer
         self.fingerprint_analyzer = fingerprint_analyzer
+        self.fingerprint_repository = fingerprint_repository
+
+        # Reference-cloud caches (lazy-loaded on first process() call so we
+        # don't hit the DB during construction). Invalidate by setting to None.
+        self._reference_cloud: list[Any] | None = None
+        self._distance_stats: Any | None = None
 
         # Initialize continuous space components
         self.space_mapper = ProcessingSpaceMapper()
@@ -128,6 +146,42 @@ class ContinuousMode:
         # Quality-gate sampling counter (#3460): only run the gate on selected
         # process() calls per config.quality_gate_interval.
         self._quality_gate_call_count: int = 0
+
+    def _derive_target_spectrum(self, fingerprint: dict[str, Any]) -> dict[str, float] | None:
+        """Lazy-load the reference cloud and derive a continuous target.
+
+        Returns None when no repository is wired or the cloud is empty —
+        the parameter generator then falls back to legacy deficit-based math.
+        Cached across process() calls so we only hit the DB once per session.
+        """
+        if self.fingerprint_repository is None:
+            return None
+
+        # Lazy load on first call (and only once)
+        if self._reference_cloud is None:
+            try:
+                self._reference_cloud = self.fingerprint_repository.get_reference_cloud()
+            except Exception as e:
+                debug(f"[Mastering] Failed to load reference cloud: {e}")
+                self._reference_cloud = []
+
+        if not self._reference_cloud:
+            return None
+
+        # Fit z-score stats once per cached cloud
+        if self._distance_stats is None:
+            from .target_derivation import DistanceStats
+            self._distance_stats = DistanceStats.from_references(self._reference_cloud)
+
+        from .target_derivation import derive_target
+        result = derive_target(fingerprint, self._reference_cloud, self._distance_stats)
+        if result is None:
+            return None
+        debug(
+            f"[Mastering] Target derived from {result.n_matched} references "
+            f"(top: {result.top_ref_ids[:3]})"
+        )
+        return result.target
 
     def _convert_targets_to_parameters(self, targets: dict[str, Any]) -> ProcessingParameters:
         """
@@ -255,8 +309,16 @@ class ContinuousMode:
 
             debug(f"[Continuous Space] Preference: {preference}")
 
-            # Step 4: Generate processing parameters
-            params = self.param_generator.generate_parameters(coords, preference)
+            # Step 4: Derive a continuous target spectrum from the reference
+            # cloud (Phase 4). If no cloud is available (no repository, or
+            # nothing flagged is_reference yet), target_spectrum is None and
+            # generate_parameters falls back to the legacy deficit-based curve.
+            target_spectrum = self._derive_target_spectrum(fingerprint)
+
+            # Step 5: Generate processing parameters
+            params = self.param_generator.generate_parameters(
+                coords, preference, target_spectrum=target_spectrum,
+            )
             self.last_parameters = params
 
             debug(f"[Continuous Space] Parameters: {params}")

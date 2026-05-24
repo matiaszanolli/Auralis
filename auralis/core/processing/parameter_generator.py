@@ -31,7 +31,8 @@ class ContinuousParameterGenerator:
     def generate_parameters(
         self,
         coords: ProcessingCoordinates,
-        user_preference: PreferenceVector | None = None
+        user_preference: PreferenceVector | None = None,
+        target_spectrum: dict[str, float] | None = None,
     ) -> ProcessingParameters:
         """
         Generate all processing parameters from space coordinates.
@@ -39,6 +40,11 @@ class ContinuousParameterGenerator:
         Args:
             coords: Position in 3D processing space
             user_preference: Optional user preference vector to bias parameters
+            target_spectrum: Optional target band fractions from the soft k-NN
+                reference cloud (see target_derivation.derive_target). When
+                provided, the EQ curve is computed as a signed, capped delta
+                from source toward target (symmetric: can boost OR cut).
+                When None, falls back to the legacy deficit-based curve.
 
         Returns:
             ProcessingParameters with all DSP settings
@@ -47,6 +53,12 @@ class ContinuousParameterGenerator:
         if user_preference:
             coords = self._apply_preference_bias(coords, user_preference)
 
+        eq_curve = (
+            self._generate_eq_curve_from_target(coords, target_spectrum, user_preference)
+            if target_spectrum is not None
+            else self._generate_eq_curve(coords, user_preference)
+        )
+
         # Generate parameters for each processing stage
         return ProcessingParameters(
             # Loudness targets
@@ -54,7 +66,7 @@ class ContinuousParameterGenerator:
             peak_target_db=self._calculate_peak_target(coords, user_preference),
 
             # EQ curve
-            eq_curve=self._generate_eq_curve(coords, user_preference),
+            eq_curve=eq_curve,
             eq_blend=self._calculate_eq_blend(coords),
 
             # Dynamics
@@ -286,6 +298,51 @@ class ContinuousParameterGenerator:
             'high_mid_freq': 4000,
             'high_shelf_freq': 8000,
         }
+
+    def _generate_eq_curve_from_target(
+        self,
+        coords: ProcessingCoordinates,
+        target_spectrum: dict[str, float],
+        preference: PreferenceVector | None,
+    ) -> dict[str, float]:
+        """Compute the 5-shelf curve via delta-from-target (Phase 4).
+
+        Replaces the deficit-based math when the mastering pipeline has a
+        reference cloud and was able to derive a target. Symmetric (can cut),
+        capped per-band, smoothly saturated via tanh — see delta_eq.py.
+
+        User preference still applies as additive bias on top of the delta
+        curve, but with reduced strength since the cloud already encodes
+        most of the "what should this sound like" intent.
+        """
+        from .delta_eq import compute_delta_eq, to_eq_curve
+
+        delta_result = compute_delta_eq(coords.fingerprint, target_spectrum)
+        curve = to_eq_curve(delta_result)
+
+        # Apply user preference adjustments at half-strength (cloud carries
+        # most of the intent; preference becomes a gentle nudge, not the
+        # primary signal it was in the deficit-based path).
+        if preference is not None:
+            curve['low_shelf_gain']  += preference.bass_boost * 1.0
+            curve['high_shelf_gain'] += preference.treble_boost * 1.0
+            curve['high_mid_gain']   += preference.treble_boost * 0.75
+            if preference.spectral_bias > 0:        # brighter
+                curve['high_shelf_gain'] += preference.spectral_bias * 0.75
+                curve['low_shelf_gain']  -= preference.spectral_bias * 0.5
+            elif preference.spectral_bias < 0:      # darker
+                curve['low_shelf_gain']  += abs(preference.spectral_bias) * 0.75
+                curve['high_shelf_gain'] -= abs(preference.spectral_bias) * 0.5
+
+        # Re-clamp to the existing ProcessingParameters envelope so
+        # downstream EQProcessor sees values it expects.
+        curve['low_shelf_gain']  = float(np.clip(curve['low_shelf_gain'],  -5.0, 5.0))
+        curve['low_mid_gain']    = float(np.clip(curve['low_mid_gain'],    -3.0, 3.0))
+        curve['mid_gain']        = float(np.clip(curve['mid_gain'],        -2.0, 2.0))
+        curve['high_mid_gain']   = float(np.clip(curve['high_mid_gain'],   -4.0, 4.0))
+        curve['high_shelf_gain'] = float(np.clip(curve['high_shelf_gain'], -4.0, 4.0))
+
+        return curve
 
     def _calculate_eq_blend(self, coords: ProcessingCoordinates) -> float:
         """
