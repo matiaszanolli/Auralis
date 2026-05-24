@@ -231,15 +231,20 @@ class ContinuousParameterGenerator:
         """
         fp = coords.fingerprint
 
-        # Analyze deficits (what's missing compared to ideal)
-        IDEAL_BASS = 28.0    # Ideal ~28% bass content
-        IDEAL_AIR = 12.0     # Ideal ~12% air content
-        IDEAL_MID = 35.0     # Ideal ~35% mid content
+        # Analyze deficits (what's missing compared to ideal).
+        # Fingerprint band fractions are stored as 0.0–1.0 — see
+        # auralis/analysis/fingerprint/schema.py. Previously these were
+        # written as percentages (28.0, 12.0, 35.0) which collapsed every
+        # deficit to ≈ 0.98 and made the EQ output identical for every
+        # source (bug surfaced when comparing bright/dull/squashed inputs).
+        IDEAL_BASS = 0.28   # ~28% energy in 60-250 Hz
+        IDEAL_AIR = 0.12    # ~12% energy in 6-20 kHz
+        IDEAL_MID = 0.35    # ~35% energy in 500-2000 Hz
 
         # Calculate deficit ratios (how far from ideal)
-        bass_deficit = max(0, IDEAL_BASS - fp['bass_pct']) / IDEAL_BASS     # 0-1
-        air_deficit = max(0, IDEAL_AIR - fp['air_pct']) / IDEAL_AIR         # 0-1
-        mid_deficit = max(0, IDEAL_MID - fp['mid_pct']) / IDEAL_MID         # 0-1
+        bass_deficit = max(0.0, IDEAL_BASS - fp['bass_pct']) / IDEAL_BASS    # 0-1
+        air_deficit = max(0.0, IDEAL_AIR - fp['air_pct']) / IDEAL_AIR        # 0-1
+        mid_deficit = max(0.0, IDEAL_MID - fp['mid_pct']) / IDEAL_MID        # 0-1
 
         # Base EQ gains (boost what's missing)
         # Use polynomial scaling for more aggressive boosts at higher deficits

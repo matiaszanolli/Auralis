@@ -210,19 +210,26 @@ class ProcessingSpaceMapper:
         Returns:
             Spectral balance score (0.0 to 1.0)
         """
-        # Normalize bass percentage (typical range 15-40%)
-        # 40% bass → 0.0 (very dark), 15% bass → 1.0 (very bright)
-        bass_normalized = 1.0 - np.clip((fp['bass_pct'] - 15.0) / 25.0, 0.0, 1.0)
+        # Band pct fields are 0.0–1.0 fractions (see fingerprint/schema.py),
+        # NOT percentages. Spectral centroid is normalized 0.0–1.0 where
+        # 1.0 corresponds to CENTROID_NORMALIZATION_HZ (8 kHz). Earlier
+        # code treated these as percentages / raw Hz, which clipped every
+        # term to 0 or 1 and collapsed the spectral axis to a constant.
+        from auralis.analysis.fingerprint.schema import centroid_to_hz
 
-        # Normalize air percentage (typical range 5-20%)
-        # 5% air → 0.0, 20% air → 1.0
-        air_normalized = np.clip((fp['air_pct'] - 5.0) / 15.0, 0.0, 1.0)
+        # Bass: typical range 15-40% of energy → fraction 0.15-0.40
+        # 40% → 0.0 (very dark), 15% → 1.0 (very bright)
+        bass_normalized = 1.0 - np.clip((fp['bass_pct'] - 0.15) / 0.25, 0.0, 1.0)
 
-        # Normalize spectral centroid (typical range 1000-6000 Hz)
-        centroid_normalized = np.clip((fp['spectral_centroid'] - 1000.0) / 5000.0, 0.0, 1.0)
+        # Air: typical range 5-20% of energy → fraction 0.05-0.20
+        air_normalized = np.clip((fp['air_pct'] - 0.05) / 0.15, 0.0, 1.0)
 
-        # Normalize presence (typical range 8-25%)
-        presence_normalized = np.clip((fp['presence_pct'] - 8.0) / 17.0, 0.0, 1.0)
+        # Spectral centroid: typical perceptually 1000-6000 Hz
+        centroid_hz = centroid_to_hz(fp['spectral_centroid'])
+        centroid_normalized = np.clip((centroid_hz - 1000.0) / 5000.0, 0.0, 1.0)
+
+        # Presence: typical range 8-25% → fraction 0.08-0.25
+        presence_normalized = np.clip((fp['presence_pct'] - 0.08) / 0.17, 0.0, 1.0)
 
         # Weighted combination emphasizing actual frequency distribution
         spectral_balance = (

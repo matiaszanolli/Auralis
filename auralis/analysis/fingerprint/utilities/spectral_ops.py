@@ -47,14 +47,14 @@ class SpectralOperations:
             # Import here to avoid circular dependency
             from ..metrics import AggregationUtils, MetricUtils
 
-            # Calculate centroid (prefer pre-computed magnitude if provided)
+            # Calculate centroid (prefer pre-computed magnitude if provided).
+            # Prior code did `np.average(freqs[:, np.newaxis], axis=0, weights=magnitude)`
+            # which had incompatible shapes (freqs col-vector vs magnitude 2D matrix)
+            # and silently raised, sending every call to the 0.5 fallback.
+            # librosa accepts S=magnitude directly — same result, no shape gymnastics.
             if magnitude is not None:
-                # From pre-computed magnitude
-                freqs = librosa.fft_frequencies(sr=sr, n_fft=2 * (magnitude.shape[0] - 1))
-                centroid = np.average(freqs[:, np.newaxis], axis=0,
-                                    weights=magnitude) if magnitude.shape[0] > 0 else np.array([0.0])
+                centroid = librosa.feature.spectral_centroid(S=magnitude, sr=sr)[0]
             else:
-                # From audio
                 centroid = librosa.feature.spectral_centroid(y=audio, sr=sr)[0]
 
             # Aggregate to track level (median across time)

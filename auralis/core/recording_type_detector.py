@@ -144,8 +144,12 @@ class RecordingTypeDetector:
         stereo_width = fingerprint.get('stereo_width', 0.5)
         crest_factor = fingerprint.get('crest_db', 5.0)  # in dB
 
-        # Denormalize spectral centroid to Hz (assuming normalized 0-1 to 0-20kHz)
-        spectral_centroid_hz = spectral_centroid * 20000
+        # Denormalize spectral centroid to Hz via the schema's canonical
+        # constant (8 kHz, NOT 20 kHz — the fingerprint clips at 8 kHz so
+        # 0-1 was previously stretched 2.5× too far and every source landed
+        # past the "metal" centroid threshold).
+        from auralis.analysis.fingerprint.schema import centroid_to_hz
+        spectral_centroid_hz = centroid_to_hz(spectral_centroid)
 
         # Classification logic - now with HD Bright profile support
         scores = {
