@@ -11,7 +11,7 @@ Data access layer for playlist operations
 from typing import Any
 from collections.abc import Callable
 
-from sqlalchemy import select
+from sqlalchemy import and_, delete, select
 from ..models.base import track_playlist
 from sqlalchemy.orm import Session, selectinload
 
@@ -226,20 +226,28 @@ class PlaylistRepository:
             session.close()
 
     def remove_track(self, playlist_id: int, track_id: int) -> bool:
-        """Remove track from playlist"""
+        """Remove a track from a playlist.
+
+        Issues a single atomic DELETE on the ``track_playlist`` association
+        table. No lazy-load of the full collection, no read→modify→commit
+        window, and naturally idempotent under concurrent calls — the
+        previous load-then-mutate implementation had a race window between
+        the lazy SELECT and the COMMIT where two threads could collide on
+        the same playlist (#3340).
+        """
         session = self.get_session()
         try:
-            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
-            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
-
-            if not playlist or not track:
-                return False
-
-            if track in playlist.tracks:
-                playlist.tracks.remove(track)
-                session.commit()
-                debug(f"Removed track from playlist: {playlist.name}")
-
+            result = session.execute(
+                delete(track_playlist).where(
+                    and_(
+                        track_playlist.c.playlist_id == playlist_id,
+                        track_playlist.c.track_id == track_id,
+                    )
+                )
+            )
+            session.commit()
+            if result.rowcount:
+                debug(f"Removed track {track_id} from playlist {playlist_id}")
             return True
 
         except Exception as e:
