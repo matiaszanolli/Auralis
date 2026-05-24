@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import Float, ForeignKey, Index, Integer, LargeBinary
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -81,6 +81,11 @@ class TrackFingerprint(Base, TimestampMixin):  # type: ignore[misc]
     # Metadata
     fingerprint_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
+    # Reference cloud membership (schema v15). True if this track's spectral
+    # shape contributes to the soft k-NN target derivation in the mastering
+    # pipeline. Set programmatically by auralis/learning/reference_seeder.py.
+    is_reference: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
     # Phase 3A: 8-bit quantized fingerprint storage (25 bytes, 8x compression)
     # Stores quantized uint8 values for space efficiency
     # Auto-dequantized on retrieval to restore float values (~1% accuracy loss)
@@ -88,6 +93,17 @@ class TrackFingerprint(Base, TimestampMixin):  # type: ignore[misc]
 
     # Relationship
     track: Mapped[Track] = relationship("Track", back_populates="fingerprint", uselist=False)
+
+    # Partial index on is_reference for fast reference-cloud lookups.
+    # Mirrors the index created in migration_v014_to_v015.sql for upgrades;
+    # this declaration ensures fresh DBs (Base.metadata.create_all) get it too.
+    __table_args__ = (
+        Index(
+            'ix_fingerprints_is_reference',
+            'is_reference',
+            sqlite_where=(is_reference == True),  # noqa: E712 — SQLAlchemy filter clause
+        ),
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert fingerprint to dictionary"""

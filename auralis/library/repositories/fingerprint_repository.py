@@ -274,6 +274,68 @@ class FingerprintRepository:
         finally:
             session.close()
 
+    def get_reference_cloud(self) -> list[TrackFingerprint]:
+        """Return all fingerprints flagged is_reference=True (schema v15).
+
+        Used by the soft k-NN mastering target derivation to build the
+        continuous reference manifold. Indexed via ix_fingerprints_is_reference
+        so the lookup is fast even on large libraries.
+        """
+        session = self.get_session()
+        try:
+            stmt = select(TrackFingerprint).where(TrackFingerprint.is_reference == True)  # noqa: E712
+            fingerprints = list(session.execute(stmt).scalars().all())
+            for fp in fingerprints:
+                session.expunge(fp)
+            return fingerprints
+        finally:
+            session.close()
+
+    def set_reference_flags(self, track_ids_flagged: dict[int, bool]) -> int:
+        """Bulk set is_reference for the given track_ids.
+
+        Used by reference_seeder.refresh_cloud() — clears all existing flags
+        then sets the chosen ones in a single transaction so the cloud is
+        never partially populated (atomic refresh).
+
+        Args:
+            track_ids_flagged: {track_id: True|False} for each track to update.
+
+        Returns:
+            Number of rows updated (sum of True + False updates issued).
+        """
+        if not track_ids_flagged:
+            return 0
+        session = self.get_session()
+        try:
+            updated = 0
+            for track_id, flag in track_ids_flagged.items():
+                fp = session.execute(
+                    select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+                ).scalar_one_or_none()
+                if fp is not None and fp.is_reference != flag:
+                    fp.is_reference = flag
+                    updated += 1
+            session.commit()
+            return updated
+        finally:
+            session.close()
+
+    def clear_all_reference_flags(self) -> int:
+        """Set is_reference=False on every fingerprint. Returns rows updated."""
+        from sqlalchemy import update
+        session = self.get_session()
+        try:
+            result = session.execute(
+                update(TrackFingerprint)
+                .where(TrackFingerprint.is_reference == True)  # noqa: E712
+                .values(is_reference=False)
+            )
+            session.commit()
+            return int(result.rowcount or 0)
+        finally:
+            session.close()
+
     def get_by_dimension_range(
         self,
         dimension: str,
