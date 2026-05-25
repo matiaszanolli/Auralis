@@ -3,7 +3,8 @@
  * ~~~~~~~~~~~~~~~~~~~~~~~
  *
  * Provides playback control methods for commanding the audio player.
- * This is the control layer - usePlaybackState is the observation layer.
+ * This is the control layer — observe playback state via Redux selectors
+ * (playerSlice / queueSlice).
  *
  * Usage:
  * ```typescript
@@ -22,7 +23,7 @@
  * - Memoized callback functions
  *
  * @module hooks/player/usePlaybackControl
- * @see usePlaybackState for reading player state
+ * @see auralis-web/frontend/src/store/slices/playerSlice.ts for state selectors
  */
 
 import { useCallback, useState, useRef } from 'react';
@@ -188,7 +189,7 @@ export function usePlaybackControl(): PlaybackControlActions {
         data: {},
       });
 
-      // Server broadcasts 'playback_paused' message which updates usePlaybackState
+      // Server broadcasts 'playback_paused' message which updates the Redux player slice
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'PAUSE_ERROR', status: 500 } : err as ApiError;
       setError(apiError);
@@ -271,7 +272,7 @@ export function usePlaybackControl(): PlaybackControlActions {
     try {
       // Backend expects position in JSON body
       await api.post('/api/player/seek', { position: validPosition });
-      // Server broadcasts 'position_changed' message which updates usePlaybackState
+      // Server broadcasts 'position_changed' message which updates the Redux player slice
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'SEEK_ERROR', status: 500 } : err as ApiError;
       setError(apiError);
@@ -292,7 +293,7 @@ export function usePlaybackControl(): PlaybackControlActions {
 
     try {
       await api.post('/api/player/next');
-      // Server broadcasts 'track_changed' message which updates usePlaybackState
+      // Server broadcasts 'track_changed' message which updates the Redux player slice
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'NEXT_ERROR', status: 500 } : err as ApiError;
       setError(apiError);
@@ -313,7 +314,7 @@ export function usePlaybackControl(): PlaybackControlActions {
 
     try {
       await api.post('/api/player/previous');
-      // Server broadcasts 'track_changed' message which updates usePlaybackState
+      // Server broadcasts 'track_changed' message which updates the Redux player slice
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'PREVIOUS_ERROR', status: 500 } : err as ApiError;
       setError(apiError);
@@ -341,7 +342,7 @@ export function usePlaybackControl(): PlaybackControlActions {
     try {
       // Backend reads volume from JSON body (SetVolumeRequest, 0-100) (fixes #2498)
       await api.post('/api/player/volume', { volume: Math.round(validVolume) });
-      // Server broadcasts 'volume_changed' message which updates usePlaybackState
+      // Server broadcasts 'volume_changed' message which updates the Redux player slice
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'VOLUME_ERROR', status: 500 } : err as ApiError;
       setError(apiError);

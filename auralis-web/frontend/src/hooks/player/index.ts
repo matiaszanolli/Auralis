@@ -9,7 +9,9 @@
 // Existing organized hooks
 export { usePlaybackControl } from './usePlaybackControl';
 export { usePlaybackQueue } from './usePlaybackQueue';
-export { usePlaybackState } from './usePlaybackState';
+// usePlaybackState removed (#3126) — parallel WS-shadow state with no
+// production consumers. Use Redux selectors (playerSlice / queueSlice)
+// as the single source of truth for playback state.
 export { useQueueHistory } from './useQueueHistory';
 export { useQueueRecommendations } from './useQueueRecommendations';
 export { useQueueSearch } from './useQueueSearch';

@@ -58,32 +58,11 @@ vi.mock('@/hooks/api/useRestAPI', () => ({
   }),
 }));
 
-// Mock usePlaybackState — shape must match PlaybackState interface (fixes #3009)
-vi.mock('@/hooks/player/usePlaybackState', () => ({
-  usePlaybackState: () => ({
-    currentTrack: {
-      id: 123,
-      title: 'Test Track',
-      artist: 'Test Artist',
-      album: 'Test Album',
-      duration: 180,
-      filepath: '/path/to/track.mp3',
-    },
-    isPlaying: false,
-    volume: 80,
-    position: 0,
-    duration: 180,
-    queue: [],
-    queueIndex: -1,
-    gaplessEnabled: true,
-    crossfadeEnabled: true,
-    crossfadeDuration: 3.0,
-    isLoading: false,
-    error: null,
-  }),
-}));
+// (Removed stale vi.mock for '@/hooks/player/usePlaybackState' — that
+// module was deleted in #3126 as dead WS-shadow state. usePlaybackControl
+// reads player state via Redux selectors; tests provide state through the
+// test store below.)
 
-// Create a test store - current track is provided by mocked usePlaybackState
 const createTestStore = () => {
   return configureStore({
     reducer: {
