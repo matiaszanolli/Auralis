@@ -22,6 +22,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy.signal import find_peaks, sosfiltfilt, tf2sos
+from scipy.signal.windows import hann
 
 
 @dataclass(frozen=True)
@@ -86,11 +87,11 @@ class ResonanceNotcher:
         if len(mono) < N:
             return []
         hop = N // 2
-        hann = np.hanning(N)
+        window = hann(N)
         psd = np.zeros(N // 2 + 1)
         count = 0
         for i in range(0, len(mono) - N, hop):
-            spec = np.fft.rfft(mono[i:i + N] * hann)
+            spec = np.fft.rfft(mono[i:i + N] * window)
             psd += spec.real ** 2 + spec.imag ** 2
             count += 1
         if count == 0:
