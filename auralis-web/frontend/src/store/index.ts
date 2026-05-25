@@ -36,7 +36,7 @@ export const store = configureStore({
     getDefaultMiddleware()
       .concat(createErrorTrackingMiddleware({ logToConsole: true }))
       .concat(createLoggerMiddleware()),
-  devTools: process.env.NODE_ENV !== 'production',
+  devTools: import.meta.env.DEV,
 });
 
 // Export types

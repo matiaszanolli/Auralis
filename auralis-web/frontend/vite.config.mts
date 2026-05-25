@@ -96,7 +96,6 @@ export default defineConfig(({ mode }) => {
       },
     },
     define: {
-      'process.env.NODE_ENV': mode === 'test' ? '"development"' : `"${mode}"`,
       'process.env.VITE_COMMIT_ID': `"${commitIdAtBuildTime}"`,
     },
     server: {

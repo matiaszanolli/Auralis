@@ -11,7 +11,7 @@
  * - Centralized error handling (Phase 3c integration)
  */
 
-import { ReactNode, StrictMode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { WebSocketManager } from '@/utils/errorHandling';
 import { WS_BASE_URL } from '@/config/api';
 import type { AnyWebSocketMessage, AudioChunkMessage, WebSocketMessage, WebSocketMessageType } from '@/types/websocket';
@@ -213,7 +213,7 @@ export const WebSocketProvider = ({
     try {
       // Create WebSocketManager with Phase 3c error handling
       // In development, limit reconnection attempts to reduce console spam
-      const maxAttempts = process.env.NODE_ENV === 'development' ? 3 : 10;
+      const maxAttempts = import.meta.env.DEV ? 3 : 10;
       const manager = new WebSocketManager(url, {
         maxReconnectAttempts: maxAttempts,
         initialReconnectDelayMs: 1000,

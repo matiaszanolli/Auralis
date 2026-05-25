@@ -41,7 +41,7 @@ export interface LoggerConfig {
 }
 
 const defaultConfig: LoggerConfig = {
-  enabled: process.env.NODE_ENV === 'development',
+  enabled: import.meta.env.DEV,
   collapsed: true,
   duration: true,
   timestamps: true,

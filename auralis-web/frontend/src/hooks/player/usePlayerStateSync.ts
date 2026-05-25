@@ -118,7 +118,7 @@ export function usePlayerStateSync() {
         // Sync queue position (index)
         dispatch(setCurrentIndex(state.queue_index));
 
-        if (process.env.NODE_ENV !== 'production') {
+        if (import.meta.env.DEV) {
           console.log('[usePlayerStateSync] Redux updated from WebSocket:', state);
         }
       } catch (err) {

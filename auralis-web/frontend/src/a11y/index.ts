@@ -152,7 +152,7 @@ export function enableA11yMonitoring(): void {
 
   // Start focus visibility monitoring
   focusVisibilityMonitor.onFocusChange((element: HTMLElement | null) => {
-    if (element && process.env.NODE_ENV === 'development') {
+    if (element && import.meta.env.DEV) {
       console.debug('[A11y] Focus moved to:', element);
     }
   });
