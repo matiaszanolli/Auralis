@@ -134,14 +134,24 @@ class SimpleChunkCache:
 
             chunk_bytes = audio.nbytes
 
+            # Account for overwrite first (#3192): drop the existing entry's
+            # bytes from the counter and remove it from the dict so the
+            # eviction loops below reflect the true post-overwrite state and
+            # don't over-evict siblings. Re-insertion at the end of the dict
+            # below also restores LRU ordering for the touched key.
+            if key in self.cache:
+                old_audio, _ = self.cache[key]
+                self._current_bytes -= old_audio.nbytes
+                del self.cache[key]
+
             # Evict by count limit
             while len(self.cache) >= self.max_chunks:
-                removed_key, (removed_audio, _) = self.cache.popitem(last=False)
+                _removed_key, (removed_audio, _) = self.cache.popitem(last=False)
                 self._current_bytes -= removed_audio.nbytes
 
             # Evict by memory limit (#2084)
             while self._current_bytes + chunk_bytes > self._max_memory_bytes and self.cache:
-                removed_key, (removed_audio, _) = self.cache.popitem(last=False)
+                _removed_key, (removed_audio, _) = self.cache.popitem(last=False)
                 self._current_bytes -= removed_audio.nbytes
 
             self.cache[key] = (audio, sample_rate)
@@ -167,7 +177,13 @@ class SimpleChunkCache:
         """
         with self._lock:
             key = self._make_key(track_id, chunk_idx, preset, intensity)
-            if self.cache.pop(key, None) is not None:
+            removed = self.cache.pop(key, None)
+            if removed is not None:
+                # Sibling of #3192: invalidate_chunk previously dropped the
+                # entry but never subtracted its bytes from the counter,
+                # causing the same drift as the overwrite bug.
+                removed_audio, _ = removed
+                self._current_bytes -= removed_audio.nbytes
                 logger.debug(f"Invalidated stale cache entry: chunk {chunk_idx} of track {track_id}")
 
 
