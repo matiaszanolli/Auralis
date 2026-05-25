@@ -11,6 +11,7 @@ Audio validation and processing utilities
 
 import numpy as np
 
+from ..utils.audio_validation import sanitize_audio
 from ..utils.logging import Code, ModuleError, debug, warning
 
 
@@ -24,6 +25,14 @@ def validate_audio(audio_data: np.ndarray, sample_rate: int, file_type: str) -> 
     # Check sample rate
     if sample_rate <= 0:
         raise ModuleError(f"{Code.ERROR_INVALID_SAMPLE_RATE}: {sample_rate}")
+
+    # Sanitize NaN/Inf samples from corrupt source files (#3472). HybridProcessor
+    # fails fast on non-finite input, but the chunked playback path streams
+    # loader output directly — a single NaN would poison whole chunks and
+    # downstream limiters would propagate it. Replace with silence and warn.
+    # Must run BEFORE the amplitude checks below, otherwise np.max(np.abs(...))
+    # on NaN returns NaN and the silence/clipping branches misfire.
+    audio_data = sanitize_audio(audio_data, context=f"loaded {file_type} audio")
 
     if sample_rate < 8000:
         warning(f"Very low sample rate: {sample_rate} Hz")
