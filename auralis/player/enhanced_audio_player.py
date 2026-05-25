@@ -208,11 +208,17 @@ class AudioPlayer:
         in-flight fingerprint threads are invalidated and the new track gets
         its adaptive-mastering fingerprint applied (#3445, #3463).
 
+        Increment + publish runs under ``_fingerprint_lock`` so two
+        concurrent loads don't both observe the same value and pass the
+        same generation to their loaders (#3473). Plain ``self._x += 1`` is
+        LOAD_ATTR/STORE_ATTR at bytecode level — not atomic.
+
         Args:
             file_path: Path of the now-current audio file.
         """
-        self._track_generation += 1
-        generation = self._track_generation
+        with self._fingerprint_lock:
+            self._track_generation += 1
+            generation = self._track_generation
 
         threading.Thread(
             target=self._load_fingerprint_for_file,
