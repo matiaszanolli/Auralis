@@ -147,6 +147,11 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
   const SECONDARY_DARK = '#00BCC4';  // darker shade of accent.secondary
 
   return createTheme({
+    // Opt out of MUI v6's CSS-variables-by-default theme. The custom
+    // --bg-* / --text-* / --glass-border variables written from
+    // ThemeContext.tsx live in a separate namespace from MUI's --mui-*,
+    // but the explicit opt-out documents the deliberate split (#3487).
+    cssVariables: false,
     palette: {
       mode,
       primary: {

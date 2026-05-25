@@ -2,7 +2,7 @@
  * MetadataDetailFields - Detail metadata fields (genre, year, track, disc, composer)
  */
 
-import Grid2 from '@mui/material/Unstable_Grid2';
+import Grid2 from '@mui/material/Grid2';
 import { StyledTextField } from '@/components/library/Styles/FormFields.styles';
 import type { MetadataFields } from './useMetadataForm';
 
@@ -18,7 +18,11 @@ export const MetadataDetailFields = ({
   return (
     <>
       {/* Genre & Year */}
-      <Grid2 xs={12} sm={6}>
+      <Grid2
+        size={{
+          xs: 12,
+          sm: 6
+        }}>
         <StyledTextField
           fullWidth
           label="Genre"
@@ -27,8 +31,11 @@ export const MetadataDetailFields = ({
           variant="outlined"
         />
       </Grid2>
-
-      <Grid2 xs={12} sm={6}>
+      <Grid2
+        size={{
+          xs: 12,
+          sm: 6
+        }}>
         <StyledTextField
           fullWidth
           label="Year"
@@ -38,9 +45,12 @@ export const MetadataDetailFields = ({
           variant="outlined"
         />
       </Grid2>
-
       {/* Track & Disc Numbers */}
-      <Grid2 xs={6} sm={3}>
+      <Grid2
+        size={{
+          xs: 6,
+          sm: 3
+        }}>
         <StyledTextField
           fullWidth
           label="Track #"
@@ -50,8 +60,11 @@ export const MetadataDetailFields = ({
           variant="outlined"
         />
       </Grid2>
-
-      <Grid2 xs={6} sm={3}>
+      <Grid2
+        size={{
+          xs: 6,
+          sm: 3
+        }}>
         <StyledTextField
           fullWidth
           label="Disc #"
@@ -61,9 +74,12 @@ export const MetadataDetailFields = ({
           variant="outlined"
         />
       </Grid2>
-
       {/* Composer */}
-      <Grid2 xs={12} sm={6}>
+      <Grid2
+        size={{
+          xs: 12,
+          sm: 6
+        }}>
         <StyledTextField
           fullWidth
           label="Composer"

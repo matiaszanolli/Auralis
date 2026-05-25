@@ -2,7 +2,7 @@
  * MetadataBasicFields - Basic metadata fields (title, artist, album)
  */
 
-import Grid2 from '@mui/material/Unstable_Grid2';
+import Grid2 from '@mui/material/Grid2';
 import { StyledTextField } from '@/components/library/Styles/FormFields.styles';
 import type { MetadataFields } from './useMetadataForm';
 
@@ -18,7 +18,7 @@ export const MetadataBasicFields = ({
   return (
     <>
       {/* Title */}
-      <Grid2 xs={12}>
+      <Grid2 size={12}>
         <StyledTextField
           fullWidth
           label="Title"
@@ -27,9 +27,12 @@ export const MetadataBasicFields = ({
           variant="outlined"
         />
       </Grid2>
-
       {/* Artist & Album Artist */}
-      <Grid2 xs={12} sm={6}>
+      <Grid2
+        size={{
+          xs: 12,
+          sm: 6
+        }}>
         <StyledTextField
           fullWidth
           label="Artist"
@@ -38,8 +41,11 @@ export const MetadataBasicFields = ({
           variant="outlined"
         />
       </Grid2>
-
-      <Grid2 xs={12} sm={6}>
+      <Grid2
+        size={{
+          xs: 12,
+          sm: 6
+        }}>
         <StyledTextField
           fullWidth
           label="Album Artist"
@@ -48,9 +54,8 @@ export const MetadataBasicFields = ({
           variant="outlined"
         />
       </Grid2>
-
       {/* Album */}
-      <Grid2 xs={12}>
+      <Grid2 size={12}>
         <StyledTextField
           fullWidth
           label="Album"

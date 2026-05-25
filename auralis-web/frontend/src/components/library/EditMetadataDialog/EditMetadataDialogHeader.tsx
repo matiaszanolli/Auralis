@@ -16,7 +16,7 @@ interface EditMetadataDialogHeaderProps {
  */
 export const EditMetadataDialogHeader = ({ loading }: EditMetadataDialogHeaderProps) => {
   return (
-    <DialogTitleStyled component="div">
+    <DialogTitleStyled>
       <DialogHeaderBox>
         <Typography variant="h6">Edit Metadata</Typography>
         {loading && <CircularProgress size={24} />}

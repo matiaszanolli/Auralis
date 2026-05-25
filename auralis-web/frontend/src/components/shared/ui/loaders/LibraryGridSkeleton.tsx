@@ -1,5 +1,5 @@
 
-import Grid2 from '@mui/material/Unstable_Grid2';
+import Grid2 from '@mui/material/Grid2';
 import { AlbumCardSkeleton } from './AlbumCardSkeleton';
 
 interface LibraryGridSkeletonProps {
@@ -19,7 +19,14 @@ export const LibraryGridSkeleton = ({
   return (
     <Grid2 container spacing={3}>
       {Array.from({ length: count }).map((_, index) => (
-        <Grid2 xs={12} sm={6} md={4} lg={3} key={index}>
+        <Grid2
+          key={index}
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 4,
+            lg: 3
+          }}>
           <AlbumCardSkeleton />
         </Grid2>
       ))}

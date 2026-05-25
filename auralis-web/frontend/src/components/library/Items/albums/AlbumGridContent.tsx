@@ -146,11 +146,9 @@ export const AlbumGridContent = ({
       )}
 
       {hasMore && <InfiniteScrollTrigger ref={loadMoreTriggerRef} />}
-
       {isLoadingMore && (
         <GridLoadingState current={albums.length} total={totalAlbums} itemType="albums" />
       )}
-
       {!hasMore && albums.length > 0 && (
         <EndOfListIndicator count={totalAlbums} itemType="albums" />
       )}
