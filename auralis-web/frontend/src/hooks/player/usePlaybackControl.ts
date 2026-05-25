@@ -26,13 +26,27 @@
  */
 
 import { useCallback, useState, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch, useSelector, useStore } from 'react-redux';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { selectCurrentTrack, selectDuration, setIsPlaying, setCurrentTrack, setCurrentTime } from '@/store/slices/playerSlice';
-import { clearQueue } from '@/store/slices/queueSlice';
+import {
+  selectCurrentTrack,
+  selectCurrentTime,
+  selectDuration,
+  selectIsPlaying,
+  setCurrentTime,
+  setCurrentTrack,
+  setIsPlaying,
+} from '@/store/slices/playerSlice';
+import {
+  clearQueue,
+  selectCurrentIndex,
+  selectQueueTracks,
+  setCurrentIndex,
+  setQueue,
+} from '@/store/slices/queueSlice';
 import type { ApiError } from '@/types/api';
-import type { AppDispatch } from '@/store';
+import type { AppDispatch, RootState } from '@/store';
 
 /**
  * Return type for usePlaybackControl hook
@@ -93,6 +107,9 @@ export function usePlaybackControl(): PlaybackControlActions {
   const duration = useSelector(selectDuration);
   const { send } = useWebSocketContext();
   const dispatch = useDispatch<AppDispatch>();
+  // Used for snapshot/rollback in stop() — reading store.getState() imperatively
+  // at call time avoids stale-closure issues and dep-array bloat (#3364).
+  const store = useStore<RootState>();
 
   // Local loading state for this hook's operations
   const [isLoading, setIsLoading] = useState(false);
@@ -191,6 +208,17 @@ export function usePlaybackControl(): PlaybackControlActions {
     setError(null);
     executingCommand.current = 'stop';
 
+    // Snapshot the bits of state we're about to optimistically clear so we
+    // can roll back on send failure (#3364). Reading store.getState()
+    // captures the values AT CALL TIME, dodging useCallback's stale-closure
+    // problem without bloating the dep array.
+    const snapshot = store.getState();
+    const prevIsPlaying = selectIsPlaying(snapshot);
+    const prevCurrentTrack = selectCurrentTrack(snapshot);
+    const prevCurrentTime = selectCurrentTime(snapshot);
+    const prevQueueTracks = selectQueueTracks(snapshot);
+    const prevQueueIndex = selectCurrentIndex(snapshot);
+
     try {
       // Update Redux state immediately so UI reflects stopped state
       // before the WS broadcast arrives (all dispatches are idempotent)
@@ -207,6 +235,16 @@ export function usePlaybackControl(): PlaybackControlActions {
 
       // Server broadcasts 'playback_stopped' message which confirms the state
     } catch (err) {
+      // Roll back the optimistic updates so the Redux store doesn't drift
+      // from the backend's actual queue state (#3364). Order matters: restore
+      // queue first so the player slice's references resolve, then track,
+      // then transport state.
+      dispatch(setQueue(prevQueueTracks));
+      dispatch(setCurrentIndex(prevQueueIndex));
+      dispatch(setCurrentTrack(prevCurrentTrack));
+      dispatch(setCurrentTime(prevCurrentTime));
+      dispatch(setIsPlaying(prevIsPlaying));
+
       const apiError = err instanceof Error ? { message: err.message, code: 'STOP_ERROR', status: 500 } : err as ApiError;
       setError(apiError);
       throw apiError;
@@ -214,7 +252,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [send, dispatch]);
+  }, [send, dispatch, store]);
 
   /**
    * Seek - Seek to position in seconds

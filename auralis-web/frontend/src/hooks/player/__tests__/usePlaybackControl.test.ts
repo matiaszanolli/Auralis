@@ -14,8 +14,15 @@ import { vi } from 'vitest';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { usePlaybackControl } from '@/hooks/player/usePlaybackControl';
-import playerReducer from '@/store/slices/playerSlice';
-import queueReducer from '@/store/slices/queueSlice';
+import playerReducer, {
+  setCurrentTrack as setCurrentTrackAction,
+  setCurrentTime as setCurrentTimeAction,
+  setIsPlaying as setIsPlayingAction,
+} from '@/store/slices/playerSlice';
+import queueReducer, {
+  setCurrentIndex as setCurrentIndexAction,
+  setQueue as setQueueAction,
+} from '@/store/slices/queueSlice';
 
 // Stable send mock — must be the same reference across renders so that
 // play's [send] dep does not trigger unnecessary recreation (#2354).
@@ -291,6 +298,96 @@ describe('usePlaybackControl', () => {
       });
 
       expect(result.current.error).toBeDefined();
+    });
+  });
+
+  describe('stop()', () => {
+    it('should send stop WS message and optimistically clear redux state', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper });
+
+      await act(async () => {
+        await result.current.stop();
+      });
+
+      expect(mockSend).toHaveBeenCalledWith({ type: 'stop', data: {} });
+    });
+
+    it('rolls back redux state when send() throws (#3364)', async () => {
+      // Pre-fix: stop() optimistically dispatched clearQueue() with no
+      // rollback if the WS send threw — UI showed cleared queue while
+      // the backend (presumably still playing) had the real queue. Now
+      // the catch block restores the snapshot taken before the dispatch.
+
+      // Seed the redux store with a non-empty queue + currentTrack so we
+      // can verify the rollback restores it exactly.
+      const { store, wrapper } = (() => {
+        const s = createTestStore();
+        s.dispatch(setQueueAction([
+          { id: 1, title: 'A', filepath: '/a.mp3', duration: 100 } as any,
+          { id: 2, title: 'B', filepath: '/b.mp3', duration: 200 } as any,
+        ]));
+        s.dispatch(setCurrentIndexAction(1));
+        s.dispatch(setCurrentTrackAction({
+          id: 2, title: 'B', filepath: '/b.mp3', duration: 200,
+        } as any));
+        s.dispatch(setIsPlayingAction(true));
+        s.dispatch(setCurrentTimeAction(42));
+
+        const W: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+          React.createElement(Provider, { store: s, children });
+        return { store: s, wrapper: W };
+      })();
+
+      // Make send() throw the way a closed-socket .send(JSON.stringify(...)) would
+      mockSend.mockImplementationOnce(() => {
+        throw new Error('WebSocket is closed');
+      });
+
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper });
+
+      await act(async () => {
+        try {
+          await result.current.stop();
+        } catch { /* expected — error is rethrown */ }
+      });
+
+      // Rollback: queue/currentTrack/transport state must be restored.
+      const state = store.getState();
+      expect(state.queue.tracks).toHaveLength(2);
+      expect(state.queue.tracks[0].id).toBe(1);
+      expect(state.queue.tracks[1].id).toBe(2);
+      expect(state.queue.currentIndex).toBe(1);
+      expect(state.player.currentTrack?.id).toBe(2);
+      expect(state.player.isPlaying).toBe(true);
+      expect(state.player.currentTime).toBe(42);
+
+      // And the error was surfaced to the caller.
+      expect(result.current.error).toBeDefined();
+    });
+
+    it('keeps redux cleared when send() succeeds', async () => {
+      const { store, wrapper } = (() => {
+        const s = createTestStore();
+        s.dispatch(setQueueAction([
+          { id: 1, title: 'A', filepath: '/a.mp3', duration: 100 } as any,
+        ]));
+        s.dispatch(setIsPlayingAction(true));
+        const W: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+          React.createElement(Provider, { store: s, children });
+        return { store: s, wrapper: W };
+      })();
+
+      // Default mockSend is a no-op (doesn't throw) — happy path.
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper });
+      await act(async () => {
+        await result.current.stop();
+      });
+
+      const state = store.getState();
+      expect(state.queue.tracks).toHaveLength(0);
+      expect(state.player.isPlaying).toBe(false);
+      expect(state.player.currentTrack).toBeNull();
     });
   });
 
