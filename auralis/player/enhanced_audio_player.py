@@ -423,8 +423,13 @@ class AudioPlayer:
             chunk_size = self.config.buffer_size
 
         # Hold _audio_lock across the is_loaded check, position read, chunk
-        # fetch, and end-of-track test so a concurrent stop()/load_file()
-        # cannot unload audio between is_loaded() and the slice (#3295).
+        # fetch, end-of-track test, AND the auto-advance test-and-spawn so a
+        # concurrent stop()/load_file() cannot unload audio between
+        # is_loaded() and the slice (#3295), AND so two concurrent callers
+        # cannot both pass the `not _auto_advancing.is_set()` check and spawn
+        # duplicate advance threads (#3434 — Event.is_set + .set is TOCTOU).
+        # Spawning a thread doesn't block, so we never deadlock; the advance
+        # thread acquires the lock independently when it runs.
         with self.file_manager._audio_lock:
             # Return silence if not playing
             if not self.file_manager.is_loaded() or not self.playback.is_playing():
@@ -439,19 +444,20 @@ class AudioPlayer:
             # Check for end of track — use atomic flag to prevent concurrent auto-advance
             end_of_track = pos + chunk_size >= self.file_manager.get_total_samples()
 
-        if end_of_track:
-            if self.auto_advance and not self.queue.is_queue_empty():
-                if not self._auto_advancing.is_set():
-                    self._auto_advancing.set()
-                    self._advance_generation += 1
-                    gen = self._advance_generation
-                    threading.Thread(
-                        target=self._auto_advance_next,
-                        args=(gen,),
-                        daemon=True
-                    ).start()
+            if end_of_track:
+                if self.auto_advance and not self.queue.is_queue_empty():
+                    if not self._auto_advancing.is_set():
+                        self._auto_advancing.set()
+                        self._advance_generation += 1
+                        gen = self._advance_generation
+                        threading.Thread(
+                            target=self._auto_advance_next,
+                            args=(gen,),
+                            daemon=True
+                        ).start()
 
-        # Apply advanced real-time processing
+        # Apply advanced real-time processing (outside the lock — pure CPU
+        # work on the captured chunk, no shared state touched).
         processed_chunk = self.processor.process_chunk(chunk)
 
         return processed_chunk
