@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@/test/test-utils';
-import { act } from 'react-dom/test-utils';
+import { act } from 'react';
 import AlbumArt from './AlbumArt';
 
 describe('AlbumArt', () => {

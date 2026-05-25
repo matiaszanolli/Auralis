@@ -10,7 +10,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { act } from 'react-dom/test-utils';
+import { act } from 'react';
 import GlobalSearch from '../Search/GlobalSearch';
 
 // Mock AlbumArt component to avoid image loading issues

@@ -9,7 +9,7 @@
 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@/test/test-utils';
-import { act } from 'react-dom/test-utils';
+import { act } from 'react';
 import TrackListView from '../Views/TrackListView';
 
 // Mock child components used by TrackListView
