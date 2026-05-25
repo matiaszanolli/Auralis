@@ -18,7 +18,9 @@ export const ArtistListHeader = ({
 }: ArtistListHeaderProps) => {
   return (
     <SectionHeader>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" sx={{
+        color: "text.secondary"
+      }}>
         {loadedCount} {loadedCount !== totalCount ? `of ${totalCount}` : ''} artists in your library
       </Typography>
     </SectionHeader>

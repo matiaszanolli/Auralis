@@ -60,18 +60,19 @@ export const ViewContainer = ({
               <Typography
                 variant="h3"
                 component="h1"
-                fontWeight="bold"
                 gutterBottom
                 sx={{
+                  fontWeight: "bold",
                   background: `linear-gradient(45deg, ${tokens.colors.accent.primary}, ${tokens.colors.accent.secondary})`,
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
-              >
+                  WebkitTextFillColor: 'transparent'
+                }}>
                 {icon} {title}
               </Typography>
-              <Typography variant="subtitle1" color="text.secondary">
+              <Typography variant="subtitle1" sx={{
+                color: "text.secondary"
+              }}>
                 {subtitle}
               </Typography>
             </Box>
@@ -86,7 +87,6 @@ export const ViewContainer = ({
           </Box>
         </Container>
       </Box>
-
       {/* Optional right pane */}
       {rightPane && (
         <Box

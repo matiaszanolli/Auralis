@@ -46,11 +46,15 @@ export const NavigationSection = ({
             </ListItemIcon>
             <ListItemText
               primary={item.label}
-              primaryTypographyProps={{
-                fontSize: tokens.typography.fontSize.base,
-                fontWeight: selectedItem === item.id ? tokens.typography.fontWeight.medium : tokens.typography.fontWeight.normal, // Reduced from semibold
-                color: selectedItem === item.id ? tokens.colors.text.primary : tokens.colors.text.tertiary, // Changed from secondary to tertiary
-                sx: { opacity: selectedItem === item.id ? 1 : 0.75 }, // Fade inactive text by ~25%
+              slotProps={{
+                primary: {
+                  sx: {
+                    fontSize: tokens.typography.fontSize.base,
+                    fontWeight: selectedItem === item.id ? tokens.typography.fontWeight.medium : tokens.typography.fontWeight.normal,
+                    color: selectedItem === item.id ? tokens.colors.text.primary : tokens.colors.text.tertiary,
+                    opacity: selectedItem === item.id ? 1 : 0.75,
+                  },
+                },
               }}
             />
           </StyledListItemButton>

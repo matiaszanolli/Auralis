@@ -52,12 +52,13 @@ export const FoldersList = ({
               <ListItemText
                 primary={basename}
                 secondary={folder}
-                primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: tokens.typography.fontWeight.medium }}
-                secondaryTypographyProps={{
-                  fontSize: '0.75rem',
-                  color: tokens.colors.text.metadata,
-                  noWrap: true,
-                  title: folder,
+                slotProps={{
+                  primary: { sx: { fontSize: '0.9rem', fontWeight: tokens.typography.fontWeight.medium } },
+                  secondary: {
+                    noWrap: true,
+                    title: folder,
+                    sx: { fontSize: '0.75rem', color: tokens.colors.text.metadata },
+                  },
                 }}
               />
               <ListItemSecondaryAction>

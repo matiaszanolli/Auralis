@@ -71,18 +71,20 @@ export const SearchBar = ({
         value={internalValue}
         onChange={handleChange}
         autoFocus={autoFocus}
-        inputProps={{ 'aria-label': 'Search' }}
-        InputProps={{
-          startAdornment: <SearchInputAdornments.Start />,
-          endAdornment: (
-            <SearchInputAdornments.End
-              value={internalValue}
-              resultCount={resultCount}
-              showResultCount={showResultCount}
-              isSearching={isSearching}
-              onClear={handleClear}
-            />
-          ),
+        slotProps={{
+          htmlInput: { 'aria-label': 'Search' },
+          input: {
+            startAdornment: <SearchInputAdornments.Start />,
+            endAdornment: (
+              <SearchInputAdornments.End
+                value={internalValue}
+                resultCount={resultCount}
+                showResultCount={showResultCount}
+                isSearching={isSearching}
+                onClear={handleClear}
+              />
+            ),
+          },
         }}
       />
 

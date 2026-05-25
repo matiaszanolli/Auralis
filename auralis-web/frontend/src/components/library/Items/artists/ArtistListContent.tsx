@@ -95,7 +95,9 @@ export const ArtistListContent = ({
         endMessage={
           artists.length > 0 && (
             <EndOfListIndicator>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Showing all {totalArtists} artists
               </Typography>
             </EndOfListIndicator>
@@ -119,7 +121,6 @@ export const ArtistListContent = ({
           />
         ))}
       </InfiniteScroll>
-
       {/* Context menu */}
       <ContextMenu
         anchorPosition={contextMenuState.mousePosition}
