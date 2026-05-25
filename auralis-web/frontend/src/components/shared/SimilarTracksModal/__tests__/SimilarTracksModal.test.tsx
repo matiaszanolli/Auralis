@@ -33,6 +33,11 @@ const sampleTracks = [
 describe('SimilarTracksModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Re-apply the resolved value — the initial .mockResolvedValue([]) set at
+    // module-load time is gone by the time the first test runs (likely a
+    // vi.mock factory / hoisting interaction). Without this, findSimilar()
+    // returns undefined and the component's `.catch(...)` chain throws.
+    mockFindSimilar.mockResolvedValue([]);
     mockUseSimilarTracks.mockReturnValue({
       similarTracks: null,
       loading: false,
@@ -161,5 +166,19 @@ describe('SimilarTracksModal', () => {
     render(<SimilarTracksModal {...defaultProps} trackTitle="My Great Song" />);
 
     expect(screen.getByText(/Tracks similar to "My Great Song"/)).toBeInTheDocument();
+  });
+
+  // Regression for #2813 / #3419: the close IconButton is icon-only, so the
+  // visual `Tooltip` is unreachable by screen readers. The aria-label is the
+  // only way assistive tech can identify the control's purpose. A refactor
+  // that drops it (or replaces it with a generic "Close") regresses A11y.
+  it('exposes the close button to screen readers via aria-label (#2813)', () => {
+    render(<SimilarTracksModal {...defaultProps} />);
+
+    const closeButton = screen.getByRole('button', { name: /close similar tracks/i });
+    expect(closeButton).toBeInTheDocument();
+
+    fireEvent.click(closeButton);
+    expect(defaultProps.onClose).toHaveBeenCalled();
   });
 });
