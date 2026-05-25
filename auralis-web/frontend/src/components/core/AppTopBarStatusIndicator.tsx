@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { StatusIndicator } from './AppTopBar.styles';
 
 interface AppTopBarStatusIndicatorProps {

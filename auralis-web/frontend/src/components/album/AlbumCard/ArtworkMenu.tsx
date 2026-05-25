@@ -7,7 +7,6 @@
  * - Delete existing artwork
  */
 
-import React from 'react';
 import { Menu, MenuItem } from '@mui/material';
 import { CloudDownload, ImageSearch, Delete } from '@mui/icons-material';
 

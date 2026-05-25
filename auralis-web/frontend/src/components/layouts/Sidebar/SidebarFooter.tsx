@@ -2,7 +2,6 @@
  * SidebarFooter - Sidebar footer with settings and theme toggle
  */
 
-import React from 'react';
 import { Box, ListItemIcon, ListItemText } from '@mui/material';
 import { Settings } from '@mui/icons-material';
 import { tokens } from '@/design-system';

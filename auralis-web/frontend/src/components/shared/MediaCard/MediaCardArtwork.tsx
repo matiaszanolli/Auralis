@@ -10,7 +10,7 @@
  * 2. Else → Use hash-based gradient (fallback for non-fingerprinted items)
  */
 
-import React from 'react';
+import { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
 import { MediaCardVariant } from './MediaCard.types';
@@ -26,7 +26,7 @@ interface MediaCardArtworkProps {
   /** Audio fingerprint for gradient generation (optional) */
   fingerprint?: Partial<AudioFingerprint>;
   /** Child elements (overlay) */
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 /**

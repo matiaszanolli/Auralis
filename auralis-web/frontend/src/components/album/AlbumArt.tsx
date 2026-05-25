@@ -6,7 +6,7 @@
  * Enhanced with ProgressiveImage for better perceived performance and retry logic.
  */
 
-import React from 'react';
+import { CSSProperties } from 'react';
 import { Box, styled } from '@mui/material';
 import { ProgressiveImage } from '@/components/shared/ui/media';
 import { tokens } from '@/design-system';
@@ -18,7 +18,7 @@ interface AlbumArtProps {
   borderRadius?: number | string;
   onClick?: () => void;
   showSkeleton?: boolean;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 }
 
 const ArtworkContainer = styled(Box, {

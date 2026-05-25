@@ -4,8 +4,6 @@
  * Footer with V2 toggle button
  */
 
-import React from 'react';
-
 import { FooterArea } from './AppEnhancementPaneStyles';
 import { Button, Tooltip, tokens } from '@/design-system';
 

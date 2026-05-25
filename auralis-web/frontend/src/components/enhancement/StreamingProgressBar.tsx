@@ -13,7 +13,7 @@
  * - Animated transitions
  */
 
-import React, { useMemo } from 'react';
+import { CSSProperties, useMemo } from 'react';
 import { tokens } from '@/design-system';
 import { formatTime } from '@/utils/timeFormat';
 
@@ -296,7 +296,7 @@ export const StreamingProgressBar = ({
 /**
  * Styles for StreamingProgressBar
  */
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   container: {
     display: 'flex',
     flexDirection: 'column',

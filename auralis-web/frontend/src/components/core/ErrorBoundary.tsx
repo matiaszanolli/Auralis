@@ -7,7 +7,7 @@
  * Must be a class component — React does not support error boundaries via hooks.
  */
 
-import React from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { tokens } from '@/design-system';
 
 interface ErrorBoundaryState {
@@ -16,12 +16,12 @@ interface ErrorBoundaryState {
 }
 
 interface ErrorBoundaryProps {
-  children: React.ReactNode;
+  children: ReactNode;
   /** Optional fallback to render instead of the default error UI */
-  fallback?: React.ReactNode;
+  fallback?: ReactNode;
 }
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -31,7 +31,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+  componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('[ErrorBoundary] Uncaught rendering error:', error, info.componentStack);
   }
 
@@ -39,7 +39,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     this.setState({ hasError: false, error: null });
   };
 
-  render(): React.ReactNode {
+  render(): ReactNode {
     if (!this.state.hasError) {
       return this.props.children;
     }

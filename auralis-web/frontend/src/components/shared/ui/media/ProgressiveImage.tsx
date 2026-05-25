@@ -16,7 +16,6 @@
  * @license GPLv3
  */
 
-import React from 'react';
 import { Box, styled } from '@mui/material';
 import { MusicNote } from '@mui/icons-material';
 import { tokens } from '@/design-system';

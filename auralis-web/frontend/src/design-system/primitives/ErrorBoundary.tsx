@@ -1,10 +1,10 @@
-import React from 'react';
+import { CSSProperties, Component, ErrorInfo, ReactNode } from 'react';
 import { tokens } from '@/design-system';
 
 interface ErrorBoundaryProps {
-  children: React.ReactNode;
-  fallback?: (error: Error, retry: () => void) => React.ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  children: ReactNode;
+  fallback?: (error: Error, retry: () => void) => ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface ErrorBoundaryState {
@@ -15,7 +15,7 @@ interface ErrorBoundaryState {
 /**
  * Error boundary component for catching React errors.
  */
-export class ErrorBoundary extends React.Component<
+export class ErrorBoundary extends Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
@@ -28,7 +28,7 @@ export class ErrorBoundary extends React.Component<
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.props.onError?.(error, errorInfo);
   }
 
@@ -42,7 +42,7 @@ export class ErrorBoundary extends React.Component<
         return this.props.fallback(this.state.error, this.handleRetry);
       }
 
-      const containerStyles: React.CSSProperties = {
+      const containerStyles: CSSProperties = {
         padding: tokens.spacing.lg,
         backgroundColor: tokens.colors.semantic.error + '15',
         border: `1px solid ${tokens.colors.semantic.error}`,
@@ -50,14 +50,14 @@ export class ErrorBoundary extends React.Component<
         margin: tokens.spacing.lg,
       };
 
-      const titleStyles: React.CSSProperties = {
+      const titleStyles: CSSProperties = {
         color: tokens.colors.semantic.error,
         fontSize: tokens.typography.fontSize.lg,
         fontWeight: tokens.typography.fontWeight.semibold,
         marginBottom: tokens.spacing.md,
       };
 
-      const messageStyles: React.CSSProperties = {
+      const messageStyles: CSSProperties = {
         color: tokens.colors.text.secondary,
         fontSize: tokens.typography.fontSize.sm,
         marginBottom: tokens.spacing.md,
@@ -66,7 +66,7 @@ export class ErrorBoundary extends React.Component<
         maxHeight: '200px',
       };
 
-      const buttonStyles: React.CSSProperties = {
+      const buttonStyles: CSSProperties = {
         padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
         backgroundColor: tokens.colors.accent.primary,
         color: tokens.colors.text.primary,

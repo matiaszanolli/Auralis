@@ -22,7 +22,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import React, { ReactElement } from 'react';
+import { ReactElement, ReactNode } from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render as rtlRender, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -51,7 +51,7 @@ vi.mock('@/contexts/WebSocketContext', () => ({
 /**
  * Minimal wrapper for PlayerControls tests
  */
-function MinimalWrapper({ children }: { children: React.ReactNode }) {
+function MinimalWrapper({ children }: { children: ReactNode }) {
   return (
     <BrowserRouter>
       {children}

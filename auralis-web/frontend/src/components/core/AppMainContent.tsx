@@ -1,4 +1,4 @@
-import React from 'react';
+import { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
 
@@ -10,7 +10,7 @@ export interface AppMainContentProps {
    * Child components to render in the main content area.
    * Typically the library view (CozyLibraryView or similar).
    */
-  children: React.ReactNode;
+  children: ReactNode;
 
   /**
    * Optional callback when a track is clicked to play.

@@ -24,7 +24,7 @@
  * ```
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as playlistService from '@/services/playlistService';
 import CreatePlaylistDialog from '@/components/playlist/CreatePlaylistDialog';
 import { PlaylistSection } from './PlaylistSection';

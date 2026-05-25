@@ -1,11 +1,11 @@
-import React from 'react';
+import { MouseEvent, memo } from 'react';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { PlayButton } from './TrackRow.styles';
 
 interface TrackRowPlayButtonProps {
   isCurrent: boolean;
   isPlaying: boolean;
-  onClick: (e: React.MouseEvent) => void;
+  onClick: (e: MouseEvent) => void;
   /** Track title for accessible label */
   trackTitle?: string;
 }
@@ -36,7 +36,7 @@ const TrackRowPlayButtonComponent = ({
  * Only re-renders when isCurrent or isPlaying change
  * onClick is excluded as it's recreated on parent render but doesn't affect button state
  */
-export const TrackRowPlayButton = React.memo<TrackRowPlayButtonProps>(
+export const TrackRowPlayButton = memo<TrackRowPlayButtonProps>(
   TrackRowPlayButtonComponent,
   (prev, next) => {
     return (

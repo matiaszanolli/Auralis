@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { TrackCountInfoBox, TrackCountInfoText } from './CreatePlaylistDialog.styles';
 
 interface InitialTracksInfoProps {

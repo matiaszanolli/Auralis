@@ -4,14 +4,14 @@
  * Reusable action button for batch operations toolbar
  */
 
-import React from 'react';
+import { MouseEvent, ReactNode } from 'react';
 import { Tooltip } from '@/design-system';
 import { ActionButton } from './BatchActionsToolbarStyles';
 
 interface BatchActionButtonProps {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
-  onClick: (event: React.MouseEvent<HTMLElement>) => void;
+  onClick: (event: MouseEvent<HTMLElement>) => void;
 }
 
 export const BatchActionButton = ({
@@ -19,7 +19,7 @@ export const BatchActionButton = ({
   title,
   onClick,
 }: BatchActionButtonProps) => {
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleClick = (event: MouseEvent<HTMLElement>) => {
     onClick(event);
   };
 

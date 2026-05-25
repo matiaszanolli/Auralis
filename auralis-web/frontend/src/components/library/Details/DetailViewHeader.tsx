@@ -5,22 +5,21 @@
  * Consolidates common header patterns: artwork, title, metadata, and action buttons.
  */
 
-import React from 'react';
-
+import { ReactNode } from 'react';
 import { tokens } from '@/design-system';
 import { Box, Typography, styled } from '@mui/material';
 
 interface DetailViewHeaderProps {
   /** Left side content (artwork or avatar) */
-  artwork: React.ReactNode;
+  artwork: ReactNode;
   /** Main title (album/artist name) */
   title: string;
   /** Secondary title (artist name or label) */
   subtitle?: string;
   /** Additional metadata items (year, track count, duration) */
-  metadata?: React.ReactNode;
+  metadata?: ReactNode;
   /** Action buttons (play, favorite, etc.) */
-  actions?: React.ReactNode;
+  actions?: ReactNode;
   /** Custom layout direction - 'row' (default) or 'column' */
   direction?: 'row' | 'column';
   /** Phase 1: Reduce header visual weight when playback is active */

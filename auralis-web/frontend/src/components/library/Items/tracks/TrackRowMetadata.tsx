@@ -1,4 +1,4 @@
-import React from 'react';
+import { memo } from 'react';
 import { TrackInfo, TrackTitle, TrackArtist, TrackAlbum, TrackDuration } from './TrackRow.styles';
 
 interface TrackRowMetadataProps {
@@ -45,7 +45,7 @@ const TrackRowMetadataComponent = ({
  * Memoized TrackRowMetadata with custom comparator
  * Only re-renders when title, artist, album, duration, or isCurrent change
  */
-export const TrackRowMetadata = React.memo<TrackRowMetadataProps>(
+export const TrackRowMetadata = memo<TrackRowMetadataProps>(
   TrackRowMetadataComponent,
   (prev, next) => {
     return (

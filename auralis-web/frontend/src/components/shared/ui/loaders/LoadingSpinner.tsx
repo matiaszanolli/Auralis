@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Box, styled } from '@mui/material';
 import { rotate, pulse } from '@/components/library/Styles/Animation.styles';
 import { tokens, CircularProgress } from '@/design-system';

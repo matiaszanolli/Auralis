@@ -17,7 +17,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import React from 'react';
+import { ReactElement, ReactNode } from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -51,7 +51,7 @@ global.fetch = vi.fn(() =>
 /**
  * Minimal wrapper that avoids WebSocket singleton issues
  */
-function MinimalWrapper({ children }: { children: React.ReactNode }) {
+function MinimalWrapper({ children }: { children: ReactNode }) {
   return (
     <BrowserRouter>
       <ThemeProvider>
@@ -64,7 +64,7 @@ function MinimalWrapper({ children }: { children: React.ReactNode }) {
 /**
  * Custom render with MinimalWrapper
  */
-function renderWithMinimalWrapper(ui: React.ReactElement) {
+function renderWithMinimalWrapper(ui: ReactElement) {
   return render(ui, { wrapper: MinimalWrapper });
 }
 

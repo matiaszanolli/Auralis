@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext, useCallback } from 'react';
+import { ReactNode, createContext, useCallback, useContext, useState } from 'react';
 import { AlertColor, Snackbar } from '@mui/material';
 import { StyledAlert } from './Toast.styles';
 import { ToastItem } from './ToastItem';
@@ -63,7 +63,7 @@ export const useToast = () => {
 };
 
 interface ToastProviderProps {
-  children: React.ReactNode;
+  children: ReactNode;
   maxToasts?: number;
 }
 

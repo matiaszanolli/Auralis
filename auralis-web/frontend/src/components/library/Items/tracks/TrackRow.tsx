@@ -1,4 +1,4 @@
-import React from 'react';
+import { KeyboardEvent, memo } from 'react';
 import { MoreVert } from '@mui/icons-material';
 import { ContextMenu } from '@/components/shared/ContextMenu';
 import {
@@ -106,7 +106,7 @@ const TrackRowComponent = ({
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
         onContextMenu={handleTrackContextMenu}
-        onKeyDown={(e: React.KeyboardEvent) => {
+        onKeyDown={(e: KeyboardEvent) => {
           if (e.key === 'Enter') {
             e.preventDefault();
             handleRowClick();
@@ -188,6 +188,6 @@ const TrackRowComponent = ({
  * The previous custom comparator silently dropped callback prop changes,
  * causing stale closure bugs (#2540).
  */
-export const TrackRow = React.memo<TrackRowProps>(TrackRowComponent);
+export const TrackRow = memo<TrackRowProps>(TrackRowComponent);
 
 export default TrackRow;

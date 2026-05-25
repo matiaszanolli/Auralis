@@ -11,7 +11,7 @@
  * - Design token styling
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { Box, styled } from '@mui/material';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { tokens } from '@/design-system';
@@ -89,7 +89,7 @@ const PlaceholderIcon = styled(MusicNoteIcon)(({ theme: _theme }) => ({
   fontSize: tokens.typography.fontSize.xl,
 }));
 
-export const AlbumArtDisplay = React.memo<AlbumArtDisplayProps>(({
+export const AlbumArtDisplay = memo<AlbumArtDisplayProps>(({
   artworkPath,
   title = 'Album',
   album = 'Album',

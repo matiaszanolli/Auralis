@@ -7,7 +7,7 @@
  * Orchestrates ParameterRow components with formatting via custom hook.
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { Box, Typography, Stack } from '@mui/material';
 import { GraphicEq, VolumeUp, Compress } from '@mui/icons-material';
 import { tokens } from '@/design-system';
@@ -28,7 +28,7 @@ interface ProcessingParametersProps {
   params: ProcessingParams;
 }
 
-const ProcessingParameters = React.memo<ProcessingParametersProps>(({ params }) => {
+const ProcessingParameters = memo<ProcessingParametersProps>(({ params }) => {
   const {
     formatTargetLoudness,
     formatPeakTarget,

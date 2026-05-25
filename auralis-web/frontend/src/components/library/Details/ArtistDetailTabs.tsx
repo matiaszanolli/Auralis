@@ -4,7 +4,6 @@
  * Tab navigation for albums and tracks
  */
 
-import React from 'react';
 import { Box, Tab, Tabs } from '@mui/material';
 import { tokens } from '@/design-system';
 import AlbumsTab from '@/components/library/Views/AlbumsTab';

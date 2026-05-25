@@ -4,7 +4,6 @@
  * Displays dynamic text based on scanning, dragging, or idle state.
  */
 
-import React from 'react';
 import { Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 

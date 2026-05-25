@@ -11,7 +11,7 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
+import { ComponentType } from 'react';
 import { styled } from '@mui/material/styles';
 import MuiCard, { CardProps as MuiCardProps } from '@mui/material/Card';
 import { tokens } from '@/design-system/tokens';
@@ -47,7 +47,7 @@ type StyledCardProps = Omit<MuiCardProps, 'variant'> & {
   selected?: boolean;
 };
 
-const StyledCard = styled(MuiCard as React.ComponentType<Omit<MuiCardProps, 'variant'>>, {
+const StyledCard = styled(MuiCard as ComponentType<Omit<MuiCardProps, 'variant'>>, {
   shouldForwardProp: (prop) =>
     !['variant', 'padding', 'hoverable', 'selected'].includes(prop as string),
 })<StyledCardProps>(({ variant = 'default', padding = 'md', hoverable, selected }) => {

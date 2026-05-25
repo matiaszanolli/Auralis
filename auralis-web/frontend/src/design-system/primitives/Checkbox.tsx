@@ -1,8 +1,8 @@
-import React from 'react';
+import { CSSProperties, InputHTMLAttributes, forwardRef } from 'react';
 import { tokens } from '@/design-system';
 
 interface CheckboxProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
+  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string;
   error?: string;
 }
@@ -10,7 +10,7 @@ interface CheckboxProps
 /**
  * Checkbox component following design system standards.
  */
-export const Checkbox = React.forwardRef<
+export const Checkbox = forwardRef<
   HTMLInputElement,
   CheckboxProps
 >(({
@@ -19,27 +19,27 @@ export const Checkbox = React.forwardRef<
   className = '',
   ...props
 }, ref) => {
-  const containerStyles: React.CSSProperties = {
+  const containerStyles: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacing.sm,
   };
 
-  const inputStyles: React.CSSProperties = {
+  const inputStyles: CSSProperties = {
     width: '18px',
     height: '18px',
     cursor: 'pointer',
     accentColor: tokens.colors.accent.primary,
   };
 
-  const labelStyles: React.CSSProperties = {
+  const labelStyles: CSSProperties = {
     fontSize: tokens.typography.fontSize.base,
     color: tokens.colors.text.primary,
     cursor: 'pointer',
     userSelect: 'none',
   };
 
-  const errorStyles: React.CSSProperties = {
+  const errorStyles: CSSProperties = {
     fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.semantic.error,
     marginTop: tokens.spacing.xs,

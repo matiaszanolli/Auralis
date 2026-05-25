@@ -12,7 +12,7 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
+import { ComponentType, forwardRef } from 'react';
 import { styled } from '@mui/material/styles';
 import MuiIconButton, { IconButtonProps as MuiIconButtonProps } from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -46,7 +46,7 @@ type StyledIconButtonProps = Omit<MuiIconButtonProps, 'size' | 'color'> & {
   active?: boolean;
 };
 
-const StyledIconButton = styled(MuiIconButton as React.ComponentType<Omit<MuiIconButtonProps, 'size' | 'color'>>, {
+const StyledIconButton = styled(MuiIconButton as ComponentType<Omit<MuiIconButtonProps, 'size' | 'color'>>, {
   shouldForwardProp: (prop) =>
     !['variant', 'size', 'active'].includes(prop as string),
 })<StyledIconButtonProps>(({ variant = 'default', size = 'md', active, disabled }) => {
@@ -164,7 +164,7 @@ const StyledIconButton = styled(MuiIconButton as React.ComponentType<Omit<MuiIco
   };
 });
 
-export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(({
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(({
   children,
   tooltip,
   variant = 'default',

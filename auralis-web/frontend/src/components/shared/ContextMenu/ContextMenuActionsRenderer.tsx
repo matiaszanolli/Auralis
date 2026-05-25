@@ -1,4 +1,4 @@
-import React from 'react';
+import { Fragment } from 'react';
 import { ListItemIcon, ListItemText, Divider } from '@mui/material';
 import { tokens } from '@/design-system';
 import { StyledMenuItem } from './ContextMenu.styles';
@@ -28,7 +28,7 @@ export const ContextMenuActionsRenderer = ({
   return (
     <>
       {actions.map((action, index) => (
-        <React.Fragment key={action.id}>
+        <Fragment key={action.id}>
           {action.divider && index > 0 && (
             <Divider sx={{ borderColor: tokens.colors.opacityScale.accent.minimal, my: 1 }} />
           )}
@@ -40,7 +40,7 @@ export const ContextMenuActionsRenderer = ({
             {action.icon && <ListItemIcon>{action.icon}</ListItemIcon>}
             <ListItemText>{action.label}</ListItemText>
           </StyledMenuItem>
-        </React.Fragment>
+        </Fragment>
       ))}
     </>
   );

@@ -11,7 +11,7 @@
  * Total: 7 tests
  */
 
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
@@ -34,13 +34,13 @@ interface ArtworkManagerProps {
 }
 
 const ArtworkManager = ({ albumId, onUpload, onDelete, onError }: ArtworkManagerProps) => {
-  const [artworkUrl, setArtworkUrl] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [uploading, setUploading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [artworkUrl, setArtworkUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch current artwork
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchArtwork = async () => {
       try {
         const response = await fetch(`http://localhost:8765/api/albums/${albumId}/artwork`);

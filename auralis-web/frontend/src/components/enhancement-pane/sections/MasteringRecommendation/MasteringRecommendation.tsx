@@ -6,7 +6,7 @@
  * 100% design token compliant.
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { tokens } from '@/design-system';
 
 interface ProfileWeight {
@@ -32,7 +32,7 @@ interface MasteringRecommendationProps {
   isLoading?: boolean;
 }
 
-const MasteringRecommendation = React.memo<MasteringRecommendationProps>(({
+const MasteringRecommendation = memo<MasteringRecommendationProps>(({
   recommendation,
   isLoading = false,
 }) => {

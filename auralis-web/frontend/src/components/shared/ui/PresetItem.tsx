@@ -1,4 +1,4 @@
-import React from 'react';
+import { KeyboardEvent } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Tooltip } from '@/design-system';
 import { tokens } from '@/design-system';
@@ -58,7 +58,7 @@ export const PresetItem = ({
         aria-pressed={isActive}
         aria-label={preset.label}
         onClick={() => !isActive && onSelect(preset.value)}
-        onKeyDown={(e: React.KeyboardEvent) => {
+        onKeyDown={(e: KeyboardEvent) => {
           if (!isActive && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
             onSelect(preset.value);

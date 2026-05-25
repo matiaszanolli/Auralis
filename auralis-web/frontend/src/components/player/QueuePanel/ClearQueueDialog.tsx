@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import { KeyboardEvent, useCallback, useEffect, useRef } from 'react';
 import { tokens } from '@/design-system';
 
 interface ClearQueueDialogProps {
@@ -10,7 +10,7 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
   const dialogRef = useRef<HTMLDivElement>(null);
 
   // Focus trap: keep Tab/Shift+Tab within the dialog (#3007)
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') { onCancel(); return; }
     if (e.key !== 'Tab') return;
 

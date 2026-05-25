@@ -20,7 +20,7 @@
  * - useMediaCardState: Hover state management
  */
 
-import React from 'react';
+import { KeyboardEvent, MouseEvent, memo } from 'react';
 import { Card } from '@/design-system';
 import { tokens } from '@/design-system';
 import { formatDuration } from '@/utils/timeFormat';
@@ -93,11 +93,11 @@ const getMetadata = (props: MediaCardProps) => {
  * />
  * ```
  */
-export const MediaCard = React.memo(function MediaCard(props: MediaCardProps) {
+export const MediaCard = memo(function MediaCard(props: MediaCardProps) {
   const { isHovered, setIsHovered } = useMediaCardState();
   const metadata = getMetadata(props);
 
-  const handlePlayClick = (e: React.MouseEvent) => {
+  const handlePlayClick = (e: MouseEvent) => {
     e.stopPropagation();
     if (props.onPlay) {
       props.onPlay(props.id);
@@ -183,7 +183,7 @@ export const MediaCard = React.memo(function MediaCard(props: MediaCardProps) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={props.onClick}
-      onKeyDown={(e: React.KeyboardEvent) => {
+      onKeyDown={(e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           props.onClick?.();

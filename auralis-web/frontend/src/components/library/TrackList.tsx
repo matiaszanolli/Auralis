@@ -26,7 +26,7 @@
  * @module components/library/TrackList
  */
 
-import React, { useCallback, useRef, useEffect, useState } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { tokens } from '@/design-system';
 import { useTracksQuery } from '@/hooks/library/useLibraryQuery';

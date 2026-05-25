@@ -5,8 +5,7 @@
  * Supports custom gradients for visual differentiation.
  */
 
-import React from 'react';
-
+import { memo } from 'react';
 import { tokens } from '@/design-system';
 import ParameterChip from './ParameterChip';
 import { LinearProgress } from '@/design-system';
@@ -19,7 +18,7 @@ interface ParameterBarProps {
   chipLabel: string;
 }
 
-const ParameterBar = React.memo<ParameterBarProps>(({
+const ParameterBar = memo<ParameterBarProps>(({
   label,
   value,
   gradient,

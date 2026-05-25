@@ -15,7 +15,7 @@
  * Total: 20 tests
  */
 
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
@@ -24,9 +24,9 @@ import { server } from '@/test/mocks/server';
 
 // Test component that makes API calls
 const TestAPIComponent = ({ endpoint, onError }: { endpoint: string; onError?: (error: Error) => void }) => {
-  const [data, setData] = React.useState<any>(null);
-  const [error, setError] = React.useState<Error | null>(null);
-  const [loading, setLoading] = React.useState(false);
+  const [data, setData] = useState<any>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -47,7 +47,7 @@ const TestAPIComponent = ({ endpoint, onError }: { endpoint: string; onError?: (
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchData();
   }, [endpoint]);
 
@@ -59,8 +59,8 @@ const TestAPIComponent = ({ endpoint, onError }: { endpoint: string; onError?: (
 
 // Test component for concurrent requests
 const TestConcurrentComponent = () => {
-  const [results, setResults] = React.useState<string[]>([]);
-  const [errors, setErrors] = React.useState<string[]>([]);
+  const [results, setResults] = useState<string[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
 
   const makeConcurrentRequests = async () => {
     const endpoints = [
@@ -83,7 +83,7 @@ const TestConcurrentComponent = () => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     makeConcurrentRequests();
   }, []);
 
@@ -97,9 +97,9 @@ const TestConcurrentComponent = () => {
 
 // Test component for retry logic with rate limiting
 const TestRetryComponent = () => {
-  const [attempts, setAttempts] = React.useState(0);
-  const [retryAfter, setRetryAfter] = React.useState<number | null>(null);
-  const [status, setStatus] = React.useState<string>('idle');
+  const [attempts, setAttempts] = useState(0);
+  const [retryAfter, setRetryAfter] = useState<number | null>(null);
+  const [status, setStatus] = useState<string>('idle');
 
   const fetchWithRetry = async () => {
     setAttempts(prev => prev + 1);
@@ -125,7 +125,7 @@ const TestRetryComponent = () => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchWithRetry();
   }, []);
 
@@ -364,9 +364,9 @@ describe('Error Handling API Integration Tests', () => {
     it('should handle aborted request', async () => {
       // Arrange
       const TestAbortComponent = () => {
-        const [error, setError] = React.useState<string | null>(null);
+        const [error, setError] = useState<string | null>(null);
 
-        React.useEffect(() => {
+        useEffect(() => {
           const controller = new AbortController();
 
           fetch('http://localhost:8765/api/player/state', { signal: controller.signal })
@@ -431,9 +431,9 @@ describe('Error Handling API Integration Tests', () => {
       );
 
       const TestMissingFieldsComponent = () => {
-        const [error, setError] = React.useState<string | null>(null);
+        const [error, setError] = useState<string | null>(null);
 
-        React.useEffect(() => {
+        useEffect(() => {
           fetch('http://localhost:8765/api/test/missing-fields')
             .then(r => r.json())
             .then(data => {
@@ -468,9 +468,9 @@ describe('Error Handling API Integration Tests', () => {
       );
 
       const TestTypeMismatchComponent = () => {
-        const [error, setError] = React.useState<string | null>(null);
+        const [error, setError] = useState<string | null>(null);
 
-        React.useEffect(() => {
+        useEffect(() => {
           fetch('http://localhost:8765/api/test/type-mismatch')
             .then(r => r.json())
             .then(data => {
@@ -535,9 +535,9 @@ describe('Error Handling API Integration Tests', () => {
       );
 
       const TestNullFieldsComponent = () => {
-        const [hasNulls, setHasNulls] = React.useState(false);
+        const [hasNulls, setHasNulls] = useState(false);
 
-        React.useEffect(() => {
+        useEffect(() => {
           fetch('http://localhost:8765/api/test/null-fields')
             .then(r => r.json())
             .then(data => {
@@ -571,9 +571,9 @@ describe('Error Handling API Integration Tests', () => {
       );
 
       const TestUndefinedPropsComponent = () => {
-        const [hasUndefined, setHasUndefined] = React.useState(false);
+        const [hasUndefined, setHasUndefined] = useState(false);
 
-        React.useEffect(() => {
+        useEffect(() => {
           fetch('http://localhost:8765/api/test/undefined-props')
             .then(r => r.json())
             .then(data => {

@@ -659,9 +659,9 @@ export const globalAnimationEngine = new SmoothAnimationEngine();
 
 // React hook for smooth animations
 export function useSmoothAnimation() {
-  const [engine] = React.useState(() => globalAnimationEngine);
+  const [engine] = useState(() => globalAnimationEngine);
 
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       // Cleanup handled by global engine
     };
@@ -695,6 +695,5 @@ export function useSmoothAnimation() {
 }
 
 // Import React for the hook
-import React from 'react';
-
+import { useEffect, useState } from 'react';
 export default SmoothAnimationEngine;

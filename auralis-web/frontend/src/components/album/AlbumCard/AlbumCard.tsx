@@ -17,7 +17,7 @@
  * - Falls back to hash-based gradient if fingerprint not provided
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { MediaCard } from '@/components/shared/MediaCard';
 import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
@@ -46,7 +46,7 @@ export interface AlbumCardProps {
  * TODO: Re-implement artwork management (download/extract/delete) via
  * MediaCard extension or separate overlay component.
  */
-export const AlbumCard = React.memo(function AlbumCard({
+export const AlbumCard = memo(function AlbumCard({
   albumId,
   title,
   artist,

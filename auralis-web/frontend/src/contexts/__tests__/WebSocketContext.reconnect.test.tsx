@@ -26,7 +26,7 @@ vi.mock('../../utils/errorHandling', () => ({
   WebSocketManager: vi.fn(),
 }));
 
-import React from 'react';
+import { ReactNode } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
@@ -73,7 +73,7 @@ function makeMockManager(): MockWSManager {
 // Helpers
 // ============================================================================
 
-function wrapper({ children }: { children: React.ReactNode }) {
+function wrapper({ children }: { children: ReactNode }) {
   return <WebSocketProvider>{children}</WebSocketProvider>;
 }
 

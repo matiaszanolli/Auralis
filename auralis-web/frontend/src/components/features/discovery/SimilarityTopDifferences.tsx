@@ -1,4 +1,3 @@
-import React from 'react';
 
 import { tokens } from '@/design-system';
 import { SectionDivider, DimensionRow, ValueComparisonBox } from './SimilarityVisualization.styles';

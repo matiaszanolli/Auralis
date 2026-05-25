@@ -1,8 +1,8 @@
-import React from 'react';
+import { CSSProperties, ReactNode, forwardRef } from 'react';
 import { tokens } from '@/design-system';
 
 interface StackProps {
-  children: React.ReactNode;
+  children: ReactNode;
   direction?: 'row' | 'column';
   spacing?: keyof typeof tokens.spacing;
   align?: 'flex-start' | 'center' | 'flex-end' | 'stretch';
@@ -14,7 +14,7 @@ interface StackProps {
  * Flexible box component for stacking children with consistent spacing.
  * Supports both horizontal and vertical layouts.
  */
-export const Stack = React.forwardRef<
+export const Stack = forwardRef<
   HTMLDivElement,
   StackProps
 >(({
@@ -27,7 +27,7 @@ export const Stack = React.forwardRef<
 }, ref) => {
   const gap = tokens.spacing[spacing];
 
-  const styles: React.CSSProperties = {
+  const styles: CSSProperties = {
     display: 'flex',
     flexDirection: direction as any,
     gap,

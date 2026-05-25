@@ -7,7 +7,7 @@
  * 100% design token compliant - no hardcoded values.
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 
@@ -15,7 +15,7 @@ interface LibraryHeaderProps {
   view: string;
 }
 
-export const LibraryHeader = React.memo<LibraryHeaderProps>(({ view }) => {
+export const LibraryHeader = memo<LibraryHeaderProps>(({ view }) => {
   return (
     <Box sx={{ mb: tokens.spacing.xl }}>
       <Typography

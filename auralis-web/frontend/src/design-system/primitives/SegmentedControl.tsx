@@ -17,14 +17,14 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
+import { ReactNode } from 'react';
 import { styled } from '@mui/material/styles';
 import { tokens } from '@/design-system/tokens';
 
 export interface SegmentedControlOption {
   value: string;
   label: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
 }
 
 export interface SegmentedControlProps {

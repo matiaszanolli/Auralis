@@ -17,7 +17,7 @@
  * Total: 20 tests
  */
 
-import React from 'react';
+import { ReactElement, ReactNode } from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -126,12 +126,12 @@ function createTestStore() {
  * Creates store ONCE per render call to avoid React concurrent rendering errors
  * ("Should not already be working" errors occur when store is recreated on every wrapper render)
  */
-function renderWithMinimalWrapper(ui: React.ReactElement) {
+function renderWithMinimalWrapper(ui: ReactElement) {
   // Create store once for this specific render call
   const store = createTestStore();
 
   // Wrapper component that uses the stable store instance
-  function Wrapper({ children }: { children: React.ReactNode }) {
+  function Wrapper({ children }: { children: ReactNode }) {
     return (
       <Provider store={store}>
         <BrowserRouter>

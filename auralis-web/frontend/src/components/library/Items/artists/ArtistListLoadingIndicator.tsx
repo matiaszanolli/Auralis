@@ -4,7 +4,6 @@
  * Displays during infinite scroll pagination of artist list.
  */
 
-import React from 'react';
 import { Box, Typography } from '@mui/material';
 
 interface ArtistListLoadingIndicatorProps {

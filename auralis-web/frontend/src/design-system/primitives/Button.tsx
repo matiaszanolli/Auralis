@@ -12,7 +12,7 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
+import { ComponentType, ReactNode } from 'react';
 import { styled } from '@mui/material/styles';
 import MuiButton, { ButtonProps as MuiButtonProps } from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -42,12 +42,12 @@ export interface ButtonProps extends Omit<MuiButtonProps, 'variant' | 'size' | '
   /**
    * Icon before text
    */
-  startIcon?: React.ReactNode;
+  startIcon?: ReactNode;
 
   /**
    * Icon after text
    */
-  endIcon?: React.ReactNode;
+  endIcon?: ReactNode;
 }
 
 type StyledButtonProps = Omit<MuiButtonProps, 'variant' | 'size' | 'color'> & {
@@ -56,7 +56,7 @@ type StyledButtonProps = Omit<MuiButtonProps, 'variant' | 'size' | 'color'> & {
   loading?: boolean;
 };
 
-const StyledButton = styled(MuiButton as React.ComponentType<Omit<MuiButtonProps, 'variant' | 'size' | 'color'>>, {
+const StyledButton = styled(MuiButton as ComponentType<Omit<MuiButtonProps, 'variant' | 'size' | 'color'>>, {
   shouldForwardProp: (prop) =>
     !['variant', 'size', 'loading'].includes(prop as string),
 })<StyledButtonProps>(({ variant = 'primary', size = 'md', disabled, loading }) => {

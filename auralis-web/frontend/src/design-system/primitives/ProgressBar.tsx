@@ -1,4 +1,4 @@
-import React from 'react';
+import { CSSProperties, forwardRef } from 'react';
 import { tokens } from '@/design-system';
 
 interface ProgressBarProps {
@@ -27,7 +27,7 @@ const sizeMap = {
 /**
  * Progress bar component for showing progress of a task.
  */
-export const ProgressBar = React.forwardRef<
+export const ProgressBar = forwardRef<
   HTMLDivElement,
   ProgressBarProps
 >(({
@@ -43,13 +43,13 @@ export const ProgressBar = React.forwardRef<
   const barHeight = sizeMap[size];
   const barColor = colorMap[color];
 
-  const containerStyles: React.CSSProperties = {
+  const containerStyles: CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacing.sm,
   };
 
-  const headerStyles: React.CSSProperties = {
+  const headerStyles: CSSProperties = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -57,7 +57,7 @@ export const ProgressBar = React.forwardRef<
     color: tokens.colors.text.secondary,
   };
 
-  const barContainerStyles: React.CSSProperties = {
+  const barContainerStyles: CSSProperties = {
     width: '100%',
     height: barHeight,
     backgroundColor: tokens.colors.bg.secondary,
@@ -65,7 +65,7 @@ export const ProgressBar = React.forwardRef<
     overflow: 'hidden',
   };
 
-  const barFillStyles: React.CSSProperties = {
+  const barFillStyles: CSSProperties = {
     height: '100%',
     width: `${percentage}%`,
     backgroundColor: barColor,

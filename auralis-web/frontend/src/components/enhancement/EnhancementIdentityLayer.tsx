@@ -9,7 +9,7 @@
  * Design: "Ambient, slow, expressive" - not corporate charts
  */
 
-import React, { useMemo, useState } from 'react';
+import { CSSProperties, useMemo, useState } from 'react';
 import { tokens } from '@/design-system';
 import type { PresetName } from '@/store/slices/playerSlice';
 
@@ -145,7 +145,7 @@ export const EnhancementIdentityLayer = ({
 /**
  * Styles - Ambient, minimal, expressive (Phase 3)
  */
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   container: {
     display: 'flex',
     flexDirection: 'column',

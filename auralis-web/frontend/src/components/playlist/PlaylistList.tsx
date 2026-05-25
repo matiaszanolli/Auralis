@@ -28,7 +28,7 @@
  * ```
  */
 
-import React, { useState, useEffect } from 'react';
+import { MouseEvent, useEffect, useState } from 'react';
 import { Box, IconButton } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import * as playlistService from '@/services/playlistService';
@@ -128,7 +128,7 @@ export const PlaylistList = ({
   };
 
   // Context menu handlers
-  const handleContextMenuOpen = (e: React.MouseEvent, playlist: playlistService.Playlist) => {
+  const handleContextMenuOpen = (e: MouseEvent, playlist: playlistService.Playlist) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenuPlaylist(playlist);

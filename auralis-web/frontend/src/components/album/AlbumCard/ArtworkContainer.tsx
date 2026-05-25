@@ -9,7 +9,7 @@
  * - Options menu
  */
 
-import React, { useState } from 'react';
+import { MouseEvent, useState } from 'react';
 import { Box } from '@mui/material';
 import { AlbumArt } from '@/components/album/AlbumArt';
 import { PlayOverlay } from './PlayOverlay';
@@ -44,11 +44,11 @@ export interface ArtworkContainerProps {
   isHovered: boolean;
   isDownloading: boolean;
   isExtracting: boolean;
-  onPlay: (e: React.MouseEvent) => void;
-  onMenuOpen: (e: React.MouseEvent) => void;
+  onPlay: (e: MouseEvent) => void;
+  onMenuOpen: (e: MouseEvent) => void;
   onMenuClose: () => void;
-  onDownload: (e: React.MouseEvent) => void;
-  onExtract: (e: React.MouseEvent) => void;
+  onDownload: (e: MouseEvent) => void;
+  onExtract: (e: MouseEvent) => void;
   onDelete: () => void;
 }
 
@@ -68,7 +68,7 @@ export const ArtworkContainer = ({
 }: ArtworkContainerProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => {
+  const handleMenuOpen = (e: MouseEvent<HTMLElement>) => {
     e.stopPropagation();
     setAnchorEl(e.currentTarget);
     onMenuOpen(e);
@@ -79,12 +79,12 @@ export const ArtworkContainer = ({
     onMenuClose();
   };
 
-  const handleDownload = (e: React.MouseEvent) => {
+  const handleDownload = (e: MouseEvent) => {
     e.stopPropagation();
     onDownload(e);
   };
 
-  const handleExtract = (e: React.MouseEvent) => {
+  const handleExtract = (e: MouseEvent) => {
     e.stopPropagation();
     onExtract(e);
   };
@@ -131,11 +131,11 @@ export const ArtworkContainer = ({
         hasArtwork={hasArtwork}
         onDownload={() => {
           handleMenuClose();
-          onDownload({} as React.MouseEvent);
+          onDownload({} as MouseEvent);
         }}
         onExtract={() => {
           handleMenuClose();
-          onExtract({} as React.MouseEvent);
+          onExtract({} as MouseEvent);
         }}
         onDelete={handleDelete}
         isDownloading={isDownloading}

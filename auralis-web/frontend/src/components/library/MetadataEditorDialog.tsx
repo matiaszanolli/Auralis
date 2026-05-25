@@ -23,7 +23,7 @@
  * @module components/library/MetadataEditorDialog
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { tokens } from '@/design-system';
 import type { Track } from '@/types/domain';
 

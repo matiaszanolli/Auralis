@@ -1,4 +1,4 @@
-import React from 'react';
+import { KeyboardEvent } from 'react';
 import { StyledTextField } from '@/components/library/Styles/FormFields.styles';
 import { DialogContentBox } from './EditPlaylistDialog.styles';
 
@@ -8,7 +8,7 @@ interface PlaylistFormFieldsProps {
   description: string;
   onDescriptionChange: (value: string) => void;
   loading: boolean;
-  onKeyDown: (e: React.KeyboardEvent) => void;
+  onKeyDown: (e: KeyboardEvent) => void;
 }
 
 /**

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { SearchTextField } from '@/components/library/Styles/FormFields.styles';
 import { SearchInputAdornments } from './SearchInputAdornments';
@@ -51,7 +51,7 @@ export const SearchBar = ({
     }
   }, [debouncedValue, onChange, controlledValue]);
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     setInternalValue(event.target.value);
   };
 

@@ -5,12 +5,12 @@
  * Features pulsing animation for visual feedback.
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { Paper, Typography } from '@mui/material';
 import { AutoAwesome } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 
-const LoadingState = React.memo(() => {
+const LoadingState = memo(() => {
   return (
     <Paper
       elevation={0}

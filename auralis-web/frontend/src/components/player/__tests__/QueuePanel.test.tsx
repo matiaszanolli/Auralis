@@ -5,7 +5,7 @@
  * Covers: display, controls, interactions, and responsive behavior
  */
 
-import React from 'react';
+import { ReactElement, ReactNode } from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, within, fireEvent, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -74,7 +74,7 @@ const mockTracks = [
 /**
  * Minimal wrapper for tests
  */
-function MinimalWrapper({ children }: { children: React.ReactNode }) {
+function MinimalWrapper({ children }: { children: ReactNode }) {
   return (
     <BrowserRouter>
       <ThemeProvider>
@@ -84,7 +84,7 @@ function MinimalWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-function renderWithWrapper(ui: React.ReactElement) {
+function renderWithWrapper(ui: ReactElement) {
   return render(ui, { wrapper: MinimalWrapper });
 }
 

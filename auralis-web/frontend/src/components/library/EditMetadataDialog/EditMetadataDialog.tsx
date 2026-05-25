@@ -17,7 +17,6 @@
  * - Loading states during operations
  */
 
-import React from 'react';
 import { Dialog, DialogContent } from '@mui/material';
 import { Save as SaveIcon, Close as CloseIcon } from '@mui/icons-material';
 import { CircularProgress } from '@/design-system';

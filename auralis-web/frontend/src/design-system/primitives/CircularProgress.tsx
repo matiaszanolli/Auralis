@@ -11,7 +11,6 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
 import MuiCircularProgress, {
   CircularProgressProps as MuiCircularProgressProps,
 } from '@mui/material/CircularProgress';

@@ -14,7 +14,7 @@
  * />
  */
 
-import React, { useMemo, useState } from 'react';
+import { CSSProperties, useMemo, useState } from 'react';
 import { tokens } from '@/design-system';
 
 export interface VolumeControlProps {
@@ -215,7 +215,7 @@ export const VolumeControl = ({
             background: `linear-gradient(to right, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.primary} ${clampedVolume * 100}%, ${tokens.colors.bg.level3} ${clampedVolume * 100}%, ${tokens.colors.bg.level3} 100%)`,
             opacity: disabled ? 0.5 : 1,
             transition: 'height 0.2s ease, outline 0.2s ease',
-          } as React.CSSProperties}
+          } as CSSProperties}
         />
       </div>
 

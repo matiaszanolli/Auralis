@@ -1,4 +1,4 @@
-import React from 'react';
+import { memo } from 'react';
 import { Tooltip } from '@/design-system';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { ToggleButton, EnhancementLabel, EnhancementContainer } from './EnhancementToggleStyles';
@@ -14,7 +14,7 @@ import { EnhancementToggleProps } from './EnhancementToggle';
  * - Smooth scale animations
  * - Icon rotation effect
  */
-export const ButtonVariant = React.memo<EnhancementToggleProps>(({
+export const ButtonVariant = memo<EnhancementToggleProps>(({
   isEnabled,
   onToggle,
   tooltipText,

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { ListItemText } from '@mui/material';
 import { PlaylistIcon, TrackCount } from './DroppablePlaylist.styles';
 

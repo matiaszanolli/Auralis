@@ -1,10 +1,10 @@
-import React from 'react';
+import { CSSProperties, ReactNode, forwardRef } from 'react';
 import { tokens } from '@/design-system';
 
 interface AlertProps {
-  children: React.ReactNode;
+  children: ReactNode;
   variant?: 'info' | 'success' | 'warning' | 'error';
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   onClose?: () => void;
   className?: string;
 }
@@ -42,7 +42,7 @@ const variantStyles = {
 /**
  * Alert component for displaying important messages.
  */
-export const Alert = React.forwardRef<
+export const Alert = forwardRef<
   HTMLDivElement,
   AlertProps
 >(({
@@ -54,7 +54,7 @@ export const Alert = React.forwardRef<
 }, ref) => {
   const variantStyle = variantStyles[variant] || variantStyles.info;
 
-  const containerStyles: React.CSSProperties = {
+  const containerStyles: CSSProperties = {
     display: 'flex',
     alignItems: 'flex-start',
     gap: tokens.spacing.md,
@@ -65,13 +65,13 @@ export const Alert = React.forwardRef<
     color: variantStyle.text,
   };
 
-  const contentStyles: React.CSSProperties = {
+  const contentStyles: CSSProperties = {
     flex: 1,
     fontSize: tokens.typography.fontSize.sm,
     lineHeight: tokens.typography.lineHeight.normal,
   };
 
-  const closeButtonStyles: React.CSSProperties = {
+  const closeButtonStyles: CSSProperties = {
     background: 'none',
     border: 'none',
     color: variantStyle.text,

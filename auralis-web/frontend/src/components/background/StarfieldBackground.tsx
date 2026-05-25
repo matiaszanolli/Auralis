@@ -5,7 +5,7 @@
  * GLSL shaders extracted to starfield.shaders.ts.
  */
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { VERTEX_SHADER, FRAGMENT_SHADER } from './starfield.shaders';
 
 /** Audio reactivity data from useAudioVisualization hook */

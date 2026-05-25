@@ -11,7 +11,7 @@
  * - Centralized error handling (Phase 3c integration)
  */
 
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { ReactNode, StrictMode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { WebSocketManager } from '@/utils/errorHandling';
 import { WS_BASE_URL } from '@/config/api';
 import type { AnyWebSocketMessage, AudioChunkMessage, WebSocketMessage, WebSocketMessageType } from '@/types/websocket';
@@ -80,12 +80,12 @@ interface WebSocketContextValue {
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 
 // ============================================================================
-// Singleton WebSocket Manager (survives React.StrictMode double-mounting)
+// Singleton WebSocket Manager (survives StrictMode double-mounting)
 // ============================================================================
 
 /**
  * Module-level singleton to ensure only ONE WebSocket connection exists
- * even when React.StrictMode causes double-mounting in development.
+ * even when StrictMode causes double-mounting in development.
  *
  * This prevents multiple WebSocket connections from being created during
  * hot reload or StrictMode testing.
@@ -101,7 +101,7 @@ let pendingAudioChunkMeta: AudioChunkMessage | null = null;
 
 /**
  * Module-level subscription maps (must be singletons to survive provider remounts)
- * When React.StrictMode remounts the provider, these stay intact so that
+ * When StrictMode remounts the provider, these stay intact so that
  * subscriptions registered before remount still receive messages.
  */
 const singletonSubscriptions: Map<string, Set<MessageHandler>> = new Map();
@@ -109,7 +109,7 @@ const singletonGlobalHandlers: Set<MessageHandler> = new Set();
 
 /**
  * Last active streaming command (play_enhanced / play_normal) sent while connected.
- * Stored as a singleton so it survives provider remounts (React.StrictMode).
+ * Stored as a singleton so it survives provider remounts (StrictMode).
  * Re-issued after every reconnect to restore audio stream (issue #2385).
  * Cleared when the client sends an explicit stop or pause.
  */
@@ -154,7 +154,7 @@ export function resetWebSocketSingletons(): void {
 // ============================================================================
 
 interface WebSocketProviderProps {
-  children: React.ReactNode;
+  children: ReactNode;
   url?: string;
 }
 

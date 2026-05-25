@@ -1,8 +1,8 @@
-import React from 'react';
+import { CSSProperties, ReactNode, forwardRef } from 'react';
 import { tokens } from '@/design-system/tokens';
 
 export interface TextProps {
-  children: React.ReactNode;
+  children: ReactNode;
   as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'label';
   variant?: 'display' | 'title' | 'heading' | 'body' | 'caption' | 'label';
   size?: keyof typeof tokens.typography.fontSize;
@@ -12,7 +12,7 @@ export interface TextProps {
   align?: 'left' | 'center' | 'right';
   truncate?: boolean;
   className?: string;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 }
 
 const variantStyles = {
@@ -62,7 +62,7 @@ const variantStyles = {
  *   Body text
  * </Text>
  */
-export const Text = React.forwardRef<HTMLElement, TextProps>(
+export const Text = forwardRef<HTMLElement, TextProps>(
   (
     {
       children,
@@ -81,7 +81,7 @@ export const Text = React.forwardRef<HTMLElement, TextProps>(
   ) => {
     const variantStyle = variantStyles[variant];
 
-    const styles: React.CSSProperties = {
+    const styles: CSSProperties = {
       fontFamily: tokens.typography.fontFamily.primary,
       margin: 0,
       ...variantStyle,

@@ -7,7 +7,7 @@
  * - Context actions generation
  */
 
-import React from 'react';
+import { MouseEvent, ReactNode, createElement } from 'react';
 import { vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
@@ -63,8 +63,8 @@ const createTestStore = () => {
 // Wrapper component that provides Redux store
 const createWrapper = () => {
   const store = createTestStore();
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store, children });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(Provider, { store, children });
   };
 };
 
@@ -124,7 +124,7 @@ describe('useTrackContextMenu', () => {
         clientX: 100,
         clientY: 50,
         stopPropagation: vi.fn(),
-      } as unknown as React.MouseEvent;
+      } as unknown as MouseEvent;
 
       await act(async () => {
         result.current.handleMoreClick(mockEvent);
@@ -153,7 +153,7 @@ describe('useTrackContextMenu', () => {
         clientY: 150,
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
-      } as unknown as React.MouseEvent;
+      } as unknown as MouseEvent;
 
       await act(async () => {
         result.current.handleTrackContextMenu(mockEvent);
@@ -182,7 +182,7 @@ describe('useTrackContextMenu', () => {
         clientX: 100,
         clientY: 50,
         stopPropagation: vi.fn(),
-      } as unknown as React.MouseEvent;
+      } as unknown as MouseEvent;
 
       // First open the menu
       await act(async () => {
@@ -353,13 +353,13 @@ describe('useTrackContextMenu', () => {
         clientX: 100,
         clientY: 50,
         stopPropagation: vi.fn(),
-      } as unknown as React.MouseEvent;
+      } as unknown as MouseEvent;
 
       const mockEvent2 = {
         clientX: 200,
         clientY: 150,
         stopPropagation: vi.fn(),
-      } as unknown as React.MouseEvent;
+      } as unknown as MouseEvent;
 
       await act(async () => {
         result1.current.handleMoreClick(mockEvent1);

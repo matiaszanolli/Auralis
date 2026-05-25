@@ -4,7 +4,6 @@
  * Shows cache hit, processing speed, and progress percentage as chips.
  */
 
-import React from 'react';
 import { Stack } from '@mui/material';
 import { TrendingUp, Speed, Memory } from '@mui/icons-material';
 import { Chip, tokens } from '@/design-system';

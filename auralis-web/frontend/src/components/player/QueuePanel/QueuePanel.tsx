@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { DragEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { QueueTrackItem } from './QueueTrackItem';
@@ -56,7 +56,7 @@ export const QueuePanel = ({
   }, []);
 
   const handleContainerDragOver = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => {
+    (e: DragEvent<HTMLDivElement>) => {
       if (draggingIndex === null) return;
       e.preventDefault();
       const rect = e.currentTarget.getBoundingClientRect();

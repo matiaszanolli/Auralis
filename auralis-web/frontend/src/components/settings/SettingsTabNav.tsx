@@ -1,4 +1,4 @@
-import React from 'react';
+import { SyntheticEvent } from 'react';
 import { Box, Tab } from '@mui/material';
 import {
   LibraryMusic as LibraryMusicIcon,
@@ -14,7 +14,7 @@ import { tokens } from '@/design-system';
 
 interface SettingsTabNavProps {
   activeTab: number;
-  onTabChange: (event: React.SyntheticEvent, newValue: number) => void;
+  onTabChange: (event: SyntheticEvent, newValue: number) => void;
   isScanning?: boolean;
 }
 

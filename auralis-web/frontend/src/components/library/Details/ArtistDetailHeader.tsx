@@ -4,8 +4,6 @@
  * Header section with back button and artist info
  */
 
-import React from 'react';
-
 import { tokens } from '@/design-system';
 import { ArrowBack } from '@mui/icons-material';
 import ArtistHeader from './ArtistHeader';

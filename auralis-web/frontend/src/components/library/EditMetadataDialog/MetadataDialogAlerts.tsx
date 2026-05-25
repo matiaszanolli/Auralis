@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Alert } from '@/design-system';
 import { AlertContainer } from './EditMetadataDialog.styles';
 

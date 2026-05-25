@@ -1,4 +1,4 @@
-import React from 'react';
+import { ReactNode } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { List } from '@/design-system';
@@ -25,7 +25,7 @@ interface ResultsContainerComponentProps {
   loading: boolean;
   query: string;
   groupedResults: GroupedResults;
-  getAvatar: (result: SearchResult) => React.ReactNode;
+  getAvatar: (result: SearchResult) => ReactNode;
   onResultClick: (result: SearchResult) => void;
 }
 

@@ -22,7 +22,7 @@
  * ```
  */
 
-import React from 'react';
+import { ReactNode } from 'react';
 import { ListItemAvatar, ListItemText } from '@mui/material';
 import {
   StyledListItemButton,
@@ -41,7 +41,7 @@ interface SearchResult {
 
 interface SearchResultItemProps {
   result: SearchResult;
-  avatar: React.ReactNode;
+  avatar: ReactNode;
   chipLabel: string;
   chipClass: 'track' | 'album' | 'artist';
   onClick: (result: SearchResult) => void;

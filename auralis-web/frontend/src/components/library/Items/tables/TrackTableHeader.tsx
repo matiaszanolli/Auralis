@@ -2,7 +2,6 @@
  * TrackTableHeader - Album track table header
  */
 
-import React from 'react';
 import { TableHead, TableRow, TableCell } from '@mui/material';
 import { tokens } from '@/design-system';
 

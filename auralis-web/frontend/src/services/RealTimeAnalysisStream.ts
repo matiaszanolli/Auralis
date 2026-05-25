@@ -581,13 +581,13 @@ export function useRealTimeAnalysisStream(
   endpoint?: string,
   config?: Partial<AudioStreamConfig>
 ) {
-  const [stream] = React.useState(() => new RealTimeAnalysisStream(config));
-  const [isConnected, setIsConnected] = React.useState(false);
-  const [metrics, setMetrics] = React.useState<StreamMetrics>(stream.getMetrics());
-  const [lastData, setLastData] = React.useState<AnalysisStreamData | null>(null);
-  const [error, setError] = React.useState<Error | null>(null);
+  const [stream] = useState(() => new RealTimeAnalysisStream(config));
+  const [isConnected, setIsConnected] = useState(false);
+  const [metrics, setMetrics] = useState<StreamMetrics>(stream.getMetrics());
+  const [lastData, setLastData] = useState<AnalysisStreamData | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Connect to stream
     if (endpoint) {
       stream.connect(endpoint).catch(setError);
@@ -625,6 +625,5 @@ export function useRealTimeAnalysisStream(
 }
 
 // Import React for the hook
-import React from 'react';
-
+import { useEffect, useState } from 'react';
 export default RealTimeAnalysisStream;

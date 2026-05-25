@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { useQueueSearch } from '@/hooks/player/useQueueSearch';
 import type { SearchResult } from '@/hooks/player/useQueueSearch';

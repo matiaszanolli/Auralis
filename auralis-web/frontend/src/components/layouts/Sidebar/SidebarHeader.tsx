@@ -2,8 +2,6 @@
  * SidebarHeader - Sidebar header with logo and collapse button
  */
 
-import React from 'react';
-
 import { ChevronLeft } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { AuroraLogo } from '@/components/navigation/AuroraLogo';

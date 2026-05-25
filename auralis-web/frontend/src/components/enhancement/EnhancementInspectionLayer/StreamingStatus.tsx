@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { CSSProperties, useMemo } from 'react';
 import { tokens } from '@/design-system';
 import { formatTime } from '@/utils/timeFormat';
 
@@ -97,7 +97,7 @@ export const StreamingStatus = ({
   );
 };
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   statusDisplay: {
     padding: tokens.spacing.md,
     background: tokens.glass.subtle.background,

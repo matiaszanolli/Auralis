@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import { CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 import { tokens } from '@/design-system';
 import type { PresetName } from '@/store/slices/playerSlice';
 import { PRESETS } from './types';
@@ -14,7 +14,7 @@ export const PresetSelector = ({
   disabled = false,
   onPresetChange,
 }: PresetSelectorProps) => {
-  const [showPresetMenu, setShowPresetMenu] = React.useState(false);
+  const [showPresetMenu, setShowPresetMenu] = useState(false);
   const presetContainerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -116,7 +116,7 @@ export const PresetSelector = ({
   );
 };
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   presetSection: {
     display: 'flex',
     flexDirection: 'column',

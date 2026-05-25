@@ -5,7 +5,7 @@
  * Designed for compact display of parameter values.
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { Chip, tokens } from '@/design-system';
 
 interface ParameterChipProps {
@@ -13,7 +13,7 @@ interface ParameterChipProps {
   gradient: string;
 }
 
-export const ParameterChip = React.memo<ParameterChipProps>(({ label, gradient }) => {
+export const ParameterChip = memo<ParameterChipProps>(({ label, gradient }) => {
   return (
     <Chip
       label={label}

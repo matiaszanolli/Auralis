@@ -1,5 +1,4 @@
-import React from 'react';
-
+import { ChangeEvent } from 'react';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import { SearchContainer } from './AppTopBar.styles';
@@ -10,7 +9,7 @@ interface AppTopBarSearchInputProps {
   searchQuery: string;
   isSearchFocused: boolean;
   minWidth: number;
-  onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSearchChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onFocus: () => void;
   onBlur: () => void;
   onClear: () => void;

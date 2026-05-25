@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { DropIndicator, DropIndicatorText } from './DroppablePlaylist.styles';
 
 interface PlaylistDropIndicatorProps {

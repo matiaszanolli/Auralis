@@ -1,4 +1,4 @@
-import React from 'react';
+import { CSSProperties } from 'react';
 import { keyframes } from '@mui/material';
 import { tokens } from '@/design-system';
 
@@ -63,7 +63,7 @@ export const FingerprintIndicator = ({
   );
 };
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   fingerprintIndicator: {
     padding: tokens.spacing.md,
     borderRadius: tokens.borderRadius.sm,

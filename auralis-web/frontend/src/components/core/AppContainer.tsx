@@ -1,4 +1,4 @@
-import React from 'react';
+import { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { tokens } from '@/design-system';
@@ -17,7 +17,7 @@ export interface AppContainerProps {
    * Child components to render inside the container.
    * Typically includes sidebar, main content, and enhancement pane.
    */
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 /**

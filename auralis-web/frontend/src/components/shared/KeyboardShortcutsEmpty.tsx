@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Typography } from '@mui/material';
 import { Keyboard } from '@mui/icons-material';
 import { EmptyStateBox } from './KeyboardShortcutsHelp.styles';

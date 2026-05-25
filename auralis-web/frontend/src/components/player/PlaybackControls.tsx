@@ -19,7 +19,7 @@
  * />
  */
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { tokens } from '@/design-system';
 import styles from './PlaybackControlsStyles';
 

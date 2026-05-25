@@ -1,8 +1,8 @@
-import React from 'react';
+import { CSSProperties, ElementType, MouseEvent, ReactNode, forwardRef } from 'react';
 import { tokens } from '@/design-system/tokens';
 
 export interface BoxProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
   as?: keyof JSX.IntrinsicElements;
   display?: 'flex' | 'block' | 'inline' | 'inline-flex' | 'grid' | 'none';
   flexDirection?: 'row' | 'column' | 'row-reverse' | 'column-reverse';
@@ -38,9 +38,9 @@ export interface BoxProps {
   border?: string;
   boxShadow?: string;
   opacity?: number;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
   className?: string;
-  onClick?: (e: React.MouseEvent) => void;
+  onClick?: (e: MouseEvent) => void;
 }
 
 /**
@@ -54,7 +54,7 @@ export interface BoxProps {
  *   <Box flex={1}>Content</Box>
  * </Box>
  */
-export const Box = React.forwardRef<HTMLElement, BoxProps>(
+export const Box = forwardRef<HTMLElement, BoxProps>(
   (
     {
       children,
@@ -99,7 +99,7 @@ export const Box = React.forwardRef<HTMLElement, BoxProps>(
     },
     ref
   ) => {
-    const styles: React.CSSProperties = {
+    const styles: CSSProperties = {
       display,
       flexDirection,
       alignItems,
@@ -141,7 +141,7 @@ export const Box = React.forwardRef<HTMLElement, BoxProps>(
       ...style,
     };
 
-    const Element = Component as React.ElementType;
+    const Element = Component as ElementType;
 
     return (
       <Element

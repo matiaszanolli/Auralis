@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { LightMode, DarkMode } from '@mui/icons-material';
 import { ThemeToggleIconContainer } from './ThemeToggle.styles';
 import { tokens } from '@/design-system';

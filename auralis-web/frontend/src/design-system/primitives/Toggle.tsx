@@ -1,8 +1,8 @@
-import React from 'react';
+import { CSSProperties, InputHTMLAttributes, forwardRef } from 'react';
 import { tokens } from '@/design-system';
 
 interface ToggleProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
+  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string;
   error?: string;
 }
@@ -10,7 +10,7 @@ interface ToggleProps
 /**
  * Toggle switch component for boolean states.
  */
-export const Toggle = React.forwardRef<
+export const Toggle = forwardRef<
   HTMLInputElement,
   ToggleProps
 >(({
@@ -19,20 +19,20 @@ export const Toggle = React.forwardRef<
   className = '',
   ...props
 }, ref) => {
-  const containerStyles: React.CSSProperties = {
+  const containerStyles: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacing.md,
   };
 
-  const switchContainerStyles: React.CSSProperties = {
+  const switchContainerStyles: CSSProperties = {
     position: 'relative',
     display: 'inline-flex',
     width: '48px',
     height: '28px',
   };
 
-  const inputStyles: React.CSSProperties = {
+  const inputStyles: CSSProperties = {
     appearance: 'none',
     width: '100%',
     height: '100%',
@@ -46,14 +46,14 @@ export const Toggle = React.forwardRef<
     outline: 'none',
   };
 
-  const labelStyles: React.CSSProperties = {
+  const labelStyles: CSSProperties = {
     fontSize: tokens.typography.fontSize.base,
     color: tokens.colors.text.primary,
     cursor: 'pointer',
     userSelect: 'none',
   };
 
-  const errorStyles: React.CSSProperties = {
+  const errorStyles: CSSProperties = {
     fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.semantic.error,
     marginTop: tokens.spacing.xs,

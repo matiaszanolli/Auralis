@@ -11,7 +11,7 @@
  * - AppEnhancementPaneFooter - V2 toggle button
  */
 
-import React from 'react';
+import { ReactNode } from 'react';
 import { PaneContainer, ContentArea } from './AppEnhancementPaneStyles';
 import { AppEnhancementPaneHeader } from './AppEnhancementPaneHeader';
 import { AppEnhancementPaneFooter } from './AppEnhancementPaneFooter';
@@ -44,7 +44,7 @@ export interface AppEnhancementPaneProps {
   /**
    * Child components to render inside the pane.
    */
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 /**

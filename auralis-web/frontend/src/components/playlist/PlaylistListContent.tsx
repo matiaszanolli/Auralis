@@ -1,4 +1,4 @@
-import React from 'react';
+import { MouseEvent } from 'react';
 import { Box, Collapse } from '@mui/material';
 import { List } from '@/design-system';
 import { ContextMenu, ContextMenuAction } from '@/components/shared/ContextMenu';
@@ -17,7 +17,7 @@ interface PlaylistListContentProps {
   };
   contextActions: ContextMenuAction[];
   onPlaylistSelect?: (playlistId: number) => void;
-  onContextMenuOpen: (e: React.MouseEvent, playlist: playlistService.Playlist) => void;
+  onContextMenuOpen: (e: MouseEvent, playlist: playlistService.Playlist) => void;
   onContextMenuClose: () => void;
 }
 

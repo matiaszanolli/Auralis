@@ -10,7 +10,6 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
 import MuiChip, { ChipProps as MuiChipProps } from '@mui/material/Chip';
 import { styled } from '@mui/material/styles';
 import { tokens } from '@/design-system/tokens';

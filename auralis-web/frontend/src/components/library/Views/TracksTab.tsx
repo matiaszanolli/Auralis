@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Table, TableBody, TableRow, TableCell, Typography } from '@mui/material';
 import { TracksTableContainer } from '@/components/library/Styles/ArtistDetail.styles';
 import TracksTableHeader from './TracksTableHeader';

@@ -4,7 +4,6 @@
  * Displays appropriate icon based on scanning, dragging, or idle state.
  */
 
-import React from 'react';
 import { Box } from '@mui/material';
 import { CloudUpload, FolderOpen, CheckCircle } from '@mui/icons-material';
 import { tokens } from '@/design-system';

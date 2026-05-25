@@ -1,8 +1,8 @@
-import React from 'react';
+import { CSSProperties, ReactNode, forwardRef } from 'react';
 import { tokens } from '@/design-system';
 
 interface GridProps {
-  children: React.ReactNode;
+  children: ReactNode;
   columns?: number;
   spacing?: keyof typeof tokens.spacing;
   minColWidth?: string;
@@ -13,7 +13,7 @@ interface GridProps {
  * Grid layout component for arranging items in a responsive grid.
  * Uses CSS Grid with automatic column sizing or fixed column count.
  */
-export const Grid = React.forwardRef<
+export const Grid = forwardRef<
   HTMLDivElement,
   GridProps
 >(({
@@ -25,7 +25,7 @@ export const Grid = React.forwardRef<
 }, ref) => {
   const gap = tokens.spacing[spacing];
 
-  const styles: React.CSSProperties = {
+  const styles: CSSProperties = {
     display: 'grid',
     gap,
     gridTemplateColumns: columns

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { LogoContainer, LogoIcon, LogoText } from './AuroraLogo.styles';
 import AuroraWaveIcon from './AuroraWaveIcon';
 

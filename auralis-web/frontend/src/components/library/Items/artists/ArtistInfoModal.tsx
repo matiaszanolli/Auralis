@@ -13,7 +13,6 @@
  * />
  */
 
-import React from 'react';
 import { DialogContent, DialogActions, Box } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { tokens } from '@/design-system';

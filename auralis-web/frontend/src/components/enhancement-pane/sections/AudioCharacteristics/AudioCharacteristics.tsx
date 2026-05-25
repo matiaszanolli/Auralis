@@ -7,7 +7,7 @@
  * - Energy Level (0=quiet, 1=loud)
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { Box, Typography, Stack } from '@mui/material';
 import { Audiotrack } from '@mui/icons-material';
 import { tokens } from '@/design-system';
@@ -30,7 +30,7 @@ const GRADIENTS = {
   energyLevel: tokens.gradients.decorative.gradientGreen,      // Green energy gradient
 };
 
-const AudioCharacteristics = React.memo<AudioCharacteristicsProps>(({ params }) => {
+const AudioCharacteristics = memo<AudioCharacteristicsProps>(({ params }) => {
   // Helper to get spectral balance label
   const getSpectralLabel = (value: number): string => {
     if (value < 0.3) return 'Dark';

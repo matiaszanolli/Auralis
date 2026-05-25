@@ -1,4 +1,3 @@
-import React from 'react';
 
 import { Close, Keyboard } from '@mui/icons-material';
 import { StyledDialogTitle } from '@/components/library/Styles/Dialog.styles';

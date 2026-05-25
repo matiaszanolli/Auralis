@@ -12,7 +12,7 @@
  * - Accessible with proper ARIA labels and tooltips
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { ButtonVariant } from './ButtonVariant';
 import { SwitchVariant } from './SwitchVariant';
 
@@ -82,7 +82,7 @@ export interface EnhancementToggleProps {
  *   label="Enable Auto-Mastering"
  * />
  */
-export const EnhancementToggle = React.memo<EnhancementToggleProps>(({
+export const EnhancementToggle = memo<EnhancementToggleProps>(({
   variant = 'button',
   ...props
 }) => {

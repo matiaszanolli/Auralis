@@ -6,7 +6,7 @@
  * Helps reduce initial bundle size by splitting code into smaller chunks.
  *
  * Features:
- * - React.lazy() wrapper with error boundaries
+ * - lazy() wrapper with error boundaries
  * - Async component loading with loading/error states
  * - Suspense boundaries with fallback UI
  * - Dynamic imports with retry logic
@@ -19,7 +19,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import React, { lazy, Suspense, ReactNode, ComponentType, ReactElement } from 'react';
+import { Component, ComponentProps, ComponentType, ErrorInfo, LazyExoticComponent, MemoExoticComponent, ReactElement, ReactNode, Suspense, lazy, memo } from 'react';
 import { tokens } from '@/design-system';
 
 // ============================================================================
@@ -46,7 +46,7 @@ interface PreloadConfig {
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface ErrorBoundaryState {
@@ -54,7 +54,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -64,7 +64,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.props.onError?.(error, errorInfo);
   }
 
@@ -129,8 +129,8 @@ export const DefaultErrorFallback = ({ error }: { error?: Error }) => (
 export function createLazyComponent<T extends ComponentType<any>>(
   importFn: () => Promise<{ default: T }>,
   config: LazyComponentConfig = {}
-): React.MemoExoticComponent<(props: React.ComponentProps<T>) => ReactElement> {
-  let LazyComponent: React.LazyExoticComponent<T>;
+): MemoExoticComponent<(props: ComponentProps<T>) => ReactElement> {
+  let LazyComponent: LazyExoticComponent<T>;
   let retryCount = 0;
   const maxRetries = config.retries ?? 3;
 
@@ -151,7 +151,7 @@ export function createLazyComponent<T extends ComponentType<any>>(
 
   LazyComponent = lazy(loadComponent);
 
-  const Component = (props: React.ComponentProps<T>): ReactElement => (
+  const Component = (props: ComponentProps<T>): ReactElement => (
     <ErrorBoundary
       fallback={<DefaultErrorFallback />}
       onError={(error) => config.onError?.(error)}
@@ -164,7 +164,7 @@ export function createLazyComponent<T extends ComponentType<any>>(
 
   Component.displayName = 'LazyComponent';
 
-  return React.memo(Component);
+  return memo(Component);
 }
 
 // ============================================================================
@@ -305,7 +305,7 @@ interface RouteConfig {
  */
 export function createLazyRoutes(
   routes: RouteConfig[]
-): Array<{ path: string; component: React.LazyExoticComponent<any>; preload?: boolean }> {
+): Array<{ path: string; component: LazyExoticComponent<any>; preload?: boolean }> {
   return routes.map((route) => ({
     ...route,
     component: lazy(route.component),

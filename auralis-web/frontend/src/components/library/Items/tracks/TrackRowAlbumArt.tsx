@@ -1,4 +1,4 @@
-import React from 'react';
+import { memo } from 'react';
 import { MusicNote } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { AlbumArtThumbnail } from './TrackRow.styles';
@@ -39,7 +39,7 @@ const TrackRowAlbumArtComponent = ({
  * Only re-renders when albumArt, title, album, or shouldShowImage change
  * onImageError is excluded as it's recreated on parent render but doesn't affect visual state
  */
-export const TrackRowAlbumArt = React.memo<TrackRowAlbumArtProps>(
+export const TrackRowAlbumArt = memo<TrackRowAlbumArtProps>(
   TrackRowAlbumArtComponent,
   (prev, next) => {
     return (

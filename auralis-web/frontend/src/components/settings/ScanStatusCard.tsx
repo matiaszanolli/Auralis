@@ -5,7 +5,6 @@
  * Subscribes directly to WebSocket scan events via useScanProgress().
  */
 
-import React from 'react';
 import {
   Box,
   LinearProgress,

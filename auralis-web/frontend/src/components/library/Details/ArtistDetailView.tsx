@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Container } from '@mui/material';
 import { tokens } from '@/design-system';
 import { EmptyState } from '@/components/shared/ui/feedback';

@@ -4,7 +4,6 @@
  * Displayed when "More" button is clicked in batch actions toolbar.
  */
 
-import React from 'react';
 import { Menu, MenuItem } from '@mui/material';
 import { Edit } from '@mui/icons-material';
 import { tokens } from '@/design-system';

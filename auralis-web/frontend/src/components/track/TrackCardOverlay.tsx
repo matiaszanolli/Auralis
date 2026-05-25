@@ -7,8 +7,7 @@
  * - No artwork icon fallback
  */
 
-import React from 'react';
-
+import { MouseEvent } from 'react';
 import { PlayArrow, MusicNote } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { PlayOverlay, DurationBadge, NoArtworkIcon, ShimmerOverlay } from './TrackCardStyles';
@@ -20,7 +19,7 @@ interface TrackCardOverlayProps {
   duration: number;
   hasArtwork: boolean;
   isHovered: boolean;
-  onPlay: (e: React.MouseEvent) => void;
+  onPlay: (e: MouseEvent) => void;
   title?: string;
 }
 

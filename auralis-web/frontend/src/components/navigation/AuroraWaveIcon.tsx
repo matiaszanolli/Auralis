@@ -2,7 +2,6 @@
  * AuroraWaveIcon - Aurora wave SVG icon
  */
 
-import React from 'react';
 import { WaveIcon } from './AuroraLogo.styles';
 
 interface AuroraWaveIconProps {

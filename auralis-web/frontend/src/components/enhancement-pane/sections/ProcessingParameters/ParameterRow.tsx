@@ -5,7 +5,7 @@
  * Handles label, icon, value display, and conditional rendering.
  */
 
-import React from 'react';
+import { ComponentType, memo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { SvgIconProps } from '@mui/material';
 import { tokens } from '@/design-system';
@@ -13,11 +13,11 @@ import { tokens } from '@/design-system';
 interface ParameterRowProps {
   label: string;
   value: string;
-  icon?: React.ComponentType<SvgIconProps>;
+  icon?: ComponentType<SvgIconProps>;
   valueColor?: string;
 }
 
-export const ParameterRow = React.memo<ParameterRowProps>(
+export const ParameterRow = memo<ParameterRowProps>(
   ({
     label,
     value,

@@ -1,4 +1,4 @@
-import React from 'react';
+import { memo } from 'react';
 import { Switch, FormControlLabel, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { SwitchPaper } from './EnhancementToggleStyles';
@@ -14,7 +14,7 @@ import { EnhancementToggleProps } from './EnhancementToggle';
  * - Processing state feedback
  * - Larger interactive area
  */
-export const SwitchVariant = React.memo<EnhancementToggleProps>(({
+export const SwitchVariant = memo<EnhancementToggleProps>(({
   isEnabled,
   onToggle,
   isProcessing = false,

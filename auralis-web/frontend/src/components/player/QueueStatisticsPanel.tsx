@@ -20,7 +20,6 @@
  * @module components/player/QueueStatisticsPanel
  */
 
-import React from 'react';
 import { tokens } from '@/design-system';
 import { formatDuration } from '@/utils/timeFormat';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';

@@ -12,7 +12,6 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
 import MuiList, { ListProps as MuiListProps } from '@mui/material/List';
 import { styled } from '@mui/material/styles';
 import { tokens } from '@/design-system/tokens';

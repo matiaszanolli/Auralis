@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Box } from '@mui/material';
 import { List } from '@/design-system';
 import { SimilarTrack } from '@/services/similarityService';

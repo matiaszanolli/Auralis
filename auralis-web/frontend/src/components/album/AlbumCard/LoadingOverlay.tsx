@@ -5,7 +5,6 @@
  * Shows while downloading or extracting artwork
  */
 
-import React from 'react';
 import { Box } from '@mui/material';
 import { CircularProgress, tokens } from '@/design-system';
 

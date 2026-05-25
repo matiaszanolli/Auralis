@@ -5,7 +5,7 @@
  * Use this to wrap components/hooks that depend on React contexts.
  */
 
-import React, { ReactNode } from 'react';
+import { ReactNode } from 'react';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
 interface TestProvidersProps {

@@ -17,14 +17,14 @@
  * ```
  */
 
-import React from 'react';
+import { ReactNode } from 'react';
 import {
   EndOfListIndicator as StyledContainer,
   EndOfListText as StyledText
 } from '@/components/library/Styles/Grid.styles';
 
 interface EndOfListIndicatorProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
   count?: number;
   itemType?: string; // e.g., "tracks", "albums"
 }

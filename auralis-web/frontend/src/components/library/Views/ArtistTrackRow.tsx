@@ -2,7 +2,6 @@
  * ArtistTrackRow - Individual track row in artist tracks table
  */
 
-import React from 'react';
 import { TableCell, Typography, Box } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { StyledTableRow, PlayIcon } from '@/components/library/Styles/Table.styles';

@@ -5,7 +5,6 @@
  * and use as a controlled component in layouts.
  */
 
-import React from 'react';
 import { formatTime } from '@/utils/timeFormat';
 
 // ============================================================================

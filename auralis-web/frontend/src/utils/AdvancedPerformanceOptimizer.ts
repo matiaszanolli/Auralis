@@ -432,10 +432,10 @@ export const globalPerformanceOptimizer = new AdvancedPerformanceOptimizer();
 
 // React hook for advanced performance optimization
 export function useAdvancedPerformanceOptimization() {
-  const [metrics, setMetrics] = React.useState<PerformanceMetrics>(globalPerformanceOptimizer.getMetrics());
-  const [profile, setProfile] = React.useState<AdaptiveProfile>(globalPerformanceOptimizer.getCurrentProfile());
+  const [metrics, setMetrics] = useState<PerformanceMetrics>(globalPerformanceOptimizer.getMetrics());
+  const [profile, setProfile] = useState<AdaptiveProfile>(globalPerformanceOptimizer.getCurrentProfile());
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handlePerformanceChange = (newMetrics: PerformanceMetrics) => {
       setMetrics(newMetrics);
       setProfile(globalPerformanceOptimizer.getCurrentProfile());
@@ -464,6 +464,5 @@ export function useAdvancedPerformanceOptimization() {
 }
 
 // Import React for the hook
-import React from 'react';
-
+import { useEffect, useState } from 'react';
 export default AdvancedPerformanceOptimizer;

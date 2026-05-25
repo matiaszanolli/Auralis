@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { SkeletonBox } from '@/components/library/Styles/Skeleton.styles';
 import { tokens } from '@/design-system';
 

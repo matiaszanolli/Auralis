@@ -4,7 +4,6 @@
  * Shows secondary information about album beneath title.
  */
 
-import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import { MouseEvent } from 'react';
 import { Box } from '@mui/material';
 import { List } from '@/design-system';
 import { AlphabetDivider } from '@/components/library/Styles/ArtistList.styles';
@@ -9,7 +9,7 @@ interface ArtistSectionProps {
   letter: string;
   artists: Artist[];
   onArtistClick: (artist: Artist) => void;
-  onContextMenu: (e: React.MouseEvent, artist: Artist) => void;
+  onContextMenu: (e: MouseEvent, artist: Artist) => void;
 }
 
 /**

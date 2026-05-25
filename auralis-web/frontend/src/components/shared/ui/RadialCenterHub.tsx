@@ -4,7 +4,6 @@
  * Displays preset icon and label with animated pulse and gradient background.
  */
 
-import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { Preset } from './presetConfig';
 import { tokens } from '@/design-system';

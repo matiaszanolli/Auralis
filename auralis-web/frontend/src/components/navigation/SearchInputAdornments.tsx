@@ -4,7 +4,6 @@
  * Provides start and end adornment components for search input.
  */
 
-import React from 'react';
 import { InputAdornment, Box } from '@mui/material';
 import { Search, Close } from '@mui/icons-material';
 import { ClearButton, ResultCount } from './SearchBar.styles';

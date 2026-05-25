@@ -8,7 +8,6 @@
  * Design: Section header (era label) followed by horizontal album row.
  */
 
-import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';

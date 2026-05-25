@@ -12,7 +12,7 @@
  * @component
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { StarfieldBackground } from './StarfieldBackground';
 import type { AudioReactivityData } from './StarfieldBackground';
 import { useAudioVisualization } from '@/hooks/audio/useAudioVisualization';

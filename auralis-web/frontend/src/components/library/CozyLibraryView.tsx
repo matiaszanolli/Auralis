@@ -16,7 +16,7 @@
  * - Component composition
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { Box } from '@mui/material';
 import BatchActionsToolbar from './Controls/BatchActionsToolbar';
 import EditMetadataDialog from './EditMetadataDialog/EditMetadataDialog';
@@ -46,7 +46,7 @@ interface CozyLibraryViewProps {
   viewMode?: ViewMode;
 }
 
-const CozyLibraryView = React.memo<CozyLibraryViewProps>(({
+const CozyLibraryView = memo<CozyLibraryViewProps>(({
   onTrackPlay,
   view = 'songs',
   searchQuery = '',

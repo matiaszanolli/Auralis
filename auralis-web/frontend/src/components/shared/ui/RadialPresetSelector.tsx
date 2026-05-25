@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Box } from '@mui/material';
 import { PRESETS } from './presetConfig';
 import { PresetItem } from './PresetItem';

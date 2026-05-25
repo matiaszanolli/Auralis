@@ -1,4 +1,4 @@
-import React from 'react';
+import { MouseEvent } from 'react';
 import { Box } from '@mui/material';
 import {
   StyledListItem,
@@ -11,7 +11,7 @@ import type { Artist } from '@/types/domain';
 interface ArtistListItemProps {
   artist: Artist;
   onClick: (artist: Artist) => void;
-  onContextMenu: (e: React.MouseEvent, artist: Artist) => void;
+  onContextMenu: (e: MouseEvent, artist: Artist) => void;
 }
 
 /**

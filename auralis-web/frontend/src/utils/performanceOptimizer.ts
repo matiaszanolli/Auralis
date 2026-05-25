@@ -10,8 +10,7 @@
  * with adaptive quality, frame dropping, resource management, and smooth animations.
  */
 
-import React from 'react';
-
+import { useEffect, useState } from 'react';
 // ============================================================================
 // Core Performance Types & Interfaces
 // ============================================================================
@@ -819,10 +818,10 @@ export class PerformanceOptimizer {
 export const globalPerformanceOptimizer = new PerformanceOptimizer();
 
 export function usePerformanceOptimization() {
-  const [metrics, setMetrics] = React.useState<PerformanceMetrics>(globalPerformanceOptimizer.getMetrics());
-  const [profile, setProfile] = React.useState<AdaptiveProfile>(globalPerformanceOptimizer.getCurrentProfile());
+  const [metrics, setMetrics] = useState<PerformanceMetrics>(globalPerformanceOptimizer.getMetrics());
+  const [profile, setProfile] = useState<AdaptiveProfile>(globalPerformanceOptimizer.getCurrentProfile());
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handlePerformanceChange = (newMetrics: PerformanceMetrics) => {
       setMetrics(newMetrics);
       setProfile(globalPerformanceOptimizer.getCurrentProfile());

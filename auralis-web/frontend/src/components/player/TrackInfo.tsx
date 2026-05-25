@@ -15,7 +15,6 @@
  * @module components/player/TrackInfo
  */
 
-import React from 'react';
 import { useSelector } from 'react-redux';
 import { tokens } from '@/design-system';
 import { selectCurrentTrack } from '@/store/slices/playerSlice';

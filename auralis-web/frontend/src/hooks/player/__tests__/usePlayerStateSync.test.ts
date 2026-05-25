@@ -17,7 +17,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import React from 'react';
+import { ReactNode, createElement } from 'react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { usePlayerStateSync } from '../usePlayerStateSync';
@@ -56,8 +56,8 @@ function createTestStore() {
 type TestStore = ReturnType<typeof createTestStore>;
 
 function makeWrapper(store: TestStore) {
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store, children });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(Provider, { store, children });
   };
 }
 

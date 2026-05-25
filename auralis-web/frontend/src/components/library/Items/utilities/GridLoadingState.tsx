@@ -14,7 +14,7 @@
  * ```
  */
 
-import React from 'react';
+import { ReactNode } from 'react';
 import {
   LoadingIndicatorBox,
   LoadingSpinner,
@@ -25,7 +25,7 @@ interface GridLoadingStateProps {
   current?: number;
   total?: number;
   itemType?: string; // e.g., "tracks", "albums"
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 export const GridLoadingState = ({

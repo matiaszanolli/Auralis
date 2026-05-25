@@ -1,4 +1,4 @@
-import React from 'react'
+import { useEffect, useState } from 'react';
 import { useCommitId, getVersionString } from '@/hooks/app/useCommitId'
 import { tokens } from '@/design-system'
 import { spacingSmall, spacingXSmall } from '@/components/library/Styles/Spacing.styles'
@@ -8,11 +8,11 @@ import { spacingSmall, spacingXSmall } from '@/components/library/Styles/Spacing
  * Can be toggled via keyboard shortcut (Ctrl+Shift+I in future)
  */
 export const DebugInfo = () => {
-  const [visible, setVisible] = React.useState(false)
+  const [visible, setVisible] = useState(false)
   const commitId = useCommitId()
   const versionString = getVersionString()
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl/Cmd + Shift + D to toggle debug info
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'd') {

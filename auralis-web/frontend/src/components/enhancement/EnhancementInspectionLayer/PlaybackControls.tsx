@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { CSSProperties, ChangeEvent, useCallback } from 'react';
 import { tokens } from '@/design-system';
 
 interface PlaybackControlsProps {
@@ -27,7 +27,7 @@ export const PlaybackControls = ({
   onDismissError,
 }: PlaybackControlsProps) => {
   const handleIntensityChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: ChangeEvent<HTMLInputElement>) => {
       const value = Math.max(0, Math.min(1, parseFloat(e.target.value)));
       onIntensityChange?.(value);
     },
@@ -109,7 +109,7 @@ export const PlaybackControls = ({
   );
 };
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   sectionLabel: {
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.medium,

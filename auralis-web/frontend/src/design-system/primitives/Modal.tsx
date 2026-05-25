@@ -11,7 +11,7 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
+import { ReactNode } from 'react';
 import { styled } from '@mui/material/styles';
 import MuiDialog, { DialogProps as MuiDialogProps } from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -35,7 +35,7 @@ export interface ModalProps extends Omit<MuiDialogProps, 'title'> {
   /**
    * Footer actions
    */
-  actions?: React.ReactNode;
+  actions?: ReactNode;
 
   /**
    * Show close button

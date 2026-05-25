@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
+import { ReactNode, createElement } from 'react';
 import { useAlbumFingerprint, useAlbumFingerprints } from '../useAlbumFingerprint';
 
 const setupFetch = (response: any, status = 200) => {
@@ -41,8 +41,8 @@ function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: queryClient }, children);
+  return ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
 describe('useAlbumFingerprint', () => {

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import { MouseEvent, useCallback, useEffect, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import SelectableTrackRow from '@/components/library/Items/tracks/SelectableTrackRow';
 import GridLoadingState from '@/components/library/Items/utilities/GridLoadingState';
@@ -17,7 +17,7 @@ export interface TrackListViewContentProps {
   isPlaying: boolean;
   selectedTracks: Set<number>;
   isSelected: (trackId: number) => boolean;
-  onToggleSelect: (trackId: number, e: React.MouseEvent) => void;
+  onToggleSelect: (trackId: number, e: MouseEvent) => void;
   onTrackPlay: (track: Track) => void;
   onPause: () => void;
   onEditMetadata: (trackId: number) => void;

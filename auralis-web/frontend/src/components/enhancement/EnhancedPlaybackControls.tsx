@@ -17,7 +17,6 @@
  * - Two-layer interaction model (ambient → detailed on click)
  */
 
-import React from 'react';
 import { EnhancementPane } from './EnhancementPane';
 import type { PresetName } from '@/store/slices/playerSlice';
 

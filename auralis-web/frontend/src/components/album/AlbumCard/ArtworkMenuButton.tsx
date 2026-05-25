@@ -4,14 +4,13 @@
  * Shows in top-right corner with semi-transparent background.
  */
 
-import React from 'react';
-
+import { MouseEvent } from 'react';
 import { MoreVert } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 
 interface ArtworkMenuButtonProps {
-  onClick: (e: React.MouseEvent<HTMLElement>) => void;
+  onClick: (e: MouseEvent<HTMLElement>) => void;
 }
 
 export const ArtworkMenuButton = ({ onClick }: ArtworkMenuButtonProps) => {

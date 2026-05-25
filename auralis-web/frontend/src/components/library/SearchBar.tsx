@@ -17,7 +17,7 @@
  * @module components/library/SearchBar
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { tokens } from '@/design-system';
 
 interface SearchBarProps {
@@ -56,7 +56,7 @@ export const SearchBar = ({
    * Handle input change with debouncing
    */
   const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: ChangeEvent<HTMLInputElement>) => {
       const newQuery = e.target.value;
       setQuery(newQuery);
 

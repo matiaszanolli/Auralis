@@ -12,7 +12,6 @@
  * - Empty state when no similar tracks
  */
 
-import React from 'react';
 import { useSimilarTracksLoader } from './useSimilarTracksLoader';
 import { useSimilarTracksFormatting } from './useSimilarTracksFormatting';
 import SimilarTracksLoadingState from './SimilarTracksLoadingState';

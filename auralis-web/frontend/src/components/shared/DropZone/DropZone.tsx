@@ -8,7 +8,7 @@
  * Icon and text content extracted to separate components.
  */
 
-import React, { useCallback, useRef, type KeyboardEvent } from 'react';
+import { DragEvent, type KeyboardEvent, useCallback, useRef } from 'react';
 import { DropZonePaper } from './DropZoneStyles';
 import { useDropZone } from './useDropZone';
 import { DropZoneIcon } from './DropZoneIcon';
@@ -52,7 +52,7 @@ export const DropZone = ({
     useDropZone(disabled, scanning);
 
   const handleDropWrapper = useCallback(
-    (e: React.DragEvent) => {
+    (e: DragEvent) => {
       handleDrop(e, onFolderDrop);
     },
     [handleDrop, onFolderDrop]

@@ -1,4 +1,3 @@
-import React from 'react';
 
 import { ListContainer } from '@/components/library/Styles/ArtistList.styles';
 import { List } from '@/design-system';

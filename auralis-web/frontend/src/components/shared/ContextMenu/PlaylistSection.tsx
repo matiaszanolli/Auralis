@@ -7,7 +7,6 @@
  * - Create new playlist action
  */
 
-import React from 'react';
 import {
   Divider,
   MenuItem,

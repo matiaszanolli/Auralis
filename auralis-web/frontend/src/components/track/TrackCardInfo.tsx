@@ -7,8 +7,6 @@
  * - Album name
  */
 
-import React from 'react';
-
 import { tokens } from '@/design-system';
 import { TrackCardContent } from './TrackCardStyles';
 import { Tooltip } from '@/design-system';

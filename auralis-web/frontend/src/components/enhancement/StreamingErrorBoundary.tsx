@@ -13,7 +13,7 @@
  * - Severity-based styling (warning, error, critical)
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Component, ErrorInfo, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
   styles, getErrorInfo, getSeverityColor,
   StreamingErrorType, ErrorSeverity, type StreamingError,
@@ -269,7 +269,7 @@ export const StreamingErrorDisplay = ({
  */
 
 interface ErrorBoundaryWrapperProps {
-  children: React.ReactNode;
+  children: ReactNode;
   onFallback?: () => void;
 }
 
@@ -278,7 +278,7 @@ interface ErrorBoundaryWrapperState {
   error: string | null;
 }
 
-export class StreamingErrorBoundaryWrapper extends React.Component<
+export class StreamingErrorBoundaryWrapper extends Component<
   ErrorBoundaryWrapperProps,
   ErrorBoundaryWrapperState
 > {
@@ -291,7 +291,7 @@ export class StreamingErrorBoundaryWrapper extends React.Component<
     return { hasError: true, error: error.message };
   }
 
-  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+  componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('[StreamingErrorDisplay] Caught render error:', error, info);
   }
 
@@ -299,7 +299,7 @@ export class StreamingErrorBoundaryWrapper extends React.Component<
     this.setState({ hasError: false, error: null });
   };
 
-  render(): React.ReactNode {
+  render(): ReactNode {
     if (this.state.hasError) {
       return (
         <StreamingErrorDisplay

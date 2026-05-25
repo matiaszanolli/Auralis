@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { TrackCountBox, TrackCountText } from './EditPlaylistDialog.styles';
 
 interface PlaylistTrackCountProps {

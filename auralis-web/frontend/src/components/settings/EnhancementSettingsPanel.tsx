@@ -1,4 +1,3 @@
-import React from 'react';
 
 import { SettingsUpdate } from '@/services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';

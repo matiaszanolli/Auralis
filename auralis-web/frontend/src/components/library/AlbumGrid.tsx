@@ -13,7 +13,7 @@
  * @module components/library/AlbumGrid
  */
 
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { tokens } from '@/design-system';
 import { useAlbumsQuery } from '@/hooks/library/useLibraryQuery';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';

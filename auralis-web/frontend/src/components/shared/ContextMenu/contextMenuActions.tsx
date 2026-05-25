@@ -8,7 +8,7 @@
  * - Playlist context menu
  */
 
-import React from 'react';
+import { ReactNode } from 'react';
 import {
   PlayArrow,
   QueueMusic,
@@ -26,7 +26,7 @@ import {
 export interface ContextMenuAction {
   id: string;
   label: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   divider?: boolean;
   destructive?: boolean;
   disabled?: boolean;

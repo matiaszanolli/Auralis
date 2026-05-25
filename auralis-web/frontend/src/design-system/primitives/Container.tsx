@@ -1,8 +1,8 @@
-import React from 'react';
+import { CSSProperties, ReactNode, forwardRef } from 'react';
 import { tokens } from '@/design-system';
 
 interface ContainerProps {
-  children: React.ReactNode;
+  children: ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   padding?: keyof typeof tokens.spacing;
   className?: string;
@@ -20,7 +20,7 @@ const maxWidths = {
  * Container component for constraining content width.
  * Provides horizontal centering and consistent padding.
  */
-export const Container = React.forwardRef<
+export const Container = forwardRef<
   HTMLDivElement,
   ContainerProps
 >(({
@@ -29,7 +29,7 @@ export const Container = React.forwardRef<
   padding = 'lg',
   className = '',
 }, ref) => {
-  const styles: React.CSSProperties = {
+  const styles: CSSProperties = {
     maxWidth: maxWidths[maxWidth],
     margin: '0 auto',
     padding: tokens.spacing[padding],

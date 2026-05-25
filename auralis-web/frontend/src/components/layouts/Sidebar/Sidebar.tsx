@@ -1,4 +1,4 @@
-import React from 'react';
+import { memo } from 'react';
 import CollapsedSidebar from './CollapsedSidebar';
 import SidebarHeader from './SidebarHeader';
 import SidebarContent from './SidebarContent';
@@ -47,6 +47,6 @@ const SidebarComponent = ({
 };
 
 // Memoize for performance
-const Sidebar = React.memo(SidebarComponent);
+const Sidebar = memo(SidebarComponent);
 
 export default Sidebar;

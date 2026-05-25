@@ -5,17 +5,16 @@
  * preventing selection when clicking on action buttons.
  */
 
-import React, { useCallback } from 'react';
-
+import { MouseEvent, useCallback } from 'react';
 interface UseTrackRowSelectionProps {
-  onToggleSelect: (event: React.MouseEvent) => void;
+  onToggleSelect: (event: MouseEvent) => void;
 }
 
 export const useTrackRowSelection = ({ onToggleSelect }: UseTrackRowSelectionProps) => {
   /**
    * Handle container click - prevent selection if clicking on action buttons
    */
-  const handleContainerClick = useCallback((event: React.MouseEvent) => {
+  const handleContainerClick = useCallback((event: MouseEvent) => {
     const target = event.target as HTMLElement;
     const isActionButton = target.closest('button') || target.closest('[role="button"]');
 
@@ -27,7 +26,7 @@ export const useTrackRowSelection = ({ onToggleSelect }: UseTrackRowSelectionPro
   /**
    * Handle checkbox click - prevent event propagation
    */
-  const handleCheckboxClick = useCallback((event: React.MouseEvent) => {
+  const handleCheckboxClick = useCallback((event: MouseEvent) => {
     event.stopPropagation();
     onToggleSelect(event);
   }, [onToggleSelect]);

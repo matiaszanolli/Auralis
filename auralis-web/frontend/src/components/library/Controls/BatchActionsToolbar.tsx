@@ -10,7 +10,6 @@
  * - useBatchActionsMenu - More menu state
  */
 
-import React from 'react';
 import {
   Close,
   PlaylistAdd,

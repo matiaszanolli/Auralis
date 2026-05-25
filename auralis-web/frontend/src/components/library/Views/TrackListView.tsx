@@ -15,7 +15,7 @@
  * - Queue integration
  */
 
-import React from 'react';
+import { MouseEvent } from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { LibraryGridSkeleton, TrackRowSkeleton } from '@/components/shared/ui/loaders';
 import { ListLoadingContainer } from '@/components/library/Styles/Grid.styles';
@@ -40,7 +40,7 @@ export interface TrackListViewProps {
   // Selection (for list view)
   selectedTracks: Set<number>;
   isSelected: (trackId: number) => boolean;
-  onToggleSelect: (trackId: number, e: React.MouseEvent) => void;
+  onToggleSelect: (trackId: number, e: MouseEvent) => void;
 
   // Actions
   onTrackPlay: (track: LibraryTrack) => void;

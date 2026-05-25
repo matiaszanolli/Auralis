@@ -25,7 +25,7 @@
  * ```
  */
 
-import React, { useCallback, useState } from 'react';
+import { MouseEvent, useCallback, useState } from 'react';
 import { ArtistListLoading } from './ArtistListLoading';
 import { ArtistListEmptyState } from './ArtistListEmptyState';
 import { ArtistListContent } from './ArtistListContent';
@@ -65,7 +65,7 @@ export const CozyArtistList = ({ onArtistClick }: CozyArtistListProps) => {
     }
   }, [onArtistClick]);
 
-  const handleContextMenuOpen = useCallback((artist: Artist, event: React.MouseEvent) => {
+  const handleContextMenuOpen = useCallback((artist: Artist, event: MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
     setContextMenuArtist(artist);

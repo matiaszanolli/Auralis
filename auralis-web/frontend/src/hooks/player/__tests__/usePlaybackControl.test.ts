@@ -8,7 +8,7 @@
  * @module hooks/player/__tests__/usePlaybackControl.test
  */
 
-import React from 'react';
+import { FC, ReactNode, createElement } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import { Provider } from 'react-redux';
@@ -76,8 +76,8 @@ const createTestStore = () => {
 // WebSocketContext is mocked above
 const createWrapper = () => {
   const store = createTestStore();
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store, children });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(Provider, { store, children });
   };
 };
 
@@ -313,8 +313,8 @@ describe('usePlaybackControl', () => {
         s.dispatch(setIsPlayingAction(true));
         s.dispatch(setCurrentTimeAction(42));
 
-        const W: React.FC<{ children: React.ReactNode }> = ({ children }) =>
-          React.createElement(Provider, { store: s, children });
+        const W: FC<{ children: ReactNode }> = ({ children }) =>
+          createElement(Provider, { store: s, children });
         return { store: s, wrapper: W };
       })();
 
@@ -352,8 +352,8 @@ describe('usePlaybackControl', () => {
           { id: 1, title: 'A', filepath: '/a.mp3', duration: 100 } as any,
         ]));
         s.dispatch(setIsPlayingAction(true));
-        const W: React.FC<{ children: React.ReactNode }> = ({ children }) =>
-          React.createElement(Provider, { store: s, children });
+        const W: FC<{ children: ReactNode }> = ({ children }) =>
+          createElement(Provider, { store: s, children });
         return { store: s, wrapper: W };
       })();
 

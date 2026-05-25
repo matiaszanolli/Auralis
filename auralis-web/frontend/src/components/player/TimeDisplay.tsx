@@ -13,7 +13,7 @@
  * />
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { formatSecondToTime } from '@/hooks/player/usePlayerDisplay';
 import { tokens } from '@/design-system';
 

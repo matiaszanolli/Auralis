@@ -4,8 +4,6 @@
  * Header with title and collapse/expand toggle
  */
 
-import React from 'react';
-
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { PaneHeader, PaneTitle } from './AppEnhancementPaneStyles';

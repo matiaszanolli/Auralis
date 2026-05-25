@@ -1,4 +1,4 @@
-import React from 'react';
+
 import {
   Album as AlbumIcon,
   Person as PersonIcon,

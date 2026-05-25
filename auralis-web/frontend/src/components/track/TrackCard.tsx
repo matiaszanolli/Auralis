@@ -9,7 +9,7 @@
  * Eliminates duplication with AlbumCard.
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { MediaCard } from '@/components/shared/MediaCard';
 
 interface TrackCardProps {
@@ -30,7 +30,7 @@ interface TrackCardProps {
  * Wrapper around MediaCard with track-specific props.
  * Provides backwards compatibility for existing track grid views.
  */
-export const TrackCard = React.memo(function TrackCard({
+export const TrackCard = memo(function TrackCard({
   id,
   title,
   artist,

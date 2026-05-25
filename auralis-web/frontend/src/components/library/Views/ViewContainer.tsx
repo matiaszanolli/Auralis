@@ -9,7 +9,7 @@
  * - Optional right pane (e.g., Album Character Pane)
  */
 
-import React from 'react';
+import { ReactNode } from 'react';
 import { Container, Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 
@@ -17,11 +17,11 @@ interface ViewContainerProps {
   icon: string;
   title: string;
   subtitle: string;
-  children: React.ReactNode;
+  children: ReactNode;
   /** Optional right sidebar content (e.g., Album Character Pane) */
-  rightPane?: React.ReactNode;
+  rightPane?: ReactNode;
   /** Optional header actions (e.g., sort selector) */
-  headerActions?: React.ReactNode;
+  headerActions?: ReactNode;
 }
 
 export const ViewContainer = ({

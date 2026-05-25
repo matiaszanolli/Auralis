@@ -2,7 +2,6 @@
  * AutoScanSettings - Auto-scan toggle and human-readable scan interval selector
  */
 
-import React from 'react';
 import { Box, Switch, FormControlLabel, Select, MenuItem, FormControl, Divider } from '@mui/material';
 import { SettingsUpdate } from '@/services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';

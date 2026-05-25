@@ -12,7 +12,7 @@
  * />
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { tokens } from '@/design-system';
 
 export interface TrackDisplayProps {

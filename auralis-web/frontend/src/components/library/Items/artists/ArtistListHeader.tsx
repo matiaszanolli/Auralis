@@ -4,7 +4,6 @@
  * Shows count of loaded artists vs total library size.
  */
 
-import React from 'react';
 import { Typography } from '@mui/material';
 import { SectionHeader } from '@/components/library/Styles/ArtistList.styles';
 

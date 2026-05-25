@@ -1,12 +1,12 @@
 /**
- * React.memo HOC and Utility for Component Optimization
+ * memo HOC and Utility for Component Optimization
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * Higher-order component for memoizing components with smart prop comparison.
  * Prevents unnecessary re-renders by memoizing components and comparing props.
  *
  * Features:
- * - React.memo wrapper with custom comparison
+ * - memo wrapper with custom comparison
  * - Selective prop comparison (compare only relevant props)
  * - Performance metrics integration
  * - Custom equality checks
@@ -18,7 +18,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import React, { memo, useMemo, ComponentType, ReactElement } from 'react';
+import { ComponentType, DependencyList, MemoExoticComponent, ReactElement, ReactNode, memo, useMemo } from 'react';
 import { renderMetricsStore } from './useRenderProfiler';
 
 // ============================================================================
@@ -114,7 +114,7 @@ export function deepEqual<T>(obj1: T, obj2: T): boolean {
 export function withMemo<P extends Record<string, any>>(
   Component: ComponentType<P>,
   config: MemoConfig<P> = {}
-): React.MemoExoticComponent<ComponentType<P>> {
+): MemoExoticComponent<ComponentType<P>> {
   const memoizedComponent = memo(
     Component,
     config.customComparison
@@ -128,7 +128,7 @@ export function withMemo<P extends Record<string, any>>(
             return isEqual;
           }
         : undefined
-  ) as React.MemoExoticComponent<ComponentType<P>>;
+  ) as MemoExoticComponent<ComponentType<P>>;
 
   const displayName = config.displayName || Component.displayName || Component.name;
   memoizedComponent.displayName = `memo(${displayName})`;
@@ -142,13 +142,13 @@ export function withMemo<P extends Record<string, any>>(
 export function withDeepMemo<P extends Record<string, any>>(
   Component: ComponentType<P>,
   config: MemoConfig<P> = {}
-): React.MemoExoticComponent<ComponentType<P>> {
+): MemoExoticComponent<ComponentType<P>> {
   const displayName = config.displayName || Component.displayName || Component.name;
 
   const memoizedComponent = memo(
     Component,
     (prevProps, nextProps) => deepEqual(prevProps, nextProps)
-  ) as React.MemoExoticComponent<ComponentType<P>>;
+  ) as MemoExoticComponent<ComponentType<P>>;
 
   memoizedComponent.displayName = `deepMemo(${displayName})`;
 
@@ -161,7 +161,7 @@ export function withDeepMemo<P extends Record<string, any>>(
 export function withTrackedMemo<P extends Record<string, any>>(
   Component: ComponentType<P>,
   config: MemoConfig<P> & { trackMetrics?: boolean } = {}
-): React.MemoExoticComponent<ComponentType<P>> {
+): MemoExoticComponent<ComponentType<P>> {
   const displayName = config.displayName || Component.displayName || Component.name;
 
   const TrackedComponent = (props: P): ReactElement => {
@@ -192,7 +192,7 @@ export function withTrackedMemo<P extends Record<string, any>>(
             return isEqual;
           }
         : undefined
-  ) as React.MemoExoticComponent<ComponentType<P>>;
+  ) as MemoExoticComponent<ComponentType<P>>;
 
   memoizedComponent.displayName = `trackedMemo(${displayName})`;
 
@@ -209,7 +209,7 @@ export function withTrackedMemo<P extends Record<string, any>>(
  */
 export function memoizeValue<T>(
   factory: () => T,
-  _deps: React.DependencyList
+  _deps: DependencyList
 ): T {
   // This is a utility wrapper - actual memoization happens in useMemo
   return factory();
@@ -235,9 +235,9 @@ export function createStableCallback<T extends (...args: any[]) => any>(
  */
 export function useMemoizedList<T extends { id: string | number }>(
   items: T[],
-  renderer: (item: T) => React.ReactNode,
-  deps: React.DependencyList = []
-): React.ReactNode[] {
+  renderer: (item: T) => ReactNode,
+  deps: DependencyList = []
+): ReactNode[] {
   return useMemo(
     () => items.map(renderer),
     [items, renderer, ...deps]

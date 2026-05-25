@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Box } from '@mui/material';
 import { SettingsUpdate } from '@/services/settingsService';
 import FoldersList from './FoldersList';

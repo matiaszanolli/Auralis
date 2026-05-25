@@ -5,7 +5,6 @@
  * Automatically closes after navigation or settings action.
  */
 
-import React from 'react';
 import { SwipeableDrawer } from '@mui/material';
 import Sidebar from '@/components/layouts/Sidebar';
 

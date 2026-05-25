@@ -9,8 +9,7 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
-
+import { ReactNode, createElement } from 'react';
 // Mock dependencies before importing the hook
 vi.mock('@/api/transformers', () => ({
   transformAlbumsResponse: vi.fn((data: any) => data),
@@ -30,8 +29,8 @@ function createWrapper() {
       queries: { retry: false },
     },
   });
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: queryClient }, children);
+  return ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
 // Helper: build a mock albums API response

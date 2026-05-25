@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { Snackbar } from '@mui/material';
 import { ToastMessage } from './Toast';
 import { StyledAlert } from './Toast.styles';

@@ -4,12 +4,12 @@
  * Maintains 1:1 aspect ratio for album artwork display.
  */
 
-import React from 'react';
+import { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
 
 interface ArtworkSquareContainerProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export const ArtworkSquareContainer = ({ children }: ArtworkSquareContainerProps) => {

@@ -6,7 +6,7 @@
  * Appears on hover or when playing.
  */
 
-import React from 'react';
+import { MouseEvent, ReactNode } from 'react';
 import { Box, IconButton } from '@mui/material';
 import { PlayArrow } from '@mui/icons-material';
 import { tokens } from '@/design-system';
@@ -17,9 +17,9 @@ interface MediaCardOverlayProps {
   /** Whether card is currently playing */
   isPlaying?: boolean;
   /** Play button click handler */
-  onPlay: (e: React.MouseEvent) => void;
+  onPlay: (e: MouseEvent) => void;
   /** Optional badge content (duration, track count, etc.) */
-  badgeContent?: React.ReactNode;
+  badgeContent?: ReactNode;
   /** Title for accessibility (used in aria-label) */
   title?: string;
 }

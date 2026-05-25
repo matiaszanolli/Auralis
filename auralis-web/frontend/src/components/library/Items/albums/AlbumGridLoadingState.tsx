@@ -4,7 +4,6 @@
  * Displays loading skeletons while albums are being fetched
  */
 
-import React from 'react';
 import { Box, Skeleton } from '@mui/material';
 import Grid2 from '@mui/material/Unstable_Grid2';
 

@@ -7,7 +7,6 @@
  * - Library (default): Shows empty library with scan folder action
  */
 
-import React from 'react';
 import { EmptyState, EmptyLibrary, NoSearchResults } from '@/components/shared/ui/feedback';
 
 interface LibraryEmptyStateProps {

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { ThemeToggleLabel } from './ThemeToggle.styles';
 
 interface ThemeToggleLabelComponentProps {

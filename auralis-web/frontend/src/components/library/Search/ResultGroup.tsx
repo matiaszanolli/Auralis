@@ -1,4 +1,4 @@
-import React from 'react';
+import { ReactNode } from 'react';
 import { Divider } from '@mui/material';
 import { CategoryHeader } from '@/components/library/Styles/SearchStyles.styles';
 import SearchResultItem from './SearchResultItem';
@@ -15,7 +15,7 @@ interface ResultGroupProps {
   title: string;
   results: SearchResult[];
   showDivider: boolean;
-  getAvatar: (result: SearchResult) => React.ReactNode;
+  getAvatar: (result: SearchResult) => ReactNode;
   chipLabel: string;
   chipClass: 'track' | 'album' | 'artist';
   onResultClick: (result: SearchResult) => void;

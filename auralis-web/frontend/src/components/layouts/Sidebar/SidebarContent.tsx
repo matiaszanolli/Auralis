@@ -2,7 +2,6 @@
  * SidebarContent - Main navigation content with library, collections, and playlists
  */
 
-import React from 'react';
 import { Box } from '@mui/material';
 import { LibraryMusic, Album, Person, Favorite, History } from '@mui/icons-material';
 import { tokens } from '@/design-system';

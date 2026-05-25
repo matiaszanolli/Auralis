@@ -1,4 +1,3 @@
-import React from 'react';
 
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { tokens } from '@/design-system';

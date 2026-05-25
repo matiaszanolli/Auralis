@@ -23,7 +23,7 @@
  * @module components/player/ShuffleModeSelector
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { QueueShuffler } from '@/utils/queue/queue_shuffler';
 import type { ShuffleMode } from '@/utils/queue/queue_shuffler';
 import styles from './ShuffleModeSelector.module.css';

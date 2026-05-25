@@ -21,7 +21,7 @@
  * />
  */
 
-import React from 'react';
+import { MouseEvent } from 'react';
 import { Droppable } from '@hello-pangea/dnd';
 import {
   StyledListItemButton,
@@ -37,7 +37,7 @@ interface DroppablePlaylistProps {
   trackCount: number;
   selected?: boolean;
   onClick?: () => void;
-  onContextMenu?: (e: React.MouseEvent) => void;
+  onContextMenu?: (e: MouseEvent) => void;
 }
 
 export const DroppablePlaylist = ({

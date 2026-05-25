@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { formatDuration } from '@/utils/timeFormat';
 import type { SearchResult } from '@/hooks/player/useQueueSearch';
 import { resultItemStyles as styles } from './resultItemStyles';

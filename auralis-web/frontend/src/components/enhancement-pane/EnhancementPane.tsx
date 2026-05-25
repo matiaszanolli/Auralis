@@ -8,7 +8,7 @@
  * Refactored from AutoMasteringPane (585 lines) into 10 focused components.
  */
 
-import React from 'react';
+import { memo } from 'react';
 import Collapsed from './views/Collapsed';
 import Expanded from './views/Expanded';
 import { useEnhancementParameters } from './hooks/useEnhancementParameters';
@@ -20,7 +20,7 @@ interface EnhancementPaneProps {
   onMasteringToggle?: (enabled: boolean) => void;
 }
 
-const EnhancementPane = React.memo<EnhancementPaneProps>(({
+const EnhancementPane = memo<EnhancementPaneProps>(({
   collapsed = false,
   onToggleCollapse,
   onMasteringToggle,

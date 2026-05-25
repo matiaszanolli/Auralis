@@ -4,7 +4,7 @@
  * Renders the grid of album cards
  */
 
-import React from 'react';
+import { RefObject } from 'react';
 import Grid2 from '@mui/material/Unstable_Grid2';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import { GridContainer } from '@/components/library/Styles/Grid.styles';
@@ -27,8 +27,8 @@ interface AlbumGridContentProps {
   hasMore: boolean;
   isLoadingMore: boolean;
   totalAlbums: number;
-  containerRef: React.RefObject<HTMLDivElement>;
-  loadMoreTriggerRef: React.RefObject<HTMLDivElement>;
+  containerRef: RefObject<HTMLDivElement>;
+  loadMoreTriggerRef: RefObject<HTMLDivElement>;
   onAlbumClick: (albumId: number) => void;
 }
 

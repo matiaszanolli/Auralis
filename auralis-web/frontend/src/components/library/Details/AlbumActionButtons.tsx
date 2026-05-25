@@ -4,8 +4,6 @@
  * Shows interactive controls for album playback and actions.
  */
 
-import React from 'react';
-
 import {
   PlayArrow,
   Pause,

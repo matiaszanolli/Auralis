@@ -2,7 +2,6 @@
  * TracksTableHeader - Tracks table header for artist detail view
  */
 
-import React from 'react';
 import { TableHead, TableRow, TableCell } from '@mui/material';
 import { tokens } from '@/design-system';
 

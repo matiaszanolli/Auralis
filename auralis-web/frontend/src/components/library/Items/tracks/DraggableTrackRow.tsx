@@ -5,7 +5,6 @@
  * Supports drag to playlists, queue, and reordering within playlists
  */
 
-import React from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { TrackRow } from './TrackRow';
 import type { LibraryTrack as Track } from '@/types/domain';

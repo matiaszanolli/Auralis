@@ -1,4 +1,4 @@
-import React from 'react';
+import { CSSProperties } from 'react';
 import { tokens } from '@/design-system';
 import { FingerprintIndicator } from './FingerprintIndicator';
 import { PresetSelector } from './PresetSelector';
@@ -65,7 +65,7 @@ export const EnhancementInspectionLayer = ({
   );
 };
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   container: {
     display: 'flex',
     flexDirection: 'column',

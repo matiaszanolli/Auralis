@@ -10,7 +10,6 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
 import MuiLinearProgress, {
   LinearProgressProps as MuiLinearProgressProps,
 } from '@mui/material/LinearProgress';

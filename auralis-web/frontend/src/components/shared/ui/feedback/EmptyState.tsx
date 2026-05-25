@@ -7,7 +7,7 @@
  * Styled components extracted to EmptyState.styles.ts
  */
 
-import React from 'react';
+import { ReactNode, Suspense, lazy } from 'react';
 import { Box } from '@mui/material';
 import { MusicNote, SearchOff, PlaylistPlay, FolderOpen } from '@mui/icons-material';
 import { Button } from '@/design-system/primitives/Button';
@@ -15,7 +15,7 @@ import { Container, IconContainer, Title, Description } from './EmptyState.style
 
 interface EmptyStateProps {
   icon?: 'music' | 'search' | 'playlist' | 'folder';
-  customIcon?: React.ReactNode;
+  customIcon?: ReactNode;
   title: string;
   description?: string;
   actionLabel?: string;
@@ -65,12 +65,12 @@ export const EmptyLibrary = ({ onScanFolder, onFolderDrop, scanning = false }: {
   scanning?: boolean;
 }) => {
   // Only import DropZone if needed
-  const DropZone = React.lazy(() => import('@/components/shared/DropZone/DropZone').then(m => ({ default: m.DropZone })));
+  const DropZone = lazy(() => import('@/components/shared/DropZone/DropZone').then(m => ({ default: m.DropZone })));
 
   return (
     <Container>
       {onFolderDrop ? (
-        <React.Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div>Loading...</div>}>
           <Box sx={{ width: '100%', maxWidth: 600, mb: 4 }}>
             <DropZone
               onFolderDrop={onFolderDrop}
@@ -78,7 +78,7 @@ export const EmptyLibrary = ({ onScanFolder, onFolderDrop, scanning = false }: {
               scanning={scanning}
             />
           </Box>
-        </React.Suspense>
+        </Suspense>
       ) : (
         <>
           <IconContainer>

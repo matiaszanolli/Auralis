@@ -4,7 +4,6 @@
  * Renders connecting lines from center to presets and rotating outer ring.
  */
 
-import React from 'react';
 import { Box } from '@mui/material';
 import { PRESETS, getCirclePosition } from './presetConfig';
 import { tokens } from '@/design-system';

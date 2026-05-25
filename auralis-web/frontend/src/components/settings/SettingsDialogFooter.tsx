@@ -1,4 +1,3 @@
-import React from 'react';
 
 import { RestartAlt as ResetIcon } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';

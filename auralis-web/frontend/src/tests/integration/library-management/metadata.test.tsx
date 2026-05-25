@@ -13,7 +13,7 @@
  * Total: 13 tests
  */
 
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
@@ -35,20 +35,20 @@ interface MetadataFormProps {
 }
 
 const MetadataEditForm = ({ trackId, onSave, onError }: MetadataFormProps) => {
-  const [metadata, setMetadata] = React.useState({
+  const [metadata, setMetadata] = useState({
     title: '',
     artist: '',
     album: '',
     year: '',
     genre: '',
   });
-  const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = React.useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Fetch current metadata
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchMetadata = async () => {
       try {
         const response = await fetch(`http://localhost:8765/api/metadata/tracks/${trackId}`);
@@ -244,9 +244,9 @@ interface BatchMetadataFormProps {
 }
 
 const BatchMetadataForm = ({ trackIds, onSave, onError }: BatchMetadataFormProps) => {
-  const [metadata, setMetadata] = React.useState({ genre: '', year: '' });
-  const [saving, setSaving] = React.useState(false);
-  const [result, setResult] = React.useState<any>(null);
+  const [metadata, setMetadata] = useState({ genre: '', year: '' });
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<any>(null);
 
   const handleSave = async () => {
     setSaving(true);

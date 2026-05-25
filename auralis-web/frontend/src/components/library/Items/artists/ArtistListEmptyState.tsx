@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Person } from '@mui/icons-material';
 import { EmptyState } from '@/components/shared/ui/feedback';
 

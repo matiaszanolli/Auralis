@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { SearchContainer } from '@/components/library/Styles/SearchStyles.styles';
 import SearchInput from './SearchInput';
 import ResultsContainerComponent from './ResultsContainer';

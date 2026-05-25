@@ -16,7 +16,7 @@
  * - Eliminates 100+ lines of duplicate code
  */
 
-import React from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { tokens } from '@/design-system';
 import { createTimeoutPromise, globalErrorLogger } from '@/utils/errorHandling';
 import {
@@ -880,12 +880,12 @@ export class AnalysisExportService {
 
 // React Hook for Analysis Export
 export function useAnalysisExport() {
-  const [exportService] = React.useState(() => new AnalysisExportService());
-  const [isExporting, setIsExporting] = React.useState(false);
-  const [exportProgress, setExportProgress] = React.useState(0);
-  const [exportStatus, setExportStatus] = React.useState('');
+  const [exportService] = useState(() => new AnalysisExportService());
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportStatus, setExportStatus] = useState('');
 
-  React.useEffect(() => {
+  useEffect(() => {
     const unsubscribe = exportService.onExportProgress((progress, status) => {
       setExportProgress(progress);
       setExportStatus(status);
@@ -898,7 +898,7 @@ export function useAnalysisExport() {
     };
   }, [exportService]);
 
-  const exportSession = React.useCallback(async (options?: Partial<ExportOptions>) => {
+  const exportSession = useCallback(async (options?: Partial<ExportOptions>) => {
     setIsExporting(true);
     try {
       const blob = await exportService.exportSession(options);

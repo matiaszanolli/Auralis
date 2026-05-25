@@ -11,7 +11,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import React, { useEffect } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
 import { CacheHealth } from '@/services/api/standardizedAPIClient';
@@ -44,7 +44,7 @@ function HealthMetricCard({
   value: number;
   unit: string;
   status: 'healthy' | 'warning' | 'critical';
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   const statusColor =
     status === 'healthy'

@@ -1,4 +1,4 @@
-import React from 'react';
+import { MouseEvent } from 'react';
 import { ToggleButtonGroup, ToggleButton, styled } from '@mui/material';
 import { ViewModule, ViewList } from '@mui/icons-material';
 import { tokens } from '@/design-system';
@@ -47,7 +47,7 @@ const StyledToggleButton = styled(ToggleButton)({
 });
 
 export const ViewToggle = ({ value, onChange }: ViewToggleProps) => {
-  const handleChange = (_event: React.MouseEvent<HTMLElement>, newValue: ViewMode | null) => {
+  const handleChange = (_event: MouseEvent<HTMLElement>, newValue: ViewMode | null) => {
     if (newValue !== null) {
       onChange(newValue);
     }

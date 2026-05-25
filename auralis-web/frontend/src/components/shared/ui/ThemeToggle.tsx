@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Tooltip } from '@/design-system';
 import { useTheme } from '@/contexts/ThemeContext';
 import {

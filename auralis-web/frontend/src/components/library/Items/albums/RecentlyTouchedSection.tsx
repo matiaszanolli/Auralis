@@ -9,7 +9,6 @@
  * Philosophy: "Where you left off" - contextual continuity for browsing.
  */
 
-import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Box, Typography } from '@mui/material';
 import { tokens, Chip } from '@/design-system';
 import { SectionDivider } from './SimilarityVisualization.styles';

@@ -1,5 +1,4 @@
-import React, { useCallback } from 'react';
-
+import { MouseEvent, useCallback } from 'react';
 import { QueueMusic, Add, ExpandMore, ExpandLess } from '@mui/icons-material';
 import { SectionHeader, SectionTitle, AddButton } from './PlaylistList.styles';
 import { Tooltip, tokens } from '@/design-system';
@@ -35,7 +34,7 @@ export const PlaylistListHeader = ({
   onCreateClick,
 }: PlaylistListHeaderProps) => {
   const handleCreateClick = useCallback(
-    (e: React.MouseEvent) => {
+    (e: MouseEvent) => {
       e.stopPropagation();
       onCreateClick();
     },

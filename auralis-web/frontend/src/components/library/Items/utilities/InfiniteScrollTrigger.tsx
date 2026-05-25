@@ -32,15 +32,15 @@
  * ```
  */
 
-import React from 'react';
+import { ReactNode, Ref, forwardRef } from 'react';
 import { InfiniteScrollTrigger as StyledTrigger } from '@/components/library/Styles/Grid.styles';
 
 interface InfiniteScrollTriggerProps {
-  ref?: React.Ref<HTMLDivElement>;
-  children?: React.ReactNode;
+  ref?: Ref<HTMLDivElement>;
+  children?: ReactNode;
 }
 
-export const InfiniteScrollTrigger = React.forwardRef<HTMLDivElement, InfiniteScrollTriggerProps>(
+export const InfiniteScrollTrigger = forwardRef<HTMLDivElement, InfiniteScrollTriggerProps>(
   ({ children }, ref) => (
     <StyledTrigger ref={ref}>
       {children}

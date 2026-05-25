@@ -15,7 +15,7 @@
 
 const DEBUG = import.meta.env.DEV;
 
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import { CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { keyframes } from '@mui/material';
 import { playerSelectors } from '@/store/selectors';
@@ -294,7 +294,7 @@ function mapErrorToType(error: string): StreamingErrorType {
 /**
  * Styles for PlayerEnhancementPanel
  */
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   container: {
     display: 'flex',
     flexDirection: 'column',
@@ -337,24 +337,24 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 150ms ease-in-out',
     whiteSpace: 'nowrap',
     background: 'none',
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   modeButtonActive: {
     backgroundColor: tokens.colors.accent.primary,
     color: tokens.colors.text.primary,
     borderColor: tokens.colors.accent.primary,
     boxShadow: `0 0 8px ${tokens.colors.accent.primary}40`,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   modeButtonInactive: {
     backgroundColor: 'transparent',
     color: tokens.colors.text.tertiary,
     borderColor: tokens.colors.border.light,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   modeButtonStreaming: {
     animation: `${pulse} 2s ease-in-out infinite`,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   streamingIndicator: {
     display: 'block',
@@ -362,7 +362,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: tokens.typography.fontWeight.normal,
     marginTop: '2px',
     opacity: 0.8,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   // COMMENTED OUT - Not used in compact toggle mode
   /*

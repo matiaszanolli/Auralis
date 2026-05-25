@@ -8,7 +8,6 @@
  * - Extended (composer, comment)
  */
 
-import React from 'react';
 import { Box } from '@mui/material';
 import Grid2 from '@mui/material/Unstable_Grid2';
 import { CircularProgress } from '@/design-system';

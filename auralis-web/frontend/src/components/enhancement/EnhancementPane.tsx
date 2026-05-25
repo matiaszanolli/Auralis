@@ -13,7 +13,7 @@
  * Design: "Ambient by default, expressive by interaction"
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 import { keyframes } from '@mui/material';
 import { tokens } from '@/design-system';
 
@@ -202,7 +202,7 @@ export const EnhancementPane = ({
 /**
  * Styles - Layer orchestration (Phase 3)
  */
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   container: {
     display: 'flex',
     flexDirection: 'column',

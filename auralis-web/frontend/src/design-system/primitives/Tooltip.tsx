@@ -10,7 +10,6 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import React from 'react';
 import { styled } from '@mui/material/styles';
 import MuiTooltip, { TooltipProps as MuiTooltipProps } from '@mui/material/Tooltip';
 import { tokens } from '@/design-system/tokens';

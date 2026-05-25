@@ -5,8 +5,7 @@
  * Reusable for any media item with playback capability
  */
 
-import React from 'react';
-
+import { MouseEvent } from 'react';
 import { PlayArrow } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
@@ -14,7 +13,7 @@ import { Box } from '@mui/material';
 
 export interface PlayOverlayProps {
   isHovered: boolean;
-  onClick: (e: React.MouseEvent) => void;
+  onClick: (e: MouseEvent) => void;
   /** Title for accessibility (used in aria-label) */
   title?: string;
 }

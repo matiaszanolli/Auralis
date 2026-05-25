@@ -7,8 +7,6 @@
  * - Track count, duration, release year
  */
 
-import React from 'react';
-
 import { tokens } from '@/design-system';
 import { Tooltip } from '@/design-system';
 import { formatHumanDuration } from '@/utils/timeFormat';

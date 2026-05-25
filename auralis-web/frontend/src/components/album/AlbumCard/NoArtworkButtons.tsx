@@ -5,8 +5,7 @@
  * Allows users to retrieve artwork from online sources or audio files
  */
 
-import React from 'react';
-
+import { MouseEvent } from 'react';
 import { CloudDownload, ImageSearch } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { IconButton, Tooltip } from '@/design-system';
@@ -14,8 +13,8 @@ import { Box } from '@mui/material';
 
 export interface NoArtworkButtonsProps {
   show: boolean;
-  onDownload: (e: React.MouseEvent) => void;
-  onExtract: (e: React.MouseEvent) => void;
+  onDownload: (e: MouseEvent) => void;
+  onExtract: (e: MouseEvent) => void;
   isDownloading?: boolean;
   isExtracting?: boolean;
 }

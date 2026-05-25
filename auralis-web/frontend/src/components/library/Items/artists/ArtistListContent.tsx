@@ -1,4 +1,4 @@
-import React from 'react';
+import { MouseEvent } from 'react';
 import { Typography } from '@mui/material';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { ContextMenu, ContextMenuAction } from '@/components/shared/ContextMenu';
@@ -33,7 +33,7 @@ interface ArtistListContentProps {
   contextMenuState: ArtistContextMenuState;
   contextActions: ContextMenuAction[];
   onArtistClick: (artist: ArtistItem) => void;
-  onContextMenuOpen: (artist: ArtistItem, event: React.MouseEvent) => void;
+  onContextMenuOpen: (artist: ArtistItem, event: MouseEvent) => void;
   onContextMenuClose: () => void;
 }
 

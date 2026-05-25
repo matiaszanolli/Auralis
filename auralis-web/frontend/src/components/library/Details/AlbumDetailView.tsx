@@ -14,8 +14,7 @@
  * - Smooth color transitions when navigating between albums
  */
 
-import React, { useState, useCallback } from 'react';
-
+import { useState, useCallback } from 'react';
 import { tokens } from '@/design-system';
 import { formatDuration } from '@/utils/timeFormat';
 import { EmptyState } from '@/components/shared/ui/feedback';

@@ -2,7 +2,7 @@
  * ProgressBar - Interactive progress timeline with seeking, buffered range, and hover tooltip.
  */
 
-import React, { useRef, useCallback, useState, useMemo } from 'react';
+import { KeyboardEvent, MouseEvent, TouchEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatSecondToTime } from '@/hooks/player/usePlayerDisplay';
 import { progressBarStyles as pbs } from './ProgressBar.styles';
 
@@ -63,7 +63,7 @@ export const ProgressBar = ({
 
   // Handle mouse position calculation (stable — reads from refs)
   const getPositionFromEvent = useCallback(
-    (event: React.MouseEvent | MouseEvent) => {
+    (event: MouseEvent | MouseEvent) => {
       if (!containerRef.current) return currentTimeRef.current;
 
       const rect = containerRef.current.getBoundingClientRect();
@@ -76,7 +76,7 @@ export const ProgressBar = ({
 
   // Handle click to seek
   const handleClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (event: MouseEvent<HTMLDivElement>) => {
       if (disabled || !Number.isFinite(duration) || duration <= 0) {
         return;
       }
@@ -89,7 +89,7 @@ export const ProgressBar = ({
 
   // Handle mouse move for hover preview
   const handleMouseMove = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (event: MouseEvent<HTMLDivElement>) => {
       if (disabled || !containerRef.current) {
         return;
       }
@@ -102,7 +102,7 @@ export const ProgressBar = ({
 
   // Handle drag start
   const handleMouseDown = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (event: MouseEvent<HTMLDivElement>) => {
       if (disabled || !Number.isFinite(duration) || duration <= 0) {
         return;
       }
@@ -140,7 +140,7 @@ export const ProgressBar = ({
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
+    (event: KeyboardEvent<HTMLDivElement>) => {
       if (disabled || !Number.isFinite(duration) || duration <= 0) {
         return;
       }
@@ -180,7 +180,7 @@ export const ProgressBar = ({
 
   // Handle touch start
   const handleTouchStart = useCallback(
-    (event: React.TouchEvent<HTMLDivElement>) => {
+    (event: TouchEvent<HTMLDivElement>) => {
       if (disabled || !Number.isFinite(duration) || duration <= 0) {
         return;
       }
@@ -200,7 +200,7 @@ export const ProgressBar = ({
 
   // Handle touch move
   const handleTouchMove = useCallback(
-    (event: React.TouchEvent<HTMLDivElement>) => {
+    (event: TouchEvent<HTMLDivElement>) => {
       if (!isDragging || !containerRef.current) {
         return;
       }
@@ -232,7 +232,7 @@ export const ProgressBar = ({
   }, []);
 
   // Set up global event listeners during drag
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isDragging) {
       return;
     }

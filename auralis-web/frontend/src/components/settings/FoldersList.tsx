@@ -2,8 +2,6 @@
  * FoldersList - Library folders list with add and remove buttons
  */
 
-import React from 'react';
-
 import {
   Folder as FolderIcon,
   FolderOpen as FolderOpenIcon,

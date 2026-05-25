@@ -6,7 +6,6 @@
  * with play indicators, duration formatting, and click handlers.
  */
 
-import React from 'react';
 import { Table, TableBody, TableContainer, TableRow, Paper, Typography, TableCell } from '@mui/material';
 import { tokens } from '@/design-system';
 import TrackTableHeader from './TrackTableHeader';

@@ -20,7 +20,6 @@
  * ```
  */
 
-import React from 'react';
 import { DialogContent } from '@mui/material';
 import { ShortcutDefinition } from '@/services/keyboardShortcutsService';
 import { StyledDialog } from '@/components/library/Styles/Dialog.styles';

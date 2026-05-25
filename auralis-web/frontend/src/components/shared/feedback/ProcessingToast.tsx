@@ -5,7 +5,6 @@
  * that doesn't block the UI or interrupt the user experience.
  */
 
-import React from 'react';
 import { Box, Paper, Typography, Fade, Stack } from '@mui/material';
 import { AutoAwesome } from '@mui/icons-material';
 import { tokens } from '@/design-system';

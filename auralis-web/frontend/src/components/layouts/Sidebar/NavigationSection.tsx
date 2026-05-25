@@ -1,4 +1,4 @@
-import React from 'react';
+import { ReactNode } from 'react';
 import { ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import { List, tokens } from '@/design-system';
 import { StyledListItemButton } from './SidebarStyles';
@@ -6,7 +6,7 @@ import { StyledListItemButton } from './SidebarStyles';
 interface NavItem {
   id: string;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
 interface NavigationSectionProps {

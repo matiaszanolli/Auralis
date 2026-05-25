@@ -5,11 +5,11 @@
  * Uses design tokens for consistent styling.
  */
 
-import React from 'react';
+import { memo } from 'react';
 import { Paper, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 
-const InfoBox = React.memo(() => {
+const InfoBox = memo(() => {
   return (
     <Paper
       elevation={0}

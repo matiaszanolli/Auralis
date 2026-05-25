@@ -1,4 +1,4 @@
-import React from 'react';
+import { CSSProperties, useState } from 'react';
 import { formatDuration } from '@/utils/timeFormat';
 import type { Track } from '@/types/domain';
 import { styles } from './styles';
@@ -15,7 +15,7 @@ export interface QueueTrackItemProps {
   onDragOver: (toIndex: number) => void;
   onHover: (hovering: boolean) => void;
   disabled: boolean;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 }
 
 export const QueueTrackItem = ({
@@ -32,7 +32,7 @@ export const QueueTrackItem = ({
   disabled,
   style: positionStyle,
 }: QueueTrackItemProps) => {
-  const [isFocused, setIsFocused] = React.useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const showActions = isHovered || isFocused;
 
   return (

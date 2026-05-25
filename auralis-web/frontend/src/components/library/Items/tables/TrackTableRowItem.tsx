@@ -2,7 +2,6 @@
  * TrackTableRowItem - Individual track row in album table
  */
 
-import React from 'react';
 import { TableCell, Typography, IconButton } from '@mui/material';
 import { MoreVert } from '@mui/icons-material';
 import { tokens } from '@/design-system';

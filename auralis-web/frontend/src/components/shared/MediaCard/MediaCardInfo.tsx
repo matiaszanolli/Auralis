@@ -6,7 +6,6 @@
  * Unified component for both track and album metadata.
  */
 
-import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 

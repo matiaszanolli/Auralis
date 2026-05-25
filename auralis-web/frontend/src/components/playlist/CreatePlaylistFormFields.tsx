@@ -1,4 +1,4 @@
-import React from 'react';
+import { KeyboardEvent } from 'react';
 import { StyledTextField } from '@/components/library/Styles/FormFields.styles';
 import { DialogContentBox } from './CreatePlaylistDialog.styles';
 import { InitialTracksInfo } from './InitialTracksInfo';
@@ -9,7 +9,7 @@ interface CreatePlaylistFormFieldsProps {
   description: string;
   onDescriptionChange: (value: string) => void;
   loading: boolean;
-  onKeyDown: (e: React.KeyboardEvent) => void;
+  onKeyDown: (e: KeyboardEvent) => void;
   initialTrackIds?: number[];
 }
 

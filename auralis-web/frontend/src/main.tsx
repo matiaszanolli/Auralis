@@ -1,4 +1,4 @@
-import React from 'react';
+import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 
 // Async IIFE to defer all component imports until dependencies are initialized
@@ -35,11 +35,11 @@ import ReactDOM from 'react-dom/client';
     );
 
     root.render(
-      <React.StrictMode>
+      <StrictMode>
         <CssBaseline />
         <Global styles={globalStyles} />
         <App />
-      </React.StrictMode>
+      </StrictMode>
     );
 
     console.log('[app] Application initialized successfully');
