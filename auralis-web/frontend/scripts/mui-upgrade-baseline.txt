@@ -1,0 +1,381 @@
+ FAIL  src/components/features/discovery/__tests__/useSimilarTracksFormatting.test.ts > useSimilarTracksFormatting > formatDuration > should handle large durations
+ FAIL  src/components/library/Items/__tests__/useTrackFormatting.test.ts > useTrackFormatting > formatDuration > should format 3661 seconds as "61:01"
+ FAIL  src/components/library/Items/__tests__/useTrackFormatting.test.ts > useTrackFormatting > formatDuration > should handle 2 hours duration
+ FAIL  src/components/library/Items/__tests__/useTrackFormatting.test.ts > useTrackFormatting > formatDuration > should handle large durations (hours)
+ FAIL  src/components/library/__tests__/BatchActionsToolbar.test.tsx > BatchActionsToolbar > Accessibility > should have tooltips on action buttons
+ FAIL  src/components/library/__tests__/BatchActionsToolbar.test.tsx > BatchActionsToolbar > Action Button Callbacks > should call onClearSelection when close clicked
+ FAIL  src/components/library/__tests__/BatchActionsToolbar.test.tsx > BatchActionsToolbar > Action Buttons > should render close button
+ FAIL  src/components/library/__tests__/BatchActionsToolbar.test.tsx > BatchActionsToolbar > Context-Aware Labels > should show delete label in library context
+ FAIL  src/components/library/__tests__/BatchActionsToolbar.test.tsx > BatchActionsToolbar > Context-Aware Labels > should show remove from favorites label in favorites context
+ FAIL  src/components/library/__tests__/BatchActionsToolbar.test.tsx > BatchActionsToolbar > Context-Aware Labels > should show remove from playlist label in playlist context
+ FAIL  src/components/library/__tests__/BatchActionsToolbar.test.tsx > BatchActionsToolbar > Context-Aware Labels > should show remove from queue label in queue context
+ FAIL  src/components/library/__tests__/BatchActionsToolbar.test.tsx > BatchActionsToolbar > Integration > should handle complete workflow
+ FAIL  src/components/library/__tests__/BatchActionsToolbar.test.tsx > BatchActionsToolbar > Rendering > should render toolbar
+ FAIL  src/components/library/__tests__/CozyAlbumGrid.test.tsx > CozyAlbumGrid > Album Rendering > should call onAlbumClick when album is clicked
+ FAIL  src/components/library/__tests__/CozyAlbumGrid.test.tsx > CozyAlbumGrid > Props and Callbacks > should accept onAlbumClick callback
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Accessibility > should have clickable artist items
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Alphabetical Grouping > should display alphabetical dividers
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Alphabetical Grouping > should sort alphabetical groups correctly
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Artist Avatar Display > should display gradient background for avatar
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Artist Click Handler > should call onArtistClick when artist is clicked
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Artist Click Handler > should handle undefined onArtistClick gracefully
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Artist Click Handler > should pass artist ID and name to callback
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Edge Cases > should handle response with null artists array
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Empty States > should display helpful empty state message
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Empty States > should display person icon in empty state
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Empty States > should show empty state when no artists
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Error Handling > should display error message on failure
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Error Handling > should handle fetch error gracefully
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Error Handling > should handle network error
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Initial Loading > should fetch artists on mount
+ FAIL  src/components/library/__tests__/CozyArtistList.test.tsx > CozyArtistList > Pagination > should fetch with correct limit and offset
+ FAIL  src/components/library/__tests__/LibraryComponents.test.tsx > AlbumGrid > should display error state
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Accessibility > should have accessible button for scan action
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Callback Handling > should pass onScanFolder to EmptyLibrary component
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Edge Cases > should handle case-sensitive view prop
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Edge Cases > should handle empty view string
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Edge Cases > should handle unknown view type
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Edge Cases > should handle whitespace in search query as empty
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Library Empty State > should call onScanFolder when scan button clicked
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Library Empty State > should display scan folder button
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Library Empty State > should show scanning state when scanning prop is true
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Scanning State > should toggle scanning indicator when scanning changes
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Search Results View > should display search query in empty results message
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Search Results View > should prioritize search query over view type
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > Search Results View > should show library empty state when search query is empty string
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > State Transitions > should show search results when search query is present in library view
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > State Transitions > should switch from library to favorites empty state on prop change
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > State Transitions > should switch from library to search results on search query change
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > View-Based Rendering > should render favorites empty state when view is favourites
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > View-Based Rendering > should render library empty state when no search query and view is library
+ FAIL  src/components/library/__tests__/LibraryEmptyState.test.tsx > LibraryEmptyState > View-Based Rendering > should render search results empty state when search query is present
+ FAIL  src/components/library/__tests__/SearchBar.test.tsx > SearchBar > edge cases > should handle empty string search
+ FAIL  src/components/library/__tests__/SearchBar.test.tsx > SearchBar > search hint display > should highlight searched query in hint
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > accessibility > should have aria-selected attribute
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > accessibility > should have role="button" on track items
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > accessibility > should have tabIndex on track items
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > infinite scroll > should call fetchMore when sentinel is visible
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > infinite scroll > should disconnect observer on unmount
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > infinite scroll > should not fetch more if already loading
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > infinite scroll > should not fetch more if hasMore is false
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > infinite scroll > should set up Intersection Observer on mount
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > rendering > should display separator between artist and album
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > rendering > should display track number, title, artist, album, and duration
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > rendering > should render correct duration format
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > rendering > should render tracks in a list
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > rendering > should skip album display if not provided
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > selection and interaction > should call onTrackSelect when track is clicked
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > selection and interaction > should highlight selected track
+ FAIL  src/components/library/__tests__/TrackList.test.tsx > TrackList > selection and interaction > should update selection when different track is clicked
+ FAIL  src/components/library/__tests__/TrackList.virtualization.test.tsx > TrackList — virtualization > calls fetchMore when last loaded track enters the virtual window
+ FAIL  src/components/library/__tests__/TrackList.virtualization.test.tsx > TrackList — virtualization > calls onTrackSelect with the correct track when a row is clicked
+ FAIL  src/components/library/__tests__/TrackList.virtualization.test.tsx > TrackList — virtualization > renders fewer than 50 row nodes for 10,000 tracks (600px viewport)
+ FAIL  src/components/library/__tests__/TrackList.virtualization.test.tsx > TrackList — virtualization > renders more rows for a taller viewport
+ FAIL  src/components/library/__tests__/TrackList.virtualization.test.tsx > TrackList — virtualization > sets inner container height to tracks.length * ROW_HEIGHT
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Accessibility > should have accessible track title
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Accessibility > should have proper structure
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Accessibility > should support keyboard navigation
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Context Menu > should open context menu on right-click
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Context Menu > should pass track to context menu
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Drag and Drop > should be draggable when draggable prop is true
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Drag and Drop > should call onDragEnd when drag ends
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Drag and Drop > should call onDragStart when drag begins
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Drag and Drop > should not be draggable when draggable prop is false
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Edge Cases > should handle missing artwork
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Edge Cases > should handle missing duration
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Edge Cases > should handle tracks with special characters
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Edge Cases > should handle very long track titles
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Hover States > should highlight row on hover
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Hover States > should show additional controls on hover
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Performance > should not re-render when parent props unchanged
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Performance > should render efficiently with many rows
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Playback > should call onPlay callback on double-click
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Playback > should call onPlay with track from context menu
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Playback > should disable play on double-click when track unavailable
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Rendering > should render album artwork
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Rendering > should render album name
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Rendering > should render artist name
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Rendering > should render context menu
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Rendering > should render drag handle if draggable
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Rendering > should render duration
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Rendering > should render selection checkbox
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Rendering > should render track title
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Selection > should check checkbox when selected
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Selection > should support ctrl/cmd-click for multi-select
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Selection > should support shift-click for range selection
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Selection > should toggle selection on checkbox click
+ FAIL  src/components/library/__tests__/TrackRow.test.tsx > TrackRow > Selection > should uncheck checkbox when not selected
+ FAIL  src/components/library/__tests__/useBatchOperations.test.ts > useBatchOperations > handleBulkRemove > should handle API errors
+ FAIL  src/components/library/__tests__/useBatchOperations.test.ts > useBatchOperations > View-Specific Behavior > should behave differently for favorites vs library
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > handlePause > should set isPlaying to false
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > handlePause > should set isPlaying to false even if not playing
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > handlePlayTrack > should call optional onTrackPlay callback
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > handlePlayTrack > should call playTrack and update state
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > handlePlayTrack > should show success toast with track title
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > handlePlayTrack > should update state when different tracks are played
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > Handler Memoization > should maintain handler references across props changes
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > Hook Initialization > should initialize with undefined currentTrackId and false isPlaying
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > onTrackPlay Callback > should not require onTrackPlay callback
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > onTrackPlay Callback > should pass correct track to onTrackPlay
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > Playback Flow > should handle complete playback cycle
+ FAIL  src/components/library/__tests__/usePlaybackState.test.ts > usePlaybackState > State Isolation > should not share state between hook instances
+ FAIL  src/components/player/__tests__/PlaybackControls.test.tsx > PlaybackControls > CSS & Styling > should have reduced opacity when disabled
+ FAIL  src/components/player/__tests__/Player.test.tsx > Player > should export a default component
+ FAIL  src/components/player/__tests__/Player.test.tsx > Player > should render all Phase 4 child components
+ FAIL  src/components/player/__tests__/Player.test.tsx > Player > should render queue panel toggle
+ FAIL  src/components/player/__tests__/Player.test.tsx > Player > should render usePlayEnhanced hook (mock verifies import)
+ FAIL  src/components/player/__tests__/ProgressBar.test.tsx > ProgressBar > Click to Seek > should call onSeek when clicked at midpoint
+ FAIL  src/components/player/__tests__/QueuePanel.test.tsx > QueuePanel > should clear entire queue with confirmation
+ FAIL  src/components/player/__tests__/QueuePanel.test.tsx > QueuePanel > should display tracks with correct information
+ FAIL  src/components/player/__tests__/QueuePanel.test.tsx > QueuePanel > should highlight current playing track
+ FAIL  src/components/player/__tests__/QueuePanel.test.tsx > QueuePanel > should remove track from queue
+ FAIL  src/components/player/__tests__/QueuePanel.test.tsx > QueuePanel > should render queue panel with all tracks
+ FAIL  src/components/player/__tests__/QueueStatisticsPanel.test.tsx > QueueStatisticsPanel > should display track count in summary
+ FAIL  src/components/player/__tests__/TimeDisplay.test.tsx > TimeDisplay > CSS Classes and Styling > should have title attribute for tooltip
+ FAIL  src/components/player/__tests__/TimeDisplay.test.tsx > TimeDisplay > Long Duration Formatting > should display hours even at 0 for long tracks
+ FAIL  src/components/player/__tests__/TimeDisplay.test.tsx > TimeDisplay > Props Updates > should update format when duration crosses hour threshold
+ FAIL  src/components/player/__tests__/TimeDisplay.test.tsx > TimeDisplay > Realistic Scenarios > should handle album-length tracks with hours
+ FAIL  src/components/player/__tests__/TimeDisplay.test.tsx > TimeDisplay > Remaining Time Display > should show remaining time with hours for long tracks
+ FAIL  src/components/player/__tests__/TrackDisplay.test.tsx > TrackDisplay > CSS & Styling > should use design tokens for colors
+ FAIL  src/components/player/__tests__/TrackInfo.test.tsx > TrackInfo > should display artwork image when available
+ FAIL  src/components/player/__tests__/TrackInfo.test.tsx > TrackInfo > should display year and genre when available
+ FAIL  src/components/player/__tests__/VolumeScale.test.tsx > Player - Volume Scale Consistency (#2116) > should maintain volume consistency after WebSocket player_state update
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should accept position prop
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should display error message when error exists and details expanded
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should hide details on mouse leave
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should not show reconnect button when connected
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should render in compact mode when disconnected
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should render in non-compact mode when connected
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should render status indicator
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should render with connected status attribute when WebSocket connected
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should render with default bottom-right position
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should render with disconnected status when not connected and no error
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should render with reconnecting status when error and not connected
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should return null in compact mode when connected
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should show expanded details on mouse enter
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should show reconnect button when reconnecting and details expanded
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should show WebSocket as connected in details
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should show WebSocket as disconnected in details
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should toggle details on click
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should transition from connected to disconnected
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should transition from disconnected to reconnecting
+ FAIL  src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx > ConnectionStatusIndicator > should transition from reconnecting to connected
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should apply disabled styling when disabled prop is true
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should change preset when button clicked
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should display correct current time
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should display correct duration
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should display current volume level
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should hide track info in compact mode
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should highlight selected preset
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should render current track info
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should render next/previous buttons
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should render play/pause button
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should render preset buttons when enabled
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should render time display
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should render volume slider
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should send next when next button clicked
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should send pause when pause button clicked and playing
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should send play when play button clicked and not playing
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should send previous when previous button clicked
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should show loading indicator when loading
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should show muted volume display when muted
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should show pause icon when playing
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should show track info in normal mode
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should toggle mute when mute button clicked
+ FAIL  src/components/shared/__tests__/PlayerControls.test.tsx > PlayerControls > should update volume display when slider moved
+ FAIL  src/components/__tests__/Integration.test.tsx > Component Integration Tests > should initialize store with correct initial state
+ FAIL  src/components/__tests__/Integration.test.tsx > Component Integration Tests > should maintain lastUpdated timestamps across slices
+ FAIL  src/components/__tests__/Integration.test.tsx > Component Integration Tests > should reset player state
+ FAIL  src/components/__tests__/Sidebar.test.tsx > Sidebar > renders in collapsed state
+ FAIL  src/components/__tests__/SimilarityVisualization.test.tsx > SimilarityVisualization > Top Differences > should display dimension names formatted correctly
+ FAIL  src/components/track/__tests__/TrackCard.test.tsx > TrackCard > Edge Cases > should handle very long duration
+ FAIL  src/hooks/audio/__tests__/useAudioVisualization.test.ts > useAudioVisualization > does not update state when audio values are below the delta threshold
+ FAIL  src/hooks/audio/__tests__/useAudioVisualization.test.ts > useAudioVisualization > does update state when audio values exceed the delta threshold
+ FAIL  src/hooks/audio/__tests__/useAudioVisualization.test.ts > useAudioVisualization > emits at most ~30 state updates per second
+ FAIL  src/hooks/audio/__tests__/useAudioVisualization.test.ts > useAudioVisualization > emits fewer than 200 state updates over 5s at 60fps
+ FAIL  src/hooks/audio/__tests__/useAudioVisualization.test.ts > useAudioVisualization > emits no updates when enabled=false
+ FAIL  src/hooks/audio/__tests__/useAudioVisualization.test.ts > useAudioVisualization > returns the default data shape on first render
+ FAIL  src/hooks/audio/__tests__/useAudioVisualization.test.ts > useAudioVisualization > sets isActive=true after processing audio
+ FAIL  src/hooks/enhancement/__tests__/useEnhancementControl.test.ts > useEnhancementControl > setIntensity > should change intensity to valid value
+ FAIL  src/hooks/enhancement/__tests__/useEnhancementControl.test.ts > useEnhancementControl > setIntensity > should clamp intensity to 0.0 when below
+ FAIL  src/hooks/enhancement/__tests__/useEnhancementControl.test.ts > useEnhancementControl > setIntensity > should clamp intensity to 1.0 when above
+ FAIL  src/hooks/enhancement/__tests__/useEnhancementControl.test.ts > useEnhancementControl > setPreset > should change preset to valid value
+ FAIL  src/hooks/enhancement/__tests__/useEnhancementControl.test.ts > useEnhancementControl > toggleEnabled > should toggle enabled state
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_chunk > auto-starts engine when buffer reaches 2-second threshold
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_chunk > decodes and appends samples to buffer
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_chunk > dispatches setStreamingError when decode fails
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_chunk > dispatches updateStreamingProgress with correct counts
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_chunk > does NOT auto-start engine when already playing
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_chunk > does NOT auto-start engine when buffer below threshold
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_chunk > ignores chunk with stream_type other than "enhanced"
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_chunk > queues chunk when stream not yet initialized
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_chunk > resets buffer on out-of-sequence chunk
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_end > dispatches completeStreaming when stream ends
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_end > ignores end message with stream_type other than "enhanced"
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_end > passes through when stream_type is absent
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_error > clears streaming resources after error
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_error > dispatches setStreamingError with error message and code
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_error > ignores error message with stream_type other than "enhanced"
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_start > auto-starts playback when buffer already meets threshold on stream_start
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_start > clears isSeeking when handling a seek stream_start
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_start > creates and initializes PCMStreamBuffer with correct sample rate and channels
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_start > creates AudioContext with stream sample rate
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_start > creates AudioPlaybackEngine with AudioContext and buffer
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_start > dispatches setStreamingError when stream initialization fails
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_start > dispatches startStreaming with correct track_id and total_chunks
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_start > ignores messages with stream_type other than "enhanced"
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_start > passes through when stream_type is absent (no filter applied)
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – audio_stream_start > processes pending chunks queued before stream_start
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – fingerprint_progress > auto-clears status and message after 2 seconds on "complete"
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – fingerprint_progress > does NOT auto-clear for non-complete status
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – fingerprint_progress > handles missing data fields gracefully
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – fingerprint_progress > sets fingerprintStatus and fingerprintMessage from message
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – playback controls > pausePlayback: calls engine.pausePlayback
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – playback controls > resumePlayback: calls engine.resumePlayback
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – playback controls > setVolume: forwards clamped volume to engine
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – playback controls > stopPlayback: stops engine and dispatches resetStreaming
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – playEnhanced > dispatches setStreamingError when WebSocket is not connected
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – playEnhanced > dispatches startStreaming with correct trackId and intensity
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – playEnhanced > resets prior streaming state before starting a new stream
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – playEnhanced > sends play_enhanced message to WebSocket
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – seekTo > does nothing when no track info is available
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – seekTo > does nothing when WebSocket is disconnected
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – seekTo > resets the PCM buffer
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – seekTo > sends seek message to WebSocket with correct position
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – seekTo > sets isSeeking to true
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – seekTo > stops the playback engine
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – subscription lifecycle > calls all 5 unsubscribers on unmount
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – subscription lifecycle > returns isStreaming=false and error=null in initial state
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – subscription lifecycle > subscribes to all 5 WebSocket message types on mount
+ FAIL  src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts > usePlayEnhanced – WS disconnect cleanup > stops engine and resets Redux streaming state on disconnect
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > audio_stream_end handling > dispatches completeStreaming on stream end
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > audio_stream_end handling > filters out non-normal stream_end
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > audio_stream_error handling > dispatches setStreamingError on error
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > audio_stream_error handling > filters out non-normal stream_error
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > audio_stream_start handling > creates AudioPlaybackEngine after PCMStreamBuffer
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > audio_stream_start handling > filters out non-normal stream_type
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > audio_stream_start handling > initializes PCMStreamBuffer with sample_rate and channels
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > buffer threshold — issue #2268 > auto-starts for mono audio once sampleRate * 1 * 2 samples are buffered
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > buffer threshold — issue #2268 > auto-starts for stereo audio once sampleRate * channels * 2 samples are buffered
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > buffer threshold — issue #2268 > does NOT auto-start for stereo audio with only 1× sampleRate samples buffered
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > buffer threshold — issue #2268 > does NOT auto-start when already playing
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > buffer threshold — issue #2268 > threshold matches usePlayEnhanced formula: sampleRate * channels * 2
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > error when WebSocket disconnected > dispatches streaming error when WS is not connected
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > playback controls > pausePlayback calls engine.pausePlayback
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > playback controls > resumePlayback calls engine.resumePlayback
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > playback controls > setVolume clamps and passes value to engine
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > playback controls > stopPlayback calls engine.stopPlayback
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > subscription lifecycle > sends play_normal WebSocket message with trackId
+ FAIL  src/hooks/enhancement/__tests__/usePlayNormal.test.ts > usePlayNormal > subscription lifecycle > subscribes to audio_stream_start, audio_chunk, audio_stream_end, audio_stream_error on playNormal()
+ FAIL  src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts > useCachedFingerprint > should return cached fingerprint
+ FAIL  src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts > useFingerprintCacheStats > should return cache statistics
+ FAIL  src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts > useIsFingerprintCached > should return true when track is cached
+ FAIL  src/hooks/fingerprint/__tests__/useTrackFingerprint.test.ts > useTrackFingerprint > should set error on non-404 failure
+ FAIL  src/hooks/library/__tests__/useLibraryData.test.ts > useLibraryData – albumArt field mapping (issue #2386) > artwork_url takes priority over legacy album_art on initial fetch
+ FAIL  src/hooks/library/__tests__/useLibraryData.test.ts > useLibraryData – albumArt field mapping (issue #2386) > falls back to album_art when artwork_url is absent
+ FAIL  src/hooks/library/__tests__/useLibraryData.test.ts > useLibraryData – albumArt field mapping (issue #2386) > legacy album_art fallback works in loadMore too
+ FAIL  src/hooks/library/__tests__/useLibraryData.test.ts > useLibraryData – albumArt field mapping (issue #2386) > maps artwork_url for every track in a multi-track response
+ FAIL  src/hooks/library/__tests__/useLibraryData.test.ts > useLibraryData – albumArt field mapping (issue #2386) > maps artwork_url to albumArt in loadMore response
+ FAIL  src/hooks/library/__tests__/useLibraryData.test.ts > useLibraryData – albumArt field mapping (issue #2386) > maps artwork_url to albumArt on initial fetch
+ FAIL  src/hooks/player/__tests__/usePlaybackControl.test.ts > usePlaybackControl > play() > should call send with play_normal when play is invoked
+ FAIL  src/hooks/player/__tests__/usePlaybackControl.test.ts > usePlaybackControl > play() > should handle play errors gracefully
+ FAIL  src/hooks/player/__tests__/usePlaybackControl.test.ts > usePlaybackControl > play() > should set isLoading to false after play completes
+ FAIL  src/hooks/player/__tests__/usePlaybackControl.test.ts > usePlaybackControl > play callback stability (#2354) > play still works correctly after multiple re-renders (reads latest track via ref)
+ FAIL  src/hooks/player/__tests__/usePlaybackControl.test.ts > usePlaybackControl > seek() > should call POST /api/player/seek with position as query param
+ FAIL  src/hooks/player/__tests__/usePlaybackControl.test.ts > usePlaybackControl > seek() > should clamp position to valid range (0 to duration)
+ FAIL  src/hooks/player/__tests__/usePlaybackControl.test.ts > usePlaybackControl > setVolume() > should call POST /api/player/volume with volume as query param (0-100 scale)
+ FAIL  src/hooks/player/__tests__/usePlaybackControl.test.ts > usePlaybackControl > setVolume() > should clamp volume to 0.0-1.0 range before converting to 0-100
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > Callback Stability > should maintain stable clearQueue reference when state changes
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > Callback Stability > should maintain stable setQueue reference when state changes
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > Callback Stability > should maintain stable setRepeatMode reference when state changes
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > Callback Stability > should maintain stable toggleShuffle reference when state changes
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > Optimistic Rollback with useRef > should rollback clearQueue on API failure using latest state from ref
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > Optimistic Rollback with useRef > should rollback setQueue on API failure using latest state from ref
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > Optimistic Rollback with useRef > should rollback setRepeatMode on API failure using latest state from ref
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > Optimistic Rollback with useRef > should rollback toggleShuffle on API failure using latest state from ref
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should add track at specific position
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should add track to queue
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should call setQueue API with correct parameters
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should call setQueue API with custom start index
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should clear entire queue
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should clear error state
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should fetch initial queue on mount
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should get current track from queue
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should handle setQueue errors
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should initialize with empty queue
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should provide view-only queue access
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should reject invalid repeat mode
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should remove track from queue
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should reorder entire queue by new order
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should reorder single track in queue
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should set repeat mode to all
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should set repeat mode to one
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should toggle shuffle off
+ FAIL  src/hooks/player/__tests__/usePlaybackQueue.test.ts > usePlaybackQueue > should toggle shuffle on
+ FAIL  src/hooks/player/__tests__/usePlayerAPI.test.ts > usePlayerAPI > handles API errors gracefully
+ FAIL  src/hooks/player/__tests__/usePlayerAPI.test.ts > usePlayerAPI > pauses playback
+ FAIL  src/hooks/player/__tests__/usePlayerAPI.test.ts > usePlayerAPI > resumes playback
+ FAIL  src/hooks/player/__tests__/usePlayerDisplay.test.ts > usePlayerDisplay Hook > Edge Cases > should handle NaN values
+ FAIL  src/hooks/player/__tests__/usePlayerDisplay.test.ts > usePlayerDisplay Hook > Edge Cases > should handle negative currentTime
+ FAIL  src/hooks/player/__tests__/usePlayerDisplay.test.ts > usePlayerDisplay Hook > Long Duration Formatting > should force show hours when requested
+ FAIL  src/hooks/player/__tests__/usePlayerDisplay.test.ts > usePlayerDisplay Hook > Realistic Scenarios > should handle podcast playback (multi-hour)
+ FAIL  src/hooks/player/__tests__/usePlayerDisplay.test.ts > usePlayerDisplay Hook > Utility Functions > should format with hours when requested
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – complete player_state message > syncs all 9 fields from a single message
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – current_time > does not dispatch when field is absent
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – current_time > does not dispatch when field is undefined
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – current_track > defaults duration to 0 when missing
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – current_track > maps album_art to artworkUrl
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – current_track > maps all backend track fields to Redux Track shape
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – duration > does not dispatch when field is absent
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – edge cases > leaves state untouched on empty data object
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – is_muted > does not dispatch when field is absent
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – is_muted > does not dispatch when field is undefined
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – is_playing > does not dispatch when field is absent
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – is_playing > does not dispatch when field is undefined
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – queue > maps album_art to artworkUrl for each queue track
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – queue > maps queue tracks to Redux Track shape
+ FAIL  src/hooks/player/__tests__/usePlayerStateSync.test.ts > usePlayerStateSync – volume > does not dispatch when field is absent
+ FAIL  src/hooks/shared/__tests__/useReduxState.test.tsx > Redux State Hooks > State Selectors > usePlayerState should return player slice
+ FAIL  src/hooks/shared/__tests__/useReduxState.test.tsx > Redux State Hooks > usePlayer > should return player state and actions
+ FAIL  src/hooks/shared/__tests__/useReduxState.test.tsx > Redux State Hooks > usePlayer > should seek to position
+ FAIL  src/performance/__tests__/lazyLoader.test.tsx > Lazy Loader > Error Boundary > should call onError callback
+ FAIL  src/performance/__tests__/lazyLoader.test.tsx > Lazy Loader > Error Boundary > should render children when no error
+ FAIL  src/performance/__tests__/lazyLoader.test.tsx > Lazy Loader > Error Boundary > should render fallback when error occurs
+ FAIL  src/performance/__tests__/lazyLoader.test.tsx > Lazy Loader > Error Boundary > should use custom fallback
+ FAIL  src/performance/__tests__/lazyLoader.test.tsx > Lazy Loader > Fallback Components > should render default error fallback
+ FAIL  src/performance/__tests__/lazyLoader.test.tsx > Lazy Loader > Fallback Components > should render default loading fallback
+ FAIL  src/performance/__tests__/lazyLoader.test.tsx > Lazy Loader > Fallback Components > should render error fallback without error message
+ FAIL  src/services/audio/__tests__/PCMStreamBuffer.test.ts > PCMStreamBuffer > crossfading > should blend overlapping samples at boundaries
+ FAIL  src/services/audio/__tests__/PCMStreamBuffer.test.ts > PCMStreamBuffer > crossfading > should handle multi-sample crossfades
+ FAIL  src/services/playlistService.test.ts > PlaylistService > addTrackToPlaylist > adds track successfully
+ FAIL  src/services/__tests__/queueService.test.ts > QueueService > getQueue > should return empty queue when server returns empty array
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > buildGraph > should build K-NN graph with custom k
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > buildGraph > should build K-NN graph with default k
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > compareTracks > should compare two tracks
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > explainSimilarity > should explain similarity between tracks
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > explainSimilarity > should use default topN parameter
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > findSimilar > should find similar tracks with custom limit
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > findSimilar > should find similar tracks with default parameters
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > findSimilar > should find similar tracks without graph
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > fit > should fit similarity system with default parameters
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > fit > should fit with custom min_samples
+ FAIL  src/services/__tests__/similarityService.test.ts > SimilarityService > getGraphStats > should get graph statistics
+ FAIL  src/store/middleware/__tests__/errorTrackingMiddleware.test.ts > Error Tracking Middleware > should call onError callback
+ FAIL  src/store/middleware/__tests__/errorTrackingMiddleware.test.ts > Error Tracking Middleware > should categorize network errors
+ FAIL  src/store/middleware/__tests__/errorTrackingMiddleware.test.ts > Error Tracking Middleware > should categorize validation errors
+ FAIL  src/store/middleware/__tests__/errorTrackingMiddleware.test.ts > Error Tracking Middleware > should detect error in action payload
+ FAIL  src/store/middleware/__tests__/errorTrackingMiddleware.test.ts > Error Tracking Middleware > should not trigger on success actions
+ FAIL  src/store/middleware/__tests__/errorTrackingMiddleware.test.ts > Error Tracking Middleware > should respect enabled config
+ FAIL  src/store/middleware/__tests__/errorTrackingMiddleware.test.ts > Error Tracking Middleware > should track error with timestamp
+ FAIL  src/store/middleware/__tests__/errorTrackingMiddleware.test.ts > Error Tracking Middleware > should track error with unique ID
+ FAIL  src/store/middleware/__tests__/errorTrackingMiddleware.test.ts > Error Tracking Middleware > should trigger connection recovery on network error
+ FAIL  src/store/middleware/__tests__/loggerMiddleware.test.ts > Logger Middleware > should track state changes
+ FAIL  src/tests/api-integration/library-api.test.ts > Library API Integration Tests > Album Endpoints > should fetch album by ID
+ FAIL  src/tests/api-integration/library-api.test.ts > Library API Integration Tests > Album Endpoints > should fetch album tracks
+ FAIL  src/tests/api-integration/library-api.test.ts > Library API Integration Tests > Album Endpoints > should fetch all albums
+ FAIL  src/tests/api-integration/library-api.test.ts > Library API Integration Tests > Album Endpoints > should return 404 for non-existent album
+ FAIL  src/tests/api-integration/library-api.test.ts > Library API Integration Tests > Artist Endpoints > should fetch all artists
+ FAIL  src/tests/api-integration/library-api.test.ts > Library API Integration Tests > Artist Endpoints > should fetch artist by ID
+ FAIL  src/tests/api-integration/library-api.test.ts > Library API Integration Tests > Artist Endpoints > should fetch artist tracks
+ FAIL  src/tests/api-integration/library-api.test.ts > Library API Integration Tests > Artist Endpoints > should return 404 for non-existent artist
+ FAIL  src/tests/integration/player-controls/player-controls.test.tsx > PlayerBarV2 Integration Tests > Seek Functionality > should trigger seek when progress bar changed
