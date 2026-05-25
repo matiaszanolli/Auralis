@@ -339,5 +339,36 @@ describe('AlbumCharacterPane', () => {
       const toggle = screen.getByTestId('enhancement-toggle');
       expect(toggle).toHaveAttribute('data-enabled', 'true');
     });
+
+    it('does NOT remount the enhancement subtree when toggle flips (#2760)', () => {
+      // Pre-fix the section was `const EnhancementSection = useCallback(() =>
+      // <Box>...</Box>, [isEnhancementEnabled, onEnhancementToggle])`. When
+      // the toggle flipped, useCallback returned a new function reference;
+      // React saw a new "component type" and unmounted+remounted the whole
+      // subtree (losing state, focus, animation). Post-fix the section is
+      // inline JSX — same DOM node persists across the toggle.
+      mockUseEnhancementControl.mockReturnValue({
+        enabled: false,
+        setEnabled: vi.fn(),
+      });
+
+      const fingerprint = makeFakeFingerprint();
+      const { rerender } = render(<AlbumCharacterPane fingerprint={fingerprint} />);
+      const toggleBefore = screen.getByTestId('enhancement-toggle');
+      expect(toggleBefore).toHaveAttribute('data-enabled', 'false');
+
+      // Flip the toggle by changing what the hook returns, then re-render.
+      mockUseEnhancementControl.mockReturnValue({
+        enabled: true,
+        setEnabled: vi.fn(),
+      });
+      rerender(<AlbumCharacterPane fingerprint={fingerprint} />);
+
+      const toggleAfter = screen.getByTestId('enhancement-toggle');
+      expect(toggleAfter).toHaveAttribute('data-enabled', 'true');
+      // The DOM node must be the SAME identity — if React unmounted and
+      // remounted the subtree, this would be a different node.
+      expect(toggleAfter).toBe(toggleBefore);
+    });
   });
 });

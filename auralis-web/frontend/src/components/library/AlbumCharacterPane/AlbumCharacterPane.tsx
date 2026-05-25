@@ -19,7 +19,7 @@
  * - Style Guide 6.1: Slow, weighted motion
  */
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { tokens } from '@/design-system';
@@ -114,25 +114,12 @@ export const AlbumCharacterPane = ({
   // Glow lingers longer - use sqrt for slower fade on container glow
   const glowIntensity = Math.sqrt(intensity);
 
-  // Enhancement toggle section (always shown at top)
-  const EnhancementSection = useCallback(() => (
-    <Box
-      sx={{
-        pb: tokens.spacing.lg,
-        mb: tokens.spacing.lg,
-        borderBottom: `1px solid ${tokens.colors.border.light}`,
-      }}
-    >
-      <EnhancementToggle
-        variant="switch"
-        isEnabled={isEnhancementEnabled}
-        onToggle={onEnhancementToggle ?? (() => {})}
-        label="Auto-Mastering"
-        description={isEnhancementEnabled ? 'Enhancing playback' : 'Original audio'}
-        showDescription
-      />
-    </Box>
-  ), [isEnhancementEnabled, onEnhancementToggle]);
+  // Enhancement toggle section (always shown at top). Inline JSX — NOT a
+  // useCallback-wrapped component. Pre-fix (#2760) this was defined as
+  // `const EnhancementSection = useCallback(() => <Box>...</Box>, [...])`
+  // and rendered as `<EnhancementSection />`, which made React see a new
+  // "component type" every time the deps changed (the toggle itself!),
+  // unmounting and remounting the whole subtree on every toggle.
 
   // Container styles matching sidebar (muscle memory UI - lower contrast)
   const containerStyles = {
@@ -156,7 +143,24 @@ export const AlbumCharacterPane = ({
     flexDirection: 'column' as const,
   };
 
-  const enhancementSection = <EnhancementSection />;
+  const enhancementSection = (
+    <Box
+      sx={{
+        pb: tokens.spacing.lg,
+        mb: tokens.spacing.lg,
+        borderBottom: `1px solid ${tokens.colors.border.light}`,
+      }}
+    >
+      <EnhancementToggle
+        variant="switch"
+        isEnabled={isEnhancementEnabled}
+        onToggle={onEnhancementToggle ?? (() => {})}
+        label="Auto-Mastering"
+        description={isEnhancementEnabled ? 'Enhancing playback' : 'Original audio'}
+        showDescription
+      />
+    </Box>
+  );
 
   // State 1: No track playing and no album hovered
   if (!currentTrack?.id && !albumFingerprint && !isLoading) {
