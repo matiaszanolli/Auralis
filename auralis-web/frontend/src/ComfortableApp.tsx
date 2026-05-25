@@ -17,6 +17,8 @@ import {
   AppTopBar,
   AppMainContent,
 } from './components/core';
+import { ErrorBoundary } from './components/core/ErrorBoundary';
+import { tokens } from '@/design-system';
 
 // Custom hooks for business logic
 import { useAppLayout } from '@/hooks/app/useAppLayout';
@@ -359,9 +361,28 @@ function ComfortableApp() {
         />
       </Suspense>
 
-      {/* Bottom Player Bar - Fixed at bottom of viewport, not inside flex layout */}
+      {/* Bottom Player Bar - Fixed at bottom of viewport, not inside flex layout.
+          Wrapped in a dedicated ErrorBoundary (#3115) so a Player render crash
+          doesn't kill the entire app — library/queue/settings remain usable. */}
       <Box sx={{ flexShrink: 0 }}>
-        <Player />
+        <ErrorBoundary
+          fallback={
+            <Box
+              sx={{
+                p: tokens.spacing.md,
+                background: tokens.colors.bg.level1,
+                borderTop: `1px solid ${tokens.colors.semantic.error}`,
+                color: tokens.colors.text.secondary,
+                fontSize: tokens.typography.fontSize.sm,
+                textAlign: 'center',
+              }}
+            >
+              Player encountered an error. Refresh the page to restart playback.
+            </Box>
+          }
+        >
+          <Player />
+        </ErrorBoundary>
       </Box>
     </Box>
   );
