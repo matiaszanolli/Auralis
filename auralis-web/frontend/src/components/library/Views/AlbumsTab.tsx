@@ -4,7 +4,7 @@ import {
   Paper,
   Typography
 } from '@mui/material';
-import Grid2 from '@mui/material/Grid2';
+import Grid2 from '@mui/material/Grid';
 import { tokens } from '@/design-system';
 import AlbumArt from '@/components/album/AlbumArt';
 import {

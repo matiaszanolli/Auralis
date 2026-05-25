@@ -2,7 +2,7 @@
  * MetadataExtendedFields - Extended metadata fields (comment)
  */
 
-import Grid2 from '@mui/material/Grid2';
+import Grid2 from '@mui/material/Grid';
 import { StyledTextField } from '@/components/library/Styles/FormFields.styles';
 import type { MetadataFields } from './useMetadataForm';
 

@@ -4,7 +4,7 @@ import { tokens } from '@/design-system';
 import { useSimilarityFormatting } from './useSimilarityFormatting';
 import { LinearProgress } from '@/design-system';
 import { Box, Typography, Accordion, AccordionSummary, AccordionDetails,  } from '@mui/material';
-import Grid2 from '@mui/material/Grid2';
+import Grid2 from '@mui/material/Grid';
 
 export interface Contribution {
   dimension: string;

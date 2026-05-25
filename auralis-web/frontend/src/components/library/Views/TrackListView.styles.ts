@@ -4,7 +4,7 @@ import { tokens } from '@/design-system';
 
 export const ListViewContainer = styled(Paper)(({ theme }) => ({
   background: 'rgba(255,255,255,0.05)',
-  borderRadius: theme.shape.borderRadius * 3,
+  borderRadius: Number(theme.shape.borderRadius) * 3,
   overflow: 'hidden',
   padding: tokens.spacing.sm,
 }));
