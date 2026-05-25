@@ -309,6 +309,46 @@ describe('useLibraryWithStats', () => {
       expect(loadMoreUrl).toContain('offset=50');
       expect(loadMoreUrl).not.toMatch(/[?&]offset=0(\b|&)/);
     });
+
+    it('rapid loadMore calls are debounced and use the live offset (#2795)', async () => {
+      // Pre-fix #2795 used setTimeout(0) + setOffset(prev => ...) to defer
+      // the fetch — race-prone under rapid calls. Post-fix (per #3378 ref)
+      // the fetchInProgressRef guard debounces and the offsetRef advances
+      // consistently between fires.
+      mockFetch.mockResolvedValueOnce(makeTracksResponse(50, 200, true));
+      const { result } = renderHook(() =>
+        useLibraryWithStats({ view: 'all', autoLoad: false })
+      );
+
+      await act(async () => {
+        await result.current.fetchTracks();
+      });
+
+      // Fire 5 loadMore calls in rapid succession. The first acquires the
+      // in-progress guard; the other four early-return. Only one network
+      // request fires per advance.
+      mockFetch.mockResolvedValueOnce(makeTracksResponse(50, 200, true));
+      await act(async () => {
+        await Promise.all([
+          result.current.loadMore(),
+          result.current.loadMore(),
+          result.current.loadMore(),
+          result.current.loadMore(),
+          result.current.loadMore(),
+        ]);
+      });
+      await waitFor(() => {
+        expect(result.current.tracks).toHaveLength(100);
+      });
+
+      // initial fetch (1) + exactly ONE loadMore (1) = 2 total calls.
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      // The loadMore call used the live offset (50), not a stale value.
+      const calls = mockFetch.mock.calls;
+      const loadMoreUrl = calls[calls.length - 1]?.[0] as string;
+      expect(loadMoreUrl).toContain('offset=50');
+    });
   });
 
   describe('fetchTracks offset closure (#3378 regression)', () => {
