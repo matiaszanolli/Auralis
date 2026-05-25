@@ -152,6 +152,24 @@ class AudioFileManager:
                 return 0.0
             return len(self.audio_data) / self.sample_rate
 
+    def get_state_snapshot(self) -> tuple[bool, int, float, int]:
+        """Atomically snapshot the parts of state needed for position reporting.
+
+        Returns ``(is_loaded, sample_rate, duration_seconds, total_samples)``
+        in a single ``_audio_lock`` critical section so callers don't race
+        with `load_file()` / `clear_audio()` between reads (#3474).
+
+        Without this helper, a reader doing
+        ``if audio_data is None: ...; sr = sample_rate; dur = get_duration()``
+        could see ``audio_data`` go None between the check and the later
+        reads, producing inconsistent state or ZeroDivisionError.
+        """
+        with self._audio_lock:
+            if self.audio_data is None:
+                return (False, self.sample_rate, 0.0, 0)
+            total = len(self.audio_data)
+            return (True, self.sample_rate, total / self.sample_rate, total)
+
     def get_total_samples(self) -> int:
         """Get total number of samples in current audio"""
         with self._audio_lock:

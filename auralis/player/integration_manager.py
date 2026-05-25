@@ -289,15 +289,23 @@ class IntegrationManager:
         """Get current playback position in seconds (clamped to duration).
 
         Reads position via PlaybackController.get_position_snapshot() which
-        holds PlaybackController._lock, then reads sample_rate under
-        _position_lock to guard against gapless track transitions (#2899, #3363).
+        holds PlaybackController._lock, then snapshots the file_manager's
+        audio state atomically under its own _audio_lock. Pre-fix (#3474)
+        the reader checked `audio_data is None` and then read `sample_rate`
+        / `get_duration()` separately — a concurrent `clear_audio()` could
+        slip between those reads, producing inconsistent state or
+        ZeroDivisionError. The dedicated snapshot helper closes that window.
+
+        _position_lock continues to guard the broader gapless-transition
+        consistency (#2899, #3363); the new helper handles audio-state
+        atomicity orthogonally so no lock-ordering concern arises.
         """
         with self._position_lock:
-            if self.file_manager.audio_data is None:
+            is_loaded, sample_rate, duration, _total = self.file_manager.get_state_snapshot()
+            if not is_loaded:
                 return 0.0
             position_samples = self.playback.get_position_snapshot()
-            position_seconds = position_samples / self.file_manager.sample_rate
-            duration = self.file_manager.get_duration()
+            position_seconds = position_samples / sample_rate
         return min(position_seconds, duration)
 
     def cleanup(self) -> None:
