@@ -30,20 +30,35 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from websocket.websocket_protocol import (
-    ConnectionInfo,
-    HeartbeatManager,
-    MessagePriority,
-    MessageType,
-    RateLimiter,
-    WebSocketProtocol,
-    WSMessage,
+# NOTE (#3517 / BE-NEW-59): the original B.3 protocol classes
+# (ConnectionInfo / MessagePriority / MessageType / RateLimiter /
+# WebSocketProtocol / WSMessage) were never merged into the codebase —
+# only HeartbeatManager is actually exported from
+# auralis-web/backend/websocket/websocket_protocol.py. Importing the
+# missing names made pytest fail collection for the entire 495-line
+# file, masking the otherwise-valid HeartbeatManager tests below.
+# Trim the import to just what exists so HeartbeatManager regains its
+# regression coverage.
+from websocket.websocket_protocol import HeartbeatManager  # noqa: E402
+
+# All tests below that reference WSMessage / ConnectionInfo / RateLimiter /
+# WebSocketProtocol / MessagePriority / MessageType target the never-merged
+# B.3 protocol classes. Skip them as a unit so pytest still collects
+# HeartbeatManager coverage (#3517 / BE-NEW-59).
+_B3_UNIMPLEMENTED = pytest.mark.skip(
+    reason=(
+        "Tests reference B.3 protocol classes (WSMessage / ConnectionInfo / "
+        "RateLimiter / WebSocketProtocol / MessagePriority / MessageType) "
+        "that were never merged — only HeartbeatManager is exported from "
+        "websocket.websocket_protocol. See #3517 / BE-NEW-59."
+    )
 )
 
 # ============================================================================
 # Message Tests
 # ============================================================================
 
+@_B3_UNIMPLEMENTED
 class TestWSMessage:
     """Test WebSocket message envelope."""
 
@@ -132,6 +147,7 @@ class TestWSMessage:
 # Connection Management Tests
 # ============================================================================
 
+@_B3_UNIMPLEMENTED
 class TestConnectionInfo:
     """Test connection information tracking."""
 
@@ -181,6 +197,7 @@ class TestConnectionInfo:
 # Rate Limiter Tests
 # ============================================================================
 
+@_B3_UNIMPLEMENTED
 class TestRateLimiter:
     """Test rate limiting functionality."""
 
@@ -333,6 +350,7 @@ class TestHeartbeatManager:
 # WebSocket Protocol Tests
 # ============================================================================
 
+@_B3_UNIMPLEMENTED
 class TestWebSocketProtocol:
     """Test WebSocket protocol handler."""
 
@@ -459,6 +477,7 @@ class TestWebSocketProtocol:
 # Message Type Tests
 # ============================================================================
 
+@_B3_UNIMPLEMENTED
 class TestMessageTypes:
     """Test message type enumeration."""
 
