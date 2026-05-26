@@ -179,8 +179,10 @@ export const PlayerEnhancementPanel = ({
             onClick={() => handleModeToggle('normal')}
             disabled={!activeTrackId}
             title="Play original unprocessed audio"
+            aria-label="Play original audio"
+            aria-pressed={playMode === 'normal'}
           >
-            🎵 Original
+            <span aria-hidden="true">🎵</span> Original
             {playMode === 'normal' && streamingStatus && (
               <span style={styles.streamingIndicator}>{streamingStatus}</span>
             )}
@@ -194,8 +196,10 @@ export const PlayerEnhancementPanel = ({
             onClick={() => handleModeToggle('enhanced')}
             disabled={!activeTrackId}
             title="Play with audio enhancement/mastering"
+            aria-label="Play with enhancement"
+            aria-pressed={playMode === 'enhanced'}
           >
-            ✨ Enhanced
+            <span aria-hidden="true">✨</span> Enhanced
             {playMode === 'enhanced' && streamingStatus && (
               <span style={styles.streamingIndicator}>{streamingStatus}</span>
             )}
