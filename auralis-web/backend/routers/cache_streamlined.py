@@ -8,6 +8,7 @@ API endpoints for streamlined two-tier cache management and statistics.
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 from typing import Any
 from collections.abc import Callable
@@ -80,11 +81,12 @@ def create_streamlined_cache_router(
         """
         cache_manager = _require_cache(get_cache_manager)
         try:
-            stats = cache_manager.get_stats()
+            stats = await asyncio.to_thread(cache_manager.get_stats)
             return CacheStatsResponse(**stats)
-        except Exception as e:
-            logger.error(f"Error getting cache stats: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception:
+            # Don't leak DB / filesystem details to the client (#3500 / BE-27).
+            logger.exception("Error getting cache stats")
+            raise HTTPException(status_code=500, detail="Failed to get cache stats")
 
     @router.get("/track/{track_id}/status", response_model=TrackCacheStatus)
     async def get_track_cache_status(track_id: int) -> TrackCacheStatus:
@@ -99,7 +101,7 @@ def create_streamlined_cache_router(
         """
         cache_manager = _require_cache(get_cache_manager)
         try:
-            status = cache_manager.get_track_cache_status(track_id)
+            status = await asyncio.to_thread(cache_manager.get_track_cache_status, track_id)
 
             if status is None:
                 raise HTTPException(
@@ -117,9 +119,9 @@ def create_streamlined_cache_router(
             )
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Error getting track cache status: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception:
+            logger.exception(f"Error getting track cache status (track {track_id})")
+            raise HTTPException(status_code=500, detail="Failed to get track cache status")
 
     @router.delete("/track/{track_id}")
     async def clear_track_cache(track_id: int) -> dict[str, Any]:
@@ -128,9 +130,9 @@ def create_streamlined_cache_router(
         try:
             removed = await cache_manager.clear_track(track_id)
             return {"message": f"Cleared cache for track {track_id}", "removed": removed}
-        except Exception as e:
-            logger.error(f"Error clearing cache for track {track_id}: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception:
+            logger.exception(f"Error clearing cache for track {track_id}")
+            raise HTTPException(status_code=500, detail="Failed to clear track cache")
 
     @router.post("/clear")
     async def clear_cache() -> dict[str, str]:
@@ -143,17 +145,19 @@ def create_streamlined_cache_router(
         try:
             await cache_manager.clear_all()
 
-            # Broadcast cache cleared event
+            # Broadcast cache cleared event using the canonical {type, data}
+            # envelope (#3545 / BE-NEW-87). Wrap the message in `data` so
+            # the frontend dispatcher does not classify it as unknown.
             if broadcast_manager:
                 await broadcast_manager.broadcast({
                     "type": "cache_cleared",
-                    "message": "All caches cleared"
+                    "data": {"message": "All caches cleared"},
                 })
 
             return {"message": "All caches cleared successfully"}
-        except Exception as e:
-            logger.error(f"Error clearing cache: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception:
+            logger.exception("Error clearing cache")
+            raise HTTPException(status_code=500, detail="Failed to clear cache")
 
     @router.get("/health")
     async def cache_health() -> dict[str, Any]:
@@ -165,7 +169,7 @@ def create_streamlined_cache_router(
         """
         cache_manager = _require_cache(get_cache_manager)
         try:
-            stats = cache_manager.get_stats()
+            stats = await asyncio.to_thread(cache_manager.get_stats)
 
             overall = stats["overall"]
             tier1 = stats["tier1"]
@@ -187,8 +191,8 @@ def create_streamlined_cache_router(
                 "tier1_hit_rate": tier1["hit_rate"],
                 "overall_hit_rate": overall["overall_hit_rate"]
             }
-        except Exception as e:
-            logger.error(f"Error checking cache health: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception:
+            logger.exception("Error checking cache health")
+            raise HTTPException(status_code=500, detail="Failed to check cache health")
 
     return router
