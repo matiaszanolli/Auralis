@@ -61,7 +61,11 @@ class PlayerState(BaseModel):
 
     # Playback modes
     shuffle_enabled: bool = False
-    repeat_mode: str = "none"  # "none", "one", "all"
+    # repeat_mode uses the frontend's vocabulary ('off' | 'one' | 'all').
+    # Prior code stored 'none' here and translated 'off' -> 'none' at the
+    # REST boundary, but the broadcast still carried 'none' which the
+    # frontend Literal does not recognise — the UI toggle got stuck (#3501).
+    repeat_mode: str = "off"  # "off" | "one" | "all"
 
     # Enhancement
     mastering_enabled: bool = True

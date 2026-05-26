@@ -563,17 +563,17 @@ def create_player_router(
             if not state_manager:
                 raise ValueError("Player state manager not available")
 
-            # Map frontend "off" to backend "none" (backend uses "none"/"all"/"one")
-            backend_mode = "none" if request.mode == "off" else request.mode
-            await state_manager.update_state(repeat_mode=backend_mode)
+            # Pass through 'off' / 'one' / 'all' — backend now uses the same
+            # vocabulary as the frontend Literal (#3501 / BE-NEW-43).
+            await state_manager.update_state(repeat_mode=request.mode)
 
             # Broadcast canonical value so WS and REST always agree
             await connection_manager.broadcast({
                 "type": "repeat_mode_changed",
-                "data": {"repeat_mode": backend_mode},
+                "data": {"repeat_mode": request.mode},
             })
 
-            return {"message": f"Repeat mode set to {backend_mode}"}
+            return {"message": f"Repeat mode set to {request.mode}"}
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
         except Exception:
