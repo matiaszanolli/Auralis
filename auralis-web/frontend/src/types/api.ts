@@ -330,6 +330,14 @@ export interface HealthCheckResponse {
   websocket_connected: boolean;
 }
 
+/**
+ * Cache statistics from `/api/cache/stats`.
+ *
+ * #3593: previously declared `overall.hit_rate` but every real consumer reads
+ * `overall.overall_hit_rate`. Aligned with the canonical `CacheStats` type in
+ * services/api/standardizedAPIClient.ts and the actual backend payload.
+ * Added `total_hits` / `total_misses` / `tracks` to match runtime.
+ */
 export interface CacheStatsResponse {
   tier1: {
     chunks: number;
@@ -348,9 +356,16 @@ export interface CacheStatsResponse {
   overall: {
     total_chunks: number;
     total_size_mb: number;
-    hit_rate: number;
+    total_hits: number;
+    total_misses: number;
+    overall_hit_rate: number;
     tracks_cached: number;
   };
+  tracks?: Record<string, {
+    track_id: number;
+    completion_percent: number;
+    fully_cached: boolean;
+  }>;
 }
 
 // ============================================================================
