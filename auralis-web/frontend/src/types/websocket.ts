@@ -694,7 +694,13 @@ export interface TrackInfo {
   artist: string;
   album: string;
   duration: number;
-  filepath: string;
+  /**
+   * #3634: backend's player_state TrackInfo declares filepath as
+   * Field(exclude=True), so WS-sourced queue entries don't have it.
+   * REST endpoints (album/track details) do return it. Declared optional
+   * so consumers handle both shapes correctly.
+   */
+  filepath?: string;
   // Additional fields (optional)
   artwork_url?: string;
   genre?: string;

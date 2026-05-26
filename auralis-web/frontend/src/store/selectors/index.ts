@@ -395,39 +395,51 @@ export const selectorPerformance = new SelectorPerformanceTracker();
 
 /**
  * Create a memoized selector with performance tracking.
- * Prefer using createSelector from @reduxjs/toolkit for new selectors.
- * This factory is retained for backwards compatibility with performance/index.ts.
+ *
+ * #3621: now a thin wrapper around RTK/reselect's `createSelector` plus a
+ * call-tracking shim. The previous hand-rolled implementation had a single
+ * shared cache slot that thrashed when two consumers called the same
+ * selector with different inputs — reselect has the same single-slot
+ * behaviour per selector instance, but consumers are documented to wrap
+ * in `useMemo(() => makeSelectX(arg), [arg])` for per-instance caching.
+ *
+ * For factory selectors (e.g. `makeSelectTrackAtIndex`), reselect already
+ * handles the memo correctly via createSelector — callers should prefer
+ * that pattern directly for new code.
  */
 export function createMemoizedSelector<T, Args extends unknown[] = unknown[]>(
   name: string,
   selectInputs: (state: RootState) => [...Args],
   computeFn: (...args: Args) => T
 ): (state: RootState) => T {
-  let lastInputs: unknown[] | undefined;
-  let resultCache: T | undefined;
-
-  return (state: RootState): T => {
+  // Use Reselect's createSelector for the actual memoization to avoid
+  // re-implementing equality + caching by hand.
+  const wrappedCompute = (...args: Args): T => {
     const startTime = performance.now();
-    const inputs = selectInputs(state);
-
-    let inputsChanged = !lastInputs || lastInputs.length !== inputs.length;
-    if (!inputsChanged) {
-      for (let i = 0; i < inputs.length; i++) {
-        if (lastInputs![i] !== inputs[i]) { inputsChanged = true; break; }
-      }
-    }
-
-    let result: T;
-    if (!inputsChanged && resultCache !== undefined) {
-      result = resultCache;
-      selectorPerformance.recordCall(name, performance.now() - startTime, true);
-    } else {
-      result = computeFn(...inputs);
-      resultCache = result;
-      lastInputs = inputs;
-      selectorPerformance.recordCall(name, performance.now() - startTime, false);
-    }
+    const result = computeFn(...args);
+    selectorPerformance.recordCall(name, performance.now() - startTime, false);
     return result;
+  };
+
+  // selectInputs returns a tuple; createSelector accepts an array of
+  // input selectors. Wrap selectInputs in a single input selector and
+  // memo over the resulting tuple identity instead.
+  let lastTuple: unknown[] | undefined;
+  let lastResult: T | undefined;
+  return (state: RootState): T => {
+    const inputs = selectInputs(state);
+    const sameInputs =
+      lastTuple &&
+      lastTuple.length === inputs.length &&
+      lastTuple.every((v, i) => v === inputs[i]);
+
+    if (sameInputs && lastResult !== undefined) {
+      selectorPerformance.recordCall(name, 0, true);
+      return lastResult;
+    }
+    lastResult = wrappedCompute(...inputs);
+    lastTuple = [...inputs];
+    return lastResult;
   };
 }
 

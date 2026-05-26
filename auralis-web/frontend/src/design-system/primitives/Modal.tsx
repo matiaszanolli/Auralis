@@ -69,7 +69,10 @@ const StyledDialog = styled(MuiDialog, {
       backdropFilter: 'blur(20px)',
     },
     '& .MuiBackdrop-root': {
-      background: 'rgba(0, 0, 0, 0.60)',  // Standard modal backdrop
+      // #3637: replace pure-black backdrop with the deep blue-black overlay
+      // token so it respects the "no pure black" rule in §1 of the style
+      // guide. tokens.colors.bg.overlay is rgba(11,16,32,0.95).
+      background: tokens.colors.bg.overlay,
       backdropFilter: 'blur(4px)',
     },
   };

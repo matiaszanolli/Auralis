@@ -538,12 +538,17 @@ describe('Error Handling API Integration Tests', () => {
         const [hasNulls, setHasNulls] = useState(false);
 
         useEffect(() => {
+          // #3652: .catch so a malformed response (or MSW handler throwing)
+          // surfaces as a real test failure instead of being swallowed.
           fetch('http://localhost:8765/api/test/null-fields')
             .then(r => r.json())
             .then(data => {
               if (data.tracks === null || data.total === null) {
                 setHasNulls(true);
               }
+            })
+            .catch(err => {
+              console.error('TestNullFieldsComponent fetch failed:', err);
             });
         }, []);
 
@@ -574,12 +579,16 @@ describe('Error Handling API Integration Tests', () => {
         const [hasUndefined, setHasUndefined] = useState(false);
 
         useEffect(() => {
+          // #3652: .catch so failures surface instead of being swallowed.
           fetch('http://localhost:8765/api/test/undefined-props')
             .then(r => r.json())
             .then(data => {
               if (data.tracks === undefined) {
                 setHasUndefined(true);
               }
+            })
+            .catch(err => {
+              console.error('TestUndefinedPropsComponent fetch failed:', err);
             });
         }, []);
 

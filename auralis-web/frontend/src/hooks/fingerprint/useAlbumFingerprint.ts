@@ -93,25 +93,33 @@ export function useAlbumFingerprint(
  * Note: This is a simplified version. For production, consider implementing
  * a batch endpoint like GET /api/albums/fingerprints?ids=1,2,3
  */
+/**
+ * #3644: chunk-based concurrency cap. The Electron-local FastAPI serves
+ * all requests serially in the ASGI loop, so firing 200 requests at once
+ * starves audio-streaming requests of I/O time. Resolve in groups of N
+ * sequentially; within each group requests still fan out.
+ */
+const FINGERPRINT_BATCH_CONCURRENCY = 10;
+
 export function useAlbumFingerprints(albumIds: number[]) {
   const queries = useQuery({
     queryKey: ['album-fingerprints-batch', albumIds.sort().join(',')],
     queryFn: async () => {
-      // Fetch all fingerprints in parallel
-      const results = await Promise.allSettled(
-        albumIds.map(id => fetchAlbumFingerprint(id))
-      );
-
-      // Map results back to album IDs
       const fingerprintMap = new Map<number, AudioFingerprint | null>();
-      results.forEach((result, index) => {
-        const albumId = albumIds[index];
-        if (result.status === 'fulfilled') {
-          fingerprintMap.set(albumId, result.value);
-        } else {
-          fingerprintMap.set(albumId, null);
-        }
-      });
+
+      for (let i = 0; i < albumIds.length; i += FINGERPRINT_BATCH_CONCURRENCY) {
+        const chunk = albumIds.slice(i, i + FINGERPRINT_BATCH_CONCURRENCY);
+        const results = await Promise.allSettled(
+          chunk.map(id => fetchAlbumFingerprint(id))
+        );
+        results.forEach((result, index) => {
+          const albumId = chunk[index];
+          fingerprintMap.set(
+            albumId,
+            result.status === 'fulfilled' ? result.value : null
+          );
+        });
+      }
 
       return fingerprintMap;
     },

@@ -74,17 +74,46 @@ export const useSearchLogic = (
     setLoading(true);
 
     try {
+      // #3633: typed responses so backend field renames produce TS errors
+      // instead of silent `undefined` in search results.
+      interface SearchTrackResponse {
+        id: number;
+        title: string;
+        artist: string;
+        album: string;
+        album_id?: number;
+      }
+      interface SearchAlbumResponse {
+        id: number;
+        title: string;
+        artist: string;
+      }
+      interface SearchArtistResponse {
+        id: number;
+        name: string;
+        album_count?: number;
+        track_count?: number;
+      }
+
       const encoded = encodeURIComponent(searchQuery);
       const [tracksData, albumsData, artistsData] = await Promise.all([
-        get(`${ENDPOINTS.LIBRARY_TRACKS}?search=${encoded}&limit=5`, { signal: controller.signal }),
-        get(`${ENDPOINTS.LIBRARY_ALBUMS}?search=${encoded}&limit=5`, { signal: controller.signal }),
-        get(`${ENDPOINTS.LIBRARY_ARTISTS}?search=${encoded}&limit=5`, { signal: controller.signal }),
+        get<{ tracks?: SearchTrackResponse[] }>(
+          `${ENDPOINTS.LIBRARY_TRACKS}?search=${encoded}&limit=5`,
+          { signal: controller.signal }
+        ),
+        get<{ albums?: SearchAlbumResponse[] }>(
+          `${ENDPOINTS.LIBRARY_ALBUMS}?search=${encoded}&limit=5`,
+          { signal: controller.signal }
+        ),
+        get<{ artists?: SearchArtistResponse[] }>(
+          `${ENDPOINTS.LIBRARY_ARTISTS}?search=${encoded}&limit=5`,
+          { signal: controller.signal }
+        ),
       ]);
 
-      // Ignore results from a cancelled request
       if (controller.signal.aborted) return;
 
-      const tracks: SearchResult[] = (tracksData.tracks ?? []).map((track: any) => ({
+      const tracks: SearchResult[] = (tracksData.tracks ?? []).map((track) => ({
         type: 'track' as const,
         id: track.id,
         title: track.title,
@@ -92,7 +121,7 @@ export const useSearchLogic = (
         albumId: track.album_id,
       }));
 
-      const albums: SearchResult[] = (albumsData.albums ?? []).map((album: any) => ({
+      const albums: SearchResult[] = (albumsData.albums ?? []).map((album) => ({
         type: 'album' as const,
         id: album.id,
         title: album.title,
@@ -100,7 +129,7 @@ export const useSearchLogic = (
         albumId: album.id,
       }));
 
-      const artists: SearchResult[] = (artistsData.artists ?? []).map((artist: any) => ({
+      const artists: SearchResult[] = (artistsData.artists ?? []).map((artist) => ({
         type: 'artist' as const,
         id: artist.id,
         title: artist.name,

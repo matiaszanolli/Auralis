@@ -423,7 +423,7 @@ export class QueueRecommender {
   /**
    * Extract file format from filepath
    */
-  private static extractFormat(filepath: string): string {
+  private static extractFormat(filepath: string | undefined): string {
     if (!filepath) return 'unknown';
     const match = filepath.match(/\.([a-z0-9]+)$/i);
     return match ? match[1].toLowerCase() : 'unknown';

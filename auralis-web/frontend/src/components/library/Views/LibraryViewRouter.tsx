@@ -46,8 +46,13 @@ export interface LibraryViewRouterProps {
   onAlbumClick: (albumId: number) => void;
   onArtistClick: (artistId: number, artistName: string) => void;
 
-  // Track actions (can be sync or async, accepts track objects with varying field subsets)
-  onTrackPlay?: ((track: any) => void | Promise<void>);
+  // Track actions (can be sync or async, accepts track objects with varying field subsets).
+  // #3633: typed via Partial<LibraryTrack> since detail/search/queue tracks
+  // have overlapping but non-identical shapes — Partial documents the
+  // minimum-contract while preventing accidental property typos.
+  onTrackPlay?: (
+    track: Partial<import('@/types/domain').LibraryTrack> & { id: number }
+  ) => void | Promise<void>;
 }
 
 /**
