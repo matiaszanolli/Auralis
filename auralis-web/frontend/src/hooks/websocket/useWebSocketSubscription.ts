@@ -77,6 +77,30 @@ export function getWebSocketManager(): WebSocketSubscriptionManager | null {
 }
 
 /**
+ * Register a one-shot listener to be called when the global WebSocket
+ * subscription manager becomes available. If the manager is already set when
+ * this is invoked, the listener fires synchronously. Returns an unsubscribe
+ * function in case the caller decides to cancel before the manager arrives.
+ *
+ * Used by module-level singleton subscribers (e.g. `useArtworkUpdates`) that
+ * need to install the underlying WS subscription exactly once, regardless of
+ * how many React consumers mount.
+ */
+export function subscribeToManagerReady(
+  listener: (manager: WebSocketSubscriptionManager) => void
+): () => void {
+  if (globalWebSocketManager) {
+    listener(globalWebSocketManager);
+    return () => {};
+  }
+  const key = Symbol('manager-ready-listener');
+  managerReadyListeners.set(key, listener);
+  return () => {
+    managerReadyListeners.delete(key);
+  };
+}
+
+/**
  * Subscribe to WebSocket messages.
  * Automatically unsubscribes when component unmounts.
  *
