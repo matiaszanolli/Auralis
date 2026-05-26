@@ -410,16 +410,16 @@ export function useBatchOperations(): {
     }
   }, []);
 
-  return {
-    executeBatch: async (items: BatchItem[], atomic: boolean = false) => {
+  // #3589: wrap each operation in useCallback so consumers can pass them to
+  // useEffect deps / memoized children without forcing re-runs every render.
+  // apiClient is a ref so no deps are needed.
+  const executeBatch = useCallback(
+    async (items: BatchItem[], atomic: boolean = false) => {
       if (!apiClient.current) return null;
-
       setLoading(true);
       setError(null);
-
       try {
-        const results = await apiClient.current.executeBatch(items, atomic);
-        return results;
+        return await apiClient.current.executeBatch(items, atomic);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Batch operation failed';
         setError(message);
@@ -428,44 +428,43 @@ export function useBatchOperations(): {
         setLoading(false);
       }
     },
+    []
+  );
 
-    favoriteTracks: async (trackIds: string[]) => {
-      if (!apiClient.current) return false;
+  const favoriteTracks = useCallback(async (trackIds: string[]) => {
+    if (!apiClient.current) return false;
+    setLoading(true);
+    setError(null);
+    try {
+      return await apiClient.current.favoriteTracks(trackIds);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to favorite tracks';
+      setError(message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      setLoading(true);
-      setError(null);
+  const removeTracks = useCallback(async (trackIds: string[]) => {
+    if (!apiClient.current) return false;
+    setLoading(true);
+    setError(null);
+    try {
+      return await apiClient.current.removeTracks(trackIds);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to remove tracks';
+      setError(message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      try {
-        return await apiClient.current.favoriteTracks(trackIds);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to favorite tracks';
-        setError(message);
-        return false;
-      } finally {
-        setLoading(false);
-      }
-    },
-
-    removeTracks: async (trackIds: string[]) => {
-      if (!apiClient.current) return false;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        return await apiClient.current.removeTracks(trackIds);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to remove tracks';
-        setError(message);
-        return false;
-      } finally {
-        setLoading(false);
-      }
-    },
-
-    loading,
-    error
-  };
+  return useMemo(
+    () => ({ executeBatch, favoriteTracks, removeTracks, loading, error }),
+    [executeBatch, favoriteTracks, removeTracks, loading, error]
+  );
 }
 
 // ============================================================================
@@ -484,9 +483,17 @@ export function useInitializeAPI(config?: Partial<APIClientConfig>): void {
       timeout: config?.timeout ?? 30000,
       retryAttempts: config?.retryAttempts ?? 3,
       cacheResponses: config?.cacheResponses ?? true,
-      cacheTTL: config?.cacheTTL ?? 60000
+      cacheTTL: config?.cacheTTL ?? 60000,
     });
 
     console.log('[API] Hooks initialized with baseURL:', baseURL);
-  }, [config?.baseURL, config?.timeout]);
+    // #3627: include all config primitives consumed inside the effect so a
+    // caller passing a dynamic config gets the API client re-initialised.
+  }, [
+    config?.baseURL,
+    config?.timeout,
+    config?.retryAttempts,
+    config?.cacheResponses,
+    config?.cacheTTL,
+  ]);
 }
