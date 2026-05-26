@@ -272,10 +272,23 @@ def create_lifespan(deps: dict[str, Any]):
                         globals_dict['graph_builder'] = None
 
             except Exception as e:
+                # Roll back any partially-initialised globals so downstream
+                # routers see a coherent 'not ready' state instead of
+                # 'library_manager truthy but everything else None'
+                # (#3540 / BE-NEW-82). Router dependencies that gate on
+                # library_manager truthy will now return 503 rather than
+                # AttributeError → 500.
                 import traceback
                 logger.error(f"❌ Failed to initialize Auralis components: {e}")
                 logger.error(f"Traceback:\n{traceback.format_exc()}")
-                logger.error("⚠️  Auralis library initialization failed - API will return 503 errors")
+                logger.error("⚠️  Auralis library initialization failed - rolling back partial state; API will return 503")
+                for _component in (
+                    'library_manager', 'repository_factory', 'settings_repository',
+                    'audio_player', 'player_state_manager',
+                    'fingerprint_extractor', 'fingerprint_storage',
+                    'streamlined_cache', 'similarity_system', 'graph_builder',
+                ):
+                    globals_dict[_component] = None
         else:
             logger.warning("⚠️  Auralis not available - running in demo mode")
 

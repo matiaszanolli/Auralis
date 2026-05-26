@@ -78,7 +78,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
             # Catch all exceptions (not just ImportError) so syntax errors or
             # missing transitive deps degrade gracefully rather than crashing
             # startup (fixes #2324).
-            logger.warning(f"⚠️  Processing API router not available: {e}")
+            logger.warning(f"⚠️  Processing API router not available: {e}", exc_info=True)
 
     # Create and include system router (health, version, WebSocket)
     # Issue #2740: Pass get_state_manager so reconnecting WebSocket clients
@@ -201,7 +201,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
             app.include_router(cache_router)
             logger.info("✅ Streamlined cache router registered")
         except Exception as e:
-            logger.warning(f"⚠️  Failed to register streamlined cache router: {e}")
+            logger.warning(f"⚠️  Failed to register streamlined cache router: {e}", exc_info=True)
 
     # Create and include similarity router (if available)
     if HAS_SIMILARITY:
@@ -214,7 +214,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
             app.include_router(similarity_router)
             logger.info("✅ Similarity router registered")
         except Exception as e:
-            logger.warning(f"⚠️  Failed to register similarity router: {e}")
+            logger.warning(f"⚠️  Failed to register similarity router: {e}", exc_info=True)
 
     # Create and include webm streaming router
     try:
@@ -226,6 +226,14 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         app.include_router(streaming_router)
         logger.info("✅ WebM streaming router registered")
     except Exception as e:
-        logger.warning(f"⚠️  Failed to register webm streaming router: {e}")
+        # WebM streaming is the production audio delivery path; promote to
+        # ERROR with exc_info so a silent failure here surfaces as a CI /
+        # log-monitor signal rather than a soft warning amongst the
+        # genuinely-optional cache/similarity router warnings (#3538 /
+        # BE-NEW-80).
+        logger.error(
+            f"❌ Failed to register webm streaming router (audio delivery WILL be broken): {e}",
+            exc_info=True,
+        )
 
     logger.info("✅ All routers configured and registered")
