@@ -563,12 +563,12 @@ def create_system_router(
                         pause_evt.clear()
                         logger.info("Paused streaming task (event cleared)")
 
-                    # Broadcast pause state to client
+                    # Broadcast pause state to client. Use the {state}
+                    # shape the frontend type expects, matching the REST
+                    # path's PlaybackService.pause emit (#3503 / BE-NEW-45).
                     await websocket.send_text(json.dumps({
                         "type": "playback_paused",
-                        "data": {
-                            "success": True
-                        }
+                        "data": {"state": "paused"},
                     }))
 
                 elif message.get("type") == "resume":
@@ -582,9 +582,7 @@ def create_system_router(
 
                     await websocket.send_text(json.dumps({
                         "type": "playback_resumed",
-                        "data": {
-                            "success": True
-                        }
+                        "data": {"state": "playing"},
                     }))
 
                 elif message.get("type") == "buffer_full":
@@ -623,9 +621,7 @@ def create_system_router(
                     # Broadcast stop state to client
                     await websocket.send_text(json.dumps({
                         "type": "playback_stopped",
-                        "data": {
-                            "success": True
-                        }
+                        "data": {"state": "stopped"},
                     }))
 
                 elif message.get("type") == "seek":
