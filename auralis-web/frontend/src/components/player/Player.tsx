@@ -26,17 +26,16 @@ import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
 
 // Redux hooks and actions
 import { useSelector, useDispatch } from 'react-redux';
+import type { AppDispatch } from '@/store';
 import {
   selectQueueTracks,
   selectCurrentIndex,
-  nextTrack,
-  previousTrack,
 } from '@/store/slices/queueSlice';
-import { setCurrentTrack, setVolume } from '@/store/slices/playerSlice';
+import { setCurrentTrackAndSyncQueue, setVolume } from '@/store/slices/playerSlice';
 import { playerSelectors } from '@/store/selectors';
 
 const Player = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   // Queue panel visibility state
   const [queuePanelOpen, setQueuePanelOpen] = useState(false);
@@ -97,10 +96,11 @@ const Player = () => {
       const nextTrackData = queueTracks[nextIndex];
       if (!nextTrackData) return;
 
-      // Stop current playback, then update Redux state in one batch
+      // Stop current playback, then sync queue index + player.currentTrack
+      // atomically (#3587 — the previous nextTrack() + setCurrentTrack()
+      // pair could observe an intermediate state between dispatches).
       stopPlayback();
-      dispatch(nextTrack());
-      dispatch(setCurrentTrack(nextTrackData));
+      dispatch(setCurrentTrackAndSyncQueue(nextTrackData));
 
       // Play using the locally-computed track (not re-read from Redux)
       DEBUG && console.log('[Player] Playing next track:', nextTrackData.title);
@@ -121,10 +121,10 @@ const Player = () => {
       const prevTrackData = queueTracks[prevIndex];
       if (!prevTrackData) return;
 
-      // Stop current playback, then update Redux state in one batch
+      // Stop current playback, then sync queue index + player.currentTrack
+      // atomically (#3587).
       stopPlayback();
-      dispatch(previousTrack());
-      dispatch(setCurrentTrack(prevTrackData));
+      dispatch(setCurrentTrackAndSyncQueue(prevTrackData));
 
       // Play using the locally-computed track (not re-read from Redux)
       DEBUG && console.log('[Player] Playing previous track:', prevTrackData.title);

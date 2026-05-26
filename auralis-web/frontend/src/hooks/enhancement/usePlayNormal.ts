@@ -44,6 +44,7 @@ const DEBUG = import.meta.env.DEV;
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch } from '@/store';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { API_BASE_URL } from '@/config/api';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
@@ -56,7 +57,7 @@ import {
   resetStreaming,
   selectNormalStreaming,
   selectIsPlaying,
-  setCurrentTrack,
+  setCurrentTrackAndSyncQueue,
 } from '@/store/slices/playerSlice';
 import {
   decodeAudioChunkMessage,
@@ -145,7 +146,7 @@ export interface UsePlayNormalReturn {
 }
 
 export const usePlayNormal = (): UsePlayNormalReturn => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const wsContext = useWebSocketContext();
   const streamingState = useSelector(selectNormalStreaming);
   const isPlaying = useSelector(selectIsPlaying);
@@ -519,7 +520,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
           });
           if (response.ok) {
             const track = await response.json();
-            dispatch(setCurrentTrack(track));
+            // #3587: keep queue.currentIndex aligned with player.currentTrack
+            // for the duration before backend WS confirmation arrives.
+            dispatch(setCurrentTrackAndSyncQueue(track));
             DEBUG && console.log('[usePlayNormal] Set current track:', track.title);
           }
         } catch (err) {

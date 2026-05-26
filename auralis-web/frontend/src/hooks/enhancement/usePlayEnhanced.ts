@@ -44,6 +44,7 @@ const DEBUG = import.meta.env.DEV;
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch } from '@/store';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { FingerprintProgressMessage } from '@/types/websocket';
 import { API_BASE_URL } from '@/config/api';
@@ -57,7 +58,7 @@ import {
   resetStreaming,
   selectEnhancedStreaming,
   selectIsPlaying,
-  setCurrentTrack,
+  setCurrentTrackAndSyncQueue,
 } from '@/store/slices/playerSlice';
 import {
   decodeAudioChunkMessage,
@@ -171,7 +172,7 @@ export interface UsePlayEnhancedReturn {
 }
 
 export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const wsContext = useWebSocketContext();
   const streamingState = useSelector(selectEnhancedStreaming);
   const isPlaying = useSelector(selectIsPlaying);
@@ -619,7 +620,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           });
           if (response.ok) {
             const track = await response.json();
-            dispatch(setCurrentTrack(track));
+            // #3587: keep queue.currentIndex aligned with player.currentTrack
+            // for the duration before backend WS confirmation arrives.
+            dispatch(setCurrentTrackAndSyncQueue(track));
             DEBUG && console.log('[usePlayEnhanced] Set current track:', track.title);
           }
         } catch (err) {

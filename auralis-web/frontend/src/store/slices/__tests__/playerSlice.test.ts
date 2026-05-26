@@ -7,6 +7,7 @@
 import reducer, {
   setIsPlaying,
   setCurrentTrack,
+  setCurrentTrackAndSyncQueue,
   setCurrentTime,
   setDuration,
   setVolume,
@@ -317,6 +318,74 @@ describe('playerSlice', () => {
       state = reducer(state, resetStreaming('normal'));
       expect(state.streaming.normal.state).toBe('idle');
       expect(state.streaming.enhanced.state).toBe('buffering');
+    });
+  });
+
+  // ─── setCurrentTrackAndSyncQueue thunk (#3587) ─────────────────
+  describe('setCurrentTrackAndSyncQueue', () => {
+    type RecordedAction = { type: string; payload: unknown };
+    const makeRecordingDispatch = () => {
+      const dispatched: RecordedAction[] = [];
+      const dispatch = (action: unknown) => {
+        dispatched.push(action as RecordedAction);
+        return action;
+      };
+      return { dispatched, dispatch };
+    };
+
+    it('dispatches setCurrentTrack and setCurrentIndex when track is in the queue', () => {
+      const { dispatched, dispatch } = makeRecordingDispatch();
+      const getState = () => ({
+        queue: {
+          tracks: [
+            { id: 10, title: 'A' },
+            { id: 20, title: 'B' },
+            { id: 30, title: 'C' },
+          ],
+        },
+      });
+      const track = { id: 20, title: 'B', duration: 100 };
+
+      setCurrentTrackAndSyncQueue(track as unknown as Track)(dispatch, getState);
+
+      expect(dispatched).toHaveLength(2);
+      expect(dispatched[0].type).toBe('player/setCurrentTrack');
+      expect(dispatched[0].payload).toEqual(track);
+      expect(dispatched[1].type).toBe('queue/setCurrentIndex');
+      expect(dispatched[1].payload).toBe(1);
+    });
+
+    it('skips setCurrentIndex when track is not in the queue', () => {
+      const { dispatched, dispatch } = makeRecordingDispatch();
+      const getState = () => ({ queue: { tracks: [{ id: 10, title: 'A' }] } });
+      const track = { id: 999, title: 'Z', duration: 0 };
+
+      setCurrentTrackAndSyncQueue(track as unknown as Track)(dispatch, getState);
+
+      expect(dispatched).toHaveLength(1);
+      expect(dispatched[0].type).toBe('player/setCurrentTrack');
+    });
+
+    it('only dispatches setCurrentTrack(null) when track is null', () => {
+      const { dispatched, dispatch } = makeRecordingDispatch();
+      const getState = () => ({ queue: { tracks: [{ id: 10, title: 'A' }] } });
+
+      setCurrentTrackAndSyncQueue(null)(dispatch, getState);
+
+      expect(dispatched).toHaveLength(1);
+      expect(dispatched[0].type).toBe('player/setCurrentTrack');
+      expect(dispatched[0].payload).toBeNull();
+    });
+
+    it('skips setCurrentIndex when queue is empty', () => {
+      const { dispatched, dispatch } = makeRecordingDispatch();
+      const getState = () => ({ queue: { tracks: [] } });
+      const track = { id: 1, title: 'X', duration: 60 };
+
+      setCurrentTrackAndSyncQueue(track as unknown as Track)(dispatch, getState);
+
+      expect(dispatched).toHaveLength(1);
+      expect(dispatched[0].type).toBe('player/setCurrentTrack');
     });
   });
 });

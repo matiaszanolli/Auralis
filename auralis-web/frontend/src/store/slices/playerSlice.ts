@@ -16,6 +16,7 @@
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { PlayerTrack } from '@/types/domain';
+import { setCurrentIndex } from '@/store/slices/queueSlice';
 
 export type PresetName = 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
 
@@ -445,6 +446,34 @@ export const {
   resetStreaming,
   updateStreamingInfo,
 } = playerSlice.actions;
+
+/**
+ * #3587: dispatch `setCurrentTrack(track)` AND align `queue.currentIndex`
+ * to the track's position in the queue (when it is present). Local
+ * track-change paths (usePlayNormal, usePlayEnhanced, Player.next/prev)
+ * previously updated only `player.currentTrack`, leaving consumers of
+ * `selectCurrentQueueTrack` out of sync until the backend WebSocket
+ * `player_state` confirmation arrived — or permanently, if it never did.
+ *
+ * If the track is not in the queue (e.g. ad-hoc play), the queue index
+ * stays put and the desync window is moot (no queue-derived selector
+ * matches anyway).
+ */
+export const setCurrentTrackAndSyncQueue =
+  (track: PlayerTrack | null) =>
+  (
+    dispatch: (action: unknown) => unknown,
+    getState: () => { queue?: { tracks: { id: number }[] } },
+  ) => {
+    dispatch(setCurrentTrack(track));
+    if (track == null) return;
+    const queue = getState().queue;
+    if (!queue?.tracks?.length) return;
+    const idx = queue.tracks.findIndex((t) => t.id === track.id);
+    if (idx >= 0) {
+      dispatch(setCurrentIndex(idx));
+    }
+  };
 
 // Selectors
 export const selectIsPlaying = (state: { player: PlayerState }) => state.player.isPlaying;
