@@ -106,8 +106,13 @@ class BrickWallLimiter:
         #
         # Pad the abs signal so the filter sees zeros beyond the end of the
         # block (matching the original zero-padding behaviour).
+        # #3658: pass dtype=audio.dtype so float32 input stays float32 — without
+        # this np.zeros defaults to float64 and the vstack/multiply chain
+        # silently promotes the entire pipeline output.
         abs_padded = np.abs(
-            np.vstack([audio, np.zeros((self.lookahead_samples, num_channels))])
+            np.vstack(
+                [audio, np.zeros((self.lookahead_samples, num_channels), dtype=audio.dtype)]
+            )
         )
         # Collapse channels: take the per-sample maximum across all channels.
         per_sample_max = abs_padded.max(axis=1)  # shape: (num_samples + lookahead,)
@@ -140,7 +145,9 @@ class BrickWallLimiter:
         # previous gain), so a loop is unavoidable here.  However it now has
         # NO inner NumPy call — it's pure scalar arithmetic, which is ~10×
         # faster than the previous O(n × lookahead) loop.
-        gain_curve = np.empty(num_samples)
+        # #3658: dtype-match the input so the final `audio * gain_curve`
+        # multiply does not promote a float32 audio buffer to float64.
+        gain_curve = np.empty(num_samples, dtype=audio.dtype)
         # Seed from self.current_gain so consecutive chunk calls produce a
         # continuous gain envelope (fixes #2390: audible click at boundaries).
         prev_gain = self.current_gain
