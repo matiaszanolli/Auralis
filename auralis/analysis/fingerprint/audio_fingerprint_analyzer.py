@@ -21,7 +21,8 @@ Dependencies:
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from typing import Any, Literal
 
 import numpy as np
@@ -65,7 +66,33 @@ class AudioFingerprintAnalyzer:
         self.fingerprint_strategy = fingerprint_strategy
         self.sampling_interval = sampling_interval
 
+        # #3701: long-lived executor reused across analyze() calls. Lazy-init
+        # (on first analyze) avoids spawning idle threads for analyzers that
+        # are constructed but never invoked (tests, schema introspection).
+        # Under concurrent library scans (16 workers × 5 threads per analyze()
+        # = 80 thread peak previously); a single 5-thread pool per analyzer
+        # instance bounds this.
+        self._executor: ThreadPoolExecutor | None = None
+        self._executor_lock = threading.Lock()
+
         logger.debug(f"AudioFingerprintAnalyzer initialized with strategy={fingerprint_strategy}")
+
+    def _get_executor(self) -> ThreadPoolExecutor:
+        if self._executor is None:
+            with self._executor_lock:
+                if self._executor is None:
+                    self._executor = ThreadPoolExecutor(
+                        max_workers=5,
+                        thread_name_prefix="FingerprintAnalyzer",
+                    )
+        return self._executor
+
+    def close(self) -> None:
+        """Shut down the shared executor. Subsequent analyze() calls will re-init it."""
+        with self._executor_lock:
+            if self._executor is not None:
+                self._executor.shutdown(wait=True)
+                self._executor = None
 
     def analyze(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """
@@ -196,27 +223,27 @@ class AudioFingerprintAnalyzer:
                                 else self.harmonic_analyzer)
 
             # Run independent analyzers in parallel.
-            # Avoid the `with` context manager: its __exit__ calls shutdown(wait=True),
-            # which blocks indefinitely on KeyboardInterrupt while threads are running.
-            executor = ThreadPoolExecutor(max_workers=5)
+            # #3701: reuse the per-instance executor instead of creating a new
+            # 5-thread pool per analyze() call. Under concurrent library scans
+            # this previously peaked at ~80 threads / ~640 MB stack VM.
+            executor = self._get_executor()
+            futures = {
+                # 3. Temporal analysis (4D)
+                executor.submit(self.temporal_analyzer.analyze, audio_mono, sr): 'temporal',
+
+                # 4. Spectral analysis (3D)
+                executor.submit(self.spectral_analyzer.analyze, audio_mono, sr): 'spectral',
+
+                # 5. Harmonic analysis (3D)
+                executor.submit(harmonic_analyzer.analyze, audio_mono, sr): 'harmonic',
+
+                # 6. Variation analysis (3D)
+                executor.submit(self.variation_analyzer.analyze, audio_mono, sr): 'variation',
+
+                # 7. Stereo analysis (2D) - uses original stereo audio
+                executor.submit(self.stereo_analyzer.analyze, audio, sr): 'stereo'
+            }
             try:
-                futures = {
-                    # 3. Temporal analysis (4D)
-                    executor.submit(self.temporal_analyzer.analyze, audio_mono, sr): 'temporal',
-
-                    # 4. Spectral analysis (3D)
-                    executor.submit(self.spectral_analyzer.analyze, audio_mono, sr): 'spectral',
-
-                    # 5. Harmonic analysis (3D)
-                    executor.submit(harmonic_analyzer.analyze, audio_mono, sr): 'harmonic',
-
-                    # 6. Variation analysis (3D)
-                    executor.submit(self.variation_analyzer.analyze, audio_mono, sr): 'variation',
-
-                    # 7. Stereo analysis (2D) - uses original stereo audio
-                    executor.submit(self.stereo_analyzer.analyze, audio, sr): 'stereo'
-                }
-
                 # Collect results as they complete
                 failed_analyzers: list[str] = []
                 for future in as_completed(futures):
@@ -241,14 +268,14 @@ class AudioFingerprintAnalyzer:
                         f"({', '.join(failed_analyzers)}). Missing dimensions will be zero."
                     )
             except KeyboardInterrupt:
-                # Wait for already-running threads to finish before re-raising so
-                # they cannot write partial results to `fingerprint` after this
-                # function returns. cancel_futures=True drops queued-but-unstarted
-                # submissions (fixes #2514).
-                executor.shutdown(wait=True, cancel_futures=True)
+                # Wait for the futures *we submitted* to finish before re-raising
+                # so they cannot write partial results to `fingerprint` after
+                # this function returns (fixes #2514). The executor itself is
+                # long-lived and intentionally not shut down here.
+                for f in futures:
+                    f.cancel()  # No-op for already-running futures; drops queued ones.
+                wait(futures)
                 raise
-            else:
-                executor.shutdown(wait=True)
 
             # Sanitize NaN/Inf values (replace with 0.0) and count replacements
             # so regressions in individual analyzers are surfaced rather than

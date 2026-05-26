@@ -15,6 +15,7 @@ Features:
 
 import logging
 import warnings
+from typing import Any
 
 import librosa
 import numpy as np
@@ -26,44 +27,53 @@ class TemporalOperations:
     """Centralized temporal/rhythmic feature calculations."""
 
     @staticmethod
-    def detect_tempo(audio: np.ndarray, sr: int) -> float:
+    def _clip_tempo(tempo_raw: Any) -> float:
+        """Coerce librosa tempo output (scalar or 1-d array) into a clipped BPM scalar."""
+        from ..metrics import MetricUtils
+
+        arr = np.asarray(tempo_raw, dtype=float).reshape(-1)
+        tempo = float(arr[0]) if arr.size > 0 else 120.0
+        return float(MetricUtils.clip_to_range(tempo, 40, 200))
+
+    @staticmethod
+    def detect_tempo(
+        audio: np.ndarray,
+        sr: int,
+        precomputed_tempo: Any = None,
+    ) -> float:
         """
         Detect tempo in BPM using librosa's beat tracker (autocorrelation-based).
 
         Args:
             audio: Audio signal (raw audio, not onset envelope)
             sr: Sample rate
+            precomputed_tempo: If provided, skip the beat_track call and only
+                clip the value. Used by ``calculate_all`` to avoid running
+                ``beat_track`` twice (#3704).
 
         Returns:
             Tempo in BPM (40-200 range), or 120.0 if detection fails
         """
         try:
-            # Import here to avoid circular dependency
-            from ..metrics import MetricUtils
+            if precomputed_tempo is not None:
+                return TemporalOperations._clip_tempo(precomputed_tempo)
 
-            # Use librosa's beat_track which uses autocorrelation
-            # This is more robust than spectral flux onset detection
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 tempo, _ = librosa.beat.beat_track(y=audio, sr=sr)
 
-            # Handle array output from newer librosa versions
-            if hasattr(tempo, '__len__'):
-                tempo = float(tempo[0]) if len(tempo) > 0 else 120.0
-            else:
-                tempo = float(tempo)
-
-            # Clip tempo to reasonable BPM range
-            tempo = MetricUtils.clip_to_range(tempo, 40, 200)
-
-            return float(tempo)
+            return TemporalOperations._clip_tempo(tempo)
 
         except Exception as e:
             logger.debug(f"Tempo detection failed: {e}")
             return 120.0  # Default to 120 BPM
 
     @staticmethod
-    def calculate_rhythm_stability(onset_env: np.ndarray, sr: int) -> float:
+    def calculate_rhythm_stability(
+        onset_env: np.ndarray,
+        sr: int,
+        precomputed_beats: np.ndarray | None = None,
+    ) -> float:
         """
         Calculate rhythm stability (how consistent the beat is).
 
@@ -73,6 +83,9 @@ class TemporalOperations:
         Args:
             onset_env: Onset strength envelope (pre-computed)
             sr: Sample rate
+            precomputed_beats: If provided, skip the beat_track call. Used by
+                ``calculate_all`` so tempo and rhythm_stability derive from
+                the same tracking pass (#3704).
 
         Returns:
             Rhythm stability (0-1), or 0.5 if calculation fails
@@ -81,8 +94,10 @@ class TemporalOperations:
             # Import here to avoid circular dependency
             from ..metrics import StabilityMetrics
 
-            # Detect beat frames using pre-computed onset envelope
-            tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
+            if precomputed_beats is not None:
+                beats = precomputed_beats
+            else:
+                _, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
 
             if len(beats) < 3:
                 return 0.0  # Not enough beats to measure stability
@@ -193,10 +208,26 @@ class TemporalOperations:
             onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
             rms = librosa.feature.rms(y=audio)[0]
 
-            # Calculate all metrics
-            # Note: detect_tempo now uses Rust backend and requires raw audio
-            tempo = TemporalOperations.detect_tempo(audio, sr)
-            rhythm_stability = TemporalOperations.calculate_rhythm_stability(onset_env, sr)
+            # #3704: single beat_track pass — share tempo and beats so the two
+            # downstream metrics derive from the same tracking result instead
+            # of running the (50-200 ms) tracker twice with subtly different
+            # inputs.
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    tempo_raw, beats = librosa.beat.beat_track(
+                        onset_envelope=onset_env, sr=sr
+                    )
+            except Exception as e:
+                logger.debug(f"Shared beat_track failed: {e}")
+                tempo_raw, beats = None, None
+
+            tempo = TemporalOperations.detect_tempo(
+                audio, sr, precomputed_tempo=tempo_raw
+            )
+            rhythm_stability = TemporalOperations.calculate_rhythm_stability(
+                onset_env, sr, precomputed_beats=beats
+            )
             transient_density = TemporalOperations.calculate_transient_density(audio, sr, onset_env)
             silence_ratio = TemporalOperations.calculate_silence_ratio(rms)
 

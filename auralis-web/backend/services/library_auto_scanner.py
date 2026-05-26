@@ -227,14 +227,31 @@ class LibraryAutoScanner:
 
         scanner.set_progress_callback(sync_progress)
 
+        # #3710: capture the to_thread future so cancellation (lifespan
+        # shutdown) can signal the scanner's should_stop flag. Without
+        # this, cancelling the auto-scanner task during a long scan
+        # leaves the thread running until its next checkpoint and
+        # releases its scan slot early — racing a subsequent manual
+        # scan against the still-active thread.
+        scan_future = asyncio.ensure_future(asyncio.to_thread(
+            scanner.scan_directories,
+            scan_folders,
+            recursive=True,
+            skip_existing=True,
+            check_modifications=True,
+        ))
         try:
-            scan_result = await asyncio.to_thread(
-                scanner.scan_directories,
-                scan_folders,
-                recursive=True,
-                skip_existing=True,
-                check_modifications=True,
-            )
+            scan_result = await asyncio.shield(scan_future)
+        except asyncio.CancelledError:
+            scanner.stop_scan()
+            try:
+                await asyncio.wait_for(asyncio.shield(scan_future), timeout=5.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                logger.warning(
+                    "Auto-scanner thread did not exit within 5s of stop_scan(); "
+                    "thread will continue in background until next checkpoint."
+                )
+            raise
         except Exception as exc:
             # Log full detail server-side; surface a class-based summary
             # on the wire so OS paths / mount points / permission detail

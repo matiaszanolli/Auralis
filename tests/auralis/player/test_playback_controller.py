@@ -222,25 +222,17 @@ class TestPlaybackControllerStateTransitions:
         assert not controller.play()
         assert controller.is_playing()
 
-    def test_loading_to_stopped(self):
-        """stop() works from LOADING state (post-load reset, #2199)."""
-        controller = PlaybackController()
-        controller.set_loading()
-        assert controller.state == PlaybackState.LOADING
-        assert controller.stop()
-        assert controller.is_stopped()
-        assert controller.position == 0
+    def test_set_loading_removed(self):
+        """#3693: PlaybackController no longer exposes set_loading().
 
-    def test_stop_from_loading_fires_callback(self):
-        """Callbacks fire when transitioning LOADING→STOPPED (#2199)."""
+        The engine-level state machine deliberately never enters LOADING —
+        ``load_and_stop`` transitions directly between PLAYING/PAUSED/STOPPED
+        to keep observers from seeing intermediate state during
+        ``previous_track`` (root cause for #3293). LOADING is published
+        by the backend ``PlayerStateManager`` instead.
+        """
         controller = PlaybackController()
-        events = []
-        controller.add_callback(lambda info: events.append(info))
-        controller.set_loading()
-        controller.stop()
-        actions = [e.get("action") for e in events]
-        assert "loading" in actions
-        assert "stop" in actions
+        assert not hasattr(controller, "set_loading")
 
 
 class TestCallbackOutsideLock:

@@ -143,10 +143,20 @@ class VariationOperations:
             # Import here to avoid circular dependency
             from ..metrics import VariationMetrics
 
-            # Use pre-computed RMS if provided, otherwise compute
+            # #3703: standalone fallback matches the (500ms frame, 250ms hop,
+            # center=False) shape used by calculate_all and by
+            # calculate_dynamic_range_variation. Previously this branch used
+            # librosa's default 2048-sample (~46 ms) frame, leaving the two
+            # variation dimensions sampled at different temporal resolutions.
             if rms is None:
                 hop_length = int(sr * 0.25)
-                rms = librosa.feature.rms(y=audio, hop_length=hop_length)[0]
+                frame_length = int(sr * 0.5)
+                rms = librosa.feature.rms(
+                    y=audio,
+                    frame_length=frame_length,
+                    hop_length=hop_length,
+                    center=False,
+                )[0]
 
             # Convert to dB
             rms_db = librosa.amplitude_to_db(rms, ref=np.max)
@@ -215,11 +225,12 @@ class VariationOperations:
             hop_length_250ms = int(sr * 0.25)
             frame_length_500ms = int(sr * 0.5)
 
-            # RMS for 250ms hop (used in both dynamic_range and loudness_variation)
-            rms_250ms = librosa.feature.rms(y=audio, hop_length=hop_length_250ms)[0]
-
-            # RMS with frame length for dynamic range calculation
-            rms_with_frame = librosa.feature.rms(
+            # #3703: a single RMS with (500ms frame, 250ms hop, center=False) feeds
+            # both dynamic_range_variation and loudness_variation_std so the two
+            # metrics are computed over the same temporal resolution. Previously
+            # loudness_variation used librosa's default 2048-sample (~46 ms) frame,
+            # making the two dimensions sample subtly different time scales.
+            rms_500ms = librosa.feature.rms(
                 y=audio,
                 frame_length=frame_length_500ms,
                 hop_length=hop_length_250ms,
@@ -231,10 +242,10 @@ class VariationOperations:
 
             # Calculate all metrics using pre-computed values
             dynamic_range_variation = VariationOperations.calculate_dynamic_range_variation(
-                audio, sr, rms_with_frame, hop_length_250ms, frame_length_500ms, frame_peaks
+                audio, sr, rms_500ms, hop_length_250ms, frame_length_500ms, frame_peaks
             )
             loudness_variation_std = VariationOperations.calculate_loudness_variation(
-                audio, sr, rms_250ms
+                audio, sr, rms_500ms
             )
             peak_consistency = VariationOperations.calculate_peak_consistency(
                 audio, sr, frame_peaks

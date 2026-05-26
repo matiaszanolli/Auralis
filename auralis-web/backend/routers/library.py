@@ -518,16 +518,34 @@ def create_library_router(
                 scanner.set_progress_callback(_progress_callback)
 
             scan_timeout = float(os.environ.get("AURALIS_SCAN_TIMEOUT", "3600"))
-            result = await asyncio.wait_for(
-                asyncio.to_thread(
-                    scanner.scan_directories,
-                    directories=request.directories,
-                    recursive=request.recursive,
-                    skip_existing=request.skip_existing,
-                    check_modifications=True,
-                ),
-                timeout=scan_timeout,
-            )
+            # #3710: capture the to_thread future so we can signal the scanner
+            # to stop on cancellation/timeout. asyncio.wait_for cancels the
+            # awaitable but cannot terminate the underlying thread; without
+            # signalling should_stop, the scan continues consuming I/O and
+            # releases its slot early (races with the next scan).
+            scan_future = asyncio.ensure_future(asyncio.to_thread(
+                scanner.scan_directories,
+                directories=request.directories,
+                recursive=request.recursive,
+                skip_existing=request.skip_existing,
+                check_modifications=True,
+            ))
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.shield(scan_future), timeout=scan_timeout
+                )
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                scanner.stop_scan()
+                # Give the scanner a short window to honour should_stop and
+                # release its slot/database session before this handler exits.
+                try:
+                    await asyncio.wait_for(asyncio.shield(scan_future), timeout=5.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    logger.warning(
+                        "Scanner thread did not exit within 5s of stop_scan(); "
+                        "thread will continue in background until next checkpoint."
+                    )
+                raise
 
             # Rejected scan (e.g., already in progress) — return 409 instead of
             # broadcasting scan_complete with zero counts (#2870).

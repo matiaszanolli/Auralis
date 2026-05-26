@@ -42,7 +42,6 @@ class TestParallelConfig:
         assert config.chunk_processing_threshold == 44100
         assert config.band_grouping is True
         assert config.shared_memory_threshold_mb == 10
-        assert config.adaptive_workers is True
 
     def test_custom_initialization(self):
         """Test custom configuration"""

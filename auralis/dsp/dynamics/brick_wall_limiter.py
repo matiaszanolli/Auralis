@@ -118,18 +118,21 @@ class BrickWallLimiter:
         per_sample_max = abs_padded.max(axis=1)  # shape: (num_samples + lookahead,)
 
         # maximum_filter1d origin convention: positive origin shifts the
-        # window toward *larger* indices (future samples).  With
-        # origin=+(lookahead // 2) the window spans approximately
-        # [i, i + lookahead), giving true lookahead peak detection.
-        # The previous negative origin looked *backward*, defeating the
-        # purpose of the lookahead delay (fixes #3308).
+        # window toward *larger* indices (future samples).  Use the largest
+        # legal positive origin — (size - 1) // 2 — so the window spans
+        # approximately [i, i + lookahead), giving true lookahead peak
+        # detection. The previous negative origin looked *backward*,
+        # defeating the purpose of the lookahead delay (fixes #3308).
+        # scipy requires -(size // 2) <= origin <= (size - 1) // 2; for
+        # even sizes `lookahead // 2` exceeds the upper bound and raises
+        # ValueError('invalid origin').
         lookahead = self.lookahead_samples
         peak_envelope = maximum_filter1d(
             per_sample_max,
             size=lookahead,
             mode='constant',
             cval=0.0,
-            origin=+(lookahead // 2),
+            origin=(lookahead - 1) // 2,
         )[:num_samples]  # trim padding tail
 
         # Vectorized target-gain computation: threshold / peak where above

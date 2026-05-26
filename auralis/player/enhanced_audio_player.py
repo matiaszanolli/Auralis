@@ -116,6 +116,13 @@ class AudioPlayer:
         self._auto_advancing = threading.Event()
         self._advance_generation = 0  # Monotonic counter for compare-and-clear (#3350)
         self._stop_requested = threading.Event()  # Prevents auto-advance after stop() (#3296)
+        # #3694: hold a reference to the most recently spawned auto-advance
+        # thread so cleanup() can join it. Without this, an in-flight advance
+        # thread that has already passed its _stop_requested check can call
+        # load_file() *after* cleanup() returns, leaving audio_data non-None
+        # post-teardown (test flakiness; benign in Electron production where
+        # the process exits immediately after cleanup).
+        self._advance_thread: threading.Thread | None = None
 
         info("Enhanced AudioPlayer initialized (refactored architecture, RepositoryFactory support enabled, fingerprinting enabled)")
 
@@ -496,11 +503,13 @@ class AudioPlayer:
                         self._auto_advancing.set()
                         self._advance_generation += 1
                         gen = self._advance_generation
-                        threading.Thread(
+                        advance_thread = threading.Thread(
                             target=self._auto_advance_next,
                             args=(gen,),
                             daemon=True
-                        ).start()
+                        )
+                        self._advance_thread = advance_thread  # joined in cleanup() (#3694)
+                        advance_thread.start()
 
         # Apply advanced real-time processing (outside the lock — pure CPU
         # work on the captured chunk, no shared state touched).
@@ -678,6 +687,17 @@ class AudioPlayer:
     def cleanup(self) -> None:
         """Clean up resources"""
         self.stop()
+        # #3694: wait for any in-flight auto-advance thread to finish before
+        # clearing audio_data. _stop_requested was set by stop() above, but
+        # an advance thread already past that gate can still call load_file()
+        # and re-populate audio_data after clear_all(). Daemon=True saves us
+        # at process exit, but tests that reuse the player (or assert on
+        # post-cleanup state) need a deterministic barrier.
+        advance_thread = self._advance_thread
+        if advance_thread is not None and advance_thread.is_alive():
+            advance_thread.join(timeout=2.0)
+            if advance_thread.is_alive():
+                warning("Auto-advance thread did not exit within cleanup timeout")
         self.file_manager.clear_all()
         self.gapless.cleanup()
         self.integration.cleanup()

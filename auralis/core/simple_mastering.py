@@ -235,6 +235,15 @@ class SimpleMasteringPipeline:
                         chunk, fingerprint, peak_db, intensity, sr, verbose=False
                     )
 
+                    # #3700: sample-count invariant — crossfade slice arithmetic
+                    # below assumes _process() preserves the time axis. A future
+                    # DSP regression (resampling, time-stretch, IIR padding bug)
+                    # would otherwise silently corrupt the chunk boundary.
+                    assert processed_chunk.shape[1] == chunk.shape[1], (
+                        f"DSP sample-count violation: input {chunk.shape[1]} "
+                        f"-> output {processed_chunk.shape[1]}"
+                    )
+
                     # Update info from first chunk
                     if chunks_processed == 0:
                         info = chunk_info

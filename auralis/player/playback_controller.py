@@ -3,9 +3,16 @@ PlaybackController - Manages playback state machine
 
 Handles: play/pause/stop/seek operations and state transitions
 Responsibilities:
-- Playback state (PLAYING, PAUSED, STOPPED, LOADING, ERROR)
+- Playback state (PLAYING, PAUSED, STOPPED, ERROR)
 - Position tracking during playback
 - Callback notifications for state changes
+
+Note: ``PlaybackState.LOADING`` is defined in the enum because the
+WebSocket-facing backend (``auralis-web/backend/core/state_manager.py``)
+publishes it during track-load, but the engine-level controller itself
+deliberately never enters LOADING — ``load_and_stop`` skips it to keep
+observers from seeing an intermediate state during ``previous_track`` /
+queue-driven loads (see #3293, #3693).
 """
 
 import threading
@@ -115,8 +122,7 @@ class PlaybackController:
             bool: True if stopped, False if already stopped
         """
         with self._lock:
-            if self.state in [PlaybackState.PLAYING, PlaybackState.PAUSED,
-                              PlaybackState.LOADING]:
+            if self.state in [PlaybackState.PLAYING, PlaybackState.PAUSED]:
                 self.state = PlaybackState.STOPPED
                 self.position = 0
                 info("Playback stopped")
@@ -175,30 +181,6 @@ class PlaybackController:
 
         self._notify_callbacks(state_info)
         return True
-
-    # Valid state transitions for the playback state machine.
-    # LOADING is reachable from STOPPED, PAUSED, ERROR (normal load) and
-    # PLAYING (user selects a new track mid-playback).
-    _VALID_LOADING_SOURCES = {
-        PlaybackState.STOPPED,
-        PlaybackState.PAUSED,
-        PlaybackState.ERROR,
-        PlaybackState.PLAYING,
-    }
-
-    def set_loading(self) -> None:
-        """Set state to LOADING (guards against redundant transitions)."""
-        with self._lock:
-            if self.state == PlaybackState.LOADING:
-                return  # Already loading — no-op
-            if self.state not in self._VALID_LOADING_SOURCES:
-                warning(f"Ignoring set_loading() from unexpected state {self.state}")
-                return
-            prev = self.state
-            self.state = PlaybackState.LOADING
-            # Snapshot inside lock, notify outside (issue #2291)
-            state_info = {"state": self.state.value, "action": "loading", "prev_state": prev.value}
-        self._notify_callbacks(state_info)
 
     def load_and_stop(self) -> bool:
         """Atomically transition from current state through LOADING to STOPPED.

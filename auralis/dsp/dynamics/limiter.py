@@ -156,12 +156,16 @@ class AdaptiveLimiter:
         # hard-coding float32 output downstream, but the local promotion is
         # still wasteful and fragile under envelope-follower substitution.
         padded = np.concatenate([abs_audio, np.zeros(lookahead, dtype=abs_audio.dtype)])
+        # scipy requires -(size // 2) <= origin <= (size - 1) // 2. For even
+        # `lookahead`, `+lookahead // 2` exceeds the upper bound and raises
+        # ValueError('invalid origin') — use the largest legal positive
+        # origin so the window still spans [i, i + lookahead).
         peak_envelope = maximum_filter1d(
             padded,
             size=lookahead,
             mode='constant',
             cval=0.0,
-            origin=+(lookahead // 2),
+            origin=(lookahead - 1) // 2,
         )[:num_samples]
 
         return peak_envelope

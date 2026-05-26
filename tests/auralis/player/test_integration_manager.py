@@ -62,11 +62,22 @@ def _make_manager(
 ) -> IntegrationManager:
     """Build IntegrationManager with all dependencies mocked."""
     playback = MagicMock()
+    # IntegrationManager.get_playback_info() unpacks
+    # playback.get_state_snapshot() as (state_value, is_playing) (#3691).
+    # MagicMock returns Mock by default, which isn't iterable into 2 values.
+    playback.get_state_snapshot.return_value = ('stopped', False)
+    playback.state.value = 'stopped'
+    playback.is_playing.return_value = False
     file_manager = MagicMock()
     file_manager.audio_data = None
     file_manager.sample_rate = 44100
     file_manager.current_file = None
     file_manager.get_duration.return_value = 0.0
+    # _get_position_seconds() / _on_playback_state_change() unpack
+    # file_manager.get_state_snapshot() as
+    # (is_loaded, sample_rate, duration, total_samples). MagicMock's default
+    # return isn't iterable into 4 values.
+    file_manager.get_state_snapshot.return_value = (False, 44100, 0.0, 0)
 
     queue = MagicMock()
     queue.get_queue_info.return_value = {}
@@ -532,9 +543,10 @@ class TestGetPositionSeconds:
 
     def test_computes_position_from_playback_and_sample_rate(self):
         m = _make_manager()
-        m.file_manager.audio_data = object()  # any non-None value
-        m.file_manager.sample_rate = 44100
-        m.file_manager.get_duration.return_value = 100.0  # so min() works
+        # Production reads (is_loaded, sample_rate, duration, total_samples)
+        # atomically via file_manager.get_state_snapshot() — must override
+        # the default fixture tuple to mark the file as loaded.
+        m.file_manager.get_state_snapshot.return_value = (True, 44100, 100.0, 44100 * 100)
         # Production reads position via get_position_snapshot(), not the
         # `position` attribute, so the mock must expose a real int return.
         m.playback.get_position_snapshot.return_value = 44100  # 1s at 44.1kHz

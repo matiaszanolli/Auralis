@@ -1,15 +1,19 @@
 """
-Regression: AudioFingerprintAnalyzer KeyboardInterrupt handling (#2514, #2668)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Regression: AudioFingerprintAnalyzer KeyboardInterrupt handling (#2514, #2668, #3701)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The fix avoids using ThreadPoolExecutor as a context manager (whose __exit__
 calls shutdown(wait=True) and blocks indefinitely on KeyboardInterrupt).
-Instead the executor is created bare, and the KeyboardInterrupt handler calls
-shutdown(wait=True, cancel_futures=True).
 
-A future refactor could easily reintroduce the `with` pattern or drop
-cancel_futures, so we pin the behaviour with both a structural check and a
-functional test.
+Since #3701 the executor is also long-lived (one pool per analyzer instance,
+reused across analyze() calls), so the KeyboardInterrupt handler must NOT
+shut it down — it cancels queued-but-unstarted futures and waits for the
+in-flight ones to finish before re-raising, so they cannot mutate the
+fingerprint dict after analyze() returns.
+
+A future refactor could easily reintroduce the `with` pattern or drop the
+wait/cancel discipline, so we pin the behaviour with both a structural
+check and a functional test.
 """
 
 import inspect
@@ -56,15 +60,28 @@ class TestFingerprintKeyboardInterrupt:
                         "in analyze() — its __exit__ blocks on KeyboardInterrupt (#2514)"
                     )
 
-    def test_shutdown_cancel_futures_in_keyboard_interrupt_handler(self):
+    def test_keyboard_interrupt_handler_cancels_and_waits(self):
         """
-        The KeyboardInterrupt handler must call shutdown(cancel_futures=True)
-        to drop queued-but-unstarted tasks.
+        The KeyboardInterrupt handler must cancel queued futures and wait for
+        in-flight ones — never tear the shared executor down (#3701) and
+        never let a running future write to fingerprint after re-raise.
         """
         source = inspect.getsource(AudioFingerprintAnalyzer.analyze)
-        assert "cancel_futures=True" in source, (
-            "KeyboardInterrupt handler must use cancel_futures=True "
-            "to prevent queued tasks from running after interrupt (#2514)"
+        # Must drop queued futures explicitly (no more shutdown(cancel_futures=True))
+        assert "f.cancel()" in source, (
+            "KeyboardInterrupt handler must call f.cancel() on each submitted "
+            "future to drop queued tasks (#3701)"
+        )
+        # Must block on in-flight futures so they cannot write partial results
+        # to the fingerprint dict after analyze() returns (#2514).
+        assert "wait(futures)" in source, (
+            "KeyboardInterrupt handler must wait(futures) for in-flight tasks "
+            "before re-raising (#2514, #3701)"
+        )
+        # Must NOT shut down the long-lived executor here.
+        assert "executor.shutdown" not in source, (
+            "analyze() must not shut down the shared executor — close() does "
+            "that explicitly (#3701)"
         )
 
     # ── Functional check ───────────────────────────────────────────────

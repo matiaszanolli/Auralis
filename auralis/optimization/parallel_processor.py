@@ -31,7 +31,6 @@ class ParallelConfig:
     chunk_processing_threshold: int = 44100  # Min samples for parallel processing
     band_grouping: bool = True  # Group similar frequency bands
     shared_memory_threshold_mb: int = 10  # Use shared memory for arrays > this size
-    adaptive_workers: bool = True  # Adjust workers based on chunk size
 
 
 class ParallelFFTProcessor:
@@ -235,7 +234,26 @@ class ParallelBandProcessor:
         # in-place mutation by one band filter cannot corrupt sibling
         # workers' inputs (fixes #3355 / CONC-11). The process-pool path
         # copies via pickling, but we copy explicitly there too for symmetry.
-        if self.config.use_multiprocessing:
+        use_mp = self.config.use_multiprocessing
+        if use_mp:
+            # #3699: ProcessPoolExecutor pickles the band_filter callable.
+            # Lambdas, closures, and bound methods raise PicklingError; the
+            # per-future `except Exception` would silently downgrade *every*
+            # band to the gainless fallback. Validate up front and downgrade
+            # to threading with a single warning instead.
+            import pickle
+            try:
+                for f in band_filters:
+                    pickle.dumps(f)
+            except (pickle.PicklingError, AttributeError, TypeError) as exc:
+                warning(
+                    f"use_multiprocessing=True requested but band_filter is not "
+                    f"picklable ({exc!r}); falling back to threading. Use "
+                    f"module-level functions (no lambdas/closures) if you need "
+                    f"true multiprocessing."
+                )
+                use_mp = False
+        if use_mp:
             # Multiprocessing for heavy filtering
             with ProcessPoolExecutor(max_workers=num_workers) as executor:
                 # Prepare tasks

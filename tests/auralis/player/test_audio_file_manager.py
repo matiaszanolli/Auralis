@@ -219,12 +219,17 @@ class TestReferenceFileLoading:
         return files
 
     def test_load_valid_reference(self, reference_files):
-        """Test loading a valid reference file."""
+        """Test loading a valid reference file.
+
+        ``load_reference`` returns the loaded ndarray (or None on failure) —
+        see audio_file_manager.py:103 / #3302. The tests check non-None /
+        None rather than a boolean.
+        """
         manager = AudioFileManager()
 
-        success = manager.load_reference(reference_files['valid'])
+        result = manager.load_reference(reference_files['valid'])
 
-        assert success is True
+        assert result is not None
         assert manager.has_reference()
         assert manager.reference_file == reference_files['valid']
         assert manager.reference_data is not None
@@ -233,9 +238,9 @@ class TestReferenceFileLoading:
         """Test loading a non-existent reference file fails gracefully."""
         manager = AudioFileManager()
 
-        success = manager.load_reference("/nonexistent/reference.wav")
+        result = manager.load_reference("/nonexistent/reference.wav")
 
-        assert success is False
+        assert result is None
         assert not manager.has_reference()
         assert manager.reference_data is None
         assert manager.reference_file is None
@@ -244,9 +249,9 @@ class TestReferenceFileLoading:
         """Test loading a corrupt reference file fails gracefully."""
         manager = AudioFileManager()
 
-        success = manager.load_reference(reference_files['corrupt'])
+        result = manager.load_reference(reference_files['corrupt'])
 
-        assert success is False
+        assert result is None
         assert not manager.has_reference()
 
     def test_reference_independent_from_target(self, tmp_path):
