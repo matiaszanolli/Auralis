@@ -125,6 +125,33 @@ class AudioFingerprintAnalyzer:
             if sr <= 0:
                 logger.warning(f"Fingerprint skipped: invalid sample rate {sr}")
                 return {}
+
+            # #3657: normalize sample rate to 22 050 Hz before any FFT-based
+            # analysis. FingerprintService already resamples; the
+            # FingerprintExtractor Python fallback previously passed native
+            # sr through unchanged, producing different FFT sizes / bin
+            # widths / hop-to-time mappings → same file produced different
+            # 25D fingerprints depending on which path computed it.
+            _TARGET_SR = 22050
+            if sr != _TARGET_SR:
+                import librosa
+                if len(audio.shape) > 1:
+                    # (channels, samples) or (samples, channels) — resample per channel
+                    channel_axis = 0 if audio.shape[0] <= 2 else 1
+                    if channel_axis == 0:
+                        audio = np.stack([
+                            librosa.resample(audio[ch].astype(np.float32), orig_sr=sr, target_sr=_TARGET_SR)
+                            for ch in range(audio.shape[0])
+                        ])
+                    else:
+                        audio = np.stack([
+                            librosa.resample(audio[:, ch].astype(np.float32), orig_sr=sr, target_sr=_TARGET_SR)
+                            for ch in range(audio.shape[1])
+                        ], axis=1)
+                else:
+                    audio = librosa.resample(audio.astype(np.float32), orig_sr=sr, target_sr=_TARGET_SR)
+                sr = _TARGET_SR
+
             # Require minimum 0.5s of audio for meaningful fingerprinting
             min_samples = sr // 2
             # Determine sample count: (channels, samples) if first dim ≤ 2, else (samples, channels)
