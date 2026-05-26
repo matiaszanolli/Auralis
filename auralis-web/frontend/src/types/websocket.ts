@@ -218,8 +218,12 @@ export interface QueueChangedMessage extends WebSocketMessage {
   type: 'queue_changed';
   data: {
     tracks: TrackInfo[]; // Full queue after change
-    currentIndex: number; // Current position in queue
-    action: 'added' | 'removed' | 'reordered' | 'cleared';
+    // Both naming conventions are accepted: the backend currently emits
+    // snake_case, but some emitters historically used camelCase; consumers
+    // (usePlaybackQueue) prefer snake_case and fall back to camelCase.
+    current_index?: number;
+    currentIndex?: number;
+    action?: 'added' | 'removed' | 'reordered' | 'cleared';
   };
 }
 
@@ -229,7 +233,8 @@ export interface QueueChangedMessage extends WebSocketMessage {
 export interface QueueShuffledMessage extends WebSocketMessage {
   type: 'queue_shuffled';
   data: {
-    isShuffled: boolean;
+    is_shuffled?: boolean;
+    isShuffled?: boolean;
     tracks?: TrackInfo[]; // Reordered queue if shuffled
   };
 }
@@ -240,7 +245,8 @@ export interface QueueShuffledMessage extends WebSocketMessage {
 export interface RepeatModeChangedMessage extends WebSocketMessage {
   type: 'repeat_mode_changed';
   data: {
-    repeatMode: 'off' | 'all' | 'one';
+    repeat_mode?: 'off' | 'all' | 'one';
+    repeatMode?: 'off' | 'all' | 'one';
   };
 }
 
