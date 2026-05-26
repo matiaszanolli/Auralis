@@ -261,6 +261,15 @@ fn compute_istft(stft: &Array2<Complex64>, n_fft: usize, hop_length: usize, n_sa
     let n_frames = stft.ncols();
 
     let mut output = vec![0.0; n_samples];
+    // #3662: OLA normalization sum. Analysis applies a Hann window and
+    // synthesis multiplies by the same window again — so the per-sample
+    // sum of `window^2` at all hopped positions converges to ~1.5 for
+    // Hann + 75% overlap. Without dividing by this sum the reconstructed
+    // amplitude is ~1.5x the input. Accumulate the actual window-square
+    // contributions per output sample so the normalization is exact for
+    // any window / hop combination (including the partial frames at the
+    // start and end of the signal).
+    let mut ola_norm = vec![0.0_f64; n_samples];
 
     // Pre-compute Hann window
     let window = hann_window(n_fft);
@@ -290,12 +299,24 @@ fn compute_istft(stft: &Array2<Complex64>, n_fft: usize, hop_length: usize, n_sa
         // Compute inverse FFT
         ifft.process(&mut buffer);
 
-        // Apply Hann window and overlap-add
+        // Apply Hann window and overlap-add. Track the contribution of
+        // window^2 at each output sample for later normalization (#3662).
         for i in 0..n_fft {
             let windowed = buffer[i].re * window[i] / (n_fft as f64);
             if start + i < n_samples {
                 output[start + i] += windowed;
+                ola_norm[start + i] += window[i] * window[i];
             }
+        }
+    }
+
+    // #3662: divide each output sample by the actual OLA norm. Guard
+    // against division by ~0 at the very edges where only one frame
+    // contributes — fall back to no normalization there (the amplitude
+    // is already correct because only one window contributes).
+    for i in 0..n_samples {
+        if ola_norm[i] > 1e-12 {
+            output[i] /= ola_norm[i];
         }
     }
 
