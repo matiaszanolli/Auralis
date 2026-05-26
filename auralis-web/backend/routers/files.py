@@ -16,6 +16,7 @@ via WebSocket (fixes #2123).
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 import shutil
 import tempfile
@@ -126,10 +127,15 @@ def create_files_router(
                     })
                     continue
 
-                # Save uploaded file to temporary location
+                # Save uploaded file to temporary location.
+                # Cap the read at the source instead of buffering the whole
+                # body first (fixes #3494 / BE-NEW-36 — prior code did
+                # `await file.read()` with no size limit and only checked the
+                # cap AFTER reading, so a 2 GB POST OOM'd the backend before
+                # rejection). +1 lets us detect overflow via length compare.
                 suffix = Path(file.filename).suffix if file.filename else ""
                 _MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB cap (fixes #2248)
-                content = await file.read()
+                content = await file.read(_MAX_UPLOAD_BYTES + 1)
                 if len(content) > _MAX_UPLOAD_BYTES:
                     logger.warning(f"Rejected oversized upload: {file.filename!r} ({len(content)} bytes)")
                     results.append({
@@ -151,13 +157,20 @@ def create_files_router(
                     })
                     continue
 
-                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                    tmp.write(content)
-                    temp_path = tmp.name
+                # Sync ops below — temp write, audio decode, file move, DB
+                # insert — are wrapped in asyncio.to_thread so the event
+                # loop isn't blocked for the (often multi-hundred-ms)
+                # duration of an upload (fixes #3494 / BE-NEW-36).
+                def _write_temp(content_bytes: bytes, suffix_str: str) -> str:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix_str) as tmp:
+                        tmp.write(content_bytes)
+                        return tmp.name
+
+                temp_path = await asyncio.to_thread(_write_temp, content, suffix)
 
                 try:
                     # Load audio to get metadata (sample rate, duration)
-                    audio_data, sample_rate = load_audio(temp_path)
+                    audio_data, sample_rate = await asyncio.to_thread(load_audio, temp_path)
                     duration = len(audio_data) / sample_rate
 
                     # Move to permanent library storage before committing the DB record
@@ -166,7 +179,7 @@ def create_files_router(
                     upload_dir = Path.home() / ".auralis" / "uploads"
                     upload_dir.mkdir(parents=True, exist_ok=True)
                     permanent_path = upload_dir / f"{uuid4().hex}{suffix}"
-                    shutil.move(str(temp_path), str(permanent_path))
+                    await asyncio.to_thread(shutil.move, str(temp_path), str(permanent_path))
 
                     # Extract file name without extension
                     file_stem = Path(file.filename).stem if file.filename else "track"
@@ -182,7 +195,7 @@ def create_files_router(
                     }
 
                     # Add track to library via repository
-                    track = repos.tracks.add(track_info)
+                    track = await asyncio.to_thread(repos.tracks.add, track_info)
 
                     if track:
                         results.append({

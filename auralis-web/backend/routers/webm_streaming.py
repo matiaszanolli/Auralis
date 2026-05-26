@@ -150,26 +150,36 @@ def create_webm_streaming_router(
         """
         try:
             repos = get_repos()
-            # Get track from library
-            track = repos.tracks.get_by_id(track_id)
+            # Get track from library — wrap sync repo call so it doesn't block
+            # the event loop (fixes #3495 / BE-NEW-37).
+            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
             if not track:
                 raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
 
-            # Check if file exists
-            if not os.path.exists(track.filepath):
-                raise HTTPException(status_code=404, detail=f"Audio file not found: {track.filepath}")
+            # Check if file exists — don't leak the full server path to the
+            # client; the filename alone is enough for the user to recognise
+            # the missing file (fixes #3541 / BE-NEW-83).
+            file_exists = await asyncio.to_thread(os.path.exists, track.filepath)
+            if not file_exists:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Audio file not found for track {track_id}",
+                )
 
             # Calculate total chunks
             duration = track.duration if hasattr(track, 'duration') and track.duration else 0
             if duration == 0:
-                # Load audio to get duration
+                # Use header-only get_audio_info (fast) rather than full
+                # load_audio (multi-MB decode) when duration is missing
+                # from the DB (fixes #3495 — was blocking event loop with
+                # a full-file decode).
                 try:
-                    from auralis.io.unified_loader import load_audio
-                    audio, sr = load_audio(track.filepath)
-                    duration = len(audio) / sr
+                    from auralis.io.unified_loader import get_audio_info
+                    info_fallback = await asyncio.to_thread(get_audio_info, track.filepath)
+                    duration = info_fallback.get('duration') or 180
                 except Exception as e:
-                    logger.error(f"Failed to load audio for duration: {e}")
-                    duration = 180  # Default to 3 minutes if loading fails
+                    logger.error(f"Failed to read audio header for duration: {e}")
+                    duration = 180  # Default to 3 minutes if header read fails
 
             # Calculate total chunks based on interval (not duration) for overlap model
             # With 15s chunks and 10s intervals: chunks start at 0s, 10s, 20s, etc.
@@ -178,7 +188,7 @@ def create_webm_streaming_router(
             # Get actual sample rate from audio file without loading full audio
             try:
                 from auralis.io.unified_loader import get_audio_info
-                audio_info = get_audio_info(track.filepath)
+                audio_info = await asyncio.to_thread(get_audio_info, track.filepath)
                 actual_sr = audio_info.get('sample_rate', 44100)
                 actual_channels = audio_info.get('channels', 2)
             except Exception as e:
@@ -262,14 +272,20 @@ def create_webm_streaming_router(
 
         try:
             repos = get_repos()
-            # Get track from library
-            track = repos.tracks.get_by_id(track_id)
+            # Get track from library — wrap sync repo call so it doesn't block
+            # the event loop (fixes #3495 / BE-NEW-37).
+            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
             if not track:
                 raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
 
-            # Check if file exists
-            if not os.path.exists(track.filepath):
-                raise HTTPException(status_code=404, detail=f"Audio file not found: {track.filepath}")
+            # Check if file exists — generic message; don't leak server path
+            # (fixes #3541 / BE-NEW-83).
+            file_exists = await asyncio.to_thread(os.path.exists, track.filepath)
+            if not file_exists:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Audio file not found for track {track_id}",
+                )
 
             # Initialize response variables
             cache_tier = None
