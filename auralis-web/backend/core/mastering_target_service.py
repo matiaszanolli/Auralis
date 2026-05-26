@@ -63,10 +63,23 @@ class MasteringTargetService:
             get_fingerprints_repository: Callable that returns fingerprints repository
                                         (for database lookups via repository pattern)
         """
-        self.cache = cache if cache is not None else {}
+        # Bound the cache with simple FIFO eviction to prevent unbounded
+        # growth when the service is held as a singleton (#3532 / BE-NEW-74).
+        # 256 entries × ~3 KB each ≈ 1 MB ceiling — plenty for a typical
+        # listening session, won't bloat long-running backend processes.
+        from collections import OrderedDict
+        self.cache: OrderedDict[str, Any] = OrderedDict(cache) if cache is not None else OrderedDict()
+        self._max_cache_entries = 256
         self._get_fingerprints_repository = get_fingerprints_repository
         self._lock = threading.RLock()
         logger.debug("MasteringTargetService initialized")
+
+    def _store_in_cache(self, key: str, value: Any) -> None:
+        """Insert into the LRU cache and evict the oldest entry if over cap."""
+        self.cache[key] = value
+        self.cache.move_to_end(key)
+        while len(self.cache) > self._max_cache_entries:
+            self.cache.popitem(last=False)
 
     def _get_cache_key(self, track_id: int, filepath: str) -> str:
         """Generate cache key for fingerprint."""
@@ -301,18 +314,18 @@ class MasteringTargetService:
             targets = self.generate_targets_from_fingerprint(fingerprint)
             result = (fingerprint, targets)
 
-            # Cache result
+            # Cache result (LRU-bounded, #3532)
             with self._lock:
-                self.cache[cache_key] = result
+                self._store_in_cache(cache_key, result)
 
             return result
 
         # Tier 2: Try .25d file
         file_result = self.load_fingerprint_from_file(filepath)
         if file_result is not None:
-            # Cache result
+            # Cache result (LRU-bounded, #3532)
             with self._lock:
-                self.cache[cache_key] = file_result
+                self._store_in_cache(cache_key, file_result)
 
             return file_result
 
@@ -324,9 +337,9 @@ class MasteringTargetService:
             )
 
             if extract_result is not None:
-                # Cache result
+                # Cache result (LRU-bounded, #3532)
                 with self._lock:
-                    self.cache[cache_key] = extract_result
+                    self._store_in_cache(cache_key, extract_result)
 
                 return extract_result
 

@@ -1389,7 +1389,17 @@ class AudioStreamController:
                         },
                     }
                     frame_seq += 1
-                    pcm_bytes: bytes = frame_samples.astype('<f4').tobytes()
+                    # frame_samples is a slice of pcm_flat which was cast
+                    # to np.float32 at line ~1335; on x86/ARM/Apple Silicon
+                    # that's already little-endian, so the prior
+                    # `astype('<f4')` was a no-op copy of ~300 KB per frame
+                    # × 9 frames × every chunk. Pass-through-to-bytes is
+                    # zero-copy when the array is already contiguous
+                    # little-endian float32 (fixes #3556 / BE-NEW-98).
+                    if frame_samples.dtype.byteorder in ('<', '=') and frame_samples.flags['C_CONTIGUOUS']:
+                        pcm_bytes: bytes = frame_samples.tobytes()
+                    else:
+                        pcm_bytes = frame_samples.astype('<f4').tobytes()
                     await queue.put((metadata, pcm_bytes))
             finally:
                 await queue.put(None)  # sentinel

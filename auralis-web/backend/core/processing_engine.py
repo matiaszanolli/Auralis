@@ -581,23 +581,36 @@ class ProcessingEngine:
 
 
     async def _run_job(self, job: ProcessingJob) -> None:
-        """Run a single job inside a concurrency slot, then clean up."""
-        await self._concurrency_semaphore.acquire()
-        self._active_job_count += 1
+        """Run a single job inside a concurrency slot, then clean up.
 
-        task = asyncio.current_task()
-        if task is not None:
-            self._tasks[job.job_id] = task
-
+        Slot lifecycle is tracked via the local `acquired` flag so a
+        CancelledError raised inside `acquire()` (queue full, then task
+        cancelled while waiting) does NOT enter the finally with the
+        semaphore unbalanced. Prior code unconditionally released, which
+        would silently raise the effective concurrency cap above
+        max_concurrent_jobs on every cancel-during-acquire (#3531 /
+        BE-NEW-73).
+        """
+        acquired = False
         try:
-            await self.process_job(job)
-        except asyncio.CancelledError:
-            if job.status != ProcessingStatus.CANCELLED:
-                raise
+            await self._concurrency_semaphore.acquire()
+            acquired = True
+            self._active_job_count += 1
+
+            task = asyncio.current_task()
+            if task is not None:
+                self._tasks[job.job_id] = task
+
+            try:
+                await self.process_job(job)
+            except asyncio.CancelledError:
+                if job.status != ProcessingStatus.CANCELLED:
+                    raise
         finally:
             self._tasks.pop(job.job_id, None)
-            self._active_job_count = max(0, self._active_job_count - 1)
-            self._concurrency_semaphore.release()
+            if acquired:
+                self._active_job_count = max(0, self._active_job_count - 1)
+                self._concurrency_semaphore.release()
             await self.cleanup_old_jobs(self.completed_job_ttl_hours)
 
     async def stop_worker(self) -> None:

@@ -110,9 +110,14 @@ class StreamlinedCacheManager:
         # Track cache status
         self.track_status: dict[int, TrackCacheStatus] = {}
 
-        # NEW (Priority 4): Mastering recommendations cache
-        # Maps track_id -> serialized MasteringRecommendation dict
-        self.mastering_recommendations: dict[int, dict[str, Any]] = {}
+        # NEW (Priority 4): Mastering recommendations cache.
+        # OrderedDict so we can LRU-evict at MAX_RECOMMENDATIONS — prior
+        # code used a plain dict and the singleton instance accumulated
+        # entries for the entire backend lifetime, growing 1-5 KB per
+        # distinct track played (fixes #3555 / BE-NEW-97).
+        from collections import OrderedDict
+        self.mastering_recommendations: OrderedDict[int, dict[str, Any]] = OrderedDict()
+        self.MAX_RECOMMENDATIONS = 256
 
         # Playback state
         self.current_track_id: int | None = None
@@ -481,11 +486,17 @@ class StreamlinedCacheManager:
         """
         Cache a mastering recommendation for a track (Priority 4).
 
+        LRU-bounded at MAX_RECOMMENDATIONS to prevent unbounded growth in
+        the module-level singleton (#3555 / BE-NEW-97).
+
         Args:
             track_id: Track database ID
             recommendation: Serialized MasteringRecommendation dict from adaptive_mastering_engine.recommend_weighted()
         """
         self.mastering_recommendations[track_id] = recommendation
+        self.mastering_recommendations.move_to_end(track_id)
+        while len(self.mastering_recommendations) > self.MAX_RECOMMENDATIONS:
+            self.mastering_recommendations.popitem(last=False)
         logger.info(
             f"📊 Cached mastering recommendation for track {track_id}: "
             f"{recommendation.get('primary_profile_name', 'unknown')}, "
