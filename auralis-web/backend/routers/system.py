@@ -770,8 +770,19 @@ def create_system_router(
                     # Subscribe to job progress updates
                     data = message.get("data", {})
                     job_id = data.get("job_id")
+                    # Validate job_id before registering — prior code
+                    # accepted any value, opening a slow per-session leak in
+                    # processing_engine.progress_callbacks + non-string
+                    # payloads to other WS subscribers (#3520 / BE-NEW-62).
+                    if not isinstance(job_id, str) or not job_id or len(job_id) > 64:
+                        await send_error_response(
+                            websocket,
+                            "invalid_job_id",
+                            "Invalid job_id (must be non-empty string, ≤64 chars)",
+                        )
+                        continue
                     processing_engine = get_processing_engine()
-                    if job_id and processing_engine:
+                    if processing_engine:
                         async def progress_callback(job_id: str, progress: float, message: str) -> None:
                             await websocket.send_text(json.dumps({
                                 "type": "job_progress",
