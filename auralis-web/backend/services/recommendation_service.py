@@ -8,6 +8,7 @@ Performs background analysis of loaded tracks to suggest optimal audio profiles.
 :license: GPLv3
 """
 
+import asyncio
 import logging
 import os
 import sys
@@ -67,41 +68,45 @@ class RecommendationService:
         Raises:
             Exception: If critical error occurs (not recommended errors are ignored)
         """
-        try:
-            # Import here to avoid circular dependencies
+        # ChunkedAudioProcessor.__init__ + get_mastering_recommendation are
+        # synchronous and can take several seconds (full audio decode +
+        # librosa analysis if the fingerprint isn't cached). Run the
+        # whole sync chain in a thread so the event loop stays responsive
+        # (fixes #3553 / BE-NEW-95). FastAPI BackgroundTasks schedules
+        # async coroutines on the SAME event loop as the request — without
+        # this offload, every track-load froze the backend.
+        def _analyze() -> dict[str, Any] | None:
             sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             from core.chunked_processor import ChunkedAudioProcessor
 
-            # Create processor to generate recommendation
             processor = ChunkedAudioProcessor(
                 track_id=track_id,
                 filepath=track_path,
-                preset="adaptive",  # Use default preset for analysis
+                preset="adaptive",
                 intensity=1.0,
-                chunk_cache={}
+                chunk_cache={},
             )
+            rec = processor.get_mastering_recommendation(
+                confidence_threshold=confidence_threshold
+            )
+            if rec is None:
+                return None
+            rec_dict = cast(dict[str, Any], rec.to_dict())
+            rec_dict['track_id'] = track_id
+            rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
+            return rec_dict
 
-            # Get weighted recommendation
-            rec = processor.get_mastering_recommendation(confidence_threshold=confidence_threshold)
-
-            if rec:
-                # Serialize and broadcast
-                rec_dict = cast(dict[str, Any], rec.to_dict())
-                rec_dict['track_id'] = track_id
-                rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
-
-                # Broadcast to all connected clients
+        try:
+            rec_dict = await asyncio.to_thread(_analyze)
+            if rec_dict:
                 await self.connection_manager.broadcast({
                     "type": "mastering_recommendation",
-                    "data": rec_dict
+                    "data": rec_dict,
                 })
-
                 logger.info(f"📊 Broadcasted mastering recommendation for track {track_id}")
                 return rec_dict
-            else:
-                logger.info(f"ℹ️  No confident recommendation found for track {track_id}")
-                return {}
-
+            logger.info(f"ℹ️  No confident recommendation found for track {track_id}")
+            return {}
         except Exception as e:
             # Log but don't fail - recommendations are optional
             logger.warning(f"Failed to generate mastering recommendation for track {track_id}: {e}")
@@ -129,31 +134,31 @@ class RecommendationService:
         Raises:
             Exception: If analysis fails
         """
-        try:
-            # Import here to avoid circular dependencies
+        # Same offload pattern as generate_and_broadcast_recommendation
+        # (fixes #3553 / BE-NEW-95) — sync work runs in a thread.
+        def _analyze() -> dict[str, Any] | None:
             sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             from core.chunked_processor import ChunkedAudioProcessor
 
-            # Create processor to generate recommendation
             processor = ChunkedAudioProcessor(
                 track_id=track_id,
                 filepath=track_path,
                 preset="adaptive",
                 intensity=1.0,
-                chunk_cache={}
+                chunk_cache={},
             )
-
-            # Get weighted recommendation
-            rec = processor.get_mastering_recommendation(confidence_threshold=confidence_threshold)
-
-            if rec:
-                rec_dict = cast(dict[str, Any], rec.to_dict())
-                rec_dict['track_id'] = track_id
-                rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
-                return rec_dict
-            else:
+            rec = processor.get_mastering_recommendation(
+                confidence_threshold=confidence_threshold
+            )
+            if rec is None:
                 return None
+            rec_dict = cast(dict[str, Any], rec.to_dict())
+            rec_dict['track_id'] = track_id
+            rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
+            return rec_dict
 
+        try:
+            return await asyncio.to_thread(_analyze)
         except Exception as e:
             logger.error(f"Failed to get mastering recommendation for track {track_id}: {e}")
             raise

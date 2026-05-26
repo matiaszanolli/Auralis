@@ -8,6 +8,7 @@ Coordinates with AudioPlayer and PlayerStateManager to keep queue state synchron
 :license: GPLv3
 """
 
+import asyncio
 import logging
 from typing import Any, Protocol, cast
 from collections.abc import Callable
@@ -231,12 +232,26 @@ class QueueService:
             raise ValueError("Library manager not available")
 
         try:
-            # Get tracks from library by IDs
-            db_tracks = []
-            for track_id in track_ids:
-                track = self.library_manager.tracks.get_by_id(track_id)
-                if track:
-                    db_tracks.append(track)
+            # Get tracks from library by IDs — single batched query via
+            # get_by_ids when available, otherwise individual lookups in a
+            # thread (fixes #3554 / BE-NEW-96: per-track sync calls
+            # previously blocked the event loop for hundreds of ms on
+            # large queues).
+            tracks_repo = self.library_manager.tracks
+            if hasattr(tracks_repo, 'get_by_ids'):
+                db_tracks_raw = await asyncio.to_thread(tracks_repo.get_by_ids, track_ids)
+                # Preserve caller-supplied order.
+                by_id = {t.id: t for t in (db_tracks_raw or [])}
+                db_tracks = [by_id[tid] for tid in track_ids if tid in by_id]
+            else:
+                def _fetch_individually() -> list[Any]:
+                    out: list[Any] = []
+                    for track_id in track_ids:
+                        t = tracks_repo.get_by_id(track_id)
+                        if t:
+                            out.append(t)
+                    return out
+                db_tracks = await asyncio.to_thread(_fetch_individually)
 
             if not db_tracks:
                 raise ValueError("No valid tracks found")
@@ -248,9 +263,13 @@ class QueueService:
             # Update state manager (broadcasts automatically)
             await self.player_state_manager.set_queue(track_infos, start_index)
 
-            # Set queue in actual player
+            # Set queue in actual player — sync engine call, offload.
             if hasattr(self.audio_player, 'queue'):
-                self.audio_player.queue.set_queue([t.filepath for t in db_tracks], start_index)
+                await asyncio.to_thread(
+                    self.audio_player.queue.set_queue,
+                    [t.filepath for t in db_tracks],
+                    start_index,
+                )
 
             # Load and start playing if requested
             if start_index >= 0 and start_index < len(db_tracks):
@@ -259,11 +278,9 @@ class QueueService:
                 # Update state with current track
                 await self.player_state_manager.set_track(current_track, self.library_manager)
 
-                # Load the track in player
-                self.audio_player.load_file(current_track.filepath)
-
-                # Start playback
-                self.audio_player.play()
+                # Load + play — sync engine calls; offload (#3554).
+                await asyncio.to_thread(self.audio_player.load_file, current_track.filepath)
+                await asyncio.to_thread(self.audio_player.play)
 
                 # Update playing state
                 await self.player_state_manager.set_playing(True)
@@ -299,8 +316,10 @@ class QueueService:
             raise ValueError("Library manager not available")
 
         try:
-            # Get track from library
-            track = self.library_manager.tracks.get_by_id(track_id)
+            # Get track from library — sync DB call, offload (#3554).
+            track = await asyncio.to_thread(
+                self.library_manager.tracks.get_by_id, track_id
+            )
             if not track:
                 raise ValueError(f"Track {track_id} not found")
 
