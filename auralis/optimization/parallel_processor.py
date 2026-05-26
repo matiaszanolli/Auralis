@@ -251,8 +251,13 @@ class ParallelBandProcessor:
                 }
 
                 # Pre-compute unprocessed band signals as fallback for failed bands
-                # (return original filtered signal instead of silence — fixes #3430).
-                band_fallbacks: list[np.ndarray] = [band_filters[i](audio) for i in range(num_bands)]
+                # (return filtered + gain-corrected signal instead of silence —
+                # fixes #3430 and #3675: previously omitted the gain multiply
+                # so an EQ cut became a pass-through and a boost became neutral).
+                band_fallbacks: list[np.ndarray] = [
+                    band_filters[i](audio) * (10 ** (band_gains[i] / 20))
+                    for i in range(num_bands)
+                ]
                 band_results: list[np.ndarray] = list(band_fallbacks)
                 for future in as_completed(future_to_band):
                     band_i = future_to_band[future]
@@ -267,7 +272,12 @@ class ParallelBandProcessor:
                 # Pre-compute unprocessed band signals as fallback (#3430) BEFORE
                 # submitting workers so the main thread's reads of `audio` don't
                 # race with concurrent workers (#3355).
-                band_fallbacks = [band_filters[i](audio) for i in range(num_bands)]
+                # #3675: include the gain multiply so a failed band contributes
+                # at its configured level (not 0 dB).
+                band_fallbacks = [
+                    band_filters[i](audio) * (10 ** (band_gains[i] / 20))
+                    for i in range(num_bands)
+                ]
 
                 # Submit tasks — each worker gets its own copy of `audio`
                 # so an in-place band filter cannot corrupt siblings (#3355).
@@ -340,9 +350,14 @@ class ParallelBandProcessor:
                     group_results[i] = future.result()
                 except Exception as exc:
                     warning(f"Band group {i} processing failed, using unprocessed signal: {exc}")
-                    # Fall back to unprocessed sum of this group's bands
+                    # Fall back to gain-corrected sum of this group's bands.
+                    # #3675: include the gain multiply so the failed group's
+                    # contribution matches its configured per-band levels.
                     for band_idx in band_groups[i]:
-                        group_results[i] += band_filters[band_idx](audio)
+                        group_results[i] += (
+                            band_filters[band_idx](audio)
+                            * (10 ** (band_gains[band_idx] / 20))
+                        )
 
         # Sum all group results
         output: np.ndarray = np.sum(group_results, axis=0)
@@ -413,17 +428,29 @@ class ParallelFeatureExtractor:
         num_workers = min(self.config.max_workers, len(feature_extractors))
 
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # Submit feature extraction tasks
+            # Submit feature extraction tasks.
+            # #3673: pass audio.copy() to each worker so an in-place mutation
+            # by one extractor cannot corrupt sibling extractors. Matches the
+            # ParallelBandProcessor pattern fixed in #3355.
             futures: dict[Any, str] = {
-                executor.submit(extractor, audio): name
+                executor.submit(extractor, audio.copy()): name
                 for name, extractor in feature_extractors.items()
             }
 
-            # Collect results
+            # Collect results.
+            # #3674: guard future.result() so one failing extractor doesn't
+            # abort the entire run. Matches the per-future try/except pattern
+            # already used in ParallelBandProcessor (lines 280-285).
             features: dict[str, Any] = {}
             for future in as_completed(futures):
                 feature_name = futures[future]
-                features[feature_name] = future.result()
+                try:
+                    features[feature_name] = future.result()
+                except Exception as exc:
+                    warning(
+                        f"Feature extractor '{feature_name}' failed: {exc}"
+                    )
+                    features[feature_name] = None
 
         return features
 
