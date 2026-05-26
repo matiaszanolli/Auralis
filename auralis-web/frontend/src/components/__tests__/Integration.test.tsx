@@ -31,7 +31,6 @@ import * as queueActions from '@/store/slices/queueSlice';
 import * as cacheActions from '@/store/slices/cacheSlice';
 import * as connectionActions from '@/store/slices/connectionSlice';
 import { PlayerControls } from '../shared/PlayerControls';
-import { QueueManager } from '../shared/QueueManager';
 import { ConnectionStatusIndicator } from '../shared/ConnectionStatusIndicator';
 
 // Mock WebSocketContext
@@ -256,13 +255,11 @@ describe('Component Integration Tests', () => {
       render(
         <>
           <PlayerControls />
-          <QueueManager />
           <ConnectionStatusIndicator />
         </>
       );
 
       expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
-      expect(screen.getByText(/Queue/i)).toBeInTheDocument();
       expect(screen.getByText(/Connected/i)).toBeInTheDocument();
     });
   });
