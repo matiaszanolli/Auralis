@@ -889,13 +889,23 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    * Watch Redux isPlaying state and control AudioPlaybackEngine accordingly.
    * This allows usePlaybackControl.pause()/stop() to stop the engine immediately
    * without waiting for buffered audio to drain (issue #2252).
+   *
+   * #3624: isPaused is read via a ref so it cannot drive a re-run of this
+   * effect. Including isPaused in the dep array previously caused two
+   * pausePlayback() calls per transition because setIsPaused(true) inside
+   * this effect re-fired the effect.
    */
+  const isPausedRef = useRef(isPaused);
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
   useEffect(() => {
     if (!playbackEngineRef.current) return;
 
     if (isPlaying) {
       // Resume playback if paused
-      if (isPaused) {
+      if (isPausedRef.current) {
         playbackEngineRef.current.resumePlayback();
         setIsPaused(false);
       }
@@ -904,7 +914,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       playbackEngineRef.current.pausePlayback();
       setIsPaused(true);
     }
-  }, [isPlaying, isPaused]);
+  }, [isPlaying]);
 
   return {
     playEnhanced,

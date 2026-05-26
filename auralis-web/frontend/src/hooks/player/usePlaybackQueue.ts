@@ -474,7 +474,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     } finally {
       setIsLoading(false);
     }
-  }, [post]);
+  }, [post, dispatch]);
 
   /**
    * Set repeat mode
@@ -522,7 +522,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         setIsLoading(false);
       }
     },
-    [post]
+    [post, dispatch]
   );
 
   /**

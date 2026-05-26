@@ -57,6 +57,10 @@ export const useMasteringRecommendation = (trackId?: number) => {
     // Check cache first
     if (cache.current[trackId]) {
       setRecommendation(cache.current[trackId]);
+      // #3625: also clear loading/timed-out state so the spinner does not
+      // hang when the previous trackId's request was still loading.
+      setIsLoading(false);
+      setIsTimedOut(false);
       return;
     }
 

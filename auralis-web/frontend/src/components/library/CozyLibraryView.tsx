@@ -137,6 +137,16 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     setSimilarTrackTitle('');
   }, []);
 
+  // #3617: stable onTrackPlay for SimilarTracksModal — was an inline arrow
+  // that defeated memoization if the modal is ever wrapped in React.memo.
+  const handlePlaySimilarTrack = useCallback(
+    (trackId: number) => {
+      const track = tracks.find(t => t.id === trackId);
+      if (track) handlePlayTrack(track);
+    },
+    [tracks, handlePlayTrack]
+  );
+
   // Batch operations
   const {
     handleBulkAddToQueue,
@@ -277,12 +287,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
           trackId={similarTrackId}
           trackTitle={similarTrackTitle}
           onClose={handleCloseSimilarTracksModal}
-          onTrackPlay={(trackId) => {
-            const track = tracks.find(t => t.id === trackId);
-            if (track) {
-              handlePlayTrack(track);
-            }
-          }}
+          onTrackPlay={handlePlaySimilarTrack}
           limit={20}
         />
       </Box>
