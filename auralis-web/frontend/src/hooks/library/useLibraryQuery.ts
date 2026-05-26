@@ -176,29 +176,47 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   /**
    * Extract items from response based on query type
    * Backend returns type-specific field names: tracks, albums, artists
+   *
+   * #3631: `response` typed as Record<string, unknown> (was `any`) and the
+   * switch is exhaustive via a `never` assertion so adding a new
+   * LibraryQueryType triggers a TS error here instead of silently falling
+   * through to `response.items`.
    */
-  const extractItemsFromResponse = useCallback((response: any, qType: LibraryQueryType): T[] => {
-    switch (qType) {
-      case 'tracks':
-        return response.tracks || response.items || [];
-      case 'albums':
-        // Backend returns snake_case fields; transform to camelCase to match Album interface (fixes #2378).
-        return (response.albums || response.items || []).map((album: Record<string, unknown>) => ({
-          ...album,
-          trackCount: album.trackCount ?? album.track_count,
-          totalDuration: album.totalDuration ?? album.total_duration,
-        }));
-      case 'artists':
-        // Backend returns snake_case fields; transform to camelCase to match Artist interface (fixes #2853).
-        return (response.artists || response.items || []).map((artist: Record<string, unknown>) => ({
-          ...artist,
-          trackCount: artist.trackCount ?? artist.track_count,
-          albumCount: artist.albumCount ?? artist.album_count,
-        }));
-      default:
-        return response.items || [];
-    }
-  }, []);
+  const extractItemsFromResponse = useCallback(
+    (response: LibraryQueryResponse<T> | Record<string, unknown>, qType: LibraryQueryType): T[] => {
+      const r = response as Record<string, unknown>;
+      // Re-assigned locally so the type narrows for the switch below
+      // (LibraryQueryResponse<T> has no index signature).
+      response = r;
+      switch (qType) {
+        case 'tracks':
+          return ((response.tracks ?? response.items) as T[]) || [];
+        case 'albums':
+          // Backend returns snake_case fields; transform to camelCase to match Album interface (fixes #2378).
+          return ((response.albums ?? response.items ?? []) as Record<string, unknown>[]).map(
+            (album) => ({
+              ...album,
+              trackCount: album.trackCount ?? album.track_count,
+              totalDuration: album.totalDuration ?? album.total_duration,
+            })
+          ) as T[];
+        case 'artists':
+          // Backend returns snake_case fields; transform to camelCase to match Artist interface (fixes #2853).
+          return ((response.artists ?? response.items ?? []) as Record<string, unknown>[]).map(
+            (artist) => ({
+              ...artist,
+              trackCount: artist.trackCount ?? artist.track_count,
+              albumCount: artist.albumCount ?? artist.album_count,
+            })
+          ) as T[];
+        default: {
+          const _exhaustive: never = qType;
+          throw new Error(`Unhandled LibraryQueryType: ${String(_exhaustive)}`);
+        }
+      }
+    },
+    []
+  );
 
   /**
    * Build endpoint from query type and options

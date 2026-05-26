@@ -450,29 +450,36 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     cleanupStreaming();
   }, [dispatch, cleanupStreaming]);
 
+  // #3588: indirection via refs so handler identity changes don't tear down
+  // the four subscriptions on every render. Matches the pattern usePlayEnhanced
+  // already uses; the only valid trigger for re-subscribing is a change of
+  // wsContext (i.e. WS reconnect).
+  const handleStreamStartRef = useRef(handleStreamStart);
+  const handleChunkRef = useRef(handleChunk);
+  const handleStreamEndRef = useRef(handleStreamEnd);
+  const handleStreamErrorRef = useRef(handleStreamError);
+  handleStreamStartRef.current = handleStreamStart;
+  handleChunkRef.current = handleChunk;
+  handleStreamEndRef.current = handleStreamEnd;
+  handleStreamErrorRef.current = handleStreamError;
+
   // Register WS subscriptions once on mount, not per playNormal() call (#3377).
-  // Handlers are stable useCallback refs so deps won't cause churn.
-  //
-  // #3574: replaced previous `handler as any` casts with concrete
-  // `(message) => handler(message as ...)` wrappers. The wrapper signature
-  // matches `MessageHandler = (msg: AnyWebSocketMessage | WebSocketMessage)
-  // => void` without suppressing type-checking on the underlying handlers.
   useEffect(() => {
     unsubscribeStreamStartRef.current = wsContext.subscribe(
       'audio_stream_start',
-      (msg) => handleStreamStart(msg as AudioStreamStartMessage)
+      (msg) => handleStreamStartRef.current?.(msg as AudioStreamStartMessage)
     );
     unsubscribeChunkRef.current = wsContext.subscribe(
       'audio_chunk',
-      (msg) => handleChunk(msg as AudioChunkMessage)
+      (msg) => handleChunkRef.current?.(msg as AudioChunkMessage)
     );
     unsubscribeStreamEndRef.current = wsContext.subscribe(
       'audio_stream_end',
-      (msg) => handleStreamEnd(msg as AudioStreamEndMessage)
+      (msg) => handleStreamEndRef.current?.(msg as AudioStreamEndMessage)
     );
     unsubscribeErrorRef.current = wsContext.subscribe(
       'audio_stream_error',
-      (msg) => handleStreamError(msg as AudioStreamErrorMessage)
+      (msg) => handleStreamErrorRef.current?.(msg as AudioStreamErrorMessage)
     );
 
     return () => {
@@ -481,7 +488,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       unsubscribeStreamEndRef.current?.();
       unsubscribeErrorRef.current?.();
     };
-  }, [wsContext, handleStreamStart, handleChunk, handleStreamEnd, handleStreamError]);
+  }, [wsContext]);
 
   /**
    * Start normal audio playback

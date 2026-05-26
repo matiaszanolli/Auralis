@@ -163,6 +163,15 @@ export function usePlayerStreaming({
     }
   }, [debug]);
 
+  // #3591: read caller-provided callbacks through refs so they don't
+  // trigger subscription teardown when the parent passes an inline arrow.
+  // Layer 2 (position_changed) is the highest-frequency case — losing
+  // events here lets drift accumulate uncorrected for up to 5s.
+  const onDriftDetectedRef = useRef(onDriftDetected);
+  const onGetPlayerStatusRef = useRef(onGetPlayerStatus);
+  onDriftDetectedRef.current = onDriftDetected;
+  onGetPlayerStatusRef.current = onGetPlayerStatus;
+
   // Initial state
   const initialState: PlayerStreamingState = {
     currentTime: 0,
@@ -217,26 +226,40 @@ export function usePlayerStreaming({
       return;
     }
 
+    // #3605: helper to compare BufferedRange arrays element-wise. Without
+    // this, a fresh getBufferedRanges() call produces a new array reference
+    // every 100ms even when nothing changed, busting downstream memoization.
+    const bufferedRangesEqual = (a: BufferedRange[], b: BufferedRange[]): boolean => {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i].start !== b[i].start || a[i].end !== b[i].end) return false;
+      }
+      return true;
+    };
+
     const interval = setInterval(() => {
       // Short-circuit when paused and not seeking to avoid reading 6 DOM properties
       // unnecessarily — prevents 600 redundant reads/min while paused (fixes #2543).
       if (audioElement.paused && !audioElement.seeking) return;
 
-      const time = audioElement.currentTime;
       const dur = audioElement.duration;
+      // #3605: round currentTime to 0.1s so sub-tenth-of-a-second deltas
+      // don't trigger a player-wide re-render at 10 Hz.
+      const time = Math.round(audioElement.currentTime * 10) / 10;
       const playing = !audioElement.paused && !audioElement.ended;
       const buffering = audioElement.buffered.length === 0;
       const bufferedRanges = getBufferedRanges(audioElement);
       const bufferedPct = getBufferedPercentage(bufferedRanges, dur);
 
       setState((prev) => {
-        // Only update if something changed
+        const rangesChanged = !bufferedRangesEqual(prev.bufferedRanges, bufferedRanges);
         if (
           prev.currentTime !== time ||
           prev.duration !== dur ||
           prev.isPlaying !== playing ||
           prev.isBuffering !== buffering ||
-          prev.bufferedPercentage !== bufferedPct
+          prev.bufferedPercentage !== bufferedPct ||
+          rangesChanged
         ) {
           return {
             ...prev,
@@ -245,7 +268,9 @@ export function usePlayerStreaming({
             isPlaying: playing,
             isPaused: !playing,
             isBuffering: buffering,
-            bufferedRanges,
+            // Keep the previous array reference when content is unchanged so
+            // downstream `useMemo`/`memo` consumers don't re-render.
+            bufferedRanges: rangesChanged ? bufferedRanges : prev.bufferedRanges,
             bufferedPercentage: bufferedPct,
           };
         }
@@ -274,7 +299,7 @@ export function usePlayerStreaming({
 
       if (drift > driftThresholdSeconds) {
         log('Drift detected, correcting');
-        onDriftDetected?.(drift, true);
+        onDriftDetectedRef.current?.(drift, true);
 
         // Gradual correction via playback rate
         if (drift > 1) {
@@ -336,15 +361,21 @@ export function usePlayerStreaming({
     // #3626: the closure reads `driftThresholdSeconds` (derived via
     // useMemo from `driftThreshold`). Listing the derived value keeps the
     // dep array semantically consistent with what the effect actually uses.
-  }, [wsContext, audioElement, driftThresholdSeconds, onDriftDetected, log]);
+    // #3591: onDriftDetected is now consumed via ref, so omit it from deps.
+  }, [wsContext, audioElement, driftThresholdSeconds, log]);
 
   // Layer 3: Periodic full sync with server every N seconds
   useEffect(() => {
-    if (!audioElement || !onGetPlayerStatus) return;
+    if (!audioElement) return;
+    // We still gate Layer 3 on whether the caller provided a status getter,
+    // but read it from the ref so inline arrows don't recreate the timer.
+    if (!onGetPlayerStatusRef.current) return;
 
     const performSync = async () => {
       try {
-        const status = await onGetPlayerStatus();
+        const getStatus = onGetPlayerStatusRef.current;
+        if (!getStatus) return;
+        const status = await getStatus();
         const localTime = audioElement.currentTime;
         const drift = localTime - status.position;
 
@@ -358,7 +389,7 @@ export function usePlayerStreaming({
         // Check if drift is significant
         if (Math.abs(drift) > driftThresholdSeconds) {
           log('Significant drift detected during sync', { drift });
-          onDriftDetected?.(drift, false); // Not corrected yet, just detected
+          onDriftDetectedRef.current?.(drift, false); // Not corrected yet, just detected
 
           // For now, just log the drift
           // In production, could apply gradual correction here
@@ -395,8 +426,8 @@ export function usePlayerStreaming({
         clearInterval(syncTimerRef.current);
       }
     };
-    // #3626: list the derived value used by the closure, not the raw ms.
-  }, [audioElement, onGetPlayerStatus, syncInterval, driftThresholdSeconds, onDriftDetected, log]);
+    // #3626/#3591: list only stable inputs. Caller callbacks come in via refs.
+  }, [audioElement, syncInterval, driftThresholdSeconds, log]);
 
   // Handle audio errors
   useEffect(() => {

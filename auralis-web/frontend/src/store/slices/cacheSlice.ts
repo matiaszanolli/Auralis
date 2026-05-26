@@ -44,8 +44,16 @@ const cacheSlice = createSlice({
         state.stats = action.payload;
         state.lastUpdated = action.meta.timestamp;
       },
+      // #3623: strip per-track map before Redux storage so the slice size
+      // stays bounded regardless of library size. Cache aggregates
+      // (tier1/tier2/overall) are all the UI needs; per-track completion
+      // belongs in a separate lazy API or component-local store.
       prepare(stats: CacheStats) {
-        return { payload: stats, meta: { timestamp: Date.now() } };
+        const stripped: CacheStats = {
+          ...stats,
+          tracks: {},
+        };
+        return { payload: stripped, meta: { timestamp: Date.now() } };
       },
     },
 

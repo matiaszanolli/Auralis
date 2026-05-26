@@ -242,15 +242,18 @@ export const selectPlaybackState = createSelector(
 /**
  * Complete queue state
  */
+// #3620: compose existing memoized sub-selectors (selectRemainingTime,
+// selectTotalQueueTime) instead of recomputing O(n) reductions inline.
+// Same logic, but each cost is paid once globally and cached separately.
 export const selectQueueState = createSelector(
-  [(state: RootState) => state.queue.tracks, (state: RootState) => state.queue.currentIndex],
-  (tracks, currentIndex) => {
+  [
+    (state: RootState) => state.queue.tracks,
+    (state: RootState) => state.queue.currentIndex,
+    selectRemainingTime,
+    selectTotalQueueTime,
+  ],
+  (tracks, currentIndex, remainingTime, totalTime) => {
     const currentTrack = tracks[currentIndex] || null;
-    const remainingTime = tracks
-      .slice(currentIndex + 1)
-      .reduce((sum, track) => sum + track.duration, 0);
-    const totalTime = tracks.reduce((sum, track) => sum + track.duration, 0);
-
     return {
       tracks,
       currentIndex,
