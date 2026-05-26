@@ -237,10 +237,20 @@ class DynamicsProcessor:
             self.compressor.settings.threshold_db = new_threshold
             self.compressor.settings.ratio = new_ratio
 
-            # Calculate automatic makeup gain
-            # Standard formula: makeup_gain = |threshold| * (1 - 1/ratio)
-            # This compensates for the gain reduction caused by compression
-            auto_makeup_gain = abs(new_threshold) * (1 - 1/new_ratio)
+            # Calculate automatic makeup gain.
+            # #3655: previous formula `abs(threshold) * (1 - 1/ratio)` computes
+            # the *maximum possible* gain reduction (which only occurs at
+            # 0 dBFS). For real audio peaking at -10 to -6 dBFS the actual
+            # reduction is far less, so the formula over-compensated by
+            # 6-13 dB and the downstream brick-wall limiter fired on every
+            # streaming chunk, defeating the compressor's dynamic intent.
+            #
+            # Replacement: use the standard textbook approximation
+            #   makeup_gain ≈ -threshold / ratio
+            # which yields ~4-5 dB for typical settings (threshold=-18,
+            # ratio=4:1) and matches the gain reduction at signal levels
+            # slightly above threshold. Capped at 12 dB regardless.
+            auto_makeup_gain = max(0.0, min(12.0, -new_threshold / new_ratio))
             self.compressor.settings.makeup_gain_db = auto_makeup_gain
 
             debug(f"Auto makeup gain: {auto_makeup_gain:.2f}dB (threshold={new_threshold:.1f}dB, ratio={new_ratio:.1f}:1)")
