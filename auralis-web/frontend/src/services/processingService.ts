@@ -14,7 +14,7 @@
  * @license GPLv3
  */
 
-import { WebSocketManager, retryWithBackoff } from '@/utils/errorHandling';
+import { WebSocketManager, retryWithBackoff, isRetryableError } from '@/utils/errorHandling';
 import { get, post, del, getBlob } from '@/utils/apiRequest';
 import { getApiUrl, WS_BASE_URL } from '@/config/api';
 
@@ -238,12 +238,15 @@ class ProcessingService {
   }
 
   /**
-   * Get processing job status (Phase 3c: Retry logic added)
+   * Get processing job status (Phase 3c: Retry logic added).
+   *
+   * #3600: shouldRetry: isRetryableError so 4xx (404/400) errors short-circuit
+   * the retry loop instead of waiting through 3 backoff attempts.
    */
   async getJobStatus(jobId: string): Promise<ProcessingJob> {
     return await retryWithBackoff(
       () => get<ProcessingJob>(`/api/processing/job/${jobId}`),
-      { maxRetries: 3, initialDelayMs: 100 }
+      { maxRetries: 3, initialDelayMs: 100, shouldRetry: isRetryableError }
     );
   }
 
@@ -253,7 +256,7 @@ class ProcessingService {
   async downloadResult(jobId: string): Promise<Blob> {
     return await retryWithBackoff(
       () => getBlob(`/api/processing/job/${jobId}/download`),
-      { maxRetries: 3, initialDelayMs: 500, maxDelayMs: 5000 }
+      { maxRetries: 3, initialDelayMs: 500, maxDelayMs: 5000, shouldRetry: isRetryableError }
     );
   }
 
