@@ -72,10 +72,29 @@ const createTestStore = () => {
   });
 };
 
+// #3580: default to seeding the store with a current track + queue entry so
+// play()/seek()/setVolume() tests don't immediately throw "No track selected".
+// Tests that need to verify the no-track path can pass `seedTrack: null`.
+const DEFAULT_SEED_TRACK = {
+  id: 123,
+  title: 'Test Track',
+  artist: 'Test Artist',
+  album: 'Test Album',
+  duration: 240,
+};
+
 // Wrapper component that provides Redux store
 // WebSocketContext is mocked above
-const createWrapper = () => {
+const createWrapper = (opts?: {
+  seedTrack?: typeof DEFAULT_SEED_TRACK | null;
+}) => {
   const store = createTestStore();
+  const seed = opts?.seedTrack === undefined ? DEFAULT_SEED_TRACK : opts.seedTrack;
+  if (seed) {
+    store.dispatch(setCurrentTrackAction(seed));
+    store.dispatch(setQueueAction([seed]));
+    store.dispatch(setCurrentIndexAction(0));
+  }
   return function Wrapper({ children }: { children: ReactNode }) {
     return createElement(Provider, { store, children });
   };
@@ -178,8 +197,8 @@ describe('usePlaybackControl', () => {
         await result.current.seek(120);
       });
 
-      // seek() uses api.post(url, undefined, queryParams) pattern
-      expect(mockPost).toHaveBeenCalledWith('/api/player/seek', undefined, { position: 120 });
+      // seek() uses api.post(url, body) — JSON body, not query params
+      expect(mockPost).toHaveBeenCalledWith('/api/player/seek', { position: 120 });
     });
 
     it('should clamp position to valid range (0 to duration)', async () => {
@@ -190,9 +209,9 @@ describe('usePlaybackControl', () => {
         await result.current.seek(-10);
       });
 
-      // Third argument is the query params object
+      // Second argument is the JSON body { position }
       const calls = mockPost.mock.calls;
-      expect(calls[0][2].position).toBeGreaterThanOrEqual(0);
+      expect(calls[0][1].position).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle seek errors', async () => {
@@ -244,9 +263,9 @@ describe('usePlaybackControl', () => {
         await result.current.setVolume(0.8);
       });
 
-      // Implementation converts 0.0-1.0 to 0-100 scale and uses query params
+      // Implementation converts 0.0-1.0 to 0-100 scale and sends as JSON body
       // 0.8 * 100 = 80
-      expect(mockPost).toHaveBeenCalledWith('/api/player/volume', undefined, { volume: 80 });
+      expect(mockPost).toHaveBeenCalledWith('/api/player/volume', { volume: 80 });
     });
 
     it('should clamp volume to 0.0-1.0 range before converting to 0-100', async () => {
@@ -258,9 +277,9 @@ describe('usePlaybackControl', () => {
       });
 
       const calls = mockPost.mock.calls;
-      // Third argument is query params, volume should be clamped to 100 (1.0 * 100)
-      expect(calls[0][2].volume).toBeLessThanOrEqual(100);
-      expect(calls[0][2].volume).toBeGreaterThanOrEqual(0);
+      // Second argument is the JSON body { volume }, clamped to 0-100
+      expect(calls[0][1].volume).toBeLessThanOrEqual(100);
+      expect(calls[0][1].volume).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle volume errors', async () => {
