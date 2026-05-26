@@ -1,6 +1,11 @@
 import { Box, Chip } from '@mui/material';
-import { tokens } from '@/design-system';
+import { tokens, withOpacity } from '@/design-system';
 import { subtleGlow } from './animations';
+
+// #3598: surface lift derived from bg.level4 (closest token to the previous
+// rgba(30, 40, 65, ...) inline literal). Glow halo backgrounds now share the
+// brand blue-black ramp instead of inventing intermediate tints.
+const SURFACE_LIFT = tokens.colors.bg.level4;     // #1F2940
 
 interface CharacterTagsProps {
   tags: Array<{ label: string; category: string }>;
@@ -36,7 +41,7 @@ export const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsPro
             size="small"
             sx={{
               // Glass background
-              background: `rgba(30, 40, 65, ${0.4 + glowIntensity * 0.15})`,
+              background: withOpacity(SURFACE_LIFT, 0.4 + glowIntensity * 0.15),
               backdropFilter: 'blur(4px)',
               color: tokens.colors.text.secondary,
               fontSize: tokens.typography.fontSize.xs,
@@ -46,7 +51,7 @@ export const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsPro
               transition: `all ${tokens.transitions.slow}`,
               // Multi-layer glow effect
               boxShadow: `
-                inset 0 1px 0 rgba(255, 255, 255, ${0.08 + glowIntensity * 0.08}),
+                inset 0 1px 0 ${withOpacity(tokens.colors.text.primaryFull, 0.08 + glowIntensity * 0.08)},
                 inset 0 -1px 0 ${tokens.colors.opacityScale.dark.lighter},
                 ${glowIntensity > 0.1
                   ? `0 0 ${8 + glowIntensity * 10}px hsla(${tagHue}, 70%, 55%, ${0.15 + glowIntensity * 0.25})`
@@ -58,9 +63,11 @@ export const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsPro
                 : 'none',
               animationDelay: `${index * 0.2}s`,
               '&:hover': {
-                background: `rgba(40, 55, 85, ${0.5 + glowIntensity * 0.2})`,
+                // Slightly stronger lift on hover — same bg.level4 token,
+                // higher alpha to compensate for darker source.
+                background: withOpacity(SURFACE_LIFT, 0.6 + glowIntensity * 0.25),
                 boxShadow: `
-                  inset 0 1px 0 rgba(255, 255, 255, 0.12),
+                  inset 0 1px 0 ${tokens.colors.opacityScale.white.lighter},
                   inset 0 -1px 0 ${tokens.colors.opacityScale.dark.standard},
                   0 0 16px hsla(${tagHue}, 70%, 55%, 0.35)
                 `,

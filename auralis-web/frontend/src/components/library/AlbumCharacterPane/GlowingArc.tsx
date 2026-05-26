@@ -1,6 +1,12 @@
 import { Box, Typography } from '@mui/material';
-import { tokens } from '@/design-system';
+import { tokens, withOpacity } from '@/design-system';
 import { arcPulse } from './animations';
+
+// #3598: brand-anchored visualization colors. Previously inline `rgba(...)`
+// literals (e.g. rgba(0, 200, 220, ...)) drifted off-palette from the
+// audioSemantic.spatial cyan — replaced with withOpacity(token, alpha).
+const VIOLET = tokens.colors.audioSemantic.identity;  // #7366F0
+const SPATIAL = tokens.colors.audioSemantic.spatial;  // #47D6FF
 
 interface GlowingArcProps {
   isAnimating: boolean;
@@ -37,9 +43,9 @@ export const GlowingArc = ({ isAnimating, intensity, energyLevel }: GlowingArcPr
           background: `conic-gradient(
             from ${startAngle}deg at 50% 100%,
             transparent 0deg,
-            rgba(115, 102, 240, ${0.1 + glowIntensity * 0.3}) ${arcDegrees * 0.3}deg,
-            rgba(0, 200, 220, ${0.2 + glowIntensity * 0.4}) ${arcDegrees * 0.5}deg,
-            rgba(115, 102, 240, ${0.1 + glowIntensity * 0.3}) ${arcDegrees * 0.7}deg,
+            ${withOpacity(VIOLET, 0.1 + glowIntensity * 0.3)} ${arcDegrees * 0.3}deg,
+            ${withOpacity(SPATIAL, 0.2 + glowIntensity * 0.4)} ${arcDegrees * 0.5}deg,
+            ${withOpacity(VIOLET, 0.1 + glowIntensity * 0.3)} ${arcDegrees * 0.7}deg,
             transparent ${arcDegrees}deg
           )`,
           filter: `blur(${12 - glowIntensity * 4}px)`,
@@ -61,9 +67,9 @@ export const GlowingArc = ({ isAnimating, intensity, energyLevel }: GlowingArcPr
           background: `conic-gradient(
             from ${startAngle + 10}deg at 50% 100%,
             transparent 0deg,
-            rgba(180, 130, 255, ${0.3 + glowIntensity * 0.4}) ${arcDegrees * 0.4}deg,
-            rgba(80, 220, 240, ${0.4 + glowIntensity * 0.5}) ${arcDegrees * 0.5}deg,
-            rgba(180, 130, 255, ${0.3 + glowIntensity * 0.4}) ${arcDegrees * 0.6}deg,
+            ${withOpacity(VIOLET, 0.3 + glowIntensity * 0.4)} ${arcDegrees * 0.4}deg,
+            ${withOpacity(SPATIAL, 0.4 + glowIntensity * 0.5)} ${arcDegrees * 0.5}deg,
+            ${withOpacity(VIOLET, 0.3 + glowIntensity * 0.4)} ${arcDegrees * 0.6}deg,
             transparent ${arcDegrees - 20}deg
           )`,
           filter: `blur(${6 - glowIntensity * 2}px)`,
@@ -83,8 +89,8 @@ export const GlowingArc = ({ isAnimating, intensity, energyLevel }: GlowingArcPr
           width: '8px',
           height: '8px',
           borderRadius: '50%',
-          background: `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.full}, rgba(0, 200, 220, 1))`,
-          boxShadow: `0 0 ${12 + glowIntensity * 8}px rgba(115, 102, 240, ${0.5 + glowIntensity * 0.3})`,
+          background: `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.full}, ${SPATIAL})`,
+          boxShadow: `0 0 ${12 + glowIntensity * 8}px ${withOpacity(VIOLET, 0.5 + glowIntensity * 0.3)}`,
           transition: `all ${tokens.transitions.slow}`,
         }}
       />

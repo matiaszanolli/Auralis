@@ -22,7 +22,7 @@
 import { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useSelector } from 'react-redux';
-import { tokens } from '@/design-system';
+import { tokens, withOpacity } from '@/design-system';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { computeAlbumCharacter } from '@/utils/albumCharacterDescriptors';
 import { EnhancementToggle } from '@/components/shared/EnhancementToggle';
@@ -133,7 +133,7 @@ export const AlbumCharacterPane = ({
     backdropFilter: tokens.components.rightPanel.backdropFilter,
     border: 'none',
     boxShadow: glowIntensity > 0.05
-      ? `${tokens.components.rightPanel.shadow}, inset 3px 0 16px -4px rgba(115, 102, 240, ${0.08 + glowIntensity * 0.12})`
+      ? `${tokens.components.rightPanel.shadow}, inset 3px 0 16px -4px ${withOpacity(tokens.colors.audioSemantic.identity, 0.08 + glowIntensity * 0.12)}`
       : tokens.components.rightPanel.shadow,
     p: tokens.spacing.lg,
     overflowY: 'auto' as const,
@@ -218,7 +218,7 @@ export const AlbumCharacterPane = ({
             color: tokens.colors.text.primary,
             mb: tokens.spacing.xs,
             textShadow: glowIntensity > 0.1
-              ? `0 0 ${8 + glowIntensity * 8}px rgba(115, 102, 240, ${0.2 + glowIntensity * 0.3})`
+              ? `0 0 ${8 + glowIntensity * 8}px ${withOpacity(tokens.colors.audioSemantic.identity, 0.2 + glowIntensity * 0.3)}`
               : 'none',
             transition: `text-shadow ${tokens.transitions.slow}`,
           }}
@@ -266,7 +266,7 @@ export const AlbumCharacterPane = ({
           pt: tokens.spacing.lg,
           position: 'relative',
           zIndex: tokens.zIndex.content,
-          boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+          boxShadow: `inset 0 1px 0 ${tokens.colors.opacityScale.white.veryLight}`,
           opacity: 0.7 + intensity * 0.2,
           transition: `opacity ${tokens.transitions.slow}`,
         }}

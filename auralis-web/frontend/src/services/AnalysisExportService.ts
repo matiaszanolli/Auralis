@@ -701,7 +701,7 @@ export class AnalysisExportService {
     ctx.stroke();
 
     // Title
-    ctx.fillStyle = theme === 'dark' ? tokens.colors.text.primaryFull : '#000000';
+    ctx.fillStyle = theme === 'dark' ? tokens.colors.export.dark.text : tokens.colors.export.light.text;
     ctx.font = '20px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('Waveform', x, y - 10);
@@ -725,7 +725,7 @@ export class AnalysisExportService {
     }
 
     // Title
-    ctx.fillStyle = theme === 'dark' ? tokens.colors.text.primaryFull : '#000000';
+    ctx.fillStyle = theme === 'dark' ? tokens.colors.export.dark.text : tokens.colors.export.light.text;
     ctx.font = '20px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('Spectrum Analysis', x, y - 10);
@@ -748,7 +748,7 @@ export class AnalysisExportService {
       const level = Math.random();
 
       // Background
-      ctx.fillStyle = theme === 'dark' ? tokens.colors.bg.level2 : '#CCCCCC';
+      ctx.fillStyle = theme === 'dark' ? tokens.colors.bg.level2 : tokens.colors.export.light.border;
       ctx.fillRect(meterX, y, meterWidth, height);
 
       // Level
@@ -758,7 +758,7 @@ export class AnalysisExportService {
     }
 
     // Title
-    ctx.fillStyle = theme === 'dark' ? tokens.colors.text.primaryFull : '#000000';
+    ctx.fillStyle = theme === 'dark' ? tokens.colors.export.dark.text : tokens.colors.export.light.text;
     ctx.font = '20px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('Audio Meters', x, y - 10);
@@ -772,7 +772,7 @@ export class AnalysisExportService {
     _height: number,
     theme: string
   ): void {
-    ctx.fillStyle = theme === 'dark' ? tokens.colors.text.primaryFull : '#000000';
+    ctx.fillStyle = theme === 'dark' ? tokens.colors.export.dark.text : tokens.colors.export.light.text;
     ctx.font = '20px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('Analysis Statistics', x, y);
@@ -796,8 +796,8 @@ export class AnalysisExportService {
   private generateSVGVisualization(settings: ExportOptions['visualizationSettings']): string {
     // SVG generation would be implemented here
     return `<svg width="${settings!.width}" height="${settings!.height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100%" height="100%" fill="${settings!.theme === 'dark' ? tokens.colors.bg.level0 : '#FFFFFF'}"/>
-      <text x="50%" y="60" text-anchor="middle" fill="${settings!.theme === 'dark' ? tokens.colors.text.primaryFull : '#000000'}" font-size="48" font-weight="bold">
+      <rect width="100%" height="100%" fill="${settings!.theme === 'dark' ? tokens.colors.export.dark.background : tokens.colors.export.light.background}"/>
+      <text x="50%" y="60" text-anchor="middle" fill="${settings!.theme === 'dark' ? tokens.colors.export.dark.text : tokens.colors.export.light.text}" font-size="48" font-weight="bold">
         Auralis Audio Analysis Report
       </text>
     </svg>`;

@@ -9,6 +9,8 @@
  * - Progress notification abstraction
  */
 
+import { tokens } from '@/design-system';
+
 // ============================================================================
 // Statistics Calculation Utilities
 // ============================================================================
@@ -166,26 +168,14 @@ export class CanvasRenderingUtils {
     danger: string;
     warning: string;
   } {
-    if (theme === 'dark') {
-      return {
-        text: '#FFFFFF',
-        background: '#0A0A0A',
-        border: '#333333',
-        primary: '#4FC3F7',
-        secondary: '#FFB74D',
-        danger: '#FF6B6B',
-        warning: '#FFB74D',
-      };
-    }
-    return {
-      text: '#000000',
-      background: '#FFFFFF',
-      border: '#CCCCCC',
-      primary: '#1976D2',
-      secondary: '#F57C00',
-      danger: '#D32F2F',
-      warning: '#F57C00',
-    };
+    // #3596: derive both palettes from the design-system tokens so exports
+    // stay in lockstep with the in-app brand identity. The previous inline
+    // hex values introduced an off-brand cyan (#4FC3F7), warm yellow
+    // (#FFB74D) and — most importantly — a forbidden pure-black
+    // background (#0A0A0A, against Style Guide §1).
+    return theme === 'dark'
+      ? { ...tokens.colors.export.dark }
+      : { ...tokens.colors.export.light };
   }
 }
 

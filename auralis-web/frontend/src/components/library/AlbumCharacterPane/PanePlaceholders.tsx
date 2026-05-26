@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Box, Typography, LinearProgress } from '@mui/material';
 import type { SxProps } from '@mui/material';
-import { tokens } from '@/design-system';
+import { tokens, withOpacity } from '@/design-system';
 import { FloatingParticles } from './FloatingParticles';
 
 interface PlaceholderShellProps {
@@ -146,7 +146,7 @@ export const LoadingStatePane = ({ containerStyles, enhancementSection, isTrackP
           mb: tokens.spacing.lg,
           background: tokens.colors.opacityScale.accent.lighter,
           '& .MuiLinearProgress-bar': {
-            background: `linear-gradient(90deg, ${tokens.colors.opacityScale.accent.vivid}, rgba(0, 200, 220, 0.8))`,
+            background: `linear-gradient(90deg, ${tokens.colors.opacityScale.accent.vivid}, ${withOpacity(tokens.colors.audioSemantic.spatial, 0.8)})`,
           },
         }}
       />

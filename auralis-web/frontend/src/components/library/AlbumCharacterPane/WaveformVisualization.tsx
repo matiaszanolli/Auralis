@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { tokens } from '@/design-system';
+import { tokens, withOpacity } from '@/design-system';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { breathePulse, barGlow } from './animations';
 
@@ -45,7 +45,7 @@ export const WaveformVisualization = ({
           content: '""',
           position: 'absolute',
           inset: '-10px',
-          background: `radial-gradient(ellipse at 50% 100%, rgba(115, 102, 240, ${0.08 + glowIntensity * 0.12}) 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse at 50% 100%, ${withOpacity(tokens.colors.audioSemantic.identity, 0.08 + glowIntensity * 0.12)} 0%, transparent 70%)`,
           filter: 'blur(8px)',
           opacity: isAnimating ? 1 : 0.5,
           transition: `opacity ${tokens.transitions.slow}`,
@@ -77,7 +77,7 @@ export const WaveformVisualization = ({
               // Glow effect intensifies with playback
               boxShadow: `
                 0 0 ${4 + glowIntensity * 8}px hsla(${hue}, 80%, 55%, ${0.3 + glowIntensity * 0.4}),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3)`,
+                inset 0 1px 0 ${tokens.colors.opacityScale.white.strong}`,
               opacity: 0.7 + value * 0.2 + intensity * 0.1,
               transition: `all ${tokens.transitions.slow}`,
               // Breathing + glow animation when animating

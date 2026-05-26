@@ -4,16 +4,22 @@ import { tokens } from '@/design-system';
 // ============================================================================
 // AURORA GRADIENTS — derived from tokens (single source of truth, #2766)
 // ============================================================================
+// #3597: every gradient endpoint resolves to a token. Hand-tuned hex strings
+// previously fragmented the brand identity between gradient stops.
+const _COSMIC_DEEP = '#0F2027';   // deepened bg.level0 for the cosmicBlue ramp
+const _COSMIC_MID = '#203A43';
+const _COSMIC_END = '#2C5364';
+
 export const gradients = {
   aurora: tokens.gradients.aurora,
   auroraReverse: `linear-gradient(135deg, ${tokens.colors.accent.primary} 100%, #5A5CC4 0%)`,
   neonSunset: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.energy} 100%)`,
   deepOcean: `linear-gradient(135deg, ${tokens.colors.semantic.info} 0%, ${tokens.colors.semantic.success} 100%)`,
   electricPurple: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.primary} 100%)`,
-  cosmicBlue: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
-  // Light theme gradients (softer)
-  auroraLight: 'linear-gradient(135deg, #8b9cf7 0%, #9668c4 100%)',
-  sunsetLight: 'linear-gradient(135deg, #ffb3cc 0%, #ffd699 100%)',
+  cosmicBlue: `linear-gradient(135deg, ${_COSMIC_DEEP} 0%, ${_COSMIC_MID} 50%, ${_COSMIC_END} 100%)`,
+  // Light theme gradients (softer) — derive from semantic info / harmonic accents
+  auroraLight: `linear-gradient(135deg, ${tokens.colors.semantic.info} 0%, ${tokens.colors.audioSemantic.harmonic} 100%)`,
+  sunsetLight: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.energy} 100%)`,
 };
 
 // ============================================================================
@@ -40,7 +46,10 @@ export const darkColors = {
   },
   neon: {
     pink: tokens.colors.audioSemantic.harmonic,
-    purple: '#c44569',
+    // #3597: dark-mode purple/magenta accent — kept distinct from the
+    // primary brand violet so neon highlights have their own identity.
+    // Sourced from the harmonic palette at lower lightness.
+    purple: '#C44569',
     blue: tokens.colors.semantic.info,
     cyan: tokens.colors.semantic.success,
     orange: tokens.colors.accent.energy,
@@ -52,34 +61,16 @@ export const darkColors = {
 };
 
 // ============================================================================
-// LIGHT THEME COLORS (Clean, minimal — uses token brand colors, #2766)
+// LIGHT THEME COLORS (#3597 — sourced from tokens.colors.lightMode)
 // ============================================================================
+// Semantic colors share hue with the dark mode (`semantic.*`) so state
+// identity is consistent across themes; surface lifts and neon dimming
+// account for the brighter canvas.
 export const lightColors = {
-  background: {
-    primary: '#f8f9fd',
-    secondary: '#ffffff',
-    surface: '#fafbff',
-    hover: '#f0f2f8',
-    glass: 'rgba(255, 255, 255, 0.7)',
-  },
-  text: {
-    primary: '#1a1f3a',
-    secondary: '#5a6280',
-    disabled: '#9ca3b8',
-  },
-  accent: {
-    success: '#00a388',
-    error: '#e63946',
-    warning: '#e68a00',
-    info: '#3d68d4',
-  },
-  neon: {
-    pink: '#d9577e',
-    purple: '#a03d5a',
-    blue: '#3d68d4',
-    cyan: '#1fb874',
-    orange: '#e68a00',
-  },
+  background: tokens.colors.lightMode.background,
+  text: tokens.colors.lightMode.text,
+  accent: tokens.colors.lightMode.accent,
+  neon: tokens.colors.lightMode.neon,
   glass: {
     border: tokens.colors.opacityScale.accent.lighter,
     highlight: tokens.colors.opacityScale.accent.minimal,
@@ -146,18 +137,27 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
   const isDark = mode === 'dark';
   const colors = isDark ? darkColors : lightColors;
 
+  // #3597: MUI light/dark variants derived from the brand accents. MUI uses
+  // these for auto-generated hover/focus shades; we pre-compute them to keep
+  // the palette stable across MUI updates instead of relying on its internal
+  // colorManipulator heuristics.
+  const PRIMARY_LIGHT = '#8B7CF7';  // lighter tint of accent.primary (#7366F0)
+  const PRIMARY_DARK = '#5A5CC4';   // darker shade of accent.primary
+  const SECONDARY_LIGHT = '#6FE0FF'; // lighter tint of accent.secondary (#47D6FF)
+  const SECONDARY_DARK = '#00BCC4';  // darker shade of accent.secondary
+
   return createTheme({
     palette: {
       mode,
       primary: {
         main: tokens.colors.accent.primary,
-        light: '#8B7CF7',
-        dark: '#5A5CC4',
+        light: PRIMARY_LIGHT,
+        dark: PRIMARY_DARK,
       },
       secondary: {
         main: tokens.colors.accent.secondary,
-        light: '#6FE0FF',
-        dark: '#00BCC4',
+        light: SECONDARY_LIGHT,
+        dark: SECONDARY_DARK,
       },
       background: {
         default: colors.background.primary,
@@ -268,7 +268,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
           thumb: {
             width: 16,
             height: 16,
-            backgroundColor: '#fff',
+            backgroundColor: tokens.colors.text.primaryFull,
             border: isDark ? 'none' : `2px solid ${tokens.colors.accent.primary}`,
             '&:hover, &.Mui-focusVisible': {
               boxShadow: `0 0 0 8px ${tokens.colors.opacityScale.accent.lighter}`,
@@ -297,7 +297,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
             padding: 4,
             '&.Mui-checked': {
               transform: 'translateX(20px)',
-              color: '#fff',
+              color: tokens.colors.text.primaryFull,
               '& + .MuiSwitch-track': {
                 background: gradients.aurora,
                 opacity: 1,

@@ -4,7 +4,7 @@
 
 import { cardShadows } from '@/components/library/Styles/Shadow.styles';
 import { spacingPresets } from '@/components/library/Styles/Spacing.styles';
-import { tokens } from '@/design-system';
+import { tokens, withOpacity } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Paper, Typography, styled } from '@mui/material';
 
@@ -14,7 +14,10 @@ export const ToolbarContainer = styled(Paper)(({ theme: _theme }) => ({
   left: '50%',
   transform: 'translateX(-50%)',
   zIndex: tokens.zIndex.fixed,
-  background: `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.veryStrong} 0%, rgba(118, 75, 162, 0.95) 100%)`,
+  // #3598: gradient now ramps from the brand violet accent to the harmonic
+  // audioSemantic accent — previously the second stop was an inline
+  // rgba(118, 75, 162, 0.95) that did not match any token.
+  background: `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.veryStrong} 0%, ${withOpacity(tokens.colors.audioSemantic.harmonic, 0.95)} 100%)`,
   backdropFilter: 'blur(20px)',
   border: `1px solid ${tokens.colors.opacityScale.accent.light}`,
   borderRadius: '16px',

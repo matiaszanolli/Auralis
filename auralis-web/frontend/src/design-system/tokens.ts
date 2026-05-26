@@ -201,6 +201,76 @@ export const tokens = {
       // Success backgrounds
       successBg: 'rgba(16, 185, 129, 0.10)',
     },
+
+    /**
+     * Export Palettes (#3596)
+     * Resolved colors for analysis exports (PNG/SVG/Canvas) where the
+     * runtime DOM is not available. Both palettes derive from semantic
+     * tokens — no off-brand cyan, amber or pure black.
+     *
+     * - dark: deep blue-black canvas background (Style Guide §1 — no
+     *   pure black), primary text full white, primary stroke maps to
+     *   brand violet, secondaries map to spatial/transient accents.
+     * - light: paper white background with darkened brand variants for
+     *   sufficient contrast against light surfaces.
+     */
+    export: {
+      dark: {
+        text: '#FFFFFF',
+        background: '#0B1020',  // bg.level0 — deep blue-black
+        border: 'rgba(255, 255, 255, 0.15)',
+        primary: '#7366F0',     // accent.primary (brand violet)
+        secondary: '#47D6FF',   // accent.secondary (spatial cyan)
+        danger: '#EF4444',      // semantic.error
+        warning: '#F59E0B',     // semantic.warning
+      },
+      light: {
+        text: '#0B1020',        // bg.level0 reused as ink
+        background: '#FFFFFF',
+        border: 'rgba(11, 16, 32, 0.15)',
+        primary: '#5C4FD0',     // darkened brand violet for light bg contrast
+        secondary: '#0E91B8',   // darkened cyan for light bg contrast
+        danger: '#B91C1C',
+        warning: '#B45309',
+      },
+    },
+
+    /**
+     * Light-mode palette (#3597)
+     * Resolved values for the optional light theme. Semantic colors share
+     * hue with the dark mode (`semantic.*`) so a component showing the
+     * same state has the same identity across themes — only neutrals and
+     * surface lifts differ. Neon variants are dimmed for contrast against
+     * a near-white canvas.
+     */
+    lightMode: {
+      background: {
+        primary: '#F8F9FD',
+        secondary: '#FFFFFF',
+        surface: '#FAFBFF',
+        hover: '#F0F2F8',
+        glass: 'rgba(255, 255, 255, 0.7)',
+      },
+      text: {
+        primary: '#1A1F3A',
+        secondary: '#5A6280',
+        disabled: '#9CA3B8',
+      },
+      // Semantic colors aligned with dark mode (semantic.*)
+      accent: {
+        success: '#10B981',     // matches semantic.success
+        error: '#EF4444',       // matches semantic.error
+        warning: '#F59E0B',     // matches semantic.warning
+        info: '#3B82F6',        // matches semantic.info
+      },
+      neon: {
+        pink: '#D9577E',
+        purple: '#A03D5A',
+        blue: '#3B82F6',
+        cyan: '#10B981',
+        orange: '#F59E0B',
+      },
+    },
   },
 
   /**
