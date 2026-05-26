@@ -26,6 +26,7 @@ Features:
 """
 
 import asyncio
+import contextlib
 import contextvars
 import hashlib
 import json
@@ -487,6 +488,23 @@ class AudioStreamController:
             logger.debug(f"Fingerprint check failed for track {track_id}: {e}")
             return False
 
+    @staticmethod
+    async def _drain_cancelled_task(task: asyncio.Task[Any] | None) -> None:
+        """Cancel a task (if still running) and wait for it to actually exit,
+        suppressing CancelledError and any teardown exceptions.
+
+        Fixes #3493: prior code did `task.cancel()` and then on the next loop
+        iteration `await task` would raise CancelledError (a BaseException —
+        not caught by `except Exception`), tearing down the entire stream
+        instead of skipping the failed chunk as #3190 intended. Also closes
+        the look-ahead-orphan leak on outer-block exit.
+        """
+        if task is None or task.done():
+            return
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await task
+
     async def stream_enhanced_audio(
         self,
         track_id: int,
@@ -526,6 +544,11 @@ class AudioStreamController:
             )
             await self._send_error(websocket, track_id, "Server busy - too many active streams")
             return
+
+        # Declare look-ahead task early so the outer `finally:` can drain it
+        # even if an exception fires before the streaming loop initialises it
+        # (fixes #3493 unbound-var hazard).
+        lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
 
         # Get track from library
         try:
@@ -612,7 +635,8 @@ class AudioStreamController:
 
             # Process and stream chunks with look-ahead: start processing
             # chunk N+1 while streaming chunk N to eliminate inter-chunk gaps.
-            lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
+            # (`lookahead_task` is declared earlier so the outer `finally:`
+            # can drain it even on early-exit paths.)
             next_track_prefetched: bool = False
 
             for chunk_idx in range(processor.total_chunks):
@@ -621,8 +645,8 @@ class AudioStreamController:
                     logger.info(
                         f"Enhancement disabled mid-stream, stopping enhanced stream for track {track_id}"
                     )
-                    if lookahead_task and not lookahead_task.done():
-                        lookahead_task.cancel()
+                    await self._drain_cancelled_task(lookahead_task)
+                    lookahead_task = None
                     break
 
                 # Honour pause/resume events from the WebSocket handler (#2106).
@@ -637,8 +661,8 @@ class AudioStreamController:
 
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
-                    if lookahead_task and not lookahead_task.done():
-                        lookahead_task.cancel()
+                    await self._drain_cancelled_task(lookahead_task)
+                    lookahead_task = None
                     break
 
                 try:
@@ -682,14 +706,18 @@ class AudioStreamController:
 
                 except ConnectionError:
                     # Client disconnected — clean exit
-                    if lookahead_task and not lookahead_task.done():
-                        lookahead_task.cancel()
+                    await self._drain_cancelled_task(lookahead_task)
+                    lookahead_task = None
                     break
 
                 except Exception as chunk_error:
-                    # Cancel look-ahead task on error
-                    if lookahead_task and not lookahead_task.done():
-                        lookahead_task.cancel()
+                    # Cancel look-ahead task on error AND drain it so the
+                    # CancelledError that would otherwise be raised by the
+                    # next iteration's `await lookahead_task` doesn't escape
+                    # `except Exception` and kill the stream (fixes #3493 /
+                    # the #3190 recovery loop).
+                    await self._drain_cancelled_task(lookahead_task)
+                    lookahead_task = None
                     logger.error(
                         f"Failed to process chunk {chunk_idx}: {chunk_error}",
                         exc_info=True
@@ -738,6 +766,10 @@ class AudioStreamController:
         finally:
             # Clean up chunk tail storage for this track
             self._chunk_tails.pop(track_id, None)
+            # Drain any in-flight look-ahead task that survived the loop —
+            # otherwise the orphan keeps running and holds a HybridProcessor
+            # reference past stream teardown (fixes #3493).
+            await self._drain_cancelled_task(lookahead_task)
             async with self._active_streams_lock:  # fixes #2076, #3182
                 self.active_streams.pop(ws_id(websocket), None)
             self._stream_semaphore.release()
@@ -780,6 +812,10 @@ class AudioStreamController:
             )
             await self._send_error(websocket, track_id, "Server busy - too many active streams")
             return
+
+        # Declare look-ahead task early so the outer `finally:` can drain it
+        # even on early-exit paths (fixes #3493 unbound-var hazard).
+        lookahead_read: asyncio.Task[np.ndarray] | None = None
 
         # Get track from library
         try:
@@ -895,8 +931,9 @@ class AudioStreamController:
                     )
 
             # Stream chunks with look-ahead: read chunk N+1 from disk while
-            # streaming chunk N to eliminate I/O gaps.
-            lookahead_read: asyncio.Task[np.ndarray] | None = None
+            # streaming chunk N to eliminate I/O gaps. (`lookahead_read` is
+            # declared at function scope so the outer `finally:` can drain
+            # it on every exit path — fixes #3493.)
 
             for chunk_idx in range(start_chunk, total_chunks):
                 # Honour pause/resume events from the WebSocket handler (#2106).
@@ -911,8 +948,8 @@ class AudioStreamController:
 
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
-                    if lookahead_read and not lookahead_read.done():
-                        lookahead_read.cancel()
+                    await self._drain_cancelled_task(lookahead_read)
+                    lookahead_read = None
                     break
 
                 try:
@@ -950,8 +987,10 @@ class AudioStreamController:
                         await on_progress(track_id, progress, f"Streamed chunk {chunk_idx + 1}")
 
                 except Exception as chunk_error:
-                    if lookahead_read and not lookahead_read.done():
-                        lookahead_read.cancel()
+                    # Drain the cancelled look-ahead so the next iteration
+                    # doesn't trip on its CancelledError (#3493).
+                    await self._drain_cancelled_task(lookahead_read)
+                    lookahead_read = None
                     logger.error(f"Failed to stream chunk {chunk_idx}: {chunk_error}", exc_info=True)
                     # Recovery position: start of the failed chunk (issue #2085)
                     normal_recovery_position: float = chunk_idx * chunk_duration
@@ -983,6 +1022,8 @@ class AudioStreamController:
                 if self._is_websocket_connected(websocket):
                     await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
+            # Drain any in-flight look-ahead read task (fixes #3493).
+            await self._drain_cancelled_task(lookahead_read)
             async with self._active_streams_lock:  # fixes #2076, #3182
                 self.active_streams.pop(ws_id(websocket), None)
             self._stream_semaphore.release()
@@ -1554,6 +1595,10 @@ class AudioStreamController:
             )
             await self._send_error(websocket, track_id, "Server busy - too many active streams")
             return
+        # Declare look-ahead task early so the outer `finally:` can drain it
+        # even on early-exit paths (fixes #3493 unbound-var hazard).
+        lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
+
 
         # Get track from library
         try:
@@ -1646,7 +1691,8 @@ class AudioStreamController:
             # Process and stream chunks with look-ahead (same pattern as
             # normal streaming): process chunk N+1 while streaming chunk N
             # to eliminate inter-chunk gaps on slow storage.
-            lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
+            # (`lookahead_task` is declared at function scope so the outer
+            # `finally:` can drain it on every exit path — fixes #3493.)
 
             for chunk_idx in range(start_chunk_idx, processor.total_chunks):
                 # Stop streaming if enhancement was toggled off mid-stream (fixes #2866).
@@ -1654,8 +1700,8 @@ class AudioStreamController:
                     logger.info(
                         f"Enhancement disabled mid-stream, stopping seek stream for track {track_id}"
                     )
-                    if lookahead_task and not lookahead_task.done():
-                        lookahead_task.cancel()
+                    await self._drain_cancelled_task(lookahead_task)
+                    lookahead_task = None
                     break
 
                 # Honour pause/resume and flow control events (fixes missing
@@ -1670,8 +1716,8 @@ class AudioStreamController:
 
                 if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping seek stream")
-                    if lookahead_task and not lookahead_task.done():
-                        lookahead_task.cancel()
+                    await self._drain_cancelled_task(lookahead_task)
+                    lookahead_task = None
                     break
 
                 try:
@@ -1717,18 +1763,25 @@ class AudioStreamController:
                         await on_progress(track_id, progress, f"Processed chunk {chunk_idx + 1}")
 
                 except ConnectionError:
-                    if lookahead_task and not lookahead_task.done():
-                        lookahead_task.cancel()
+                    await self._drain_cancelled_task(lookahead_task)
+                    lookahead_task = None
                     break
 
                 except Exception as chunk_error:
-                    if lookahead_task and not lookahead_task.done():
-                        lookahead_task.cancel()
+                    # Drain the cancelled look-ahead (#3493) so the next
+                    # iteration doesn't trip on its CancelledError.
+                    await self._drain_cancelled_task(lookahead_task)
+                    lookahead_task = None
                     logger.error(
                         f"Failed to process chunk {chunk_idx}: {chunk_error}",
                         exc_info=True
                     )
-                    recovery_position = chunk_idx * chunk_interval
+                    # Seek-path recovery preserves the user's exact target
+                    # for the first chunk; chunk-start otherwise (#3493 / BE-NEW-67).
+                    if chunk_idx == start_chunk_idx:
+                        recovery_position = start_position
+                    else:
+                        recovery_position = chunk_idx * chunk_interval
                     await self._send_error(
                         websocket,
                         track_id,
@@ -1756,6 +1809,8 @@ class AudioStreamController:
                     await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
             self._chunk_tails.pop(track_id, None)  # fixes orphaned state
+            # Drain any in-flight look-ahead (fixes #3493).
+            await self._drain_cancelled_task(lookahead_task)
             async with self._active_streams_lock:  # fixes #2076, #3182
                 self.active_streams.pop(ws_id(websocket), None)
             self._stream_semaphore.release()
