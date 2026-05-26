@@ -52,13 +52,19 @@ class FingerprintStorage:
         # Combine absolute path and file signature for unique key
         abs_path = str(audio_path.resolve())
 
-        # Read first 1MB for signature (fast, detects file changes)
+        # #3679: use st_mtime + st_size as the signature instead of MD5
+        # of the first 1 MB. The previous approach missed end-of-file
+        # modifications (FLAC VORBIS_COMMENT, MP3 ID3v1 tags, embedded
+        # artwork) that live past the first 1 MB byte boundary — re-tags
+        # served stale fingerprints indefinitely. stat() is O(1), and any
+        # in-place modification updates mtime + (often) size.
         try:
-            with open(audio_path, 'rb') as f:
-                signature = hashlib.md5(f.read(FingerprintStorage.SIGNATURE_READ_SIZE)).hexdigest()
+            stat = audio_path.stat()
+            signature = f"{stat.st_mtime}:{stat.st_size}"
         except Exception:
-            # If can't read file, use mtime as fallback
-            signature = str(audio_path.stat().st_mtime)
+            # If stat fails, fall back to absolute path only (no freshness
+            # check). This will still produce stable keys for static files.
+            signature = "no-stat"
 
         # Combine path + signature for cache key
         cache_key = hashlib.md5(f"{abs_path}:{signature}".encode()).hexdigest()
