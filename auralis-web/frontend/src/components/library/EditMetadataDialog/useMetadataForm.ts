@@ -36,37 +36,50 @@ export const useMetadataForm = (
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Load current metadata
+  // #3601: AbortController on metadata fetch so unmount cancels the request
+  // and we don't setState on a dead component. Also #3643: shape-guard the
+  // response and surface an error instead of silently populating empty form
+  // fields when the payload doesn't match { metadata: {...} }.
   useEffect(() => {
-    if (trackId) {
-      if (initialMetadata) {
-        setMetadata(initialMetadata);
-      } else {
-        fetchMetadata();
-      }
+    if (!trackId) return;
+    if (initialMetadata) {
+      setMetadata(initialMetadata);
+      return;
     }
+
+    const controller = new AbortController();
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/metadata/tracks/${trackId}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error('Failed to fetch metadata');
+
+        const data: unknown = await response.json();
+        if (controller.signal.aborted) return;
+
+        if (
+          !data ||
+          typeof data !== 'object' ||
+          !('metadata' in data) ||
+          typeof (data as { metadata: unknown }).metadata !== 'object'
+        ) {
+          throw new Error('Invalid metadata response from server');
+        }
+        setMetadata((data as { metadata: MetadataFields }).metadata || {});
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+        console.error('Error fetching metadata:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load metadata');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+    run();
+    return () => controller.abort();
   }, [trackId, initialMetadata]);
-
-  const fetchMetadata = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/metadata/tracks/${trackId}`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch metadata');
-      }
-
-      const data = await response.json();
-      setMetadata(data.metadata || {});
-    } catch (err) {
-      console.error('Error fetching metadata:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load metadata');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const updateField = (field: keyof MetadataFields, value: string) => {
     setMetadata((prev) => ({

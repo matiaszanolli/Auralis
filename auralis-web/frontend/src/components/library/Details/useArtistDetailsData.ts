@@ -27,42 +27,46 @@ export const useArtistDetailsData = (artistId: number) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchArtistDetails = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/artists/${artistId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch artist details');
-      }
-
-      const data: ArtistDetailApiResponse = await response.json();
-      const base = transformArtistDetail(data);
-
-      const artistData: Artist = {
-        ...base,
-        albums: (data.albums || []).map((a) => ({
-          id: a.id,
-          title: a.title,
-          year: a.year ?? undefined,
-          track_count: a.track_count,
-          total_duration: a.total_duration ?? 0,
-        })),
-        tracks: [],
-      };
-
-      setArtist(artistData);
-    } catch (err) {
-      console.error('Error fetching artist details:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load artist details');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // #3601: AbortController on the fetch to prevent setState on dead component
+  // and to cancel the in-flight request when the user navigates away.
   useEffect(() => {
-    fetchArtistDetails();
+    const controller = new AbortController();
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/artists/${artistId}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch artist details');
+        }
+        const data: ArtistDetailApiResponse = await response.json();
+        if (controller.signal.aborted) return;
+
+        const base = transformArtistDetail(data);
+        const artistData: Artist = {
+          ...base,
+          albums: (data.albums || []).map((a) => ({
+            id: a.id,
+            title: a.title,
+            year: a.year ?? undefined,
+            track_count: a.track_count,
+            total_duration: a.total_duration ?? 0,
+          })),
+          tracks: [],
+        };
+        setArtist(artistData);
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+        console.error('Error fetching artist details:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load artist details');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+    run();
+    return () => controller.abort();
   }, [artistId]);
 
   return {
