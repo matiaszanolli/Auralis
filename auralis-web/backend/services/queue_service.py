@@ -112,6 +112,73 @@ class QueueService:
         self.connection_manager: Any = connection_manager
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
 
+    async def _broadcast_queue_changed(
+        self,
+        action: str,
+        **extras: Any,
+    ) -> None:
+        """Emit a `queue_changed` WS message with the canonical payload that
+        the frontend's QueueChangedMessage type expects (fixes #3492).
+
+        Hydrates the current queue from the audio_player's queue dicts (which
+        only carry id + filepath) into full TrackInfo dicts via library
+        lookups. Falls back to the raw dict if hydration fails.
+        """
+        try:
+            if hasattr(self.audio_player, 'queue'):
+                queue_obj = self.audio_player.queue
+                if hasattr(queue_obj, 'get_queue_info'):
+                    info = queue_obj.get_queue_info()
+                    raw_tracks = info.get('tracks', [])
+                    current_index = info.get('current_index', -1)
+                else:
+                    raw_tracks = list(getattr(queue_obj, 'queue', []))
+                    current_index = getattr(queue_obj, 'current_index', -1)
+            else:
+                raw_tracks = []
+                current_index = -1
+        except Exception as exc:
+            logger.warning(f"queue_changed broadcast: failed to read queue: {exc}")
+            raw_tracks = []
+            current_index = -1
+
+        hydrated: list[Any] = []
+        for entry in raw_tracks:
+            track_dict: Any | None = None
+            try:
+                if isinstance(entry, dict):
+                    tid = entry.get('id') or entry.get('track_id')
+                    if tid is not None and self.library_manager is not None:
+                        db_track = self.library_manager.tracks.get_by_id(tid)
+                        if db_track is not None:
+                            ti = self.create_track_info_fn(db_track)
+                            if ti is not None and hasattr(ti, 'model_dump'):
+                                track_dict = ti.model_dump()
+                if track_dict is None:
+                    # Fall back to raw queue entry shape
+                    if isinstance(entry, dict):
+                        track_dict = dict(entry)
+                    else:
+                        track_dict = {'filepath': entry}
+            except Exception as exc:
+                logger.debug(f"queue_changed hydration skipped one entry: {exc}")
+                if isinstance(entry, dict):
+                    track_dict = dict(entry)
+                else:
+                    track_dict = {'filepath': entry}
+            hydrated.append(track_dict)
+
+        payload: dict[str, Any] = {
+            'tracks': hydrated,
+            'current_index': current_index,
+            'action': action,
+        }
+        payload.update(extras)
+        await self.connection_manager.broadcast({
+            'type': 'queue_changed',
+            'data': payload,
+        })
+
     async def get_queue_info(self) -> dict[str, Any]:
         """
         Get current playback queue info.
@@ -252,16 +319,14 @@ class QueueService:
             # Get updated queue for broadcasting
             updated_queue = queue_manager.get_queue()
 
-            # Broadcast queue update
-            await self.connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "added",
-                    "track_id": track_id,
-                    "position": position,
-                    "queue_size": len(updated_queue)
-                }
-            })
+            # Broadcast queue update (fixes #3492 — was `queue_updated` which
+            # the frontend never subscribed to)
+            await self._broadcast_queue_changed(
+                action="added",
+                track_id=track_id,
+                position=position,
+                queue_size=len(updated_queue),
+            )
 
             logger.info(f"Track {track_id} added to queue at position {position}")
             return {
@@ -325,15 +390,12 @@ class QueueService:
             # Get updated queue
             updated_queue = queue_manager.get_queue()
 
-            # Broadcast queue update
-            await self.connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "removed",
-                    "index": index,
-                    "queue_size": len(updated_queue)
-                }
-            })
+            # Broadcast queue update (fixes #3492)
+            await self._broadcast_queue_changed(
+                action="removed",
+                index=index,
+                queue_size=len(updated_queue),
+            )
 
             logger.info(f"Track at index {index} removed from queue")
             return {
@@ -385,14 +447,11 @@ class QueueService:
             # Get updated queue
             updated_queue = queue_manager.get_queue()
 
-            # Broadcast queue update
-            await self.connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "reordered",
-                    "queue_size": len(updated_queue)
-                }
-            })
+            # Broadcast queue update (fixes #3492)
+            await self._broadcast_queue_changed(
+                action="reordered",
+                queue_size=len(updated_queue),
+            )
 
             logger.info(f"Queue reordered with {len(updated_queue)} tracks")
             return {
@@ -439,16 +498,13 @@ class QueueService:
             # Update queue
             queue_manager.set_queue(current_queue, queue_manager.current_index)
 
-            # Broadcast queue update
-            await self.connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "moved",
-                    "from_index": from_index,
-                    "to_index": to_index,
-                    "queue_size": len(current_queue)
-                }
-            })
+            # Broadcast queue update (fixes #3492)
+            await self._broadcast_queue_changed(
+                action="reordered",
+                from_index=from_index,
+                to_index=to_index,
+                queue_size=len(current_queue),
+            )
 
             logger.info(f"Track moved from index {from_index} to {to_index}")
             return {
@@ -484,13 +540,17 @@ class QueueService:
             # Get updated queue
             updated_queue = queue_manager.get_queue()
 
-            # Broadcast queue update
+            # Broadcast queue update (fixes #3492 — also emit queue_shuffled
+            # so the dedicated frontend subscriber gets the is_shuffled flag)
+            await self._broadcast_queue_changed(
+                action="shuffled",
+                queue_size=len(updated_queue),
+            )
             await self.connection_manager.broadcast({
-                "type": "queue_updated",
+                "type": "queue_shuffled",
                 "data": {
-                    "action": "shuffled",
-                    "queue_size": len(updated_queue)
-                }
+                    "is_shuffled": True,
+                },
             })
 
             logger.info(f"Queue shuffled ({len(updated_queue)} tracks)")
@@ -527,12 +587,15 @@ class QueueService:
 
             updated_queue = queue_manager.get_queue()
 
+            await self._broadcast_queue_changed(
+                action="unshuffled",
+                queue_size=len(updated_queue),
+            )
             await self.connection_manager.broadcast({
-                "type": "queue_updated",
+                "type": "queue_shuffled",
                 "data": {
-                    "action": "unshuffled",
-                    "queue_size": len(updated_queue)
-                }
+                    "is_shuffled": False,
+                },
             })
 
             logger.info(f"Queue unshuffled ({len(updated_queue)} tracks)")
@@ -574,14 +637,11 @@ class QueueService:
             await self.player_state_manager.set_playing(False)
             await self.player_state_manager.set_track(None, None)
 
-            # Broadcast queue update
-            await self.connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "cleared",
-                    "queue_size": 0
-                }
-            })
+            # Broadcast queue update (fixes #3492)
+            await self._broadcast_queue_changed(
+                action="cleared",
+                queue_size=0,
+            )
 
             logger.info("Queue cleared")
             return {"message": "Queue cleared successfully"}
