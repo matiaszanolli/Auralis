@@ -30,6 +30,7 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 import math
 from typing import Any, Literal
@@ -303,13 +304,21 @@ def create_player_router(
             raise HTTPException(status_code=404, detail=f"Track {request.track_id} not found in library")
 
         try:
-            # Add to queue with track info dict (using validated filepath from database)
+            # Add to queue with track info dict (using validated filepath from database).
+            # The queue entry is what the gapless engine reads on next_track; loading
+            # the audio file itself is done by load_track_from_library() below
+            # (fixes #3491 — the previous `audio_player.load_current_track()` call
+            # invoked a method that does not exist on EnhancedAudioPlayer, so the
+            # hasattr() check always returned False and the endpoint reported success
+            # while never actually loading the file).
             track_info = {
                 'filepath': track.filepath,  # Security: Use validated path from database
-                'id': track.id
+                'id': track.id,
             }
             audio_player.add_to_queue(track_info)
-            success = audio_player.load_current_track() if hasattr(audio_player, 'load_current_track') else True
+            success = await asyncio.to_thread(
+                audio_player.load_track_from_library, request.track_id
+            )
 
             if success:
                 # Broadcast to all connected clients — omit filepath to avoid leaking
