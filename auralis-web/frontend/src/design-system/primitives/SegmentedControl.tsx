@@ -57,6 +57,12 @@ export interface SegmentedControlProps {
    * Optional className for styling
    */
   className?: string;
+
+  /**
+   * Accessible name describing what the group of toggles controls.
+   * Required for screen readers (#3609 / WCAG 1.3.1).
+   */
+  'aria-label'?: string;
 }
 
 const ControlContainer = styled('div')<{ size: 'sm' | 'md' }>(({ size: _size }) => ({
@@ -132,9 +138,10 @@ export const SegmentedControl = ({
   size = 'sm',
   disabled = false,
   className,
+  'aria-label': ariaLabel,
 }: SegmentedControlProps) => {
   return (
-    <ControlContainer size={size} className={className}>
+    <ControlContainer size={size} className={className} role="group" aria-label={ariaLabel}>
       {options.map((option) => (
         <SegmentButton
           key={option.value}

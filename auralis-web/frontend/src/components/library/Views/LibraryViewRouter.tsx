@@ -140,6 +140,7 @@ export const LibraryViewRouter = ({
             onChange={(value) => setSortBy(value as AlbumSortOption)}
             options={ALBUM_SORT_OPTIONS}
             size="sm"
+            aria-label="Sort albums by"
           />
         }
         rightPane={

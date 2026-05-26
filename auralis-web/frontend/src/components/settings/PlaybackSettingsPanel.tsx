@@ -74,6 +74,8 @@ export const PlaybackSettingsPanel = ({
             max={10}
             step={0.5}
             valueLabelDisplay="auto"
+            aria-label="Crossfade duration"
+            getAriaValueText={(v) => `${v.toFixed(1)} seconds`}
           />
         </SectionContainer>
       )}
@@ -107,6 +109,8 @@ export const PlaybackSettingsPanel = ({
           step={0.01}
           valueLabelDisplay="auto"
           valueLabelFormat={(v) => `${Math.round(v * 100)}%`}
+          aria-label="Default volume"
+          getAriaValueText={(v) => `${Math.round(v * 100)} percent`}
         />
       </SectionContainer>
     </Box>

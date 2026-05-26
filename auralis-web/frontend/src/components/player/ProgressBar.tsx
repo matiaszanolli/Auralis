@@ -260,8 +260,10 @@ export const ProgressBar = ({
 
   return (
     <div className={className} data-testid="progress-bar" style={pbs.wrapper}>
-      {/* Screen-reader live region — announces position during drag/touch (fixes #2538) */}
-      <div aria-live="assertive" aria-atomic="true" style={pbs.srOnly}>
+      {/* Screen-reader live region — announces position during drag/touch (fixes #2538).
+          #3651: changed from aria-live="assertive" to "polite" — seeking is not an
+          urgent interruption; assertive should be reserved for errors. */}
+      <div aria-live="polite" aria-atomic="true" style={pbs.srOnly}>
         {liveSeekTime !== null
           ? `Seeking to ${formatSecondToTime(liveSeekTime, duration >= 3600)}`
           : ''}

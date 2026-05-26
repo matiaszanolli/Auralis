@@ -1,4 +1,4 @@
-import { CSSProperties, forwardRef } from 'react';
+import { CSSProperties, forwardRef, useId } from 'react';
 import { tokens } from '@/design-system';
 
 interface ProgressBarProps {
@@ -9,6 +9,8 @@ interface ProgressBarProps {
   color?: 'primary' | 'success' | 'warning' | 'error';
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  /** Accessible name for the bar when no visible label is provided. */
+  'aria-label'?: string;
 }
 
 const colorMap = {
@@ -38,7 +40,9 @@ export const ProgressBar = forwardRef<
   color = 'primary',
   size = 'md',
   className = '',
+  'aria-label': ariaLabel,
 }, ref) => {
+  const labelId = useId();
   const percentage = Math.min((value / max) * 100, 100);
   const barHeight = sizeMap[size];
   const barColor = colorMap[color];
@@ -73,15 +77,27 @@ export const ProgressBar = forwardRef<
     borderRadius: tokens.borderRadius.full,
   };
 
+  const rounded = Math.round(percentage);
+  const accessibleName = ariaLabel ?? (typeof label === 'string' ? undefined : 'Progress');
+
   return (
     <div ref={ref} style={containerStyles} className={className}>
       {(label || showValue) && (
         <div style={headerStyles}>
-          {label && <span>{label}</span>}
-          {showValue && <span>{Math.round(percentage)}%</span>}
+          {label && <span id={labelId}>{label}</span>}
+          {showValue && <span>{rounded}%</span>}
         </div>
       )}
-      <div style={barContainerStyles}>
+      <div
+        style={barContainerStyles}
+        role="progressbar"
+        aria-valuenow={rounded}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuetext={`${rounded}%`}
+        aria-labelledby={label ? labelId : undefined}
+        aria-label={label ? undefined : accessibleName}
+      >
         <div style={barFillStyles} />
       </div>
     </div>

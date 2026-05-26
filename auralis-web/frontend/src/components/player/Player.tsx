@@ -296,6 +296,7 @@ const Player = () => {
             title="Toggle queue (Q)"
             aria-label="Toggle queue"
             aria-expanded={queuePanelOpen}
+            aria-controls="queue-panel-region"
             onMouseEnter={(e) => {
               if (!queuePanelOpen) {
                 // Hover: subtle glass effect
@@ -321,7 +322,10 @@ const Player = () => {
       </Box>
 
       {/* Queue Panel - Always mounted; hidden via CSS to preserve scroll + focus (#2541) */}
-      <Box sx={{ ...styles.queuePanelWrapper, display: queuePanelOpen ? undefined : 'none' }}>
+      <Box
+        id="queue-panel-region"
+        sx={{ ...styles.queuePanelWrapper, display: queuePanelOpen ? undefined : 'none' }}
+      >
         <QueuePanel
           collapsed={false}
           onToggleCollapse={() => setQueuePanelOpen(false)}

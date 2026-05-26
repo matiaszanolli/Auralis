@@ -16,8 +16,12 @@ export const progressBarStyles = {
     width: '1px',
     height: '1px',
     overflow: 'hidden',
-    clip: 'rect(0,0,0,0)',
+    // CSS3 `clip` is deprecated; clip-path is the modern equivalent (#3651).
+    clipPath: 'inset(50%)',
     whiteSpace: 'nowrap',
+    border: 0,
+    padding: 0,
+    margin: -1,
   } as CSSProperties,
 
   track: {

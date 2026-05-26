@@ -154,6 +154,7 @@ const TrackRowComponent = ({
           className="more-button"
           onClick={handleMoreClick}
           size="small"
+          aria-label={`More options for ${track.title}`}
         >
           <MoreVert />
         </MoreButton>

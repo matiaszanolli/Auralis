@@ -76,6 +76,8 @@ export const EnhancementSettingsPanel = ({
           step={0.1}
           valueLabelDisplay="auto"
           valueLabelFormat={(v) => `${Math.round(v * 100)}%`}
+          aria-label="Enhancement intensity"
+          getAriaValueText={(v) => `${Math.round(v * 100)} percent`}
         />
         <SectionDescription>
           Adjust the strength of audio enhancement

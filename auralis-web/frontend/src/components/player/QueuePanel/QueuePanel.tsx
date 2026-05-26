@@ -213,7 +213,11 @@ export const QueuePanel = ({
           </div>
         ) : (
           <ul
-            role="listbox"
+            // #3649: an ordered playback queue is a list of items, not a
+            // selection widget. role="list" + aria-current="true" on the
+            // playing item conveys "now playing" without conflating it
+            // with the AT concept of "selected".
+            role="list"
             aria-label="Queue tracks"
             style={{
               ...styles.queueList,

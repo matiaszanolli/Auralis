@@ -73,7 +73,7 @@ export const TrackInfo = () => {
         /* No track playing - show empty state */
         <div style={styles.emptyState}>
           <div style={styles.emptyArtwork}>
-            <span style={styles.emptyIcon}>♪</span>
+            <span style={styles.emptyIcon} aria-hidden="true">♪</span>
           </div>
           <div style={styles.emptyText}>
             <p style={styles.emptyTitle}>No track playing</p>
