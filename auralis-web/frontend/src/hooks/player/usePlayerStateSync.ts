@@ -11,9 +11,14 @@
  *
  * State synchronized:
  * - Player: currentTrack, isPlaying, currentTime, duration, volume, isMuted, preset
- * - Queue: tracks, currentIndex (queue position)
+ * - Queue: tracks, currentIndex, isShuffled, repeatMode
  *
  * Architecture: Backend → WebSocket broadcast → This hook → Redux dispatch → UI
+ *
+ * Dispatches are guarded with `in`-checks so partial WS messages (e.g., a queue-only
+ * update missing `is_playing`) cannot overwrite valid Redux state with `undefined`/`NaN`.
+ * Under React 18 + react-redux 8+, dispatches inside this callback are automatically
+ * batched into a single render pass.
  *
  * @copyright (C) 2025 Auralis Team
  * @license GPLv3
@@ -31,15 +36,19 @@ import {
   setMuted,
   setPreset,
 } from '@/store/slices/playerSlice';
-import { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
+import {
+  setQueue,
+  setCurrentIndex,
+  setIsShuffled,
+  setRepeatMode,
+} from '@/store/slices/queueSlice';
 import type { PresetName } from '@/store/slices/playerSlice';
 import type { RawPlayerStateData, TrackInfo } from '@/types/websocket';
 
+const VALID_PRESETS: readonly string[] = ['adaptive', 'gentle', 'warm', 'bright', 'punchy'];
+
 /**
  * Hook to sync WebSocket player_state messages to Redux (player + queue)
- *
- * Dispatches actions to keep both player and queue state synchronized
- * with the authoritative backend state.
  */
 export function usePlayerStateSync() {
   const dispatch = useDispatch();
@@ -51,58 +60,56 @@ export function usePlayerStateSync() {
       return;
     }
 
-    // Subscribe to player_state messages from backend
     const unsubscribe = subscribe('player_state', (message) => {
       try {
-        const state = (message as { data: RawPlayerStateData }).data;
+        const state = (message as { data: Partial<RawPlayerStateData> }).data;
+        if (!state || typeof state !== 'object') return;
 
-        // ============================================================
-        // PLAYER STATE SYNCHRONIZATION
-        // ============================================================
-
-        // Sync current track
-        if (state.current_track) {
-          const track: TrackInfo = state.current_track;
-          dispatch(
-            setCurrentTrack({
-              id: track.id,
-              title: track.title,
-              artist: track.artist,
-              album: track.album || '',
-              duration: track.duration || 0,
-              artworkUrl: track.artwork_url,
-            })
-          );
-        } else if (state.current_track === null) {
-          dispatch(setCurrentTrack(null));
+        // Player state — guarded on field presence so partial messages do not
+        // overwrite valid state with undefined/NaN. React 18 batches these.
+        if ('current_track' in state) {
+          const track = state.current_track;
+          if (track) {
+            dispatch(
+              setCurrentTrack({
+                id: track.id,
+                title: track.title,
+                artist: track.artist,
+                album: track.album || '',
+                duration: track.duration || 0,
+                artworkUrl: track.artwork_url,
+              })
+            );
+          } else {
+            dispatch(setCurrentTrack(null));
+          }
         }
 
-        // Sync playback state
-        dispatch(setIsPlaying(state.is_playing));
+        if ('is_playing' in state && state.is_playing !== undefined) {
+          dispatch(setIsPlaying(state.is_playing));
+        }
 
-        // Sync playback position
-        dispatch(setCurrentTime(state.current_time));
+        if ('current_time' in state && typeof state.current_time === 'number') {
+          dispatch(setCurrentTime(state.current_time));
+        }
 
-        // Sync duration
-        dispatch(setDuration(state.duration));
+        if ('duration' in state && typeof state.duration === 'number') {
+          dispatch(setDuration(state.duration));
+        }
 
-        // Sync volume
-        dispatch(setVolume(state.volume));
+        if ('volume' in state && typeof state.volume === 'number') {
+          dispatch(setVolume(state.volume));
+        }
 
-        // Sync mute state
-        dispatch(setMuted(state.is_muted));
+        if ('is_muted' in state && state.is_muted !== undefined) {
+          dispatch(setMuted(state.is_muted));
+        }
 
-        // Sync audio preset (validate before dispatching to prevent store corruption)
-        const VALID_PRESETS: readonly string[] = ['adaptive', 'gentle', 'warm', 'bright', 'punchy'];
         if (state.current_preset && VALID_PRESETS.includes(state.current_preset)) {
           dispatch(setPreset(state.current_preset as PresetName));
         }
 
-        // ============================================================
-        // QUEUE STATE SYNCHRONIZATION
-        // ============================================================
-
-        // Sync queue tracks
+        // Queue state
         if (state.queue && Array.isArray(state.queue)) {
           const tracks = state.queue.map((t: TrackInfo) => ({
             id: t.id,
@@ -115,8 +122,18 @@ export function usePlayerStateSync() {
           dispatch(setQueue(tracks));
         }
 
-        // Sync queue position (index)
-        dispatch(setCurrentIndex(state.queue_index));
+        if ('queue_index' in state && typeof state.queue_index === 'number') {
+          dispatch(setCurrentIndex(state.queue_index));
+        }
+
+        // #3586: sync shuffle/repeat from the reconnect snapshot.
+        if ('shuffle_enabled' in state && state.shuffle_enabled !== undefined) {
+          dispatch(setIsShuffled(state.shuffle_enabled));
+        }
+
+        if ('repeat_mode' in state && state.repeat_mode) {
+          dispatch(setRepeatMode(state.repeat_mode));
+        }
 
         if (import.meta.env.DEV) {
           console.log('[usePlayerStateSync] Redux updated from WebSocket:', state);
@@ -126,7 +143,6 @@ export function usePlayerStateSync() {
       }
     });
 
-    // Cleanup: unsubscribe when component unmounts
     return () => {
       unsubscribe?.();
     };
