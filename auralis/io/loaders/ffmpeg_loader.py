@@ -117,6 +117,18 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
     source_sample_rate = probe['sample_rate']
     source_channels = probe['channels']
 
+    # #3671: bail early if the source duration exceeds MAX_DURATION_SECONDS.
+    # Without this an N-hour podcast / DJ mix wrote an N×900 MB temp WAV to
+    # /tmp (RAM-backed on Linux) before any check ran, peaking RSS at ~2.7 GB
+    # for a 90-minute MP3. Importing here avoids a circular import with
+    # auralis.io.loader.
+    from auralis.io.loader import MAX_DURATION_SECONDS
+    if expected_duration is not None and expected_duration > MAX_DURATION_SECONDS:
+        raise ModuleError(
+            f"{Code.ERROR_FFMPEG_CONVERSION}: Audio file exceeds maximum duration "
+            f"({expected_duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
+        )
+
     # Create temporary WAV file
     if temp_folder:
         temp_dir = Path(temp_folder)

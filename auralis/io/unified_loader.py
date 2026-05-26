@@ -91,6 +91,19 @@ def load_audio(
     else:
         audio_data, sample_rate = load_with_soundfile(file_path)
 
+    # #3671: enforce the same duration ceiling that loader.py applies for
+    # FFmpeg-routed formats. load_with_ffmpeg now also enforces it pre-decode
+    # (#3671 again, in ffmpeg_loader.py), but this post-decode guard also
+    # covers the soundfile path (long WAV/FLAC) and any future caller of
+    # load_audio() that bypasses the FFmpeg pipeline.
+    from auralis.io.loader import MAX_DURATION_SECONDS
+    duration = len(audio_data) / max(sample_rate, 1)
+    if duration > MAX_DURATION_SECONDS:
+        raise ModuleError(  # type: ignore[attr-defined]
+            f"{Code.ERROR_CORRUPTED}: Audio file exceeds maximum duration "
+            f"({duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
+        )
+
     # Validate audio data
     audio_data, sample_rate = validate_audio(audio_data, sample_rate, file_type)
 
