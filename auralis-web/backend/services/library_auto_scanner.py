@@ -265,6 +265,10 @@ class LibraryAutoScanner:
         except Exception as exc:
             logger.warning(f"cleanup_missing_files failed: {exc}")
 
+        # Canonical scan_complete payload (matches the manual-scan emit at
+        # routers/library.py and the frontend ScanCompleteMessage type).
+        # Fixes #3502 — extras (files_updated / files_skipped /
+        # directories_scanned) are included for parity with the manual path.
         await connection_manager_safe_broadcast(
             self._connection_manager,
             {
@@ -272,8 +276,11 @@ class LibraryAutoScanner:
                 "data": {
                     "files_processed": scan_result.files_processed if scan_result else 0,
                     "files_added": scan_result.files_added if scan_result else 0,
+                    "files_updated": scan_result.files_updated if scan_result else 0,
+                    "files_skipped": scan_result.files_skipped if scan_result else 0,
                     "files_failed": scan_result.files_failed if scan_result else 0,
                     "duration": scan_result.scan_time if scan_result else 0,
+                    "directories_scanned": scan_result.directories_scanned if scan_result else 0,
                 }
             }
         )

@@ -551,17 +551,23 @@ def create_library_router(
                 except Exception as fp_err:
                     logger.warning(f"Fingerprint enqueue failed after scan: {fp_err}")
 
-            # Broadcast final scan result to all clients
+            # Broadcast final scan result to all clients. Field shape is the
+            # canonical superset that matches the frontend ScanCompleteMessage
+            # type (files_processed / files_added / duration) plus the extras
+            # the manual-scan path captures. Auto-scanner emits the same
+            # shape (services/library_auto_scanner.py:268-279). Fixes #3502 —
+            # the prior `scan_time` field was unread by the frontend; toast
+            # showed "Scan complete — undefined seconds" after a manual scan.
             if connection_manager:
                 await connection_manager.broadcast({
                     "type": "scan_complete",
                     "data": {
-                        "files_found": result.files_found,
+                        "files_processed": result.files_processed or result.files_found,
                         "files_added": result.files_added,
                         "files_updated": result.files_updated,
                         "files_skipped": result.files_skipped,
                         "files_failed": result.files_failed,
-                        "scan_time": result.scan_time,
+                        "duration": result.scan_time,
                         "directories_scanned": result.directories_scanned,
                     }
                 })
