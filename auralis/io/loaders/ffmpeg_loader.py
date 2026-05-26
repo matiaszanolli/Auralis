@@ -134,16 +134,22 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
         # Convert to WAV using FFmpeg
         debug(f"Converting {file_path} to WAV using FFmpeg")
 
+        # #3672: `-ac 2` lets FFmpeg apply its proper surround downmix matrix
+        # (center → L+R at -3 dB, surround channels distributed). Previously
+        # we passed `-ac {source_channels}` and then `soundfile_loader`
+        # truncated to `[:, :2]` — which silently dropped the center channel
+        # (vocals/dialogue) for 5.1/7.1 content.
         ffmpeg_cmd = [
             'ffmpeg',
             '-i', file_path_str,
             '-acodec', 'pcm_s16le',            # 16-bit PCM
             '-ar', str(source_sample_rate),    # Preserve native sample rate
-            '-ac', str(source_channels),       # Preserve native channel count
+            '-ac', '2',                        # Downmix to stereo (#3672)
             '-y',                              # Overwrite output
             str(temp_wav)
         ]
-        debug(f"FFmpeg: converting at {source_sample_rate} Hz, {source_channels} ch")
+        debug(f"FFmpeg: converting at {source_sample_rate} Hz, "
+              f"downmixing {source_channels} → 2 ch")
 
         result = subprocess.run(
             ffmpeg_cmd,
