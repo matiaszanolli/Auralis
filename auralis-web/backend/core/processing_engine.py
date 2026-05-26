@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
+import numpy as np
+
 # Add parent directory to path for Auralis imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
@@ -539,27 +541,59 @@ class ProcessingEngine:
             subtype_map: dict[int, str] = {16: 'PCM_16', 24: 'PCM_24', 32: 'PCM_32'}
             subtype = subtype_map.get(bit_depth, 'PCM_16')
 
+            # HybridProcessor.process() returns a bare np.ndarray. Earlier
+            # versions of this code accessed `result.audio` / `result.lufs` /
+            # `result.processing_time` etc., which silently raised
+            # AttributeError on every successful job and routed every job
+            # through the catch-all "An unexpected error occurred" branch
+            # (fixes #3489). Pull richer telemetry from the processor's
+            # last_content_profile / get_processing_info() instead.
+            if not isinstance(result, np.ndarray):
+                raise TypeError(
+                    f"HybridProcessor.process() returned {type(result).__name__}, "
+                    "expected numpy.ndarray"
+                )
+            audio_data: np.ndarray = result
+
             # Disk-bound write; offload to thread (fixes #2319)
             await asyncio.to_thread(
                 save,
                 file_path=job.output_path,
-                audio_data=result.audio,  # type: ignore[union-attr]
+                audio_data=audio_data,
                 sample_rate=sample_rate,
                 subtype=subtype,
             )
 
             await self._notify_progress(job.job_id, 100.0, "Processing complete!")
 
+            # Extract optional telemetry from processor side-channels (best-effort).
+            processing_time: float | None = None
+            genre_detected: str | None = None
+            lufs: float | None = None
+            try:
+                proc_info = processor.get_processing_info() if hasattr(processor, "get_processing_info") else None
+                if isinstance(proc_info, dict):
+                    processing_time = proc_info.get("last_processing_time") or proc_info.get("processing_time")
+                    lufs_val = proc_info.get("last_lufs") or proc_info.get("lufs")
+                    if lufs_val is not None:
+                        lufs = float(lufs_val)
+                content_profile = getattr(processor, "last_content_profile", None)
+                if content_profile is not None:
+                    genre_detected = getattr(content_profile, "genre", None) or genre_detected
+            except Exception:
+                # Telemetry is non-critical; never let it fail the job.
+                pass
+
             # Store result metadata
             job.result_data = {
                 "output_path": job.output_path,
                 "sample_rate": int(sample_rate),
-                "duration": float(len(result.audio) / sample_rate),  # type: ignore[union-attr]
+                "duration": float(len(audio_data) / sample_rate),
                 "format": output_format,
                 "bit_depth": bit_depth,
-                "processing_time": result.processing_time if hasattr(result, "processing_time") else None,  # type: ignore[union-attr]
-                "genre_detected": result.genre if hasattr(result, "genre") else None,  # type: ignore[union-attr]
-                "lufs": float(result.lufs) if hasattr(result, "lufs") else None,  # type: ignore[union-attr]
+                "processing_time": processing_time,
+                "genre_detected": genre_detected,
+                "lufs": lufs,
             }
 
             job.status = ProcessingStatus.COMPLETED
