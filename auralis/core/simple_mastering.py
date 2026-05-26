@@ -267,8 +267,12 @@ class SimpleMasteringPipeline:
                         else:
                             head = processed_chunk[:, :head_len]
 
-                            # Equal-power crossfade (cosine curves maintain loudness)
-                            t = np.linspace(0.0, np.pi / 2, head_len)
+                            # Equal-power crossfade (cosine curves maintain loudness).
+                            # #3684: compute the fade ramps in the chunk's
+                            # dtype so the multiply with prev_tail/head does
+                            # not promote crossfaded → float64.
+                            chunk_dtype = processed_chunk.dtype
+                            t = np.linspace(0.0, np.pi / 2, head_len, dtype=chunk_dtype)
                             fade_in = np.sin(t) ** 2
                             fade_out = np.cos(t) ** 2
                             crossfaded = prev_tail[:, :head_len] * fade_out + head * fade_in

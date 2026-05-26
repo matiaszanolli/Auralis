@@ -146,6 +146,14 @@ class RealtimeAdaptiveEQ:
                     padded_chunk = np.zeros((self.buffer_size,) + chunk.shape[1:], dtype=chunk.dtype)
                     padded_chunk[:len(chunk)] = chunk
                     processed_chunk = self._process_fixed_chunk(padded_chunk, content_info)
+                    # #3686: guard against EQ-backend regressions that would
+                    # return a different shape than the input. The slice
+                    # `[:len(chunk)]` would otherwise silently mix the padded
+                    # silence into the next chunk's output.
+                    assert processed_chunk.shape == padded_chunk.shape, (
+                        f"EQ backend shape mismatch: expected {padded_chunk.shape}, "
+                        f"got {processed_chunk.shape}"
+                    )
                     processed_chunks.append(processed_chunk[:len(chunk)])
 
             # Clear input buffer and return processed audio

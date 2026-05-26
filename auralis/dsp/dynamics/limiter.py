@@ -151,7 +151,11 @@ class AdaptiveLimiter:
         # [i, i + lookahead), giving true lookahead peak detection.
         # The previous negative origin looked *backward*, defeating the
         # purpose of the lookahead delay (mirrors BrickWallLimiter fix #3308).
-        padded = np.concatenate([abs_audio, np.zeros(lookahead)])
+        # #3688: dtype-match the zeros so this path doesn't latently promote
+        # float32 to float64. Currently masked by VectorizedEnvelopeFollower
+        # hard-coding float32 output downstream, but the local promotion is
+        # still wasteful and fragile under envelope-follower substitution.
+        padded = np.concatenate([abs_audio, np.zeros(lookahead, dtype=abs_audio.dtype)])
         peak_envelope = maximum_filter1d(
             padded,
             size=lookahead,

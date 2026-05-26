@@ -138,8 +138,14 @@ class ParallelEQProcessor:
         spectrum[:num_bins] *= gain_curve
         spectrum[num_bins:] *= gain_curve[1:-1][::-1]
 
+        # #3685: cast back to the input dtype so float32 audio stays
+        # float32. Matches the correct reference pattern in
+        # vectorized_processor.py and filters.py:apply_eq_mono.
         processed_audio = np.real(ifft(spectrum))
-        return cast(np.ndarray, processed_audio[:len(audio_mono)])
+        return cast(
+            np.ndarray,
+            np.asarray(processed_audio[:len(audio_mono)], dtype=audio_mono.dtype),
+        )
 
     def _apply_eq_mono_sequential(
         self,
@@ -183,7 +189,10 @@ class ParallelEQProcessor:
             neg_mask = band_mask[1:-1][::-1]  # shape (fft_size//2 - 1,)
             spectrum[fft_size // 2 + 1:][neg_mask] *= gain_linear
 
-        # Transform back
+        # Transform back. #3685: cast to input dtype to preserve float32.
         processed_audio = np.real(ifft(spectrum))
 
-        return cast(np.ndarray, processed_audio[:len(audio_mono)])
+        return cast(
+            np.ndarray,
+            np.asarray(processed_audio[:len(audio_mono)], dtype=audio_mono.dtype),
+        )

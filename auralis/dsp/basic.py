@@ -44,7 +44,12 @@ def normalize(audio: np.ndarray, target_level: float = 1.0) -> np.ndarray:
     """
     peak = np.max(np.abs(audio))
     if peak > 0:
-        return audio * float(target_level / peak)
+        # #3687: explicit astype(audio.dtype) so the dtype contract doesn't
+        # depend on NEP-50 behaviour. Under NumPy < 2.0, multiplying float32
+        # by a Python float silently promotes to float64; explicit cast
+        # protects against future NumPy compat shims.
+        scaled = audio * float(target_level / peak)
+        return np.asarray(scaled, dtype=audio.dtype)
     return audio.copy()
 
 
