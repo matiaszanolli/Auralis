@@ -1,15 +1,23 @@
 /**
- * Player.tsx orchestration component tests (#2363)
+ * Player.tsx orchestration component tests (#2363, #3613)
  *
- * Basic test coverage for the Player orchestration component.
- * Verifies rendering, export, and structural invariants.
+ * Previously this file mocked the entire `react-redux` module with a
+ * hand-rolled selector lookup, which made every test vacuous — no
+ * state-driven branch was ever exercised. Since #3613 the suite uses
+ * the real Redux Provider via `@/test/test-utils` and seeds slice
+ * state through `preloadedState`, so the assertions actually verify
+ * what the user sees.
  */
 
 import { describe, it, expect, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { render } from '@/test/test-utils';
+import Player from '../Player';
 
-// Mock heavy dependencies before importing Player
+// Heavy hooks remain stubbed — they pull in WebSocket / AudioContext
+// machinery that has no analog in jsdom. The Redux integration tests
+// can still verify state-driven render branches because Player reads
+// playback state from Redux, not from these hooks.
 vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
   usePlayEnhanced: () => ({
     playEnhanced: vi.fn(),
@@ -19,72 +27,57 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
     stopPlayback: vi.fn(),
     isStreaming: false,
     streamingProgress: 0,
+    setStreamingVolume: vi.fn(),
     error: null,
   }),
 }));
 
-vi.mock('react-redux', () => ({
-  useSelector: vi.fn((selector) => {
-    // Return sensible defaults for all selectors
-    const defaults: Record<string, unknown> = {
-      'selectQueueTracks': [],
-      'selectCurrentIndex': 0,
-    };
-    return selector.name in defaults ? defaults[selector.name] : undefined;
-  }),
-  useDispatch: () => vi.fn(),
-}));
-
-vi.mock('@/store/selectors', () => ({
-  playerSelectors: {
-    selectCurrentTrack: () => null,
-    selectIsPlaying: () => false,
-    selectVolume: () => 80,
-    selectIsMuted: () => false,
-    selectCurrentTime: () => 0,
-    selectDuration: () => 0,
-    selectIsLoading: () => false,
-    selectError: () => null,
-    selectPreset: () => 'adaptive',
-    selectIsStreaming: () => false,
-    selectStreamingProgress: () => 0,
-  },
-}));
+const mockTrack = {
+  id: 1,
+  title: 'Test Track',
+  artist: 'Test Artist',
+  album: 'Test Album',
+  duration: 200,
+};
 
 describe('Player', () => {
-  it('should export a default component', async () => {
-    const module = await import('../Player');
-    expect(module.default).toBeDefined();
-    expect(typeof module.default).toBe('object'); // React.memo wraps it
-  });
-
-  it('should import without errors', async () => {
-    // Verifies that all imports resolve (no missing modules)
-    await expect(import('../Player')).resolves.toBeDefined();
-  });
-
-  it('should render all Phase 4 child components', async () => {
-    const { default: Player } = await import('../Player');
+  it('should render the play button when no track is loaded', () => {
     render(<Player />);
-
-    // PlaybackControls renders play button
     expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
   });
 
-  it('should render usePlayEnhanced hook (mock verifies import)', async () => {
-    // The usePlayEnhanced mock is called during render — if the import
-    // path were wrong, the component would throw.
-    const { default: Player } = await import('../Player');
-    expect(() => render(<Player />)).not.toThrow();
+  it('should render the current track title when one is loaded', () => {
+    render(<Player />, {
+      preloadedState: {
+        player: { currentTrack: mockTrack } as never,
+      },
+    });
+    expect(screen.getByText('Test Track')).toBeInTheDocument();
   });
 
-  it('should render queue panel toggle', async () => {
-    const { default: Player } = await import('../Player');
-    render(<Player />);
+  it('should render the previous and next track buttons', () => {
+    render(<Player />, {
+      preloadedState: {
+        player: { currentTrack: mockTrack } as never,
+        queue: {
+          tracks: [mockTrack, { ...mockTrack, id: 2, title: 'Next' }],
+          currentIndex: 0,
+        } as never,
+      },
+    });
+    // Both transport buttons present when a queue has multiple entries.
+    expect(screen.getByRole('button', { name: /previous/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
+  });
 
-    // QueuePanel toggle button should be present
-    const queueButton = screen.queryByRole('button', { name: /queue/i });
-    // Queue toggle exists in the DOM (may be rendered as an icon button)
-    expect(queueButton || screen.getByTestId?.('queue-toggle') || true).toBeTruthy();
+  it('should render the queue panel toggle', () => {
+    render(<Player />);
+    // QueuePanel toggle is rendered as part of the right-side action group.
+    // Looser query because the exact aria label can drift; the absence of
+    // the queue toggle would be a structural regression worth catching.
+    const queueButton =
+      screen.queryByRole('button', { name: /queue/i }) ||
+      screen.queryByTestId?.('queue-toggle');
+    expect(queueButton).toBeTruthy();
   });
 });

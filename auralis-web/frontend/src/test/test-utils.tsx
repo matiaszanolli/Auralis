@@ -81,9 +81,45 @@ interface AllProvidersProps {
 
 /**
  * Create a fresh Redux store for each test to ensure isolation
- * This prevents state leakage between tests
+ * This prevents state leakage between tests.
+ *
+ * #3613: accepts an optional `preloadedState` so tests can seed
+ * player/queue state without firing a chain of dispatches — drives
+ * behavior tests that depend on the rendered state (e.g. "shows pause
+ * icon when playing").
  */
-function createTestStore() {
+export type PreloadedState = Partial<{
+  player: Partial<ReturnType<typeof playerReducer>>;
+  queue: Partial<ReturnType<typeof queueReducer>>;
+  cache: Partial<ReturnType<typeof cacheReducer>>;
+  connection: Partial<ReturnType<typeof connectionReducer>>;
+}>;
+
+export function createTestStore(preloadedState?: PreloadedState) {
+  // Build full state by merging preloaded slices over the reducer-provided
+  // defaults. Each reducer returns its initial state when handed an unknown
+  // action — we use that to populate any unspecified slice.
+  const seededState = preloadedState
+    ? {
+        player: {
+          ...playerReducer(undefined, { type: '@@INIT' }),
+          ...(preloadedState.player ?? {}),
+        },
+        queue: {
+          ...queueReducer(undefined, { type: '@@INIT' }),
+          ...(preloadedState.queue ?? {}),
+        },
+        cache: {
+          ...cacheReducer(undefined, { type: '@@INIT' }),
+          ...(preloadedState.cache ?? {}),
+        },
+        connection: {
+          ...connectionReducer(undefined, { type: '@@INIT' }),
+          ...(preloadedState.connection ?? {}),
+        },
+      }
+    : undefined;
+
   return configureStore({
     reducer: {
       player: playerReducer,
@@ -91,6 +127,7 @@ function createTestStore() {
       cache: cacheReducer,
       connection: connectionReducer,
     },
+    preloadedState: seededState,
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
         serializableCheck: false, // Disable for tests to avoid warnings
@@ -98,7 +135,12 @@ function createTestStore() {
   });
 }
 
-export function AllProviders({ children }: AllProvidersProps) {
+interface AllProvidersExtraProps {
+  preloadedState?: PreloadedState;
+  store?: ReturnType<typeof createTestStore>;
+}
+
+export function AllProviders({ children, preloadedState, store }: AllProvidersProps & AllProvidersExtraProps) {
   // Create a new QueryClient for each test to ensure isolation
   // Disable retries and refetching to make tests more predictable
   const queryClient = new QueryClient({
@@ -117,8 +159,10 @@ export function AllProviders({ children }: AllProvidersProps) {
     },
   });
 
-  // Create a fresh Redux store for each test
-  const testStore = createTestStore();
+  // Create a fresh Redux store for each test (or reuse a caller-supplied
+  // one) so behavior tests can observe `store.dispatch`/`store.getState`
+  // and seed initial state via `preloadedState`.
+  const testStore = store ?? createTestStore(preloadedState);
 
   // Note: DragDropContext removed to prevent "Should not already be working" errors
   // Tests that need drag-drop should wrap components individually with DragDropContext
@@ -140,13 +184,26 @@ export function AllProviders({ children }: AllProvidersProps) {
 }
 
 /**
- * Custom render function that wraps components with all providers
+ * Custom render function that wraps components with all providers.
+ *
+ * #3613: pass `preloadedState` to seed Redux for behavior tests, or
+ * pass a `store` directly when the test needs to observe dispatches.
+ * The returned object includes the active `store` for assertions.
  */
+export type CustomRenderOptions = Omit<RenderOptions, 'wrapper'> & {
+  preloadedState?: PreloadedState;
+  store?: ReturnType<typeof createTestStore>;
+};
+
 export function customRender(
   ui: ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>
+  { preloadedState, store, ...options }: CustomRenderOptions = {},
 ) {
-  return render(ui, { wrapper: AllProviders, ...options })
+  const testStore = store ?? createTestStore(preloadedState);
+  const Wrapper = ({ children }: { children: ReactNode }) => (
+    <AllProviders store={testStore}>{children}</AllProviders>
+  );
+  return { store: testStore, ...render(ui, { wrapper: Wrapper, ...options }) };
 }
 
 /**
