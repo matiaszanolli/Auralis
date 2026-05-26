@@ -50,6 +50,7 @@ import numpy as np
 from cache.manager import StreamlinedCacheManager
 from core.chunked_processor import ChunkedAudioProcessor
 from fastapi import WebSocket
+from fastapi.websockets import WebSocketDisconnect
 from analysis.fingerprint_generator import FingerprintGenerator
 
 from auralis.library.repositories.factory import RepositoryFactory
@@ -757,15 +758,16 @@ class AudioStreamController:
                 duration=processor.duration,
             )
 
+        except WebSocketDisconnect:
+            # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53;
+            # prior code matched on \"close message\" inside the exception
+            # string which depended on Starlette internals).
+            logger.info(f"Audio streaming stopped: client disconnected")
         except Exception as e:
-            # Only log at error level if it's not a normal disconnection
-            if "close message" in str(e).lower():
-                logger.info(f"Audio streaming stopped: client disconnected")
-            else:
-                logger.error(f"Audio streaming failed: {e}", exc_info=True)
-                # Only try to send error if WebSocket is still connected
-                if self._is_websocket_connected(websocket):
-                    await self._send_error(websocket, track_id, "Audio streaming failed")
+            logger.error(f"Audio streaming failed: {e}", exc_info=True)
+            # Only try to send error if WebSocket is still connected
+            if self._is_websocket_connected(websocket):
+                await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
             # Clean up chunk tail storage for this track
             self._chunk_tails.pop(track_id, None)
@@ -1015,15 +1017,14 @@ class AudioStreamController:
                 duration=duration,
             )
 
+        except WebSocketDisconnect:
+            # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53).
+            logger.info(f"Normal audio streaming stopped: client disconnected")
         except Exception as e:
-            # Only log at error level if it's not a normal disconnection
-            if "close message" in str(e).lower():
-                logger.info(f"Normal audio streaming stopped: client disconnected")
-            else:
-                logger.error(f"Normal audio streaming failed: {e}", exc_info=True)
-                # Only try to send error if WebSocket is still connected
-                if self._is_websocket_connected(websocket):
-                    await self._send_error(websocket, track_id, "Audio streaming failed")
+            logger.error(f"Normal audio streaming failed: {e}", exc_info=True)
+            # Only try to send error if WebSocket is still connected
+            if self._is_websocket_connected(websocket):
+                await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
             # Drain any in-flight look-ahead read task (fixes #3493).
             await self._drain_cancelled_task(lookahead_read)
@@ -1803,13 +1804,13 @@ class AudioStreamController:
                 duration=processor.duration,
             )
 
+        except WebSocketDisconnect:
+            # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53).
+            logger.info(f"Seek streaming stopped: client disconnected")
         except Exception as e:
-            if "close message" in str(e).lower():
-                logger.info(f"Seek streaming stopped: client disconnected")
-            else:
-                logger.error(f"Seek streaming failed: {e}", exc_info=True)
-                if self._is_websocket_connected(websocket):
-                    await self._send_error(websocket, track_id, "Audio streaming failed")
+            logger.error(f"Seek streaming failed: {e}", exc_info=True)
+            if self._is_websocket_connected(websocket):
+                await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
             self._chunk_tails.pop(track_id, None)  # fixes orphaned state
             # Drain any in-flight look-ahead (fixes #3493).

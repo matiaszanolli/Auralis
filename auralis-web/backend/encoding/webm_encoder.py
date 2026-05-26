@@ -175,21 +175,34 @@ async def encode_to_webm_opus(
 
         logger.debug(f"Encoding to WebM: {' '.join(cmd)}")
 
-        # Run ffmpeg without blocking the event loop (issue #2221)
+        # Run ffmpeg without blocking the event loop (issue #2221).
+        # The CancelledError branch was added in #3510 / BE-NEW-52: prior
+        # code only handled TimeoutError, so on task cancellation (client
+        # disconnect, new request supersedes the old one, server shutdown)
+        # the ffmpeg subprocess kept running in the background, holding a
+        # CPU core and the temp files open.
+        import contextlib
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
         try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
             _stdout, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=30)
         except asyncio.TimeoutError:
-            proc.kill()
-            try:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            with contextlib.suppress(Exception):
                 await proc.communicate()  # drain pipes to avoid resource leaks
-            except Exception:
-                pass  # ignore errors during cleanup
             raise WebMEncoderError("ffmpeg encoding timed out after 30 seconds")
+        except asyncio.CancelledError:
+            # Kill the child before re-raising so it doesn't outlive the
+            # parent task (#3510).
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await proc.wait()
+            raise
 
         if proc.returncode != 0:
             error_msg = f"ffmpeg encoding failed (code {proc.returncode})"

@@ -546,6 +546,11 @@ def create_system_router(
                         _stream_flow_events[ws_id] = flow_event
                         task = asyncio.create_task(stream_normal())
                         _active_streaming_tasks[ws_id] = task
+                        # Track which track is streaming so subsequent
+                        # play_enhanced dedup checks see the truth (#3509 /
+                        # BE-NEW-51 — symmetric with the play_enhanced and
+                        # seek branches).
+                        _active_streaming_track_ids[ws_id] = track_id
                     logger.info(f"Started background normal streaming task for track {track_id}")
 
                 elif message.get("type") == "pause":
