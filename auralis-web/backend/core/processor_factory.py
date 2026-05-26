@@ -16,9 +16,18 @@ import hashlib
 import json
 import logging
 import threading
+from collections import OrderedDict
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# LRU bound for the processor cache. A HybridProcessor instance holds
+# EQ filter banks, compressor envelope followers, mastering targets, and
+# fingerprint analysers — roughly 1-200 MB each depending on preset. At
+# 32 entries the cache caps at a few GB worst-case, easily within reach
+# of typical desktop RAM, while still amortising creation cost across
+# rapid track switches and A/B preset comparisons (fixes #3515 / BE-NEW-57).
+_PROCESSOR_CACHE_MAX = 32
 
 
 class ProcessorFactory:
@@ -55,8 +64,12 @@ class ProcessorFactory:
 
     def __init__(self) -> None:
         """Initialize processor factory."""
-        # Unified cache: (track_id, preset, intensity, config_hash) -> HybridProcessor
-        self._processor_cache: dict[tuple[int, str, float, str], Any] = {}
+        # Unified cache: (track_id, preset, intensity, config_hash) -> HybridProcessor.
+        # OrderedDict with LRU eviction (fixes #3515 / BE-NEW-57) — `cleanup_track`
+        # is never called by production code, so the unbounded dict was
+        # accumulating gigabytes of HybridProcessor state for any long-running
+        # backend session.
+        self._processor_cache: OrderedDict[tuple[int, str, float, str], Any] = OrderedDict()
 
         # Active processors by track_id for monitoring
         self._active_processors: dict[int, Any] = {}
@@ -64,7 +77,7 @@ class ProcessorFactory:
         # Thread-safe lock for cache operations
         self._lock = threading.RLock()
 
-        logger.info("ProcessorFactory initialized")
+        logger.info(f"ProcessorFactory initialized (LRU cap: {_PROCESSOR_CACHE_MAX})")
 
     def _get_cache_key(
         self,
@@ -140,9 +153,10 @@ class ProcessorFactory:
         cache_key = self._get_cache_key(track_id, preset, intensity, config_hash)
 
         with self._lock:
-            # Check cache
+            # Check cache — move-to-end so the LRU policy tracks recency.
             if cache_key in self._processor_cache:
                 logger.debug(f"Retrieved cached processor: track_id={track_id}, preset={preset}")
+                self._processor_cache.move_to_end(cache_key)
                 return self._processor_cache[cache_key]
 
             # Create new processor
@@ -164,8 +178,17 @@ class ProcessorFactory:
                     processor.set_fixed_mastering_targets(mastering_targets)
                     logger.debug(f"Applied fixed mastering targets to processor")
 
-                # Cache processor
+                # Cache processor + evict oldest if over cap (LRU; fixes #3515).
                 self._processor_cache[cache_key] = processor
+                while len(self._processor_cache) > _PROCESSOR_CACHE_MAX:
+                    evicted_key, _evicted_proc = self._processor_cache.popitem(last=False)
+                    # Also drop from _active_processors if the evicted one was tracked.
+                    evicted_track_id = evicted_key[0]
+                    if evicted_track_id > 0 and self._active_processors.get(evicted_track_id) is _evicted_proc:
+                        self._active_processors.pop(evicted_track_id, None)
+                    logger.info(
+                        f"ProcessorFactory: LRU-evicted processor for cache_key {evicted_key}"
+                    )
 
                 # Track active processor by track_id
                 if track_id > 0:
