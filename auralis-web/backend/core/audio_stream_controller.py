@@ -489,6 +489,20 @@ class AudioStreamController:
             logger.debug(f"Fingerprint check failed for track {track_id}: {e}")
             return False
 
+    async def _drop_chunk_tail(self, track_id: int) -> None:
+        """Pop a track's chunk tail under _chunk_tails_lock.
+
+        Five sites pop from self._chunk_tails (failure-recovery, two
+        end-of-stream finally blocks, the prefetch path, and the seek-path
+        finally). Only _stream_processed_chunk's read/write was protected
+        by _chunk_tails_lock — the others were lock-free, undermining the
+        lock's stated rationale (#2326: 'serialise read-check-write so
+        concurrent seeks cannot produce a torn tail'). Fixes #3527 /
+        BE-NEW-69 by routing all popss through this helper.
+        """
+        async with self._chunk_tails_lock:
+            self._chunk_tails.pop(track_id, None)
+
     @staticmethod
     async def _drain_cancelled_task(task: asyncio.Task[Any] | None) -> None:
         """Cancel a task (if still running) and wait for it to actually exit,
@@ -737,8 +751,9 @@ class AudioStreamController:
                             preset=preset,
                             intensity=intensity,
                         )
-                    # Proactively remove crossfade tail so the next chunk starts clean
-                    self._chunk_tails.pop(track_id, None)
+                    # Proactively remove crossfade tail so the next chunk
+                    # starts clean (lock-protected per #3527).
+                    await self._drop_chunk_tail(track_id)
                     await self._send_error(
                         websocket,
                         track_id,
@@ -769,8 +784,8 @@ class AudioStreamController:
             if self._is_websocket_connected(websocket):
                 await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
-            # Clean up chunk tail storage for this track
-            self._chunk_tails.pop(track_id, None)
+            # Clean up chunk tail storage for this track (under lock, #3527)
+            await self._drop_chunk_tail(track_id)
             # Drain any in-flight look-ahead task that survived the loop —
             # otherwise the orphan keeps running and holds a HybridProcessor
             # reference past stream teardown (fixes #3493).
@@ -1254,8 +1269,8 @@ class AudioStreamController:
                     logger.info(f"Next track {next_track_id} chunk 0 already cached")
                     return
 
-            # Clear any stale tail from a previous play of this track
-            self._chunk_tails.pop(next_track_id, None)
+            # Clear any stale tail from a previous play of this track (#3527)
+            await self._drop_chunk_tail(next_track_id)
 
             # Create processor and process chunk 0 (populates cache)
             processor = await asyncio.to_thread(
@@ -1816,7 +1831,7 @@ class AudioStreamController:
             if self._is_websocket_connected(websocket):
                 await self._send_error(websocket, track_id, "Audio streaming failed")
         finally:
-            self._chunk_tails.pop(track_id, None)  # fixes orphaned state
+            await self._drop_chunk_tail(track_id)  # under lock, #3527
             # Drain any in-flight look-ahead (fixes #3493).
             await self._drain_cancelled_task(lookahead_task)
             async with self._active_streams_lock:  # fixes #2076, #3182

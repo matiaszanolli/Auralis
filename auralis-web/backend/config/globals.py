@@ -17,26 +17,25 @@ from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
-# Allowed origins for WebSocket connections (fixes #2413: cross-origin hijacking).
-# Browser clients send the Origin header; non-browser clients (native apps, tests) may not.
-ALLOWED_WS_ORIGINS = frozenset({
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3002",
-    "http://localhost:3003",
-    "http://localhost:3004",
-    "http://localhost:3005",
-    "http://localhost:3006",
-    "http://localhost:8765",
-    "ws://localhost:3000",
-    "ws://localhost:3001",
-    "ws://localhost:3002",
-    "ws://localhost:3003",
-    "ws://localhost:3004",
-    "ws://localhost:3005",
-    "ws://localhost:3006",
-    "ws://localhost:8765",
-})
+# Allowed origins for WebSocket connections — single authoritative allowlist
+# (fixes #2413: cross-origin hijacking, and #3524 / BE-NEW-66: prior
+# system.py prefix-based pre-check disagreed with this strict allowlist on
+# e.g. `file://` Electron origins). Browser clients send the Origin header;
+# non-browser clients (native apps, tests) may not.
+#
+# Generated programmatically over the same host x port matrix as CORS
+# (see config/middleware.py), plus `file://` for packaged Electron builds
+# whose renderer Origin header is `file://`.
+_DEV_PORTS = list(range(3000, 3007)) + [8765]
+ALLOWED_WS_ORIGINS = frozenset(
+    {
+        f"{scheme}://{host}:{port}"
+        for scheme in ("http", "ws")
+        for host in ("localhost", "127.0.0.1")
+        for port in _DEV_PORTS
+    }
+    | {"file://"}
+)
 
 
 class ConnectionManager:

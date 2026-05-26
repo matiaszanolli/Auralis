@@ -121,17 +121,12 @@ def create_system_router(
         - A/B comparison track loading
         - Job progress subscriptions
         """
-        # Origin check: only accept connections from localhost (#2206).
-        # Auralis is a local Electron app — reject non-local origins to
-        # prevent cross-origin WebSocket hijacking from malicious pages.
-        origin = (websocket.headers.get("origin") or "").lower()
-        if origin and not any(
-            origin.startswith(prefix)
-            for prefix in ("http://localhost", "http://127.0.0.1", "file://")
-        ):
-            logger.warning(f"Rejected WebSocket connection from non-local origin: {origin}")
-            await websocket.close(code=4003, reason="Forbidden origin")
-            return
+        # Origin check is delegated entirely to ConnectionManager.connect
+        # (config/globals.py) — see #3524 / BE-NEW-66. The old prefix-based
+        # pre-check here disagreed with the strict allowlist in
+        # ConnectionManager (e.g. `file://` was accepted here then rejected
+        # there with code 1008, causing noisy double-close logs). Single
+        # authoritative origin policy now lives in config/globals.py.
 
         await manager.connect(websocket)
         connection_id = _ws_id(websocket)
@@ -751,17 +746,21 @@ def create_system_router(
                                     _active_streaming_tasks.pop(ws_id, None)
                                     _active_streaming_track_ids.pop(ws_id, None)
 
-                    # Reset pause/flow-control events so seek stream is not
-                    # blocked by stale paused or buffer_full state (fixes #2744)
-                    pause_event = asyncio.Event()
-                    pause_event.set()
-                    _stream_pause_events[ws_id] = pause_event
-                    flow_event = asyncio.Event()
-                    flow_event.set()
-                    _stream_flow_events[ws_id] = flow_event
-
-                    # Register new seek task under lock (fixes #2425, #3348)
+                    # Reset pause/flow-control events AND register the new
+                    # seek task atomically under the same lock as
+                    # play_enhanced / play_normal — fixes #3522 / BE-NEW-64
+                    # (prior code did the event replacement outside the
+                    # lock, leaving a small window where another receive
+                    # loop or the disconnect cleanup could observe torn
+                    # state).
                     async with _active_streaming_tasks_lock:
+                        pause_event = asyncio.Event()
+                        pause_event.set()
+                        _stream_pause_events[ws_id] = pause_event
+                        flow_event = asyncio.Event()
+                        flow_event.set()
+                        _stream_flow_events[ws_id] = flow_event
+
                         task = asyncio.create_task(stream_from_position())
                         _active_streaming_tasks[ws_id] = task
                         _active_streaming_track_ids[ws_id] = track_id
@@ -800,36 +799,69 @@ def create_system_router(
         except Exception as e:
             logger.error(f"Unexpected WebSocket error: {e}", exc_info=True)
         finally:
-            # Always clean up on disconnect
-            heartbeat_task.cancel()
+            # Always clean up on disconnect. Each step is independently
+            # try/except-guarded so a failure mid-sequence cannot skip
+            # later steps (manager.disconnect in particular) and leave the
+            # WS in ConnectionManager.active_connections — fixes #3521 /
+            # BE-NEW-63.
             try:
-                await heartbeat_task
-            except asyncio.CancelledError:
-                pass
+                heartbeat_task.cancel()
+                try:
+                    await heartbeat_task
+                except asyncio.CancelledError:
+                    pass
+            except Exception:
+                logger.warning("Heartbeat cleanup failed", exc_info=True)
             ws_id = _ws_id(websocket)
 
-            # Cancel any active streaming task — idempotent pop under lock (fixes #2425)
-            async with _active_streaming_tasks_lock:
-                task = _active_streaming_tasks.pop(ws_id, None)
-            if task and not task.done():
-                logger.info(f"Cancelling streaming task on disconnect for ws {ws_id}")
-                task.cancel()
+            # Cancel any active streaming task — idempotent pop under lock (fixes #2425).
+            # Also await the cancellation so the streaming task fully
+            # releases its semaphore + chunk cache before we proceed.
+            try:
+                async with _active_streaming_tasks_lock:
+                    task = _active_streaming_tasks.pop(ws_id, None)
+                    _active_streaming_track_ids.pop(ws_id, None)
+                if task and not task.done():
+                    logger.info(f"Cancelling streaming task on disconnect for ws {ws_id}")
+                    task.cancel()
+                    try:
+                        await task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+            except Exception:
+                logger.warning("Streaming-task cleanup failed", exc_info=True)
 
             # Clean up pause event (#2106) and flow control event
-            _stream_pause_events.pop(ws_id, None)
-            _stream_flow_events.pop(ws_id, None)
+            try:
+                _stream_pause_events.pop(ws_id, None)
+                _stream_flow_events.pop(ws_id, None)
+            except Exception:
+                logger.warning("Stream-event cleanup failed", exc_info=True)
 
             # Clean up rate limiter (fixes #2156)
-            _rate_limiter.cleanup(websocket)
+            try:
+                _rate_limiter.cleanup(websocket)
+            except Exception:
+                logger.warning("Rate-limiter cleanup failed", exc_info=True)
 
-            # Remove stale progress callbacks on WS disconnect (#3325)
+            # Remove stale progress callbacks on WS disconnect (#3325).
+            # Wrap each unregister so one failure doesn't skip the rest.
             if _subscribed_job_ids:
                 processing_engine = get_processing_engine()
                 if processing_engine:
-                    for jid in _subscribed_job_ids:
-                        await processing_engine.unregister_progress_callback(jid)
+                    for jid in list(_subscribed_job_ids):
+                        try:
+                            await processing_engine.unregister_progress_callback(jid)
+                        except Exception:
+                            logger.warning(
+                                f"Failed to unregister progress callback for {jid}",
+                                exc_info=True,
+                            )
 
             # Remove from connection manager
-            await manager.disconnect(websocket)
+            try:
+                await manager.disconnect(websocket)
+            except Exception:
+                logger.warning("manager.disconnect failed", exc_info=True)
 
     return router
