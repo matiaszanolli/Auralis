@@ -205,17 +205,19 @@ async def execute_batch_operation(
             successful += 1
 
         except Exception as e:
-            logger.error(f"Batch operation failed for {item.id}: {e}")
+            # Don't leak raw exception text to clients — fixes #3542 /
+            # BE-NEW-84. Log details server-side, surface a class-based
+            # category to the API consumer.
+            logger.exception(f"Batch operation failed for {item.id}")
+            safe_error = f"{type(e).__name__} during {item.action!r}"
 
             if atomic:
-                # Rollback on first error in atomic mode
-                # In production, implement proper transaction rollback
                 logger.error("Atomic batch operation failed, would rollback")
                 failed += 1
                 results.append(BatchItemResult(
                     id=item.id,
                     status="error",
-                    error=str(e)
+                    error=safe_error,
                 ))
                 break
 
@@ -223,7 +225,7 @@ async def execute_batch_operation(
             results.append(BatchItemResult(
                 id=item.id,
                 status="error",
-                error=str(e)
+                error=safe_error,
             ))
             failed += 1
 
@@ -278,21 +280,23 @@ async def execute_batch_operation_sync(
             successful += 1
 
         except Exception as e:
-            logger.error(f"Batch operation failed for {item.id}: {e}")
+            # Don't leak raw exception text to clients (#3542 / BE-NEW-84).
+            logger.exception(f"Batch operation failed for {item.id}")
+            safe_error = f"{type(e).__name__} during {item.action!r}"
 
             if atomic:
                 failed += 1
                 results.append(BatchItemResult(
                     id=item.id,
                     status="error",
-                    error=str(e)
+                    error=safe_error,
                 ))
                 break
 
             results.append(BatchItemResult(
                 id=item.id,
                 status="error",
-                error=str(e)
+                error=safe_error,
             ))
             failed += 1
 

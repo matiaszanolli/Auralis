@@ -342,25 +342,25 @@ class AudioProcessingPipeline:
         Returns:
             Processed audio array
         """
-        if processor_lock is not None:
-            # Thread-safe processing with lock
-            async with processor_lock:
-                return cls.process_audio(
-                    audio=audio,
-                    preset=preset,
-                    intensity=intensity,
-                    processor_factory=processor_factory,
-                    **kwargs
-                )
-        else:
-            # No lock provided, process directly
+        # process_audio() is synchronous CPU work (NumPy + Rust FFT via
+        # PyO3), typically 100-500 ms per chunk. Offload to a thread so
+        # we don't block the FastAPI event loop (fixes #3529 / BE-NEW-71
+        # — prior `async def` was async in name only).
+        import asyncio as _asyncio
+
+        def _run() -> np.ndarray:
             return cls.process_audio(
                 audio=audio,
                 preset=preset,
                 intensity=intensity,
                 processor_factory=processor_factory,
-                **kwargs
+                **kwargs,
             )
+
+        if processor_lock is not None:
+            async with processor_lock:
+                return await _asyncio.to_thread(_run)
+        return await _asyncio.to_thread(_run)
 
 
 class AudioValidationError(ValueError):

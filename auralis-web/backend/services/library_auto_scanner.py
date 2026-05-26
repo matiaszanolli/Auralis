@@ -236,10 +236,16 @@ class LibraryAutoScanner:
                 check_modifications=True,
             )
         except Exception as exc:
+            # Log full detail server-side; surface a class-based summary
+            # on the wire so OS paths / mount points / permission detail
+            # don't leak to every connected client (#3543 / BE-NEW-85).
             logger.error(f"scan_directories failed: {exc}", exc_info=True)
             await connection_manager_safe_broadcast(
                 self._connection_manager,
-                {"type": "library_scan_error", "data": {"error": str(exc)}}
+                {
+                    "type": "library_scan_error",
+                    "data": {"error": f"{type(exc).__name__} during library scan"},
+                },
             )
             return
 

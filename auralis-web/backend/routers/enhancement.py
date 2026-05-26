@@ -523,23 +523,17 @@ def create_enhancement_router(
             logger.debug(f"📊 Returning processing parameters for preset '{preset}': {result}")
             return result
 
-        except Exception as e:
-            logger.error(f"Failed to get processing parameters: {e}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            # Return default values on error
-            return {
-                "spectral_balance": 0.5,
-                "dynamic_range": 0.5,
-                "energy_level": 0.5,
-                "target_lufs": -14.0,
-                "peak_target_db": -1.0,
-                "bass_boost": 0.0,
-                "air_boost": 0.0,
-                "compression_amount": 0.0,
-                "expansion_amount": 0.0,
-                "stereo_width": 0.75
-            }
+        except Exception:
+            # Don't silently mask the failure as 'all-systems-nominal' —
+            # surface it as 500 so operators see a real error count
+            # increment and clients can decide whether to retry (#3562 /
+            # BE-NEW-104). The legitimate empty-profile case still falls
+            # through the normal 200-OK path above.
+            logger.exception("Failed to get processing parameters")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to get processing parameters",
+            )
 
     @router.post("/api/player/enhancement/cache/clear")
     async def clear_processing_cache() -> dict[str, Any]:

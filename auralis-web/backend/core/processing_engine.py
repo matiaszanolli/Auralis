@@ -273,22 +273,28 @@ class ProcessingEngine:
             Cache key string
         """
         import hashlib
-        # Include mode, sample rate, processing mode, and a hash of the full
-        # config dict so that different enhancement settings (preset, intensity,
-        # EQ bands, dynamics params) produce distinct cache keys (#2218).
+        # Include mode, sample rate, adaptive mode, and an explicit set of
+        # the actually-relevant settings (#2218 + fixes #3528 / BE-NEW-70).
+        # Prior code hashed `vars(config)`; the @dataclass __repr__ on
+        # AdaptiveConfig only covers declared fields, so dynamically-attached
+        # attributes (eq_gains, compressor, target_lufs, gain, genre_override)
+        # were silently excluded from the hash and two jobs with different
+        # EQ settings produced identical cache keys. Also: `processing_mode`
+        # is not a UnifiedConfig attribute — that slot collapsed to
+        # 'unknown' for every key. Switched to config.adaptive.mode.
+        adaptive = getattr(config, "adaptive", None)
         key_parts: list[str] = [
             mode,
             str(config.internal_sample_rate),
-            config.processing_mode if hasattr(config, 'processing_mode') else 'unknown',
+            getattr(adaptive, "mode", "unknown") if adaptive else "unknown",
+            getattr(config, "mastering_profile", ""),
+            repr(getattr(adaptive, "eq_gains", None)) if adaptive else "",
+            repr(getattr(adaptive, "compressor", None)) if adaptive else "",
+            repr(getattr(adaptive, "target_lufs", None)) if adaptive else "",
+            repr(getattr(adaptive, "gain", None)) if adaptive else "",
+            repr(getattr(adaptive, "genre_override", None)) if adaptive else "",
         ]
-        # Hash the serialisable config attributes for a compact fingerprint
-        try:
-            config_dict = {k: v for k, v in vars(config).items() if not k.startswith('_')}
-            config_hash = hashlib.md5(repr(sorted(config_dict.items())).encode()).hexdigest()[:12]
-        except Exception:
-            config_hash = "nohash"
-        key_parts.append(config_hash)
-        return "|".join(key_parts)
+        return hashlib.md5("|".join(key_parts).encode()).hexdigest()
 
     async def _get_or_create_processor(self, mode: str, config: UnifiedConfig) -> HybridProcessor:
         """

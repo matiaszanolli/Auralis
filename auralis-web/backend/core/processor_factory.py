@@ -157,7 +157,15 @@ class ProcessorFactory:
             if cache_key in self._processor_cache:
                 logger.debug(f"Retrieved cached processor: track_id={track_id}, preset={preset}")
                 self._processor_cache.move_to_end(cache_key)
-                return self._processor_cache[cache_key]
+                cached = self._processor_cache[cache_key]
+                # Re-apply mastering_targets on cache hit so concurrent
+                # streams of the same track at the same preset/intensity
+                # don't inherit a previous caller's targets (#3530 /
+                # BE-NEW-72). Prior code only applied them in the
+                # create-new branch.
+                if mastering_targets is not None and hasattr(cached, "set_fixed_mastering_targets"):
+                    cached.set_fixed_mastering_targets(mastering_targets)
+                return cached
 
             # Create new processor
             logger.info(f"Creating new processor: track_id={track_id}, preset={preset}, intensity={intensity}")
