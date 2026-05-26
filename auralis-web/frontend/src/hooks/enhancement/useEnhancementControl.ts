@@ -41,6 +41,7 @@ import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscrip
 import type { ApiError } from '@/types/api';
 import type { EnhancementPreset } from '@/types/domain';
 import type { EnhancementSettingsChangedMessage } from '@/types/websocket';
+import { ApiErrorHandler } from '@/types/api';
 
 /**
  * Current enhancement settings state
@@ -209,9 +210,7 @@ export function useEnhancementControl(): EnhancementControlActions {
         lastUpdated: Date.now(),
       }));
     } catch (err) {
-      const apiError = err instanceof Error
-        ? { message: err.message, code: 'TOGGLE_ERROR', status: 500 }
-        : (err as ApiError);
+      const apiError = ApiErrorHandler.parseWithCode(err, 'TOGGLE_ERROR');
 
       setError(apiError);
       throw apiError;
@@ -262,9 +261,7 @@ export function useEnhancementControl(): EnhancementControlActions {
         lastUpdated: Date.now(),
       }));
     } catch (err) {
-      const apiError = err instanceof Error
-        ? { message: err.message, code: 'PRESET_ERROR', status: 500 }
-        : (err as ApiError);
+      const apiError = ApiErrorHandler.parseWithCode(err, 'PRESET_ERROR');
 
       setError(apiError);
       throw apiError;
@@ -296,9 +293,7 @@ export function useEnhancementControl(): EnhancementControlActions {
         lastUpdated: Date.now(),
       }));
     } catch (err) {
-      const apiError = err instanceof Error
-        ? { message: err.message, code: 'INTENSITY_ERROR', status: 500 }
-        : (err as ApiError);
+      const apiError = ApiErrorHandler.parseWithCode(err, 'INTENSITY_ERROR');
 
       setError(apiError);
       throw apiError;

@@ -38,7 +38,9 @@
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
-import { isApiError } from '@/types/api';
+import { isApiError,
+  ApiErrorHandler,
+} from '@/types/api';
 import type { ApiError } from '@/types/api';
 
 /**
@@ -243,7 +245,7 @@ export function useQueueHistory(): QueueHistoryActions {
       }
     } catch (err) {
       if (isMountedRef.current) {
-        const apiError = err as ApiError;
+        const apiError = ApiErrorHandler.parse(err);
         setError(apiError);
       }
       throw err;
@@ -279,7 +281,7 @@ export function useQueueHistory(): QueueHistoryActions {
       }
     } catch (err) {
       if (isMountedRef.current) {
-        const apiError = err as ApiError;
+        const apiError = ApiErrorHandler.parse(err);
         setError(apiError);
       }
       throw err;

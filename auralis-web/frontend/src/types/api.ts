@@ -27,6 +27,11 @@ export interface ApiListResponse<T = unknown> {
 export interface ApiError {
   status: number;
   message: string;
+  /**
+   * Optional domain-specific error code (e.g. 'QUEUE_SET_ERROR', 'PLAY_ERROR').
+   * Callers use this to disambiguate which user-facing flow failed.
+   */
+  code?: string;
   details?: Record<string, unknown>;
 }
 
@@ -410,6 +415,14 @@ export class ApiErrorHandler {
       message: 'Unknown error',
       details: { raw: String(error) },
     };
+  }
+
+  /**
+   * #3594: like parse() but lets the caller stamp on a domain-specific
+   * `code` so existing per-hook code-strings stay observable.
+   */
+  static parseWithCode(error: unknown, code: string): ApiError {
+    return { ...ApiErrorHandler.parse(error), code };
   }
 
   static isNetworkError(error: ApiError): boolean {

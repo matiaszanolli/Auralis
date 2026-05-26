@@ -48,6 +48,7 @@ import {
 } from '@/store/slices/queueSlice';
 import type { ApiError } from '@/types/api';
 import type { AppDispatch, RootState } from '@/store';
+import { ApiErrorHandler } from '@/types/api';
 
 /**
  * Return type for usePlaybackControl hook
@@ -161,7 +162,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       // so consumers can show a loading indicator (#3271).
       await new Promise(resolve => setTimeout(resolve, 0));
     } catch (err) {
-      const apiError = err instanceof Error ? { message: err.message, code: 'PLAY_ERROR', status: 500 } : err as ApiError;
+      const apiError = ApiErrorHandler.parseWithCode(err, 'PLAY_ERROR');
       setError(apiError);
       throw apiError;
     } finally {
@@ -191,7 +192,7 @@ export function usePlaybackControl(): PlaybackControlActions {
 
       // Server broadcasts 'playback_paused' message which updates the Redux player slice
     } catch (err) {
-      const apiError = err instanceof Error ? { message: err.message, code: 'PAUSE_ERROR', status: 500 } : err as ApiError;
+      const apiError = ApiErrorHandler.parseWithCode(err, 'PAUSE_ERROR');
       setError(apiError);
       throw apiError;
     } finally {
@@ -246,7 +247,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       dispatch(setCurrentTime(prevCurrentTime));
       dispatch(setIsPlaying(prevIsPlaying));
 
-      const apiError = err instanceof Error ? { message: err.message, code: 'STOP_ERROR', status: 500 } : err as ApiError;
+      const apiError = ApiErrorHandler.parseWithCode(err, 'STOP_ERROR');
       setError(apiError);
       throw apiError;
     } finally {
@@ -274,7 +275,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       await api.post('/api/player/seek', { position: validPosition });
       // Server broadcasts 'position_changed' message which updates the Redux player slice
     } catch (err) {
-      const apiError = err instanceof Error ? { message: err.message, code: 'SEEK_ERROR', status: 500 } : err as ApiError;
+      const apiError = ApiErrorHandler.parseWithCode(err, 'SEEK_ERROR');
       setError(apiError);
       throw apiError;
     } finally {
@@ -295,7 +296,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       await api.post('/api/player/next');
       // Server broadcasts 'track_changed' message which updates the Redux player slice
     } catch (err) {
-      const apiError = err instanceof Error ? { message: err.message, code: 'NEXT_ERROR', status: 500 } : err as ApiError;
+      const apiError = ApiErrorHandler.parseWithCode(err, 'NEXT_ERROR');
       setError(apiError);
       throw apiError;
     } finally {
@@ -316,7 +317,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       await api.post('/api/player/previous');
       // Server broadcasts 'track_changed' message which updates the Redux player slice
     } catch (err) {
-      const apiError = err instanceof Error ? { message: err.message, code: 'PREVIOUS_ERROR', status: 500 } : err as ApiError;
+      const apiError = ApiErrorHandler.parseWithCode(err, 'PREVIOUS_ERROR');
       setError(apiError);
       throw apiError;
     } finally {
@@ -344,7 +345,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       await api.post('/api/player/volume', { volume: Math.round(validVolume) });
       // Server broadcasts 'volume_changed' message which updates the Redux player slice
     } catch (err) {
-      const apiError = err instanceof Error ? { message: err.message, code: 'VOLUME_ERROR', status: 500 } : err as ApiError;
+      const apiError = ApiErrorHandler.parseWithCode(err, 'VOLUME_ERROR');
       setError(apiError);
       throw apiError;
     } finally {

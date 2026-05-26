@@ -36,6 +36,7 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import type { ApiError } from '@/types/api';
 import type { Track, Album, Artist } from '@/types/domain';
+import { ApiErrorHandler } from '@/types/api';
 
 /**
  * Query type for library queries
@@ -288,9 +289,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
           return;
         }
 
-        const apiError = err instanceof Error
-          ? { message: err.message, code: 'QUERY_ERROR', status: 500 }
-          : (err as ApiError);
+        const apiError = ApiErrorHandler.parseWithCode(err, 'QUERY_ERROR');
 
         setError(apiError);
       } finally {
@@ -328,9 +327,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         setTotal(response.total);
       }
     } catch (err) {
-      const apiError = err instanceof Error
-        ? { message: err.message, code: 'FETCH_MORE_ERROR', status: 500 }
-        : (err as ApiError);
+      const apiError = ApiErrorHandler.parseWithCode(err, 'FETCH_MORE_ERROR');
 
       setError(apiError);
     } finally {

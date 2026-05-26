@@ -367,7 +367,7 @@ export function useQuery<T = unknown>(endpoint: string, skip: boolean = false) {
         setData(result);
         setError(null);
       } catch (err) {
-        setError(err as ApiError);
+        setErrorApiErrorHandler.parse(err);
       } finally {
         setIsLoading(false);
       }
@@ -408,7 +408,7 @@ export function useMutation<T = unknown>(endpoint: string, method: 'POST' | 'PUT
         setError(null);
         return result;
       } catch (err) {
-        const apiError = err as ApiError;
+        const apiError = ApiErrorHandler.parse(err);
         setError(apiError);
         throw apiError;
       } finally {

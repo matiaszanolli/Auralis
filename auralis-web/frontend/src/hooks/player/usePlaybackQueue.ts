@@ -71,6 +71,7 @@ import type { Track, QueueTrack } from '@/types/domain';
 import type { ApiError } from '@/types/api';
 
 import type { AppDispatch } from '@/store';
+import { ApiErrorHandler } from '@/types/api';
 
 /**
  * Queue state and metadata
@@ -296,9 +297,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         dispatch(reduxSetQueue(previousTracks));
         dispatch(reduxSetCurrentIndex(previousIndex));
 
-        const apiError = err instanceof Error
-          ? { message: err.message, code: 'QUEUE_SET_ERROR', status: 500 }
-          : (err as ApiError);
+        const apiError = ApiErrorHandler.parseWithCode(err, 'QUEUE_SET_ERROR');
 
         setError(apiError);
         throw apiError;
@@ -330,9 +329,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
         // Server will broadcast confirmation via WebSocket
       } catch (err) {
-        const apiError = err instanceof Error
-          ? { message: err.message, code: 'ADD_TRACK_ERROR', status: 500 }
-          : (err as ApiError);
+        const apiError = ApiErrorHandler.parseWithCode(err, 'ADD_TRACK_ERROR');
 
         setError(apiError);
         throw apiError;
@@ -360,9 +357,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
         // Server will broadcast confirmation via WebSocket
       } catch (err) {
-        const apiError = err instanceof Error
-          ? { message: err.message, code: 'REMOVE_TRACK_ERROR', status: 500 }
-          : (err as ApiError);
+        const apiError = ApiErrorHandler.parseWithCode(err, 'REMOVE_TRACK_ERROR');
 
         setError(apiError);
         throw apiError;
@@ -394,9 +389,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
         // Server will broadcast confirmation via WebSocket
       } catch (err) {
-        const apiError = err instanceof Error
-          ? { message: err.message, code: 'REORDER_ERROR', status: 500 }
-          : (err as ApiError);
+        const apiError = ApiErrorHandler.parseWithCode(err, 'REORDER_ERROR');
 
         setError(apiError);
         throw apiError;
@@ -426,9 +419,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
         // Server will broadcast confirmation via WebSocket
       } catch (err) {
-        const apiError = err instanceof Error
-          ? { message: err.message, code: 'REORDER_QUEUE_ERROR', status: 500 }
-          : (err as ApiError);
+        const apiError = ApiErrorHandler.parseWithCode(err, 'REORDER_QUEUE_ERROR');
 
         setError(apiError);
         throw apiError;
@@ -465,9 +456,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
       // Rollback on error
       dispatch(reduxSetIsShuffled(previousShuffle));
 
-      const apiError = err instanceof Error
-        ? { message: err.message, code: 'SHUFFLE_ERROR', status: 500 }
-        : (err as ApiError);
+      const apiError = ApiErrorHandler.parseWithCode(err, 'SHUFFLE_ERROR');
 
       setError(apiError);
       throw apiError;
@@ -512,9 +501,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         // Rollback on error
         dispatch(reduxSetRepeatMode(previousMode));
 
-        const apiError = err instanceof Error
-          ? { message: err.message, code: 'REPEAT_MODE_ERROR', status: 500 }
-          : (err as ApiError);
+        const apiError = ApiErrorHandler.parseWithCode(err, 'REPEAT_MODE_ERROR');
 
         setError(apiError);
         throw apiError;
@@ -550,9 +537,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
       dispatch(reduxSetQueue(previousTracks));
       dispatch(reduxSetCurrentIndex(previousIndex));
 
-      const apiError = err instanceof Error
-        ? { message: err.message, code: 'CLEAR_QUEUE_ERROR', status: 500 }
-        : (err as ApiError);
+      const apiError = ApiErrorHandler.parseWithCode(err, 'CLEAR_QUEUE_ERROR');
 
       setError(apiError);
       throw apiError;
