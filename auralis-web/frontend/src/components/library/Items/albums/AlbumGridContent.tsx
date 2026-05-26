@@ -46,6 +46,10 @@ export const AlbumGridContent = ({
       <Grid2 container spacing={3}>
         {albums.map((album) => (
           <Grid2 xs={12} sm={6} md={4} lg={3} key={album.id}>
+            {/* #3603: pass the parent's onAlbumClick directly (it accepts an
+                albumId). AlbumCard binds the click handler internally so we
+                avoid creating a new inline arrow per render — preserves
+                AlbumCard's React.memo across re-renders of the parent. */}
             <AlbumCard
               albumId={album.id}
               title={album.title}
@@ -54,7 +58,7 @@ export const AlbumGridContent = ({
               duration={album.total_duration}
               year={album.year}
               hasArtwork={!!album.artwork_url}
-              onClick={() => onAlbumClick(album.id)}
+              onClick={onAlbumClick}
             />
           </Grid2>
         ))}

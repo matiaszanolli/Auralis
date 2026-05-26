@@ -13,7 +13,7 @@
  * @module components/library/AlbumGrid
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { tokens } from '@/design-system';
 import { useAlbumsQuery } from '@/hooks/library/useLibraryQuery';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
@@ -46,6 +46,22 @@ export const AlbumGrid = ({
     [onAlbumSelect]
   );
 
+  // #3603: stable id→Album lookup so the per-card onClick is a stable callback
+  // (preserves AlbumCard's React.memo across parent re-renders).
+  const albumById = useMemo(() => {
+    const map = new Map<number, Album>();
+    for (const a of albums) map.set(a.id, a);
+    return map;
+  }, [albums]);
+
+  const handleAlbumCardClick = useCallback(
+    (albumId: number) => {
+      const album = albumById.get(albumId);
+      if (album) handleAlbumSelect(album);
+    },
+    [albumById, handleAlbumSelect]
+  );
+
   if (error) {
     return (
       <section style={styles.errorContainer} role="alert" aria-live="assertive">
@@ -75,7 +91,7 @@ export const AlbumGrid = ({
               trackCount={album.trackCount}
               hasArtwork={!!album.artworkUrl}
               year={album.year}
-              onClick={() => handleAlbumSelect(album)}
+              onClick={handleAlbumCardClick}
             />
           </div>
         ))}
