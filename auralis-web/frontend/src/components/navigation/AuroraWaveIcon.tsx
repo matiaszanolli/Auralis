@@ -14,14 +14,14 @@ export const AuroraWaveIcon = ({ size }: AuroraWaveIconProps) => {
       {/* Aurora wave pattern */}
       <path
         d="M2 12C2 12 4 8 8 8C12 8 12 16 16 16C20 16 22 12 22 12"
-        stroke="white"
+        stroke="currentColor"
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d="M2 16C2 16 4 12 8 12C12 12 12 20 16 20C20 20 22 16 22 16"
-        stroke="white"
+        stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -29,7 +29,7 @@ export const AuroraWaveIcon = ({ size }: AuroraWaveIconProps) => {
       />
       <path
         d="M2 8C2 8 4 4 8 4C12 4 12 12 16 12C20 12 22 8 22 8"
-        stroke="white"
+        stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
