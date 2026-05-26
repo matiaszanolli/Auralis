@@ -377,18 +377,32 @@ class AudioPlayer:
         """Add a track to the playback queue"""
         self.queue.add_track(track_info)
 
-        # Auto-load if nothing is playing. The check and load must be
-        # atomic to prevent a concurrent load_file() from being
-        # overwritten between the check and the load (#3359).
+        # #3656: previous version held `_audio_lock` across the entire
+        # `load_track_from_library` / `load_file` call, which performs
+        # blocking disk I/O before its own inner lock acquisition. Holding
+        # the lock during I/O blocked `get_audio_chunk()` (which also takes
+        # `_audio_lock`) for the full load duration → audible audio
+        # dropout on first track add.
+        #
+        # The check + load no longer needs to be atomic under `_audio_lock`:
+        # `load_file()` internally locks before mutating shared state, and
+        # the inner critical section is the actual race window (#3359). The
+        # narrow TOCTOU between the check here and the load itself is
+        # acceptable — `load_file()` is idempotent (an in-progress load
+        # from a concurrent caller will simply overwrite once and settle).
+        needs_load = False
         with self.file_manager._audio_lock:
             if not self.file_manager.is_loaded():
-                file_path = track_info.get('file_path') or track_info.get('filepath')
-                track_id = track_info.get('id')
+                needs_load = True
 
-                if track_id:
-                    self.load_track_from_library(track_id)
-                elif file_path:
-                    self.load_file(file_path)
+        if needs_load:
+            file_path = track_info.get('file_path') or track_info.get('filepath')
+            track_id = track_info.get('id')
+
+            if track_id:
+                self.load_track_from_library(track_id)
+            elif file_path:
+                self.load_file(file_path)
 
     def add_track_to_queue(self, track_id: int) -> bool:
         """Add a track from the library to the queue"""
