@@ -13,7 +13,7 @@ enabling precise spectral shaping.
 """
 
 import numpy as np
-from scipy.signal import butter, sosfilt
+from scipy.signal import butter, sosfiltfilt
 
 
 class ParallelEQUtilities:
@@ -89,14 +89,18 @@ class ParallelEQUtilities:
         sos_filter = butter(order, normalized_freq, btype='low', output='sos')
 
         # Extract low-frequency band
-        # Handle both mono (samples,) and stereo (channels, samples)
-        # Cast to audio.dtype immediately: sosfilt() always returns float64
-        # regardless of input dtype, which doubles memory and promotes the
-        # entire output when mixed with a float32 signal (issue #2158).
+        # Handle both mono (samples,) and stereo (channels, samples).
+        # #3666: switched from sosfilt to sosfiltfilt (zero-phase) so the
+        # extracted band is time-aligned with the dry signal. Causal sosfilt
+        # produced a comb-filter artefact at the shelf frequency when the
+        # band was added back to the un-delayed dry audio (same pattern as
+        # already fixed in #3469 / #3470 / #3468).
+        # Cast to audio.dtype immediately: sosfiltfilt() returns float64
+        # regardless of input dtype (issue #2158).
         if audio.ndim == 1:
-            band = sosfilt(sos_filter, audio).astype(audio.dtype)
+            band = sosfiltfilt(sos_filter, audio).astype(audio.dtype)
         else:
-            band = sosfilt(sos_filter, audio, axis=1).astype(audio.dtype)
+            band = sosfiltfilt(sos_filter, audio, axis=1).astype(audio.dtype)
 
         # Calculate parallel boost amount
         # boost_linear = 1.0 means no change
@@ -164,9 +168,9 @@ class ParallelEQUtilities:
 
         # Extract high-frequency band; cast for dtype preservation (issue #2158).
         if audio.ndim == 1:
-            band = sosfilt(sos_filter, audio).astype(audio.dtype)
+            band = sosfiltfilt(sos_filter, audio).astype(audio.dtype)
         else:
-            band = sosfilt(sos_filter, audio, axis=1).astype(audio.dtype)
+            band = sosfiltfilt(sos_filter, audio, axis=1).astype(audio.dtype)
 
         # Calculate parallel boost amount
         boost_linear = 10 ** (boost_db / 20)
@@ -241,9 +245,9 @@ class ParallelEQUtilities:
 
         # Extract mid-range band; cast for dtype preservation (issue #2158).
         if audio.ndim == 1:
-            band = sosfilt(sos_filter, audio).astype(audio.dtype)
+            band = sosfiltfilt(sos_filter, audio).astype(audio.dtype)
         else:
-            band = sosfilt(sos_filter, audio, axis=1).astype(audio.dtype)
+            band = sosfiltfilt(sos_filter, audio, axis=1).astype(audio.dtype)
 
         # Calculate parallel boost amount
         boost_linear = 10 ** (boost_db / 20)
