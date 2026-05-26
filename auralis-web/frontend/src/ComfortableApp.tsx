@@ -322,16 +322,38 @@ function ComfortableApp() {
             } : {})}
           />
 
-          {/* Main content area with library view */}
+          {/* Main content area with library view.
+              Wrapped in a dedicated ErrorBoundary (#3583) so a library render
+              crash doesn't kill the entire app — player/sidebar remain usable. */}
           <AppMainContent>
-            <Suspense fallback={null}>
-              <CozyLibraryView
-                onTrackPlay={handleTrackPlay}
-                view={currentView}
-                searchQuery={searchQuery}
-                viewMode={viewMode}
-              />
-            </Suspense>
+            <ErrorBoundary
+              fallback={
+                <Box
+                  sx={{
+                    p: tokens.spacing.lg,
+                    background: tokens.colors.bg.level1,
+                    border: `1px solid ${tokens.colors.semantic.error}`,
+                    borderRadius: tokens.borderRadius.md,
+                    color: tokens.colors.text.secondary,
+                    fontSize: tokens.typography.fontSize.sm,
+                    textAlign: 'center',
+                    m: tokens.spacing.lg,
+                  }}
+                >
+                  Library failed to render. The rest of the app (player, sidebar,
+                  settings) is still available. Refresh the page to retry.
+                </Box>
+              }
+            >
+              <Suspense fallback={null}>
+                <CozyLibraryView
+                  onTrackPlay={handleTrackPlay}
+                  view={currentView}
+                  searchQuery={searchQuery}
+                  viewMode={viewMode}
+                />
+              </Suspense>
+            </ErrorBoundary>
           </AppMainContent>
         </Box>
 
