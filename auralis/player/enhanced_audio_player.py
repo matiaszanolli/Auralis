@@ -123,11 +123,19 @@ class AudioPlayer:
 
     def play(self) -> bool:
         """Start playback"""
-        self._stop_requested.clear()
         if not self.file_manager.is_loaded():
             warning("No audio file loaded")
             return False
-        return self.playback.play()
+        # #3669: clear `_stop_requested` AFTER `playback.play()` succeeds.
+        # Previous order (clear → play) allowed a concurrent stop() to set
+        # the flag between the clear and the state transition, leaving
+        # state=PLAYING with _stop_requested=SET. Auto-advance is then
+        # permanently suppressed for the rest of the session (line 474
+        # checks `_stop_requested.is_set()` and bails).
+        started = self.playback.play()
+        if started:
+            self._stop_requested.clear()
+        return started
 
     def pause(self) -> bool:
         """Pause playback"""
