@@ -1,4 +1,5 @@
 import { KeyboardEvent, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { tokens } from '@/design-system';
 
 interface ClearQueueDialogProps {
@@ -35,7 +36,10 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
     return () => { triggerRef.current?.focus(); };
   }, []);
 
-  return (
+  // #3573: Render via portal so position:fixed is anchored to the viewport.
+  // Without this, the Player's `backdrop-filter` creates a new containing
+  // block for fixed descendants, clipping the overlay to the queue panel.
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -106,6 +110,7 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
