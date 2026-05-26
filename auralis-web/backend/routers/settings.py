@@ -86,6 +86,10 @@ def create_settings_router(
             settings = await asyncio.to_thread(_repo().update_settings, updates)
             await _notify_scanner()
             return {"message": "Settings updated", "settings": settings.to_dict()}
+        except HTTPException:
+            # Preserve 503 from _repo() when settings repo is unavailable
+            # (fixes #3497 / BE-NEW-39).
+            raise
         except Exception as exc:
             logger.error(f"Failed to update settings: {exc}")
             raise HTTPException(status_code=500, detail="Failed to update settings")
@@ -105,6 +109,8 @@ def create_settings_router(
             register_allowed_directory(validated)
             await _notify_scanner()
             return {"message": f"Scan folder added: {body.folder}", "settings": settings.to_dict()}
+        except HTTPException:
+            raise  # Preserve 503 from _repo() (#3497)
         except Exception as exc:
             logger.error(f"Failed to add scan folder: {exc}")
             raise HTTPException(status_code=500, detail="Failed to add scan folder")
@@ -116,6 +122,8 @@ def create_settings_router(
             settings = await asyncio.to_thread(_repo().remove_scan_folder, body.folder)
             await _notify_scanner()
             return {"message": f"Scan folder removed: {body.folder}", "settings": settings.to_dict()}
+        except HTTPException:
+            raise  # Preserve 503 from _repo() (#3497)
         except Exception as exc:
             logger.error(f"Failed to remove scan folder: {exc}")
             raise HTTPException(status_code=500, detail="Failed to remove scan folder")
@@ -127,6 +135,8 @@ def create_settings_router(
             settings = await asyncio.to_thread(_repo().reset_to_defaults)
             await _notify_scanner()
             return {"message": "Settings reset to defaults", "settings": settings.to_dict()}
+        except HTTPException:
+            raise  # Preserve 503 from _repo() (#3497)
         except Exception as exc:
             logger.error(f"Failed to reset settings: {exc}")
             raise HTTPException(status_code=500, detail="Failed to reset settings")

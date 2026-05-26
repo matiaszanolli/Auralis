@@ -371,6 +371,10 @@ def create_metadata_router(
                 "rolled_back": rolled_back,
             }
 
+        except HTTPException:
+            # Don't swallow nested HTTPException (e.g. 503 from
+            # require_repository_factory). Fixes #3496 / BE-NEW-38.
+            raise
         except Exception as e:
             logger.error(f"Batch metadata update failed: {e}")
             raise HTTPException(status_code=500, detail="Batch update failed")
