@@ -59,7 +59,11 @@ def _apply_spectral_tilt_correction(
     Positive tilt_db boosts bass / cuts highs; negative does the opposite.
     Capped at ±2 dB by the caller.
     """
-    from scipy.signal import butter, sosfilt
+    # #3661: use zero-phase sosfiltfilt so `low` and `high = result - low`
+    # are time-aligned; causal sosfilt produced a first-order comb at the
+    # 250 Hz crossover whenever the dynamics guard fired. Same fix template
+    # as #3469 / #3470 / #3666.
+    from scipy.signal import butter, sosfiltfilt
     result = audio.copy()
     tilt_db = max(-2.0, min(2.0, tilt_db))
     gain = 10.0 ** (abs(tilt_db) / 20.0)
@@ -67,7 +71,7 @@ def _apply_spectral_tilt_correction(
     # Simple low-shelf at 250 Hz
     cutoff = min(250.0, sample_rate * 0.45)
     sos = butter(1, cutoff, btype='low', fs=sample_rate, output='sos')
-    low = sosfilt(sos, result, axis=0)
+    low = sosfiltfilt(sos, result, axis=0)
     high = result - low
 
     if tilt_db > 0:
@@ -75,7 +79,7 @@ def _apply_spectral_tilt_correction(
     else:
         result = low / gain + high * gain
 
-    # Preserve input dtype — sosfilt upcasts float32 to float64
+    # Preserve input dtype — sosfiltfilt upcasts float32 to float64
     return result.astype(audio.dtype, copy=False)
 
 

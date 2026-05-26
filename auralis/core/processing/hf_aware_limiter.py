@@ -34,7 +34,7 @@ Why complementary subtraction split:
 from __future__ import annotations
 
 import numpy as np
-from scipy.signal import butter, sosfilt
+from scipy.signal import butter, sosfiltfilt
 
 from .base.peak_management import SafetyLimiter
 from .base.db_conversion import DBConversion
@@ -120,8 +120,16 @@ def apply_hf_aware_limiter(
 
 
 def _band_low(audio: np.ndarray, sos: np.ndarray) -> np.ndarray:
-    """Apply the low-pass filter along the sample axis for mono or stereo."""
-    return sosfilt(sos, audio, axis=0)
+    """Apply the low-pass filter along the sample axis for mono or stereo.
+
+    #3664: switched from causal sosfilt to zero-phase sosfiltfilt so that
+    `low + (audio - low)` is a truly complementary split. Causal sosfilt
+    delays `low` relative to the dry signal, producing phase artefacts at
+    the 6 kHz crossover and over-attenuating HF samples immediately
+    preceding LF transients (e.g. kick + cymbal). The limiter is gated by
+    a peak threshold so the 2x cost of sosfiltfilt is acceptable.
+    """
+    return sosfiltfilt(sos, audio, axis=0)
 
 
 __all__ = [
