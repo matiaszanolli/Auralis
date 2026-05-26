@@ -52,7 +52,12 @@ class ParallelEQProcessor:
         # Handle padding
         original_length = len(audio_chunk)
         if len(audio_chunk) < fft_size:
-            padded = np.zeros((fft_size, audio_chunk.shape[1] if audio_chunk.ndim == 2 else 1))
+            # #3659: dtype=audio_chunk.dtype so float32 input is not silently
+            # promoted to float64. Matches the correct pattern in filters.py:39.
+            padded = np.zeros(
+                (fft_size, audio_chunk.shape[1] if audio_chunk.ndim == 2 else 1),
+                dtype=audio_chunk.dtype,
+            )
             if audio_chunk.ndim == 2:
                 padded[:len(audio_chunk), :] = audio_chunk
             else:
