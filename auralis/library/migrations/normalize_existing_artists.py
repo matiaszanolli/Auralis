@@ -25,6 +25,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from auralis.library.constants import DEFAULT_DB_PATH
+from auralis.library.migration_manager import migration_lock
 from auralis.library.utils.artist_normalizer import normalize_artist_name
 
 
@@ -51,7 +52,23 @@ def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = Fals
         print(f"Database not found at {db_path}")
         return {'error': 'Database not found'}
 
-    engine = create_engine(f'sqlite:///{db_path}')
+    # #3682: acquire the same inter-process migration lock used by
+    # MigrationManager so this CLI tool cannot race with a concurrent
+    # `check_and_migrate_database()` call from the app.
+    with migration_lock(str(db_path)):
+        return _do_normalize(db_path, dry_run)
+
+
+def _do_normalize(db_path: Path, dry_run: bool) -> dict[str, any]:
+    """Body of normalize_existing_artists, executed under migration_lock."""
+    engine = create_engine(
+        f'sqlite:///{db_path}',
+        # #3682: match the connection contract used by the main library
+        # engine: verify connections before use (avoids stale-connection
+        # OperationalError after concurrent WAL checkpoints).
+        pool_pre_ping=True,
+        connect_args={'timeout': 15, 'check_same_thread': False},
+    )
     Session = sessionmaker(engine)
     session = Session()
 
