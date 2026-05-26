@@ -646,13 +646,20 @@ class ProcessingEngine:
         """
         self._stopping = False
         self._worker_task = asyncio.current_task()
+        from helpers import spawn_background_task
+
         while not self._stopping:
             try:
                 job = await self.job_queue.get()
                 # Fire-and-forget: _run_job acquires a semaphore slot and
                 # cleans up after itself.  The worker loop immediately
-                # returns to dequeue the next job.
-                asyncio.create_task(self._run_job(job))
+                # returns to dequeue the next job.  spawn_background_task
+                # attaches a done-callback so an unhandled exception inside
+                # _run_job is logged rather than silently swallowed
+                # (fixes #3512 / BE-NEW-54).
+                spawn_background_task(
+                    self._run_job(job), name=f"_run_job:{job.job_id}"
+                )
             except Exception as e:
                 logger.exception(f"Worker error: {e}")
                 await asyncio.sleep(1)

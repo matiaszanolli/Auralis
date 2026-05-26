@@ -215,7 +215,15 @@ class LibraryAutoScanner:
             )
 
         def sync_progress(data: dict[str, Any]) -> None:
-            loop.call_soon_threadsafe(loop.create_task, _async_progress(data))
+            # Schedule the async broadcaster on the event loop with a
+            # done-callback so failures are logged instead of silently
+            # dropped (fixes #3512 / BE-NEW-54).
+            from helpers import log_task_exception
+
+            def _schedule() -> None:
+                task = loop.create_task(_async_progress(data))
+                task.add_done_callback(log_task_exception)
+            loop.call_soon_threadsafe(_schedule)
 
         scanner.set_progress_callback(sync_progress)
 

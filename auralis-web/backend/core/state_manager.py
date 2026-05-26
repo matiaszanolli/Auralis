@@ -239,7 +239,13 @@ class PlayerStateManager:
                             track_ended = True
 
                 if track_ended:
-                    asyncio.create_task(self.next_track())
+                    # spawn_background_task ensures next_track() failures are
+                    # logged instead of silently stopping queue advancement
+                    # (fixes #3512 / BE-NEW-54).
+                    from helpers import spawn_background_task
+                    spawn_background_task(
+                        self.next_track(), name="StateManager.next_track"
+                    )
                     return
 
                 # Broadcast lightweight position update (fixes #2570) — avoids

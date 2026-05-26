@@ -697,12 +697,15 @@ class AudioStreamController:
                     if on_progress:
                         await on_progress(track_id, progress, f"Processed chunk {chunk_idx + 1}")
 
-                    # Pre-fetch next track at 80% to eliminate cold-start on transitions
-                    if progress >= 80 and not next_track_prefetched:
-                        next_track_prefetched = True
-                        asyncio.create_task(
-                            self._prefetch_next_track(track_id, preset, intensity)
-                        )
+                    # Pre-fetch was disabled in #3513 / BE-NEW-55:
+                    # _prefetch_next_track wrote chunk 0 of the next track into
+                    # `self.cache_manager`, which is a per-stream SimpleChunkCache
+                    # created fresh in system.py for every play_enhanced. Nothing
+                    # else ever reads from that cache, so the prefetch was doing
+                    # several seconds of DSP work per track-transition for zero
+                    # benefit, and the fire-and-forget task survived disconnect
+                    # without a cancellation hook. Re-enable once the cache
+                    # manager is hoisted to a process-wide singleton.
 
                 except ConnectionError:
                     # Client disconnected — clean exit

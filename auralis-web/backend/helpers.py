@@ -10,6 +10,7 @@ Phase B.1: Backend Endpoint Standardization
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 from typing import Any, TypeVar
 from collections.abc import Callable
@@ -26,6 +27,46 @@ from schemas import (
 logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
+
+
+# ============================================================================
+# Fire-and-forget asyncio task helpers (fixes #3512 / BE-NEW-54)
+# ============================================================================
+
+def log_task_exception(task: asyncio.Task[Any]) -> None:
+    """Log an uncaught exception raised by a background task.
+
+    Pair with `asyncio.create_task(coro).add_done_callback(log_task_exception)`
+    so that fire-and-forget tasks don't silently disappear when they raise.
+    A swallowed exception in start_worker / next_track / progress callbacks
+    would otherwise stop the entire feature without any log entry.
+    """
+    try:
+        if task.cancelled():
+            return
+        exc = task.exception()
+    except asyncio.CancelledError:
+        return
+    if exc is None:
+        return
+    name = task.get_name() or repr(task)
+    logger.error("Background task %s failed", name, exc_info=exc)
+
+
+def spawn_background_task(coro: Any, *, name: str | None = None) -> asyncio.Task[Any]:
+    """Schedule a coroutine as a background task with exception logging.
+
+    Equivalent to:
+        t = asyncio.create_task(coro, name=name)
+        t.add_done_callback(log_task_exception)
+        return t
+
+    Prefer this over bare `asyncio.create_task(coro)` for any fire-and-forget
+    work whose failure shouldn't go unnoticed (fixes #3512).
+    """
+    task: asyncio.Task[Any] = asyncio.create_task(coro, name=name) if name else asyncio.create_task(coro)
+    task.add_done_callback(log_task_exception)
+    return task
 
 
 # ============================================================================
