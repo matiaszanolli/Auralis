@@ -183,22 +183,23 @@ def setup_middleware(app: FastAPI) -> None:
     # Rate limiting for expensive endpoints (#2575)
     app.add_middleware(RateLimitMiddleware)
 
-    # CORS middleware for cross-origin requests
-    # Allow multiple dev server ports since Vite auto-increments if port is in use
+    # CORS middleware for cross-origin requests.
+    # Allow multiple dev server ports since Vite auto-increments if port is in
+    # use. Generate both `localhost` and `127.0.0.1` entries for every port —
+    # browsers treat them as distinct origins, so a dev opening the app via
+    # the IP form on an alt port (e.g. 127.0.0.1:3001) was previously blocked
+    # by CORS preflight even though localhost:3001 was allowed (#3539 /
+    # BE-NEW-81).
+    _DEV_PORTS = list(range(3000, 3007))
+    _ALL_PORTS = _DEV_PORTS + [8765]
+    _allowed_origins = [
+        f"http://{host}:{port}"
+        for host in ("localhost", "127.0.0.1")
+        for port in _ALL_PORTS
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",      # React dev server (default)
-            "http://127.0.0.1:3000",
-            "http://localhost:3001",      # React dev server (alt ports)
-            "http://localhost:3002",
-            "http://localhost:3003",
-            "http://localhost:3004",
-            "http://localhost:3005",
-            "http://localhost:3006",
-            "http://localhost:8765",      # Production (same-origin but explicit)
-            "http://127.0.0.1:8765",
-        ],
+        allow_origins=_allowed_origins,
         allow_credentials=True,
         # Explicit lists instead of wildcards — allow_credentials=True with "*"
         # violates the CORS spec and overly broadens the attack surface (#2224).

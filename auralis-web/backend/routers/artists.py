@@ -9,7 +9,7 @@ REST API endpoints for artist browsing and management
 """
 
 import asyncio
-from typing import Any, cast
+from typing import Any, Literal, cast
 from collections.abc import Callable
 
 from fastapi import APIRouter, Query
@@ -101,7 +101,9 @@ def create_artists_router(
         limit: int = Query(50, ge=1, le=200, description="Number of artists to return"),
         offset: int = Query(0, ge=0, description="Number of artists to skip"),
         search: str | None = Query(None, description="Search query for artist name"),
-        order_by: str = Query('name', description="Sort by: name, album_count, track_count")
+        order_by: Literal['name', 'album_count', 'track_count'] = Query(
+            'name', description="Sort by: name, album_count, track_count"
+        )  # fixes #3559 / BE-NEW-101 (sibling of #2727 for /api/library/tracks)
     ) -> ArtistsListResponse:
         """Get paginated list of artists
 

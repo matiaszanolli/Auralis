@@ -18,7 +18,7 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
@@ -29,8 +29,14 @@ from core.chunk_boundaries import CHUNK_INTERVAL  # single source of truth (#256
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
 
-# Valid enhancement presets
+# Valid enhancement presets — single source of truth, also used by the
+# WS validation path in routers/system.py via the EnhancementPreset
+# Literal in schemas.py.
 VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
+
+# Pydantic Literal alias so OpenAPI docs see the constraint, not just a
+# free-form string (#3549 / BE-NEW-91).
+EnhancementPresetLiteral = Literal["adaptive", "gentle", "warm", "bright", "punchy"]
 
 
 class ToggleEnhancementRequest(BaseModel):
@@ -38,14 +44,14 @@ class ToggleEnhancementRequest(BaseModel):
 
 
 class SetPresetRequest(BaseModel):
-    preset: str
+    # Lowercase before validation; Literal still enforces canonical form.
+    preset: EnhancementPresetLiteral
 
-    @field_validator('preset')
+    @field_validator('preset', mode='before')
     @classmethod
-    def validate_preset(cls, v: str) -> str:
-        v = v.lower()
-        if v not in VALID_PRESETS:
-            raise ValueError(f"Invalid preset. Must be one of: {', '.join(VALID_PRESETS)}")
+    def lowercase_preset(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.lower()
         return v
 
 
