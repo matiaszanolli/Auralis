@@ -21,15 +21,19 @@
 import { get, post, put, del } from './apiRequest';
 
 /**
- * Generic CRUD endpoint configuration
+ * Generic CRUD endpoint configuration.
+ *
+ * #3595: generic ID parameter so each derived service can declare its ID
+ * type (e.g. number for playlists/tracks, string for fingerprints) and
+ * passing a string where a number is expected becomes a TS error.
  */
-export interface CrudEndpoints {
-  list?: string | ((params?: any) => string);
-  get?: string | ((id: any) => string);
-  create?: string | ((params?: any) => string);
-  update?: string | ((id: any, params?: any) => string);
-  delete?: string | ((id: any) => string);
-  custom?: Record<string, string | ((params?: any) => string)>;
+export interface CrudEndpoints<ID = number, P extends Record<string, unknown> = Record<string, unknown>> {
+  list?: string | ((params?: P) => string);
+  get?: string | ((id: ID) => string);
+  create?: string | ((params?: P) => string);
+  update?: string | ((id: ID, params?: P) => string);
+  delete?: string | ((id: ID) => string);
+  custom?: Record<string, string | ((params?: P) => string)>;
 }
 
 /**
@@ -38,12 +42,17 @@ export interface CrudEndpoints {
  * @param endpoints Configuration object with endpoint paths
  * @returns Object with generic CRUD functions
  */
-export function createCrudService<T = any, U extends Record<string, any> = any>(endpoints: CrudEndpoints) {
+export function createCrudService<
+  T = unknown,
+  U extends Record<string, unknown> = Record<string, unknown>,
+  ID = number,
+  P extends Record<string, unknown> = Record<string, unknown>,
+>(endpoints: CrudEndpoints<ID, P>) {
   return {
     /**
      * GET list of items
      */
-    async list(params?: any): Promise<T[]> {
+    async list(params?: P): Promise<T[]> {
       if (!endpoints.list) {
         throw new Error('list endpoint not configured');
       }
@@ -56,7 +65,7 @@ export function createCrudService<T = any, U extends Record<string, any> = any>(
     /**
      * GET single item by ID
      */
-    async getOne(id: any): Promise<T> {
+    async getOne(id: ID): Promise<T> {
       if (!endpoints.get) {
         throw new Error('get endpoint not configured');
       }
@@ -74,7 +83,7 @@ export function createCrudService<T = any, U extends Record<string, any> = any>(
         throw new Error('create endpoint not configured');
       }
       const endpoint = typeof endpoints.create === 'function'
-        ? endpoints.create(data)
+        ? endpoints.create(data as unknown as P)
         : endpoints.create;
       return post(endpoint, data);
     },
@@ -82,12 +91,12 @@ export function createCrudService<T = any, U extends Record<string, any> = any>(
     /**
      * PUT update existing item
      */
-    async update(id: any, data: Partial<U>): Promise<T> {
+    async update(id: ID, data: Partial<U>): Promise<T> {
       if (!endpoints.update) {
         throw new Error('update endpoint not configured');
       }
       const endpoint = typeof endpoints.update === 'function'
-        ? endpoints.update(id, data)
+        ? endpoints.update(id, data as unknown as P)
         : endpoints.update;
       return put(endpoint, data);
     },
@@ -95,7 +104,7 @@ export function createCrudService<T = any, U extends Record<string, any> = any>(
     /**
      * DELETE item by ID
      */
-    async delete(id: any): Promise<void> {
+    async delete(id: ID): Promise<void> {
       if (!endpoints.delete) {
         throw new Error('delete endpoint not configured');
       }
@@ -109,21 +118,22 @@ export function createCrudService<T = any, U extends Record<string, any> = any>(
      * Custom endpoint call
      * Useful for actions that don't fit standard CRUD
      */
-    async custom(name: string, method: 'get' | 'post' | 'put' | 'delete', data?: any): Promise<any> {
+    async custom(name: string, method: 'get' | 'post' | 'put' | 'delete', data?: P): Promise<unknown> {
       if (!endpoints.custom || !endpoints.custom[name]) {
         throw new Error(`custom endpoint "${name}" not configured`);
       }
-      const endpoint = typeof endpoints.custom[name] === 'function'
-        ? (endpoints.custom[name] as Function)(data)
-        : endpoints.custom[name];
+      const endpointDef = endpoints.custom[name];
+      const endpoint = typeof endpointDef === 'function'
+        ? endpointDef(data)
+        : endpointDef;
 
       switch (method) {
         case 'get':
           return get(endpoint);
         case 'post':
-          return post(endpoint, data || {});
+          return post(endpoint, (data ?? {}) as Record<string, unknown>);
         case 'put':
-          return put(endpoint, data || {});
+          return put(endpoint, (data ?? {}) as Record<string, unknown>);
         case 'delete':
           return del(endpoint);
         default:
@@ -138,7 +148,7 @@ export function createCrudService<T = any, U extends Record<string, any> = any>(
       return Promise.all(items.map(item => this.create(item)));
     },
 
-    async batchDelete(ids: any[]): Promise<void> {
+    async batchDelete(ids: ID[]): Promise<void> {
       return Promise.all(ids.map(id => this.delete(id))).then(() => undefined);
     }
   };
