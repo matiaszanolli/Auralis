@@ -48,7 +48,7 @@ export const DebugInfo = () => {
       <div>Version: {versionString}</div>
       <div>Commit: {commitId}</div>
       <div>Mode: {import.meta.env.MODE}</div>
-      <div style={{ marginTop: spacingXSmall, fontSize: '10px', opacity: 0.7 }}>
+      <div style={{ marginTop: spacingXSmall, fontSize: tokens.typography.fontSize.xs, opacity: 0.7 }}>
         Press Ctrl+Shift+D to toggle
       </div>
     </div>

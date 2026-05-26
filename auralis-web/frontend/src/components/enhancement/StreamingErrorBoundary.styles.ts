@@ -227,7 +227,9 @@ export const styles: Record<string, React.CSSProperties> = {
   historyItem: {
     display: 'flex',
     gap: tokens.spacing.sm,
-    fontSize: '10px',
+    // #3639: tokens.typography.fontSize.xs is 11px — the WCAG AA body-text
+    // floor. Was a raw '10px'.
+    fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.text.secondary,
     padding: '4px 0',
   },

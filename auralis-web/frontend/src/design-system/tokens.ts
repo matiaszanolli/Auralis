@@ -314,7 +314,7 @@ export const tokens = {
     },
 
     fontSize: {
-      xs: '11px',      // Micro labels, timestamps
+      xs: '11px',      // Micro labels, timestamps (WCAG AA floor for body text)
       sm: '13px',      // Small text, metadata, captions
       base: '14px',    // Standard body text
       md: '16px',      // Larger body, input labels
@@ -324,6 +324,12 @@ export const tokens = {
       '3xl': '36px',   // Large headers, hero text
       '4xl': '56px',   // Display, hero text
       '5xl': '72px',   // Ultra-large display
+      // #3639: named display sizes for prominent typography that doesn't fit
+      // the body-text scale (artwork glyphs, empty-state icons, hero numbers).
+      // Kept distinct from xs-5xl so the body scale stays linear.
+      display: '48px',  // Track-info artwork glyph
+      hero: '60px',     // Hero-size display
+      huge: '80px',     // Empty-state placeholder glyphs
     },
 
     fontWeight: {

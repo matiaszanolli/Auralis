@@ -20,7 +20,9 @@ export const Container = styled(Box)({
 export const IconContainer = styled(Box)({
   marginBottom: tokens.spacing.lg,
   '& .MuiSvgIcon-root': {
-    fontSize: '80px',
+    // #3639: tokens.typography.fontSize.huge (80px) — named display scale
+    // for empty-state placeholder glyphs.
+    fontSize: tokens.typography.fontSize.huge,
     color: tokens.colors.text.tertiary,
     transition: tokens.transitions.base_inOut,
   },

@@ -71,7 +71,8 @@ export const resultItemStyles = {
     color: tokens.colors.text.primaryFull,
     padding: `2px 6px`,
     borderRadius: tokens.borderRadius.sm,
-    fontSize: '10px',
+    // #3639: bump from 10px to xs (11px) — WCAG AA body-text floor.
+    fontSize: tokens.typography.fontSize.xs,
     fontWeight: tokens.typography.fontWeight.bold,
     whiteSpace: 'nowrap' as const,
     flexShrink: 0,

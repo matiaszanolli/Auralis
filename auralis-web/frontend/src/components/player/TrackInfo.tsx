@@ -136,7 +136,8 @@ const styles = {
   },
 
   artworkPlaceholderIcon: {
-    fontSize: '60px',
+    // #3639: tokens.typography.fontSize.hero (60px) — named display scale.
+    fontSize: tokens.typography.fontSize.hero,
     opacity: 0.5,
   },
 
@@ -204,7 +205,8 @@ const styles = {
   },
 
   emptyIcon: {
-    fontSize: '48px',
+    // #3639: tokens.typography.fontSize.display (48px) — named display scale.
+    fontSize: tokens.typography.fontSize.display,
     opacity: 0.3,
   },
 

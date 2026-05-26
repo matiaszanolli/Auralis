@@ -465,7 +465,8 @@ const styles: Record<string, CSSProperties> = {
   gaugeLabels: {
     display: 'flex',
     justifyContent: 'space-between',
-    fontSize: '10px',
+    // #3639: bump to xs (11px) — WCAG AA body-text floor.
+    fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.text.secondary,
   },
 };

@@ -77,7 +77,9 @@ export const ArtistAvatar = styled(Avatar)({
  * ArtistName - Artist name typography (primary identity)
  */
 export const ArtistName = styled(Typography)({
-  fontSize: '17px',
+  // #3639: align with the body-text scale (md = 16px). Was a one-off 17px
+  // between base (14px) and md (16px).
+  fontSize: tokens.typography.fontSize.md,
   fontWeight: tokens.typography.fontWeight.medium,
   color: tokens.colors.text.primary,
   letterSpacing: '0.01em',
