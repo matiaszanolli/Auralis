@@ -237,11 +237,13 @@ class FingerprintRepository:
 
     def get_all(self, limit: int | None = None, offset: int = 0) -> list[TrackFingerprint]:
         """
-        Get all fingerprints with pagination
+        Get all fingerprints with pagination.
 
         Args:
-            limit: Maximum number of fingerprints to return
-            offset: Number of fingerprints to skip
+            limit: Maximum number of fingerprints to return. `None` returns
+                ALL rows (intentional unbounded read — use carefully on
+                large libraries). `0` returns an empty list.
+            offset: Number of fingerprints to skip.
 
         Returns:
             List of TrackFingerprint objects
@@ -250,7 +252,12 @@ class FingerprintRepository:
         try:
             stmt = select(TrackFingerprint).order_by(TrackFingerprint.created_at.desc())
 
-            if limit:
+            # #3683: `if limit is not None` so `limit=0` returns an empty
+            # list (not unbounded). Previously `if limit:` collapsed both
+            # `0` and `None` to unbounded — root cause of OOM in
+            # `refresh_cloud` (#3680) and `similarity.find_similar` fallback
+            # (#3705).
+            if limit is not None:
                 stmt = stmt.limit(limit).offset(offset)
 
             fingerprints = session.execute(stmt).scalars().all()
