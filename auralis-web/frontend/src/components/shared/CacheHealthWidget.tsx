@@ -168,8 +168,19 @@ export function CacheHealthWidget({
     <>
       <Box
         data-testid="cache-health-widget"
+        role={interactive ? 'button' : undefined}
         tabIndex={interactive ? 0 : undefined}
         onClick={() => interactive && setShowExpandedMonitor(true)}
+        onKeyDown={
+          interactive
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setShowExpandedMonitor(true);
+                }
+              }
+            : undefined
+        }
         sx={{
           width: sizeStyles.width,
           height: sizeStyles.height,
