@@ -654,26 +654,31 @@ class ContinuousMode:
     def _apply_final_normalization(self, audio: np.ndarray, params: Any) -> np.ndarray:
         """Apply final loudness and peak normalization using unified pipeline"""
 
-        # Step 1: RMS-based normalization (to target loudness)
-        # Use RMS instead of LUFS because LUFS measurement can be unreliable after EQ processing
-        from ...dsp.basic import rms as calculate_rms
+        # Step 1: LUFS-based normalization to target loudness.
+        # #3665: previously used unweighted RMS as a proxy for LUFS, which
+        # diverged by 3-6 dB depending on spectral content (bass-heavy
+        # material was under-normalized; bright material over-normalized).
+        # K-weighted gated LUFS per ITU-R BS.1770-4 is the correct
+        # measurement; calculate_loudness_units() is already used elsewhere
+        # in this module for the EQ-compensation step (line 342).
+        current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
+        if not np.isfinite(current_lufs):
+            # Fall back to RMS for very short or silent segments where
+            # LUFS gating discards every block.
+            from ...dsp.basic import rms as calculate_rms
+            current_rms = calculate_rms(audio.ravel() if audio.ndim == 2 else audio)
+            current_lufs = DBConversion.to_db(current_rms)
 
-        # Use audio.ravel() for stereo to include all channel samples in RMS,
-        # avoiding up-to-3dB underestimate from averaging L+R before RMS (fixes #2593).
-        current_rms = calculate_rms(audio.ravel() if audio.ndim == 2 else audio)
-        current_rms_db = DBConversion.to_db(current_rms)
+        target_lufs = params.target_lufs
+        adjustment = target_lufs - current_lufs
 
-        # Use LUFS target directly as RMS target
-        # Both measure loudness but with different frequency weighting
-        # The key is to respect the target and not apply excessive gain
-        target_rms_db = params.target_lufs
-        rms_adjustment = target_rms_db - current_rms_db
-
-        if abs(rms_adjustment) > 0.5:
-            audio = amplify(audio, rms_adjustment)
-            new_rms = calculate_rms(audio.ravel() if audio.ndim == 2 else audio)
-            new_rms_db = DBConversion.to_db(new_rms)
-            debug(f"[RMS Normalization] {current_rms_db:.1f} → {new_rms_db:.1f} dB ({rms_adjustment:+.1f} dB)")
+        if abs(adjustment) > 0.5:
+            audio = amplify(audio, adjustment)
+            new_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
+            debug(
+                f"[LUFS Normalization] {current_lufs:.1f} → {new_lufs:.1f} LUFS "
+                f"({adjustment:+.1f} dB, target {target_lufs:.1f})"
+            )
 
         # Step 2: Peak normalization (DISABLED - use LUFS normalization instead)
         # Peak normalization can cause excessive gain when EQ processing has
