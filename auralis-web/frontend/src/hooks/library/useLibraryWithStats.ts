@@ -37,8 +37,8 @@
  * } = useLibraryWithStats({ view: 'all' });
  * ```
  *
- * @see useLibraryData.ts (deprecated, use this instead)
- * @see useLibraryStats.ts (deprecated, use this instead)
+ * #3645: this hook is the sole library-data/stats entry point. The
+ * former useLibraryData and useLibraryStats hooks have been removed.
  */
 
 const DEBUG = import.meta.env.DEV;

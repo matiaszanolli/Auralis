@@ -10,9 +10,9 @@ export { useLibraryQuery, useArtistsQuery, useTracksQuery, useAlbumsQuery as use
 export { useAlbumsQuery } from './useAlbumsQuery';
 
 // New hooks moved from root
+// #3645: useLibraryWithStats subsumes useLibraryData + useLibraryStats —
+// the deprecated hooks were removed (no remaining consumers).
 export { useLibraryWithStats } from './useLibraryWithStats';
-export { useLibraryStats } from './useLibraryStats';
-export { useLibraryData } from './useLibraryData';
 export { useTrackSelection } from './useTrackSelection';
 export { useRecentlyTouched } from './useRecentlyTouched';
 export type { RecentlyTouchedEntry } from './useRecentlyTouched';
