@@ -144,49 +144,75 @@ export const useQueue = () => {
     [state.tracks]
   );
 
-  return {
-    // State
-    tracks: state.tracks,
-    currentIndex: state.currentIndex,
-    currentTrack: state.tracks[state.currentIndex] || null,
-    queueLength: state.tracks.length,
-    isLoading: state.isLoading,
-    error: state.error,
+  const add = useCallback(
+    (track: QueueTrack, position?: number) => dispatch(queueActions.addTrack(track, position)),
+    [dispatch]
+  );
+  const addMany = useCallback(
+    (tracks: QueueTrack[]) => dispatch(queueActions.addTracks(tracks)),
+    [dispatch]
+  );
+  const remove = useCallback(
+    (index: number) => dispatch(queueActions.removeTrack(index)),
+    [dispatch]
+  );
+  const reorder = useCallback(
+    (fromIndex: number, toIndex: number) =>
+      dispatch(queueActions.reorderTrack({ fromIndex, toIndex })),
+    [dispatch]
+  );
+  const setCurrentIndex = useCallback(
+    (index: number) => dispatch(queueActions.setCurrentIndex(index)),
+    [dispatch]
+  );
+  const next = useCallback(() => dispatch(queueActions.nextTrack()), [dispatch]);
+  const previous = useCallback(() => dispatch(queueActions.previousTrack()), [dispatch]);
+  const clear = useCallback(() => dispatch(queueActions.clearQueue()), [dispatch]);
+  const setQueue = useCallback(
+    (tracks: QueueTrack[]) => dispatch(queueActions.setQueue(tracks)),
+    [dispatch]
+  );
 
-    // Computed state (memoized above)
-    remainingTime,
-    totalTime,
-
-    // Actions
-    add: useCallback(
-      (track: QueueTrack, position?: number) => dispatch(queueActions.addTrack(track, position)),
-      [dispatch]
-    ),
-    addMany: useCallback(
-      (tracks: QueueTrack[]) => dispatch(queueActions.addTracks(tracks)),
-      [dispatch]
-    ),
-    remove: useCallback(
-      (index: number) => dispatch(queueActions.removeTrack(index)),
-      [dispatch]
-    ),
-    reorder: useCallback(
-      (fromIndex: number, toIndex: number) =>
-        dispatch(queueActions.reorderTrack({ fromIndex, toIndex })),
-      [dispatch]
-    ),
-    setCurrentIndex: useCallback(
-      (index: number) => dispatch(queueActions.setCurrentIndex(index)),
-      [dispatch]
-    ),
-    next: useCallback(() => dispatch(queueActions.nextTrack()), [dispatch]),
-    previous: useCallback(() => dispatch(queueActions.previousTrack()), [dispatch]),
-    clear: useCallback(() => dispatch(queueActions.clearQueue()), [dispatch]),
-    setQueue: useCallback(
-      (tracks: QueueTrack[]) => dispatch(queueActions.setQueue(tracks)),
-      [dispatch]
-    ),
-  };
+  // #3619: stable object identity across renders when nothing relevant
+  // changed — matches the usePlayer pattern from #2537.
+  return useMemo(
+    () => ({
+      tracks: state.tracks,
+      currentIndex: state.currentIndex,
+      currentTrack: state.tracks[state.currentIndex] || null,
+      queueLength: state.tracks.length,
+      isLoading: state.isLoading,
+      error: state.error,
+      remainingTime,
+      totalTime,
+      add,
+      addMany,
+      remove,
+      reorder,
+      setCurrentIndex,
+      next,
+      previous,
+      clear,
+      setQueue,
+    }),
+    [
+      state.tracks,
+      state.currentIndex,
+      state.isLoading,
+      state.error,
+      remainingTime,
+      totalTime,
+      add,
+      addMany,
+      remove,
+      reorder,
+      setCurrentIndex,
+      next,
+      previous,
+      clear,
+      setQueue,
+    ]
+  );
 };
 
 // ============================================================================
@@ -207,39 +233,43 @@ export const useCache = () => {
   const dispatch = useDispatch<AppDispatch>();
   const state = useSelector((state: RootState) => state.cache, shallowEqual);
 
-  return {
-    // State
-    stats: state.stats,
-    health: state.health,
-    isLoading: state.isLoading,
-    error: state.error,
-    lastUpdated: state.lastUpdated,
+  const setStats = useCallback(
+    (stats: CacheStats) => dispatch(cacheActions.setCacheStats(stats)),
+    [dispatch]
+  );
+  const setHealth = useCallback(
+    (health: CacheHealth) => dispatch(cacheActions.setCacheHealth(health)),
+    [dispatch]
+  );
+  const clear = useCallback(
+    () => dispatch(cacheActions.clearCacheLocal()),
+    [dispatch]
+  );
+  const clearError = useCallback(
+    () => dispatch(cacheActions.clearError()),
+    [dispatch]
+  );
 
-    // Computed health
-    isHealthy: state.health?.healthy ?? false,
-    hitRate: state.stats?.overall.overall_hit_rate ?? 0,
-    totalSize: state.stats?.overall.total_size_mb ?? 0,
-    totalChunks: state.stats?.overall.total_chunks ?? 0,
-    tracksCached: state.stats?.overall.tracks_cached ?? 0,
-
-    // Actions
-    setStats: useCallback(
-      (stats: CacheStats) => dispatch(cacheActions.setCacheStats(stats)),
-      [dispatch]
-    ),
-    setHealth: useCallback(
-      (health: CacheHealth) => dispatch(cacheActions.setCacheHealth(health)),
-      [dispatch]
-    ),
-    clear: useCallback(
-      () => dispatch(cacheActions.clearCacheLocal()),
-      [dispatch]
-    ),
-    clearError: useCallback(
-      () => dispatch(cacheActions.clearError()),
-      [dispatch]
-    ),
-  };
+  // #3619: stable object identity (matches usePlayer pattern).
+  return useMemo(
+    () => ({
+      stats: state.stats,
+      health: state.health,
+      isLoading: state.isLoading,
+      error: state.error,
+      lastUpdated: state.lastUpdated,
+      isHealthy: state.health?.healthy ?? false,
+      hitRate: state.stats?.overall.overall_hit_rate ?? 0,
+      totalSize: state.stats?.overall.total_size_mb ?? 0,
+      totalChunks: state.stats?.overall.total_chunks ?? 0,
+      tracksCached: state.stats?.overall.tracks_cached ?? 0,
+      setStats,
+      setHealth,
+      clear,
+      clearError,
+    }),
+    [state.stats, state.health, state.isLoading, state.error, state.lastUpdated, setStats, setHealth, clear, clearError]
+  );
 };
 
 // ============================================================================
@@ -260,51 +290,69 @@ export const useConnection = () => {
   const dispatch = useDispatch<AppDispatch>();
   const state = useSelector((state: RootState) => state.connection, shallowEqual);
 
-  return {
-    // State
-    wsConnected: state.wsConnected,
-    apiConnected: state.apiConnected,
-    latency: state.latency,
-    reconnectAttempts: state.reconnectAttempts,
-    maxReconnectAttempts: state.maxReconnectAttempts,
-    lastError: state.lastError,
+  const setWSConnected = useCallback(
+    (connected: boolean) => dispatch(connectionActions.setWSConnected(connected)),
+    [dispatch]
+  );
+  const setAPIConnected = useCallback(
+    (connected: boolean) => dispatch(connectionActions.setAPIConnected(connected)),
+    [dispatch]
+  );
+  const setLatency = useCallback(
+    (latency: number) => dispatch(connectionActions.setLatency(latency)),
+    [dispatch]
+  );
+  const incrementReconnectAttempts = useCallback(
+    () => dispatch(connectionActions.incrementReconnectAttempts()),
+    [dispatch]
+  );
+  const resetReconnectAttempts = useCallback(
+    () => dispatch(connectionActions.resetReconnectAttempts()),
+    [dispatch]
+  );
+  const clearError = useCallback(
+    () => dispatch(connectionActions.clearError()),
+    [dispatch]
+  );
 
-    // Computed state
-    isFullyConnected: state.wsConnected && state.apiConnected,
-    canReconnect: state.reconnectAttempts < state.maxReconnectAttempts,
-    connectionHealth:
-      state.wsConnected && state.apiConnected
+  // #3619: stable object identity (matches usePlayer pattern).
+  return useMemo(
+    () => ({
+      wsConnected: state.wsConnected,
+      apiConnected: state.apiConnected,
+      latency: state.latency,
+      reconnectAttempts: state.reconnectAttempts,
+      maxReconnectAttempts: state.maxReconnectAttempts,
+      lastError: state.lastError,
+      isFullyConnected: state.wsConnected && state.apiConnected,
+      canReconnect: state.reconnectAttempts < state.maxReconnectAttempts,
+      connectionHealth: (state.wsConnected && state.apiConnected
         ? 'healthy'
         : state.wsConnected || state.apiConnected
           ? 'degraded'
-          : 'disconnected',
-
-    // Actions
-    setWSConnected: useCallback(
-      (connected: boolean) => dispatch(connectionActions.setWSConnected(connected)),
-      [dispatch]
-    ),
-    setAPIConnected: useCallback(
-      (connected: boolean) => dispatch(connectionActions.setAPIConnected(connected)),
-      [dispatch]
-    ),
-    setLatency: useCallback(
-      (latency: number) => dispatch(connectionActions.setLatency(latency)),
-      [dispatch]
-    ),
-    incrementReconnectAttempts: useCallback(
-      () => dispatch(connectionActions.incrementReconnectAttempts()),
-      [dispatch]
-    ),
-    resetReconnectAttempts: useCallback(
-      () => dispatch(connectionActions.resetReconnectAttempts()),
-      [dispatch]
-    ),
-    clearError: useCallback(
-      () => dispatch(connectionActions.clearError()),
-      [dispatch]
-    ),
-  };
+          : 'disconnected') as 'healthy' | 'degraded' | 'disconnected',
+      setWSConnected,
+      setAPIConnected,
+      setLatency,
+      incrementReconnectAttempts,
+      resetReconnectAttempts,
+      clearError,
+    }),
+    [
+      state.wsConnected,
+      state.apiConnected,
+      state.latency,
+      state.reconnectAttempts,
+      state.maxReconnectAttempts,
+      state.lastError,
+      setWSConnected,
+      setAPIConnected,
+      setLatency,
+      incrementReconnectAttempts,
+      resetReconnectAttempts,
+      clearError,
+    ]
+  );
 };
 
 // ============================================================================

@@ -105,6 +105,11 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
   // Track current request to prevent race conditions
   const currentRequestRef = useRef<number | null>(null);
 
+  // #3616/#3646: abort in-flight similarity fetches when the modal closes or
+  // the user changes track. Previously the request continued to completion
+  // and only the setState was guarded.
+  const abortRef = useRef<AbortController | null>(null);
+
   /**
    * Find similar tracks for a given track ID
    */
@@ -143,6 +148,11 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
       setLoading(true);
       setError(null);
 
+      // Cancel any previous in-flight request before starting a new one.
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       try {
         // Build query parameters
         const params = new URLSearchParams({
@@ -159,6 +169,7 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
             headers: {
               'Content-Type': 'application/json',
             },
+            signal: controller.signal,
           }
         );
 
@@ -204,6 +215,10 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
 
         return results;
       } catch (err) {
+        if ((err as Error).name === 'AbortError') {
+          // Caller cancelled — no state to update, no error to surface.
+          throw err;
+        }
         // Check if this is still the current request
         if (currentRequestRef.current === trackId) {
           const message =
@@ -223,6 +238,8 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
    * Clear current results
    */
   const clear = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setSimilarTracks(null);
     setError(null);
     setLoading(false);

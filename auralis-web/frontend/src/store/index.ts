@@ -32,10 +32,14 @@ export const store = configureStore({
     cache: cacheReducer,
     connection: connectionReducer,
   },
-  middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware()
-      .concat(createErrorTrackingMiddleware({ logToConsole: true }))
-      .concat(createLoggerMiddleware()),
+  middleware: (getDefaultMiddleware) => {
+    // #3622: gate dev-only middleware so production bundles don't ship the
+    // logger code and don't print errors to user consoles.
+    const chain = getDefaultMiddleware().concat(
+      createErrorTrackingMiddleware({ logToConsole: import.meta.env.DEV })
+    );
+    return import.meta.env.DEV ? chain.concat(createLoggerMiddleware()) : chain;
+  },
   devTools: import.meta.env.DEV,
 });
 

@@ -174,9 +174,18 @@ export function useAudioVisualization(enabled: boolean = true): AudioVisualizati
     frequencyDataRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
   }, [enabled, isAudioActive]);
 
+  // #3647: read isAudioActive via a ref so this rAF callback's identity is
+  // stable across play/pause transitions. Previously the [isAudioActive]
+  // dep caused the useEffect to cancel+reschedule the frame on every
+  // toggle, producing a dropped frame in the visualization.
+  const isAudioActiveRef = useRef(isAudioActive);
+  useEffect(() => {
+    isAudioActiveRef.current = isAudioActive;
+  }, [isAudioActive]);
+
   // Animation loop for reading audio data
   const updateVisualization = useCallback(() => {
-    if (!analyserRef.current || !frequencyDataRef.current || !isAudioActive) {
+    if (!analyserRef.current || !frequencyDataRef.current || !isAudioActiveRef.current) {
       // Don't schedule another frame — the useEffect will restart the
       // loop when conditions change (#3400).
       return;
@@ -248,7 +257,7 @@ export function useAudioVisualization(enabled: boolean = true): AudioVisualizati
     }
 
     animationFrameRef.current = requestAnimationFrame(updateVisualization);
-  }, [isAudioActive]);
+  }, []);
 
   // Start/stop animation loop
   useEffect(() => {

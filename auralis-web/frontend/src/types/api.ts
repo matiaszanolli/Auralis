@@ -437,7 +437,20 @@ export class ApiErrorHandler {
 // Query Parameters Builder
 // ============================================================================
 
-export function buildQueryParams(params: Record<string, any>): string {
+/**
+ * Acceptable value types for query-param serialization.
+ * #3635: narrowed from `any` to prevent silent `[object Object]` coercion
+ * when a caller passes a nested object by mistake.
+ */
+export type QueryParamValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | ReadonlyArray<string | number | boolean>;
+
+export function buildQueryParams(params: Record<string, QueryParamValue>): string {
   const searchParams = new URLSearchParams();
 
   for (const [key, value] of Object.entries(params)) {

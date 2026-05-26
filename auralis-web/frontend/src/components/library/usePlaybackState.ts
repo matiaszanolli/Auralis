@@ -4,6 +4,7 @@ import { useToast } from '@/components/shared/Toast';
 import type { LibraryTrack as Track } from '@/types/domain';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { selectIsPlaying, selectCurrentTrack } from '@/store/slices/playerSlice';
+import { getApiUrl } from '@/config/api';
 
 /**
  * usePlaybackState - Library playback state management
@@ -28,9 +29,9 @@ export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
 
   const handlePlayTrack = useCallback(async (track: Track) => {
     try {
-      // 1. Set queue via REST API (still needed for queue management)
-      const apiBaseUrl = import.meta.env.VITE_API_URL || '';
-      await fetch(`${apiBaseUrl}/api/player/queue`, {
+      // 1. Set queue via REST API (still needed for queue management).
+      // #3641: route through getApiUrl() so URL construction is centralized.
+      await fetch(getApiUrl('/api/player/queue'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

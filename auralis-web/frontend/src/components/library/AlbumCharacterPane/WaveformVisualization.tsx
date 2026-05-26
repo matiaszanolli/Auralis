@@ -60,7 +60,9 @@ export const WaveformVisualization = ({
 
         return (
           <Box
-            key={index}
+            // #3615: bands are positionally stable but a frequency-derived
+            // key clarifies intent and silences exhaustive-deps style lint.
+            key={`band-${index}`}
             sx={{
               position: 'relative',
               flex: 1,

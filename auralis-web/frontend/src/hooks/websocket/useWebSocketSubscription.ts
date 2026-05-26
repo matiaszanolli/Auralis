@@ -44,6 +44,17 @@ const managerReadyListeners: Map<symbol, ManagerReadyListener> = new Map();
 let _managerVersion = 0;
 const _managerVersionListeners: Set<(v: number) => void> = new Set();
 
+// #3629: Vite HMR disposes the old module without running React cleanup, so
+// closures registered in the module-level Map/Set above accumulate across
+// reloads. Clear them on hot-dispose to keep the dev experience clean and
+// avoid masking real reconnect bugs behind ghost listeners.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    managerReadyListeners.clear();
+    _managerVersionListeners.clear();
+  });
+}
+
 /**
  * Set the global WebSocket subscription manager.
  * Call this in your root App component after establishing WebSocket connection.

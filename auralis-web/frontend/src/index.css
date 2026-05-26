@@ -17,6 +17,12 @@
   --midnight-blue: #0B1020;     /* Alias for backwards compat */
   --charcoal: #151D2F;          /* level2 - surfaces */
   --silver: #E2E8F0;
+  /* #3636: token-derived border tints. Used by utility classes below
+     so border colors stay in sync with tokens.colors.border.* and don't
+     drift into off-brand Tailwind-slate territory. */
+  --border-light: rgba(115, 102, 240, 0.12);
+  --border-medium: rgba(115, 102, 240, 0.2);
+  --border-subtle: rgba(115, 102, 240, 0.05);
 
   /* Brand Accent Colors - Design Language v1.2.0 */
   --aurora-cyan: #47D6FF;       /* Teal/Cyan - audio state */
@@ -222,9 +228,9 @@ code {
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm);
-  background: rgba(226, 232, 240, 0.05);
+  background: var(--border-subtle);
   border-radius: var(--radius-md);
-  border: 1px solid rgba(226, 232, 240, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 /* ========================================
@@ -232,7 +238,7 @@ code {
    ======================================== */
 
 .dropzone {
-  border: 2px dashed rgba(226, 232, 240, 0.2);
+  border: 2px dashed var(--border-medium);
   border-radius: var(--radius-lg);
   padding: var(--space-2xl);
   text-align: center;
@@ -400,7 +406,7 @@ button:focus-visible {
   background: var(--charcoal);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  border: 1px solid rgba(226, 232, 240, 0.1);
+  border: 1px solid var(--border-light);
   transition: all var(--transition-normal);
 }
 
@@ -419,7 +425,7 @@ input[type="password"],
 input[type="search"],
 textarea {
   background: var(--midnight-blue);
-  border: 1px solid rgba(226, 232, 240, 0.2);
+  border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
   padding: var(--space-md) var(--space-base);
   color: var(--silver);

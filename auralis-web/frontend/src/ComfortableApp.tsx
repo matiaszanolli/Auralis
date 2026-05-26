@@ -29,7 +29,7 @@ import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/app/useKeyboardShortcuts';
 import { selectIsPlaying, selectVolume } from './store/slices/playerSlice';
-import { ENDPOINTS } from '@/config/api';
+import { usePlaybackControl } from '@/hooks/player/usePlaybackControl';
 import type { ViewMode } from '@/components/navigation/ViewToggle';
 import type { Track } from '@/types/domain';
 
@@ -62,43 +62,29 @@ function ComfortableApp() {
   // Playback queue management
   const { setQueue } = usePlaybackQueue();
 
-  // Player API helpers for issuing commands to backend
+  // #3642: previously this block held four fire-and-forget fetch()
+  // handlers. PLAYER_PLAY / PLAYER_PAUSE endpoints no longer exist on the
+  // backend and the others swallowed errors silently. Delegate everything
+  // to usePlaybackControl which uses the canonical WS + REST paths and
+  // surfaces errors via Redux state.
+  const playback = usePlaybackControl();
   const togglePlayPause = useCallback(async () => {
-    try {
-      const endpoint = isPlaying ? ENDPOINTS.PLAYER_PAUSE : ENDPOINTS.PLAYER_PLAY;
-      await fetch(endpoint, { method: 'POST' });
-    } catch (err) {
-      console.error('Playback control error:', err);
+    if (isPlaying) {
+      await playback.pause();
+    } else {
+      await playback.play();
     }
-  }, [isPlaying]);
+  }, [isPlaying, playback]);
 
-  const nextTrack = useCallback(async () => {
-    try {
-      await fetch(ENDPOINTS.PLAYER_NEXT, { method: 'POST' });
-    } catch (err) {
-      console.error('Next track error:', err);
-    }
-  }, []);
-
-  const previousTrack = useCallback(async () => {
-    try {
-      await fetch(ENDPOINTS.PLAYER_PREVIOUS, { method: 'POST' });
-    } catch (err) {
-      console.error('Previous track error:', err);
-    }
-  }, []);
-
-  const setVolume = useCallback(async (newVolume: number) => {
-    try {
-      await fetch(ENDPOINTS.PLAYER_VOLUME, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ volume: newVolume })
-      });
-    } catch (err) {
-      console.error('Volume control error:', err);
-    }
-  }, []);
+  const nextTrack = useCallback(() => playback.next(), [playback]);
+  const previousTrack = useCallback(() => playback.previous(), [playback]);
+  const setVolume = useCallback(
+    // usePlaybackControl.setVolume expects 0.0-1.0 — clamp + scale the 0-100
+    // value used by the keyboard-shortcut UI.
+    (newVolume: number) =>
+      playback.setVolume(Math.max(0, Math.min(100, newVolume)) / 100),
+    [playback]
+  );
 
   // Drag-drop handler (useAppDragDrop handles all queue/playlist operations)
   const { handleDragEnd } = useAppDragDrop({ info, success });

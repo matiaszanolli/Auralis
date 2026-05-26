@@ -76,12 +76,19 @@ export const usePlayerAPI = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // #3630: AbortController so fetches cancel on unmount / reconnect cycle.
+  const fetchAbortRef = useRef<AbortController | null>(null);
+
   // Fetch current player status
   const fetchPlayerStatus = useCallback(async () => {
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
     try {
-      const response = await fetch(`/api/player/status`);
+      const response = await fetch(`/api/player/status`, { signal: controller.signal });
       if (response.ok) {
         const data: RawPlayerStateData = await response.json();
+        if (controller.signal.aborted) return;
         setPlayerState(prev => ({
           ...prev,
           currentTrack: data.current_track || null,
@@ -94,6 +101,7 @@ export const usePlayerAPI = () => {
         }));
       }
     } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
       console.error('Failed to fetch player status:', err);
     }
   }, []);
@@ -323,6 +331,8 @@ export const usePlayerAPI = () => {
 
     return () => {
       unsubscribePlayerState();
+      // #3630: abort any in-flight status fetch on cleanup.
+      fetchAbortRef.current?.abort();
     };
   }, [subscribe, fetchPlayerStatus, connectionStatus]);
 

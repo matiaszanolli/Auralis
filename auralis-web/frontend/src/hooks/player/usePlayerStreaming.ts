@@ -333,7 +333,10 @@ export function usePlayerStreaming({
         driftCorrectionRef.current = null;
       }
     };
-  }, [wsContext, audioElement, driftThreshold, onDriftDetected, log]);
+    // #3626: the closure reads `driftThresholdSeconds` (derived via
+    // useMemo from `driftThreshold`). Listing the derived value keeps the
+    // dep array semantically consistent with what the effect actually uses.
+  }, [wsContext, audioElement, driftThresholdSeconds, onDriftDetected, log]);
 
   // Layer 3: Periodic full sync with server every N seconds
   useEffect(() => {
@@ -392,7 +395,8 @@ export function usePlayerStreaming({
         clearInterval(syncTimerRef.current);
       }
     };
-  }, [audioElement, onGetPlayerStatus, syncInterval, driftThreshold, onDriftDetected, log]);
+    // #3626: list the derived value used by the closure, not the raw ms.
+  }, [audioElement, onGetPlayerStatus, syncInterval, driftThresholdSeconds, onDriftDetected, log]);
 
   // Handle audio errors
   useEffect(() => {
