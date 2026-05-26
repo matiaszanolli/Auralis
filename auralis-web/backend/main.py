@@ -21,8 +21,12 @@ import uvicorn
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# NOTE: logging.basicConfig was removed (#3537 / BE-NEW-79). uvicorn.run()
+# installs its own logging configuration with handlers on the root logger,
+# and basicConfig added a second handler so every line emitted by a
+# `logger = logging.getLogger(__name__)` propagated to both — duplicate log
+# lines in stdout and in the Electron-captured log file. Letting Uvicorn
+# own the root logger config eliminates the duplication.
 logger = logging.getLogger(__name__)
 
 # Add parent directory to path for Auralis imports
@@ -58,7 +62,10 @@ from config.startup import create_lifespan
 from player_state import create_track_info
 from core.proactive_buffer import buffer_presets_for_track
 
-# Check feature availability
+# Check feature availability via real import probes (fixes #3534 /
+# BE-NEW-76 — prior code had empty try: pass blocks that could never
+# flip the flag, so HAS_STREAMLINED_CACHE / HAS_SIMILARITY were
+# hard-coded True regardless of actual import success).
 HAS_AURALIS = True
 HAS_PROCESSING = True
 HAS_STREAMLINED_CACHE = True
@@ -74,13 +81,13 @@ except ImportError:
     logger.warning("⚠️  Processing components not available")
 
 try:
-    pass
+    import cache as _cache_probe  # noqa: F401
 except ImportError:
     HAS_STREAMLINED_CACHE = False
     logger.warning("⚠️  Streamlined cache not available")
 
 try:
-    pass
+    from auralis.analysis.fingerprint import FingerprintSimilarity as _similarity_probe  # noqa: F401
 except ImportError:
     HAS_SIMILARITY = False
     logger.warning("⚠️  Similarity system not available")

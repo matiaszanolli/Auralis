@@ -49,7 +49,6 @@ def create_system_router(
     get_processing_engine: Callable[..., Any],
     HAS_AURALIS: bool,
     get_repository_factory: Callable[..., Any] | None = None,
-    get_player_manager: Callable[..., Any] | None = None,
     get_state_manager: Callable[..., Any] | None = None,
     get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
 ) -> APIRouter:
@@ -61,9 +60,11 @@ def create_system_router(
         get_processing_engine: Callable that returns ProcessingEngine instance
         HAS_AURALIS: Boolean indicating if Auralis is available
         get_repository_factory: Optional callable that returns RepositoryFactory instance
-        get_player_manager: Callable that returns PlayerManager instance
         get_state_manager: Callable that returns PlayerStateManager instance
         get_enhancement_settings: Optional callable that returns enhancement settings dict
+
+    Note: `get_player_manager` was a dead parameter (declared, documented,
+    never passed, never read) and is removed in #3536 / BE-NEW-78.
     """
 
     @router.get("/api/health")
