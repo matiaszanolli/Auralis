@@ -9,10 +9,8 @@ Modules:
 - SpectralOperations - Spectral feature calculations
 - VariationOperations - Dynamic variation calculations
 - DSPBackend - Rust DSP operations (required)
-- BaseStreamingAnalyzer - Mixin for streaming analyzer infrastructure
 """
 
-from .base_streaming_analyzer import BaseStreamingAnalyzer
 from .dsp_backend import DSPBackend
 from .harmonic_ops import HarmonicOperations
 from .spectral_ops import SpectralOperations
@@ -25,5 +23,4 @@ __all__ = [
     'SpectralOperations',
     'VariationOperations',
     'DSPBackend',
-    'BaseStreamingAnalyzer',
 ]
