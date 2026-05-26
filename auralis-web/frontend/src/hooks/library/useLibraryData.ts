@@ -143,8 +143,11 @@ export const useLibraryData = ({
     try {
       const limit = 50;
       const newOffset = offsetRef.current + limit;
-      offsetRef.current = newOffset;
-      setOffset(newOffset);
+
+      // #3602: do NOT advance the offset before the response is confirmed
+      // OK. Previously the offset was bumped pre-fetch and a non-OK response
+      // would silently leave it advanced, permanently skipping a page of
+      // tracks on subsequent loadMore calls.
 
       // Use relative URLs to leverage Vite proxy (avoids CORS issues)
       const endpoint = view === 'favourites'
@@ -158,12 +161,16 @@ export const useLibraryData = ({
         // Transform tracks data to match frontend interface
         const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
 
-        // Append new tracks
+        // Append new tracks; advance offset only after success
         setTracks(prev => [...prev, ...transformedTracks]);
         setHasMore(data.has_more || false);
         setTotalTracks(data.total || 0);
+        offsetRef.current = newOffset;
+        setOffset(newOffset);
 
         console.log(`Loaded more: ${newOffset + transformedTracks.length}/${data.total || 0}`);
+      } else {
+        toastRef.current.error(`Failed to load more tracks (status ${response.status}).`);
       }
     } catch (err) {
       console.error('Error loading more tracks:', err);
