@@ -103,7 +103,11 @@ export function ConnectionStatusIndicator({
   // Measure latency with heartbeats — pauses when tab is hidden (#3257)
   // Results dispatched to Redux so all consumers see the same values (#3380)
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
+    // #3585: use a ref-stored interval so cleanup can always clear the latest
+    // interval regardless of closure state. Previous version used a `let`
+    // captured in two closures; a `visibilitychange` event firing between
+    // stopPolling() and removeEventListener() could leak a fresh interval.
+    const intervalRef: { current: ReturnType<typeof setInterval> | null } = { current: null };
 
     const pollHealth = async () => {
       const start = performance.now();
@@ -123,15 +127,15 @@ export function ConnectionStatusIndicator({
     };
 
     const startPolling = () => {
-      if (!interval) {
-        interval = setInterval(pollHealth, 5000);
+      if (!intervalRef.current) {
+        intervalRef.current = setInterval(pollHealth, 5000);
       }
     };
 
     const stopPolling = () => {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
 
@@ -148,8 +152,11 @@ export function ConnectionStatusIndicator({
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      stopPolling();
+      // Order matters: remove the visibility listener FIRST so it can no
+      // longer call startPolling() between us clearing the current interval
+      // and finishing cleanup.
       document.removeEventListener('visibilitychange', handleVisibility);
+      stopPolling();
     };
   }, [dispatch]);
 
