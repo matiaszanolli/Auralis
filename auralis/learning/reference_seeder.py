@@ -40,6 +40,12 @@ DEFAULT_MIN_CREST_DB = 9.0
 DEFAULT_MAX_BAND_FRACTION = 0.65   # No single 7-band slice >65% of energy
 DEFAULT_MAX_REFERENCES_ABSOLUTE = 50
 DEFAULT_MAX_REFERENCES_LIBRARY_FRACTION = 0.05    # cap at 5% of library
+# #3680: candidate cap to prevent OOM on very large libraries. The seeder
+# only selects up to `max_references_absolute` (default 50) so the
+# candidate pool only needs to be large enough that the best aren't
+# missed. 10 000 covers nearly all personal libraries fully; larger
+# libraries get a bounded most-recent slice.
+DEFAULT_MAX_CANDIDATES = 10_000
 
 
 @dataclass(frozen=True)
@@ -52,6 +58,8 @@ class SeederConfig:
     max_band_fraction: float = DEFAULT_MAX_BAND_FRACTION
     max_references_absolute: int = DEFAULT_MAX_REFERENCES_ABSOLUTE
     max_references_library_fraction: float = DEFAULT_MAX_REFERENCES_LIBRARY_FRACTION
+    # #3680: candidate cap to prevent unbounded RAM use during cloud rebuild.
+    max_candidates: int = DEFAULT_MAX_CANDIDATES
 
 
 # The seven band fields whose distribution we audit for extreme outliers.
@@ -160,7 +168,11 @@ def refresh_cloud(
         (cleared_count, selected_count).
     """
     cleared = repository.clear_all_reference_flags()
-    all_fps = repository.get_all()
+    # #3680: bounded candidate pool to prevent OOM on very large libraries.
+    # `get_all()` returns rows ordered by created_at DESC so the cap takes
+    # the most recent slice, which is the sensible default for "what should
+    # the reference cloud represent right now".
+    all_fps = repository.get_all(limit=config.max_candidates)
     selected = select_references(all_fps, config)
     flags = {fp.track_id: True for fp, _score in selected}
     repository.set_reference_flags(flags)
