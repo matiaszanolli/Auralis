@@ -132,6 +132,11 @@ class MigrationManager:
                 'timeout': 15,          # 15s busy timeout matches LibraryManager
                 'check_same_thread': False,
             },
+            # #3702: verify connection before use to avoid stale-connection
+            # OperationalError when another process has checkpointed the
+            # WAL between MigrationManager init and first use. Matches
+            # LibraryManager's create_engine() contract.
+            pool_pre_ping=True,
         )
 
         @event.listens_for(self.engine, "connect")

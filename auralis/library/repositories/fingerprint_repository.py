@@ -11,7 +11,7 @@ Data access layer for track fingerprint operations
 from typing import Any
 from collections.abc import Callable
 
-from sqlalchemy import and_, delete, func, select, text
+from sqlalchemy import and_, delete, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -989,8 +989,13 @@ class FingerprintRepository:
             #    These are fingerprints that were claimed for re-extraction but the
             #    worker crashed before completing.  Reset to version 1 so they are
             #    eligible for re-claiming next time.
+            # #3711: use ORM update() instead of raw text() — matches the
+            # pattern used by `clear_all_reference_flags`. Table renames
+            # via migrations would catch the change here.
             reset_result = session.execute(
-                text("UPDATE track_fingerprints SET fingerprint_version = 1 WHERE fingerprint_version = 0")
+                update(TrackFingerprint)
+                .where(TrackFingerprint.fingerprint_version == 0)
+                .values(fingerprint_version=1)
             )
             reset_count = reset_result.rowcount
 

@@ -81,7 +81,10 @@ def _probe_audio(file_path: Path) -> dict:
                     result_dict['channels'] = int(ch)
                 break
 
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, ValueError, Exception) as e:
+    # #3697: removed the trailing `, Exception` from the catch tuple so
+    # programming errors propagate naturally instead of being swallowed
+    # as `Code.ERROR_CORRUPTED` for every load.
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, ValueError) as e:
         warning(f"Could not probe audio with ffprobe: {e}")
 
     return result_dict
@@ -198,6 +201,12 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
 
     except subprocess.TimeoutExpired:
         raise ModuleError(f"{Code.ERROR_FFMPEG_TIMEOUT}: Conversion timed out")
+    except ModuleError:
+        # #3695: don't re-wrap already-specific ModuleError raises (e.g.
+        # ERROR_TRUNCATED_FILE from soundfile_loader). Matches the pattern
+        # in soundfile_loader.py:80-82. Without this, every internal
+        # diagnostic code is overwritten by ERROR_FFMPEG_CONVERSION.
+        raise
     except Exception as e:
         raise ModuleError(f"{Code.ERROR_FFMPEG_CONVERSION}: {str(e)}")
     finally:

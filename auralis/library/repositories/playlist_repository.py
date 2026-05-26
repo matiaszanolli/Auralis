@@ -105,10 +105,14 @@ class PlaylistRepository:
                 .options(selectinload(Playlist.tracks))
                 .order_by(Playlist.name)
             ).scalars().all()
-            # Expunge all playlists to avoid DetachedInstanceError
-            for playlist in playlists:
-                session.expunge(playlist)
-            return playlists
+            # #3709: expunge_all() detaches the playlists AND their nested
+            # Track objects from the session. The previous per-playlist
+            # `session.expunge(playlist)` only detached the parent; nested
+            # tracks remained tied to the about-to-close session, so any
+            # downstream access to `track.artists` / `track.album` (not
+            # pre-loaded here) raised DetachedInstanceError.
+            session.expunge_all()
+            return list(playlists)
         finally:
             session.close()
 
@@ -261,7 +265,13 @@ class PlaylistRepository:
         """Remove all tracks from playlist"""
         session = self.get_session()
         try:
-            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
+            # #3707: eager-load tracks so `playlist.tracks = []` doesn't
+            # trigger an implicit lazy SELECT first.
+            playlist = session.execute(
+                select(Playlist)
+                .options(selectinload(Playlist.tracks))
+                .where(Playlist.id == playlist_id)
+            ).scalars().first()
             if not playlist:
                 return False
 
@@ -291,7 +301,13 @@ class PlaylistRepository:
         """
         session = self.get_session()
         try:
-            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
+            # #3707: eager-load tracks so subsequent access (len, pop,
+            # insert) doesn't trigger an implicit lazy SELECT.
+            playlist = session.execute(
+                select(Playlist)
+                .options(selectinload(Playlist.tracks))
+                .where(Playlist.id == playlist_id)
+            ).scalars().first()
             if not playlist:
                 return False
 

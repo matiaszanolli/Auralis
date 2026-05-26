@@ -143,15 +143,21 @@ class FingerprintSimilarity:
                 target_fp,
                 max_candidates=n * prefilter_factor
             )
-            # Fallback to non-prefiltered search if prefiltering found nothing
+            # Fallback to non-prefiltered search if prefiltering found nothing.
+            # #3705: cap at 5000 candidates so a library full of unusual
+            # spectral profiles cannot degrade the similarity query into a
+            # multi-second unbounded load. Distance ranking discards the
+            # majority of candidates anyway. Combined with the #3683
+            # root-cause fix (`limit is not None`), this guarantees
+            # bounded latency.
             if not candidates:
                 warning("Prefiltering found no candidates, falling back to full search")
-                all_fps = self.fingerprint_repo.get_all()
+                all_fps = self.fingerprint_repo.get_all(limit=5000)
                 candidates = [(fp.track_id, self.normalizer.normalize(fp.to_vector()))
                              for fp in all_fps if fp.track_id != track_id]
         else:
-            # Get all fingerprints
-            all_fps = self.fingerprint_repo.get_all()
+            # Get all fingerprints (bounded — see fallback comment above)
+            all_fps = self.fingerprint_repo.get_all(limit=5000)
             candidates = [(fp.track_id, self.normalizer.normalize(fp.to_vector()))
                          for fp in all_fps if fp.track_id != track_id]
 
