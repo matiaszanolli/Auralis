@@ -313,16 +313,32 @@ class FingerprintRepository:
         """
         if not track_ids_flagged:
             return 0
+        # #3681: previous version issued one SELECT + per-row UPDATE per
+        # track, producing 2 000 SQLite round-trips for a 2 000-track
+        # reference cloud. Two bulk UPDATE statements complete in a single
+        # round-trip each. Matches the pattern in `clear_all_reference_flags`.
+        from sqlalchemy import update
+        flagged_ids = [tid for tid, f in track_ids_flagged.items() if f]
+        unflagged_ids = [tid for tid, f in track_ids_flagged.items() if not f]
         session = self.get_session()
         try:
             updated = 0
-            for track_id, flag in track_ids_flagged.items():
-                fp = session.execute(
-                    select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
-                ).scalar_one_or_none()
-                if fp is not None and fp.is_reference != flag:
-                    fp.is_reference = flag
-                    updated += 1
+            if flagged_ids:
+                result = session.execute(
+                    update(TrackFingerprint)
+                    .where(TrackFingerprint.track_id.in_(flagged_ids))
+                    .where(TrackFingerprint.is_reference == False)  # noqa: E712
+                    .values(is_reference=True)
+                )
+                updated += result.rowcount or 0
+            if unflagged_ids:
+                result = session.execute(
+                    update(TrackFingerprint)
+                    .where(TrackFingerprint.track_id.in_(unflagged_ids))
+                    .where(TrackFingerprint.is_reference == True)  # noqa: E712
+                    .values(is_reference=False)
+                )
+                updated += result.rowcount or 0
             session.commit()
             return updated
         finally:
