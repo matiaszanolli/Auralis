@@ -452,22 +452,27 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
 
   // Register WS subscriptions once on mount, not per playNormal() call (#3377).
   // Handlers are stable useCallback refs so deps won't cause churn.
+  //
+  // #3574: replaced previous `handler as any` casts with concrete
+  // `(message) => handler(message as ...)` wrappers. The wrapper signature
+  // matches `MessageHandler = (msg: AnyWebSocketMessage | WebSocketMessage)
+  // => void` without suppressing type-checking on the underlying handlers.
   useEffect(() => {
     unsubscribeStreamStartRef.current = wsContext.subscribe(
       'audio_stream_start',
-      handleStreamStart as any
+      (msg) => handleStreamStart(msg as AudioStreamStartMessage)
     );
     unsubscribeChunkRef.current = wsContext.subscribe(
       'audio_chunk',
-      handleChunk as any
+      (msg) => handleChunk(msg as AudioChunkMessage)
     );
     unsubscribeStreamEndRef.current = wsContext.subscribe(
       'audio_stream_end',
-      handleStreamEnd as any
+      (msg) => handleStreamEnd(msg as AudioStreamEndMessage)
     );
     unsubscribeErrorRef.current = wsContext.subscribe(
       'audio_stream_error',
-      handleStreamError as any
+      (msg) => handleStreamError(msg as AudioStreamErrorMessage)
     );
 
     return () => {
