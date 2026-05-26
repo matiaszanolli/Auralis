@@ -298,6 +298,13 @@ class SimpleMasteringPipeline:
                     # so unconditional transpose is correct here too (issue #2292).
                     write_region = write_region.T
 
+                    # #3660: explicit clamp to [-1.0, 1.0] before PCM_24 encode —
+                    # mirrors the saver.py fix from #3471. Crossfade
+                    # constructive interference at chunk boundaries can push
+                    # samples slightly out of range; libsndfile's implicit
+                    # clipping behaviour varies across builds.
+                    write_region = np.clip(write_region, -1.0, 1.0)
+
                     output_file.write(write_region)
                     # Commit new tail only after write succeeds: if concatenate or
                     # write raises, prev_tail retains the last-good value (#2429).
