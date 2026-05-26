@@ -25,15 +25,23 @@ class PlaybackState(str, Enum):
 
 
 class TrackInfo(BaseModel):
-    """Track information for frontend display"""
+    """Track information for frontend display.
+
+    Field names match the REST serializer (routers/serializers.py) and
+    the frontend TrackInfo type in src/types/websocket.ts:
+      - `filepath` (not file_path)
+      - `artwork_url` (not album_art)
+    Fixes #3505 / BE-NEW-47. The `is_enhanced` field has been removed;
+    it was never set true anywhere and wasn't on the frontend type.
+    """
     id: int
     title: str
     artist: str
     album: str
     duration: float
-    file_path: str = Field(exclude=True)  # Server-only; excluded from API responses (#3205)
-    album_art: str | None = None
-    is_enhanced: bool = False
+    # Server-only; excluded from API responses (#3205)
+    filepath: str = Field(exclude=True)
+    artwork_url: str | None = None
 
 
 class PlayerState(BaseModel):
@@ -117,7 +125,6 @@ def create_track_info(track: Any) -> TrackInfo | None:
         artist=artist_name,
         album=album_name,
         duration=track.duration or 0.0,
-        file_path=track.filepath,
-        album_art=album_art_url,
-        is_enhanced=False
+        filepath=track.filepath,
+        artwork_url=album_art_url,
     )

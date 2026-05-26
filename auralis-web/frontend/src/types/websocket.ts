@@ -179,7 +179,11 @@ export interface TrackLoadedMessage extends WebSocketMessage {
 export interface TrackChangedMessage extends WebSocketMessage {
   type: 'track_changed';
   data: {
-    action: 'next' | 'previous';
+    // 'next' / 'previous' from sequential advance; 'jumped' is emitted by
+    // NavigationService.jump_to_track and includes a `track_index` field
+    // identifying the new queue position (#3504 / BE-NEW-46).
+    action: 'next' | 'previous' | 'jumped';
+    track_index?: number;
   };
 }
 
@@ -416,7 +420,13 @@ export interface AudioStreamEndMessage extends WebSocketMessage {
   };
 }
 
-/** Sent for each PCM audio chunk during streaming (fixes #2501) */
+/** Sent for each PCM audio chunk during streaming (fixes #2501).
+ *
+ * Note: in production the backend emits {@link AudioChunkMetaMessage}
+ * (a text JSON frame) followed by a binary PCM frame. WebSocketContext
+ * fuses them into this synthetic `audio_chunk` shape with `pcm_binary`
+ * populated. The `samples` base64 path remains for legacy clients only.
+ */
 export interface AudioChunkMessage extends WebSocketMessage {
   type: 'audio_chunk';
   data: {
@@ -431,6 +441,28 @@ export interface AudioChunkMessage extends WebSocketMessage {
     /** Raw float32 PCM ArrayBuffer (binary transport, preferred over base64). Injected
      *  at runtime by WebSocketContext when a binary frame follows audio_chunk_meta (fixes #2764). */
     pcm_binary?: ArrayBuffer;
+  };
+}
+
+/** Text-frame metadata that precedes each binary PCM chunk (#3506 / BE-NEW-48).
+ *  The backend emits this in _send_pcm_chunk before the matching binary frame.
+ *  WebSocketContext pairs the two and synthesises an `audio_chunk` event for
+ *  downstream consumers — direct consumers of this raw shape should read seq /
+ *  frame_index for desync detection. */
+export interface AudioChunkMetaMessage extends WebSocketMessage {
+  type: 'audio_chunk_meta';
+  data: {
+    /** Monotonic sequence counter across the entire stream — clients can
+     *  detect dropped or reordered frames by checking that seq increases
+     *  by exactly 1 per frame (fixes #3189). */
+    seq: number;
+    chunk_index: number;
+    chunk_count: number;
+    frame_index: number;
+    frame_count: number;
+    sample_count: number;
+    crossfade_samples: number;
+    stream_type?: 'enhanced' | 'normal';
   };
 }
 
@@ -534,6 +566,7 @@ export type AnyWebSocketMessage =
   | AudioStreamStartMessage
   | AudioStreamEndMessage
   | AudioChunkMessage
+  | AudioChunkMetaMessage
   | AudioStreamErrorMessage
   | ScanProgressMessage
   | ScanCompleteMessage

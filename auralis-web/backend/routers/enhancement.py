@@ -195,7 +195,7 @@ def create_enhancement_router(
                         # Launch background task to pre-process next 3 chunks (#2296)
                         _bg_task = asyncio.create_task(_preprocess_upcoming_chunks(
                             track_id=state.current_track.id,
-                            filepath=state.current_track.file_path,
+                            filepath=state.current_track.filepath,
                             current_time=state.current_time,
                             preset=enhancement_settings.get("preset", "adaptive"),
                             intensity=enhancement_settings.get("intensity", 1.0)
