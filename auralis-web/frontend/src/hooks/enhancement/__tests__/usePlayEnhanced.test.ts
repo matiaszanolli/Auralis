@@ -241,6 +241,11 @@ function setupMocks() {
     send: mockSend,
     connect: vi.fn(),
     disconnect: vi.fn(),
+    // #3581: WebSocketContextValue gained setResumePositionGetter in #3373.
+    // Without it here, every test throws "wsContext.setResumePositionGetter
+    // is not a function" on mount and the React Scheduler cascades the
+    // failure through the rest of the suite.
+    setResumePositionGetter: vi.fn(),
   }));
 }
 
@@ -819,6 +824,7 @@ describe('usePlayEnhanced – seekTo', () => {
       send: mockSend,
       connect: vi.fn(),
       disconnect: vi.fn(),
+      setResumePositionGetter: vi.fn(),
     }));
 
     store = createTestStore();
@@ -996,6 +1002,7 @@ describe('usePlayEnhanced – playEnhanced', () => {
       send: mockSend,
       connect: vi.fn(),
       disconnect: vi.fn(),
+      setResumePositionGetter: vi.fn(),
     });
 
     const disconnectedStore = createTestStore();
@@ -1045,6 +1052,7 @@ describe('usePlayEnhanced – WS disconnect cleanup', () => {
       send: mockSend,
       connect: vi.fn(),
       disconnect: vi.fn(),
+      setResumePositionGetter: vi.fn(),
     });
 
     act(() => {
