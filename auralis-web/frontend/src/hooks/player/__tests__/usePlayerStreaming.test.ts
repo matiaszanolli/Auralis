@@ -311,7 +311,7 @@ describe('usePlayerStreaming Hook', () => {
       expect(mockDriftDetected).not.toHaveBeenCalled();
     });
 
-    it('should correct large drift via playback rate adjustment', async () => {
+    it('should slow down when local is ahead of server (#3612)', async () => {
       let positionCallback: Function;
       vi.mocked(mockWebSocketContext.subscribe).mockImplementation((event: string, callback: Function) => {
         if (event === 'position_changed') {
@@ -321,6 +321,7 @@ describe('usePlayerStreaming Hook', () => {
       });
 
       mockAudioElement.currentTime = 50;
+      mockAudioElement.playbackRate = 1.0;
 
       const { result } = renderHook(() =>
         usePlayerStreaming({
@@ -329,13 +330,41 @@ describe('usePlayerStreaming Hook', () => {
         })
       );
 
-      // Playback rate should be adjusted for large drift
+      // Local at 50, server at 30 → local AHEAD by 20s → slow down (0.95)
       act(() => {
-        positionCallback!({ data: { position: 30 } }); // 20s drift - large!
+        positionCallback!({ data: { position: 30 } });
       });
 
-      // For large drift (> 1000ms), server time should reflect it
       expect(result.current.serverCurrentTime).toBe(30);
+      expect(mockAudioElement.playbackRate).toBe(0.95);
+    });
+
+    it('should speed up when local is behind server (#3612)', async () => {
+      let positionCallback: Function;
+      vi.mocked(mockWebSocketContext.subscribe).mockImplementation((event: string, callback: Function) => {
+        if (event === 'position_changed') {
+          positionCallback = callback;
+        }
+        return vi.fn();
+      });
+
+      mockAudioElement.currentTime = 30;
+      mockAudioElement.playbackRate = 1.0;
+
+      const { result } = renderHook(() =>
+        usePlayerStreaming({
+          audioElement: mockAudioElement as HTMLAudioElement,
+          driftThreshold: 100,
+        })
+      );
+
+      // Local at 30, server at 50 → local BEHIND by 20s → speed up (1.05)
+      act(() => {
+        positionCallback!({ data: { position: 50 } });
+      });
+
+      expect(result.current.serverCurrentTime).toBe(50);
+      expect(mockAudioElement.playbackRate).toBe(1.05);
     });
 
     it('should restore playback rate after correction', async () => {

@@ -267,9 +267,10 @@ export function usePlayerStreaming({
       const posMsg = msg as PositionChangedMessage;
       const serverPosition = posMsg.data.position;
       const localPosition = audioElement.currentTime;
-      const drift = Math.abs(localPosition - serverPosition);
+      const signedDrift = localPosition - serverPosition;
+      const drift = Math.abs(signedDrift);
 
-      log('Position change from WebSocket', { serverPosition, localPosition, drift });
+      log('Position change from WebSocket', { serverPosition, localPosition, drift, signedDrift });
 
       if (drift > driftThresholdSeconds) {
         log('Drift detected, correcting');
@@ -277,8 +278,12 @@ export function usePlayerStreaming({
 
         // Gradual correction via playback rate
         if (drift > 1) {
-          // Large drift (>1 second): speed up/slow down playback
-          audioElement.playbackRate = drift > 0 ? 0.95 : 1.05;
+          // Large drift (>1 second): adjust rate by direction.
+          // localPosition ahead of server → slow down (0.95).
+          // localPosition behind server → speed up (1.05).
+          // #3612: previously used Math.abs(drift) which is always ≥ 0,
+          // so the ternary always evaluated to 0.95 regardless of direction.
+          audioElement.playbackRate = signedDrift > 0 ? 0.95 : 1.05;
           // Issue #2784: Cancel any previous drift-correction timeout before
           // scheduling a new one — prevents overlapping corrections on rapid seek.
           if (driftCorrectionRef.current !== null) {
@@ -292,7 +297,7 @@ export function usePlayerStreaming({
           // Small drift: just note it for next sync
           setState((prev) => ({
             ...prev,
-            drift: localPosition - serverPosition,
+            drift: signedDrift,
             serverCurrentTime: serverPosition,
           }));
         }
