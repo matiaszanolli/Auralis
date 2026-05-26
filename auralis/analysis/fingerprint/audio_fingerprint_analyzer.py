@@ -361,11 +361,19 @@ class AudioFingerprintAnalyzer:
         try:
             # 1. LUFS (K-weighted per ITU-R BS.1770)
             meter = LoudnessMeter(sample_rate=sr)
-            # Feed audio through the meter in block-sized chunks
+            # Feed audio through the meter in block-sized chunks.
+            # #3677: previously the trailing partial block (up to 399 ms)
+            # was always discarded via `if len(chunk) >= block_size:`. That
+            # systematically excluded the fade-out region from integrated
+            # LUFS, biasing the measurement upward by ~0.1-0.3 LU. We now
+            # feed any partial trailing block ≥ half-block_size to the
+            # meter; tails shorter than that are too short to contribute
+            # meaningful K-weighted energy and are still skipped.
             block_size = meter.block_size
+            min_useful = block_size // 2
             for start in range(0, len(audio), block_size):
                 chunk = audio[start:start + block_size]
-                if len(chunk) >= block_size:
+                if len(chunk) >= min_useful:
                     meter.measure_chunk(chunk)
             measurement = meter.finalize_measurement()
             lufs = measurement.integrated_lufs

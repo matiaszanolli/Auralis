@@ -55,14 +55,29 @@ class EstimationOperations:
 
         fundamental_power = magnitude[fundamental_idx] ** 2
 
-        # Estimate harmonic power (2nd to 5th harmonics)
+        # Estimate harmonic power (2nd to 5th harmonics).
+        # #3678: previously all out-of-range harmonic indices were clamped
+        # to `len(magnitude) - 1` (the Nyquist bin), so for a fundamental
+        # in the upper half of the spectrum harmonic_power collapsed to
+        # `(n_harmonics_out_of_range) * magnitude[Nyquist]^2` — meaningless
+        # for bright content (cymbals, distorted guitar) and dominating
+        # the DistortionAssessor weight (40% of quality score).
+        # Fix: only include harmonics whose theoretical index falls
+        # within the valid spectrum (≤ len(magnitude) - 1).
+        max_bin = len(magnitude) - 1
         harmonic_power = 0.0
+        n_harmonics_used = 0
         for i in range(2, 6):  # 2nd to 5th harmonics
-            harmonic_idx = min(fundamental_idx * i, len(magnitude) - 1)
-            harmonic_power += magnitude[harmonic_idx] ** 2
+            harmonic_idx = fundamental_idx * i
+            if harmonic_idx <= max_bin:
+                harmonic_power += magnitude[harmonic_idx] ** 2
+                n_harmonics_used += 1
 
-        # Calculate THD
-        if fundamental_power > 0:
+        # Calculate THD.
+        # If no harmonics are within range (fundamental near Nyquist),
+        # return 0 — THD is undefined when the spectrum cannot contain
+        # any harmonics of the detected fundamental.
+        if fundamental_power > 0 and n_harmonics_used > 0:
             thd = float(np.sqrt(harmonic_power / fundamental_power))
         else:
             thd = 0.0

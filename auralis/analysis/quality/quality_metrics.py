@@ -101,11 +101,15 @@ class QualityMetrics:
         # Reset loudness meter for fresh measurement
         self.loudness_meter.reset()
 
-        # Analyze in chunks for loudness
+        # Analyze in chunks for loudness.
+        # #3677: feed any partial trailing block ≥ half-block_size to the
+        # meter — previously dropped tails up to 399 ms which biased
+        # integrated LUFS upward by ~0.1-0.3 LU.
         chunk_size = int(0.4 * self.sample_rate)  # 400ms chunks
+        min_useful = chunk_size // 2
         for i in range(0, len(stereo_audio), chunk_size):
             chunk = stereo_audio[i:i + chunk_size]
-            if len(chunk) >= chunk_size:
+            if len(chunk) >= min_useful:
                 self.loudness_meter.measure_chunk(chunk)
 
         loudness_result = self.loudness_meter.finalize_measurement()
