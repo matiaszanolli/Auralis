@@ -43,10 +43,16 @@ class RealtimeAdaptiveEQ:
         # Initialize adaptation engine
         self.adaptation_engine = AdaptationEngine(settings)
 
-        # Processing state
+        # Processing state.
+        # #3689: input_buffer drains as soon as it reaches buffer_size, so
+        # under healthy operation it never accumulates more than a few
+        # chunks. The previous maxlen=10 silently dropped the oldest chunk
+        # on overflow (no warning). Bumped to a generous 64 so pathological
+        # upstream stalls accumulate audibly (and eventually error out from
+        # OOM) rather than silently lose audio.
         self.processing_active = False
-        self.input_buffer: deque[Any] = deque(maxlen=10)
-        self.output_buffer: deque[Any] = deque(maxlen=5)
+        self.input_buffer: deque[Any] = deque(maxlen=64)
+        self.output_buffer: deque[Any] = deque(maxlen=16)
 
         # Lookahead buffer for latency optimization
         if settings.enable_look_ahead:
@@ -122,6 +128,16 @@ class RealtimeAdaptiveEQ:
     def _handle_variable_chunk_size(self, audio_chunk: np.ndarray,
                                    content_info: dict[str, Any] | None) -> np.ndarray:
         """Handle variable chunk sizes by buffering"""
+
+        # #3689: warn if the deque was already at capacity — append() will
+        # silently drop the oldest chunk. With the bumped maxlen this
+        # should only fire under genuine upstream stall conditions.
+        if len(self.input_buffer) == self.input_buffer.maxlen:
+            from auralis.utils.logging import warning
+            warning(
+                f"RealtimeAdaptiveEQ input_buffer at capacity "
+                f"(maxlen={self.input_buffer.maxlen}); oldest chunk dropped"
+            )
 
         self.input_buffer.append(audio_chunk)
 

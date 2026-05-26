@@ -252,12 +252,17 @@ class IntegrationManager:
         queue_info = self.queue.get_queue_info()
 
         with self._position_lock:
+            # #3691: take both state.value and is_playing in a single
+            # PlaybackController._lock acquisition so a state transition
+            # between the two reads can't produce an inconsistent snapshot
+            # (e.g. state="paused" + is_playing=True).
+            state_value, is_playing = self.playback.get_state_snapshot()
             playback_info = {
-                'state': self.playback.state.value,
+                'state': state_value,
                 'position_seconds': self._get_position_seconds(),
                 'duration_seconds': self.file_manager.get_duration(),
                 'current_file': self.file_manager.current_file,
-                'is_playing': self.playback.is_playing(),
+                'is_playing': is_playing,
             }
 
         return {

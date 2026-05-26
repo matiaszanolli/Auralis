@@ -244,3 +244,11 @@ class PlaybackController:
         """Check if paused"""
         with self._lock:
             return self.state == PlaybackState.PAUSED
+
+    def get_state_snapshot(self) -> tuple[str, bool]:
+        """#3691: atomic read of (state.value, is_playing) under a single
+        _lock acquisition. Previously callers read state.value as a raw
+        attribute and is_playing() separately, allowing a state transition
+        between the two reads to produce an inconsistent snapshot."""
+        with self._lock:
+            return self.state.value, self.state == PlaybackState.PLAYING

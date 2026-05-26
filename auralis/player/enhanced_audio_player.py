@@ -485,7 +485,13 @@ class AudioPlayer:
             end_of_track = pos + chunk_size >= self.file_manager.get_total_samples()
 
             if end_of_track:
-                if self.auto_advance and not self.queue.is_queue_empty():
+                # #3692: gate on has_next_track() instead of
+                # is_queue_empty(). is_queue_empty() returns False for
+                # "1 track in queue already playing" — we'd spawn
+                # auto-advance threads at ~21 Hz against a phantom next
+                # track. has_next_track() returns True only when
+                # peek_next() would return non-None.
+                if self.auto_advance and self.queue.has_next_track():
                     if not self._auto_advancing.is_set():
                         self._auto_advancing.set()
                         self._advance_generation += 1
