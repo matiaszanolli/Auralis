@@ -89,7 +89,11 @@ export function useArtworkPalette(
       return;
     }
 
-    // Extract colors from artwork
+    // #3590: track unmount with an isActive flag so we don't setState on a
+    // dead component if extractArtworkColors resolves after navigation.
+    // The album-change guard via currentAlbumIdRef does not cover unmount.
+    let isActive = true;
+
     const extractColors = async () => {
       setLoading(true);
       setError(null);
@@ -102,14 +106,14 @@ export function useArtworkPalette(
           vibrantThreshold: 40,
         });
 
-        // Check if this is still the current album (prevent race condition)
+        if (!isActive) return;
         if (currentAlbumIdRef.current === albumId) {
           setPalette(extractedPalette);
           paletteCache.set(albumId, extractedPalette);
           setLoading(false);
         }
       } catch (err) {
-        // Check if this is still the current album
+        if (!isActive) return;
         if (currentAlbumIdRef.current === albumId) {
           console.warn(`[useArtworkPalette] Failed to extract colors for album ${albumId}:`, err);
           setError(err instanceof Error ? err.message : 'Failed to extract colors');
@@ -119,6 +123,10 @@ export function useArtworkPalette(
     };
 
     extractColors();
+
+    return () => {
+      isActive = false;
+    };
   }, [albumId, enabled]);
 
   // Generate CSS values from palette
