@@ -127,6 +127,11 @@ class QueueController:
             info("No previous track in queue")
         return prev_track  # type: ignore[no-any-return]
 
+    def rollback_index(self, saved_index: int) -> None:
+        """#3668: locked rollback of the queue's current_index for use by
+        previous_track() when a file load fails."""
+        self.queue.rollback_index(saved_index)
+
     def get_current_track(self) -> dict[str, Any] | None:
         """Get current track from queue"""
         return self.queue.get_current_track()  # type: ignore[no-any-return]

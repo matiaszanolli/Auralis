@@ -191,7 +191,14 @@ class AudioPlayer:
             bool: True if successful
         """
         if self.file_manager.load_file(file_path):
-            self.playback.load_and_stop()
+            # #3667: hold _audio_lock while the playback controller resets
+            # position so no concurrent get_audio_chunk() can observe the
+            # new audio_data at the old position. file_manager.load_file
+            # has already swapped audio_data inside _audio_lock — re-taking
+            # the RLock here (it's reentrant) keeps swap+reset visible to
+            # readers as a single critical section.
+            with self.file_manager._audio_lock:
+                self.playback.load_and_stop()
 
             self._schedule_fingerprint_load(file_path)
 
@@ -367,6 +374,11 @@ class AudioPlayer:
         on failure the index is rolled back so the queue stays valid (#3442).
         """
         was_playing = self.playback.is_playing()
+        # #3668: read of current_index is still a raw attribute access, but
+        # the WRITE now goes through `rollback_index()` which takes
+        # `QueueManager._lock`. That eliminates the previous race where a
+        # concurrent `next_track()` / `remove_track()` / `reorder_tracks()`
+        # could be clobbered by the unlocked rollback assignment.
         saved_index = self.queue.queue.current_index
         prev_track = self.queue.previous_track()
         if prev_track:
@@ -377,8 +389,8 @@ class AudioPlayer:
                 if was_playing and not self.playback.is_stopped():
                     self.playback.play()
                 return True
-            # File load failed — roll back queue index
-            self.queue.queue.current_index = saved_index
+            # File load failed — roll back queue index under lock.
+            self.queue.rollback_index(saved_index)
         return False
 
     def add_to_queue(self, track_info: dict[str, Any]) -> None:

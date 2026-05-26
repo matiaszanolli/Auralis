@@ -98,6 +98,19 @@ class QueueManager:
 
             return self._get_current_track_unlocked()
 
+    def rollback_index(self, saved_index: int) -> None:
+        """
+        Restore current_index to a saved value under self._lock.
+
+        #3668: previous_track() callers used to save the index, move it,
+        and on file-load failure write `self.queue.queue.current_index =
+        saved_index` directly. The bare write bypassed self._lock and could
+        clobber a concurrent next_track() / remove_track() / reorder_tracks()
+        modification. This method makes the rollback locked and explicit.
+        """
+        with self._lock:
+            self.current_index = saved_index
+
     def clear(self) -> None:
         """Clear the queue"""
         with self._lock:
