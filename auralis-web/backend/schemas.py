@@ -200,7 +200,16 @@ class ErrorType(str, Enum):
 # ============================================================================
 
 class WebSocketMessageType(str, Enum):
-    """Valid WebSocket message types."""
+    """Inbound WebSocket message types (client -> server).
+
+    NOTE: despite the bare name, this enum enumerates ONLY the subset of
+    types that the server validates on the receive path
+    (websocket_security.py:187). Outbound (server -> client) types are
+    NOT listed here — they live in the frontend's WebSocketMessageType
+    Literal in src/types/websocket.ts. Renaming is deferred to avoid
+    churn in callers; the docstring is the authoritative scope statement
+    (#3551 / BE-NEW-93).
+    """
     PING = "ping"
     PONG = "pong"
     HEARTBEAT = "heartbeat"

@@ -21,7 +21,15 @@ logger = logging.getLogger(__name__)
 
 
 class CacheStatsResponse(BaseModel):
-    """Response model for cache statistics."""
+    """Response model for cache statistics.
+
+    NOTE: schemas.CacheStatsResponse / CacheTierStats / OverallCacheStats
+    expose properly-typed nested fields (#3548 / BE-NEW-90). This local
+    copy uses dict[str, Any] to absorb the StreamlinedCacheManager.get_stats()
+    return shape verbatim. Migrating to the schemas.py version is a
+    follow-up that needs to verify the get_stats() dict matches the
+    typed model field-for-field.
+    """
     tier1: dict[str, Any]
     tier2: dict[str, Any]
     overall: dict[str, Any]
@@ -29,7 +37,8 @@ class CacheStatsResponse(BaseModel):
 
 
 class TrackCacheStatus(BaseModel):
-    """Model for track cache status."""
+    """Model for track cache status (see schemas.TrackCacheStatusResponse
+    for the canonical fully-typed version, #3548 / BE-NEW-90)."""
     track_id: int
     total_chunks: int
     cached_original: int

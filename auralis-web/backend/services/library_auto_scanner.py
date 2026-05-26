@@ -293,11 +293,21 @@ class LibraryAutoScanner:
             }
         )
 
-        # Notify frontend to refresh library views when content changed (#2871)
+        # Notify frontend to refresh library views when content changed
+        # (#2871). Payload matches the manual-scan emit (#3544 / BE-NEW-86)
+        # — action + counts that the frontend LibraryUpdatedMessage type
+        # actually declares.
         if files_added or removed:
             await connection_manager_safe_broadcast(
                 self._connection_manager,
-                {"type": "library_updated", "data": {"reason": "scan"}}
+                {
+                    "type": "library_updated",
+                    "data": {
+                        "action": "scan",
+                        "reason": "scan",
+                        "track_count": files_added,
+                    },
+                },
             )
 
     async def _interruptible_sleep(self, seconds: int) -> None:

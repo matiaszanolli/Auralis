@@ -79,7 +79,10 @@ export interface WebSocketMessage<T = unknown> {
  * Matches the Pydantic PlayerState model in backend/player_state.py.
  */
 export interface RawPlayerStateData {
-  state: 'playing' | 'paused' | 'stopped' | 'loading';
+  // 'error' is declared on the backend enum (PlaybackState.ERROR) but not
+  // currently emitted by any production code path; included for forward
+  // compatibility so downstream switches narrow correctly (#3546 / BE-NEW-88).
+  state: 'playing' | 'paused' | 'stopped' | 'loading' | 'error';
   is_playing: boolean;
   is_paused: boolean;
   current_track: TrackInfo | null;
@@ -336,13 +339,24 @@ export interface MasteringRecommendationData {
   predicted_loudness_change: number; // dB
   predicted_crest_change: number; // dB
   predicted_centroid_change: number; // Hz
-  weighted_profiles: Array<{
+  /** Optional on the wire — the backend dataclass only emits this when
+   *  `self.weighted_profiles` is truthy (#3550 / BE-NEW-92). */
+  weighted_profiles?: Array<{
     profile_id: string;
     profile_name: string;
     weight: number; // 0.0 - 1.0, sum of all = 1.0
   }>;
   reasoning: string;
   is_hybrid: boolean;
+  /** Alternative profile rankings emitted by adaptive_mastering_engine
+   *  but not currently consumed by the frontend (#3550 / BE-NEW-92). */
+  alternative_profiles?: Array<{
+    profile_id: string;
+    profile_name: string;
+    confidence_score: number;
+  }>;
+  /** ISO timestamp the recommendation was computed. */
+  created?: string;
 }
 
 export interface MasteringRecommendationMessage extends WebSocketMessage {
@@ -367,6 +381,11 @@ export interface ArtworkUpdatedMessage extends WebSocketMessage {
 // Fingerprint Messages (fixes #2282)
 // ============================================================================
 
+/** Sent by system.py seek handler — see also SeekStartedMessage below.
+ *  This forward-declaration block exists so seek_started can include
+ *  `track_id` (fixes #3547 / BE-NEW-89). */
+// ---
+
 /** Sent by audio_stream_controller.py while computing track fingerprint (fixes #2502) */
 export interface FingerprintProgressMessage extends WebSocketMessage {
   type: 'fingerprint_progress';
@@ -383,6 +402,9 @@ export interface SeekStartedMessage extends WebSocketMessage {
   type: 'seek_started';
   data: {
     position: number; // Seconds
+    /** Track this seek targeted — lets the client ignore stale seek
+     *  acks after a track change (#3547 / BE-NEW-89). */
+    track_id?: number;
   };
 }
 
@@ -473,6 +495,11 @@ export interface AudioStreamErrorMessage extends WebSocketMessage {
     error: string;
     code?: string;
     stream_type?: 'enhanced' | 'normal';
+    /** When the backend can suggest where to resume (e.g. start of the
+     *  failed chunk or the user's seek target), it sets this seconds-offset
+     *  so the client can offer a 'retry from here' (#3547 / BE-NEW-89,
+     *  also exposed at audio_stream_controller.py per #2085). */
+    recovery_position?: number;
   };
 }
 

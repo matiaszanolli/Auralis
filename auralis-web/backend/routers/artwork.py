@@ -231,16 +231,23 @@ def create_artwork_router(
         """
         try:
             repos = get_repos()
+            # Idempotent DELETE per RFC 7231 §4.3.5 — a repeat call after a
+            # successful delete should NOT 404 (#3563 / BE-NEW-105). Only
+            # 404 when the album itself doesn't exist; if artwork is
+            # already gone, return success.
+            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+            if album is None:
+                raise HTTPException(status_code=404, detail=f"Album {album_id} not found")
             success = await asyncio.to_thread(repos.albums.delete_artwork, album_id)
+            # If repo returns False the artwork was already absent — also
+            # success from the client's idempotency perspective.
 
-            if not success:
-                raise HTTPException(status_code=404, detail="Artwork not found")
-
-            # Broadcast artwork updated event
-            await connection_manager.broadcast({
-                "type": "artwork_updated",
-                "data": {"action": "deleted", "album_id": album_id}
-            })
+            # Broadcast artwork updated event (only when something actually changed)
+            if success:
+                await connection_manager.broadcast({
+                    "type": "artwork_updated",
+                    "data": {"action": "deleted", "album_id": album_id}
+                })
 
             return {"message": "Artwork deleted successfully", "album_id": album_id}
 

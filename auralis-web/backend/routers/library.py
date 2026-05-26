@@ -576,7 +576,16 @@ def create_library_router(
                 if result.files_added or result.files_updated:
                     await connection_manager.broadcast({
                         "type": "library_updated",
-                        "data": {"reason": "scan"}
+                        # Frontend LibraryUpdatedMessage type expects
+                        # `action` plus optional counts (#3544 /
+                        # BE-NEW-86). `reason` is kept for backward
+                        # compatibility with anything that already reads
+                        # it; new consumers should use `action`.
+                        "data": {
+                            "action": "scan",
+                            "reason": "scan",
+                            "track_count": result.files_added,
+                        },
                     })
 
             return {

@@ -588,6 +588,12 @@ def create_cache_aware_response(
     """
     cache_hit = cache_source != "miss"
 
+    # Use ISO-8601 UTC to match every other response wrapper in schemas.py
+    # (SuccessResponse.timestamp uses datetime.datetime). The prior
+    # `time.time()` here was a Unix float; clients saw inconsistent
+    # timestamp formats across success vs cache responses
+    # (#3552 / BE-NEW-94).
+    import datetime as _dt
     return {
         "status": "success",
         "data": data,
@@ -595,5 +601,5 @@ def create_cache_aware_response(
         "cache_hit": cache_hit,
         "processing_time_ms": round(processing_time_ms, 2),
         "message": message or f"Data from {cache_source}",
-        "timestamp": time.time()
+        "timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat(),
     }
