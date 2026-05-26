@@ -99,7 +99,7 @@ const TrackRowComponent = ({
     <>
       <RowContainer
         tabIndex={0}
-        role="row"
+        role="option"
         aria-label={`${track.title} by ${track.artist}`}
         iscurrent={isCurrentStr}
         isanyplaying={isAnyPlayingStr}
