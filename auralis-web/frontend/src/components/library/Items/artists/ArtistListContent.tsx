@@ -1,4 +1,4 @@
-import { MouseEvent } from 'react';
+import { MouseEvent, useCallback } from 'react';
 import { Typography } from '@mui/material';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { ContextMenu, ContextMenuAction } from '@/components/shared/ContextMenu';
@@ -72,6 +72,12 @@ export const ArtistListContent = ({
   onContextMenuOpen,
   onContextMenuClose,
 }: ArtistListContentProps) => {
+  // #3607: stable callback identity so ArtistSection's React.memo holds.
+  const handleContextMenu = useCallback(
+    (e: MouseEvent, artist: ArtistItem) => onContextMenuOpen(artist, e),
+    [onContextMenuOpen]
+  );
+
   return (
     <ArtistListContainer>
       <InfiniteScroll
@@ -100,14 +106,16 @@ export const ArtistListContent = ({
       >
         <ArtistListHeader loadedCount={artists.length} totalCount={totalArtists} />
 
-        {/* Alphabetically grouped artist sections */}
+        {/* Alphabetically grouped artist sections.
+            #3607: pass a stable handleContextMenu so ArtistSection's React.memo
+            isn't defeated by an inline arrow. */}
         {sortedLetters.map((letter) => (
           <ArtistSection
             key={letter}
             letter={letter}
             artists={groupedArtists[letter]}
             onArtistClick={onArtistClick}
-            onContextMenu={(e, artist) => onContextMenuOpen(artist, e)}
+            onContextMenu={handleContextMenu}
           />
         ))}
       </InfiniteScroll>

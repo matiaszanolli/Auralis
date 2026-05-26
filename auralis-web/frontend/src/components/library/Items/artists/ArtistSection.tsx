@@ -1,4 +1,4 @@
-import { MouseEvent } from 'react';
+import { MouseEvent, memo } from 'react';
 import { Box } from '@mui/material';
 import { List } from '@/design-system';
 import { AlphabetDivider } from '@/components/library/Styles/ArtistList.styles';
@@ -15,17 +15,16 @@ interface ArtistSectionProps {
 /**
  * ArtistSection - Alphabetic section with letter header and grouped artists
  *
- * Displays:
- * - Letter header divider
- * - All artists starting with that letter
- * - Uses ArtistListItem for each artist
+ * #3607: wrapped in memo so a context-menu state change on the parent
+ * doesn't re-render every letter section + every artist row. Callers must
+ * pass stable callback identities (see ArtistListContent's useCallback wrappers).
  */
-export const ArtistSection = ({
+export const ArtistSection = memo(function ArtistSection({
   letter,
   artists,
   onArtistClick,
-  onContextMenu
-}: ArtistSectionProps) => {
+  onContextMenu,
+}: ArtistSectionProps) {
   return (
     <Box>
       <AlphabetDivider>{letter}</AlphabetDivider>
@@ -41,6 +40,6 @@ export const ArtistSection = ({
       </List>
     </Box>
   );
-};
+});
 
 export default ArtistSection;
