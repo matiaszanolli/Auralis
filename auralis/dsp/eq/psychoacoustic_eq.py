@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
-from scipy.signal.windows import hann
 
 from ...utils.logging import debug
 from ..unified import smooth_parameter_transition
@@ -118,18 +117,21 @@ class PsychoacousticEQ:
 
         # Ensure we have enough samples
         if len(audio_mono) < self.fft_size:
-            # Pad with zeros
-            padded = np.zeros(self.fft_size)
+            # Pad with zeros — dtype-preserving to avoid float64 promotion.
+            padded = np.zeros(self.fft_size, dtype=audio_mono.dtype)
             padded[:len(audio_mono)] = audio_mono
             audio_mono = padded
 
-        # Apply window to reduce spectral leakage
-        window = hann(self.fft_size)
-        windowed_audio = audio_mono[:self.fft_size] * window
-
-        # Compute spectrum
+        # #3663: previously this path applied a Hann window before the FFT,
+        # but the corresponding apply_eq_gains path does NOT window — so
+        # the gains derived from a Hann-windowed spectrum were applied to
+        # an un-windowed signal, over-boosting the edges of each frame.
+        # Drop the window so analysis and application see the same
+        # spectrum. (Spectral-leakage trade-off accepted; standalone
+        # spectrum reporting that needs leakage suppression should window
+        # in its own caller.)
         from scipy.fft import fft
-        spectrum = fft(windowed_audio)
+        spectrum = fft(audio_mono[:self.fft_size])
         magnitude = np.abs(spectrum[:self.fft_size // 2 + 1])
 
         # Convert to dB — no window-gain correction applied.
