@@ -1275,41 +1275,35 @@ class AudioStreamController:
     def _apply_boundary_crossfade(
         self, prev_tail: np.ndarray, current_chunk: np.ndarray, crossfade_samples: int
     ) -> np.ndarray:
-        """
-        Apply crossfade at chunk boundary to prevent clicks.
+        """No-op boundary handler (fixes #3514 / BE-NEW-56).
 
-        Takes the tail of the previous chunk and the head of the current chunk,
-        applies equal-power crossfade, and returns the current chunk with
-        crossfaded beginning.
+        The previous version of this method applied a sin²(0 -> pi/2) fade-in
+        to the first 200 ms of every non-first chunk, but did NOT mix the
+        previous tail (commit 48a038ee removed the mix to avoid pre-echo
+        per #3186). Because adjacent chunks are emitted non-overlapping in
+        time, the bare fade-in produced an audible 200 ms volume dip at
+        every 10 s boundary — a periodic 'breathing' artefact most evident
+        on dense full-band content.
+
+        ChunkOperations renders each chunk WITH 5 s of context on each side
+        (chunk_operations.py trim_context), so the DSP state — compressor
+        envelope, EQ filters, etc. — is already continuous across the
+        boundary. We can safely emit the unmixed chunk; no boundary fade is
+        needed. Kept as a no-op (rather than removing the call) so the
+        `prev_tail` storage in _chunk_tails_lock remains available if a
+        future variant needs it again.
 
         Args:
-            prev_tail: Last N samples from previous chunk
-            current_chunk: Current chunk audio
-            crossfade_samples: Number of samples to crossfade
+            prev_tail: Last N samples from previous chunk (unused).
+            current_chunk: Current chunk audio.
+            crossfade_samples: Number of samples that *would* have been
+                crossfaded (unused).
 
         Returns:
-            Current chunk with crossfaded beginning
+            current_chunk unchanged.
         """
-        # Ensure we don't crossfade more than available
-        actual_crossfade = min(crossfade_samples, len(prev_tail), len(current_chunk))
-
-        if actual_crossfade <= 0:
-            return current_chunk
-
-        # The previous chunk was already sent in full (including its tail),
-        # so mixing prev_tail into the current head would duplicate those
-        # samples as audible pre-echo. Instead, just fade IN the current
-        # chunk's head to smooth the energy transition at the boundary.
-        fade_in = np.sin(np.linspace(0, np.pi / 2, actual_crossfade)) ** 2
-
-        # Handle stereo
-        if current_chunk.ndim == 2:
-            fade_in = fade_in[:, np.newaxis]
-
-        result = current_chunk.copy()
-        result[:actual_crossfade] *= fade_in
-
-        return result
+        _ = prev_tail, crossfade_samples  # explicitly unused
+        return current_chunk
 
     async def _send_pcm_chunk(
         self,
