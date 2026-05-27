@@ -267,11 +267,18 @@ class AudioFingerprintAnalyzer:
                         f"Fingerprint incomplete: {len(failed_analyzers)} sub-analyzer(s) failed "
                         f"({', '.join(failed_analyzers)}). Missing dimensions will be zero."
                     )
-            except KeyboardInterrupt:
-                # Wait for the futures *we submitted* to finish before re-raising
-                # so they cannot write partial results to `fingerprint` after
-                # this function returns (fixes #2514). The executor itself is
-                # long-lived and intentionally not shut down here.
+            except (KeyboardInterrupt, Exception):
+                # #2514 + #3477: cancel and wait for the futures *we
+                # submitted* to finish before re-raising so they cannot
+                # write partial results to `fingerprint` after this
+                # function returns. Originally caught only
+                # KeyboardInterrupt; broadened to `Exception` so any
+                # surprise raise from `fingerprint.update(features)`
+                # (e.g. TypeError on a malformed sub-analyzer result,
+                # or MemoryError) also drains the futures rather than
+                # leaving them writing into a half-cleaned state. The
+                # executor itself is long-lived and intentionally not
+                # shut down here — close() handles that.
                 for f in futures:
                     f.cancel()  # No-op for already-running futures; drops queued ones.
                 wait(futures)
