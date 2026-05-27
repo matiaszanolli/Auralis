@@ -654,6 +654,63 @@ class TestRealtimeProcessorComprehensive:
 
         self.tearDown()
 
+class TestRealtimeProcessorChunkInvariants3744:
+    """#3744 — process_chunk copy-before-modify + dtype preservation.
+
+    Pre-fix:
+    - The `len(audio) == 0` early-return returned the caller's array
+      directly, breaking the copy-before-modify invariant followed
+      everywhere else in the engine.
+    - The final safety limiter computed `processed * (target_peak / max_val)`
+      where `max_val` is a float64 numpy scalar — silently promoting
+      float32 input to float64. Same dtype-drift class as #3658/#3659/#2450.
+    """
+
+    def setUp(self):
+        from auralis.player.config import PlayerConfig
+        self.config = PlayerConfig()
+
+    def test_empty_input_returns_fresh_copy(self):
+        from auralis.player.realtime.processor import RealtimeProcessor
+        self.setUp()
+        processor = RealtimeProcessor(self.config)
+        empty = np.empty((0, 2), dtype=np.float32)
+        out = processor.process_chunk(empty)
+        assert out is not empty, (
+            "process_chunk returned the caller's array on the empty branch "
+            "(must be a copy per the engine's copy-before-modify discipline)"
+        )
+
+    def test_none_input_passes_through(self):
+        from auralis.player.realtime.processor import RealtimeProcessor
+        self.setUp()
+        processor = RealtimeProcessor(self.config)
+        # The signature is annotated `np.ndarray`, but the runtime branch
+        # explicitly handles `None`. Cast through Any for the type checker.
+        assert processor.process_chunk(None) is None  # type: ignore[arg-type]
+
+    def test_float32_preserved_through_safety_limiter(self):
+        """A float32 chunk hot enough to trigger the safety branch must
+        come back as float32."""
+        from auralis.player.realtime.processor import RealtimeProcessor
+        self.setUp()
+        processor = RealtimeProcessor(self.config)
+        # Build a chunk that peaks well above 0.95 to force the safety branch.
+        hot = np.full((1024, 2), 1.5, dtype=np.float32)
+        out = processor.process_chunk(hot)
+        assert out.dtype == np.float32, (
+            f"safety-limiter branch promoted float32 → {out.dtype}"
+        )
+
+    def test_float64_preserved_through_safety_limiter(self):
+        from auralis.player.realtime.processor import RealtimeProcessor
+        self.setUp()
+        processor = RealtimeProcessor(self.config)
+        hot = np.full((1024, 2), 1.5, dtype=np.float64)
+        out = processor.process_chunk(hot)
+        assert out.dtype == np.float64
+
+
 if __name__ == '__main__':
     import pytest
     pytest.main([__file__])

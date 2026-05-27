@@ -109,7 +109,12 @@ class RealtimeProcessor:
             Processed audio chunk
         """
         if audio is None or len(audio) == 0:
-            return audio
+            # #3744: return a fresh copy on the empty branch so the
+            # caller can't mutate the array we hand back into anything
+            # else that retains a reference. Mirrors the copy-before-
+            # modify discipline used everywhere else in the engine
+            # (HybridProcessor._process_impl:240, BrickWallLimiter.process:91).
+            return audio if audio is None else audio.copy()
 
         start_time = time.perf_counter()
 
@@ -128,10 +133,17 @@ class RealtimeProcessor:
             # tanh was previously applied to ALL samples in the chunk, adding
             # harmonic distortion even to sub-threshold content (fixes #2201).
             # Linear scaling preserves signal shape: only the level changes.
+            #
+            # #3744: cast the scaling factor to the input dtype so float32
+            # chunks don't silently promote to float64 (np.max returns a
+            # numpy scalar that's float64-typed regardless of input). Same
+            # dtype-drift class as #3658 / #3659 / #2450.
             max_val = np.max(np.abs(processed))
             if max_val > 0.95:
                 target_peak = 0.95
-                processed = processed * (target_peak / max_val)
+                processed = processed * processed.dtype.type(
+                    target_peak / max_val
+                )
 
             # Record performance inside the lock so any concurrent reader of
             # performance_monitor stats (e.g. get_processing_info) always sees a
