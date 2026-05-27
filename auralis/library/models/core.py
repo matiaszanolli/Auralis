@@ -307,7 +307,16 @@ class Playlist(Base, TimestampMixin):  # type: ignore[misc]
     normalize_levels: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
-    tracks: Mapped[list[Track]] = relationship("Track", secondary=track_playlist, back_populates="playlists")
+    # #3725: order_by the explicit `position` column on the association
+    # table so the list returned to consumers is deterministic and
+    # matches what add_track / reorder_track wrote, instead of
+    # depending on SQLAlchemy's implicit row-insertion ordering.
+    tracks: Mapped[list[Track]] = relationship(
+        "Track",
+        secondary=track_playlist,
+        back_populates="playlists",
+        order_by=track_playlist.c.position,
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert playlist to dictionary"""

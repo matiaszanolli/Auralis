@@ -2,7 +2,7 @@
 
 __version__ = "1.0.0"
 __version_info__ = (1, 0, 0)
-__db_schema_version__ = 15  # Added is_reference flag for mastering reference cloud
+__db_schema_version__ = 16  # track_playlist: UNIQUE(track_id, playlist_id) + position column (#3724, #3725)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.
@@ -26,3 +26,4 @@ FINGERPRINT_ALGORITHM_VERSION = 1
 # Schema v13 - Added bitrate column to tracks table (2026-02-22)
 # Schema v14 - Added indexes on favorite, play_count, created_at, similarity_graph (2026-03-05)
 # Schema v15 - Added is_reference flag on track_fingerprints for mastering reference cloud (2026-05-24)
+# Schema v16 - track_playlist: UNIQUE(track_id, playlist_id) + position column to eliminate concurrent add_track races (2026-05-27)

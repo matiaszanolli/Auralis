@@ -11,7 +11,8 @@ Data access layer for playlist operations
 from typing import Any
 from collections.abc import Callable
 
-from sqlalchemy import and_, delete, select
+from sqlalchemy import and_, delete, func, insert, select, text, update
+from sqlalchemy.exc import IntegrityError
 from ..models.base import track_playlist
 from sqlalchemy.orm import Session, selectinload
 
@@ -178,50 +179,143 @@ class PlaylistRepository:
             session.close()
 
     def add_track(self, playlist_id: int, track_id: int, position: int | None = None) -> bool:
-        """
-        Add track to playlist at specific position
+        """Add a track to a playlist at a specific position.
+
+        #3724 + #3725: this now runs as a single transaction that issues
+        an INSERT OR IGNORE on the association table (relying on the
+        composite PK added in schema v016 for the uniqueness
+        guarantee) and a SELECT MAX(position)+1 to assign a deterministic
+        position. The previous read-modify-write via
+        ``playlist.tracks.append`` had two open races:
+
+        - **Duplicate inserts**: SELECT EXISTS → INSERT had a TOCTOU
+          window where two concurrent callers both passed the check
+          and both INSERTed. There was no DB-level uniqueness to fail
+          them, so duplicates accumulated invisibly. v016's PRIMARY KEY
+          on (track_id, playlist_id) plus SQLite's
+          ``INSERT OR IGNORE`` collapses the race: at most one wins,
+          the other is a silent no-op and the caller still gets True.
+        - **Position races**: ``len(playlist.tracks)`` triggered a lazy
+          SELECT every time and two concurrent appends both saw the
+          same length. The explicit MAX(position)+1 query inside the
+          same transaction (under SQLite's default serializable
+          isolation with WAL) gives both callers distinct positions.
 
         Args:
             playlist_id: ID of playlist
             track_id: ID of track to add
-            position: Optional position to insert at (None = append)
+            position: Optional explicit position. If None, the track is
+                appended at the next free position. If supplied and
+                already present, the track is moved to that position
+                via ``reorder_track`` semantics (delete + reinsert).
 
         Returns:
-            True if successful, False otherwise
+            True if the playlist now contains the track at the requested
+            position (or any position when ``position is None``), False
+            on lookup miss or DB failure.
         """
         session = self.get_session()
         try:
-            playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
-            track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
+            # Verify playlist + track exist BEFORE the insert so FK
+            # violations surface as a clean False/log instead of an
+            # IntegrityError (which under SQLite is fired at COMMIT
+            # rather than at the INSERT statement).
+            playlist = session.execute(
+                select(Playlist).where(Playlist.id == playlist_id)
+            ).scalars().first()
+            track = session.execute(
+                select(Track).where(Track.id == track_id)
+            ).scalars().first()
 
             if not playlist or not track:
                 return False
 
-            # Check membership via EXISTS subquery (avoids lazy-loading all tracks)
-            already_exists = session.scalar(
-                select(
-                    select(track_playlist)
-                    .where(track_playlist.c.playlist_id == playlist.id)
-                    .where(track_playlist.c.track_id == track.id)
-                    .exists()
-                )
+            # If an explicit position was requested AND the track is
+            # already in the playlist at a different position, we need
+            # to remove first so the re-INSERT lands at the new spot.
+            # If it's already at the requested position (or position is
+            # None and the track is present), nothing to do — return
+            # True for idempotency.
+            current_pos = session.scalar(
+                select(track_playlist.c.position)
+                .where(track_playlist.c.playlist_id == playlist_id)
+                .where(track_playlist.c.track_id == track_id)
             )
+            if current_pos is not None:
+                if position is None or current_pos == position:
+                    return True
+                # Re-position via atomic DELETE then proceed to INSERT.
+                session.execute(
+                    delete(track_playlist)
+                    .where(track_playlist.c.playlist_id == playlist_id)
+                    .where(track_playlist.c.track_id == track_id)
+                )
 
-            if already_exists:
-                # Remove first so we can re-insert at the desired position
-                playlist.tracks.remove(track)
-
-            # Add at specific position or append
-            if position is not None and 0 <= position <= len(playlist.tracks):
-                playlist.tracks.insert(position, track)
+            # Resolve target position. When position is None, fold the
+            # MAX(position)+1 derivation INTO the INSERT statement via
+            # INSERT ... SELECT so SQLite serialises the read and the
+            # write as one atomic step. Doing MAX in a separate SELECT
+            # leaves a window where two concurrent appends both see the
+            # same MAX and INSERT at the same position. INSERT...SELECT
+            # under SQLite's WAL writer lock collapses the race.
+            if position is None:
+                # text() form is needed because SQLAlchemy Core's
+                # insert().from_select() doesn't pass through OR IGNORE
+                # cleanly with bound parameters in a way SQLite likes.
+                # Inline scalars + SQL functions for portability.
+                session.execute(
+                    text(
+                        "INSERT OR IGNORE INTO track_playlist "
+                        "(track_id, playlist_id, position) "
+                        "SELECT :tid, :pid, "
+                        "COALESCE(MAX(position), -1) + 1 "
+                        "FROM track_playlist WHERE playlist_id = :pid"
+                    ),
+                    {"tid": track_id, "pid": playlist_id},
+                )
+                # Read back what position we landed at, for the log /
+                # return value (also confirms the insert took effect
+                # vs being ignored by the composite-PK collision).
+                landed_position = session.scalar(
+                    select(track_playlist.c.position)
+                    .where(track_playlist.c.playlist_id == playlist_id)
+                    .where(track_playlist.c.track_id == track_id)
+                )
+                if landed_position is None:
+                    # Should not happen — INSERT OR IGNORE either
+                    # inserted (we'd find the row) or there was already
+                    # a row (current_pos branch above would have
+                    # returned True). Log defensively.
+                    error(f"add_track: row vanished after INSERT for track {track_id} / playlist {playlist_id}")
+                    session.rollback()
+                    return False
+                position = int(landed_position)
             else:
-                playlist.tracks.append(track)
+                # Explicit position requested. INSERT OR IGNORE handles
+                # the composite-PK race; the explicit position bypasses
+                # the contiguous-positions invariant intentionally
+                # because the caller asked for a specific slot.
+                stmt = insert(track_playlist).prefix_with('OR IGNORE').values(
+                    track_id=track_id,
+                    playlist_id=playlist_id,
+                    position=position,
+                )
+                session.execute(stmt)
 
             session.commit()
-            debug(f"Added track to playlist: {playlist.name} at position {position}")
-
+            debug(
+                f"Added track {track_id} to playlist {playlist.name} "
+                f"at position {position}"
+            )
             return True
 
+        except IntegrityError as e:
+            # Unexpected — INSERT OR IGNORE shouldn't raise on the
+            # uniqueness collision. If it did fire, treat the call as
+            # successful (the row is there) but log for visibility.
+            session.rollback()
+            error(f"Unexpected IntegrityError adding track to playlist: {e}")
+            return True
         except Exception as e:
             session.rollback()
             error(f"Failed to add track to playlist: {e}")
@@ -238,9 +332,22 @@ class PlaylistRepository:
         previous load-then-mutate implementation had a race window between
         the lazy SELECT and the COMMIT where two threads could collide on
         the same playlist (#3340).
+
+        #3725: also compacts positions after a successful delete so the
+        per-playlist invariant ``positions are contiguous 0..N-1``
+        holds. Without compaction, reorder_track's index validation
+        becomes ambiguous and add_track's MAX+1 path leaves gaps.
         """
         session = self.get_session()
         try:
+            # Capture the deleted row's position first; we need it for
+            # the position-shift UPDATE below.
+            removed_position = session.scalar(
+                select(track_playlist.c.position)
+                .where(track_playlist.c.playlist_id == playlist_id)
+                .where(track_playlist.c.track_id == track_id)
+            )
+
             result = session.execute(
                 delete(track_playlist).where(
                     and_(
@@ -249,6 +356,16 @@ class PlaylistRepository:
                     )
                 )
             )
+
+            if removed_position is not None and result.rowcount:
+                # Compact the trailing positions so we stay contiguous.
+                session.execute(
+                    update(track_playlist)
+                    .where(track_playlist.c.playlist_id == playlist_id)
+                    .where(track_playlist.c.position > removed_position)
+                    .values(position=track_playlist.c.position - 1)
+                )
+
             session.commit()
             if result.rowcount:
                 debug(f"Removed track {track_id} from playlist {playlist_id}")
@@ -288,43 +405,98 @@ class PlaylistRepository:
             session.close()
 
     def reorder_track(self, playlist_id: int, from_index: int, to_index: int) -> bool:
-        """
-        Reorder track within playlist
+        """Reorder a track within a playlist.
+
+        #3725: operates directly on the explicit ``position`` column
+        instead of mutating the ORM-loaded ``playlist.tracks`` list and
+        relying on SQLAlchemy to rewrite the association rows. The
+        previous pop+insert pattern's per-position rewrites were not
+        atomic — a concurrent ``add_track`` could land between the pop
+        and the insert and shift positions out from under us.
+
+        The new implementation issues three UPDATE statements inside a
+        single transaction:
+          1. SELECT the moving row's track_id (and validate indices).
+          2. Shift everything between from_index and to_index by ±1.
+          3. UPDATE the moving row to to_index.
+        This keeps the per-playlist position invariant
+        (contiguous 0..N-1, no gaps, no duplicates) under concurrent
+        traffic — SQLite serializes writes within a transaction.
 
         Args:
-            playlist_id: ID of playlist
-            from_index: Current position of track
-            to_index: Target position for track
+            playlist_id: ID of playlist.
+            from_index: Current position of the track (0-based).
+            to_index: Target position of the track (0-based).
 
         Returns:
-            True if successful, False otherwise
+            True if the row was successfully repositioned, False on
+            lookup miss or out-of-range index.
         """
+        if from_index == to_index:
+            return True
+
         session = self.get_session()
         try:
-            # #3707: eager-load tracks so subsequent access (len, pop,
-            # insert) doesn't trigger an implicit lazy SELECT.
-            playlist = session.execute(
-                select(Playlist)
-                .options(selectinload(Playlist.tracks))
-                .where(Playlist.id == playlist_id)
-            ).scalars().first()
-            if not playlist:
+            # Resolve the moving track + the playlist size in one go.
+            moving_track_id = session.scalar(
+                select(track_playlist.c.track_id)
+                .where(track_playlist.c.playlist_id == playlist_id)
+                .where(track_playlist.c.position == from_index)
+            )
+            if moving_track_id is None:
+                error(f"Invalid from_index: {from_index} (no row in playlist {playlist_id})")
                 return False
 
-            # Validate indices
-            if from_index < 0 or from_index >= len(playlist.tracks):
-                error(f"Invalid from_index: {from_index}")
-                return False
-            if to_index < 0 or to_index >= len(playlist.tracks):
-                error(f"Invalid to_index: {to_index}")
+            size = session.scalar(
+                select(func.count()).select_from(track_playlist)
+                .where(track_playlist.c.playlist_id == playlist_id)
+            ) or 0
+            if not (0 <= to_index < size):
+                error(f"Invalid to_index: {to_index} (playlist size {size})")
                 return False
 
-            # Reorder tracks
-            track = playlist.tracks.pop(from_index)
-            playlist.tracks.insert(to_index, track)
+            # Move the row OUT of the way (sentinel position = -1) so
+            # the shift UPDATE below doesn't trip the unique
+            # constraint with its own row mid-rewrite.
+            session.execute(
+                update(track_playlist)
+                .where(track_playlist.c.playlist_id == playlist_id)
+                .where(track_playlist.c.track_id == moving_track_id)
+                .values(position=-1)
+            )
+
+            if to_index > from_index:
+                # Shift the rows in (from_index, to_index] down by 1.
+                session.execute(
+                    update(track_playlist)
+                    .where(track_playlist.c.playlist_id == playlist_id)
+                    .where(track_playlist.c.position > from_index)
+                    .where(track_playlist.c.position <= to_index)
+                    .values(position=track_playlist.c.position - 1)
+                )
+            else:
+                # Shift the rows in [to_index, from_index) up by 1.
+                session.execute(
+                    update(track_playlist)
+                    .where(track_playlist.c.playlist_id == playlist_id)
+                    .where(track_playlist.c.position >= to_index)
+                    .where(track_playlist.c.position < from_index)
+                    .values(position=track_playlist.c.position + 1)
+                )
+
+            # Slot the moving row into its target position.
+            session.execute(
+                update(track_playlist)
+                .where(track_playlist.c.playlist_id == playlist_id)
+                .where(track_playlist.c.track_id == moving_track_id)
+                .values(position=to_index)
+            )
 
             session.commit()
-            debug(f"Reordered track in playlist: {playlist.name} from {from_index} to {to_index}")
+            debug(
+                f"Reordered track {moving_track_id} in playlist {playlist_id} "
+                f"from {from_index} to {to_index}"
+            )
             return True
 
         except Exception as e:
