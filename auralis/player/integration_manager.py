@@ -176,8 +176,13 @@ class IntegrationManager:
             if not self.file_manager.load_file(cast(str, track.filepath)):
                 return False
 
-            # Store track reference
-            self.current_track = track
+            # #3786: write `current_track` under the same lock used by
+            # `_on_playback_state_change` and `get_playback_info` to read
+            # it. Without this, a concurrent reader could see
+            # `current_track` pointing at the new track while
+            # `position_seconds` still reflected the previous one.
+            with self._position_lock:
+                self.current_track = track
 
             # Record play count
             repos.tracks.record_play(track_id)
