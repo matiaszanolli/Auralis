@@ -10,6 +10,7 @@ Result types and output format specifications
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
+import os
 from pathlib import Path
 
 import soundfile as sf
@@ -40,6 +41,21 @@ class Result:
             raise TypeError(f"{file_ext} format is not supported")
         if not sf.check_format(file_ext, subtype):
             raise TypeError(f"{file_ext} format does not have {subtype} subtype")
+
+        # #3756: fail early on bad output paths. The previous behavior
+        # delayed the error until `sf.SoundFile(..., mode='w')` was
+        # opened in `simple_mastering.process_to_file` — after a
+        # half-hour of CPU. Check that the parent directory exists
+        # and is writable before any of that work happens.
+        parent = Path(file).parent
+        if not parent.exists():
+            raise FileNotFoundError(
+                f"Output directory does not exist: {parent}"
+            )
+        if not os.access(parent, os.W_OK):
+            raise PermissionError(
+                f"Output directory is not writable: {parent}"
+            )
 
         self.file = file
         self.subtype = subtype

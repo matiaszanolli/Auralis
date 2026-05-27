@@ -59,7 +59,15 @@ class BrickWallLimiter:
         self.sample_rate = settings.sample_rate
 
         # Convert parameters to samples
-        self.lookahead_samples = int(settings.lookahead_ms * self.sample_rate / 1000)
+        # #3750: clamp lookahead_samples to 1 minimum. `lookahead_ms=0`
+        # (and any sub-sample-period value) computes to 0, which makes
+        # `scipy.ndimage.maximum_filter1d(..., size=0, ...)` raise
+        # `ValueError("incorrect filter size")`. The default
+        # `lookahead_ms=2.0` masks this for normal use; a user/preset
+        # disabling lookahead crashes the limiter.
+        self.lookahead_samples = max(
+            1, int(settings.lookahead_ms * self.sample_rate / 1000)
+        )
         self.release_samples = int(settings.release_ms * self.sample_rate / 1000)
 
         # Threshold in linear scale

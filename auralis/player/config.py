@@ -24,6 +24,16 @@ class PlayerConfig:
         enable_auto_mastering: bool = False,
         enable_advanced_smoothing: bool = True,
         max_db_change_per_second: float = 2.0,
+        # #3754: realtime safety-limiter target peak (linear scale).
+        # Hoisted out of the previously-hard-coded `0.95` in
+        # RealtimeProcessor.process_chunk so it lives next to the other
+        # player knobs. Default aligned with HybridProcessor's
+        # brick-wall limiter at -0.3 dBFS (~0.9661 linear) so the two
+        # ceilings agree when both are in the chain. 0.95 (~-0.45 dBFS)
+        # is kept as the historical default since the realtime path is
+        # not necessarily behind the brick-wall limiter — tightening
+        # the default further would risk near-clip headroom regressions.
+        realtime_safety_peak: float = 0.95,
     ):
         self.sample_rate = sample_rate
         self.buffer_size = buffer_size
@@ -33,6 +43,7 @@ class PlayerConfig:
         self.enable_auto_mastering = enable_auto_mastering
         self.enable_advanced_smoothing = enable_advanced_smoothing
         self.max_db_change_per_second = max_db_change_per_second
+        self.realtime_safety_peak = realtime_safety_peak
 
     def __repr__(self) -> str:
         return (f"PlayerConfig(sample_rate={self.sample_rate}, "

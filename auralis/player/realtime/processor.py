@@ -138,9 +138,14 @@ class RealtimeProcessor:
             # chunks don't silently promote to float64 (np.max returns a
             # numpy scalar that's float64-typed regardless of input). Same
             # dtype-drift class as #3658 / #3659 / #2450.
+            # #3754: target peak hoisted to PlayerConfig.realtime_safety_peak
+            # so the ceiling lives next to other player knobs and can be
+            # tuned to align with HybridProcessor's brick-wall threshold
+            # (-0.3 dBFS ≈ 0.9661 linear) when both limiters share the
+            # signal chain. Default 0.95 preserves prior behavior.
+            target_peak = self.config.realtime_safety_peak
             max_val = np.max(np.abs(processed))
-            if max_val > 0.95:
-                target_peak = 0.95
+            if max_val > target_peak:
                 processed = processed * processed.dtype.type(
                     target_peak / max_val
                 )
