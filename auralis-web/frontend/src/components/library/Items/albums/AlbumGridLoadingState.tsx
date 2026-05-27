@@ -5,14 +5,21 @@
  */
 
 import { Box, Skeleton } from '@mui/material';
-import Grid2 from '@mui/material/Unstable_Grid2';
+import Grid2 from '@mui/material/Grid2';
 
 export const AlbumGridLoadingState = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Grid2 container spacing={3}>
         {[...Array(12)].map((_, index) => (
-          <Grid2 xs={12} sm={6} md={4} lg={3} key={index}>
+          <Grid2
+            key={index}
+            size={{
+              xs: 12,
+              sm: 6,
+              md: 4,
+              lg: 3
+            }}>
             <Box>
               <Skeleton
                 variant="rectangular"

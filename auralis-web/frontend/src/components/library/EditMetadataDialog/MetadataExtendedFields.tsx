@@ -2,7 +2,7 @@
  * MetadataExtendedFields - Extended metadata fields (comment)
  */
 
-import Grid2 from '@mui/material/Unstable_Grid2';
+import Grid2 from '@mui/material/Grid2';
 import { StyledTextField } from '@/components/library/Styles/FormFields.styles';
 import type { MetadataFields } from './useMetadataForm';
 
@@ -18,7 +18,7 @@ export const MetadataExtendedFields = ({
   return (
     <>
       {/* Comment */}
-      <Grid2 xs={12}>
+      <Grid2 size={12}>
         <StyledTextField
           fullWidth
           label="Comment"

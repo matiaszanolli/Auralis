@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import Grid2 from '@mui/material/Unstable_Grid2';
+import Grid2 from '@mui/material/Grid2';
 import { TrackCard } from '@/components/track/TrackCard';
 import type { LibraryTrack as Track } from '@/types/domain';
 
@@ -54,10 +54,6 @@ export const TrackGridView = ({
     <Grid2 container spacing={3}>
       {tracks.map((track, index) => (
         <Grid2
-          xs={12}
-          sm={6}
-          md={4}
-          lg={3}
           key={track.id}
           className="animate-fade-in-up"
           sx={
@@ -68,6 +64,12 @@ export const TrackGridView = ({
                 }
               : undefined
           }
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 4,
+            lg: 3,
+          }}
         >
           <TrackCard
             id={track.id}

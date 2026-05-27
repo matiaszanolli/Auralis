@@ -4,7 +4,7 @@ import {
   Paper,
   Typography
 } from '@mui/material';
-import Grid2 from '@mui/material/Unstable_Grid2';
+import Grid2 from '@mui/material/Grid2';
 import { tokens } from '@/design-system';
 import AlbumArt from '@/components/album/AlbumArt';
 import {
@@ -73,11 +73,18 @@ export const AlbumsTab = ({
           Albums {/* Sorted by year (newest first) - can be enhanced later */}
         </Typography>
       </Box>
-
       {/* Albums grid */}
       <Grid2 container spacing={3}>
         {albums.map((album) => (
-          <Grid2 xs={12} sm={6} md={4} lg={3} xl={2} key={album.id}>
+          <Grid2
+            key={album.id}
+            size={{
+              xs: 12,
+              sm: 6,
+              md: 4,
+              lg: 3,
+              xl: 2
+            }}>
             <AlbumCard onClick={() => onAlbumClick(album.id)}>
               <AlbumArt
                 albumId={album.id}

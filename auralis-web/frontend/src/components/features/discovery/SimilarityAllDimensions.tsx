@@ -4,7 +4,7 @@ import { tokens } from '@/design-system';
 import { useSimilarityFormatting } from './useSimilarityFormatting';
 import { LinearProgress } from '@/design-system';
 import { Box, Typography, Accordion, AccordionSummary, AccordionDetails,  } from '@mui/material';
-import Grid2 from '@mui/material/Unstable_Grid2';
+import Grid2 from '@mui/material/Grid2';
 
 export interface Contribution {
   dimension: string;
@@ -51,7 +51,7 @@ export const SimilarityAllDimensions = ({
           {contributions
             .sort((a, b) => b.contribution - a.contribution)
             .map((contrib) => (
-              <Grid2 xs={12} key={contrib.dimension}>
+              <Grid2 key={contrib.dimension} size={12}>
                 <Box sx={{ py: 0.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
                     <Typography
