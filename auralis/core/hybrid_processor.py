@@ -401,16 +401,23 @@ class HybridProcessor:
         """
         debug("Processing real-time audio chunk")
 
-        # Validate input chunk for NaN/Inf
-        audio_chunk = validate_audio_finite(audio_chunk, context="realtime chunk input", repair=False)
+        # #3787: hold _process_lock for the duration of the chunk so a
+        # concurrent process() or setter on the same cached instance
+        # cannot tear inner-component state (RealtimeAdaptiveEQ /
+        # DynamicsProcessor / preference_engine all share mutable state
+        # — see #3788, #3789). The lock is an RLock so the realtime
+        # path can still re-enter via the manager classes if needed.
+        with self._process_lock:
+            # Validate input chunk for NaN/Inf
+            audio_chunk = validate_audio_finite(audio_chunk, context="realtime chunk input", repair=False)
 
-        # Process chunk
-        processed_chunk = self.realtime_processor.process_chunk(audio_chunk, content_info)
+            # Process chunk
+            processed_chunk = self.realtime_processor.process_chunk(audio_chunk, content_info)
 
-        # Validate output for NaN/Inf (graceful handling for streaming)
-        processed_chunk = sanitize_audio(processed_chunk, context="realtime chunk output")
+            # Validate output for NaN/Inf (graceful handling for streaming)
+            processed_chunk = sanitize_audio(processed_chunk, context="realtime chunk output")
 
-        return processed_chunk
+            return processed_chunk
 
     def _load_audio_placeholder(self, file_path: str) -> np.ndarray:
         """File-path audio loading is not implemented; callers must pass a NumPy array."""
@@ -426,40 +433,51 @@ class HybridProcessor:
         return self.realtime_eq_manager.get_info()
 
     def set_realtime_eq_parameters(self, **kwargs: Any) -> None:
-        """Update real-time EQ parameters dynamically"""
-        self.realtime_eq_manager.set_parameters(**kwargs)
+        """Update real-time EQ parameters dynamically (#3787: locked)."""
+        with self._process_lock:
+            self.realtime_eq_manager.set_parameters(**kwargs)
 
     def reset_realtime_eq(self) -> None:
-        """Reset real-time EQ state"""
-        self.realtime_eq_manager.reset()
+        """Reset real-time EQ state (#3787: locked)."""
+        with self._process_lock:
+            self.realtime_eq_manager.reset()
 
     def get_dynamics_info(self) -> dict[str, Any]:
         """Get dynamics processing information"""
         return self.dynamics_manager.get_info()
 
     def set_dynamics_mode(self, mode: str) -> None:
-        """Set dynamics processing mode"""
-        self.dynamics_manager.set_mode(mode)
+        """Set dynamics processing mode (#3787: locked)."""
+        with self._process_lock:
+            self.dynamics_manager.set_mode(mode)
 
     def reset_dynamics(self) -> None:
-        """Reset dynamics processing state"""
-        self.dynamics_manager.reset()
+        """Reset dynamics processing state (#3787: locked)."""
+        with self._process_lock:
+            self.dynamics_manager.reset()
 
     def set_user(self, user_id: str) -> None:
-        """Set the current user for preference learning"""
-        self.current_user_id = user_id
-        self.preference_manager.set_user(user_id)
+        """Set the current user for preference learning (#3787: locked).
+
+        Both writes (`current_user_id` AND the underlying preference
+        manager) are inside the lock so a concurrent process() reads a
+        consistent (user, preferences) pair."""
+        with self._process_lock:
+            self.current_user_id = user_id
+            self.preference_manager.set_user(user_id)
 
     def record_user_feedback(self, rating: float,
                            parameters_before: dict[str, float] | None = None,
                            parameters_after: dict[str, float] | None = None) -> None:
-        """Record user feedback for learning"""
-        self.preference_manager.record_feedback(rating, parameters_before, parameters_after)
+        """Record user feedback for learning (#3787: locked)."""
+        with self._process_lock:
+            self.preference_manager.record_feedback(rating, parameters_before, parameters_after)
 
     def record_parameter_adjustment(self, parameter_name: str,
                                   old_value: float, new_value: float) -> None:
-        """Record user parameter adjustment for learning"""
-        self.preference_manager.record_adjustment(parameter_name, old_value, new_value)
+        """Record user parameter adjustment for learning (#3787: locked)."""
+        with self._process_lock:
+            self.preference_manager.record_adjustment(parameter_name, old_value, new_value)
 
     def get_user_insights(self, user_id: str | None = None) -> dict[str, Any]:
         """Get user preference insights"""
