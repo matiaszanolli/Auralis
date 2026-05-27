@@ -464,9 +464,13 @@ def create_enhancement_router(
             profile = get_last_content_profile(preset)
 
             if profile is None:
-                # No processing data yet - return default values
+                # No processing data yet - return default values.
+                # #3779: include `is_default: True` so clients can
+                # distinguish "no data yet" from "real measurements
+                # that coincidentally landed at the default values".
                 logger.debug(f"No processing profile found for preset '{preset}' - returning defaults")
                 return {
+                    "is_default": True,
                     "spectral_balance": 0.5,
                     "dynamic_range": 0.5,
                     "energy_level": 0.5,
@@ -484,9 +488,11 @@ def create_enhancement_router(
             params = profile.get('parameters')
 
             if coords is None or params is None:
-                # Legacy mode or no continuous space data
+                # Legacy mode or no continuous space data.
+                # #3779: same is_default marker as the no-profile branch.
                 logger.debug(f"Profile for preset '{preset}' missing coordinates or parameters")
                 return {
+                    "is_default": True,
                     "spectral_balance": 0.5,
                     "dynamic_range": 0.5,
                     "energy_level": 0.5,
@@ -507,7 +513,10 @@ def create_enhancement_router(
                 return getattr(obj, attr, default)
 
             # Convert ProcessingCoordinates and ProcessingParameters to dict
+            # #3779: `is_default: False` confirms these are measured values
+            # from a live ChunkedAudioProcessor profile, not the defaults.
             result = {
+                "is_default": False,
                 "spectral_balance": get_attr(coords, 'spectral_balance', 0.5),
                 "dynamic_range": get_attr(coords, 'dynamic_range', 0.5),
                 "energy_level": get_attr(coords, 'energy_level', 0.5),
