@@ -98,6 +98,15 @@ class VectorizedEQProcessor:
         # Preserve input dtype to avoid silent promotion to float64 (#2450)
         input_dtype = audio_mono.dtype
 
+        # #3742: see filters.apply_eq_mono for the rationale. Same contract,
+        # same fail-loud guard so future bypass-the-chunker callers get a
+        # clean error instead of silent sample loss past `fft_size`.
+        if len(audio_mono) > fft_size:
+            raise ValueError(
+                f"_apply_eq_mono_vectorized: audio length {len(audio_mono)} "
+                f"exceeds fft_size {fft_size}; caller must chunk at fft_size."
+            )
+
         # Transform to frequency domain (no windowing for EQ — see filters.py)
         spectrum = fft(audio_mono[:fft_size])
 

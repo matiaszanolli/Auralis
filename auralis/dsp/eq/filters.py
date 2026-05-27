@@ -81,6 +81,21 @@ def apply_eq_mono(audio_mono: np.ndarray,
     Returns:
         Processed mono audio
     """
+    # #3742: surface the implicit `len(audio) <= fft_size` contract. The
+    # caller (EQProcessor._process_with_psychoacoustic_eq) chunks input
+    # at fft_size, so this never trips in production. Any future
+    # bypass-the-chunker caller (fast path, unit test, external
+    # integration) would silently lose samples past fft_size — the
+    # `processed_audio[:len(audio_mono)]` return slices the IFFT output
+    # to the smaller of the two, masking the truncation. Fail loud
+    # instead.
+    if len(audio_mono) > fft_size:
+        raise ValueError(
+            f"apply_eq_mono: audio length {len(audio_mono)} exceeds "
+            f"fft_size {fft_size}; caller must chunk at fft_size or use "
+            f"a streaming EQ that operates on full-length buffers."
+        )
+
     # Transform to frequency domain (no windowing for EQ)
     spectrum = fft(audio_mono[:fft_size])
 
