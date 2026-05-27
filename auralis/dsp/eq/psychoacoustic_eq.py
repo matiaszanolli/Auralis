@@ -8,6 +8,7 @@ Main orchestrator for psychoacoustic EQ processing
 :license: GPLv3, see LICENSE for more details.
 """
 
+import threading
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -60,6 +61,18 @@ class PsychoacousticEQ:
         Args:
             settings: EQ configuration settings
         """
+        # #3747: fine-grained state-mutation lock. `_smooth_gains` writes
+        # `self.current_gains`, `_update_history` appends to
+        # `self.processing_history` (and pops on overflow — vulnerable to
+        # IndexError if a concurrent reset() clears it between the
+        # length check and the pop). HybridProcessor's `_process_lock`
+        # (#3787) bounds outer access, but the cached processor shares
+        # ONE EQ instance across the realtime path's chunk callers. A
+        # finer lock here keeps realtime latency low — `apply_eq` only
+        # holds the lock while touching the smoothed-gain buffers, not
+        # for the full FFT chain.
+        self._state_lock = threading.Lock()
+
         self.settings = settings
         self.sample_rate = settings.sample_rate
         self.fft_size = settings.fft_size
@@ -246,19 +259,25 @@ class PsychoacousticEQ:
         return target_gains
 
     def _smooth_gains(self, target_gains: np.ndarray) -> np.ndarray:
-        """Smooth gain transitions to avoid artifacts"""
-        adaptive_gains = np.zeros_like(target_gains)
-        for i in range(len(target_gains)):
-            adaptive_gains[i] = smooth_parameter_transition(
-                self.current_gains[i],
-                target_gains[i],
-                self.settings.adaptation_speed
-            )
+        """Smooth gain transitions to avoid artifacts (#3747: locked).
 
-        # Update current gains
-        self.current_gains = adaptive_gains.copy()
+        Reads and writes `self.current_gains` — atomic under the
+        state lock so concurrent callers see consistent inter-chunk
+        smoothing (the prior unprotected read-modify-write would
+        produce jittery band-EQ wobble under shared-instance use)."""
+        with self._state_lock:
+            adaptive_gains = np.zeros_like(target_gains)
+            for i in range(len(target_gains)):
+                adaptive_gains[i] = smooth_parameter_transition(
+                    self.current_gains[i],
+                    target_gains[i],
+                    self.settings.adaptation_speed
+                )
 
-        return adaptive_gains
+            # Update current gains
+            self.current_gains = adaptive_gains.copy()
+
+            return adaptive_gains
 
     def apply_eq(self, audio_chunk: np.ndarray, gains: np.ndarray) -> np.ndarray:
         """
@@ -318,16 +337,21 @@ class PsychoacousticEQ:
                        gains: np.ndarray,
                        spectrum_analysis: dict[str, Any],
                        content_profile: dict[str, Any] | None) -> None:
-        """Update processing history for learning"""
-        self.processing_history.append({
-            'gains': gains.copy(),
-            'band_energies': spectrum_analysis['band_energies'].copy(),
-            'content_profile': content_profile
-        })
+        """Update processing history for learning (#3747: locked).
 
-        # Limit history size
-        if len(self.processing_history) > 100:
-            self.processing_history.pop(0)
+        Without the lock, a concurrent `reset()` clearing
+        `processing_history` between the length check and the `pop(0)`
+        would raise `IndexError` (empty deque)."""
+        with self._state_lock:
+            self.processing_history.append({
+                'gains': gains.copy(),
+                'band_energies': spectrum_analysis['band_energies'].copy(),
+                'content_profile': content_profile
+            })
+
+            # Limit history size
+            if len(self.processing_history) > 100:
+                self.processing_history.pop(0)
 
     def get_current_response(self) -> dict[str, Any]:
         """
@@ -346,7 +370,12 @@ class PsychoacousticEQ:
         }
 
     def reset(self) -> None:
-        """Reset EQ to flat response"""
-        self.current_gains = np.zeros(len(self.critical_bands))
-        self.target_gains = np.zeros(len(self.critical_bands))
-        self.processing_history.clear()
+        """Reset EQ to flat response (#3747: locked).
+
+        Clearing the deque AND zeroing the gains must be atomic with
+        respect to a concurrent process / _update_history caller that
+        otherwise sees the gains zeroed but the history mid-flight."""
+        with self._state_lock:
+            self.current_gains = np.zeros(len(self.critical_bands))
+            self.target_gains = np.zeros(len(self.critical_bands))
+            self.processing_history.clear()
