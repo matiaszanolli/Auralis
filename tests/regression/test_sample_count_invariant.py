@@ -37,16 +37,22 @@ class TestSampleCountInvariant:
 
     def test_limiter_preserves_shape_mono(self):
         """Brick-wall limiter must not change mono sample count."""
-        from auralis.dsp.dynamics.brick_wall_limiter import BrickWallLimiter
-        limiter = BrickWallLimiter()
+        from auralis.dsp.dynamics.brick_wall_limiter import (
+            BrickWallLimiter,
+            BrickWallLimiterSettings,
+        )
+        limiter = BrickWallLimiter(BrickWallLimiterSettings())
         audio = np.random.randn(44100).astype(np.float32) * 2.0  # May clip
         result = limiter.process(audio)
         assert result.shape == audio.shape
 
     def test_limiter_preserves_shape_stereo(self):
         """Brick-wall limiter must not change stereo sample count."""
-        from auralis.dsp.dynamics.brick_wall_limiter import BrickWallLimiter
-        limiter = BrickWallLimiter()
+        from auralis.dsp.dynamics.brick_wall_limiter import (
+            BrickWallLimiter,
+            BrickWallLimiterSettings,
+        )
+        limiter = BrickWallLimiter(BrickWallLimiterSettings())
         audio = np.random.randn(44100, 2).astype(np.float32) * 2.0
         result = limiter.process(audio)
         assert result.shape == audio.shape

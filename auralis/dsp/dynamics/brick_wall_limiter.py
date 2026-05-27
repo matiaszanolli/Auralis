@@ -152,29 +152,8 @@ class BrickWallLimiter:
             1.0,
         )
 
-        # Release envelope is inherently recurrent (each sample depends on the
-        # previous gain), so a loop is unavoidable here.  However it now has
-        # NO inner NumPy call — it's pure scalar arithmetic, which is ~10×
-        # faster than the previous O(n × lookahead) loop.
-        # #3658: dtype-match the input so the final `audio * gain_curve`
-        # multiply does not promote a float32 audio buffer to float64.
-        gain_curve = np.empty(num_samples, dtype=audio.dtype)
-        # Seed from self.current_gain so consecutive chunk calls produce a
-        # continuous gain envelope (fixes #2390: audible click at boundaries).
-        prev_gain = self.current_gain
-        rc = self.release_coef
-        for i in range(num_samples):
-            tg = target_gains[i]
-            if tg < prev_gain:
-                # Attack: instant
-                prev_gain = tg
-            else:
-                # Release: exponential decay back toward 1.0
-                prev_gain = prev_gain * rc + tg * (1.0 - rc)
-            gain_curve[i] = prev_gain
-
-        # Persist ending gain for the next call (cross-chunk continuity).
-        self.current_gain = float(gain_curve[-1])
+        # Build the instant-attack / exponential-release gain envelope.
+        gain_curve = self._release_envelope(target_gains, audio.dtype)
 
         # Apply gain curve to audio
         output = audio * gain_curve.reshape(-1, 1)
@@ -184,6 +163,78 @@ class BrickWallLimiter:
             output = output.reshape(-1)
 
         return output
+
+    def _release_envelope(
+        self, target_gains: np.ndarray, dtype: np.dtype
+    ) -> np.ndarray:
+        """
+        Build the instant-attack / exponential-release gain curve (fixes #3751).
+
+        The recurrence is sequential and nonlinear, so it has no exact
+        closed-form vectorization:
+            attack  (tg <  prev_gain): gain jumps instantly to tg
+            release (tg >= prev_gain): gain = rc*prev_gain + (1-rc)*tg
+
+        However, ``target_gains`` is *exactly* 1.0 wherever no limiting is
+        needed and < 1.0 only at peaks. Over a maximal run of unity targets the
+        recurrence collapses to a pure geometric release toward 1.0:
+
+            gain[k] = 1 - (1 - gain_start) * rc**k
+
+        which we fill in one vectorized shot. The scalar attack/release loop
+        then runs only on the (typically sparse) limiting samples, turning the
+        former ~1.3M-iteration per-sample loop into O(num_peaks) Python work.
+        Exact to float precision.
+
+        Args:
+            target_gains: Per-sample target gain in (0, 1]; 1.0 == no limiting.
+            dtype: Output dtype — matches the audio so the downstream
+                ``audio * gain_curve`` multiply does not promote float32 to
+                float64 (#3658).
+
+        Returns:
+            Gain curve of shape ``(len(target_gains),)`` in ``dtype``.
+
+        Side effect:
+            Updates ``self.current_gain`` with the final gain so consecutive
+            chunk calls produce a continuous envelope (#2390: no boundary click).
+        """
+        num_samples = target_gains.shape[0]
+        gain_curve = np.empty(num_samples, dtype=dtype)
+        # Seed from self.current_gain for cross-chunk continuity (#2390).
+        prev_gain = self.current_gain
+        rc = self.release_coef
+
+        # Split the block into maximal runs of "unity" (no limiting) vs
+        # "limiting" samples; the state flips at these boundary indices.
+        is_unity = target_gains >= 1.0
+        flips = np.flatnonzero(np.diff(is_unity)) + 1
+        seg_starts = np.concatenate(([0], flips))
+        seg_ends = np.concatenate((flips, [num_samples]))  # exclusive bounds
+
+        for start, end in zip(seg_starts, seg_ends):
+            if is_unity[start]:
+                # Vectorized geometric release toward 1.0 across the whole run.
+                run_len = end - start
+                k = np.arange(1, run_len + 1)
+                gain_curve[start:end] = 1.0 - (1.0 - prev_gain) * (rc ** k)
+                # Advance prev_gain analytically in full precision (matches the
+                # iterated scalar release to float roundoff).
+                prev_gain = 1.0 - (1.0 - prev_gain) * float(rc ** run_len)
+            else:
+                # Scalar attack/release on the limiting samples — the branch
+                # depends on the running gain, so it cannot be vectorized.
+                for i in range(start, end):
+                    tg = target_gains[i]
+                    if tg < prev_gain:
+                        prev_gain = tg  # attack: instant
+                    else:
+                        prev_gain = prev_gain * rc + tg * (1.0 - rc)  # release
+                    gain_curve[i] = prev_gain
+
+        # Persist ending gain for the next call (cross-chunk continuity).
+        self.current_gain = float(gain_curve[-1])
+        return gain_curve
 
     def reset(self) -> None:
         """Reset limiter state (clear buffers)"""
