@@ -460,6 +460,59 @@ Broadcast when library scan finishes.
 
 ---
 
+## Client → Server Commands
+
+These messages are sent **from the frontend to the backend** to control audio
+streaming over the WebSocket.
+
+#### `play_enhanced`
+
+Request enhanced (auto-mastered) audio streaming for a track.
+
+**Payload**:
+```typescript
+{
+  "type": "play_enhanced",
+  "data": {
+    "track_id": number,          // Required. Positive integer.
+    "preset"?: string,           // Optional. One of: adaptive, gentle, warm, bright, punchy.
+    "intensity"?: number,        // Optional. 0.0 - 1.0.
+    "start_position"?: number,   // Optional. Resume offset in seconds (WS reconnect).
+    "force"?: boolean            // Optional. Default false. See precedence below.
+  }
+}
+```
+
+**Precedence rules**:
+- `preset` / `intensity`: **client-sent values are primary**; any missing or invalid
+  value falls back to the stored enhancement settings (#2256).
+- `enabled` (global auto-mastering toggle): the **stored** setting governs by default.
+  If global enhancement is disabled, `play_enhanced` is rejected with an
+  `audio_stream_error` whose `code` is `ENHANCEMENT_DISABLED`.
+- `force: true` overrides the stored `enabled` gate — an explicit `play_enhanced`
+  request is honored even when global enhancement is toggled off (#3773). Intended for
+  programmatic / A-B / scripted flows. The UI leaves `force` unset, so the enhancement
+  panel toggle still gates normal playback.
+
+#### `play_normal`
+
+Request unprocessed (original) audio streaming for a track. Always allowed regardless of
+the stored `enabled` flag — it performs no DSP processing, so there is no enhancement
+gate to apply.
+
+**Payload**:
+```typescript
+{
+  "type": "play_normal",
+  "data": {
+    "track_id": number,          // Required. Positive integer.
+    "start_position"?: number    // Optional. Resume offset in seconds (WS reconnect).
+  }
+}
+```
+
+---
+
 ## Frontend Usage
 
 ### TypeScript Interfaces

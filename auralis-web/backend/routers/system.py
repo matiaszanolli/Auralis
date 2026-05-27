@@ -256,6 +256,13 @@ def create_system_router(
                     VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
                     enhancement_enabled = True
 
+                    # Explicit client opt-out of the stored-`enabled` gate (#3773).
+                    # When true, an explicit play_enhanced request is honored even if
+                    # global enhancement is toggled off — for programmatic / A-B /
+                    # scripted flows. The UI leaves this unset, so the panel toggle
+                    # still gates normal playback.
+                    force = bool(data.get("force", False))
+
                     # Validate and accept the values sent by the frontend
                     raw_preset = data.get("preset", "")
                     raw_intensity = data.get("intensity")
@@ -306,8 +313,9 @@ def create_system_router(
                         + (f", resume_at={start_position:.1f}s" if start_position > 0 else "")
                     )
 
-                    if not enhancement_enabled:
-                        # Enhancement is disabled - send error message to client
+                    if not enhancement_enabled and not force:
+                        # Enhancement is disabled and the client did not force it -
+                        # send error message to client (#3773).
                         logger.warning(f"Enhancement disabled, rejecting play_enhanced request for track {track_id}")
                         try:
                             await websocket.send_text(
@@ -350,9 +358,13 @@ def create_system_router(
                             controller = AudioStreamController(
                                 chunked_processor_class=ChunkedAudioProcessor,
                                 get_repository_factory=get_repository_factory,
+                                # When the client forced enhanced playback (#3773),
+                                # bypass the mid-stream "enhancement disabled" gate
+                                # (#2866) too — otherwise a stored enabled=false would
+                                # stop the forced stream on its first chunk.
                                 get_enhancement_enabled=(
                                     (lambda: get_enhancement_settings().get("enabled", True))
-                                    if get_enhancement_settings is not None
+                                    if (get_enhancement_settings is not None and not force)
                                     else None
                                 ),
                             )

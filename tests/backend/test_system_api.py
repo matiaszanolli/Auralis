@@ -283,23 +283,59 @@ class TestWebSocketPlayback:
             except Exception:
                 pass
 
-    @patch('main.enhancement_settings')
-    def test_play_enhanced_when_disabled(self, mock_settings, client):
+    @staticmethod
+    def _recv_until_stream_error(websocket, max_reads=10):
+        """Drain connect-handshake messages and return the first audio_stream_error.
+
+        On connect the WS pushes handshake messages (enhancement_settings_changed,
+        player_state); the relevant response to play_enhanced is an
+        audio_stream_error that follows.
+        """
+        for _ in range(max_reads):
+            data = json.loads(websocket.receive_text())
+            if data.get("type") == "audio_stream_error":
+                return data
+        raise AssertionError("No audio_stream_error received within max_reads")
+
+    def test_play_enhanced_when_disabled(self, client):
         """Test play_enhanced when enhancement is disabled"""
-        mock_settings.update({"enabled": False, "preset": "adaptive", "intensity": 1.0})
+        import main
 
-        with client.websocket_connect("/ws") as websocket:
-            websocket.send_text(json.dumps({
-                "type": "play_enhanced",
-                "data": {"track_id": 1}
-            }))
+        # Enhancement settings live in main.globals_dict and are read by the router
+        # via a lambda closed over that dict; patch it in place so the handler sees
+        # enabled=False (the old `main.enhancement_settings` attribute no longer exists).
+        with patch.dict(main.globals_dict["enhancement_settings"], {"enabled": False}):
+            with client.websocket_connect("/ws") as websocket:
+                websocket.send_text(json.dumps({
+                    "type": "play_enhanced",
+                    "data": {"track_id": 1}
+                }))
 
-            # Should receive error about enhancement being disabled
-            response = websocket.receive_text()
-            data = json.loads(response)
+                # Should be rejected with the disabled-gate error.
+                data = self._recv_until_stream_error(websocket)
+                assert data["data"]["code"] == "ENHANCEMENT_DISABLED"
 
-            assert data["type"] == "audio_stream_error"
-            assert "ENHANCEMENT_DISABLED" in data["data"]["code"]
+    def test_play_enhanced_force_overrides_disabled(self, client):
+        """force:true bypasses the stored enabled=False gate (#3773)
+
+        With enhancement globally disabled, an explicit play_enhanced carrying
+        force:true must NOT be rejected with ENHANCEMENT_DISABLED. The request
+        proceeds past the gate and fails later for an unrelated reason (the track
+        does not exist in the test DB), surfacing a different error code.
+        """
+        import main
+
+        with patch.dict(main.globals_dict["enhancement_settings"], {"enabled": False}):
+            with client.websocket_connect("/ws") as websocket:
+                websocket.send_text(json.dumps({
+                    "type": "play_enhanced",
+                    "data": {"track_id": 1, "force": True}
+                }))
+
+                # force overrides the stored-enabled gate: the first stream error
+                # must not be the ENHANCEMENT_DISABLED rejection.
+                data = self._recv_until_stream_error(websocket)
+                assert data["data"]["code"] != "ENHANCEMENT_DISABLED"
 
     def test_play_enhanced_invalid_preset(self, client):
         """Test play_enhanced with invalid preset (Issue #2112)"""
