@@ -410,12 +410,24 @@ class HybridProcessor:
         with self._process_lock:
             # Validate input chunk for NaN/Inf
             audio_chunk = validate_audio_finite(audio_chunk, context="realtime chunk input", repair=False)
+            input_len = len(audio_chunk)
 
             # Process chunk
             processed_chunk = self.realtime_processor.process_chunk(audio_chunk, content_info)
 
             # Validate output for NaN/Inf (graceful handling for streaming)
             processed_chunk = sanitize_audio(processed_chunk, context="realtime chunk output")
+
+            # #3792: sample-count assertion mirroring the offline mode
+            # handlers (the #2519 pattern). Without this, an inner-DSP
+            # regression that drops samples mid-frame would only fire
+            # downstream at the audio stream boundary, masking the real
+            # culprit. Empty inputs return empty outputs — both are
+            # length-0, so the assertion still holds.
+            assert len(processed_chunk) == input_len, (
+                f"realtime chunk shape mismatch: input {input_len} -> "
+                f"output {len(processed_chunk)}"
+            )
 
             return processed_chunk
 
