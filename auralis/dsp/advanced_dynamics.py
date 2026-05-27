@@ -10,6 +10,7 @@ Intelligent compression, limiting, and dynamic range optimization
 Advanced dynamics processing with content-aware adaptation
 """
 
+import threading
 from typing import Any
 
 import numpy as np
@@ -50,6 +51,18 @@ class DynamicsProcessor:
         Args:
             settings: Dynamics processing configuration
         """
+        # #3789: state-mutation lock. In ADAPTIVE mode, process() calls
+        # _adapt_to_content() which writes
+        # `self.compressor.settings.{threshold_db, ratio, makeup_gain_db}`
+        # on every chunk. Concurrent process() invocations on a shared
+        # instance race those nested-settings writes against the
+        # consumer reading them inside `compressor.process()` — torn
+        # reads cause audible pumping for the affected chunk. The lock
+        # also guards `self.gate_gain`, `self.content_history`, and
+        # `self.adaptation_state`. RLock so internal helpers can
+        # re-enter without deadlock.
+        self._lock = threading.RLock()
+
         self.settings = settings
         self.sample_rate = settings.sample_rate
 
@@ -96,33 +109,40 @@ class DynamicsProcessor:
         if len(audio) == 0:
             return audio.copy(), {}
 
-        processed_audio = audio.copy()
-        processing_info = {}
+        # #3789: hold the lock across the full chain. _adapt_to_content
+        # writes the nested compressor settings dict that the very next
+        # `compressor.process(...)` reads — those two MUST be a single
+        # atomic operation against concurrent callers. Also guards
+        # `_update_adaptation_state` writes to `adaptation_state` and
+        # `content_history`.
+        with self._lock:
+            processed_audio = audio.copy()
+            processing_info = {}
 
-        # Adapt parameters based on content
-        if content_info and self.settings.mode == DynamicsMode.ADAPTIVE:
-            self._adapt_to_content(content_info)
+            # Adapt parameters based on content
+            if content_info and self.settings.mode == DynamicsMode.ADAPTIVE:
+                self._adapt_to_content(content_info)
 
-        # Apply gating
-        if self.settings.enable_gate:
-            processed_audio, gate_info = self._apply_gate(processed_audio)
-            processing_info['gate'] = gate_info
+            # Apply gating
+            if self.settings.enable_gate:
+                processed_audio, gate_info = self._apply_gate(processed_audio)
+                processing_info['gate'] = gate_info
 
-        # Apply compression
-        if self.compressor is not None:
-            detection_mode = self._get_detection_mode(content_info)
-            processed_audio, comp_info = self.compressor.process(processed_audio, detection_mode)
-            processing_info['compressor'] = comp_info
+            # Apply compression
+            if self.compressor is not None:
+                detection_mode = self._get_detection_mode(content_info)
+                processed_audio, comp_info = self.compressor.process(processed_audio, detection_mode)
+                processing_info['compressor'] = comp_info
 
-        # Apply limiting
-        if self.limiter is not None:
-            processed_audio, limit_info = self.limiter.process(processed_audio)
-            processing_info['limiter'] = limit_info
+            # Apply limiting
+            if self.limiter is not None:
+                processed_audio, limit_info = self.limiter.process(processed_audio)
+                processing_info['limiter'] = limit_info
 
-        # Update adaptation state
-        self._update_adaptation_state(processed_audio, content_info)
+            # Update adaptation state
+            self._update_adaptation_state(processed_audio, content_info)
 
-        return processed_audio, processing_info
+            return processed_audio, processing_info
 
     def _apply_gate(self, audio: np.ndarray) -> tuple[np.ndarray, dict[str, float]]:
         """Apply noise gate"""
@@ -291,20 +311,28 @@ class DynamicsProcessor:
         return info
 
     def set_mode(self, mode: DynamicsMode) -> None:
-        """Change dynamics processing mode"""
-        self.settings.mode = mode
-        debug(f"Dynamics mode changed to: {mode.value}")
+        """Change dynamics processing mode (#3789: locked).
+
+        Mode affects whether process() calls _adapt_to_content; swapping
+        it mid-chunk must be atomic with respect to the running chain."""
+        with self._lock:
+            self.settings.mode = mode
+            debug(f"Dynamics mode changed to: {mode.value}")
 
     def reset(self) -> None:
-        """Reset all dynamics processing state"""
-        if self.compressor:
-            self.compressor.reset()
+        """Reset all dynamics processing state (#3789: locked).
 
-        if self.limiter:
-            self.limiter.reset()
+        Touches `gate_gain` and `content_history` which are also written
+        by `process()` / `_adapt_to_content()` / `_update_adaptation_state`."""
+        with self._lock:
+            if self.compressor:
+                self.compressor.reset()
 
-        self.gate_gain = 1.0
-        self.content_history.clear()
+            if self.limiter:
+                self.limiter.reset()
+
+            self.gate_gain = 1.0
+            self.content_history.clear()
 
         debug("Dynamics processor reset")
 
