@@ -30,10 +30,14 @@ export const SidebarFooter = ({ onOpenSettings }: SidebarFooterProps) => {
             </ListItemIcon>
             <ListItemText
               primary="Settings"
-              primaryTypographyProps={{
-                fontSize: tokens.typography.fontSize.base,
-                fontWeight: tokens.typography.fontWeight.normal,
-                color: tokens.colors.text.secondary,
+              slotProps={{
+                primary: {
+                  sx: {
+                    fontSize: tokens.typography.fontSize.base,
+                    fontWeight: tokens.typography.fontWeight.normal,
+                    color: tokens.colors.text.secondary,
+                  },
+                },
               }}
             />
           </StyledListItemButton>

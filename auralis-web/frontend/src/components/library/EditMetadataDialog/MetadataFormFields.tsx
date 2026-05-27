@@ -29,7 +29,12 @@ export const MetadataFormFields = ({
 }: MetadataFormFieldsProps) => {
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" p={4}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          p: 4
+        }}>
         <CircularProgress />
       </Box>
     );

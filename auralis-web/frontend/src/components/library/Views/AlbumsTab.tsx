@@ -49,7 +49,9 @@ export const AlbumsTab = ({
           borderRadius: 2,
         }}
       >
-        <Typography color="text.secondary">
+        <Typography sx={{
+          color: "text.secondary"
+        }}>
           No albums found for this artist
         </Typography>
       </Paper>

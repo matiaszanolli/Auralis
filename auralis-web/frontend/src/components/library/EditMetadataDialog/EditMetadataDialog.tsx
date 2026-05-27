@@ -67,7 +67,7 @@ export const EditMetadataDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth PaperProps={DialogPaperProps}>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth slotProps={{ paper: DialogPaperProps }}>
       <EditMetadataDialogHeader loading={loading} />
 
       <DialogContent sx={{ mt: 2 }}>

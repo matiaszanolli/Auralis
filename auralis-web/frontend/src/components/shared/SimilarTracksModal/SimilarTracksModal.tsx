@@ -102,15 +102,17 @@ export const SimilarTracksModal = ({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          // Glass effect for modal (Design Language v1.2.0 §4.2)
-          background: tokens.glass.strong.background,
-          backdropFilter: tokens.glass.strong.backdropFilter,   // 40px blur
-          border: tokens.glass.strong.border,                   // 22% white opacity
-          boxShadow: tokens.glass.strong.boxShadow,
-          borderRadius: tokens.borderRadius.lg,                 // 16px - organic
-          maxHeight: '80vh',
+      slotProps={{
+        paper: {
+          sx: {
+            // Glass effect for modal (Design Language v1.2.0 §4.2)
+            background: tokens.glass.strong.background,
+            backdropFilter: tokens.glass.strong.backdropFilter,   // 40px blur
+            border: tokens.glass.strong.border,                   // 22% white opacity
+            boxShadow: tokens.glass.strong.boxShadow,
+            borderRadius: tokens.borderRadius.lg,                 // 16px - organic
+            maxHeight: '80vh',
+          },
         },
       }}
     >
@@ -265,18 +267,20 @@ export const SimilarTracksModal = ({
                   <ListItemText
                     primary={track.title || `Track ${track.trackId}`}
                     secondary={track.artist || 'Unknown Artist'}
-                    primaryTypographyProps={{
-                      sx: {
-                        fontSize: tokens.typography.fontSize.base, // 16px
-                        fontWeight: tokens.typography.fontWeight.medium,
-                        color: tokens.colors.text.primary,
+                    slotProps={{
+                      primary: {
+                        sx: {
+                          fontSize: tokens.typography.fontSize.base, // 16px
+                          fontWeight: tokens.typography.fontWeight.medium,
+                          color: tokens.colors.text.primary,
+                        },
                       },
-                    }}
-                    secondaryTypographyProps={{
-                      sx: {
-                        fontSize: tokens.typography.fontSize.sm, // 13px
-                        color: tokens.colors.text.secondary,
-                        marginTop: tokens.spacing.xs,           // 4px
+                      secondary: {
+                        sx: {
+                          fontSize: tokens.typography.fontSize.sm, // 13px
+                          color: tokens.colors.text.secondary,
+                          marginTop: tokens.spacing.xs,            // 4px
+                        },
                       },
                     }}
                   />

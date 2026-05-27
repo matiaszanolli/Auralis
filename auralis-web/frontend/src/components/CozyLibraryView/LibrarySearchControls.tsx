@@ -89,7 +89,9 @@ export const LibrarySearchControls = ({
           <ViewToggle value={viewMode} onChange={onViewModeChange} />
         </Box>
 
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {trackCount} songs
         </Typography>
       </Box>

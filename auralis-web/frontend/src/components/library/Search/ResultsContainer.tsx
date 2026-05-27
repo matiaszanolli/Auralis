@@ -96,7 +96,9 @@ export const ResultsContainerComponent = ({
       <ResultsContainer elevation={8}>
         <Box sx={{ padding: 4, textAlign: 'center' }}>
           <SearchIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-          <Typography color="text.secondary">
+          <Typography sx={{
+            color: "text.secondary"
+          }}>
             No results found for "{query}"
           </Typography>
         </Box>

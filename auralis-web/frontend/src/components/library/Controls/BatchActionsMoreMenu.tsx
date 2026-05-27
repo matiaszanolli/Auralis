@@ -37,12 +37,14 @@ export const BatchActionsMoreMenu = ({
         vertical: 'top',
         horizontal: 'right',
       }}
-      PaperProps={{
-        sx: {
-          background: tokens.gradients.darkSubtle,
-          border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
-          borderRadius: '12px',
-          mt: 1,
+      slotProps={{
+        paper: {
+          sx: {
+            background: tokens.gradients.darkSubtle,
+            border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
+            borderRadius: '12px',
+            mt: 1,
+          },
         },
       }}
     >

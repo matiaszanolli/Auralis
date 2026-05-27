@@ -65,7 +65,13 @@ export const ProcessingToast = ({ stats, show }: ProcessingToastProps) => {
       >
         <Box sx={{ p: tokens.spacing.md }}>
           {/* Header with icon */}
-          <Stack direction="row" spacing={tokens.spacing.sm} alignItems="center" sx={{ mb: tokens.spacing.sm }}>
+          <Stack
+            direction="row"
+            spacing={tokens.spacing.sm}
+            sx={{
+              alignItems: "center",
+              mb: tokens.spacing.sm
+            }}>
             <AutoAwesome
               sx={{
                 fontSize: tokens.typography.fontSize.lg,

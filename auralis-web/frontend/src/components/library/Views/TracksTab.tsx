@@ -35,7 +35,9 @@ export const TracksTab = ({
     return (
       <TableRow>
         <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-          <Typography color="text.secondary">
+          <Typography sx={{
+            color: "text.secondary"
+          }}>
             No tracks found for this artist
           </Typography>
         </TableCell>

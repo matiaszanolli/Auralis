@@ -21,18 +21,24 @@ export const LibraryHeader = memo<LibraryHeaderProps>(({ view }) => {
       <Typography
         variant="h3"
         component="h1"
-        fontWeight={tokens.typography.fontWeight.bold}
         gutterBottom
         sx={{
-          fontFamily: tokens.typography.fontFamily.header,  // Manrope for dramatic headers (R4)
-          fontSize: tokens.typography.fontSize['4xl'],      // 56px - dramatic scale (R4)
-          letterSpacing: '-0.02em',                         // Tight tracking for large headers
+          fontWeight: tokens.typography.fontWeight.bold,
+
+          // Manrope for dramatic headers (R4)
+          fontFamily: tokens.typography.fontFamily.header,
+
+          // 56px - dramatic scale (R4)
+          fontSize: tokens.typography.fontSize['4xl'],
+
+          // Tight tracking for large headers
+          letterSpacing: '-0.02em',
+
           background: tokens.gradients.aurora,
           backgroundClip: 'text',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
-        }}
-      >
+        }}>
         {view === 'favourites'
           ? <><span aria-hidden="true">❤️ </span>Your Favorites</>
           : <><span aria-hidden="true">🎵 </span>Your Music Collection</>}

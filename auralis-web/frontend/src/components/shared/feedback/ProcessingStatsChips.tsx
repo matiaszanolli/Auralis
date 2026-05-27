@@ -22,7 +22,13 @@ export const ProcessingStatsChips = ({
   totalChunks,
 }: ProcessingStatsChipsProps) => {
   return (
-    <Stack direction="row" spacing={tokens.spacing.xs} flexWrap="wrap" gap={tokens.spacing.xs}>
+    <Stack
+      direction="row"
+      spacing={tokens.spacing.xs}
+      sx={{
+        flexWrap: "wrap",
+        gap: tokens.spacing.xs
+      }}>
       {cacheHit && (
         <Chip
           icon={<TrendingUp sx={{ fontSize: tokens.typography.fontSize.sm }} />}
@@ -39,7 +45,6 @@ export const ProcessingStatsChips = ({
           }}
         />
       )}
-
       {processingSpeed && processingSpeed > 1 && (
         <Chip
           icon={<Speed sx={{ fontSize: tokens.typography.fontSize.sm }} />}
@@ -56,7 +61,6 @@ export const ProcessingStatsChips = ({
           }}
         />
       )}
-
       {currentChunk !== undefined && (
         <Chip
           icon={<Memory sx={{ fontSize: tokens.typography.fontSize.sm }} />}

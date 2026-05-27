@@ -41,7 +41,12 @@ export const ArtistListLoadingIndicator = ({
           },
         }}
       />
-      <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          ml: 2
+        }}>
         Loading more artists... ({currentCount}/{totalCount})
       </Typography>
     </Box>

@@ -176,17 +176,19 @@ export const Input = ({
       size={size}
       error={error}
       helperText={errorMessage}
-      InputProps={{
-        startAdornment: startIcon ? (
-          <InputAdornment position="start" sx={{ color: tokens.colors.text.tertiary }}>
-            {startIcon}
-          </InputAdornment>
-        ) : undefined,
-        endAdornment: endIcon ? (
-          <InputAdornment position="end" sx={{ color: tokens.colors.text.tertiary }}>
-            {endIcon}
-          </InputAdornment>
-        ) : undefined,
+      slotProps={{
+        input: {
+          startAdornment: startIcon ? (
+            <InputAdornment position="start" sx={{ color: tokens.colors.text.tertiary }}>
+              {startIcon}
+            </InputAdornment>
+          ) : undefined,
+          endAdornment: endIcon ? (
+            <InputAdornment position="end" sx={{ color: tokens.colors.text.tertiary }}>
+              {endIcon}
+            </InputAdornment>
+          ) : undefined,
+        },
       }}
       {...props}
     />

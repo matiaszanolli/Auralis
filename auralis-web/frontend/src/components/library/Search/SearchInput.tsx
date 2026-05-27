@@ -42,28 +42,30 @@ export const SearchInput = ({
         placeholder="Search tracks, albums, artists..."
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              {loading ? (
-                <CircularProgress size={20} sx={{ color: tokens.colors.accent.primary }} />
-              ) : (
-                <SearchIcon sx={{ color: 'text.secondary' }} />
-              )}
-            </InputAdornment>
-          ),
-          endAdornment: query && (
-            <InputAdornment position="end">
-              <CloseIcon
-                sx={{
-                  cursor: 'pointer',
-                  color: 'text.secondary',
-                  '&:hover': { color: 'text.primary' }
-                }}
-                onClick={onClear}
-              />
-            </InputAdornment>
-          )
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                {loading ? (
+                  <CircularProgress size={20} sx={{ color: tokens.colors.accent.primary }} />
+                ) : (
+                  <SearchIcon sx={{ color: 'text.secondary' }} />
+                )}
+              </InputAdornment>
+            ),
+            endAdornment: query && (
+              <InputAdornment position="end">
+                <CloseIcon
+                  sx={{
+                    cursor: 'pointer',
+                    color: 'text.secondary',
+                    '&:hover': { color: 'text.primary' }
+                  }}
+                  onClick={onClear}
+                />
+              </InputAdornment>
+            ),
+          },
         }}
       />
     </SearchContainer>
