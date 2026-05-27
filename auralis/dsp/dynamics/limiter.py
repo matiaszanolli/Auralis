@@ -195,7 +195,14 @@ class AdaptiveLimiter:
                 audio
             ], axis=0)
             self.lookahead_buffer = np.roll(self.lookahead_buffer, -audio_len, axis=0)
-            self.lookahead_buffer[-audio_len:, ...] = audio
+            # #3427: explicit .copy() before the slice assignment.
+            # numpy slice assignment already copies values, so the ring
+            # buffer was never actually aliased to the caller's array —
+            # but a defensive `.copy()` matches the copy-before-modify
+            # discipline used by the >= buffer_size branch above and
+            # everywhere else in the engine. Negligible cost, zero risk
+            # of a future refactor introducing a real alias.
+            self.lookahead_buffer[-audio_len:, ...] = audio.copy()
 
         return cast(np.ndarray, delayed_audio[:audio_len])
 

@@ -112,9 +112,21 @@ class ResonanceNotcher:
 
         # find_peaks with prominence gives us "how much does this peak stick out
         # of its local neighbourhood" — exactly the masking metric we want.
-        # distance=10 bins ≈ 27 Hz at sr=44100 — keeps clusters of bins from
-        # being reported as separate peaks.
-        peaks, props = find_peaks(sub, prominence=min_prominence_db, distance=10)
+        #
+        # #3478: previously hardcoded `distance=10` bins, which is ~27 Hz at
+        # sr=44100 (FFT size N=16384) but slides with the sample rate. At
+        # sr=96000 the same 10 bins maps to ~59 Hz, throwing away nearby
+        # resonances; at sr=22050 it's ~13 Hz, splitting a single cluster
+        # into multiple notches. Anchor the separation in Hz instead: 25 Hz
+        # ≈ half a critical band at the bottom of the search range, broad
+        # enough to merge a single resonance's neighbouring bins without
+        # collapsing distinct ones.
+        min_separation_hz = 25.0
+        bin_hz = sample_rate / N
+        distance_bins = max(1, int(round(min_separation_hz / bin_hz)))
+        peaks, props = find_peaks(
+            sub, prominence=min_prominence_db, distance=distance_bins
+        )
         if len(peaks) == 0:
             return []
 
