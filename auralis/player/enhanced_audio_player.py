@@ -123,6 +123,14 @@ class AudioPlayer:
         # post-teardown (test flakiness; benign in Electron production where
         # the process exits immediately after cleanup).
         self._advance_thread: threading.Thread | None = None
+        # #3727: covers the timeout path of #3694. cleanup() sets this
+        # before the join; _auto_advance_next() checks it after the
+        # is_playing() guard so a thread that gets past the
+        # _stop_requested check (timeout window in cleanup) still aborts
+        # before invoking next_track() and the subsequent audio_data
+        # swap. Without this, a 2 s join timeout on slow I/O could
+        # leave audio_data non-None after cleanup() returns.
+        self._cleanup_in_progress = threading.Event()
 
         info("Enhanced AudioPlayer initialized (refactored architecture, RepositoryFactory support enabled, fingerprinting enabled)")
 
@@ -568,6 +576,16 @@ class AudioPlayer:
         try:
             if self._stop_requested.is_set():
                 return  # User called stop() — don't start next track (#3296)
+            # #3727: also bail if cleanup() is in progress. A 2 s join
+            # timeout in cleanup (slow disk I/O during a load_file
+            # already in flight) could allow this thread to continue
+            # past the _stop_requested check and then call next_track()
+            # — which would swap audio_data into a freshly-cleared
+            # player. This guard combined with the post-cleanup join
+            # makes the test invariant "audio_data is None after
+            # cleanup()" hold deterministically.
+            if self._cleanup_in_progress.is_set():
+                return
             if self.playback.is_playing():
                 self.next_track()
         except Exception:
@@ -742,6 +760,11 @@ class AudioPlayer:
 
     def cleanup(self) -> None:
         """Clean up resources"""
+        # #3727: signal in-flight advance threads BEFORE stop() so the
+        # _auto_advance_next early-bail (after the _stop_requested
+        # check) sees the cleanup signal. Combined with the join below
+        # this closes the timeout-path window left by #3694 alone.
+        self._cleanup_in_progress.set()
         self.stop()
         # #3694: wait for any in-flight auto-advance thread to finish before
         # clearing audio_data. _stop_requested was set by stop() above, but

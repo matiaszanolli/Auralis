@@ -112,6 +112,17 @@ class QueueService:
         self.library_manager: Any = library_manager
         self.connection_manager: Any = connection_manager
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
+        # #3721: serialise concurrent set_queue() calls. set_queue runs
+        # 7 awaitable steps with WS broadcasts and engine I/O; without
+        # a service-level lock two near-simultaneous POSTs (double-click
+        # "Play album", rapid playlist switch within RTT) can interleave
+        # so the state-manager publishes track-B while the engine ends
+        # up loaded+playing track-A. Resolution requires manual user
+        # intervention. The lock only serialises set_queue; the other
+        # mutating methods (add/remove/clear/reorder) each take their
+        # own narrow snapshot under the existing audio_player.queue
+        # _lock and are not in the same race class.
+        self._set_queue_lock = asyncio.Lock()
 
     async def _broadcast_queue_changed(
         self,
@@ -214,6 +225,11 @@ class QueueService:
         """
         Set the playback queue from track IDs (updates single source of truth).
 
+        #3721: serialised by `_set_queue_lock` so two near-simultaneous
+        callers cannot interleave their 7 awaitable steps and leave the
+        state-manager pointing at one track while the engine plays a
+        different one.
+
         Args:
             track_ids: List of track IDs to add to queue
             start_index: Index to start playback from
@@ -231,6 +247,11 @@ class QueueService:
         if not self.library_manager:
             raise ValueError("Library manager not available")
 
+        async with self._set_queue_lock:
+            return await self._set_queue_impl(track_ids, start_index)
+
+    async def _set_queue_impl(self, track_ids: list[int], start_index: int) -> dict[str, Any]:
+        """Inner implementation of set_queue, called under `_set_queue_lock` (#3721)."""
         try:
             # Get tracks from library by IDs — single batched query via
             # get_by_ids when available, otherwise individual lookups in a

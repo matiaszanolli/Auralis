@@ -11,7 +11,7 @@
  * - Centralized error handling (Phase 3c integration)
  */
 
-import { ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { WebSocketManager } from '@/utils/errorHandling';
 import { WS_BASE_URL } from '@/config/api';
 import type { AnyWebSocketMessage, AudioChunkMessage, WebSocketMessage, WebSocketMessageType } from '@/types/websocket';
@@ -476,22 +476,52 @@ export const WebSocketProvider = ({
     };
   }, [connect, disconnect]);
 
-  const value: WebSocketContextValue = {
-    isConnected,
-    connectionStatus,
-    subscribe,
-    subscribeAll,
-    send,
-    connect,
-    disconnect,
-    setResumePositionGetter: (streamType: string, getter: (() => number) | null) => {
+  // #3730: stable identity for setResumePositionGetter so the
+  // memoized context value below doesn't break on every render.
+  // The singleton getter map is module-level so this callback never
+  // needs to close over component state.
+  const setResumePositionGetter = useCallback(
+    (streamType: string, getter: (() => number) | null) => {
       if (getter) {
         singletonResumePositionGetters[streamType] = getter;
       } else {
         delete singletonResumePositionGetters[streamType];
       }
     },
-  };
+    []
+  );
+
+  // #3730: memoize the context value so consumers of
+  // useWebSocketContext don't re-render on every WebSocketProvider
+  // render. Previously the bare object literal was a fresh reference
+  // every render — even when isConnected and connectionStatus were
+  // unchanged — which fired effect cleanups + re-subscriptions in
+  // every consumer. The dep list intentionally includes all seven
+  // members; useCallback already keeps each one stable so the value
+  // identity tracks the genuine state changes (isConnected,
+  // connectionStatus).
+  const value = useMemo<WebSocketContextValue>(
+    () => ({
+      isConnected,
+      connectionStatus,
+      subscribe,
+      subscribeAll,
+      send,
+      connect,
+      disconnect,
+      setResumePositionGetter,
+    }),
+    [
+      isConnected,
+      connectionStatus,
+      subscribe,
+      subscribeAll,
+      send,
+      connect,
+      disconnect,
+      setResumePositionGetter,
+    ]
+  );
 
   return (
     <WebSocketContext.Provider value={value}>

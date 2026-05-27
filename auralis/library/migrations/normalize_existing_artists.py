@@ -17,6 +17,7 @@ Usage:
 
 import sys
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -60,7 +61,13 @@ def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = Fals
 
 
 def _do_normalize(db_path: Path, dry_run: bool) -> dict[str, any]:
-    """Body of normalize_existing_artists, executed under migration_lock."""
+    """Body of normalize_existing_artists, executed under migration_lock.
+
+    #3729: outer try/finally guarantees the engine is disposed even
+    when the Phase-0 column-check raises (e.g. ALTER TABLE fails on a
+    locked DB). The inner try at the start of Phase 1 still handles
+    session rollback for the per-row UPDATE workload.
+    """
     engine = create_engine(
         f'sqlite:///{db_path}',
         # #3682: match the connection contract used by the main library
@@ -71,6 +78,19 @@ def _do_normalize(db_path: Path, dry_run: bool) -> dict[str, any]:
     )
     Session = sessionmaker(engine)
     session = Session()
+
+    try:
+        return _normalize_inner(session, dry_run)
+    finally:
+        try:
+            session.close()
+        except Exception:
+            pass
+        engine.dispose()
+
+
+def _normalize_inner(session: Any, dry_run: bool) -> dict[str, any]:
+    """Inner migration body — separated from engine lifecycle (#3729)."""
 
     # Check if normalized_name column exists, add it if not
     column_exists = True
@@ -254,12 +274,12 @@ def _do_normalize(db_path: Path, dry_run: bool) -> dict[str, any]:
         return stats
 
     except Exception as e:
+        # session.close() + engine.dispose() now happen in _do_normalize's
+        # outer finally so the engine is released even if the column-check
+        # phase (before this try) fails (#3729).
         session.rollback()
         print(f"Error during migration: {e}")
         raise
-    finally:
-        session.close()
-        engine.dispose()
 
 
 def main():

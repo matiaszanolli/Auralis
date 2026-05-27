@@ -48,7 +48,14 @@ class LibraryScanner:
         self.library_manager: Any = library_manager
         self.fingerprint_queue: Any | None = fingerprint_queue
         self.progress_callback: Callable[[dict[str, Any]], None] | None = None
-        self.should_stop: bool = False
+        # #3728: threading.Event instead of plain bool. Cross-thread
+        # cancellation now goes through a proper synchronisation
+        # primitive — under default CPython the GIL kept plain-bool
+        # reads atomic, but free-threaded Python (PEP 703 / `python -X
+        # gil=0`) would race on the bare attribute. Event is the
+        # idiomatic choice and matches the scanner cancellation
+        # pattern (#3710 / library_auto_scanner).
+        self.should_stop: threading.Event = threading.Event()
 
         # Per-directory deduplication: prevents concurrent scans of the same
         # folder from producing duplicate DB entries (fixes #3455).
@@ -74,8 +81,8 @@ class LibraryScanner:
         self.progress_callback = callback
 
     def stop_scan(self) -> None:
-        """Signal scanner to stop"""
-        self.should_stop = True
+        """Signal scanner to stop (#3728: Event.set, not bare attribute)."""
+        self.should_stop.set()
         self.file_discovery.stop()
         self.batch_processor.stop()
 
@@ -165,11 +172,11 @@ class LibraryScanner:
                 })
 
             for directory in directories:
-                if self.should_stop:
+                if self.should_stop.is_set():
                     break
 
                 for filepath in self.file_discovery.discover_audio_files(directory, recursive):
-                    if self.should_stop:
+                    if self.should_stop.is_set():
                         break
                     pending_batch.append(filepath)
                     result.files_found += 1
@@ -187,7 +194,7 @@ class LibraryScanner:
 
             info(f"Discovered {result.files_found} audio files")
 
-            if self.should_stop:
+            if self.should_stop.is_set():
                 return result
 
             # Process remaining files that didn't fill a full batch
