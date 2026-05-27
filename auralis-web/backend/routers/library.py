@@ -23,7 +23,7 @@ Endpoints:
 import asyncio
 import logging
 import os
-from typing import Any, cast
+from typing import Any, Literal, cast
 from collections.abc import Callable
 
 from fastapi import APIRouter, Header, HTTPException, Query
@@ -122,7 +122,16 @@ def create_library_router(
         limit: int = Query(50, ge=1, le=200),
         offset: int = Query(0, ge=0),
         search: str | None = None,
-        order_by: str = 'created_at'
+        # #2727: Literal type makes FastAPI reject unknown values with
+        # 422 at the route layer instead of silently coercing to
+        # 'title' inside TrackRepository.get_all (where the existing
+        # VALID_ORDER_COLUMNS whitelist was the only defense). Keeps the
+        # whitelist in sync with the route signature so a new column
+        # added to one place won't be missed by the other.
+        order_by: Literal[
+            'title', 'created_at', 'play_count',
+            'duration', 'year', 'last_played'
+        ] = 'created_at',
     ) -> dict[str, Any]:
         """
         Get tracks from library with optional search and pagination.

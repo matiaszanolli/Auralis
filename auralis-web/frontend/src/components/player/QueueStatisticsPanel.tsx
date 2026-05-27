@@ -278,8 +278,13 @@ const QualityRating = ({ assessment }: QualityRatingProps) => {
 
       {assessment.issues.length > 0 && (
         <div style={styles.issuesList}>
-          {assessment.issues.map((issue) => (
-            <div key={issue} style={styles.issueItem}>
+          {/* #3075: include index in the key so duplicate issue
+              strings (rare but possible — multiple instances of the
+              same warning) don't collide on the React key. Matches
+              the pattern used by the artists/albums/formats lists
+              above. */}
+          {assessment.issues.map((issue, index) => (
+            <div key={`${issue}-${index}`} style={styles.issueItem}>
               • {issue}
             </div>
           ))}
