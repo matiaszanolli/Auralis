@@ -911,6 +911,13 @@ class AudioStreamController:
             if start_position > 0:
                 start_sample = int(start_position * sample_rate)
                 start_chunk = min(start_sample // interval_samples, total_chunks - 1)
+            # #3768: `remaining_chunks` is no longer reported as
+            # `total_chunks` in `audio_stream_start` — the frontend uses
+            # `total_chunks` as a denominator and `start_chunk` to offset
+            # the numerator (matches the enhanced-path convention since
+            # #3185). Keep the variable for the in-method logging line
+            # immediately below so the operator-facing message stays
+            # informative.
             remaining_chunks = total_chunks - start_chunk
 
             # Register active stream so cleanup can always find it (fixes #2076, #3182)
@@ -945,7 +952,13 @@ class AudioStreamController:
                 intensity=1.0,   # Full intensity (original)
                 sample_rate=sample_rate,
                 channels=channels,
-                total_chunks=remaining_chunks,
+                # #3768: emit the FULL track's chunk count so the
+                # frontend uses a stable denominator across seeks.
+                # `start_chunk` (set via seek_kwargs when start_position > 0)
+                # lets the client offset the numerator. This matches the
+                # enhanced-path convention since #3185 — both seek paths
+                # now agree on semantics.
+                total_chunks=total_chunks,
                 chunk_duration=chunk_duration,
                 total_duration=duration - (start_chunk * chunk_duration),
                 **seek_kwargs,
