@@ -765,6 +765,16 @@ class AudioPlayer:
         # check) sees the cleanup signal. Combined with the join below
         # this closes the timeout-path window left by #3694 alone.
         self._cleanup_in_progress.set()
+        # #3438: bump the fingerprint generation counter so any in-flight
+        # `_load_fingerprint_for_file` thread (spawned by the most recent
+        # track load, still running because they're daemon threads) will
+        # fail its `self._track_generation != generation` staleness check
+        # under `_fingerprint_lock` and discard rather than write into the
+        # freshly-cleaned processor. The existing #3719 lock discipline
+        # handles the write-side; the cleanup-time bump just guarantees
+        # there's always a newer generation to compare against post-stop.
+        with self._fingerprint_lock:
+            self._track_generation += 1
         self.stop()
         # #3694: wait for any in-flight auto-advance thread to finish before
         # clearing audio_data. _stop_requested was set by stop() above, but

@@ -17,7 +17,23 @@ import json
 import logging
 import threading
 from collections import OrderedDict
-from typing import Any
+from typing import Any, NamedTuple
+
+
+class ProcessorCacheKey(NamedTuple):
+    """#3733: structured cache key for `ProcessorFactory._processor_cache`.
+
+    Documenting the key shape as a NamedTuple lets introspection use
+    named-attribute access (`key.track_id`, `key.preset`) instead of
+    positional indexing (`key[0]`). Adding a new field in the future
+    (sample_rate, etc.) stays backward-compatible for callers that
+    already use the named fields; positional access would silently shift.
+    """
+    track_id: int
+    preset: str
+    intensity: float
+    config_hash: str
+    targets_hash: str
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +88,12 @@ class ProcessorFactory:
         # #3720: cache key includes targets_hash (5-tuple) so different
         # mastering_targets for the same (track_id, preset, intensity)
         # get distinct cached processors instead of racing on a re-apply.
-        self._processor_cache: OrderedDict[tuple[int, str, float, str, str], Any] = OrderedDict()
+        # #3733: the key shape is documented as a NamedTuple
+        # (ProcessorCacheKey) so introspection — e.g., `cleanup_for_track`
+        # filtering by `track_id` — uses named-attribute access and
+        # survives future extensions (adding `sample_rate` etc.) without
+        # silently shifting positional indices.
+        self._processor_cache: OrderedDict[ProcessorCacheKey, Any] = OrderedDict()
 
         # Active processors by track_id for monitoring
         self._active_processors: dict[int, Any] = {}
@@ -89,7 +110,7 @@ class ProcessorFactory:
         intensity: float,
         config_hash: str,
         targets_hash: str = "none",
-    ) -> tuple[int, str, float, str, str]:
+    ) -> ProcessorCacheKey:
         """
         Generate cache key for processor.
 
@@ -107,7 +128,13 @@ class ProcessorFactory:
         Returns:
             Cache key tuple
         """
-        return (track_id, preset.lower(), intensity, config_hash, targets_hash)
+        return ProcessorCacheKey(
+            track_id=track_id,
+            preset=preset.lower(),
+            intensity=intensity,
+            config_hash=config_hash,
+            targets_hash=targets_hash,
+        )
 
     def _get_targets_hash(self, mastering_targets: dict[str, Any] | None) -> str:
         """#3720: content hash of mastering_targets, used in the cache key.
@@ -302,10 +329,12 @@ class ProcessorFactory:
             if track_id in self._active_processors:
                 self._active_processors.pop(track_id)
 
-            # Remove all cache entries for this track
+            # #3733: named-attribute filter survives future key
+            # extensions (e.g., adding `sample_rate`) without silently
+            # shifting positional indices like `key[0]` would.
             keys_to_remove = [
                 key for key in self._processor_cache
-                if key[0] == track_id
+                if key.track_id == track_id
             ]
 
             for key in keys_to_remove:

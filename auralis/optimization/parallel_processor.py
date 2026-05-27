@@ -61,10 +61,18 @@ class ParallelFFTProcessor:
         Uses a double-check pattern so that hann() — which can be
         expensive for large sizes — is computed outside the lock, preventing
         all parallel threads from serialising on the first cache miss (#2077).
+
+        #3791: the fast-path read uses `dict.get(...)` instead of an
+        `in`-then-`[]` pair. The previous form raced with the slow path's
+        cache-full eviction at lines 77-82 — a concurrent thread could
+        evict the slot between the `in` check and the bracket access,
+        raising `KeyError`. `dict.get(...)` is atomic in CPython, so the
+        fast path never sees a half-deleted entry.
         """
         # Fast path: common sizes are pre-warmed in __init__, no lock needed.
-        if size in self.window_cache:
-            return self.window_cache[size]
+        cached = self.window_cache.get(size)
+        if cached is not None:
+            return cached
 
         # Slow path: compute outside the lock to avoid blocking other threads.
         window = hann(size)
