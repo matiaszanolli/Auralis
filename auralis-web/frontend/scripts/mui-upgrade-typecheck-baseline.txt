@@ -1,3 +1,38 @@
+src/components/__tests__/CozyLibraryView.test.tsx(207,11): error TS2322: Type '{ isEnhancementEnabled: boolean; onEnhancementToggle: Mock<Procedure>; }' is not assignable to type 'IntrinsicAttributes & CozyLibraryViewProps'.
+src/components/__tests__/Integration.test.tsx(202,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/Integration.test.tsx(274,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/Integration.test.tsx(297,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/Integration.test.tsx(298,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/Integration.test.tsx(318,64): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/Integration.test.tsx(337,64): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/Integration.test.tsx(357,64): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/Integration.test.tsx(374,50): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/Integration.test.tsx(397,50): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/Integration.test.tsx(409,50): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/Integration.test.tsx(533,50): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/Integration.test.tsx(534,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/Integration.test.tsx(548,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/Integration.test.tsx(596,50): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/Integration.test.tsx(611,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/Integration.test.tsx(612,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/redux-flow.test.tsx(104,66): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/redux-flow.test.tsx(110,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/redux-flow.test.tsx(131,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/redux-flow.test.tsx(144,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/redux-flow.test.tsx(185,44): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/redux-flow.test.tsx(186,44): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/redux-flow.test.tsx(192,44): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/redux-flow.test.tsx(225,66): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/redux-flow.test.tsx(387,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/redux-flow.test.tsx(410,44): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/redux-flow.test.tsx(421,44): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/redux-flow.test.tsx(438,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/redux-flow.test.tsx(465,66): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/redux-flow.test.tsx(468,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/redux-flow.test.tsx(502,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/redux-flow.test.tsx(534,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
+src/components/__tests__/redux-flow.test.tsx(538,66): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
+src/components/__tests__/redux-flow.test.tsx(550,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
 src/components/core/MobileSidebarDrawer.tsx(54,36): error TS2304: Cannot find name 'tokens'.
 src/components/enhancement/EnhancementPane.tsx(151,9): error TS2322: Type '"error" | "idle" | "complete" | "analyzing" | "failed" | "cached" | "queued"' is not assignable to type '"error" | "idle" | "complete" | "analyzing" | "failed"'.
 src/components/enhancement/EnhancementPane.tsx(178,13): error TS2322: Type '"error" | "idle" | "complete" | "analyzing" | "failed" | "cached" | "queued"' is not assignable to type '"error" | "idle" | "complete" | "analyzing" | "failed"'.
@@ -114,7 +149,7 @@ src/components/library/__tests__/TrackList.test.tsx(95,49): error TS2345: Argume
 src/components/library/__tests__/TrackRow.test.tsx(293,19): error TS2322: Type '{ filepath: null; id: number; title: string; artist: string; album: string; duration: number; artwork: string; }' is not assignable to type 'LibraryTrack'.
 src/components/player/ProgressBar.tsx(240,44): error TS2769: No overload matches this call.
 src/components/player/ProgressBar.tsx(244,49): error TS2769: No overload matches this call.
-src/components/player/QueuePanel/QueuePanel.tsx(230,19): error TS2322: Type 'Track | QueueTrack' is not assignable to type 'Track'.
+src/components/player/QueuePanel/QueuePanel.tsx(234,19): error TS2322: Type 'Track | QueueTrack' is not assignable to type 'Track'.
 src/components/player/QueueRecommendationsPanel/QueueRecommendationsPanel.tsx(30,31): error TS2345: Argument of type '(Track | QueueTrack)[]' is not assignable to parameter of type 'Track[]'.
 src/components/player/QueueSearchPanel/QueueSearchPanel.tsx(28,22): error TS2345: Argument of type '(Track | QueueTrack)[]' is not assignable to parameter of type 'Track[]'.
 src/components/player/QueueStatisticsPanel.tsx(54,26): error TS2345: Argument of type '(Track | QueueTrack)[]' is not assignable to parameter of type 'Track[]'.
@@ -126,48 +161,10 @@ src/components/shared/SimilarTracksModal/__tests__/SimilarTracksModal.test.tsx(1
 src/components/shared/SimilarTracksModal/__tests__/SimilarTracksModal.test.tsx(140,7): error TS2322: Type '{ trackId: number; distance: number; similarityScore: number; title: string; artist: string; }[]' is not assignable to type 'null'.
 src/components/shared/SimilarTracksModal/__tests__/SimilarTracksModal.test.tsx(17,66): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
 src/components/shared/SimilarTracksModal/__tests__/SimilarTracksModal.test.tsx(93,7): error TS2322: Type 'string' is not assignable to type 'null'.
-src/components/__tests__/CozyLibraryView.test.tsx(207,11): error TS2322: Type '{ isEnhancementEnabled: boolean; onEnhancementToggle: Mock<Procedure>; }' is not assignable to type 'IntrinsicAttributes & CozyLibraryViewProps'.
-src/components/__tests__/Integration.test.tsx(203,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/Integration.test.tsx(277,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/Integration.test.tsx(300,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/Integration.test.tsx(301,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/Integration.test.tsx(321,64): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/Integration.test.tsx(340,64): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/Integration.test.tsx(360,64): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/Integration.test.tsx(377,50): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/Integration.test.tsx(400,50): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/Integration.test.tsx(412,50): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/Integration.test.tsx(536,50): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/Integration.test.tsx(537,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/Integration.test.tsx(551,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/Integration.test.tsx(599,50): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/Integration.test.tsx(614,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/Integration.test.tsx(615,42): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/redux-flow.test.tsx(104,66): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/redux-flow.test.tsx(110,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/redux-flow.test.tsx(131,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/redux-flow.test.tsx(144,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/redux-flow.test.tsx(185,44): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/redux-flow.test.tsx(186,44): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/redux-flow.test.tsx(192,44): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/redux-flow.test.tsx(225,66): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/redux-flow.test.tsx(387,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/redux-flow.test.tsx(410,44): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/redux-flow.test.tsx(421,44): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/redux-flow.test.tsx(438,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/redux-flow.test.tsx(465,66): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/redux-flow.test.tsx(468,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/redux-flow.test.tsx(502,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/redux-flow.test.tsx(534,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
-src/components/__tests__/redux-flow.test.tsx(538,66): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'QueueTrack'.
-src/components/__tests__/redux-flow.test.tsx(550,52): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
 src/hooks/api/__tests__/useRestAPI.test.ts(316,11): error TS2322: Type 'null' is not assignable to type 'string | number | boolean'.
 src/hooks/api/__tests__/useRestAPI.test.ts(317,11): error TS2322: Type 'undefined' is not assignable to type 'string | number | boolean'.
+src/hooks/api/useRestAPI.ts(370,9): error TS2304: Cannot find name 'setErrorApiErrorHandler'.
 src/hooks/enhancement/__tests__/useMasteringRecommendation.test.ts(13,30): error TS6133: 'type' is declared but its value is never read.
-src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts(1040,75): error TS2345: Argument of type '{ isConnected: false; connectionStatus: "disconnected"; subscribe: Mock<() => Mock<Procedure>>; subscribeAll: Mock<() => Mock<Procedure>>; send: Mock<...>; connect: Mock<...>; disconnect: Mock<...>; }' is not assignable to parameter of type 'WebSocketContextValue'.
-src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts(231,82): error TS2741: Property 'setResumePositionGetter' is missing in type '{ isConnected: boolean; connectionStatus: "connected"; subscribe: Mock<(type: string, handler: (msg: any) => void) => Mock<Procedure>>; subscribeAll: Mock<() => Mock<...>>; send: Mock<...>; connect: Mock<...>; disconnect: Mock<...>; }' but required in type 'WebSocketContextValue'.
-src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts(809,84): error TS2741: Property 'setResumePositionGetter' is missing in type '{ isConnected: false; connectionStatus: "disconnected"; subscribe: Mock<(type: any, handler: any) => Mock<Procedure>>; subscribeAll: Mock<() => Mock<Procedure>>; send: Mock<...>; connect: Mock<...>; disconnect: Mock<...>; }' but required in type 'WebSocketContextValue'.
-src/hooks/enhancement/__tests__/usePlayEnhanced.test.ts(991,75): error TS2345: Argument of type '{ isConnected: false; connectionStatus: "disconnected"; subscribe: Mock<() => Mock<Procedure>>; subscribeAll: Mock<() => Mock<Procedure>>; send: Mock<...>; connect: Mock<...>; disconnect: Mock<...>; }' is not assignable to parameter of type 'WebSocketContextValue'.
 src/hooks/fingerprint/__tests__/useFingerprintCache.test.ts(78,11): error TS6133: 'originalEnv' is declared but its value is never read.
 src/hooks/library/__tests__/useAlbumsQuery.test.ts(34,48): error TS2345: Argument of type '{ data: never[]; total: number; isLoading: boolean; error: null; offset: number; hasMore: boolean; fetchMore: Mock<Procedure>; refetch: Mock<Procedure>; clearError: Mock<...>; }' is not assignable to parameter of type 'UseLibraryQueryResult<Track | Album | Artist>'.
 src/hooks/library/__tests__/useAlbumsQuery.test.ts(57,48): error TS2345: Argument of type '{ data: { id: number; title: string; artist: string; year: number; trackCount: number; }[]; total: number; isLoading: boolean; error: null; offset: number; hasMore: boolean; fetchMore: Mock<Procedure>; refetch: Mock<...>; clearError: Mock<...>; }' is not assignable to parameter of type 'UseLibraryQueryResult<Track | Album | Artist>'.
@@ -177,16 +174,6 @@ src/hooks/library/__tests__/useAlbumsQuery.test.ts(83,48): error TS2345: Argumen
 src/hooks/library/__tests__/useAlbumsQuery.test.ts(9,22): error TS6133: 'waitFor' is declared but its value is never read.
 src/hooks/library/__tests__/useAlbumsQuery.test.ts(99,48): error TS2345: Argument of type '{ fetchMore: Mock<Procedure>; refetch: Mock<Procedure>; data: never[]; total: number; isLoading: boolean; error: null; offset: number; hasMore: boolean; clearError: Mock<...>; }' is not assignable to parameter of type 'UseLibraryQueryResult<Track | Album | Artist>'.
 src/hooks/library/__tests__/useArtworkUpdates.test.ts(131,9): error TS6133: 'cb2' is declared but its value is never read.
-src/hooks/library/__tests__/useLibraryData.test.ts(103,37): error TS2339: Property 'albumArt' does not exist on type 'LibraryTrack'.
-src/hooks/library/__tests__/useLibraryData.test.ts(119,37): error TS2339: Property 'albumArt' does not exist on type 'LibraryTrack'.
-src/hooks/library/__tests__/useLibraryData.test.ts(135,37): error TS2339: Property 'albumArt' does not exist on type 'LibraryTrack'.
-src/hooks/library/__tests__/useLibraryData.test.ts(151,37): error TS2339: Property 'albumArt' does not exist on type 'LibraryTrack'.
-src/hooks/library/__tests__/useLibraryData.test.ts(171,37): error TS2339: Property 'albumArt' does not exist on type 'LibraryTrack'.
-src/hooks/library/__tests__/useLibraryData.test.ts(172,37): error TS2339: Property 'albumArt' does not exist on type 'LibraryTrack'.
-src/hooks/library/__tests__/useLibraryData.test.ts(173,37): error TS2339: Property 'albumArt' does not exist on type 'LibraryTrack'.
-src/hooks/library/__tests__/useLibraryData.test.ts(210,37): error TS2339: Property 'albumArt' does not exist on type 'LibraryTrack'.
-src/hooks/library/__tests__/useLibraryData.test.ts(211,37): error TS2339: Property 'albumArt' does not exist on type 'LibraryTrack'.
-src/hooks/library/__tests__/useLibraryData.test.ts(240,37): error TS2339: Property 'albumArt' does not exist on type 'LibraryTrack'.
 src/hooks/player/__tests__/usePlayerStateSync.test.ts(151,75): error TS2345: Argument of type '{ isConnected: false; connectionStatus: "disconnected"; subscribe: any; subscribeAll: Mock<() => () => void>; send: Mock<Procedure>; connect: Mock<Procedure>; disconnect: Mock<...>; }' is not assignable to parameter of type 'WebSocketContextValue'.
 src/hooks/player/__tests__/usePlayerStateSync.test.ts(75,73): error TS2345: Argument of type '{ isConnected: true; connectionStatus: "connected"; subscribe: Mock<(type: string, handler: (msg: any) => void) => Mock<Procedure>>; subscribeAll: Mock<() => Mock<...>>; send: Mock<...>; connect: Mock<...>; disconnect: Mock<...>; }' is not assignable to parameter of type 'WebSocketContextValue'.
 src/hooks/shared/__tests__/useReduxState.test.tsx(169,33): error TS2345: Argument of type '{ id: number; title: string; artist: string; duration: number; }' is not assignable to parameter of type 'PlayerTrack'.
@@ -200,12 +187,40 @@ src/hooks/shared/__tests__/useReduxState.test.tsx(443,39): error TS2345: Argumen
 src/hooks/shared/__tests__/useStandardizedAPI.test.ts(13,48): error TS6133: 'afterEach' is declared but its value is never read.
 src/hooks/shared/__tests__/useVisualizationOptimization.test.ts(292,46): error TS2550: Property 'at' does not exist on type 'any[][]'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2022' or later.
 src/services/__tests__/queueService.test.ts(50,3): error TS2353: Object literal may only specify known properties, and 'total_tracks' does not exist in type 'QueueResponse'.
-src/store/slices/__tests__/deterministic-timestamps.test.ts(14,15): error TS2614: Module '"../playerSlice"' has no exported member 'Track'. Did you mean to use 'import Track from "../playerSlice"' instead?
-src/store/slices/__tests__/playerSlice.test.ts(28,28): error TS2614: Module '"../playerSlice"' has no exported member 'Track'. Did you mean to use 'import Track from "../playerSlice"' instead?
+src/services/artworkService.ts(26,56): error TS2344: Type 'ArtworkRequest' does not satisfy the constraint 'Record<string, unknown>'.
+src/services/artworkService.ts(38,3): error TS2322: Type 'unknown' is not assignable to type 'ArtworkResponse'.
+src/services/artworkService.ts(45,3): error TS2322: Type 'unknown' is not assignable to type 'ArtworkResponse'.
+src/services/artworkService.ts(52,3): error TS2322: Type 'unknown' is not assignable to type '{ message: string; album_id: number; }'.
+src/services/playlistService.ts(51,49): error TS2344: Type 'CreatePlaylistRequest' does not satisfy the constraint 'Record<string, unknown>'.
+src/services/queueService.ts(37,54): error TS2344: Type 'SetQueueRequest' does not satisfy the constraint 'Record<string, unknown>'.
+src/services/settingsService.ts(117,3): error TS2322: Type 'unknown' is not assignable to type '{ message: string; settings: UserSettings; }'.
+src/services/settingsService.ts(124,3): error TS2322: Type 'unknown' is not assignable to type '{ message: string; settings: UserSettings; }'.
+src/services/settingsService.ts(131,3): error TS2322: Type 'unknown' is not assignable to type '{ message: string; settings: UserSettings; }'.
+src/services/settingsService.ts(83,53): error TS2344: Type 'SettingsUpdate' does not satisfy the constraint 'Record<string, unknown>'.
+src/services/similarityService.ts(111,3): error TS2322: Type 'unknown' is not assignable to type 'ComparisonResult'.
+src/services/similarityService.ts(127,3): error TS2322: Type 'unknown' is not assignable to type 'SimilarityExplanation'.
+src/services/similarityService.ts(137,3): error TS2322: Type 'unknown' is not assignable to type 'GraphStats'.
+src/services/similarityService.ts(147,5): error TS2322: Type 'unknown' is not assignable to type 'GraphStats | null'.
+src/services/similarityService.ts(164,3): error TS2322: Type 'unknown' is not assignable to type 'FitResult'.
+src/services/similarityService.ts(75,104): error TS18048: 'data' is possibly 'undefined'.
+src/services/similarityService.ts(75,50): error TS18048: 'data' is possibly 'undefined'.
+src/services/similarityService.ts(75,80): error TS18048: 'data' is possibly 'undefined'.
+src/services/similarityService.ts(76,52): error TS18048: 'data' is possibly 'undefined'.
+src/services/similarityService.ts(76,77): error TS18048: 'data' is possibly 'undefined'.
+src/services/similarityService.ts(77,104): error TS18048: 'data' is possibly 'undefined'.
+src/services/similarityService.ts(77,56): error TS18048: 'data' is possibly 'undefined'.
+src/services/similarityService.ts(77,81): error TS18048: 'data' is possibly 'undefined'.
+src/services/similarityService.ts(78,56): error TS18048: 'data' is possibly 'undefined'.
+src/services/similarityService.ts(80,51): error TS18048: 'data' is possibly 'undefined'.
+src/services/similarityService.ts(97,3): error TS2322: Type 'unknown' is not assignable to type 'SimilarTrack[]'.
 src/store/__tests__/testFixtures.ts(142,3): error TS2739: Type '{ tracks: never[]; currentIndex: number; isLoading: false; error: null; lastUpdated: number; }' is missing the following properties from type 'QueueState': isShuffled, repeatMode
+src/store/slices/__tests__/deterministic-timestamps.test.ts(14,15): error TS2614: Module '"../playerSlice"' has no exported member 'Track'. Did you mean to use 'import Track from "../playerSlice"' instead?
+src/store/slices/__tests__/playerSlice.test.ts(29,28): error TS2614: Module '"../playerSlice"' has no exported member 'Track'. Did you mean to use 'import Track from "../playerSlice"' instead?
 src/tests/integration/player-controls/progress-bar-monitoring.test.tsx(54,9): error TS6133: 'lastMeasurementTime' is declared but its value is never read.
-src/types/__tests__/transformPlayerState.test.ts(51,7): error TS2322: Type '"idle"' is not assignable to type '"loading" | "paused" | "playing" | "stopped"'.
-src/types/websocket.ts(694,7): error TS6133: '_exhaustiveCheck' is declared but its value is never read.
+src/types/__tests__/transformPlayerState.test.ts(51,7): error TS2322: Type '"idle"' is not assignable to type '"loading" | "error" | "paused" | "playing" | "stopped"'.
+src/types/websocket.ts(766,7): error TS6133: '_exhaustiveCheck' is declared but its value is never read.
+src/utils/__tests__/serviceFactory.test.ts(101,26): error TS2322: Type '(tag: string) => string' is not assignable to type 'string | ((params?: Record<string, unknown> | undefined) => string)'.
+src/utils/__tests__/serviceFactory.test.ts(103,59): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Record<string, unknown>'.
 src/utils/audio/__tests__/pcmDecoding.test.ts(290,61): error TS2345: Argument of type '{ type: string; data: { chunk_index: number; chunk_count: number; frame_index: number; frame_count: number; samples: string; sample_count: number; crossfade_samples: number; }; }' is not assignable to parameter of type 'AudioChunkMessage'.
 src/utils/audio/__tests__/pcmDecoding.test.ts(312,52): error TS2345: Argument of type '{ type: string; data: { samples: string; sample_count: number; }; }' is not assignable to parameter of type 'AudioChunkMessage'.
 src/utils/audio/__tests__/pcmDecoding.test.ts(325,44): error TS2345: Argument of type '{ type: string; }' is not assignable to parameter of type 'AudioChunkMessage'.
