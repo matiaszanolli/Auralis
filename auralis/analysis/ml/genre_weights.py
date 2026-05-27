@@ -11,6 +11,19 @@ Model weights and genre-specific adjustments for genre classification
 
 import numpy as np
 
+# #3741: deterministic seed for the placeholder weight initialiser. The
+# previous implementation used the un-seeded module-level `np.random.normal`
+# state, so every `RuleBasedGenreClassifier` instance produced different
+# weights and therefore different genre predictions. That cascaded into
+# `EQProcessor._apply_content_adjustments` where it scaled bass/mid/treble
+# boost by up to 30% — so the same audio mastered twice diverged audibly.
+# A fixed seed makes the placeholder model output bit-identical across
+# instances and processes, restoring the "same file → same fingerprint /
+# same master" determinism invariant. When the placeholder is replaced
+# with a real trained model, the seed will be irrelevant (real weights
+# don't sample at construction time).
+_GENRE_WEIGHTS_SEED = 0x6A52A1E5
+
 
 def initialize_genre_weights(genres: list[str]) -> dict[str, dict[str, float]]:
     """
@@ -25,35 +38,36 @@ def initialize_genre_weights(genres: list[str]) -> dict[str, dict[str, float]]:
     Returns:
         Dictionary mapping genres to feature weights
     """
+    rng = np.random.default_rng(_GENRE_WEIGHTS_SEED)
     weights = {}
     for genre in genres:
         weights[genre] = {
             # Basic acoustic features
-            'rms': np.random.normal(0, 0.1),
-            'crest_factor_db': np.random.normal(0, 0.1),
-            'zero_crossing_rate': np.random.normal(0, 0.1),
+            'rms': float(rng.normal(0, 0.1)),
+            'crest_factor_db': float(rng.normal(0, 0.1)),
+            'zero_crossing_rate': float(rng.normal(0, 0.1)),
 
             # Spectral features
-            'spectral_centroid': np.random.normal(0, 0.1),
-            'spectral_rolloff': np.random.normal(0, 0.1),
-            'spectral_bandwidth': np.random.normal(0, 0.1),
-            'spectral_flatness': np.random.normal(0, 0.1),
+            'spectral_centroid': float(rng.normal(0, 0.1)),
+            'spectral_rolloff': float(rng.normal(0, 0.1)),
+            'spectral_bandwidth': float(rng.normal(0, 0.1)),
+            'spectral_flatness': float(rng.normal(0, 0.1)),
 
             # Temporal features
-            'tempo': np.random.normal(0, 0.1),
-            'tempo_stability': np.random.normal(0, 0.1),
-            'onset_rate': np.random.normal(0, 0.1),
+            'tempo': float(rng.normal(0, 0.1)),
+            'tempo_stability': float(rng.normal(0, 0.1)),
+            'onset_rate': float(rng.normal(0, 0.1)),
 
             # Harmonic features
-            'harmonic_ratio': np.random.normal(0, 0.1),
+            'harmonic_ratio': float(rng.normal(0, 0.1)),
 
             # Energy distribution
-            'energy_low': np.random.normal(0, 0.1),
-            'energy_mid': np.random.normal(0, 0.1),
-            'energy_high': np.random.normal(0, 0.1),
+            'energy_low': float(rng.normal(0, 0.1)),
+            'energy_mid': float(rng.normal(0, 0.1)),
+            'energy_high': float(rng.normal(0, 0.1)),
 
             # Bias term
-            'bias': np.random.normal(0, 0.1)
+            'bias': float(rng.normal(0, 0.1))
         }
 
     # Apply genre-specific weight adjustments
