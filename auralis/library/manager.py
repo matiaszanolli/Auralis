@@ -227,13 +227,18 @@ class LibraryManager:
             self.engine.dispose()
             info("Connection pool disposed")
 
-            # Mark as shut down
-            self.engine = None
-
             info("✅ LibraryManager shutdown complete")
 
         except Exception as e:
             error(f"Error during LibraryManager shutdown: {e}")
+        finally:
+            # #3769: clear the engine reference in `finally` so a raise
+            # from `engine.dispose()` (or the PRAGMA path above it)
+            # doesn't leave a stale handle around. `__del__` checks
+            # `self.engine is None` to gate its shutdown attempt, so a
+            # stale handle meant `__del__` re-invoked shutdown from GC
+            # — where loggers may already be torn down.
+            self.engine = None
 
     def try_acquire_scan_slot(self) -> tuple[bool, int]:
         """

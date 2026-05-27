@@ -226,6 +226,22 @@ class FingerprintService:
             # Compute fingerprint
             fingerprint = self.analyzer.analyze(audio, sr)
 
+            # #3767: validate completeness before returning. `analyze()`
+            # returns {} from its outer except-all on any exception
+            # (audio_fingerprint_analyzer.py:314). The downstream
+            # `get_or_compute` check `if fingerprint:` already skips
+            # empty dicts (so they don't reach the cache), but an
+            # incomplete fingerprint (e.g., 12 of 25 dimensions) would
+            # be truthy and get cached as if valid. The official
+            # fingerprint dimensionality is 25; anything less is a
+            # partial result that should be re-tried, not cached.
+            if fingerprint and len(fingerprint) < 25:
+                logger.warning(
+                    f"Incomplete fingerprint for {audio_path.name}: "
+                    f"{len(fingerprint)} of 25 dimensions present — discarding"
+                )
+                return None
+
             # Convert numpy types to JSON-safe Python types
             fingerprint_clean = self._numpy_to_python(fingerprint)
 
@@ -255,7 +271,15 @@ class FingerprintService:
 
     @staticmethod
     def _numpy_to_python(obj):
-        """Recursively convert NumPy types to native Python types."""
+        """Recursively convert NumPy types to native Python types.
+
+        #3765: previously `else: return obj` swallowed unhandled NumPy
+        types (e.g. `np.complex128`, `np.datetime64`) — they'd be
+        passed through verbatim and then silently break JSON
+        serialisation downstream of any future analyzer that emitted
+        them. Native Python primitives pass through; NumPy types
+        outside the handled set fail loud.
+        """
         if isinstance(obj, dict):
             return {k: FingerprintService._numpy_to_python(v) for k, v in obj.items()}
         elif isinstance(obj, (list, tuple)):
@@ -266,5 +290,12 @@ class FingerprintService:
             return float(obj) if isinstance(obj, np.floating) else int(obj)
         elif isinstance(obj, (np.bool_)):
             return bool(obj)
+        elif isinstance(obj, np.generic):
+            # Any other NumPy scalar (np.complex128, np.datetime64,
+            # np.str_, ...) — raise loud rather than pass through.
+            raise TypeError(
+                f"Cannot serialise NumPy type {type(obj).__name__}; "
+                f"add an explicit branch to _numpy_to_python()."
+            )
         else:
             return obj
