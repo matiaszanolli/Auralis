@@ -8,6 +8,7 @@ Coordinates with PlayerStateManager to keep single source of truth.
 :license: GPLv3
 """
 
+import asyncio
 import logging
 from typing import Any, Protocol, cast
 
@@ -33,9 +34,10 @@ class AudioPlayer(Protocol):
         """Seek to position in seconds."""
         ...
 
-    def set_volume(self, volume: float) -> None:
-        """Set volume (0.0-1.0)."""
-        ...
+    # #3722: deliberately NO set_volume method. Volume is applied
+    # client-side via Web Audio API GainNode; the /api/player/volume
+    # route exists only to broadcast volume state for cross-client
+    # mirroring. The engine never mixes audio for playback.
 
 
 class PlayerStateManager(Protocol):
@@ -127,7 +129,11 @@ class PlaybackService:
             raise ValueError("Player state manager not available")
 
         try:
-            self.audio_player.play()
+            # #3716: offload the sync engine call. play() acquires
+            # PlaybackController._lock; cheap in isolation but the wrap
+            # is identical to QueueService's pattern and guards against
+            # any future heavy work landing inside the engine method.
+            await asyncio.to_thread(self.audio_player.play)
 
             # Update state (broadcasts automatically)
             await self.player_state_manager.set_playing(True)
@@ -161,7 +167,8 @@ class PlaybackService:
             raise ValueError("Player state manager not available")
 
         try:
-            self.audio_player.pause()
+            # #3716: offload the sync engine call.
+            await asyncio.to_thread(self.audio_player.pause)
 
             # Update state (broadcasts automatically)
             await self.player_state_manager.set_playing(False)
@@ -193,7 +200,8 @@ class PlaybackService:
             raise ValueError("Audio player not available")
 
         try:
-            self.audio_player.stop()
+            # #3716: offload the sync engine call.
+            await asyncio.to_thread(self.audio_player.stop)
 
             # Update state to stopped and clear
             if self.player_state_manager:
@@ -232,9 +240,14 @@ class PlaybackService:
             raise ValueError("Position must be non-negative")
 
         try:
-            # Call audio player seek method if available
+            # #3716: offload the sync engine call. seek() is the
+            # load-bearing case — it acquires `file_manager._audio_lock`,
+            # which a concurrent `load_file()` can hold for hundreds of
+            # ms to seconds while decoding a large file. Running this
+            # synchronously on the event loop froze the FastAPI worker
+            # and stalled every other in-flight HTTP request.
             if hasattr(self.audio_player, 'seek'):
-                self.audio_player.seek(position)
+                await asyncio.to_thread(self.audio_player.seek, position)
 
             # Broadcast seek event
             await self.connection_manager.broadcast({
@@ -273,9 +286,20 @@ class PlaybackService:
             raise ValueError("Volume must be between 0.0 and 1.0")
 
         try:
-            # Set volume if method available
-            if hasattr(self.audio_player, 'set_volume'):
-                self.audio_player.set_volume(volume)
+            # #3722: volume is a CLIENT-SIDE concern. The backend never
+            # mixes audio for playback — bytes leave the engine and go
+            # straight to the WebSocket; the frontend AudioPlaybackEngine
+            # (services/audio/AudioPlaybackEngine.ts) applies gain via a
+            # Web Audio API GainNode before the destination. The previous
+            # `if hasattr(self.audio_player, 'set_volume'):` guard was a
+            # silent no-op (the engine method has never existed) which
+            # hid this design from manual QA — clients saw the slider
+            # move thanks to the broadcast echo and assumed the level
+            # changed. This route exists only to broadcast volume state
+            # so other connected clients can mirror the slider position;
+            # the actual audio gain change happens on the originating
+            # client and on every other client that receives the
+            # broadcast.
 
             # Broadcast volume change (0-100 scale matching PlayerState)
             volume_100 = round(volume * 100)
@@ -284,7 +308,7 @@ class PlaybackService:
                 "data": {"volume": volume_100}
             })
 
-            logger.info(f"🔊 Volume set to {volume:.0%}")
+            logger.info(f"🔊 Volume set to {volume:.0%} (broadcast only — applied client-side)")
             return {
                 "message": "Volume set",
                 "volume": volume_100

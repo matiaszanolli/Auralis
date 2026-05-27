@@ -164,17 +164,24 @@ class AudioPlayer:
         Returns:
             bool: True if successful
         """
-        # Snapshot file state atomically so a concurrent load_file() cannot
-        # change the track between the bounds check and the seek (#3357).
+        # #3713: hold `_audio_lock` across the ENTIRE seek, including the
+        # `playback.seek()` call. The original #3357 fix only snapshotted
+        # `max_samples` and `sample_rate` atomically — but a gapless
+        # `advance_with_prebuffer` could still swap to a shorter track
+        # between the snapshot and the seek, leaving the clamp using the
+        # old (larger) length. The new track would then receive a
+        # position > its own length → empty slice → silence + immediate
+        # auto-advance. PlaybackController.seek() takes only its own
+        # `_lock`; the canonical nesting `_audio_lock → PlaybackController._lock`
+        # is already used by `get_audio_chunk` so no inversion risk.
         with self.file_manager._audio_lock:
             if not self.file_manager.is_loaded():
                 warning("No audio file loaded")
                 return False
             max_samples = self.file_manager.get_total_samples()
             sample_rate = self.file_manager.sample_rate
-
-        position_samples = int(position_seconds * sample_rate)
-        return self.playback.seek(position_samples, max_samples)
+            position_samples = int(position_seconds * sample_rate)
+            return self.playback.seek(position_samples, max_samples)
 
     @property
     def state(self) -> PlaybackState:
@@ -265,29 +272,43 @@ class AudioPlayer:
             audio_path = Path(file_path)
             fingerprint = self.fingerprint_service.get_or_compute(audio_path)
 
-            # Discard result if a new track was loaded while we were computing
-            if self._track_generation != generation:
-                debug(f"Discarding stale fingerprint for {audio_path.name} (generation {generation} != {self._track_generation})")
-                return
-
+            # #3719: hold `_fingerprint_lock` across the staleness check
+            # AND the processor write. Previously the check was an
+            # unlocked atomic int read (#3445) and the
+            # `processor.set_fingerprint()` write was OUTSIDE the lock
+            # entirely. Race: thread T_A (fp for track 5) passes the
+            # check; user skips to track 6 → T_B spawned; T_B hits cache,
+            # passes check, calls set_fingerprint(fp6); T_A (still in
+            # flight) then calls set_fingerprint(fp5) — overwriting fp6.
+            # Holding the lock across check+act serialises the two threads
+            # so the newer generation always wins.
             if fingerprint:
                 with self._fingerprint_lock:
+                    if self._track_generation != generation:
+                        debug(f"Discarding stale fingerprint for {audio_path.name} (generation {generation} != {self._track_generation})")
+                        return
                     self._current_fingerprint = fingerprint
-                self.processor.set_fingerprint(fingerprint)
+                    self.processor.set_fingerprint(fingerprint)
                 info(f"Fingerprint loaded for adaptive mastering: "
                      f"LUFS {fingerprint.get('lufs', 0):.1f} dB, "
                      f"crest {fingerprint.get('crest_db', 0):.1f} dB")
             else:
                 debug(f"Failed to load fingerprint for {audio_path.name}, using profile-based mastering")
                 with self._fingerprint_lock:
+                    if self._track_generation != generation:
+                        return
                     self._current_fingerprint = None
-                self.processor.set_fingerprint(None)
+                    self.processor.set_fingerprint(None)
 
         except Exception as e:
             warning(f"Error loading fingerprint: {e}")
-            if self._track_generation == generation:
-                with self._fingerprint_lock:
-                    self._current_fingerprint = None
+            # Same lock discipline on the error path — check generation
+            # and write under the same lock so a newer load doesn't get
+            # its fingerprint reset by this stale error handler.
+            with self._fingerprint_lock:
+                if self._track_generation != generation:
+                    return
+                self._current_fingerprint = None
                 self.processor.set_fingerprint(None)
 
     def load_reference(self, file_path: str) -> bool:
@@ -344,33 +365,50 @@ class AudioPlayer:
         Returns:
             bool: True if advanced, False if no next track
         """
-        was_playing = self.playback.is_playing()
+        # #3717: hold `_audio_lock` across the entire swap-and-reset
+        # sequence. Previously the gapless engine released the lock
+        # after swapping `audio_data`, leaving a window where the
+        # audio callback could acquire the lock, call
+        # `read_and_advance_position(chunk_size)` against the new
+        # (shorter) `audio_data` at the OLD position, and return
+        # silence — defeating the gapless guarantee. RLock re-entry
+        # by the same thread means the inner gapless acquisition is
+        # free. Lock nesting `_audio_lock → PlaybackController._lock`
+        # is consistent with `get_audio_chunk()` (the prior caller of
+        # this pattern), so no inversion risk.
+        with self.file_manager._audio_lock:
+            was_playing = self.playback.is_playing()
 
-        if self.gapless.advance_with_prebuffer(was_playing):
-            self.integration.record_track_completion()
+            if self.gapless.advance_with_prebuffer(was_playing):
+                self.integration.record_track_completion()
 
-            # Reset position to 0 for the incoming track (#2283).
-            # Both the gapless (prebuffer) and fallback paths inside
-            # advance_with_prebuffer() bypass AudioPlayer.load_file(), so
-            # the playback.stop() that normally resets position is never
-            # called.  seek(0, ...) is the lock-safe way to do this.
-            self.playback.seek(0, self.file_manager.get_total_samples())
+                # Reset position to 0 for the incoming track (#2283).
+                # Both the gapless (prebuffer) and fallback paths inside
+                # advance_with_prebuffer() bypass AudioPlayer.load_file(), so
+                # the playback.stop() that normally resets position is never
+                # called.  seek(0, ...) is the lock-safe way to do this.
+                # Now atomic with the swap (#3717).
+                self.playback.seek(0, self.file_manager.get_total_samples())
 
-            # The gapless advance also bypasses AudioPlayer.load_file(), so
-            # schedule the fingerprint loader here too — otherwise adaptive
-            # mastering keeps the previous track's fingerprint, and any
-            # in-flight fingerprint thread for the previous file would pass
-            # the staleness guard and be applied to the new track (#3463).
-            current_file = self.file_manager.current_file
-            if current_file:
-                self._schedule_fingerprint_load(current_file)
+                # The gapless advance also bypasses AudioPlayer.load_file(), so
+                # schedule the fingerprint loader here too — otherwise adaptive
+                # mastering keeps the previous track's fingerprint, and any
+                # in-flight fingerprint thread for the previous file would pass
+                # the staleness guard and be applied to the new track (#3463).
+                current_file = self.file_manager.current_file
+                if current_file:
+                    self._schedule_fingerprint_load(current_file)
 
-            # Re-check state to avoid restarting playback after a
-            # concurrent stop() call (#3361).
-            if was_playing and not self.playback.is_stopped():
-                self.playback.play()
+                # #3712: use `_stop_requested.is_set()` for the cancellation
+                # check — identical pattern to previous_track() so the two
+                # paths cannot drift. Today the gapless path is safe because
+                # it doesn't call load_and_stop (so `is_stopped()` would also
+                # be False), but a future refactor that adds a stop+load
+                # could re-introduce the previous_track regression here too.
+                if was_playing and not self._stop_requested.is_set():
+                    self.playback.play()
 
-            return True
+                return True
 
         return False
 
@@ -381,19 +419,27 @@ class AudioPlayer:
         on failure the index is rolled back so the queue stays valid (#3442).
         """
         was_playing = self.playback.is_playing()
-        # #3668: read of current_index is still a raw attribute access, but
-        # the WRITE now goes through `rollback_index()` which takes
-        # `QueueManager._lock`. That eliminates the previous race where a
-        # concurrent `next_track()` / `remove_track()` / `reorder_tracks()`
-        # could be clobbered by the unlocked rollback assignment.
-        saved_index = self.queue.queue.current_index
+        # #3726: capture the index atomically under QueueManager._lock so
+        # a concurrent next_track / remove_track / reorder_tracks cannot
+        # make `saved_index` stale relative to the queue contents.
+        # #3668 already locked the rollback WRITE side; this closes the
+        # remaining read-side race.
+        saved_index = self.queue.snapshot_index()
         prev_track = self.queue.previous_track()
         if prev_track:
             file_path = prev_track.get('file_path') or prev_track.get('path')
             if file_path and self.load_file(file_path):
-                # Re-check state to avoid restarting playback after a
-                # concurrent stop() call (#3361).
-                if was_playing and not self.playback.is_stopped():
+                # #3712: use `_stop_requested.is_set()` as the cancellation
+                # signal instead of `is_stopped()`. `load_file()` calls
+                # `playback.load_and_stop()` which unconditionally writes
+                # state=STOPPED, so the previous `not is_stopped()` guard
+                # was always False after the load — `play()` was unreachable
+                # and every previous-track press silently halted playback
+                # (regression of #2684). `_stop_requested` is the explicit
+                # user-stop event (#3296) and is NOT changed by load_file,
+                # so it correctly distinguishes "user pressed stop" from
+                # "load_file reset state as part of loading".
+                if was_playing and not self._stop_requested.is_set():
                     self.playback.play()
                 return True
             # File load failed — roll back queue index under lock.
@@ -532,11 +578,21 @@ class AudioPlayer:
             # the finally block regardless of outcome (fixes #2441).
             self.playback.stop()
         finally:
-            # Only clear the flag if no newer advance has been spawned (#3350).
-            # Without this check, a rapid next-track could set the flag for a
-            # new advance, and this finally block would clear it prematurely.
-            if self._advance_generation == generation:
-                self._auto_advancing.clear()
+            # #3718: hold `_audio_lock` for the compare-and-clear so it is
+            # atomic w.r.t. the spawn site in get_audio_chunk() (which
+            # also holds _audio_lock when incrementing _advance_generation
+            # and spawning the next thread). Previously the unlocked
+            # compare allowed: thread A reads gen==5 → True, then
+            # get_audio_chunk increments to 6 and spawns thread B, then
+            # A clears _auto_advancing while B is still running — the
+            # next get_audio_chunk sees the flag clear and spawns thread
+            # C, leaving B and C concurrent. The lock guarantees the
+            # generation read and the clear happen as one critical
+            # section relative to the spawner. #3350 introduced the
+            # compare; this fix closes the residual race window.
+            with self.file_manager._audio_lock:
+                if self._advance_generation == generation:
+                    self._auto_advancing.clear()
 
     # ========== Effects Control (delegates to IntegrationManager) ==========
 

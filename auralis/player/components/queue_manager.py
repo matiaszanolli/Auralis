@@ -98,6 +98,22 @@ class QueueManager:
 
             return self._get_current_track_unlocked()
 
+    def snapshot_index(self) -> int:
+        """
+        Atomically read self.current_index under self._lock.
+
+        #3726: callers that need to capture the index for later rollback
+        must read it under the same lock that mutators write through.
+        Previously `previous_track()` read `queue.current_index` as a raw
+        attribute (the write side was already lock-protected by #3668).
+        CPython's GIL keeps the int read torn-free, but a concurrent
+        `next_track()` / `remove_track()` / `reorder_tracks()` can change
+        the index's relationship to the queue contents between the snapshot
+        and the eventual rollback, leaving the queue off-by-one.
+        """
+        with self._lock:
+            return self.current_index
+
     def rollback_index(self, saved_index: int) -> None:
         """
         Restore current_index to a saved value under self._lock.
