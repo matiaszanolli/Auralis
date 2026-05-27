@@ -256,8 +256,33 @@ class GaplessPlaybackEngine:
             # Use prebuffered audio (gapless!)
             info(f"Using prebuffered track (gapless): {file_path}")
 
-            # Commit the queue advance now that we know the load will succeed.
-            self.queue.next_track()
+            # #3352 (PTS-9): commit the advance via the atomic peek+match
+            # operation so a queue mutation between our earlier peek and this
+            # commit cannot leave the engine with audio for one track and a
+            # queue index pointing at a different one. On mismatch the queue
+            # changed under us — invalidate the prebuffer and fall back to a
+            # fresh load against whatever the queue says is next now.
+            advanced = self.queue.advance_if_next_matches(next_track)
+            if not advanced:
+                warning(
+                    "Queue changed between prebuffer and commit — discarding "
+                    "stale prebuffer and falling back to normal load"
+                )
+                self.invalidate_prebuffer()
+                fresh_next = self.queue.peek_next_track()
+                if not fresh_next:
+                    return False
+                fresh_path = fresh_next.get('file_path') or fresh_next.get('path')
+                if not fresh_path:
+                    return False
+                if not self.file_manager.load_file(fresh_path):
+                    return False
+                if not self.queue.advance_if_next_matches(fresh_next):
+                    # Queue mutated again — abort rather than commit a stale advance.
+                    warning("Queue mutated during fallback load — aborting advance")
+                    return False
+                self.start_prebuffering()
+                return True
 
             with self.update_lock:
                 # Hold _audio_lock while swapping audio_data so get_audio_chunk()
@@ -282,8 +307,17 @@ class GaplessPlaybackEngine:
                 info(f"Prebuffer not available, loading: {file_path}")
             if not self.file_manager.load_file(file_path):
                 return False
-            # Load succeeded — now commit the queue advance.
-            self.queue.next_track()
+            # Load succeeded — commit the queue advance via the same atomic
+            # peek+match operation (#3352). If the queue mutated between our
+            # earlier peek and now, the load was wasted — but we hold the
+            # current_index steady rather than blindly advancing onto a
+            # different track.
+            if not self.queue.advance_if_next_matches(next_track):
+                warning(
+                    "Queue changed during fallback load — aborting advance to "
+                    "avoid pointing current_index at a different track"
+                )
+                return False
 
         # Start prebuffering next track for smooth chain
         self.start_prebuffering()

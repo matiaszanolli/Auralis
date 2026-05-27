@@ -113,6 +113,21 @@ class QueueController:
             info("No next track in queue")
         return next_track  # type: ignore[no-any-return]
 
+    def advance_if_next_matches(self, expected: dict[str, Any]) -> dict[str, Any] | None:
+        """
+        #3352 (PTS-9): atomic peek+advance for gapless prebuffer commit.
+
+        Used by `GaplessPlaybackEngine.advance_with_prebuffer` to close the
+        TOCTOU window between the peek that chose what to load and the
+        next_track() that committed the queue advance. Returns the advanced
+        track on success, None if the queue mutated between peek and commit
+        so the slot no longer holds the expected track.
+        """
+        advanced: Any = self.queue.advance_if_next_matches(expected)
+        if advanced:
+            info(f"Advancing to next track: {advanced.get('title', 'Unknown')}")
+        return advanced  # type: ignore[no-any-return]
+
     def previous_track(self) -> dict[str, Any] | None:
         """
         Get previous track from queue.

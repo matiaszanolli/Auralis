@@ -13,6 +13,17 @@ import threading
 from typing import Any
 
 
+def _track_matches(candidate: dict[str, Any], expected: dict[str, Any]) -> bool:
+    """Identity check for two track dicts — id first, then file path."""
+    cand_id = candidate.get('id')
+    exp_id = expected.get('id')
+    if cand_id is not None and exp_id is not None:
+        return cand_id == exp_id
+    cand_path = candidate.get('file_path') or candidate.get('path')
+    exp_path = expected.get('file_path') or expected.get('path')
+    return cand_path is not None and cand_path == exp_path
+
+
 class QueueManager:
     """Simple queue management for track playback"""
 
@@ -81,6 +92,48 @@ class QueueManager:
             else:
                 return None
 
+            return self._get_current_track_unlocked()
+
+    def advance_if_next_matches(self, expected: dict[str, Any]) -> dict[str, Any] | None:
+        """
+        Atomically advance to next track only if the slot still matches `expected`.
+
+        #3352 (PTS-9): `advance_with_prebuffer` previously called
+        `peek_next_track()` to choose what to load, processed audio for that
+        track over a measurable gap, then called `next_track()` to commit the
+        advance. Any queue mutation in between (`add_track`, `remove_track`,
+        `reorder_tracks`, `shuffle`, `clear`) could leave the engine with
+        prebuffered audio for one track but a queue index pointing at another.
+
+        This method closes the gap: under a single lock acquisition it
+        re-resolves what `next_track()` would do, verifies the resulting
+        track still matches the one the caller peeked, and only then advances
+        the index. On mismatch it returns None and leaves `current_index`
+        untouched so the caller can fall back cleanly.
+
+        Args:
+            expected: The track dict returned by the prior `peek_next()` call.
+                Matching uses `id` if present, otherwise `file_path`/`path`.
+
+        Returns:
+            The advanced-to track on success, None on mismatch / empty queue.
+        """
+        with self._lock:
+            if not self.tracks:
+                return None
+
+            if self.current_index < len(self.tracks) - 1:
+                target_index = self.current_index + 1
+            elif self.repeat_enabled:
+                target_index = 0
+            else:
+                return None
+
+            candidate = self.tracks[target_index]
+            if not _track_matches(candidate, expected):
+                return None
+
+            self.current_index = target_index
             return self._get_current_track_unlocked()
 
     def previous_track(self) -> dict[str, Any] | None:
