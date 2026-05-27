@@ -64,6 +64,39 @@ def create_library_router(
         Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
 
+    @router.post("/api/library/refresh-references")
+    async def refresh_reference_cloud() -> dict[str, Any]:
+        """
+        #3479: rebuild the mastering reference cloud from current library state.
+
+        Clears all existing `is_reference` flags, scores every fingerprint
+        against the seeder thresholds, and flags the top-N candidates as
+        references. Safe to call repeatedly — the seeder is idempotent and
+        does no audio I/O.
+
+        Returns:
+            dict: `{cleared: int, selected: int}` — counts from the
+                  refresh transaction.
+
+        Raises:
+            HTTPException: If the repository factory is unavailable.
+        """
+        try:
+            from auralis.learning.reference_seeder import refresh_cloud
+            factory = require_repository_factory(get_repository_factory)
+            cleared, selected = await asyncio.to_thread(
+                refresh_cloud, factory.fingerprints
+            )
+            logger.info(
+                f"🎯 Reference cloud refresh (manual): cleared {cleared}, "
+                f"selected {selected}"
+            )
+            return {"cleared": cleared, "selected": selected}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise handle_query_error("refresh reference cloud", e)
+
     @router.get("/api/library/stats")
     async def get_library_stats() -> dict[str, Any]:
         """

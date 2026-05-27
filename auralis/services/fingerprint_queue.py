@@ -143,6 +143,14 @@ class FingerprintExtractionQueue:
         # Progress callback
         self.progress_callback: Callable[[dict[str, Any]], None] | None = None
 
+        # #3479: drain callback — fired once per "drain wave" (transition from
+        # busy → idle) after at least one track was processed in the wave.
+        # Used to trigger reference-cloud refresh when fresh fingerprints land.
+        self.on_drained: Callable[[], None] | None = None
+        self._drain_state_lock: threading.Lock = threading.Lock()
+        self._processed_since_drain: int = 0
+        self._drained_workers: int = 0
+
     @property
     def num_workers(self) -> int:
         """Get current worker count (includes adaptive scaling adjustments)"""
@@ -151,6 +159,38 @@ class FingerprintExtractionQueue:
     def set_progress_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Set callback for progress updates"""
         self.progress_callback = callback
+
+    def set_drained_callback(self, callback: Callable[[], None]) -> None:
+        """#3479: callback fired once per drain wave (no more tracks to
+        claim after at least one was processed). Used to trigger
+        reference-cloud refresh when fresh fingerprints land."""
+        self.on_drained = callback
+
+    def _on_track_processed(self) -> None:
+        """#3479: record that a track was processed in the current wave so a
+        subsequent drain transition actually fires the callback."""
+        with self._drain_state_lock:
+            self._processed_since_drain += 1
+
+    def _on_worker_drained(self) -> None:
+        """#3479: a worker found no more tracks to claim. Fire on_drained
+        exactly once when all workers have drained AND at least one track
+        was processed in this wave."""
+        fire = False
+        with self._drain_state_lock:
+            self._drained_workers += 1
+            if (
+                self._drained_workers >= max(1, self.current_num_workers)
+                and self._processed_since_drain > 0
+            ):
+                fire = True
+                self._processed_since_drain = 0
+                self._drained_workers = 0
+        if fire and self.on_drained is not None:
+            try:
+                self.on_drained()
+            except Exception as cb_exc:  # noqa: BLE001
+                error(f"on_drained callback raised: {cb_exc}")
 
     def _on_worker_count_change(self, new_worker_count: int) -> None:
         """
@@ -279,9 +319,15 @@ class FingerprintExtractionQueue:
                         debug(f"Worker {worker_id}: No more unfingerprinted tracks")
                         break
                     self._process_track(track, worker_id)
+                    self._on_track_processed()  # #3479
                 except Exception as e:
                     error(f"Worker {worker_id} error during processing: {e}")
                     time.sleep(0.1)
+
+            # #3479: Phase 1 drained (or worker is stopping) — record the
+            # transition so on_drained fires when all workers settle.
+            if not self.should_stop:
+                self._on_worker_drained()
 
             # Phase 2: Re-fingerprint tracks whose fingerprint was computed with an
             # older algorithm version.  Only runs when FINGERPRINT_ALGORITHM_VERSION
@@ -297,9 +343,14 @@ class FingerprintExtractionQueue:
                         debug(f"Worker {worker_id}: No more outdated fingerprints")
                         break
                     self._process_track(track, worker_id)
+                    self._on_track_processed()  # #3479
                 except Exception as e:
                     error(f"Worker {worker_id} error during outdated re-fingerprinting: {e}")
                     time.sleep(0.1)
+
+            # #3479: Phase 2 drained — same drain-wave bookkeeping.
+            if not self.should_stop:
+                self._on_worker_drained()
 
         except Exception as e:
             error(f"Worker {worker_id} encountered critical error: {e}")

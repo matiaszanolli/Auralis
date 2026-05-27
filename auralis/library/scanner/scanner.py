@@ -48,6 +48,10 @@ class LibraryScanner:
         self.library_manager: Any = library_manager
         self.fingerprint_queue: Any | None = fingerprint_queue
         self.progress_callback: Callable[[dict[str, Any]], None] | None = None
+        # #3479: invoked after every successful scan completes (even an empty
+        # one), outside the scan-slot lock so the consumer can do its own DB
+        # I/O. Used by the backend to fire `reference_seeder.refresh_cloud()`.
+        self.on_scan_complete: Callable[[ScanResult], None] | None = None
         # #3728: threading.Event instead of plain bool. Cross-thread
         # cancellation now goes through a proper synchronisation
         # primitive — under default CPython the GIL kept plain-bool
@@ -79,6 +83,11 @@ class LibraryScanner:
     def set_progress_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Set callback for progress updates"""
         self.progress_callback = callback
+
+    def set_scan_complete_callback(self, callback: Callable[[ScanResult], None]) -> None:
+        """#3479: callback fired after a scan finishes (success path only),
+        outside the scan-slot lock. Used to trigger reference-cloud refresh."""
+        self.on_scan_complete = callback
 
     def stop_scan(self) -> None:
         """Signal scanner to stop (#3728: Event.set, not bare attribute)."""
@@ -222,6 +231,16 @@ class LibraryScanner:
                 self.library_manager.release_scan_slot()
             except AttributeError:
                 pass
+
+            # #3479: fire scan-complete callback outside the scan-slot lock
+            # so the consumer (reference cloud refresh) can do its own DB I/O
+            # without contending with future scans. Failures here must not
+            # affect the scan result the caller sees.
+            if self.on_scan_complete is not None and not result.rejected:
+                try:
+                    self.on_scan_complete(result)
+                except Exception as cb_exc:  # noqa: BLE001
+                    warning(f"on_scan_complete callback raised: {cb_exc}")
 
     def scan_single_directory(self, directory: str, **kwargs: Any) -> ScanResult:
         """Scan a single directory"""

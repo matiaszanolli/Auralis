@@ -95,11 +95,15 @@ class LibraryAutoScanner:
         library_manager: Any,
         fingerprint_queue: Any | None,
         connection_manager: Any,
+        on_scan_complete: Any | None = None,
     ) -> None:
         self._settings_repo = settings_repo
         self._library_manager = library_manager
         self._fingerprint_queue = fingerprint_queue
         self._connection_manager = connection_manager
+        # #3479: optional callback invoked at the end of each scan; receives
+        # the ScanResult. Wired by startup.py to refresh the reference cloud.
+        self._on_scan_complete = on_scan_complete
 
         self._stop_event = asyncio.Event()
         self._trigger_event = asyncio.Event()
@@ -226,6 +230,10 @@ class LibraryAutoScanner:
             loop.call_soon_threadsafe(_schedule)
 
         scanner.set_progress_callback(sync_progress)
+
+        # #3479: wire the reference-cloud refresh callback if configured.
+        if self._on_scan_complete is not None:
+            scanner.set_scan_complete_callback(self._on_scan_complete)
 
         # #3710: capture the to_thread future so cancellation (lifespan
         # shutdown) can signal the scanner's should_stop flag. Without

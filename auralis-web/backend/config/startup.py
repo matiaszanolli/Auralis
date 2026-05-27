@@ -161,6 +161,33 @@ def create_lifespan(deps: dict[str, Any]):
                 except Exception as e:
                     logger.warning(f"⚠️  Failed to register scan folders: {e}")
 
+                # #3479: shared refresh closure for the reference cloud,
+                # invoked by scanner end-of-run and fingerprint-queue drain
+                # hooks (and the REST refresh endpoint). The seeder is
+                # idempotent and reads existing fingerprint rows — no audio
+                # I/O — so calling it from multiple producers is safe.
+                def _refresh_reference_cloud(*_args: Any, **_kwargs: Any) -> None:
+                    try:
+                        from auralis.learning.reference_seeder import refresh_cloud
+                        factory = globals_dict.get('repository_factory')
+                        if factory is None:
+                            return
+                        cleared, selected = refresh_cloud(factory.fingerprints)
+                        logger.info(
+                            f"🎯 Reference cloud refreshed: cleared {cleared}, "
+                            f"selected {selected}"
+                        )
+                    except Exception as rc_exc:
+                        logger.warning(f"Reference cloud refresh failed: {rc_exc}")
+
+                globals_dict['refresh_reference_cloud'] = _refresh_reference_cloud
+
+                # Wire the fingerprint queue drain hook now that we have the
+                # closure available (queue itself was started above).
+                _fpq = globals_dict.get('fingerprint_queue')
+                if _fpq is not None:
+                    _fpq.set_drained_callback(_refresh_reference_cloud)
+
                 # Start the library auto-scanner service.
                 # Replaces the old one-shot ~/Music scan with a proper service that:
                 # - reads scan_folders from user settings (not hardcoded)
@@ -174,6 +201,7 @@ def create_lifespan(deps: dict[str, Any]):
                         library_manager=globals_dict['library_manager'],
                         fingerprint_queue=globals_dict.get('fingerprint_queue'),
                         connection_manager=manager,
+                        on_scan_complete=_refresh_reference_cloud,
                     )
                     await auto_scanner.start()
                     globals_dict['auto_scanner'] = auto_scanner
