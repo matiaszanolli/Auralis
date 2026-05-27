@@ -69,7 +69,10 @@ class ProcessorFactory:
         # is never called by production code, so the unbounded dict was
         # accumulating gigabytes of HybridProcessor state for any long-running
         # backend session.
-        self._processor_cache: OrderedDict[tuple[int, str, float, str], Any] = OrderedDict()
+        # #3720: cache key includes targets_hash (5-tuple) so different
+        # mastering_targets for the same (track_id, preset, intensity)
+        # get distinct cached processors instead of racing on a re-apply.
+        self._processor_cache: OrderedDict[tuple[int, str, float, str, str], Any] = OrderedDict()
 
         # Active processors by track_id for monitoring
         self._active_processors: dict[int, Any] = {}
@@ -84,8 +87,9 @@ class ProcessorFactory:
         track_id: int,
         preset: str,
         intensity: float,
-        config_hash: str
-    ) -> tuple[int, str, float, str]:
+        config_hash: str,
+        targets_hash: str = "none",
+    ) -> tuple[int, str, float, str, str]:
         """
         Generate cache key for processor.
 
@@ -94,11 +98,31 @@ class ProcessorFactory:
             preset: Processing preset
             intensity: Processing intensity
             config_hash: Hash of config object (use "default" for default config)
+            targets_hash: Hash of mastering_targets dict (use "none" if absent).
+                #3720: included in the key so two callers requesting the same
+                (track_id, preset, intensity) with DIFFERENT targets get
+                different cached processors — eliminates the need to re-apply
+                targets on cache hit (which raced with in-flight processing).
 
         Returns:
             Cache key tuple
         """
-        return (track_id, preset.lower(), intensity, config_hash)
+        return (track_id, preset.lower(), intensity, config_hash, targets_hash)
+
+    def _get_targets_hash(self, mastering_targets: dict[str, Any] | None) -> str:
+        """#3720: content hash of mastering_targets, used in the cache key.
+        Returns "none" when targets are absent so existing callsites that
+        don't supply targets share a single cache entry per (track, preset,
+        intensity, config) — preserving the prior cache-hit behaviour for
+        the common case."""
+        if mastering_targets is None:
+            return "none"
+        try:
+            payload = json.dumps(mastering_targets, sort_keys=True, default=str)
+        except (TypeError, ValueError):
+            # Fall back to a stable repr if the dict contains non-JSON values.
+            payload = repr(sorted(mastering_targets.items()))
+        return hashlib.md5(payload.encode()).hexdigest()
 
     def _get_config_hash(self, config: Any | None) -> str:
         """
@@ -148,9 +172,17 @@ class ProcessorFactory:
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
 
-        # Generate cache key
+        # #3720: include the targets content in the cache key so two
+        # callers with different targets land on different cached
+        # processors. Eliminates the previous race where the cache-hit
+        # re-apply of `set_fixed_mastering_targets` (#3530) mutated a
+        # processor that another thread was actively iterating chunks
+        # on, swapping its DSP parameters mid-track.
         config_hash = self._get_config_hash(config)
-        cache_key = self._get_cache_key(track_id, preset, intensity, config_hash)
+        targets_hash = self._get_targets_hash(mastering_targets)
+        cache_key = self._get_cache_key(
+            track_id, preset, intensity, config_hash, targets_hash
+        )
 
         with self._lock:
             # Check cache — move-to-end so the LRU policy tracks recency.
@@ -158,13 +190,11 @@ class ProcessorFactory:
                 logger.debug(f"Retrieved cached processor: track_id={track_id}, preset={preset}")
                 self._processor_cache.move_to_end(cache_key)
                 cached = self._processor_cache[cache_key]
-                # Re-apply mastering_targets on cache hit so concurrent
-                # streams of the same track at the same preset/intensity
-                # don't inherit a previous caller's targets (#3530 /
-                # BE-NEW-72). Prior code only applied them in the
-                # create-new branch.
-                if mastering_targets is not None and hasattr(cached, "set_fixed_mastering_targets"):
-                    cached.set_fixed_mastering_targets(mastering_targets)
+                # #3720: no re-apply on cache hit. Identical key means
+                # identical (config, preset, intensity, targets) so the
+                # cached processor is already configured correctly.
+                # Different targets get a different key above, so they
+                # land in a different cache slot.
                 return cached
 
             # Create new processor
@@ -294,6 +324,15 @@ class ProcessorFactory:
         """
         Set mastering targets for an existing processor.
 
+        DEPRECATED (#3720): the cache key now includes a hash of
+        `mastering_targets`, so different targets land in different
+        cache entries automatically. Callers should pass
+        `mastering_targets` to `get_or_create(...)` instead — this
+        method mutates a cached processor in place, which races with
+        any concurrent `process_chunk()` call on the same instance.
+
+        Kept for backward compatibility; no in-tree callers as of #3720.
+
         Args:
             track_id: Track ID
             preset: Processing preset
@@ -301,8 +340,15 @@ class ProcessorFactory:
             mastering_targets: Mastering targets dictionary
             config: Optional config for cache key
         """
+        # Build the OLD-shape key (targets_hash="none") because callers of
+        # this deprecated method aren't passing targets through to the
+        # cache key construction. This effectively finds the processor
+        # that was created without targets and mutates it — racy on
+        # purpose; the deprecation note above is the only fix.
         config_hash = self._get_config_hash(config)
-        cache_key = self._get_cache_key(track_id, preset, intensity, config_hash)
+        cache_key = self._get_cache_key(
+            track_id, preset, intensity, config_hash, "none"
+        )
 
         with self._lock:
             if cache_key in self._processor_cache:

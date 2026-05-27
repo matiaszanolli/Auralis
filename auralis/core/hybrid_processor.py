@@ -130,9 +130,20 @@ class HybridProcessor:
         # Initialize performance optimizer (optimizations applied once at module level)
         self.performance_optimizer = get_performance_optimizer()
 
-        # Per-instance lock: prevents concurrent process() calls from
-        # interleaving writes to mutable state (fixes #3349).
-        self._process_lock = threading.Lock()
+        # Per-instance lock: serialises all public state mutations and
+        # process() invocations on the same HybridProcessor instance.
+        # The cached-processor cache (ProcessorFactory / _processor_cache)
+        # legitimately shares one instance across callers — every
+        # mutating entry point MUST acquire this lock so two callers
+        # don't observe a half-applied mastering_targets / fingerprint /
+        # profile update.
+        # - #3349: initial process() serialization.
+        # - #3714: extended to set_fixed_mastering_targets and the other
+        #   public setters so cache-hit re-apply / mid-stream fingerprint
+        #   load can't mutate the instance while another thread is
+        #   iterating chunks.
+        # RLock so process()->_process_impl re-acquisition is safe.
+        self._process_lock = threading.RLock()
 
         # Processing state
         self.current_targets: dict[str, Any] | None = None
@@ -148,6 +159,12 @@ class HybridProcessor:
         When fixed targets are set, content analysis is skipped and the pre-computed
         targets are used directly. This enables 8x faster processing and instant preset
         switching.
+
+        #3714: this is a public mutator on a potentially-shared instance
+        (see ProcessorFactory cache). It MUST acquire `_process_lock` so
+        a concurrent `process()` call cannot read `self.current_targets`
+        mid-update. The RLock allows re-entry from `process()` if a
+        future refactor calls this from within the processing chain.
 
         Args:
             targets: Mastering targets dict with keys:
@@ -165,12 +182,13 @@ class HybridProcessor:
                 'compression': {'ratio': 2.5, 'amount': 0.6}
             })
         """
-        self.current_targets = targets
-        if targets:
-            debug(f"Fixed mastering targets set: LUFS={targets.get('target_lufs')}, "
-                  f"Crest={targets.get('target_crest_db')}")
-        else:
-            debug("Fixed mastering targets cleared, using normal content analysis")
+        with self._process_lock:
+            self.current_targets = targets
+            if targets:
+                debug(f"Fixed mastering targets set: LUFS={targets.get('target_lufs')}, "
+                      f"Crest={targets.get('target_crest_db')}")
+            else:
+                debug("Fixed mastering targets cleared, using normal content analysis")
 
     def process(
         self,
@@ -468,12 +486,19 @@ class HybridProcessor:
         }
 
     def set_processing_mode(self, mode: str) -> None:
-        """Change processing mode"""
-        if mode in ["reference", "adaptive", "hybrid"]:
+        """Change processing mode.
+
+        #3714: holds `_process_lock` because the mode write into
+        `self.config` is read by `process()` to dispatch between
+        adaptive / reference / hybrid pipelines. A concurrent
+        cache-shared caller swapping modes mid-process would otherwise
+        send chunks down the wrong pipeline.
+        """
+        if mode not in ["reference", "adaptive", "hybrid"]:
+            raise ValueError(f"Invalid processing mode: {mode}")
+        with self._process_lock:
             self.config.set_processing_mode(mode)  # type: ignore[arg-type]
             debug(f"Processing mode changed to: {mode}")
-        else:
-            raise ValueError(f"Invalid processing mode: {mode}")
 
 
 # ===== Module-level performance optimizations (applied once) =====

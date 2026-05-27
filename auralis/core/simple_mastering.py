@@ -45,6 +45,16 @@ class SimpleMasteringPipeline:
         # processing, consumed by _apply_resonance_notches. Cleared at the start
         # of each master_file call so notches don't leak between files in batch.
         self._notches: list[Notch] = []
+        # #3715: serialise concurrent master_file()/process() calls on the
+        # SAME instance so the per-file `_notches` write-then-read pattern
+        # cannot cross-contaminate between tracks. Two concurrent
+        # invocations would otherwise race: thread A writes its notches,
+        # thread B overwrites them, then both chunk loops apply B's
+        # notches to A's audio (and vice versa). RLock so internal
+        # methods can re-acquire if a future refactor calls them
+        # recursively. Cross-instance parallelism is unaffected — only
+        # the same-instance reuse pattern is serialised.
+        self._process_lock = threading.RLock()
 
     @property
     def fingerprint_service(self) -> FingerprintService:
@@ -77,6 +87,27 @@ class SimpleMasteringPipeline:
         Returns:
             Dict with processing info
         """
+        # #3715: hold `_process_lock` across the entire master_file
+        # invocation. The per-file `_notches` instance attribute is
+        # written at line ~134 and read by `_apply_resonance_notches`
+        # for every chunk; without serialisation, two concurrent
+        # master_file calls on the same instance overwrite each
+        # other's notches and cross-contaminate the chunk processing
+        # for both tracks.
+        with self._process_lock:
+            return self._master_file_impl(
+                input_path, output_path, intensity, verbose, time_metrics
+            )
+
+    def _master_file_impl(
+        self,
+        input_path: str,
+        output_path: str,
+        intensity: float = 1.0,
+        verbose: bool = True,
+        time_metrics: bool = False,
+    ) -> dict:
+        """Inner implementation called under `_process_lock` (#3715)."""
         timings: dict[str, float] = {}
         total_start = time.perf_counter()
 
