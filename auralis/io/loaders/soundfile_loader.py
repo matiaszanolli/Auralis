@@ -58,8 +58,16 @@ def load_with_soundfile(file_path: Path) -> tuple[np.ndarray, int]:
                     f"({completeness:.1f}% complete)"
                 )
 
-        # Load audio data
-        audio_data, sample_rate = sf.read(str(file_path), always_2d=False)
+        # #3748: explicit float32 to match `loader.py`'s sibling sf.read
+        # call. Without the dtype hint, soundfile returns float64 for
+        # PCM ≥ 16-bit sources, which doubles peak RAM on the canonical
+        # `unified_loader.load_audio` path (a 7200s × 96 kHz stereo load
+        # goes 5.3 GB → 10.6 GB) before validate_audio's downstream cast
+        # clamps it back to float32. `always_2d=False` is preserved so
+        # the existing mono/stereo ndim checks below keep working.
+        audio_data, sample_rate = sf.read(
+            str(file_path), dtype="float32", always_2d=False
+        )
 
         # Ensure proper shape
         if audio_data.ndim == 1:
