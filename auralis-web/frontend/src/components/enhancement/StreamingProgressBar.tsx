@@ -337,7 +337,7 @@ const styles: Record<string, CSSProperties> = {
 
   progressBarInner: {
     height: '100%',
-    transition: 'width 300ms ease-out',
+    transition: `width ${tokens.transitions.stateChange}`,
     borderRadius: tokens.borderRadius.sm,
   },
 
@@ -392,7 +392,7 @@ const styles: Record<string, CSSProperties> = {
 
   bufferFill: {
     height: '100%',
-    transition: 'width 200ms ease-out',
+    transition: `width ${tokens.transitions.hover}`,
     borderRadius: tokens.borderRadius.sm,
   },
 
@@ -458,7 +458,7 @@ const styles: Record<string, CSSProperties> = {
     flex: 1,
     height: '8px',
     borderRadius: tokens.borderRadius.sm,
-    transition: 'background-color 200ms ease-out',
+    transition: tokens.transitions.background,
     backgroundColor: tokens.colors.border.light,
   },
 

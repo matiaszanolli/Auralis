@@ -162,7 +162,7 @@ export const AdvancedSettingsPanel = ({
             fontWeight: tokens.typography.fontWeight.semibold,
             cursor: 'pointer',
             opacity: 0.9,
-            transition: 'all 0.2s',
+            transition: tokens.transitions.hover_out,
             '&:hover': {
               opacity: 1,
             },

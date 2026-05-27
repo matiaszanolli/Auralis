@@ -36,7 +36,7 @@ export function VolumeControl({
           cursor: 'pointer',
           fontSize: tokens.typography.fontSize.md,
           opacity: 0.8,
-          transition: 'all 0.2s',
+          transition: tokens.transitions.hover_out,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

@@ -25,7 +25,7 @@ export const DropZonePaper = styled(Paper, {
       ? alpha(tokens.colors.bg.elevated, 0.5)
       : 'transparent',
     cursor: $disabled || $scanning ? 'not-allowed' : 'pointer',
-    transition: 'all 0.3s ease',
+    transition: tokens.transitions.state_inOut,
     textAlign: 'center',
     overflow: 'hidden',
     opacity: $disabled ? 0.5 : 1,

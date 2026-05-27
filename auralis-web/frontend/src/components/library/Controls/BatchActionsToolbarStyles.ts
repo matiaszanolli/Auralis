@@ -52,7 +52,7 @@ export const ActionButton = styled(IconButton)(({ theme: _theme }) => ({
   '&:hover': {
     backgroundColor: tokens.colors.opacityScale.accent.standard,
   },
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.hover_out,
 }));
 
 export const CloseButton = styled(IconButton)(({ theme: _theme }) => ({

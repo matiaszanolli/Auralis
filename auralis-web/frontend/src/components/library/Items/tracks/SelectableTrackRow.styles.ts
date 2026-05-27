@@ -15,7 +15,7 @@ export const SelectableContainer = styled(Box, {
   borderRadius: '8px',
   backgroundColor: isSelected ? tokens.colors.opacityScale.accent.lighter : 'transparent',
   border: isSelected ? `1px solid ${tokens.colors.opacityScale.accent.strong}` : '1px solid transparent',
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.hover_out,
   cursor: 'pointer',
   '&:hover': {
     backgroundColor: isSelected ? tokens.colors.opacityScale.accent.standard : tokens.colors.opacityScale.accent.ultraLight,
@@ -28,7 +28,7 @@ export const SelectableContainer = styled(Box, {
 export const StyledCheckbox = styled(Checkbox)(({ theme: _theme }) => ({
   color: tokens.colors.opacityScale.accent.lighter,
   opacity: 0,
-  transition: 'opacity 0.2s ease',
+  transition: tokens.transitions.opacity,
   '&.Mui-checked': {
     color: tokens.colors.accent.primary,
     opacity: 1,

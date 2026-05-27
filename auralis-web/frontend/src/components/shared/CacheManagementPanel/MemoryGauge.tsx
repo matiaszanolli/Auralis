@@ -43,7 +43,7 @@ export function MemoryGauge({ current, max }: { current: number; max: number }) 
             height: '100%',
             width: `${percentage}%`,
             background: color,
-            transition: 'width 0.3s ease',
+            transition: `width ${tokens.transitions.stateChange}`,
           }}
         />
       </div>

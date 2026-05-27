@@ -337,7 +337,7 @@ const styles = {
     fontSize: tokens.typography.fontSize.lg,
     padding: tokens.spacing.sm,
     borderRadius: tokens.borderRadius.md,
-    transition: 'background-color 0.2s',
+    transition: tokens.transitions.background,
 
     ':hover': {
       backgroundColor: tokens.colors.bg.secondary,

@@ -240,7 +240,7 @@ const styles = {
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     borderBottom: `1px solid ${tokens.colors.border.light}`,
     cursor: 'pointer',
-    transition: 'background-color 0.15s ease',
+    transition: `background-color ${tokens.transitions.hover_out}`,
     boxSizing: 'border-box' as const,
   },
 

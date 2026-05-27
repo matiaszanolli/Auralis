@@ -22,7 +22,7 @@ const DragHandle = styled(Box)({
   cursor: 'grab',
   color: tokens.colors.text.secondary,
   opacity: 0.6,
-  transition: 'opacity 0.2s ease',
+  transition: tokens.transitions.opacity,
 
   '&:hover': {
     opacity: 1,
@@ -39,7 +39,7 @@ const DraggableContainer = styled(Box, {
   display: 'flex',
   alignItems: 'center',
   opacity: isDragging ? 0.5 : 1,
-  transition: 'opacity 0.2s ease',
+  transition: tokens.transitions.opacity,
 }));
 
 interface DraggableTrackRowProps {

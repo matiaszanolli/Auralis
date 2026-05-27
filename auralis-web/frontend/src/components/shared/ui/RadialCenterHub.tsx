@@ -32,7 +32,7 @@ export const RadialCenterHub = ({ preset, size }: RadialCenterHubProps) => {
         alignItems: 'center',
         justifyContent: 'center',
         boxShadow: `0 0 40px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || tokens.colors.accent.primary}66`,
-        transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: tokens.transitions.slow_inOut,
         border: `3px solid ${tokens.colors.opacityScale.accent.lighter}`,
         backdropFilter: 'blur(10px)',
       }}

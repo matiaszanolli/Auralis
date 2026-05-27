@@ -160,7 +160,7 @@ const styles = {
     backgroundColor: 'transparent',
     borderRadius: 0,
     borderBottom: `1px solid ${tokens.colors.border.light}`,
-    transition: 'border-color 0.15s ease',
+    transition: `border-color ${tokens.transitions.hover_out}`,
 
     '&:focus-within': {
       borderBottomColor: tokens.colors.accent.primary,
@@ -203,7 +203,7 @@ const styles = {
     cursor: 'pointer',
     color: tokens.colors.text.secondary,
     fontSize: tokens.typography.fontSize.md,
-    transition: 'color 0.2s ease',
+    transition: tokens.transitions.color,
     flexShrink: 0,
 
     '&:hover': {

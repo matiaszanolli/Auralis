@@ -36,7 +36,7 @@ export const StyledListItemButton = styled(ButtonBase)({
   borderRadius: tokens.borderRadius.md,
   padding: '16px 20px',
   minHeight: '64px',
-  transition: 'all 0.2s ease, backdrop-filter 0.2s ease',
+  transition: `${tokens.transitions.hover_out}, backdrop-filter ${tokens.transitions.hover}`,
 
   // Glass card: subtle background for visibility without blocking starfield
   background: 'rgba(21, 29, 47, 0.25)',
@@ -83,7 +83,7 @@ export const ArtistName = styled(Typography)({
   fontWeight: tokens.typography.fontWeight.medium,
   color: tokens.colors.text.primary,
   letterSpacing: '0.01em',
-  transition: 'color 0.2s ease',
+  transition: tokens.transitions.color,
 });
 
 /**

@@ -40,7 +40,7 @@ export function QuickActions({
           fontWeight: tokens.typography.fontWeight.semibold,
           cursor: clearLoading ? 'not-allowed' : 'pointer',
           opacity: clearLoading ? 0.6 : 0.9,
-          transition: 'all 0.2s',
+          transition: tokens.transitions.hover_out,
           '&:hover:not(:disabled)': {
             opacity: 1,
           },
@@ -63,7 +63,7 @@ export function QuickActions({
           fontWeight: tokens.typography.fontWeight.semibold,
           cursor: statsLoading ? 'not-allowed' : 'pointer',
           opacity: statsLoading ? 0.6 : 0.9,
-          transition: 'all 0.2s',
+          transition: tokens.transitions.hover_out,
           '&:hover:not(:disabled)': {
             opacity: 1,
           },

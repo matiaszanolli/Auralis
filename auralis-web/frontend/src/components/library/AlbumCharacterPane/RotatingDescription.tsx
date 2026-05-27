@@ -51,7 +51,7 @@ export const RotatingDescription = ({
         fontSize: tokens.typography.fontSize.sm,
         lineHeight: 1.6,
         opacity: isVisible ? 1 : 0,
-        transition: `opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)`,
+        transition: tokens.transitions.opacity,
         minHeight: '48px', // Prevent layout shift
       }}
     >

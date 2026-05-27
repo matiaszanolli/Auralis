@@ -42,7 +42,7 @@ export const progressBarStyles = {
     width: `${percentage}%`,
     backgroundColor: tokens.colors.accent.secondary,
     opacity: 0.4,
-    transition: isDragging ? 'none' : 'width 0.1s ease-out',
+    transition: isDragging ? 'none' : `width ${tokens.transitions.audioLag} ease-out`,
   }),
 
   playedRange: (percentage: number, isDragging: boolean): CSSProperties => ({
@@ -50,7 +50,7 @@ export const progressBarStyles = {
     height: '100%',
     width: `${percentage}%`,
     background: tokens.gradients.aurora,
-    transition: isDragging ? 'none' : 'width 0.1s ease-out',
+    transition: isDragging ? 'none' : `width ${tokens.transitions.audioLag} ease-out`,
   }),
 
   thumb: (percentage: number, isDragging: boolean): CSSProperties => ({
@@ -63,7 +63,7 @@ export const progressBarStyles = {
     backgroundColor: tokens.colors.accent.primary,
     borderRadius: '50%',
     boxShadow: isDragging ? tokens.shadows.glowMd : tokens.shadows.glowSoft,
-    transition: 'all 0.1s ease-out',
+    transition: `all ${tokens.transitions.audioLag} ease-out`,
     pointerEvents: 'none',
     border: `2px solid ${tokens.colors.bg.level1}`,
   }),
@@ -76,7 +76,7 @@ export const progressBarStyles = {
     userSelect: 'none',
     outline: 'none',
     borderRadius: tokens.borderRadius.md,
-    transition: isFocused && !disabled ? '0.2s outline' : 'none',
+    transition: isFocused && !disabled ? `outline ${tokens.transitions.hover_out}` : 'none',
     ...(isFocused && !disabled && {
       outline: `3px solid ${tokens.colors.accent.primary}`,
       outlineOffset: '2px',

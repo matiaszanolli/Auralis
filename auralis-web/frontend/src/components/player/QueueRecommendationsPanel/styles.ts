@@ -39,7 +39,7 @@ export const styles = {
     fontSize: tokens.typography.fontSize.lg,
     padding: tokens.spacing.sm,
     borderRadius: tokens.borderRadius.md,
-    transition: 'background-color 0.2s',
+    transition: tokens.transitions.background,
 
     ':hover': {
       backgroundColor: tokens.colors.bg.secondary,
@@ -63,7 +63,7 @@ export const styles = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.semibold,
-    transition: 'all 0.2s',
+    transition: tokens.transitions.hover_out,
     whiteSpace: 'nowrap' as const,
 
     ':hover': {
@@ -96,7 +96,7 @@ export const styles = {
     padding: tokens.spacing.sm,
     backgroundColor: tokens.colors.bg.secondary,
     borderRadius: tokens.borderRadius.sm,
-    transition: 'background-color 0.2s',
+    transition: tokens.transitions.background,
     cursor: 'pointer',
   },
 
@@ -152,7 +152,7 @@ export const styles = {
     padding: tokens.spacing.sm,
     backgroundColor: tokens.colors.bg.secondary,
     borderRadius: tokens.borderRadius.sm,
-    transition: 'background-color 0.2s',
+    transition: tokens.transitions.background,
     cursor: 'pointer',
   },
 
@@ -195,7 +195,7 @@ export const styles = {
     backgroundColor: tokens.colors.bg.secondary,
     borderRadius: tokens.borderRadius.sm,
     border: `1px solid ${tokens.colors.border.light}`,
-    transition: 'all 0.2s',
+    transition: tokens.transitions.hover_out,
   },
 
   artistCardHovered: {
@@ -251,7 +251,7 @@ export const styles = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     fontWeight: tokens.typography.fontWeight.bold,
-    transition: 'opacity 0.2s',
+    transition: tokens.transitions.opacity,
     flexShrink: 0,
     minWidth: '28px',
     height: '28px',
@@ -273,7 +273,7 @@ export const styles = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.xs,
     fontWeight: tokens.typography.fontWeight.bold,
-    transition: 'opacity 0.2s',
+    transition: tokens.transitions.opacity,
   },
 
   emptyState: {

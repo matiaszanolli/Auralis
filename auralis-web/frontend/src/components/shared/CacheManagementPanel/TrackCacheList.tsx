@@ -92,7 +92,7 @@ export function TrackCacheList({ tracks, onTrackClearClick }: TrackCacheListProp
                 color: tokens.colors.text.secondary,
                 fontSize: tokens.typography.fontSize.xs,
                 cursor: 'pointer',
-                transition: 'all 0.2s',
+                transition: tokens.transitions.hover_out,
                 '&:hover': {
                   color: tokens.colors.semantic.error,
                   borderColor: tokens.colors.semantic.error,

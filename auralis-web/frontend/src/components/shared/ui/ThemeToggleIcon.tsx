@@ -25,7 +25,7 @@ export const ThemeToggleIcon = ({ isDark, iconSize }: ThemeToggleIconProps) => {
             fontSize: iconSize,
             color: tokens.colors.semantic.warning,
             filter: `drop-shadow(0 0 8px ${tokens.colors.semantic.warning}99)`,
-            transition: 'all 0.3s ease',
+            transition: tokens.transitions.state_inOut,
           }}
         />
       ) : (
@@ -34,7 +34,7 @@ export const ThemeToggleIcon = ({ isDark, iconSize }: ThemeToggleIconProps) => {
             fontSize: iconSize,
             color: tokens.colors.accent.primary,
             filter: `drop-shadow(0 0 8px ${tokens.colors.opacityScale.accent.veryStrong})`,
-            transition: 'all 0.3s ease',
+            transition: tokens.transitions.state_inOut,
           }}
         />
       )}

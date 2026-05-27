@@ -41,7 +41,7 @@ export const SearchTextField = styled(TextField)(({ theme: _theme }) => ({
     background: 'transparent',
     border: 'none',
     borderBottom: `1px solid ${tokens.colors.border.light}`,
-    transition: 'border-color 0.15s ease',
+    transition: `border-color ${tokens.transitions.hover_out}`,
     paddingRight: tokens.spacing.sm,
 
     '& fieldset': {

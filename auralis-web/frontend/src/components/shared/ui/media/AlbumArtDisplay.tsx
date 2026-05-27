@@ -69,7 +69,7 @@ const StyledAlbumArt = styled(Box)<StyledAlbumArtProps>(({ size, useTokens }) =>
   alignItems: 'center',
   justifyContent: 'center',
   boxShadow: useTokens ? tokens.shadows.md : `0 2px 8px ${tokens.colors.opacityScale.dark.strong}`,
-  transition: useTokens ? tokens.transitions.transform : 'transform 0.2s ease',
+  transition: tokens.transitions.transform,
 
   '& img': {
     width: '100%',

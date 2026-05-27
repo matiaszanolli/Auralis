@@ -41,7 +41,7 @@ export function PresetSelector({
             cursor: 'pointer',
             fontSize: tokens.typography.fontSize.sm,
             fontWeight: activePreset === preset.value ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.normal,
-            transition: 'all 0.2s',
+            transition: tokens.transitions.hover_out,
           }}
         >
           {preset.icon}

@@ -338,7 +338,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: '0.8125rem',
     fontWeight: tokens.typography.fontWeight.medium,
     cursor: 'pointer',
-    transition: 'all 150ms ease-in-out',
+    transition: tokens.transitions.hover_out,
     whiteSpace: 'nowrap',
     background: 'none',
   } as CSSProperties,

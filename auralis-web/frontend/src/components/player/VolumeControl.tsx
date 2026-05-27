@@ -214,7 +214,7 @@ export const VolumeControl = ({
             outlineOffset: isSliderFocused && !disabled ? '2px' : '0',
             background: `linear-gradient(to right, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.primary} ${clampedVolume * 100}%, ${tokens.colors.bg.level3} ${clampedVolume * 100}%, ${tokens.colors.bg.level3} 100%)`,
             opacity: disabled ? 0.5 : 1,
-            transition: 'height 0.2s ease, outline 0.2s ease',
+            transition: `height ${tokens.transitions.hover_out}, outline ${tokens.transitions.hover_out}`,
           } as CSSProperties}
         />
       </div>

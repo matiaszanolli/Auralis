@@ -63,7 +63,7 @@ export const TrackCardOverlay = ({
             background: tokens.gradients.aurora,
             color: tokens.colors.text.primary,
             transform: isHovered ? 'scale(1)' : 'scale(0.8)',
-            transition: 'all 0.3s ease',
+            transition: tokens.transitions.state_inOut,
             '&:hover': {
               background: tokens.gradients.decorative.electricPurple,
               transform: 'scale(1.1)',
@@ -91,7 +91,7 @@ export const TrackCardOverlay = ({
             color: isHovered ? tokens.colors.text.primary : tokens.colors.text.tertiary,
             fontWeight: tokens.typography.fontWeight.medium,
             fontSize: '0.7rem',
-            transition: 'color 0.2s ease',
+            transition: tokens.transitions.color,
           }}
         >
           {formatDuration(duration)}

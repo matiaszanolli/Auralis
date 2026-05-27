@@ -53,7 +53,7 @@ export const panelStyles = {
     fontSize: tokens.typography.fontSize.lg,
     padding: tokens.spacing.sm,
     borderRadius: tokens.borderRadius.md,
-    transition: 'background-color 0.2s',
+    transition: tokens.transitions.background,
 
     ':hover': {
       backgroundColor: tokens.colors.bg.secondary,
@@ -84,7 +84,7 @@ export const panelStyles = {
     color: tokens.colors.text.primary,
     fontSize: tokens.typography.fontSize.md,
     fontFamily: 'inherit',
-    transition: 'border-color 0.2s',
+    transition: `border-color ${tokens.transitions.hover_out}`,
 
     ':focus': {
       outline: 'none',
@@ -106,7 +106,7 @@ export const panelStyles = {
     fontSize: tokens.typography.fontSize.md,
     padding: tokens.spacing.xs,
     borderRadius: tokens.borderRadius.sm,
-    transition: 'color 0.2s',
+    transition: tokens.transitions.color,
 
     ':hover': {
       color: tokens.colors.text.primary,
@@ -128,7 +128,7 @@ export const panelStyles = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.semibold,
-    transition: 'all 0.2s',
+    transition: tokens.transitions.hover_out,
 
     ':hover': {
       backgroundColor: tokens.colors.bg.tertiary,
@@ -194,7 +194,7 @@ export const panelStyles = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.semibold,
-    transition: 'all 0.2s',
+    transition: tokens.transitions.hover_out,
 
     ':hover': {
       backgroundColor: tokens.colors.semantic.error,

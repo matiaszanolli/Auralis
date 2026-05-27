@@ -11,7 +11,7 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
     padding: `0 ${tokens.spacing.md}`,
     borderRadius: tokens.borderRadius.sm,
     cursor: 'pointer',
-    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
+    transition: tokens.transitions.hover_out, // Smooth easing
     position: 'relative',
     marginBottom: tokens.spacing.xs,                     // Phase 2: Tighter spacing (was sm)
 
@@ -110,7 +110,7 @@ export const TrackNumber = styled(Typography)<{ iscurrent?: string }>(({ iscurre
   fontSize: tokens.typography.fontSize.base,
   fontWeight: tokens.typography.fontWeight.medium,
   color: iscurrent === 'true' ? tokens.colors.accent.primary : tokens.colors.text.secondary,
-  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: tokens.transitions.hover_out,
 }));
 
 /**
@@ -127,7 +127,7 @@ export const PlayButton = styled(IconButton)({
   position: 'absolute',
   opacity: 0,
   transform: 'scale(0.8)',
-  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: tokens.transitions.hover_out,
   color: tokens.colors.accent.primary,
 
   '& .MuiSvgIcon-root': {
@@ -151,13 +151,13 @@ export const AlbumArtThumbnail = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: tokens.transitions.hover_out,
 
   '& img': {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
-    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: tokens.transitions.transform,
   },
 });
 
@@ -178,7 +178,7 @@ export const TrackTitle = styled(Typography)<{ iscurrent?: string }>(({ iscurren
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   lineHeight: 1.4,
-  transition: 'color 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: `${tokens.transitions.color}, ${tokens.transitions.opacity}`,
 }));
 
 export const TrackArtist = styled(Typography)({

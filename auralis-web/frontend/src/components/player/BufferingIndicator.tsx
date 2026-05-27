@@ -143,7 +143,7 @@ export const BufferingIndicator = ({
               height: '100%',
               width: `${clampedPercentage}%`,
               backgroundColor: tokens.colors.accent.secondary,
-              transition: 'width 0.2s ease-out',
+              transition: `width ${tokens.transitions.hover}`,
             }}
             data-testid="buffered-bar"
           />

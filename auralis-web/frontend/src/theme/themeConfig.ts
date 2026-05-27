@@ -235,7 +235,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
             borderRadius: tokens.borderRadius.sm,
             padding: '10px 24px',
             fontWeight: tokens.typography.fontWeight.semibold,
-            transition: 'all 0.3s ease',
+            transition: tokens.transitions.state_inOut,
           },
           contained: {
             boxShadow: 'none',
@@ -252,7 +252,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
           root: {
             ...glassEffects.panel(isDark),
             backgroundImage: 'none',
-            transition: 'all 0.3s ease',
+            transition: tokens.transitions.state_inOut,
           },
         },
       },
@@ -326,7 +326,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
       MuiIconButton: {
         styleOverrides: {
           root: {
-            transition: 'all 0.3s ease',
+            transition: tokens.transitions.state_inOut,
             '&:hover': {
               transform: 'scale(1.1)',
               background: isDark

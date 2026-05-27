@@ -9,7 +9,7 @@ import { styled, Typography } from '@mui/material';
 export const ClearButton = styled(IconButton)({
   padding: '8px',
   color: tokens.colors.text.secondary,
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.hover_out,
 
   '&:hover': {
     color: tokens.colors.text.primary,

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { Snackbar } from '@mui/material';
+import { tokens } from '@/design-system';
 import { ToastMessage } from './Toast';
 import { StyledAlert } from './Toast.styles';
 
@@ -38,7 +39,7 @@ export const ToastItem = ({ toast, index, onClose }: ToastItemProps) => {
         '&.MuiSnackbar-root': {
           top: `${24 + index * 70}px`,
         },
-        transition: 'top 0.3s ease',
+        transition: `top ${tokens.transitions.stateChange}`,
       }}
     >
       <StyledAlert

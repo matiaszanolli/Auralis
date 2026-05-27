@@ -98,7 +98,7 @@ export function ConfirmationDialog({
               cursor: disabled ? 'not-allowed' : 'pointer',
               fontSize: tokens.typography.fontSize.sm,
               fontWeight: tokens.typography.fontWeight.medium,
-              transition: 'all 0.2s',
+              transition: tokens.transitions.hover_out,
               '&:hover': {
                 background: tokens.colors.bg.elevated,
               },
@@ -120,7 +120,7 @@ export function ConfirmationDialog({
               fontSize: tokens.typography.fontSize.sm,
               fontWeight: tokens.typography.fontWeight.semibold,
               opacity: disabled ? 0.6 : 0.9,
-              transition: 'all 0.2s',
+              transition: tokens.transitions.hover_out,
               '&:hover:not(:disabled)': {
                 opacity: 1,
               },

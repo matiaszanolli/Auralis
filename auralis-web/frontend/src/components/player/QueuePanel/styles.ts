@@ -43,7 +43,7 @@ export const styles = {
     fontSize: tokens.typography.fontSize.lg,
     padding: tokens.spacing.sm,
     borderRadius: tokens.borderRadius.md,
-    transition: 'background-color 0.2s',
+    transition: tokens.transitions.background,
 
     ':hover': {
       backgroundColor: tokens.colors.bg.secondary,
@@ -67,7 +67,7 @@ export const styles = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.semibold,
-    transition: 'all 0.2s',
+    transition: tokens.transitions.hover_out,
 
     ':hover': {
       backgroundColor: tokens.colors.bg.tertiary,
@@ -102,7 +102,7 @@ export const styles = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.bold,
-    transition: 'all 0.2s',
+    transition: tokens.transitions.hover_out,
     minWidth: '36px',
 
     ':hover': {
@@ -130,7 +130,7 @@ export const styles = {
     color: tokens.colors.text.primary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
-    transition: 'all 0.2s',
+    transition: tokens.transitions.hover_out,
 
     ':hover': {
       backgroundColor: tokens.colors.semantic.error,
@@ -170,7 +170,7 @@ export const styles = {
     padding: tokens.spacing.md,
     borderBottom: `1px solid ${tokens.colors.border.light}`,
     cursor: 'move',
-    transition: 'background-color 0.2s, opacity 0.2s',
+    transition: `${tokens.transitions.background}, ${tokens.transitions.opacity}`,
 
     ':hover': {
       backgroundColor: tokens.colors.bg.secondary,
@@ -252,7 +252,7 @@ export const styles = {
     color: tokens.colors.text.primaryFull,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
-    transition: 'opacity 0.2s',
+    transition: tokens.transitions.opacity,
     flexShrink: 0,
 
     ':hover': {

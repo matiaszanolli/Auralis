@@ -21,7 +21,7 @@ export const DropZoneText = ({ isDragging, scanning }: DropZoneTextProps) => {
           fontWeight: tokens.typography.fontWeight.semibold,
           color: isDragging ? tokens.colors.accent.primary : tokens.colors.text.primary,
           mb: 1,
-          transition: 'color 0.3s ease',
+          transition: tokens.transitions.color,
         }}
       >
         {scanning

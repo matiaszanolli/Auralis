@@ -15,7 +15,7 @@ export const StyledTrackCard = styled(Card, {
   borderRadius: 12,
   overflow: 'hidden',
   cursor: 'pointer',
-  transition: 'all 0.3s ease',
+  transition: tokens.transitions.state_inOut,
   background: isPlaying ? tokens.colors.bg.level4 : tokens.colors.bg.tertiary,
   // Visual anchor for currently playing track - stronger elevation
   boxShadow: isPlaying
@@ -59,7 +59,7 @@ export const PlayOverlay = styled(Box)(() => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  transition: 'all 0.3s ease',
+  transition: tokens.transitions.state_inOut,
 }));
 
 export const DurationBadge = styled(Box)({
@@ -74,7 +74,7 @@ export const DurationBadge = styled(Box)({
   // Reduced contrast - low-contrast gray, semi-transparent (contextual, not constant)
   background: 'rgba(27, 35, 46, 0.50)', // Using level3 color with lower opacity
   backdropFilter: 'blur(10px)',
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.hover_out,
 });
 
 export const TrackCardContent = styled(CardContent)({

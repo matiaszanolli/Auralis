@@ -14,6 +14,7 @@
  */
 
 import { Component, ErrorInfo, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { tokens } from '@/design-system';
 import {
   styles, getErrorInfo, getSeverityColor,
   StreamingErrorType, ErrorSeverity, type StreamingError,
@@ -169,7 +170,7 @@ export const StreamingErrorDisplay = ({
       style={{
         ...styles.container,
         opacity: isDismissing ? 0 : 1,
-        transition: 'opacity 150ms ease-out',
+        transition: tokens.transitions.opacity,
         borderLeftColor: severityColor,
       }}
     >

@@ -13,7 +13,7 @@ import { tokens } from '@/design-system';
  */
 export const StyledTableRow = styled(TableRow)(({ theme: _theme }) => ({
   cursor: 'pointer',
-  transition: 'background-color 0.2s ease',
+  transition: tokens.transitions.background,
   '&:hover': {
     backgroundColor: tokens.colors.opacityScale.accent.ultraLight,
     '& .play-icon': {
@@ -38,7 +38,7 @@ export const StyledTableRow = styled(TableRow)(({ theme: _theme }) => ({
  */
 export const PlayIcon = styled(Box)({
   opacity: 0,
-  transition: 'opacity 0.2s ease',
+  transition: tokens.transitions.opacity,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center'

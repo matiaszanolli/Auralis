@@ -193,7 +193,7 @@ export function CacheHealthWidget({
           alignItems: 'center',
           justifyContent: 'space-between',
           cursor: interactive ? 'pointer' : 'default',
-          transition: 'all 0.2s',
+          transition: tokens.transitions.hover_out,
           position: 'relative',
           ...(interactive && {
             '&:hover': {

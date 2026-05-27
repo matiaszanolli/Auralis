@@ -29,7 +29,7 @@ export const PlayOverlay = ({ isHovered, onClick, title }: PlayOverlayProps) => 
         justifyContent: 'center',
         background: isHovered ? tokens.colors.opacityScale.dark.standard : 'transparent',
         backdropFilter: isHovered ? 'blur(4px)' : 'none',
-        transition: 'all 0.3s ease',
+        transition: tokens.transitions.state_inOut,
         opacity: isHovered ? 1 : 0,
         pointerEvents: isHovered ? 'auto' : 'none',
       }}
@@ -41,7 +41,7 @@ export const PlayOverlay = ({ isHovered, onClick, title }: PlayOverlayProps) => 
           background: tokens.gradients.aurora,
           color: tokens.colors.text.primary,
           transform: isHovered ? 'scale(1)' : 'scale(0.8)',
-          transition: 'all 0.3s ease',
+          transition: tokens.transitions.state_inOut,
           '&:hover': {
             background: tokens.gradients.decorative.electricPurple,
             transform: 'scale(1.1)',

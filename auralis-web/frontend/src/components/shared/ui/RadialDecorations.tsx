@@ -50,7 +50,7 @@ export const RadialDecorations = ({
               strokeWidth={isActive ? 2 : 1}
               strokeDasharray={isActive ? '0' : '4 4'}
               style={{
-                transition: 'all 0.3s ease',
+                transition: tokens.transitions.state_inOut,
               }}
             />
           );

@@ -3,7 +3,7 @@ import { tokens } from '@/design-system';
 export const resultItemStyles = {
   resultItem: {
     borderBottom: `1px solid ${tokens.colors.border.light}`,
-    transition: 'background-color 0.2s',
+    transition: tokens.transitions.background,
 
     ':hover': {
       backgroundColor: tokens.colors.bg.secondary,
@@ -101,7 +101,7 @@ export const resultItemStyles = {
     color: tokens.colors.text.primaryFull,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
-    transition: 'opacity 0.2s',
+    transition: tokens.transitions.opacity,
     flexShrink: 0,
 
     ':hover': {

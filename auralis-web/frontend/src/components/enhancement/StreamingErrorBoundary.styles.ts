@@ -174,7 +174,7 @@ export const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.xs,
     fontWeight: tokens.typography.fontWeight.semibold,
-    transition: 'all 150ms ease-in-out',
+    transition: tokens.transitions.hover_out,
     whiteSpace: 'nowrap',
   },
 
@@ -187,7 +187,7 @@ export const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.xs,
     fontWeight: tokens.typography.fontWeight.semibold,
-    transition: 'all 150ms ease-in-out',
+    transition: tokens.transitions.hover_out,
     whiteSpace: 'nowrap',
   },
 
@@ -199,7 +199,7 @@ export const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     minWidth: '24px',
-    transition: 'opacity 150ms ease-in-out',
+    transition: tokens.transitions.opacity,
   },
 
   historySection: {

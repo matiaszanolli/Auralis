@@ -55,7 +55,7 @@ const StyledImage = styled('img')<{ isloaded: string }>(({ isloaded }) => ({
   height: '100%',
   opacity: isloaded === 'true' ? 1 : 0,
   animation: isloaded === 'true' ? `${fadeIn} 0.3s cubic-bezier(0.4, 0, 0.2, 1)` : 'none',
-  transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: `${tokens.transitions.opacity}, ${tokens.transitions.transform}`,
 }));
 
 const FallbackContainer = styled(Box)({

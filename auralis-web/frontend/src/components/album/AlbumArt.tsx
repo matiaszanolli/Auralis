@@ -32,7 +32,7 @@ const ArtworkContainer = styled(Box, {
     position: 'relative',
     overflow: 'hidden',
     cursor: clickable ? 'pointer' : 'default',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: tokens.transitions.state_inOut,
     flexShrink: 0, // Prevent shrinking in flex containers
 
     '&:hover': clickable ? {

@@ -84,7 +84,7 @@ export const PresetItem = ({
           alignItems: 'center',
           justifyContent: 'center',
           cursor: isActive ? 'default' : 'pointer',
-          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: tokens.transitions.state_inOut,
           boxShadow: isActive
             ? `0 0 30px ${presetColor}99`
             : isHovered
@@ -107,7 +107,7 @@ export const PresetItem = ({
               : isHovered
               ? tokens.colors.text.primary
               : tokens.colors.text.secondary,
-            transition: 'all 0.3s ease',
+            transition: tokens.transitions.state_inOut,
             filter: isActive ? `drop-shadow(0 2px 4px ${tokens.colors.opacityScale.dark.strong})` : 'none',
           }}
         >

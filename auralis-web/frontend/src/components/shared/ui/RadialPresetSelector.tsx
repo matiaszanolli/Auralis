@@ -6,6 +6,7 @@ import { RadialCenterHub } from './RadialCenterHub';
 import { RadialDecorations } from './RadialDecorations';
 import { usePresetSelection } from './usePresetSelection';
 
+import { tokens } from '@/design-system';
 interface RadialPresetSelectorProps {
   currentPreset: string;
   onPresetChange: (preset: string) => void;
@@ -52,7 +53,7 @@ export const RadialPresetSelector = ({
         margin: '0 auto',
         opacity: disabled ? 0.4 : 1,
         pointerEvents: disabled ? 'none' : 'auto',
-        transition: 'opacity 0.3s ease',
+        transition: tokens.transitions.opacity,
       }}
     >
       {/* Center hub - Current preset */}

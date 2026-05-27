@@ -9,7 +9,7 @@ export const StyledListItemButton = styled(ListItemButton, {
   borderRadius: tokens.spacing.xs,
   marginBottom: '2px',
   padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.hover_out,
   backgroundColor: isDraggingOver
     ? tokens.colors.opacityScale.accent.standard
     : selected

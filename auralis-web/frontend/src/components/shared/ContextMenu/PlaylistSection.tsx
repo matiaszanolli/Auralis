@@ -23,7 +23,7 @@ const PlaylistMenuItem = styled(MenuItem)({
   fontSize: tokens.typography.fontSize.sm,
   color: tokens.colors.text.secondary,
   padding: '8px 16px 8px 48px',
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.hover_out,
   '&:hover': {
     background: tokens.colors.opacityScale.accent.veryLight,
     color: tokens.colors.text.primary,
@@ -36,7 +36,7 @@ const CreateNewMenuItem = styled(MenuItem)({
   color: tokens.colors.accent.primary,
   padding: '8px 16px 8px 48px',
   fontWeight: tokens.typography.fontWeight.semibold,
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.hover_out,
   '&:hover': {
     background: tokens.colors.opacityScale.accent.lighter,
     transform: 'translateX(2px)',

@@ -59,7 +59,7 @@ export function ProgressBar({
             height: '100%',
             width: `${seekPercentage}%`,
             background: tokens.colors.accent.primary,
-            transition: isSeeking ? 'none' : 'width 0.1s linear',
+            transition: isSeeking ? 'none' : `width ${tokens.transitions.audioLag} linear`,
           }}
         />
       </div>

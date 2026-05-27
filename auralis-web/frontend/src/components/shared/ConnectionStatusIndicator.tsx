@@ -209,7 +209,7 @@ export function ConnectionStatusIndicator({
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          transition: 'all 0.2s',
+          transition: tokens.transitions.hover_out,
           boxShadow: isHealthy
             ? 'none'
             : `0 0 10px ${statusColor}, inset 0 0 10px ${statusColor}20`,
@@ -446,7 +446,7 @@ export function ConnectionStatusIndicator({
                 fontWeight: tokens.typography.fontWeight.semibold,
                 cursor: 'pointer',
                 opacity: 0.9,
-                transition: 'all 0.2s',
+                transition: tokens.transitions.hover_out,
                 '&:hover': {
                   opacity: 1,
                 },
