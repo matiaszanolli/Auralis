@@ -13,11 +13,21 @@
  * @module components/library/AlbumGrid
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { tokens } from '@/design-system';
 import { useAlbumsQuery } from '@/hooks/library/useLibraryQuery';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import type { Album } from '@/types/domain';
+import {
+  computeColumnsPerRow,
+  useContainerWidth,
+  useGridVirtualizer,
+} from '@/components/library/Items/utilities/useGridVirtualizer';
+
+// Card ~216px square + title/artist line + row gap.
+const ROW_HEIGHT = 320;
+const MIN_COLUMN_WIDTH = 216;
+const GAP_PX = 24;
 
 interface AlbumGridProps {
   /** Callback when album is selected */
@@ -81,21 +91,10 @@ export const AlbumGrid = ({
 
   return (
     <section style={styles.container} aria-label="Albums library">
-      <div style={styles.grid} role="list">
-        {albums.map((album) => (
-          <div key={album.id} role="listitem">
-            <AlbumCard
-              albumId={album.id}
-              title={album.title}
-              artist={album.artist}
-              trackCount={album.trackCount}
-              hasArtwork={!!album.artworkUrl}
-              year={album.year}
-              onClick={handleAlbumCardClick}
-            />
-          </div>
-        ))}
-      </div>
+      <VirtualizedAlbumList
+        albums={albums}
+        onAlbumClick={handleAlbumCardClick}
+      />
 
       {isLoading && (
         <div style={styles.loadingMessage} role="status" aria-live="polite" aria-atomic="true">
@@ -122,6 +121,91 @@ export const AlbumGrid = ({
     </section>
   );
 };
+
+interface VirtualizedAlbumListProps {
+  albums: Album[];
+  onAlbumClick: (albumId: number) => void;
+}
+
+/**
+ * #3606: virtualized album list. Renders only visible rows + overscan via
+ * `useGridVirtualizer`; falls back to mapping every album when layout is
+ * unmeasurable (jsdom tests).
+ */
+function VirtualizedAlbumList({ albums, onAlbumClick }: VirtualizedAlbumListProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setScrollElement(document.getElementById('app-main-content-scroll'));
+  }, []);
+
+  const containerWidth = useContainerWidth(containerRef);
+  const columns = computeColumnsPerRow(containerWidth, MIN_COLUMN_WIDTH, GAP_PX);
+
+  const virtualizer = useGridVirtualizer({
+    itemCount: albums.length,
+    columnsPerRow: columns,
+    rowHeight: ROW_HEIGHT,
+    getScrollElement: () => scrollElement,
+    scrollMargin: containerRef.current?.offsetTop ?? 0,
+  });
+
+  const canVirtualize = scrollElement !== null && containerWidth > 0;
+  const virtualRows = virtualizer.getVirtualItems();
+
+  const renderCard = (album: Album) => (
+    <div key={album.id} role="listitem">
+      <AlbumCard
+        albumId={album.id}
+        title={album.title}
+        artist={album.artist}
+        trackCount={album.trackCount}
+        hasArtwork={!!album.artworkUrl}
+        year={album.year}
+        onClick={onAlbumClick}
+      />
+    </div>
+  );
+
+  return (
+    <div ref={containerRef} role="list">
+      {canVirtualize ? (
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {virtualRows.map((virtualRow) => {
+            const startIndex = virtualRow.index * columns;
+            const rowAlbums = albums.slice(startIndex, startIndex + columns);
+            return (
+              <div
+                key={virtualRow.index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start - (virtualizer.options.scrollMargin ?? 0)}px)`,
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                  gap: tokens.spacing.lg,
+                }}
+              >
+                {rowAlbums.map(renderCard)}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={styles.grid}>{albums.map(renderCard)}</div>
+      )}
+    </div>
+  );
+}
 
 const styles = {
   container: {
