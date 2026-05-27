@@ -18,9 +18,22 @@ except ImportError:
     MUTAGEN_AVAILABLE = False
     MutagenFile = None
 
-from ...utils.logging import debug
+from ...utils.logging import debug, warning
 from ..scan_models import AudioFileInfo
 from ..utils.artist_normalizer import parse_featured_artists
+
+# #3757: log once at module import if mutagen is missing. Previously each
+# per-file extraction emitted a `debug()` line, so users investigating
+# "why is my library scan missing artist/title/album" couldn't easily
+# distinguish "this file has no tags" from "mutagen isn't installed".
+# Mutagen IS listed in `requirements.txt`, so the warning surfaces a
+# packaging-environment problem rather than expected behavior.
+if not MUTAGEN_AVAILABLE:
+    warning(
+        "mutagen package not available — metadata extraction disabled. "
+        "Library scans will not populate artist/title/album/year fields. "
+        "Install with `pip install mutagen` (already in requirements.txt)."
+    )
 
 
 class MetadataExtractor:

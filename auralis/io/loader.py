@@ -23,7 +23,21 @@ from .unified_loader import FFMPEG_FORMATS
 
 # Maximum audio duration (seconds) that can be loaded into RAM.
 # 2 hours of stereo float32 at 96 kHz ≈ 5.3 GB — a safe upper bound.
-MAX_DURATION_SECONDS = 7200
+#
+# #3758: overridable via the `AURALIS_MAX_DURATION_SECONDS` environment
+# variable so users with legitimate long-form content (3-hour live
+# concert masters, podcast archive, etc.) can opt in without patching
+# the source. The default stays at 7200 (2 h) which covers the
+# overwhelming majority of music files. Setting a higher value is the
+# user's explicit acknowledgement that they have the RAM headroom.
+import os as _os
+try:
+    MAX_DURATION_SECONDS = int(_os.environ.get(
+        "AURALIS_MAX_DURATION_SECONDS", "7200"
+    ))
+except ValueError:
+    MAX_DURATION_SECONDS = 7200
+del _os
 
 
 def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
