@@ -98,7 +98,16 @@ export interface RawPlayerStateData {
   mastering_enabled: boolean;
   current_preset: string;
   analysis?: Record<string, unknown> | null;
-  // Enhancement/gapless fields (optional — not always present)
+  // Enhancement/gapless fields (optional — not always present).
+  //
+  // #3778: the backend `PlayerState` schema does NOT currently emit
+  // these fields, so in practice `transformPlayerState` always falls
+  // through to the defaults below (gaplessEnabled=true,
+  // crossfadeEnabled=true, crossfadeDuration=3.0). Kept as `?` here so
+  // the contract can be filled in from the backend side without a
+  // breaking client-typing change. If you need to consume these in a
+  // component, add the corresponding fields to the backend
+  // PlayerState first — relying on the defaults is misleading.
   gapless_enabled?: boolean;
   crossfade_enabled?: boolean;
   crossfade_duration?: number;
