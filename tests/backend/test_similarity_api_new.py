@@ -472,9 +472,16 @@ class TestBlockingCallsOffloaded:
 
         assert handler is not None, "Could not find /fit endpoint"
 
-        with patch("routers.similarity.asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread, \
+        # Make to_thread transparent so the endpoint's real control flow runs:
+        # is_fitted() -> False, then get_count() -> 100 (>= min_samples), then fit().
+        # The endpoint legitimately offloads is_fitted/get_count/fit, so assert that
+        # fit was *among* the to_thread calls rather than the only one.
+        async def fake_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        with patch("routers.similarity.asyncio.to_thread", side_effect=fake_to_thread) as mock_to_thread, \
              patch("routers.similarity.require_repository_factory", return_value=mock_repos):
 
             await handler(min_samples=10)
 
-            mock_to_thread.assert_called_once_with(mock_similarity.fit)
+            mock_to_thread.assert_any_call(mock_similarity.fit)
