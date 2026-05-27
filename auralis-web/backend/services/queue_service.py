@@ -239,9 +239,13 @@ class QueueService:
             # large queues).
             tracks_repo = self.library_manager.tracks
             if hasattr(tracks_repo, 'get_by_ids'):
-                db_tracks_raw = await asyncio.to_thread(tracks_repo.get_by_ids, track_ids)
-                # Preserve caller-supplied order.
-                by_id = {t.id: t for t in (db_tracks_raw or [])}
+                # TrackRepository.get_by_ids returns dict[int, Track] keyed by
+                # track id — iterating it yields ints, not Track objects.
+                # Previously this path built `{t.id: t for t in ...}` which
+                # raised AttributeError on every set-queue call (#3554 batched
+                # path regression).
+                by_id = await asyncio.to_thread(tracks_repo.get_by_ids, track_ids) or {}
+                # Preserve caller-supplied order, drop unknown ids.
                 db_tracks = [by_id[tid] for tid in track_ids if tid in by_id]
             else:
                 def _fetch_individually() -> list[Any]:

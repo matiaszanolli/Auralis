@@ -98,6 +98,21 @@ hiddenimports = [
     'pydantic',
     'starlette',
     'starlette.websockets',
+    # CPU JIT (used by librosa.beat / librosa.onset internals — required for
+    # fingerprint temporal analysis even though we don't import numba directly)
+    'numba',
+    'numba.core',
+    'numba.core.typing',
+    'numba.core.types',
+    'numba.core.runtime',
+    'numba.np',
+    'numba.np.unsafe',
+    'numba.cpython',
+    'numba.extending',
+    'numba.experimental',
+    'llvmlite',
+    'llvmlite.binding',
+    'llvmlite.ir',
 ]
 
 # Exclude unnecessary packages to reduce binary size
@@ -108,10 +123,14 @@ excludes = [
     'cupy.cuda',
     'cuda',
     'cudnn',
-    'numba',
+    # NOTE: do NOT exclude `numba` / `llvmlite` — librosa.beat.beat_track and
+    # several other librosa primitives JIT-compile via numba on CPU. Excluding
+    # them produces a binary that imports librosa but raises
+    # "No module named 'numba'" the moment fingerprinting / temporal analysis
+    # runs. Only drop the GPU sub-module of numba.
     'numba.cuda',
-    'llvmlite',
-    'llvmlite.binding',
+    'numba.cuda.cudadrv',
+    'numba.cuda.simulator',
     # Scientific packages not used
     'matplotlib',
     'matplotlib.pyplot',
@@ -175,6 +194,25 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 # Collect Rust DSP module (auralis_dsp) - critical for audio processing!
 tmp_ret = collect_all('auralis_dsp')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+# Collect llvmlite — needs its native libllvmlite.so to JIT anything.
+# Without this, `import llvmlite.binding` raises OSError on a fresh host.
+tmp_ret = collect_all('llvmlite')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+# Collect numba — its dispatcher / typeconv pulls in dozens of submodules
+# that PyInstaller can't statically resolve. Many librosa primitives JIT
+# via numba (beat_track, onset_strength), so a partial collection leaves
+# fingerprinting broken at runtime.
+tmp_ret = collect_all('numba')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+# Strip numba.cuda submodules added by collect_all('numba') — we excluded
+# them above to drop the CUDA toolkit dependency.
+_CUDA_PREFIXES = ('numba/cuda/', 'numba/cuda.',)
+datas = [d for d in datas if not any(d[1].startswith(p) or p in d[0] for p in _CUDA_PREFIXES)]
+binaries = [b for b in binaries if not any(b[1].startswith(p) or p in b[0] for p in _CUDA_PREFIXES)]
+hiddenimports = [h for h in hiddenimports if not h.startswith('numba.cuda')]
 
 a = Analysis(
     ['main.py'],
