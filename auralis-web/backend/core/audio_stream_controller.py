@@ -896,7 +896,11 @@ class AudioStreamController:
             duration = total_frames / sample_rate
 
             # Calculate chunks (NO overlap for normal streaming - no crossfade applied)
-            chunk_duration = 15.0  # Chunk duration in seconds
+            # #3775: pull the constant from chunk_boundaries instead of
+            # re-declaring it (third declaration removed; chunked_processor
+            # CHUNK_DURATION already mirrors chunk_boundaries.CHUNK_DURATION).
+            from .chunk_boundaries import CHUNK_DURATION
+            chunk_duration = float(CHUNK_DURATION)
             chunk_samples = int(chunk_duration * sample_rate)
 
             # For normal path: chunk_interval = chunk_duration (no overlap)

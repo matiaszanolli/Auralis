@@ -19,7 +19,11 @@ export { useQueueStatistics } from './useQueueStatistics';
 
 // New hooks moved from root
 export { usePlayerControls } from './usePlayerControls';
-export { usePlayerStreaming } from './usePlayerStreaming';
+// #3776: usePlayerStreaming removed — was 475 lines of dead code with
+// zero production importers. Six prior fix PRs (#3261 / #2816 / #3185
+// reconnect resume / etc.) churned the file with no observable user
+// benefit. Removing it deletes the maintenance burden and closes the
+// adjacent #3261 / #2816 issues as stale by construction.
 export { usePlayerStateSync } from './usePlayerStateSync';
 export { usePlayerDisplay } from './usePlayerDisplay';
 export { usePlayerAPI } from './usePlayerAPI';
