@@ -76,10 +76,14 @@ def load_with_soundfile(file_path: Path) -> tuple[np.ndarray, int]:
         elif audio_data.ndim == 2:
             # Multi-channel audio
             if audio_data.shape[1] > 2:
-                # Convert to stereo by taking first two channels
+                # #3743: ITU-R BS.775 downmix. Previously this discarded
+                # Center / LFE / surround channels by taking the first two
+                # columns; now matches the FFmpeg path (#3672) which uses
+                # the same standard matrix via `-ac 2`.
+                from ..processing import downmix_to_stereo
                 original_channels = audio_data.shape[1]
-                audio_data = audio_data[:, :2].copy()
-                warning(f"Converted {original_channels} channels to stereo")
+                audio_data = downmix_to_stereo(audio_data)
+                warning(f"Downmixed {original_channels} channels to stereo (ITU-R BS.775)")
         else:
             raise ModuleError(f"{Code.ERROR_INVALID_AUDIO}: Invalid audio dimensions")
 

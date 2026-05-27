@@ -117,3 +117,91 @@ def simple_resample(audio_data: np.ndarray, original_rate: int, target_rate: int
             )
             resampled_channels.append(resampled_channel)
         return np.column_stack(resampled_channels).astype(input_dtype, copy=False)
+
+
+def downmix_to_stereo(audio_data: np.ndarray) -> np.ndarray:
+    """
+    #3743 — downmix multi-channel audio to stereo using ITU-R BS.775.
+
+    The two native Python loader paths (`loader.py` for WAV and
+    `soundfile_loader.py`) used to do `audio_data[:, :2].copy()` for
+    any input with more than two channels — a hard truncation that
+    drops Center (vocals/dialogue), LFE, and surround content. The
+    FFmpeg path (#3672) already applies the standard matrix via `-ac 2`;
+    this function keeps the native paths consistent with that behavior.
+
+    Mapping (BS.775-3):
+        L_out = L + 0.707·C + 0.707·Ls
+        R_out = R + 0.707·C + 0.707·Rs
+    LFE is omitted from the stereo image (the standard mixes it ±10 dB
+    into either channel optionally; we treat it as discardable for a
+    music-master downmix). Channels past the canonical surround layout
+    are summed equally into both outputs so we don't lose energy from
+    atypical layouts (e.g. 7.1 side channels).
+
+    After downmixing the matrix sum can exceed ±1.0, so the result is
+    rescaled so its peak ≤ the original input peak (no surprise
+    clipping introduced by the downmix). The input dtype is preserved.
+
+    Args:
+        audio_data: 2-D array shaped (samples, channels). Mono / stereo
+                    inputs pass through unchanged for caller convenience.
+
+    Returns:
+        Stereo 2-D array shaped (samples, 2), same dtype as input.
+    """
+    if audio_data.ndim != 2:
+        raise ValueError(
+            f"downmix_to_stereo expects 2-D input; got ndim={audio_data.ndim}"
+        )
+    n_channels = audio_data.shape[1]
+    if n_channels == 2:
+        return audio_data.copy()
+    if n_channels < 2:
+        return np.column_stack([audio_data[:, 0], audio_data[:, 0]])
+
+    input_dtype = audio_data.dtype
+    # Promote to float32 for the matrix sum so int sources don't
+    # overflow; cast back at the end.
+    audio = audio_data.astype(np.float32, copy=False)
+
+    L = audio[:, 0]
+    R = audio[:, 1]
+    C = audio[:, 2] if n_channels >= 3 else None
+
+    # Surround channels: 5.1 / 7.1 conventions vary; treat indices 4 and
+    # 5 as Ls/Rs when present (typical WAV WAVEFORMATEXTENSIBLE: L, R,
+    # C, LFE, Ls, Rs, [Lsr, Rsr]). LFE at index 3 is dropped.
+    Ls = audio[:, 4] if n_channels >= 5 else None
+    Rs = audio[:, 5] if n_channels >= 6 else None
+
+    _SQ = np.float32(0.7071067811865476)  # 1/sqrt(2)
+    L_out = L.copy()
+    R_out = R.copy()
+    if C is not None:
+        L_out += _SQ * C
+        R_out += _SQ * C
+    if Ls is not None:
+        L_out += _SQ * Ls
+    if Rs is not None:
+        R_out += _SQ * Rs
+
+    # Side / rear channels beyond Rs (index 5) get summed equally into
+    # both outputs — preserves their energy without inventing a
+    # placement decision.
+    if n_channels > 6:
+        extra = audio[:, 6:].sum(axis=1)
+        L_out += _SQ * extra
+        R_out += _SQ * extra
+
+    stereo = np.column_stack([L_out, R_out])
+
+    # Renormalize so the downmix peak doesn't exceed the input peak —
+    # prevents surprise clipping when the matrix sum pushes a sample
+    # above ±1.0 (or above the int range for integer sources).
+    input_peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+    out_peak = float(np.max(np.abs(stereo))) if stereo.size else 0.0
+    if out_peak > 0.0 and out_peak > input_peak > 0.0:
+        stereo = stereo * np.float32(input_peak / out_peak)
+
+    return stereo.astype(input_dtype, copy=False)

@@ -82,8 +82,15 @@ def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
             # Mono 2D → stereo 2D
             audio_data = np.column_stack([audio_data[:, 0], audio_data[:, 0]])
         elif audio_data.shape[1] > 2:
-            # Multi-channel → stereo (take first two channels)
-            audio_data = audio_data[:, :2].copy()
+            # #3743: ITU-R BS.775 downmix for multichannel sources.
+            # Previously this took the first two channels via
+            # `audio_data[:, :2].copy()`, which silently dropped Center
+            # (vocals/dialogue), LFE, and surround content on 5.1 / 7.1
+            # WAVs. The FFmpeg path (#3672) already applies the standard
+            # matrix; downmix_to_stereo keeps the native loader
+            # consistent with that behavior.
+            from .processing import downmix_to_stereo
+            audio_data = downmix_to_stereo(audio_data)
 
         info(f"Loaded {file_type}: {audio_data.shape[0]} samples, {sample_rate} Hz")
         return audio_data, sample_rate
