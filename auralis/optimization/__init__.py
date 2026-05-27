@@ -8,7 +8,7 @@ Performance optimization components for real-time audio processing
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .acceleration import ParallelProcessor, SIMDAccelerator
+from .acceleration import SIMDAccelerator
 from .caching import SmartCache
 from .config import PerformanceConfig
 from .memory import MemoryPool
@@ -30,7 +30,6 @@ __all__ = [
     'MemoryPool',
     'SmartCache',
     'SIMDAccelerator',
-    'ParallelProcessor',
     'PerformanceProfiler',
 
     # Factory functions

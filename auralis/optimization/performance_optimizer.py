@@ -24,7 +24,7 @@ import threading
 import numpy as np
 
 from ..utils.logging import info
-from .acceleration import ParallelProcessor, SIMDAccelerator
+from .acceleration import SIMDAccelerator
 from .caching import SmartCache
 
 # Import from modular components
@@ -43,7 +43,10 @@ class PerformanceOptimizer:
         self.memory_pool: MemoryPool | None = MemoryPool(self.config.memory_pool_size_mb) if self.config.enable_caching else None
         self.cache: SmartCache | None = SmartCache(self.config.cache_size_mb, self.config.cache_ttl_seconds) if self.config.enable_caching else None
         self.simd: SIMDAccelerator | None = SIMDAccelerator() if self.config.enable_simd else None
-        self.parallel: ParallelProcessor | None = ParallelProcessor(self.config.max_threads) if self.config.enable_parallel else None
+        # #3476: the old `self.parallel = ParallelProcessor(...)` was dead —
+        # the only method that class exposed (`parallel_band_processing`)
+        # had zero callers, leaving a `ThreadPoolExecutor` allocated and
+        # idle for the lifetime of the process. Removed entirely.
         self.profiler: PerformanceProfiler = PerformanceProfiler()
 
         # Optimization state
@@ -159,9 +162,8 @@ class PerformanceOptimizer:
 
     def shutdown(self) -> None:
         """Shutdown optimizer and cleanup resources"""
-        if self.parallel:
-            self.parallel.shutdown()
-
+        # #3476: removed `self.parallel.shutdown()` — the ParallelProcessor
+        # field was dead (see __init__ comment).
         info("Performance optimizer shutdown complete")
 
 
