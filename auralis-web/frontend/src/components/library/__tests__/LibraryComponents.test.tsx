@@ -13,7 +13,7 @@
  * @module components/library/__tests__/LibraryComponents.test
  */
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import AlbumGrid from '@/components/library/AlbumGrid';
@@ -388,8 +388,13 @@ describe('MetadataEditorDialog', () => {
       />
     );
 
+    // #3614: userEvent.clear + type to simulate the full keyboard event
+    // chain (focus, keydown, beforeinput, input, keyup, change). Previously
+    // fireEvent.change only synthesised the final change event, masking
+    // any regressions in onKeyDown / onBeforeInput validation handlers.
     const titleInput = screen.getByDisplayValue('Test Song');
-    fireEvent.change(titleInput, { target: { value: 'New Title' } });
+    await user.clear(titleInput);
+    await user.type(titleInput, 'New Title');
 
     const saveButton = screen.getByRole('button', { name: /save/i });
     await user.click(saveButton);
@@ -467,8 +472,12 @@ describe('MetadataEditorDialog', () => {
       />
     );
 
+    // #3614: userEvent.clear + type fires the full keyboard chain so
+    // numeric-validation handlers (onKeyDown reject non-digits) are
+    // exercised. fireEvent.change skipped that path entirely.
     const yearInput = screen.getByDisplayValue('2023');
-    fireEvent.change(yearInput, { target: { value: '2024' } });
+    await user.clear(yearInput);
+    await user.type(yearInput, '2024');
 
     const saveButton = screen.getByRole('button', { name: /save/i });
     await user.click(saveButton);
@@ -496,8 +505,10 @@ describe('MetadataEditorDialog', () => {
       />
     );
 
+    // #3614: full keyboard chain via userEvent.
     const genreInput = screen.getByDisplayValue('Rock');
-    fireEvent.change(genreInput, { target: { value: 'Pop' } });
+    await user.clear(genreInput);
+    await user.type(genreInput, 'Pop');
 
     const saveButton = screen.getByRole('button', { name: /save/i });
     await user.click(saveButton);

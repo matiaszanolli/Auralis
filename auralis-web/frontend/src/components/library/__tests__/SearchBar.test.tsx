@@ -18,6 +18,14 @@ import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import SearchBar from '@/components/library/SearchBar';
 
+// #3614: text inputs use `fireEvent.input` rather than `fireEvent.change`.
+// React 18 binds `onChange` for `<input type="text">` to the native `input`
+// event; `fireEvent.input` therefore matches the event the browser actually
+// fires as a user types. `fireEvent.change` synthesises only the `change`
+// event and bypasses `onInput` / `onBeforeInput`, masking regressions in those
+// handlers. `userEvent.type` would also work but interacts poorly with the
+// `vi.useFakeTimers()` setup these debounce tests depend on.
+
 describe('SearchBar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -95,7 +103,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
       });
 
       expect(input).toHaveValue('beatles');
@@ -110,9 +118,9 @@ describe('SearchBar', () => {
 
       // Type query
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'b' } });
-        fireEvent.change(input, { target: { value: 'be' } });
-        fireEvent.change(input, { target: { value: 'bea' } });
+        fireEvent.input(input, { target: { value: 'b' } });
+        fireEvent.input(input, { target: { value: 'be' } });
+        fireEvent.input(input, { target: { value: 'bea' } });
       });
 
       // Callback shouldn't be called yet
@@ -136,7 +144,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'test' } });
+        fireEvent.input(input, { target: { value: 'test' } });
       });
 
       // Advance 300ms (less than debounce)
@@ -162,7 +170,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'first' } });
+        fireEvent.input(input, { target: { value: 'first' } });
       });
 
       // Advance 250ms (not enough to trigger)
@@ -174,7 +182,7 @@ describe('SearchBar', () => {
 
       // Change input again (resets timer)
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'first search' } });
+        fireEvent.input(input, { target: { value: 'first search' } });
       });
 
       // Advance 200ms more (250 + 200 = 450ms from first input, but only 200ms from second)
@@ -202,7 +210,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
         vi.advanceTimersByTime(300);
       });
 
@@ -227,7 +235,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
         vi.advanceTimersByTime(300);
       });
 
@@ -255,7 +263,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox') as HTMLInputElement;
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
         vi.advanceTimersByTime(300);
       });
 
@@ -277,7 +285,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
         // Don't advance timers - stay in loading state
       });
 
@@ -296,7 +304,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
       });
 
       // Check for loading icon
@@ -314,7 +322,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
       });
 
       await act(async () => {
@@ -335,7 +343,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
         vi.advanceTimersByTime(300);
       });
 
@@ -351,7 +359,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
         // Don't advance timers - stay loading
       });
 
@@ -367,7 +375,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'test' } });
+        fireEvent.input(input, { target: { value: 'test' } });
         vi.advanceTimersByTime(300);
       });
 
@@ -405,7 +413,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
       });
 
       unmount();
@@ -438,7 +446,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
         vi.advanceTimersByTime(300);
       });
 
@@ -454,7 +462,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'beatles' } });
+        fireEvent.input(input, { target: { value: 'beatles' } });
         vi.advanceTimersByTime(300);
       });
 
@@ -472,7 +480,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: '' } });
+        fireEvent.input(input, { target: { value: '' } });
         vi.advanceTimersByTime(300);
       });
 
@@ -487,7 +495,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: '   ' } });
+        fireEvent.input(input, { target: { value: '   ' } });
         vi.advanceTimersByTime(300);
       });
 
@@ -502,7 +510,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: 'test & special' } });
+        fireEvent.input(input, { target: { value: 'test & special' } });
         vi.advanceTimersByTime(300);
       });
 
@@ -518,7 +526,7 @@ describe('SearchBar', () => {
       const input = screen.getByRole('textbox');
 
       await act(async () => {
-        fireEvent.change(input, { target: { value: longQuery } });
+        fireEvent.input(input, { target: { value: longQuery } });
         vi.advanceTimersByTime(300);
       });
 

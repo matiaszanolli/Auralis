@@ -63,13 +63,21 @@ describe('ComponentName', () => {
     // expect(handleClick).toHaveBeenCalledTimes(1)
   })
 
-  it('handles input change', () => {
+  it('handles input change', async () => {
+    // const user = userEvent.setup()
     // render(<ComponentName />)
     //
     // const input = screen.getByLabelText('Input Label')
-    // fireEvent.change(input, { target: { value: 'New Value' } })
+    // await user.clear(input)
+    // await user.type(input, 'New Value')
     //
     // expect(input).toHaveValue('New Value')
+    //
+    // #3614: prefer userEvent.type over fireEvent.change for text inputs —
+    // it fires the full keyboard event chain (keydown → beforeInput → input
+    // → keyup) instead of synthesising only a `change` event, which masks
+    // regressions in onInput / onBeforeInput handlers. For range sliders use
+    // fireEvent.input (the event the browser fires while dragging).
   })
 
   it('handles form submission', async () => {

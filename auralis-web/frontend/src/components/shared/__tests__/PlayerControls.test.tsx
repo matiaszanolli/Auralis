@@ -230,8 +230,12 @@ describe('PlayerControls', () => {
   it('should update volume display when slider moved', () => {
     render(<PlayerControls />);
 
+    // #3614: fireEvent.input matches the real `input` event a range
+    // <input type="range"> fires while the user drags (React 18 binds
+    // onChange to that). fireEvent.change bypasses the full event chain
+    // and masks regressions in onInput / onBeforeInput handlers.
     const volumeSlider = screen.getByRole('slider', { name: /volume/i });
-    fireEvent.change(volumeSlider, { target: { value: '50' } });
+    fireEvent.input(volumeSlider, { target: { value: '50' } });
 
     expect(screen.getByText('50%')).toBeInTheDocument();
   });

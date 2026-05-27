@@ -129,7 +129,9 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
     const volumeSlider = screen.getByTestId('volume-control-slider') as HTMLInputElement;
 
     // Change volume to 0.5 (50%)
-    fireEvent.change(volumeSlider, { target: { value: '0.5' } });
+    // #3614: fireEvent.input for range <input>; matches the real
+    // event the browser fires during a drag.
+    fireEvent.input(volumeSlider, { target: { value: '0.5' } });
 
     // Redux should now store 50 (0-100 scale)
     const state = store.getState();
@@ -146,7 +148,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
     const volumeSlider = screen.getByTestId('volume-control-slider') as HTMLInputElement;
 
     // Change volume to 0.8 (80%)
-    fireEvent.change(volumeSlider, { target: { value: '0.8' } });
+    fireEvent.input(volumeSlider, { target: { value: '0.8' } });
 
     // setVolume should be called with 0.8 (0-1 scale)
     expect(mockSetVolume).toHaveBeenCalledWith(0.8);
@@ -161,13 +163,13 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
 
     const volumeSlider = screen.getByTestId('volume-control-slider') as HTMLInputElement;
 
-    // Test minimum (0)
-    fireEvent.change(volumeSlider, { target: { value: '0' } });
+    // Test minimum (0). #3614: fireEvent.input on range <input>.
+    fireEvent.input(volumeSlider, { target: { value: '0' } });
     expect(store.getState().player.volume).toBe(0);
     expect(mockSetVolume).toHaveBeenCalledWith(0);
 
     // Test maximum (1.0)
-    fireEvent.change(volumeSlider, { target: { value: '1' } });
+    fireEvent.input(volumeSlider, { target: { value: '1' } });
     expect(store.getState().player.volume).toBe(100);
     expect(mockSetVolume).toHaveBeenCalledWith(1);
   });
@@ -181,12 +183,13 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
 
     const volumeSlider = screen.getByTestId('volume-control-slider') as HTMLInputElement;
 
-    // Test rounding: 0.754 should round to 75 (not 75.4)
-    fireEvent.change(volumeSlider, { target: { value: '0.754' } });
+    // Test rounding: 0.754 should round to 75 (not 75.4). #3614:
+    // fireEvent.input on range <input>.
+    fireEvent.input(volumeSlider, { target: { value: '0.754' } });
     expect(store.getState().player.volume).toBe(75);
 
     // Test rounding: 0.755 should round to 76
-    fireEvent.change(volumeSlider, { target: { value: '0.756' } });
+    fireEvent.input(volumeSlider, { target: { value: '0.756' } });
     expect(store.getState().player.volume).toBe(76);
   });
 

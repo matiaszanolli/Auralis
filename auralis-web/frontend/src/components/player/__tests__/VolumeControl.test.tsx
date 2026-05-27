@@ -130,7 +130,11 @@ describe('VolumeControl', () => {
       );
 
       const slider = screen.getByTestId('volume-control-slider') as HTMLInputElement;
-      fireEvent.change(slider, { target: { value: '0.75' } });
+      // #3614: fireEvent.input matches the `input` event a real range
+      // <input> fires while the user drags. fireEvent.change synthesises
+      // only the final `change` event and bypasses any onInput-driven
+      // intermediate behaviour.
+      fireEvent.input(slider, { target: { value: '0.75' } });
 
       expect(onVolumeChange).toHaveBeenCalledWith(0.75);
     });
