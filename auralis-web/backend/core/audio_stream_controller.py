@@ -923,7 +923,21 @@ class AudioStreamController:
                 + (f", seek={start_position:.1f}s (chunk {start_chunk})" if start_chunk > 0 else "")
             )
 
-            # Send stream start message (report remaining chunks for seek)
+            # Send stream start message (report remaining chunks for seek).
+            # When resuming mid-track (start_position > 0), emit is_seek=true so
+            # the client preserves its existing AudioContext + PCMStreamBuffer
+            # instead of tearing them down — required for click-free WS reconnect
+            # resume on the normal path (fixes #3755; mirrors the enhanced path
+            # which has used the seek-aware message since #3185).
+            # chunk_interval == chunk_duration for the normal path (no overlap),
+            # so seek_offset is the within-chunk offset of start_position.
+            seek_kwargs: dict[str, Any] = {}
+            if start_position > 0:
+                seek_kwargs = {
+                    "start_chunk": start_chunk,
+                    "seek_position": start_position,
+                    "seek_offset": start_position - (start_chunk * chunk_duration),
+                }
             if not await self._send_stream_start(
                 websocket,
                 track_id=track_id,
@@ -934,6 +948,7 @@ class AudioStreamController:
                 total_chunks=remaining_chunks,
                 chunk_duration=chunk_duration,
                 total_duration=duration - (start_chunk * chunk_duration),
+                **seek_kwargs,
             ):
                 logger.info(f"WebSocket disconnected, cannot start stream")
                 return
@@ -1457,28 +1472,58 @@ class AudioStreamController:
         total_chunks: int,
         chunk_duration: float,
         total_duration: float,
+        start_chunk: int | None = None,
+        seek_position: float | None = None,
+        seek_offset: float | None = None,
     ) -> bool:
         """Send audio_stream_start message to client.
+
+        When any of ``start_chunk`` / ``seek_position`` / ``seek_offset`` is
+        provided, the message is emitted with ``is_seek: True`` so the client's
+        resume guard (`usePlayNormal` / `usePlayEnhanced` `handleStreamStart`)
+        preserves the existing AudioContext + PCMStreamBuffer instead of
+        recreating them — required for both WS reconnect resume (#3185, #3755)
+        and within-track seeks (#3187).
 
         Returns:
             True if message was sent, False if WebSocket was disconnected.
         """
-        message: dict[str, Any] = {
-            "type": "audio_stream_start",
-            "data": {
-                "track_id": track_id,
-                "preset": preset,
-                "intensity": intensity,
-                "sample_rate": sample_rate,
-                "channels": channels,
-                "total_chunks": total_chunks,
-                "chunk_duration": chunk_duration,
-                "total_duration": total_duration,
-                "stream_type": _stream_type_var.get(),
-            },
+        is_seek = (
+            start_chunk is not None
+            or seek_position is not None
+            or seek_offset is not None
+        )
+        data: dict[str, Any] = {
+            "track_id": track_id,
+            "preset": preset,
+            "intensity": intensity,
+            "sample_rate": sample_rate,
+            "channels": channels,
+            "total_chunks": total_chunks,
+            "chunk_duration": chunk_duration,
+            "total_duration": total_duration,
+            "stream_type": _stream_type_var.get(),
         }
+        if is_seek:
+            data["is_seek"] = True
+            data["start_chunk"] = start_chunk if start_chunk is not None else 0
+            data["seek_position"] = (
+                seek_position if seek_position is not None else 0.0
+            )
+            data["seek_offset"] = (
+                seek_offset if seek_offset is not None else 0.0
+            )
+        message: dict[str, Any] = {"type": "audio_stream_start", "data": data}
         if await self._safe_send(websocket, message):
-            logger.debug(f"Sent stream_start: {total_chunks} chunks, {total_duration}s duration")
+            if is_seek:
+                logger.debug(
+                    f"Sent stream_start (seek): chunk {data['start_chunk']}/{total_chunks}, "
+                    f"position={data['seek_position']}s"
+                )
+            else:
+                logger.debug(
+                    f"Sent stream_start: {total_chunks} chunks, {total_duration}s duration"
+                )
             return True
         return False
 
@@ -1694,7 +1739,7 @@ class AudioStreamController:
                 return
 
             # Send stream start message with seek info
-            if not await self._send_stream_start_with_seek(
+            if not await self._send_stream_start(
                 websocket,
                 track_id=track_id,
                 preset=preset,
@@ -1838,50 +1883,3 @@ class AudioStreamController:
                 self.active_streams.pop(ws_id(websocket), None)
             self._stream_semaphore.release()
 
-    async def _send_stream_start_with_seek(
-        self,
-        websocket: WebSocket,
-        track_id: int,
-        preset: str,
-        intensity: float,
-        sample_rate: int,
-        channels: int,
-        total_chunks: int,
-        chunk_duration: float,
-        total_duration: float,
-        start_chunk: int,
-        seek_position: float,
-        seek_offset: float,
-    ) -> bool:
-        """
-        Send audio_stream_start message with seek information.
-
-        Returns:
-            True if message was sent, False if WebSocket was disconnected.
-        """
-        message: dict[str, Any] = {
-            "type": "audio_stream_start",
-            "data": {
-                "track_id": track_id,
-                "preset": preset,
-                "intensity": intensity,
-                "sample_rate": sample_rate,
-                "channels": channels,
-                "total_chunks": total_chunks,
-                "chunk_duration": chunk_duration,
-                "total_duration": total_duration,
-                # Seek-specific fields
-                "is_seek": True,
-                "start_chunk": start_chunk,
-                "seek_position": seek_position,
-                "seek_offset": seek_offset,
-                "stream_type": _stream_type_var.get(),
-            },
-        }
-        if await self._safe_send(websocket, message):
-            logger.debug(
-                f"Sent stream_start (seek): chunk {start_chunk}/{total_chunks}, "
-                f"position={seek_position}s"
-            )
-            return True
-        return False

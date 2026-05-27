@@ -285,7 +285,7 @@ class TestSeekFinallyCleanup:
         with (
             patch.object(controller, "_get_repository_factory") as mock_factory,
             patch.object(
-                controller, "_send_stream_start_with_seek", new_callable=AsyncMock,
+                controller, "_send_stream_start", new_callable=AsyncMock,
                 return_value=False  # immediate disconnect
             ),
             patch("audio_stream_controller.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
@@ -327,7 +327,7 @@ class TestSeekFinallyCleanup:
         with (
             patch.object(controller, "_get_repository_factory") as mock_factory,
             patch.object(
-                controller, "_send_stream_start_with_seek", new_callable=AsyncMock,
+                controller, "_send_stream_start", new_callable=AsyncMock,
                 side_effect=RuntimeError("boom")
             ),
             patch("audio_stream_controller.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,

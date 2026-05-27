@@ -562,5 +562,102 @@ class TestStreamNormalAudioLifecycle:
         assert err["data"]["recovery_position"] == pytest.approx(15.0)
 
 
+# ---------------------------------------------------------------------------
+# Regression: is_seek / seek_position semantics on both stream types (#3755)
+# ---------------------------------------------------------------------------
+
+class TestStreamStartSeekFlag:
+    """
+    audio_stream_start must carry is_seek=true + seek_position + start_chunk
+    whenever the stream resumes mid-track, on BOTH the normal and enhanced paths.
+
+    The frontend keys its "preserve existing AudioContext + PCMStreamBuffer"
+    branch off is_seek; without the flag every WS reconnect produces an audible
+    click and a position-jump as the engine is torn down and recreated.
+    """
+
+    @pytest.mark.asyncio
+    async def test_normal_path_omits_is_seek_when_no_start_position(self):
+        """start_position=0 → no is_seek / seek_position / start_chunk in message."""
+        ws = _make_ws()
+        # Use .wav to skip the FFMPEG conversion branch in stream_normal_audio
+        # (would otherwise call load_audio which stat()s the real file).
+        factory = _make_factory(filepath="/tmp/fake_test_track.wav")
+        sf_class = _make_sf_class()
+        with (
+            patch("soundfile.SoundFile", sf_class),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            ctrl = AudioStreamController(get_repository_factory=lambda: factory)
+            await ctrl.stream_normal_audio(track_id=TRACK_ID, websocket=ws)
+
+        start = next(
+            m for m in _get_sent_messages(ws) if m["type"] == "audio_stream_start"
+        )
+        assert "is_seek" not in start["data"]
+        assert "seek_position" not in start["data"]
+        assert "start_chunk" not in start["data"]
+
+    @pytest.mark.asyncio
+    async def test_normal_path_includes_is_seek_when_resuming(self):
+        """
+        start_position>0 → message carries is_seek=true plus seek metadata.
+
+        Regression for #3755: the enhanced path got these fields in #3185,
+        the normal path was missed.
+        """
+        ws = _make_ws()
+        factory = _make_factory(filepath="/tmp/fake_test_track.wav")
+        sf_class = _make_sf_class()
+        # Resume at 17.5s: chunk_duration=15.0s, chunk_interval=15.0s (no overlap),
+        # so start_chunk=1, seek_offset=2.5s.
+        start_position = 17.5
+        with (
+            patch("soundfile.SoundFile", sf_class),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            ctrl = AudioStreamController(get_repository_factory=lambda: factory)
+            await ctrl.stream_normal_audio(
+                track_id=TRACK_ID, websocket=ws, start_position=start_position
+            )
+
+        start = next(
+            m for m in _get_sent_messages(ws) if m["type"] == "audio_stream_start"
+        )
+        d = start["data"]
+        assert d.get("is_seek") is True
+        assert d["seek_position"] == pytest.approx(17.5)
+        assert d["start_chunk"] == 1
+        assert d["seek_offset"] == pytest.approx(2.5)
+        assert d["stream_type"] == "normal"
+
+    @pytest.mark.asyncio
+    async def test_enhanced_path_seek_still_emits_is_seek(self):
+        """
+        Enhanced seek path continues to emit is_seek=true after collapsing
+        _send_stream_start_with_seek into _send_stream_start (#3755).
+        """
+        proc = _make_processor()
+        ws = _make_ws()
+        with patch.object(Path, "exists", return_value=True):
+            ctrl = _make_controller(proc=proc)
+            await ctrl.stream_enhanced_audio_from_position(
+                track_id=TRACK_ID,
+                preset="balanced",
+                intensity=0.7,
+                websocket=ws,
+                start_position=20.0,
+            )
+
+        start = next(
+            m for m in _get_sent_messages(ws) if m["type"] == "audio_stream_start"
+        )
+        d = start["data"]
+        assert d.get("is_seek") is True
+        assert d["seek_position"] == pytest.approx(20.0)
+        assert "start_chunk" in d
+        assert "seek_offset" in d
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
