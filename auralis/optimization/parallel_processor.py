@@ -125,6 +125,14 @@ class ParallelFFTProcessor:
             padded[:len(audio)] = audio
             return [self._process_fft_chunk(padded, window, fft_size)]
 
+        # #3761: mark the shared window read-only so a future
+        # `_process_fft_chunk` regression that mutates it raises
+        # immediately instead of silently corrupting all other
+        # workers. The chunk per call is already per-worker copied
+        # via `audio[i:i+fft_size].copy()` below.
+        window = window.view()
+        window.setflags(write=False)
+
         # Create chunks
         chunks = []
         for i in range(0, len(audio) - fft_size + 1, hop_size):

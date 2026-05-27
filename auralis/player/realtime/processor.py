@@ -118,41 +118,53 @@ class RealtimeProcessor:
 
         start_time = time.perf_counter()
 
+        # #3784: snapshot `effects_enabled` under the lock, then release it
+        # for the actual DSP work. AutoMasterProcessor and RealtimeLevelMatcher
+        # each hold their own `_lock` while processing, so the outer lock
+        # only needs to fence the effects-map read against `set_effect_enabled` /
+        # `set_fingerprint` mutators. Keeping it held across the full chain
+        # (level matcher + auto master + safety limiter) blocked
+        # `set_fingerprint` for the entire ~23 ms chunk duration even though
+        # it touches a different inner component's lock.
         with self.lock:
-            processed = audio.copy()
+            level_matching_enabled = self.effects_enabled.get('level_matching', False)
+            auto_mastering_enabled = self.effects_enabled.get('auto_mastering', False)
 
-            # Apply level matching first
-            if self.effects_enabled.get('level_matching', False) and self.level_matcher:
-                processed = self.level_matcher.process(processed)
+        processed = audio.copy()
 
-            # Apply auto-mastering
-            if self.effects_enabled.get('auto_mastering', False) and self.auto_master:
-                processed = self.auto_master.process(processed)
+        # Apply level matching first
+        if level_matching_enabled and self.level_matcher:
+            processed = self.level_matcher.process(processed)
 
-            # Final safety limiting — linear gain reduction to target_peak.
-            # tanh was previously applied to ALL samples in the chunk, adding
-            # harmonic distortion even to sub-threshold content (fixes #2201).
-            # Linear scaling preserves signal shape: only the level changes.
-            #
-            # #3744: cast the scaling factor to the input dtype so float32
-            # chunks don't silently promote to float64 (np.max returns a
-            # numpy scalar that's float64-typed regardless of input). Same
-            # dtype-drift class as #3658 / #3659 / #2450.
-            # #3754: target peak hoisted to PlayerConfig.realtime_safety_peak
-            # so the ceiling lives next to other player knobs and can be
-            # tuned to align with HybridProcessor's brick-wall threshold
-            # (-0.3 dBFS ≈ 0.9661 linear) when both limiters share the
-            # signal chain. Default 0.95 preserves prior behavior.
-            target_peak = self.config.realtime_safety_peak
-            max_val = np.max(np.abs(processed))
-            if max_val > target_peak:
-                processed = processed * processed.dtype.type(
-                    target_peak / max_val
-                )
+        # Apply auto-mastering
+        if auto_mastering_enabled and self.auto_master:
+            processed = self.auto_master.process(processed)
 
-            # Record performance inside the lock so any concurrent reader of
-            # performance_monitor stats (e.g. get_processing_info) always sees a
-            # consistent state (fixes #2213).
+        # Final safety limiting — linear gain reduction to target_peak.
+        # tanh was previously applied to ALL samples in the chunk, adding
+        # harmonic distortion even to sub-threshold content (fixes #2201).
+        # Linear scaling preserves signal shape: only the level changes.
+        #
+        # #3744: cast the scaling factor to the input dtype so float32
+        # chunks don't silently promote to float64 (np.max returns a
+        # numpy scalar that's float64-typed regardless of input). Same
+        # dtype-drift class as #3658 / #3659 / #2450.
+        # #3754: target peak hoisted to PlayerConfig.realtime_safety_peak
+        # so the ceiling lives next to other player knobs and can be
+        # tuned to align with HybridProcessor's brick-wall threshold
+        # (-0.3 dBFS ≈ 0.9661 linear) when both limiters share the
+        # signal chain. Default 0.95 preserves prior behavior.
+        target_peak = self.config.realtime_safety_peak
+        max_val = np.max(np.abs(processed))
+        if max_val > target_peak:
+            processed = processed * processed.dtype.type(
+                target_peak / max_val
+            )
+
+        # Record performance inside the lock so any concurrent reader of
+        # performance_monitor stats (e.g. get_processing_info) always sees a
+        # consistent state (fixes #2213).
+        with self.lock:
             processing_time = time.perf_counter() - start_time
             chunk_duration = len(audio) / (sample_rate or self.config.sample_rate)
             self.performance_monitor.record_processing_time(processing_time, chunk_duration)
