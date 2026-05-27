@@ -33,6 +33,10 @@ vi.mock('../contexts/WebSocketContext', () => {
       connect: mockConnect,
       disconnect: mockDisconnect,
       setResumePositionGetter: vi.fn(),
+      // #3759 / #3763: reissueActiveStreamAs is invoked from
+      // useEnhancementControl on toggle/preset/intensity changes; mocked
+      // here so tests rendering that hook don't blow up at first call.
+      reissueActiveStreamAs: vi.fn(() => false),
     })),
     WebSocketProvider: ({ children }: { children: React.ReactNode }) => children,
     resetWebSocketSingletons: vi.fn(),

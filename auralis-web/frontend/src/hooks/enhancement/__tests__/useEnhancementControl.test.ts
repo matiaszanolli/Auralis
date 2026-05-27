@@ -24,6 +24,7 @@ import {
 } from '@/hooks/enhancement/useEnhancementControl';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
+import * as WebSocketContextModule from '@/contexts/WebSocketContext';
 
 // Mock hooks
 vi.mock('@/hooks/api/useRestAPI');
@@ -725,6 +726,123 @@ describe('useEnhancementControl', () => {
       });
 
       expect(result.current.enabled).toBe(true);
+    });
+  });
+
+  // ============================================================================
+  // #3759 + #3763 — re-issue active stream on enhancement config changes
+  // ============================================================================
+  describe('reissues active stream on config changes (#3759 + #3763)', () => {
+    function setupReissueSpy() {
+      const reissueMock = vi.fn(() => true);
+      vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue({
+        isConnected: true,
+        connectionStatus: 'connected' as const,
+        subscribe: vi.fn(() => vi.fn()),
+        subscribeAll: vi.fn(() => vi.fn()),
+        send: vi.fn(),
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        setResumePositionGetter: vi.fn(),
+        reissueActiveStreamAs: reissueMock,
+      });
+      const mockGet = vi.fn().mockResolvedValue({
+        enabled: true,
+        preset: 'adaptive',
+        intensity: 1.0,
+      });
+      const mockPost = vi.fn().mockResolvedValue({ success: true });
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: mockPost,
+        put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      return reissueMock;
+    }
+
+    it('toggling OFF re-issues the active stream as play_normal', async () => {
+      const reissue = setupReissueSpy();
+
+      const { result } = renderHook(() => useEnhancementControl());
+      // wait for initial fetch to set enabled=true
+      await waitFor(() => expect(result.current.enabled).toBe(true));
+
+      await act(async () => {
+        await result.current.setEnabled(false);
+      });
+
+      expect(reissue).toHaveBeenCalledWith('play_normal');
+    });
+
+    it('toggling ON re-issues the active stream as play_enhanced with current preset/intensity', async () => {
+      const reissue = setupReissueSpy();
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: vi.fn().mockResolvedValue({ enabled: false, preset: 'warm', intensity: 0.6 }),
+        post: vi.fn().mockResolvedValue({ success: true }),
+        put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+
+      const { result } = renderHook(() => useEnhancementControl());
+      await waitFor(() => expect(result.current.enabled).toBe(false));
+
+      await act(async () => {
+        await result.current.setEnabled(true);
+      });
+
+      expect(reissue).toHaveBeenCalledWith('play_enhanced', {
+        preset: 'warm',
+        intensity: 0.6,
+      });
+    });
+
+    it('setPreset re-issues play_enhanced with new preset when enhancement is enabled', async () => {
+      const reissue = setupReissueSpy();
+
+      const { result } = renderHook(() => useEnhancementControl());
+      await waitFor(() => expect(result.current.enabled).toBe(true));
+
+      await act(async () => {
+        await result.current.setPreset('warm');
+      });
+
+      expect(reissue).toHaveBeenCalledWith('play_enhanced', {
+        preset: 'warm',
+        intensity: 1.0,
+      });
+    });
+
+    it('setPreset does NOT re-issue when enhancement is disabled', async () => {
+      const reissue = setupReissueSpy();
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: vi.fn().mockResolvedValue({ enabled: false, preset: 'adaptive', intensity: 1.0 }),
+        post: vi.fn().mockResolvedValue({ success: true }),
+        put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+
+      const { result } = renderHook(() => useEnhancementControl());
+      await waitFor(() => expect(result.current.enabled).toBe(false));
+
+      await act(async () => {
+        await result.current.setPreset('warm');
+      });
+
+      expect(reissue).not.toHaveBeenCalled();
+    });
+
+    it('setIntensity re-issues play_enhanced with new intensity when enabled', async () => {
+      const reissue = setupReissueSpy();
+
+      const { result } = renderHook(() => useEnhancementControl());
+      await waitFor(() => expect(result.current.enabled).toBe(true));
+
+      await act(async () => {
+        await result.current.setIntensity(0.3);
+      });
+
+      expect(reissue).toHaveBeenCalledWith('play_enhanced', {
+        preset: 'adaptive',
+        intensity: 0.3,
+      });
     });
   });
 });

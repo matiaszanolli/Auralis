@@ -71,6 +71,17 @@ interface WebSocketContextValue {
   // Stream resumption: register a callback that returns current playback position (#3185)
   // Keyed by stream type to avoid race between usePlayEnhanced and usePlayNormal (#3373)
   setResumePositionGetter: (streamType: string, getter: (() => number) | null) => void;
+
+  // #3759 + #3763: re-issue the active stream with updated config (preset,
+  // intensity, or a stream-type swap on enhancement toggle) while
+  // preserving playback position via the resume-position getter.
+  // Returns false if no active stream is being tracked (e.g. nothing is
+  // playing yet). The new command supersedes singletonLastStreamCommand
+  // for subsequent reconnects.
+  reissueActiveStreamAs: (
+    type: 'play_enhanced' | 'play_normal',
+    dataOverrides?: Record<string, unknown>
+  ) => boolean;
 }
 
 // ============================================================================
@@ -491,6 +502,48 @@ export const WebSocketProvider = ({
     []
   );
 
+  // #3759 + #3763: re-issue the active stream with updated config.
+  // Used when the user changes enhancement enabled/preset/intensity
+  // mid-stream — backend binds those at processor construction so we
+  // restart the stream from the current resume position. Reuses the
+  // existing #3185 plumbing (singletonLastStreamCommand +
+  // singletonResumePositionGetters).
+  const reissueActiveStreamAs = useCallback(
+    (
+      type: 'play_enhanced' | 'play_normal',
+      dataOverrides: Record<string, unknown> = {}
+    ): boolean => {
+      const last = singletonLastStreamCommand;
+      if (!last) return false;
+      const prevData = (last.data ?? {}) as Record<string, unknown>;
+      const trackId = prevData.track_id;
+      if (trackId == null) return false;
+
+      const resumePos = singletonResumePositionGetters[type]?.() ?? 0;
+      const next: OutgoingWebSocketMessage = {
+        type,
+        data: {
+          track_id: trackId,
+          ...dataOverrides,
+          start_position: resumePos,
+        },
+      };
+
+      if (wsManagerRef.current?.isConnected()) {
+        singletonLastStreamCommand = next;
+        wsManagerRef.current.send(JSON.stringify(next));
+      } else {
+        // While disconnected, queue so the reconnect path picks the
+        // most-recent config; null out the previous tracked command so
+        // we don't double-send on reconnect.
+        singletonLastStreamCommand = next;
+        messageQueueRef.current.push(next);
+      }
+      return true;
+    },
+    []
+  );
+
   // #3730: memoize the context value so consumers of
   // useWebSocketContext don't re-render on every WebSocketProvider
   // render. Previously the bare object literal was a fresh reference
@@ -510,6 +563,7 @@ export const WebSocketProvider = ({
       connect,
       disconnect,
       setResumePositionGetter,
+      reissueActiveStreamAs,
     }),
     [
       isConnected,
@@ -519,6 +573,7 @@ export const WebSocketProvider = ({
       send,
       connect,
       disconnect,
+      reissueActiveStreamAs,
       setResumePositionGetter,
     ]
   );

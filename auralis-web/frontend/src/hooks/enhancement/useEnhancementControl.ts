@@ -38,6 +38,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { ApiError } from '@/types/api';
 import type { EnhancementPreset } from '@/types/domain';
 import type { EnhancementSettingsChangedMessage } from '@/types/websocket';
@@ -131,6 +132,16 @@ export function useEnhancementControl(): EnhancementControlActions {
   const getRef = useRef(get);
   getRef.current = get;
 
+  // #3759 + #3763: WebSocket context exposes `reissueActiveStreamAs`,
+  // which restarts the active stream from the current resume position.
+  // We use it from the toggle / preset / intensity setters so live
+  // changes actually affect the audio path (the backend binds these at
+  // ChunkedAudioProcessor construction and the stream loop never
+  // re-reads them).
+  const wsContext = useWebSocketContext();
+  const reissueRef = useRef(wsContext.reissueActiveStreamAs);
+  reissueRef.current = wsContext.reissueActiveStreamAs;
+
   // State
   const [state, setState] = useState<EnhancementState>(INITIAL_STATE);
   const [isLoading, setIsLoading] = useState(false);
@@ -192,6 +203,14 @@ export function useEnhancementControl(): EnhancementControlActions {
   const enabledRef = useRef(state.enabled);
   useEffect(() => { enabledRef.current = state.enabled; }, [state.enabled]);
 
+  // #3759 + #3763: same staleness concern applies when reading preset /
+  // intensity from inside the toggle / setter callbacks (they need the
+  // latest values to compose the re-issued stream command).
+  const presetRef = useRef(state.preset);
+  useEffect(() => { presetRef.current = state.preset; }, [state.preset]);
+  const intensityRef = useRef(state.intensity);
+  useEffect(() => { intensityRef.current = state.intensity; }, [state.intensity]);
+
   const toggleEnabled = useCallback(async (): Promise<void> => {
     if (isTogglingRef.current) return;
     isTogglingRef.current = true;
@@ -209,6 +228,20 @@ export function useEnhancementControl(): EnhancementControlActions {
         enabled: newEnabled,
         lastUpdated: Date.now(),
       }));
+
+      // #3759: re-issue the active stream as the appropriate type so the
+      // user keeps hearing audio after the toggle. Without this the
+      // backend's `stream_enhanced_audio` loop sees enabled=false, breaks,
+      // and emits a success-shaped `audio_stream_end` — the frontend
+      // completes streaming and the user is silenced.
+      if (newEnabled) {
+        reissueRef.current('play_enhanced', {
+          preset: presetRef.current,
+          intensity: intensityRef.current,
+        });
+      } else {
+        reissueRef.current('play_normal');
+      }
     } catch (err) {
       const apiError = ApiErrorHandler.parseWithCode(err, 'TOGGLE_ERROR');
 
@@ -260,6 +293,18 @@ export function useEnhancementControl(): EnhancementControlActions {
         preset,
         lastUpdated: Date.now(),
       }));
+
+      // #3763: ChunkedAudioProcessor binds preset/intensity at construction,
+      // so live changes need a stream restart from the current position.
+      // Only re-issue when enhancement is currently enabled — when it's
+      // off, the user is on play_normal and preset/intensity don't affect
+      // the audio path.
+      if (enabledRef.current) {
+        reissueRef.current('play_enhanced', {
+          preset,
+          intensity: intensityRef.current,
+        });
+      }
     } catch (err) {
       const apiError = ApiErrorHandler.parseWithCode(err, 'PRESET_ERROR');
 
@@ -292,6 +337,14 @@ export function useEnhancementControl(): EnhancementControlActions {
         intensity: validIntensity,
         lastUpdated: Date.now(),
       }));
+
+      // #3763: live intensity changes require stream restart — see setPreset.
+      if (enabledRef.current) {
+        reissueRef.current('play_enhanced', {
+          preset: presetRef.current,
+          intensity: validIntensity,
+        });
+      }
     } catch (err) {
       const apiError = ApiErrorHandler.parseWithCode(err, 'INTENSITY_ERROR');
 

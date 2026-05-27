@@ -246,6 +246,11 @@ function setupMocks() {
     // is not a function" on mount and the React Scheduler cascades the
     // failure through the rest of the suite.
     setResumePositionGetter: vi.fn(),
+    // #3759 / #3763: reissueActiveStreamAs is invoked from
+    // useEnhancementControl on toggle/preset/intensity changes; mocked
+    // here so the WebSocketContextValue shape matches the production
+    // interface.
+    reissueActiveStreamAs: vi.fn(() => false),
   }));
 }
 
@@ -825,6 +830,7 @@ describe('usePlayEnhanced – seekTo', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       setResumePositionGetter: vi.fn(),
+      reissueActiveStreamAs: vi.fn(() => false),
     }));
 
     store = createTestStore();
@@ -1003,6 +1009,7 @@ describe('usePlayEnhanced – playEnhanced', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       setResumePositionGetter: vi.fn(),
+      reissueActiveStreamAs: vi.fn(() => false),
     });
 
     const disconnectedStore = createTestStore();
@@ -1053,6 +1060,7 @@ describe('usePlayEnhanced – WS disconnect cleanup', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       setResumePositionGetter: vi.fn(),
+      reissueActiveStreamAs: vi.fn(() => false),
     });
 
     act(() => {
