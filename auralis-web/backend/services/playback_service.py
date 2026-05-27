@@ -93,6 +93,14 @@ class PlaybackService:
         self.player_state_manager: PlayerStateManager = player_state_manager
         self.connection_manager: ConnectionManager = connection_manager
 
+        # #3734: serialise play/pause/stop/seek through one service-level
+        # lock so two concurrent requests can't interleave their
+        # `set_playing` + broadcast steps and leave the UI showing a
+        # stale transport state. Matches the QueueService.set_queue
+        # pattern from #3721. set_volume is broadcast-only and stays
+        # outside the lock.
+        self._playback_lock: asyncio.Lock = asyncio.Lock()
+
     async def get_status(self) -> dict[str, Any]:
         """
         Get current player status.
@@ -129,20 +137,21 @@ class PlaybackService:
             raise ValueError("Player state manager not available")
 
         try:
-            # #3716: offload the sync engine call. play() acquires
-            # PlaybackController._lock; cheap in isolation but the wrap
-            # is identical to QueueService's pattern and guards against
-            # any future heavy work landing inside the engine method.
-            await asyncio.to_thread(self.audio_player.play)
+            async with self._playback_lock:  # #3734
+                # #3716: offload the sync engine call. play() acquires
+                # PlaybackController._lock; cheap in isolation but the wrap
+                # is identical to QueueService's pattern and guards against
+                # any future heavy work landing inside the engine method.
+                await asyncio.to_thread(self.audio_player.play)
 
-            # Update state (broadcasts automatically)
-            await self.player_state_manager.set_playing(True)
+                # Update state (broadcasts automatically)
+                await self.player_state_manager.set_playing(True)
 
-            # Broadcast playback_started event
-            await self.connection_manager.broadcast({
-                "type": "playback_started",
-                "data": {"state": "playing"}
-            })
+                # Broadcast playback_started event
+                await self.connection_manager.broadcast({
+                    "type": "playback_started",
+                    "data": {"state": "playing"}
+                })
 
             logger.info("▶️  Playback started")
             return {"message": "Playback started", "state": "playing"}
@@ -167,17 +176,18 @@ class PlaybackService:
             raise ValueError("Player state manager not available")
 
         try:
-            # #3716: offload the sync engine call.
-            await asyncio.to_thread(self.audio_player.pause)
+            async with self._playback_lock:  # #3734
+                # #3716: offload the sync engine call.
+                await asyncio.to_thread(self.audio_player.pause)
 
-            # Update state (broadcasts automatically)
-            await self.player_state_manager.set_playing(False)
+                # Update state (broadcasts automatically)
+                await self.player_state_manager.set_playing(False)
 
-            # Broadcast playback_paused event
-            await self.connection_manager.broadcast({
-                "type": "playback_paused",
-                "data": {"state": "paused"}
-            })
+                # Broadcast playback_paused event
+                await self.connection_manager.broadcast({
+                    "type": "playback_paused",
+                    "data": {"state": "paused"}
+                })
 
             logger.info("⏸️  Playback paused")
             return {"message": "Playback paused", "state": "paused"}
@@ -200,18 +210,19 @@ class PlaybackService:
             raise ValueError("Audio player not available")
 
         try:
-            # #3716: offload the sync engine call.
-            await asyncio.to_thread(self.audio_player.stop)
+            async with self._playback_lock:  # #3734
+                # #3716: offload the sync engine call.
+                await asyncio.to_thread(self.audio_player.stop)
 
-            # Update state to stopped and clear
-            if self.player_state_manager:
-                await self.player_state_manager.set_playing(False)
+                # Update state to stopped and clear
+                if self.player_state_manager:
+                    await self.player_state_manager.set_playing(False)
 
-            # Broadcast playback_stopped event
-            await self.connection_manager.broadcast({
-                "type": "playback_stopped",
-                "data": {"state": "stopped"}
-            })
+                # Broadcast playback_stopped event
+                await self.connection_manager.broadcast({
+                    "type": "playback_stopped",
+                    "data": {"state": "stopped"}
+                })
 
             logger.info("⏹️  Playback stopped")
             return {"message": "Playback stopped", "state": "stopped"}
@@ -240,20 +251,21 @@ class PlaybackService:
             raise ValueError("Position must be non-negative")
 
         try:
-            # #3716: offload the sync engine call. seek() is the
-            # load-bearing case — it acquires `file_manager._audio_lock`,
-            # which a concurrent `load_file()` can hold for hundreds of
-            # ms to seconds while decoding a large file. Running this
-            # synchronously on the event loop froze the FastAPI worker
-            # and stalled every other in-flight HTTP request.
-            if hasattr(self.audio_player, 'seek'):
-                await asyncio.to_thread(self.audio_player.seek, position)
+            async with self._playback_lock:  # #3734
+                # #3716: offload the sync engine call. seek() is the
+                # load-bearing case — it acquires `file_manager._audio_lock`,
+                # which a concurrent `load_file()` can hold for hundreds of
+                # ms to seconds while decoding a large file. Running this
+                # synchronously on the event loop froze the FastAPI worker
+                # and stalled every other in-flight HTTP request.
+                if hasattr(self.audio_player, 'seek'):
+                    await asyncio.to_thread(self.audio_player.seek, position)
 
-            # Broadcast seek event
-            await self.connection_manager.broadcast({
-                "type": "seek",
-                "data": {"position": position}
-            })
+                # Broadcast seek event
+                await self.connection_manager.broadcast({
+                    "type": "seek",
+                    "data": {"position": position}
+                })
 
             logger.info(f"⏩ Seeked to {position:.1f}s")
             return {
