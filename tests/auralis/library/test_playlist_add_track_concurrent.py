@@ -219,3 +219,104 @@ class TestReorderTrackUsesPositionColumn:
 
         assert not playlist_repo.reorder_track(playlist_id, 99, 0)
         assert not playlist_repo.reorder_track(playlist_id, 0, 99)
+
+
+# ---------------------------------------------------------------------------
+# #3731: PlaylistRepository.create() must assign sequential positions
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def loose_tracks(session_factory):
+    """Five orphan tracks, no playlist created. Caller invokes ``create``."""
+    track_repo = TrackRepository(session_factory)
+    playlist_repo = PlaylistRepository(session_factory)
+    track_ids: list[int] = []
+    for i in range(5):
+        t = track_repo.add({
+            'title': f'Loose {i}',
+            'filepath': f'/tmp/create_initial_{i}.wav',
+            'duration': 60.0,
+            'sample_rate': 44100,
+            'channels': 2,
+            'format': 'WAV',
+            'artists': ['Test'],
+        })
+        assert t is not None
+        track_ids.append(t.id)
+    return playlist_repo, track_ids
+
+
+class TestCreateAssignsSequentialPositions:
+    """#3731: create(track_ids=[…]) must store positions 0..N-1 matching the
+    caller-supplied order, not all-zero (which left reorder_track silently
+    no-op'ing on freshly-created playlists)."""
+
+    def test_create_with_initial_tracks_assigns_sequential_positions(
+        self, session_factory, loose_tracks
+    ):
+        playlist_repo, track_ids = loose_tracks
+
+        playlist = playlist_repo.create('Initial-3', track_ids=track_ids[:3])
+
+        assert playlist is not None
+        rows = _positions_for_playlist(session_factory, playlist.id)
+        assert [pos for _, pos in rows] == [0, 1, 2]
+        assert [tid for tid, _ in rows] == track_ids[:3]
+
+    def test_create_preserves_caller_order(self, session_factory, loose_tracks):
+        playlist_repo, track_ids = loose_tracks
+        # Deliberately shuffle the caller-supplied order; the stored
+        # positions must reflect THAT order, not insertion-by-id.
+        shuffled = [track_ids[3], track_ids[0], track_ids[2], track_ids[4], track_ids[1]]
+
+        playlist = playlist_repo.create('Shuffled', track_ids=shuffled)
+
+        assert playlist is not None
+        rows = _positions_for_playlist(session_factory, playlist.id)
+        # Sorted by position → must match the shuffled input.
+        assert [tid for tid, _ in rows] == shuffled
+
+    def test_create_then_reorder_actually_moves(self, session_factory, loose_tracks):
+        """Pre-#3731 the reorder shift WHERE clauses matched nothing because
+        every initial row had position=0. This pins the reorder integration."""
+        playlist_repo, track_ids = loose_tracks
+        playlist = playlist_repo.create('Reorder-after-create', track_ids=track_ids)
+        assert playlist is not None
+
+        assert playlist_repo.reorder_track(playlist.id, 0, 4)
+
+        rows = _positions_for_playlist(session_factory, playlist.id)
+        # Track originally at position 0 is now at position 4; the rest
+        # compact upward by one.
+        expected = [track_ids[1], track_ids[2], track_ids[3], track_ids[4], track_ids[0]]
+        assert [tid for tid, _ in rows] == expected
+        assert [pos for _, pos in rows] == [0, 1, 2, 3, 4]
+
+    def test_create_with_unknown_track_ids_skips_them(
+        self, session_factory, loose_tracks
+    ):
+        playlist_repo, track_ids = loose_tracks
+        mixed = [track_ids[0], 999_999, track_ids[1], 888_888]
+
+        playlist = playlist_repo.create('With-missing', track_ids=mixed)
+
+        assert playlist is not None
+        rows = _positions_for_playlist(session_factory, playlist.id)
+        # Only the two valid ids survive; positions stay contiguous.
+        assert [tid for tid, _ in rows] == [track_ids[0], track_ids[1]]
+        assert [pos for _, pos in rows] == [0, 1]
+
+    def test_create_collapses_duplicate_track_ids(
+        self, session_factory, loose_tracks
+    ):
+        playlist_repo, track_ids = loose_tracks
+        duplicated = [track_ids[0], track_ids[1], track_ids[0], track_ids[1]]
+
+        playlist = playlist_repo.create('With-dups', track_ids=duplicated)
+
+        assert playlist is not None
+        rows = _positions_for_playlist(session_factory, playlist.id)
+        # First-occurrence-wins; composite PK would reject re-inserts.
+        assert [tid for tid, _ in rows] == [track_ids[0], track_ids[1]]
+        assert [pos for _, pos in rows] == [0, 1]

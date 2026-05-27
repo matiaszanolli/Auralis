@@ -51,15 +51,44 @@ class PlaylistRepository:
         session = self.get_session()
         try:
             playlist = Playlist(name=name, description=description)
-
-            # Add tracks if provided
-            if track_ids:
-                tracks = session.execute(select(Track).where(Track.id.in_(track_ids))).scalars().all()
-                playlist.tracks = tracks
-
             session.add(playlist)
             session.flush()  # Flush to get the ID without committing yet
             playlist_id = playlist.id  # Capture ID before expunging
+
+            # #3731: explicit-position bulk insert. The prior implementation
+            # did `playlist.tracks = tracks`, which generated an INSERT per
+            # row with no `position` value, so SQLAlchemy applied the
+            # column default (0) to every row — `reorder_track` then
+            # silently no-op'd on the freshly-created playlist because its
+            # `position > from_index` WHERE clauses matched nothing.
+            #
+            # Resolving the track ids inside a single SELECT keeps unknown
+            # ids out of the INSERT; enumerating the caller-supplied
+            # `track_ids` order in Python gives deterministic positions
+            # 0..N-1 matching the caller's intent. Duplicates in the input
+            # are collapsed (first occurrence wins) — the composite PK
+            # would reject them anyway.
+            if track_ids:
+                existing_ids = set(
+                    session.execute(
+                        select(Track.id).where(Track.id.in_(track_ids))
+                    ).scalars().all()
+                )
+                rows: list[dict[str, Any]] = []
+                seen: set[int] = set()
+                position = 0
+                for tid in track_ids:
+                    if tid in seen or tid not in existing_ids:
+                        continue
+                    seen.add(tid)
+                    rows.append({
+                        "playlist_id": playlist_id,
+                        "track_id": tid,
+                        "position": position,
+                    })
+                    position += 1
+                if rows:
+                    session.execute(insert(track_playlist), rows)
 
             session.commit()
 
