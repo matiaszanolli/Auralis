@@ -357,28 +357,36 @@ function captureErrorToServer(error: TrackedError): void {
 // ============================================================================
 
 /**
- * Retry action with exponential backoff
+ * Retry an asynchronous executor with exponential backoff.
+ *
+ * #3241: previously this function took a plain action object and returned it
+ * unmodified on the first iteration, so the loop, catch handler, and backoff
+ * were all dead code. The signature now takes a callable so the loop has
+ * something to invoke; on success the resolved value is returned, on failure
+ * the loop waits 2^attempt seconds and tries again until `maxRetries` is
+ * exhausted, then rethrows the last captured error.
  */
-export async function retryAction(
-  action: Record<string, unknown>,
+export async function retryAction<T>(
+  executor: () => Promise<T> | T,
   maxRetries: number = 3
-): Promise<unknown> {
+): Promise<T> {
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      // Execute action
-      return action;
+      return await executor();
     } catch (error) {
-      lastError = error as Error;
+      lastError = error instanceof Error ? error : new Error(String(error));
 
-      // Wait with exponential backoff
-      const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      // Don't sleep after the final attempt — the loop is about to exit.
+      if (attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s, ...
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
     }
   }
 
-  throw lastError || new Error('Max retries exceeded');
+  throw lastError ?? new Error('Max retries exceeded');
 }
 
 /**

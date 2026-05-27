@@ -17,7 +17,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import playerReducer from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
@@ -27,6 +27,7 @@ import {
   createErrorTrackingMiddleware,
   ErrorCategory,
   getErrorStats,
+  retryAction,
   type TrackedError,
 } from '../errorTrackingMiddleware';
 
@@ -422,5 +423,59 @@ describe('Error Tracking Middleware', () => {
 
     // onError might not be called if error detection is disabled
     // This depends on implementation
+  });
+});
+
+// ============================================================================
+// retryAction — #3241 regression coverage
+// ============================================================================
+
+describe('retryAction (#3241)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns the executor result on first success without retrying', async () => {
+    const executor = vi.fn(async () => 'ok');
+
+    const result = await retryAction(executor, 3);
+
+    expect(result).toBe('ok');
+    expect(executor).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs the configured number of attempts before giving up', async () => {
+    const executor = vi.fn(async () => {
+      throw new Error('boom');
+    });
+
+    const promise = retryAction(executor, 3);
+    // Drain the exponential backoff sleeps (1s + 2s = 3s between the three
+    // attempts). Pre-#3241 the loop returned on the first iteration so the
+    // executor was only ever called once — this guards against that.
+    await vi.runAllTimersAsync();
+
+    await expect(promise).rejects.toThrow('boom');
+    expect(executor).toHaveBeenCalledTimes(3);
+  });
+
+  it('returns the value from a later attempt when an earlier one fails', async () => {
+    let calls = 0;
+    const executor = vi.fn(async () => {
+      calls += 1;
+      if (calls < 2) throw new Error('transient');
+      return 'recovered';
+    });
+
+    const promise = retryAction(executor, 3);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result).toBe('recovered');
+    expect(executor).toHaveBeenCalledTimes(2);
   });
 });
