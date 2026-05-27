@@ -214,26 +214,34 @@ class AdaptiveLimiter:
         return max(sample_peaks, interp_peaks)
 
     def _oversample(self, audio: np.ndarray) -> np.ndarray:
-        """Simple oversampling using zero-padding and filtering"""
+        """Simple oversampling using zero-padding and filtering.
+
+        #3752: pass `dtype=audio.dtype` to every `np.zeros` so float32
+        input stays float32 through the limiter (the previous
+        un-typed zeros defaulted to float64, doubling per-chunk memory
+        and propagating mixed dtypes downstream — same drift class as
+        #3658 / #3659 / #2450 / #3744 / #3748).
+        """
         factor = self.settings.oversampling
+        input_dtype = audio.dtype
 
         if audio.ndim == 1:
             # Mono audio
-            oversampled = np.zeros(len(audio) * factor)
+            oversampled = np.zeros(len(audio) * factor, dtype=input_dtype)
             oversampled[::factor] = audio
 
             # Simple anti-aliasing filter (moving average)
             kernel_size = factor * 2 + 1
-            kernel = np.ones(kernel_size) / kernel_size
+            kernel = np.ones(kernel_size, dtype=input_dtype) / kernel_size
             filtered = np.convolve(oversampled, kernel, mode='same') * factor
         else:
             # Stereo/multi-channel audio
-            oversampled = np.zeros((len(audio) * factor, audio.shape[1]))
+            oversampled = np.zeros((len(audio) * factor, audio.shape[1]), dtype=input_dtype)
             oversampled[::factor] = audio
 
             # Apply filtering to each channel using vectorized operation
             kernel_size = factor * 2 + 1
-            kernel = np.ones(kernel_size) / kernel_size
+            kernel = np.ones(kernel_size, dtype=input_dtype) / kernel_size
 
             # Vectorized approach: convolve all channels at once via scipy
             try:
@@ -249,7 +257,7 @@ class AdaptiveLimiter:
                 for ch in range(audio.shape[1]):
                     filtered[:, ch] = np.convolve(oversampled[:, ch], kernel, mode='same') * factor
 
-        return filtered
+        return filtered.astype(input_dtype, copy=False)
 
     def _downsample(self, audio_os: np.ndarray) -> np.ndarray:
         """Downsample back to original rate"""

@@ -312,8 +312,13 @@ class ParallelBandProcessor:
                     except Exception as exc:
                         warning(f"Band {band_i} processing failed (thread pool), using unprocessed signal: {exc}")
 
-        # Sum all band results
-        output: np.ndarray = np.sum(band_results, axis=0)
+        # #3760: sum all band results, preserving the input dtype.
+        # `np.sum` promotes to the highest dtype seen across the worker
+        # results, so a single float64 entry (e.g. from scipy's
+        # `sosfiltfilt`) promotes the entire output to float64 — same
+        # dtype-drift class as #3658 / #3659 / #2450 / #3752. Cast back
+        # explicitly.
+        output: np.ndarray = np.sum(band_results, axis=0).astype(audio.dtype, copy=False)
 
         return output
 

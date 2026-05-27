@@ -123,9 +123,16 @@ def load_audio(
         debug("Converted mono to stereo")
 
     if normalize_on_load:
+        # #3749: dtype-preserving normalize. `np.max(np.abs(audio_data))`
+        # returns a numpy scalar (typically float64 even on float32
+        # input), so `audio_data / peak * 0.98` can silently promote
+        # under older NumPy promotion rules. Cast `peak` to the input
+        # dtype defensively — same drift class as #3658 / #3659 /
+        # #3744 / #3752.
         peak = np.max(np.abs(audio_data))
         if peak > 0:
-            audio_data = audio_data / peak * 0.98
+            peak_typed = audio_data.dtype.type(peak)
+            audio_data = audio_data / peak_typed * audio_data.dtype.type(0.98)
             debug("Normalized audio on load")
 
     info(f"Successfully loaded {file_type}: {audio_data.shape[0]} samples, "
