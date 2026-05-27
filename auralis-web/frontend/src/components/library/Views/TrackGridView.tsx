@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import Grid2 from '@mui/material/Grid2';
+import Grid2 from '@mui/material/Grid';
 import { TrackCard } from '@/components/track/TrackCard';
 import type { LibraryTrack as Track } from '@/types/domain';
 

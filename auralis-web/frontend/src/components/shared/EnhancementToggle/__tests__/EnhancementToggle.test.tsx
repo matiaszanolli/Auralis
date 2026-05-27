@@ -56,7 +56,7 @@ describe('EnhancementToggle', () => {
         <EnhancementToggle isEnabled={false} onToggle={onToggle} variant="switch" />
       );
 
-      expect(screen.getByRole('checkbox')).toBeInTheDocument();
+      expect(screen.getByRole('switch')).toBeInTheDocument();
     });
 
     it('should call onToggle when switch is toggled', () => {
@@ -65,7 +65,7 @@ describe('EnhancementToggle', () => {
         <EnhancementToggle isEnabled={false} onToggle={onToggle} variant="switch" />
       );
 
-      fireEvent.click(screen.getByRole('checkbox'));
+      fireEvent.click(screen.getByRole('switch'));
       expect(onToggle).toHaveBeenCalledWith(true);
     });
 
@@ -80,7 +80,7 @@ describe('EnhancementToggle', () => {
         />
       );
 
-      expect(screen.getByRole('checkbox')).toBeDisabled();
+      expect(screen.getByRole('switch')).toBeDisabled();
     });
 
     it('should show default description when enabled and showDescription is true', () => {
