@@ -41,18 +41,22 @@ mocks.getPerformanceMonitor.mockReturnValue({
   clear: vi.fn(),
 });
 
-// Wire up the constructor
-mocks.Ctor.mockImplementation(() => ({
-  getMetrics: mocks.getMetrics,
-  getQualityLevel: mocks.getQualityLevel,
-  shouldRender: mocks.shouldRender,
-  optimizeData: mocks.optimizeData,
-  startRender: mocks.startRender,
-  endRender: mocks.endRender,
-  cleanup: mocks.cleanup,
-  updateBufferHealth: mocks.updateBufferHealth,
-  getPerformanceMonitor: mocks.getPerformanceMonitor,
-}));
+// Wire up the constructor — use a regular function (not an arrow) so the mock
+// implementation has [[Construct]]; vitest 4's stricter spy rejects `new` on
+// arrow-fn implementations (#3793).
+mocks.Ctor.mockImplementation(function () {
+  return {
+    getMetrics: mocks.getMetrics,
+    getQualityLevel: mocks.getQualityLevel,
+    shouldRender: mocks.shouldRender,
+    optimizeData: mocks.optimizeData,
+    startRender: mocks.startRender,
+    endRender: mocks.endRender,
+    cleanup: mocks.cleanup,
+    updateBufferHealth: mocks.updateBufferHealth,
+    getPerformanceMonitor: mocks.getPerformanceMonitor,
+  };
+});
 
 vi.mock('@/utils/performanceOptimizer', () => ({
   PerformanceOptimizer: mocks.Ctor,
@@ -83,17 +87,21 @@ describe('useVisualizationOptimization', () => {
       getStats: vi.fn().mockReturnValue({}),
       clear: vi.fn(),
     });
-    mocks.Ctor.mockImplementation(() => ({
-      getMetrics: mocks.getMetrics,
-      getQualityLevel: mocks.getQualityLevel,
-      shouldRender: mocks.shouldRender,
-      optimizeData: mocks.optimizeData,
-      startRender: mocks.startRender,
-      endRender: mocks.endRender,
-      cleanup: mocks.cleanup,
-      updateBufferHealth: mocks.updateBufferHealth,
-      getPerformanceMonitor: mocks.getPerformanceMonitor,
-    }));
+    // Regular function (not arrow) so the mock impl has [[Construct]] — see
+    // top-of-file comment / #3793.
+    mocks.Ctor.mockImplementation(function () {
+      return {
+        getMetrics: mocks.getMetrics,
+        getQualityLevel: mocks.getQualityLevel,
+        shouldRender: mocks.shouldRender,
+        optimizeData: mocks.optimizeData,
+        startRender: mocks.startRender,
+        endRender: mocks.endRender,
+        cleanup: mocks.cleanup,
+        updateBufferHealth: mocks.updateBufferHealth,
+        getPerformanceMonitor: mocks.getPerformanceMonitor,
+      };
+    });
   });
 
   describe('initialization', () => {

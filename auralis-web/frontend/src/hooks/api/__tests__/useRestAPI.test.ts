@@ -518,7 +518,13 @@ describe('useRestAPI Hook', () => {
     });
 
     it('should handle AbortError gracefully', async () => {
-      mockFetch.mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'));
+      // Use a plain Error (not DOMException) so the rejection passes
+      // production's `err instanceof Error && err.name === 'AbortError'` check
+      // in any environment. jsdom 27's DOMException no longer extends Error,
+      // so v4 tests can't rely on DOMException for this (#3793).
+      const abortErr = new Error('Aborted');
+      abortErr.name = 'AbortError';
+      mockFetch.mockRejectedValueOnce(abortErr);
 
       const { result } = renderHook(() => useRestAPI());
 

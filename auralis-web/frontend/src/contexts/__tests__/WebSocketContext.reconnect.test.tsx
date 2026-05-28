@@ -92,7 +92,10 @@ describe('WebSocketContext - stream reconnect (issue #2385)', () => {
   beforeEach(() => {
     resetWebSocketSingletons();
     mockMgr = makeMockManager();
-    vi.mocked(WebSocketManager).mockImplementation(() => mockMgr as any);
+    // Regular function (not arrow) so the mock impl has [[Construct]] —
+    // vitest 4's stricter spy rejects `new` on arrow-fn implementations
+    // (#3793). WebSocketProvider does `new WebSocketManager(...)`.
+    vi.mocked(WebSocketManager).mockImplementation(function () { return mockMgr as any; });
   });
 
   afterEach(() => {

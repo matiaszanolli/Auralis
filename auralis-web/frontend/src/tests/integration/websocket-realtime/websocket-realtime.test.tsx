@@ -40,8 +40,10 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
     // Create mock WebSocket
     mockWS = createMockWebSocket();
 
-    // Mock WebSocket constructor
-    WebSocketMock = vi.fn(() => mockWS);
+    // Mock WebSocket constructor — regular function (not arrow) so the mock
+    // impl has [[Construct]] for `new WebSocket(url)`; vitest 4's stricter spy
+    // rejects `new` on arrow-fn implementations (#3793).
+    WebSocketMock = vi.fn(function () { return mockWS; });
     WebSocketMock.CONNECTING = CONNECTING;
     WebSocketMock.OPEN = OPEN;
     WebSocketMock.CLOSING = CLOSING;

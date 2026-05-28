@@ -8,6 +8,10 @@ import '@testing-library/jest-dom' // @ts-ignore: type definitions not available
 import { cleanup, act } from '@testing-library/react'
 import { afterEach, beforeAll, afterAll, vi } from 'vitest'
 import { server } from './mocks/server'
+// Node's spec-compliant Blob (#3793 — jsdom 27 ships an incomplete Blob in the
+// vitest 4 env). Imported up here so the global swap below is synchronous.
+// @ts-ignore — node:buffer is a built-in; tsconfig may not include node types.
+import { Blob as NodeBlob } from 'node:buffer'
 
 // ============================================================
 // Mock WebSocket Context Module
@@ -82,6 +86,16 @@ afterEach(async () => {
     global.gc()
   }
 })
+
+// Replace jsdom 27's incomplete `Blob` with Node's spec-compliant Blob in the
+// v4+jsdom27 environment (#3793). jsdom 27's Blob lacks `.text()` and
+// `.arrayBuffer()`, which previously worked under vitest 3's environment.
+// Node's `node:buffer` Blob is the standard Web Blob and implements the full
+// interface (text/arrayBuffer/stream/slice), so any test or production code
+// doing `new Blob([...])` and then `await blob.text()` keeps working.
+if (typeof Blob === 'undefined' || typeof Blob.prototype.text !== 'function') {
+  (globalThis as { Blob: typeof Blob }).Blob = NodeBlob as unknown as typeof Blob;
+}
 
 // Mock window.matchMedia (used by MUI components for responsive design)
 // Using vi.stubGlobal to ensure proper initialization before tests run

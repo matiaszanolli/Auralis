@@ -34,7 +34,10 @@ vi.mock('../../utils/exportInfrastructure', () => ({
       count: values.length,
     };
   }),
-  ProgressTracker: vi.fn(() => mockProgressTracker),
+  // Constructed via `new ProgressTracker()` in production code; use a regular
+  // function (not an arrow) so the mock implementation has [[Construct]] —
+  // vitest 4's stricter spy rejects `new` on arrow-fn implementations (#3793).
+  ProgressTracker: vi.fn(function () { return mockProgressTracker; }),
   CanvasRenderingUtils: {
     setBackground: vi.fn(),
     getThemeColors: vi.fn().mockReturnValue({ text: '#fff', bg: '#000' }),
