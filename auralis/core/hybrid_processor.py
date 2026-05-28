@@ -80,7 +80,20 @@ class HybridProcessor:
             adaptation_rate=config.adaptive.adaptation_strength
         )
 
-        # Initialize advanced dynamics processor
+        # Advanced dynamics processor — REALTIME PATH ONLY (#2897).
+        #
+        # Consumed by RealtimeDSPPipeline.process_chunk (realtime_dsp_pipeline.py:80,
+        # wired at the RealtimeDSPPipeline construction below) via
+        # process_realtime_chunk(). It is purpose-built for low-latency chunk
+        # streaming: per-chunk content adaptation with smoothed parameter
+        # transitions and a rolling content-history window.
+        #
+        # The OFFLINE path (ContinuousMode.process) deliberately does NOT use this
+        # processor — it runs its own full-signal, fingerprint-driven continuous-space
+        # dynamics (see ContinuousMode._apply_dynamics). Inserting this processor into
+        # the offline chain would double-compress, fight the continuous-space LUFS
+        # target with its own -14 LUFS makeup gain, and confound the cross-dimensional
+        # guards. The offline/realtime divergence is intentional, not dead code.
         self.dynamics_processor = create_dynamics_processor(
             mode=DynamicsMode.ADAPTIVE,
             sample_rate=config.internal_sample_rate,

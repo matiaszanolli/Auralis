@@ -524,7 +524,19 @@ class ContinuousMode:
         return audio
 
     def _apply_dynamics(self, audio: np.ndarray, params: Any) -> np.ndarray:
-        """Apply dynamics processing with adaptive guidance"""
+        """Apply offline dynamics (compression/expansion) with adaptive guidance.
+
+        The offline path deliberately uses its OWN dynamics here
+        (``CompressionStrategies.apply_clip_blend_compression`` /
+        ``ExpansionStrategies.apply_rms_reduction_expansion``, tuned by the
+        detected recording-type mastering philosophy) rather than
+        ``HybridProcessor.dynamics_processor``. That ``DynamicsProcessor`` is the
+        *realtime* streaming engine; this stage is instead integrated with the
+        continuous-space ``PipelineJournal`` / ``CrossDimensionalGuard`` and the
+        LUFS-target normalizer. Routing the realtime processor in here would
+        double-compress and fight those systems, so the offline/realtime
+        divergence is intentional, not an oversight (#2897).
+        """
 
         # Adjust compression parameters based on adaptive guidance
         compression_params = params.compression_params.copy()
