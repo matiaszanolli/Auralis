@@ -19,7 +19,7 @@ python-multipart==0.0.27
 SQLAlchemy==2.0.44
 
 # Async HTTP & Utilities
-aiohttp==3.13.3
+aiohttp==3.13.4
 psutil==7.1.3
 python-dotenv==1.2.1
 
