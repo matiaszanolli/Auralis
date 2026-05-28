@@ -45,30 +45,23 @@ export default defineConfig({
     testTimeout: 30000, // 30s per test
     hookTimeout: 10000, // 10s per hook (beforeEach, afterEach)
     teardownTimeout: 10000, // 10s to clean up resources
-    forceExitTimeout: 5000, // Force exit after 5s if hanging
 
     // Isolation and cleanup
     isolate: true, // Isolate each test file
     clearMocks: true, // Clear mocks between tests
     restoreMocks: true, // Restore original mocks between tests
-    resetModules: false, // Keep module cache between tests
 
     // Pool configuration (memory management)
     // CRITICAL: Prevent OOM errors in CI with limited memory
     // Using 'forks' instead of 'threads' for better memory isolation
     // Each fork gets its own V8 heap, preventing accumulation across tests
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        // Use limited parallel forks to balance speed and memory
-        minForks: 1,
-        maxForks: 2,
-        // Isolate each test file in its own subprocess
-        isolate: true,
-        // Exit forks after tests to free memory
-        execArgv: ['--expose-gc', '--max-old-space-size=1024'],
-      },
-    },
+    // Vitest 4 removed `test.poolOptions`; the per-pool options are now
+    // top-level (#3488). `maxForks` -> `maxWorkers`; `minForks` has no v4
+    // equivalent; per-fork `isolate` is already covered by `isolate: true`
+    // above. `execArgv` (node flags for the test worker subprocesses) stays.
+    maxWorkers: 2,
+    execArgv: ['--expose-gc', '--max-old-space-size=1024'],
 
     // Reporter configuration
     reporters: ['default', 'html', 'json'],
@@ -100,21 +93,15 @@ export default defineConfig({
         'dist/',
       ],
 
-      // Minimum coverage thresholds
-      lines: 85,
-      functions: 85,
-      branches: 80,
-      statements: 85,
-
-      // Fail if coverage below thresholds
-      all: true,
+      // Minimum coverage thresholds (Vitest 4: moved under `thresholds`,
+      // and `coverage.all` was removed — #3488).
+      thresholds: {
+        lines: 85,
+        functions: 85,
+        branches: 80,
+        statements: 85,
+      },
       skipFull: false, // Report all files, even with 100% coverage
-    },
-
-    // Browser/DOM simulation options
-    dom: {
-      // Use happy-dom for faster tests (jsdom is slower)
-      // Note: This uses jsdom via happy-dom wrapper
     },
 
     // Performance options
@@ -133,19 +120,19 @@ export default defineConfig({
     // API options
     api: false, // Disable API by default (faster)
 
-    // Snapshot options
+    // Snapshot options. Vitest 4's pretty-format dropped `escapeControlCharacters`
+    // (#3488); the remaining keys are unchanged.
     snapshotFormat: {
       escapeString: false,
       printBasicPrototype: false,
-      escapeControlCharacters: false,
     },
 
     // Inline snapshots
     snapshotSerializers: [],
 
-    // Mockable modules
+    // Mockable modules. The valid key is `restoreMocks` (set above);
+    // `restoreAllMocks` was a non-option that v4's stricter types now reject.
     mockReset: true,
-    restoreAllMocks: true,
   },
 
   define: {
