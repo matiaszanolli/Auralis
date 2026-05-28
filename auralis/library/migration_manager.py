@@ -231,9 +231,18 @@ class MigrationManager:
             with open(migration_path) as f:
                 sql = f.read()
 
-            # Validate migration SQL before execution (#2083, #2925)
-            _DANGEROUS_KEYWORDS = {'DROP TABLE', 'DROP DATABASE'}
+            # Validate migration SQL before execution (#2083, #2925).
+            #
+            # DROP TABLE is normally rejected, but the SQLite recreate-and-copy
+            # idiom (the only way to add a UNIQUE/PRIMARY KEY constraint to an
+            # existing table) requires it. Migrations that genuinely need DROP
+            # TABLE must declare `-- @ALLOW_DROP_TABLE` so the intent is
+            # explicit and auditable in the migration file itself.
             sql_upper = sql.upper()
+            allow_drop_table = '@ALLOW_DROP_TABLE' in sql_upper
+            _DANGEROUS_KEYWORDS = {'DROP DATABASE'}
+            if not allow_drop_table:
+                _DANGEROUS_KEYWORDS = _DANGEROUS_KEYWORDS | {'DROP TABLE'}
             for keyword in _DANGEROUS_KEYWORDS:
                 if keyword in sql_upper:
                     logger.error(f"Migration {migration_file} contains dangerous operation: {keyword}")
