@@ -28,6 +28,7 @@ from uuid import uuid4
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from .dependencies import require_repository_factory
+from core.processing_engine import _safe_error_message
 
 # Magic byte signatures for supported audio formats (issue #2415)
 _AUDIO_MAGIC: tuple[bytes, ...] = (
@@ -216,11 +217,11 @@ def create_files_router(
                         })
 
                 except Exception as e:
-                    logger.error(f"Audio processing error for {file.filename}: {e}")
+                    logger.error(f"Audio processing error for {file.filename}: {e}", exc_info=True)
                     results.append({
                         "filename": file.filename or "",
                         "status": "error",
-                        "message": f"Failed to process audio: {str(e)}"
+                        "message": f"Failed to process audio: {_safe_error_message(e)}"
                     })
 
                 finally:
@@ -233,11 +234,11 @@ def create_files_router(
                         logger.debug(f"Failed to clean temp file: {e}")
 
             except Exception as e:
-                logger.error(f"Upload error for {file.filename}: {e}")
+                logger.error(f"Upload error for {file.filename}: {e}", exc_info=True)
                 results.append({
                     "filename": file.filename or "",
                     "status": "error",
-                    "message": str(e)
+                    "message": _safe_error_message(e)
                 })
 
         return {"results": results}

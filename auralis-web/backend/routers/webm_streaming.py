@@ -349,9 +349,10 @@ def create_webm_streaming_router(
                             detail="Audio processor initialization timed out. File may be corrupt or on slow storage."
                         )
 
-                    # Get the WAV chunk path directly from the processor
-                    # This applies enhancement via HybridProcessor if preset is not None
-                    chunk_path = processor.get_wav_chunk_path(chunk_idx)
+                    # Get the WAV chunk path (runs DSP pipeline — offload to thread)
+                    chunk_path = await asyncio.to_thread(
+                        processor.get_wav_chunk_path, chunk_idx
+                    )
 
                     try:
                         # Read the processed chunk (offloaded to thread with timeout — fixes #2329)

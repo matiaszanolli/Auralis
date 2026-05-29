@@ -310,6 +310,20 @@ def create_lifespan(deps: dict[str, Any]):
                 logger.error(f"❌ Failed to initialize Auralis components: {e}")
                 logger.error(f"Traceback:\n{traceback.format_exc()}")
                 logger.error("⚠️  Auralis library initialization failed - rolling back partial state; API will return 503")
+                # Stop any async services that were already started before the failure.
+                for _svc_key, _stop_kwargs in (
+                    ('auto_scanner', {}),
+                    ('ondemand_fingerprint_queue', {}),
+                    ('fingerprint_queue', {'timeout': 30.0}),
+                ):
+                    _svc = globals_dict.get(_svc_key)
+                    if _svc is not None:
+                        try:
+                            await _svc.stop(**_stop_kwargs)
+                        except Exception as _stop_exc:
+                            logger.warning(f"⚠️  Error stopping {_svc_key} during rollback: {_stop_exc}")
+                        finally:
+                            globals_dict[_svc_key] = None
                 for _component in (
                     'library_manager', 'repository_factory', 'settings_repository',
                     'audio_player', 'player_state_manager',

@@ -18,6 +18,7 @@ from typing import Any
 
 from fastapi import WebSocket
 from pydantic import ValidationError
+from core.audio_stream_controller import ws_id as _stable_ws_id
 from schemas import WebSocketErrorResponse, WebSocketMessageBase
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class WebSocketRateLimiter:
         self.max_messages_per_second = max_messages_per_second
         self.window_seconds = window_seconds
         # Track message timestamps per WebSocket ID
-        self.message_log: dict[int, list[float]] = {}
+        self.message_log: dict[str, list[float]] = {}
         # Lock to protect message_log during concurrent access (#2442)
         self._lock = threading.Lock()
 
@@ -65,7 +66,7 @@ class WebSocketRateLimiter:
             Tuple of (allowed: bool, error_message: str | None)
         """
         with self._lock:  # Thread-safe access to message_log (#2442)
-            ws_id = id(websocket)
+            ws_id = _stable_ws_id(websocket)
             now = time.time()
             cutoff = now - self.window_seconds
 
@@ -98,7 +99,7 @@ class WebSocketRateLimiter:
             websocket: WebSocket connection
         """
         with self._lock:  # Thread-safe access to message_log (#2442)
-            ws_id = id(websocket)
+            ws_id = _stable_ws_id(websocket)
             if ws_id in self.message_log:
                 del self.message_log[ws_id]
                 logger.debug(f"Cleaned up rate limiter for WebSocket {ws_id}")

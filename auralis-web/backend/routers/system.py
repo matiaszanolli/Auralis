@@ -12,6 +12,8 @@ from typing import Any
 from collections.abc import Callable
 
 from core.audio_stream_controller import AudioStreamController, ws_id as _ws_id
+from core.processing_engine import _safe_error_message
+from helpers import spawn_background_task
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import (
@@ -146,7 +148,7 @@ def create_system_router(
                 except Exception:
                     return  # Connection already dead
 
-        heartbeat_task = asyncio.create_task(_heartbeat_loop())
+        heartbeat_task = spawn_background_task(_heartbeat_loop(), name=f"ws_heartbeat_{connection_id}")
 
         # Immediately send current enhancement settings so a reconnecting
         # frontend syncs its Redux store without waiting for the next broadcast
@@ -416,7 +418,7 @@ def create_system_router(
                                         "type": "audio_stream_error",
                                         "data": {
                                             "track_id": track_id,
-                                            "error": str(e),
+                                            "error": _safe_error_message(e),
                                             "code": "STREAMING_ERROR",
                                             "stream_type": "enhanced",
                                         }
@@ -513,7 +515,7 @@ def create_system_router(
                                         "type": "audio_stream_error",
                                         "data": {
                                             "track_id": track_id,
-                                            "error": str(e),
+                                            "error": _safe_error_message(e),
                                             "code": "STREAMING_ERROR",
                                             "stream_type": "normal",
                                         }
@@ -743,7 +745,7 @@ def create_system_router(
                                         "type": "audio_stream_error",
                                         "data": {
                                             "track_id": track_id,
-                                            "error": str(e),
+                                            "error": _safe_error_message(e),
                                             "code": "SEEK_ERROR",
                                             "stream_type": stream_type,
                                         }

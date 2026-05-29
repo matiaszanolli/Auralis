@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 from collections.abc import Callable
+from helpers import spawn_background_task
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,8 @@ class FingerprintQueue:
         # Shutdown:
         await queue.stop()
     """
+
+    MAX_QUEUE_SIZE = 5000
 
     def __init__(
         self,
@@ -116,6 +119,13 @@ class FingerprintQueue:
             logger.debug(f"Track {track_id} currently being fingerprinted, skipping")
             return False
 
+        if len(self._state.queue) >= self.MAX_QUEUE_SIZE:
+            logger.warning(
+                f"Fingerprint queue full ({self.MAX_QUEUE_SIZE} entries); "
+                f"dropping track {track_id}. The worker will process queued tracks first."
+            )
+            return False
+
         # Add to queue
         self._state.queue.append(track_id)
         self._state.queued_set.add(track_id)
@@ -150,7 +160,7 @@ class FingerprintQueue:
 
         self._shutdown = False
         self._state.started_at = datetime.now()
-        self._worker_task = asyncio.create_task(self._worker_loop())
+        self._worker_task = spawn_background_task(self._worker_loop(), name="fingerprint_queue._worker_loop")
         logger.info("🚀 Fingerprint queue background worker started")
 
     async def stop(self) -> None:

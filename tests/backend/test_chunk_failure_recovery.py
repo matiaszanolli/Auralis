@@ -32,7 +32,8 @@ from core.audio_stream_controller import AudioStreamController, SimpleChunkCache
 # Helpers
 # ============================================================================
 
-CHUNK_DURATION = 30.0  # seconds per chunk (matches ChunkedAudioProcessor default)
+CHUNK_DURATION = 30.0  # seconds per chunk (mock value; loop only uses total_chunks)
+CHUNK_INTERVAL = 10.0  # interval between chunk starts; recovery_position = chunk_idx * interval
 TOTAL_CHUNKS = 10
 FAIL_AT_CHUNK = 3      # Zero-based index of the chunk that will fail
 TRACK_ID = 42
@@ -68,6 +69,7 @@ def _make_processor(fail_at: int = FAIL_AT_CHUNK) -> MagicMock:
     proc.channels = 2
     proc.total_chunks = TOTAL_CHUNKS
     proc.chunk_duration = CHUNK_DURATION
+    proc.chunk_interval = CHUNK_INTERVAL  # used by recovery_position computation
     proc.duration = TOTAL_CHUNKS * CHUNK_DURATION
 
     good_audio = np.zeros((SAMPLE_RATE * int(CHUNK_DURATION), 2), dtype=np.float32)
@@ -119,7 +121,7 @@ class TestChunkFailureRecovery:
         controller._get_repository_factory = MagicMock(return_value=factory)
 
         # Bypass fingerprint queue to avoid import errors in test environment
-        with patch("audio_stream_controller.Path.exists", return_value=True), \
+        with patch("core.audio_stream_controller.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio(
@@ -134,7 +136,7 @@ class TestChunkFailureRecovery:
         assert error_msgs, "Expected at least one audio_stream_error message"
         err = error_msgs[0]["data"]
 
-        expected_position = FAIL_AT_CHUNK * CHUNK_DURATION
+        expected_position = FAIL_AT_CHUNK * CHUNK_INTERVAL
         assert "recovery_position" in err, \
             "error payload must contain recovery_position (issue #2085)"
         assert err["recovery_position"] == pytest.approx(expected_position), \
@@ -160,7 +162,7 @@ class TestChunkFailureRecovery:
         factory.fingerprints.exists.return_value = False
         controller._get_repository_factory = MagicMock(return_value=factory)
 
-        with patch("audio_stream_controller.Path.exists", return_value=True), \
+        with patch("core.audio_stream_controller.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio(
@@ -234,7 +236,7 @@ class TestChunkFailureRecovery:
         factory.fingerprints.exists.return_value = False
         controller._get_repository_factory = MagicMock(return_value=factory)
 
-        with patch("audio_stream_controller.Path.exists", return_value=True), \
+        with patch("core.audio_stream_controller.Path.exists", return_value=True), \
              patch.object(controller, "_check_or_queue_fingerprint",
                           new=AsyncMock(return_value=False)):
             await controller.stream_enhanced_audio(

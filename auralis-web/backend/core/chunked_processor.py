@@ -137,9 +137,11 @@ class ChunkedAudioProcessor:
         # CRITICAL: Threading lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
         # (envelope followers, gain reduction tracking, etc.)
-        # Must be a threading.Lock (not asyncio.Lock) so it can be acquired
-        # inside asyncio.to_thread() worker threads (issue #2388).
-        self._processor_lock = threading.Lock()
+        # Must be a threading.RLock (not asyncio.Lock) so it can be acquired
+        # inside asyncio.to_thread() worker threads (issue #2388) and re-entered
+        # from _process_chunk_with_hybrid_processor when already held by
+        # _process_chunk_locked (fixes #3808 / shared flag race).
+        self._processor_lock = threading.RLock()
         # Sync lock for get_wav_chunk_path() which runs in thread-pool context.
         # Serialises the cache-check → process → cache-write cycle so that two
         # concurrent requests for the same chunk never both miss and process it.
@@ -426,40 +428,33 @@ class ChunkedAudioProcessor:
         if self.mastering_targets is not None:
             logger.info(f"⚡ Processing chunk {chunk_index} with fixed targets from fingerprint")
 
-            # Disable per-chunk fingerprint analysis (we already have the targets)
-            original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
-            self.processor.content_analyzer.use_fingerprint_analysis = False
-
-            try:
-                # Process with fixed targets (no per-chunk analysis)
-                processed_chunk = self.processor.process(audio_chunk)
-            finally:
-                # Restore fingerprint analysis setting
-                self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+            # Atomic read-modify-write of shared flag (re-enters RLock if already
+            # held by _process_chunk_locked; serialises against get_wav_chunk_path).
+            with self._processor_lock:
+                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
+                self.processor.content_analyzer.use_fingerprint_analysis = False
+                try:
+                    processed_chunk = self.processor.process(audio_chunk)
+                finally:
+                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
 
         else:
             # Normal processing with or without fast-start optimization
             if hasattr(self.processor, 'content_analyzer') and hasattr(self.processor.content_analyzer, 'use_fingerprint_analysis'):
-                # Fast-path optimization for first chunk
-                # This reduces initial buffering by avoiding expensive fingerprint analysis
-                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
+                with self._processor_lock:
+                    original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
 
-                # Skip fingerprint analysis for first chunk if fast_start enabled
-                if hasattr(self, '_chunk_0_processed'):
-                    # Not first chunk - use normal processing
-                    processed_chunk = self.processor.process(audio_chunk)
-                else:
-                    # First chunk - use fast-start if enabled
-                    if not hasattr(self, '_skip_fast_start'):
-                        logger.info(f"⚡ Fast-start: Skipping fingerprint analysis for chunk 0")
-                        self.processor.content_analyzer.use_fingerprint_analysis = False
-
-                    try:
+                    if hasattr(self, '_chunk_0_processed'):
                         processed_chunk = self.processor.process(audio_chunk)
-                    finally:
-                        # Mark first chunk as processed and restore setting
-                        self._chunk_0_processed = True
-                        self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+                    else:
+                        if not hasattr(self, '_skip_fast_start'):
+                            logger.info(f"⚡ Fast-start: Skipping fingerprint analysis for chunk 0")
+                            self.processor.content_analyzer.use_fingerprint_analysis = False
+                        try:
+                            processed_chunk = self.processor.process(audio_chunk)
+                        finally:
+                            self._chunk_0_processed = True
+                            self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
             else:
                 # Fallback for processors without fingerprint analysis control
                 processed_chunk = self.processor.process(audio_chunk)

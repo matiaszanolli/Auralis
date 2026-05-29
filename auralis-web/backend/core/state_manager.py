@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 from player_state import PlaybackState, PlayerState, TrackInfo, create_track_info
+from helpers import spawn_background_task
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +212,7 @@ class PlayerStateManager:
     def _start_position_updates(self) -> None:
         """Start periodic position updates (called when playback starts)"""
         if self._position_update_task is None or self._position_update_task.done():
-            self._position_update_task = asyncio.create_task(self._position_update_loop())
+            self._position_update_task = spawn_background_task(self._position_update_loop(), name="state_manager._position_update_loop")
 
     def _stop_position_updates(self) -> None:
         """Stop position updates (called when playback pauses)"""

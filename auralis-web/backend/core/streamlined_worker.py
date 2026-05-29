@@ -17,6 +17,7 @@ import asyncio
 import logging
 from pathlib import Path
 from typing import Any
+from helpers import spawn_background_task
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ class StreamlinedCacheWorker:
         """Start the background worker."""
         if not self.running:
             self.running = True
-            self._worker_task = asyncio.create_task(self._worker_loop())
+            self._worker_task = spawn_background_task(self._worker_loop(), name="streamlined_worker._worker_loop")
             logger.info("🚀 Streamlined cache worker started")
 
     async def stop(self) -> None:

@@ -297,9 +297,9 @@ def create_player_router(
         if not audio_player:
             raise HTTPException(status_code=503, detail="Audio player not available")
 
-        # Security: Query track from database to validate file path
+        # Security: Query track from database to validate file path (offloaded — sync DB call)
         library_manager = get_library_manager()
-        track = library_manager.tracks.get_by_id(request.track_id)
+        track = await asyncio.to_thread(library_manager.tracks.get_by_id, request.track_id)
         if not track:
             raise HTTPException(status_code=404, detail=f"Track {request.track_id} not found in library")
 

@@ -156,13 +156,15 @@ class ChunkOperations:
         """
         Extract the correct segment from a context-trimmed chunk based on its position.
 
-        The input chunk has already had processing context removed by
-        ``ChunkBoundaryManager.trim_context()``, so its length equals
-        CHUNK_DURATION (~15 s).  This method slices it to the playback length:
+        After ``ChunkBoundaryManager.trim_context()``, the buffer for chunk N
+        (N > 0) spans source time ``[N*interval, N*interval + chunk_duration]``.
+        The preceding chunk already emitted up to ``(N-1)*interval + chunk_duration``
+        = ``N*interval + overlap_duration``, so the new content starts
+        ``overlap_duration`` into the trimmed buffer:
 
-        - Chunk 0: CHUNK_DURATION (15 s) — full first chunk
-        - Middle:  CHUNK_INTERVAL (10 s) — non-overlapping portion
-        - Last:    remaining duration from chunk start to track end
+        - Chunk 0: ``[:chunk_duration]`` — first chunk has no predecessor overlap
+        - Middle:  ``[overlap:overlap+interval]`` — skip already-emitted overlap
+        - Last:    ``[overlap:overlap+remaining]`` — remaining new content only
 
         Args:
             processed_chunk: Processed chunk (context already trimmed)
@@ -170,7 +172,7 @@ class ChunkOperations:
             sample_rate: Sample rate
             chunk_duration: Duration of each chunk in seconds
             chunk_interval: Interval between chunk starts
-            overlap_duration: (unused, kept for call-site compat)
+            overlap_duration: Overlap between consecutive chunks (= chunk_duration - chunk_interval)
             total_chunks: Total number of chunks (for last chunk detection)
             total_duration: Total duration (for last chunk calculation)
 
@@ -178,6 +180,7 @@ class ChunkOperations:
             Extracted segment ready for encoding
         """
         is_last = (total_chunks is not None) and (chunk_index == total_chunks - 1)
+        overlap_samples = int(round(overlap_duration * sample_rate))
 
         if chunk_index == 0:
             # First chunk: extract CHUNK_DURATION (or total_duration if shorter, e.g. single-chunk file)
@@ -192,25 +195,29 @@ class ChunkOperations:
             )
 
         elif is_last:
-            # Last chunk: extract remaining duration (context already trimmed)
+            # Last chunk: skip overlap already emitted by the previous chunk,
+            # then extract only the truly new remaining content.
+            # Note: if trim_context capped the trim (BE-CP-2 / short tracks), the
+            # overlap_samples offset will be wrong — that is a separate issue.
             assert total_duration is not None
             chunk_start_time = chunk_index * chunk_interval
-            remaining_duration = max(0, total_duration - chunk_start_time)
+            remaining_duration = max(0, total_duration - (chunk_start_time + overlap_duration))
             expected_samples = int(round(remaining_duration * sample_rate))
 
-            extracted = processed_chunk[:expected_samples]
+            extracted = processed_chunk[overlap_samples:overlap_samples + expected_samples]
             logger.debug(
-                f"✅ Chunk {chunk_index} (last): starts {chunk_start_time:.1f}s, "
+                f"✅ Chunk {chunk_index} (last): starts {chunk_start_time + overlap_duration:.1f}s, "
                 f"remaining {remaining_duration:.1f}s, {expected_samples} samples"
             )
 
         else:
-            # Regular chunk: extract CHUNK_INTERVAL (context already trimmed)
+            # Regular chunk: skip overlap already emitted by the previous chunk,
+            # then extract exactly CHUNK_INTERVAL of new content.
             expected_samples = int(round(chunk_interval * sample_rate))
-            extracted = processed_chunk[:expected_samples]
+            extracted = processed_chunk[overlap_samples:overlap_samples + expected_samples]
             logger.debug(
                 f"✅ Chunk {chunk_index}: extracted {expected_samples} samples "
-                f"({expected_samples/sample_rate:.2f}s)"
+                f"({expected_samples/sample_rate:.2f}s) after {overlap_duration:.1f}s overlap skip"
             )
 
         # Verify and pad/trim if needed (edge case handling)
@@ -224,7 +231,7 @@ class ChunkOperations:
         elif is_last:
             assert total_duration is not None
             chunk_start_time = chunk_index * chunk_interval
-            remaining_duration = max(0, total_duration - chunk_start_time)
+            remaining_duration = max(0, total_duration - (chunk_start_time + overlap_duration))
             expected_for_validation = int(round(remaining_duration * sample_rate))
         else:
             expected_for_validation = int(round(chunk_interval * sample_rate))

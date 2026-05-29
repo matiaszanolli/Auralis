@@ -16,6 +16,7 @@ from typing import Any, Protocol
 # Import actual implementations for type hints (not Protocols)
 from services.learning_system import AdaptiveWeightTuner, AffinityRuleLearner, LearningSystem
 from monitoring.memory_monitor import DegradationManager, MemoryPressureMonitor
+from helpers import spawn_background_task
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ class SelfTuner:
             return
 
         self.is_running = True
-        self.tuning_task = asyncio.create_task(self._tuning_loop())
+        self.tuning_task = spawn_background_task(self._tuning_loop(), name="self_tuner._tuning_loop")
         logger.info("Self-tuner started")
 
     async def stop(self) -> None:

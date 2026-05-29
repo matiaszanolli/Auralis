@@ -19,6 +19,7 @@ import asyncio
 import logging
 import json
 from typing import Any
+from helpers import spawn_background_task
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ class LibraryAutoScanner:
 
     async def start(self) -> None:
         """Start the scanner background task."""
-        self._task = asyncio.create_task(self._run(), name="library_auto_scanner")
+        self._task = spawn_background_task(self._run(), name="library_auto_scanner")
         if HAS_WATCHDOG:
             logger.info("✅ LibraryAutoScanner started (watchdog + polling fallback)")
         else:
