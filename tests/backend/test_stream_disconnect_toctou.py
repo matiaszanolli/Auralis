@@ -443,3 +443,76 @@ class TestDisconnectStopsProcessing:
             )
 
         processor.process_chunk_safe.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Tests: _safe_send / _safe_send_bytes classify disconnect by connection
+# state, not by Starlette's RuntimeError wording (#3850, sibling of #3511)
+# ---------------------------------------------------------------------------
+
+class TestSafeSendDisconnectClassification:
+    """A send-after-close RuntimeError must log at DEBUG regardless of wording."""
+
+    def _ws_raising_after_disconnect(self, send_attr: str) -> Mock:
+        """WS that is CONNECTED at guard time but raises a reworded RuntimeError
+        and flips to DISCONNECTED when the send is attempted."""
+        ws = _make_websocket(connected=True)
+
+        async def _raise(*_a, **_k):
+            # Simulate Starlette transitioning the state on a closed peer, and
+            # use wording that does NOT contain the literal "close message".
+            ws.client_state.name = "DISCONNECTED"
+            raise RuntimeError("Cannot call 'send' once a close message has been... reworded")
+
+        setattr(ws, send_attr, AsyncMock(side_effect=_raise))
+        return ws
+
+    @pytest.mark.asyncio
+    async def test_safe_send_logs_debug_on_reworded_disconnect(self, caplog):
+        import logging
+
+        controller = _make_controller()
+        ws = self._ws_raising_after_disconnect("send_text")
+
+        with caplog.at_level(logging.DEBUG, logger="core.audio_stream_controller"):
+            result = await controller._safe_send(ws, {"type": "ping"})
+
+        assert result is False
+        records = [r for r in caplog.records if "during send" in r.message]
+        assert records, "Expected a debug log about the WebSocket closing during send"
+        assert all(r.levelno == logging.DEBUG for r in records)
+        # No spurious warnings on a normal disconnect.
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+    @pytest.mark.asyncio
+    async def test_safe_send_bytes_logs_debug_on_reworded_disconnect(self, caplog):
+        import logging
+
+        controller = _make_controller()
+        ws = self._ws_raising_after_disconnect("send_bytes")
+
+        with caplog.at_level(logging.DEBUG, logger="core.audio_stream_controller"):
+            result = await controller._safe_send_bytes(ws, b"\x00\x01")
+
+        assert result is False
+        records = [r for r in caplog.records if "during binary send" in r.message]
+        assert records, "Expected a debug log about the WebSocket closing during binary send"
+        assert all(r.levelno == logging.DEBUG for r in records)
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+    @pytest.mark.asyncio
+    async def test_safe_send_logs_warning_when_still_connected(self, caplog):
+        """A RuntimeError while the WS is still CONNECTED is a genuine error → WARNING."""
+        import logging
+
+        controller = _make_controller()
+        ws = _make_websocket(connected=True)
+        # Raise without flipping state → still CONNECTED at the except re-check.
+        ws.send_text = AsyncMock(side_effect=RuntimeError("some other failure"))
+
+        with caplog.at_level(logging.DEBUG, logger="core.audio_stream_controller"):
+            result = await controller._safe_send(ws, {"type": "ping"})
+
+        assert result is False
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert warnings, "A genuine send error (still connected) should log at WARNING"

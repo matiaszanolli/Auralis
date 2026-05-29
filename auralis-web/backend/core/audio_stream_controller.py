@@ -302,7 +302,11 @@ class AudioStreamController:
             await websocket.send_text(json.dumps(message))
             return True
         except RuntimeError as e:
-            if "close message" in str(e).lower():
+            # Classify by connection state, not by Starlette's error wording
+            # (#3850 — sibling of #3511). A send-after-close leaves client_state
+            # != CONNECTED, so a disconnect logs at debug; anything else is a
+            # genuine error worth a warning.
+            if not self._is_websocket_connected(websocket):
                 logger.debug(f"WebSocket closed during send: {e}")
             else:
                 logger.warning(f"WebSocket send failed: {e}")
@@ -320,7 +324,9 @@ class AudioStreamController:
             await websocket.send_bytes(data)
             return True
         except RuntimeError as e:
-            if "close message" in str(e).lower():
+            # Classify by connection state, not by Starlette's error wording
+            # (#3850 — sibling of #3511).
+            if not self._is_websocket_connected(websocket):
                 logger.debug(f"WebSocket closed during binary send: {e}")
             else:
                 logger.warning(f"WebSocket binary send failed: {e}")
