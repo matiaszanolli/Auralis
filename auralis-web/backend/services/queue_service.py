@@ -425,10 +425,10 @@ class QueueService:
                 if new_current and hasattr(self.audio_player, 'load_file'):
                     file_path = new_current.get('filepath') or new_current.get('file_path')
                     if file_path:
-                        self.audio_player.load_file(file_path)
+                        await asyncio.to_thread(self.audio_player.load_file, file_path)
                         logger.info(f"Removed current track; loaded next: {new_current.get('id')}")
                 elif hasattr(self.audio_player, 'playback') and hasattr(self.audio_player.playback, 'stop'):
-                    self.audio_player.playback.stop()
+                    await asyncio.to_thread(self.audio_player.playback.stop)
                     logger.info("Removed only/last track; stopped playback")
 
             # Get updated queue
@@ -675,7 +675,7 @@ class QueueService:
 
             # Stop playback
             if hasattr(self.audio_player, 'stop'):
-                self.audio_player.stop()
+                await asyncio.to_thread(self.audio_player.stop)
 
             # Update player state
             await self.player_state_manager.set_playing(False)

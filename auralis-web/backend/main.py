@@ -52,7 +52,7 @@ else:
     sys.path.insert(0, str(auralis_parent))
 
 # Import configuration modules
-from config.app import create_app
+from config.app import create_app, is_dev_mode as _is_dev_mode
 from config.globals import ConnectionManager
 from config.middleware import setup_middleware
 from config.routes import setup_routers
@@ -165,7 +165,7 @@ logger.info(f"Looking for frontend at: {frontend_path}")
 # Only mount static files in production (when not running --dev)
 # In development, Vite serves the frontend and proxies API requests
 # StaticFiles mount at "/" interferes with WebSocket routes, so we must avoid it in dev mode
-is_dev_mode = "--dev" in sys.argv or os.environ.get("DEV_MODE", "").lower() in ("1", "true", "yes")
+is_dev_mode = _is_dev_mode()
 
 if not is_dev_mode and frontend_path.exists():
     logger.info(f"✅ Serving frontend from: {frontend_path} (production mode)")

@@ -11,6 +11,8 @@ Centralizes chunk calculation logic to prevent duplication and ensure consistenc
 
 import logging
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 # Chunk configuration - SINGLE SOURCE OF TRUTH
@@ -46,7 +48,7 @@ class ChunkBoundaryManager:
         """
         self.total_duration = total_duration
         self.sample_rate = sample_rate
-        self._total_chunks = int(__import__('numpy').ceil(total_duration / CHUNK_INTERVAL))
+        self._total_chunks = int(np.ceil(total_duration / CHUNK_INTERVAL))
 
     @property
     def total_chunks(self) -> int:

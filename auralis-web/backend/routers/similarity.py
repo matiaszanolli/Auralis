@@ -11,10 +11,10 @@ REST API endpoints for fingerprint-based music similarity
 import asyncio
 import logging
 import uuid
-from typing import Any
+from typing import Annotated, Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import Path, APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import (

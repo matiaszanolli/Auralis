@@ -30,7 +30,7 @@ _DEV_PORTS = list(range(3000, 3007)) + [8765]
 ALLOWED_WS_ORIGINS = frozenset(
     {
         f"{scheme}://{host}:{port}"
-        for scheme in ("http", "ws")
+        for scheme in ("http", "https", "ws", "wss")
         for host in ("localhost", "127.0.0.1")
         for port in _DEV_PORTS
     }

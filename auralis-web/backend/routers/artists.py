@@ -9,10 +9,10 @@ REST API endpoints for artist browsing and management
 """
 
 import asyncio
-from typing import Any, Literal, cast
+from typing import Annotated, Any, Literal, cast
 from collections.abc import Callable
 
-from fastapi import APIRouter, Query
+from fastapi import Path, APIRouter, Query
 from pydantic import BaseModel
 
 from .dependencies import require_repository_factory, with_error_handling

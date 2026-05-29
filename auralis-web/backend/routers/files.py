@@ -178,7 +178,7 @@ def create_files_router(
                     # (issue #2392: storing temp_path then deleting it made every upload
                     # unplayable immediately after the finally block ran).
                     upload_dir = Path.home() / ".auralis" / "uploads"
-                    upload_dir.mkdir(parents=True, exist_ok=True)
+                    await asyncio.to_thread(upload_dir.mkdir, parents=True, exist_ok=True)
                     permanent_path = upload_dir / f"{uuid4().hex}{suffix}"
                     await asyncio.to_thread(shutil.move, str(temp_path), str(permanent_path))
 

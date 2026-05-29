@@ -109,8 +109,8 @@ class StreamlinedCacheWorker:
         preset = self.cache_manager.current_preset
         intensity = self.cache_manager.intensity
 
-        # Get track from library
-        track = self.library_manager.tracks.get_by_id(track_id)
+        # Get track from library (sync DB call — offload to thread)
+        track = await asyncio.to_thread(self.library_manager.tracks.get_by_id, track_id)
         if not track:
             logger.warning(f"Track {track_id} not found in library")
             return
@@ -368,7 +368,7 @@ class StreamlinedCacheWorker:
         Returns:
             True if processing succeeded
         """
-        track = self.library_manager.tracks.get_by_id(track_id)
+        track = await asyncio.to_thread(self.library_manager.tracks.get_by_id, track_id)
         if not track:
             return False
 

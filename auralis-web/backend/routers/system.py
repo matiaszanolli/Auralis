@@ -811,10 +811,11 @@ def create_system_router(
                         _subscribed_job_ids.add(job_id)
 
                 else:
-                    # Unknown message type (fixes #2417)
-                    message_type = message.get("type", "unknown")
-                    logger.warning(f"Unknown WebSocket message type: {message_type!r}")
-                    await send_error_response(websocket, "unknown_message_type", f"Unknown message type: {message_type}")
+                    # Unknown message type (fixes #2417); sanitize before reflecting to client
+                    raw_type = message.get("type", "unknown")
+                    safe_type = str(raw_type)[:32] if isinstance(raw_type, str) else "non-string"
+                    logger.warning(f"Unknown WebSocket message type: {raw_type!r}")
+                    await send_error_response(websocket, "unknown_message_type", f"Unknown message type: {safe_type}")
 
         except WebSocketDisconnect:
             logger.info("WebSocket client disconnected normally")

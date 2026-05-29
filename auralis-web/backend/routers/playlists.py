@@ -20,10 +20,10 @@ Endpoints:
 
 import asyncio
 import logging
-from typing import Any, cast
+from typing import Annotated, Any, cast
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import Path, APIRouter, HTTPException
 from pydantic import BaseModel
 
 from .dependencies import require_repository_factory

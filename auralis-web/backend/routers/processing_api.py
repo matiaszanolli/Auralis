@@ -352,7 +352,7 @@ async def cancel_job(job_id: str) -> dict[str, Any]:
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
 
-    success = _processing_engine.cancel_job(job_id)
+    success = await _processing_engine.cancel_job(job_id)
     if not success:
         # Check if job exists to provide correct error
         job = await _processing_engine.get_job(job_id)

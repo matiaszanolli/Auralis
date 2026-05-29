@@ -23,10 +23,10 @@ Endpoints:
 import asyncio
 import logging
 import os
-from typing import Any, Literal, cast
+from typing import Annotated, Any, Literal, cast
 from collections.abc import Callable
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import Path, APIRouter, Header, HTTPException, Query
 
 from schemas import LibraryScanRequest
 
@@ -329,8 +329,8 @@ def create_library_router(
                         # MP4/M4A: iTunes '©lyr' atom
                         try:
                             lyrics_text = audio_file.get('\xa9lyr', [None])[0]
-                        except Exception:
-                            pass
+                        except Exception as _lyr_exc:
+                            logger.debug("Failed to read MP4 lyrics tag: %s", _lyr_exc)
 
                     # ID3 tags (MP3)
                     elif hasattr(audio_file, 'tags') and audio_file.tags:

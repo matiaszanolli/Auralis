@@ -17,10 +17,10 @@ import asyncio
 import logging
 import mimetypes
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import Path, APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 
 from .dependencies import require_repository_factory

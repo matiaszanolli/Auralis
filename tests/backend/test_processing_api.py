@@ -50,8 +50,8 @@ def mock_engine():
     mock_job.error_message = None
     mock_job.result_data = {}
 
-    engine.get_job = Mock(return_value=mock_job)
-    engine.cancel_job = Mock(return_value=True)  # Synchronous, not async
+    engine.get_job = AsyncMock(return_value=mock_job)
+    engine.cancel_job = AsyncMock(return_value=True)
     engine.get_all_jobs = Mock(return_value=[])
     engine.get_queue_status = Mock(return_value={
         "total_jobs": 0,

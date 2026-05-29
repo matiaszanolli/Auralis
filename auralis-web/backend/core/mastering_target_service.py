@@ -304,6 +304,7 @@ class MasteringTargetService:
             if cache_key in self.cache:
                 cached = self.cache[cache_key]
                 if isinstance(cached, tuple) and len(cached) == 2:
+                    self.cache.move_to_end(cache_key)
                     logger.debug(f"Using cached fingerprint for track {track_id}")
                     return cached
 

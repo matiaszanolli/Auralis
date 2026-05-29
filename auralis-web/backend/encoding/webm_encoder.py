@@ -240,8 +240,8 @@ async def encode_to_webm_opus(
         raise
 
     except Exception as e:
-        logger.error(f"WebM encoding failed: {e}")
-        raise WebMEncoderError(f"Encoding failed: {str(e)}") from e
+        logger.error(f"WebM encoding failed: {e}", exc_info=True)
+        raise WebMEncoderError("Encoding failed") from e
 
     finally:
         # Clean up temporary files

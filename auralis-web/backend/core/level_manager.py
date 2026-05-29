@@ -10,6 +10,7 @@ Prevents audible volume jumps during chunk transitions.
 """
 
 import logging
+from collections import deque
 from typing import Any
 
 import numpy as np
@@ -37,19 +38,19 @@ class LevelManager:
         """
         self.max_level_change_db = max_level_change_db
 
-        # History tracking
-        self.rms_history: list[float] = []  # RMS levels of processed chunks (dB)
-        self.gain_history: list[float] = []  # Gain adjustments applied (dB)
+        # History tracking — capped at 256 entries so long sessions don't grow unboundedly
+        self.rms_history: deque[float] = deque(maxlen=256)
+        self.gain_history: deque[float] = deque(maxlen=256)
 
     @property
     def history(self) -> list[float]:
         """Get RMS history for analysis and visualization."""
-        return self.rms_history.copy()
+        return list(self.rms_history)
 
     @property
     def gain_adjustments(self) -> list[float]:
         """Get gain adjustment history."""
-        return self.gain_history.copy()
+        return list(self.gain_history)
 
     @property
     def current_rms(self) -> float | None:

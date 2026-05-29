@@ -124,8 +124,8 @@ class ChunkOperations:
                 logger.error(
                     f"Chunk {chunk_index} start ({start_sample}) beyond file length ({len(full_audio)})"
                 )
-                # Return silence instead of crashing
-                audio = np.zeros((1, full_audio.shape[1] if full_audio.ndim > 1 else 1))
+                num_ch = full_audio.shape[1] if full_audio.ndim > 1 else 1
+                audio = np.zeros((1, num_ch), dtype=np.float32)
             else:
                 audio = full_audio[start_sample:end_sample]
 
@@ -136,8 +136,8 @@ class ChunkOperations:
                 f"(start={load_start:.1f}s, end={load_end:.1f}s)"
             )
             # Return minimal silence instead of empty array
-            num_channels = 2  # Default to stereo
-            audio = np.zeros((int(0.1 * sample_rate), num_channels))
+            num_channels = audio.shape[1] if audio.ndim > 1 else 1
+            audio = np.zeros((int(0.1 * sample_rate), num_channels), dtype=np.float32)
             logger.warning(f"Returning 100ms of silence for chunk {chunk_index}")
 
         return audio, chunk_start, chunk_end

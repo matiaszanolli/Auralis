@@ -47,6 +47,18 @@ _ERROR_CATEGORIES: list[tuple[type[BaseException], str]] = [
     (MemoryError, "Insufficient memory to process audio"),
 ]
 
+try:
+    from encoding.wav_encoder import WAVEncoderError
+    _ERROR_CATEGORIES.insert(0, (WAVEncoderError, "Audio encoding failed"))
+except ImportError:
+    pass
+
+try:
+    from encoding.webm_encoder import WebMEncoderError
+    _ERROR_CATEGORIES.insert(0, (WebMEncoderError, "Audio encoding failed"))
+except ImportError:
+    pass
+
 
 def _safe_error_message(exc: Exception) -> str:
     """Return a user-safe error category for *exc*.
@@ -240,20 +252,19 @@ class ProcessingEngine:
         Silences and removes callbacks that raise (e.g. dead WebSocket),
         so a WS disconnect does not abort the processing job (#3325).
         """
-        job = self.jobs.get(job_id)
-        if job:
-            job.progress = progress
+        async with self._jobs_lock:
+            job = self.jobs.get(job_id)
+            if job:
+                job.progress = progress
+            callback = self.progress_callbacks.get(job_id)
 
-            async with self._jobs_lock:
-                callback = self.progress_callbacks.get(job_id)
-
-            if callback:
-                try:
-                    await callback(job_id, progress, message)
-                except Exception:
-                    logger.debug("Progress callback for job %s failed, removing", job_id)
-                    async with self._jobs_lock:
-                        self.progress_callbacks.pop(job_id, None)
+        if job and callback:
+            try:
+                await callback(job_id, progress, message)
+            except Exception:
+                logger.debug("Progress callback for job %s failed, removing", job_id)
+                async with self._jobs_lock:
+                    self.progress_callbacks.pop(job_id, None)
 
     def _get_processor_cache_key(self, mode: str, config: UnifiedConfig) -> str:
         """
@@ -683,30 +694,31 @@ class ProcessingEngine:
                 logger.exception(f"Worker error: {e}")
                 await asyncio.sleep(1)
 
-    def cancel_job(self, job_id: str) -> bool:
+    async def cancel_job(self, job_id: str) -> bool:
         """Cancel a job.
 
         For QUEUED jobs: marks the status so process_job() skips it.
         For PROCESSING jobs: cancels the asyncio Task, which injects
         CancelledError at the next await point (fixes #2217).
         """
-        job = self.jobs.get(job_id)
-        if not job:
-            return False
+        async with self._jobs_lock:
+            job = self.jobs.get(job_id)
+            if not job:
+                return False
 
-        if job.status in [ProcessingStatus.QUEUED, ProcessingStatus.PROCESSING]:
+            if job.status not in [ProcessingStatus.QUEUED, ProcessingStatus.PROCESSING]:
+                return False
+
             job.status = ProcessingStatus.CANCELLED
             job.completed_at = datetime.now()
-            # Signal the running task to stop (no-op for QUEUED jobs that
-            # haven't been picked up yet — the early-return guard in
-            # process_job() handles that case).
-            task = self._tasks.get(job_id)
-            if task and not task.done():
-                task.cancel()
             self.progress_callbacks.pop(job_id, None)
-            return True
 
-        return False
+        # Cancel the asyncio Task outside the lock — task.cancel() is
+        # thread-safe and the await would block under the lock.
+        task = self._tasks.get(job_id)
+        if task and not task.done():
+            task.cancel()
+        return True
 
     async def cleanup_old_jobs(self, max_age_hours: float = 24) -> int:
         """Clean up old completed jobs and their files.
