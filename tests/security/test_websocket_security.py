@@ -301,14 +301,44 @@ class TestWebSocketRateLimiting:
         for _ in range(5):
             limiter.check_rate_limit(mock_ws)
 
-        # Connection should be tracked
-        assert id(mock_ws) in limiter.message_log
+        # Connection should be tracked (one entry regardless of key type)
+        assert len(limiter.message_log) == 1
 
         # Clean up
         limiter.cleanup(mock_ws)
 
         # Should be removed
-        assert id(mock_ws) not in limiter.message_log
+        assert len(limiter.message_log) == 0
+
+    def test_rate_limit_key_is_stable_uuid_not_address(self):
+        """Rate limit keys are stable UUID strings, not CPython memory addresses.
+
+        Regression test for #3871: if keys were id(websocket), a new connection
+        allocated at the same address as a GC'd one would inherit the old
+        rate-limit log. UUID keys prevent this hazard.
+        """
+        import uuid as _uuid_mod
+
+        limiter = WebSocketRateLimiter(max_messages_per_second=10)
+
+        # Plain object — no _auralis_id initially, attribute assignment works
+        class _FakeWS:
+            pass
+
+        ws = _FakeWS()
+        limiter.check_rate_limit(ws)
+
+        keys = list(limiter.message_log.keys())
+        assert len(keys) == 1
+        key = keys[0]
+
+        # Key must be a string UUID, not an integer memory address
+        assert isinstance(key, str), (
+            f"Rate limit key should be a UUID string, got {type(key).__name__}: {key!r}. "
+            "Using id(websocket) is a CPython address-reuse hazard."
+        )
+        # Raises ValueError if not a valid UUID
+        _uuid_mod.UUID(key)
 
     def test_rate_limit_window_sliding(self):
         """Rate limit window should slide over time."""
