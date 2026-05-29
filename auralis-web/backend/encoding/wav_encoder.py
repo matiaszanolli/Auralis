@@ -76,6 +76,34 @@ def encode_to_wav(audio: np.ndarray, sample_rate: int = 44100, output_path: str 
         raise WAVEncoderError(f"WAV encoding failed: {e}") from e
 
 
+def read_wav_frame_info(wav_bytes: bytes) -> tuple[int, int]:
+    """
+    Parse a WAV byte stream header to recover (n_frames, sample_rate).
+
+    Used to make per-chunk streaming responses self-describing (#3872): the
+    frame count is authoritative regardless of which cache tier produced the
+    bytes, so the frontend can trim overlap by exact sample count rather than
+    re-deriving it from seconds-based metadata.
+
+    Args:
+        wav_bytes: WAV-encoded audio (RIFF/WAVE PCM)
+
+    Returns:
+        tuple[int, int]: (n_frames, sample_rate). n_frames is the number of
+        sample frames (per-channel), not the byte count.
+
+    Raises:
+        WAVEncoderError: If the bytes cannot be parsed as WAV
+    """
+    import wave
+
+    try:
+        with wave.open(io.BytesIO(wav_bytes), 'rb') as wf:
+            return wf.getnframes(), wf.getframerate()
+    except Exception as e:
+        raise WAVEncoderError(f"Failed to parse WAV header: {e}") from e
+
+
 def get_wav_chunk(audio: np.ndarray, sample_rate: int = 44100) -> bytes:
     """
     Quick helper to encode audio chunk to WAV format.

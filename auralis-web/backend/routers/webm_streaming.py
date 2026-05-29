@@ -36,7 +36,7 @@ from typing import Any
 from collections.abc import Callable
 
 # Import WAV encoder (replacing WebM for browser compatibility)
-from encoding.wav_encoder import WAVEncoderError, encode_to_wav
+from encoding.wav_encoder import WAVEncoderError, encode_to_wav, read_wav_frame_info
 from fastapi import APIRouter, HTTPException, Path as PathParam, Query, Response
 from pydantic import BaseModel
 
@@ -76,6 +76,48 @@ def load_audio_with_invalidation(filepath: str):
     except OSError:
         mtime = 0.0
     return _load_audio_cached(filepath, mtime)
+
+
+def _compute_chunk_sample_layout(
+    wav_bytes: bytes,
+    chunk_idx: int,
+    chunk_duration: int,
+    chunk_interval: int,
+) -> dict[str, int] | None:
+    """Derive the per-chunk overlap layout from the actual WAV frame count.
+
+    Makes each chunk response self-describing (#3872) so the frontend can trim
+    overlap by exact sample count and place the chunk absolutely, instead of
+    re-deriving from seconds-based metadata and trusting arrival order.
+
+    The trailing overlap region is ``chunk_duration - chunk_interval`` seconds;
+    a short final chunk (or a no-overlap config where duration == interval)
+    carries no trailing overlap and is fully playable.
+
+    Returns None on parse failure so streaming degrades gracefully (headers
+    are simply omitted) rather than failing the request.
+    """
+    try:
+        total_samples, sample_rate = read_wav_frame_info(wav_bytes)
+    except WAVEncoderError as e:
+        logger.warning(f"Could not derive chunk sample layout for chunk {chunk_idx}: {e}")
+        return None
+
+    overlap_samples = int(max(0, chunk_duration - chunk_interval) * sample_rate)
+    # Only chunks longer than the interval portion carry trailing overlap.
+    # Final/short chunks (and no-overlap configs) are fully playable.
+    if total_samples <= int(chunk_interval * sample_rate):
+        overlap_samples = 0
+    playable_samples = max(0, total_samples - overlap_samples)
+    start_sample_offset = int(chunk_idx * chunk_interval * sample_rate)
+
+    return {
+        "sample_rate": sample_rate,
+        "total_samples": total_samples,
+        "playable_samples": playable_samples,
+        "overlap_samples": overlap_samples,
+        "start_sample_offset": start_sample_offset,
+    }
 
 
 class StreamMetadata(BaseModel):
@@ -262,6 +304,14 @@ def create_webm_streaming_router(
             - X-Enhanced: true/false (was this chunk processed)
             - X-Preset: Applied preset (if enhanced)
             - Content-Type: audio/wav
+            # Self-describing overlap layout (#3872) — lets the frontend trim
+            # overlap by exact sample count and place the chunk absolutely,
+            # independent of arrival order or which cache tier served it:
+            - X-Sample-Rate: Sample rate of the returned WAV
+            - X-Total-Samples: Total sample frames in the WAV
+            - X-Playable-Samples: Frames to play (total - trailing overlap)
+            - X-Overlap-Samples: Trailing overlap frames to crossfade/trim
+            - X-Start-Sample-Offset: Absolute track sample offset of this chunk
 
         Raises:
             HTTPException: If library not available, track not found, or processing fails
@@ -404,20 +454,36 @@ def create_webm_streaming_router(
             if wav_bytes is None:
                 raise HTTPException(status_code=500, detail="Failed to generate audio chunk")
 
+            headers = {
+                "X-Chunk-Index": str(chunk_idx),
+                "X-Cache-Tier": cache_tier,
+                "X-Latency-Ms": f"{latency_ms:.1f}",
+                "X-Enhanced": "true" if enhanced else "false",
+                "X-Preset": preset if enhanced else "none",
+                "Content-Length": str(len(wav_bytes)),
+                # Progressive streaming compatibility headers
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "no-cache"  # Don't let browser cache chunks
+            }
+
+            # Make the chunk self-describing for overlap stitching (#3872):
+            # derive exact sample counts from the WAV frame count so the
+            # frontend trims overlap precisely and can place the chunk
+            # absolutely regardless of arrival order or cache tier.
+            layout = _compute_chunk_sample_layout(
+                wav_bytes, chunk_idx, chunk_duration, chunk_interval
+            )
+            if layout is not None:
+                headers["X-Sample-Rate"] = str(layout["sample_rate"])
+                headers["X-Total-Samples"] = str(layout["total_samples"])
+                headers["X-Playable-Samples"] = str(layout["playable_samples"])
+                headers["X-Overlap-Samples"] = str(layout["overlap_samples"])
+                headers["X-Start-Sample-Offset"] = str(layout["start_sample_offset"])
+
             return Response(
                 content=wav_bytes,
                 media_type="audio/wav",
-                headers={
-                    "X-Chunk-Index": str(chunk_idx),
-                    "X-Cache-Tier": cache_tier,
-                    "X-Latency-Ms": f"{latency_ms:.1f}",
-                    "X-Enhanced": "true" if enhanced else "false",
-                    "X-Preset": preset if enhanced else "none",
-                    "Content-Length": str(len(wav_bytes)),
-                    # Progressive streaming compatibility headers
-                    "Accept-Ranges": "bytes",
-                    "Cache-Control": "no-cache"  # Don't let browser cache chunks
-                }
+                headers=headers,
             )
 
         except HTTPException:
