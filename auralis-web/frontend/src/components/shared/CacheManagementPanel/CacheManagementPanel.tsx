@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheStats, useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
 import { useStandardizedAPI } from '@/hooks/shared/useStandardizedAPI';
@@ -39,6 +39,16 @@ export function CacheManagementPanel({
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [selectedTrackForClear, setSelectedTrackForClear] = useState<string | null>(null);
   const [showTrackClearConfirm, setShowTrackClearConfirm] = useState(false);
+
+  // Guard against post-unmount state updates in handleClearTrack, which uses a
+  // raw fetch() (dynamic track URL doesn't fit useStandardizedAPI) — #3941.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   if (statsLoading && !cacheStats) {
     return (
@@ -88,7 +98,14 @@ export function CacheManagementPanel({
   const handleClearTrack = async () => {
     if (!selectedTrackForClear) return;
     try {
-      await fetch(`/api/cache/track/${selectedTrackForClear}`, { method: 'DELETE' });
+      const response = await fetch(`/api/cache/track/${selectedTrackForClear}`, {
+        method: 'DELETE',
+      });
+      // Skip state updates if the component unmounted mid-request (#3941).
+      if (!isMountedRef.current) return;
+      if (!response.ok) {
+        throw new Error(`Failed to clear track cache: ${response.status}`);
+      }
       setShowTrackClearConfirm(false);
       setSelectedTrackForClear(null);
       refetchStats();
