@@ -585,17 +585,20 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
   }, []);
 
   /**
-   * Update playback time periodically
-   * Note: Always create the interval on mount; the callback safely handles
-   * a null ref via optional chaining until the engine is created on stream start.
+   * Update playback time periodically.
+   * Gated on isPlaying so the 10Hz interval doesn't fire setCurrentTime
+   * gratuitously when idle — mirrors usePlayEnhanced (fixes #3970 / HC-6).
    */
   useEffect(() => {
+    if (!isPlaying) return;
+
     const interval = setInterval(() => {
-      setCurrentTime(playbackEngineRef.current?.getCurrentPlaybackTime() || 0);
+      const time = playbackEngineRef.current?.getCurrentPlaybackTime() || 0;
+      setCurrentTime((prev) => (time === prev ? prev : time));
     }, 100); // Update 10x per second
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isPlaying]);
 
   /**
    * Cleanup on unmount
