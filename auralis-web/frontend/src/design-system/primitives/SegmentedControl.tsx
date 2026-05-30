@@ -69,10 +69,10 @@ const ControlContainer = styled('div')<{ size: 'sm' | 'md' }>(({ size: _size }) 
   display: 'inline-flex',
   alignItems: 'center',
   // Subtle glass container
-  background: 'rgba(255, 255, 255, 0.03)',
+  background: tokens.colors.opacityScale.white.ultraLight,
   backdropFilter: 'blur(4px)',
   borderRadius: tokens.borderRadius.md,
-  border: '1px solid rgba(255, 255, 255, 0.06)',
+  border: `1px solid ${tokens.colors.opacityScale.white.faint}`,
   padding: '2px',
   gap: '2px',
 }));
@@ -104,7 +104,7 @@ const SegmentButton = styled('button')<{
     ? tokens.colors.text.primary
     : tokens.colors.text.tertiary,
   background: isSelected
-    ? 'rgba(255, 255, 255, 0.08)'
+    ? tokens.colors.opacityScale.white.subtle
     : 'transparent',
   boxShadow: isSelected
     ? `inset 0 0 8px ${tokens.colors.opacityScale.accent.veryLight}`
@@ -121,7 +121,7 @@ const SegmentButton = styled('button')<{
 
   // Hover (only when not selected and not disabled)
   '&:hover': !isSelected && !disabled ? {
-    background: 'rgba(255, 255, 255, 0.04)',
+    background: tokens.colors.opacityScale.white.micro,
     color: tokens.colors.text.secondary,
   } : {},
 

@@ -146,6 +146,10 @@ export const tokens = {
 
       // White with opacity (for light overlays, glass effects)
       white: {
+        ultraLight: 'rgba(255, 255, 255, 0.03)',   // #3981 — below veryLight
+        micro: 'rgba(255, 255, 255, 0.04)',        // #3981
+        faint: 'rgba(255, 255, 255, 0.06)',        // #3981
+        subtle: 'rgba(255, 255, 255, 0.08)',       // #3981
         veryLight: 'rgba(255, 255, 255, 0.05)',
         light: 'rgba(255, 255, 255, 0.10)',
         lighter: 'rgba(255, 255, 255, 0.15)',
@@ -732,6 +736,14 @@ export const tokens = {
       borderRadius: '24px',  // Pill shape
       background: 'rgba(31, 41, 54, 0.60)',
       padding: '0 16px',
+    },
+
+    // Input surface backgrounds at rest / hover / focus (#3981 — was raw rgba
+    // in design-system/primitives/Input.tsx). Base color #1F2936 = rgb(31,41,54).
+    inputSurface: {
+      base: 'rgba(31, 41, 54, 0.60)',
+      hover: 'rgba(31, 41, 54, 0.80)',
+      focus: 'rgba(31, 41, 54, 0.95)',
     },
   },
 

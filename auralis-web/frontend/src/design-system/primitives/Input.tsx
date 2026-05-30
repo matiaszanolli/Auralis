@@ -113,7 +113,7 @@ const StyledTextField = styled(MuiTextField as React.ComponentType<Omit<MuiTextF
 
     search: {
       '& .MuiInputBase-root': {
-        background: 'rgba(31, 41, 54, 0.60)',
+        background: tokens.components.inputSurface.base,
         borderRadius: tokens.borderRadius.full, // Pill shape
         border: `1px solid ${tokens.colors.border.light}`,
         color: tokens.colors.text.primary,
@@ -121,12 +121,12 @@ const StyledTextField = styled(MuiTextField as React.ComponentType<Omit<MuiTextF
         backdropFilter: 'blur(10px)',
 
         '&:hover': {
-          background: 'rgba(31, 41, 54, 0.80)',
+          background: tokens.components.inputSurface.hover,
           borderColor: tokens.colors.border.medium,
         },
 
         '&.Mui-focused': {
-          background: 'rgba(31, 41, 54, 0.95)',
+          background: tokens.components.inputSurface.focus,
           borderColor: tokens.colors.accent.primary,
           boxShadow: tokens.shadows.glowSoft,
         },
