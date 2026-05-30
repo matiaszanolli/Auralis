@@ -153,7 +153,10 @@ def validate_scan_path(
     if not os.access(resolved_path, os.R_OK):
         raise PathValidationError(f"Directory is not readable: {resolved_path}")
 
-    logger.info(f"Path validation successful: {resolved_path}")
+    # Debug, not info: validators run very frequently and the absolute path is
+    # sensitive (the user's media library layout) — at INFO it floods logs and
+    # gets persisted to electron-log on disk (#3844).
+    logger.debug(f"Path validation successful: {resolved_path}")
     return resolved_path
 
 
@@ -223,7 +226,9 @@ def validate_file_path(
     if not os.access(resolved_path, os.R_OK):
         raise PathValidationError(f"File is not readable: {resolved_path}")
 
-    logger.info(f"File path validation successful: {resolved_path}")
+    # Debug, not info (#3844): see validate_scan_path note — this one runs 5×
+    # per /api/metadata/tracks/{id} request.
+    logger.debug(f"File path validation successful: {resolved_path}")
     return resolved_path
 
 
@@ -273,7 +278,9 @@ def validate_user_chosen_directory(directory: str) -> Path:
     if not os.access(resolved_path, os.R_OK):
         raise PathValidationError(f"Directory is not readable: {resolved_path}")
 
-    logger.info(f"User-chosen directory validated: {resolved_path}")
+    # Debug, not info (#3844): avoid persisting the user's chosen folder path
+    # to logs on every validation.
+    logger.debug(f"User-chosen directory validated: {resolved_path}")
     return resolved_path
 
 

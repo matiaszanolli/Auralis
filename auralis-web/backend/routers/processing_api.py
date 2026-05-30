@@ -185,7 +185,8 @@ async def process_audio(request: ProcessRequest) -> ProcessResponse:
                 detail="Processing queue is full, please try again later",
             )
 
-        logger.info(f"Processing job {job_id} submitted for {request.input_path}")
+        # Debug, not info (#3844): input_path is an absolute media-library path.
+        logger.debug(f"Processing job {job_id} submitted for {request.input_path}")
 
         return ProcessResponse(
             job_id=job_id,
@@ -248,7 +249,8 @@ async def upload_and_process(
         with open(input_path, "xb") as f:
             f.write(content)
 
-        logger.info(f"Uploaded file saved to {input_path}")
+        # Debug, not info (#3844): avoid logging absolute filesystem paths.
+        logger.debug(f"Uploaded file saved to {input_path}")
 
         # Create and submit job — clean up temp file on failure (#3223)
         try:
