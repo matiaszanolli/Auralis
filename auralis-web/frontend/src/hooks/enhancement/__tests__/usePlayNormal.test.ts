@@ -139,6 +139,7 @@ let mockBufferInstance: {
   initialize: ReturnType<typeof vi.fn>;
   append: ReturnType<typeof vi.fn>;
   getAvailableSamples: ReturnType<typeof vi.fn>;
+  getFillPercentage: ReturnType<typeof vi.fn>;
   reset: ReturnType<typeof vi.fn>;
 };
 
@@ -160,20 +161,48 @@ let mockAudioContextInstance: {
   state: string;
 };
 
+/**
+ * Build a complete WebSocketContextValue mock. usePlayNormal calls
+ * setResumePositionGetter() unconditionally on mount, so every field must be
+ * present or renderHook() throws and the whole suite fails (#3933).
+ */
+function makeMockWsContext(overrides: Record<string, any> = {}): any {
+  return {
+    isConnected: mockWsConnected,
+    connectionStatus: mockWsConnected ? 'connected' : 'disconnected',
+    send: mockSend,
+    subscribe: vi.fn().mockImplementation((type: string, handler: any) => {
+      handlers[type] = handler;
+      mockUnsubscribers[type] = vi.fn();
+      return mockUnsubscribers[type];
+    }),
+    subscribeAll: vi.fn(() => vi.fn()),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    setResumePositionGetter: vi.fn(),
+    reissueActiveStreamAs: vi.fn(() => false),
+    ...overrides,
+  };
+}
+
 function setupMocks() {
   Object.keys(handlers).forEach((k) => delete handlers[k]);
   Object.keys(mockUnsubscribers).forEach((k) => delete mockUnsubscribers[k]);
   mockSend.mockReset();
   mockWsConnected = true;
 
-  // Fresh PCMStreamBuffer mock
+  // Fresh PCMStreamBuffer mock — must include getFillPercentage, which the
+  // chunk handler calls for flow control before the auto-start check (#3933).
   mockBufferInstance = {
     initialize: vi.fn(),
     append: vi.fn(),
     getAvailableSamples: vi.fn().mockReturnValue(0),
+    getFillPercentage: vi.fn().mockReturnValue(0),
     reset: vi.fn(),
   };
-  vi.mocked(PCMStreamBuffer).mockImplementation(() => mockBufferInstance as any);
+  // Use `function` (not an arrow) so `new PCMStreamBuffer()` works — arrows
+  // have no [[Construct]] and throw "is not a constructor" (#3933).
+  vi.mocked(PCMStreamBuffer).mockImplementation(function () { return mockBufferInstance as any; });
 
   // Fresh AudioPlaybackEngine mock
   mockEngineInstance = {
@@ -187,7 +216,7 @@ function setupMocks() {
     onUnderrun: vi.fn(),
     getCurrentPlaybackTime: vi.fn().mockReturnValue(0),
   };
-  vi.mocked(AudioPlaybackEngine).mockImplementation(() => mockEngineInstance as any);
+  vi.mocked(AudioPlaybackEngine).mockImplementation(function () { return mockEngineInstance as any; });
 
   // Mock decodeAudioChunkMessage
   vi.mocked(pcmDecoding.decodeAudioChunkMessage).mockReturnValue({
@@ -207,7 +236,8 @@ function setupMocks() {
     close: vi.fn(),
     state: 'running',
   };
-  vi.stubGlobal('AudioContext', vi.fn().mockImplementation(() => mockAudioContextInstance));
+  // `function` (not arrow) so `new AudioContext()` works in the engine (#3933).
+  vi.stubGlobal('AudioContext', vi.fn().mockImplementation(function () { return mockAudioContextInstance; }));
   vi.stubGlobal('webkitAudioContext', undefined);
 
   // fetch mock (used by playNormal to load track data)
@@ -216,16 +246,8 @@ function setupMocks() {
     json: vi.fn().mockResolvedValue({}),
   }));
 
-  // WebSocket context mock
-  vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue({
-    isConnected: mockWsConnected,
-    send: mockSend,
-    subscribe: vi.fn().mockImplementation((type: string, handler: any) => {
-      handlers[type] = handler;
-      mockUnsubscribers[type] = vi.fn();
-      return mockUnsubscribers[type];
-    }),
-  } as any);
+  // Complete WebSocket context mock via the shared factory (#3933).
+  vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue(makeMockWsContext());
 }
 
 // ============================================================================
@@ -511,14 +533,9 @@ describe('usePlayNormal', () => {
 
   describe('error when WebSocket disconnected', () => {
     it('dispatches streaming error when WS is not connected', async () => {
-      vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue({
-        isConnected: false,
-        send: mockSend,
-        subscribe: vi.fn().mockImplementation((type: string, handler: any) => {
-          handlers[type] = handler;
-          return vi.fn();
-        }),
-      } as any);
+      vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue(
+        makeMockWsContext({ isConnected: false, connectionStatus: 'disconnected' })
+      );
 
       const { result } = renderHook(() => usePlayNormal(), { wrapper });
       await act(async () => { await result.current.playNormal(1); });
