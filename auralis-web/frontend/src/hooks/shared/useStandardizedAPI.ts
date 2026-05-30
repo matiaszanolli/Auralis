@@ -92,7 +92,15 @@ export function useStandardizedAPI<T = unknown>(
 
   // Guard against setState after unmount (#3234)
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  // Track AbortControllers created by manual refetch() calls so they can be
+  // cancelled on unmount — otherwise a manual refetch races to completion and
+  // calls setState on an unmounted component (#3972).
+  const activeControllers = useRef<Set<AbortController>>(new Set());
+  useEffect(() => () => {
+    mountedRef.current = false;
+    activeControllers.current.forEach((c) => c.abort());
+    activeControllers.current.clear();
+  }, []);
 
   // Initialize API client
   useEffect(() => {
@@ -175,9 +183,21 @@ export function useStandardizedAPI<T = unknown>(
 
   const reset = useCallback(() => setState({ data: null, loading: false, error: null }), []);
 
+  // Public refetch() — creates a tracked AbortController so a manual refetch
+  // is cancelled on unmount, then delegates to the internal fetch (#3972).
+  const refetch = useCallback(async () => {
+    const controller = new AbortController();
+    activeControllers.current.add(controller);
+    try {
+      await fetch(controller.signal);
+    } finally {
+      activeControllers.current.delete(controller);
+    }
+  }, [fetch]);
+
   return {
     ...state,
-    refetch: fetch,
+    refetch,
     reset,
   };
 }
