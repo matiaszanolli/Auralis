@@ -112,8 +112,9 @@ export const MetadataEditorDialog = ({
         <div style={styles.form}>
           {/* Title */}
           <div style={styles.field}>
-            <label style={styles.label}>Title</label>
+            <label htmlFor="metadata-title" style={styles.label}>Title</label>
             <input
+              id="metadata-title"
               type="text"
               value={formData.title || ''}
               onChange={(e) => handleInputChange('title', e.target.value)}
@@ -123,8 +124,9 @@ export const MetadataEditorDialog = ({
 
           {/* Artist */}
           <div style={styles.field}>
-            <label style={styles.label}>Artist</label>
+            <label htmlFor="metadata-artist" style={styles.label}>Artist</label>
             <input
+              id="metadata-artist"
               type="text"
               value={formData.artist || ''}
               onChange={(e) => handleInputChange('artist', e.target.value)}
@@ -134,8 +136,9 @@ export const MetadataEditorDialog = ({
 
           {/* Album */}
           <div style={styles.field}>
-            <label style={styles.label}>Album</label>
+            <label htmlFor="metadata-album" style={styles.label}>Album</label>
             <input
+              id="metadata-album"
               type="text"
               value={formData.album || ''}
               onChange={(e) => handleInputChange('album', e.target.value)}
@@ -145,8 +148,9 @@ export const MetadataEditorDialog = ({
 
           {/* Year */}
           <div style={styles.field}>
-            <label style={styles.label}>Year</label>
+            <label htmlFor="metadata-year" style={styles.label}>Year</label>
             <input
+              id="metadata-year"
               type="number"
               value={formData.year || ''}
               onChange={(e) => handleInputChange('year', parseInt(e.target.value))}
@@ -156,8 +160,9 @@ export const MetadataEditorDialog = ({
 
           {/* Genre */}
           <div style={styles.field}>
-            <label style={styles.label}>Genre</label>
+            <label htmlFor="metadata-genre" style={styles.label}>Genre</label>
             <input
+              id="metadata-genre"
               type="text"
               value={formData.genre || ''}
               onChange={(e) => handleInputChange('genre', e.target.value)}
