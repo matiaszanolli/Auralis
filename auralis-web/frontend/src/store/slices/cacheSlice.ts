@@ -86,7 +86,9 @@ const cacheSlice = createSlice({
         >
       ) {
         if (action.payload.stats) {
-          state.stats = action.payload.stats;
+          // Strip per-track Map to prevent Redux non-serialisable-value warnings —
+          // same stripping applied by setCacheStats.prepare() (fixes #3967 / RS-3).
+          state.stats = { ...action.payload.stats, tracks: {} };
         }
         if (action.payload.health) {
           state.health = action.payload.health;
