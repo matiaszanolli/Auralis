@@ -198,18 +198,17 @@ export function useEnhancementControl(): EnhancementControlActions {
   // API twice with the same value (fixes #2404).
   const isTogglingRef = useRef(false);
 
-  // Keep a ref in sync with the latest enabled value so toggleEnabled never
-  // reads a stale closure (fixes #2990 — WS race overwrites correct state).
+  // Keep refs in sync with the latest enabled / preset / intensity values so
+  // the toggle and setter callbacks never read a stale closure (fixes #2990 —
+  // WS race overwrites correct state; #3759 + #3763 — re-issued stream command
+  // needs latest values). Direct assignment in the render body is sufficient
+  // and avoids three single-field useEffect synchronizers (#3969).
   const enabledRef = useRef(state.enabled);
-  useEffect(() => { enabledRef.current = state.enabled; }, [state.enabled]);
-
-  // #3759 + #3763: same staleness concern applies when reading preset /
-  // intensity from inside the toggle / setter callbacks (they need the
-  // latest values to compose the re-issued stream command).
+  enabledRef.current = state.enabled;
   const presetRef = useRef(state.preset);
-  useEffect(() => { presetRef.current = state.preset; }, [state.preset]);
+  presetRef.current = state.preset;
   const intensityRef = useRef(state.intensity);
-  useEffect(() => { intensityRef.current = state.intensity; }, [state.intensity]);
+  intensityRef.current = state.intensity;
 
   const toggleEnabled = useCallback(async (): Promise<void> => {
     if (isTogglingRef.current) return;
