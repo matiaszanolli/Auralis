@@ -24,14 +24,14 @@ export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
   const currentTrack = useSelector(selectCurrentTrack);
   const currentTrackId = currentTrack?.id;
 
-  const { success } = useToast();
+  const { success, error: errorToast } = useToast();
   const wsContext = useWebSocketContext();
 
   const handlePlayTrack = useCallback(async (track: Track) => {
     try {
       // 1. Set queue via REST API (still needed for queue management).
       // #3641: route through getApiUrl() so URL construction is centralized.
-      await fetch(getApiUrl('/api/player/queue'), {
+      const queueResponse = await fetch(getApiUrl('/api/player/queue'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -39,6 +39,11 @@ export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
           start_index: 0
         })
       });
+
+      // Guard: only proceed to stream if the queue POST succeeded (#3953).
+      if (!queueResponse.ok) {
+        throw new Error(`Failed to set queue: ${queueResponse.status} ${queueResponse.statusText}`);
+      }
 
       // 2. Send play_enhanced message via WebSocket
       // The Player component's usePlayEnhanced instance will handle the stream
@@ -56,6 +61,7 @@ export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
       onTrackPlay?.(track);
     } catch (err) {
       console.error('Failed to play track:', err);
+      errorToast(err instanceof Error ? err.message : 'Failed to play track');
     }
   }, [success, onTrackPlay, wsContext]);
 
