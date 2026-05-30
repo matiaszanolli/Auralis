@@ -210,10 +210,10 @@ export const shimmer = keyframes`
  */
 export const glow = keyframes`
   0%, 100% {
-    box-shadow: 0 0 10px rgba(115, 102, 240, 0.5);
+    box-shadow: var(--glow-accent-medium, 0 0 10px rgba(115, 102, 240, 0.5));
   }
   50% {
-    box-shadow: 0 0 20px rgba(115, 102, 240, 0.8);
+    box-shadow: var(--glow-accent-strong, 0 0 20px rgba(115, 102, 240, 0.8));
   }
 `;
 
@@ -222,10 +222,10 @@ export const glow = keyframes`
  */
 export const glowAqua = keyframes`
   0%, 100% {
-    box-shadow: 0 0 10px rgba(71, 214, 255, 0.5);
+    box-shadow: var(--glow-aqua-medium, 0 0 10px rgba(71, 214, 255, 0.5));
   }
   50% {
-    box-shadow: 0 0 20px rgba(71, 214, 255, 0.8);
+    box-shadow: var(--glow-aqua-strong, 0 0 20px rgba(71, 214, 255, 0.8));
   }
 `;
 

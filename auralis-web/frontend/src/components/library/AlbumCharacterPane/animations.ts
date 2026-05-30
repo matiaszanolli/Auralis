@@ -13,10 +13,10 @@ export const breathePulse = keyframes`
 
 export const subtleGlow = keyframes`
   0%, 100% {
-    box-shadow: 0 0 8px 2px rgba(115, 102, 240, 0.15);
+    box-shadow: 0 0 8px 2px rgba(var(--accent-rgb, 115, 102, 240), 0.15);
   }
   50% {
-    box-shadow: 0 0 16px 4px rgba(115, 102, 240, 0.35);
+    box-shadow: 0 0 16px 4px rgba(var(--accent-rgb, 115, 102, 240), 0.35);
   }
 `;
 
@@ -68,9 +68,9 @@ export const arcPulse = keyframes`
 
 export const barGlow = keyframes`
   0%, 100% {
-    filter: drop-shadow(0 0 4px rgba(115, 102, 240, 0.4));
+    filter: drop-shadow(0 0 4px rgba(var(--accent-rgb, 115, 102, 240), 0.4));
   }
   50% {
-    filter: drop-shadow(0 0 12px rgba(115, 102, 240, 0.8));
+    filter: drop-shadow(0 0 12px rgba(var(--accent-rgb, 115, 102, 240), 0.8));
   }
 `;

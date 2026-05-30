@@ -22,6 +22,17 @@ export const globalStyles = css`
     /* Gradient variables - from tokens */
     --gradient-aurora: ${tokens.gradients.aurora};
     --gradient-aqua: ${tokens.gradients.aqua};
+
+    /* Glow shadow variables — single source for keyframe animations so a
+       brand-color change propagates to all glow/pulse animations (#3982). */
+    --glow-accent-medium: 0 0 10px rgba(115, 102, 240, 0.5);
+    --glow-accent-strong: 0 0 20px rgba(115, 102, 240, 0.8);
+    --glow-aqua-medium: 0 0 10px rgba(71, 214, 255, 0.5);
+    --glow-aqua-strong: 0 0 20px rgba(71, 214, 255, 0.8);
+
+    /* Accent color RGB channels (accent.primary #7366F0) so keyframes can use
+       rgba(var(--accent-rgb), <opacity>) and inherit brand-color changes (#3982). */
+    --accent-rgb: 115, 102, 240;
   }
 
   * {
