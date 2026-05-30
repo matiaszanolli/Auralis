@@ -105,6 +105,13 @@ export const useEnhancedPlaybackShortcuts = (
   const intensityRef = useRef(currentIntensity);
   intensityRef.current = currentIntensity;
 
+  // Store the caller-supplied callbacks + volatile state in refs updated every
+  // render so handleKeyDown can omit them from its dep array. Otherwise the
+  // keydown listener is torn down and re-added on every parent render, dropping
+  // keystrokes fired during the gap (#3942).
+  const callbacksRef = useRef({ onPresetChange, onIntensityChange, onEnhancedToggle, isEnhancedMode, debug });
+  callbacksRef.current = { onPresetChange, onIntensityChange, onEnhancedToggle, isEnhancedMode, debug };
+
   /**
    * Handle keyboard event
    */
@@ -116,6 +123,11 @@ export const useEnhancedPlaybackShortcuts = (
       if (!event.shiftKey) return;
 
       const key = event.key.toLowerCase();
+
+      // Read the latest callbacks + volatile state from the ref so this handler
+      // stays stable across parent re-renders (#3942).
+      const { onPresetChange, onIntensityChange, onEnhancedToggle, isEnhancedMode, debug } =
+        callbacksRef.current;
 
       if (debug) {
         console.log(`[useEnhancedPlaybackShortcuts] Key: ${key}, Shift: ${event.shiftKey}`);
@@ -156,7 +168,7 @@ export const useEnhancedPlaybackShortcuts = (
         return;
       }
     },
-    [enabled, trackId, isEnhancedMode, onPresetChange, onIntensityChange, onEnhancedToggle, debug]
+    [enabled, trackId]
   );
 
   /**
