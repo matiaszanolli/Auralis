@@ -159,7 +159,13 @@ class LibraryAutoScanner:
                 logger.error(f"LibraryAutoScanner cycle failed: {exc}", exc_info=True)
                 await connection_manager_safe_broadcast(
                     self._connection_manager,
-                    {"type": "library_scan_error", "data": {"error": str(exc)}}
+                    {
+                        "type": "library_scan_error",
+                        # Mirror the inner _do_scan handler (#3543): surface only the
+                        # exception class so OS paths / permission detail don't leak
+                        # to every connected client (fixes #3846 / BE-EH-3).
+                        "data": {"error": f"{type(exc).__name__} during library scan"},
+                    },
                 )
                 # Back off 30s before retry to avoid tight crash-loop
                 await self._interruptible_sleep(30)
