@@ -67,6 +67,9 @@ export const PlayerBarV2 = ({
             <img
               src={currentTrack.artwork_url}
               alt={`${currentTrack.album} artwork`}
+              width={40}
+              height={40}
+              loading="lazy"
             />
           )}
           <span>{currentTrack.title}</span>
