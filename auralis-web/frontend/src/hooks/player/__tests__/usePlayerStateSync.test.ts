@@ -364,6 +364,14 @@ describe('usePlayerStateSync – duration', () => {
     firePlayerState({ is_playing: false });
     expect(store.getState().player.duration).toBe(0);
   });
+
+  it('applies duration before current_time so position is not clamped to a stale duration (#3936)', () => {
+    // Cold start: store.duration is 0. A single message carrying both fields
+    // must set duration FIRST, otherwise setCurrentTime clamps 120 → 0.
+    firePlayerState({ current_time: 120, duration: 300 });
+    expect(store.getState().player.duration).toBe(300);
+    expect(store.getState().player.currentTime).toBe(120);
+  });
 });
 
 // ============================================================================

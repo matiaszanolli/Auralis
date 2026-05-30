@@ -89,12 +89,16 @@ export function usePlayerStateSync() {
           dispatch(setIsPlaying(state.is_playing));
         }
 
-        if ('current_time' in state && typeof state.current_time === 'number') {
-          dispatch(setCurrentTime(state.current_time));
-        }
-
+        // setDuration BEFORE setCurrentTime: the setCurrentTime reducer clamps
+        // to Math.min(payload, state.duration), so on cold start / reconnect a
+        // stale duration (possibly 0) would silently clamp currentTime to the
+        // wrong value if applied first (#3936).
         if ('duration' in state && typeof state.duration === 'number') {
           dispatch(setDuration(state.duration));
+        }
+
+        if ('current_time' in state && typeof state.current_time === 'number') {
+          dispatch(setCurrentTime(state.current_time));
         }
 
         if ('volume' in state && typeof state.volume === 'number') {
