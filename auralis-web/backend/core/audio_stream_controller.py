@@ -422,7 +422,11 @@ class AudioStreamController:
                     websocket,
                     track_id=track_id,
                     status="error",
-                    message=f"Fingerprint error: {str(e)}"
+                    # Surface only the exception class; full detail is in the
+                    # server log above so file paths / ffmpeg stderr don't leak
+                    # to every connected WS client (fixes #3847, same pattern as
+                    # #3543 / #3846).
+                    message=f"Fingerprint error: {type(e).__name__}"
                 )
 
             return False
