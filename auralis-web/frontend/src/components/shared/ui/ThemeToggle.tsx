@@ -43,6 +43,7 @@ export const ThemeToggle = ({ size = 'medium', showLabel = false }: ThemeToggleP
           onClick={toggleTheme}
           buttonSize={buttonSize}
           isDark={isDark}
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {/* Animated background gradient */}
           <ThemeToggleBackground sx={{

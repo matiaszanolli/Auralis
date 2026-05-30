@@ -47,6 +47,7 @@ export const NoArtworkButtons = ({
           size="small"
           onClick={onDownload}
           disabled={isDownloading}
+          aria-label="Download artwork from online sources"
           sx={{
             color: tokens.colors.text.primary,
             background: tokens.gradients.aurora,
@@ -61,6 +62,7 @@ export const NoArtworkButtons = ({
           size="small"
           onClick={onExtract}
           disabled={isExtracting}
+          aria-label="Extract artwork from audio files"
           sx={{
             color: tokens.colors.text.primary,
             background: tokens.colors.opacityScale.accent.light,
