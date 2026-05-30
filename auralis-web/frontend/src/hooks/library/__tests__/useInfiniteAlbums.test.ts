@@ -17,6 +17,8 @@ vi.mock('@/api/transformers', () => ({
 
 vi.mock('@/config/api', () => ({
   API_BASE_URL: 'http://localhost:8765',
+  // Hook migrated from API_BASE_URL concat to getApiUrl() (#3988)
+  getApiUrl: (path: string) => `http://localhost:8765${path}`,
 }));
 
 import { useInfiniteAlbums } from '../useInfiniteAlbums';
