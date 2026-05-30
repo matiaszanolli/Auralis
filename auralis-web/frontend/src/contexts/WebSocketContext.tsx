@@ -14,7 +14,7 @@
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { WebSocketManager } from '@/utils/errorHandling';
 import { WS_BASE_URL } from '@/config/api';
-import type { AnyWebSocketMessage, AudioChunkMessage, WebSocketMessage, WebSocketMessageType } from '@/types/websocket';
+import type { AnyWebSocketMessage, AudioChunkMessage, AudioChunkMetaMessage, WebSocketMessage, WebSocketMessageType } from '@/types/websocket';
 
 // Re-export message types so existing consumers can still import from here
 export type { AnyWebSocketMessage } from '@/types/websocket';
@@ -107,8 +107,10 @@ let singletonRefCount = 0; // Track number of active providers
 /**
  * Pending audio_chunk_meta message — paired with the next binary frame.
  * Backend sends metadata as JSON text followed by raw PCM as binary.
+ * Typed as AudioChunkMetaMessage (not AudioChunkMessage) so seq and the
+ * absence of samples are correctly reflected (#3944 / TS-2).
  */
-let pendingAudioChunkMeta: AudioChunkMessage | null = null;
+let pendingAudioChunkMeta: AudioChunkMetaMessage | null = null;
 
 /**
  * Module-level subscription maps (must be singletons to survive provider remounts)
@@ -311,9 +313,8 @@ export const WebSocketProvider = ({
           const message: AnyWebSocketMessage | WebSocketMessage = JSON.parse(event.data);
 
           // If this is an audio_chunk_meta, stash it and wait for the binary frame.
-          // The meta has the same data shape as AudioChunkMessage (minus pcm_binary/samples).
           if (message.type === 'audio_chunk_meta') {
-            pendingAudioChunkMeta = message as unknown as AudioChunkMessage;
+            pendingAudioChunkMeta = message as AudioChunkMetaMessage;
             return;
           }
 

@@ -461,11 +461,16 @@ export interface AudioStreamEndMessage extends WebSocketMessage {
 export interface AudioChunkMessage extends WebSocketMessage {
   type: 'audio_chunk';
   data: {
+    /** Monotonic sequence counter carried over from audio_chunk_meta (fixes #3944 / TS-2).
+     *  Consumers can detect dropped or reordered frames by checking seq increments by 1. */
+    seq?: number;
     chunk_index: number;
     chunk_count: number;
     frame_index: number;
     frame_count: number;
-    samples: string; // base64-encoded float32 PCM (legacy transport)
+    /** Base64-encoded float32 PCM (legacy transport). Optional because the
+     *  binary transport path (pcm_binary) does not include this field (#3944). */
+    samples?: string;
     sample_count: number;
     crossfade_samples: number;
     stream_type?: 'enhanced' | 'normal';
