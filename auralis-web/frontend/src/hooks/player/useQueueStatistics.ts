@@ -30,7 +30,7 @@
  * @module hooks/player/useQueueStatistics
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { QueueStatistics, type QueueStats, type PropertyDistribution } from '@/utils/queue/queue_statistics';
 import type { Track } from '@/types/domain';
 
@@ -112,12 +112,12 @@ export interface QueueStatisticsActions {
  * console.log(`Top artist: ${topArtists[0].value}`);
  * ```
  */
-let _queueStatsWarned = false;
-
 export function useQueueStatistics(queue: Track[]): QueueStatisticsActions {
-  // Guard: Warn once in dev if queue exceeds safe size
-  if (import.meta.env.DEV && queue.length > 1000 && !_queueStatsWarned) {
-    _queueStatsWarned = true;
+  // Warn once per hook instance (not module-level) so HMR and test runs
+  // reset correctly (fixes #3974 / HC-11).
+  const _warnedRef = useRef(false);
+  if (import.meta.env.DEV && queue.length > 1000 && !_warnedRef.current) {
+    _warnedRef.current = true;
     console.warn(
       `⚠️ useQueueStatistics: Queue size (${queue.length}) exceeds safe limit (1000). ` +
       `This hook is designed for playback queues only (100-500 tracks), not entire libraries. ` +
