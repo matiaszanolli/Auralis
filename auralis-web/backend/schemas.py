@@ -384,6 +384,31 @@ class VersionResponse(BaseModel):
     python_version: str | None = Field(default=None, description="Python runtime version")
 
 
+# Typed response models for /api/health and /api/version (fixes #3863 / BE-RH-18).
+# The existing HealthCheckResponse / VersionResponse models above serve other
+# callers; these are narrowed to match what the endpoints actually emit.
+
+class HealthResponse(BaseModel):
+    """Response model for GET /api/health."""
+    status: str = Field(description="Service status string (always 'healthy')")
+    auralis_available: bool = Field(description="True when the Auralis audio engine is loaded")
+
+
+class VersionInfoResponse(BaseModel):
+    """Response model for GET /api/version (matches get_version_info() shape)."""
+    version: str = Field(description="Full semantic version string (e.g. '1.2.1-beta.1')")
+    major: int = Field(description="Major version number")
+    minor: int = Field(description="Minor version number")
+    patch: int = Field(description="Patch version number")
+    prerelease: str = Field(default="", description="Pre-release identifier (empty for stable)")
+    build: str = Field(default="", description="Build metadata (empty if not set)")
+    build_date: str = Field(default="", description="Build date (ISO format)")
+    git_commit: str = Field(default="", description="Git commit hash (empty if not set)")
+    api_version: str = Field(default="v1", description="API version for compatibility")
+    db_schema_version: int = Field(default=0, description="Database schema version")
+    display: str = Field(description="User-friendly display version string")
+
+
 # ============================================================================
 # Cache Schemas (Phase B.2)
 # ============================================================================

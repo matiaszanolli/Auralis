@@ -15,6 +15,7 @@ from core.audio_stream_controller import AudioStreamController, ws_id as _ws_id
 from core.processing_engine import _safe_error_message
 from helpers import spawn_background_task
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from schemas import HealthResponse, VersionInfoResponse
 from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import (
     WebSocketRateLimiter,
@@ -74,16 +75,13 @@ def create_system_router(
     never passed, never read) and is removed in #3536 / BE-NEW-78.
     """
 
-    @router.get("/api/health")
-    async def health_check() -> dict[str, Any]:
+    @router.get("/api/health", response_model=HealthResponse)
+    async def health_check() -> HealthResponse:
         """Health check endpoint"""
-        return {
-            "status": "healthy",
-            "auralis_available": HAS_AURALIS
-        }
+        return HealthResponse(status="healthy", auralis_available=HAS_AURALIS)
 
-    @router.get("/api/version")
-    async def get_version() -> dict[str, Any]:
+    @router.get("/api/version", response_model=VersionInfoResponse)
+    async def get_version() -> VersionInfoResponse:
         """
         Get version information.
 
@@ -98,24 +96,24 @@ def create_system_router(
         """
         try:
             from auralis.version import get_version_info
-            return get_version_info()
+            return VersionInfoResponse(**get_version_info())
         except ImportError:
             logger.warning("auralis.version not available, using fallback")
             # Fallback when auralis.version cannot be imported (broken install, path issue).
             # Keep in sync with auralis/version.py — the single source of truth (fixes #2335).
-            return {
-                "version": "1.2.1-beta.1",
-                "major": 1,
-                "minor": 2,
-                "patch": 1,
-                "prerelease": "beta.1",
-                "build": "",
-                "build_date": "2026-02-20",
-                "git_commit": "",
-                "api_version": "v1",
-                "db_schema_version": 3,
-                "display": "Auralis v1.2.1-beta.1"
-            }
+            return VersionInfoResponse(
+                version="1.2.1-beta.1",
+                major=1,
+                minor=2,
+                patch=1,
+                prerelease="beta.1",
+                build="",
+                build_date="2026-02-20",
+                git_commit="",
+                api_version="v1",
+                db_schema_version=3,
+                display="Auralis v1.2.1-beta.1",
+            )
 
     @router.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:

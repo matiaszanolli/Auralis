@@ -536,26 +536,35 @@ def create_library_router(
                 loop = asyncio.get_running_loop()
 
                 def _progress_callback(progress_data: dict[str, Any]) -> None:
-                    total = progress_data.get('total_found', 0) or progress_data.get('processed', 0)
-                    processed = progress_data.get('processed', 0)
-                    progress_frac = progress_data.get('progress', 0)
-                    percentage = round(progress_frac * 100) if progress_frac else (
-                        round(processed / total * 100) if total > 0 else 0
-                    )
-                    stage = progress_data.get('stage', 'processing')
-                    asyncio.run_coroutine_threadsafe(
-                        connection_manager.broadcast({
-                            "type": "scan_progress",
-                            "data": {
-                                "current": processed,
-                                "total": total,
-                                "percentage": percentage if stage != 'discovering' else None,
-                                "current_file": progress_data.get('current_file') or progress_data.get('file'),
-                                "phase": stage,
-                            }
-                        }),
-                        loop,
-                    )
+                    # Guard against malformed progress_data (e.g. non-dict emitted
+                    # by a scanner bug) so a future exception is logged rather than
+                    # silently swallowed by run_coroutine_threadsafe (fixes #3864).
+                    try:
+                        total = progress_data.get('total_found', 0) or progress_data.get('processed', 0)
+                        processed = progress_data.get('processed', 0)
+                        progress_frac = progress_data.get('progress', 0)
+                        percentage = round(progress_frac * 100) if progress_frac else (
+                            round(processed / total * 100) if total > 0 else 0
+                        )
+                        stage = progress_data.get('stage', 'processing')
+                        asyncio.run_coroutine_threadsafe(
+                            connection_manager.broadcast({
+                                "type": "scan_progress",
+                                "data": {
+                                    "current": processed,
+                                    "total": total,
+                                    "percentage": percentage if stage != 'discovering' else None,
+                                    "current_file": progress_data.get('current_file') or progress_data.get('file'),
+                                    "phase": stage,
+                                }
+                            }),
+                            loop,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "scan_library progress callback failed — malformed progress_data",
+                            exc_info=True,
+                        )
 
                 scanner.set_progress_callback(_progress_callback)
 

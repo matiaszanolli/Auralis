@@ -59,6 +59,14 @@ class TestHealthCheck:
         assert isinstance(data["status"], str)
         assert isinstance(data["auralis_available"], bool)
 
+    def test_health_check_pydantic_schema_exported(self, client):
+        """HealthResponse model is used — FastAPI exposes it in /openapi.json (#3863)."""
+        schema = client.get("/openapi.json").json()
+        schemas = schema.get("components", {}).get("schemas", {})
+        assert "HealthResponse" in schemas, (
+            "HealthResponse Pydantic model must appear in OpenAPI schema (#3863)"
+        )
+
 
 class TestVersionEndpoint:
     """Test GET /api/version"""
@@ -111,6 +119,14 @@ class TestVersionEndpoint:
         assert "api_version" in data
         assert data["api_version"] == "v1"
         assert data["db_schema_version"] == 3
+
+    def test_version_pydantic_schema_exported(self, client):
+        """VersionInfoResponse model is used — FastAPI exposes it in /openapi.json (#3863)."""
+        schema = client.get("/openapi.json").json()
+        schemas = schema.get("components", {}).get("schemas", {})
+        assert "VersionInfoResponse" in schemas, (
+            "VersionInfoResponse Pydantic model must appear in OpenAPI schema (#3863)"
+        )
 
 
 class TestWebSocketConnection:
