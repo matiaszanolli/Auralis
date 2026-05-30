@@ -53,6 +53,7 @@ def create_system_router(
     get_repository_factory: Callable[..., Any] | None = None,
     get_state_manager: Callable[..., Any] | None = None,
     get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
+    get_cache_manager: Callable[[], Any] | None = None,
 ) -> APIRouter:
     """
     Create system router with dependencies.
@@ -64,6 +65,10 @@ def create_system_router(
         get_repository_factory: Optional callable that returns RepositoryFactory instance
         get_state_manager: Callable that returns PlayerStateManager instance
         get_enhancement_settings: Optional callable that returns enhancement settings dict
+        get_cache_manager: Optional callable that returns the process-wide
+            StreamlinedCacheManager so AudioStreamController reuses the shared
+            chunk cache across requests instead of creating a fresh
+            SimpleChunkCache per stream (fixes #3855).
 
     Note: `get_player_manager` was a dead parameter (declared, documented,
     never passed, never read) and is removed in #3536 / BE-NEW-78.
@@ -369,6 +374,11 @@ def create_system_router(
                                     if (get_enhancement_settings is not None and not force)
                                     else None
                                 ),
+                                # Reuse the process-wide chunk cache so scrub/replay
+                                # hits cache instead of rebuilding DSP from scratch
+                                # (fixes #3855 — per-stream SimpleChunkCache prevented
+                                # cross-request sharing).
+                                cache_manager=get_cache_manager() if get_cache_manager else None,
                             )
 
                             if controller.fingerprint_generator:
@@ -497,6 +507,7 @@ def create_system_router(
                             controller = AudioStreamController(
                                 chunked_processor_class=None,
                                 get_repository_factory=get_repository_factory,
+                                cache_manager=get_cache_manager() if get_cache_manager else None,
                             )
 
                             # Stream original audio to client (no DSP processing)
@@ -718,6 +729,7 @@ def create_system_router(
                                     if get_enhancement_settings is not None
                                     else None
                                 ),
+                                cache_manager=get_cache_manager() if get_cache_manager else None,
                             )
 
                             if enhancement_enabled:

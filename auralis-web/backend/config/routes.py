@@ -90,6 +90,9 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         get_repository_factory=get_component('repository_factory'),
         get_enhancement_settings=lambda: enhancement_settings,
         get_state_manager=get_component('player_state_manager'),
+        # Pass the process-wide StreamlinedCacheManager so AudioStreamController
+        # reuses the shared chunk cache across requests (fixes #3855).
+        get_cache_manager=get_component('streamlined_cache'),
     )
     app.include_router(system_router)
     logger.debug("✅ System router registered")

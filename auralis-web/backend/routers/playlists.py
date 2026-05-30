@@ -269,10 +269,12 @@ def create_playlists_router(
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            added_count = 0
-            for track_id in request.track_ids:
-                if await asyncio.to_thread(repos.playlists.add_track, playlist_id, track_id):
-                    added_count += 1
+            # Single to_thread call for all IDs — avoids N×session-open/commit
+            # overhead and the frontend 5s timeout on large album imports
+            # (fixes #3856; replaces N×add_track loop).
+            added_count = await asyncio.to_thread(
+                repos.playlists.add_tracks, playlist_id, request.track_ids
+            )
 
             if added_count == 0:
                 raise HTTPException(status_code=400, detail="No tracks were added")

@@ -352,6 +352,86 @@ class PlaylistRepository:
         finally:
             session.close()
 
+    def add_tracks(self, playlist_id: int, track_ids: list[int]) -> int:
+        """Add multiple tracks to a playlist in a single transaction.
+
+        Runs all ``INSERT OR IGNORE ... SELECT COALESCE(MAX(position),-1)+1``
+        statements within one session so each insertion sees the previous
+        one's position (SQLite read-your-own-writes) and commits once.
+        Returns the number of tracks actually inserted (duplicates are silently
+        ignored by the ``OR IGNORE`` clause).
+
+        This is the batch equivalent of ``add_track`` used by
+        ``POST /api/playlists/{id}/tracks`` to avoid N×to_thread overhead
+        for album drag-and-drop and bulk import (fixes #3856).
+
+        Args:
+            playlist_id: ID of the target playlist.
+            track_ids: Ordered list of track IDs to append.
+
+        Returns:
+            Number of new rows inserted (tracks already present are not
+            counted).
+        """
+        if not track_ids:
+            return 0
+
+        session = self.get_session()
+        try:
+            # Verify the playlist exists once rather than per track.
+            playlist = session.execute(
+                select(Playlist).where(Playlist.id == playlist_id)
+            ).scalars().first()
+            if not playlist:
+                return 0
+
+            added = 0
+            for track_id in track_ids:
+                # Skip if the track row doesn't exist in the library.
+                if not session.execute(
+                    select(Track.id).where(Track.id == track_id)
+                ).scalar_one_or_none():
+                    continue
+
+                # Skip if already in the playlist (idempotent).
+                already_present = session.scalar(
+                    select(track_playlist.c.position)
+                    .where(track_playlist.c.playlist_id == playlist_id)
+                    .where(track_playlist.c.track_id == track_id)
+                )
+                if already_present is not None:
+                    continue
+
+                # Append at next free position.  Because we are inside a
+                # single session, MAX(position) already sees the rows we
+                # inserted for previous track_ids in this loop — SQLite's
+                # read-your-own-writes guarantee closes the position-race
+                # that the per-call version had between sessions.
+                session.execute(
+                    text(
+                        "INSERT OR IGNORE INTO track_playlist "
+                        "(track_id, playlist_id, position) "
+                        "SELECT :tid, :pid, "
+                        "COALESCE(MAX(position), -1) + 1 "
+                        "FROM track_playlist WHERE playlist_id = :pid"
+                    ),
+                    {"tid": track_id, "pid": playlist_id},
+                )
+                added += 1
+
+            session.commit()
+            debug(
+                f"Batch-added {added}/{len(track_ids)} tracks to playlist {playlist.name}"
+            )
+            return added
+
+        except Exception as e:
+            session.rollback()
+            error(f"Failed to batch-add tracks to playlist {playlist_id}: {e}")
+            return 0
+        finally:
+            session.close()
+
     def remove_track(self, playlist_id: int, track_id: int) -> bool:
         """Remove a track from a playlist.
 
