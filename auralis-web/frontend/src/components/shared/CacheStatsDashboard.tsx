@@ -48,13 +48,13 @@ function PercentageDisplay({ value, threshold = 70 }: { value: number; threshold
         gap: tokens.spacing.sm,
       }}
     >
+      {/* Use hex-alpha background instead of opacity so the text remains visible (#3990) */}
       <div
         style={{
           width: '24px',
           height: '24px',
           borderRadius: '50%',
-          background: color,
-          opacity: 0.2,
+          background: `${color}33`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -62,6 +62,7 @@ function PercentageDisplay({ value, threshold = 70 }: { value: number; threshold
           color,
           fontWeight: tokens.typography.fontWeight.bold,
         }}
+        aria-hidden="true"
       >
         {percentage}%
       </div>
