@@ -25,6 +25,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
 from core.chunk_boundaries import CHUNK_INTERVAL  # single source of truth (#2564)
+from helpers import spawn_background_task
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
@@ -198,17 +199,19 @@ def create_enhancement_router(
                     state = player_state_manager.get_state()
                     # Only pre-process if actively playing
                     if state.current_track and state.state.value == "playing":
-                        # Launch background task to pre-process next 3 chunks (#2296)
-                        _bg_task = asyncio.create_task(_preprocess_upcoming_chunks(
-                            track_id=state.current_track.id,
-                            filepath=state.current_track.filepath,
-                            current_time=state.current_time,
-                            preset=enhancement_settings.get("preset", "adaptive"),
-                            intensity=enhancement_settings.get("intensity", 1.0)
-                        ))
-                        _bg_task.add_done_callback(
-                            lambda t: logger.error(f"Pre-processing task failed: {t.exception()}")
-                            if not t.cancelled() and t.exception() else None
+                        # Launch background task to pre-process next 3 chunks (#2296).
+                        # Use the canonical fire-and-forget helper so an exception
+                        # escaping the coroutine is logged consistently with the
+                        # other long-lived background tasks (#3851 / sibling of #3512).
+                        spawn_background_task(
+                            _preprocess_upcoming_chunks(
+                                track_id=state.current_track.id,
+                                filepath=state.current_track.filepath,
+                                current_time=state.current_time,
+                                preset=enhancement_settings.get("preset", "adaptive"),
+                                intensity=enhancement_settings.get("intensity", 1.0)
+                            ),
+                            name="enhancement._preprocess_upcoming_chunks",
                         )
                         logger.info(f"🎯 Launched background pre-processing for track {state.current_track.id} at {state.current_time:.1f}s")
 
