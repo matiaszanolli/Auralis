@@ -168,6 +168,7 @@ export const EnhancementPane = ({
             style={styles.closeButton}
             onClick={handleCloseInspection}
             title="Close detailed controls"
+            aria-label="Close detailed controls"
           >
             ✕
           </button>
