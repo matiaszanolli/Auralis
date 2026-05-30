@@ -33,7 +33,8 @@ export const ButtonVariant = memo<EnhancementToggleProps>(({
         <ToggleButton
           onClick={() => onToggle(!isEnabled)}
           $isEnabled={isEnabled}
-          aria-label={isEnabled ? 'Disable enhancement' : 'Enable enhancement'}
+          aria-label="Audio enhancement"
+          aria-pressed={isEnabled}
         >
           <AutoAwesomeIcon />
         </ToggleButton>
