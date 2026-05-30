@@ -433,9 +433,9 @@ export function createMemoizedSelector<T, Args extends unknown[] = unknown[]>(
       lastTuple.length === inputs.length &&
       lastTuple.every((v, i) => v === inputs[i]);
 
-    if (sameInputs && lastResult !== undefined) {
+    if (sameInputs && lastTuple !== undefined) {
       selectorPerformance.recordCall(name, 0, true);
-      return lastResult;
+      return lastResult as T;
     }
     lastResult = wrappedCompute(...inputs);
     lastTuple = [...inputs];
