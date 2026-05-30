@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens, withOpacity } from '@/design-system';
 import { arcPulse } from './animations';
@@ -14,7 +15,7 @@ interface GlowingArcProps {
   energyLevel: number;
 }
 
-export const GlowingArc = ({ isAnimating, intensity, energyLevel }: GlowingArcProps) => {
+export const GlowingArc = memo(({ isAnimating, intensity, energyLevel }: GlowingArcProps) => {
   const glowIntensity = Math.sqrt(intensity);
 
   // Arc spans based on energy level (more energy = wider arc)
@@ -113,4 +114,5 @@ export const GlowingArc = ({ isAnimating, intensity, energyLevel }: GlowingArcPr
       </Typography>
     </Box>
   );
-};
+});
+GlowingArc.displayName = 'GlowingArc';

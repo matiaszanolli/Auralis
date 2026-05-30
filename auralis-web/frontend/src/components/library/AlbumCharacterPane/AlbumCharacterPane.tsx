@@ -111,8 +111,10 @@ export const AlbumCharacterPane = ({
   // Apply silence decay - motion fades gracefully over 2.5s when playback stops
   const { isAnimating, intensity, isPlaying } = usePlaybackWithDecay(isPlayingRaw);
 
-  // Glow lingers longer - use sqrt for slower fade on container glow
-  const glowIntensity = Math.sqrt(intensity);
+  // Glow lingers longer - use sqrt for slower fade on container glow.
+  // Round to 2dp so the ~60Hz decay produces ≤100 distinct values instead of a
+  // unique float every rAF tick — lets useMemo below actually cache (#3954).
+  const glowIntensity = Math.round(Math.sqrt(intensity) * 100) / 100;
 
   // Enhancement toggle section (always shown at top). Inline JSX — NOT a
   // useCallback-wrapped component. Pre-fix (#2760) this was defined as
@@ -121,8 +123,10 @@ export const AlbumCharacterPane = ({
   // "component type" every time the deps changed (the toggle itself!),
   // unmounting and remounting the whole subtree on every toggle.
 
-  // Container styles matching sidebar (muscle memory UI - lower contrast)
-  const containerStyles = {
+  // Container styles matching sidebar (muscle memory UI - lower contrast).
+  // Memoized on the rounded glowIntensity so Emotion only re-hashes when the
+  // glow actually changes by ≥0.01, not on every rAF tick (#3954).
+  const containerStyles = useMemo(() => ({
     position: 'relative' as const,
     width: tokens.components.rightPanel.width,
     height: '100%',
@@ -141,7 +145,7 @@ export const AlbumCharacterPane = ({
     transition: `all ${tokens.transitions.slow}`,
     display: 'flex',
     flexDirection: 'column' as const,
-  };
+  }), [glowIntensity]);
 
   const enhancementSection = (
     <Box

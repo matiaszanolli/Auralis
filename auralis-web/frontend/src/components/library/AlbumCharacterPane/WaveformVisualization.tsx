@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Box } from '@mui/material';
 import { tokens, withOpacity } from '@/design-system';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
@@ -9,7 +10,7 @@ interface WaveformVisualizationProps {
   intensity: number;
 }
 
-export const WaveformVisualization = ({
+export const WaveformVisualization = memo(({
   fingerprint,
   isAnimating,
   intensity,
@@ -26,7 +27,9 @@ export const WaveformVisualization = ({
 
   const maxValue = Math.max(...frequencyBands, 0.01);
   const normalizedBands = frequencyBands.map((v) => v / maxValue);
-  const glowIntensity = Math.sqrt(intensity);
+  // Round to 2dp so the ~60Hz decay yields ≤100 distinct boxShadow strings for
+  // Emotion to hash, not a unique one per rAF tick (#3954).
+  const glowIntensity = Math.round(Math.sqrt(intensity) * 100) / 100;
 
   return (
     <Box
@@ -92,4 +95,5 @@ export const WaveformVisualization = ({
       })}
     </Box>
   );
-};
+});
+WaveformVisualization.displayName = 'WaveformVisualization';

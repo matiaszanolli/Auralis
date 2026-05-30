@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { energyDrift } from './animations';
@@ -8,7 +9,7 @@ interface EnergyFieldProps {
   intensity: number;
 }
 
-export const EnergyField = ({ energy, isAnimating, intensity }: EnergyFieldProps) => {
+export const EnergyField = memo(({ energy, isAnimating, intensity }: EnergyFieldProps) => {
   // Map energy (0-1) to visual position
   const percentage = energy * 100;
 
@@ -107,4 +108,5 @@ export const EnergyField = ({ energy, isAnimating, intensity }: EnergyFieldProps
       </Box>
     </Box>
   );
-};
+});
+EnergyField.displayName = 'EnergyField';

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
 import { particleFloat } from './animations';
@@ -9,7 +9,7 @@ interface FloatingParticlesProps {
   count?: number;
 }
 
-export const FloatingParticles = ({
+export const FloatingParticles = memo(({
   isAnimating,
   intensity,
   count = 12,
@@ -60,4 +60,5 @@ export const FloatingParticles = ({
       ))}
     </Box>
   );
-};
+});
+FloatingParticles.displayName = 'FloatingParticles';

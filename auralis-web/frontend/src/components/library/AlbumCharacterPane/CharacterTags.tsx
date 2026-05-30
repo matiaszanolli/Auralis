@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { tokens, withOpacity } from '@/design-system';
 import { subtleGlow } from './animations';
@@ -13,7 +14,7 @@ interface CharacterTagsProps {
   intensity: number;
 }
 
-export const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsProps) => {
+export const CharacterTags = memo(({ tags, isAnimating, intensity }: CharacterTagsProps) => {
   // Glow lingers longer (use sqrt for slower fade)
   const glowIntensity = Math.sqrt(intensity);
 
@@ -78,4 +79,5 @@ export const CharacterTags = ({ tags, isAnimating, intensity }: CharacterTagsPro
       })}
     </Box>
   );
-};
+});
+CharacterTags.displayName = 'CharacterTags';
