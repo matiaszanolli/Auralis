@@ -41,6 +41,21 @@ import uuid
 _stream_type_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     '_stream_type', default=None
 )
+
+# Per-stream monotonic frame counter (fixes #3841). Like _stream_type_var, this
+# is a ContextVar so concurrent streams in different WebSocket tasks each keep
+# their own counter instead of clobbering shared instance state (the #2493 bug).
+#
+# It holds a ONE-ELEMENT LIST used as a mutable cell, not a bare int: _send_pcm_chunk
+# runs its frame producer in a COPIED context (via asyncio.gather), so the producer
+# must MUTATE a shared object (cell[0] += 1) rather than rebind the var with .set()
+# — only mutation is visible back in the parent stream task. That is what lets `seq`
+# stay monotonic ACROSS chunk boundaries for the whole stream, as the client contract
+# (AudioChunkMetaMessage JSDoc) promises. _send_stream_start resets the cell to [0]
+# at every audio_stream_start boundary.
+_frame_seq_var: contextvars.ContextVar[list[int] | None] = contextvars.ContextVar(
+    '_frame_seq', default=None
+)
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any
@@ -1440,13 +1455,18 @@ class AudioStreamController:
         )
         abort_event: asyncio.Event = asyncio.Event()
 
-        # Monotonic sequence counter for text+binary frame pairing.
-        # The client can use this to detect desync if frames are ever
-        # dropped or reordered (fixes #3189).
-        frame_seq = 0
+        # Monotonic sequence counter for text+binary frame pairing, kept in a
+        # per-stream ContextVar cell so it stays monotonic ACROSS chunk
+        # boundaries for the whole stream — clients use it to detect dropped or
+        # reordered frames (fixes #3189, #3841). _send_stream_start seeds the
+        # cell to [0]; the lazy fallback below only fires if a chunk is somehow
+        # sent without a preceding stream_start (keeps seq at least chunk-local).
+        seq_cell = _frame_seq_var.get()
+        if seq_cell is None:
+            seq_cell = [0]
+            _frame_seq_var.set(seq_cell)
 
         async def _producer() -> None:
-            nonlocal frame_seq
             try:
                 for frame_idx in range(num_frames):
                     if abort_event.is_set():
@@ -1458,7 +1478,7 @@ class AudioStreamController:
                     metadata: dict[str, Any] = {
                         "type": "audio_chunk_meta",
                         "data": {
-                            "seq": frame_seq,
+                            "seq": seq_cell[0],
                             "chunk_index": chunk_index,
                             "chunk_count": total_chunks,
                             "frame_index": frame_idx,
@@ -1468,7 +1488,7 @@ class AudioStreamController:
                             "stream_type": stream_type,
                         },
                     }
-                    frame_seq += 1
+                    seq_cell[0] += 1
                     # frame_samples is a slice of pcm_flat which was cast
                     # to np.float32 at line ~1335; on x86/ARM/Apple Silicon
                     # that's already little-endian, so the prior
@@ -1538,6 +1558,13 @@ class AudioStreamController:
         Returns:
             True if message was sent, False if WebSocket was disconnected.
         """
+        # Reset the per-stream frame counter at every audio_stream_start so
+        # `seq` is monotonic across the whole stream and restarts at 0 on a new
+        # stream / seek / resume — the client rebaselines on this message too
+        # (fixes #3841). A fresh cell per stream-start keeps concurrent streams
+        # in different tasks isolated.
+        _frame_seq_var.set([0])
+
         is_seek = (
             start_chunk is not None
             or seek_position is not None
