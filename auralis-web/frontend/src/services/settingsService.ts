@@ -94,13 +94,14 @@ const crudService = createCrudService<UserSettings, SettingsUpdate>({
  * Get current user settings
  */
 export async function getSettings(): Promise<UserSettings> {
-  const result: any = await crudService.list();
-  // Backend returns a single object; fall back to array handling for compat
+  // crudService.list() is typed Promise<UserSettings[]>, but the settings
+  // endpoint actually returns a single object — handle both at runtime (#3977).
+  const result = await crudService.list() as UserSettings[] | UserSettings;
   if (Array.isArray(result)) {
     if (result.length > 0) return result[0];
     throw new Error('No settings found');
   }
-  return result as UserSettings;
+  return result;
 }
 
 /**
