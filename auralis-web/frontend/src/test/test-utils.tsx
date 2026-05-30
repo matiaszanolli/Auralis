@@ -10,7 +10,7 @@
  *   })
  */
 
-import { ReactElement, ReactNode, createContext, useContext } from 'react'
+import { ReactElement, ReactNode } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -23,53 +23,11 @@ import queueReducer from '@/store/slices/queueSlice'
 import cacheReducer from '@/store/slices/cacheSlice'
 import connectionReducer from '@/store/slices/connectionSlice'
 
-/**
- * Mock WebSocket Context for Testing
- * Provides the same interface as WebSocketContext but without real connections.
- * This prevents "Should not already be working" errors caused by WebSocket
- * singleton state persisting across tests.
- */
-interface MockWebSocketContextValue {
-  isConnected: boolean;
-  connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
-  subscribe: (messageType: string, handler: (message: any) => void) => () => void;
-  subscribeAll: (handler: (message: any) => void) => () => void;
-  send: (message: any) => void;
-  connect: () => void;
-  disconnect: () => void;
-}
-
-const MockWebSocketContext = createContext<MockWebSocketContextValue>({
-  isConnected: true,
-  connectionStatus: 'connected',
-  subscribe: () => () => {},
-  subscribeAll: () => () => {},
-  send: () => {},
-  connect: () => {},
-  disconnect: () => {},
-});
-
-function MockWebSocketProvider({ children }: { children: ReactNode }) {
-  const value: MockWebSocketContextValue = {
-    isConnected: true,
-    connectionStatus: 'connected',
-    subscribe: () => () => {},
-    subscribeAll: () => () => {},
-    send: () => {},
-    connect: () => {},
-    disconnect: () => {},
-  };
-
-  return (
-    <MockWebSocketContext.Provider value={value}>
-      {children}
-    </MockWebSocketContext.Provider>
-  );
-}
-
-// Export mock context hook for tests that need to access it
-export const useWebSocketContext = () => useContext(MockWebSocketContext);
-
+// NOTE: the WebSocket context is mocked globally via vi.mock('@/contexts/
+// WebSocketContext') in src/test/setup.ts. The former MockWebSocketProvider
+// here wrapped a *different*, private context that no production component read,
+// so it was dead code and has been removed (#3964). Components under test pull
+// the real (mocked) useWebSocketContext from the actual module.
 
 /**
  * Wrapper component that provides all necessary context providers
@@ -170,13 +128,11 @@ export function AllProviders({ children, preloadedState, store }: AllProvidersPr
     <ReduxProvider store={testStore}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <MockWebSocketProvider>
-            <ThemeProvider>
-              <ToastProvider>
-                {children}
-              </ToastProvider>
-            </ThemeProvider>
-          </MockWebSocketProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </ThemeProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </ReduxProvider>
