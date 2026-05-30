@@ -133,16 +133,30 @@ interface SpringConfig {
   mass: number;
 }
 
-interface SpringTarget {
+interface SpringTargetBase {
   id: string;
-  currentValue: number | number[];
-  targetValue: number | number[];
-  velocity: number | number[];
   config: SpringConfig;
   onUpdate?: (value: number | number[], velocity: number | number[]) => void;
   onComplete?: () => void;
   threshold: number; // When to consider animation complete
 }
+
+// Discriminated union so updateSpringScalar/Array narrow without `as` casts (#3978)
+interface ScalarSpringTarget extends SpringTargetBase {
+  kind: 'scalar';
+  currentValue: number;
+  targetValue: number;
+  velocity: number;
+}
+
+interface ArraySpringTarget extends SpringTargetBase {
+  kind: 'array';
+  currentValue: number[];
+  targetValue: number[];
+  velocity: number[];
+}
+
+type SpringTarget = ScalarSpringTarget | ArraySpringTarget;
 
 export class SmoothAnimationEngine {
   private animations = new Map<string, AnimationTarget>();
@@ -212,16 +226,29 @@ export class SmoothAnimationEngine {
       ...config,
     };
 
-    const spring: SpringTarget = {
+    const base = {
       id,
-      currentValue: Array.isArray(currentValue) ? [...currentValue] : currentValue,
-      targetValue: Array.isArray(targetValue) ? [...targetValue] : targetValue,
-      velocity: Array.isArray(currentValue) ? new Array(currentValue.length).fill(0) : 0,
       config: springConfig,
       onUpdate: options.onUpdate,
       onComplete: options.onComplete,
       threshold: options.threshold || 0.001,
     };
+
+    const spring: SpringTarget = Array.isArray(currentValue)
+      ? {
+          ...base,
+          kind: 'array',
+          currentValue: [...currentValue],
+          targetValue: Array.isArray(targetValue) ? [...targetValue] : [targetValue],
+          velocity: new Array(currentValue.length).fill(0),
+        }
+      : {
+          ...base,
+          kind: 'scalar',
+          currentValue,
+          targetValue: Array.isArray(targetValue) ? targetValue[0] : targetValue,
+          velocity: 0,
+        };
 
     this.springs.set(id, spring);
   }
@@ -533,7 +560,7 @@ export class SmoothAnimationEngine {
     const toRemove: string[] = [];
 
     this.springs.forEach((spring, id) => {
-      if (Array.isArray(spring.currentValue)) {
+      if (spring.kind === 'array') {
         this.updateSpringArray(spring, dt);
       } else {
         this.updateSpringScalar(spring, dt);
@@ -553,10 +580,10 @@ export class SmoothAnimationEngine {
     toRemove.forEach(id => this.springs.delete(id));
   }
 
-  private updateSpringScalar(spring: SpringTarget, dt: number): void {
-    const current = spring.currentValue as number;
-    const target = spring.targetValue as number;
-    const velocity = spring.velocity as number;
+  private updateSpringScalar(spring: ScalarSpringTarget, dt: number): void {
+    const current = spring.currentValue;
+    const target = spring.targetValue;
+    const velocity = spring.velocity;
 
     // Spring physics calculation
     const displacement = current - target;
@@ -572,10 +599,10 @@ export class SmoothAnimationEngine {
     spring.currentValue = newPosition;
   }
 
-  private updateSpringArray(spring: SpringTarget, dt: number): void {
-    const current = spring.currentValue as number[];
-    const target = spring.targetValue as number[];
-    const velocity = spring.velocity as number[];
+  private updateSpringArray(spring: ArraySpringTarget, dt: number): void {
+    const current = spring.currentValue;
+    const target = spring.targetValue;
+    const velocity = spring.velocity;
 
     const newCurrent = [...current];
     const newVelocity = [...velocity];
@@ -595,19 +622,15 @@ export class SmoothAnimationEngine {
   }
 
   private isSpringSettled(spring: SpringTarget): boolean {
-    if (Array.isArray(spring.currentValue)) {
-      const current = spring.currentValue as number[];
-      const target = spring.targetValue as number[];
-      const velocity = spring.velocity as number[];
+    if (spring.kind === 'array') {
+      const { currentValue: current, targetValue: target, velocity } = spring;
 
       return current.every((val, i) =>
         Math.abs(val - target[i]) < spring.threshold &&
         Math.abs(velocity[i]) < spring.threshold
       );
     } else {
-      const current = spring.currentValue as number;
-      const target = spring.targetValue as number;
-      const velocity = spring.velocity as number;
+      const { currentValue: current, targetValue: target, velocity } = spring;
 
       return Math.abs(current - target) < spring.threshold &&
              Math.abs(velocity) < spring.threshold;
