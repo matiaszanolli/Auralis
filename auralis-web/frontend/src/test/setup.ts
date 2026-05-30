@@ -202,15 +202,12 @@ beforeAll(() => {
   document.head.appendChild(style)
 })
 
-// Suppress act() warnings for WebSocket and event handlers (inherently async)
-// These warnings are expected for event-driven state updates outside of React render cycles
+// Suppress only benign framework noise — NOT "not wrapped in act" warnings (#3999).
+// act() warnings indicate real async-update issues in component tests; masking them
+// project-wide hides legitimate bugs. Specific WebSocket/timer integration tests
+// that need to suppress act() warnings should do so locally in their own beforeEach.
 const originalError = console.error
 vi.spyOn(console, 'error').mockImplementation((...args: any[]) => {
-  // Suppress "An update to X inside a test was not wrapped in act(...)" warnings
-  // These occur in event handlers (WebSocket, timeouts) which are inherently async
-  if (args[0]?.toString?.().includes('not wrapped in act')) {
-    return
-  }
   // Suppress React Router future flag warnings (expected, non-blocking)
   if (args[0]?.toString?.().includes('React Router Future Flag Warning')) {
     return
@@ -220,7 +217,7 @@ vi.spyOn(console, 'error').mockImplementation((...args: any[]) => {
   if (args[0]?.toString?.().includes('Should not already be working')) {
     return
   }
-  // Log all other errors normally
+  // Log all other errors normally (including act() warnings — those are real)
   originalError(...args)
 })
 
