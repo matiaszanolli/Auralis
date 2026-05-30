@@ -88,94 +88,12 @@ export const LibraryViewRouter = ({
     );
   }
 
-  // Albums view - grid of albums with character pane on hover
+  // Albums view - grid of albums with character pane on hover.
+  // Rendered as a dedicated sub-component (AlbumsView) so its hooks run
+  // unconditionally — calling them inside this `if` branch was a Rules-of-Hooks
+  // violation that corrupted fiber state slots on view transitions (#3924).
   if (view === 'albums') {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const [hoveredAlbumId, setHoveredAlbumId] = useState<number | null>(null);
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const [hoveredAlbumTitle, setHoveredAlbumTitle] = useState<string | undefined>(undefined);
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const [hoveredAlbumArtist, setHoveredAlbumArtist] = useState<string | undefined>(undefined);
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const [sortBy, setSortBy] = useState<AlbumSortOption>('az');
-
-    // Recently touched albums tracking
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const { recentAlbums, touchAlbum } = useRecentlyTouched();
-
-    // Fetch fingerprint for hovered album
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const { fingerprint, isLoading } = useAlbumFingerprint(
-      hoveredAlbumId ?? 0,
-      { enabled: hoveredAlbumId !== null }
-    );
-
-    // Hover handlers
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const handleAlbumHover = useCallback((albumId: number, albumTitle?: string, albumArtist?: string) => {
-      setHoveredAlbumId(albumId);
-      setHoveredAlbumTitle(albumTitle);
-      setHoveredAlbumArtist(albumArtist);
-    }, []);
-
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const handleAlbumHoverEnd = useCallback(() => {
-      setHoveredAlbumId(null);
-      setHoveredAlbumTitle(undefined);
-      setHoveredAlbumArtist(undefined);
-    }, []);
-
-    // Click handler that tracks album access
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const handleAlbumClick = useCallback((albumId: number) => {
-      // Track album access using hover state info
-      if (hoveredAlbumTitle) {
-        touchAlbum(albumId, hoveredAlbumTitle, hoveredAlbumArtist ?? 'Unknown Artist');
-      }
-      onAlbumClick(albumId);
-    }, [onAlbumClick, touchAlbum, hoveredAlbumTitle, hoveredAlbumArtist]);
-
-    return (
-      <ViewContainer
-        icon="📀"
-        title="Albums"
-        subtitle="Browse your music collection by album"
-        headerActions={
-          <SegmentedControl
-            value={sortBy}
-            onChange={(value) => setSortBy(value as AlbumSortOption)}
-            options={ALBUM_SORT_OPTIONS}
-            size="sm"
-            aria-label="Sort albums by"
-          />
-        }
-        rightPane={
-          <AlbumCharacterPane
-            fingerprint={fingerprint ?? null}
-            albumTitle={hoveredAlbumTitle}
-            isLoading={isLoading && hoveredAlbumId !== null}
-          />
-        }
-      >
-        <>
-          {/* Recently Touched Section */}
-          <RecentlyTouchedSection
-            recentAlbums={recentAlbums}
-            onAlbumClick={handleAlbumClick}
-            onAlbumHover={handleAlbumHover}
-            onAlbumHoverEnd={handleAlbumHoverEnd}
-          />
-
-          {/* Main Album Grid */}
-          <CozyAlbumGrid
-            sortBy={sortBy}
-            onAlbumClick={handleAlbumClick}
-            onAlbumHover={handleAlbumHover}
-            onAlbumHoverEnd={handleAlbumHoverEnd}
-          />
-        </>
-      </ViewContainer>
-    );
+    return <AlbumsView onAlbumClick={onAlbumClick} />;
   }
 
   // Artists view
@@ -206,6 +124,93 @@ export const LibraryViewRouter = ({
   // Return null for track list views (songs/favorites)
   // These are handled by the parent CozyLibraryView component
   return null;
+};
+
+/**
+ * Albums view — owns all album-grid local state (hover, sort, fingerprint,
+ * recently-touched). Extracted from LibraryViewRouter so its hooks are called
+ * unconditionally rather than inside an `if (view === 'albums')` branch (#3924).
+ */
+interface AlbumsViewProps {
+  onAlbumClick: (albumId: number) => void;
+}
+
+const AlbumsView = ({ onAlbumClick }: AlbumsViewProps) => {
+  const [hoveredAlbumId, setHoveredAlbumId] = useState<number | null>(null);
+  const [hoveredAlbumTitle, setHoveredAlbumTitle] = useState<string | undefined>(undefined);
+  const [hoveredAlbumArtist, setHoveredAlbumArtist] = useState<string | undefined>(undefined);
+  const [sortBy, setSortBy] = useState<AlbumSortOption>('az');
+
+  // Recently touched albums tracking
+  const { recentAlbums, touchAlbum } = useRecentlyTouched();
+
+  // Fetch fingerprint for hovered album
+  const { fingerprint, isLoading } = useAlbumFingerprint(
+    hoveredAlbumId ?? 0,
+    { enabled: hoveredAlbumId !== null }
+  );
+
+  const handleAlbumHover = useCallback((albumId: number, albumTitle?: string, albumArtist?: string) => {
+    setHoveredAlbumId(albumId);
+    setHoveredAlbumTitle(albumTitle);
+    setHoveredAlbumArtist(albumArtist);
+  }, []);
+
+  const handleAlbumHoverEnd = useCallback(() => {
+    setHoveredAlbumId(null);
+    setHoveredAlbumTitle(undefined);
+    setHoveredAlbumArtist(undefined);
+  }, []);
+
+  // Click handler that tracks album access using hover state info
+  const handleAlbumClick = useCallback((albumId: number) => {
+    if (hoveredAlbumTitle) {
+      touchAlbum(albumId, hoveredAlbumTitle, hoveredAlbumArtist ?? 'Unknown Artist');
+    }
+    onAlbumClick(albumId);
+  }, [onAlbumClick, touchAlbum, hoveredAlbumTitle, hoveredAlbumArtist]);
+
+  return (
+    <ViewContainer
+      icon="📀"
+      title="Albums"
+      subtitle="Browse your music collection by album"
+      headerActions={
+        <SegmentedControl
+          value={sortBy}
+          onChange={(value) => setSortBy(value as AlbumSortOption)}
+          options={ALBUM_SORT_OPTIONS}
+          size="sm"
+          aria-label="Sort albums by"
+        />
+      }
+      rightPane={
+        <AlbumCharacterPane
+          fingerprint={fingerprint ?? null}
+          albumTitle={hoveredAlbumTitle}
+          isLoading={isLoading && hoveredAlbumId !== null}
+        />
+      }
+    >
+      <>
+        {/* Recently Touched Section */}
+        <RecentlyTouchedSection
+          recentAlbums={recentAlbums}
+          onAlbumClick={handleAlbumClick}
+          onAlbumHover={handleAlbumHover}
+          onAlbumHoverEnd={handleAlbumHoverEnd}
+        />
+
+        {/* Main Album Grid */}
+        <CozyAlbumGrid
+          sortBy={sortBy}
+          onAlbumClick={handleAlbumClick}
+          onAlbumHover={handleAlbumHover}
+          onAlbumHoverEnd={handleAlbumHoverEnd}
+        />
+      </>
+    </ViewContainer>
+  );
 };
 
 export default LibraryViewRouter;
