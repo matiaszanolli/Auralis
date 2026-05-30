@@ -78,6 +78,36 @@ def shutdown_fingerprint_executor() -> None:
 atexit.register(shutdown_fingerprint_executor)
 
 
+def _load_and_prepare_audio(filepath: str) -> tuple[np.ndarray, int, int]:
+    """Load an audio file and prepare it for Rust fingerprinting.
+
+    Runs the sync, CPU/IO-heavy work (full-file decode + interleave + dtype
+    cast) so it can be offloaded via asyncio.to_thread and not stall the event
+    loop (#3854).
+
+    Returns:
+        (audio_array, sample_rate, channels) — audio_array is float32, with
+        stereo interleaved as L1,R1,L2,R2,...
+    """
+    audio, sample_rate = load_audio(filepath)
+
+    # Handle stereo/mono
+    if audio.ndim == 1:
+        channels = 1
+        audio_array = audio
+    else:
+        channels = audio.shape[1] if audio.ndim == 2 else 1
+        # For stereo, interleave L,R channels
+        if channels == 2 and audio.ndim == 2:
+            audio_array = audio.flatten(order='F')  # Interleave: L1,R1,L2,R2...
+        else:
+            audio_array = audio
+
+    # Ensure proper dtype (float32)
+    audio_array = np.asarray(audio_array, dtype=np.float32)
+    return audio_array, int(sample_rate), int(channels)
+
+
 def _compute_fingerprint_in_process(
     audio_data: np.ndarray,
     sample_rate: int,
@@ -163,7 +193,9 @@ class FingerprintGenerator:
             repo_factory = self.get_repository_factory()
             fingerprint_repo = repo_factory.fingerprints
 
-            fp_record = fingerprint_repo.get_by_track_id(track_id)
+            # Offload the sync DB read so it doesn't stall the event loop on
+            # stream startup / background queue drain (#3854).
+            fp_record = await asyncio.to_thread(fingerprint_repo.get_by_track_id, track_id)
             if fp_record:
                 logger.info(f"✅ Loaded fingerprint from database for track {track_id} (cache hit)")
                 return self._record_to_dict(fp_record)
@@ -188,7 +220,8 @@ class FingerprintGenerator:
             repo_factory = self.get_repository_factory()
             fingerprint_repo = repo_factory.fingerprints
 
-            fingerprint_repo.add(track_id, fingerprint_data)
+            # Offload the sync DB write (#3854).
+            await asyncio.to_thread(fingerprint_repo.add, track_id, fingerprint_data)
             logger.info(f"✅ Generated and cached fingerprint for track {track_id} (25D: {list(fingerprint_data.keys())[:5]}...)")
         except Exception as e:
             logger.warning(f"Failed to store fingerprint in database: {e}, but continuing with generated fingerprint")
@@ -215,24 +248,13 @@ class FingerprintGenerator:
         """
 
         try:
-            # Load audio file (this is I/O bound, fine in main process)
+            # Load + prepare audio off the event loop — full-file decode plus
+            # numpy interleave/cast is ~200-500ms of sync work that would
+            # otherwise stall the loop before the Rust step (#3854).
             logger.debug(f"Loading audio file: {filepath}")
-            audio, sample_rate = load_audio(filepath)
-
-            # Handle stereo/mono
-            if audio.ndim == 1:
-                channels = 1
-                audio_array = audio
-            else:
-                channels = audio.shape[1] if audio.ndim == 2 else 1
-                # For stereo, interleave L,R channels
-                if channels == 2 and audio.ndim == 2:
-                    audio_array = audio.flatten(order='F')  # Interleave: L1,R1,L2,R2...
-                else:
-                    audio_array = audio
-
-            # Ensure proper dtype (float32)
-            audio_array = np.asarray(audio_array, dtype=np.float32)
+            audio_array, sample_rate, channels = await asyncio.to_thread(
+                _load_and_prepare_audio, filepath
+            )
             logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sample_rate}, CH={channels}, dtype={audio_array.dtype}")
 
             # Run fingerprint computation in a thread pool worker.
