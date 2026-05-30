@@ -84,9 +84,10 @@ export interface PlayerState {
   duration: number;
   queue: TrackInfo[];
   queueIndex: number;
-  gapless_enabled: boolean;
-  crossfade_enabled: boolean;
-  crossfade_duration: number;
+  // camelCase to match the rest of the frontend PlayerState model (#3946)
+  gaplessEnabled: boolean;
+  crossfadeEnabled: boolean;
+  crossfadeDuration: number;
 }
 
 export interface MasteringRecommendationResponse {

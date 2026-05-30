@@ -140,10 +140,10 @@ export interface PlayerState {
   isLoading: boolean;
   error: string | null;
 
-  // Playback settings
-  gapless_enabled: boolean;
-  crossfade_enabled: boolean;
-  crossfade_duration: number; // Seconds
+  // Playback settings (camelCase to match the rest of the domain model — #3946)
+  gaplessEnabled: boolean;
+  crossfadeEnabled: boolean;
+  crossfadeDuration: number; // Seconds
 }
 
 // ============================================================================
