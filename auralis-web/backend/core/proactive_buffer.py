@@ -55,12 +55,18 @@ async def buffer_presets_for_track(
         for preset in AVAILABLE_PRESETS:
             processor = None
             try:
-                # Create processor for this preset
-                processor = ChunkedAudioProcessor(
+                # Create processor for this preset on a worker thread — the
+                # constructor does a sync SoundFile open + fingerprint load +
+                # HybridProcessor init (~200-500 ms each). Constructing it
+                # directly here would stall the event loop for up to ~2.5 s
+                # across the 5 presets before the first await (#3853). Mirrors
+                # the streaming path at audio_stream_controller.py:597.
+                processor = await asyncio.to_thread(
+                    ChunkedAudioProcessor,
                     track_id=track_id,
                     filepath=filepath,
                     preset=preset,
-                    intensity=intensity
+                    intensity=intensity,
                 )
 
                 # Buffer first N chunks
