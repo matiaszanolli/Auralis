@@ -326,13 +326,10 @@ export interface SimilarTracksResponse {
 // Health & Status API
 // ============================================================================
 
+/** Matches GET /api/health → HealthResponse (schemas.py, fixes #3976 / TS-5). */
 export interface HealthCheckResponse {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  version: string;
-  uptime_seconds: number;
-  database_connected: boolean;
-  cache_healthy: boolean;
-  websocket_connected: boolean;
+  status: string;
+  auralis_available: boolean;
 }
 
 /**
