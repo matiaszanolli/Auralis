@@ -102,7 +102,9 @@ export const useAppDragDrop = ({ info, success }: DragDropConfig) => {
         }
       } catch (err) {
         console.error('Drag and drop error:', err);
-        info('Failed to complete drag and drop operation');
+        // Surface the backend detail (carried on err.message) so the user sees
+        // an actionable message instead of a generic fallback (#3989).
+        info(err instanceof Error ? err.message : 'Failed to complete drag and drop operation');
       }
     },
     [info, success]
@@ -110,6 +112,22 @@ export const useAppDragDrop = ({ info, success }: DragDropConfig) => {
 
   return { handleDragEnd };
 };
+
+/**
+ * Build an Error from a failed response, preferring the backend's `detail`
+ * field over a generic fallback so drag-drop toasts are actionable (#3989).
+ */
+async function errorFromResponse(response: Response, fallback: string): Promise<Error> {
+  try {
+    const errorData = await response.json();
+    if (errorData && typeof errorData.detail === 'string' && errorData.detail) {
+      return new Error(errorData.detail);
+    }
+  } catch {
+    // Body wasn't JSON or was empty — fall through to the generic message.
+  }
+  return new Error(fallback);
+}
 
 /**
  * Add a track to the queue at a specific position.
@@ -129,7 +147,7 @@ async function handleAddToQueue(
   });
 
   if (!response.ok) {
-    throw new Error('Failed to add track to queue');
+    throw await errorFromResponse(response, 'Failed to add track to queue');
   }
 
   success(`Added track to queue at position ${position + 1}`);
@@ -154,7 +172,7 @@ async function handleAddToPlaylist(
   });
 
   if (!response.ok) {
-    throw new Error('Failed to add track to playlist');
+    throw await errorFromResponse(response, 'Failed to add track to playlist');
   }
 
   success('Added track to playlist');
@@ -178,7 +196,7 @@ async function handleReorderQueue(
   });
 
   if (!response.ok) {
-    throw new Error('Failed to reorder queue');
+    throw await errorFromResponse(response, 'Failed to reorder queue');
   }
 
   info('Queue reordered');
@@ -206,7 +224,7 @@ async function handleReorderPlaylist(
   );
 
   if (!response.ok) {
-    throw new Error('Failed to reorder playlist');
+    throw await errorFromResponse(response, 'Failed to reorder playlist');
   }
 
   info('Playlist reordered');
