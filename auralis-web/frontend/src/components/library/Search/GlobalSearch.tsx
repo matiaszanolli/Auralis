@@ -64,7 +64,7 @@ export const GlobalSearch = ({ onResultClick, onClose: _onClose }: GlobalSearchP
         role="status"
         aria-live="polite"
         aria-atomic="true"
-        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap' }}
+        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' }}
       >
         {liveMessage}
       </span>

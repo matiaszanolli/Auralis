@@ -126,7 +126,7 @@ export const TrackDisplay = ({
       <div
         aria-live="polite"
         aria-atomic="true"
-        style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap' }}
+        style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' }}
       >
         {`Now playing: ${title}${artist ? ` by ${artist}` : ''}${album ? ` from ${album}` : ''}`}
       </div>
