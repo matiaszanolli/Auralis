@@ -174,14 +174,22 @@ def setup_middleware(app: FastAPI) -> None:
     Args:
         app: FastAPI application instance (modified in-place)
     """
-    # Add no-cache middleware first (innermost in processing order)
+    # Starlette runs middleware in REVERSE add order, so the last-added wraps
+    # outermost. Register RateLimit FIRST (innermost) so SecurityHeaders and
+    # NoCache wrap it — otherwise a rate-limit 429 short-circuits before those
+    # run and is returned without the documented security headers (#3843).
+    #
+    # Resulting request-inbound order: CORS → SecurityHeaders → NoCache →
+    # RateLimit → app; a 429 bubbles back up through SecurityHeaders/NoCache.
+
+    # Rate limiting for expensive endpoints (#2575) — innermost
+    app.add_middleware(RateLimitMiddleware)
+
+    # No-cache middleware for frontend assets
     app.add_middleware(NoCacheMiddleware)
 
-    # Security headers middleware
+    # Security headers middleware — wraps RateLimit so 429s get the headers too
     app.add_middleware(SecurityHeadersMiddleware)
-
-    # Rate limiting for expensive endpoints (#2575)
-    app.add_middleware(RateLimitMiddleware)
 
     # CORS middleware for cross-origin requests.
     # Allow multiple dev server ports since Vite auto-increments if port is in
