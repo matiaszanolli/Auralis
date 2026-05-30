@@ -106,15 +106,17 @@ vi.stubGlobal('matchMedia', vi.fn((query: string) => {
 
   if (query) {
     // MUI generates queries like "(max-width: 899.95px)" for theme.breakpoints.down('md')
-    // We detect mobile breakpoints and return appropriate matches
-
-    // Mobile breakpoints (xs, sm, md) - return true (simulating mobile device)
+    // Default viewport is desktop (1920×1080), so ALL max-width breakpoints
+    // below the desktop width must report matches=false. Previously xs/sm
+    // returned true, forcing every useMediaQuery(down('xs'/'sm')) consumer down
+    // the mobile branch on a simulated desktop (#3963). Tests that need a mobile
+    // viewport should override window.matchMedia locally.
     if (query.includes('max-width: 400px') || query.includes('max-width: 400.95px')) {
-      matches = true; // xs
+      matches = false; // xs
     } else if (query.includes('max-width: 600px') || query.includes('max-width: 599.95px')) {
-      matches = true; // sm
+      matches = false; // sm
     } else if (query.includes('max-width: 900px') || query.includes('max-width: 899.95px')) {
-      matches = false; // md - default to desktop (can be overridden per test)
+      matches = false; // md - desktop default
     } else if (query.includes('max-width: 1200px') || query.includes('max-width: 1199.95px')) {
       matches = false; // lg
     } else if (query.includes('max-width: 1536px') || query.includes('max-width: 1535.95px')) {

@@ -101,16 +101,16 @@ describe('ThemeToggle', () => {
     vi.mocked(useTheme).mockReturnValue(mockDarkTheme)
     render(<ThemeToggle />)
 
-    // Tooltip should be rendered as aria-label
-    expect(screen.getByLabelText(/switch to light mode/i)).toBeInTheDocument()
+    // The button's accessible name comes from its aria-label (#3960). Use
+    // getByRole(name) so the tooltip title + aria-label aren't double-counted.
+    expect(screen.getByRole('button', { name: /switch to light mode/i })).toBeInTheDocument()
   })
 
   it('displays correct tooltip in light mode', () => {
     vi.mocked(useTheme).mockReturnValue(mockLightTheme)
     render(<ThemeToggle />)
 
-    // Tooltip should be rendered as aria-label
-    expect(screen.getByLabelText(/switch to dark mode/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /switch to dark mode/i })).toBeInTheDocument()
   })
 
   // ============================================================================
@@ -190,8 +190,8 @@ describe('ThemeToggle', () => {
   it('has tooltip for screen readers', () => {
     render(<ThemeToggle />)
 
-    // Tooltip text should be accessible via aria-label
-    expect(screen.getByLabelText(/switch to/i)).toBeInTheDocument()
+    // Button exposes its purpose via aria-label (#3960)
+    expect(screen.getByRole('button', { name: /switch to/i })).toBeInTheDocument()
   })
 
   it('is keyboard accessible', () => {
