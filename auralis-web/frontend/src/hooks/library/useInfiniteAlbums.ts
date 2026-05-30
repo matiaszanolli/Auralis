@@ -12,7 +12,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { transformAlbumsResponse } from '@/api/transformers';
 import type { AlbumsApiResponse } from '@/api/transformers';
-import { API_BASE_URL as API_BASE } from '@/config/api';
+import { getApiUrl } from '@/config/api';
 
 interface UseInfiniteAlbumsOptions {
   limit?: number;
@@ -42,7 +42,7 @@ async function fetchAlbums({
     params.append('search', search);
   }
 
-  const response = await fetch(`${API_BASE}/api/albums?${params}`);
+  const response = await fetch(getApiUrl(`/api/albums?${params}`));
 
   if (!response.ok) {
     throw new Error(`Failed to fetch albums: ${response.statusText}`);

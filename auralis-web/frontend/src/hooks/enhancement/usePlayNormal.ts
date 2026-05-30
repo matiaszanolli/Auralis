@@ -46,7 +46,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch } from '@/store';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { API_BASE_URL } from '@/config/api';
+import { getApiUrl } from '@/config/api';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import {
@@ -515,7 +515,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         abortRef.current?.abort();
         abortRef.current = new AbortController();
         try {
-          const response = await fetch(`${API_BASE_URL}/api/library/tracks/${trackId}`, {
+          const response = await fetch(getApiUrl(`/api/library/tracks/${trackId}`), {
             signal: abortRef.current.signal,
           });
           if (response.ok) {
