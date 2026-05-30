@@ -103,6 +103,8 @@ describe('useMasteringRecommendation', () => {
     // Switch back — should hit cache, no new subscribe for loading
     rerender({ id: 42 });
     expect(result.current.recommendation).toEqual(mockRec);
+    // Cache hit must not leave the spinner stuck — guards FE-NEW-149 (#3998).
+    expect(result.current.isLoading).toBe(false);
   });
 
   it('should time out after 10s and set isTimedOut', () => {
