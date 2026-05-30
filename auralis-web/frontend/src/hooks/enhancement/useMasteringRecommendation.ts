@@ -64,8 +64,6 @@ export const useMasteringRecommendation = (trackId?: number) => {
       return;
     }
 
-    let timedOut = false;
-
     const handleMasteringRecommendation = (message: MasteringRecommendationMessage) => {
       const payload = message.data;
       if (payload?.track_id === trackId) {
@@ -90,7 +88,6 @@ export const useMasteringRecommendation = (trackId?: number) => {
 
     // Timeout fallback: reset loading after 10s if no WS response (#2994)
     const timeout = setTimeout(() => {
-      timedOut = true;
       setIsLoading(false);
       setIsTimedOut(true);
     }, RECOMMENDATION_TIMEOUT_MS);
@@ -98,7 +95,9 @@ export const useMasteringRecommendation = (trackId?: number) => {
     return () => {
       unsubscribe?.();
       clearTimeout(timeout);
-      if (!timedOut) setIsLoading(false);
+      // Do NOT setIsLoading(false) here — the next effect run sets it true
+      // again immediately, producing a one-render false→true flicker on rapid
+      // trackId changes. Let the next effect own the loading lifecycle (#3971).
     };
   }, [trackId, subscribe]);
 
