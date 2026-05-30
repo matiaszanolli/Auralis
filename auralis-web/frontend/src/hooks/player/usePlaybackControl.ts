@@ -234,7 +234,8 @@ export function usePlaybackControl(): PlaybackControlActions {
     try {
       // Backend expects position in JSON body
       await api.post('/api/player/seek', { position: validPosition });
-      // Server broadcasts 'position_changed' message which updates the Redux player slice
+      // The backend's 1Hz state_manager tick broadcasts 'position_changed',
+      // which usePlayerStateSync now applies to redux.player.currentTime (#3937).
     } catch (err) {
       const apiError = ApiErrorHandler.parseWithCode(err, 'SEEK_ERROR');
       setError(apiError);

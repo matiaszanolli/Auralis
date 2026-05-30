@@ -143,8 +143,20 @@ export function usePlayerStateSync() {
       }
     });
 
+    // Lightweight 1Hz position tick (fixes #3937 / RS-5). The backend emits a
+    // `position_changed` message every second during playback instead of
+    // re-broadcasting the full player_state; without this subscriber
+    // redux.player.currentTime was frozen between state-change events.
+    const unsubscribePosition = subscribe('position_changed', (message) => {
+      const data = (message as { data?: { position?: number } }).data;
+      if (data && typeof data.position === 'number' && Number.isFinite(data.position)) {
+        dispatch(setCurrentTime(data.position));
+      }
+    });
+
     return () => {
       unsubscribe?.();
+      unsubscribePosition?.();
     };
   }, [subscribe, dispatch]);
 }

@@ -66,6 +66,7 @@ function makeWrapper(store: TestStore) {
 // ============================================================================
 
 let playerStateHandler: ((message: any) => void) | null = null;
+let positionChangedHandler: ((message: any) => void) | null = null;
 const mockUnsubscribe = vi.fn();
 
 /**
@@ -92,6 +93,7 @@ function makeMockWsContext(
 
 function setupWebSocketMock() {
   playerStateHandler = null;
+  positionChangedHandler = null;
   mockUnsubscribe.mockReset();
 
   vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue(
@@ -99,6 +101,8 @@ function setupWebSocketMock() {
       subscribe: vi.fn((type: string, handler: (msg: any) => void) => {
         if (type === 'player_state') {
           playerStateHandler = handler;
+        } else if (type === 'position_changed') {
+          positionChangedHandler = handler;
         }
         return mockUnsubscribe;
       }) as any,
@@ -109,6 +113,12 @@ function setupWebSocketMock() {
 function firePlayerState(data: Record<string, any>) {
   act(() => {
     playerStateHandler!({ data });
+  });
+}
+
+function firePositionChanged(data: Record<string, any>) {
+  act(() => {
+    positionChangedHandler!({ data });
   });
 }
 
@@ -162,7 +172,9 @@ describe('usePlayerStateSync – subscription lifecycle', () => {
       wrapper: makeWrapper(store),
     });
     unmount();
-    expect(mockUnsubscribe).toHaveBeenCalledOnce();
+    // Two subscriptions are registered (player_state + position_changed, #3937),
+    // so both unsubscribe callbacks fire on unmount.
+    expect(mockUnsubscribe).toHaveBeenCalledTimes(2);
   });
 
   it('does not throw when subscribe is not available', () => {
@@ -683,5 +695,45 @@ describe('usePlayerStateSync – edge cases', () => {
     firePlayerState({ is_playing: true });
 
     expect(store.getState().player.isPlaying).toBe(true);
+  });
+});
+
+describe('usePlayerStateSync – position_changed (#3937)', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // setCurrentTime clamps to [0, duration], so a duration must be present for
+  // position ticks to apply (the clamp-on-cold-start gap is tracked separately
+  // as #3936). Seed a duration via player_state first, mirroring real playback.
+  it('updates redux currentTime from a position_changed tick', () => {
+    firePlayerState({ duration: 300 });
+    firePositionChanged({ position: 42.5 });
+    expect(store.getState().player.currentTime).toBe(42.5);
+  });
+
+  it('applies sequential position ticks (1Hz playback)', () => {
+    firePlayerState({ duration: 300 });
+    firePositionChanged({ position: 1 });
+    firePositionChanged({ position: 2 });
+    firePositionChanged({ position: 3 });
+    expect(store.getState().player.currentTime).toBe(3);
+  });
+
+  it('ignores non-finite or missing position values', () => {
+    firePlayerState({ duration: 300 });
+    firePositionChanged({ position: 10 });
+    firePositionChanged({ position: NaN });
+    firePositionChanged({});
+    // currentTime stays at the last valid value, not NaN/undefined
+    expect(store.getState().player.currentTime).toBe(10);
   });
 });
