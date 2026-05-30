@@ -207,93 +207,9 @@ export const PlayerEnhancementPanel = ({
         </div>
       </div>
 
-      {/*
-        REMOVED: Large enhancement UI panel below playback bar
-        User requested: "We don't need this whole section below the playback bar.
-        Having the 'Enhanced' button in the right pane working snappy enough is all the customization we need."
-
-        The compact toggle above (Original/Enhanced buttons) is sufficient.
-      */}
-
-      {/* Main Enhancement Controls - REMOVED */}
-      {/*
-      <div style={styles.controlsSection}>
-        <EnhancedPlaybackControls
-          trackId={activeTrackId}
-          onPlayEnhanced={handlePlayEnhanced}
-          disabled={!activeTrackId}
-          showStatus={isStreaming}
-        />
-      </div>
-      */}
-
-      {/* Streaming Progress - REMOVED */}
-      {/*
-      {isStreaming && (
-        <div style={styles.progressSection}>
-          <StreamingProgressBar
-            progress={streaming.progress || 0}
-            bufferedSamples={streaming.bufferedSamples || 0}
-            totalChunks={streaming.totalChunks || 0}
-            processedChunks={streaming.processedChunks || 0}
-            sampleRate={streaming.sampleRate || 48000}
-            currentTime={streaming.currentTime || 0}
-            showDetails={true}
-          />
-        </div>
-      )}
-      */}
-
-      {/* Error Boundary - REMOVED */}
-      {/*
-      {streaming?.error && (
-        <div style={styles.errorSection}>
-          <StreamingErrorBoundary
-            error={streaming.error}
-            errorType={mapErrorToType(streaming.error)}
-            onRetry={() => {
-              // Retry is handled by the hook internally
-              DEBUG && console.log('[PlayerEnhancementPanel] Retry streaming');
-            }}
-            onFallback={() => {
-              // Switch to regular playback
-              DEBUG && console.log('[PlayerEnhancementPanel] Falling back to regular playback');
-            }}
-            autoDismissMs={0} // Don't auto-dismiss, user must handle
-            allowRetry={true}
-            allowFallback={true}
-            trackId={activeTrackId}
-            showHistory={false}
-          />
-        </div>
-      )}
-      */}
     </div>
   );
 };
-
-/**
- * Map error message to StreamingErrorType - COMMENTED OUT (not used in compact toggle mode)
- */
-/*
-function mapErrorToType(error: string): StreamingErrorType {
-  const lowerError = error.toLowerCase();
-
-  if (lowerError.includes('network') || lowerError.includes('connection')) {
-    return StreamingErrorType.NETWORK;
-  } else if (lowerError.includes('buffer')) {
-    return StreamingErrorType.BUFFER_UNDERRUN;
-  } else if (lowerError.includes('audio') || lowerError.includes('context')) {
-    return StreamingErrorType.AUDIO_CONTEXT;
-  } else if (lowerError.includes('server') || lowerError.includes('500')) {
-    return StreamingErrorType.SERVER;
-  } else if (lowerError.includes('invalid') || lowerError.includes('format')) {
-    return StreamingErrorType.INVALID_MESSAGE;
-  }
-
-  return StreamingErrorType.UNKNOWN;
-}
-*/
 
 /**
  * Styles for PlayerEnhancementPanel
