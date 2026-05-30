@@ -113,6 +113,19 @@ def client():
     try:
         from main import app
         with TestClient(app) as test_client:
+            # Starlette TestClient WebSocket connections use 'testclient' as
+            # the host, which the origin-check fix in #3845 correctly rejects
+            # (non-loopback empty-Origin).  Patch websocket_connect here so
+            # every backend test automatically sends a valid listed Origin
+            # without requiring each test to specify it explicitly.
+            _orig_ws_connect = test_client.websocket_connect
+
+            def _ws_connect_with_origin(url: str, **kwargs):  # type: ignore[override]
+                headers = dict(kwargs.pop("headers", {}))
+                headers.setdefault("origin", "http://localhost:3000")
+                return _orig_ws_connect(url, headers=headers, **kwargs)
+
+            test_client.websocket_connect = _ws_connect_with_origin  # type: ignore[method-assign]
             yield test_client
     except ImportError:
         # If backend not available, skip fixture

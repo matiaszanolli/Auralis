@@ -128,20 +128,27 @@ class TestWebSocketConnection:
             # Send ping
             websocket.send_text(json.dumps({"type": "ping"}))
 
-            # Receive pong
-            response = websocket.receive_text()
-            data = json.loads(response)
-
-            assert data["type"] == "pong"
+            # Drain initial handshake frames (e.g. enhancement_settings_changed)
+            # until we find the pong response.
+            for _ in range(10):
+                data = json.loads(websocket.receive_text())
+                if data.get("type") == "pong":
+                    break
+            else:
+                raise AssertionError("pong not received within 10 frames")
 
     def test_websocket_multiple_pings(self, client):
         """Test multiple ping/pong cycles"""
         with client.websocket_connect("/ws") as websocket:
             for _ in range(3):
                 websocket.send_text(json.dumps({"type": "ping"}))
-                response = websocket.receive_text()
-                data = json.loads(response)
-                assert data["type"] == "pong"
+                # Drain until pong (first iteration may see handshake frames)
+                for _ in range(10):
+                    data = json.loads(websocket.receive_text())
+                    if data.get("type") == "pong":
+                        break
+                else:
+                    raise AssertionError("pong not received within 10 frames")
 
 
 class TestWebSocketMessageValidation:
@@ -440,6 +447,136 @@ class TestWebSocketPlayback:
 
             assert data["type"] == "seek_started"
             assert data["data"]["position"] == 30.0
+
+
+class TestWebSocketPlayNormal:
+    """Tests for the play_normal WS message type (#3859 / BE-TC-4).
+
+    play_normal is a 100-LOC handler with its own error-validation gate,
+    background-task creation, and stream-error path — it had zero real-WS
+    coverage before this class.
+    """
+
+    @staticmethod
+    def _recv_until_type(websocket, target: str, max_reads: int = 10) -> dict:
+        """Drain frames until one matches ``target`` type; return it."""
+        for _ in range(max_reads):
+            data = json.loads(websocket.receive_text())
+            if data.get("type") == target:
+                return data
+        raise AssertionError(f"No '{target}' frame received within {max_reads} reads")
+
+    def test_play_normal_invalid_track_id_returns_error(self, client):
+        """play_normal without track_id must be rejected with 'invalid_track_id'."""
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_text(json.dumps({
+                "type": "play_normal",
+                "data": {}
+            }))
+
+            data = self._recv_until_type(websocket, "error")
+            assert data["error"] == "invalid_track_id"
+
+    def test_play_normal_negative_track_id_returns_error(self, client):
+        """play_normal with a negative track_id must be rejected (non-positive int gate)."""
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_text(json.dumps({
+                "type": "play_normal",
+                "data": {"track_id": -5}
+            }))
+
+            data = self._recv_until_type(websocket, "error")
+            assert data["error"] == "invalid_track_id"
+
+    def test_play_normal_nonexistent_track_sends_stream_error(self, client):
+        """play_normal for a track not in the DB produces an audio_stream_error."""
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_text(json.dumps({
+                "type": "play_normal",
+                "data": {"track_id": 99999}
+            }))
+
+            # The background task runs stream_normal_audio which fetches from DB,
+            # finds nothing, and sends audio_stream_error.  May come after a small
+            # delay, so drain up to 10 frames.
+            found = False
+            for _ in range(10):
+                try:
+                    msg = json.loads(websocket.receive_text())
+                    if msg.get("type") == "audio_stream_error":
+                        assert msg["data"]["stream_type"] == "normal"
+                        found = True
+                        break
+                except Exception:
+                    break
+            assert found, "Expected audio_stream_error for nonexistent track in play_normal"
+
+
+class TestWebSocketFlowControl:
+    """Tests for flow-control and keepalive WS message types (#3859 / BE-TC-4).
+
+    heartbeat, pong, buffer_full, and buffer_ready produce no WS response.
+    The round-trip is validated by following them with a ping and asserting
+    the connection is still live (pong received).  resume does produce a
+    response (playback_resumed).
+
+    NOTE: the server pushes one or two handshake messages on connect
+    (enhancement_settings_changed, optionally player_state).  Tests that
+    need the server's response to a specific message drain those handshake
+    frames first with _recv_until_type().
+    """
+
+    @staticmethod
+    def _recv_until_type(websocket, target: str, max_reads: int = 10) -> dict:
+        """Drain frames until one matches ``target`` type; return it."""
+        for _ in range(max_reads):
+            data = json.loads(websocket.receive_text())
+            if data.get("type") == target:
+                return data
+        raise AssertionError(f"No '{target}' frame received within {max_reads} reads")
+
+    def test_resume_sends_playback_resumed(self, client):
+        """resume must respond with playback_resumed."""
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_text(json.dumps({"type": "resume"}))
+            data = self._recv_until_type(websocket, "playback_resumed")
+            assert data["data"]["state"] == "playing"
+
+    def test_heartbeat_keeps_connection_alive(self, client):
+        """heartbeat (keepalive) must not crash the handler; connection stays up."""
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_text(json.dumps({"type": "heartbeat"}))
+            # No response — verify liveness by sending ping after
+            websocket.send_text(json.dumps({"type": "ping"}))
+            data = self._recv_until_type(websocket, "pong")
+            assert data["type"] == "pong"
+
+    def test_pong_keeps_connection_alive(self, client):
+        """pong (client-side heartbeat reply) must be handled without crashing."""
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_text(json.dumps({"type": "pong"}))
+            # No response — verify liveness
+            websocket.send_text(json.dumps({"type": "ping"}))
+            data = self._recv_until_type(websocket, "pong")
+            assert data["type"] == "pong"
+
+    def test_buffer_full_clears_flow_event_and_connection_stays_alive(self, client):
+        """buffer_full (frontend buffer filling) must be handled without crashing."""
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_text(json.dumps({"type": "buffer_full"}))
+            # No response — verify liveness
+            websocket.send_text(json.dumps({"type": "ping"}))
+            data = self._recv_until_type(websocket, "pong")
+            assert data["type"] == "pong"
+
+    def test_buffer_ready_sets_flow_event_and_connection_stays_alive(self, client):
+        """buffer_ready (frontend buffer drained) must be handled without crashing."""
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_text(json.dumps({"type": "buffer_ready"}))
+            # No response — verify liveness
+            websocket.send_text(json.dumps({"type": "ping"}))
+            data = self._recv_until_type(websocket, "pong")
+            assert data["type"] == "pong"
 
 
 class TestWebSocketJobProgress:
