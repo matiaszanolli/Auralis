@@ -18,22 +18,8 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from fastapi import FastAPI
-from routers.processing_api import router, set_processing_engine, _is_valid_audio_magic
+from routers.processing_api import create_processing_router, _is_valid_audio_magic
 from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
-
-
-@pytest.fixture
-def app():
-    """Create FastAPI app with processing router"""
-    test_app = FastAPI()
-    test_app.include_router(router)
-    return test_app
-
-
-@pytest.fixture
-def client(app):
-    """Create test client"""
-    return TestClient(app)
 
 
 @pytest.fixture
@@ -62,9 +48,21 @@ def mock_engine():
         "max_concurrent": 2
     })
     engine.cleanup_old_jobs = AsyncMock(return_value=5)
-
-    set_processing_engine(engine)
     return engine
+
+
+@pytest.fixture
+def app(mock_engine):
+    """Create FastAPI app with processing router using factory pattern (#3862)."""
+    test_app = FastAPI()
+    test_app.include_router(create_processing_router(lambda: mock_engine))
+    return test_app
+
+
+@pytest.fixture
+def client(app):
+    """Create test client"""
+    return TestClient(app)
 
 
 class TestProcessingPresets:
@@ -337,11 +335,16 @@ class TestProcessingSettings:
 class TestErrorHandling:
     """Test error handling"""
 
-    def test_engine_not_initialized(self, client):
-        """Test when engine is not initialized"""
-        set_processing_engine(None)
+    def test_engine_not_initialized(self):
+        """Test when engine is not initialized — factory with None getter returns 503."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
 
-        response = client.get("/api/processing/queue/status")
+        null_app = FastAPI()
+        null_app.include_router(create_processing_router(lambda: None))
+        null_client = TestClient(null_app)
+
+        response = null_client.get("/api/processing/queue/status")
 
         assert response.status_code == 503  # Service unavailable
 

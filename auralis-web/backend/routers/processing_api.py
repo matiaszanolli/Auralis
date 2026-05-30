@@ -15,6 +15,7 @@ import logging
 import struct
 import tempfile
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -25,9 +26,6 @@ from pydantic import BaseModel
 from security.path_security import PathValidationError, validate_file_path
 
 logger = logging.getLogger(__name__)
-
-# Create router
-router = APIRouter(prefix="/api/processing", tags=["audio-processing"])
 
 # Upload security constants (#2560)
 _MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB hard limit
@@ -53,16 +51,6 @@ def _is_valid_audio_magic(data: bytes) -> bool:
     if data[:4] in (b"FORM", b"AIFF"):               # AIFF
         return True
     return False
-
-# Global processing engine (will be injected)
-_processing_engine: ProcessingEngine | None = None
-
-
-def set_processing_engine(engine: ProcessingEngine) -> None:
-    """Set the global processing engine"""
-    global _processing_engine
-    _processing_engine = engine
-
 
 # Pydantic models for request/response
 class ProcessingSettings(BaseModel):
@@ -143,389 +131,417 @@ class CleanupResponse(BaseModel):
     removed: int
 
 
-@router.post("/process", response_model=ProcessResponse)
-async def process_audio(request: ProcessRequest) -> ProcessResponse:
+def create_processing_router(
+    get_processing_engine: Callable[[], ProcessingEngine | None]
+) -> APIRouter:
     """
-    Submit an audio file for processing.
-    Returns a job ID that can be used to track progress.
-    """
-    if not _processing_engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    Factory that creates the processing router with a closure over the engine
+    getter, matching the factory pattern used by all other routers (fixes
+    #3862 / BE-RH-11 — replaces module-level mutable + ``set_processing_engine``
+    setter with a testable closure).
 
-    try:
-        # Validate input path against allowed directories (#2559)
+    Args:
+        get_processing_engine: Callable returning the live ``ProcessingEngine``
+            instance, or ``None`` if not yet initialised.
+
+    Returns:
+        Configured ``APIRouter`` for ``/api/processing``.
+    """
+    router = APIRouter(prefix="/api/processing", tags=["audio-processing"])
+
+    @router.post("/process", response_model=ProcessResponse)
+    async def process_audio(request: ProcessRequest) -> ProcessResponse:
+        """
+        Submit an audio file for processing.
+        Returns a job ID that can be used to track progress.
+        """
+        engine = get_processing_engine()
+        if not engine:
+            raise HTTPException(status_code=503, detail="Processing engine not available")
+
         try:
-            validated_input = validate_file_path(request.input_path)
-        except PathValidationError as e:
-            logger.warning(f"Invalid input path rejected: {e}")
-            raise HTTPException(status_code=400, detail="Invalid or inaccessible input path")
-
-        validated_reference: Path | None = None
-        if request.reference_path:
+            # Validate input path against allowed directories (#2559)
             try:
-                validated_reference = validate_file_path(request.reference_path)
+                validated_input = validate_file_path(request.input_path)
             except PathValidationError as e:
-                logger.warning(f"Invalid reference path rejected: {e}")
-                raise HTTPException(status_code=400, detail="Invalid or inaccessible reference path")
+                logger.warning(f"Invalid input path rejected: {e}")
+                raise HTTPException(status_code=400, detail="Invalid or inaccessible input path")
 
-        # Create processing job
-        job = await _processing_engine.create_job(
-            input_path=str(validated_input),
-            settings=request.settings.model_dump(),
-            mode=request.settings.mode,
-            reference_path=str(validated_reference) if validated_reference else None
-        )
+            validated_reference: Path | None = None
+            if request.reference_path:
+                try:
+                    validated_reference = validate_file_path(request.reference_path)
+                except PathValidationError as e:
+                    logger.warning(f"Invalid reference path rejected: {e}")
+                    raise HTTPException(status_code=400, detail="Invalid or inaccessible reference path")
 
-        # Submit to queue
-        try:
-            job_id = await _processing_engine.submit_job(job)
-        except asyncio.QueueFull:
-            raise HTTPException(
-                status_code=503,
-                detail="Processing queue is full, please try again later",
+            # Create processing job
+            job = await engine.create_job(
+                input_path=str(validated_input),
+                settings=request.settings.model_dump(),
+                mode=request.settings.mode,
+                reference_path=str(validated_reference) if validated_reference else None
             )
 
-        # Debug, not info (#3844): input_path is an absolute media-library path.
-        logger.debug(f"Processing job {job_id} submitted for {request.input_path}")
-
-        return ProcessResponse(
-            job_id=job_id,
-            status="queued",
-            message="Processing job submitted successfully"
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to submit processing job: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to submit processing job")
-
-
-@router.post("/upload-and-process", response_model=ProcessResponse)
-async def upload_and_process(
-    file: UploadFile = File(...),
-    settings: str = Form(...)  # JSON string of ProcessingSettings
-) -> ProcessResponse:
-    """
-    Upload an audio file and immediately submit for processing.
-    Combines file upload and processing submission in one request.
-    """
-    if not _processing_engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
-
-    try:
-        # Parse settings from JSON string
-        import json
-        settings_dict = json.loads(settings)
-        processing_settings = ProcessingSettings(**settings_dict)
-
-        # Save uploaded file to temp location
-        temp_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
-        temp_dir.mkdir(exist_ok=True)
-
-        # Enforce size limit before reading the whole body (#2560)
-        content = await file.read(_MAX_UPLOAD_BYTES + 1)
-        if len(content) > _MAX_UPLOAD_BYTES:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File too large (max {_MAX_UPLOAD_BYTES // 1024 // 1024} MB)"
-            )
-
-        # Reject files whose magic bytes don't match a known audio format (#2560)
-        if not _is_valid_audio_magic(content):
-            raise HTTPException(
-                status_code=415,
-                detail="Unsupported or invalid audio file format"
-            )
-
-        # Use a UUID filename to prevent client-controlled path injection (#2560).
-        # Open with "xb" (exclusive create) to prevent TOCTOU: if another process
-        # created a symlink at this path between path selection and open, the
-        # kernel raises FileExistsError rather than following the symlink (fixes #2170).
-        original_ext = Path(file.filename or "").suffix.lower()
-        if original_ext not in _ALLOWED_AUDIO_EXTENSIONS:
-            original_ext = ".bin"
-        input_path = temp_dir / f"{uuid.uuid4()}{original_ext}"
-        with open(input_path, "xb") as f:
-            f.write(content)
-
-        # Debug, not info (#3844): avoid logging absolute filesystem paths.
-        logger.debug(f"Uploaded file saved to {input_path}")
-
-        # Create and submit job — clean up temp file on failure (#3223)
-        try:
-            job = await _processing_engine.create_job(
-                input_path=str(input_path),
-                settings=processing_settings.model_dump(),
-                mode=processing_settings.mode
-            )
-
+            # Submit to queue
             try:
-                job_id = await _processing_engine.submit_job(job)
+                job_id = await engine.submit_job(job)
             except asyncio.QueueFull:
                 raise HTTPException(
                     status_code=503,
                     detail="Processing queue is full, please try again later",
                 )
 
+            # Debug, not info (#3844): input_path is an absolute media-library path.
+            logger.debug(f"Processing job {job_id} submitted for {request.input_path}")
+
             return ProcessResponse(
                 job_id=job_id,
                 status="queued",
-                message=f"File {file.filename} uploaded and queued for processing"
+                message="Processing job submitted successfully"
             )
-        except Exception:
-            # Clean up orphaned temp file on any failure after write
-            input_path.unlink(missing_ok=True)
+
+        except HTTPException:
             raise
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to upload and process: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to upload and process")
+        except Exception as e:
+            logger.error(f"Failed to submit processing job: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to submit processing job")
 
 
-@router.get("/job/{job_id}", response_model=JobStatusResponse)
-async def get_job_status(job_id: str) -> JobStatusResponse:
-    """Get the status of a processing job"""
-    if not _processing_engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    @router.post("/upload-and-process", response_model=ProcessResponse)
+    async def upload_and_process(
+        file: UploadFile = File(...),
+        settings: str = Form(...)  # JSON string of ProcessingSettings
+    ) -> ProcessResponse:
+        """
+        Upload an audio file and immediately submit for processing.
+        Combines file upload and processing submission in one request.
+        """
+        engine = get_processing_engine()
+        if not engine:
+            raise HTTPException(status_code=503, detail="Processing engine not available")
 
-    job = await _processing_engine.get_job(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        try:
+            # Parse settings from JSON string
+            import json
+            settings_dict = json.loads(settings)
+            processing_settings = ProcessingSettings(**settings_dict)
 
-    return JobStatusResponse(
-        job_id=job.job_id,
-        status=job.status.value,
-        progress=job.progress,
-        error_message=job.error_message,
-        result_data=job.result_data
-    )
+            # Save uploaded file to temp location
+            temp_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
+            temp_dir.mkdir(exist_ok=True)
+
+            # Enforce size limit before reading the whole body (#2560)
+            content = await file.read(_MAX_UPLOAD_BYTES + 1)
+            if len(content) > _MAX_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large (max {_MAX_UPLOAD_BYTES // 1024 // 1024} MB)"
+                )
+
+            # Reject files whose magic bytes don't match a known audio format (#2560)
+            if not _is_valid_audio_magic(content):
+                raise HTTPException(
+                    status_code=415,
+                    detail="Unsupported or invalid audio file format"
+                )
+
+            # Use a UUID filename to prevent client-controlled path injection (#2560).
+            # Open with "xb" (exclusive create) to prevent TOCTOU: if another process
+            # created a symlink at this path between path selection and open, the
+            # kernel raises FileExistsError rather than following the symlink (fixes #2170).
+            original_ext = Path(file.filename or "").suffix.lower()
+            if original_ext not in _ALLOWED_AUDIO_EXTENSIONS:
+                original_ext = ".bin"
+            input_path = temp_dir / f"{uuid.uuid4()}{original_ext}"
+            with open(input_path, "xb") as f:
+                f.write(content)
+
+            # Debug, not info (#3844): avoid logging absolute filesystem paths.
+            logger.debug(f"Uploaded file saved to {input_path}")
+
+            # Create and submit job — clean up temp file on failure (#3223)
+            try:
+                job = await engine.create_job(
+                    input_path=str(input_path),
+                    settings=processing_settings.model_dump(),
+                    mode=processing_settings.mode
+                )
+
+                try:
+                    job_id = await engine.submit_job(job)
+                except asyncio.QueueFull:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Processing queue is full, please try again later",
+                    )
+
+                return ProcessResponse(
+                    job_id=job_id,
+                    status="queued",
+                    message=f"File {file.filename} uploaded and queued for processing"
+                )
+            except Exception:
+                # Clean up orphaned temp file on any failure after write
+                input_path.unlink(missing_ok=True)
+                raise
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to upload and process: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to upload and process")
 
 
-@router.get("/job/{job_id}/download")
-async def download_result(job_id: str) -> FileResponse:
-    """
-    Download the processed audio file.
-    Only available when job status is 'completed'.
-    """
-    if not _processing_engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    @router.get("/job/{job_id}", response_model=JobStatusResponse)
+    async def get_job_status(job_id: str) -> JobStatusResponse:
+        """Get the status of a processing job"""
+        engine = get_processing_engine()
+        if not engine:
+            raise HTTPException(status_code=503, detail="Processing engine not available")
 
-    job = await _processing_engine.get_job(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    if job.status != ProcessingStatus.COMPLETED:
-        raise HTTPException(status_code=400, detail=f"Job not completed (status: {job.status.value})")
-
-    output_path = Path(job.output_path).resolve()
-
-    # Validate output path is within the expected temp directory (#2561)
-    allowed_output_base = Path(tempfile.gettempdir()).resolve()
-    try:
-        output_path.relative_to(allowed_output_base)
-    except ValueError:
-        logger.error(f"Job {job_id} output path outside expected directory: {output_path}")
-        raise HTTPException(status_code=500, detail="Output path configuration error")
-
-    if not output_path.exists():
-        raise HTTPException(status_code=404, detail="Output file not found")
-
-    # Determine media type based on file extension
-    media_types = {
-        ".wav": "audio/wav",
-        ".flac": "audio/flac",
-        ".mp3": "audio/mpeg",
-    }
-    media_type = media_types.get(output_path.suffix, "application/octet-stream")
-
-    return FileResponse(
-        path=str(output_path),
-        media_type=media_type,
-        filename=f"auralis_processed{output_path.suffix}"
-    )
-
-
-@router.post("/job/{job_id}/cancel", response_model=CancelJobResponse)
-async def cancel_job(job_id: str) -> dict[str, Any]:
-    """Cancel a queued or processing job"""
-    if not _processing_engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
-
-    success = await _processing_engine.cancel_job(job_id)
-    if not success:
-        # Check if job exists to provide correct error
-        job = await _processing_engine.get_job(job_id)
+        job = await engine.get_job(job_id)
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
-        raise HTTPException(status_code=400, detail="Job cannot be cancelled (already completed)")
 
-    return {"message": "Job cancelled successfully", "job_id": job_id}
-
-
-@router.get("/jobs", response_model=JobListResponse)
-async def list_jobs(status: str | None = None, limit: int = Query(50, ge=1, le=1000)) -> dict[str, Any]:
-    """List all processing jobs, optionally filtered by status"""
-    if not _processing_engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
-
-    jobs = _processing_engine.get_all_jobs()
-
-    # Filter by status if provided
-    if status:
-        valid_statuses = [s.value for s in ProcessingStatus]
-        if status not in valid_statuses:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
-            )
-        status_enum = ProcessingStatus(status)
-        jobs = [j for j in jobs if j.status == status_enum]
-
-    # Limit results
-    jobs = jobs[:limit]
-
-    return {
-        "jobs": [job.to_dict() for job in jobs],
-        "total": len(jobs)
-    }
+        return JobStatusResponse(
+            job_id=job.job_id,
+            status=job.status.value,
+            progress=job.progress,
+            error_message=job.error_message,
+            result_data=job.result_data
+        )
 
 
-@router.get("/queue/status", response_model=QueueStatusResponse)
-async def get_queue_status() -> dict[str, Any]:
-    """Get current processing queue status"""
-    if not _processing_engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    @router.get("/job/{job_id}/download")
+    async def download_result(job_id: str) -> FileResponse:
+        """
+        Download the processed audio file.
+        Only available when job status is 'completed'.
+        """
+        engine = get_processing_engine()
+        if not engine:
+            raise HTTPException(status_code=503, detail="Processing engine not available")
 
-    return _processing_engine.get_queue_status()
+        job = await engine.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        if job.status != ProcessingStatus.COMPLETED:
+            raise HTTPException(status_code=400, detail=f"Job not completed (status: {job.status.value})")
+
+        output_path = Path(job.output_path).resolve()
+
+        # Validate output path is within the expected temp directory (#2561)
+        allowed_output_base = Path(tempfile.gettempdir()).resolve()
+        try:
+            output_path.relative_to(allowed_output_base)
+        except ValueError:
+            logger.error(f"Job {job_id} output path outside expected directory: {output_path}")
+            raise HTTPException(status_code=500, detail="Output path configuration error")
+
+        if not output_path.exists():
+            raise HTTPException(status_code=404, detail="Output file not found")
+
+        # Determine media type based on file extension
+        media_types = {
+            ".wav": "audio/wav",
+            ".flac": "audio/flac",
+            ".mp3": "audio/mpeg",
+        }
+        media_type = media_types.get(output_path.suffix, "application/octet-stream")
+
+        return FileResponse(
+            path=str(output_path),
+            media_type=media_type,
+            filename=f"auralis_processed{output_path.suffix}"
+        )
 
 
-@router.get("/presets", response_model=PresetsResponse)
-async def get_processing_presets() -> dict[str, Any]:
-    """Get available processing presets"""
-    presets = {
-        "adaptive": {
-            "name": "Adaptive Mastering",
-            "description": "Intelligent content-aware mastering without reference",
-            "mode": "adaptive",
-            "settings": {
-                "eq": {"enabled": True},
-                "dynamics": {"enabled": True},
-                "level_matching": {"enabled": True, "targetLufs": -16}
-            }
-        },
-        "gentle": {
-            "name": "Gentle Enhancement",
-            "description": "Subtle improvements preserving original character",
-            "mode": "adaptive",
-            "settings": {
-                "eq": {
-                    "enabled": True,
-                    "low": 1,
-                    "lowMid": 0.5,
-                    "mid": 0,
-                    "highMid": 1,
-                    "high": 2
-                },
-                "dynamics": {
-                    "enabled": True,
-                    "compressor": {
-                        "threshold": -24,
-                        "ratio": 2,
-                        "attack": 10,
-                        "release": 200
+    @router.post("/job/{job_id}/cancel", response_model=CancelJobResponse)
+    async def cancel_job(job_id: str) -> dict[str, Any]:
+        """Cancel a queued or processing job"""
+        engine = get_processing_engine()
+        if not engine:
+            raise HTTPException(status_code=503, detail="Processing engine not available")
+
+        success = await engine.cancel_job(job_id)
+        if not success:
+            # Check if job exists to provide correct error
+            job = await engine.get_job(job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="Job not found")
+            raise HTTPException(status_code=400, detail="Job cannot be cancelled (already completed)")
+
+        return {"message": "Job cancelled successfully", "job_id": job_id}
+
+
+    @router.get("/jobs", response_model=JobListResponse)
+    async def list_jobs(status: str | None = None, limit: int = Query(50, ge=1, le=1000)) -> dict[str, Any]:
+        """List all processing jobs, optionally filtered by status"""
+        engine = get_processing_engine()
+        if not engine:
+            raise HTTPException(status_code=503, detail="Processing engine not available")
+
+        jobs = engine.get_all_jobs()
+
+        # Filter by status if provided
+        if status:
+            valid_statuses = [s.value for s in ProcessingStatus]
+            if status not in valid_statuses:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+                )
+            status_enum = ProcessingStatus(status)
+            jobs = [j for j in jobs if j.status == status_enum]
+
+        # Limit results
+        jobs = jobs[:limit]
+
+        return {
+            "jobs": [job.to_dict() for job in jobs],
+            "total": len(jobs)
+        }
+
+
+    @router.get("/queue/status", response_model=QueueStatusResponse)
+    async def get_queue_status() -> dict[str, Any]:
+        """Get current processing queue status"""
+        engine = get_processing_engine()
+        if not engine:
+            raise HTTPException(status_code=503, detail="Processing engine not available")
+
+        return engine.get_queue_status()
+
+
+    @router.get("/presets", response_model=PresetsResponse)
+    async def get_processing_presets() -> dict[str, Any]:
+        """Get available processing presets"""
+        presets = {
+            "adaptive": {
+                "name": "Adaptive Mastering",
+                "description": "Intelligent content-aware mastering without reference",
+                "mode": "adaptive",
+                "settings": {
+                    "eq": {"enabled": True},
+                    "dynamics": {"enabled": True},
+                    "level_matching": {"enabled": True, "targetLufs": -16}
+                }
+            },
+            "gentle": {
+                "name": "Gentle Enhancement",
+                "description": "Subtle improvements preserving original character",
+                "mode": "adaptive",
+                "settings": {
+                    "eq": {
+                        "enabled": True,
+                        "low": 1,
+                        "lowMid": 0.5,
+                        "mid": 0,
+                        "highMid": 1,
+                        "high": 2
+                    },
+                    "dynamics": {
+                        "enabled": True,
+                        "compressor": {
+                            "threshold": -24,
+                            "ratio": 2,
+                            "attack": 10,
+                            "release": 200
+                        }
                     }
                 }
-            }
-        },
-        "warm": {
-            "name": "Warm & Rich",
-            "description": "Enhanced low end with warm mid range",
-            "mode": "adaptive",
-            "settings": {
-                "eq": {
-                    "enabled": True,
-                    "low": 2,
-                    "lowMid": 1,
-                    "mid": -0.5,
-                    "highMid": 0,
-                    "high": 1
-                },
-                "dynamics": {
-                    "enabled": True,
-                    "compressor": {
-                        "threshold": -20,
-                        "ratio": 3,
-                        "attack": 5,
-                        "release": 150
+            },
+            "warm": {
+                "name": "Warm & Rich",
+                "description": "Enhanced low end with warm mid range",
+                "mode": "adaptive",
+                "settings": {
+                    "eq": {
+                        "enabled": True,
+                        "low": 2,
+                        "lowMid": 1,
+                        "mid": -0.5,
+                        "highMid": 0,
+                        "high": 1
+                    },
+                    "dynamics": {
+                        "enabled": True,
+                        "compressor": {
+                            "threshold": -20,
+                            "ratio": 3,
+                            "attack": 5,
+                            "release": 150
+                        }
                     }
                 }
-            }
-        },
-        "bright": {
-            "name": "Bright & Crisp",
-            "description": "Enhanced clarity and presence",
-            "mode": "adaptive",
-            "settings": {
-                "eq": {
-                    "enabled": True,
-                    "low": -1,
-                    "lowMid": 0,
-                    "mid": 1,
-                    "highMid": 2,
-                    "high": 3
-                },
-                "dynamics": {
-                    "enabled": True,
-                    "compressor": {
-                        "threshold": -16,
-                        "ratio": 4,
-                        "attack": 1,
-                        "release": 50
+            },
+            "bright": {
+                "name": "Bright & Crisp",
+                "description": "Enhanced clarity and presence",
+                "mode": "adaptive",
+                "settings": {
+                    "eq": {
+                        "enabled": True,
+                        "low": -1,
+                        "lowMid": 0,
+                        "mid": 1,
+                        "highMid": 2,
+                        "high": 3
+                    },
+                    "dynamics": {
+                        "enabled": True,
+                        "compressor": {
+                            "threshold": -16,
+                            "ratio": 4,
+                            "attack": 1,
+                            "release": 50
+                        }
                     }
                 }
-            }
-        },
-        "punchy": {
-            "name": "Punchy & Dynamic",
-            "description": "Strong bass and aggressive dynamics",
-            "mode": "adaptive",
-            "settings": {
-                "eq": {
-                    "enabled": True,
-                    "low": 3,
-                    "lowMid": 1,
-                    "mid": 0,
-                    "highMid": 1,
-                    "high": 2
-                },
-                "dynamics": {
-                    "enabled": True,
-                    "compressor": {
-                        "threshold": -12,
-                        "ratio": 6,
-                        "attack": 0.5,
-                        "release": 30
+            },
+            "punchy": {
+                "name": "Punchy & Dynamic",
+                "description": "Strong bass and aggressive dynamics",
+                "mode": "adaptive",
+                "settings": {
+                    "eq": {
+                        "enabled": True,
+                        "low": 3,
+                        "lowMid": 1,
+                        "mid": 0,
+                        "highMid": 1,
+                        "high": 2
+                    },
+                    "dynamics": {
+                        "enabled": True,
+                        "compressor": {
+                            "threshold": -12,
+                            "ratio": 6,
+                            "attack": 0.5,
+                            "release": 30
+                        }
                     }
                 }
             }
         }
-    }
 
-    return {"presets": presets}
+        return {"presets": presets}
 
 
-@router.delete("/jobs/cleanup", response_model=CleanupResponse)
-async def cleanup_old_jobs(max_age_hours: float = Query(24, gt=0)) -> dict[str, Any]:
-    """Clean up completed jobs older than specified hours"""
-    if not _processing_engine:
-        raise HTTPException(status_code=503, detail="Processing engine not available")
+    @router.delete("/jobs/cleanup", response_model=CleanupResponse)
+    async def cleanup_old_jobs(max_age_hours: float = Query(24, gt=0)) -> dict[str, Any]:
+        """Clean up completed jobs older than specified hours"""
+        engine = get_processing_engine()
+        if not engine:
+            raise HTTPException(status_code=503, detail="Processing engine not available")
 
-    removed_count = await _processing_engine.cleanup_old_jobs(max_age_hours)
+        removed_count = await engine.cleanup_old_jobs(max_age_hours)
 
-    return {
-        "message": f"Cleaned up jobs older than {max_age_hours} hours",
-        "removed": removed_count
-    }
+        return {
+            "message": f"Cleaned up jobs older than {max_age_hours} hours",
+            "removed": removed_count
+        }
+
+    return router

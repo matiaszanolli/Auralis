@@ -71,7 +71,10 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     # Include processing API routes (if available)
     if HAS_PROCESSING:
         try:
-            from routers.processing_api import router as processing_router
+            from routers.processing_api import create_processing_router
+            processing_router = create_processing_router(
+                get_component('processing_engine')
+            )
             app.include_router(processing_router)
             logger.debug("✅ Processing API router included")
         except Exception as e:

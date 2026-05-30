@@ -337,11 +337,9 @@ def create_lifespan(deps: dict[str, Any]):
         # Initialize processing engine
         if HAS_PROCESSING:
             try:
-                from routers.processing_api import set_processing_engine
                 from core.processing_engine import ProcessingEngine
 
                 globals_dict['processing_engine'] = ProcessingEngine(max_concurrent_jobs=2)
-                set_processing_engine(globals_dict['processing_engine'])
                 # Start the processing worker — retain strong reference to prevent GC,
                 # and attach a done-callback so a silently-failing start_worker is
                 # logged rather than disappearing (fixes #3512 / BE-NEW-54).
