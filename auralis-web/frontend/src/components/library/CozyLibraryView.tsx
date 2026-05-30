@@ -16,11 +16,15 @@
  * - Component composition
  */
 
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState, lazy, Suspense } from 'react';
 import { Box } from '@mui/material';
 import BatchActionsToolbar from './Controls/BatchActionsToolbar';
-import EditMetadataDialog from './EditMetadataDialog/EditMetadataDialog';
-import { SimilarTracksModal } from '@/components/shared/SimilarTracksModal';
+// Lazy-load the on-demand dialogs so their (~760 LOC + transitive deps) bundle
+// stays out of the initial CozyLibraryView chunk (#3956).
+const EditMetadataDialog = lazy(() => import('./EditMetadataDialog/EditMetadataDialog'));
+const SimilarTracksModal = lazy(() =>
+  import('@/components/shared/SimilarTracksModal').then((m) => ({ default: m.SimilarTracksModal }))
+);
 import { useTrackSelection } from '@/hooks/library/useTrackSelection';
 import { useLibraryWithStats } from '@/hooks/library/useLibraryWithStats';
 import type { LibraryTrack } from '@/types/domain';
@@ -271,25 +275,31 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
           />
         )}
 
-        {/* Edit Metadata Dialog */}
+        {/* Edit Metadata Dialog — lazy-loaded (#3956) */}
         {editingTrackId && (
-          <EditMetadataDialog
-            open={editMetadataDialogOpen}
-            trackId={editingTrackId}
-            onClose={handleCloseEditDialog}
-            onSave={handleSaveMetadata}
-          />
+          <Suspense fallback={null}>
+            <EditMetadataDialog
+              open={editMetadataDialogOpen}
+              trackId={editingTrackId}
+              onClose={handleCloseEditDialog}
+              onSave={handleSaveMetadata}
+            />
+          </Suspense>
         )}
 
-        {/* Phase 5: Similar Tracks Modal */}
-        <SimilarTracksModal
-          open={similarTracksModalOpen}
-          trackId={similarTrackId}
-          trackTitle={similarTrackTitle}
-          onClose={handleCloseSimilarTracksModal}
-          onTrackPlay={handlePlaySimilarTrack}
-          limit={20}
-        />
+        {/* Phase 5: Similar Tracks Modal — lazy-loaded, only mounted when open (#3956) */}
+        {similarTracksModalOpen && (
+          <Suspense fallback={null}>
+            <SimilarTracksModal
+              open={similarTracksModalOpen}
+              trackId={similarTrackId}
+              trackTitle={similarTrackTitle}
+              onClose={handleCloseSimilarTracksModal}
+              onTrackPlay={handlePlaySimilarTrack}
+              limit={20}
+            />
+          </Suspense>
+        )}
       </Box>
     </ViewContainer>
   );
