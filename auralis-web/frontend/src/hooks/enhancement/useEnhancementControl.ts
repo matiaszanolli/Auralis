@@ -109,6 +109,29 @@ const INITIAL_STATE: EnhancementState = {
   lastUpdated: Date.now(),
 };
 
+// Module-level in-flight dedup so multiple consumers mounting at once
+// (EnhancementPane, Expanded, AlbumCharacterPane, ...) share a single GET to
+// /api/player/enhancement/status instead of each firing their own (#3955).
+// Only the in-flight promise is shared — it is cleared once settled, so a later
+// mount re-fetches fresh state. The WS `enhancement_settings_changed` broadcast
+// keeps every mounted consumer in sync after the initial load.
+let _sharedStatusPromise: Promise<EnhancementState | null> | null = null;
+
+function _fetchEnhancementStatusOnce(
+  getter: <T>(url: string) => Promise<T | null>,
+): Promise<EnhancementState | null> {
+  if (_sharedStatusPromise) {
+    return _sharedStatusPromise;
+  }
+  const promise = getter<EnhancementState>('/api/player/enhancement/status')
+    .finally(() => {
+      // Clear once settled so the next (non-concurrent) mount fetches fresh.
+      if (_sharedStatusPromise === promise) _sharedStatusPromise = null;
+    });
+  _sharedStatusPromise = promise;
+  return promise;
+}
+
 /**
  * Hook for controlling audio enhancement settings
  *
@@ -169,11 +192,13 @@ export function useEnhancementControl(): EnhancementControlActions {
    * Fetch initial enhancement state on mount
    */
   useEffect(() => {
+    let cancelled = false;
     const fetchInitialState = async () => {
       try {
-        const response = await getRef.current<EnhancementState>('/api/player/enhancement/status');
+        // Shared module-level fetch — concurrent consumers dedupe to one GET (#3955).
+        const response = await _fetchEnhancementStatusOnce(getRef.current);
 
-        if (response) {
+        if (response && !cancelled) {
           setState({
             enabled: response.enabled,
             preset: response.preset,
@@ -188,6 +213,7 @@ export function useEnhancementControl(): EnhancementControlActions {
     };
 
     fetchInitialState();
+    return () => { cancelled = true; };
   }, []);
 
   /**
