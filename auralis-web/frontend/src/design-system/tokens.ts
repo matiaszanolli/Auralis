@@ -197,6 +197,9 @@ export const tokens = {
       error: '#EF4444',
       errorHover: '#DC2626',
       errorBg: 'rgba(239, 68, 68, 0.10)',
+      errorBgMedium: 'rgba(239, 68, 68, 0.15)',   // stronger error tint (#3980)
+      errorBorder: 'rgba(239, 68, 68, 0.30)',     // error banner border (#3980)
+      errorGlow: 'rgba(239, 68, 68, 0.20)',       // error banner box-shadow tint (#3980)
 
       // Success backgrounds
       successBg: 'rgba(16, 185, 129, 0.10)',
