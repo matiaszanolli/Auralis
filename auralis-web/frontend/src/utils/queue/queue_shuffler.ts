@@ -70,8 +70,10 @@ export class QueueShuffler {
         return this.shuffleTemporal(queue, options);
       case 'no_repeat':
         return this.shuffleNoRepeat(queue, options);
-      default:
-        return this.shuffleRandom(queue, options);
+      default: {
+        const _exhaustiveCheck: never = mode;
+        throw new Error(`Unhandled ShuffleMode: ${_exhaustiveCheck}`);
+      }
     }
   }
 
