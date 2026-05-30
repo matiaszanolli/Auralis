@@ -68,24 +68,42 @@ function makeWrapper(store: TestStore) {
 let playerStateHandler: ((message: any) => void) | null = null;
 const mockUnsubscribe = vi.fn();
 
-function setupWebSocketMock() {
-  playerStateHandler = null;
-  mockUnsubscribe.mockReset();
-
-  vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue({
+/**
+ * Build a complete WebSocketContextValue mock covering ALL fields, so adding a
+ * new context method doesn't silently break these tests with `undefined is not
+ * a function` (#3965). Pass `overrides` to customize specific fields.
+ */
+function makeMockWsContext(
+  overrides: Partial<ReturnType<typeof WebSocketContextModule.useWebSocketContext>> = {}
+): ReturnType<typeof WebSocketContextModule.useWebSocketContext> {
+  return {
     isConnected: true,
     connectionStatus: 'connected',
-    subscribe: vi.fn((type: string, handler: (msg: any) => void) => {
-      if (type === 'player_state') {
-        playerStateHandler = handler;
-      }
-      return mockUnsubscribe;
-    }),
+    subscribe: vi.fn(() => mockUnsubscribe),
     subscribeAll: vi.fn(() => mockUnsubscribe),
     send: vi.fn(),
     connect: vi.fn(),
     disconnect: vi.fn(),
-  });
+    setResumePositionGetter: vi.fn(),
+    reissueActiveStreamAs: vi.fn(() => false),
+    ...overrides,
+  };
+}
+
+function setupWebSocketMock() {
+  playerStateHandler = null;
+  mockUnsubscribe.mockReset();
+
+  vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue(
+    makeMockWsContext({
+      subscribe: vi.fn((type: string, handler: (msg: any) => void) => {
+        if (type === 'player_state') {
+          playerStateHandler = handler;
+        }
+        return mockUnsubscribe;
+      }) as any,
+    })
+  );
 }
 
 function firePlayerState(data: Record<string, any>) {
@@ -148,15 +166,13 @@ describe('usePlayerStateSync – subscription lifecycle', () => {
   });
 
   it('does not throw when subscribe is not available', () => {
-    vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue({
-      isConnected: false,
-      connectionStatus: 'disconnected',
-      subscribe: undefined as any,
-      subscribeAll: vi.fn(() => () => {}),
-      send: vi.fn(),
-      connect: vi.fn(),
-      disconnect: vi.fn(),
-    });
+    vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue(
+      makeMockWsContext({
+        isConnected: false,
+        connectionStatus: 'disconnected',
+        subscribe: undefined as any,
+      })
+    );
 
     expect(() =>
       renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) })
