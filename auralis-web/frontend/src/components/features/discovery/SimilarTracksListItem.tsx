@@ -67,7 +67,7 @@ export const SimilarTracksListItem = ({
                     size="small"
                     sx={{
                       height: 20,
-                      fontSize: '0.7rem',
+                      fontSize: tokens.typography.fontSize.xs,
                       fontWeight: tokens.typography.fontWeight.semibold,
                       backgroundColor: getSimilarityColor(track.similarity_score),
                       color: tokens.colors.text.primary,

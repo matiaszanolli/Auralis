@@ -90,7 +90,7 @@ export const TrackCardOverlay = ({
           sx={{
             color: isHovered ? tokens.colors.text.primary : tokens.colors.text.tertiary,
             fontWeight: tokens.typography.fontWeight.medium,
-            fontSize: '0.7rem',
+            fontSize: tokens.typography.fontSize.xs,
             transition: tokens.transitions.color,
           }}
         >

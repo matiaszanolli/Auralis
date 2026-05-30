@@ -58,7 +58,7 @@ export const SimilarityAllDimensions = ({
                       variant="caption"
                       sx={{
                         color: tokens.colors.text.primary,
-                        fontSize: '0.7rem',
+                        fontSize: tokens.typography.fontSize.xs,
                       }}
                     >
                       {formatDimensionName(contrib.dimension)}
@@ -67,7 +67,7 @@ export const SimilarityAllDimensions = ({
                       variant="caption"
                       sx={{
                         color: tokens.colors.text.secondary,
-                        fontSize: '0.7rem',
+                        fontSize: tokens.typography.fontSize.xs,
                       }}
                     >
                       {(contrib.contribution * 100).toFixed(1)}%

@@ -38,7 +38,7 @@ export const ArtistTrackRow = ({
             <>
               <Typography
                 sx={{
-                  fontSize: '0.9rem',
+                  fontSize: tokens.typography.fontSize.base,
                   color: 'text.secondary',
                   '.current-track &': { display: 'none' },
                 }}
@@ -56,7 +56,7 @@ export const ArtistTrackRow = ({
         <Typography
           className="track-title"
           sx={{
-            fontSize: '0.95rem',
+            fontSize: tokens.typography.fontSize.base,
             fontWeight: isCurrentTrack ? 'bold' : 'normal',
           }}
         >
@@ -64,12 +64,12 @@ export const ArtistTrackRow = ({
         </Typography>
       </TableCell>
       <TableCell>
-        <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: tokens.typography.fontSize.base, color: 'text.secondary' }}>
           {track.album}
         </Typography>
       </TableCell>
       <TableCell align="right">
-        <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: tokens.typography.fontSize.base, color: 'text.secondary' }}>
           {formatDuration(track.duration)}
         </Typography>
       </TableCell>

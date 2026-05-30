@@ -30,7 +30,7 @@ export const TrackPlayIndicator = ({
             <Typography
               className="track-number"
               sx={{
-                fontSize: '0.9rem',
+                fontSize: tokens.typography.fontSize.base,
                 color: 'text.secondary',
                 '.current-track &': { display: 'none' },
               }}

@@ -232,7 +232,7 @@ const styles: Record<string, CSSProperties> = {
   },
 
   modeToggleLabel: {
-    fontSize: '0.6875rem',
+    fontSize: tokens.typography.fontSize.xs,
     fontWeight: tokens.typography.fontWeight.semibold,
     color: tokens.colors.text.tertiary,
     textTransform: 'uppercase',
@@ -251,7 +251,7 @@ const styles: Record<string, CSSProperties> = {
     padding: `6px 12px`,
     border: `1px solid ${tokens.colors.border.light}`,
     borderRadius: '4px',
-    fontSize: '0.8125rem',
+    fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.medium,
     cursor: 'pointer',
     transition: tokens.transitions.hover_out,
@@ -278,7 +278,7 @@ const styles: Record<string, CSSProperties> = {
 
   streamingIndicator: {
     display: 'block',
-    fontSize: '0.625rem',
+    fontSize: tokens.typography.fontSize.xs,
     fontWeight: tokens.typography.fontWeight.normal,
     marginTop: '2px',
     opacity: 0.8,

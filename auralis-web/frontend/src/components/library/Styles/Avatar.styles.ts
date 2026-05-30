@@ -28,7 +28,7 @@ export const ArtistAvatarCircle = styled(Box)(({ theme: _theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  fontSize: '3rem',
+  fontSize: tokens.typography.fontSize.display,
   fontWeight: tokens.typography.fontWeight.semibold, // Less bold
   color: tokens.colors.text.tertiary, // More subdued
   boxShadow: 'none', // No glow effect

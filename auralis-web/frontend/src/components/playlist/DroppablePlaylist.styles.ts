@@ -32,7 +32,7 @@ export const PlaylistIcon = styled(QueueMusicIcon)({
 });
 
 export const TrackCount = styled(Typography)<{ component?: React.ElementType }>({
-  fontSize: '0.75rem',
+  fontSize: tokens.typography.fontSize.sm,
   color: tokens.colors.text.secondary,
   marginLeft: tokens.spacing.xs,
 });
@@ -56,7 +56,7 @@ export const DropIndicator = styled(Box)({
 export const DropIndicatorText = styled(Typography)({
   color: tokens.colors.accent.primary,
   fontWeight: tokens.typography.fontWeight.semibold,
-  fontSize: '0.875rem',
+  fontSize: tokens.typography.fontSize.base,
 });
 
 export const DroppableContainer = styled(Box)({
