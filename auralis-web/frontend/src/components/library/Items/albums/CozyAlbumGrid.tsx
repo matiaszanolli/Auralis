@@ -129,8 +129,11 @@ export const CozyAlbumGrid = ({
     );
   }
 
+  // role="list" (not "grid") — this is a flat collection of albums without 2D
+  // keyboard navigation; a complete grid→row→gridcell chain isn't needed. Each
+  // AlbumCard is wrapped in role="listitem" below (#3962).
   return (
-    <div role="grid" aria-label="Album grid" style={{ padding: tokens.spacing.group }}>
+    <div role="list" aria-label="Albums" style={{ padding: tokens.spacing.group }}>
       {sortBy === 'era' ? (
         <EraGroupedAlbums
           eraGroups={eraGroups}
@@ -268,19 +271,20 @@ function VirtualizedAlbumGrid({
                 }}
               >
                 {rowAlbums.map((album) => (
-                  <AlbumCard
-                    key={album.id}
-                    albumId={album.id}
-                    title={album.title}
-                    artist={album.artist}
-                    trackCount={album.trackCount}
-                    year={album.year}
-                    hasArtwork={!!album.artworkUrl}
-                    fingerprint={fingerprints.get(album.id) ?? undefined}
-                    onClick={onAlbumClick}
-                    onHoverEnter={onAlbumHover ? (id) => onAlbumHover(id, album.title, album.artist) : undefined}
-                    onHoverLeave={onAlbumHoverEnd}
-                  />
+                  <div role="listitem" key={album.id}>
+                    <AlbumCard
+                      albumId={album.id}
+                      title={album.title}
+                      artist={album.artist}
+                      trackCount={album.trackCount}
+                      year={album.year}
+                      hasArtwork={!!album.artworkUrl}
+                      fingerprint={fingerprints.get(album.id) ?? undefined}
+                      onClick={onAlbumClick}
+                      onHoverEnter={onAlbumHover ? (id) => onAlbumHover(id, album.title, album.artist) : undefined}
+                      onHoverLeave={onAlbumHoverEnd}
+                    />
+                  </div>
                 ))}
               </div>
             );
@@ -298,19 +302,20 @@ function VirtualizedAlbumGrid({
             }}
           >
             {albums.map((album) => (
-              <AlbumCard
-                key={album.id}
-                albumId={album.id}
-                title={album.title}
-                artist={album.artist}
-                trackCount={album.trackCount}
-                year={album.year}
-                hasArtwork={!!album.artworkUrl}
-                fingerprint={fingerprints.get(album.id) ?? undefined}
-                onClick={onAlbumClick}
-                onHoverEnter={onAlbumHover ? (id) => onAlbumHover(id, album.title, album.artist) : undefined}
-                onHoverLeave={onAlbumHoverEnd}
-              />
+              <div role="listitem" key={album.id}>
+                <AlbumCard
+                  albumId={album.id}
+                  title={album.title}
+                  artist={album.artist}
+                  trackCount={album.trackCount}
+                  year={album.year}
+                  hasArtwork={!!album.artworkUrl}
+                  fingerprint={fingerprints.get(album.id) ?? undefined}
+                  onClick={onAlbumClick}
+                  onHoverEnter={onAlbumHover ? (id) => onAlbumHover(id, album.title, album.artist) : undefined}
+                  onHoverLeave={onAlbumHoverEnd}
+                />
+              </div>
             ))}
           </div>
           {hasNextPage && (

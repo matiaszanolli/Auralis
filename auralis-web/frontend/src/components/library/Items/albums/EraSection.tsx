@@ -92,20 +92,23 @@ export const EraSection = ({
   const renderCard = (album: Album) => {
     const fingerprint = fingerprints.get(album.id) ?? undefined;
     return (
-      <AlbumCard
-        key={album.id}
-        albumId={album.id}
-        title={album.title}
-        artist={album.artist}
-        hasArtwork={!!album.artworkUrl}
-        trackCount={album.trackCount}
-        duration={album.totalDuration}
-        year={album.year}
-        fingerprint={fingerprint}
-        onClick={onAlbumClick}
-        onHoverEnter={onAlbumHover ? (id) => onAlbumHover(id, album.title, album.artist) : undefined}
-        onHoverLeave={onAlbumHoverEnd}
-      />
+      // role="listitem" so each album participates in the parent role="list"
+      // ownership chain (#3962).
+      <div role="listitem" key={album.id}>
+        <AlbumCard
+          albumId={album.id}
+          title={album.title}
+          artist={album.artist}
+          hasArtwork={!!album.artworkUrl}
+          trackCount={album.trackCount}
+          duration={album.totalDuration}
+          year={album.year}
+          fingerprint={fingerprint}
+          onClick={onAlbumClick}
+          onHoverEnter={onAlbumHover ? (id) => onAlbumHover(id, album.title, album.artist) : undefined}
+          onHoverLeave={onAlbumHoverEnd}
+        />
+      </div>
     );
   };
 
