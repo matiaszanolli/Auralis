@@ -119,6 +119,8 @@ export const useLibraryWithStats = ({
   const fetchInProgressRef = useRef(false);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const statsAbortRef = useRef<AbortController | null>(null);
+  const scanAbortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
   const refetchStatsRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   // Mirror `offset` into a ref so fetchTracks(false) can read the live value
@@ -317,15 +319,22 @@ export const useLibraryWithStats = ({
     }
 
     setScanning(true);
+    // Abort any prior in-flight scan and make this one cancellable (#3987).
+    scanAbortRef.current?.abort();
+    const controller = new AbortController();
+    scanAbortRef.current = controller;
     try {
       const response = await fetch('/api/library/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ directories: [folderPath] })
+        body: JSON.stringify({ directories: [folderPath] }),
+        signal: controller.signal,
       });
 
       if (response.ok) {
         const result: { files_added?: number } = await response.json();
+        // Guard post-success work against unmount (#3987).
+        if (!mountedRef.current) return;
         success(`Scan complete! Added ${result.files_added || 0} tracks`);
         await fetchTracks();
         // Refresh stats after scan
@@ -337,10 +346,14 @@ export const useLibraryWithStats = ({
         toastError(`Scan failed: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (err) {
+      // Swallow abort errors (unmount / superseded scan) — not user-facing.
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Scan error:', err);
       toastError('Error scanning folder — check the backend is reachable');
     } finally {
-      setScanning(false);
+      if (mountedRef.current) {
+        setScanning(false);
+      }
     }
   }, [isElectronFn, fetchTracks, includeStats, webFolderPath, success, toastError, info]);
 
@@ -400,10 +413,20 @@ export const useLibraryWithStats = ({
     return () => {
       fetchAbortRef.current?.abort();
       statsAbortRef.current?.abort();
+      scanAbortRef.current?.abort();
     };
     // Dependency array only includes view, autoLoad, includeStats to prevent re-render loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, autoLoad, includeStats]);
+
+  // Track mount status so async handlers (scanFolder) can skip post-unmount
+  // state updates (#3987).
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Refresh library data when backend broadcasts library_updated (#2871)
   const handleLibraryUpdated = useCallback(() => {
