@@ -321,9 +321,13 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
       if (response) {
         const items = extractItemsFromResponse(response, queryType);
-        // Only update offset after successful fetch
-        setOffset(nextOffset);
-        setData(prev => [...prev, ...items]);
+        // Only advance the offset when the page actually returned rows.
+        // An empty response must not advance the cursor or it permanently
+        // skips `limit` records on the next fetchMore (#3973 / HC-10).
+        if (items.length > 0) {
+          setOffset(nextOffset);
+          setData(prev => [...prev, ...items]);
+        }
         setTotal(response.total);
       }
     } catch (err) {
