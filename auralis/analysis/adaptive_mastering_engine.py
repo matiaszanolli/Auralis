@@ -76,6 +76,30 @@ class MasteringRecommendation:
 
         return result
 
+    def to_response(self, track_id: int) -> dict[str, Any]:
+        """Serialize for API responses (REST + WS), keyed to a track.
+
+        Single source of truth for the recommendation payload shape. Wraps
+        :meth:`to_dict` and adds the two fields every API consumer requires
+        but the dataclass cannot know on its own:
+
+        - ``track_id`` — the track the recommendation is for.
+        - ``is_hybrid`` — whether this is a blended (weighted) recommendation.
+
+        Also guarantees ``weighted_profiles`` is always present (empty list
+        when not hybrid) so the field is never undefined for clients that
+        declare it required.
+
+        Used by both the REST endpoint and the WS broadcast so the two paths
+        honor an identical contract (fixes #3840 — the REST path previously
+        returned ``to_dict()`` raw, omitting ``is_hybrid``/``track_id``).
+        """
+        result = self.to_dict()
+        result['track_id'] = track_id
+        result['is_hybrid'] = bool(self.weighted_profiles)
+        result.setdefault('weighted_profiles', [])
+        return result
+
     def summary(self) -> str:
         """Human-readable summary of recommendation."""
         lines = []

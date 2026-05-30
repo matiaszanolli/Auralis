@@ -27,6 +27,7 @@ from pydantic import BaseModel, field_validator
 
 from core.chunk_boundaries import CHUNK_INTERVAL  # single source of truth (#2564)
 from helpers import spawn_background_task
+from schemas import MasteringRecommendationResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
@@ -383,7 +384,10 @@ def create_enhancement_router(
             logger.error("Failed to get enhancement status", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to get enhancement status") from e
 
-    @router.get("/api/player/mastering/recommendation/{track_id}")
+    @router.get(
+        "/api/player/mastering/recommendation/{track_id}",
+        response_model=MasteringRecommendationResponse,
+    )
     async def get_mastering_recommendation(track_id: int, confidence_threshold: float = 0.4) -> dict[str, Any]:
         """
         Get weighted mastering profile recommendation for a track (Priority 4).
@@ -449,7 +453,9 @@ def create_enhancement_router(
                     chunk_cache={}
                 )
                 rec = proc.get_mastering_recommendation(confidence_threshold=_ct)
-                return rec.to_dict() if rec is not None else None
+                # Use to_response (not to_dict) so the payload carries track_id +
+                # is_hybrid and honors MasteringRecommendationResponse (#3840).
+                return rec.to_response(_tid) if rec is not None else None
 
             result = await asyncio.to_thread(_run_recommendation)
 

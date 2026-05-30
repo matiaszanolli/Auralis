@@ -91,10 +91,9 @@ class RecommendationService:
             )
             if rec is None:
                 return None
-            rec_dict = cast(dict[str, Any], rec.to_dict())
-            rec_dict['track_id'] = track_id
-            rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
-            return rec_dict
+            # to_response is the single source of truth for the payload shape,
+            # shared with the REST endpoint, and adds track_id + is_hybrid (#3840).
+            return cast(dict[str, Any], rec.to_response(track_id))
 
         try:
             rec_dict = await asyncio.to_thread(_analyze)
@@ -152,10 +151,9 @@ class RecommendationService:
             )
             if rec is None:
                 return None
-            rec_dict = cast(dict[str, Any], rec.to_dict())
-            rec_dict['track_id'] = track_id
-            rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
-            return rec_dict
+            # to_response is the single source of truth for the payload shape,
+            # shared with the REST endpoint, and adds track_id + is_hybrid (#3840).
+            return cast(dict[str, Any], rec.to_response(track_id))
 
         try:
             return await asyncio.to_thread(_analyze)
