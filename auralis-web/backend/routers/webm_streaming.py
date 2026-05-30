@@ -399,10 +399,23 @@ def create_webm_streaming_router(
                             detail="Audio processor initialization timed out. File may be corrupt or on slow storage."
                         )
 
-                    # Get the WAV chunk path (runs DSP pipeline — offload to thread)
-                    chunk_path = await asyncio.to_thread(
-                        processor.get_wav_chunk_path, chunk_idx
-                    )
+                    # Get the WAV chunk path (runs DSP pipeline — offload to
+                    # thread). Bound it so a hung DSP call can't wedge the
+                    # request forever (#3852, sibling of the per-chunk timeout
+                    # in audio_stream_controller).
+                    try:
+                        chunk_path = await asyncio.wait_for(
+                            asyncio.to_thread(processor.get_wav_chunk_path, chunk_idx),
+                            timeout=30.0,
+                        )
+                    except TimeoutError:
+                        logger.error(
+                            f"Chunk {chunk_idx} DSP timed out for track {track_id} (30s)"
+                        )
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Chunk processing timed out. File may be corrupt or on slow storage.",
+                        )
 
                     try:
                         # Read the processed chunk (offloaded to thread with timeout — fixes #2329)

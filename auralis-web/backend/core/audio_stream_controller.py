@@ -71,6 +71,14 @@ MAX_CONCURRENT_STREAMS: int = 10
 # was created fresh per request, making the cap non-functional).
 _global_stream_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_CONCURRENT_STREAMS)
 
+# Per-chunk DSP timeout. process_chunk_safe is offloaded to a thread, so a
+# hung DSP call (pathological buffer / Rust DSP deadlock) would otherwise
+# wedge the per-stream coroutine forever — blocking pause/resume, never
+# firing chunk-error recovery, and holding the stream semaphore slot until
+# the client disconnects. Bounding it lets the failure flow into the normal
+# skip-failed-chunk recovery branch (sibling of #2747, fixes #3852).
+CHUNK_PROCESS_TIMEOUT: float = 30.0
+
 
 class SimpleChunkCache:
     """Simple in-memory cache for processed audio chunks."""
@@ -1144,7 +1152,22 @@ class AudioStreamController:
             if websocket is not None and not self._is_websocket_connected(websocket):
                 raise ConnectionError(f"WebSocket disconnected before processing chunk {chunk_index}")
             logger.debug(f"Cache MISS: Processing chunk {chunk_index}")
-            _chunk_path, pcm_samples = await processor.process_chunk_safe(chunk_index, fast_start=fast_start)
+            # Bound the per-chunk DSP so a hung thread can't wedge the stream
+            # forever (#3852). TimeoutError is an Exception subclass, so it
+            # flows into the caller's skip-failed-chunk recovery branch.
+            try:
+                _chunk_path, pcm_samples = await asyncio.wait_for(
+                    processor.process_chunk_safe(chunk_index, fast_start=fast_start),
+                    timeout=CHUNK_PROCESS_TIMEOUT,
+                )
+            except TimeoutError as e:
+                logger.error(
+                    f"Chunk {chunk_index} DSP timed out after {CHUNK_PROCESS_TIMEOUT}s "
+                    f"(track {processor.track_id}, preset {processor.preset})"
+                )
+                raise TimeoutError(
+                    f"Chunk {chunk_index} processing timed out after {CHUNK_PROCESS_TIMEOUT}s"
+                ) from e
             sr = processor.sample_rate
 
             logger.debug(
