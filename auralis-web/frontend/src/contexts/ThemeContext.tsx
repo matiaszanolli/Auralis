@@ -23,7 +23,8 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   // Check localStorage for saved theme preference, default to dark
   const [mode, setMode] = useState<ThemeMode>(() => {
     const savedTheme = localStorage.getItem('auralis-theme');
-    return (savedTheme as ThemeMode) || 'dark';
+    const VALID_THEMES: ThemeMode[] = ['light', 'dark'];
+    return VALID_THEMES.includes(savedTheme as ThemeMode) ? (savedTheme as ThemeMode) : 'dark';
   });
 
   // Create theme based on current mode
