@@ -32,8 +32,16 @@ See `.claude/commands/_audit-common.md` for project layout, methodology, and con
 5. /audit-security            — OWASP Top 10
 6. /audit-concurrency         — Race conditions and state integrity
 7. /audit-deprecation         — Deprecated APIs and patterns
+8. /audit-tech-debt           — Accumulated debt (markers, dead code, duplication, complexity)
 ```
 **When**: Monthly or after major architecture changes.
+
+### `tech-debt-deep` — Surface accumulated debt
+```
+1. /audit-tech-debt                  — All 10 debt dimensions
+2. /audit-incremental --commits 30   — New debt introduced this sprint
+```
+**When**: After a milestone closes, before opening the next.
 
 ### `post-sprint` — End-of-sprint verification
 ```

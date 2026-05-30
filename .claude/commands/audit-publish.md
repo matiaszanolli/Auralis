@@ -79,7 +79,7 @@ For each finding that is CONFIRMED + NEW (or REGRESSION), create a GitHub issue:
 **Labels**: Apply all relevant:
 - **Severity** (exactly one): `critical`, `high`, `medium`, `low`
 - **Domain** (one or more): from the domain labels in `_audit-common.md`
-- **Type**: `bug`
+- **Type**: `bug` — EXCEPT for findings from an `AUDIT_TECH_DEBT_*.md` report, which are not bugs: label them `maintenance` + `tech-debt` instead (final set `<severity>,<domain>,tech-debt,maintenance`). Per-finding domain always wins over any default.
 
 **Body format** (use a heredoc for `gh issue create`):
 

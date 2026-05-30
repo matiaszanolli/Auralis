@@ -110,4 +110,5 @@ Based on changes, coverage freshness, and open issues, output a concrete audit p
 - Base recommendations on evidence (git log, file diffs, audit history), not assumptions.
 - If `--full` is passed, recommend the full suite: `/audit-suite --preset comprehensive`.
 - Always recommend `/audit-incremental` as a quick win if there are unaudited commits.
+- Recommend `/audit-tech-debt` (or `/audit-suite --preset tech-debt-deep`) when a milestone just closed, after a large refactor, or when `AUDIT_TECH_DEBT_*.md` has never run / is >90 days stale — it targets debt (markers, dead code, duplication, oversized files), not correctness, so it complements rather than overlaps the bug-hunting audits.
 - **Note**: Deep audits now use subagent architecture internally — they will not exhaust the context window.
