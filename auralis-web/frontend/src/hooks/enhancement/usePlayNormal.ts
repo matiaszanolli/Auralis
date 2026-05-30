@@ -601,13 +601,18 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
   }, [isPlaying]);
 
   /**
-   * Cleanup on unmount
+   * Cleanup on unmount.
+   * Calls the engine stop + cleanupStreaming() directly rather than the full
+   * stopPlayback(), which would re-run cleanupStreaming a second time (after an
+   * explicit stopPlayback()) and fire React state setters on an unmounting
+   * component (#3975). cleanupStreaming is idempotent and touches only refs.
    */
   useEffect(() => {
     return () => {
-      stopPlayback();
+      playbackEngineRef.current?.stopPlayback();
+      cleanupStreaming();
     };
-  }, [stopPlayback]);
+  }, [cleanupStreaming]);
 
   /**
    * Watch Redux isPlaying state and control AudioPlaybackEngine accordingly.
