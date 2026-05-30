@@ -75,8 +75,12 @@ export const QueueRecommendationsPanel = ({
       </div>
 
       {hasEnoughData && (
-        <div style={styles.tabBar}>
+        <div style={styles.tabBar} role="tablist" aria-label="Recommendation categories">
           <button
+            id="queue-rec-tab-for-you"
+            role="tab"
+            aria-selected={activeTab === 'for-you'}
+            aria-controls="queue-rec-panel"
             style={{
               ...styles.tab,
               ...(activeTab === 'for-you' ? styles.tabActive : {}),
@@ -87,6 +91,10 @@ export const QueueRecommendationsPanel = ({
           </button>
           {currentTrack && (
             <button
+              id="queue-rec-tab-similar"
+              role="tab"
+              aria-selected={activeTab === 'similar'}
+              aria-controls="queue-rec-panel"
               style={{
                 ...styles.tab,
                 ...(activeTab === 'similar' ? styles.tabActive : {}),
@@ -97,6 +105,10 @@ export const QueueRecommendationsPanel = ({
             </button>
           )}
           <button
+            id="queue-rec-tab-discovery"
+            role="tab"
+            aria-selected={activeTab === 'discovery'}
+            aria-controls="queue-rec-panel"
             style={{
               ...styles.tab,
               ...(activeTab === 'discovery' ? styles.tabActive : {}),
@@ -106,6 +118,10 @@ export const QueueRecommendationsPanel = ({
             Discover
           </button>
           <button
+            id="queue-rec-tab-new-artists"
+            role="tab"
+            aria-selected={activeTab === 'new-artists'}
+            aria-controls="queue-rec-panel"
             style={{
               ...styles.tab,
               ...(activeTab === 'new-artists' ? styles.tabActive : {}),
@@ -117,7 +133,12 @@ export const QueueRecommendationsPanel = ({
         </div>
       )}
 
-      <div style={styles.content}>
+      <div
+        style={styles.content}
+        id="queue-rec-panel"
+        role="tabpanel"
+        aria-labelledby={hasEnoughData ? `queue-rec-tab-${activeTab}` : undefined}
+      >
         {!hasEnoughData ? (
           <div style={styles.emptyState}>
             <p>Add more tracks to queue to see recommendations</p>
