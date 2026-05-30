@@ -231,7 +231,7 @@ export function usePaginatedAPI<T = unknown>(
     }
   }, []);
 
-  const fetchPage = useCallback(async (offset: number = 0) => {
+  const fetchPage = useCallback(async (offset: number = 0, signal?: AbortSignal) => {
     if (!apiClient.current) return;
 
     setState(prev => ({ ...prev, loading: true }));
@@ -241,7 +241,7 @@ export function usePaginatedAPI<T = unknown>(
         endpoint,
         limit,
         offset,
-        { timeout }
+        { timeout, signal }
       );
 
       if (isSuccessResponse<T[]>(response)) {
@@ -268,6 +268,8 @@ export function usePaginatedAPI<T = unknown>(
         });
       }
     } catch (error) {
+      // Don't surface abort errors as UI errors (#3952).
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       setState({
         data: [],
         loading: false,
@@ -276,8 +278,12 @@ export function usePaginatedAPI<T = unknown>(
     }
   }, [endpoint, limit, timeout]);
 
+  // Auto-fetch the first page on mount, aborting the in-flight request on
+  // unmount so state setters don't fire on an unmounted component (#3952).
   useEffect(() => {
-    fetchPage(0);
+    const controller = new AbortController();
+    fetchPage(0, controller.signal);
+    return () => controller.abort();
   }, [fetchPage]);
 
   const reset = useCallback(() => {
