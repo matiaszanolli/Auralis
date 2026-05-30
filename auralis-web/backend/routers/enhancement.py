@@ -17,6 +17,7 @@ Endpoints:
 import asyncio
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any, Literal
 from collections.abc import Callable
@@ -29,6 +30,13 @@ from helpers import spawn_background_task
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
+
+# TTL cache for mastering recommendations so repeated calls for the same
+# (track_id, confidence_threshold) don't re-run the full audio analysis
+# (~1-5 s CPU per call).  Entries expire after 60 s (fixes #3865 / BE-RH-20).
+# Format: key -> (expiry_monotonic, result_dict)
+_recommendation_cache: dict[tuple[int, float], tuple[float, dict[str, Any]]] = {}
+_RECOMMENDATION_TTL_S: float = 60.0
 
 # Valid enhancement presets — single source of truth, also used by the
 # WS validation path in routers/system.py via the EnhancementPreset
@@ -413,6 +421,17 @@ def create_enhancement_router(
         if not filepath:
             raise HTTPException(status_code=400, detail=f"Track {track_id} has no filepath")
 
+        # Return cached result if still valid — avoids re-running full audio
+        # analysis (~1-5 s CPU) on repeated calls for the same track (#3865).
+        _cache_key = (track_id, confidence_threshold)
+        _now = time.monotonic()
+        _cached = _recommendation_cache.get(_cache_key)
+        if _cached is not None:
+            _expiry, _cached_result = _cached
+            if _now < _expiry:
+                logger.debug(f"Returning cached mastering recommendation for track {track_id}")
+                return _cached_result
+
         try:
             from core.chunked_processor import ChunkedAudioProcessor
 
@@ -437,7 +456,9 @@ def create_enhancement_router(
             if result is None:
                 raise HTTPException(status_code=500, detail="Failed to analyze audio file")
 
-            return result if isinstance(result, dict) else {}
+            result_dict = result if isinstance(result, dict) else {}
+            _recommendation_cache[_cache_key] = (_now + _RECOMMENDATION_TTL_S, result_dict)
+            return result_dict
 
         except HTTPException:
             raise

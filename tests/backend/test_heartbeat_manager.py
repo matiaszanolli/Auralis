@@ -5,7 +5,7 @@ This file supersedes test_websocket_protocol_b3.py (#3858 / BE-TC-3).  The
 original 514-LOC file contained 5 dead test classes (TestWSMessage,
 TestConnectionInfo, TestRateLimiter, TestWebSocketProtocol, TestMessageTypes)
 referencing B.3 protocol classes that were never merged into the codebase;
-those are removed here, leaving only the 8 valid HeartbeatManager tests.
+those are removed here, leaving only the valid HeartbeatManager tests.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -92,3 +92,71 @@ class TestHeartbeatManager:
 
         # Should be marked as stale
         assert hb.is_stale(conn_id) is True
+
+
+# ---------------------------------------------------------------------------
+# Regression: mark_alive must not clear pending_pongs (#3866 / BE-WS-5)
+# ---------------------------------------------------------------------------
+
+class TestMarkAlive:
+    """mark_alive records liveness but must not mask an outstanding ping."""
+
+    def test_mark_alive_updates_last_heartbeat(self):
+        """mark_alive must update last_heartbeat so is_alive() returns True."""
+        hb = HeartbeatManager(interval_seconds=30)
+        conn_id = "test-alive"
+
+        hb.mark_alive(conn_id)
+
+        assert hb.is_alive(conn_id) is True
+
+    def test_mark_alive_does_not_clear_pending_pongs(self):
+        """
+        mark_alive on a keepalive frame must NOT clear pending_pongs.
+
+        Before this fix, the heartbeat handler called mark_pong(), which
+        deleted the pending_pongs entry armed by mark_ping().  This masked
+        dead connections until the next ping cycle (fixes #3866).
+        """
+        hb = HeartbeatManager(timeout_seconds=5)
+        conn_id = "test-alive-no-clear"
+
+        # Arm a ping (simulating the heartbeat task sending a server-side ping)
+        hb.mark_ping(conn_id)
+        assert conn_id in hb.pending_pongs, "pending_pongs must be set after mark_ping"
+
+        # A keepalive frame arrives — must NOT clear the pending pong entry
+        hb.mark_alive(conn_id)
+        assert conn_id in hb.pending_pongs, (
+            "mark_alive must not clear pending_pongs (#3866 — "
+            "calling mark_pong on heartbeat masked dead connections)"
+        )
+
+    def test_mark_pong_still_clears_pending_pongs(self):
+        """An actual pong response (not heartbeat) must still clear pending_pongs."""
+        hb = HeartbeatManager(timeout_seconds=5)
+        conn_id = "test-pong-clears"
+
+        hb.mark_ping(conn_id)
+        assert conn_id in hb.pending_pongs
+
+        result = hb.mark_pong(conn_id)
+
+        assert result is True
+        assert conn_id not in hb.pending_pongs
+
+    def test_is_stale_not_masked_by_mark_alive(self):
+        """
+        After mark_ping + mark_alive (timeout elapses), is_stale() must return
+        True — the keepalive must not reset the stale-detection clock.
+        """
+        hb = HeartbeatManager(timeout_seconds=0.1)
+        conn_id = "test-stale-not-masked"
+
+        hb.mark_ping(conn_id)
+        hb.mark_alive(conn_id)  # keepalive arrives — must not clear pending_pongs
+        time.sleep(0.15)        # timeout elapses
+
+        assert hb.is_stale(conn_id) is True, (
+            "is_stale must still trigger after mark_alive — pending_pong untouched"
+        )

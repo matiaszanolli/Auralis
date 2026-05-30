@@ -215,8 +215,11 @@ def create_system_router(
                     heartbeat.mark_pong(connection_id)
 
                 elif message.get("type") == "heartbeat":
-                    # Keepalive sent by RealTimeAnalysisStream every 30s — no response needed
-                    heartbeat.mark_pong(connection_id)  # Treat as proof of life
+                    # Keepalive sent by RealTimeAnalysisStream every 30s — no response needed.
+                    # Use mark_alive (not mark_pong) so an outstanding ping is not masked:
+                    # mark_pong clears pending_pongs which would delay dead-socket detection
+                    # until the next ping cycle (fixes #3866 / BE-WS-5).
+                    heartbeat.mark_alive(connection_id)
 
                 elif message.get("type") == "processing_settings_update":
                     # Handle processing settings updates

@@ -52,6 +52,20 @@ class HeartbeatManager:
 
         return elapsed < self.timeout_seconds
 
+    def mark_alive(self, connection_id: str) -> None:
+        """
+        Record that the connection is alive without clearing a pending pong.
+
+        Use this for keepalive messages (e.g. ``heartbeat`` from
+        RealTimeAnalysisStream) that prove liveness but are NOT responses to
+        a server-issued ping.  Unlike ``mark_pong``, this does not touch
+        ``pending_pongs``, so an outstanding ping is not masked (fixes #3866 /
+        BE-WS-5 — calling ``mark_pong`` on a ``heartbeat`` frame could clear
+        a freshly-armed ``pending_pongs`` slot and delay dead-socket detection
+        by up to one full ping interval).
+        """
+        self.last_heartbeat[connection_id] = datetime.now(timezone.utc)
+
     def is_alive(self, connection_id: str) -> bool:
         """Check if connection is alive (has recent activity)."""
         if connection_id not in self.last_heartbeat:
