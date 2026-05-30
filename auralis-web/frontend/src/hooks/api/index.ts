@@ -3,4 +3,4 @@
  * - REST API calls and data fetching
  */
 
-export { useRestAPI } from './useRestAPI';
+export { useRestAPI, useQuery } from './useRestAPI';

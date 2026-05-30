@@ -367,7 +367,7 @@ export function useQuery<T = unknown>(endpoint: string, skip: boolean = false) {
         setData(result);
         setError(null);
       } catch (err) {
-        setErrorApiErrorHandler.parse(err);
+        setError(ApiErrorHandler.parse(err));
       } finally {
         setIsLoading(false);
       }
