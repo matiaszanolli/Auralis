@@ -1,5 +1,6 @@
 """
 Tests for ConnectionManager broadcast / disconnect safety (issue #2219)
+and origin-check security (issue #3845).
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 broadcast() iterates self.active_connections while disconnect() can remove
@@ -129,3 +130,84 @@ class TestBroadcastDisconnectSafety:
 
         assert ws_keep in manager.active_connections
         assert ws_drop not in manager.active_connections
+
+
+# ---------------------------------------------------------------------------
+# Tests: Origin-header security (#3845)
+# ---------------------------------------------------------------------------
+
+def _make_connect_ws(origin: str, client_host: str = "127.0.0.1") -> MagicMock:
+    """Return a mock WebSocket for connect() tests.
+
+    ``origin`` is the value returned by headers.get("origin", "").
+    ``client_host`` simulates websocket.client.host.
+    """
+    ws = MagicMock()
+    ws.headers = MagicMock()
+    ws.headers.get = MagicMock(side_effect=lambda key, default="": origin if key == "origin" else default)
+    client = MagicMock()
+    client.host = client_host
+    client.port = 12345
+    ws.client = client
+    ws.accept = AsyncMock()
+    ws.close = AsyncMock()
+    return ws
+
+
+class TestOriginCheck:
+    """Regression tests for WebSocket origin validation (issues #2413, #3845)."""
+
+    @pytest.mark.asyncio
+    async def test_allowed_origin_accepted(self):
+        """A connection whose Origin is in ALLOWED_WS_ORIGINS is accepted."""
+        manager = ConnectionManager()
+        ws = _make_connect_ws(origin="http://localhost:3000")
+        await manager.connect(ws)
+        ws.accept.assert_awaited_once()
+        ws.close.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_untrusted_origin_rejected(self):
+        """A connection with a non-empty, unlisted Origin is rejected (code 1008)."""
+        manager = ConnectionManager()
+        ws = _make_connect_ws(origin="https://evil.example.com")
+        await manager.connect(ws)
+        ws.close.assert_awaited_once_with(code=1008)
+        ws.accept.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_empty_origin_loopback_accepted(self):
+        """Empty Origin from loopback (127.0.0.1) is accepted without close (#3845)."""
+        manager = ConnectionManager()
+        ws = _make_connect_ws(origin="", client_host="127.0.0.1")
+        await manager.connect(ws)
+        ws.accept.assert_awaited_once()
+        ws.close.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_empty_origin_ipv6_loopback_accepted(self):
+        """Empty Origin from ::1 (IPv6 loopback) is also accepted (#3845)."""
+        manager = ConnectionManager()
+        ws = _make_connect_ws(origin="", client_host="::1")
+        await manager.connect(ws)
+        ws.accept.assert_awaited_once()
+        ws.close.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_empty_origin_non_loopback_rejected(self):
+        """Empty Origin from a non-loopback host is rejected (code 1008) (#3845)."""
+        manager = ConnectionManager()
+        ws = _make_connect_ws(origin="", client_host="192.168.1.42")
+        await manager.connect(ws)
+        ws.close.assert_awaited_once_with(code=1008)
+        ws.accept.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_empty_origin_null_client_rejected(self):
+        """Empty Origin with websocket.client=None (edge case) is rejected (#3845)."""
+        manager = ConnectionManager()
+        ws = _make_connect_ws(origin="", client_host="127.0.0.1")
+        ws.client = None  # override to simulate missing client info
+        await manager.connect(ws)
+        ws.close.assert_awaited_once_with(code=1008)
+        ws.accept.assert_not_awaited()

@@ -37,6 +37,11 @@ ALLOWED_WS_ORIGINS = frozenset(
     | {"file://"}
 )
 
+# Hosts considered loopback — empty-Origin connections are allowed only from
+# these addresses so non-browser local processes on non-loopback interfaces
+# cannot bypass the origin check (fixes #3845).
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+
 
 class ConnectionManager:
     """
@@ -61,12 +66,23 @@ class ConnectionManager:
             websocket: WebSocket connection to register
         """
         # Check Origin header for security (CORS does not apply to WebSocket upgrades).
-        # Non-browser clients may not send Origin; we allow empty origins for compatibility.
         origin = websocket.headers.get("origin", "").lower()
-        if origin and origin not in ALLOWED_WS_ORIGINS:
-            logger.warning(f"WebSocket connection rejected: untrusted origin {origin!r}")
-            await websocket.close(code=1008)  # Policy Violation
-            return
+        if origin:
+            # Non-empty Origin: must be in the allowlist (fixes #2413).
+            if origin not in ALLOWED_WS_ORIGINS:
+                logger.warning(f"WebSocket connection rejected: untrusted origin {origin!r}")
+                await websocket.close(code=1008)  # Policy Violation
+                return
+        else:
+            # Empty Origin: allow only from loopback so non-browser processes
+            # on non-loopback interfaces cannot bypass the check (fixes #3845).
+            client_host = (websocket.client.host if websocket.client else "").lower()
+            if client_host not in _LOOPBACK_HOSTS:
+                logger.warning(
+                    f"WebSocket connection rejected: empty Origin from non-loopback host {client_host!r}"
+                )
+                await websocket.close(code=1008)  # Policy Violation
+                return
 
         await websocket.accept()
         async with self._lock:
