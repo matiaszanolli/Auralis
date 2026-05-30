@@ -297,17 +297,19 @@ def create_metadata_router(
         try:
             repos = require_repository_factory(get_repository_factory)
 
-            # Prepare batch updates
-            batch_updates = []
-            track_map = {}  # Map track_id to track object
+            # Fetch all requested tracks in one WHERE-IN query (fixes #3857 N+1).
+            all_track_ids = [u.track_id for u in request.updates]
+            track_map: dict[int, Any] = await asyncio.to_thread(
+                repos.tracks.get_by_ids, all_track_ids
+            )
 
+            # Prepare batch updates — validate filepath for each found track.
+            batch_updates = []
             for update_req in request.updates:
-                track = await asyncio.to_thread(repos.tracks.get_by_id, update_req.track_id)
+                track = track_map.get(update_req.track_id)
                 if not track:
                     logger.warning(f"Track {update_req.track_id} not found, skipping")
                     continue
-
-                track_map[update_req.track_id] = track
 
                 # Validate DB-retrieved filepath before file I/O (fixes #2302)
                 try:
@@ -328,23 +330,23 @@ def create_metadata_router(
             results = await asyncio.to_thread(metadata_editor.batch_update, batch_updates)
             rolled_back: bool = results.get('rolled_back', False)
 
-            # Update database only when the batch was not rolled back.
-            # If rolled_back=True every file was restored, so no DB changes needed.
+            # Update database for all successful results in one transaction
+            # (fixes #3857 N+1 on the update side).
             successful_track_ids = []
 
             if not rolled_back:
+                db_updates: list[tuple[int, dict[str, Any]]] = []
                 for result in results.get('results', []):
                     if result.get('success'):
                         track_id = result['track_id']
                         updates = result.get('updates', {})
-
                         if updates:
-                            # Update database record using repository
-                            updated_track = await asyncio.to_thread(
-                                lambda tid=track_id, u=updates: repos.tracks.update_metadata(tid, **u)
-                            )
-                            if updated_track:
-                                successful_track_ids.append(track_id)
+                            db_updates.append((track_id, updates))
+
+                if db_updates:
+                    successful_track_ids = await asyncio.to_thread(
+                        repos.tracks.update_metadata_batch, db_updates
+                    )
 
             # Broadcast batch update event
             if broadcast_manager and successful_track_ids:

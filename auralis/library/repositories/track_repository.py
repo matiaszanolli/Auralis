@@ -821,6 +821,51 @@ class TrackRepository:
         finally:
             session.close()
 
+    def update_metadata_batch(
+        self, updates: list[tuple[int, dict[str, Any]]]
+    ) -> list[int]:
+        """Update metadata fields for multiple tracks in one transaction.
+
+        Opens a single session, applies all field mutations, and commits once,
+        avoiding the N×session-open/commit overhead of per-track calls to
+        ``update_metadata`` (fixes #3857 / BE-PF-8).
+
+        Args:
+            updates: List of ``(track_id, fields_dict)`` pairs.  Fields that
+                are ``None`` are silently skipped (same semantics as
+                ``update_metadata``).
+
+        Returns:
+            List of track IDs that were successfully updated (tracks not found
+            in the DB are omitted).
+        """
+        if not updates:
+            return []
+
+        session = self.get_session()
+        try:
+            successful: list[int] = []
+            for track_id, fields in updates:
+                track = session.execute(
+                    select(Track).where(Track.id == track_id)
+                ).scalars().first()
+                if not track:
+                    continue
+                for key, value in fields.items():
+                    if hasattr(track, key) and value is not None:
+                        setattr(track, key, value)
+                successful.append(track_id)
+
+            session.commit()
+            debug(f"Batch-updated metadata for {len(successful)} track(s)")
+            return successful
+        except Exception as e:
+            session.rollback()
+            error(f"Failed to batch-update track metadata: {e}")
+            raise
+        finally:
+            session.close()
+
     def cleanup_missing_files(self, batch_size: int = 1000) -> int:
         """
         Remove tracks with missing audio files from the database.
