@@ -271,3 +271,64 @@ async def test_reference_load_also_offloaded():
         f"Expected both input and reference load_audio() calls via to_thread, "
         f"got {load_via_thread} (fixes #2319)"
     )
+
+
+# ---------------------------------------------------------------------------
+# Regression: ProcessingJob.to_dict() must not leak absolute output path (#3848)
+# ---------------------------------------------------------------------------
+
+class TestProcessingJobToDict:
+    """to_dict() must expose only the filename, never absolute paths (#3322, #3848)."""
+
+    def test_to_dict_result_data_uses_output_file_not_output_path(self):
+        """result_data must not contain the absolute output_path key (#3848)."""
+        from datetime import datetime
+        job = ProcessingJob.__new__(ProcessingJob)
+        job.job_id = "test-job"
+        job.input_path = "/tmp/auralis/input.flac"
+        job.output_path = "/tmp/auralis_processing/abc_processed.wav"
+        job.mode = "adaptive"
+        job.settings = {}
+        job.status = ProcessingStatus.COMPLETED
+        job.progress = 100.0
+        job.error_message = None
+        job.created_at = datetime.now()
+        job.started_at = datetime.now()
+        job.completed_at = datetime.now()
+        job.result_data = {
+            "output_file": Path(job.output_path).name,  # as set by process_job()
+            "sample_rate": 44100,
+        }
+
+        d = job.to_dict()
+        result = d.get("result_data") or {}
+
+        # Absolute path must not appear in result_data
+        assert "output_path" not in result, (
+            "result_data must not expose the absolute output_path"
+        )
+        # Filename-only key must be present
+        assert result.get("output_file") == "abc_processed.wav"
+
+    def test_to_dict_top_level_filenames_are_sanitised(self):
+        """Top-level input_file / output_file are filename-only (#3322 regression guard)."""
+        from datetime import datetime
+        job = ProcessingJob.__new__(ProcessingJob)
+        job.job_id = "test-job-2"
+        job.input_path = "/home/user/Music/song.flac"
+        job.output_path = "/tmp/auralis_processing/uuid_processed.wav"
+        job.mode = "adaptive"
+        job.settings = {}
+        job.status = ProcessingStatus.QUEUED
+        job.progress = 0.0
+        job.error_message = None
+        job.created_at = datetime.now()
+        job.started_at = None
+        job.completed_at = None
+        job.result_data = None
+
+        d = job.to_dict()
+        assert d["input_file"] == "song.flac"
+        assert d["output_file"] == "uuid_processed.wav"
+        assert "/home/user" not in str(d)
+        assert "/tmp/auralis" not in str(d)

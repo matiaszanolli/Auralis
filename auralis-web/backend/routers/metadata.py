@@ -131,8 +131,8 @@ def create_metadata_router(
 
         except HTTPException:
             raise  # Re-raise HTTPException as-is (don't wrap in 500)
-        except FileNotFoundError as e:
-            raise HTTPException(status_code=404, detail=f"Audio file not found: {e}")
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail=f"Audio file not found for track {track_id}")
         except Exception as e:
             logger.error(f"Failed to get editable fields for track {track_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to get editable fields")
@@ -176,8 +176,8 @@ def create_metadata_router(
 
         except HTTPException:
             raise  # Re-raise HTTPException as-is
-        except FileNotFoundError as e:
-            raise HTTPException(status_code=404, detail=f"Audio file not found: {e}")
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail=f"Audio file not found for track {track_id}")
         except Exception as e:
             logger.error(f"Failed to get metadata for track {track_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to get metadata")
@@ -268,9 +268,8 @@ def create_metadata_router(
 
         except HTTPException:
             raise
-        except FileNotFoundError as e:
-            # File not found error
-            raise HTTPException(status_code=404, detail=f"Audio file not found: {e}")
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail=f"Audio file not found for track {track_id}")
         except ValueError as e:
             # Invalid metadata error
             raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")

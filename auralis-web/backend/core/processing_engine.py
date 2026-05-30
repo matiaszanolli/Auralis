@@ -538,9 +538,11 @@ class ProcessingEngine:
                 # Telemetry is non-critical; never let it fail the job.
                 pass
 
-            # Store result metadata
+            # Store result metadata — use filename-only for output_file so
+            # the absolute temp path never appears in API responses (#3848,
+            # sibling of the input_file sanitisation in #3322).
             job.result_data = {
-                "output_path": job.output_path,
+                "output_file": Path(job.output_path).name,
                 "sample_rate": int(sample_rate),
                 "duration": float(len(audio_data) / sample_rate),
                 "format": output_format,
