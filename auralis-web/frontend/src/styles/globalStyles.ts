@@ -75,10 +75,10 @@ export const globalStyles = css`
 
   @keyframes glow {
     0%, 100% {
-      filter: drop-shadow(0 0 8px rgba(115, 102, 240, 0.4));
+      filter: drop-shadow(0 0 8px ${tokens.colors.opacityScale.accent.veryStrong});
     }
     50% {
-      filter: drop-shadow(0 0 16px rgba(115, 102, 240, 0.8));
+      filter: drop-shadow(0 0 16px ${tokens.colors.opacityScale.accent.vivid});
     }
   }
 
@@ -243,7 +243,7 @@ export const globalStyles = css`
 
   /* Selection color */
   ::selection {
-    background: rgba(115, 102, 240, 0.3);
+    background: ${tokens.colors.opacityScale.accent.strong};
     color: ${tokens.colors.text.primary};
   }
 
