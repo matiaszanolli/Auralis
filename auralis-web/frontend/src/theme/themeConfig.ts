@@ -9,10 +9,13 @@ import { tokens } from '@/design-system';
 const _COSMIC_DEEP = '#0F2027';   // deepened bg.level0 for the cosmicBlue ramp
 const _COSMIC_MID = '#203A43';
 const _COSMIC_END = '#2C5364';
+// Hoisted before gradients so auroraReverse can reference it instead of the
+// raw hex literal that was duplicated at line 145 (fixes #3986 / DS-12).
+const _PRIMARY_DARK = '#5A5CC4';  // darker shade of accent.primary
 
 export const gradients = {
   aurora: tokens.gradients.aurora,
-  auroraReverse: `linear-gradient(135deg, ${tokens.colors.accent.primary} 100%, #5A5CC4 0%)`,
+  auroraReverse: `linear-gradient(135deg, ${tokens.colors.accent.primary} 100%, ${_PRIMARY_DARK} 0%)`,
   neonSunset: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.energy} 100%)`,
   deepOcean: `linear-gradient(135deg, ${tokens.colors.semantic.info} 0%, ${tokens.colors.semantic.success} 100%)`,
   electricPurple: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.primary} 100%)`,
