@@ -18,15 +18,13 @@ import soundfile as sf
 from scipy.signal import butter, sosfilt
 
 from ..analysis.fingerprint.fingerprint_service import FingerprintService
-from ..dsp.basic import amplify, normalize
+from ..dsp.basic import normalize
 from ..dsp.dynamics.soft_clipper import soft_clip
-from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ..dsp.utils.stereo import adjust_stereo_width_multiband
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
 from .dsp import HarmonicExciter, Notch, ParallelEQUtilities, ResonanceNotcher, TransientShaper
 from .mastering_branches import MaterialClassifier
 from .mastering_config import SimpleMasteringConfig
-from .processing.base import ExpansionStrategies
 from .utils import FingerprintUnpacker, SmoothCurveUtilities
 
 
