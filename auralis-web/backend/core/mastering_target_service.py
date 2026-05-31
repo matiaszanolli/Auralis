@@ -467,7 +467,13 @@ def get_mastering_target_service() -> MasteringTargetService:
         with _service_lock:
             # Double-check locking pattern
             if _global_mastering_target_service is None:
-                _global_mastering_target_service = MasteringTargetService()
+                # Wire Tier-1 DB lookup via the global repository factory so the
+                # singleton isn't a latent Tier-1-dead trap (#3836 / BE-PE-3).
+                # Lazy import avoids a circular import at module load time.
+                from core.chunked_processor import _default_get_fingerprints_repository
+                _global_mastering_target_service = MasteringTargetService(
+                    get_fingerprints_repository=_default_get_fingerprints_repository,
+                )
                 logger.info("Global MasteringTargetService instance created")
 
     return _global_mastering_target_service

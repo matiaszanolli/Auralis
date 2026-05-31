@@ -58,6 +58,27 @@ from auralis.io.unified_loader import load_audio
 
 logger = logging.getLogger(__name__)
 
+
+def _default_get_fingerprints_repository() -> Any | None:
+    """Return the global FingerprintRepository for Tier-1 (DB) fingerprint lookup.
+
+    ChunkedAudioProcessor is constructed from many call sites (streaming controller,
+    recommendation service, cache warmer, enhancement route). Rather than thread the
+    repository factory through every one, the DB-tier accessor defaults to the global
+    ``repository_factory`` registered in ``config.globals.globals_dict`` at startup.
+    Returns ``None`` (Tier-1 silently skipped, as before) when globals aren't
+    initialised yet — e.g. in unit tests — so this never raises (#3836 / BE-PE-3).
+    """
+    try:
+        from config.globals import globals_dict
+        factory = globals_dict.get("repository_factory")
+        if factory is None:
+            return None
+        return factory.fingerprints
+    except Exception:  # pragma: no cover - defensive: never break processor init
+        return None
+
+
 # Global cache for last content profiles (used by visualizer API)
 # Maps preset name -> last_content_profile dict
 _last_content_profiles: dict[str, Any] = {}
@@ -132,7 +153,9 @@ class ChunkedAudioProcessor:
         self._level_manager: Any = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)
         self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
         self._processor_factory: Any = get_processor_factory()  # Phase 2: Use singleton
-        self._mastering_target_service: Any = MasteringTargetService()  # Phase 4: Unified fingerprint/target management
+        self._mastering_target_service: Any = MasteringTargetService(
+            get_fingerprints_repository=_default_get_fingerprints_repository,
+        )  # Phase 4: Unified fingerprint/target management; Tier-1 DB lookup wired (#3836)
         self._cache_manager: Any = ChunkCacheManager(self.chunk_cache)  # Phase 5.1: Cache management
         # CRITICAL: Threading lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state

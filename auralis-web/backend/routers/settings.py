@@ -21,7 +21,7 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from security.path_security import validate_user_chosen_directory, register_allowed_directory, PathValidationError
 
@@ -30,6 +30,92 @@ logger = logging.getLogger(__name__)
 
 class _ScanFolderRequest(BaseModel):
     folder: str
+
+
+class SettingsUpdateRequest(BaseModel):
+    """Typed, validated body for ``PUT /api/settings`` (#3837 / BE-SCH-2).
+
+    Every field is optional so the endpoint remains a partial update. ``extra='forbid'``
+    turns a misspelled field name into a 422 instead of a silent no-op (the
+    SettingsRepository whitelist would otherwise drop unknown keys without complaint).
+    Field set mirrors ``SettingsRepository.update_settings`` whitelist plus the
+    separately-handled ``scan_folders`` (JSON) and ``file_types`` (CSV) columns.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Library
+    scan_folders: list[str] | None = None
+    file_types: list[str] | None = None
+    auto_scan: bool | None = None
+    scan_interval: int | None = Field(default=None, ge=0)
+    # Playback
+    crossfade_enabled: bool | None = None
+    crossfade_duration: float | None = Field(default=None, ge=0)
+    gapless_enabled: bool | None = None
+    replay_gain_enabled: bool | None = None
+    volume: float | None = Field(default=None, ge=0.0, le=1.0)
+    # Audio output
+    output_device: str | None = None
+    bit_depth: int | None = None
+    sample_rate: int | None = Field(default=None, gt=0)
+    # Interface
+    theme: str | None = None
+    language: str | None = None
+    show_visualizations: bool | None = None
+    mini_player_on_close: bool | None = None
+    # Enhancement
+    default_preset: str | None = None
+    auto_enhance: bool | None = None
+    enhancement_intensity: float | None = Field(default=None, ge=0.0, le=1.0)
+    # Advanced
+    cache_size: int | None = Field(default=None, ge=0)
+    max_concurrent_scans: int | None = Field(default=None, ge=1)
+    enable_analytics: bool | None = None
+    debug_mode: bool | None = None
+
+
+class SettingsResponse(BaseModel):
+    """Response shape for settings endpoints (mirrors ``UserSettings.to_dict()``).
+
+    ``extra='allow'`` keeps forward-compatibility with the dict the repository emits
+    (e.g. ``id`` / ``created_at`` / ``updated_at``) without having to enumerate them.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    scan_folders: list[str] = Field(default_factory=list)
+    file_types: list[str] = Field(default_factory=list)
+    auto_scan: bool | None = None
+    scan_interval: int | None = None
+    crossfade_enabled: bool | None = None
+    crossfade_duration: float | None = None
+    gapless_enabled: bool | None = None
+    replay_gain_enabled: bool | None = None
+    volume: float | None = None
+    output_device: str | None = None
+    bit_depth: int | None = None
+    sample_rate: int | None = None
+    theme: str | None = None
+    language: str | None = None
+    show_visualizations: bool | None = None
+    mini_player_on_close: bool | None = None
+    default_preset: str | None = None
+    auto_enhance: bool | None = None
+    enhancement_intensity: float | None = None
+    cache_size: int | None = None
+    max_concurrent_scans: int | None = None
+    enable_analytics: bool | None = None
+    debug_mode: bool | None = None
+
+
+class SettingsUpdateResponse(BaseModel):
+    """Envelope returned by mutating settings endpoints."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    message: str
+    settings: SettingsResponse
 
 
 def create_settings_router(
@@ -66,7 +152,7 @@ def create_settings_router(
             except Exception as exc:
                 logger.warning(f"Failed to notify auto-scanner of settings change: {exc}")
 
-    @router.get("/api/settings")
+    @router.get("/api/settings", response_model=SettingsResponse)
     async def get_settings() -> dict[str, Any]:
         """Get current user settings."""
         settings = await asyncio.to_thread(_repo().get_settings)
@@ -74,16 +160,20 @@ def create_settings_router(
             raise HTTPException(status_code=404, detail="Settings not found")
         return settings.to_dict()
 
-    @router.put("/api/settings")
-    async def update_settings(updates: dict[str, Any]) -> dict[str, Any]:
+    @router.put("/api/settings", response_model=SettingsUpdateResponse)
+    async def update_settings(updates: SettingsUpdateRequest) -> dict[str, Any]:
         """
         Update user settings.
 
-        Accepts a partial dictionary of settings fields to update.
-        Unknown fields are silently ignored (whitelist enforced by SettingsRepository).
+        Accepts a partial, typed set of settings fields. Unknown field names are
+        rejected with HTTP 422 (``extra='forbid'``) instead of silently no-op'ing
+        through the SettingsRepository whitelist (#3837 / BE-SCH-2). Only fields the
+        client actually sent are applied (``exclude_unset``), preserving partial-update
+        semantics.
         """
+        payload = updates.model_dump(exclude_unset=True)
         try:
-            settings = await asyncio.to_thread(_repo().update_settings, updates)
+            settings = await asyncio.to_thread(_repo().update_settings, payload)
             await _notify_scanner()
             return {"message": "Settings updated", "settings": settings.to_dict()}
         except HTTPException:
@@ -94,7 +184,7 @@ def create_settings_router(
             logger.error(f"Failed to update settings: {exc}")
             raise HTTPException(status_code=500, detail="Failed to update settings")
 
-    @router.post("/api/settings/scan-folders")
+    @router.post("/api/settings/scan-folders", response_model=SettingsUpdateResponse)
     async def add_scan_folder(body: _ScanFolderRequest) -> dict[str, Any]:
         """Add a folder to the list of scanned directories."""
         if not body.folder or not body.folder.strip():
@@ -115,7 +205,7 @@ def create_settings_router(
             logger.error(f"Failed to add scan folder: {exc}")
             raise HTTPException(status_code=500, detail="Failed to add scan folder")
 
-    @router.post("/api/settings/scan-folders/delete")
+    @router.post("/api/settings/scan-folders/delete", response_model=SettingsUpdateResponse)
     async def remove_scan_folder(body: _ScanFolderRequest) -> dict[str, Any]:
         """Remove a folder from the list of scanned directories."""
         try:
@@ -128,7 +218,7 @@ def create_settings_router(
             logger.error(f"Failed to remove scan folder: {exc}")
             raise HTTPException(status_code=500, detail="Failed to remove scan folder")
 
-    @router.post("/api/settings/reset")
+    @router.post("/api/settings/reset", response_model=SettingsUpdateResponse)
     async def reset_settings() -> dict[str, Any]:
         """Reset all settings to their default values."""
         try:
