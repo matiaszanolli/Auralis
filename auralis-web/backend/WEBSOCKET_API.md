@@ -638,7 +638,7 @@ function MyComponent() {
 
 ## Connection Manager Implementation
 
-**Location**: [auralis-web/backend/websocket_manager.py](websocket_manager.py)
+**Location**: [auralis-web/backend/config/globals.py](config/globals.py)
 
 **Key Methods**:
 - `connect(websocket)` - Register new WebSocket connection
@@ -713,5 +713,5 @@ export type WebSocketMessageType =
 ---
 
 **For questions or updates, see**:
-- [WebSocket Consolidation Plan](../../WEBSOCKET_CONSOLIDATION_PLAN.md)
-- [Auralis Roadmap - Phase 0](../../docs/design/AURALIS_ROADMAP.md)
+- [Architecture Overview](../../ARCHITECTURE.md)
+- [Development Roadmap](../../docs/MASTER_ROADMAP.md)
