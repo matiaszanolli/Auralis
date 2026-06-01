@@ -82,7 +82,7 @@ class PlaybackService:
         Initialize PlaybackService.
 
         Args:
-            audio_player: EnhancedAudioPlayer instance implementing AudioPlayer protocol
+            audio_player: AudioPlayer instance implementing AudioPlayer protocol
             player_state_manager: PlayerStateManager instance implementing PlayerStateManager protocol
             connection_manager: WebSocket connection manager implementing ConnectionManager protocol
 
@@ -267,7 +267,7 @@ class PlaybackService:
                 # calls for "seek"). The outbound `play_enhanced` /
                 # `play_normal` streams already carry `start_position`
                 # via the WS path; the legacy REST seek endpoint only
-                # mutates the EnhancedAudioPlayer state and doesn't
+                # mutates the AudioPlayer state and doesn't
                 # need an extra cross-client broadcast.
 
             logger.info(f"⏩ Seeked to {position:.1f}s")

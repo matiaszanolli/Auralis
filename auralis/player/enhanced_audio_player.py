@@ -57,7 +57,7 @@ class AudioPlayer:
     - Library integration and auto-reference selection
     - Performance monitoring and statistics
 
-    API compatible with original EnhancedAudioPlayer.
+    API compatible with AudioPlayer.
 
     Phase 6C: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
@@ -791,7 +791,3 @@ class AudioPlayer:
         self.gapless.cleanup()
         self.integration.cleanup()
         info("AudioPlayer cleanup completed")
-
-
-# Backward compatibility alias
-EnhancedAudioPlayer = AudioPlayer

@@ -203,7 +203,7 @@ def create_player_router(
 
     Args:
         get_library_manager: Callable that returns LibraryManager instance
-        get_audio_player: Callable that returns EnhancedAudioPlayer instance
+        get_audio_player: Callable that returns AudioPlayer instance
         get_player_state_manager: Callable that returns PlayerStateManager instance
         get_processing_cache: Callable that returns processing cache dict
         connection_manager: WebSocket connection manager for broadcasts
@@ -305,7 +305,7 @@ def create_player_router(
             # The queue entry is what the gapless engine reads on next_track; loading
             # the audio file itself is done by load_track_from_library() below
             # (fixes #3491 — the previous `audio_player.load_current_track()` call
-            # invoked a method that does not exist on EnhancedAudioPlayer, so the
+            # invoked a method that does not exist on AudioPlayer, so the
             # hasattr() check always returned False and the endpoint reported success
             # while never actually loading the file).
             track_info = {

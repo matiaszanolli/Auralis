@@ -98,7 +98,7 @@ class QueueService:
         Initialize QueueService.
 
         Args:
-            audio_player: EnhancedAudioPlayer instance with queue support
+            audio_player: AudioPlayer instance with queue support
             player_state_manager: PlayerStateManager instance
             library_manager: LibraryManager instance
             connection_manager: WebSocket connection manager for broadcasts

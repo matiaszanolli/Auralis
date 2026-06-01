@@ -11,6 +11,6 @@ Based on Matchering Player components
 """
 
 from .config import PlayerConfig
-from .enhanced_audio_player import AudioPlayer, EnhancedAudioPlayer  # EnhancedAudioPlayer for backward compatibility
+from .enhanced_audio_player import AudioPlayer
 
-__all__ = ["AudioPlayer", "EnhancedAudioPlayer", "PlayerConfig"]
+__all__ = ["AudioPlayer", "PlayerConfig"]

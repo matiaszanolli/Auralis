@@ -108,7 +108,7 @@ def create_lifespan(deps: dict[str, Any]):
                 )
                 from auralis.library.scanner import LibraryScanner
                 from auralis.player.config import PlayerConfig
-                from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+                from auralis.player import AudioPlayer
 
                 # Ensure database directory exists before initializing LibraryManager
                 music_dir = Path.home() / "Music" / "Auralis"
@@ -244,7 +244,7 @@ def create_lifespan(deps: dict[str, Any]):
                     enable_advanced_smoothing=True,
                     max_db_change_per_second=2.0
                 )
-                globals_dict['audio_player'] = EnhancedAudioPlayer(
+                globals_dict['audio_player'] = AudioPlayer(
                     player_config,
                     library_manager=globals_dict['library_manager'],
                     get_repository_factory=lambda: globals_dict.get('repository_factory')

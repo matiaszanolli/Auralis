@@ -32,7 +32,7 @@ from .core.hybrid_processor import HybridProcessor, process_adaptive, process_re
 from .io.results import Result, pcm16, pcm24
 
 # Real-time player (Modern implementation with adaptive DSP)
-from .player import AudioPlayer, EnhancedAudioPlayer  # EnhancedAudioPlayer for backward compatibility
+from .player import AudioPlayer
 from .player.config import PlayerConfig
 
 # Logging
@@ -41,8 +41,7 @@ from .utils.logging import set_log_handler as log
 # Main exports
 __all__ = [
     "UnifiedConfig",     # Modern unified configuration
-    "AudioPlayer",       # Real-time player with adaptive DSP (modern standard)
-    "EnhancedAudioPlayer",  # Backward compatibility alias
+    "AudioPlayer",       # Real-time player with adaptive DSP
     "PlayerConfig",      # Player configuration
     "Result", "pcm16", "pcm24",  # Output formats
     "log",               # Logging

@@ -16,7 +16,7 @@ from collections.abc import Callable
 
 from core.state_manager import PlayerStateManager
 
-from auralis import EnhancedAudioPlayer
+from auralis import AudioPlayer
 
 if TYPE_CHECKING:
     from config.globals import ConnectionManager
@@ -34,7 +34,7 @@ class NavigationService:
 
     def __init__(
         self,
-        audio_player: EnhancedAudioPlayer,
+        audio_player: AudioPlayer,
         player_state_manager: PlayerStateManager,
         connection_manager: ConnectionManager,
         create_track_info_fn: Callable[[Any], Any],
@@ -43,7 +43,7 @@ class NavigationService:
         Initialize NavigationService.
 
         Args:
-            audio_player: EnhancedAudioPlayer instance
+            audio_player: AudioPlayer instance
             player_state_manager: PlayerStateManager instance
             connection_manager: WebSocket connection manager for broadcasts
             create_track_info_fn: Function to convert DB track to TrackInfo
@@ -51,7 +51,7 @@ class NavigationService:
         Raises:
             ValueError: If any required component is not available
         """
-        self.audio_player: EnhancedAudioPlayer = audio_player
+        self.audio_player: AudioPlayer = audio_player
         self.player_state_manager: PlayerStateManager = player_state_manager
         self.connection_manager: ConnectionManager = connection_manager
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
