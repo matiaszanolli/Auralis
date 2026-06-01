@@ -25,7 +25,7 @@ Learning:            auralis/learning/                       preference engine, 
 Utils:               auralis/utils/                          logging, helpers, preview_creator
 
 Backend:             auralis-web/backend/                    FastAPI :8765
-Backend Routers:     auralis-web/backend/routers/            18 route handlers
+Backend Routers:     auralis-web/backend/routers/            15 route handlers
 Backend Streaming:   auralis-web/backend/                    chunked_processor.py, audio_stream_controller.py, processing_engine.py
 Backend Schemas:     auralis-web/backend/schemas.py
 Backend Services:    auralis-web/backend/services/
@@ -120,7 +120,7 @@ When a bug pattern exists, check ALL siblings before declaring scope. Common sib
 |---------|---------------|
 | DSP stage missing `.copy()` | All files under `auralis/dsp/` and `auralis/core/` |
 | Repository raw SQL | All 12 files under `auralis/library/repositories/` |
-| Router missing input validation | All 18 files under `auralis-web/backend/routers/` |
+| Router missing input validation | All 15 files under `auralis-web/backend/routers/` |
 | Hook missing cleanup | All files under `auralis-web/frontend/src/hooks/` |
 | Component > 300 lines | All files under `auralis-web/frontend/src/components/` |
 | Service without lifecycle | All files under `auralis/services/` and `auralis-web/backend/services/` |

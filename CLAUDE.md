@@ -77,7 +77,7 @@ auralis/                          Core Python audio engine
 auralis-web/
 ├── backend/                      FastAPI REST + WebSocket (:8765)
 │   ├── main.py                     App entry point
-│   ├── routers/                    18 route handlers (player, library, albums,
+│   ├── routers/                    15 route handlers (player, library, albums,
 │   │                                 artists, playlists, enhancement, metadata,
 │   │                                 artwork, system, similarity, streaming...)
 │   ├── processing_engine.py        Audio processing orchestration

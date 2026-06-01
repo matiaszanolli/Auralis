@@ -22,7 +22,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 This audit covers ONLY the backend code:
 
 - **App Entry**: `auralis-web/backend/main.py` (FastAPI app, CORS, middleware)
-- **Routers**: `auralis-web/backend/routers/` (18 route handlers: player, library, albums, artists, playlists, enhancement, metadata, artwork, system, similarity, streaming, etc.)
+- **Routers**: `auralis-web/backend/routers/` (15 route handlers: player, library, albums, artists, playlists, enhancement, metadata, artwork, system, similarity, streaming, etc.)
 - **WebSocket Streaming**: `auralis-web/backend/core/audio_stream_controller.py`
 - **Chunked Processor**: `auralis-web/backend/core/chunked_processor.py` (30s chunks, 3s crossfade)
 - **Processing Engine**: `auralis-web/backend/core/processing_engine.py`
@@ -104,7 +104,7 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 
 **Check**:
 - [ ] CORS — is `allow_origins` properly restricted? Is `allow_credentials=True` combined with wildcard `["*"]` origins (insecure)?
-- [ ] Router inclusion — are all 18 routers properly registered with correct prefixes and tags?
+- [ ] Router inclusion — are all 15 routers properly registered with correct prefixes and tags?
 - [ ] Middleware ordering — are middleware applied in the correct order (CORS before auth, etc.)?
 - [ ] Static file serving — is there proper path restriction for served files?
 - [ ] Startup/shutdown events — are background tasks, database connections, and engine resources properly initialized and cleaned up?
@@ -136,7 +136,7 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 ### Dimension 9: Test Coverage
 
 **Check**:
-- [ ] Router coverage — is each of the 18 routers tested with happy path and error cases?
+- [ ] Router coverage — is each of the 15 routers tested with happy path and error cases?
 - [ ] WebSocket testing — are WebSocket connections tested (connect, send, receive, disconnect)?
 - [ ] Chunked processing tests — are chunk boundaries, crossfades, and edge cases tested?
 - [ ] Schema validation tests — are invalid request payloads tested for proper rejection?
@@ -193,7 +193,7 @@ Dimension → Output mapping:
 1. Read all `/tmp/audit/backend/dim_*.md` files
 2. Combine into `docs/audits/AUDIT_BACKEND_<TODAY>.md` with structure:
    - **Executive Summary** — Total findings by severity, key themes, most impactful issues
-   - **Route Coverage Matrix** — Table of all 18 router files with validation status
+   - **Route Coverage Matrix** — Table of all 15 router files with validation status
    - **Findings** — Grouped by severity (CRITICAL first), deduplicated across dimensions
    - **Relationships** — How findings interact, shared root causes
    - **Prioritized Fix Order** — What to fix first and why
