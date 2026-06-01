@@ -18,10 +18,17 @@ This eliminates duplicate cache key patterns and centralizes caching logic.
 """
 
 import logging
+import threading
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# On-disk chunk cache (/tmp/auralis_chunks) bound (#3834). Mirrors the 512 MB
+# in-memory cap of SimpleChunkCache. All ChunkedAudioProcessor instances share
+# the same directory, so the reaper is global and runs on a throttle.
+MAX_CHUNK_DISK_BYTES = 512 * 1024 * 1024  # 512 MB
+PRUNE_EVERY_N_WRITES = 32  # amortise the directory scan across writes
 
 
 class ChunkCacheManager:
@@ -124,15 +131,31 @@ class ChunkCacheManager:
         """
         return f"fingerprint_{track_id}_{file_signature}"
 
-    def __init__(self, cache_dict: dict[str, Any]) -> None:
+    # Shared across all instances so the on-disk reaper throttle and the prune
+    # itself are coordinated for the single /tmp/auralis_chunks directory (#3834).
+    _prune_lock: "threading.Lock" = threading.Lock()
+    _write_counter: int = 0
+
+    def __init__(
+        self,
+        cache_dict: dict[str, Any],
+        max_disk_bytes: int = MAX_CHUNK_DISK_BYTES,
+        prune_every: int = PRUNE_EVERY_N_WRITES,
+    ) -> None:
         """
         Initialize cache manager with shared cache dictionary.
 
         Args:
             cache_dict: Shared cache dictionary (typically from ChunkedAudioProcessor)
                        Maps cache keys to paths (str) or fingerprints (dict)
+            max_disk_bytes: Cap on the on-disk chunk directory; the oldest WAVs
+                are pruned past this (#3834). Default 512 MB.
+            prune_every: Run the on-disk prune once every this many cached paths,
+                amortising the directory scan.
         """
         self._cache = cache_dict
+        self._max_disk_bytes = max_disk_bytes
+        self._prune_every = max(1, prune_every)
 
     def get_cached_chunk_path(self, cache_key: str) -> Path | None:
         """
@@ -192,6 +215,80 @@ class ChunkCacheManager:
 
         self._cache[cache_key] = str(path)
         logger.debug(f"Cached: {cache_key} → {path}")
+
+        # Bound the on-disk chunk directory (#3834). The dict is per-instance and
+        # small, but every processor writes WAVs to the same dir, which would
+        # otherwise grow unbounded over a long session.
+        self._maybe_prune(path.parent)
+
+    def _maybe_prune(self, chunk_dir: Path) -> None:
+        """Run the on-disk reaper once every `prune_every` cached paths.
+
+        A class-level counter + lock coordinates the throttle across every
+        ChunkCacheManager instance, since they all share one chunk directory.
+        """
+        cls = type(self)
+        with cls._prune_lock:
+            cls._write_counter += 1
+            if cls._write_counter < self._prune_every:
+                return
+            cls._write_counter = 0
+            # Prune under the lock so concurrent writers don't launch overlapping
+            # reapers; a scan of a few hundred files is sub-millisecond-to-ms.
+            self.prune_chunk_directory(chunk_dir, self._max_disk_bytes)
+
+    @staticmethod
+    def prune_chunk_directory(chunk_dir: Path, max_bytes: int) -> tuple[int, int]:
+        """Delete the oldest files in *chunk_dir* (by mtime) until the directory's
+        total size is within *max_bytes* (#3834).
+
+        mtime-ordering means just-written chunks survive and the coldest tracks'
+        WAVs are reclaimed first. Deleting a file another stream still references
+        is safe: that stream's get_cached_chunk_path re-checks existence and
+        treats a missing file as a cache miss (reprocess). Best-effort — per-file
+        errors are logged, never raised.
+
+        Returns (files_deleted, bytes_reclaimed).
+        """
+        try:
+            entries: list[tuple[float, int, Path]] = []
+            total = 0
+            for p in chunk_dir.iterdir():
+                if not p.is_file():
+                    continue
+                try:
+                    st = p.stat()
+                except OSError:
+                    continue
+                entries.append((st.st_mtime, st.st_size, p))
+                total += st.st_size
+        except OSError as e:
+            logger.debug(f"Chunk-dir prune skipped ({chunk_dir}): {e}")
+            return (0, 0)
+
+        if total <= max_bytes:
+            return (0, 0)
+
+        entries.sort(key=lambda e: e[0])  # oldest mtime first
+        deleted = 0
+        reclaimed = 0
+        for _mtime, size, p in entries:
+            if total <= max_bytes:
+                break
+            try:
+                p.unlink()
+                deleted += 1
+                reclaimed += size
+                total -= size
+            except OSError as e:
+                logger.warning(f"Could not prune cached chunk {p}: {e}")
+
+        if deleted:
+            logger.info(
+                f"Pruned {deleted} cached chunk file(s) from {chunk_dir}, "
+                f"reclaimed {reclaimed / 1024 / 1024:.1f} MB (cap {max_bytes / 1024 / 1024:.0f} MB)"
+            )
+        return (deleted, reclaimed)
 
     def get_cached_fingerprint(self, cache_key: str) -> dict[str, Any] | None:
         """
