@@ -1137,13 +1137,25 @@ class AudioStreamController:
             async with self._active_streams_lock:  # fixes #2076, #3182
                 self.active_streams.pop(ws_id(websocket), None)
             self._stream_semaphore.release()
-            # Clean up temp WAV created for compressed format streaming (#3225)
+            # Clean up temp WAV created for compressed format streaming (#3225).
+            # Log on failure instead of swallowing it (#3877): an EBUSY/EACCES
+            # (Windows AV / cloud-sync still holding the file) used to leave the
+            # dir behind silently and accumulate in TEMP. onexc logs each failed
+            # entry; the outer guard catches the unlikely pre-walk error. Any
+            # survivor is swept and counted at next startup (config/startup.py).
             if temp_wav_path:
                 import shutil
                 try:
-                    shutil.rmtree(Path(temp_wav_path).parent, ignore_errors=True)
-                except Exception:
-                    pass
+                    shutil.rmtree(
+                        Path(temp_wav_path).parent,
+                        onexc=lambda _func, path, exc: logger.warning(
+                            f"Failed to remove temp stream file {path}: {exc}"
+                        ),
+                    )
+                except Exception as cleanup_error:
+                    logger.warning(
+                        f"Temp stream cleanup failed for {temp_wav_path}: {cleanup_error}"
+                    )
 
     async def _process_chunk_only(
         self,

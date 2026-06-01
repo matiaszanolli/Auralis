@@ -43,7 +43,7 @@ from pydantic import BaseModel
 from .dependencies import require_repository_factory
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["webm-streaming"])
+router = APIRouter(tags=["streaming"])
 
 # ---------------------------------------------------------------------------
 # Per-process audio file cache (fixes #2295)
@@ -139,7 +139,7 @@ class StreamMetadata(BaseModel):
     overlap_duration: int  # Overlap between chunks for reference
 
 
-def create_webm_streaming_router(
+def create_wav_streaming_router(
     get_multi_tier_buffer: Callable[[], Any],
     chunked_audio_processor_class: Any,
     chunk_duration: int = 10,
@@ -147,7 +147,7 @@ def create_webm_streaming_router(
     get_repository_factory: Callable[[], Any] | None = None
 ) -> APIRouter:
     """
-    Factory function to create unified WebM streaming router with dependencies.
+    Factory function to create the unified WAV streaming router with dependencies.
 
     This is the new simplified architecture that replaces both MSE and MTB routers.
 

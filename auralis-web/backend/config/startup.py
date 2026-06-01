@@ -28,6 +28,28 @@ from fastapi import FastAPI
 logger = logging.getLogger(__name__)
 
 
+def reclaim_leftover_stream_temps(temp_root: Path) -> int:
+    """Remove temp WAV dirs orphaned by interrupted compressed-format streams.
+
+    stream_normal_audio writes a temp WAV under ``auralis_stream_*`` and cleans
+    it in its finally block, but a crash or a locked file (Windows AV /
+    cloud-sync) can leave one behind (#3877). Sweep them on startup so any leak
+    surfaces in the log and stays bounded.
+
+    Returns the number of leftover directories successfully reclaimed.
+    """
+    reclaimed = 0
+    for leftover in temp_root.glob("auralis_stream_*"):
+        try:
+            shutil.rmtree(leftover)
+            reclaimed += 1
+        except Exception as e:
+            logger.warning(f"Failed to remove leftover temp stream dir {leftover}: {e}")
+    if reclaimed:
+        logger.info(f"🧹 Reclaimed {reclaimed} leftover temp stream dir(s)")
+    return reclaimed
+
+
 def create_lifespan(deps: dict[str, Any]):
     """
     Create a lifespan context manager for FastAPI application.
@@ -71,6 +93,9 @@ def create_lifespan(deps: dict[str, Any]):
                 logger.info(f"🧹 Cleared chunk directory: {chunk_dir}")
             except Exception as e:
                 logger.warning(f"Failed to clear chunk directory: {e}")
+
+        # Sweep temp WAVs orphaned by interrupted compressed-format streams (#3877).
+        reclaim_leftover_stream_temps(Path(tempfile.gettempdir()))
 
         if HAS_AURALIS:
             try:

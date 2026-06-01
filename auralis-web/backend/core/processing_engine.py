@@ -53,12 +53,6 @@ try:
 except ImportError:
     pass
 
-try:
-    from encoding.webm_encoder import WebMEncoderError
-    _ERROR_CATEGORIES.insert(0, (WebMEncoderError, "Audio encoding failed"))
-except ImportError:
-    pass
-
 
 def _safe_error_message(exc: Exception) -> str:
     """Return a user-safe error category for *exc*.

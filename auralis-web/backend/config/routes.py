@@ -25,7 +25,7 @@ from routers.player import create_player_router
 from routers.playlists import create_playlists_router
 from routers.settings import create_settings_router
 from routers.similarity import create_similarity_router
-from routers.webm_streaming import create_webm_streaming_router
+from routers.wav_streaming import create_wav_streaming_router
 
 # Import router factories
 from routers.system import create_system_router
@@ -222,23 +222,23 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         except Exception as e:
             logger.warning(f"⚠️  Failed to register similarity router: {e}", exc_info=True)
 
-    # Create and include webm streaming router
+    # Create and include WAV streaming router
     try:
-        streaming_router: APIRouter = create_webm_streaming_router(
+        streaming_router: APIRouter = create_wav_streaming_router(
             get_multi_tier_buffer=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
             chunked_audio_processor_class=chunked_audio_processor_class,
             get_repository_factory=get_component('repository_factory'),
         )
         app.include_router(streaming_router)
-        logger.info("✅ WebM streaming router registered")
+        logger.info("✅ WAV streaming router registered")
     except Exception as e:
-        # WebM streaming is the production audio delivery path; promote to
+        # WAV streaming is the production audio delivery path; promote to
         # ERROR with exc_info so a silent failure here surfaces as a CI /
         # log-monitor signal rather than a soft warning amongst the
         # genuinely-optional cache/similarity router warnings (#3538 /
         # BE-NEW-80).
         logger.error(
-            f"❌ Failed to register webm streaming router (audio delivery WILL be broken): {e}",
+            f"❌ Failed to register WAV streaming router (audio delivery WILL be broken): {e}",
             exc_info=True,
         )
 

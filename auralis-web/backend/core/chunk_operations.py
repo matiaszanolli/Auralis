@@ -8,7 +8,7 @@ Consolidates duplicate logic from:
 - chunked_processor.load_chunk()
 - chunked_processor._extract_chunk_segment()
 - chunked_processor.apply_crossfade_between_chunks()
-- webm_streaming._get_original_wav_chunk()
+- wav_streaming._get_original_wav_chunk()
 
 This utility eliminates ~300 lines of duplicate chunk handling code.
 
@@ -53,7 +53,7 @@ class ChunkOperations:
 
         Consolidates logic from:
         - chunked_processor.load_chunk()
-        - webm_streaming._get_original_wav_chunk()
+        - wav_streaming._get_original_wav_chunk()
 
         Chunks after the first include OVERLAP_DURATION at the start for crossfading.
         This ensures no audio is lost during crossfade concatenation.

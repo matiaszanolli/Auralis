@@ -452,10 +452,10 @@ def test_save_no_nan_or_inf(tmp_path, sample_stereo_audio):
 # ===== Encode-Boundary Clamp Regression (#3471) =====
 #
 # Before the fix, save() called sf.write directly with a PCM subtype and
-# relied on libsndfile to clamp out-of-range samples. wav_encoder.py and
-# webm_encoder.py already clipped defensively; saver.py did not. The
-# tests below pin the defensive clamp so the saver doesn't drift back
-# to relying on libsndfile-specific behavior across builds.
+# relied on libsndfile to clamp out-of-range samples. wav_encoder.py already
+# clipped defensively; saver.py did not. The tests below pin the defensive
+# clamp so the saver doesn't drift back to relying on libsndfile-specific
+# behavior across builds.
 
 
 def test_save_pcm16_clamps_out_of_range_positive(tmp_path):

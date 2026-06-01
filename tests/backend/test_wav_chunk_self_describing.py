@@ -26,7 +26,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from encoding.wav_encoder import WAVEncoderError, encode_to_wav, read_wav_frame_info
-from routers.webm_streaming import _compute_chunk_sample_layout
+from routers.wav_streaming import _compute_chunk_sample_layout
 
 
 def _make_wav(n_frames: int, sample_rate: int = 44100, channels: int = 2) -> bytes:

@@ -1,5 +1,5 @@
 """
-Tests for WebM Streaming Router
+Tests for WAV Streaming Router
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Tests for the unified WAV streaming endpoints.
@@ -65,7 +65,7 @@ class TestRouterRegistration:
 class TestGetStreamMetadata:
     """Test GET /api/stream/{track_id}/metadata"""
 
-    @patch('routers.webm_streaming.require_repository_factory')
+    @patch('routers.wav_streaming.require_repository_factory')
     def test_get_metadata_track_not_found(self, mock_require_repos, client, mock_repos):
         """Test metadata request for non-existent track"""
         mock_require_repos.return_value = mock_repos
@@ -76,7 +76,7 @@ class TestGetStreamMetadata:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @patch('routers.webm_streaming.require_repository_factory')
+    @patch('routers.wav_streaming.require_repository_factory')
     def test_get_metadata_file_not_found(self, mock_require_repos, client, mock_repos):
         """Test metadata when audio file doesn't exist"""
         mock_require_repos.return_value = mock_repos
@@ -92,9 +92,9 @@ class TestGetStreamMetadata:
         assert response.status_code == 404
         assert "file not found" in response.json()["detail"].lower()
 
-    @patch('routers.webm_streaming.sf.info', side_effect=_mock_audio_info)
-    @patch('routers.webm_streaming.os.path.exists', return_value=True)
-    @patch('routers.webm_streaming.require_repository_factory')
+    @patch('routers.wav_streaming.sf.info', side_effect=_mock_audio_info)
+    @patch('routers.wav_streaming.os.path.exists', return_value=True)
+    @patch('routers.wav_streaming.require_repository_factory')
     def test_get_metadata_structure(self, mock_require_repos, _mock_exists, _mock_sf, client, mock_repos, mock_track):
         """Test metadata response structure"""
         mock_require_repos.return_value = mock_repos
@@ -109,9 +109,9 @@ class TestGetStreamMetadata:
                       "format_version", "chunk_playable_duration", "overlap_duration"]:
             assert field in data, f"Missing field: {field}"
 
-    @patch('routers.webm_streaming.sf.info', side_effect=_mock_audio_info)
-    @patch('routers.webm_streaming.os.path.exists', return_value=True)
-    @patch('routers.webm_streaming.require_repository_factory')
+    @patch('routers.wav_streaming.sf.info', side_effect=_mock_audio_info)
+    @patch('routers.wav_streaming.os.path.exists', return_value=True)
+    @patch('routers.wav_streaming.require_repository_factory')
     def test_get_metadata_field_types(self, mock_require_repos, _mock_exists, _mock_sf, client, mock_repos, mock_track):
         """Test that metadata fields have correct types"""
         mock_require_repos.return_value = mock_repos
@@ -128,9 +128,9 @@ class TestGetStreamMetadata:
         assert isinstance(data["total_chunks"], int)
         assert isinstance(data["mime_type"], str)
 
-    @patch('routers.webm_streaming.sf.info', side_effect=_mock_audio_info)
-    @patch('routers.webm_streaming.os.path.exists', return_value=True)
-    @patch('routers.webm_streaming.require_repository_factory')
+    @patch('routers.wav_streaming.sf.info', side_effect=_mock_audio_info)
+    @patch('routers.wav_streaming.os.path.exists', return_value=True)
+    @patch('routers.wav_streaming.require_repository_factory')
     def test_get_metadata_wav_format(self, mock_require_repos, _mock_exists, _mock_sf, client, mock_repos, mock_track):
         """Test that metadata specifies WAV format"""
         mock_require_repos.return_value = mock_repos
@@ -152,7 +152,7 @@ class TestGetStreamMetadata:
 class TestStreamChunk:
     """Test GET /api/stream/{track_id}/chunk/{chunk_idx}"""
 
-    @patch('routers.webm_streaming.require_repository_factory')
+    @patch('routers.wav_streaming.require_repository_factory')
     def test_stream_chunk_track_not_found(self, mock_require_repos, client, mock_repos):
         """Test chunk request for non-existent track"""
         mock_require_repos.return_value = mock_repos
@@ -161,7 +161,7 @@ class TestStreamChunk:
         response = client.get("/api/stream/999/chunk/0")
         assert response.status_code == 404
 
-    @patch('routers.webm_streaming.require_repository_factory')
+    @patch('routers.wav_streaming.require_repository_factory')
     def test_stream_chunk_file_not_found(self, mock_require_repos, client, mock_repos):
         """Test chunk request when audio file doesn't exist"""
         mock_require_repos.return_value = mock_repos
@@ -206,9 +206,9 @@ class TestStreamingSecurityValidation:
         response = client.get("/api/stream/1/chunk/999999")
         assert response.status_code in [404, 500]
 
-    @patch('routers.webm_streaming.sf.info', side_effect=_mock_audio_info)
-    @patch('routers.webm_streaming.os.path.exists', return_value=True)
-    @patch('routers.webm_streaming.require_repository_factory')
+    @patch('routers.wav_streaming.sf.info', side_effect=_mock_audio_info)
+    @patch('routers.wav_streaming.os.path.exists', return_value=True)
+    @patch('routers.wav_streaming.require_repository_factory')
     def test_metadata_consistency(self, mock_require_repos, _mock_exists, _mock_sf, client, mock_repos, mock_track):
         """Test that multiple metadata requests return consistent results"""
         mock_require_repos.return_value = mock_repos
