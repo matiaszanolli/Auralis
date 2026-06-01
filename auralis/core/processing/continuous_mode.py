@@ -248,83 +248,101 @@ class ContinuousMode:
 
     def process(self, target_audio: np.ndarray, eq_processor: Any,
                 fixed_params: dict[str, Any] | None = None) -> np.ndarray:
-        """
-        Process audio using continuous parameter space.
+        """Process audio using continuous parameter space.
 
-        Args:
-            target_audio: Input audio array
-            eq_processor: EQ processor instance for psychoacoustic EQ
-            fixed_params: (Beta.9) Pre-computed parameters from .25d file.
-                         If provided, skips fingerprint extraction (8x faster).
-
-        Returns:
-            Processed audio array
+        Dispatches to parameter resolution then DSP application.
+        ``fixed_params`` selects the fast path (no fingerprint extraction).
         """
         debug("Applying continuous space processing")
-
         processed_audio = target_audio.copy()
+        params = self._resolve_parameters(processed_audio, fixed_params)
+        if params is None:
+            return processed_audio
+        return self._apply_dsp_stages(target_audio, processed_audio, eq_processor, params)
 
-        # NEW (Beta.9): Use fixed parameters if provided (from .25d file)
+    def _resolve_parameters(
+        self,
+        processed_audio: np.ndarray,
+        fixed_params: dict[str, Any] | None,
+    ) -> Any:
+        """Resolve processing parameters from fixed params or fingerprint.
+
+        Fast path: convert ``fixed_params`` dict directly (8× faster, no fingerprint).
+        Fingerprint path: extract 25D fingerprint → map coordinates → generate params.
+
+        Returns the resolved ``ProcessingParameters``, or ``None`` when fingerprint
+        extraction returns empty (caller should skip processing and return the copy).
+        """
         if fixed_params is not None:
             debug("⚡ Using fixed parameters from .25d file (fast path)")
-            # Convert dict targets to ProcessingParameters object
             params = self._convert_targets_to_parameters(fixed_params)
             self.last_parameters = params
-            # Note: last_fingerprint and last_coordinates remain from first extraction
-        else:
-            # Step 1: Extract 25D fingerprint
-            fingerprint = self.fingerprint_analyzer.analyze(
-                processed_audio,
-                self.config.internal_sample_rate
-            )
-            self.last_fingerprint = fingerprint
+            # last_fingerprint and last_coordinates remain from the first extraction
+            return params
 
-            if not fingerprint:
-                debug("Fingerprint extraction returned empty — skipping continuous processing")
-                return processed_audio
+        # Step 1: Extract 25D fingerprint
+        fingerprint = self.fingerprint_analyzer.analyze(
+            processed_audio,
+            self.config.internal_sample_rate
+        )
+        self.last_fingerprint = fingerprint
 
-            debug(f"[Continuous Space] Fingerprint extracted: Bass: {fingerprint['bass_pct']:.1f}%, Crest: {fingerprint['crest_db']:.1f} dB, LUFS: {fingerprint['lufs']:.1f}")
+        if not fingerprint:
+            debug("Fingerprint extraction returned empty — skipping continuous processing")
+            return None
 
-            # Step 1b: Detect recording type from fingerprint (NEW - Phase 5)
-            recording_type, adaptive_params = self.recording_type_detector.detect(
-                processed_audio,
-                self.config.internal_sample_rate
-            )
-            self.last_recording_type = recording_type
-            self.last_adaptive_params = adaptive_params
+        debug(f"[Continuous Space] Fingerprint extracted: Bass: {fingerprint['bass_pct']:.1f}%, Crest: {fingerprint['crest_db']:.1f} dB, LUFS: {fingerprint['lufs']:.1f}")
 
-            debug(f"[Recording Type Detector] Detected: {recording_type.value} (confidence: {adaptive_params.confidence:.1%})")
-            debug(f"[Recording Type Detector] Philosophy: {adaptive_params.mastering_philosophy}")
-            debug(f"[Recording Type Detector] Bass: {adaptive_params.bass_adjustment_db:+.2f} dB, Treble: {adaptive_params.treble_adjustment_db:+.2f} dB")
+        # Step 1b: Detect recording type from fingerprint (Phase 5)
+        recording_type, adaptive_params = self.recording_type_detector.detect(
+            processed_audio,
+            self.config.internal_sample_rate
+        )
+        self.last_recording_type = recording_type
+        self.last_adaptive_params = adaptive_params
 
-            # Step 2: Map to 3D processing space
-            coords = self.space_mapper.map_fingerprint_to_space(fingerprint)
-            self.last_coordinates = coords
+        debug(f"[Recording Type Detector] Detected: {recording_type.value} (confidence: {adaptive_params.confidence:.1%})")
+        debug(f"[Recording Type Detector] Philosophy: {adaptive_params.mastering_philosophy}")
+        debug(f"[Recording Type Detector] Bass: {adaptive_params.bass_adjustment_db:+.2f} dB, Treble: {adaptive_params.treble_adjustment_db:+.2f} dB")
 
-            debug(f"[Continuous Space] Coordinates: {coords}")
+        # Step 2: Map to 3D processing space
+        coords = self.space_mapper.map_fingerprint_to_space(fingerprint)
+        self.last_coordinates = coords
+        debug(f"[Continuous Space] Coordinates: {coords}")
 
-            # Step 3: Get user preference (from preset if using legacy mode)
-            preset_name = self.config.mastering_profile or 'adaptive'
-            preference = PreferenceVector.from_preset_name(preset_name)
+        # Step 3: Get user preference (from preset if using legacy mode)
+        preset_name = self.config.mastering_profile or 'adaptive'
+        preference = PreferenceVector.from_preset_name(preset_name)
+        debug(f"[Continuous Space] Preference: {preference}")
 
-            debug(f"[Continuous Space] Preference: {preference}")
+        # Step 4: Derive a continuous target spectrum from the reference
+        # cloud (Phase 4). If no cloud is available (no repository, or
+        # nothing flagged is_reference yet), target_spectrum is None and
+        # generate_parameters falls back to the legacy deficit-based curve.
+        target_spectrum = self._derive_target_spectrum(fingerprint)
 
-            # Step 4: Derive a continuous target spectrum from the reference
-            # cloud (Phase 4). If no cloud is available (no repository, or
-            # nothing flagged is_reference yet), target_spectrum is None and
-            # generate_parameters falls back to the legacy deficit-based curve.
-            target_spectrum = self._derive_target_spectrum(fingerprint)
+        # Step 5: Generate processing parameters
+        params = self.param_generator.generate_parameters(
+            coords, preference, target_spectrum=target_spectrum,
+        )
+        self.last_parameters = params
+        debug(f"[Continuous Space] Parameters: {params}")
+        return params
 
-            # Step 5: Generate processing parameters
-            params = self.param_generator.generate_parameters(
-                coords, preference, target_spectrum=target_spectrum,
-            )
-            self.last_parameters = params
+    def _apply_dsp_stages(
+        self,
+        target_audio: np.ndarray,
+        processed_audio: np.ndarray,
+        eq_processor: Any,
+        params: Any,
+    ) -> np.ndarray:
+        """Apply all DSP processing stages to ``processed_audio``.
 
-            debug(f"[Continuous Space] Parameters: {params}")
-
-        # Step 5: Apply processing stages with generated parameters
-        # Track cross-dimensional state at each stage boundary
+        Runs steps 5a–7: input gain, EQ (+LUFS guard), dynamics (+tilt guard),
+        stereo width (+phase guard), normalization (+crest guard), side-effect
+        report, and quality gate. ``target_audio`` is the unmodified original
+        used only by the quality gate comparison.
+        """
         journal = PipelineJournal(self.config.internal_sample_rate)
         journal.snapshot(processed_audio, STAGE_INPUT)
 
@@ -337,10 +355,8 @@ class ContinuousMode:
         # 5b. Apply psychoacoustic EQ with generated curve
         pre_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
         processed_audio = self._apply_eq(processed_audio, eq_processor, params)
-        # Snapshot RAW post-EQ state for guard analysis (before compensation)
         journal.snapshot(processed_audio, STAGE_EQ)
         # Compensation: EQ should change spectral shape, not overall loudness.
-        # Restore pre-EQ LUFS so downstream stages operate from correct baseline.
         if self.config.enable_cross_dimensional_guard and pre_eq_lufs is not None:
             post_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
             if post_eq_lufs is not None:
@@ -353,10 +369,8 @@ class ContinuousMode:
         # 5c. Apply dynamics processing (compression or expansion)
         pre_dyn_snap = journal.get(STAGE_EQ)
         processed_audio = self._apply_dynamics(processed_audio, params)
-        # Snapshot RAW post-dynamics state for guard analysis
         journal.snapshot(processed_audio, STAGE_DYNAMICS)
         # Compensation: compression should not shift spectral tilt.
-        # Apply corrective gain to the affected band if tilt exceeds 10%.
         if self.config.enable_cross_dimensional_guard and pre_dyn_snap is not None:
             post_dyn_bass, post_dyn_mid, post_dyn_high = _quick_3band(
                 processed_audio, self.config.internal_sample_rate
@@ -364,8 +378,6 @@ class ContinuousMode:
             bass_shift = post_dyn_bass - pre_dyn_snap.bass_energy_pct
             high_shift = post_dyn_high - pre_dyn_snap.high_energy_pct
             if abs(bass_shift) > 0.10 or abs(high_shift) > 0.10:
-                # Apply a gentle corrective tilt (max ±2 dB).
-                # Use whichever shift is larger to determine correction direction.
                 dominant_shift = bass_shift if abs(bass_shift) >= abs(high_shift) else -high_shift
                 tilt_correction = max(-2.0, min(2.0, -dominant_shift * 10.0))
                 if abs(tilt_correction) > 0.3:
@@ -376,7 +388,6 @@ class ContinuousMode:
 
         # 5d. Apply stereo width adjustment
         processed_audio = self._apply_stereo_width(processed_audio, params)
-        # Snapshot RAW post-stereo state for guard analysis
         journal.snapshot(processed_audio, STAGE_STEREO)
         # Compensation: stereo processing should not degrade phase correlation.
         if self.config.enable_cross_dimensional_guard:
@@ -388,7 +399,6 @@ class ContinuousMode:
                 if post_phase is not None and pre_phase_val is not None:
                     phase_drop = post_phase - pre_phase_val
                     if phase_drop < -0.2 and post_phase < 0.3:
-                        # Reduce stereo width by blending toward mid channel
                         mid = (processed_audio[:, 0] + processed_audio[:, 1]) / 2
                         blend = 0.5  # 50% correction
                         corrected = processed_audio.copy()
@@ -409,8 +419,6 @@ class ContinuousMode:
                 post_crest_db = post_peak_db - post_rms_db
                 crest_crush = post_crest_db - pre_norm_crest.crest_db
                 if crest_crush < -4.0:
-                    # Pull back normalization gain to preserve dynamics,
-                    # then re-apply peak ceiling so output LUFS stays close to target.
                     pullback_db = max(-3.0, crest_crush + 4.0)  # Restore up to 3 dB
                     processed_audio = amplify(processed_audio, pullback_db)
                     # Re-clamp peaks to -0.3 dBFS after pullback
