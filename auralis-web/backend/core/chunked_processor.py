@@ -236,8 +236,7 @@ class ChunkedAudioProcessor:
         """Get chunk duration in seconds for crossfade calculations"""
         return CHUNK_DURATION
 
-    # REMOVED (Phase 5.1 refactoring): _generate_file_signature()
-    # Now handled by FileSignatureService.generate()
+
 
     def _load_metadata(self) -> None:
         """Load audio file metadata without loading full audio"""
@@ -260,8 +259,6 @@ class ChunkedAudioProcessor:
             # Calculate chunks based on CHUNK_INTERVAL (not CHUNK_DURATION)
             self.total_chunks = int(np.ceil(self.total_duration / CHUNK_INTERVAL))
 
-    # REMOVED (Phase 4 refactoring): _load_fingerprint_from_database()
-    # Now handled by MasteringTargetService.load_fingerprint_from_database()
 
     def _init_adaptive_mastering(self) -> None:
         """
@@ -312,8 +309,6 @@ class ChunkedAudioProcessor:
             logger.debug("Will continue without adaptive mastering (fallback to basic processing)")
             self.adaptive_mastering_engine = None
 
-    # REMOVED (Phase 5.1 refactoring): _get_cache_key()
-    # Now handled by ChunkCacheManager.get_chunk_cache_key()
 
     def _get_chunk_path(self, chunk_index: int) -> Path:
         """
@@ -454,8 +449,6 @@ class ChunkedAudioProcessor:
             self.chunk_rms_history = list(history) if hasattr(history, '__iter__') else []
             self.chunk_gain_history = list(gain_adjustments) if hasattr(gain_adjustments, '__iter__') else []
 
-    # REMOVED (Phase 5.1 refactoring): _trim_context()
-    # Now handled by ChunkBoundaryManager.trim_context()
 
     def _process_chunk_with_hybrid_processor(self, audio_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
         """
@@ -676,14 +669,8 @@ class ChunkedAudioProcessor:
         """
         return await asyncio.to_thread(self._process_chunk_locked, chunk_index, fast_start)
 
-    # REMOVED (Phase 5.1 refactoring): _get_track_fingerprint_cache_key()
-    # Now handled by ChunkCacheManager.get_fingerprint_cache_key()
 
-    # REMOVED (Phase 5.1 refactoring): get_cached_fingerprint()
-    # Now handled by ChunkCacheManager.get_cached_fingerprint()
 
-    # REMOVED (Phase 5.1 refactoring): cache_fingerprint()
-    # Now handled by ChunkCacheManager.cache_fingerprint()
 
     def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Any | None:
         """
@@ -738,11 +725,7 @@ class ChunkedAudioProcessor:
 
         return None
 
-    # REMOVED (Phase 4 refactoring): _generate_targets_from_fingerprint()
-    # Now handled by MasteringTargetService.generate_targets_from_fingerprint()
 
-    # REMOVED (Phase 4 refactoring): _calculate_eq_adjustment()
-    # Now handled by MasteringTargetService._calculate_eq_adjustment()
 
     async def process_all_chunks_async(self) -> None:
         """
@@ -816,8 +799,6 @@ class ChunkedAudioProcessor:
 
         return str(full_path)
 
-    # REMOVED (Phase 5.1 refactoring): _extract_chunk_segment()
-    # Now handled by ChunkOperations.extract_chunk_segment()
 
     def get_wav_chunk_path(self, chunk_index: int) -> str:
         """
