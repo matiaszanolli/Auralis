@@ -33,7 +33,7 @@ from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyz
 from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import (
     SampledHarmonicAnalyzer,
 )
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.io.unified_loader import load_audio
 
 

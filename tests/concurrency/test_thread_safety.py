@@ -444,7 +444,7 @@ class TestAudioProcessingThreadSafety:
         Validates that processing multiple files concurrently produces correct results.
         """
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
         config = UnifiedConfig()
@@ -474,7 +474,7 @@ class TestAudioProcessingThreadSafety:
         Each thread should have isolated processor state.
         """
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
         def process_with_different_settings(filepath, intensity):
@@ -511,7 +511,7 @@ class TestAudioProcessingThreadSafety:
         """
         import numpy as np
 
-        from auralis.dsp.psychoacoustic_eq import EQSettings, PsychoacousticEQ
+        from auralis.dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
         from auralis.io.unified_loader import load_audio
 
         def process_eq(filepath):
@@ -666,7 +666,7 @@ class TestAudioProcessingThreadSafety:
         Each thread should maintain isolated processing state.
         """
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
         results = []

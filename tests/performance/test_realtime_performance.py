@@ -19,7 +19,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
 from tests.performance.helpers import (

@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 
 from ...utils.logging import debug
-from ..psychoacoustic_eq import EQSettings, PsychoacousticEQ
+from ..eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
 from .adaptation_engine import AdaptationEngine
 from .settings import RealtimeEQSettings
 

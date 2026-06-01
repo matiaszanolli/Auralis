@@ -39,7 +39,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.library.manager import LibraryManager
 from auralis.library.models import Track
 

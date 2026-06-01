@@ -15,14 +15,8 @@ from typing import Any
 
 import numpy as np
 
-from ..dsp.unified import (
-    crest_factor,
-    rms,
-    spectral_centroid,
-    spectral_rolloff,
-    tempo_estimate,
-    zero_crossing_rate,
-)
+from ..dsp.basic import rms
+from ..dsp.utils.spectral import crest_factor, spectral_centroid, spectral_rolloff, tempo_estimate, zero_crossing_rate
 from ..utils.logging import debug, info
 from .content import (
     ContentFeatures,

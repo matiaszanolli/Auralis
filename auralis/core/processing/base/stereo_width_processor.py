@@ -11,7 +11,7 @@ Consolidates 70% duplicate logic between adaptive and continuous modes.
 
 import numpy as np
 
-from ....dsp.unified import adjust_stereo_width
+from ....dsp.utils.stereo import adjust_stereo_width
 from ....utils.logging import debug
 from .db_conversion import DBConversion
 

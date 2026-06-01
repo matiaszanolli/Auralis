@@ -610,7 +610,7 @@ class TestErrorRecovery:
     def test_processing_crash_recovery(self, tmp_path):
         """Test resuming after processing crash."""
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)

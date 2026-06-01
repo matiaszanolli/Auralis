@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.dsp.basic import rms
 from auralis.dsp.utils import calculate_loudness_units
 from auralis.io.saver import save

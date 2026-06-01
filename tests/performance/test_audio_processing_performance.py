@@ -25,7 +25,7 @@ import numpy as np
 import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
 
@@ -354,7 +354,7 @@ class TestComponentPerformance:
         """
         BENCHMARK: EQ processing should achieve >50x real-time factor.
         """
-        from auralis.dsp.psychoacoustic_eq import EQSettings, PsychoacousticEQ
+        from auralis.dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
 
         audio, sr = load_audio(performance_audio_file)
         duration = len(audio) / sr
@@ -503,7 +503,7 @@ class TestComponentPerformance:
         BENCHMARK: Adaptive target generation should complete in < 50ms.
         """
         from auralis.core.analysis import AdaptiveTargetGenerator
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         audio, sr = load_audio(performance_audio_file)
         config = UnifiedConfig()

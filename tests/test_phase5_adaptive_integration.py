@@ -20,7 +20,7 @@ from auralis.core.analysis.content_analyzer import ContentAnalyzer
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.processing.continuous_mode import ContinuousMode
 from auralis.core.recording_type_detector import RecordingType, RecordingTypeDetector
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 
 
 class TestPhase5RecordingTypeDetectorIntegration:

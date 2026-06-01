@@ -14,8 +14,8 @@ from pathlib import Path
 import numpy as np
 
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
-from auralis.dsp.unified import calculate_loudness_units, rms
+from auralis.core.config import UnifiedConfig
+from auralis.dsp.utils.adaptive import calculate_loudness_units, rms
 from auralis.io.unified_loader import load_audio
 
 # Test files from user's collection

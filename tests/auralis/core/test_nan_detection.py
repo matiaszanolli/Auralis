@@ -14,7 +14,7 @@ import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.simple_mastering import SimpleMasteringPipeline
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.utils.logging import ModuleError, set_log_handler
 
 

@@ -13,10 +13,8 @@ from typing import Any
 import numpy as np
 
 from ...dsp.basic import amplify, rms
-from ...dsp.unified import (
-    calculate_loudness_units,
-    stereo_width_analysis,
-)
+from ...dsp.utils.adaptive import calculate_loudness_units
+from ...dsp.utils.stereo import stereo_width_analysis
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ...utils.logging import debug
 from .base import (

@@ -12,7 +12,7 @@ from typing import Any, cast
 
 import numpy as np
 
-from ...dsp.unified import normalize
+from ...dsp.basic import normalize
 from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug, info
 from ..processors.reference_mode import apply_reference_matching

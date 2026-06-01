@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-from ..unified import smooth_parameter_transition
+from ..utils.adaptive import smooth_parameter_transition
 from .settings import RealtimeEQSettings
 
 

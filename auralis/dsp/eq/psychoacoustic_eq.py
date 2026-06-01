@@ -15,7 +15,7 @@ from typing import Any, cast
 import numpy as np
 
 from ...utils.logging import debug
-from ..unified import smooth_parameter_transition
+from ..utils.adaptive import smooth_parameter_transition
 from .critical_bands import (
     create_critical_bands,
     create_frequency_mapping,

@@ -237,7 +237,7 @@ class TestCompensationBounds:
     def test_eq_lufs_compensation_capped_at_3db(self, sample_rate: int):
         """EQ LUFS compensation should not exceed ±3 dB even for large drift."""
         from auralis.dsp.basic import amplify
-        from auralis.dsp.unified import calculate_loudness_units
+        from auralis.dsp.utils.adaptive import calculate_loudness_units
 
         audio = np.random.default_rng(42).standard_normal((sample_rate * 3, 2)).astype(np.float32) * 0.1
         pre_lufs = calculate_loudness_units(audio, sample_rate)

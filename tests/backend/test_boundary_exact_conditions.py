@@ -371,7 +371,7 @@ def test_position_exactly_duration(tmp_path):
 
     Should go to end, not crash.
     """
-    from auralis.core.unified_config import UnifiedConfig
+    from auralis.core.config import UnifiedConfig
     from auralis.player.player import AudioPlayer as EnhancedPlayer
 
     # Create test audio
@@ -452,7 +452,7 @@ def test_processing_at_standard_sample_rates(tmp_path, sample_rate):
     Ensures no assumptions about 44.1kHz only.
     """
     from auralis.core.hybrid_processor import HybridProcessor
-    from auralis.core.unified_config import UnifiedConfig
+    from auralis.core.config import UnifiedConfig
 
     # Create audio at specific sample rate
     duration = 1.0

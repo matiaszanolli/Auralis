@@ -162,7 +162,7 @@ class TestConcurrentAudioProcessing:
         Target: All succeed, < 5 seconds.
         """
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         def create_processor():
             """Create processor instance."""
@@ -425,7 +425,7 @@ class TestThreadSafety:
         import threading
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
         config = UnifiedConfig()

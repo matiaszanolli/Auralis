@@ -19,7 +19,7 @@ import numpy as np
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..dsp.advanced_dynamics import DynamicsMode, create_dynamics_processor
 from ..dsp.dynamics import create_brick_wall_limiter
-from ..dsp.psychoacoustic_eq import EQSettings, PsychoacousticEQ
+from ..dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
 from ..dsp.realtime_adaptive_eq import create_realtime_adaptive_eq
 from ..io.results import Result
 from ..learning.preference_engine import create_preference_engine

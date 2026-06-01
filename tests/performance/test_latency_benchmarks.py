@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.io.unified_loader import load_audio
 from auralis.library.manager import LibraryManager
 from auralis.library.repositories import (

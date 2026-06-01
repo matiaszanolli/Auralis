@@ -40,7 +40,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.dsp.basic import amplify, normalize, rms
 from auralis.io.saver import save as save_audio
 from auralis.io.unified_loader import load_audio

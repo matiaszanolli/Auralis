@@ -11,13 +11,7 @@ Extract comprehensive audio features for ML genre classification
 
 import numpy as np
 
-from ...dsp.unified import (
-    crest_factor,
-    spectral_centroid,
-    spectral_rolloff,
-    tempo_estimate,
-    zero_crossing_rate,
-)
+from ...dsp.utils.spectral import crest_factor, spectral_centroid, spectral_rolloff, tempo_estimate, zero_crossing_rate
 from ...dsp.utils import create_mel_triangular_filters
 from ...utils.logging import debug
 from ..fingerprint.common_metrics import SafeOperations

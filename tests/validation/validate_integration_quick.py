@@ -80,7 +80,7 @@ except Exception as e:
 print("\n[Test 3] HybridProcessor with Optimizations")
 try:
     from auralis.core.hybrid_processor import HybridProcessor
-    from auralis.core.unified_config import UnifiedConfig
+    from auralis.core.config import UnifiedConfig
 
     config = UnifiedConfig()
     processor = HybridProcessor(config)

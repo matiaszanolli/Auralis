@@ -13,7 +13,7 @@ Consolidates the measure-adjust-remeasure pattern.
 import numpy as np
 
 from ....dsp.basic import amplify, rms
-from ....dsp.unified import calculate_loudness_units
+from ....dsp.utils.adaptive import calculate_loudness_units
 from .db_conversion import DBConversion
 from .processing_logger import ProcessingLogger
 

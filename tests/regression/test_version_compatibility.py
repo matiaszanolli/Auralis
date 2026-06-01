@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, text
 
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.library.manager import LibraryManager
 from auralis.library.models import Album, Artist, Base, Track
 
@@ -410,8 +410,8 @@ class TestDeprecatedFeatures:
         # These are legacy imports that should still work
         try:
             from auralis.analysis.quality.quality_metrics import QualityMetrics
-            from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ
-            from auralis.dsp.unified import spectral_centroid
+            from auralis.dsp.eq.psychoacoustic_eq import PsychoacousticEQ
+            from auralis.dsp.utils.spectral import spectral_centroid
             success = True
         except ImportError:
             success = False
@@ -426,7 +426,7 @@ class TestDeprecatedFeatures:
         Test: Legacy parameter names work.
         """
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
@@ -461,7 +461,7 @@ class TestBackwardCompatibility:
         import numpy as np
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
@@ -505,7 +505,7 @@ class TestBackwardCompatibility:
         import numpy as np
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor1 = HybridProcessor(config)

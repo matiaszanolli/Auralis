@@ -28,7 +28,7 @@ from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
 )
 from auralis.core.analysis.content_analyzer import ContentAnalyzer
 from auralis.core.processing.continuous_mode import ContinuousMode
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 
 
 SR = 44100

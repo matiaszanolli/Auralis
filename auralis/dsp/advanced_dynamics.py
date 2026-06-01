@@ -27,7 +27,7 @@ from .dynamics import (
     EnvelopeFollower,
     LimiterSettings,
 )
-from .unified import smooth_parameter_transition
+from .utils.adaptive import smooth_parameter_transition
 
 # Re-export for backward compatibility
 __all__ = [

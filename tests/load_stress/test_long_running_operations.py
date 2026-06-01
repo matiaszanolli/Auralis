@@ -33,7 +33,7 @@ class TestBatchProcessing:
         import soundfile as sf
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         # Create 100 small audio files
         filepaths = []
@@ -133,7 +133,7 @@ class TestQueueProcessing:
         import soundfile as sf
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         # Create queue of audio files
         queue = deque()
@@ -185,7 +185,7 @@ class TestQueueProcessing:
         import soundfile as sf
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         # Create priority queue (min-heap, lower number = higher priority)
         priority_queue = []
@@ -237,7 +237,7 @@ class TestBackgroundTasks:
         import soundfile as sf
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         # Create audio files
         filepaths = []
@@ -405,7 +405,7 @@ class TestContinuousOperation:
         Target: Stable performance, no degradation.
         """
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)

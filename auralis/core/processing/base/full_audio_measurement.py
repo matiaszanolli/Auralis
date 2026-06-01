@@ -13,7 +13,7 @@ Consolidates all measurement types (peak, RMS, crest, LUFS) in one place.
 import numpy as np
 
 from ....dsp.basic import rms
-from ....dsp.unified import calculate_loudness_units
+from ....dsp.utils.adaptive import calculate_loudness_units
 from .db_conversion import DBConversion
 
 

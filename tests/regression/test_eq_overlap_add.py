@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 from auralis.core.processing.eq_processor import EQProcessor
-from auralis.dsp.psychoacoustic_eq import EQSettings, PsychoacousticEQ
+from auralis.dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
 
 
 def _identity_chunk(self, chunk, target_curve, content_profile=None):

@@ -528,7 +528,7 @@ def test_zero_length_audio_array():
     Common bug: Division by zero, empty array access.
     """
     from auralis.core.hybrid_processor import HybridProcessor
-    from auralis.core.unified_config import UnifiedConfig
+    from auralis.core.config import UnifiedConfig
 
     processor = HybridProcessor(UnifiedConfig())
 

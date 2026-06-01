@@ -35,7 +35,7 @@ from auralis.analysis.fingerprint.parameter_mapper import (
     ParameterMapper,
 )
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save as save_audio
 
 # ============================================================================

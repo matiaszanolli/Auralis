@@ -32,7 +32,7 @@ class TestMemoryLeaks:
         Target: < 100MB memory growth.
         """
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
@@ -213,7 +213,7 @@ class TestSustainedLoad:
         Target: Stable memory, no degradation.
         """
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
@@ -294,7 +294,7 @@ class TestPeakResourceUsage:
         import soundfile as sf
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         # Create 10 minute audio file (large)
         duration = 10 * 60  # 10 minutes
@@ -324,7 +324,7 @@ class TestPeakResourceUsage:
         Target: Peak memory reasonable for concurrent load.
         """
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         def process_file():
             """Process file."""
@@ -363,7 +363,7 @@ class TestCPUUtilization:
         import psutil
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         process = psutil.Process()
 
@@ -398,7 +398,7 @@ class TestGarbageCollection:
         import psutil
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         process = psutil.Process()
 

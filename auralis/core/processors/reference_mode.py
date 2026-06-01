@@ -10,7 +10,7 @@ Traditional reference-based audio matching
 
 import numpy as np
 
-from ...dsp.unified import rms
+from ...dsp.basic import rms
 from ...utils.logging import debug
 
 

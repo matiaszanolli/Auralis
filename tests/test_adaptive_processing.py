@@ -33,15 +33,10 @@ from auralis.core.hybrid_processor import (
     ContentAnalyzer,
     HybridProcessor,
 )
-from auralis.core.unified_config import AdaptiveConfig, GenreProfile, UnifiedConfig
-from auralis.dsp.unified import (
-    adaptive_gain_calculation,
-    crest_factor,
-    rms,
-    spectral_centroid,
-    spectral_rolloff,
-    tempo_estimate,
-)
+from auralis.core.config import AdaptiveConfig, GenreProfile, UnifiedConfig
+from auralis.dsp.basic import rms
+from auralis.dsp.utils.adaptive import adaptive_gain_calculation
+from auralis.dsp.utils.spectral import crest_factor, spectral_centroid, spectral_rolloff, tempo_estimate
 
 
 class TestUnifiedConfig:

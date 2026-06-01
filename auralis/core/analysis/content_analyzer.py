@@ -14,16 +14,10 @@ import numpy as np
 
 from ...analysis.fingerprint import AudioFingerprintAnalyzer
 from ...analysis.ml import create_ml_genre_classifier
-from ...dsp.unified import (
-    calculate_loudness_units,
-    crest_factor,
-    rms,
-    spectral_centroid,
-    spectral_rolloff,
-    stereo_width_analysis,
-    tempo_estimate,
-    zero_crossing_rate,
-)
+from ...dsp.basic import rms
+from ...dsp.utils.adaptive import calculate_loudness_units
+from ...dsp.utils.spectral import crest_factor, spectral_centroid, spectral_rolloff, tempo_estimate, zero_crossing_rate
+from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.logging import debug
 
 

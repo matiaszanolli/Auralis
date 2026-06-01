@@ -15,7 +15,7 @@ import numpy as np
 from scipy.fft import fft, fftfreq
 from scipy.signal import find_peaks
 
-from ...dsp.unified import energy_profile
+from ...dsp.utils.spectral import energy_profile
 from ..fingerprint.common_metrics import AggregationUtils
 
 

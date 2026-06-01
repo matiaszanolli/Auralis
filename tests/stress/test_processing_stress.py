@@ -32,7 +32,7 @@ class TestHighVolumeProcessing:
     def test_batch_process_100_files(self, test_audio_dir, tmp_path, memory_monitor):
         """Test processing 100 files sequentially."""
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.saver import save
         from auralis.io.unified_loader import load_audio
 
@@ -81,7 +81,7 @@ class TestHighVolumeProcessing:
     def test_concurrent_processing_saturation(self, tmp_path, cpu_monitor):
         """Test CPU saturation with concurrent processing."""
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
         # Create test files
@@ -131,7 +131,7 @@ class TestHighVolumeProcessing:
     def test_processing_sustained_load(self, tmp_path, stress_test_timeout):
         """Test sustained high load (simulated 1 hour)."""
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
@@ -156,7 +156,7 @@ class TestHighVolumeProcessing:
     def test_processing_spike_recovery(self, tmp_path):
         """Test recovery from processing spike."""
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
@@ -181,7 +181,7 @@ class TestHighVolumeProcessing:
         # For now, verify processing doesn't overwhelm system
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
@@ -227,7 +227,7 @@ class TestHighVolumeProcessing:
     def test_processing_error_rate_under_load(self, tmp_path):
         """Test error handling at high volume."""
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
@@ -266,7 +266,7 @@ class TestAudioProcessingLimits:
         import gc
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.saver import save
         from auralis.io.unified_loader import load_audio
 
@@ -300,7 +300,7 @@ class TestAudioProcessingLimits:
     def test_process_very_high_sample_rate(self, high_sample_rate_audio, tmp_path):
         """Test processing 192kHz audio."""
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.saver import save
         from auralis.io.unified_loader import load_audio
 
@@ -338,7 +338,7 @@ class TestAudioProcessingLimits:
         sf.write(str(filepath), audio, 44100)
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
         config = UnifiedConfig()
@@ -365,7 +365,7 @@ class TestAudioProcessingLimits:
     def test_process_zero_length_audio(self, zero_length_audio):
         """Test processing 0-second audio file."""
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
         try:
@@ -388,7 +388,7 @@ class TestAudioProcessingLimits:
         sf.write(str(filepath), audio, 44100)
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
         try:
@@ -404,7 +404,7 @@ class TestAudioProcessingLimits:
     def test_process_silent_audio(self, silent_audio, tmp_path):
         """Test processing completely silent audio."""
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.saver import save
         from auralis.io.unified_loader import load_audio
 
@@ -427,7 +427,7 @@ class TestAudioProcessingLimits:
     def test_process_clipping_audio(self, clipping_audio, tmp_path):
         """Test processing audio with clipping."""
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.saver import save
         from auralis.io.unified_loader import load_audio
 
@@ -459,7 +459,7 @@ class TestAudioProcessingLimits:
         sf.write(str(filepath), audio, 44100)
 
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
 
         config = UnifiedConfig()
