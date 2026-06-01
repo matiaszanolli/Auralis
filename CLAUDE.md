@@ -46,7 +46,7 @@ auralis/                          Core Python audio engine
 │   ├── psychoacoustic_eq.py        Psychoacoustic EQ
 │   ├── advanced_dynamics.py        Dynamics control
 │   └── realtime_adaptive_eq.py     Real-time adaptive EQ
-├── analysis/                     Audio analysis (largest module, 92 files)
+├── analysis/                     Audio analysis (largest module, 81 files)
 │   ├── fingerprint/                25D fingerprinting system
 │   │   ├── analyzers/                Batch & streaming analyzers
 │   │   ├── metrics/                  Spectral, harmonic, temporal
@@ -97,7 +97,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            850+ tests across 21 dirs (unit, integration,
+tests/                            ~4,600 test functions across 18 subdirs (unit, integration,
                                     boundary, concurrency, security, load, regression...)
 docs/                             20 topic dirs (development, features, frontend...)
 ```
