@@ -29,8 +29,9 @@ import asyncio
 import logging
 import math
 import os
+import threading
 import time
-from functools import lru_cache
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -46,36 +47,106 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["streaming"])
 
 # ---------------------------------------------------------------------------
-# Per-process audio file cache (fixes #2295)
+# Per-process audio file cache (fixes #2295, #3830)
 # ---------------------------------------------------------------------------
-# _get_original_wav_chunk() was loading the entire audio file for every chunk
-# request — up to ~100 MB per call and O(concurrent_listeners) allocations.
-# Cache up to 8 decoded files by filepath; eviction is automatic via LRU.
-# The cache stores (audio_array, sample_rate) tuples.  Because numpy arrays
-# are mutable we store them as read-only views to prevent accidental in-place
-# modification by downstream code.
-@lru_cache(maxsize=8)
-def _load_audio_cached(filepath: str, _mtime: float = 0.0):  # type: ignore[return]
-    """Load and decode an audio file, caching the result for reuse.
+# _get_original_wav_chunk() would otherwise reload the entire audio file for
+# every chunk request — up to ~100 MB per call and O(concurrent_listeners)
+# allocations. Decoded files are cached keyed by (filepath, mtime).
+#
+# This was @lru_cache(maxsize=8), but that bounds by ENTRY COUNT, not bytes:
+# eight 24-bit/96 kHz albums (~150 MB each) pinned ~1.2 GB in heap with no
+# eviction (#3830), and two concurrent streams of the same fresh file decoded
+# it twice. The byte-bounded, locked cache below mirrors SimpleChunkCache's
+# eviction discipline (core/audio_stream_controller.py) and collapses
+# concurrent decodes of one file into a single in-flight load.
+class _AudioFileCache:
+    """Thread-safe, byte-bounded LRU cache of fully-decoded audio files."""
 
-    Called from an asyncio.to_thread() context so blocking I/O is fine here.
-    The _mtime parameter is part of the cache key so that re-encoded files
-    at the same path are detected and re-loaded (#2590).
+    def __init__(self, max_bytes: int = 512 * 1024 * 1024) -> None:
+        self._cache: "OrderedDict[tuple[str, float], tuple[Any, int]]" = OrderedDict()
+        self._max_bytes: int = max_bytes
+        self._current_bytes: int = 0
+        # Guards _cache, _current_bytes, and the _inflight registry.
+        self._lock = threading.Lock()
+        # Per-key decode locks so concurrent callers for the same fresh file
+        # share one decode instead of racing (#3830).
+        self._inflight: dict[tuple[str, float], threading.Lock] = {}
+
+    def get_or_load(self, filepath: str, mtime: float) -> tuple[Any, int]:
+        """Return the cached decode for (filepath, mtime), loading it once."""
+        key = (filepath, mtime)
+
+        with self._lock:
+            hit = self._cache.get(key)
+            if hit is not None:
+                self._cache.move_to_end(key)  # LRU touch
+                return hit
+            decode_lock = self._inflight.get(key)
+            if decode_lock is None:
+                decode_lock = threading.Lock()
+                self._inflight[key] = decode_lock
+
+        # Serialise the decode per key OUTSIDE the cache lock so other keys
+        # proceed concurrently.
+        with decode_lock:
+            try:
+                # Re-check: another thread may have populated the entry while
+                # we waited for decode_lock.
+                with self._lock:
+                    hit = self._cache.get(key)
+                    if hit is not None:
+                        self._cache.move_to_end(key)
+                        return hit
+
+                from auralis.io.unified_loader import load_audio
+                audio, sr = load_audio(filepath)
+                audio.flags.writeable = False  # cached arrays are shared read-only
+
+                with self._lock:
+                    self._store(key, audio, sr)
+                return audio, sr
+            finally:
+                # Drop the in-flight lock only if it's still ours (identity
+                # guard) so a newer waiter's lock is never evicted.
+                with self._lock:
+                    if self._inflight.get(key) is decode_lock:
+                        self._inflight.pop(key, None)
+
+    def _store(self, key: tuple[str, float], audio: Any, sr: int) -> None:
+        """Insert under self._lock, evicting oldest entries past the byte cap."""
+        nbytes = int(getattr(audio, "nbytes", 0))
+        if key in self._cache:
+            old_audio, _ = self._cache.pop(key)
+            self._current_bytes -= int(getattr(old_audio, "nbytes", 0))
+        # Evict oldest until the newcomer fits; always keep the newcomer, even
+        # if a single file exceeds the cap (matches SimpleChunkCache).
+        while self._cache and self._current_bytes + nbytes > self._max_bytes:
+            _old_key, (removed_audio, _) = self._cache.popitem(last=False)
+            self._current_bytes -= int(getattr(removed_audio, "nbytes", 0))
+        self._cache[key] = (audio, sr)
+        self._current_bytes += nbytes
+
+    def clear(self) -> None:
+        """Drop all cached files (used on startup / by tests)."""
+        with self._lock:
+            self._cache.clear()
+            self._current_bytes = 0
+
+
+_audio_file_cache = _AudioFileCache()
+
+
+def load_audio_with_invalidation(filepath: str) -> tuple[Any, int]:
+    """Load decoded audio with file-change detection via mtime (#2590).
+
+    Backed by a byte-bounded, thread-safe cache (#3830) so a large library
+    can't pin unbounded RAM and concurrent streams of the same file decode once.
     """
-    from auralis.io.unified_loader import load_audio
-    audio, sr = load_audio(filepath)
-    audio.flags.writeable = False  # prevent accidental mutation of cached data
-    return audio, sr
-
-
-def load_audio_with_invalidation(filepath: str):
-    """Load audio with file-change detection via mtime (#2590)."""
-    import os
     try:
         mtime = os.path.getmtime(filepath)
     except OSError:
         mtime = 0.0
-    return _load_audio_cached(filepath, mtime)
+    return _audio_file_cache.get_or_load(filepath, mtime)
 
 
 def _compute_chunk_sample_layout(

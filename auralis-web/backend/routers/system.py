@@ -356,8 +356,19 @@ def create_system_router(
                             )
                             continue
 
-                    # Define streaming coroutine
-                    async def stream_audio():
+                    # Define streaming coroutine. Snapshot the per-message locals
+                    # as default args so each task instance owns immutable copies
+                    # — otherwise the outer receive loop's reassignment on the
+                    # next message could leak into this task's except/finally
+                    # paths and misattribute an error to the wrong track (#3829).
+                    async def stream_audio(
+                        track_id=track_id,
+                        preset=preset,
+                        intensity=intensity,
+                        force=force,
+                        start_position=start_position,
+                        ws_id=ws_id,
+                    ):
                         # Capture task identity to prevent orphaned task race (fixes #2164)
                         my_task = asyncio.current_task()
                         try:
@@ -501,7 +512,13 @@ def create_system_router(
                     ws_id = _ws_id(websocket)
 
                     # Define streaming coroutine
-                    async def stream_normal():
+                    # Snapshot per-message locals as defaults so a later message's
+                    # reassignment can't leak into this task's except/finally (#3829).
+                    async def stream_normal(
+                        track_id=track_id,
+                        start_position=start_position,
+                        ws_id=ws_id,
+                    ):
                         # Capture task identity to prevent orphaned task race (fixes #2164)
                         my_task = asyncio.current_task()
                         try:
@@ -714,8 +731,17 @@ def create_system_router(
                     if get_enhancement_settings is not None:
                         enhancement_enabled = get_enhancement_settings().get("enabled", True)
 
-                    # Define streaming coroutine with seek position
-                    async def stream_from_position():
+                    # Define streaming coroutine with seek position. Snapshot the
+                    # per-message locals as defaults so a later message's
+                    # reassignment can't leak into this task's except/finally (#3829).
+                    async def stream_from_position(
+                        track_id=track_id,
+                        preset=preset,
+                        intensity=intensity,
+                        position=position,
+                        enhancement_enabled=enhancement_enabled,
+                        ws_id=ws_id,
+                    ):
                         # Capture task identity to prevent orphaned task race (fixes #2164)
                         my_task = asyncio.current_task()
                         stream_type = "enhanced" if enhancement_enabled else "normal"
