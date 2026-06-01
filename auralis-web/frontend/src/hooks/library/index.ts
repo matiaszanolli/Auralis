@@ -13,6 +13,9 @@ export { useAlbumsQuery } from './useAlbumsQuery';
 // #3645: useLibraryWithStats subsumes useLibraryData + useLibraryStats —
 // the deprecated hooks were removed (no remaining consumers).
 export { useLibraryWithStats } from './useLibraryWithStats';
+export { useLibraryPagination } from './useLibraryPagination';
+export { useLibraryStats } from './useLibraryStats';
+export { useLibraryScan } from './useLibraryScan';
 export { useTrackSelection } from './useTrackSelection';
 export { useRecentlyTouched } from './useRecentlyTouched';
 export type { RecentlyTouchedEntry } from './useRecentlyTouched';

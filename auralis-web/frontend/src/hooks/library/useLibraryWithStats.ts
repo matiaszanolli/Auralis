@@ -1,57 +1,18 @@
 /**
  * useLibraryWithStats - Library Data and Statistics Composition Hook
  *
- * Unified hook combining library data fetching and statistics.
- * Provides both track pagination and library-level statistics in a single hook.
- *
- * This consolidates useLibraryData and useLibraryStats into a single composition,
- * reducing hook complexity and improving state management cohesion.
- *
- * Features:
- * - Paginated track loading (50 tracks per page)
- * - Infinite scroll support
- * - Library statistics (total tracks, artists, albums, etc.)
- * - Folder scanning via API
- * - Favorites vs. all tracks support
- * - Single unified loading and error state
- *
- * Usage:
- * ```tsx
- * const {
- *   // Data
- *   tracks,
- *   stats,
- *
- *   // State
- *   loading,
- *   hasMore,
- *   isLoadingMore,
- *   scanning,
- *   error,
- *
- *   // Methods
- *   fetchTracks,
- *   loadMore,
- *   handleScanFolder,
- *   refetchStats
- * } = useLibraryWithStats({ view: 'all' });
- * ```
- *
- * #3645: this hook is the sole library-data/stats entry point. The
- * former useLibraryData and useLibraryStats hooks have been removed.
+ * Composes useLibraryPagination, useLibraryStats, and useLibraryScan into the
+ * unified interface consumed by CozyLibraryView. Callers are unaffected by the
+ * internal decomposition (#3645).
  */
 
-const DEBUG = import.meta.env.DEV;
-
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useToast } from '@/components/shared/Toast';
+import { useEffect, useCallback } from 'react';
 import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
-import { transformBackendTrack, type LibraryStats, type LibraryTrack, type TrackApiResponse } from '@/types/domain';
-import { isElectron, getElectronAPI } from '@/utils/electron';
-
-// ============================================================================
-// Types
-// ============================================================================
+import { isElectron } from '@/utils/electron';
+import type { LibraryStats, LibraryTrack } from '@/types/domain';
+import { useLibraryPagination } from './useLibraryPagination';
+import { useLibraryStats } from './useLibraryStats';
+import { useLibraryScan } from './useLibraryScan';
 
 export type { LibraryStats };
 
@@ -62,11 +23,8 @@ export interface UseLibraryWithStatsOptions {
 }
 
 export interface UseLibraryWithStatsReturn {
-  // Data
   tracks: LibraryTrack[];
   stats: LibraryStats | null;
-
-  // State - Unified
   loading: boolean;
   error: string | null;
   hasMore: boolean;
@@ -76,409 +34,59 @@ export interface UseLibraryWithStatsReturn {
   scanning: boolean;
   statsLoading: boolean;
   statsError: string | null;
-
-  // Methods - Data
   fetchTracks: (resetPagination?: boolean) => Promise<void>;
   loadMore: () => Promise<void>;
   handleScanFolder: () => Promise<void>;
   refetchStats: () => Promise<void>;
-
-  // Web folder path (non-Electron scan input)
   webFolderPath: string;
   setWebFolderPath: (path: string) => void;
-
-  // Utilities
   isElectron: () => boolean;
 }
-
-// ============================================================================
-// Hook Implementation
-// ============================================================================
 
 export const useLibraryWithStats = ({
   view,
   autoLoad = true,
-  includeStats = true
+  includeStats = true,
 }: UseLibraryWithStatsOptions): UseLibraryWithStatsReturn => {
-  // Track Data State
-  const [tracks, setTracks] = useState<LibraryTrack[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalTracks, setTotalTracks] = useState(0);
-  const [offset, setOffset] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [scanning, setScanning] = useState(false);
+  const { fetchTracks, loadMore, fetchAbortRef, ...paginationState } = useLibraryPagination({ view });
+  const { refetchStats, statsAbortRef, ...statsState } = useLibraryStats({ includeStats });
+  const { handleScanFolder, scanAbortRef, ...scanState } = useLibraryScan({
+    includeStats,
+    fetchTracks,
+    refetchStats,
+  });
 
-  // Statistics State
-  const [stats, setStats] = useState<LibraryStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(includeStats);
-  const [statsError, setStatsError] = useState<string | null>(null);
-
-  // Prevent multiple simultaneous fetches (debounce protection)
-  const fetchInProgressRef = useRef(false);
-  const fetchAbortRef = useRef<AbortController | null>(null);
-  const statsAbortRef = useRef<AbortController | null>(null);
-  const scanAbortRef = useRef<AbortController | null>(null);
-  const mountedRef = useRef(true);
-  const refetchStatsRef = useRef<() => Promise<void>>(() => Promise.resolve());
-
-  // Mirror `offset` into a ref so fetchTracks(false) can read the live value
-  // without `offset` being in its useCallback deps (which would force the
-  // callback to be re-created every time offset changes — defeating
-  // useCallback and risking the downstream re-render loops the existing
-  // deps comment warns about). Pre-fix the closure captured `offset` at
-  // callback definition time and never advanced — fetchTracks(false) silently
-  // re-fetched page 0 instead of the next page (#3378).
-  const offsetRef = useRef(0);
-  offsetRef.current = offset;
-
-  const { success, error: toastError, info } = useToast();
-
-  // Mirror the toast fns into a ref (#3943): useToast returns fresh function
-  // identities every render, so depending on them directly made fetchTracks
-  // unstable — forcing it to be re-created each render and churning the
-  // auto-load effect's dependency on it (a stale-closure / wrong-data risk on
-  // rapid view toggles). Reading them through the ref keeps fetchTracks stable
-  // (deps: [view] only) while always calling the latest toast functions.
-  const toastRef = useRef({ success, toastError, info });
-  toastRef.current = { success, toastError, info };
-
-  // Controlled input for folder path in web (non-Electron) environments (fixes #2794).
-  const [webFolderPath, setWebFolderPath] = useState('');
-
-  // ========================================================================
-  // Utilities
-  // ========================================================================
-
-  const isElectronFn = useCallback(() => isElectron(), []);
-
-  // Mock data loading removed - was unused dead code
-
-  // ========================================================================
-  // Track Data Methods
-  // ========================================================================
-
-  const fetchTracks = useCallback(
-    async (resetPagination = true) => {
-      // Prevent multiple simultaneous fetches (anti-spam/debounce)
-      if (fetchInProgressRef.current) {
-        DEBUG && console.log('[useLibraryWithStats] Fetch already in progress, skipping');
-        return;
-      }
-
-      fetchInProgressRef.current = true;
-      setLoading(true);
-      setError(null);
-
-      if (resetPagination) {
-        setOffset(0);
-        setTracks([]);
-      }
-
-      try {
-        const limit = 50;
-        // Read live offset via ref so the callback closure can't drift
-        // (#3378). Without this, fetchTracks(false) always saw the offset
-        // value from when the callback was created.
-        const currentOffset = resetPagination ? 0 : offsetRef.current;
-
-        const endpoint =
-          view === 'favourites'
-            ? `/api/library/tracks/favorites?limit=${limit}&offset=${currentOffset}`
-            : `/api/library/tracks?limit=${limit}&offset=${currentOffset}`;
-
-        // Abort any prior in-flight fetch so we don't apply stale results
-        fetchAbortRef.current?.abort();
-        const controller = new AbortController();
-        fetchAbortRef.current = controller;
-
-        const response = await fetch(endpoint, { signal: controller.signal });
-        if (response.ok) {
-          const data: { tracks?: TrackApiResponse[]; has_more?: boolean; total?: number } = await response.json();
-
-          const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
-
-          setHasMore(data.has_more || false);
-          setTotalTracks(data.total || 0);
-
-          if (resetPagination) {
-            setTracks(transformedTracks);
-          } else {
-            setTracks((prev) => [...prev, ...transformedTracks]);
-          }
-
-          DEBUG && console.log(
-            'Loaded',
-            data.tracks?.length || 0,
-            view === 'favourites' ? 'favorite tracks' : 'tracks from library'
-          );
-          DEBUG && console.log(
-            `Pagination: ${currentOffset + (data.tracks?.length || 0)}/${data.total || 0}, has_more: ${data.has_more}`
-          );
-
-          if (resetPagination && data.tracks && data.tracks.length > 0) {
-            toastRef.current.success(
-              `Loaded ${data.tracks.length} of ${data.total} ${view === 'favourites' ? 'favorites' : 'tracks'}`
-            );
-          } else if (resetPagination && view === 'favourites') {
-            toastRef.current.info('No favorites yet. Click the heart icon on tracks to add them!');
-          }
-        } else {
-          console.error('Failed to fetch tracks');
-          setError('Failed to load library');
-          toastRef.current.toastError('Failed to load library');
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        console.error('Error fetching tracks:', err);
-        const errorMsg = 'Failed to connect to server';
-        setError(errorMsg);
-        toastRef.current.toastError(errorMsg);
-      } finally {
-        setLoading(false);
-        fetchInProgressRef.current = false;
-      }
-    },
-    // Toast fns are read via toastRef (#3943), so only 'view' affects identity.
-    // Do NOT include 'offset' — it's only used for loadMore (non-reset case);
-    // including it would recreate fetchTracks on every page advance (#3378).
-    [view]
-  );
-
-  const loadMore = useCallback(async () => {
-    // Check guards using refs and state getters to avoid dependency loop
-    if (fetchInProgressRef.current) {
-      DEBUG && console.log('[useLibraryWithStats] loadMore already in progress, skipping');
-      return;
-    }
-
-    // NOTE: We can't use isLoadingMore or hasMore in dependencies because they change frequently
-    // Instead, we check them here and use refs to guard against parallel calls
-    // The state values are read here at callback invocation time
-    fetchInProgressRef.current = true;
-    setIsLoadingMore(true);
-
-    try {
-      const limit = 50;
-      // Compute new offset from the live ref. The previous pattern used
-      // `setOffset(prev => { newOffset = prev + limit; return prev; })`
-      // expecting the updater to run synchronously — but React batches
-      // state updates and the closure variable stayed at 0, so loadMore
-      // silently re-fetched page 0 every time. The existing test only
-      // checked tracks.length (which went 50→100 because both pages were
-      // identical mock data), masking the bug. Caught while fixing #3378.
-      const newOffset = offsetRef.current + limit;
-
-      const endpoint =
-        view === 'favourites'
-          ? `/api/library/tracks/favorites?limit=${limit}&offset=${newOffset}`
-          : `/api/library/tracks?limit=${limit}&offset=${newOffset}`;
-
-      fetchAbortRef.current?.abort();
-      const controller = new AbortController();
-      fetchAbortRef.current = controller;
-
-      const response = await fetch(endpoint, { signal: controller.signal });
-      if (response.ok) {
-        const data: { tracks?: TrackApiResponse[]; has_more?: boolean; total?: number } = await response.json();
-
-        const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
-
-        // Commit the offset advance only after a successful fetch
-        setOffset(newOffset);
-        setTracks((prev) => [...prev, ...transformedTracks]);
-        setHasMore(data.has_more || false);
-        setTotalTracks(data.total || 0);
-
-        DEBUG && console.log(`Loaded more: ${newOffset + transformedTracks.length}/${data.total || 0}`);
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      console.error('Error loading more tracks:', err);
-    } finally {
-      setIsLoadingMore(false);
-      fetchInProgressRef.current = false;
-    }
-  }, [view]);
-
-  const handleScanFolder = useCallback(async () => {
-    let folderPath: string | undefined;
-
-    if (isElectronFn()) {
-      try {
-        const result = await getElectronAPI()!.selectFolder();
-        if (result && result.length > 0) {
-          folderPath = result[0];
-        } else {
-          return;
-        }
-      } catch (err) {
-        console.error('Failed to open folder picker:', err);
-        toastError('Failed to open folder picker');
-        return;
-      }
-    } else {
-      // Web browser: read from the controlled input (set via setWebFolderPath).
-      folderPath = webFolderPath.trim() || undefined;
-      if (!folderPath) {
-        info('Enter a folder path in the scan field and try again');
-        return;
-      }
-    }
-
-    setScanning(true);
-    // Abort any prior in-flight scan and make this one cancellable (#3987).
-    scanAbortRef.current?.abort();
-    const controller = new AbortController();
-    scanAbortRef.current = controller;
-    try {
-      const response = await fetch('/api/library/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ directories: [folderPath] }),
-        signal: controller.signal,
-      });
-
-      if (response.ok) {
-        const result: { files_added?: number } = await response.json();
-        // Guard post-success work against unmount (#3987).
-        if (!mountedRef.current) return;
-        success(`Scan complete! Added ${result.files_added || 0} tracks`);
-        await fetchTracks();
-        // Refresh stats after scan
-        if (includeStats) {
-          await refetchStatsRef.current();
-        }
-      } else {
-        const errorData: { detail?: string } = await response.json();
-        toastError(`Scan failed: ${errorData.detail || 'Unknown error'}`);
-      }
-    } catch (err) {
-      // Swallow abort errors (unmount / superseded scan) — not user-facing.
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      console.error('Scan error:', err);
-      toastError('Error scanning folder — check the backend is reachable');
-    } finally {
-      if (mountedRef.current) {
-        setScanning(false);
-      }
-    }
-  }, [isElectronFn, fetchTracks, includeStats, webFolderPath, success, toastError, info]);
-
-  // ========================================================================
-  // Statistics Methods
-  // ========================================================================
-
-  const refetchStats = useCallback(async () => {
-    if (!includeStats) return;
-
-    // Abort any in-flight stats request before starting a new one
-    statsAbortRef.current?.abort();
-    const controller = new AbortController();
-    statsAbortRef.current = controller;
-
-    setStatsLoading(true);
-    setStatsError(null);
-    try {
-      const response = await fetch('/api/library/stats', { signal: controller.signal });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: LibraryStats = await response.json();
-      setStats(data);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      const message = err instanceof Error ? err.message : 'Failed to fetch stats';
-      console.error('Error fetching library stats:', err);
-      setStatsError(message);
-    } finally {
-      if (!controller.signal.aborted) {
-        setStatsLoading(false);
-      }
-    }
-  }, [includeStats]);
-  refetchStatsRef.current = refetchStats;
-
-  // ========================================================================
-  // Effects
-  // ========================================================================
-
-  // Auto-load on mount or when view changes.
-  // fetchTracks (deps: [view]) and refetchStats (deps: [includeStats]) are now
-  // stable — their identities only change when view/includeStats change, which
-  // are already deps here — so they can be listed honestly without the
-  // re-render loop the old exhaustive-deps suppression was masking (#3943).
+  // Auto-load on mount or when view/options change. Sub-hooks own their own
+  // abort-on-unmount; this effect only drives the initial data load.
   useEffect(() => {
-    DEBUG && console.log(`[useLibraryWithStats] useEffect triggered for view="${view}", autoLoad=${autoLoad}, includeStats=${includeStats}`);
     if (autoLoad) {
-      DEBUG && console.log(`[useLibraryWithStats] Calling fetchTracks() for view="${view}"`);
       fetchTracks();
-      if (includeStats) {
-        DEBUG && console.log(`[useLibraryWithStats] Calling refetchStats()`);
-        refetchStats();
-      }
+      if (includeStats) refetchStats();
     }
     return () => {
       fetchAbortRef.current?.abort();
       statsAbortRef.current?.abort();
       scanAbortRef.current?.abort();
     };
-  }, [view, autoLoad, includeStats, fetchTracks, refetchStats]);
+  }, [view, autoLoad, includeStats, fetchTracks, refetchStats, fetchAbortRef, statsAbortRef, scanAbortRef]);
 
-  // Track mount status so async handlers (scanFolder) can skip post-unmount
-  // state updates (#3987).
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  // Refresh library data when backend broadcasts library_updated (#2871)
+  // Refresh library data when backend broadcasts library_updated (#2871).
   const handleLibraryUpdated = useCallback(() => {
     fetchTracks();
-    if (includeStats) {
-      refetchStats();
-    }
+    if (includeStats) refetchStats();
   }, [fetchTracks, includeStats, refetchStats]);
 
   useWebSocketSubscription(['library_updated'], handleLibraryUpdated);
 
-  // ========================================================================
-  // Return
-  // ========================================================================
-
   return {
-    // Data
-    tracks,
-    stats,
-
-    // State - Unified
-    loading,
-    error,
-    hasMore,
-    totalTracks,
-    offset,
-    isLoadingMore,
-    scanning,
-    statsLoading,
-    statsError,
-
-    // Methods - Data
+    ...paginationState,
+    ...statsState,
+    ...scanState,
     fetchTracks,
     loadMore,
     handleScanFolder,
     refetchStats,
-
-    // Web folder path (non-Electron scan input)
-    webFolderPath,
-    setWebFolderPath,
-
-    // Utilities
-    isElectron: isElectronFn
+    isElectron: () => isElectron(),
   };
 };
 
