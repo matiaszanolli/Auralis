@@ -193,7 +193,7 @@ class TestConcurrentAudioProcessing:
         LOAD: Analyze same audio file from 10 threads.
         Target: All succeed, consistent results.
         """
-        from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
+        from auralis.analysis.base_spectrum_analyzer import SpectrumAnalyzer
         from auralis.io.unified_loader import load_audio
 
         audio, sr = load_audio(test_audio_file)

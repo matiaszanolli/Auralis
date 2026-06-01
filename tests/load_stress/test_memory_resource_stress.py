@@ -58,7 +58,7 @@ class TestMemoryLeaks:
         STRESS: Analyze same file 500 times, check for leaks.
         Target: < 50MB memory growth.
         """
-        from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
+        from auralis.analysis.base_spectrum_analyzer import SpectrumAnalyzer
         from auralis.io.unified_loader import load_audio
 
         audio, sr = load_audio(test_audio_file)

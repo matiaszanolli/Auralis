@@ -93,7 +93,7 @@ except Exception as e:
 # Test 5: Compare sequential vs parallel
 print("\n[Test 5] Performance comparison (Sequential vs Parallel)...")
 try:
-    from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
+    from auralis.analysis.base_spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
 
     # Sequential
     seq_settings = SpectrumSettings(fft_size=4096, overlap=0.75, frequency_bands=64)

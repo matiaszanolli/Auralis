@@ -439,7 +439,7 @@ class TestComponentPerformance:
         """
         BENCHMARK: Spectrum analysis should complete in < 50ms for 5s audio.
         """
-        from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
+        from auralis.analysis.base_spectrum_analyzer import SpectrumAnalyzer
 
         audio, sr = load_audio(performance_audio_file)
         analyzer = SpectrumAnalyzer()

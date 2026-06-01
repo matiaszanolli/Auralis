@@ -588,7 +588,7 @@ class TestAudioProcessingThreadSafety:
 
         Validates that spectrum analysis can run concurrently.
         """
-        from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
+        from auralis.analysis.base_spectrum_analyzer import SpectrumAnalyzer
         from auralis.io.unified_loader import load_audio
 
         def analyze_spectrum(filepath):

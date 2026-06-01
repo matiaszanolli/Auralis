@@ -37,10 +37,7 @@ from .dynamic_range import DynamicRangeAnalyzer
 from .loudness_meter import LoudnessMeter
 from .phase_correlation import PhaseCorrelationAnalyzer
 from .quality.quality_metrics import QualityMetrics
-from .spectrum_analyzer import (  # type: ignore[attr-defined]
-    SpectrumAnalyzer,
-    SpectrumSettings,
-)
+from .base_spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
 
 
 @dataclass

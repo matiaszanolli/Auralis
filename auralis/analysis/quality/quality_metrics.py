@@ -16,10 +16,7 @@ import numpy as np
 from ..dynamic_range import DynamicRangeAnalyzer
 from ..loudness_meter import LoudnessMeter
 from ..phase_correlation import PhaseCorrelationAnalyzer
-from ..spectrum_analyzer import (  # type: ignore[attr-defined]
-    SpectrumAnalyzer,
-    SpectrumSettings,
-)
+from ..base_spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
 from .distortion_assessment import DistortionAssessor
 from .dynamic_assessment import DynamicRangeAssessor
 from .frequency_assessment import FrequencyResponseAssessor

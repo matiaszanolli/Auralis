@@ -13,7 +13,7 @@ from auralis.analysis.phase_correlation import PhaseCorrelationAnalyzer
 from auralis.analysis.quality.quality_metrics import QualityMetrics
 
 # Import analysis modules
-from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
+from auralis.analysis.base_spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
 
 
 class TestSpectrumAnalyzerSimple:
