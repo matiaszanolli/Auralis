@@ -58,11 +58,7 @@ ls -lh vendor/auralis-dsp/target/release/libauralis_dsp.so
 
 ### 2. Build AppImage
 ```bash
-# Full build (includes tests)
-python build_auralis.py
-
-# Fast build (skip tests)
-python build_auralis.py --skip-tests
+cd desktop && npm run build:linux
 ```
 
 The AppImage will be in `dist/`:
@@ -117,30 +113,19 @@ PyO3 (Rust↔Python bindings) requires the `.so` file to be:
 
 Our fix puts it in the root of the bundle (`.`), which PyInstaller automatically moves to `_internal/`.
 
-## Build Script Changes Needed
+## Pre-Build Checklist
 
-The main build script (`build_auralis.py`) should be updated to:
+Before running `npm run build:linux`, verify:
 
-1. **Check** if Rust module is built before packaging
-2. **Build** Rust module if missing
-3. **Verify** the module is included in the final package
+1. **Rust module built** — `vendor/auralis-dsp/target/release/libauralis_dsp.so` must exist
+2. **Module included in spec** — `auralis-web/backend/auralis-backend.spec` must list it in `binaries`
+3. **Verify inclusion** — after build, check `dist/*.AppImage` contains `libauralis_dsp.so`
 
-Example addition to `build_auralis.py`:
-```python
-def ensure_rust_module_built():
-    """Ensure Rust DSP module is built before packaging"""
-    rust_module = Path("vendor/auralis-dsp/target/release/libauralis_dsp.so")
-
-    if not rust_module.exists():
-        print("⚠️  Rust DSP module not found. Building...")
-        subprocess.run(
-            ["maturin", "build", "--release"],
-            cwd="vendor/auralis-dsp",
-            check=True
-        )
-        print("✓ Rust DSP module built")
-    else:
-        print("✓ Rust DSP module found")
+```bash
+# Build Rust module if missing
+cd vendor/auralis-dsp && maturin build --release && cd ../..
+# Verify
+ls -lh vendor/auralis-dsp/target/release/libauralis_dsp.so
 ```
 
 ## Commit Reference
@@ -153,4 +138,3 @@ Fix committed in: `f0c3a8b7 - fix(build): Include Rust DSP module in PyInstaller
 - `desktop/main.js` - Electron backend launcher
 - `desktop/package.json` - Electron Builder config
 - `vendor/auralis-dsp/` - Rust DSP source
-- `build_auralis.py` - Main build script (needs update)
