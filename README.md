@@ -50,7 +50,7 @@ This release focuses on **stability and reliability** with critical concurrency 
   - Multiprocessing tests for true parallel execution verification
 - ✅ **Automated CI/CD** - GitHub Actions builds for Linux, Windows, macOS
 
-📖 **[Release Notes](docs/releases/CHANGELOG.md)** | 🔗 **[Development Roadmap](DEVELOPMENT_ROADMAP_1_1_0.md)**
+📖 **[Release Notes](docs/releases/CHANGELOG.md)** | 🔗 **[Development Roadmap](docs/roadmaps/DEVELOPMENT_ROADMAP_1_1_0.md)**
 
 ### 🎯 Previous Releases
 
@@ -60,7 +60,7 @@ This release focuses on **stability and reliability** with critical concurrency 
 
 ---
 
-📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | ⚡ **[Performance Optimizations](CRITICAL_OPTIMIZATIONS_IMPLEMENTED.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 🚀 **[Development Roadmap](docs/roadmaps/DEVELOPMENT_ROADMAP_1_1_0.md)**
+📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | ⚡ **[Performance Optimizations](docs/optimization/CRITICAL_OPTIMIZATIONS_IMPLEMENTED.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 🚀 **[Development Roadmap](docs/roadmaps/DEVELOPMENT_ROADMAP_1_1_0.md)**
 
 ---
 
@@ -347,13 +347,13 @@ npm run build
 
 ### Testing Documentation
 - **[TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)** - **MANDATORY** - Test quality principles
-- **[TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md)** - Path to 2,500+ tests
+- **[AUTOMATED_TESTING_GUIDE.md](docs/development/AUTOMATED_TESTING_GUIDE.md)** - Automated testing workflow
 - **[PHASE1_WEEK3_PROGRESS.md](docs/development/PHASE1_WEEK3_PROGRESS.md)** - Current boundary test progress
 
 ### Release Notes
-- **[Beta 9.1](docs/archive/releases/RELEASE_NOTES_BETA9.1.md)** - Latest release (Testing Infrastructure)
-- **[Beta 9.0](docs/archive/releases/RELEASE_NOTES_BETA9.0.md)** - Previous release
-- **[All Releases](docs/archive/releases/)** - Complete release history
+- **[Beta 12](docs/releases/RELEASE_NOTES_BETA12.md)** - Latest beta release notes
+- **[Beta 11.2](docs/releases/RELEASE_NOTES_BETA11.2.md)** - Previous beta release notes
+- **[All Releases](docs/releases/)** - Complete release history
 
 ---
 
