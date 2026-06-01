@@ -9,13 +9,12 @@ import { tokens } from '@/design-system';
 const _COSMIC_DEEP = '#0F2027';   // deepened bg.level0 for the cosmicBlue ramp
 const _COSMIC_MID = '#203A43';
 const _COSMIC_END = '#2C5364';
-// Hoisted before gradients so auroraReverse can reference it instead of the
-// raw hex literal that was duplicated at line 145 (fixes #3986 / DS-12).
-const _PRIMARY_DARK = '#5A5CC4';  // darker shade of accent.primary
 
 export const gradients = {
   aurora: tokens.gradients.aurora,
-  auroraReverse: `linear-gradient(135deg, ${tokens.colors.accent.primary} 100%, ${_PRIMARY_DARK} 0%)`,
+  // #3949 / DS-12: the dark accent stop now resolves to accent.primaryDark
+  // (was a duplicated raw hex literal here and in the MUI palette below).
+  auroraReverse: `linear-gradient(135deg, ${tokens.colors.accent.primary} 100%, ${tokens.colors.accent.primaryDark} 0%)`,
   neonSunset: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.energy} 100%)`,
   deepOcean: `linear-gradient(135deg, ${tokens.colors.semantic.info} 0%, ${tokens.colors.semantic.success} 100%)`,
   electricPurple: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.primary} 100%)`,
@@ -51,8 +50,8 @@ export const darkColors = {
     pink: tokens.colors.audioSemantic.harmonic,
     // #3597: dark-mode purple/magenta accent — kept distinct from the
     // primary brand violet so neon highlights have their own identity.
-    // Sourced from the harmonic palette at lower lightness.
-    purple: '#C44569',
+    // Sourced from the harmonic palette at lower lightness (#3949).
+    purple: tokens.colors.audioSemantic.harmonicDark,
     blue: tokens.colors.semantic.info,
     cyan: tokens.colors.semantic.success,
     orange: tokens.colors.accent.energy,
@@ -100,9 +99,10 @@ export const glassEffects = {
 
   // Strong glass (modals, popovers) - Maximum glossy effect
   strong: (isDark: boolean) => ({
+    // #3948: token-backed per-mode backgrounds (was raw rgba literals).
     background: isDark
-      ? 'rgba(21, 29, 47, 0.65)'                    // Increased opacity for solid presence
-      : 'rgba(255, 255, 255, 0.85)',
+      ? tokens.glass.strong.backgroundDark
+      : tokens.glass.strong.backgroundLight,
     backdropFilter: 'blur(32px) saturate(1.2)',     // Maximum blur + saturation
     WebkitBackdropFilter: 'blur(32px) saturate(1.2)',
     border: '1px solid ' + (isDark
@@ -115,9 +115,11 @@ export const glassEffects = {
 
   // Minimal glass (hover states, tooltips) - Medium strength
   minimal: (isDark: boolean) => ({
+    // #3948: token-backed per-mode backgrounds (was raw rgba literals). Maps to
+    // the medium glass token — "minimal" here is medium strength per the label.
     background: isDark
-      ? 'rgba(21, 29, 47, 0.45)'                    // Increased opacity
-      : 'rgba(255, 255, 255, 0.6)',
+      ? tokens.glass.medium.backgroundDark
+      : tokens.glass.medium.backgroundLight,
     backdropFilter: 'blur(28px) saturate(1.15)',    // Stronger blur + saturation
     WebkitBackdropFilter: 'blur(28px) saturate(1.15)',
     border: '1px solid ' + (isDark
@@ -140,14 +142,14 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
   const isDark = mode === 'dark';
   const colors = isDark ? darkColors : lightColors;
 
-  // #3597: MUI light/dark variants derived from the brand accents. MUI uses
-  // these for auto-generated hover/focus shades; we pre-compute them to keep
-  // the palette stable across MUI updates instead of relying on its internal
-  // colorManipulator heuristics.
-  const PRIMARY_LIGHT = '#8B7CF7';  // lighter tint of accent.primary (#7366F0)
-  const PRIMARY_DARK = '#5A5CC4';   // darker shade of accent.primary
-  const SECONDARY_LIGHT = '#6FE0FF'; // lighter tint of accent.secondary (#47D6FF)
-  const SECONDARY_DARK = '#00BCC4';  // darker shade of accent.secondary
+  // #3597/#3949: MUI light/dark variants derived from the brand accents. MUI
+  // uses these for auto-generated hover/focus shades; we pre-compute them to
+  // keep the palette stable across MUI updates instead of relying on its
+  // internal colorManipulator heuristics. Now token-backed (no magic hex).
+  const PRIMARY_LIGHT = tokens.colors.accent.primaryLight;
+  const PRIMARY_DARK = tokens.colors.accent.primaryDark;
+  const SECONDARY_LIGHT = tokens.colors.accent.secondaryLight;
+  const SECONDARY_DARK = tokens.colors.accent.secondaryDark;
 
   return createTheme({
     // Opt out of MUI v6's CSS-variables-by-default theme. The custom

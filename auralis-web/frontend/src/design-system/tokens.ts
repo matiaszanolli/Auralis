@@ -50,6 +50,13 @@ export const tokens = {
       secondary: '#47D6FF',    // Teal/Cyan - audio state (Design Language §2.1)
       tertiary: '#C1C8EF',     // Lavender Smoke - secondary text
       energy: '#F59E0B',       // Warm Amber - transients/highlights (Design Language §2.1)
+      // Light/dark variants of the brand accents (#3949). Used for the MUI
+      // palette light/dark shades (auto hover/focus) so they stay token-backed
+      // instead of hand-tuned hex in themeConfig.ts.
+      primaryLight: '#8B7CF7',   // lighter tint of primary
+      primaryDark: '#5A5CC4',    // darker shade of primary (also the aurora end stop)
+      secondaryLight: '#6FE0FF', // lighter tint of secondary
+      secondaryDark: '#00BCC4',  // darker shade of secondary
     },
 
     // Semantic accent colors (UI feedback states)
@@ -86,6 +93,9 @@ export const tokens = {
       // Magenta/Pink - Harmonic richness, vibrancy
       harmonic: '#EC4899',
       harmonicGlow: 'rgba(236, 72, 153, 0.4)',
+      // Darkened harmonic accent (#3949) — the dark-mode neon purple/magenta,
+      // kept distinct from the brand violet. Was a magic hex in themeConfig.ts.
+      harmonicDark: '#C44569',
     },
 
     /**
@@ -817,6 +827,10 @@ export const tokens = {
     // Medium glass (panels, surfaces)
     medium: {
       background: 'rgba(21, 29, 47, 0.40)',
+      // Per-mode backgrounds for the glassEffects.minimal utility (#3948),
+      // which runs slightly more opaque than the base medium background.
+      backgroundDark: 'rgba(21, 29, 47, 0.45)',
+      backgroundLight: 'rgba(255, 255, 255, 0.6)',
       backdropFilter: 'blur(8px) saturate(1.08)',
       border: 'none',
       // Bevel: outer shadow + top highlight + bottom shadow
@@ -826,6 +840,10 @@ export const tokens = {
     // Strong glass (modals, prominent surfaces, player bar)
     strong: {
       background: 'rgba(21, 29, 47, 0.55)',
+      // Per-mode backgrounds for the glassEffects.strong utility (#3948),
+      // which runs more opaque than the base strong background for solid presence.
+      backgroundDark: 'rgba(21, 29, 47, 0.65)',
+      backgroundLight: 'rgba(255, 255, 255, 0.85)',
       backdropFilter: 'blur(12px) saturate(1.1)',
       border: 'none',
       // Bevel: outer shadow + top highlight + bottom shadow
