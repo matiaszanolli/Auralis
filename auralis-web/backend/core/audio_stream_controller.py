@@ -547,7 +547,16 @@ class AudioStreamController:
         instead of skipping the failed chunk as #3190 intended. Also closes
         the look-ahead-orphan leak on outer-block exit.
         """
-        if task is None or task.done():
+        if task is None:
+            return
+        if task.done():
+            # Already finished — it may have completed with a result, or raised
+            # (e.g. the #3874 ConnectionError look-ahead short-circuit). Retrieve
+            # any exception so asyncio doesn't log "Task exception was never
+            # retrieved" when a top-of-loop break drains it without awaiting.
+            # .exception() raises only if the task was cancelled; suppress that.
+            with contextlib.suppress(asyncio.CancelledError):
+                task.exception()
             return
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -1015,6 +1024,18 @@ class AudioStreamController:
                         frames=frames, dtype='float32', always_2d=True
                     )
 
+            # Look-ahead variant: short-circuit the disk read if the client
+            # vanished while the previous chunk was being streamed (#3874).
+            # The task runs in a worker thread concurrently with _send_pcm_chunk,
+            # so checking here — at thread-run time — catches a disconnect that
+            # happened during the send. Mirrors the enhanced-path ConnectionError
+            # guard in _process_chunk_only; _is_websocket_connected is a plain
+            # synchronous state read, safe to call off the event loop.
+            def _read_audio_chunk_lookahead(filepath: str, start: int, frames: int) -> np.ndarray:
+                if not self._is_websocket_connected(websocket):
+                    raise ConnectionError("WebSocket disconnected before look-ahead read")
+                return _read_audio_chunk(filepath, start, frames)
+
             # Stream chunks with look-ahead: read chunk N+1 from disk while
             # streaming chunk N to eliminate I/O gaps. (`lookahead_read` is
             # declared at function scope so the outer `finally:` can drain
@@ -1040,7 +1061,12 @@ class AudioStreamController:
                 try:
                     # Get chunk audio: from look-ahead task or read now
                     if lookahead_read is not None:
-                        chunk_audio = await lookahead_read
+                        try:
+                            chunk_audio = await lookahead_read
+                        except ConnectionError:
+                            # Client disconnected during the look-ahead read (#3874).
+                            # Clean exit — not a chunk failure, so don't log it as one.
+                            break
                         lookahead_read = None
                     else:
                         start_sample = chunk_idx * interval_samples
@@ -1053,7 +1079,7 @@ class AudioStreamController:
                         next_start = (chunk_idx + 1) * interval_samples
                         lookahead_read = asyncio.create_task(
                             asyncio.to_thread(
-                                _read_audio_chunk, streaming_filepath, next_start, chunk_samples
+                                _read_audio_chunk_lookahead, streaming_filepath, next_start, chunk_samples
                             )
                         )
 
@@ -1425,9 +1451,15 @@ class AudioStreamController:
             total_chunks: Total number of chunks
             crossfade_samples: Number of overlap samples at chunk boundary
         """
-        # Ensure float32 for consistency
-        if pcm_samples.dtype != np.float32:
-            pcm_samples = pcm_samples.astype(np.float32)
+        # Ensure native float32 for the wire format. astype(copy=False) returns
+        # the array untouched when it is already native float32 — the case for
+        # every current caller (chunked_processor emits float32; the normal-path
+        # SoundFile read uses dtype='float32') — so the common path allocates
+        # nothing, instead of the dead `dtype != float32` branch that used to
+        # gate (and on a miss, fully copy) the cast. A float64 or big-endian
+        # source is still converted defensively rather than emitting a corrupt
+        # little-endian PCM frame downstream (#3875, sibling of #3556).
+        pcm_samples = pcm_samples.astype(np.float32, copy=False)
 
         # Split into smaller frames to avoid WebSocket 1MB frame limit.
         # Each float32 sample = 4 bytes. Target ~300KB raw per binary frame.

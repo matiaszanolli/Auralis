@@ -9,6 +9,7 @@ Verifies that:
 """
 
 import asyncio
+import gc
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch, call
@@ -516,3 +517,172 @@ class TestSafeSendDisconnectClassification:
         assert result is False
         warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
         assert warnings, "A genuine send error (still connected) should log at WARNING"
+
+
+# ---------------------------------------------------------------------------
+# Tests: look-ahead read pre-checks the WS connection (#3874)
+#
+# The normal-path look-ahead now runs through _read_audio_chunk_lookahead,
+# which raises ConnectionError if the client vanished, mirroring the
+# enhanced-path _process_chunk_only guard. _drain_cancelled_task was hardened
+# so a task that already finished by *raising* (the new short-circuit) has its
+# exception retrieved — otherwise a top-of-loop break that drains the task
+# without awaiting would leak a "Task exception was never retrieved" warning.
+# ---------------------------------------------------------------------------
+
+class TestDrainCancelledTask:
+    """Cover the _drain_cancelled_task hardening that backs the #3874 fix."""
+
+    @pytest.mark.asyncio
+    async def test_drain_none_is_noop(self):
+        controller = _make_controller()
+        # Must not raise.
+        await controller._drain_cancelled_task(None)
+
+    @pytest.mark.asyncio
+    async def test_drain_cancels_running_task(self):
+        """A still-running look-ahead is cancelled and awaited to completion."""
+        controller = _make_controller()
+
+        async def _forever():
+            await asyncio.Event().wait()
+
+        task = asyncio.ensure_future(_forever())
+        await asyncio.sleep(0)  # let it start
+        await controller._drain_cancelled_task(task)
+        assert task.cancelled()
+
+    @pytest.mark.asyncio
+    async def test_drain_done_result_task_is_safe(self):
+        """Draining a task that already completed with a result must not raise."""
+        controller = _make_controller()
+
+        async def _ok():
+            return 123
+
+        task = asyncio.ensure_future(_ok())
+        while not task.done():
+            await asyncio.sleep(0)
+        await controller._drain_cancelled_task(task)  # must not raise
+        assert task.result() == 123
+
+    @pytest.mark.asyncio
+    async def test_drain_retrieves_exception_of_done_raised_task(self):
+        """A look-ahead that finished by raising ConnectionError (the #3874
+        short-circuit) must have its exception retrieved by the drain, so the
+        event loop never reports 'Task exception was never retrieved' when the
+        task is GC'd on the top-of-loop break path."""
+        controller = _make_controller()
+
+        loop = asyncio.get_running_loop()
+        reported: list[dict] = []
+        prev_handler = loop.get_exception_handler()
+        loop.set_exception_handler(lambda _loop, ctx: reported.append(ctx))
+        try:
+            async def _raises():
+                raise ConnectionError("WebSocket disconnected before look-ahead read")
+
+            task = asyncio.ensure_future(_raises())
+            # Let it finish WITHOUT awaiting/retrieving its exception.
+            while not task.done():
+                await asyncio.sleep(0)
+
+            await controller._drain_cancelled_task(task)
+
+            # Drop the last reference and force finalization. If the exception
+            # was retrieved (the fix), Future.__del__ reports nothing.
+            del task
+            gc.collect()
+            await asyncio.sleep(0)
+        finally:
+            loop.set_exception_handler(prev_handler)
+
+        never_retrieved = [
+            c for c in reported
+            if "never retrieved" in str(c.get("message", "")).lower()
+        ]
+        assert not never_retrieved, (
+            f"drain left a task exception unretrieved: {never_retrieved}"
+        )
+
+
+class _FakeSoundFile:
+    """Minimal sf.SoundFile stand-in backed by a NumPy array.
+
+    Supports the two access patterns stream_normal_audio uses: metadata via
+    samplerate/channels/len(), and chunk reads via seek()+read().
+    """
+
+    def __init__(self, data: np.ndarray, sample_rate: int):
+        self._data = data
+        self.samplerate = sample_rate
+        self.channels = data.shape[1]
+        self._pos = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+    def __len__(self):
+        return self._data.shape[0]
+
+    def seek(self, frame: int):
+        self._pos = frame
+
+    def read(self, frames: int, dtype: str = "float32", always_2d: bool = True):
+        out = self._data[self._pos:self._pos + frames]
+        return out.astype(dtype, copy=False)
+
+
+class TestNormalPathLookaheadWiring:
+    """Integration check: the normal-path look-ahead read is wired through the
+    guarded callable and streams every chunk while the client stays connected
+    (proves the #3874 refactor didn't break the happy path)."""
+
+    @pytest.mark.asyncio
+    async def test_connected_stream_sends_all_chunks_via_lookahead(self, tmp_path):
+        controller = _make_controller()
+        controller._stream_semaphore = asyncio.Semaphore(10)
+
+        # chunk_samples = CHUNK_DURATION (15s) * 100Hz = 1500 frames. 2250 frames
+        # → 2 chunks (1500 + 750), so the second chunk is consumed from the
+        # look-ahead task created during the first chunk's send.
+        sample_rate = 100
+        n_frames = 2250
+        chunk_frames = 1500
+        data = (
+            np.arange(n_frames * 2, dtype=np.float32).reshape(n_frames, 2) / 1000.0
+        )
+
+        # Real file so Path(...).exists() is True without patching Path wholesale.
+        wav = tmp_path / "fake.wav"
+        wav.write_bytes(b"\x00")
+
+        track = Mock()
+        track.filepath = str(wav)
+        factory = Mock()
+        factory.tracks.get_by_id = Mock(return_value=track)
+        controller._get_repository_factory = Mock(return_value=factory)
+        controller._send_stream_start = AsyncMock(return_value=True)
+
+        sent_chunks: list[np.ndarray] = []
+
+        async def _capture_send(_ws, pcm_samples, **_kwargs):
+            sent_chunks.append(pcm_samples)
+
+        controller._send_pcm_chunk = _capture_send
+
+        with patch("soundfile.SoundFile", lambda _fp: _FakeSoundFile(data, sample_rate)):
+            await controller.stream_normal_audio(
+                track_id=1,
+                websocket=_make_websocket(connected=True),
+            )
+
+        # Both chunks streamed, in order, second one shorter (750 frames).
+        assert len(sent_chunks) == 2, f"expected 2 chunks, got {len(sent_chunks)}"
+        assert sent_chunks[0].shape == (chunk_frames, 2)
+        assert sent_chunks[1].shape == (n_frames - chunk_frames, 2)
+        # The look-ahead delivered the right slice (frames 1500..2250).
+        np.testing.assert_array_equal(sent_chunks[1], data[chunk_frames:n_frames])
