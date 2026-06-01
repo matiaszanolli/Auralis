@@ -23,14 +23,8 @@ SEMANTIC_VERSION = __version__
 # User-friendly display version
 DISPLAY_VERSION = f"Auralis v{__version__}"
 
-# API version (for backward compatibility)
-API_VERSION = "v1"
-
 # Database schema version (independent of app version)
 DB_SCHEMA_VERSION = 3
-
-# Minimum compatible version (for upgrades)
-MIN_COMPATIBLE_VERSION = "0.9.0"
 
 
 def get_version() -> str:
@@ -65,28 +59,9 @@ def get_version_info() -> dict[str, Any]:
         "build": VERSION_BUILD,
         "build_date": __build_date__,
         "git_commit": __git_commit__,
-        "api_version": API_VERSION,
         "db_schema_version": DB_SCHEMA_VERSION,
         "display": DISPLAY_VERSION,
     }
-
-
-def is_compatible(version: str) -> bool:
-    """
-    Check if a version is compatible with current version.
-
-    Args:
-        version: Version string to check (e.g., "0.9.0")
-
-    Returns:
-        True if version is compatible, False otherwise
-    """
-    try:
-        from packaging.version import Version
-        return Version(version) >= Version(MIN_COMPATIBLE_VERSION)
-    except ImportError:
-        # Fallback to simple string comparison if packaging not available
-        return version >= MIN_COMPATIBLE_VERSION
 
 
 def is_prerelease() -> bool:

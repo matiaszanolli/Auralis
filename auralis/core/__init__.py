@@ -11,6 +11,5 @@ Based on Matchering 2.0 by Sergree and contributors
 """
 
 from .config import UnifiedConfig
-from .processor import process
 
-__all__ = ["process", "UnifiedConfig"]
+__all__ = ["UnifiedConfig"]

@@ -28,9 +28,6 @@ from .core.config import (
 )
 from .core.hybrid_processor import HybridProcessor, process_adaptive, process_reference
 
-# Core processing functions
-from .core.processor import process
-
 # Results and output handling
 from .io.results import Result, pcm16, pcm24
 
@@ -43,7 +40,6 @@ from .utils.logging import set_log_handler as log
 
 # Main exports
 __all__ = [
-    "process",           # Core batch processing
     "UnifiedConfig",     # Modern unified configuration
     "AudioPlayer",       # Real-time player with adaptive DSP (modern standard)
     "EnhancedAudioPlayer",  # Backward compatibility alias
