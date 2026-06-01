@@ -135,6 +135,15 @@ export const useLibraryWithStats = ({
 
   const { success, error: toastError, info } = useToast();
 
+  // Mirror the toast fns into a ref (#3943): useToast returns fresh function
+  // identities every render, so depending on them directly made fetchTracks
+  // unstable — forcing it to be re-created each render and churning the
+  // auto-load effect's dependency on it (a stale-closure / wrong-data risk on
+  // rapid view toggles). Reading them through the ref keeps fetchTracks stable
+  // (deps: [view] only) while always calling the latest toast functions.
+  const toastRef = useRef({ success, toastError, info });
+  toastRef.current = { success, toastError, info };
+
   // Controlled input for folder path in web (non-Electron) environments (fixes #2794).
   const [webFolderPath, setWebFolderPath] = useState('');
 
@@ -209,32 +218,32 @@ export const useLibraryWithStats = ({
           );
 
           if (resetPagination && data.tracks && data.tracks.length > 0) {
-            success(
+            toastRef.current.success(
               `Loaded ${data.tracks.length} of ${data.total} ${view === 'favourites' ? 'favorites' : 'tracks'}`
             );
           } else if (resetPagination && view === 'favourites') {
-            info('No favorites yet. Click the heart icon on tracks to add them!');
+            toastRef.current.info('No favorites yet. Click the heart icon on tracks to add them!');
           }
         } else {
           console.error('Failed to fetch tracks');
           setError('Failed to load library');
-          toastError('Failed to load library');
+          toastRef.current.toastError('Failed to load library');
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error('Error fetching tracks:', err);
         const errorMsg = 'Failed to connect to server';
         setError(errorMsg);
-        toastError(errorMsg);
+        toastRef.current.toastError(errorMsg);
       } finally {
         setLoading(false);
         fetchInProgressRef.current = false;
       }
     },
-    // NOTE: Do NOT include 'offset' in dependencies - it's only used for loadMore (non-reset case)
-    // fetchTracks is called with resetPagination=true from useEffect, which always uses currentOffset=0
-    // Including offset would cause fetchTracks to be recreated every time offset changes, leading to infinite loops
-    [view, success, toastError, info]
+    // Toast fns are read via toastRef (#3943), so only 'view' affects identity.
+    // Do NOT include 'offset' — it's only used for loadMore (non-reset case);
+    // including it would recreate fetchTracks on every page advance (#3378).
+    [view]
   );
 
   const loadMore = useCallback(async () => {
@@ -397,9 +406,11 @@ export const useLibraryWithStats = ({
   // Effects
   // ========================================================================
 
-  // Auto-load on mount or when view changes
-  // NOTE: Only depend on view, autoLoad, and includeStats to avoid infinite loops
-  // fetchTracks and refetchStats are functions that change frequently due to dependencies on toast functions
+  // Auto-load on mount or when view changes.
+  // fetchTracks (deps: [view]) and refetchStats (deps: [includeStats]) are now
+  // stable — their identities only change when view/includeStats change, which
+  // are already deps here — so they can be listed honestly without the
+  // re-render loop the old exhaustive-deps suppression was masking (#3943).
   useEffect(() => {
     DEBUG && console.log(`[useLibraryWithStats] useEffect triggered for view="${view}", autoLoad=${autoLoad}, includeStats=${includeStats}`);
     if (autoLoad) {
@@ -415,9 +426,7 @@ export const useLibraryWithStats = ({
       statsAbortRef.current?.abort();
       scanAbortRef.current?.abort();
     };
-    // Dependency array only includes view, autoLoad, includeStats to prevent re-render loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, autoLoad, includeStats]);
+  }, [view, autoLoad, includeStats, fetchTracks, refetchStats]);
 
   // Track mount status so async handlers (scanFolder) can skip post-unmount
   // state updates (#3987).

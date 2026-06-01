@@ -16,11 +16,15 @@ const mockError = vi.fn();
 const mockInfo = vi.fn();
 
 vi.mock('@/components/shared/Toast', () => ({
+  // Return FRESH function identities each call — mirrors the real useToast,
+  // which is what made the old fetchTracks unstable (#3943). They delegate to
+  // stable spies so call-count assertions still work, while the stability test
+  // below can verify fetchTracks's identity survives this churn.
   useToast: () => ({
     showToast: vi.fn(),
-    success: mockSuccess,
-    error: mockError,
-    info: mockInfo,
+    success: (...args: unknown[]) => mockSuccess(...args),
+    error: (...args: unknown[]) => mockError(...args),
+    info: (...args: unknown[]) => mockInfo(...args),
     warning: vi.fn(),
   }),
 }));
@@ -513,6 +517,37 @@ describe('useLibraryWithStats', () => {
           expect.anything()  // fetch is called with (url, { signal })
         );
       });
+    });
+  });
+
+  describe('fetchTracks stability (#3943)', () => {
+    it('preserves the fetchTracks identity across re-renders despite toast churn', () => {
+      // The useToast mock returns fresh fn identities each render (like the real
+      // one). Before the fix, fetchTracks listed those in its deps and was
+      // recreated every render — the stale-closure hazard the eslint-disable
+      // masked. With toast read via a ref, deps are [view] only, so a re-render
+      // that doesn't change the view must keep the same fetchTracks reference.
+      const { result, rerender } = renderHook(
+        ({ view }) => useLibraryWithStats({ view, autoLoad: false, includeStats: false }),
+        { initialProps: { view: 'all' } }
+      );
+
+      const firstFetch = result.current.fetchTracks;
+      rerender({ view: 'all' }); // same view, new render (toast identities changed)
+
+      expect(result.current.fetchTracks).toBe(firstFetch);
+    });
+
+    it('recreates fetchTracks when the view changes', () => {
+      const { result, rerender } = renderHook(
+        ({ view }) => useLibraryWithStats({ view, autoLoad: false, includeStats: false }),
+        { initialProps: { view: 'all' } }
+      );
+
+      const allFetch = result.current.fetchTracks;
+      rerender({ view: 'favourites' });
+
+      expect(result.current.fetchTracks).not.toBe(allFetch);
     });
   });
 });
