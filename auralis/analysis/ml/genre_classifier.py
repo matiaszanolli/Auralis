@@ -151,9 +151,6 @@ class RuleBasedGenreClassifier:
         }
 
 
-# Backward-compat alias (#2916)
-MLGenreClassifier = RuleBasedGenreClassifier
-
 
 @lru_cache(maxsize=1)
 def create_ml_genre_classifier() -> RuleBasedGenreClassifier:

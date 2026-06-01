@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 
 from ...analysis.fingerprint import AudioFingerprintAnalyzer
-from ...analysis.ml_genre_classifier import create_ml_genre_classifier
+from ...analysis.ml import create_ml_genre_classifier
 from ...dsp.unified import (
     calculate_loudness_units,
     crest_factor,
