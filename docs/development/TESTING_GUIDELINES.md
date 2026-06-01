@@ -25,7 +25,7 @@
 
 ### Current State (Nov 2024)
 
-**Test Count:** 486 tests (241 backend, 245 frontend)
+**Test Count:** ~4,900+ test functions across 18 test directories
 **Coverage:** 74% (backend), ~95% (frontend pass rate)
 **Problem:** Low test count for complexity, insufficient quality validation
 
@@ -372,9 +372,8 @@ def test_corrupt_audio_file_is_skipped_during_scan():
 
 **How to measure:**
 ```bash
-# Mutation testing with pytest-mutpy
-pip install mutpy
-mutpy --target auralis --unit-test tests/ --runner pytest
+# Mutation testing via pytest marker
+python -m pytest -m mutation -v
 ```
 
 **Target:** >80% mutation score (80% of mutants killed by tests)
@@ -1041,7 +1040,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.14'
 
       - name: Install dependencies
         run: |
@@ -1063,7 +1062,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '24'
 
       - name: Install dependencies
         run: cd auralis-web/frontend && npm ci
@@ -1324,14 +1323,12 @@ def test_chunks_concatenate_without_gaps():
 **Tools:**
 - pytest (Python testing framework)
 - pytest-cov (coverage reporting)
-- mutpy (mutation testing)
 - hypothesis (property-based testing)
 - vitest (TypeScript/JavaScript testing)
 - MSW (API mocking for integration tests)
 
 **Further Reading:**
 - [Property-Based Testing](https://hypothesis.works/)
-- [Mutation Testing](https://mutpy.readthedocs.io/)
 - [Test-Driven Development](https://www.amazon.com/Test-Driven-Development-Kent-Beck/dp/0321146530)
 
 ---
