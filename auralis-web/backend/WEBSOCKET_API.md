@@ -801,26 +801,75 @@ Complete TypeScript types for all WebSocket messages are available in:
 
 **Frontend**: [auralis-web/frontend/src/types/websocket.ts](../frontend/src/types/websocket.ts)
 
+The canonical source of truth is [`auralis-web/frontend/src/types/websocket.ts`](../frontend/src/types/websocket.ts). The complete union (35 members as of v1.2) is reproduced here for quick reference:
+
 ```typescript
 export type WebSocketMessageType =
+  // Player state messages
   | 'player_state'
   | 'playback_started'
   | 'playback_paused'
+  | 'playback_resumed'
   | 'playback_stopped'
   | 'track_loaded'
   | 'track_changed'
   | 'position_changed'
   | 'volume_changed'
+  // Queue messages
   | 'queue_updated'
+  | 'queue_changed'
+  | 'queue_shuffled'
+  | 'repeat_mode_changed'
+  // Library messages
   | 'library_updated'
+  // Metadata messages
+  | 'metadata_updated'
+  | 'metadata_batch_updated'
+  // Playlist messages
   | 'playlist_created'
   | 'playlist_updated'
   | 'playlist_deleted'
+  // Enhancement messages
   | 'enhancement_settings_changed'
+  | 'mastering_recommendation'
+  // Artwork messages
   | 'artwork_updated'
+  // Fingerprint messages
+  | 'fingerprint_progress'
+  // Seek acknowledgement
+  | 'seek_started'
+  // Audio stream lifecycle messages
+  | 'audio_stream_start'
+  | 'audio_stream_end'
+  | 'audio_chunk'
+  | 'audio_chunk_meta'
+  | 'audio_stream_error'
+  // System messages
   | 'scan_progress'
-  | 'scan_complete';
+  | 'scan_complete'
+  | 'library_scan_started'
+  | 'library_scan_error'
+  | 'library_tracks_removed'
+  // Error messages
+  | 'error';
 ```
+
+### Message Type Summary
+
+| Category | Types |
+|----------|-------|
+| Player state | `player_state`, `playback_started`, `playback_paused`, `playback_resumed`, `playback_stopped`, `track_loaded`, `track_changed`, `position_changed`, `volume_changed` |
+| Queue | `queue_updated`, `queue_changed`, `queue_shuffled`, `repeat_mode_changed` |
+| Library | `library_updated`, `library_scan_started`, `library_scan_error`, `library_tracks_removed` |
+| Metadata | `metadata_updated`, `metadata_batch_updated` |
+| Playlists | `playlist_created`, `playlist_updated`, `playlist_deleted` |
+| Enhancement | `enhancement_settings_changed`, `mastering_recommendation` |
+| Artwork | `artwork_updated` |
+| Fingerprint | `fingerprint_progress` |
+| Seek | `seek_started` |
+| Audio streaming | `audio_stream_start`, `audio_chunk_meta`, `audio_chunk`, `audio_stream_end`, `audio_stream_error` |
+| Scan | `scan_progress`, `scan_complete` |
+| Errors | `error` |
 
 ---
 
