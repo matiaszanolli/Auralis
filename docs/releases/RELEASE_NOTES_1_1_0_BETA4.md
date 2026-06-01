@@ -233,7 +233,6 @@ Since v1.1.0-beta.4 is a development release without binaries, build from source
 ```bash
 # 1. Setup backend (< 10 minutes)
 pip install -r requirements.txt
-python -m auralis.library.init
 python launch-auralis-web.py --dev
 # Visit: http://localhost:8765
 

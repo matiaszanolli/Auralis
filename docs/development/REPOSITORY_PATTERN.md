@@ -572,7 +572,7 @@ def test_create_and_retrieve():
 
 ### "No such table"
 **Cause:** Model defined but table not created
-**Fix:** Run `python -m auralis.library.init` to initialize database
+**Fix:** Delete `~/.auralis/library.db` and restart — the database auto-initializes on launch
 
 ## References
 

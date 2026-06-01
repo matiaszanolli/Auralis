@@ -250,8 +250,7 @@ Phase A establishes the foundation for the complete player modernization by fina
 
 4. Document startup procedures
    - Install dependencies: `pip install -r requirements.txt`
-   - Initialize database: `python -m auralis.library.init`
-   - Run backend: `python launch-auralis-web.py --dev`
+   - Run backend: `python launch-auralis-web.py --dev` (database auto-initializes on first launch)
    - Access API: `http://localhost:8765/api/docs`
 
 **Deliverables**:

@@ -15,10 +15,7 @@ For experienced Python developers, here's the fastest path:
 # 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Initialize database
-python -m auralis.library.init
-
-# 3. Start backend with hot reload
+# 2. Start backend with hot reload (database auto-initializes on first run)
 python launch-auralis-web.py --dev
 
 # 4. Open API docs
@@ -161,16 +158,7 @@ python -c "import fastapi; import sqlalchemy; import numpy; print('All imports O
 **What does this do?**
 Creates the SQLite database and populates it with your music library.
 
-```bash
-# Initialize database (scans ~/Music directory by default)
-python -m auralis.library.init
-
-# Output should show:
-# - Number of files found
-# - Number of files processed
-# - Number of duplicates skipped
-# - Database location (usually ~/.auralis/library.db)
-```
+The database initializes automatically on first launch of `python launch-auralis-web.py --dev`. It creates `~/.auralis/library.db` and scans your configured music directory. To reset, delete the file: `rm ~/.auralis/library.db`
 
 **Verify database created:**
 ```bash
@@ -181,14 +169,7 @@ ls -lh ~/.auralis/library.db
 sqlite3 ~/.auralis/library.db "SELECT COUNT(*) as track_count FROM tracks;"
 ```
 
-**Alternative: Custom music directory**
-```bash
-# Scan a specific directory instead
-python -m auralis.library.init --music-dir /path/to/music
-
-# Example for macOS:
-python -m auralis.library.init --music-dir ~/Music
-```
+**Custom music directory**: Set the `MUSIC_DIRECTORY` environment variable before launching (see Step 5).
 
 ---
 
@@ -424,11 +405,8 @@ SERVER_PORT=8766 python launch-auralis-web.py --dev
 **Solution**: Remove stale database and rescan
 
 ```bash
-# Remove database
+# Remove database (auto-reinitializes on next launch)
 rm ~/.auralis/library.db
-
-# Reinitialize
-python -m auralis.library.init
 
 # Start server
 python launch-auralis-web.py --dev
@@ -807,8 +785,8 @@ See [PHASE_5_FINAL_COMPLETION_SUMMARY.md](../../PHASE_5_FINAL_COMPLETION_SUMMARY
 # Create .env setting
 echo "MUSIC_DIRECTORY=/path/to/music" >> .env
 
-# Initialize with custom directory
-python -m auralis.library.init --music-dir /path/to/music
+# Set custom directory via environment variable, then launch
+# (database auto-initializes on first launch)
 ```
 
 ### Disable Hot Reload (Production-like)
@@ -839,9 +817,7 @@ DATABASE_URL=postgresql://user:password@localhost/auralis
 
 # Or MySQL
 DATABASE_URL=mysql+pymysql://user:password@localhost/auralis
-
-# Then reinitialize
-python -m auralis.library.init
+# Database auto-initializes on next launch
 ```
 
 ---
@@ -962,15 +938,14 @@ find . -type f -name "*.pyc" -delete
 # Reinstall dependencies (optional)
 pip install --upgrade -r requirements.txt
 
-# Reinitialize
-python -m auralis.library.init
+# Database auto-initializes on next launch
 ```
 
 ### Just Remove Database
 
 ```bash
 rm ~/.auralis/library.db
-python -m auralis.library.init
+# Database auto-initializes on next launch of launch-auralis-web.py
 ```
 
 ### Update Dependencies
@@ -1013,7 +988,7 @@ See [PHASE_A_IMPLEMENTATION_PLAN.md](PHASE_A_IMPLEMENTATION_PLAN.md) for Phase B
 - Check logs: `LOG_LEVEL=DEBUG python launch-auralis-web.py --dev`
 
 **Database issues?**
-- Reset database: `rm ~/.auralis/library.db && python -m auralis.library.init`
+- Reset database: `rm ~/.auralis/library.db` (auto-reinitializes on next launch)
 - Check database: `sqlite3 ~/.auralis/library.db ".tables"`
 
 **Import errors?**

@@ -90,14 +90,11 @@ pip install -r requirements.txt
 
 **Expected output**: 40-60 packages installed, no errors
 
-### 4️⃣ Initialize the Database
-```bash
-python -m auralis.library.init
-```
+### 4️⃣ Database Initialization
 
-This creates:
-- `~/.auralis/library.db` - SQLite database for your music library
-- `~/.auralis/` - Configuration directory
+The database initializes automatically on first launch — no manual step required.
+It creates `~/.auralis/library.db` and `~/.auralis/` on startup.
+To reset, delete the file: `rm ~/.auralis/library.db`
 
 ### 5️⃣ Set Up Node.js & Frontend Dependencies
 
