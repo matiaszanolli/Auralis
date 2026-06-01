@@ -11,9 +11,6 @@ Note: Audio streaming is now handled exclusively via WebSocket using the WebSock
 Endpoints:
 - GET /api/player/status - Get current player status
 - POST /api/player/load - Load track
-- POST /api/player/play - Start playback
-- POST /api/player/pause - Pause playback
-- POST /api/player/stop - Stop playback
 - POST /api/player/seek - Seek to position
 - POST /api/player/volume - Set volume
 - GET /api/player/queue - Get queue
@@ -347,42 +344,6 @@ def create_player_router(
         except Exception as e:
             logger.error("Failed to load track", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to load track")
-
-    # ============================================================================
-    # DEPRECATED: Legacy REST playback endpoints (replaced by WebSocket streaming)
-    # ============================================================================
-    # These endpoints have been replaced by WebSocket-based audio streaming.
-    # Frontend now uses usePlayEnhanced hook which sends WebSocket messages
-    # instead of REST API calls. Kept here temporarily for reference.
-    # See: auralis-web/backend/routers/system.py - WebSocket endpoint handles 'play_enhanced' message
-    # ============================================================================
-
-    # @router.post("/api/player/play", response_model=None)
-    # async def play_audio() -> Dict[str, Any]:
-    #     """DEPRECATED: Use WebSocket 'play_enhanced' message instead."""
-    #     raise HTTPException(
-    #         status_code=410,
-    #         detail="Endpoint deprecated. Use WebSocket streaming instead."
-    #     )
-    #     # Legacy implementation removed - audio playback now via WebSocket only
-
-    # @router.post("/api/player/pause", response_model=None)
-    # async def pause_audio() -> Dict[str, Any]:
-    #     """DEPRECATED: Use usePlayEnhanced.pausePlayback() instead."""
-    #     raise HTTPException(
-    #         status_code=410,
-    #         detail="Endpoint deprecated. Use WebSocket streaming pause control instead."
-    #     )
-    #     # Legacy implementation removed - pause now via usePlayEnhanced hook
-
-    # @router.post("/api/player/stop", response_model=None)
-    # async def stop_audio() -> Dict[str, Any]:
-    #     """DEPRECATED: Use usePlayEnhanced.stopPlayback() instead."""
-    #     raise HTTPException(
-    #         status_code=410,
-    #         detail="Endpoint deprecated. Use WebSocket streaming stop control instead."
-    #     )
-    #     # Legacy implementation removed - stop now via usePlayEnhanced hook
 
     @router.post("/api/player/seek", response_model=SeekResponse)
     async def seek_position(request: SeekRequest) -> dict[str, Any]:
