@@ -18,7 +18,7 @@ export const styles = {
     width: '100%',
 
     // Glass effect for PlayerBar - semi-transparent for starfield visibility
-    background: 'rgba(16, 23, 41, 0.50)',                 // 50% opacity for starfield visibility
+    background: tokens.glass.starfield.medium,            // #3950: unified starfield glass (50%)
     backdropFilter: 'blur(10px) saturate(1.08)',          // Moderate blur preserves starfield
     border: 'none',
     // Glass bevel: top highlight + outer shadow

@@ -27,7 +27,7 @@ const StyledList = styled(MuiList)({
   '& .MuiListItem-root': {
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     // Glass bevel instead of hard border
-    boxShadow: 'inset 0 -1px 0 rgba(255, 255, 255, 0.03)',
+    boxShadow: `inset 0 -1px 0 ${tokens.colors.opacityScale.white.ultraLight}`, // #3950
 
     '&:last-child': {
       boxShadow: 'none',

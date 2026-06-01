@@ -66,7 +66,7 @@ export const SwitchPaper = styled(Paper, {
     marginBottom: tokens.spacing.md,
     borderRadius: tokens.borderRadius.md,
     // Subtle glass effect - no loud purple background
-    background: 'rgba(255, 255, 255, 0.03)',
+    background: tokens.colors.opacityScale.white.ultraLight, // #3950
     backdropFilter: 'blur(4px)',
     border: `1px solid rgba(255, 255, 255, ${$isEnabled ? 0.08 : 0.05})`,
     // Subtle inner glow when enabled

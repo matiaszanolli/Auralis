@@ -81,8 +81,8 @@ export const TrackCardOverlay = ({
         sx={{
           opacity: isHovered ? 1 : 0.6, // Fade in on hover
           background: isHovered
-            ? 'rgba(27, 35, 46, 0.70)' // Sharper on hover
-            : 'rgba(27, 35, 46, 0.50)', // Subtle at rest
+            ? tokens.glass.starfield.sharp // #3950: unified starfield glass (sharper on hover)
+            : tokens.glass.starfield.medium, // #3950: unified starfield glass (subtle at rest)
         }}
       >
         <Typography

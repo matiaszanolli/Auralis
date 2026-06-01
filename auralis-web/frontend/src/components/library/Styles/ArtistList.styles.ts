@@ -39,14 +39,14 @@ export const StyledListItemButton = styled(ButtonBase)({
   transition: `${tokens.transitions.hover_out}, backdrop-filter ${tokens.transitions.hover}`,
 
   // Glass card: subtle background for visibility without blocking starfield
-  background: 'rgba(21, 29, 47, 0.25)',
+  background: tokens.glass.starfield.faint, // #3950: unified starfield glass
   backdropFilter: 'blur(4px) saturate(1.02)',
   // Glass bevel
   boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 -1px 0 ${tokens.colors.opacityScale.dark.light}`,
 
   '&:hover': {
     // Enhanced glass on hover
-    background: 'rgba(21, 29, 47, 0.40)',
+    background: tokens.glass.starfield.subtle, // #3950: unified starfield glass
     backdropFilter: 'blur(8px) saturate(1.05)',
     // Stronger glass bevel
     boxShadow: `0 4px 16px ${tokens.colors.opacityScale.dark.lighter}, inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 ${tokens.colors.opacityScale.dark.lighter}`,

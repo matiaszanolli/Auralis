@@ -814,6 +814,22 @@ export const tokens = {
    * Subtle glass borders catch light - depth via borders, spacing, and shadow.
    */
   glass: {
+    // Starfield glass backgrounds (#3950 / DS-5): a SINGLE blue-black base
+    // (21,29,47 — the dominant shell tint) at the opacity steps the app shell
+    // uses, so glass surfaces (top bar, sidebar, player, container, cards,
+    // artist rows) stay consistent and can be retuned from one place. Replaces
+    // five hand-picked blue-black tuples (21,29,47 / 16,23,41 / 11,16,32 /
+    // 27,35,46) that were scattered across components.
+    starfield: {
+      faint: 'rgba(21, 29, 47, 0.25)',
+      subtle: 'rgba(21, 29, 47, 0.40)',
+      soft: 'rgba(21, 29, 47, 0.45)',
+      medium: 'rgba(21, 29, 47, 0.50)',
+      strong: 'rgba(21, 29, 47, 0.55)',
+      solid: 'rgba(21, 29, 47, 0.65)',
+      sharp: 'rgba(21, 29, 47, 0.70)',
+    },
+
     // Subtle glass (calm overlays - for idle states)
     // Bevel: top light catch, bottom shadow for 3D glass effect
     subtle: {

@@ -8,7 +8,7 @@ export const TopBarContainer = styled(Box)({
   justifyContent: 'space-between',
   padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
   // Semi-transparent to let starfield show through
-  background: 'rgba(21, 29, 47, 0.55)',
+  background: tokens.glass.starfield.strong, // #3950: unified starfield glass
   backdropFilter: 'blur(8px) saturate(1.05)',
   // Glass bevel: top highlight + bottom shadow (no hard borders)
   boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 ${tokens.colors.opacityScale.dark.standard}`,

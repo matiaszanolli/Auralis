@@ -72,7 +72,7 @@ export const DurationBadge = styled(Box)({
   paddingBottom: 4,
   borderRadius: 6, // Slightly larger for softer feel
   // Reduced contrast - low-contrast gray, semi-transparent (contextual, not constant)
-  background: 'rgba(27, 35, 46, 0.50)', // Using level3 color with lower opacity
+  background: tokens.glass.starfield.medium, // #3950: unified starfield glass
   backdropFilter: 'blur(10px)',
   transition: tokens.transitions.hover_out,
 });

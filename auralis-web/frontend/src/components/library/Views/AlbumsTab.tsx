@@ -45,7 +45,7 @@ export const AlbumsTab = ({
         sx={{
           padding: 4,
           textAlign: 'center',
-          background: 'rgba(255,255,255,0.03)',
+          background: tokens.colors.opacityScale.white.ultraLight, // #3950
           borderRadius: 2,
         }}
       >
