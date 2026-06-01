@@ -397,6 +397,115 @@ This message contains weighted profile information for hybrid mastering scenario
 
 ---
 
+### Audio Streaming Messages (Server → Client)
+
+These four messages form the core audio streaming protocol. They are emitted in response to `play_enhanced` / `play_normal` WebSocket commands — not REST calls. See `core/audio_stream_controller.py` for the Python implementation and `src/types/websocket.ts:425-518` for the canonical TypeScript types.
+
+#### `audio_stream_start`
+Sent once at the beginning of every stream (including seeks/resumes).
+
+**Triggers**: `play_enhanced` or `play_normal` WebSocket command; also emitted on seek/reconnect-resume with `is_seek: true`.
+
+**Payload**:
+```typescript
+{
+  "type": "audio_stream_start",
+  "data": {
+    "track_id": number,
+    "preset": string,          // Enhancement preset name
+    "intensity": number,       // 0.0 – 1.0
+    "sample_rate": number,     // e.g. 44100
+    "channels": number,        // 1 (mono) or 2 (stereo)
+    "total_chunks": number,    // Total 30-second chunks in the stream
+    "chunk_duration": number,  // Seconds per chunk (typically 30)
+    "total_duration": number,  // Track duration in seconds
+    "stream_type"?: "enhanced" | "normal",
+    // Seek/resume fields — only present when is_seek is true:
+    "is_seek"?: boolean,
+    "start_chunk"?: number,    // Index of first chunk being sent
+    "seek_position"?: number,  // Absolute playback position (seconds)
+    "seek_offset"?: number     // Offset within the starting chunk (seconds)
+  }
+}
+```
+
+**Client behaviour**: On `is_seek: true`, the client should preserve the existing `AudioContext` and `PCMStreamBuffer` rather than recreating them (seek/reconnect resume path).
+
+---
+
+#### `audio_chunk_meta`
+Sent as a **text JSON frame** immediately before each binary PCM frame. The client pairs the two frames to reconstruct audio.
+
+**Wire protocol**: for each audio frame the server sends:
+1. `audio_chunk_meta` as a JSON text frame (this message)
+2. A binary WebSocket frame containing little-endian `float32` PCM samples
+
+**Payload**:
+```typescript
+{
+  "type": "audio_chunk_meta",
+  "data": {
+    "seq": number,              // Monotonic per-stream counter (0-based). Increments by 1 per frame.
+                                // Clients can detect dropped/reordered frames when seq jumps.
+    "chunk_index": number,      // Which 30-second chunk this frame belongs to (0-based)
+    "chunk_count": number,      // Total chunks in stream (same as audio_stream_start.total_chunks)
+    "frame_index": number,      // Frame index within the current chunk (0-based)
+    "frame_count": number,      // Total frames in the current chunk
+    "sample_count": number,     // Number of float32 samples in the following binary frame
+    "crossfade_samples": number,// Overlap samples at the chunk boundary (used for gapless blending)
+    "stream_type"?: "enhanced" | "normal"
+  }
+}
+```
+
+**Binary frame format**: `sample_count × 4` bytes of little-endian `float32` values, interleaved stereo if `channels == 2` (L0 R0 L1 R1 …).
+
+**Frontend note**: `WebSocketContext` automatically fuses the `audio_chunk_meta` text frame and the following binary frame into a synthetic `audio_chunk` event (with `pcm_binary` populated) for downstream consumers.
+
+---
+
+#### `audio_stream_end`
+Sent once when all chunks have been streamed.
+
+**Payload**:
+```typescript
+{
+  "type": "audio_stream_end",
+  "data": {
+    "track_id": number,
+    "total_samples": number,  // Total float32 samples sent across the entire stream
+    "duration": number,       // Actual streamed duration in seconds
+    "stream_type"?: "enhanced" | "normal"
+  }
+}
+```
+
+---
+
+#### `audio_stream_error`
+Sent when the backend encounters an unrecoverable streaming error.
+
+**Payload**:
+```typescript
+{
+  "type": "audio_stream_error",
+  "data": {
+    "track_id": number,
+    "error": string,           // Human-readable error description
+    "code": string,            // Machine-readable code for frontend recovery logic
+                               // Default: "STREAMING_ERROR"
+    "stream_type"?: "enhanced" | "normal",
+    "recovery_position"?: number  // Seconds offset at which the client may seek/retry.
+                                  // Set when a specific chunk fails so the client can
+                                  // offer a "retry from here" action.
+  }
+}
+```
+
+**Common error codes**: `STREAMING_ERROR`, `TRACK_NOT_FOUND`, `DSP_ERROR`, `ENCODING_ERROR`.
+
+---
+
 ### Artwork Messages
 
 #### `artwork_updated`
@@ -591,6 +700,9 @@ function MyComponent() {
 | `PUT /api/enhancement/settings` | `enhancement_settings_changed` | ✅ |
 | `POST /api/artwork/*` | `artwork_updated` | ✅ |
 | `POST /api/library/scan` | `scan_progress`, `scan_complete` | ✅ |
+| WS: `play_enhanced` command | `audio_stream_start` → N×(`audio_chunk_meta` + binary) → `audio_stream_end` | Binary-frame protocol |
+| WS: `play_normal` command | `audio_stream_start` → N×(`audio_chunk_meta` + binary) → `audio_stream_end` | Binary-frame protocol |
+| WS: any streaming error | `audio_stream_error` | Optional `recovery_position` |
 
 ---
 
