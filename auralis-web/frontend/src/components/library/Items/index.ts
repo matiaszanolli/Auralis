@@ -29,7 +29,6 @@ export {
 export {
   CozyArtistList,
   ArtistListContent,
-  ArtistSection,
   ArtistListItem,
   ArtistListLoading,
   ArtistListEmptyState,

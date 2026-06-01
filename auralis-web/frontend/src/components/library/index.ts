@@ -42,7 +42,6 @@ export {
   DraggableTrackRow,
   SelectableTrackRow,
   ArtistListItem,
-  ArtistSection,
   CozyAlbumGrid,
   CozyArtistList,
   AlbumTrackTable,

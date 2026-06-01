@@ -7,7 +7,6 @@
 
 export { default as CozyArtistList } from './CozyArtistList';
 export { default as ArtistListContent } from './ArtistListContent';
-export { default as ArtistSection } from './ArtistSection';
 export { default as ArtistListItem } from './ArtistListItem';
 
 // Loading and state components
