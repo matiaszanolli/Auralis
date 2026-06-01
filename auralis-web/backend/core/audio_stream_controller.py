@@ -1200,6 +1200,16 @@ class AudioStreamController:
                 if cached_result:
                     pcm_samples, sr = cached_result
                     logger.info(f"Cache HIT: chunk {chunk_index}, preset {processor.preset}")
+                    # #3832: record the cached chunk's level so the LevelManager
+                    # history stays chronologically consistent — otherwise a
+                    # later cache-MISS chunk smooths against the wrong previous
+                    # RMS. Best-effort: state-sync only, never fails the stream.
+                    note_level = getattr(processor, "note_cached_chunk_level", None)
+                    if note_level is not None:
+                        try:
+                            await asyncio.to_thread(note_level, pcm_samples, chunk_index)
+                        except Exception as e:
+                            logger.debug(f"Cache-hit level recording skipped (not critical): {e}")
         except Exception as e:
             logger.debug(f"Cache lookup failed (not critical): {e}")
 

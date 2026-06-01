@@ -11,7 +11,7 @@ Prevents audible volume jumps during chunk transitions.
 
 import logging
 from collections import deque
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 MAX_LEVEL_CHANGE_DB = 1.5  # Maximum allowed level change between chunks in dB
+# Window over which a triggered gain adjustment ramps in from the previous
+# chunk's gain, so the boundary stays continuous instead of stepping (#3831).
+GAIN_RAMP_SECONDS = 0.05  # 50 ms
 
 
 class LevelManager:
@@ -82,11 +85,33 @@ class LevelManager:
 
         return float(rms_db)
 
+    def _gain_envelope(
+        self,
+        n_samples: int,
+        prev_gain: float,
+        new_gain: float,
+        sample_rate: int,
+        dtype: np.dtype,
+    ) -> np.ndarray:
+        """Build a per-sample gain envelope: ramp prev_gain → new_gain over the
+        first GAIN_RAMP_SECONDS, then hold new_gain (#3831).
+
+        Returned in `dtype` so multiplying a float32 chunk stays float32 (no
+        float64 promotion). A linear ramp from the previous chunk's gain keeps
+        the boundary continuous instead of stepping by the full adjustment.
+        """
+        ramp_len = min(n_samples, max(1, int(round(GAIN_RAMP_SECONDS * sample_rate))))
+        env = np.empty(n_samples, dtype=dtype)
+        env[:ramp_len] = np.linspace(prev_gain, new_gain, ramp_len, dtype=dtype)
+        env[ramp_len:] = dtype.type(new_gain)
+        return env
+
     def smooth_transition(
         self,
         chunk: np.ndarray,
         chunk_index: int,
-        apply_adjustment: bool = True
+        apply_adjustment: bool = True,
+        sample_rate: int = 44100,
     ) -> tuple[np.ndarray, float, bool]:
         """
         Smooth level transitions between chunks.
@@ -98,6 +123,8 @@ class LevelManager:
             chunk: Processed audio chunk
             chunk_index: Index of this chunk
             apply_adjustment: Whether to apply gain adjustment (default: True)
+            sample_rate: Sample rate of the chunk, used to size the gain ramp
+                window (default: 44100)
 
         Returns:
             Tuple of (chunk, gain_adjustment_db, was_adjusted)
@@ -140,11 +167,24 @@ class LevelManager:
             )
             required_adjustment_db = target_diff - level_diff_db
 
-            # Convert dB to linear gain
-            gain_adjustment = 10 ** (required_adjustment_db / 20)
+            # Convert dB to linear gain, typed to the chunk so float32 stays
+            # float32 (#3831 — avoids the float64 promotion of `chunk * pyfloat`).
+            new_gain = float(10 ** (required_adjustment_db / 20))
+            # Ramp from the gain the previous chunk ended at, so the boundary is
+            # continuous instead of stepping by the full adjustment (#3831).
+            prev_gain_db = self.gain_history[-1] if self.gain_history else 0.0
+            prev_gain = float(10 ** (prev_gain_db / 20))
 
-            # Apply gain adjustment
-            chunk_adjusted = chunk * gain_adjustment
+            env = self._gain_envelope(
+                n_samples=len(chunk),
+                prev_gain=prev_gain,
+                new_gain=new_gain,
+                sample_rate=sample_rate,
+                dtype=chunk.dtype,
+            )
+            # Broadcast across channels for 2D (n, ch); multiply directly for 1D.
+            # New array — never mutate the caller's chunk in place.
+            chunk_adjusted = chunk * (env[:, None] if chunk.ndim == 2 else env)
 
             # Verify adjustment
             adjusted_rms = self.calculate_rms(chunk_adjusted)
@@ -187,8 +227,10 @@ class LevelManager:
         if gain_db == 0.0:
             return audio
 
-        gain_linear = 10 ** (gain_db / 20)
-        return audio * gain_linear
+        # Type the scalar to the input so float32 stays float32 (#3831 sibling —
+        # `audio * pyfloat` would promote to float64).
+        gain_linear = audio.dtype.type(10 ** (gain_db / 20))
+        return cast(np.ndarray, audio * gain_linear)
 
     def get_statistics(self) -> dict[str, Any]:
         """

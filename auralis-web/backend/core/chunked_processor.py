@@ -395,11 +395,13 @@ class ChunkedAudioProcessor:
         Returns:
             Level-smoothed chunk
         """
-        # Use LevelManager to smooth transitions
+        # Use LevelManager to smooth transitions. Pass the sample rate so the
+        # gain-ramp window is sized correctly (#3831).
         result_tuple = self._level_manager.smooth_transition(
             chunk=chunk,
             chunk_index=chunk_index,
-            apply_adjustment=True
+            apply_adjustment=True,
+            sample_rate=self.sample_rate or 44100,
         )
         chunk_adjusted, gain_db, was_adjusted = result_tuple
 
@@ -427,6 +429,30 @@ class ChunkedAudioProcessor:
         self.chunk_gain_history = list(gain_adjustments) if hasattr(gain_adjustments, '__iter__') else []
 
         return cast(np.ndarray, chunk_adjusted)
+
+    def note_cached_chunk_level(self, chunk: np.ndarray, chunk_index: int) -> None:
+        """Record a cache-hit chunk's level into the LevelManager (#3832).
+
+        A cached chunk is returned without going through _process_chunk_core, so
+        the LevelManager would otherwise never see it — leaving rms_history out
+        of chronological sync, so a later cache-MISS chunk smooths against the
+        wrong previous RMS. We RECORD the cached chunk's RMS (apply_adjustment=
+        False) without re-adjusting the already-smoothed audio, under the same
+        _processor_lock the processing path uses so the history deque is never
+        touched concurrently.
+        """
+        with self._processor_lock:
+            self._level_manager.smooth_transition(
+                chunk=chunk,
+                chunk_index=chunk_index,
+                apply_adjustment=False,
+                sample_rate=self.sample_rate or 44100,
+            )
+            # Keep the legacy history mirrors in sync (matches _smooth_level_transition).
+            history = self._level_manager.history
+            gain_adjustments = self._level_manager.gain_adjustments
+            self.chunk_rms_history = list(history) if hasattr(history, '__iter__') else []
+            self.chunk_gain_history = list(gain_adjustments) if hasattr(gain_adjustments, '__iter__') else []
 
     # REMOVED (Phase 5.1 refactoring): _trim_context()
     # Now handled by ChunkBoundaryManager.trim_context()
@@ -527,7 +553,9 @@ class ChunkedAudioProcessor:
             logger.error(f"Chunk {chunk_index} is empty after context trimming. Returning silence.")
             num_channels = audio_chunk.shape[1] if audio_chunk.ndim > 1 else 2
             assert self.sample_rate is not None
-            processed_chunk = np.zeros((self.sample_rate // 10, num_channels), dtype=np.float32)  # 100ms silence
+            # Preserve the input dtype rather than hardcoding float32 (#3831
+            # sibling) so the fallback matches a float64 pipeline if present.
+            processed_chunk = np.zeros((self.sample_rate // 10, num_channels), dtype=audio_chunk.dtype)  # 100ms silence
 
         # CRITICAL FIX: Smooth level transitions between chunks
         # This prevents volume jumps by limiting maximum RMS changes
