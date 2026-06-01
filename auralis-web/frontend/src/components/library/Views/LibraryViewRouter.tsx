@@ -45,15 +45,6 @@ export interface LibraryViewRouterProps {
   onBackFromArtist: () => void;
   onAlbumClick: (albumId: number) => void;
   onArtistClick: (artistId: number, artistName: string) => void;
-
-  // Track actions (can be sync or async, accepts a full LibraryTrack or
-  // a richer Track domain object — the contract is: at minimum `{ id }`
-  // plus the title/artist/album/duration fields needed for playback UI).
-  // #3633: typed as LibraryTrack (which covers all current call sites)
-  // rather than `any`, so backend field renames produce TS errors here.
-  onTrackPlay?: (
-    track: import('@/types/domain').LibraryTrack
-  ) => void | Promise<void>;
 }
 
 /**
@@ -73,7 +64,6 @@ export const LibraryViewRouter = ({
   onBackFromArtist,
   onAlbumClick,
   onArtistClick,
-  onTrackPlay,
 }: LibraryViewRouterProps) => {
   // Album detail view (from albums or artists view)
   if (selectedAlbumId !== null) {
@@ -81,7 +71,6 @@ export const LibraryViewRouter = ({
       <AlbumDetailView
         albumId={selectedAlbumId}
         onBack={onBackFromAlbum}
-        onTrackPlay={onTrackPlay}
         currentTrackId={currentTrackId}
         isPlaying={isPlaying}
       />
@@ -105,7 +94,6 @@ export const LibraryViewRouter = ({
           artistId={selectedArtistId}
           artistName={selectedArtistName}
           onBack={onBackFromArtist}
-          onTrackPlay={onTrackPlay}
           onAlbumClick={onAlbumClick}
           currentTrackId={currentTrackId}
           isPlaying={isPlaying}

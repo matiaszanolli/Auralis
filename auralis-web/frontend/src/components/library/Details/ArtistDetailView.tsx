@@ -4,6 +4,7 @@ import { tokens } from '@/design-system';
 import { EmptyState } from '@/components/shared/ui/feedback';
 import DetailLoading from './DetailLoading';
 import type { DetailTrack as Track } from '@/types/domain';
+import { usePlayTrack } from '@/hooks/player';
 import { useArtistDetailsData } from './useArtistDetailsData';
 import { ArtistDetailHeaderSection } from './ArtistDetailHeader';
 import { ArtistDetailTabsSection } from './ArtistDetailTabs';
@@ -12,7 +13,6 @@ interface ArtistDetailViewProps {
   artistId: number;
   artistName?: string;
   onBack?: () => void;
-  onTrackPlay?: (track: Track) => void | Promise<void>;
   onAlbumClick?: (albumId: number) => void;
   currentTrackId?: number;
   isPlaying?: boolean;
@@ -32,34 +32,32 @@ interface ArtistDetailViewProps {
 export const ArtistDetailView = ({
   artistId,
   onBack,
-  onTrackPlay,
   onAlbumClick,
   currentTrackId,
   isPlaying = false
 }: ArtistDetailViewProps) => {
   const { artist, loading, error } = useArtistDetailsData(artistId);
   const [activeTab, setActiveTab] = useState(0);
+  const { playTrack } = usePlayTrack();
 
   // Handle play all - plays first track
   const handlePlayAll = () => {
-    if (artist?.tracks && artist.tracks.length > 0 && onTrackPlay) {
-      onTrackPlay(artist.tracks[0]);
+    if (artist?.tracks && artist.tracks.length > 0) {
+      playTrack(artist.tracks[0]);
     }
   };
 
   // Handle shuffle play - plays random track
   const handleShufflePlay = () => {
-    if (artist?.tracks && artist.tracks.length > 0 && onTrackPlay) {
+    if (artist?.tracks && artist.tracks.length > 0) {
       const randomIndex = Math.floor(Math.random() * artist.tracks.length);
-      onTrackPlay(artist.tracks[randomIndex]);
+      playTrack(artist.tracks[randomIndex]);
     }
   };
 
-  // Handle track click - delegates to parent
+  // Handle track click - play the selected track
   const handleTrackClick = (track: Track) => {
-    if (onTrackPlay) {
-      onTrackPlay(track);
-    }
+    playTrack(track);
   };
 
   // Handle album click - delegates to parent

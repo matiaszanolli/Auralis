@@ -22,6 +22,7 @@ import { SimilarTracksModal } from '@/components/shared/SimilarTracksModal';
 import AlbumTrackTable from '@/components/library/Items/tables/AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
 import type { DetailTrack as Track } from '@/types/domain';
+import { usePlayTrack } from '@/hooks/player';
 import { useAlbumDetails } from './useAlbumDetails';
 import { useArtworkPalette } from '@/hooks/app/useArtworkPalette';
 import { useAlbumFingerprint } from '@/hooks/fingerprint/useAlbumFingerprint';
@@ -33,7 +34,6 @@ import { Box, Container, Skeleton } from '@mui/material';
 interface AlbumDetailViewProps {
   albumId: number;
   onBack?: () => void;
-  onTrackPlay?: (track: Track) => void | Promise<void>;
   currentTrackId?: number;
   isPlaying?: boolean;
 }
@@ -41,11 +41,11 @@ interface AlbumDetailViewProps {
 export const AlbumDetailView = ({
   albumId,
   onBack,
-  onTrackPlay,
   currentTrackId,
   isPlaying = false
 }: AlbumDetailViewProps) => {
   const { album, loading, error, isFavorite, savingFavorite, toggleFavorite } = useAlbumDetails(albumId);
+  const { playTrack } = usePlayTrack();
 
   // Fetch album fingerprint for character pane
   const { fingerprint, isLoading: fingerprintLoading } = useAlbumFingerprint(albumId);
@@ -72,15 +72,13 @@ export const AlbumDetailView = ({
   }, []);
 
   const handlePlayAlbum = () => {
-    if (album?.tracks && album.tracks.length > 0 && onTrackPlay) {
-      onTrackPlay(album.tracks[0]);
+    if (album?.tracks && album.tracks.length > 0) {
+      playTrack(album.tracks[0]);
     }
   };
 
   const handleTrackClick = (track: Track) => {
-    if (onTrackPlay) {
-      onTrackPlay(track);
-    }
+    playTrack(track);
   };
 
   if (loading) {
@@ -226,8 +224,8 @@ export const AlbumDetailView = ({
             onClose={handleCloseSimilarTracksModal}
             onTrackPlay={(trackId) => {
               const track = album.tracks?.find((t: Track) => t.id === trackId);
-              if (track && onTrackPlay) {
-                onTrackPlay(track);
+              if (track) {
+                playTrack(track);
               }
             }}
             limit={20}

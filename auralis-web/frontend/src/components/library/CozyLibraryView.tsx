@@ -27,7 +27,6 @@ const SimilarTracksModal = lazy(() =>
 );
 import { useTrackSelection } from '@/hooks/library/useTrackSelection';
 import { useLibraryWithStats } from '@/hooks/library/useLibraryWithStats';
-import type { LibraryTrack } from '@/types/domain';
 import type { ViewMode } from '@/components/navigation/ViewToggle';
 import { LibraryViewRouter } from './Views/LibraryViewRouter';
 import { ViewContainer } from './Views/ViewContainer';
@@ -42,7 +41,6 @@ import { usePlaybackState } from './usePlaybackState';
 import { tokens } from '@/design-system';
 
 interface CozyLibraryViewProps {
-  onTrackPlay?: (track: LibraryTrack) => void;
   view?: string;
   /** Search query from the top bar */
   searchQuery?: string;
@@ -51,7 +49,6 @@ interface CozyLibraryViewProps {
 }
 
 const CozyLibraryView = memo<CozyLibraryViewProps>(({
-  onTrackPlay,
   view = 'songs',
   searchQuery = '',
   viewMode = 'grid',
@@ -112,7 +109,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     isPlaying,
     handlePlayTrack,
     handlePause,
-  } = usePlaybackState(onTrackPlay);
+  } = usePlaybackState();
 
   // Metadata editing
   const {
@@ -193,7 +190,6 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
         onBackFromArtist={handleBackFromArtist}
         onAlbumClick={handleAlbumClick}
         onArtistClick={handleArtistClick}
-        onTrackPlay={handlePlayTrack}
       />
     );
   }

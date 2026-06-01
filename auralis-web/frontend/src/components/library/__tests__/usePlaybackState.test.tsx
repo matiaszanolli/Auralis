@@ -1,37 +1,43 @@
 /**
  * usePlaybackState Hook Tests
  *
- * Tests for playback state management:
- * - Track playback with state updates
- * - Pause functionality
- * - Toast notifications
+ * Tests for library playback state management:
+ * - Redux-derived currentTrackId / isPlaying (single source of truth)
+ * - handlePlayTrack delegates to the shared usePlayTrack hook (#3940)
+ * - handlePause sends a pause WebSocket message
+ *
+ * (Rewritten for #3940: the hook now reads state from Redux and delegates the
+ * play flow to usePlayTrack instead of taking an onTrackPlay callback, so the
+ * tests render under a real <Provider> and assert delegation. The previous
+ * suite predated the Redux usage and failed for lack of a Provider.)
  */
 
+import React from 'react';
 import { vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
+import playerReducer, {
+  setCurrentTrack,
+  setIsPlaying,
+} from '@/store/slices/playerSlice';
 import { usePlaybackState } from '../usePlaybackState';
 
-// Mock dependencies
-vi.mock('../../shared/Toast', () => ({
-  useToast: vi.fn(() => ({
-    success: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    warning: vi.fn(),
-  })),
+// handlePlayTrack must delegate to usePlayTrack().playTrack (#3940).
+const mockPlayTrack = vi.fn();
+vi.mock('@/hooks/player/usePlayTrack', () => ({
+  usePlayTrack: () => ({ playTrack: mockPlayTrack }),
 }));
 
-// Create stable WebSocket context mock
 const mockWebSocketContext = {
   send: vi.fn(),
   subscribe: vi.fn(() => vi.fn()),
   unsubscribe: vi.fn(),
   isConnected: true,
 };
-
 vi.mock('@/contexts/WebSocketContext', () => ({
   useWebSocketContext: () => mockWebSocketContext,
-  WebSocketProvider: ({ children }: any) => children,
+  WebSocketProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 const mockTrack = {
@@ -43,200 +49,78 @@ const mockTrack = {
   filepath: '/path/to/track.mp3',
 };
 
-const mockTrack2 = {
-  id: 2,
-  title: 'Another Track',
-  artist: 'Another Artist',
-  album: 'Another Album',
-  duration: 240,
-  filepath: '/path/to/track2.mp3',
+const makeWrapper = () => {
+  const store = configureStore({ reducer: { player: playerReducer } });
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <Provider store={store}>{children}</Provider>
+  );
+  return { store, wrapper };
 };
 
 describe('usePlaybackState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset WebSocket context mock
-    mockWebSocketContext.send.mockClear();
   });
 
-  describe('Hook Initialization', () => {
-    it('should initialize with undefined currentTrackId and false isPlaying', () => {
-      const { result } = renderHook(() => usePlaybackState());
+  describe('Redux-derived state', () => {
+    it('initializes with undefined currentTrackId and false isPlaying', () => {
+      const { wrapper } = makeWrapper();
+      const { result } = renderHook(() => usePlaybackState(), { wrapper });
 
       expect(result.current.currentTrackId).toBeUndefined();
       expect(result.current.isPlaying).toBe(false);
     });
+
+    it('reflects the playing track from the Redux store', () => {
+      const { store, wrapper } = makeWrapper();
+      act(() => {
+        store.dispatch(setCurrentTrack(mockTrack as never));
+        store.dispatch(setIsPlaying(true));
+      });
+
+      const { result } = renderHook(() => usePlaybackState(), { wrapper });
+
+      expect(result.current.currentTrackId).toBe(1);
+      expect(result.current.isPlaying).toBe(true);
+    });
   });
 
   describe('handlePlayTrack', () => {
-    it('should call playTrack and update state', async () => {
-      const { result } = renderHook(() => usePlaybackState());
+    it('delegates to usePlayTrack().playTrack with the track', async () => {
+      const { wrapper } = makeWrapper();
+      const { result } = renderHook(() => usePlaybackState(), { wrapper });
 
       await act(async () => {
-        await result.current.handlePlayTrack(mockTrack);
+        await result.current.handlePlayTrack(mockTrack as never);
       });
 
-      expect(result.current.currentTrackId).toBe(1);
-      expect(result.current.isPlaying).toBe(true);
-    });
-
-    it('should show success toast with track title', async () => {
-      const { result } = renderHook(() => usePlaybackState());
-
-      await act(async () => {
-        await result.current.handlePlayTrack(mockTrack);
-      });
-
-      // Hook was called successfully and updated state
-      expect(result.current.isPlaying).toBe(true);
-    });
-
-    it('should call optional onTrackPlay callback', async () => {
-      const mockOnTrackPlay = vi.fn();
-      const { result } = renderHook(() => usePlaybackState(mockOnTrackPlay));
-
-      await act(async () => {
-        await result.current.handlePlayTrack(mockTrack);
-      });
-
-      expect(mockOnTrackPlay).toHaveBeenCalledWith(mockTrack);
-    });
-
-    it('should update state when different tracks are played', async () => {
-      const { result } = renderHook(() => usePlaybackState());
-
-      // Play first track
-      await act(async () => {
-        await result.current.handlePlayTrack(mockTrack);
-      });
-
-      expect(result.current.currentTrackId).toBe(1);
-
-      // Play second track
-      await act(async () => {
-        await result.current.handlePlayTrack(mockTrack2);
-      });
-
-      expect(result.current.currentTrackId).toBe(2);
+      expect(mockPlayTrack).toHaveBeenCalledTimes(1);
+      expect(mockPlayTrack).toHaveBeenCalledWith(mockTrack);
     });
   });
 
   describe('handlePause', () => {
-    it('should set isPlaying to false', async () => {
-      const { result } = renderHook(() => usePlaybackState());
-
-      // First play a track
-      await act(async () => {
-        await result.current.handlePlayTrack(mockTrack);
-      });
-
-      expect(result.current.isPlaying).toBe(true);
-
-      // Then pause
-      act(() => {
-        result.current.handlePause();
-      });
-
-      expect(result.current.isPlaying).toBe(false);
-    });
-
-    it('should set isPlaying to false even if not playing', () => {
-      const { result } = renderHook(() => usePlaybackState());
-
-      expect(result.current.isPlaying).toBe(false);
+    it('sends a pause WebSocket message', () => {
+      const { wrapper } = makeWrapper();
+      const { result } = renderHook(() => usePlaybackState(), { wrapper });
 
       act(() => {
         result.current.handlePause();
       });
 
-      expect(result.current.isPlaying).toBe(false);
+      expect(mockWebSocketContext.send).toHaveBeenCalledWith({ type: 'pause' });
     });
   });
 
-  describe('State Isolation', () => {
-    it('should not share state between hook instances', async () => {
-      const { result: result1 } = renderHook(() => usePlaybackState());
-      const { result: result2 } = renderHook(() => usePlaybackState());
-
-      await act(async () => {
-        await result1.current.handlePlayTrack(mockTrack);
-      });
-
-      expect(result1.current.currentTrackId).toBe(1);
-      expect(result1.current.isPlaying).toBe(true);
-
-      expect(result2.current.currentTrackId).toBeUndefined();
-      expect(result2.current.isPlaying).toBe(false);
-    });
-  });
-
-  describe('Handler Memoization', () => {
-    it('should maintain handler references across props changes', () => {
-      const mockCallback = vi.fn();
-      const { result, rerender } = renderHook(
-        ({ callback }) => usePlaybackState(callback),
-        { initialProps: { callback: mockCallback } }
-      );
+  describe('Handler memoization', () => {
+    it('keeps handlePause stable across rerenders', () => {
+      const { wrapper } = makeWrapper();
+      const { result, rerender } = renderHook(() => usePlaybackState(), { wrapper });
 
       const initialPause = result.current.handlePause;
-
-      rerender({ callback: mockCallback });
+      rerender();
 
       expect(result.current.handlePause).toBe(initialPause);
-    });
-  });
-
-  describe('onTrackPlay Callback', () => {
-    it('should not require onTrackPlay callback', async () => {
-      const { result } = renderHook(() => usePlaybackState());
-
-      // Should not throw when callback is not provided
-      await expect(
-        act(async () => {
-          await result.current.handlePlayTrack(mockTrack);
-        })
-      ).resolves.not.toThrow();
-    });
-
-    it('should pass correct track to onTrackPlay', async () => {
-      const mockOnTrackPlay = vi.fn();
-      const { result } = renderHook(() => usePlaybackState(mockOnTrackPlay));
-
-      await act(async () => {
-        await result.current.handlePlayTrack(mockTrack);
-        await result.current.handlePlayTrack(mockTrack2);
-      });
-
-      expect(mockOnTrackPlay).toHaveBeenCalledTimes(2);
-      expect(mockOnTrackPlay).toHaveBeenNthCalledWith(1, mockTrack);
-      expect(mockOnTrackPlay).toHaveBeenNthCalledWith(2, mockTrack2);
-    });
-  });
-
-  describe('Playback Flow', () => {
-    it('should handle complete playback cycle', async () => {
-      const mockOnTrackPlay = vi.fn();
-      const { result } = renderHook(() => usePlaybackState(mockOnTrackPlay));
-
-      // Initial state
-      expect(result.current.isPlaying).toBe(false);
-
-      // Play
-      await act(async () => {
-        await result.current.handlePlayTrack(mockTrack);
-      });
-
-      expect(result.current.isPlaying).toBe(true);
-      expect(result.current.currentTrackId).toBe(1);
-      expect(mockOnTrackPlay).toHaveBeenCalledWith(mockTrack);
-
-      // Pause
-      act(() => {
-        result.current.handlePause();
-      });
-
-      expect(result.current.isPlaying).toBe(false);
-      expect(result.current.currentTrackId).toBe(1); // Still has current track
     });
   });
 });

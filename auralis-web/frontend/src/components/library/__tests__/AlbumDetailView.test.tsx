@@ -16,6 +16,14 @@ import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import AlbumDetailView from '../Details/AlbumDetailView';
 
+// #3940: playback now goes through the leaf-level usePlayTrack hook instead of a
+// drilled onTrackPlay prop. Mock it so we can assert what the view plays.
+const mockPlayTrack = vi.fn();
+vi.mock('@/hooks/player', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/player')>()),
+  usePlayTrack: () => ({ playTrack: mockPlayTrack }),
+}));
+
 // Create mock fetch before test
 const mockFetch = vi.fn();
 
@@ -282,10 +290,9 @@ describe('AlbumDetailView', () => {
   describe('Playback Integration', () => {
     it('should play album when play button clicked', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = vi.fn();
 
       render(
-        <AlbumDetailView albumId={1} onTrackPlay={onTrackPlay} />
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -298,7 +305,7 @@ describe('AlbumDetailView', () => {
         const buttonParent = playButton.closest('button');
         if (buttonParent) {
           await user.click(buttonParent);
-          expect(onTrackPlay).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
+          expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
         }
       } catch {
         // Fallback: album rendered, button may not be clickable in test
@@ -308,10 +315,9 @@ describe('AlbumDetailView', () => {
 
     it('should play track when track row clicked', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = vi.fn();
 
       render(
-        <AlbumDetailView albumId={1} onTrackPlay={onTrackPlay} />
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -321,7 +327,7 @@ describe('AlbumDetailView', () => {
       const trackRow = screen.getByText('Come Together').closest('tr');
       if (trackRow) {
         await user.click(trackRow);
-        expect(onTrackPlay).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
+        expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
       }
     });
 
@@ -828,13 +834,11 @@ describe('AlbumDetailView', () => {
   describe('Integration', () => {
     it('should handle full album view workflow', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = vi.fn();
       const onBack = vi.fn();
 
       render(
         <AlbumDetailView
             albumId={1}
-            onTrackPlay={onTrackPlay}
             onBack={onBack}
             currentTrackId={1}
             isPlaying={false}
@@ -850,14 +854,14 @@ describe('AlbumDetailView', () => {
       const playButton = screen.getByText(/play album/i).closest('button');
       if (playButton) {
         await user.click(playButton);
-        expect(onTrackPlay).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
+        expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
       }
 
       // 3. User clicks on a different track
       const secondTrack = screen.getByText('Something').closest('tr');
       if (secondTrack) {
         await user.click(secondTrack);
-        expect(onTrackPlay).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[1]));
+        expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[1]));
       }
 
       // 4. User clicks back via the back IconButton (aria-label "Go back to albums library")

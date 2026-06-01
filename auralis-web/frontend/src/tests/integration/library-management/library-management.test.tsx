@@ -389,10 +389,9 @@ describe('Library Management Integration Tests', () => {
 
   describe('Track Actions', () => {
     it('should play track on double-click', async () => {
-      // Arrange
-      const onTrackPlaySpy = vi.fn();
-
-      render(<CozyLibraryView view="songs" onTrackPlay={onTrackPlaySpy} />);
+      // #3940: CozyLibraryView no longer takes an onTrackPlay prop — playback is
+      // driven by the leaf-level usePlayTrack hook via usePlaybackState.
+      render(<CozyLibraryView view="songs" />);
 
       // Wait for component to render
       await waitFor(() => {

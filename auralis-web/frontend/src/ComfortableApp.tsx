@@ -23,7 +23,6 @@ import { tokens } from '@/design-system';
 // Custom hooks for business logic
 import { useAppLayout } from '@/hooks/app/useAppLayout';
 import { useAppDragDrop } from '@/hooks/app/useAppDragDrop';
-import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
@@ -31,7 +30,6 @@ import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/app/useKeyboardS
 import { selectIsPlaying, selectVolume } from './store/slices/playerSlice';
 import { usePlaybackControl } from '@/hooks/player/usePlaybackControl';
 import type { ViewMode } from '@/components/navigation/ViewToggle';
-import type { Track } from '@/types/domain';
 
 function ComfortableApp() {
   // Layout state management (useAppLayout handles responsive sidebar/drawer)
@@ -59,9 +57,6 @@ function ComfortableApp() {
   const isPlaying = useSelector(selectIsPlaying);
   const volume = useSelector(selectVolume);
 
-  // Playback queue management
-  const { setQueue } = usePlaybackQueue();
-
   // #3642: previously this block held four fire-and-forget fetch()
   // handlers. PLAYER_PLAY / PLAYER_PAUSE endpoints no longer exist on the
   // backend and the others swallowed errors silently. Delegate everything
@@ -88,31 +83,6 @@ function ComfortableApp() {
 
   // Drag-drop handler (useAppDragDrop handles all queue/playlist operations)
   const { handleDragEnd } = useAppDragDrop({ info, success });
-
-  // Event handlers - MUST be defined before useKeyboardShortcuts to avoid TDZ errors
-  const handleTrackPlay = async (track: Track) => {
-    try {
-      console.log('Playing track:', track.title);
-
-      await setQueue([track], 0);
-
-      // Start enhanced playback via WebSocket message
-      // The Player component's usePlayEnhanced instance will handle the stream
-      wsContext.send({
-        type: 'play_enhanced',
-        data: {
-          track_id: track.id,
-          preset: 'adaptive',
-          intensity: 1.0,
-        },
-      });
-
-      info(`Now playing: ${track.title}`);
-    } catch (err) {
-      console.error('Failed to play track:', err);
-      info('Failed to start playback');
-    }
-  };
 
   // Keyboard shortcuts - FIXED FOR BETA.11.1
   // Using new service-based architecture to avoid minification issues
@@ -333,7 +303,6 @@ function ComfortableApp() {
             >
               <Suspense fallback={null}>
                 <CozyLibraryView
-                  onTrackPlay={handleTrackPlay}
                   view={currentView}
                   searchQuery={searchQuery}
                   viewMode={viewMode}
