@@ -12,7 +12,7 @@ import { tokens } from '@/design-system';
  * ListContainer - Main container for artist cards
  */
 export const ListContainer = styled(Box)({
-  padding: '24px',
+  padding: tokens.spacing.lg, // #3947: was 24px → token scale (20px)
   width: '100%',
 });
 
@@ -34,8 +34,8 @@ export const StyledListItemButton = styled(ButtonBase)({
   width: '100%',
   textAlign: 'left',
   borderRadius: tokens.borderRadius.md,
-  padding: '16px 20px',
-  minHeight: '64px',
+  padding: `${tokens.spacing.md} ${tokens.spacing.lg}`, // #3947: was 16px 20px → token scale
+  minHeight: '64px', // card dimension (not a spacing-scale value) — left as-is
   transition: `${tokens.transitions.hover_out}, backdrop-filter ${tokens.transitions.hover}`,
 
   // Glass card: subtle background for visibility without blocking starfield
@@ -68,7 +68,7 @@ export const StyledListItemButton = styled(ButtonBase)({
 export const ArtistAvatar = styled(Avatar)({
   width: 56,
   height: 56,
-  marginRight: '20px',
+  marginRight: tokens.spacing.lg, // #3947: was 20px → token scale (20px)
   background: `linear-gradient(135deg, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.secondary} 100%)`,
   fontSize: tokens.typography.fontSize.xl,
 });
@@ -93,7 +93,7 @@ export const ArtistInfo = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.normal,
   color: tokens.colors.text.tertiary,
-  marginTop: '6px',
+  marginTop: tokens.spacing.sm, // #3947: was 6px → token scale (6px)
   letterSpacing: '0.005em',
 });
 
@@ -102,8 +102,8 @@ export const ArtistInfo = styled(Typography)({
  * Glass bevel instead of hard border
  */
 export const SectionHeader = styled(Box)({
-  marginBottom: '24px',
-  paddingBottom: '16px',
+  marginBottom: tokens.spacing.lg, // #3947: was 24px → token scale (20px)
+  paddingBottom: tokens.spacing.md, // #3947: was 16px → token scale (12px)
   // Glass bevel: bottom shadow instead of hard border
   boxShadow: 'inset 0 -1px 0 rgba(255, 255, 255, 0.05)',
 });
@@ -118,9 +118,9 @@ export const AlphabetDivider = styled(Typography)({
   color: tokens.colors.text.tertiary,
   textTransform: 'uppercase',
   letterSpacing: '0.08em',
-  marginTop: '40px',
-  marginBottom: '16px',
-  paddingLeft: '24px',
+  marginTop: tokens.spacing.xxl, // #3947: was 40px → token scale (40px)
+  marginBottom: tokens.spacing.md, // #3947: was 16px → token scale (12px)
+  paddingLeft: tokens.spacing.lg, // #3947: was 24px → token scale (20px)
   opacity: 0.7,
 });
 
