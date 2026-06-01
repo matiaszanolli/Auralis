@@ -16,7 +16,7 @@
 - ✅ **Remove duplicate RecordingTypeDetector** - 5-10MB memory saved
 - ✅ **Module-level performance optimization** - Cleaner code, no redundant wrapping
 - ✅ **All changes tested & committed** - Commit 9336d2f with complete documentation
-- 📊 See [CRITICAL_OPTIMIZATIONS_IMPLEMENTED.md](../CRITICAL_OPTIMIZATIONS_IMPLEMENTED.md)
+- 📊 See [CRITICAL_OPTIMIZATIONS_IMPLEMENTED.md](optimization/CRITICAL_OPTIMIZATIONS_IMPLEMENTED.md)
 
 **CLAUDE.md Documentation (November 27, 2025)** - 📚 **CLARITY IMPROVEMENTS**
 - ✅ **Trimmed from 378 → 187 lines** - 50% reduction, kept essentials
