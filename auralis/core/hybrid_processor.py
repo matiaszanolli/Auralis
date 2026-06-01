@@ -38,7 +38,7 @@ from .processing import (
 )
 from .processors import apply_reference_matching
 from .recording_type_detector import RecordingTypeDetector
-from .unified_config import UnifiedConfig
+from .config import UnifiedConfig
 
 
 class HybridProcessor:

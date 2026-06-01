@@ -11,7 +11,7 @@ Generate adaptive processing targets based on content analysis
 from typing import Any
 
 from ...utils.logging import debug
-from ..unified_config import GenreProfile, UnifiedConfig
+from ..config import GenreProfile, UnifiedConfig
 
 
 class AdaptiveTargetGenerator:

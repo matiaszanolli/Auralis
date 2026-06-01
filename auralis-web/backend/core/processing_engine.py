@@ -29,7 +29,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 
 
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.io.processing import resample_audio
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio

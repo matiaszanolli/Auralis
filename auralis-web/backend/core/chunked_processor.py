@@ -275,7 +275,7 @@ class ChunkedAudioProcessor:
             from auralis.analysis.spectrum_mapper import SpectrumMapper
             from auralis.core.processing.adaptive_mode import AdaptiveMode
             from auralis.core.processing.psychoacoustic_eq import PsychoacousticEQ
-            from auralis.core.unified_config import UnifiedConfig
+            from auralis.core.config import UnifiedConfig
 
             # Ensure sample rate is available
             assert self.sample_rate is not None, "Sample rate not loaded"

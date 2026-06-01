@@ -197,7 +197,7 @@ class ProcessorFactory:
             HybridProcessor instance
         """
         from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         # #3720: include the targets content in the cache key so two
         # callers with different targets land on different cached
@@ -284,7 +284,7 @@ class ProcessorFactory:
         Returns:
             HybridProcessor instance
         """
-        from auralis.core.unified_config import UnifiedConfig
+        from auralis.core.config import UnifiedConfig
 
         # Use config hash as cache key, track_id=0 for config-based
         if config is None:

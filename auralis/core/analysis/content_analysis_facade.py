@@ -113,7 +113,7 @@ class ContentAnalysisFacade:
 
             # Create config if not provided
             if self.config is None:
-                from ..unified_config import UnifiedConfig
+                from ..config import UnifiedConfig
                 config = UnifiedConfig(internal_sample_rate=self.sample_rate)
             else:
                 config = self.config
@@ -130,7 +130,7 @@ class ContentAnalysisFacade:
 
             # Create config if not provided
             if self.config is None:
-                from ..unified_config import UnifiedConfig
+                from ..config import UnifiedConfig
                 config = UnifiedConfig(internal_sample_rate=self.sample_rate)
             else:
                 config = self.config
