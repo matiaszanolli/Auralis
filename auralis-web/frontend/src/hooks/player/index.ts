@@ -28,4 +28,3 @@ export { usePlayerControls } from './usePlayerControls';
 // adjacent #3261 / #2816 issues as stale by construction.
 export { usePlayerStateSync } from './usePlayerStateSync';
 export { usePlayerDisplay } from './usePlayerDisplay';
-export { usePlayerAPI } from './usePlayerAPI';

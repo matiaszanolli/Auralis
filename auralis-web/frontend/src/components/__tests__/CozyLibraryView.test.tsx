@@ -13,13 +13,8 @@ import { vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import CozyLibraryView from '../library/CozyLibraryView';
 import { useLibraryWithStats } from '@/hooks/library/useLibraryWithStats';
-import { usePlayerAPI } from '@/hooks/player/usePlayerAPI';
-
 vi.mock('@/hooks/library/useLibraryWithStats', () => ({
   useLibraryWithStats: vi.fn(),
-}));
-vi.mock('@/hooks/player/usePlayerAPI', () => ({
-  usePlayerAPI: vi.fn(),
 }));
 vi.mock('@/contexts/WebSocketContext', () => ({
   useWebSocketContext: () => ({
@@ -104,21 +99,10 @@ const mockLibraryWithStats = {
   isElectron: vi.fn(() => false),
 };
 
-const mockPlayerAPI = {
-  play: vi.fn(),
-  playTrack: vi.fn(),
-  addToQueue: vi.fn(),
-  pause: vi.fn(),
-  currentTrack: null,
-  isPlaying: false,
-} as any;
-
 describe('CozyLibraryView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Set default mock return values
     vi.mocked(useLibraryWithStats).mockReturnValue(mockLibraryWithStats as any);
-    vi.mocked(usePlayerAPI).mockReturnValue(mockPlayerAPI);
   });
 
   describe('Rendering', () => {
