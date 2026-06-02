@@ -30,6 +30,7 @@ from .repositories import (
     AlbumRepository,
     ArtistRepository,
     FingerprintRepository,
+    FingerprintStatsRepository,
     PlaylistRepository,
     QueueRepository,
     StatsRepository,
@@ -162,6 +163,7 @@ class LibraryManager:
         self.playlists = PlaylistRepository(self.SessionLocal)
         self.stats = StatsRepository(self.SessionLocal)
         self.fingerprints = FingerprintRepository(self.SessionLocal)
+        self.fingerprint_stats = FingerprintStatsRepository(self.SessionLocal)
         self.queue = QueueRepository(self.SessionLocal)
         self.settings = SettingsRepository(self.SessionLocal)
 
@@ -293,7 +295,7 @@ class LibraryManager:
         """
         try:
             # Use repository pattern for database operation
-            count = self.fingerprints.cleanup_incomplete_fingerprints()
+            count = self.fingerprint_stats.cleanup_incomplete_fingerprints()
 
             if count > 0:
                 warning(

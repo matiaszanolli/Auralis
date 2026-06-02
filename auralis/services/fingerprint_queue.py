@@ -314,7 +314,7 @@ class FingerprintExtractionQueue:
             while not self.should_stop:
                 try:
                     factory = self._get_repository_factory()
-                    track = factory.fingerprints.claim_next_unfingerprinted_track()
+                    track = factory.fingerprint_scheduler.claim_next_unfingerprinted_track()
                     if not track:
                         debug(f"Worker {worker_id}: No more unfingerprinted tracks")
                         break
@@ -338,7 +338,7 @@ class FingerprintExtractionQueue:
             while not self.should_stop:
                 try:
                     factory = self._get_repository_factory()
-                    track = factory.fingerprints.claim_next_outdated_fingerprint(FINGERPRINT_ALGORITHM_VERSION)
+                    track = factory.fingerprint_scheduler.claim_next_outdated_fingerprint(FINGERPRINT_ALGORITHM_VERSION)
                     if not track:
                         debug(f"Worker {worker_id}: No more outdated fingerprints")
                         break

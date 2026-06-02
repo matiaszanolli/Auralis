@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 from .album_repository import AlbumRepository
 from .artist_repository import ArtistRepository
 from .fingerprint_repository import FingerprintRepository
+from .fingerprint_scheduler_repository import FingerprintSchedulerRepository
+from .fingerprint_stats_repository import FingerprintStatsRepository
 from .genre_repository import GenreRepository
 from .playlist_repository import PlaylistRepository
 from .queue_history_repository import QueueHistoryRepository
@@ -72,6 +74,8 @@ class RepositoryFactory:
         self._genre_repo: GenreRepository | None = None
         self._playlist_repo: PlaylistRepository | None = None
         self._fingerprint_repo: FingerprintRepository | None = None
+        self._fingerprint_scheduler_repo: FingerprintSchedulerRepository | None = None
+        self._fingerprint_stats_repo: FingerprintStatsRepository | None = None
         self._stats_repo: StatsRepository | None = None
         self._settings_repo: SettingsRepository | None = None
         self._queue_repo: QueueRepository | None = None
@@ -122,6 +126,20 @@ class RepositoryFactory:
         if not self._fingerprint_repo:
             self._fingerprint_repo = FingerprintRepository(self.session_factory)
         return self._fingerprint_repo
+
+    @property
+    def fingerprint_scheduler(self) -> FingerprintSchedulerRepository:
+        """Get or create FingerprintSchedulerRepository instance (lazy initialization)."""
+        if not self._fingerprint_scheduler_repo:
+            self._fingerprint_scheduler_repo = FingerprintSchedulerRepository(self.session_factory)
+        return self._fingerprint_scheduler_repo
+
+    @property
+    def fingerprint_stats(self) -> FingerprintStatsRepository:
+        """Get or create FingerprintStatsRepository instance (lazy initialization)."""
+        if not self._fingerprint_stats_repo:
+            self._fingerprint_stats_repo = FingerprintStatsRepository(self.session_factory)
+        return self._fingerprint_stats_repo
 
     @property
     def stats(self) -> StatsRepository:

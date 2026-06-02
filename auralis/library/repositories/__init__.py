@@ -12,6 +12,8 @@ from .album_repository import AlbumRepository
 from .artist_repository import ArtistRepository
 from .factory import RepositoryFactory
 from .fingerprint_repository import FingerprintRepository
+from .fingerprint_scheduler_repository import FingerprintSchedulerRepository
+from .fingerprint_stats_repository import FingerprintStatsRepository
 from .genre_repository import GenreRepository
 from .playlist_repository import PlaylistRepository
 from .queue_history_repository import QueueHistoryRepository
@@ -30,6 +32,8 @@ __all__ = [
     'GenreRepository',
     'StatsRepository',
     'FingerprintRepository',
+    'FingerprintSchedulerRepository',
+    'FingerprintStatsRepository',
     'SettingsRepository',
     'QueueRepository',
     'QueueHistoryRepository',
