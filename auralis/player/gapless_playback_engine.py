@@ -275,10 +275,30 @@ class GaplessPlaybackEngine:
                 fresh_path = fresh_next.get('file_path') or fresh_next.get('path')
                 if not fresh_path:
                     return False
+                # #4100: load_file() atomically swaps audio_data/sample_rate/
+                # current_file. If the queue mutates AGAIN before we commit the
+                # advance below, we must roll that swap back — otherwise we
+                # return False with audio_data pointing at the new track while
+                # current_index still points at the old one (the caller only
+                # resets position / reloads the fingerprint on True), so the new
+                # audio would play at the old position with the old fingerprint.
+                # Snapshot the prior track under _audio_lock so the restore is
+                # atomic with get_audio_chunk() readers.
+                with self.file_manager._audio_lock:
+                    old_audio = self.file_manager.audio_data
+                    old_sr = self.file_manager.sample_rate
+                    old_file = self.file_manager.current_file
                 if not self.file_manager.load_file(fresh_path):
                     return False
                 if not self.queue.advance_if_next_matches(fresh_next):
-                    # Queue mutated again — abort rather than commit a stale advance.
+                    # Queue mutated again — roll back the audio swap so
+                    # audio_data stays consistent with the un-advanced index,
+                    # then abort rather than commit a stale advance.
+                    with self.file_manager._audio_lock:
+                        self.file_manager.audio_data = old_audio
+                        if old_sr is not None:
+                            self.file_manager.sample_rate = old_sr
+                        self.file_manager.current_file = old_file
                     warning("Queue mutated during fallback load — aborting advance")
                     return False
                 self.start_prebuffering()
