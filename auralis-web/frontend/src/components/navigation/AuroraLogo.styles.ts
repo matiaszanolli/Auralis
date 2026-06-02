@@ -35,33 +35,15 @@ export const LogoContainer = styled(Box, {
 export const LogoIcon = styled(Box)<{ size: number }>(({ size }) => ({
   width: size,
   height: size,
-  borderRadius: '8px',
-  background: tokens.gradients.aurora,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  position: 'relative',
-  overflow: 'hidden',
-  boxShadow: `0 4px 12px ${tokens.colors.opacityScale.accent.strong}`,
-
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: `linear-gradient(90deg, transparent, rgba(255,255,255,${0.3}), transparent)`,
-    backgroundSize: '200% 100%',
-    animation: `${shimmer} 3s infinite`,
-  },
 }));
 
 export const WaveIcon = styled('svg')<{ size: number }>(({ size }) => ({
-  width: size * 0.6,
-  height: size * 0.6,
-  position: 'relative',
-  zIndex: tokens.zIndex.content,
+  width: size,
+  height: size,
+  overflow: 'visible',
 }));
 
 export const LogoText = styled(Typography, {
