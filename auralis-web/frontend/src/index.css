@@ -16,7 +16,7 @@
   --deep-blue-black: #0B1020;  /* Canonical base (level0) - deep blue-black */
   --midnight-blue: #0B1020;     /* Alias for backwards compat */
   --charcoal: #151D2F;          /* level2 - surfaces */
-  --silver: #E2E8F0;
+  --silver: rgba(255, 255, 255, 0.68);  /* #3927: tokens.colors.text.secondary (was off-brand #E2E8F0) */
   /* #3636: token-derived border tints. Used by utility classes below
      so border colors stay in sync with tokens.colors.border.* and don't
      drift into off-brand Tailwind-slate territory. */
@@ -27,7 +27,7 @@
   /* Brand Accent Colors - Design Language v1.2.0 */
   --aurora-cyan: #47D6FF;       /* Teal/Cyan - audio state */
   --aurora-violet: #7366F0;     /* Soft Violet/Indigo - primary accent */
-  --aurora-pink: #F472B6;
+  --aurora-pink: #EC4899;       /* #3927: tokens.colors.audioSemantic.harmonic (was #F472B6) */
 
   /* Gradients */
   --aurora-gradient: linear-gradient(135deg, #06B6D4 0%, #7366F0 50%, #F472B6 100%);
@@ -54,11 +54,11 @@
   --space-2xl: 3rem;    /* 48px */
   --space-3xl: 4rem;    /* 64px */
 
-  /* Border Radius */
+  /* Border Radius - #3927: --radius-sm/md/lg realigned to tokens.borderRadius.sm/md/lg */
   --radius-subtle: 2px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --radius-full: 50%;
 
   /* Shadows & Glows */
@@ -70,10 +70,11 @@
   --glow-medium: 0 0 20px rgba(115, 102, 240, 0.5);
   --glow-strong: 0 0 30px rgba(115, 102, 240, 0.7);
 
-  /* Transitions */
-  --transition-fast: 150ms ease;
-  --transition-normal: 200ms ease;
-  --transition-slow: 300ms ease;
+  /* Transitions - #3927: brand cubic-bezier easing (tokens.transitions),
+     not plain `ease`. easeOut for fast/hover, easeInOut for normal/slow. */
+  --transition-fast: 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.6, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.6, 1);
   /* Matches tokens.transitions.hover_out (fixes #3985 / DS-11) */
   --transition-hover-out: 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
