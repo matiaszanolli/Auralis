@@ -78,6 +78,18 @@ class PsychoacousticEQ:
         self.fft_size = settings.fft_size
         self.hop_size = int(self.fft_size * (1 - settings.overlap))
 
+        # #4101: Hann window for the *analysis* FFT only (apply_eq_gains stays
+        # un-windowed, #3663). Suppresses the rectangular window's -13 dB first
+        # sidelobe, which leaks bass energy into adjacent critical bands and
+        # biases the masking calculator. Cached because analyze_spectrum runs on
+        # the realtime path. `_analysis_window_gain` is the coherent gain
+        # (mean of the window, ~0.5 for Hann); dividing the windowed frame by it
+        # keeps the absolute magnitude scale equal to the un-windowed path, so
+        # adaptive gains — and the output LUFS/crest the fingerprint model
+        # consumes — are not shifted (no #3428/#2518 regression).
+        self._analysis_window = np.hanning(self.fft_size)
+        self._analysis_window_gain = float(self._analysis_window.mean())
+
         # Initialize critical bands (26 bands based on Bark scale)
         self.critical_bands = create_critical_bands()
 
@@ -135,26 +147,26 @@ class PsychoacousticEQ:
             padded[:len(audio_mono)] = audio_mono
             audio_mono = padded
 
-        # #3663: previously this path applied a Hann window before the FFT,
-        # but the corresponding apply_eq_gains path does NOT window — so
-        # the gains derived from a Hann-windowed spectrum were applied to
-        # an un-windowed signal, over-boosting the edges of each frame.
-        # Drop the window so analysis and application see the same
-        # spectrum. (Spectral-leakage trade-off accepted; standalone
-        # spectrum reporting that needs leakage suppression should window
-        # in its own caller.)
+        # #4101: window the ANALYSIS FFT (only) with a Hann window plus
+        # coherent-gain compensation. #3663 dropped the window so the analysis
+        # spectrum matched the un-windowed apply_eq_gains frame, but the analysis
+        # band energies feed the masking calculator, where the rectangular
+        # window's -13 dB first sidelobe leaks bass energy into adjacent critical
+        # bands and biases the masking decision (over-cutting bass-adjacent
+        # bands). The window suppresses that leakage. Dividing by the coherent
+        # gain (mean of the window) keeps the absolute magnitude scale equal to
+        # the un-windowed path, so band *ratios* are corrected for masking
+        # WITHOUT re-introducing the global +6.02 dB magnitude offset that #3428
+        # reverted (which skewed adaptive gains and fingerprint LUFS/crest).
+        # apply_eq_gains stays un-windowed (filters.py) — it must match the
+        # signal frame it processes.
         from scipy.fft import fft
-        spectrum = fft(audio_mono[:self.fft_size])
+        frame = audio_mono[:self.fft_size]
+        window = self._analysis_window.astype(frame.dtype, copy=False)
+        windowed = (frame * window) / self._analysis_window_gain
+        spectrum = fft(windowed)
         magnitude = np.abs(spectrum[:self.fft_size // 2 + 1])
 
-        # Convert to dB — no window-gain correction applied.
-        # The Hann window reduces leakage but its coherent-gain offset must NOT
-        # be compensated here: target curves and the 25D fingerprint model both
-        # operate on the raw (uncorrected) magnitude scale.  The previous +6.02
-        # correction introduced a systematic bias that inflated band energies,
-        # skewing adaptive gains and degrading non-spectral fingerprint dimensions
-        # (LUFS, crest, dynamic range) that the EQ doesn't directly optimise
-        # (fixes #3428, reverts #2518).
         magnitude_db = 20 * np.log10(magnitude + 1e-10)
 
         # Calculate energy in each critical band
