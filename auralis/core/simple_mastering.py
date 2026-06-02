@@ -20,11 +20,23 @@ from scipy.signal import butter, sosfilt
 from ..analysis.fingerprint.fingerprint_service import FingerprintService
 from ..dsp.basic import normalize
 from ..dsp.dynamics.soft_clipper import soft_clip
-from ..dsp.utils.stereo import adjust_stereo_width_multiband
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
-from .dsp import HarmonicExciter, Notch, ParallelEQUtilities, ResonanceNotcher, TransientShaper
+from .dsp import Notch, ResonanceNotcher
 from .mastering_branches import MaterialClassifier
 from .mastering_config import SimpleMasteringConfig
+from .stages import (
+    air_enhancement,
+    bass_enhancement,
+    clarity_boost,
+    harmonic_exciter,
+    mid_warmth,
+    presence_enhancement,
+    resonance_notches as resonance_notches_stage,
+    safety_limiter,
+    stereo_expansion,
+    sub_bass_control,
+    transient_shaper,
+)
 from .utils import FingerprintUnpacker, SmoothCurveUtilities
 
 
@@ -518,39 +530,9 @@ class SimpleMasteringPipeline:
         return processed, self._peak_db(processed)
 
     def _apply_safety_limiter(
-        self,
-        audio: np.ndarray,
-        verbose: bool,
-        ceiling: float = 0.98
+        self, audio: np.ndarray, verbose: bool, ceiling: float = 0.98
     ) -> np.ndarray:
-        """
-        Apply transparent safety limiting after spectral enhancements.
-
-        Uses soft clipping for more musical limiting than simple scaling.
-        Only affects peaks above the threshold - leaves the rest untouched.
-
-        Args:
-            audio: Audio array [2, samples]
-            verbose: Print progress
-            ceiling: Maximum output level (default 0.98 = -0.18 dBFS)
-
-        Returns:
-            Limited audio array
-        """
-        current_peak = np.max(np.abs(audio))
-
-        if current_peak <= ceiling:
-            return audio  # No limiting needed
-
-        # Use soft clip with threshold slightly below ceiling for smooth knee
-        threshold = ceiling * 0.95  # Start limiting ~0.4 dB before ceiling
-        processed = soft_clip(audio, threshold=threshold, ceiling=ceiling)
-
-        if verbose:
-            reduction_db = 20 * np.log10(ceiling / current_peak)
-            print(f"   Safety limiter: {reduction_db:.1f} dB reduction")
-
-        return processed
+        return safety_limiter.apply(audio, verbose, ceiling=ceiling)
 
     def _contextualize_notches(self, notches: list[Notch], fingerprint: dict) -> list[Notch]:
         """
@@ -631,785 +613,67 @@ class SimpleMasteringPipeline:
         return out
 
     def _apply_resonance_notches(
-        self,
-        audio: np.ndarray,
-        sample_rate: int,
-        verbose: bool,
+        self, audio: np.ndarray, sample_rate: int, verbose: bool
     ) -> tuple[np.ndarray, dict | None]:
-        """
-        Apply pre-detected narrow notches to tame room modes and recording
-        resonances. Notches are detected once per file by `master_file()` and
-        applied to every chunk via `self._notches`.
-
-        Returns audio unchanged if no notches were detected.
-        """
-        if not self._notches:
-            return audio, None
-
-        processed = ResonanceNotcher.apply(audio, sample_rate, self._notches)
-        if verbose:
-            freqs = ", ".join(f"{n.freq_hz:.0f}Hz" for n in self._notches)
-            print(f"   Resonance notches: {len(self._notches)} cuts @ {freqs}")
-        return processed, {
-            'stage': 'resonance_notches',
-            'count': len(self._notches),
-            'notches': [(n.freq_hz, n.depth_db) for n in self._notches],
-        }
+        return resonance_notches_stage.apply(audio, sample_rate, self._notches, verbose)
 
     def _apply_transient_shaper(
-        self,
-        audio: np.ndarray,
-        bass_pct: float,
-        low_mid_pct: float,
-        crest_db: float,
-        intensity: float,
-        sample_rate: int,
-        verbose: bool,
+        self, audio: np.ndarray, bass_pct: float, low_mid_pct: float,
+        crest_db: float, intensity: float, sample_rate: int, verbose: bool,
     ) -> tuple[np.ndarray, dict | None]:
-        """
-        Restore kick/bass attack on compressed low-end.
-
-        Activates when the overall crest factor suggests the bass/lo-mid
-        bands have been compressed flat. The fingerprint's `crest_db` is a
-        global metric, but in practice global crest <= TRANSIENT_ACTIVATE_CREST_DB
-        is a strong signal that the low end has been levelled — that's the
-        type of recording where kicks lose their punch.
-
-        Only fires when the band has enough energy to warrant attack
-        restoration (skip if the band is essentially silent).
-        """
-        # Smooth ramp: full strength at crest 13 dB or below, zero at threshold.
-        threshold = self.config.TRANSIENT_ACTIVATE_CREST_DB
-        if crest_db >= threshold:
-            return audio, None
-
-        # Compressed-ness factor: 0 at threshold, 1 at very compressed (8 dB)
-        compress_factor = SmoothCurveUtilities.ramp_to_s_curve(
-            threshold - crest_db, 0.0, threshold - 8.0
-        )
-
-        max_boost = self.config.TRANSIENT_MAX_BOOST_DB * intensity
-        boost_db = max_boost * compress_factor
-
-        if boost_db < 0.5:
-            return audio, None
-
-        # Bass band — skip if essentially no bass to shape
-        if bass_pct >= 0.05:
-            audio = TransientShaper.apply(
-                audio, sample_rate,
-                band_low_hz=self.config.TRANSIENT_BASS_LOW_HZ,
-                band_high_hz=self.config.TRANSIENT_BASS_HIGH_HZ,
-                attack_boost_db=boost_db,
-            )
-
-        # Lo-mid band — use a slightly gentler boost (lo-mid attacks are less
-        # critical and overshaping them can sound un-natural).
-        if low_mid_pct >= 0.05:
-            audio = TransientShaper.apply(
-                audio, sample_rate,
-                band_low_hz=self.config.TRANSIENT_LO_MID_LOW_HZ,
-                band_high_hz=self.config.TRANSIENT_LO_MID_HIGH_HZ,
-                attack_boost_db=boost_db * 0.7,
-            )
-
-        if verbose:
-            print(
-                f"   Transient shaper: +{boost_db:.1f} dB attack on "
-                f"{self.config.TRANSIENT_BASS_LOW_HZ:.0f}-{self.config.TRANSIENT_BASS_HIGH_HZ:.0f}Hz "
-                f"(crest {crest_db:.1f} dB)"
-            )
-
-        return audio, {
-            'stage': 'transient_shaper',
-            'boost_db': boost_db,
-            'crest_db': crest_db,
-        }
+        return transient_shaper.apply(audio, bass_pct, low_mid_pct, crest_db, intensity, sample_rate, verbose, self.config)
 
     def _apply_clarity_boost(
-        self,
-        audio: np.ndarray,
-        upper_mid_pct: float,
-        intensity: float,
-        sample_rate: int,
-        verbose: bool,
+        self, audio: np.ndarray, upper_mid_pct: float, intensity: float,
+        sample_rate: int, verbose: bool,
     ) -> tuple[np.ndarray, dict | None]:
-        """
-        Apply a focused Up-Mid bell boost (1.5-3.5 kHz) for sources where
-        vocal consonants and snare attack are buried.
-
-        Tolerance-band trigger: bypasses cleanly when Up-Mid is at or above
-        CLARITY_TOL_LOW (= p25 of 27-track reference distribution). Only
-        engages when the source is genuinely deficient, ramping smoothly from
-        the tolerance edge to the configured floor.
-
-        Also tempered by the absolute Up-Mid floor (<2% of total energy):
-        a big boost on essentially-silent content amplifies noise/codec
-        artifacts more than music. Scale boost down in that case.
-        """
-        tol_low = self.config.CLARITY_TOL_LOW
-        if upper_mid_pct >= tol_low:
-            # Inside the natural reference range — no action.
-            return audio, None
-
-        # How far below the tolerance band? Smooth ramp from 0 at the edge
-        # to 1 at (tol_low - CLARITY_BOOST_RANGE_PCT).
-        deficit = tol_low - upper_mid_pct
-        deficit_factor = SmoothCurveUtilities.ramp_to_s_curve(
-            deficit, 0.0, self.config.CLARITY_BOOST_RANGE_PCT
-        )
-
-        # Absolute-floor temper: amplifying near-silence is noise amplification.
-        ABSOLUTE_FLOOR_PCT = 0.005  # below 0.5% Up-Mid, start tempering
-        if upper_mid_pct < ABSOLUTE_FLOOR_PCT:
-            floor_temper = 0.5 + 0.5 * (upper_mid_pct / ABSOLUTE_FLOOR_PCT)
-        else:
-            floor_temper = 1.0
-
-        max_boost = self.config.CLARITY_MAX_BOOST_DB * intensity
-        boost_db = max_boost * deficit_factor * floor_temper
-
-        if boost_db < 0.3:
-            return audio, None
-
-        processed = ParallelEQUtilities.apply_bandpass_boost(
-            audio,
-            boost_db=boost_db,
-            low_hz=self.config.CLARITY_LOW_HZ,
-            high_hz=self.config.CLARITY_HIGH_HZ,
-            sample_rate=sample_rate,
-        )
-
-        if verbose:
-            print(
-                f"   Clarity boost: +{boost_db:.1f} dB @ "
-                f"{self.config.CLARITY_LOW_HZ:.0f}-{self.config.CLARITY_HIGH_HZ:.0f}Hz "
-                f"(Up-Mid {upper_mid_pct:.1%})"
-            )
-
-        return processed, {
-            'stage': 'clarity_boost',
-            'boost_db': boost_db,
-            'upper_mid_pct': upper_mid_pct,
-        }
+        return clarity_boost.apply(audio, upper_mid_pct, intensity, sample_rate, verbose, self.config)
 
     def _apply_stereo_expansion(
-        self,
-        audio: np.ndarray,
-        current_width: float,
-        intensity: float,
-        sample_rate: int,
-        verbose: bool,
-        bass_pct: float = 0.3,
-        spectral_centroid: float = 0.5,
-        air_pct: float = 0.1,
-        phase_correlation: float = 1.0
+        self, audio: np.ndarray, current_width: float, intensity: float,
+        sample_rate: int, verbose: bool, bass_pct: float = 0.3,
+        spectral_centroid: float = 0.5, air_pct: float = 0.1,
+        phase_correlation: float = 1.0,
     ) -> tuple[np.ndarray, dict | None]:
-        """
-        Apply gentle adaptive stereo expansion with brightness preservation.
-
-        CONSERVATIVE: Very narrow mixes (< 20%) are likely intentional production choices.
-        Only apply subtle widening to avoid unnatural "thin" sound from excessive multiband expansion.
-
-        Uses gentle frequency-dependent expansion:
-        - Lows (<200Hz): No expansion - keeps kick/bass punchy
-        - Low-mids (200-2kHz): Minimal expansion - preserves body
-        - High-mids (2k-8kHz): Gentle expansion - subtle width
-        - Highs (>8kHz): Reduced expansion - avoids thin/hollow sound
-
-        NEW: Much more conservative to prevent "extremely expanded but thin" artifacts.
-
-        Args:
-            audio: Stereo audio [2, samples]
-            current_width: Fingerprint stereo_width (0=mono, 1=wide)
-            intensity: Processing intensity 0.0-1.0
-            sample_rate: Audio sample rate in Hz
-            verbose: Print progress
-            bass_pct: Bass content percentage (for multiband weighting)
-            spectral_centroid: Brightness indicator 0-1 (higher = brighter)
-            air_pct: High-frequency air content 0-1
-            phase_correlation: Stereo phase correlation (-1 to +1)
-
-        Returns:
-            (processed_audio, stage_info or None if no expansion applied)
-        """
-        # Smooth curve-based approach: respect narrow mixes, gentle widening only
-        # Use continuous curves throughout - no hard cutoffs
-
-        # 1. Width-based curve: narrower mixes get LESS expansion (they're likely intentional)
-        # Smooth transition from 0% width (mono) to 40% width (moderate stereo)
-        if current_width >= 0.40:
-            return audio, None  # Already has decent width
-
-        # Safety: Smooth phase correlation curve (not a hard threshold)
-        # Poor phase correlation reduces expansion smoothly
-        if phase_correlation < 0.3:
-            # Below 0.3 phase correlation, skip entirely
-            if verbose:
-                print(f"   ⚠️  Skipping stereo expansion (poor phase correlation: {phase_correlation:.2f})")
-            return audio, None
-
-        # Phase correlation factor: 0.3-0.7 fades in smoothly, 0.7+ = full
-        if phase_correlation < 0.7:
-            phase_factor = SmoothCurveUtilities.ramp_to_s_curve(
-                phase_correlation, 0.3, 0.7
-            )
-        else:
-            phase_factor = 1.0
-
-        # 2. Width expansion curve: bell curve with peak at 25% width
-        # Very narrow (<15%) and moderate (>35%) get less expansion
-        # Sweet spot at 20-30% width gets most expansion
-
-        if current_width < 0.15:
-            # Extremely narrow: smooth ramp up from 0% to 15%
-            width_curve = SmoothCurveUtilities.ramp_to_s_curve(
-                current_width, 0.0, 0.15
-            )
-            narrowness_factor = 0.3 * width_curve  # Scale to max 0.3
-        elif current_width < 0.30:
-            # Sweet spot: 15-30% width, peak expansion potential
-            # Bell curve peaks at 22.5%
-            center = 0.225
-            width_offset = current_width - center
-            # Gaussian-like bell curve
-            narrowness_factor = 0.6 * np.exp(-(width_offset**2) / (2 * 0.05**2))
-        else:
-            # Moderate width: 30-40%, smooth fade out
-            # Inverted S-curve (1.0 at 0.30, 0.0 at 0.40)
-            fade_curve = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(
-                current_width, 0.30, 0.40
-            )
-            narrowness_factor = 0.3 * fade_curve
-
-        # 3. Brightness preservation curve - reduce expansion for bright tracks
-        # High spectral centroid or air content = already bright, be gentle
-        brightness_metric = max(spectral_centroid, air_pct * 2.0)  # 0-1
-
-        # Smooth S-curve: 0.6-1.0 brightness reduces expansion
-        if brightness_metric > 0.6:
-            brightness_curve = SmoothCurveUtilities.ramp_to_s_curve(
-                brightness_metric, 0.6, 1.0
-            )
-            brightness_factor = 1.0 - (0.5 * brightness_curve)  # 1.0 → 0.5 smoothly
-            if verbose:
-                print(f"   💡 Brightness preservation ({brightness_metric:.2f}, factor: {brightness_factor:.2f})")
-        else:
-            brightness_factor = 1.0
-
-        # Combine all smooth curves multiplicatively
-        combined_factor = narrowness_factor * phase_factor * brightness_factor
-
-        # Conservative base expansion - much gentler than before
-        max_expansion = 0.08 * intensity
-        expansion_amount = max_expansion * combined_factor
-
-        if expansion_amount < 0.01:
-            return audio, None  # Too small to matter
-
-        width_factor = 0.5 + expansion_amount
-
-        # Transpose for multiband function which expects [samples, 2]
-        audio_t = audio.T
-        expanded = adjust_stereo_width_multiband(
-            audio_t, width_factor, sample_rate,
-            original_width=current_width,
-            bass_content=bass_pct
-        )
-        processed = expanded.T
-
-        if verbose:
-            expansion_pct = (width_factor - 0.5) * 200
-            print(f"   Stereo expand: {current_width:.0%} → +{expansion_pct:.0f}% width (multiband)")
-
-        return processed, {
-            'stage': 'stereo_expand',
-            'original_width': current_width,
-            'width_factor': width_factor
-        }
+        return stereo_expansion.apply(audio, current_width, intensity, sample_rate, verbose,
+                                       bass_pct=bass_pct, spectral_centroid=spectral_centroid,
+                                       air_pct=air_pct, phase_correlation=phase_correlation)
 
     def _apply_bass_enhancement(
-        self,
-        audio: np.ndarray,
-        bass_pct: float,
-        intensity: float,
-        sample_rate: int,
-        verbose: bool
+        self, audio: np.ndarray, bass_pct: float, intensity: float,
+        sample_rate: int, verbose: bool,
     ) -> tuple[np.ndarray, dict | None]:
-        """
-        Tolerance-band bass balance: do nothing while the source sits inside
-        the natural variance band [BASS_TOL_LOW, BASS_TOL_HIGH] derived from a
-        27-track reference distribution. Only correct when outside the band,
-        with strength ramping smoothly from the nearest band edge.
-
-        This replaces the older "push toward single target" philosophy. The
-        evidence shows reference records vary widely (Bass p25-p75 = 35%-53%);
-        forcing all of them toward 46% would over-correct genre character.
-
-        Two EQ shapes — the *musical intent* differs:
-
-        - **Boost path**: low-shelf at 100 Hz when bass_pct < BASS_TOL_LOW.
-          Adding weight wants to be wide and include the sub band.
-        - **Cut path**: bell at 100-220 Hz when bass_pct > BASS_TOL_HIGH.
-          De-mudding is surgical and must avoid kick fundamental and sub-bass.
-
-        Args:
-            audio: Stereo audio [2, samples]
-            bass_pct: Fingerprint bass percentage (0-1)
-            intensity: Processing intensity 0.0-1.0
-            sample_rate: Audio sample rate in Hz
-            verbose: Print progress
-
-        Returns:
-            (processed_audio, stage_info or None if both contributions are
-             below the audibility floor)
-        """
-        tol_low = self.config.BASS_TOL_LOW
-        tol_high = self.config.BASS_TOL_HIGH
-
-        # Boost component — only fires when source is BELOW the tolerance band.
-        # Inside the band, deficit = 0 by definition.
-        deficit = max(0.0, tol_low - bass_pct)
-        boost_factor = SmoothCurveUtilities.ramp_to_s_curve(
-            deficit, 0.0, self.config.BASS_BOOST_RANGE_PCT
-        )
-        boost_db = self.config.MAX_BASS_BOOST_DB * intensity * boost_factor
-
-        # Cut component — only fires when source is ABOVE the tolerance band.
-        # Inside the band, excess = 0 by definition.
-        excess = max(0.0, bass_pct - tol_high)
-        cut_factor = SmoothCurveUtilities.ramp_to_s_curve(
-            excess, 0.0, self.config.BASS_CUT_RANGE_PCT
-        )
-        cut_db = -self.config.MAX_BASS_CUT_DB * intensity * cut_factor
-
-        # Audibility floor for each contribution. Below ~0.3 dB the filter's
-        # work is below the threshold of perception, so skip it (avoids tiny
-        # numerical artifacts from filter ringing).
-        AUDIBILITY_FLOOR_DB = 0.3
-        applied = []
-        processed = audio
-
-        if boost_db >= AUDIBILITY_FLOOR_DB:
-            processed = ParallelEQUtilities.apply_low_shelf_boost(
-                processed,
-                boost_db=boost_db,
-                freq_hz=self.config.BASS_SHELF_HZ,
-                sample_rate=sample_rate,
-            )
-            applied.append(f"+{boost_db:.1f}dB <{self.config.BASS_SHELF_HZ:.0f}Hz")
-
-        if abs(cut_db) >= AUDIBILITY_FLOOR_DB:
-            processed = ParallelEQUtilities.apply_bandpass_boost(
-                processed,
-                boost_db=cut_db,
-                low_hz=self.config.BASS_DEMUD_LOW_HZ,
-                high_hz=self.config.BASS_DEMUD_HIGH_HZ,
-                sample_rate=sample_rate,
-            )
-            applied.append(
-                f"{cut_db:.1f}dB @{self.config.BASS_DEMUD_LOW_HZ:.0f}-"
-                f"{self.config.BASS_DEMUD_HIGH_HZ:.0f}Hz"
-            )
-
-        if not applied:
-            return audio, None
-
-        if verbose:
-            print(f"   Bass balance: {' / '.join(applied)}  (bass={bass_pct:.0%})")
-
-        return processed, {
-            'stage': 'bass_balance',
-            'boost_db': boost_db,
-            'cut_db': cut_db,
-            'bass_pct': bass_pct,
-        }
+        return bass_enhancement.apply(audio, bass_pct, intensity, sample_rate, verbose, self.config)
 
     def _apply_sub_bass_control(
-        self,
-        audio: np.ndarray,
-        sub_bass_pct: float,
-        bass_pct: float,
-        intensity: float,
-        sample_rate: int,
-        verbose: bool
+        self, audio: np.ndarray, sub_bass_pct: float, bass_pct: float,
+        intensity: float, sample_rate: int, verbose: bool,
     ) -> tuple[np.ndarray, dict | None]:
-        """
-        Apply adaptive sub-bass control (20-60Hz).
-
-        High sub-bass → tighten (reduce rumble)
-        Low sub-bass + decent bass → already good, skip
-        Low sub-bass + low bass → enhance together via bass_enhancement
-
-        Uses PARALLEL processing pattern for precise dB control:
-        - Extract sub-bass band with LP filter
-        - Apply reduction gain to extracted band
-        - Add the reduction DIFFERENCE on top of original
-
-        This gives precise dB control unlike HP+blend which can cause -10dB+ loss.
-
-        Tolerance-band cut: do nothing while sub_bass_pct sits inside the
-        natural variance range (≤ SUB_TOL_HIGH = p75 of 27-track reference).
-        Only correct above that. The HP is reserved for genuine pathological
-        rumble (> SUB_HP_ACTIVATE_PCT, ≈ p95+).
-        """
-        # Excess relative to the tolerance band's upper edge. Inside the
-        # band (sub_bass_pct ≤ SUB_TOL_HIGH) this is 0 and no cut applies.
-        excess = max(0.0, sub_bass_pct - self.config.SUB_TOL_HIGH)
-        excess_factor = SmoothCurveUtilities.ramp_to_s_curve(
-            excess, 0.0, self.config.SUB_CUT_RANGE_PCT
-        )
-        reduction_db = self.config.MAX_SUB_CUT_DB * intensity * excess_factor
-
-        # Apply parallel low-shelf reduction (negative boost). Always applied
-        # — even sub-decibel cuts add up over many tracks and keep the curve
-        # continuous through the target.
-        processed = audio
-        if abs(reduction_db) >= 0.1:
-            processed = ParallelEQUtilities.apply_low_shelf_boost(
-                processed,
-                boost_db=reduction_db,
-                freq_hz=self.config.SUB_BASS_CUTOFF_HZ,
-                sample_rate=sample_rate,
-            )
-
-        # HP only for severely excessive sub-bass — well above the threshold
-        # where musical kick/bass instruments live. Threshold and filter
-        # order are now in config so they can be tuned without code changes.
-        applied_hp = False
-        if sub_bass_pct >= self.config.SUB_HP_ACTIVATE_PCT:
-            nyq = sample_rate / 2.0
-            hp_norm = min(0.99, max(0.005, self.config.SUBBASS_HP_FREQ_HZ / nyq))
-            hp_sos = butter(self.config.SUBBASS_HP_ORDER, hp_norm, btype='high', output='sos')
-            axis = -1 if processed.ndim > 1 else 0
-            processed = np.asarray(
-                sosfilt(hp_sos, processed, axis=axis), dtype=processed.dtype
-            )
-            applied_hp = True
-
-        if abs(reduction_db) < 0.1 and not applied_hp:
-            return audio, None
-
-        if verbose:
-            msg = f"   Sub-bass tighten: {reduction_db:.1f} dB @ <{self.config.SUB_BASS_CUTOFF_HZ:.0f}Hz"
-            if applied_hp:
-                msg += (f" + HP @ {self.config.SUBBASS_HP_FREQ_HZ:.0f}Hz "
-                        f"(order {self.config.SUBBASS_HP_ORDER})")
-            print(msg)
-
-        return processed, {
-            'stage': 'sub_bass_control',
-            'reduction_db': reduction_db,
-            'sub_bass_pct': sub_bass_pct,
-            'hp_applied': applied_hp,
-        }
+        return sub_bass_control.apply(audio, sub_bass_pct, bass_pct, intensity, sample_rate, verbose, self.config)
 
     def _apply_mid_warmth(
-        self,
-        audio: np.ndarray,
-        low_mid_pct: float,
-        mid_pct: float,
-        intensity: float,
-        sample_rate: int,
-        verbose: bool
+        self, audio: np.ndarray, low_mid_pct: float, mid_pct: float,
+        intensity: float, sample_rate: int, verbose: bool,
     ) -> tuple[np.ndarray, dict | None]:
-        """
-        Apply adaptive mid-range warmth (200-2kHz body).
-
-        Low mids → add warmth and body
-        Good mids → skip
-
-        Uses smooth curves throughout.
-        """
-        # Combine low-mid and mid for overall body content
-        body_content = (low_mid_pct + mid_pct) / 2.0
-
-        # Smooth curve: boost from 0% to 25% body content
-        if body_content >= 0.25:
-            return audio, None  # Already has good body
-
-        # Inverted S-curve (1.0 at 0%, 0.0 at 25%)
-        body_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(
-            body_content, 0.0, 0.25
-        )
-
-        # Calculate boost
-        max_boost_db = 1.5 * intensity  # Gentler than presence
-        boost_db = max_boost_db * body_factor
-
-        if boost_db < 0.3:
-            return audio, None
-
-        # Apply parallel bandpass boost at 200-2kHz (body zone)
-        processed = ParallelEQUtilities.apply_bandpass_boost(
-            audio,
-            boost_db=boost_db,
-            low_hz=self.config.MID_BODY_LOW_HZ,
-            high_hz=self.config.MID_BODY_HIGH_HZ,
-            sample_rate=sample_rate
-        )
-
-        if verbose:
-            print(f"   Mid warmth: +{boost_db:.1f} dB @ {self.config.MID_BODY_LOW_HZ:.0f}-{self.config.MID_BODY_HIGH_HZ:.0f}Hz")
-
-        return processed, {
-            'stage': 'mid_warmth',
-            'boost_db': boost_db,
-            'body_content': body_content
-        }
+        return mid_warmth.apply(audio, low_mid_pct, mid_pct, intensity, sample_rate, verbose, self.config)
 
     def _apply_presence_enhancement(
-        self,
-        audio: np.ndarray,
-        presence_pct: float,
-        upper_mid_pct: float,
-        intensity: float,
-        sample_rate: int,
-        verbose: bool
+        self, audio: np.ndarray, presence_pct: float, upper_mid_pct: float,
+        intensity: float, sample_rate: int, verbose: bool,
     ) -> tuple[np.ndarray, dict | None]:
-        """
-        Apply adaptive presence enhancement for dull mixes (2-6kHz boost).
-
-        Boosts presence frequencies to add clarity, definition, and forward character.
-        Targets the frequency range where consonants, attack transients, and definition live.
-
-        Uses smooth curves throughout - no hard thresholds.
-
-        Args:
-            audio: Stereo audio [2, samples]
-            presence_pct: Fingerprint presence percentage (4-6kHz, 0-1)
-            upper_mid_pct: Fingerprint upper-mid percentage (2-4kHz, 0-1)
-            intensity: Processing intensity 0.0-1.0
-            sample_rate: Audio sample rate in Hz
-            verbose: Print progress
-
-        Returns:
-            (processed_audio, stage_info or None if no enhancement applied)
-        """
-        # Combine presence and upper-mid to get overall 2-6kHz content
-        presence_content = (presence_pct + upper_mid_pct) / 2.0
-
-        # Smooth curve: boost from 0% to 30% presence
-        if presence_content >= 0.30:
-            return audio, None  # Already has good presence
-
-        # Inverted S-curve (1.0 at 0%, 0.0 at 30%)
-        presence_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(
-            presence_content, 0.0, 0.30
-        )
-
-        # Calculate boost based on smooth presence deficiency curve
-        max_boost_db = 2.0 * intensity
-        boost_db = max_boost_db * presence_factor
-
-        if boost_db < 0.3:
-            return audio, None  # Too small to matter
-
-        # Apply parallel bandpass boost at presence range (2-8kHz)
-        processed = ParallelEQUtilities.apply_bandpass_boost(
-            audio,
-            boost_db=boost_db,
-            low_hz=self.config.PRESENCE_LOW_HZ,
-            high_hz=self.config.PRESENCE_HIGH_HZ,
-            sample_rate=sample_rate
-        )
-
-        if verbose:
-            print(f"   Presence enhance: +{boost_db:.1f} dB @ {self.config.PRESENCE_LOW_HZ:.0f}-{self.config.PRESENCE_HIGH_HZ:.0f}Hz")
-
-        return processed, {
-            'stage': 'presence_enhance',
-            'boost_db': boost_db,
-            'presence_content': presence_content
-        }
+        return presence_enhancement.apply(audio, presence_pct, upper_mid_pct, intensity, sample_rate, verbose, self.config)
 
     def _apply_harmonic_exciter(
-        self,
-        audio: np.ndarray,
-        presence_pct: float,
-        air_pct: float,
-        spectral_rolloff: float,
-        intensity: float,
-        sample_rate: int,
-        verbose: bool
+        self, audio: np.ndarray, presence_pct: float, air_pct: float,
+        spectral_rolloff: float, intensity: float, sample_rate: int, verbose: bool,
     ) -> tuple[np.ndarray, dict | None]:
-        """
-        Generate upper-octave harmonics for dark / bandwidth-limited sources.
-
-        Shelf EQ can only amplify what already exists. For lo-fi captures or
-        low-bitrate audio where everything above ~6 kHz has been brick-walled,
-        the air/presence shelves are lifting near-silence and the result still
-        sounds dull. This stage saturates a midrange donor band and high-passes
-        the result, mixing the newly generated harmonics in parallel so the
-        downstream presence/air shelves have something to work with.
-
-        Activates only when the spectrum is genuinely dark — bright material is
-        untouched.
-
-        Args:
-            audio: Stereo audio [2, samples]
-            presence_pct: Fingerprint presence percentage (4-6 kHz, 0-1)
-            air_pct: Fingerprint air percentage (6-20 kHz, 0-1)
-            spectral_rolloff: Frequency below which most energy lies (0-1)
-            intensity: Processing intensity 0.0-1.0
-            sample_rate: Audio sample rate in Hz
-            verbose: Print progress
-
-        Returns:
-            (processed_audio, stage_info or None if exciter did not engage)
-        """
-        # Brightness metric: weighted blend of HF energy and where the spectrum
-        # rolls off. 0 = fully dark, 1 = fully bright. presence/air are most
-        # diagnostic; spectral_rolloff only contributes once it's clearly in
-        # bright territory (>60% of Nyquist ≈ >13 kHz at 44.1k). Below that,
-        # rolloff just confirms darkness and shouldn't suppress excitation.
-        rolloff_brightness = max(0.0, (spectral_rolloff - 0.60) / 0.40)
-        brightness = (
-            presence_pct * 2.0   # presence at 50% counts as fully bright
-            + air_pct * 3.0      # air at ~33% counts as fully bright
-            + rolloff_brightness * 0.4
-        )
-        brightness = float(np.clip(brightness, 0.0, 1.0))
-        darkness = 1.0 - brightness
-
-        # Only engage on genuinely dark material.
-        activate_threshold = 1.0 - self.config.EXCITER_DARKNESS_ACTIVATE
-        if darkness < activate_threshold:
-            return audio, None
-
-        # Smooth ramp from activate_threshold → 1.0 (fully dark)
-        excite_factor = SmoothCurveUtilities.ramp_to_s_curve(
-            darkness, activate_threshold, 1.0
-        )
-
-        # Wet level scales with darkness AND intensity. MIN_WET is the level
-        # at the activation threshold (subtle); MAX_WET is the ceiling at
-        # full darkness (obvious). Intensity scales the *ceiling* only, so the
-        # floor stays audible even at low intensities.
-        min_wet_db = self.config.EXCITER_MIN_WET_DB
-        max_wet_db = self.config.EXCITER_MAX_WET_DB * intensity
-        # Guard against intensity > 1.0 pushing max below min (e.g. with
-        # extreme adaptive intensity, max_wet_db could become more negative).
-        if max_wet_db < min_wet_db:
-            max_wet_db = min_wet_db
-        wet_db = min_wet_db + (max_wet_db - min_wet_db) * excite_factor
-
-        # Drive also scales with darkness — darker source can take more drive
-        # because the new harmonics have to fight more upstream rolloff.
-        drive_db = self.config.EXCITER_DRIVE_DB * (0.7 + 0.3 * excite_factor)
-
-        processed = HarmonicExciter.apply(
-            audio,
-            sample_rate=sample_rate,
-            wet_db=wet_db,
-            drive_db=drive_db,
-            donor_low_hz=self.config.EXCITER_DONOR_LOW_HZ,
-            donor_high_hz=self.config.EXCITER_DONOR_HIGH_HZ,
-            hp_cutoff_hz=self.config.EXCITER_HP_CUTOFF_HZ,
-            asymmetry=self.config.EXCITER_ASYMMETRY,
-        )
-
-        # Cascade pass: use Stage 1's output as donor for Stage 2. The 4-8 kHz
-        # harmonics generated by Stage 1 become donor content, and Stage 2
-        # saturates them to push new harmonics into 8-16 kHz — broadening
-        # the brightness across the full upper spectrum instead of
-        # concentrating it in 4-7 kHz. Empirically lifts Brilliance by
-        # ~+3 dB on very dark sources where Stage 1 alone can't reach above
-        # 8 kHz with audible amplitude.
-        cascade_wet_db = None
-        if self.config.EXCITER_CASCADE_ENABLED:
-            cascade_wet_db = wet_db + self.config.EXCITER_CASCADE_WET_OFFSET_DB
-            processed = HarmonicExciter.apply(
-                processed,
-                sample_rate=sample_rate,
-                wet_db=cascade_wet_db,
-                drive_db=self.config.EXCITER_CASCADE_DRIVE_DB,
-                donor_low_hz=self.config.EXCITER_CASCADE_DONOR_LOW_HZ,
-                donor_high_hz=self.config.EXCITER_CASCADE_DONOR_HIGH_HZ,
-                hp_cutoff_hz=self.config.EXCITER_CASCADE_HP_CUTOFF_HZ,
-                asymmetry=self.config.EXCITER_ASYMMETRY,
-            )
-
-        if verbose:
-            cascade_msg = (f", cascade {cascade_wet_db:+.1f} dB"
-                          if cascade_wet_db is not None else "")
-            print(
-                f"   Harmonic exciter: {wet_db:+.1f} dB wet, "
-                f"{drive_db:.1f} dB drive (darkness {darkness:.2f}){cascade_msg}"
-            )
-
-        return processed, {
-            'stage': 'harmonic_exciter',
-            'wet_db': wet_db,
-            'drive_db': drive_db,
-            'darkness': darkness,
-        }
+        return harmonic_exciter.apply(audio, presence_pct, air_pct, spectral_rolloff, intensity, sample_rate, verbose, self.config)
 
     def _apply_air_enhancement(
-        self,
-        audio: np.ndarray,
-        air_pct: float,
-        spectral_rolloff: float,
-        intensity: float,
-        sample_rate: int,
-        verbose: bool
+        self, audio: np.ndarray, air_pct: float, spectral_rolloff: float,
+        intensity: float, sample_rate: int, verbose: bool,
     ) -> tuple[np.ndarray, dict | None]:
-        """
-        Apply adaptive air enhancement for dark mixes (6-20kHz sparkle).
-
-        Boosts high frequencies to add air, sparkle, and openness.
-        Uses spectral_rolloff to detect if high frequencies naturally roll off.
-
-        Uses smooth curves throughout - no hard thresholds.
-
-        Args:
-            audio: Stereo audio [2, samples]
-            air_pct: Fingerprint air percentage (6-20kHz, 0-1)
-            spectral_rolloff: Frequency where most energy is below (0-1, normalized)
-            intensity: Processing intensity 0.0-1.0
-            sample_rate: Audio sample rate in Hz
-            verbose: Print progress
-
-        Returns:
-            (processed_audio, stage_info or None if no enhancement applied)
-        """
-        # Low air_pct or low spectral_rolloff = dark mix needing air
-        darkness_factor = (1.0 - air_pct) * 0.6 + (1.0 - spectral_rolloff) * 0.4
-
-        # Smooth S-curve: boost increases as darkness increases
-        # darkness 0.0-0.4: minimal/no boost (bright tracks)
-        # darkness 0.4-1.0: smooth ramp to full boost (dark tracks)
-        if darkness_factor < 0.4:
-            return audio, None  # Already bright
-
-        # Smooth S-curve from 0.4 to 1.0
-        air_factor = SmoothCurveUtilities.ramp_to_s_curve(
-            darkness_factor, 0.4, 1.0
-        )
-
-        # Calculate boost based on smooth darkness curve
-        max_boost_db = 1.5 * intensity
-        boost_db = max_boost_db * air_factor
-
-        if boost_db < 0.3:
-            return audio, None  # Too small to matter
-
-        # Apply parallel high-shelf boost above 8kHz
-        processed = ParallelEQUtilities.apply_high_shelf_boost(
-            audio,
-            boost_db=boost_db,
-            freq_hz=self.config.AIR_SHELF_HZ,
-            sample_rate=sample_rate
-        )
-
-        if verbose:
-            print(f"   Air enhance: +{boost_db:.1f} dB above {self.config.AIR_SHELF_HZ:.0f}Hz")
-
-        return processed, {
-            'stage': 'air_enhance',
-            'boost_db': boost_db,
-            'darkness_factor': darkness_factor
-        }
+        return air_enhancement.apply(audio, air_pct, spectral_rolloff, intensity, sample_rate, verbose, self.config)
 
     @staticmethod
     def _peak_db(audio: np.ndarray) -> float:
