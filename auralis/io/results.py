@@ -17,14 +17,23 @@ import soundfile as sf
 
 
 class Result:
-    """Represents an output result with format specifications"""
+    """Represents an output result with format specifications.
+
+    A ``Result`` only describes the output target (path + PCM subtype); it does
+    not transform audio. There is no ``Result.write()`` — the writer
+    (``simple_mastering.process_to_file`` / ``saver.py``) reads ``file`` and
+    ``subtype`` only. Callers are responsible for clamping samples to
+    ``[-1.0, 1.0]`` before writing (saver.py also clamps before PCM encode).
+
+    #4106: the former ``use_limiter`` / ``normalize`` flags were removed — they
+    were stored but never read by any code path, advertising a false
+    auto-limit / normalize contract.
+    """
 
     def __init__(
         self,
         file: str,
         subtype: str = 'PCM_16',
-        use_limiter: bool = True,
-        normalize: bool = False
     ):
         """
         Initialize a Result object
@@ -32,8 +41,6 @@ class Result:
         Args:
             file: Output file path
             subtype: Audio format subtype (PCM_16, PCM_24, etc.)
-            use_limiter: Whether to apply limiting
-            normalize: Whether to normalize the output
         """
         file_ext = Path(file).suffix[1:].upper()
 
@@ -59,12 +66,9 @@ class Result:
 
         self.file = file
         self.subtype = subtype
-        self.use_limiter = use_limiter
-        self.normalize = normalize
 
     def __repr__(self) -> str:
-        return (f"Result(file='{self.file}', subtype='{self.subtype}', "
-                f"use_limiter={self.use_limiter}, normalize={self.normalize})")
+        return f"Result(file='{self.file}', subtype='{self.subtype}')"
 
 
 def pcm16(file: str) -> Result:
