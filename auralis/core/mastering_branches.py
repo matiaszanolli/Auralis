@@ -457,6 +457,11 @@ class QuietBranch(ProcessingBranch):
         processed = audio.copy()
         recorder = StageRecorder()
 
+        # Crest-factor thresholds shared between exciter attenuation and the
+        # soft-clip bypass/relax logic further below.
+        CLIP_BYPASS_CREST = 22.0   # ≥ this → skip soft_clip, minimal exciter
+        CLIP_RELAX_CREST  = 18.0   # ≥ this → relax soft_clip knee, reduce exciter
+
         # Resonance notches first — surgical narrow cuts in 150-1200 Hz so all
         # subsequent EQ stages see the post-notch energy balance. No-op if no
         # resonances were detected for this file.
@@ -517,9 +522,32 @@ class QuietBranch(ProcessingBranch):
         # dark sources. Runs after mid-warmth (donor band is now shaped) and
         # before presence/air (so those shelves can lift the new harmonics).
         # Engages only when air/presence/rolloff indicate genuinely dark material.
+        #
+        # High-DR attenuation: tracks with large crest factors have wide dynamic
+        # swing — they are naturally expressive, not crushed. Adding heavy
+        # harmonic generation raises RMS while peaks are controlled by normalize,
+        # reducing the crest factor and making the track sound compressed.
+        # Scale exciter intensity down for high-DR sources proportionally.
+        # Thresholds are shared with the soft-clip bypass block below so that
+        # both decisions track the same measurement:
+        #   crest < 12 dB   → full exciter (compressed sources benefit most)
+        #   crest 12–18 dB  → blend 1.0 → 0.5 (gentle ramp)
+        #   crest 18–22 dB  → blend 0.5 → 0.2 (conservative; avoid RMS inflation)
+        #   crest ≥ 22 dB   → 0.15x cap (near-bypass; truly wide-dynamic sources)
+        if unpacker.crest_db >= CLIP_BYPASS_CREST:       # ≥ 22 dB
+            exciter_intensity = effective_intensity * 0.15
+        elif unpacker.crest_db >= CLIP_RELAX_CREST:      # 18–22 dB
+            blend = (unpacker.crest_db - CLIP_RELAX_CREST) / (CLIP_BYPASS_CREST - CLIP_RELAX_CREST)
+            exciter_intensity = effective_intensity * (0.5 - blend * (0.5 - 0.15))
+        elif unpacker.crest_db >= 12.0:                  # 12–18 dB
+            blend = (unpacker.crest_db - 12.0) / (CLIP_RELAX_CREST - 12.0)
+            exciter_intensity = effective_intensity * (1.0 - blend * 0.5)
+        else:
+            exciter_intensity = effective_intensity       # < 12 dB: full intensity
+
         processed, exciter_info = self.pipeline._apply_harmonic_exciter(
             processed, unpacker.presence_pct, unpacker.air_pct, unpacker.spectral_rolloff,
-            effective_intensity, sample_rate, verbose, hf_lift
+            exciter_intensity, sample_rate, verbose, hf_lift
         )
         recorder.add(exciter_info)
 
@@ -600,13 +628,29 @@ class QuietBranch(ProcessingBranch):
 
         threshold_db += 0.5 * bass_intensity
 
-        threshold_linear = 10 ** (threshold_db / 20.0)
+        # High-DR bypass: when the source has large dynamic range (high crest
+        # factor), the soft clipper acts as a heavy limiter and crushes the
+        # transients that define the recording's character (orchestral swells,
+        # live acoustic events, expressive dynamics). For these sources the gain
+        # normalisation alone is sufficient — no saturation needed.
+        # CLIP_BYPASS_CREST / CLIP_RELAX_CREST are defined at the top of this
+        # method (shared with the exciter attenuation block).
+        if unpacker.crest_db >= CLIP_BYPASS_CREST:
+            if verbose:
+                print(f"   Soft clip bypassed (crest {unpacker.crest_db:.1f} dB — high-DR source)")
+            recorder.add({'stage': 'soft_clip', 'threshold_db': 'bypassed (high-DR)', 'crest_db': unpacker.crest_db})
+        else:
+            if unpacker.crest_db >= CLIP_RELAX_CREST:
+                # Blend from current threshold toward 0 dB as crest → BYPASS
+                dr_blend = (unpacker.crest_db - CLIP_RELAX_CREST) / (CLIP_BYPASS_CREST - CLIP_RELAX_CREST)
+                threshold_db  = threshold_db  + dr_blend * (0.0 - threshold_db)
+                ceiling       = ceiling       + dr_blend * (0.97 - ceiling)
 
-        if verbose:
-            print(f"   Soft clip: {threshold_db:.1f} dB, ceiling {ceiling*100:.0f}%")
-
-        processed = soft_clip(processed, threshold=threshold_linear, ceiling=ceiling)
-        recorder.add({'stage': 'soft_clip', 'threshold_db': threshold_db})
+            threshold_linear = 10 ** (threshold_db / 20.0)
+            if verbose:
+                print(f"   Soft clip: {threshold_db:.1f} dB, ceiling {ceiling*100:.0f}%")
+            processed = soft_clip(processed, threshold=threshold_linear, ceiling=ceiling)
+            recorder.add({'stage': 'soft_clip', 'threshold_db': threshold_db})
 
         # Stereo expansion for narrow mixes (brightness-aware)
         processed, width_info = self.pipeline._apply_stereo_expansion(

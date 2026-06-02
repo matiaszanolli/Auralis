@@ -237,12 +237,15 @@ class SimpleMasteringPipeline:
         chunk_size = sr * self.config.CHUNK_DURATION_SEC
         info = {'stages': []}
 
+        # Multi-channel (>2ch) sources are downmixed to stereo during chunk
+        # processing, so the output is always stereo.
+        out_channels = min(channels, 2)
         with sf.SoundFile(str(input_path)) as audio_file:
             with sf.SoundFile(
                 output_path,
                 mode='w',
                 samplerate=sr,
-                channels=channels,
+                channels=out_channels,
                 subtype='PCM_24'
             ) as output_file:
                 chunks_processed = 0
@@ -275,6 +278,10 @@ class SimpleMasteringPipeline:
                     # Ensure stereo (channels, samples) format
                     if chunk.ndim == 1:
                         chunk = np.stack([chunk, chunk]).T
+                    elif chunk.ndim == 2 and chunk.shape[1] > 2:
+                        # Multi-channel (e.g. 5.1 surround): take L+R only.
+                        # soundfile yields (samples, channels) at this point.
+                        chunk = chunk[:, :2]
 
                     # Convert to (channels, samples) for processing.
                     # soundfile always yields (samples, channels), as does the
