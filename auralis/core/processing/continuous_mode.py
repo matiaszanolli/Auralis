@@ -684,6 +684,14 @@ class ContinuousMode:
             from ...dsp.basic import rms as calculate_rms
             current_rms = calculate_rms(audio.ravel() if audio.ndim == 2 else audio)
             current_lufs = DBConversion.to_db(current_rms)
+            # #4104: pure silence (rms == 0) -> to_db returns -inf. Without this
+            # guard, adjustment = target_lufs - (-inf) = +inf and
+            # amplify(silence, +inf) = 0.0 * inf = NaN across the whole buffer,
+            # which then trips validate_audio_finite(repair=False) downstream and
+            # crashes the stream. Silence needs no normalization — return it
+            # unchanged (mirrors HybridProcessor's all-zeros early return).
+            if not np.isfinite(current_lufs):
+                return audio
 
         target_lufs = params.target_lufs
         adjustment = target_lufs - current_lufs
