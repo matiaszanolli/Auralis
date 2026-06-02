@@ -2,19 +2,19 @@
 Library Router
 ~~~~~~~~~~~~~~
 
-Handles library queries for tracks, albums, artists, and statistics.
+General library endpoints: statistics, reference cloud, browse (artists/albums),
+and admin (reset). Track, scan, and fingerprint domains are in dedicated routers:
+- routers/tracks.py             (track listing, favorites, lyrics)
+- routers/library_scan.py       (directory scan with progress broadcast)
+- routers/fingerprint_status.py (fingerprint status and per-track lookup)
 
 Endpoints:
-- GET /api/library/stats - Get library statistics
-- GET /api/library/tracks - Get tracks with optional search/pagination
-- GET /api/library/tracks/favorites - Get favorite tracks
-- POST /api/library/tracks/{track_id}/favorite - Mark track as favorite
-- DELETE /api/library/tracks/{track_id}/favorite - Remove from favorites
-- GET /api/library/tracks/{track_id}/lyrics - Get track lyrics
-- GET /api/library/artists - Get all artists
-- GET /api/library/artists/{artist_id} - Get artist details
-- GET /api/library/albums - Get all albums
-- GET /api/library/albums/{album_id} - Get album details
+- POST /api/library/refresh-references   - Rebuild mastering reference cloud
+- GET  /api/library/stats                - Library statistics
+- GET  /api/library/artists              - Paginated artist list
+- GET  /api/library/artists/{artist_id}  - Artist detail
+- GET  /api/library/albums/{album_id}    - Album detail
+- POST /api/library/reset                - Destructive full library reset
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -22,23 +22,14 @@ Endpoints:
 
 import asyncio
 import logging
-import os
-from typing import Annotated, Any, Literal, cast
+from typing import Any, cast
 from collections.abc import Callable
 
-from fastapi import Path, APIRouter, Header, HTTPException, Query
-
-from schemas import LibraryScanRequest
+from fastapi import APIRouter, Header, HTTPException, Query
 
 from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
-from .serializers import (
-    serialize_album,
-    serialize_albums,
-    serialize_artist,
-    serialize_artists,
-    serialize_tracks,
-)
+from .serializers import serialize_album, serialize_artist, serialize_artists
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["library"])
@@ -46,40 +37,22 @@ router = APIRouter(tags=["library"])
 
 def create_library_router(
     get_repository_factory: Callable[[], Any],
-    get_library_manager: Callable[[], Any] | None = None,
-    connection_manager: Any | None = None
 ) -> APIRouter:
-    """
-    Factory function to create library router with dependencies.
-
-    Args:
-        get_repository_factory: Callable that returns RepositoryFactory instance
-        get_library_manager: Optional callable that returns LibraryManager instance (for scanning)
-        connection_manager: WebSocket connection manager for progress broadcasts (optional)
-
-    Returns:
-        APIRouter: Configured router instance
+    """Factory: general library routes (stats, browse, reset).
 
     Note:
-        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
+        Phase 6B: Fully migrated to RepositoryFactory pattern.
+        Track / scan / fingerprint routes are registered by their own factory functions
+        (create_tracks_router, create_library_scan_router, create_fingerprint_status_router).
     """
 
     @router.post("/api/library/refresh-references")
     async def refresh_reference_cloud() -> dict[str, Any]:
-        """
-        #3479: rebuild the mastering reference cloud from current library state.
+        """#3479: rebuild the mastering reference cloud from current library state.
 
-        Clears all existing `is_reference` flags, scores every fingerprint
-        against the seeder thresholds, and flags the top-N candidates as
-        references. Safe to call repeatedly — the seeder is idempotent and
-        does no audio I/O.
-
-        Returns:
-            dict: `{cleared: int, selected: int}` — counts from the
-                  refresh transaction.
-
-        Raises:
-            HTTPException: If the repository factory is unavailable.
+        Clears all existing ``is_reference`` flags, scores every fingerprint
+        against the seeder thresholds, and flags the top-N candidates.
+        Safe to call repeatedly — the seeder is idempotent and does no audio I/O.
         """
         try:
             from auralis.learning.reference_seeder import refresh_cloud
@@ -88,8 +61,7 @@ def create_library_router(
                 refresh_cloud, factory.fingerprints
             )
             logger.info(
-                f"🎯 Reference cloud refresh (manual): cleared {cleared}, "
-                f"selected {selected}"
+                f"🎯 Reference cloud refresh (manual): cleared {cleared}, selected {selected}"
             )
             return {"cleared": cleared, "selected": selected}
         except HTTPException:
@@ -99,15 +71,7 @@ def create_library_router(
 
     @router.get("/api/library/stats")
     async def get_library_stats() -> dict[str, Any]:
-        """
-        Get library statistics.
-
-        Returns:
-            dict: Library statistics (track count, album count, etc.)
-
-        Raises:
-            HTTPException: If repository factory not available or query fails
-        """
+        """Get library statistics (track count, album count, etc.)."""
         try:
             factory = require_repository_factory(get_repository_factory)
             stats = await asyncio.to_thread(factory.stats.get_library_stats)
@@ -117,298 +81,18 @@ def create_library_router(
         except Exception as e:
             raise handle_query_error("get library stats", e)
 
-    @router.get("/api/library/tracks")
-    async def get_tracks(
-        limit: int = Query(50, ge=1, le=200),
-        offset: int = Query(0, ge=0),
-        search: str | None = None,
-        # #2727: Literal type makes FastAPI reject unknown values with
-        # 422 at the route layer instead of silently coercing to
-        # 'title' inside TrackRepository.get_all (where the existing
-        # VALID_ORDER_COLUMNS whitelist was the only defense). Keeps the
-        # whitelist in sync with the route signature so a new column
-        # added to one place won't be missed by the other.
-        order_by: Literal[
-            'title', 'created_at', 'play_count',
-            'duration', 'year', 'last_played'
-        ] = 'created_at',
-    ) -> dict[str, Any]:
-        """
-        Get tracks from library with optional search and pagination.
-
-        Args:
-            limit: Maximum number of tracks to return (default: 50)
-            offset: Number of tracks to skip (default: 0)
-            search: Optional search query
-            order_by: Column to order by (default: 'created_at')
-
-        Returns:
-            dict: List of tracks with pagination info including:
-                - tracks: List of track objects
-                - total: Total number of tracks in library
-                - limit: Requested limit
-                - offset: Current offset
-                - has_more: Boolean indicating if more tracks are available
-
-        Raises:
-            HTTPException: If library manager/factory not available or query fails
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-
-            # Get tracks with pagination
-            if search:
-                tracks, total = await asyncio.to_thread(repos.tracks.search, search, limit=limit, offset=offset)
-                has_more = (offset + len(tracks)) < total
-            else:
-                tracks, total = await asyncio.to_thread(repos.tracks.get_all, limit=limit, offset=offset, order_by=order_by)
-                has_more = (offset + len(tracks)) < total
-
-            return {
-                "tracks": serialize_tracks(tracks),
-                "total": total,
-                "offset": offset,
-                "limit": limit,
-                "has_more": has_more
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get tracks", e)
-
-    @router.get("/api/library/tracks/favorites")
-    async def get_favorite_tracks(limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)) -> dict[str, Any]:
-        """
-        Get all favorite tracks with pagination.
-
-        Args:
-            limit: Maximum number of tracks to return (default: 50)
-            offset: Number of tracks to skip (default: 0)
-
-        Returns:
-            dict: List of favorite tracks with pagination info
-
-        Raises:
-            HTTPException: If library manager/factory not available or query fails
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            tracks, total = await asyncio.to_thread(repos.tracks.get_favorites, limit=limit, offset=offset)
-            has_more = (offset + len(tracks)) < total
-
-            return {
-                "tracks": serialize_tracks(tracks),
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-                "has_more": has_more
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get favorite tracks", e)
-
-    @router.get("/api/library/tracks/{track_id}")
-    async def get_track(track_id: int) -> dict[str, Any]:
-        """
-        Get a single track by ID.
-
-        Args:
-            track_id: Track ID
-
-        Returns:
-            dict: Track object
-
-        Raises:
-            HTTPException: 404 if track not found, 503 if repository unavailable
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
-            if not track:
-                raise NotFoundError("Track", track_id)
-            return serialize_tracks([track])[0]
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get track", e)
-
-    @router.post("/api/library/tracks/{track_id}/favorite")
-    async def set_track_favorite(track_id: int) -> dict[str, Any]:
-        """
-        Mark track as favorite.
-
-        Args:
-            track_id: Track ID
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If library manager/factory not available or operation fails
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            await asyncio.to_thread(repos.tracks.set_favorite, track_id, True)
-            logger.info(f"Track {track_id} marked as favorite")
-            return {"message": "Track marked as favorite", "track_id": track_id, "favorite": True}
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("set track favorite", e)
-
-    @router.delete("/api/library/tracks/{track_id}/favorite")
-    async def remove_track_favorite(track_id: int) -> dict[str, Any]:
-        """
-        Remove track from favorites.
-
-        Args:
-            track_id: Track ID
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If library manager/factory not available or operation fails
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            await asyncio.to_thread(repos.tracks.set_favorite, track_id, False)
-            logger.info(f"Track {track_id} removed from favorites")
-            return {"message": "Track removed from favorites", "track_id": track_id, "favorite": False}
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("remove track favorite", e)
-
-    @router.get("/api/library/tracks/{track_id}/lyrics")
-    async def get_track_lyrics(track_id: int) -> dict[str, Any]:
-        """
-        Get lyrics for a track.
-
-        Attempts to retrieve lyrics from database first, then extracts from file if needed.
-
-        Args:
-            track_id: Track ID
-
-        Returns:
-            dict: Lyrics text and format (lrc or plain), or None if not found
-
-        Raises:
-            HTTPException: If library manager/factory not available, track not found, or query fails
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
-            if not track:
-                raise NotFoundError("Track", track_id)
-
-            # If lyrics exist in database, return them
-            if track.lyrics:
-                return {
-                    "track_id": track_id,
-                    "lyrics": track.lyrics,
-                    "format": "lrc" if "[" in track.lyrics and "]" in track.lyrics else "plain"
-                }
-
-            # If no lyrics in database, try to extract from file
-            try:
-                import mutagen
-                audio_file = await asyncio.to_thread(mutagen.File, track.filepath)  # type: ignore[attr-defined]
-
-                lyrics_text = None
-
-                # Try different lyrics tags — order matters: MP4 must come first because
-                # mutagen.mp4.MP4Tags implements .get(), so it would incorrectly match the
-                # Vorbis branch and look up the wrong key 'LYRICS' instead of '©lyr'
-                # (fixes #2383: MP4/M4A lyrics branch was unreachable).
-                if audio_file:
-                    from mutagen.mp4 import MP4
-
-                    if isinstance(audio_file, MP4):
-                        # MP4/M4A: iTunes '©lyr' atom
-                        try:
-                            lyrics_text = audio_file.get('\xa9lyr', [None])[0]
-                        except Exception as _lyr_exc:
-                            logger.debug("Failed to read MP4 lyrics tag: %s", _lyr_exc)
-
-                    # ID3 tags (MP3)
-                    elif hasattr(audio_file, 'tags') and audio_file.tags:
-                        # USLT frame (Unsynchronized lyrics)
-                        if 'USLT::eng' in audio_file.tags:
-                            lyrics_text = str(audio_file.tags['USLT::eng'])
-                        elif 'USLT' in audio_file.tags:
-                            lyrics_text = str(audio_file.tags['USLT'])
-                        # Alternative text frame
-                        elif 'LYRICS' in audio_file.tags:
-                            lyrics_text = str(audio_file.tags['LYRICS'])
-
-                    # Vorbis comments (FLAC, OGG)
-                    elif hasattr(audio_file, 'get'):
-                        lyrics_text = audio_file.get('LYRICS', [None])[0] or audio_file.get('UNSYNCEDLYRICS', [None])[0]
-
-                if lyrics_text:
-                    # Save to database for future requests
-                    await asyncio.to_thread(repos.tracks.update, track_id, lyrics=lyrics_text)
-
-                    return {
-                        "track_id": track_id,
-                        "lyrics": lyrics_text,
-                        "format": "lrc" if "[" in lyrics_text and "]" in lyrics_text else "plain"
-                    }
-
-            except Exception as e:
-                logger.error(f"Failed to extract lyrics from file: {e}")
-
-            # No lyrics found
-            return {
-                "track_id": track_id,
-                "lyrics": None,
-                "format": None
-            }
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get track lyrics", e)
-
     @router.get("/api/library/artists")
     async def get_artists(
         limit: int = Query(50, ge=1, le=200),
         offset: int = Query(0, ge=0),
         search: str | None = None,
-        order_by: str = "name"
+        order_by: str = "name",
     ) -> dict[str, Any]:
-        """
-        Get paginated list of artists with optional search.
-
-        Query Parameters:
-            limit: Number of artists to return (default 50, max 200)
-            offset: Number of artists to skip (default 0)
-            search: Optional search query for artist name
-            order_by: Field to order by - "name", "album_count", or "track_count" (default "name")
-
-        Returns:
-            dict: Paginated artists with metadata
-            {
-                "artists": [...],
-                "total": 2000,
-                "limit": 50,
-                "offset": 0,
-                "has_more": true
-            }
-
-        Raises:
-            HTTPException: If library manager/factory not available or query fails
-        """
+        """Get paginated list of artists with optional search."""
         try:
             repos = require_repository_factory(get_repository_factory)
-
-            # Validate and limit pagination parameters
-            limit = min(max(limit, 1), 200)  # Between 1-200
-            offset = max(offset, 0)  # Non-negative
-
-            # Validate order_by
+            limit = min(max(limit, 1), 200)
+            offset = max(offset, 0)
             valid_order_by = ["name", "album_count", "track_count"]
             if order_by not in valid_order_by:
                 order_by = "name"
@@ -418,15 +102,13 @@ def create_library_router(
             else:
                 artists, total = await asyncio.to_thread(repos.artists.get_all, limit=limit, offset=offset, order_by=order_by)
 
-            # Calculate if there are more results
             has_more = (offset + len(artists)) < total
-
             return {
                 "artists": serialize_artists(artists),
                 "total": total,
                 "limit": limit,
                 "offset": offset,
-                "has_more": has_more
+                "has_more": has_more,
             }
         except HTTPException:
             raise
@@ -435,24 +117,12 @@ def create_library_router(
 
     @router.get("/api/library/artists/{artist_id}")
     async def get_artist(artist_id: int) -> dict[str, Any]:
-        """
-        Get artist details by ID with albums and tracks.
-
-        Args:
-            artist_id: Artist ID
-
-        Returns:
-            dict: Artist data with albums and tracks
-
-        Raises:
-            HTTPException: If library manager/factory not available or artist not found
-        """
+        """Get artist details by ID with albums and tracks."""
         try:
             repos = require_repository_factory(get_repository_factory)
             artist = await asyncio.to_thread(repos.artists.get_by_id, artist_id)
             if not artist:
                 raise NotFoundError("Artist", artist_id)
-
             return serialize_artist(artist)
         except HTTPException:
             raise
@@ -463,369 +133,17 @@ def create_library_router(
 
     @router.get("/api/library/albums/{album_id}")
     async def get_album(album_id: int) -> dict[str, Any]:
-        """
-        Get album details by ID with tracks.
-
-        Args:
-            album_id: Album ID
-
-        Returns:
-            dict: Album data with tracks
-
-        Raises:
-            HTTPException: If library manager/factory not available or album not found
-        """
+        """Get album details by ID with tracks."""
         try:
             repos = require_repository_factory(get_repository_factory)
             album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
             if not album:
                 raise NotFoundError("Album", album_id)
-
             return serialize_album(album)
         except HTTPException:
             raise
         except Exception as e:
             raise handle_query_error("get album", e)
-
-    @router.post("/api/library/scan")
-    async def scan_library(request: LibraryScanRequest) -> dict[str, Any]:
-        """
-        Scan directories for audio files and add them to the library.
-
-        This endpoint scans the specified directories for audio files and imports them
-        into the library. Progress updates are sent via WebSocket (see WEBSOCKET_API.md).
-
-        Args:
-            request: Scan request containing:
-                - directories: List of directory paths to scan
-                - recursive: Whether to scan subdirectories (default: True)
-                - skip_existing: Skip files already in library (default: True)
-
-        Returns:
-            dict: Scan result with statistics:
-                - files_found: Number of audio files discovered
-                - files_added: Number of new files added to library
-                - files_skipped: Number of existing files skipped
-                - files_failed: Number of files that failed to import
-                - scan_time: Total scan duration in seconds
-
-        Raises:
-            HTTPException: If library manager not available or scan fails
-        """
-        try:
-            from auralis.library.scanner import LibraryScanner
-
-            if not get_library_manager:
-                raise HTTPException(status_code=503, detail="Library manager not available")
-
-            library_manager = get_library_manager()
-
-            scanner = LibraryScanner(library_manager)
-
-            # Broadcast scan started so frontend shows status immediately (#2711)
-            if connection_manager:
-                await connection_manager.broadcast({
-                    "type": "library_scan_started",
-                    "data": {"directories": request.directories}
-                })
-
-            # Set up progress callback that bridges sync scanner → async broadcast.
-            # asyncio.to_thread runs the scanner in a worker thread, so we use
-            # loop.call_soon_threadsafe to schedule the async broadcast safely.
-            if connection_manager:
-                loop = asyncio.get_running_loop()
-
-                def _progress_callback(progress_data: dict[str, Any]) -> None:
-                    # Guard against malformed progress_data (e.g. non-dict emitted
-                    # by a scanner bug) so a future exception is logged rather than
-                    # silently swallowed by run_coroutine_threadsafe (fixes #3864).
-                    try:
-                        total = progress_data.get('total_found', 0) or progress_data.get('processed', 0)
-                        processed = progress_data.get('processed', 0)
-                        progress_frac = progress_data.get('progress', 0)
-                        percentage = round(progress_frac * 100) if progress_frac else (
-                            round(processed / total * 100) if total > 0 else 0
-                        )
-                        stage = progress_data.get('stage', 'processing')
-                        asyncio.run_coroutine_threadsafe(
-                            connection_manager.broadcast({
-                                "type": "scan_progress",
-                                "data": {
-                                    "current": processed,
-                                    "total": total,
-                                    "percentage": percentage if stage != 'discovering' else None,
-                                    "current_file": progress_data.get('current_file') or progress_data.get('file'),
-                                    "phase": stage,
-                                }
-                            }),
-                            loop,
-                        )
-                    except Exception:
-                        logger.warning(
-                            "scan_library progress callback failed — malformed progress_data",
-                            exc_info=True,
-                        )
-
-                scanner.set_progress_callback(_progress_callback)
-
-            scan_timeout = float(os.environ.get("AURALIS_SCAN_TIMEOUT", "3600"))
-            # #3710: capture the to_thread future so we can signal the scanner
-            # to stop on cancellation/timeout. asyncio.wait_for cancels the
-            # awaitable but cannot terminate the underlying thread; without
-            # signalling should_stop, the scan continues consuming I/O and
-            # releases its slot early (races with the next scan).
-            scan_future = asyncio.ensure_future(asyncio.to_thread(
-                scanner.scan_directories,
-                directories=request.directories,
-                recursive=request.recursive,
-                skip_existing=request.skip_existing,
-                check_modifications=True,
-            ))
-            try:
-                result = await asyncio.wait_for(
-                    asyncio.shield(scan_future), timeout=scan_timeout
-                )
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                scanner.stop_scan()
-                # Give the scanner a short window to honour should_stop and
-                # release its slot/database session before this handler exits.
-                try:
-                    await asyncio.wait_for(asyncio.shield(scan_future), timeout=5.0)
-                except (asyncio.TimeoutError, asyncio.CancelledError):
-                    logger.warning(
-                        "Scanner thread did not exit within 5s of stop_scan(); "
-                        "thread will continue in background until next checkpoint."
-                    )
-                raise
-
-            # Rejected scan (e.g., already in progress) — return 409 instead of
-            # broadcasting scan_complete with zero counts (#2870).
-            if result.rejected:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Scan already in progress"
-                )
-
-            # Enqueue newly added tracks for background fingerprinting (#2382).
-            # Done here in the async context — asyncio.create_task() inside the
-            # scanner thread raised RuntimeError: no running event loop.
-            if result.added_tracks:
-                try:
-                    from analysis.fingerprint_queue import get_fingerprint_queue
-                    fp_queue = get_fingerprint_queue()
-                    if fp_queue:
-                        enqueued = sum(1 for t in result.added_tracks if fp_queue.enqueue(t.id))
-                        if enqueued:
-                            logger.info(f"Enqueued {enqueued} tracks for fingerprinting after scan")
-                except Exception as fp_err:
-                    logger.warning(f"Fingerprint enqueue failed after scan: {fp_err}")
-
-            # Broadcast final scan result to all clients. Field shape is the
-            # canonical superset that matches the frontend ScanCompleteMessage
-            # type (files_processed / files_added / duration) plus the extras
-            # the manual-scan path captures. Auto-scanner emits the same
-            # shape (services/library_auto_scanner.py:268-279). Fixes #3502 —
-            # the prior `scan_time` field was unread by the frontend; toast
-            # showed "Scan complete — undefined seconds" after a manual scan.
-            if connection_manager:
-                await connection_manager.broadcast({
-                    "type": "scan_complete",
-                    "data": {
-                        "files_processed": result.files_processed or result.files_found,
-                        "files_added": result.files_added,
-                        "files_updated": result.files_updated,
-                        "files_skipped": result.files_skipped,
-                        "files_failed": result.files_failed,
-                        "duration": result.scan_time,
-                        "directories_scanned": result.directories_scanned,
-                    }
-                })
-
-                # Notify frontend to refresh library views when content changed (#2871)
-                if result.files_added or result.files_updated:
-                    await connection_manager.broadcast({
-                        "type": "library_updated",
-                        # Frontend LibraryUpdatedMessage type expects
-                        # `action` plus optional counts (#3544 /
-                        # BE-NEW-86). `reason` is kept for backward
-                        # compatibility with anything that already reads
-                        # it; new consumers should use `action`.
-                        "data": {
-                            "action": "scan",
-                            "reason": "scan",
-                            "track_count": result.files_added,
-                        },
-                    })
-
-            return {
-                "files_found": result.files_found,
-                "files_added": result.files_added,
-                "files_updated": result.files_updated,
-                "files_skipped": result.files_skipped,
-                "files_failed": result.files_failed,
-                "scan_time": result.scan_time,
-                "directories_scanned": result.directories_scanned
-            }
-
-        except asyncio.TimeoutError:
-            raise HTTPException(
-                status_code=504,
-                detail=f"Library scan timed out after {scan_timeout}s"
-            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("scan library", e)
-
-    @router.get("/api/library/fingerprints/status")
-    async def get_fingerprinting_status() -> dict[str, Any]:
-        """
-        Get fingerprinting progress for library.
-
-        Returns:
-            dict: Fingerprinting status with:
-                - total_tracks: Total number of tracks in library
-                - fingerprinted_tracks: Number of tracks with fingerprints
-                - pending_tracks: Number of tracks waiting for fingerprinting
-                - progress_percent: Percentage of fingerprinting complete
-                - status: Current status message
-        """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-
-            # Get fingerprint statistics from repository
-            stats = await asyncio.to_thread(repos.fingerprints.get_fingerprint_stats)
-
-            total_tracks = stats['total']
-            fingerprinted_count = stats['fingerprinted']
-            pending_count = stats['pending']
-            progress_percent = stats['progress_percent']
-
-            # Determine status message
-            if total_tracks == 0:
-                status = "No tracks in library"
-            elif fingerprinted_count == total_tracks:
-                status = "✅ All tracks fingerprinted"
-            elif fingerprinted_count == 0:
-                status = "⏳ Waiting to start fingerprinting..."
-            else:
-                status = f"🔄 Fingerprinting in progress ({fingerprinted_count}/{total_tracks})"
-
-            return {
-                "total_tracks": total_tracks,
-                "fingerprinted_tracks": fingerprinted_count,
-                "pending_tracks": pending_count,
-                "progress_percent": progress_percent,
-                "status": status,
-                "estimated_remaining_seconds": int(pending_count * 30) if pending_count > 0 else 0  # Rough estimate: 30s per track
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get fingerprinting status", e)
-
-    @router.get("/api/tracks/{track_id}/fingerprint")
-    async def get_track_fingerprint(track_id: int) -> dict[str, Any]:
-        """
-        Get fingerprint for a specific track.
-
-        Returns the 25D audio fingerprint for the track if available.
-        Used by the Album Character Pane to show playing track's sonic character.
-
-        Args:
-            track_id: Track ID
-
-        Returns:
-            dict: Track fingerprint with all 25 dimensions
-
-        Raises:
-            HTTPException: If track not found or fingerprint not available
-        """
-        try:
-            logger.info(f"🔍 GET /api/tracks/{track_id}/fingerprint - looking up fingerprint")
-            repos = require_repository_factory(get_repository_factory)
-
-            # Verify track exists
-            track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
-            if not track:
-                logger.warning(f"❌ Track {track_id} not found in database")
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Track {track_id} not found"
-                )
-
-            logger.info(f"✓ Track found: {track.title} by {track.artists}")
-
-            # Get fingerprint
-            fp = await asyncio.to_thread(repos.fingerprints.get_by_track_id, track_id)
-            logger.info(f"🔍 Fingerprint lookup result: {'FOUND' if fp else 'NOT FOUND'}")
-            if not fp:
-                # Enqueue for background processing if not available
-                try:
-                    from analysis.fingerprint_queue import get_fingerprint_queue
-                    queue = get_fingerprint_queue()
-                    if queue:
-                        queue.enqueue(track_id)
-                        logger.info(f"📋 Track {track_id} queued for background fingerprinting")
-                except Exception as q_err:
-                    logger.debug(f"Could not enqueue track {track_id}: {q_err}")
-
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Fingerprint not available for track {track_id}. Queued for generation."
-                )
-
-            # Fingerprint found - return it
-            logger.info(f"✅ Returning fingerprint for track {track_id}: LUFS={fp.lufs:.1f}, tempo={fp.tempo_bpm:.1f}")
-            return {
-                "track_id": track_id,
-                "track_title": track.title,
-                "artist": ", ".join(a.name for a in track.artists) if track.artists else "Unknown Artist",
-                "album": track.album.title if track.album else "Unknown Album",
-                # Attribute names corrected to match TrackFingerprint model (fixes #2260).
-                # Model columns use _pct suffix for frequency bands and have different
-                # names for several attributes that the old code accessed incorrectly.
-                "fingerprint": {
-                    # 7D Frequency distribution (model columns: *_pct)
-                    "sub_bass": fp.sub_bass_pct,
-                    "bass": fp.bass_pct,
-                    "low_mid": fp.low_mid_pct,
-                    "mid": fp.mid_pct,
-                    "upper_mid": fp.upper_mid_pct,
-                    "presence": fp.presence_pct,
-                    "air": fp.air_pct,
-                    # 3D Loudness/dynamics
-                    "lufs": fp.lufs,
-                    "crest_db": fp.crest_db,
-                    "bass_mid_ratio": fp.bass_mid_ratio,
-                    # 4D Temporal
-                    "tempo_bpm": fp.tempo_bpm,
-                    "rhythm_stability": fp.rhythm_stability,
-                    "transient_density": fp.transient_density,
-                    "silence_ratio": fp.silence_ratio,
-                    # 3D Spectral shape
-                    "spectral_centroid": fp.spectral_centroid,
-                    "spectral_rolloff": fp.spectral_rolloff,
-                    "spectral_flatness": fp.spectral_flatness,
-                    # Harmonic content (model has harmonic_ratio, pitch_stability, chroma_energy)
-                    "harmonic_ratio": fp.harmonic_ratio,
-                    "pitch_confidence": fp.pitch_stability,           # model: pitch_stability
-                    "chroma_energy_mean": fp.chroma_energy,           # model: chroma_energy
-                    # 3D Dynamics variation
-                    "dynamic_range_variation": fp.dynamic_range_variation,
-                    "loudness_variation_std": fp.loudness_variation_std,
-                    "peak_consistency": fp.peak_consistency,
-                    # 2D Stereo characteristics (model: phase_correlation, not stereo_correlation)
-                    "stereo_width": fp.stereo_width,
-                    "stereo_correlation": fp.phase_correlation,       # model: phase_correlation
-                }
-            }
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error getting track fingerprint: {e}", exc_info=True)
-            raise handle_query_error("get track fingerprint", e)
 
     @router.post("/api/library/reset")
     async def reset_library(
@@ -835,8 +153,7 @@ def create_library_router(
             description="Must be 'RESET' to confirm the destructive operation",
         ),
     ) -> dict[str, Any]:
-        """
-        Reset the entire library — deletes all tracks, albums, artists, genres,
+        """Reset the entire library — deletes all tracks, albums, artists, genres,
         fingerprints, playlists, queue state, and play statistics.
 
         Requires the ``X-Confirm-Reset: RESET`` header as a safety guard
@@ -893,7 +210,6 @@ def create_library_router(
 
             await asyncio.to_thread(_reset_all)
 
-            # Restart background workers after reset completes
             if fprint_queue:
                 await fprint_queue.start()
 

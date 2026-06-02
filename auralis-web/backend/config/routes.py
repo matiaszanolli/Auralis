@@ -20,6 +20,9 @@ from routers.cache_streamlined import create_streamlined_cache_router
 from routers.enhancement import create_enhancement_router
 from routers.files import create_files_router
 from routers.library import create_library_router
+from routers.tracks import create_tracks_router
+from routers.library_scan import create_library_scan_router
+from routers.fingerprint_status import create_fingerprint_status_router
 from routers.metadata import create_metadata_router
 from routers.player import create_player_router
 from routers.playlists import create_playlists_router
@@ -146,14 +149,34 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     app.include_router(playlists_router)
     logger.debug("✅ Playlists router registered (Phase 2 RepositoryFactory enabled)")
 
-    # Create and include library router (with Phase 6B RepositoryFactory refactoring)
+    # Create and include library router (stats, browse, reset — Phase 6B)
     library_router: APIRouter = create_library_router(
         get_repository_factory=get_component('repository_factory'),
-        get_library_manager=get_component('library_manager'),
-        connection_manager=manager
     )
     app.include_router(library_router)
-    logger.debug("✅ Library router registered (Phase 2 RepositoryFactory enabled)")
+    logger.debug("✅ Library router registered (stats/browse/reset)")
+
+    # Track-domain routes (listing, favorites, lyrics)
+    tracks_router: APIRouter = create_tracks_router(
+        get_repository_factory=get_component('repository_factory'),
+    )
+    app.include_router(tracks_router)
+    logger.debug("✅ Tracks router registered")
+
+    # Scan route with async progress broadcast
+    library_scan_router: APIRouter = create_library_scan_router(
+        get_library_manager=get_component('library_manager'),
+        connection_manager=manager,
+    )
+    app.include_router(library_scan_router)
+    logger.debug("✅ Library scan router registered")
+
+    # Fingerprint status routes
+    fingerprint_status_router: APIRouter = create_fingerprint_status_router(
+        get_repository_factory=get_component('repository_factory'),
+    )
+    app.include_router(fingerprint_status_router)
+    logger.debug("✅ Fingerprint status router registered")
 
     # Create and include metadata router (with Phase 6B RepositoryFactory refactoring)
     metadata_router: APIRouter = create_metadata_router(
