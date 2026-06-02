@@ -93,8 +93,13 @@ class MasteringFingerprint:
             MasteringFingerprint instance, or None if extraction fails
         """
         try:
-            # Load audio
-            y, sr_loaded = librosa.load(file_path, sr=sr, mono=False)
+            # Load audio — cap at 90 s to bound peak memory (#4116). All six
+            # mastering features stabilize well within 90 s, and an uncapped
+            # decode of a multi-hour file (DJ mix, audiobook) OOM-kills the
+            # desktop process. Matches the cap used by every other fingerprint
+            # path (FingerprintService._compute_fingerprint). analyze_album()
+            # delegates here, so it is bounded by the same cap.
+            y, sr_loaded = librosa.load(file_path, sr=sr, mono=False, duration=90.0)
 
             # Convert to mono if stereo
             if len(y.shape) == 1:
