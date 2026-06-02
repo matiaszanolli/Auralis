@@ -41,6 +41,25 @@ def check_ffmpeg() -> bool:
         return False
 
 
+@functools.lru_cache(maxsize=1)
+def check_ffprobe() -> bool:
+    """Check if the ffprobe binary is available.
+
+    ffprobe is a separate binary from ffmpeg (#4119): an environment may have
+    ffmpeg but not ffprobe. Memoized for the process lifetime like
+    ``check_ffmpeg`` (#4117); call ``check_ffprobe.cache_clear()`` to re-probe.
+    """
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-version'],
+            capture_output=True,
+            timeout=10
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
 def _probe_audio(file_path: Path) -> dict:
     """
     Probe audio file with ffprobe.
@@ -90,6 +109,11 @@ def _probe_audio(file_path: Path) -> dict:
                     result_dict['channels'] = int(ch)
                 break
 
+    # #4119: catch FileNotFoundError (ffprobe binary absent) so it does not
+    # escape and get mislabeled ERROR_FFMPEG_CONVERSION by the caller; degrade
+    # to the empty result_dict (load_with_ffmpeg also guards via check_ffprobe).
+    except FileNotFoundError:
+        warning("ffprobe binary not found; skipping probe (install ffprobe for accurate metadata)")
     # #3697: removed the trailing `, Exception` from the catch tuple so
     # programming errors propagate naturally instead of being swallowed
     # as `Code.ERROR_CORRUPTED` for every load.
@@ -105,6 +129,12 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
     # Check if FFmpeg is available
     if not check_ffmpeg():
         raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFmpeg required for {file_path.suffix}")
+
+    # ffprobe is a separate binary used by _probe_audio below; guard it here so
+    # its absence surfaces as ERROR_FFMPEG_NOT_FOUND rather than being
+    # mislabeled ERROR_FFMPEG_CONVERSION further down (#4119).
+    if not check_ffprobe():
+        raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: ffprobe required for {file_path.suffix}")
 
     # Ensure the input path is a regular file and not a URL/protocol
     file_path = Path(file_path)
