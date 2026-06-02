@@ -269,12 +269,21 @@ class IntegrationManager:
                 'current_file': self.file_manager.current_file,
                 'is_playing': is_playing,
             }
+            # #4102: snapshot current_track inside the SAME _position_lock block
+            # that took position/current_file, so the returned `playback` and
+            # `library.current_track` always describe one track. The write side
+            # is locked under _position_lock (#3786); reading it after the lock
+            # released could pair the new track's position with the old track's
+            # metadata for one WebSocket poll during a gapless/seek transition.
+            current_track_snapshot = (
+                self.current_track.to_dict() if self.current_track else None
+            )
 
         return {
             'playback': playback_info,
             'queue': queue_info,
             'library': {
-                'current_track': self.current_track.to_dict() if self.current_track else None,
+                'current_track': current_track_snapshot,
                 'auto_reference_selection': self.auto_reference_selection,
             },
             'processing': self.processor.get_processing_info(),
