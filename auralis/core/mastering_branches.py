@@ -103,6 +103,52 @@ class ProcessingBranch(ABC):
 
     Each branch handles one type of audio material with appropriate
     processing tailored to its characteristics.
+
+    Canonical stage order & gain-staging contract (#4103)
+    -----------------------------------------------------
+    All branches are dispatched from ``SimpleMasteringPipeline._process()``
+    (simple_mastering.py) AFTER a shared pre-stage (loudness target derivation +
+    optional initial peak reduction). Each ``apply()`` runs a FIXED stage order;
+    the orders intentionally differ by material type:
+
+    * **CompressedLoudBranch** (LUFS > -12, crest < 13 dB — modern/squashed):
+      resonance-notches → RMS-reduction expansion (skipped if hyper-compressed)
+      → stereo-expansion → pre-EQ headroom attenuation → harmonic-exciter →
+      clarity-boost → presence → air → safety-limiter.
+      Restores some lost dynamics via expansion before spectral work.
+
+    * **DynamicLoudBranch** (LUFS > -12, crest >= 13 dB — well-mastered):
+      resonance-notches → stereo-expansion → pre-EQ headroom → harmonic-exciter
+      → clarity-boost → presence (gentle) → air (gentle) → safety-limiter.
+      No expansion and reduced spectral intensity — preserve existing dynamics.
+
+    * **QuietBranch** (LUFS <= -12 — needs makeup gain):
+      resonance-notches → adaptive makeup-gain → bass-enhancement →
+      sub-bass-control → transient-shaper → mid-warmth → harmonic-exciter →
+      clarity-boost → presence → air → multi-dimension-aware soft-clip →
+      stereo-expansion → branch-local final ``normalize``.
+
+    Gain-staging / ``needs_output_normalize`` contract — each ``apply()`` returns
+    an ``info`` dict whose ``needs_output_normalize`` flag tells the pipeline's
+    unified STAGE 3 (simple_mastering.py, ``output_target = 0.95``) whether to
+    run a final loudness/peak normalization:
+
+    * Loud branches set ``needs_output_normalize=True`` (defer): they deliberately
+      attenuate for pre-EQ headroom and may RMS-expand, so the single unified
+      normalize compensates and brings the result to the ceiling.
+    * QuietBranch sets ``needs_output_normalize=False`` (self-normalize): it boosts
+      with makeup gain up front, ends with soft-clip + its own ``normalize`` to an
+      adapted peak, and opts out of the unified stage to avoid double-normalizing.
+      This is the mirror-opposite gain-staging of the loud branches and is
+      intentional, not an inconsistency.
+
+    Divergence from the ``HybridProcessor`` flow: HybridProcessor's adaptive /
+    continuous modes use one canonical EQ → dynamics → stereo → final LUFS/peak
+    normalization path with a single output-normalize step. These SimpleMastering
+    branches instead interleave spectral and dynamics stages per material type and
+    split the normalization contract (loud defers to the unified stage; quiet
+    self-normalizes). Keep the per-branch order and the True/False contract in
+    sync with this docstring when editing.
     """
 
     def __init__(self, pipeline: 'SimpleMasteringPipeline'):
@@ -157,6 +203,10 @@ class CompressedLoudBranch(ProcessingBranch):
     4. Presence + air enhancements (moderate intensity)
     5. Safety limiter
     6. Mark for output normalization
+
+    Defers final loudness/peak normalization to the unified pipeline stage
+    (``needs_output_normalize=True``). See ``ProcessingBranch`` for the full
+    canonical stage order and the gain-staging contract (#4103).
     """
 
     def apply(
@@ -273,6 +323,10 @@ class DynamicLoudBranch(ProcessingBranch):
     4. Gentle presence + air enhancements (reduced intensity)
     5. Safety limiter
     6. Mark for output normalization
+
+    Defers final loudness/peak normalization to the unified pipeline stage
+    (``needs_output_normalize=True``). See ``ProcessingBranch`` for the full
+    canonical stage order and the gain-staging contract (#4103).
     """
 
     def apply(
@@ -370,6 +424,12 @@ class QuietBranch(ProcessingBranch):
     7. Adaptive soft clipping (multi-dimensional awareness)
     8. Stereo width expansion
     9. Peak normalize to target LUFS
+
+    Self-normalizes (soft-clip then branch-local ``normalize``) and opts OUT of
+    the unified pipeline normalization (``needs_output_normalize=False``) to
+    avoid double-normalizing — the mirror-opposite of the loud branches. See
+    ``ProcessingBranch`` for the full canonical stage order and the gain-staging
+    contract (#4103).
     """
 
     def apply(
