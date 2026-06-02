@@ -8,6 +8,7 @@ Audio loading using FFmpeg for MP3/M4A/AAC/OGG/WMA
 :license: GPLv3, see LICENSE for more details.
 """
 
+import functools
 import os
 import subprocess
 import tempfile
@@ -19,8 +20,16 @@ from ...utils.logging import Code, ModuleError, debug, warning
 from .soundfile_loader import load_with_soundfile
 
 
+@functools.lru_cache(maxsize=1)
 def check_ffmpeg() -> bool:
-    """Check if FFmpeg is available"""
+    """Check if FFmpeg is available.
+
+    Memoized for the process lifetime (#4117): FFmpeg availability does not
+    change within a run, so probing once avoids forking an `ffmpeg -version`
+    subprocess on every FFmpeg-routed file load (one redundant probe per file
+    during bulk scans). Call ``check_ffmpeg.cache_clear()`` to force a re-probe
+    (e.g. in tests that toggle availability).
+    """
     try:
         result = subprocess.run(
             ['ffmpeg', '-version'],
