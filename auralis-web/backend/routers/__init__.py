@@ -18,7 +18,10 @@ from .playlists import create_playlists_router
 # Completed routers
 from .system import create_system_router
 
+from .health import create_health_router
+
 __all__ = [
+    'create_health_router',
     'create_system_router',
     'create_files_router',
     'create_enhancement_router',

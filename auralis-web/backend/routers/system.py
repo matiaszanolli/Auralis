@@ -1,7 +1,9 @@
 """
-System Router - Health, Version, WebSocket
+System Router - WebSocket
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Infrastructure endpoints for system monitoring and real-time communication.
+WebSocket endpoint for real-time communication.
+Health and version endpoints have been moved to routers/health.py.
 """
 
 import asyncio
@@ -15,7 +17,6 @@ from core.audio_stream_controller import AudioStreamController, ws_id as _ws_id
 from core.processing_engine import _safe_error_message
 from helpers import spawn_background_task
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from schemas import HealthResponse, VersionInfoResponse
 from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import (
     WebSocketRateLimiter,
@@ -46,6 +47,239 @@ _rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
 
 router = APIRouter(tags=["system"])
 
+# ============================================================================
+# Streaming task coroutines — module-level so they are independently testable.
+# The per-message locals (track_id, preset, …) are snapshotted as keyword-only
+# default args so each task owns immutable copies: a later receive-loop message
+# reassigning those names cannot leak into an in-flight task's except/finally
+# paths and misattribute an error to the wrong track (#3829).
+# ============================================================================
+
+async def stream_audio(
+    websocket: WebSocket,
+    get_repository_factory: Callable[..., Any] | None,
+    get_enhancement_settings: Callable[[], dict[str, Any]] | None,
+    get_cache_manager: Callable[[], Any] | None,
+    *,
+    track_id: int = 0,
+    preset: str = "adaptive",
+    intensity: float = 1.0,
+    force: bool = False,
+    start_position: float = 0.0,
+    ws_id: str = "",
+) -> None:
+    """Stream enhanced audio for a play_enhanced request."""
+    # Capture task identity to prevent orphaned task race (fixes #2164)
+    my_task = asyncio.current_task()
+    try:
+        from core.chunked_processor import ChunkedAudioProcessor
+
+        controller = AudioStreamController(
+            chunked_processor_class=ChunkedAudioProcessor,
+            get_repository_factory=get_repository_factory,
+            # When the client forced enhanced playback (#3773),
+            # bypass the mid-stream "enhancement disabled" gate
+            # (#2866) too — otherwise a stored enabled=false would
+            # stop the forced stream on its first chunk.
+            get_enhancement_enabled=(
+                (lambda: get_enhancement_settings().get("enabled", True))
+                if (get_enhancement_settings is not None and not force)
+                else None
+            ),
+            # Reuse the process-wide chunk cache so scrub/replay
+            # hits cache instead of rebuilding DSP from scratch
+            # (fixes #3855 — per-stream SimpleChunkCache prevented
+            # cross-request sharing).
+            cache_manager=get_cache_manager() if get_cache_manager else None,
+        )
+
+        if controller.fingerprint_generator:
+            logger.info("✅ FingerprintGenerator available - on-demand fingerprint generation enabled")
+        else:
+            logger.warning("⚠️  FingerprintGenerator not available - using database/cached fingerprints only")
+
+        if start_position > 0:
+            # Resume from position (WS reconnect, #3185)
+            await controller.stream_enhanced_audio_from_position(
+                track_id=track_id,
+                preset=preset,
+                intensity=intensity,
+                websocket=websocket,
+                start_position=start_position,
+            )
+        else:
+            await controller.stream_enhanced_audio(
+                track_id=track_id,
+                preset=preset,
+                intensity=intensity,
+                websocket=websocket,
+            )
+    except asyncio.CancelledError:
+        logger.info(f"Streaming task cancelled for track {track_id}")
+    except ImportError as e:
+        logger.error(f"ChunkedAudioProcessor not available: {e}")
+        try:
+            await websocket.send_text(
+                json.dumps({
+                    "type": "audio_stream_error",
+                    "data": {
+                        "track_id": track_id,
+                        "error": "Audio processing not available",
+                        "code": "PROCESSOR_UNAVAILABLE",
+                        "stream_type": "enhanced",
+                    }
+                })
+            )
+        except Exception:
+            pass  # WebSocket may be closed
+    except Exception as e:
+        logger.error(f"Error in streaming task: {e}", exc_info=True)
+        try:
+            await websocket.send_text(
+                json.dumps({
+                    "type": "audio_stream_error",
+                    "data": {
+                        "track_id": track_id,
+                        "error": _safe_error_message(e),
+                        "code": "STREAMING_ERROR",
+                        "stream_type": "enhanced",
+                    }
+                })
+            )
+        except Exception:
+            pass  # WebSocket may be closed
+    finally:
+        # Idempotent self-cleanup under lock (fixes #2425)
+        async with _active_streaming_tasks_lock:
+            if _active_streaming_tasks.get(ws_id) is my_task:
+                _active_streaming_tasks.pop(ws_id, None)
+                _active_streaming_track_ids.pop(ws_id, None)
+
+
+async def stream_normal(
+    websocket: WebSocket,
+    get_repository_factory: Callable[..., Any] | None,
+    get_cache_manager: Callable[[], Any] | None,
+    *,
+    track_id: int = 0,
+    start_position: float = 0.0,
+    ws_id: str = "",
+) -> None:
+    """Stream original (unprocessed) audio for a play_normal request."""
+    # Capture task identity to prevent orphaned task race (fixes #2164)
+    my_task = asyncio.current_task()
+    try:
+        controller = AudioStreamController(
+            chunked_processor_class=None,
+            get_repository_factory=get_repository_factory,
+            cache_manager=get_cache_manager() if get_cache_manager else None,
+        )
+        await controller.stream_normal_audio(
+            track_id=track_id,
+            websocket=websocket,
+            start_position=start_position,
+        )
+    except asyncio.CancelledError:
+        logger.info(f"Normal streaming task cancelled for track {track_id}")
+    except Exception as e:
+        logger.error(f"Error in normal streaming task: {e}", exc_info=True)
+        try:
+            await websocket.send_text(
+                json.dumps({
+                    "type": "audio_stream_error",
+                    "data": {
+                        "track_id": track_id,
+                        "error": _safe_error_message(e),
+                        "code": "STREAMING_ERROR",
+                        "stream_type": "normal",
+                    }
+                })
+            )
+        except Exception:
+            pass  # WebSocket may be closed
+    finally:
+        # Idempotent self-cleanup under lock (fixes #2425)
+        async with _active_streaming_tasks_lock:
+            if _active_streaming_tasks.get(ws_id) is my_task:
+                _active_streaming_tasks.pop(ws_id, None)
+                _active_streaming_track_ids.pop(ws_id, None)
+
+
+async def stream_from_position(
+    websocket: WebSocket,
+    get_repository_factory: Callable[..., Any] | None,
+    get_enhancement_settings: Callable[[], dict[str, Any]] | None,
+    get_cache_manager: Callable[[], Any] | None,
+    *,
+    track_id: int = 0,
+    preset: str = "adaptive",
+    intensity: float = 1.0,
+    position: float = 0.0,
+    enhancement_enabled: bool = True,
+    ws_id: str = "",
+) -> None:
+    """Stream audio from a seek position for a seek request."""
+    # Capture task identity to prevent orphaned task race (fixes #2164)
+    my_task = asyncio.current_task()
+    stream_type = "enhanced" if enhancement_enabled else "normal"
+    try:
+        from core.chunked_processor import ChunkedAudioProcessor
+
+        controller = AudioStreamController(
+            chunked_processor_class=ChunkedAudioProcessor,
+            get_repository_factory=get_repository_factory,
+            get_enhancement_enabled=(
+                (lambda: get_enhancement_settings().get("enabled", True))
+                if get_enhancement_settings is not None
+                else None
+            ),
+            cache_manager=get_cache_manager() if get_cache_manager else None,
+        )
+
+        if enhancement_enabled:
+            await controller.stream_enhanced_audio_from_position(
+                track_id=track_id,
+                preset=preset,
+                intensity=intensity,
+                websocket=websocket,
+                start_position=position,
+            )
+        else:
+            # Route to normal streaming with seek offset (#3187)
+            await controller.stream_normal_audio(
+                track_id=track_id,
+                websocket=websocket,
+                start_position=position,
+            )
+    except asyncio.CancelledError:
+        logger.info(f"Seek streaming task cancelled for track {track_id}")
+    except Exception as e:
+        logger.error(f"Error in seek streaming task: {e}", exc_info=True)
+        try:
+            await websocket.send_text(
+                json.dumps({
+                    "type": "audio_stream_error",
+                    "data": {
+                        "track_id": track_id,
+                        "error": _safe_error_message(e),
+                        "code": "SEEK_ERROR",
+                        "stream_type": stream_type,
+                    }
+                })
+            )
+        except Exception:
+            pass
+    finally:
+        # Idempotent self-cleanup under lock (fixes #2425)
+        async with _active_streaming_tasks_lock:
+            if _active_streaming_tasks.get(ws_id) is my_task:
+                _active_streaming_tasks.pop(ws_id, None)
+                _active_streaming_track_ids.pop(ws_id, None)
+
+
+# ============================================================================
+# Router factory
+# ============================================================================
 
 def create_system_router(
     manager: Any,
@@ -56,83 +290,21 @@ def create_system_router(
     get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
     get_cache_manager: Callable[[], Any] | None = None,
 ) -> APIRouter:
+    """Create system router (WebSocket endpoint only).
+
+    Health and version routes are registered separately via create_health_router().
     """
-    Create system router with dependencies.
-
-    Args:
-        manager: WebSocket ConnectionManager instance
-        get_processing_engine: Callable that returns ProcessingEngine instance
-        HAS_AURALIS: Boolean indicating if Auralis is available
-        get_repository_factory: Optional callable that returns RepositoryFactory instance
-        get_state_manager: Callable that returns PlayerStateManager instance
-        get_enhancement_settings: Optional callable that returns enhancement settings dict
-        get_cache_manager: Optional callable that returns the process-wide
-            StreamlinedCacheManager so AudioStreamController reuses the shared
-            chunk cache across requests instead of creating a fresh
-            SimpleChunkCache per stream (fixes #3855).
-
-    Note: `get_player_manager` was a dead parameter (declared, documented,
-    never passed, never read) and is removed in #3536 / BE-NEW-78.
-    """
-
-    @router.get("/api/health", response_model=HealthResponse)
-    async def health_check() -> HealthResponse:
-        """Health check endpoint"""
-        return HealthResponse(status="healthy", auralis_available=HAS_AURALIS)
-
-    @router.get("/api/version", response_model=VersionInfoResponse)
-    async def get_version() -> VersionInfoResponse:
-        """
-        Get version information.
-
-        Returns detailed version info including:
-        - version: Full semantic version
-        - major, minor, patch: Version components
-        - prerelease: Pre-release identifier (e.g., "beta.1")
-        - build_date: Build date
-        - api_version: API version for compatibility
-        - db_schema_version: Database schema version
-        - display: User-friendly version string
-        """
-        try:
-            from auralis.version import get_version_info
-            return VersionInfoResponse(**get_version_info())
-        except ImportError:
-            logger.warning("auralis.version not available, using fallback")
-            # Fallback when auralis.version cannot be imported (broken install, path issue).
-            # Keep in sync with auralis/version.py — the single source of truth (fixes #2335).
-            return VersionInfoResponse(
-                version="1.2.1-beta.1",
-                major=1,
-                minor=2,
-                patch=1,
-                prerelease="beta.1",
-                build="",
-                build_date="2026-02-20",
-                git_commit="",
-                api_version="v1",
-                db_schema_version=3,
-                display="Auralis v1.2.1-beta.1",
-            )
 
     @router.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:
-        """
-        WebSocket endpoint for real-time communication.
+        """WebSocket endpoint for real-time communication.
 
-        Handles:
-        - Ping/pong heartbeat
-        - Processing settings updates
-        - A/B comparison track loading
-        - Job progress subscriptions
+        Handles heartbeat, enhancement settings sync, player state sync,
+        and streaming commands (play_enhanced, play_normal, seek, stop, pause/resume).
         """
         # Origin check is delegated entirely to ConnectionManager.connect
-        # (config/globals.py) — see #3524 / BE-NEW-66. The old prefix-based
-        # pre-check here disagreed with the strict allowlist in
-        # ConnectionManager (e.g. `file://` was accepted here then rejected
-        # there with code 1008, causing noisy double-close logs). Single
-        # authoritative origin policy now lives in config/globals.py.
-
+        # (config/globals.py) — see #3524 / BE-NEW-66. Single authoritative
+        # origin policy lives in config/globals.py.
         await manager.connect(websocket)
         connection_id = _ws_id(websocket)
         heartbeat = HeartbeatManager(interval_seconds=30, timeout_seconds=10)
@@ -155,7 +327,7 @@ def create_system_router(
 
         # Immediately send current enhancement settings so a reconnecting
         # frontend syncs its Redux store without waiting for the next broadcast
-        # (fixes #2507). Ignore errors — connection may have been rejected above.
+        # (fixes #2507).
         if get_enhancement_settings is not None:
             try:
                 _settings = get_enhancement_settings()
@@ -189,7 +361,6 @@ def create_system_router(
 
         try:
             while True:
-                # Wait for messages from client.
                 # Named raw_data to avoid shadowing the inner payload dicts
                 # extracted per-message below (fixes #2312).
                 raw_data = await websocket.receive_text()
@@ -204,88 +375,51 @@ def create_system_router(
                 # Security: Validate message size and structure (fixes #2156)
                 message, error = await validate_and_parse_message(raw_data, websocket)
                 if error or not message:
-                    # Error already sent to client by validate_and_parse_message
                     continue
 
-                # Handle different message types
-                if message.get("type") == "ping":
+                msg_type = message.get("type")
+
+                if msg_type == "ping":
                     await websocket.send_text(json.dumps({"type": "pong"}))
 
-                elif message.get("type") == "pong":
+                elif msg_type == "pong":
                     heartbeat.mark_pong(connection_id)
 
-                elif message.get("type") == "heartbeat":
-                    # Keepalive sent by RealTimeAnalysisStream every 30s — no response needed.
-                    # Use mark_alive (not mark_pong) so an outstanding ping is not masked:
-                    # mark_pong clears pending_pongs which would delay dead-socket detection
-                    # until the next ping cycle (fixes #3866 / BE-WS-5).
+                elif msg_type == "heartbeat":
+                    # Keepalive from RealTimeAnalysisStream — use mark_alive (not
+                    # mark_pong) so an outstanding ping is not masked (#3866 / BE-WS-5).
                     heartbeat.mark_alive(connection_id)
 
-                elif message.get("type") == "processing_settings_update":
-                    # Handle processing settings updates
+                elif msg_type == "processing_settings_update":
                     settings = message.get("data", {})
                     logger.info(f"Processing settings updated: {settings}")
+                    await manager.broadcast({"type": "processing_settings_applied", "data": settings})
 
-                    # Broadcast to all connected clients
-                    await manager.broadcast({
-                        "type": "processing_settings_applied",
-                        "data": settings
-                    })
-
-                elif message.get("type") == "ab_track_loaded":
-                    # Handle A/B comparison track loading
+                elif msg_type == "ab_track_loaded":
                     track_data = message.get("data", {})
                     logger.info(f"A/B track loaded: {track_data}")
+                    await manager.broadcast({"type": "ab_track_ready", "data": track_data})
 
-                    # Broadcast to all connected clients
-                    await manager.broadcast({
-                        "type": "ab_track_ready",
-                        "data": track_data
-                    })
-
-                elif message.get("type") == "play_enhanced":
-                    # Handle enhanced audio playback request via WebSocket streaming
+                elif msg_type == "play_enhanced":
                     data = message.get("data", {})
                     track_id = data.get("track_id")
 
                     # Validate track_id before launching any background task (#2393)
                     if not isinstance(track_id, int) or track_id <= 0:
                         logger.warning(f"Invalid track_id in play_enhanced: {track_id!r}")
-                        await send_error_response(
-                            websocket,
-                            "invalid_track_id",
-                            "track_id must be a positive integer"
-                        )
+                        await send_error_response(websocket, "invalid_track_id", "track_id must be a positive integer")
                         continue
 
-                    # Use frontend-sent values as primary; fall back to stored settings
-                    # so that UI changes take effect immediately without waiting for a
-                    # REST round-trip (fixes #2256, preserves intent of #2103).
                     VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
-                    enhancement_enabled = True
-
                     # Explicit client opt-out of the stored-`enabled` gate (#3773).
-                    # When true, an explicit play_enhanced request is honored even if
-                    # global enhancement is toggled off — for programmatic / A-B /
-                    # scripted flows. The UI leaves this unset, so the panel toggle
-                    # still gates normal playback.
                     force = bool(data.get("force", False))
 
-                    # Validate and accept the values sent by the frontend
                     raw_preset = data.get("preset", "")
                     raw_intensity = data.get("intensity")
+                    preset = raw_preset.lower() if (raw_preset and isinstance(raw_preset, str) and raw_preset.lower() in VALID_PRESETS) else None
+                    intensity = float(raw_intensity) if (isinstance(raw_intensity, (int, float)) and 0.0 <= raw_intensity <= 1.0) else None
 
-                    if raw_preset and isinstance(raw_preset, str) and raw_preset.lower() in VALID_PRESETS:
-                        preset = raw_preset.lower()
-                    else:
-                        preset = None  # Will be resolved from stored settings below
-
-                    if isinstance(raw_intensity, (int, float)) and 0.0 <= raw_intensity <= 1.0:
-                        intensity = float(raw_intensity)
-                    else:
-                        intensity = None  # Will be resolved from stored settings below
-
-                    # Fill any missing/invalid values from stored settings
+                    enhancement_enabled = True
                     if get_enhancement_settings is not None:
                         settings = get_enhancement_settings()
                         enhancement_enabled = settings.get("enabled", True)
@@ -293,53 +427,39 @@ def create_system_router(
                             preset = settings.get("preset", "adaptive")
                         if intensity is None:
                             intensity = settings.get("intensity", 1.0)
-                        logger.info(
-                            f"Using enhancement settings (frontend+stored): enabled={enhancement_enabled}, "
-                            f"preset={preset}, intensity={intensity}"
-                        )
+                        logger.info(f"Using enhancement settings (frontend+stored): enabled={enhancement_enabled}, preset={preset}, intensity={intensity}")
                     else:
-                        # No stored settings — reject if frontend values were invalid
                         if preset is None:
-                            await send_error_response(
-                                websocket,
-                                "invalid_preset",
-                                f"Invalid preset. Must be one of: {', '.join(VALID_PRESETS)}"
-                            )
+                            await send_error_response(websocket, "invalid_preset", f"Invalid preset. Must be one of: {', '.join(VALID_PRESETS)}")
                             continue
                         if intensity is None:
                             intensity = 1.0
                         logger.warning("Enhancement settings not available, using validated message data")
 
-                    # Resume position for WS reconnect (#3185)
                     start_position = float(data.get("start_position", 0.0) or 0.0)
                     if not math.isfinite(start_position):
                         start_position = 0.0
 
                     logger.info(
-                        f"Received play_enhanced: track_id={track_id}, "
-                        f"preset={preset}, intensity={intensity}"
+                        f"Received play_enhanced: track_id={track_id}, preset={preset}, intensity={intensity}"
                         + (f", resume_at={start_position:.1f}s" if start_position > 0 else "")
                     )
 
                     if not enhancement_enabled and not force:
-                        # Enhancement is disabled and the client did not force it -
-                        # send error message to client (#3773).
                         logger.warning(f"Enhancement disabled, rejecting play_enhanced request for track {track_id}")
                         try:
-                            await websocket.send_text(
-                                json.dumps({
-                                    "type": "audio_stream_error",
-                                    "data": {
-                                        "track_id": track_id,
-                                        "error": "Auto-mastering is currently disabled. Enable it in the enhancement panel to use this feature.",
-                                        "code": "ENHANCEMENT_DISABLED",
-                                        "stream_type": "enhanced",
-                                    }
-                                })
-                            )
+                            await websocket.send_text(json.dumps({
+                                "type": "audio_stream_error",
+                                "data": {
+                                    "track_id": track_id,
+                                    "error": "Auto-mastering is currently disabled. Enable it in the enhancement panel to use this feature.",
+                                    "code": "ENHANCEMENT_DISABLED",
+                                    "stream_type": "enhanced",
+                                }
+                            }))
                         except Exception as e:
                             logger.error(f"Failed to send enhancement disabled error: {e}")
-                        continue  # Skip to next message
+                        continue
 
                     ws_id = _ws_id(websocket)
 
@@ -347,113 +467,9 @@ def create_system_router(
                     async with _active_streaming_tasks_lock:
                         existing_track = _active_streaming_track_ids.get(ws_id)
                         existing_task = _active_streaming_tasks.get(ws_id)
-                        if (existing_track == track_id
-                                and existing_task is not None
-                                and not existing_task.done()):
-                            logger.info(
-                                f"Ignoring duplicate play_enhanced for track {track_id} "
-                                f"(already streaming on ws {ws_id})"
-                            )
+                        if (existing_track == track_id and existing_task is not None and not existing_task.done()):
+                            logger.info(f"Ignoring duplicate play_enhanced for track {track_id} (already streaming on ws {ws_id})")
                             continue
-
-                    # Define streaming coroutine. Snapshot the per-message locals
-                    # as default args so each task instance owns immutable copies
-                    # — otherwise the outer receive loop's reassignment on the
-                    # next message could leak into this task's except/finally
-                    # paths and misattribute an error to the wrong track (#3829).
-                    async def stream_audio(
-                        track_id=track_id,
-                        preset=preset,
-                        intensity=intensity,
-                        force=force,
-                        start_position=start_position,
-                        ws_id=ws_id,
-                    ):
-                        # Capture task identity to prevent orphaned task race (fixes #2164)
-                        my_task = asyncio.current_task()
-                        try:
-                            from core.chunked_processor import ChunkedAudioProcessor
-
-                            controller = AudioStreamController(
-                                chunked_processor_class=ChunkedAudioProcessor,
-                                get_repository_factory=get_repository_factory,
-                                # When the client forced enhanced playback (#3773),
-                                # bypass the mid-stream "enhancement disabled" gate
-                                # (#2866) too — otherwise a stored enabled=false would
-                                # stop the forced stream on its first chunk.
-                                get_enhancement_enabled=(
-                                    (lambda: get_enhancement_settings().get("enabled", True))
-                                    if (get_enhancement_settings is not None and not force)
-                                    else None
-                                ),
-                                # Reuse the process-wide chunk cache so scrub/replay
-                                # hits cache instead of rebuilding DSP from scratch
-                                # (fixes #3855 — per-stream SimpleChunkCache prevented
-                                # cross-request sharing).
-                                cache_manager=get_cache_manager() if get_cache_manager else None,
-                            )
-
-                            if controller.fingerprint_generator:
-                                logger.info("✅ FingerprintGenerator available - on-demand fingerprint generation enabled")
-                            else:
-                                logger.warning("⚠️  FingerprintGenerator not available - using database/cached fingerprints only")
-
-                            if start_position > 0:
-                                # Resume from position (WS reconnect, #3185)
-                                await controller.stream_enhanced_audio_from_position(
-                                    track_id=track_id,
-                                    preset=preset,
-                                    intensity=intensity,
-                                    websocket=websocket,
-                                    start_position=start_position,
-                                )
-                            else:
-                                await controller.stream_enhanced_audio(
-                                    track_id=track_id,
-                                    preset=preset,
-                                    intensity=intensity,
-                                    websocket=websocket,
-                                )
-                        except asyncio.CancelledError:
-                            logger.info(f"Streaming task cancelled for track {track_id}")
-                        except ImportError as e:
-                            logger.error(f"ChunkedAudioProcessor not available: {e}")
-                            try:
-                                await websocket.send_text(
-                                    json.dumps({
-                                        "type": "audio_stream_error",
-                                        "data": {
-                                            "track_id": track_id,
-                                            "error": "Audio processing not available",
-                                            "code": "PROCESSOR_UNAVAILABLE",
-                                            "stream_type": "enhanced",
-                                        }
-                                    })
-                                )
-                            except Exception:
-                                pass  # WebSocket may be closed
-                        except Exception as e:
-                            logger.error(f"Error in streaming task: {e}", exc_info=True)
-                            try:
-                                await websocket.send_text(
-                                    json.dumps({
-                                        "type": "audio_stream_error",
-                                        "data": {
-                                            "track_id": track_id,
-                                            "error": _safe_error_message(e),
-                                            "code": "STREAMING_ERROR",
-                                            "stream_type": "enhanced",
-                                        }
-                                    })
-                                )
-                            except Exception:
-                                pass  # WebSocket may be closed
-                        finally:
-                            # Idempotent self-cleanup under lock (fixes #2425)
-                            async with _active_streaming_tasks_lock:
-                                if _active_streaming_tasks.get(ws_id) is my_task:
-                                    _active_streaming_tasks.pop(ws_id, None)
-                                    _active_streaming_track_ids.pop(ws_id, None)
 
                     # Atomically: clean up done tasks, cancel prior stream, register new task (fixes #2425, #2430)
                     async with _active_streaming_tasks_lock:
@@ -479,27 +495,32 @@ def create_system_router(
                         flow_event = asyncio.Event()
                         flow_event.set()
                         _stream_flow_events[ws_id] = flow_event
-                        task = asyncio.create_task(stream_audio())
+                        task = asyncio.create_task(stream_audio(
+                            websocket,
+                            get_repository_factory,
+                            get_enhancement_settings,
+                            get_cache_manager,
+                            track_id=track_id,
+                            preset=preset,
+                            intensity=intensity,
+                            force=force,
+                            start_position=start_position,
+                            ws_id=ws_id,
+                        ))
                         _active_streaming_tasks[ws_id] = task
                         _active_streaming_track_ids[ws_id] = track_id
                     logger.info(f"Started background streaming task for track {track_id}")
 
-                elif message.get("type") == "play_normal":
-                    # Handle normal (unprocessed) audio playback for comparison
+                elif msg_type == "play_normal":
                     data = message.get("data", {})
                     track_id = data.get("track_id")
 
                     # Validate track_id before launching any background task (#2393)
                     if not isinstance(track_id, int) or track_id <= 0:
                         logger.warning(f"Invalid track_id in play_normal: {track_id!r}")
-                        await send_error_response(
-                            websocket,
-                            "invalid_track_id",
-                            "track_id must be a positive integer"
-                        )
+                        await send_error_response(websocket, "invalid_track_id", "track_id must be a positive integer")
                         continue
 
-                    # Resume position for WS reconnect (#3185)
                     start_position = float(data.get("start_position", 0.0) or 0.0)
                     if not math.isfinite(start_position):
                         start_position = 0.0
@@ -511,54 +532,6 @@ def create_system_router(
 
                     ws_id = _ws_id(websocket)
 
-                    # Define streaming coroutine
-                    # Snapshot per-message locals as defaults so a later message's
-                    # reassignment can't leak into this task's except/finally (#3829).
-                    async def stream_normal(
-                        track_id=track_id,
-                        start_position=start_position,
-                        ws_id=ws_id,
-                    ):
-                        # Capture task identity to prevent orphaned task race (fixes #2164)
-                        my_task = asyncio.current_task()
-                        try:
-                            controller = AudioStreamController(
-                                chunked_processor_class=None,
-                                get_repository_factory=get_repository_factory,
-                                cache_manager=get_cache_manager() if get_cache_manager else None,
-                            )
-
-                            # Stream original audio to client (no DSP processing)
-                            await controller.stream_normal_audio(
-                                track_id=track_id,
-                                websocket=websocket,
-                                start_position=start_position,
-                            )
-                        except asyncio.CancelledError:
-                            logger.info(f"Normal streaming task cancelled for track {track_id}")
-                        except Exception as e:
-                            logger.error(f"Error in normal streaming task: {e}", exc_info=True)
-                            try:
-                                await websocket.send_text(
-                                    json.dumps({
-                                        "type": "audio_stream_error",
-                                        "data": {
-                                            "track_id": track_id,
-                                            "error": _safe_error_message(e),
-                                            "code": "STREAMING_ERROR",
-                                            "stream_type": "normal",
-                                        }
-                                    })
-                                )
-                            except Exception:
-                                pass  # WebSocket may be closed
-                        finally:
-                            # Idempotent self-cleanup under lock (fixes #2425)
-                            async with _active_streaming_tasks_lock:
-                                if _active_streaming_tasks.get(ws_id) is my_task:
-                                    _active_streaming_tasks.pop(ws_id, None)
-                                    _active_streaming_track_ids.pop(ws_id, None)
-
                     # Atomically: clean up done tasks, cancel prior stream, register new task (fixes #2425, #2430)
                     async with _active_streaming_tasks_lock:
                         for k in [k for k, v in _active_streaming_tasks.items() if v.done()]:
@@ -583,69 +556,55 @@ def create_system_router(
                         flow_event = asyncio.Event()
                         flow_event.set()
                         _stream_flow_events[ws_id] = flow_event
-                        task = asyncio.create_task(stream_normal())
+                        task = asyncio.create_task(stream_normal(
+                            websocket,
+                            get_repository_factory,
+                            get_cache_manager,
+                            track_id=track_id,
+                            start_position=start_position,
+                            ws_id=ws_id,
+                        ))
                         _active_streaming_tasks[ws_id] = task
-                        # Track which track is streaming so subsequent
-                        # play_enhanced dedup checks see the truth (#3509 /
-                        # BE-NEW-51 — symmetric with the play_enhanced and
-                        # seek branches).
+                        # Track which track is streaming so subsequent play_enhanced
+                        # dedup checks see the truth (#3509 / BE-NEW-51).
                         _active_streaming_track_ids[ws_id] = track_id
                     logger.info(f"Started background normal streaming task for track {track_id}")
 
-                elif message.get("type") == "pause":
-                    # Pause audio streaming by clearing the pause event so the
-                    # streaming task sleeps instead of being destroyed (#2106).
+                elif msg_type == "pause":
                     logger.info("Received pause command via WebSocket")
                     ws_id = _ws_id(websocket)
                     pause_evt = _stream_pause_events.get(ws_id)
                     if pause_evt is not None:
                         pause_evt.clear()
                         logger.info("Paused streaming task (event cleared)")
+                    # Use {state} shape the frontend type expects (#3503 / BE-NEW-45).
+                    await websocket.send_text(json.dumps({"type": "playback_paused", "data": {"state": "paused"}}))
 
-                    # Broadcast pause state to client. Use the {state}
-                    # shape the frontend type expects, matching the REST
-                    # path's PlaybackService.pause emit (#3503 / BE-NEW-45).
-                    await websocket.send_text(json.dumps({
-                        "type": "playback_paused",
-                        "data": {"state": "paused"},
-                    }))
-
-                elif message.get("type") == "resume":
-                    # Resume a paused streaming task by setting the pause event (#2106).
+                elif msg_type == "resume":
                     logger.info("Received resume command via WebSocket")
                     ws_id = _ws_id(websocket)
                     pause_evt = _stream_pause_events.get(ws_id)
                     if pause_evt is not None:
                         pause_evt.set()
                         logger.info("Resumed streaming task (event set)")
+                    await websocket.send_text(json.dumps({"type": "playback_resumed", "data": {"state": "playing"}}))
 
-                    await websocket.send_text(json.dumps({
-                        "type": "playback_resumed",
-                        "data": {"state": "playing"},
-                    }))
-
-                elif message.get("type") == "buffer_full":
-                    # Frontend buffer is filling up — pause chunk streaming to
-                    # prevent data being dropped by the circular buffer.
+                elif msg_type == "buffer_full":
                     ws_id = _ws_id(websocket)
                     flow_evt = _stream_flow_events.get(ws_id)
                     if flow_evt is not None:
                         flow_evt.clear()
                         logger.debug("Flow control: paused (buffer_full)")
 
-                elif message.get("type") == "buffer_ready":
-                    # Frontend buffer has drained enough — resume chunk streaming.
+                elif msg_type == "buffer_ready":
                     ws_id = _ws_id(websocket)
                     flow_evt = _stream_flow_events.get(ws_id)
                     if flow_evt is not None:
                         flow_evt.set()
                         logger.debug("Flow control: resumed (buffer_ready)")
 
-                elif message.get("type") == "stop":
-                    # Stop audio playback
+                elif msg_type == "stop":
                     logger.info("Received stop command via WebSocket")
-
-                    # Cancel active streaming task if any (fixes #2425 — idempotent pop under lock)
                     ws_id = _ws_id(websocket)
                     async with _active_streaming_tasks_lock:
                         task = _active_streaming_tasks.pop(ws_id, None)
@@ -654,43 +613,28 @@ def create_system_router(
                         try:
                             await task
                         except (asyncio.CancelledError, Exception):
-                            pass  # Expected — task is being stopped
+                            pass
                         logger.info("Cancelled active streaming task")
+                    await websocket.send_text(json.dumps({"type": "playback_stopped", "data": {"state": "stopped"}}))
 
-                    # Broadcast stop state to client
-                    await websocket.send_text(json.dumps({
-                        "type": "playback_stopped",
-                        "data": {"state": "stopped"},
-                    }))
-
-                elif message.get("type") == "seek":
-                    # Seek to a specific position in the track
-                    # This restarts streaming from the chunk containing the target position
+                elif msg_type == "seek":
                     data = message.get("data", {})
                     track_id = data.get("track_id")
-                    position = data.get("position", 0)  # Position in seconds
+                    position = data.get("position", 0)
 
-                    # Validate track_id and position before launching any background task (#2393)
+                    # Validate before launching any background task (#2393)
                     if not isinstance(track_id, int) or track_id <= 0:
                         logger.warning(f"Invalid track_id in seek: {track_id!r}")
-                        await send_error_response(
-                            websocket,
-                            "invalid_track_id",
-                            "track_id must be a positive integer"
-                        )
+                        await send_error_response(websocket, "invalid_track_id", "track_id must be a positive integer")
                         continue
 
                     if not isinstance(position, (int, float)) or not math.isfinite(position) or position < 0:
                         logger.warning(f"Invalid seek position: {position!r}")
-                        await send_error_response(
-                            websocket,
-                            "invalid_seek_position",
-                            "position must be a non-negative number"
-                        )
+                        await send_error_response(websocket, "invalid_seek_position", "position must be a non-negative number")
                         continue
 
-                    # Use values from WS message as initial fallback (fixes #2381),
-                    # then let server-side settings override when available (fixes #2103).
+                    # Use WS message values as initial fallback (fixes #2381),
+                    # then let server-side settings override (fixes #2103).
                     preset = data.get("preset", "adaptive")
                     intensity = data.get("intensity", 1.0)
                     if get_enhancement_settings is not None:
@@ -698,10 +642,7 @@ def create_system_router(
                         preset = settings.get("preset", preset)
                         intensity = settings.get("intensity", intensity)
 
-                    logger.info(
-                        f"Received seek: track_id={track_id}, "
-                        f"position={position}s, preset={preset}"
-                    )
+                    logger.info(f"Received seek: track_id={track_id}, position={position}s, preset={preset}")
 
                     # Pop prior task under lock; cancel and await outside lock to avoid deadlock (fixes #2425, #2430)
                     ws_id = _ws_id(websocket)
@@ -717,95 +658,18 @@ def create_system_router(
                         except (asyncio.CancelledError, TimeoutError):
                             pass
 
-                    # Send seek_started acknowledgment to client
                     await websocket.send_text(json.dumps({
                         "type": "seek_started",
-                        "data": {
-                            "track_id": track_id,
-                            "position": position,
-                        }
+                        "data": {"track_id": track_id, "position": position},
                     }))
 
-                    # Determine if enhancement is enabled (#3187)
                     enhancement_enabled = True
                     if get_enhancement_settings is not None:
                         enhancement_enabled = get_enhancement_settings().get("enabled", True)
 
-                    # Define streaming coroutine with seek position. Snapshot the
-                    # per-message locals as defaults so a later message's
-                    # reassignment can't leak into this task's except/finally (#3829).
-                    async def stream_from_position(
-                        track_id=track_id,
-                        preset=preset,
-                        intensity=intensity,
-                        position=position,
-                        enhancement_enabled=enhancement_enabled,
-                        ws_id=ws_id,
-                    ):
-                        # Capture task identity to prevent orphaned task race (fixes #2164)
-                        my_task = asyncio.current_task()
-                        stream_type = "enhanced" if enhancement_enabled else "normal"
-                        try:
-                            from core.chunked_processor import ChunkedAudioProcessor
-
-                            controller = AudioStreamController(
-                                chunked_processor_class=ChunkedAudioProcessor,
-                                get_repository_factory=get_repository_factory,
-                                get_enhancement_enabled=(
-                                    (lambda: get_enhancement_settings().get("enabled", True))
-                                    if get_enhancement_settings is not None
-                                    else None
-                                ),
-                                cache_manager=get_cache_manager() if get_cache_manager else None,
-                            )
-
-                            if enhancement_enabled:
-                                await controller.stream_enhanced_audio_from_position(
-                                    track_id=track_id,
-                                    preset=preset,
-                                    intensity=intensity,
-                                    websocket=websocket,
-                                    start_position=position,
-                                )
-                            else:
-                                # Route to normal streaming with seek offset (#3187)
-                                await controller.stream_normal_audio(
-                                    track_id=track_id,
-                                    websocket=websocket,
-                                    start_position=position,
-                                )
-                        except asyncio.CancelledError:
-                            logger.info(f"Seek streaming task cancelled for track {track_id}")
-                        except Exception as e:
-                            logger.error(f"Error in seek streaming task: {e}", exc_info=True)
-                            try:
-                                await websocket.send_text(
-                                    json.dumps({
-                                        "type": "audio_stream_error",
-                                        "data": {
-                                            "track_id": track_id,
-                                            "error": _safe_error_message(e),
-                                            "code": "SEEK_ERROR",
-                                            "stream_type": stream_type,
-                                        }
-                                    })
-                                )
-                            except Exception:
-                                pass
-                        finally:
-                            # Idempotent self-cleanup under lock (fixes #2425)
-                            async with _active_streaming_tasks_lock:
-                                if _active_streaming_tasks.get(ws_id) is my_task:
-                                    _active_streaming_tasks.pop(ws_id, None)
-                                    _active_streaming_track_ids.pop(ws_id, None)
-
-                    # Reset pause/flow-control events AND register the new
-                    # seek task atomically under the same lock as
-                    # play_enhanced / play_normal — fixes #3522 / BE-NEW-64
-                    # (prior code did the event replacement outside the
-                    # lock, leaving a small window where another receive
-                    # loop or the disconnect cleanup could observe torn
-                    # state).
+                    # Reset pause/flow-control events AND register the new seek task
+                    # atomically — fixes #3522 / BE-NEW-64 (prior code did the event
+                    # replacement outside the lock, leaving a torn-state window).
                     async with _active_streaming_tasks_lock:
                         pause_event = asyncio.Event()
                         pause_event.set()
@@ -813,37 +677,37 @@ def create_system_router(
                         flow_event = asyncio.Event()
                         flow_event.set()
                         _stream_flow_events[ws_id] = flow_event
-
-                        task = asyncio.create_task(stream_from_position())
+                        task = asyncio.create_task(stream_from_position(
+                            websocket,
+                            get_repository_factory,
+                            get_enhancement_settings,
+                            get_cache_manager,
+                            track_id=track_id,
+                            preset=preset,
+                            intensity=intensity,
+                            position=position,
+                            enhancement_enabled=enhancement_enabled,
+                            ws_id=ws_id,
+                        ))
                         _active_streaming_tasks[ws_id] = task
                         _active_streaming_track_ids[ws_id] = track_id
                     logger.info(f"Started seek streaming task for track {track_id} at {position}s")
 
-                elif message.get("type") == "subscribe_job_progress":
-                    # Subscribe to job progress updates
+                elif msg_type == "subscribe_job_progress":
                     data = message.get("data", {})
                     job_id = data.get("job_id")
-                    # Validate job_id before registering — prior code
-                    # accepted any value, opening a slow per-session leak in
-                    # processing_engine.progress_callbacks + non-string
-                    # payloads to other WS subscribers (#3520 / BE-NEW-62).
+                    # Validate job_id — prior code accepted any value, opening a slow
+                    # per-session leak and non-string payloads to other WS subscribers
+                    # (#3520 / BE-NEW-62).
                     if not isinstance(job_id, str) or not job_id or len(job_id) > 64:
-                        await send_error_response(
-                            websocket,
-                            "invalid_job_id",
-                            "Invalid job_id (must be non-empty string, ≤64 chars)",
-                        )
+                        await send_error_response(websocket, "invalid_job_id", "Invalid job_id (must be non-empty string, ≤64 chars)")
                         continue
                     processing_engine = get_processing_engine()
                     if processing_engine:
                         async def progress_callback(job_id: str, progress: float, message: str) -> None:
                             await websocket.send_text(json.dumps({
                                 "type": "job_progress",
-                                "data": {
-                                    "job_id": job_id,
-                                    "progress": progress,
-                                    "message": message
-                                }
+                                "data": {"job_id": job_id, "progress": progress, "message": message}
                             }))
 
                         await processing_engine.register_progress_callback(job_id, progress_callback)
@@ -859,7 +723,6 @@ def create_system_router(
         except WebSocketDisconnect:
             logger.info("WebSocket client disconnected normally")
         except RuntimeError as e:
-            # Handle "WebSocket is not connected" and similar errors
             logger.warning(f"WebSocket runtime error: {e}")
         except Exception as e:
             logger.error(f"Unexpected WebSocket error: {e}", exc_info=True)
@@ -867,8 +730,7 @@ def create_system_router(
             # Always clean up on disconnect. Each step is independently
             # try/except-guarded so a failure mid-sequence cannot skip
             # later steps (manager.disconnect in particular) and leave the
-            # WS in ConnectionManager.active_connections — fixes #3521 /
-            # BE-NEW-63.
+            # WS in ConnectionManager.active_connections — fixes #3521 / BE-NEW-63.
             try:
                 heartbeat_task.cancel()
                 try:
@@ -880,8 +742,8 @@ def create_system_router(
             ws_id = _ws_id(websocket)
 
             # Cancel any active streaming task — idempotent pop under lock (fixes #2425).
-            # Also await the cancellation so the streaming task fully
-            # releases its semaphore + chunk cache before we proceed.
+            # Also await the cancellation so the streaming task fully releases its
+            # semaphore + chunk cache before we proceed.
             try:
                 async with _active_streaming_tasks_lock:
                     task = _active_streaming_tasks.pop(ws_id, None)
@@ -918,10 +780,7 @@ def create_system_router(
                         try:
                             await processing_engine.unregister_progress_callback(jid)
                         except Exception:
-                            logger.warning(
-                                f"Failed to unregister progress callback for {jid}",
-                                exc_info=True,
-                            )
+                            logger.warning(f"Failed to unregister progress callback for {jid}", exc_info=True)
 
             # Remove from connection manager
             try:

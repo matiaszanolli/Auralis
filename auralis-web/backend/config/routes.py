@@ -32,6 +32,7 @@ from routers.wav_streaming import create_wav_streaming_router
 
 # Import router factories
 from routers.system import create_system_router
+from routers.health import create_health_router
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,14 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
             # startup (fixes #2324).
             logger.warning(f"⚠️  Processing API router not available: {e}", exc_info=True)
 
-    # Create and include system router (health, version, WebSocket)
+    # Health and version routes (extracted from system router in #4074)
+    health_router: APIRouter = create_health_router(
+        HAS_AURALIS=deps.get('HAS_AURALIS', False),
+    )
+    app.include_router(health_router)
+    logger.debug("✅ Health router registered")
+
+    # WebSocket system router
     # Issue #2740: Pass get_state_manager so reconnecting WebSocket clients
     # receive a full player state snapshot immediately on connect.
     system_router: APIRouter = create_system_router(
