@@ -19,6 +19,7 @@ def apply(
     sample_rate: int,
     verbose: bool,
     config: 'SimpleMasteringConfig',
+    hf_lift: float = 1.0,
 ) -> tuple[np.ndarray, dict | None]:
     """Apply adaptive air enhancement for dark mixes (6-20kHz sparkle).
 
@@ -34,10 +35,15 @@ def apply(
         sample_rate: Audio sample rate in Hz
         verbose: Print progress
         config: SimpleMasteringConfig instance for frequency constants
+        hf_lift: Shared HF-budget multiplier (0-1) from ``hf_budget`` — restrains
+            stacking with the exciter/clarity/presence stages on HF-dead sources.
 
     Returns:
         (processed_audio, stage_info) or (audio, None) if no enhancement applied
     """
+    # Cap additive-HF intensity at 1.0 (the quiet-material 1.2× over-drove air).
+    intensity = min(intensity, 1.0)
+
     darkness_factor = (1.0 - air_pct) * 0.6 + (1.0 - spectral_rolloff) * 0.4
 
     if darkness_factor < 0.4:
@@ -46,7 +52,7 @@ def apply(
     air_factor = SmoothCurveUtilities.ramp_to_s_curve(darkness_factor, 0.4, 1.0)
 
     max_boost_db = 1.5 * intensity
-    boost_db = max_boost_db * air_factor
+    boost_db = max_boost_db * air_factor * hf_lift
 
     if boost_db < 0.3:
         return audio.copy(), None

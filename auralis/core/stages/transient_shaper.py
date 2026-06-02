@@ -55,6 +55,15 @@ def apply(
     if boost_db < 0.5:
         return audio.copy(), None
 
+    # On already bass-dominant material a full attack boost on the low band
+    # piles more energy onto the band that is already loudest, feeding the
+    # limiter and reading as low-end overdrive. Taper the bass-band boost as
+    # bass dominance climbs past ~50% (down to 0.6× at fully bass-dominated),
+    # so we restore *snap* without inflating the bass further. The lo-mid band
+    # is left at full boost — that's where kick/snare attack definition lives.
+    bass_dominance = np.clip((bass_pct - 0.50) / 0.30, 0.0, 1.0)
+    bass_band_boost = boost_db * (1.0 - 0.4 * bass_dominance)
+
     processed = audio
     # Bass band — skip if essentially no bass to shape
     if bass_pct >= 0.05:
@@ -62,7 +71,7 @@ def apply(
             processed, sample_rate,
             band_low_hz=config.TRANSIENT_BASS_LOW_HZ,
             band_high_hz=config.TRANSIENT_BASS_HIGH_HZ,
-            attack_boost_db=boost_db,
+            attack_boost_db=bass_band_boost,
         )
 
     # Lo-mid band — slightly gentler boost (lo-mid attacks are less critical)

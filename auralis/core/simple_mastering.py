@@ -625,9 +625,9 @@ class SimpleMasteringPipeline:
 
     def _apply_clarity_boost(
         self, audio: np.ndarray, upper_mid_pct: float, intensity: float,
-        sample_rate: int, verbose: bool,
+        sample_rate: int, verbose: bool, hf_lift: float = 1.0,
     ) -> tuple[np.ndarray, dict | None]:
-        return clarity_boost.apply(audio, upper_mid_pct, intensity, sample_rate, verbose, self.config)
+        return clarity_boost.apply(audio, upper_mid_pct, intensity, sample_rate, verbose, self.config, hf_lift)
 
     def _apply_stereo_expansion(
         self, audio: np.ndarray, current_width: float, intensity: float,
@@ -659,21 +659,22 @@ class SimpleMasteringPipeline:
 
     def _apply_presence_enhancement(
         self, audio: np.ndarray, presence_pct: float, upper_mid_pct: float,
-        intensity: float, sample_rate: int, verbose: bool,
+        intensity: float, sample_rate: int, verbose: bool, hf_lift: float = 1.0,
     ) -> tuple[np.ndarray, dict | None]:
-        return presence_enhancement.apply(audio, presence_pct, upper_mid_pct, intensity, sample_rate, verbose, self.config)
+        return presence_enhancement.apply(audio, presence_pct, upper_mid_pct, intensity, sample_rate, verbose, self.config, hf_lift)
 
     def _apply_harmonic_exciter(
         self, audio: np.ndarray, presence_pct: float, air_pct: float,
         spectral_rolloff: float, intensity: float, sample_rate: int, verbose: bool,
+        hf_lift: float = 1.0,
     ) -> tuple[np.ndarray, dict | None]:
-        return harmonic_exciter.apply(audio, presence_pct, air_pct, spectral_rolloff, intensity, sample_rate, verbose, self.config)
+        return harmonic_exciter.apply(audio, presence_pct, air_pct, spectral_rolloff, intensity, sample_rate, verbose, self.config, hf_lift)
 
     def _apply_air_enhancement(
         self, audio: np.ndarray, air_pct: float, spectral_rolloff: float,
-        intensity: float, sample_rate: int, verbose: bool,
+        intensity: float, sample_rate: int, verbose: bool, hf_lift: float = 1.0,
     ) -> tuple[np.ndarray, dict | None]:
-        return air_enhancement.apply(audio, air_pct, spectral_rolloff, intensity, sample_rate, verbose, self.config)
+        return air_enhancement.apply(audio, air_pct, spectral_rolloff, intensity, sample_rate, verbose, self.config, hf_lift)
 
     @staticmethod
     def _peak_db(audio: np.ndarray) -> float:

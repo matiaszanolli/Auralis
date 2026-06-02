@@ -20,6 +20,7 @@ from ..dsp.basic import amplify, normalize
 from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from .mastering_config import SimpleMasteringConfig
 from .processing.base import ExpansionStrategies
+from .stages.hf_budget import hf_lift_factor
 from .utils import FingerprintUnpacker, StageRecorder
 
 if TYPE_CHECKING:
@@ -268,12 +269,16 @@ class CompressedLoudBranch(ProcessingBranch):
         pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
         processed = processed * pre_eq_gain
 
+        # Shared HF lift budget — restrains the exciter + clarity + presence +
+        # air stages from stacking into fizz on HF-dead sources (#engine).
+        hf_lift = hf_lift_factor(unpacker.presence_pct, unpacker.air_pct)
+
         # Harmonic exciter (only engages on dark/bandwidth-limited material).
         # Runs BEFORE presence/air so those shelves can lift the new harmonics.
         processed, exciter_info = self.pipeline._apply_harmonic_exciter(
             processed, unpacker.presence_pct, unpacker.air_pct, unpacker.spectral_rolloff,
             effective_intensity * config.COMPRESSED_LOUD_INTENSITY_FACTOR,
-            sample_rate, verbose
+            sample_rate, verbose, hf_lift
         )
         recorder.add(exciter_info)
 
@@ -281,7 +286,7 @@ class CompressedLoudBranch(ProcessingBranch):
         processed, clarity_info = self.pipeline._apply_clarity_boost(
             processed, unpacker.upper_mid_pct,
             effective_intensity * config.COMPRESSED_LOUD_INTENSITY_FACTOR,
-            sample_rate, verbose
+            sample_rate, verbose, hf_lift
         )
         recorder.add(clarity_info)
 
@@ -289,14 +294,14 @@ class CompressedLoudBranch(ProcessingBranch):
         processed, presence_info = self.pipeline._apply_presence_enhancement(
             processed, unpacker.presence_pct, unpacker.upper_mid_pct,
             effective_intensity * config.COMPRESSED_LOUD_INTENSITY_FACTOR,
-            sample_rate, verbose
+            sample_rate, verbose, hf_lift
         )
         recorder.add(presence_info)
 
         processed, air_info = self.pipeline._apply_air_enhancement(
             processed, unpacker.air_pct, unpacker.spectral_rolloff,
             effective_intensity * config.COMPRESSED_LOUD_INTENSITY_FACTOR,
-            sample_rate, verbose
+            sample_rate, verbose, hf_lift
         )
         recorder.add(air_info)
 
@@ -366,12 +371,15 @@ class DynamicLoudBranch(ProcessingBranch):
         pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
         processed = processed * pre_eq_gain
 
+        # Shared HF lift budget — see DynamicLoudBranch for rationale.
+        hf_lift = hf_lift_factor(unpacker.presence_pct, unpacker.air_pct)
+
         # Harmonic exciter (only engages on dark/bandwidth-limited material).
         # Runs BEFORE presence/air so those shelves can lift the new harmonics.
         processed, exciter_info = self.pipeline._apply_harmonic_exciter(
             processed, unpacker.presence_pct, unpacker.air_pct, unpacker.spectral_rolloff,
             effective_intensity * config.DYNAMIC_LOUD_INTENSITY_FACTOR,
-            sample_rate, verbose
+            sample_rate, verbose, hf_lift
         )
         recorder.add(exciter_info)
 
@@ -379,7 +387,7 @@ class DynamicLoudBranch(ProcessingBranch):
         processed, clarity_info = self.pipeline._apply_clarity_boost(
             processed, unpacker.upper_mid_pct,
             effective_intensity * config.DYNAMIC_LOUD_INTENSITY_FACTOR,
-            sample_rate, verbose
+            sample_rate, verbose, hf_lift
         )
         recorder.add(clarity_info)
 
@@ -387,14 +395,14 @@ class DynamicLoudBranch(ProcessingBranch):
         processed, presence_info = self.pipeline._apply_presence_enhancement(
             processed, unpacker.presence_pct, unpacker.upper_mid_pct,
             effective_intensity * config.DYNAMIC_LOUD_INTENSITY_FACTOR,
-            sample_rate, verbose
+            sample_rate, verbose, hf_lift
         )
         recorder.add(presence_info)
 
         processed, air_info = self.pipeline._apply_air_enhancement(
             processed, unpacker.air_pct, unpacker.spectral_rolloff,
             effective_intensity * config.DYNAMIC_LOUD_INTENSITY_FACTOR,
-            sample_rate, verbose
+            sample_rate, verbose, hf_lift
         )
         recorder.add(air_info)
 
@@ -500,13 +508,18 @@ class QuietBranch(ProcessingBranch):
         )
         recorder.add(warmth_info)
 
+        # Shared HF lift budget — restrains exciter + clarity + presence + air
+        # from stacking into fizz on HF-dead sources (was +6 dB relative presence
+        # lift on dark material). See DynamicLoudBranch for rationale.
+        hf_lift = hf_lift_factor(unpacker.presence_pct, unpacker.air_pct)
+
         # Harmonic exciter — generate new HF content for bandwidth-limited or
         # dark sources. Runs after mid-warmth (donor band is now shaped) and
         # before presence/air (so those shelves can lift the new harmonics).
         # Engages only when air/presence/rolloff indicate genuinely dark material.
         processed, exciter_info = self.pipeline._apply_harmonic_exciter(
             processed, unpacker.presence_pct, unpacker.air_pct, unpacker.spectral_rolloff,
-            effective_intensity, sample_rate, verbose
+            effective_intensity, sample_rate, verbose, hf_lift
         )
         recorder.add(exciter_info)
 
@@ -516,21 +529,21 @@ class QuietBranch(ProcessingBranch):
         # focus to 1.5-3.5 kHz where consonants and attack-snap live.
         processed, clarity_info = self.pipeline._apply_clarity_boost(
             processed, unpacker.upper_mid_pct,
-            effective_intensity, sample_rate, verbose
+            effective_intensity, sample_rate, verbose, hf_lift
         )
         recorder.add(clarity_info)
 
         # Presence enhancement for dull mixes
         processed, presence_info = self.pipeline._apply_presence_enhancement(
             processed, unpacker.presence_pct, unpacker.upper_mid_pct,
-            effective_intensity, sample_rate, verbose
+            effective_intensity, sample_rate, verbose, hf_lift
         )
         recorder.add(presence_info)
 
         # Air enhancement for dark mixes
         processed, air_info = self.pipeline._apply_air_enhancement(
             processed, unpacker.air_pct, unpacker.spectral_rolloff,
-            effective_intensity, sample_rate, verbose
+            effective_intensity, sample_rate, verbose, hf_lift
         )
         recorder.add(air_info)
 
@@ -572,14 +585,20 @@ class QuietBranch(ProcessingBranch):
             if verbose:
                 print(f"   🔊 Noise-aware processing ({unpacker.spectral_flatness:.2f})")
 
-        # Gentle bass-aware adjustments
+        # Bass-aware adjustment. The soft clipper is full-band, so on bass-heavy
+        # material the low end dominates the peaks and takes the brunt of the
+        # saturation. Lowering the threshold here used to drive that dominant
+        # band *harder* into clipping — audible as an "overdriven"/gritty low
+        # end. Instead RAISE the threshold for bass-heavy sources so the kick/
+        # bass stays clean, and leave the ceiling alone (lowering it only cost
+        # loudness). Peak control for these sources comes from the final
+        # transient-safe limiter, not from saturating the bass.
         from .utils import SmoothCurveUtilities
         bass_intensity = SmoothCurveUtilities.ramp_to_s_curve(
             unpacker.bass_pct, 0.20, 0.70
         )
 
-        threshold_db -= 1.5 * bass_intensity
-        ceiling -= 0.05 * bass_intensity
+        threshold_db += 0.5 * bass_intensity
 
         threshold_linear = 10 ** (threshold_db / 20.0)
 
@@ -596,19 +615,23 @@ class QuietBranch(ProcessingBranch):
         )
         recorder.add(width_info)
 
-        # Final normalization
+        # Final normalization — competitive loudness, dynamics protected.
+        #
+        # A pure peak-normalize is gain only, so crest factor (transient punch)
+        # is preserved exactly: we can push the ceiling up for a competitive
+        # ~ -14 LUFS master WITHOUT crushing dynamics. The previous target
+        # (~0.84 peak, pulled down further for bass) left the "master" QUIETER
+        # than the source — backwards. We now normalize quiet material close to
+        # full scale and let the write-stage hard clip + soft clipper above
+        # handle the few remaining peaks. The earlier bass-aware peak reduction
+        # is dropped: the bass is now kept clean by the soft-clip threshold
+        # raise, so there's no reason to throw away level for it.
         target_peak, _ = AdaptiveLoudnessControl.calculate_adaptive_peak_target(unpacker.lufs)
-        adapted_peak = max(0.80, min(0.95, target_peak - (0.05 * loudness_factor)))
-
-        # Smooth bass-aware peak reduction
-        if unpacker.bass_pct > 0.10:
-            smooth_factor = SmoothCurveUtilities.ramp_to_s_curve(
-                unpacker.bass_pct, 0.10, 0.40
-            )
-            adapted_peak -= 0.025 * smooth_factor
+        # target_peak is 0.85 (loud) … 0.90 (quiet); lift it toward the ceiling.
+        adapted_peak = float(np.clip(target_peak + 0.07, 0.90, 0.97))
 
         if verbose:
-            print(f"   Normalize: {adapted_peak*100:.0f}% peak")
+            print(f"   Normalize: {adapted_peak*100:.0f}% peak (competitive, crest-preserving)")
 
         processed = normalize(processed, adapted_peak)
         recorder.add({'stage': 'normalize', 'target_peak': adapted_peak})

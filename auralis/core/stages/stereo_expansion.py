@@ -59,8 +59,12 @@ def apply(
 
     # Width expansion curve: bell curve with peak at 25% width
     if current_width < 0.15:
-        width_curve = SmoothCurveUtilities.ramp_to_s_curve(current_width, 0.0, 0.15)
-        narrowness_factor = 0.3 * width_curve
+        # Very narrow AND in-phase (phase_factor gates this) is the safest
+        # material to open up and benefits the most — a near-mono but correlated
+        # mix has the most headroom to gain width without phase artifacts. The
+        # old curve did the opposite, widening the narrowest sources least, so a
+        # 5%-wide track barely moved. Scale widening UP as width approaches mono.
+        narrowness_factor = 0.6 + 0.4 * (1.0 - current_width / 0.15)
     elif current_width < 0.30:
         center = 0.225
         width_offset = current_width - center
@@ -80,7 +84,10 @@ def apply(
         brightness_factor = 1.0
 
     combined_factor = narrowness_factor * phase_factor * brightness_factor
-    max_expansion = 0.08 * intensity
+    # Ceiling raised 0.08 → 0.13: the old cap made even ideal candidates (very
+    # narrow, high phase correlation) widen only marginally. Lows <200 Hz stay
+    # mono inside adjust_stereo_width_multiband, so kick/bass punch is unharmed.
+    max_expansion = 0.13 * intensity
     expansion_amount = max_expansion * combined_factor
 
     if expansion_amount < 0.01:

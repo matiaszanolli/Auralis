@@ -18,6 +18,7 @@ def apply(
     sample_rate: int,
     verbose: bool,
     config: 'SimpleMasteringConfig',
+    hf_lift: float = 1.0,
 ) -> tuple[np.ndarray, dict | None]:
     """Apply a focused Up-Mid bell boost (1.5-3.5 kHz) for sources where
     vocal consonants and snare attack are buried.
@@ -32,10 +33,13 @@ def apply(
         sample_rate: Audio sample rate in Hz
         verbose: Print progress
         config: SimpleMasteringConfig instance for threshold constants
+        hf_lift: Shared HF-budget multiplier (0-1) from ``hf_budget`` — restrains
+            stacking with the exciter/presence/air stages on HF-dead sources.
 
     Returns:
         (processed_audio, stage_info) or (audio, None) if no boost applied
     """
+    intensity = min(intensity, 1.0)
     tol_low = config.CLARITY_TOL_LOW
     if upper_mid_pct >= tol_low:
         return audio.copy(), None
@@ -53,7 +57,7 @@ def apply(
         floor_temper = 1.0
 
     max_boost = config.CLARITY_MAX_BOOST_DB * intensity
-    boost_db = max_boost * deficit_factor * floor_temper
+    boost_db = max_boost * deficit_factor * floor_temper * hf_lift
 
     if boost_db < 0.3:
         return audio.copy(), None

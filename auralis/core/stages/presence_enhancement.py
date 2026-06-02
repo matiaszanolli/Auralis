@@ -19,6 +19,7 @@ def apply(
     sample_rate: int,
     verbose: bool,
     config: 'SimpleMasteringConfig',
+    hf_lift: float = 1.0,
 ) -> tuple[np.ndarray, dict | None]:
     """Apply adaptive presence enhancement for dull mixes (2-6kHz boost).
 
@@ -33,10 +34,16 @@ def apply(
         sample_rate: Audio sample rate in Hz
         verbose: Print progress
         config: SimpleMasteringConfig instance for frequency constants
+        hf_lift: Shared HF-budget multiplier (0-1) from ``hf_budget`` — restrains
+            stacking with the exciter/clarity/air stages on HF-dead sources.
 
     Returns:
         (processed_audio, stage_info) or (audio, None) if no enhancement applied
     """
+    # Additive HF boost is over-driven at intensity > 1.0 (the quiet-material
+    # 1.2× multiplier pushed presence to +2.4 dB on near-silent bands). Cap it.
+    intensity = min(intensity, 1.0)
+
     presence_content = (presence_pct + upper_mid_pct) / 2.0
 
     if presence_content >= 0.30:
@@ -45,7 +52,7 @@ def apply(
     presence_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(presence_content, 0.0, 0.30)
 
     max_boost_db = 2.0 * intensity
-    boost_db = max_boost_db * presence_factor
+    boost_db = max_boost_db * presence_factor * hf_lift
 
     if boost_db < 0.3:
         return audio.copy(), None
