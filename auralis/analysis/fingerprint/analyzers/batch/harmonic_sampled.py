@@ -18,6 +18,7 @@ Performance Expectations:
 """
 
 import logging
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -53,6 +54,32 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
         self.chunk_duration: float = chunk_duration
         self.interval_duration: float = interval_duration
         self.max_chunks: int = max_chunks
+
+        # #4118: reuse a single long-lived chunk-analysis pool instead of
+        # building (and tearing down with wait=False) a new ThreadPoolExecutor
+        # on every call. Lazily created on first use so analyzers that are
+        # constructed but never invoked spawn no threads. Mirrors
+        # AudioFingerprintAnalyzer's per-instance executor (#3701).
+        self._executor: ThreadPoolExecutor | None = None
+        self._executor_lock = threading.Lock()
+
+    def _get_executor(self) -> ThreadPoolExecutor:
+        """Lazily create and return the shared chunk-analysis executor."""
+        if self._executor is None:
+            with self._executor_lock:
+                if self._executor is None:
+                    self._executor = ThreadPoolExecutor(
+                        max_workers=4,
+                        thread_name_prefix="SampledHarmonic",
+                    )
+        return self._executor
+
+    def close(self) -> None:
+        """Shut down the shared executor, joining workers. Re-inits on next use."""
+        with self._executor_lock:
+            if self._executor is not None:
+                self._executor.shutdown(wait=True)
+                self._executor = None
 
     def _extract_chunks(self, audio: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -122,33 +149,36 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
 
         logger.debug(f"Analyzing {n_chunks} chunks from {len(audio)/sr:.1f}s track")
 
-        # OPTIMIZATION: Analyze chunks in parallel using ThreadPoolExecutor.
-        # Use as_completed() so a single failed chunk does not block the rest:
-        # the `with` context manager would call shutdown(wait=True) after a
-        # list-comprehension exception, stalling until all running threads finish
-        # (fixes #2527).
+        # OPTIMIZATION: Analyze chunks in parallel on the shared, long-lived
+        # executor (#4118). Use as_completed() so a single failed chunk does not
+        # block the rest. The executor is NOT shut down per call — it is reused
+        # across calls and joined in close() — which both reclaims the #3701
+        # reuse win and removes the prior wait=False leak window (workers left
+        # running if results assembly raised). (Original as_completed rationale:
+        # avoid the `with`-block shutdown(wait=True) stalling on an exception,
+        # #2527.)
         from concurrent.futures import as_completed as _as_completed
-        executor = ThreadPoolExecutor(max_workers=4)
-        try:
-            future_to_idx = {
-                executor.submit(self._analyze_chunk, chunk, sr, i): i
-                for i, chunk in enumerate(chunks)
-            }
-            results_map: dict[int, tuple[float, float, float]] = {}
-            for future in _as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                try:
-                    results_map[idx] = future.result()
-                except Exception as exc:
-                    logger.warning(f"Chunk {idx} analysis failed ({exc}); using default features")
-                    results_map[idx] = (
-                        self.DEFAULT_FEATURES['harmonic_ratio'],
-                        self.DEFAULT_FEATURES['pitch_stability'],
-                        self.DEFAULT_FEATURES['chroma_energy'],
-                    )
-            results = [results_map[i] for i in range(len(chunks))]
-        finally:
-            executor.shutdown(wait=False, cancel_futures=True)
+        executor = self._get_executor()
+        default_features = (
+            self.DEFAULT_FEATURES['harmonic_ratio'],
+            self.DEFAULT_FEATURES['pitch_stability'],
+            self.DEFAULT_FEATURES['chroma_energy'],
+        )
+        future_to_idx = {
+            executor.submit(self._analyze_chunk, chunk, sr, i): i
+            for i, chunk in enumerate(chunks)
+        }
+        results_map: dict[int, tuple[float, float, float]] = {}
+        for future in _as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            try:
+                results_map[idx] = future.result()
+            except Exception as exc:
+                logger.warning(f"Chunk {idx} analysis failed ({exc}); using default features")
+                results_map[idx] = default_features
+        # Defensive: a missing index degrades to defaults rather than raising
+        # KeyError mid-flight (#4118).
+        results = [results_map.get(i, default_features) for i in range(len(chunks))]
 
         # Aggregate results from chunks using mean aggregation
         if not results:

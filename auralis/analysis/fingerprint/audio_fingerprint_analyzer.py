@@ -93,6 +93,10 @@ class AudioFingerprintAnalyzer:
             if self._executor is not None:
                 self._executor.shutdown(wait=True)
                 self._executor = None
+        # Propagate to sub-analyzers that own their own executor (#4118).
+        sub_close = getattr(self.sampled_harmonic_analyzer, "close", None)
+        if callable(sub_close):
+            sub_close()
 
     def analyze(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """
