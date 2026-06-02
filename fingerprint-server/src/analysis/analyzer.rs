@@ -486,9 +486,6 @@ fn analyze_spectral(stft_frames: &[Vec<f64>]) -> Result<(f64, f64, f64)> {
 }
 
 fn analyze_harmonic(samples: &[f64], sample_rate: u32) -> Result<(f64, f64, f64)> {
-    // Simplified harmonic analysis
-    // In full implementation, this would use HPSS, YIN, and Chroma from vendor/auralis-dsp
-
     // Harmonic ratio: energy in harmonic peaks vs total
     let (mag_spec, _) = compute_fft_spectrum(samples, sample_rate)?;
 
@@ -508,8 +505,9 @@ fn analyze_harmonic(samples: &[f64], sample_rate: u32) -> Result<(f64, f64, f64)
         0.0
     };
 
-    // Pitch stability: estimate from autocorrelation
-    let pitch_stability: f64 = 0.5; // Simplified
+    // Pitch stability via YIN — same algorithm as the Python fallback
+    // (harmonic_ops.calculate_pitch_stability) so both paths converge (#4110).
+    let pitch_stability: f64 = crate::analysis::yin::pitch_stability(samples, sample_rate);
 
     // Chroma energy: energy in tonal region (100Hz - 5kHz)
     let chroma_energy: f64 = mag_spec
