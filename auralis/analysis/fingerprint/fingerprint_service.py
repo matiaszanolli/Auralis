@@ -169,18 +169,39 @@ class FingerprintService:
             if fp is None or getattr(fp, 'lufs', -100.0) == -100.0:
                 return None
 
-            return {key: getattr(fp, key) for key in _FP_KEYS}
+            result = {key: getattr(fp, key) for key in _FP_KEYS}
+            if not self._band_pct_valid(result):
+                logger.info(f"Discarding stale DB fingerprint (band-pct sum != 1): {filepath}")
+                return None
+            return result
 
         except Exception as e:
             logger.debug(f"Database fingerprint lookup failed: {e}")
             return None
 
+    # Frequency band keys that must sum to ~1.0 in a valid fingerprint.
+    _BAND_PCT_KEYS: tuple[str, ...] = (
+        'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct',
+        'upper_mid_pct', 'presence_pct', 'air_pct',
+    )
+
+    @staticmethod
+    def _band_pct_valid(fp: dict) -> bool:
+        """Return True if the seven frequency-band fractions sum to 1 ± 0.05."""
+        total = sum(fp.get(k, 0.0) for k in FingerprintService._BAND_PCT_KEYS)
+        return 0.95 <= total <= 1.05
+
     def _load_from_file_cache(self, audio_path: Path) -> dict | None:
-        """Load fingerprint from .25d file cache."""
+        """Load fingerprint from .25d file cache, discarding stale entries."""
         try:
             cached_data = FingerprintStorage.load(audio_path, self.fingerprint_strategy)
             if cached_data:
                 fingerprint, _ = cached_data
+                if not self._band_pct_valid(fingerprint):
+                    logger.info(
+                        f"Discarding stale .25d cache (band-pct sum != 1): {audio_path.name}"
+                    )
+                    return None
                 return fingerprint
             return None
         except Exception as e:
@@ -201,7 +222,31 @@ class FingerprintService:
             # Use 22050 Hz (librosa's native analysis rate) to halve data for 44.1 kHz files.
             # Cap at 90 s — sufficient for a stable 25D fingerprint with the sampling strategy.
             if audio is None or sr is None:
-                audio, sr = librosa.load(str(audio_path), sr=22050, mono=False, duration=90.0)
+                from auralis.io.formats import FFMPEG_FORMATS
+                if audio_path.suffix.lower() in FFMPEG_FORMATS:
+                    # libsndfile can't decode AAC/MP3/etc — load via ffmpeg then resample.
+                    from auralis.io.loaders import load_with_ffmpeg
+                    import tempfile, os
+                    with tempfile.TemporaryDirectory() as tmp:
+                        raw_audio, raw_sr = load_with_ffmpeg(audio_path, tmp)
+                    # raw_audio is (samples, channels) or (samples,); convert to (channels, samples)
+                    if raw_audio.ndim == 2:
+                        raw_audio = raw_audio.T
+                    _target_sr = 22050
+                    _max_samples = int(_target_sr * 90.0)
+                    if raw_sr != _target_sr:
+                        if raw_audio.ndim == 2:
+                            raw_audio = np.stack([
+                                librosa.resample(raw_audio[ch].astype(np.float32), orig_sr=raw_sr, target_sr=_target_sr)
+                                for ch in range(raw_audio.shape[0])
+                            ])
+                        else:
+                            raw_audio = librosa.resample(raw_audio.astype(np.float32), orig_sr=raw_sr, target_sr=_target_sr)
+                    audio = raw_audio[..., :_max_samples]
+                    sr = _target_sr
+                else:
+                    audio, sr = librosa.load(str(audio_path), sr=22050, mono=False, duration=90.0)
+                    sr = int(sr)
             else:
                 # Normalize pre-loaded audio to match file-load parameters (#2457).
                 # Ensures fingerprints are comparable regardless of loading path.

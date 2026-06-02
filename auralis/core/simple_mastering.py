@@ -121,18 +121,36 @@ class SimpleMasteringPipeline:
         timings: dict[str, float] = {}
         total_start = time.perf_counter()
 
-        input_path = Path(input_path)
-        if not input_path.exists():
-            raise FileNotFoundError(f"Input not found: {input_path}")
+        import tempfile as _tempfile
 
-        # Step 1: Get fingerprint
+        orig_path = Path(input_path)
+        if not orig_path.exists():
+            raise FileNotFoundError(f"Input not found: {orig_path}")
+
+        # Pre-convert FFmpeg-only formats (mp3, m4a, aac …) to a temporary
+        # WAV so sf.SoundFile calls work without modification throughout.
+        # We keep orig_path for fingerprint cache lookups (the cache key is
+        # the original file path, not the transient temp WAV).
+        from ..io.formats import FFMPEG_FORMATS
+        _tmp_dir: _tempfile.TemporaryDirectory | None = None
+        if orig_path.suffix.lower() in FFMPEG_FORMATS:
+            from ..io.loaders import load_with_ffmpeg
+            _tmp_dir = _tempfile.TemporaryDirectory()
+            _tmp_wav = Path(_tmp_dir.name) / (orig_path.stem + "_dec.wav")
+            _raw, _raw_sr = load_with_ffmpeg(orig_path, _tmp_dir.name)
+            sf.write(str(_tmp_wav), _raw, _raw_sr, subtype="PCM_24")
+            input_path = _tmp_wav
+        else:
+            input_path = orig_path
+
+        # Step 1: Get fingerprint (uses orig_path so cache hits still work)
         if verbose:
-            print(f"📂 Input: {input_path.name}")
+            print(f"📂 Input: {orig_path.name}")
             print(f"📂 Output: {Path(output_path).name}")
             print("\n🔍 Fingerprinting...")
 
         step_start = time.perf_counter()
-        fingerprint = self.fingerprint_service.get_or_compute(input_path)
+        fingerprint = self.fingerprint_service.get_or_compute(orig_path)
         timings['fingerprint'] = time.perf_counter() - step_start
 
         if not fingerprint:
@@ -384,8 +402,11 @@ class SimpleMasteringPipeline:
         if time_metrics:
             self._print_time_metrics(timings, duration)
 
+        if _tmp_dir is not None:
+            _tmp_dir.cleanup()
+
         result = {
-            'input': str(input_path),
+            'input': str(orig_path),
             'output': output_path,
             'fingerprint': fingerprint,
             'processing': info,
