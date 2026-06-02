@@ -26,7 +26,7 @@ def apply(
     current_peak = np.max(np.abs(audio))
 
     if current_peak <= ceiling:
-        return audio  # No limiting needed
+        return audio.copy()  # No limiting needed
 
     # Use soft clip with threshold slightly below ceiling for smooth knee
     threshold = ceiling * 0.95  # Start limiting ~0.4 dB before ceiling

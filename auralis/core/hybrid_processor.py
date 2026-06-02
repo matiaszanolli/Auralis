@@ -250,7 +250,7 @@ class HybridProcessor:
 
         # Handle empty audio first (before any other processing)
         if len(target_audio) == 0:
-            return target_audio
+            return target_audio.copy()
 
         # Convert mono to stereo if needed
         if target_audio.ndim == 1:

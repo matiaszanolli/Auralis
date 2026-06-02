@@ -55,7 +55,7 @@ def apply(
 
     activate_threshold = 1.0 - config.EXCITER_DARKNESS_ACTIVATE
     if darkness < activate_threshold:
-        return audio, None
+        return audio.copy(), None
 
     excite_factor = SmoothCurveUtilities.ramp_to_s_curve(darkness, activate_threshold, 1.0)
 

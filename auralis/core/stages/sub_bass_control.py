@@ -63,7 +63,7 @@ def apply(
         applied_hp = True
 
     if abs(reduction_db) < 0.1 and not applied_hp:
-        return audio, None
+        return audio.copy(), None
 
     if verbose:
         msg = f"   Sub-bass tighten: {reduction_db:.1f} dB @ <{config.SUB_BASS_CUTOFF_HZ:.0f}Hz"

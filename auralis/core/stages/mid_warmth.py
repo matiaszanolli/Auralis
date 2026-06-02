@@ -40,7 +40,7 @@ def apply(
     body_content = (low_mid_pct + mid_pct) / 2.0
 
     if body_content >= 0.25:
-        return audio, None
+        return audio.copy(), None
 
     body_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(body_content, 0.0, 0.25)
 
@@ -48,7 +48,7 @@ def apply(
     boost_db = max_boost_db * body_factor
 
     if boost_db < 0.3:
-        return audio, None
+        return audio.copy(), None
 
     processed = ParallelEQUtilities.apply_bandpass_boost(
         audio,

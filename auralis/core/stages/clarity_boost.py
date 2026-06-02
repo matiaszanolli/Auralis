@@ -38,7 +38,7 @@ def apply(
     """
     tol_low = config.CLARITY_TOL_LOW
     if upper_mid_pct >= tol_low:
-        return audio, None
+        return audio.copy(), None
 
     deficit = tol_low - upper_mid_pct
     deficit_factor = SmoothCurveUtilities.ramp_to_s_curve(
@@ -56,7 +56,7 @@ def apply(
     boost_db = max_boost * deficit_factor * floor_temper
 
     if boost_db < 0.3:
-        return audio, None
+        return audio.copy(), None
 
     processed = ParallelEQUtilities.apply_bandpass_boost(
         audio,

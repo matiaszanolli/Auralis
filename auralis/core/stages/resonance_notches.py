@@ -26,7 +26,7 @@ def apply(
         (processed_audio, stage_info) or (audio, None) if no notches
     """
     if not notches:
-        return audio, None
+        return audio.copy(), None
 
     processed = ResonanceNotcher.apply(audio, sample_rate, notches)
     if verbose:

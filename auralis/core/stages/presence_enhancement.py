@@ -40,7 +40,7 @@ def apply(
     presence_content = (presence_pct + upper_mid_pct) / 2.0
 
     if presence_content >= 0.30:
-        return audio, None
+        return audio.copy(), None
 
     presence_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(presence_content, 0.0, 0.30)
 
@@ -48,7 +48,7 @@ def apply(
     boost_db = max_boost_db * presence_factor
 
     if boost_db < 0.3:
-        return audio, None
+        return audio.copy(), None
 
     processed = ParallelEQUtilities.apply_bandpass_boost(
         audio,

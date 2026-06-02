@@ -42,7 +42,7 @@ def apply(
     """
     threshold = config.TRANSIENT_ACTIVATE_CREST_DB
     if crest_db >= threshold:
-        return audio, None
+        return audio.copy(), None
 
     # Compressed-ness factor: 0 at threshold, 1 at very compressed (8 dB)
     compress_factor = SmoothCurveUtilities.ramp_to_s_curve(
@@ -53,7 +53,7 @@ def apply(
     boost_db = max_boost * compress_factor
 
     if boost_db < 0.5:
-        return audio, None
+        return audio.copy(), None
 
     processed = audio
     # Bass band — skip if essentially no bass to shape

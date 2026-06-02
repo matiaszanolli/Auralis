@@ -73,7 +73,7 @@ def apply(
         applied.append(f"{cut_db:.1f}dB @{config.BASS_DEMUD_LOW_HZ:.0f}-{config.BASS_DEMUD_HIGH_HZ:.0f}Hz")
 
     if not applied:
-        return audio, None
+        return audio.copy(), None
 
     if verbose:
         print(f"   Bass balance: {' / '.join(applied)}  (bass={bass_pct:.0%})")

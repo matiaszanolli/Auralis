@@ -41,7 +41,7 @@ def apply(
     darkness_factor = (1.0 - air_pct) * 0.6 + (1.0 - spectral_rolloff) * 0.4
 
     if darkness_factor < 0.4:
-        return audio, None
+        return audio.copy(), None
 
     air_factor = SmoothCurveUtilities.ramp_to_s_curve(darkness_factor, 0.4, 1.0)
 
@@ -49,7 +49,7 @@ def apply(
     boost_db = max_boost_db * air_factor
 
     if boost_db < 0.3:
-        return audio, None
+        return audio.copy(), None
 
     processed = ParallelEQUtilities.apply_high_shelf_boost(
         audio,
