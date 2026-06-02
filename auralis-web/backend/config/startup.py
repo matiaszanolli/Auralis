@@ -411,20 +411,18 @@ def create_lifespan(deps: dict[str, Any]):
 
         # === Shutdown ===
         try:
-            # Stop library auto-scanner first (it may be mid-scan)
-            if 'auto_scanner' in globals_dict and globals_dict['auto_scanner']:
-                await globals_dict['auto_scanner'].stop()
-                logger.info("✅ Library Auto-Scanner stopped")
-
-            # Stop on-demand fingerprint queue (Phase 7.4)
-            if 'ondemand_fingerprint_queue' in globals_dict and globals_dict['ondemand_fingerprint_queue']:
-                await globals_dict['ondemand_fingerprint_queue'].stop()
-                logger.info("✅ On-demand fingerprint queue stopped")
-
-            # Stop fingerprint extraction queue
-            if 'fingerprint_queue' in globals_dict and globals_dict['fingerprint_queue']:
-                await globals_dict['fingerprint_queue'].stop(timeout=30.0)
-                logger.info("✅ Fingerprint extraction queue stopped")
+            # Stop the background workers (auto_scanner, ondemand + batch
+            # fingerprint queues) using the shared BACKGROUND_WORKER_KEYS set so
+            # this path and the library-reset endpoint can never diverge on which
+            # workers exist (#4111). Order matches the tuple: auto_scanner first
+            # (it may be mid-scan and enqueue into the queues).
+            from config.background_workers import BACKGROUND_WORKER_KEYS
+            _worker_stop_kwargs = {'fingerprint_queue': {'timeout': 30.0}}
+            for _worker_key in BACKGROUND_WORKER_KEYS:
+                worker = globals_dict.get(_worker_key)
+                if worker:
+                    await worker.stop(**_worker_stop_kwargs.get(_worker_key, {}))
+                    logger.info(f"✅ Background worker stopped: {_worker_key}")
 
             # Stop streamlined cache worker
             if 'streamlined_worker' in globals_dict and globals_dict['streamlined_worker']:

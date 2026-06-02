@@ -160,6 +160,11 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     # Create and include library router (stats, browse, reset — Phase 6B)
     library_router: APIRouter = create_library_router(
         get_repository_factory=get_component('repository_factory'),
+        # Reset pauses/restarts all background workers (#4111) and invalidates
+        # the LibraryManager cache (#3770). resolve_worker looks workers up by
+        # the shared BACKGROUND_WORKER_KEYS in the component registry.
+        resolve_worker=lambda key: globals_dict.get(key),
+        get_library_manager=get_component('library_manager'),
     )
     app.include_router(library_router)
     logger.debug("✅ Library router registered (stats/browse/reset)")

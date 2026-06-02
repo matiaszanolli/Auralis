@@ -175,3 +175,51 @@ class RepositoryFactory:
         if not self._queue_template_repo:
             self._queue_template_repo = QueueTemplateRepository(self.session_factory)
         return self._queue_template_repo
+
+    def reset_library(self) -> None:
+        """Atomically delete the entire library in a single transaction.
+
+        Removes all tracks, fingerprints, queue state/history, playlists,
+        albums, artists, genres, and their association rows. Keeps the bulk
+        delete inside the repository layer so routers never construct a raw
+        session (#4111). Callers must pause background workers first so no rows
+        are inserted between the deletes and the commit.
+
+        Deletion order respects foreign keys: association tables and child rows
+        before their parents.
+        """
+        from sqlalchemy import delete
+
+        from ..models.base import track_artist, track_genre, track_playlist
+        from ..models.core import (
+            Album,
+            Artist,
+            Genre,
+            Playlist,
+            QueueHistory,
+            QueueState,
+            Track,
+        )
+        from ..models.fingerprint import TrackFingerprint
+
+        session = self.session_factory()
+        try:
+            session.execute(track_playlist.delete())
+            session.execute(track_genre.delete())
+            session.execute(track_artist.delete())
+
+            session.execute(delete(TrackFingerprint))
+            session.execute(delete(QueueHistory))
+            session.execute(delete(QueueState))
+            session.execute(delete(Track))
+            session.execute(delete(Playlist))
+            session.execute(delete(Album))
+            session.execute(delete(Artist))
+            session.execute(delete(Genre))
+
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()

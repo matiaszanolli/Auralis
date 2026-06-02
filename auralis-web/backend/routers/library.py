@@ -37,8 +37,19 @@ router = APIRouter(tags=["library"])
 
 def create_library_router(
     get_repository_factory: Callable[[], Any],
+    resolve_worker: Callable[[str], Any] | None = None,
+    get_library_manager: Callable[[], Any] | None = None,
 ) -> APIRouter:
     """Factory: general library routes (stats, browse, reset).
+
+    Args:
+        get_repository_factory: Returns the RepositoryFactory.
+        resolve_worker: ``resolve_worker(key)`` returns a background-worker
+            instance (or ``None``) by component-registry key. Used by the
+            destructive reset endpoint to pause/restart all background workers
+            so nothing inserts rows mid-reset (#4111).
+        get_library_manager: Returns the LibraryManager (for query-cache
+            invalidation after a reset, #3770).
 
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern.
@@ -167,51 +178,37 @@ def create_library_router(
         try:
             repos = require_repository_factory(get_repository_factory)
 
-            # Pause background workers so in-flight DB ops don't race the
-            # reset (fixes #3342).
-            from analysis.fingerprint_queue import get_fingerprint_queue
-            fprint_queue = get_fingerprint_queue()
-            if fprint_queue:
-                await fprint_queue.stop()
+            from config.background_workers import (
+                start_background_workers,
+                stop_background_workers,
+            )
 
-            def _reset_all() -> None:
-                session = repos.session_factory()
-                try:
-                    from auralis.library.models.core import (
-                        Track, Album, Artist, Genre, Playlist,
-                        QueueState, QueueHistory,
-                    )
-                    from auralis.library.models.base import (
-                        track_artist, track_genre, track_playlist,
-                    )
-                    from auralis.library.models.fingerprint import TrackFingerprint
-                    from sqlalchemy import delete
+            # Pause every background worker (auto_scanner, ondemand + batch
+            # fingerprint queues) so none can insert Track/TrackFingerprint rows
+            # between the deletes and commit, which would make the reset
+            # non-atomic (fixes #3342, #4111). Previously only the on-demand
+            # queue was paused.
+            resolve = resolve_worker or (lambda _key: None)
+            stopped = await stop_background_workers(resolve)
+            try:
+                # Bulk delete runs in the repository layer (no raw session in the
+                # router) and off the event loop.
+                await asyncio.to_thread(repos.reset_library)
 
-                    session.execute(track_playlist.delete())
-                    session.execute(track_genre.delete())
-                    session.execute(track_artist.delete())
+                # Drop the LibraryManager query cache so reads don't return
+                # pre-reset data (#3770).
+                if get_library_manager is not None:
+                    library_manager = get_library_manager()
+                    if library_manager is not None and hasattr(library_manager, "clear_cache"):
+                        library_manager.clear_cache()
 
-                    session.execute(delete(TrackFingerprint))
-                    session.execute(delete(QueueHistory))
-                    session.execute(delete(QueueState))
-                    session.execute(delete(Track))
-                    session.execute(delete(Playlist))
-                    session.execute(delete(Album))
-                    session.execute(delete(Artist))
-                    session.execute(delete(Genre))
-
-                    session.commit()
-                    logger.info("Library reset: all tracks, albums, artists, genres, fingerprints, and playlists deleted")
-                except Exception:
-                    session.rollback()
-                    raise
-                finally:
-                    session.close()
-
-            await asyncio.to_thread(_reset_all)
-
-            if fprint_queue:
-                await fprint_queue.start()
+                logger.info(
+                    "Library reset: all tracks, albums, artists, genres, "
+                    "fingerprints, and playlists deleted"
+                )
+            finally:
+                # Always restart the workers we paused, even if the reset failed.
+                await start_background_workers(resolve, stopped)
 
             return {"message": "Library has been reset successfully"}
 
