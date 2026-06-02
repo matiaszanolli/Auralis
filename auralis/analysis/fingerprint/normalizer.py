@@ -115,28 +115,64 @@ class FingerprintNormalizer:
         self.stats: dict[str, DimensionStats] = {}
         self.fitted = False
 
-    def fit(self, fingerprint_repository: Any, min_samples: int = 10) -> bool:
+    def fit(
+        self,
+        fingerprint_repository: Any,
+        min_samples: int = 10,
+        batch_size: int = 5000,
+    ) -> bool:
         """
         Calculate normalization statistics from library fingerprints
+
+        Reads fingerprints in bounded batches (#4115) so the entire
+        ``track_fingerprints`` table is never hydrated as ORM objects at once.
+        Only the compact numeric vectors are retained — each batch's ORM
+        objects are released before the next batch is read, keeping peak ORM
+        memory at ``O(batch_size)`` instead of ``O(N)``. Robust normalization
+        needs exact per-dimension percentiles, so the (small) ``N x 25`` float
+        array is still accumulated; the statistics are identical to a single
+        full-table read.
 
         Args:
             fingerprint_repository: FingerprintRepository instance
             min_samples: Minimum number of fingerprints required
+            batch_size: Rows hydrated per DB read (peak ORM memory bound)
 
         Returns:
             True if successful, False if insufficient data
         """
-        # Get all fingerprints
-        fingerprints = fingerprint_repository.get_all()
-
-        if len(fingerprints) < min_samples:
-            error(f"Insufficient fingerprints for normalization: {len(fingerprints)} < {min_samples}")
+        # Cheap count first so we can short-circuit without reading any rows.
+        total = fingerprint_repository.get_count()
+        if total < min_samples:
+            error(f"Insufficient fingerprints for normalization: {total} < {min_samples}")
             return False
 
-        info(f"Calculating normalization statistics from {len(fingerprints)} fingerprints")
+        info(f"Calculating normalization statistics from {total} fingerprints")
 
-        # Convert to numpy array (N x 25)
-        vectors = np.array([fp.to_vector() for fp in fingerprints])
+        # Stream rows in batches; keep only the numeric vectors. Each `batch`
+        # of ORM objects becomes collectable when reassigned on the next
+        # iteration, so the whole table is never held in RAM at once.
+        batch_arrays: list[np.ndarray] = []
+        offset = 0
+        while True:
+            batch = fingerprint_repository.get_all(limit=batch_size, offset=offset)
+            if not batch:
+                break
+            batch_arrays.append(
+                np.asarray([fp.to_vector() for fp in batch], dtype=np.float64)
+            )
+            offset += len(batch)
+            if len(batch) < batch_size:
+                break
+
+        if not batch_arrays:
+            error("Insufficient fingerprints for normalization: 0 readable rows")
+            return False
+
+        # Single compact N x 25 float array (~10 MB at 50k tracks).
+        vectors = np.vstack(batch_arrays)
+        del batch_arrays
+        sample_count = vectors.shape[0]
 
         # Calculate statistics for each dimension
         for i, dim_name in enumerate(self.DIMENSION_NAMES):
@@ -160,7 +196,7 @@ class FingerprintNormalizer:
                 max_val=float(max_val),
                 mean=float(mean),
                 std=float(std),
-                count=len(fingerprints)
+                count=sample_count
             )
 
             debug(f"  {dim_name}: min={min_val:.3f}, max={max_val:.3f}, "
