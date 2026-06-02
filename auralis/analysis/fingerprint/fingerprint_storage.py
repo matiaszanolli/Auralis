@@ -39,12 +39,13 @@ class FingerprintStorage:
         return cache_dir
 
     @staticmethod
-    def _get_cache_key(audio_path: Path) -> str:
+    def _get_cache_key(audio_path: Path, strategy: str = "sampling") -> str:
         """
-        Generate cache key from file path and content signature.
+        Generate cache key from file path, content signature, and strategy.
 
         Args:
             audio_path: Path to source audio file
+            strategy: Fingerprint strategy ("sampling" or "full-track")
 
         Returns:
             MD5 hash string to use as cache filename
@@ -66,12 +67,15 @@ class FingerprintStorage:
             # check). This will still produce stable keys for static files.
             signature = "no-stat"
 
-        # Combine path + signature for cache key
-        cache_key = hashlib.md5(f"{abs_path}:{signature}".encode()).hexdigest()
+        # #4127: include strategy in the key — different strategies produce
+        # different harmonic dimensions; omitting it caused cross-strategy
+        # cache poisoning. Old .25d files (keyed without strategy) fail the
+        # stored_key != cache_key validation and are treated as cache misses.
+        cache_key = hashlib.md5(f"{abs_path}:{signature}:{strategy}".encode()).hexdigest()
         return cache_key
 
     @staticmethod
-    def save(audio_path: Path, fingerprint: dict[str, Any], targets: dict[str, Any]) -> Path:
+    def save(audio_path: Path, fingerprint: dict[str, Any], targets: dict[str, Any], strategy: str = "sampling") -> Path:
         """
         Save fingerprint and mastering targets to cache.
 
@@ -91,7 +95,7 @@ class FingerprintStorage:
         """
         # Get cache directory and key
         cache_dir = FingerprintStorage._get_cache_dir()
-        cache_key = FingerprintStorage._get_cache_key(audio_path)
+        cache_key = FingerprintStorage._get_cache_key(audio_path, strategy)
         cache_path = cache_dir / f"{cache_key}.25d"
 
         # Get duration from fingerprint if available
@@ -121,7 +125,7 @@ class FingerprintStorage:
         return cache_path
 
     @staticmethod
-    def load(audio_path: Path) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    def load(audio_path: Path, strategy: str = "sampling") -> tuple[dict[str, Any], dict[str, Any]] | None:
         """
         Load fingerprint and targets from cache if valid.
 
@@ -139,7 +143,7 @@ class FingerprintStorage:
         """
         # Get cache path for this file
         cache_dir = FingerprintStorage._get_cache_dir()
-        cache_key = FingerprintStorage._get_cache_key(audio_path)
+        cache_key = FingerprintStorage._get_cache_key(audio_path, strategy)
         cache_path = cache_dir / f"{cache_key}.25d"
 
         # Check if cache file exists
@@ -179,12 +183,13 @@ class FingerprintStorage:
             return None
 
     @staticmethod
-    def is_valid(audio_path: Path) -> bool:
+    def is_valid(audio_path: Path, strategy: str = "sampling") -> bool:
         """
         Check if cached fingerprint exists and is valid for this audio file.
 
         Args:
             audio_path: Path to source audio file
+            strategy: Fingerprint strategy ("sampling" or "full-track")
 
         Returns:
             True if valid cache exists, False otherwise
@@ -193,15 +198,16 @@ class FingerprintStorage:
             >>> if FingerprintStorage.is_valid(Path("track.flac")):
             ...     print("Cached fingerprint available")
         """
-        return FingerprintStorage.load(audio_path) is not None
+        return FingerprintStorage.load(audio_path, strategy) is not None
 
     @staticmethod
-    def delete(audio_path: Path) -> bool:
+    def delete(audio_path: Path, strategy: str = "sampling") -> bool:
         """
         Delete cached fingerprint for this audio file if it exists.
 
         Args:
             audio_path: Path to source audio file
+            strategy: Fingerprint strategy ("sampling" or "full-track")
 
         Returns:
             True if cache was deleted, False if it didn't exist
@@ -211,7 +217,7 @@ class FingerprintStorage:
             True
         """
         cache_dir = FingerprintStorage._get_cache_dir()
-        cache_key = FingerprintStorage._get_cache_key(audio_path)
+        cache_key = FingerprintStorage._get_cache_key(audio_path, strategy)
         cache_path = cache_dir / f"{cache_key}.25d"
 
         if cache_path.exists():

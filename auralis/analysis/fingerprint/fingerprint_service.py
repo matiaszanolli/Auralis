@@ -144,7 +144,7 @@ class FingerprintService:
             if fingerprint:
                 # Cache to both database and .25d file
                 self._save_to_database(str(audio_path), fingerprint)
-                FingerprintStorage.save(audio_path, fingerprint, {})
+                FingerprintStorage.save(audio_path, fingerprint, {}, self.fingerprint_strategy)
                 logger.debug(f"Fingerprint cached for: {audio_path.name}")
                 return fingerprint
 
@@ -178,7 +178,7 @@ class FingerprintService:
     def _load_from_file_cache(self, audio_path: Path) -> dict | None:
         """Load fingerprint from .25d file cache."""
         try:
-            cached_data = FingerprintStorage.load(audio_path)
+            cached_data = FingerprintStorage.load(audio_path, self.fingerprint_strategy)
             if cached_data:
                 fingerprint, _ = cached_data
                 return fingerprint

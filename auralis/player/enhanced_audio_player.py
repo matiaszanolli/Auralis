@@ -413,8 +413,13 @@ class AudioPlayer:
                 # it doesn't call load_and_stop (so `is_stopped()` would also
                 # be False), but a future refactor that adds a stop+load
                 # could re-introduce the previous_track regression here too.
+                # #4126: double-check after play() — stop() sets _stop_requested
+                # without holding _audio_lock, so a concurrent stop() may have
+                # won the race between the first check and the play() call.
                 if was_playing and not self._stop_requested.is_set():
                     self.playback.play()
+                    if self._stop_requested.is_set():
+                        self.playback.stop()
 
                 return True
 
@@ -447,8 +452,13 @@ class AudioPlayer:
                 # user-stop event (#3296) and is NOT changed by load_file,
                 # so it correctly distinguishes "user pressed stop" from
                 # "load_file reset state as part of loading".
+                # #4126: double-check after play() — stop() sets _stop_requested
+                # without holding _audio_lock, so a concurrent stop() may have
+                # won the race between the first check and the play() call.
                 if was_playing and not self._stop_requested.is_set():
                     self.playback.play()
+                    if self._stop_requested.is_set():
+                        self.playback.stop()
                 return True
             # File load failed — roll back queue index under lock.
             self.queue.rollback_index(saved_index)
