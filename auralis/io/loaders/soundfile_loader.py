@@ -30,6 +30,12 @@ def _get_wav_declared_size(file_path: Path) -> int | None:
         if len(header) < 12 or header[:4] != b'RIFF' or header[8:12] != b'WAVE':
             return None
         chunk_size = struct.unpack('<I', header[4:8])[0]
+        # Legacy RF64/overflow WAVs write 0xFFFFFFFF as the chunk-size sentinel
+        # (the real size lives in a ds64 chunk). Treat it as "unknown size" so
+        # the truncation heuristic is skipped rather than rejecting a valid
+        # multi-gigabyte file as ~4 GB declared (#4112).
+        if chunk_size == 0xFFFFFFFF:
+            return None
         return chunk_size + 8  # 8 bytes for RIFF tag + size field itself
     except Exception:
         return None

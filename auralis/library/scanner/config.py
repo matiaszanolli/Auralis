@@ -8,11 +8,11 @@ Configuration constants for library scanner
 :license: GPLv3, see LICENSE for more details.
 """
 
-# Supported audio formats
-AUDIO_EXTENSIONS = {
-    '.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.wma',
-    '.aiff', '.au', '.mp4', '.m4p', '.opus', '.webm'
-}
+# Supported audio formats — re-exported from the single source of truth
+# (auralis.io.formats) so the scanner never ingests an extension the loader
+# can't decode (#4109). Only formats with a working decode path are scanned;
+# .mp4/.m4p/.webm (video/DRM containers) are intentionally excluded.
+from auralis.io.formats import AUDIO_EXTENSIONS  # noqa: F401  (re-exported)
 
 # Common non-music directories to skip
 SKIP_DIRECTORIES = {

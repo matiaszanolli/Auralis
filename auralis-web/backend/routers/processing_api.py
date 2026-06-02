@@ -29,7 +29,9 @@ logger = logging.getLogger(__name__)
 
 # Upload security constants (#2560)
 _MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB hard limit
-_ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".flac", ".wav", ".m4a", ".ogg", ".aiff", ".aif", ".opus"}
+# Derived from the single source of truth (auralis.io.formats) so the upload
+# allowlist tracks exactly what the loader can decode (#4109).
+from auralis.io.formats import AUDIO_EXTENSIONS as _ALLOWED_AUDIO_EXTENSIONS
 
 
 def _is_valid_audio_magic(data: bytes) -> bool:

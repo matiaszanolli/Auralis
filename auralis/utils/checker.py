@@ -89,10 +89,13 @@ def is_audio_file(filepath: str) -> bool:
     """
     from pathlib import Path
 
-    audio_extensions = {
-        '.wav', '.mp3', '.flac', '.aiff', '.aif', '.m4a', '.ogg',
-        '.wma', '.opus', '.ac3', '.dts', '.mp2', '.ape', '.wv'
-    }
+    from auralis.io.formats import AUDIO_EXTENSIONS
+
+    # Superset of the scanner/decoder set: recognises formats Auralis can
+    # decode plus extra containers it merely identifies as audio. Built from
+    # AUDIO_EXTENSIONS (#4109) so it can never omit a format the scanner
+    # accepts; the extras below are audio types without a built-in decode path.
+    audio_extensions = AUDIO_EXTENSIONS | {'.ac3', '.dts', '.mp2', '.ape', '.wv'}
 
     return Path(filepath).suffix.lower() in audio_extensions
 

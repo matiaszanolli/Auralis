@@ -18,23 +18,13 @@ import numpy as np
 import soundfile as sf
 
 from ..utils.logging import Code, ModuleError, debug, info, warning
+from .formats import FFMPEG_FORMATS, SUPPORTED_FORMATS
 from .loaders import check_ffmpeg, load_with_ffmpeg, load_with_soundfile
 from .processing import resample_audio, validate_audio
 
-# Supported audio formats
-SUPPORTED_FORMATS = {
-    '.wav': 'WAV',
-    '.flac': 'FLAC',
-    '.mp3': 'MP3',
-    '.m4a': 'M4A',
-    '.aac': 'AAC',
-    '.ogg': 'OGG',
-    '.wma': 'WMA',
-    '.opus': 'OPUS',  # fixes #2529
-}
-
-# Formats that require FFmpeg conversion
-FFMPEG_FORMATS = {'.mp3', '.m4a', '.aac', '.ogg', '.wma', '.opus'}
+# SUPPORTED_FORMATS / FFMPEG_FORMATS live in auralis.io.formats (the single
+# source of truth) and are re-exported here for backward compatibility with
+# existing importers (#4109).
 
 
 def load_audio(
