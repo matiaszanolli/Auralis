@@ -128,8 +128,13 @@ def _band_low(audio: np.ndarray, sos: np.ndarray) -> np.ndarray:
     the 6 kHz crossover and over-attenuating HF samples immediately
     preceding LF transients (e.g. kick + cymbal). The limiter is gated by
     a peak threshold so the 2x cost of sosfiltfilt is acceptable.
+
+    #4105: cast back to the input dtype. sosfiltfilt always returns float64,
+    so without this every downstream band (low_band, ducked, restored) would
+    compute in float64 for float32 input — silently ~2x working-set memory.
+    Matches every other sosfiltfilt caller in the codebase.
     """
-    return sosfiltfilt(sos, audio, axis=0)
+    return np.asarray(sosfiltfilt(sos, audio, axis=0), dtype=audio.dtype)
 
 
 __all__ = [
