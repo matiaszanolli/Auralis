@@ -221,7 +221,33 @@ class FingerprintService:
             # Load audio if not provided.
             # Use 22050 Hz (librosa's native analysis rate) to halve data for 44.1 kHz files.
             # Cap at 90 s — sufficient for a stable 25D fingerprint with the sampling strategy.
+            #
+            # Window placement: always skip at most min(30 s, 15 % of duration) from the
+            # start before taking the 90 s analysis window.  This avoids quiet/ambient
+            # intro sections that are common in prog, classical, and live recordings and
+            # would otherwise bias the loudness and spectral fingerprint toward a section
+            # that is unrepresentative of the body of the track.
             if audio is None or sr is None:
+                _target_sr = 22050
+                _window_s  = 90.0
+
+                # Determine analysis offset without loading audio.
+                # Skip the first 25 % of the track (capped at 120 s) so that
+                # ambient / instrumental intros don't bias the fingerprint.
+                # A long prog/live track with a 2-minute quiet intro would
+                # otherwise produce a LUFS that is ~8 dB too low, causing
+                # over-aggressive makeup gain and LRA collapse.
+                # Ensure at least _window_s seconds remain after the offset.
+                try:
+                    import soundfile as _sf
+                    with _sf.SoundFile(str(audio_path)) as _f:
+                        _total_s = len(_f) / _f.samplerate
+                    _raw_offset = min(_total_s * 0.25, 120.0)
+                    # Don't push the window past the end of the file
+                    _offset_s = min(_raw_offset, max(0.0, _total_s - _window_s))
+                except Exception:
+                    _offset_s = 0.0
+
                 from auralis.io.formats import FFMPEG_FORMATS
                 if audio_path.suffix.lower() in FFMPEG_FORMATS:
                     # libsndfile can't decode AAC/MP3/etc — load via ffmpeg then resample.
@@ -232,8 +258,6 @@ class FingerprintService:
                     # raw_audio is (samples, channels) or (samples,); convert to (channels, samples)
                     if raw_audio.ndim == 2:
                         raw_audio = raw_audio.T
-                    _target_sr = 22050
-                    _max_samples = int(_target_sr * 90.0)
                     if raw_sr != _target_sr:
                         if raw_audio.ndim == 2:
                             raw_audio = np.stack([
@@ -242,10 +266,16 @@ class FingerprintService:
                             ])
                         else:
                             raw_audio = librosa.resample(raw_audio.astype(np.float32), orig_sr=raw_sr, target_sr=_target_sr)
-                    audio = raw_audio[..., :_max_samples]
+                    # Apply offset + window
+                    _offset_samples = int(_target_sr * _offset_s)
+                    _max_samples    = int(_target_sr * _window_s)
+                    audio = raw_audio[..., _offset_samples : _offset_samples + _max_samples]
                     sr = _target_sr
                 else:
-                    audio, sr = librosa.load(str(audio_path), sr=22050, mono=False, duration=90.0)
+                    audio, sr = librosa.load(
+                        str(audio_path), sr=_target_sr, mono=False,
+                        offset=_offset_s, duration=_window_s,
+                    )
                     sr = int(sr)
             else:
                 # Normalize pre-loaded audio to match file-load parameters (#2457).
