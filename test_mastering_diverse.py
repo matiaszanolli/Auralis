@@ -30,16 +30,26 @@ from auralis.core.simple_mastering import SimpleMasteringPipeline  # noqa: E402
 # ---------------------------------------------------------------------------
 TRACKS = [
     # ── Good: well-mastered, high-DR reference material ──────────────────────
-    # SW HCE [2015] FLACs are 6-ch 5.1 surround (96kHz). Pipeline now downmixes
-    # to stereo, but the Limited Edition MP3s are simpler stereo reference tracks.
+    # Steven Wilson — Hand Cannot Erase (Limited Edition CD1, stereo MP3, 44.1 kHz)
+    # These are the correct stereo masters; the HCE [2015] folder has 5.1 surround FLACs.
     (
-        "SW / 3 Years Older (HCE 5.1→stereo)",
-        "/mnt/Musica/Musica/Steven Wilson/Hand. Cannot. Erase. [2015]/02 - 3 Years Older.flac",
+        "SW HCE / Hand Cannot Erase",
+        "/mnt/Musica/Musica/Steven Wilson/2015 - Hand. Cannot. Erase (Limited Edition)/CD1/03 - Hand Cannot Erase.mp3",
         "good",
     ),
     (
-        "SW / Routine (HCE Limited MP3)",
+        "SW HCE / 3 Years Older",
+        "/mnt/Musica/Musica/Steven Wilson/2015 - Hand. Cannot. Erase (Limited Edition)/CD1/02 - 3 Years Older.mp3",
+        "good",
+    ),
+    (
+        "SW HCE / Routine",
         "/mnt/Musica/Musica/Steven Wilson/2015 - Hand. Cannot. Erase (Limited Edition)/CD1/05 - Routine.mp3",
+        "good",
+    ),
+    (
+        "SW HCE / Home Invasion",
+        "/mnt/Musica/Musica/Steven Wilson/2015 - Hand. Cannot. Erase (Limited Edition)/CD1/06 - Home Invasion.mp3",
         "good",
     ),
     # Porcupine Tree — Closure/Continuation (2022): exceptional modern production
@@ -204,7 +214,7 @@ TRACKS = [
     ),
 ]
 
-OUTPUT_DIR = Path(__file__).parent / "output_diverse_test7"
+OUTPUT_DIR = Path(__file__).parent / "output_diverse_test8"
 RESULTS_FILE = OUTPUT_DIR / "results.json"
 
 
