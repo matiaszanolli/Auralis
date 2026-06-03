@@ -1,0 +1,697 @@
+{
+  "study1": [
+    {
+      "label": "SW HCE / Hand Cannot Erase",
+      "tier": "good",
+      "actual": -14.3,
+      "single": -13.6,
+      "multi": -13.6,
+      "err1": 0.7000000000000011,
+      "err3": 0.7000000000000011
+    },
+    {
+      "label": "SW HCE / 3 Years Older",
+      "tier": "good",
+      "actual": -14.1,
+      "single": -13.8,
+      "multi": -15.4,
+      "err1": 0.29999999999999893,
+      "err3": -1.3000000000000007
+    },
+    {
+      "label": "SW HCE / Routine",
+      "tier": "good",
+      "actual": -14.2,
+      "single": -15.2,
+      "multi": -11.7,
+      "err1": -1.0,
+      "err3": 2.5
+    },
+    {
+      "label": "SW HCE / Home Invasion",
+      "tier": "good",
+      "actual": -13.7,
+      "single": -15.1,
+      "multi": -15.1,
+      "err1": -1.4000000000000004,
+      "err3": -1.4000000000000004
+    },
+    {
+      "label": "PT / Harridan",
+      "tier": "good",
+      "actual": -14.3,
+      "single": -12.7,
+      "multi": -12.7,
+      "err1": 1.6000000000000014,
+      "err3": 1.6000000000000014
+    },
+    {
+      "label": "PT / Dignity",
+      "tier": "good",
+      "actual": -15.7,
+      "single": -19.4,
+      "multi": -19.3,
+      "err1": -3.6999999999999993,
+      "err3": -3.6000000000000014
+    },
+    {
+      "label": "Polyphia / Nasty",
+      "tier": "good",
+      "actual": -7.9,
+      "single": -7.0,
+      "multi": -7.0,
+      "err1": 0.9000000000000004,
+      "err3": 0.9000000000000004
+    },
+    {
+      "label": "Polyphia / GOAT",
+      "tier": "good",
+      "actual": -7.7,
+      "single": -7.8,
+      "multi": -7.7,
+      "err1": -0.09999999999999964,
+      "err3": 0.0
+    },
+    {
+      "label": "deadmau5 / I Remember",
+      "tier": "good",
+      "actual": -7.7,
+      "single": -7.5,
+      "multi": -7.4,
+      "err1": 0.20000000000000018,
+      "err3": 0.2999999999999998
+    },
+    {
+      "label": "Gilmour / Wish You Were Here",
+      "tier": "good",
+      "actual": -16.7,
+      "single": -17.7,
+      "multi": -16.4,
+      "err1": -1.0,
+      "err3": 0.3000000000000007
+    },
+    {
+      "label": "Gilmour / Comfortably Numb",
+      "tier": "good",
+      "actual": -12.9,
+      "single": -12.4,
+      "multi": -12.1,
+      "err1": 0.5,
+      "err3": 0.8000000000000007
+    },
+    {
+      "label": "Gilmour / Shine On",
+      "tier": "good",
+      "actual": -14.3,
+      "single": -23.5,
+      "multi": -14.1,
+      "err1": -9.2,
+      "err3": 0.20000000000000107
+    },
+    {
+      "label": "Dio / Holy Diver",
+      "tier": "good",
+      "actual": -12.3,
+      "single": -11.9,
+      "multi": -11.6,
+      "err1": 0.40000000000000036,
+      "err3": 0.7000000000000011
+    },
+    {
+      "label": "Dio / Rainbow in the Dark",
+      "tier": "good",
+      "actual": -12.3,
+      "single": -13.0,
+      "multi": -11.6,
+      "err1": -0.6999999999999993,
+      "err3": 0.7000000000000011
+    },
+    {
+      "label": "Load / King Nothing",
+      "tier": "mixed",
+      "actual": -8.2,
+      "single": -7.6,
+      "multi": -7.6,
+      "err1": 0.5999999999999996,
+      "err3": 0.5999999999999996
+    },
+    {
+      "label": "Nightwish / Storytime",
+      "tier": "mixed",
+      "actual": -5.9,
+      "single": -6.8,
+      "multi": -6.8,
+      "err1": -0.8999999999999995,
+      "err3": -0.8999999999999995
+    },
+    {
+      "label": "Nightwish / Ghost River",
+      "tier": "mixed",
+      "actual": -6.8,
+      "single": -6.2,
+      "multi": -6.2,
+      "err1": 0.5999999999999996,
+      "err3": 0.5999999999999996
+    },
+    {
+      "label": "Mot\u00f6rhead / 1977",
+      "tier": "mixed",
+      "actual": -12.0,
+      "single": -14.1,
+      "multi": -10.8,
+      "err1": -2.0999999999999996,
+      "err3": 1.1999999999999993
+    },
+    {
+      "label": "GVF / Fate of the Faithful",
+      "tier": "bad",
+      "actual": -4.4,
+      "single": -2.7,
+      "multi": -5.4,
+      "err1": 1.7000000000000002,
+      "err3": -1.0
+    },
+    {
+      "label": "GVF / Runway Blues",
+      "tier": "bad",
+      "actual": -4.0,
+      "single": -3.7,
+      "multi": -4.1,
+      "err1": 0.2999999999999998,
+      "err3": -0.09999999999999964
+    },
+    {
+      "label": "Annihilator / All For You",
+      "tier": "bad",
+      "actual": -7.1,
+      "single": -6.5,
+      "multi": -6.5,
+      "err1": 0.5999999999999996,
+      "err3": 0.5999999999999996
+    },
+    {
+      "label": "Annihilator / Army of One",
+      "tier": "bad",
+      "actual": -8.8,
+      "single": -9.0,
+      "multi": -8.5,
+      "err1": -0.1999999999999993,
+      "err3": 0.3000000000000007
+    },
+    {
+      "label": "Annihilator / Bloodbath",
+      "tier": "bad",
+      "actual": -9.0,
+      "single": -8.7,
+      "multi": -8.1,
+      "err1": 0.3000000000000007,
+      "err3": 0.9000000000000004
+    },
+    {
+      "label": "St. Anger / St. Anger",
+      "tier": "bad",
+      "actual": -6.3,
+      "single": -5.2,
+      "multi": -5.4,
+      "err1": 1.0999999999999996,
+      "err3": 0.8999999999999995
+    },
+    {
+      "label": "St. Anger / Frantic",
+      "tier": "bad",
+      "actual": -6.9,
+      "single": -7.5,
+      "multi": -7.5,
+      "err1": -0.5999999999999996,
+      "err3": -0.5999999999999996
+    },
+    {
+      "label": "Death Magnetic / TWJYL",
+      "tier": "bad",
+      "actual": -11.7,
+      "single": -11.4,
+      "multi": -11.4,
+      "err1": 0.29999999999999893,
+      "err3": 0.29999999999999893
+    },
+    {
+      "label": "Death Magnetic / All Night",
+      "tier": "bad",
+      "actual": -12.0,
+      "single": -11.6,
+      "multi": -11.6,
+      "err1": 0.40000000000000036,
+      "err3": 0.40000000000000036
+    },
+    {
+      "label": "AC/DC / Shot in the Dark",
+      "tier": "bad",
+      "actual": -14.8,
+      "single": -14.9,
+      "multi": -14.9,
+      "err1": -0.09999999999999964,
+      "err3": -0.09999999999999964
+    },
+    {
+      "label": "AC/DC / Realize",
+      "tier": "bad",
+      "actual": -13.7,
+      "single": -13.5,
+      "multi": -13.4,
+      "err1": 0.1999999999999993,
+      "err3": 0.29999999999999893
+    },
+    {
+      "label": "Mot\u00f6rhead / Ace of Spades",
+      "tier": "bad",
+      "actual": -7.3,
+      "single": -7.3,
+      "multi": -7.3,
+      "err1": 0.0,
+      "err3": 0.0
+    },
+    {
+      "label": "Mot\u00f6rhead / Fast and Loose",
+      "tier": "bad",
+      "actual": -8.8,
+      "single": -8.6,
+      "multi": -8.6,
+      "err1": 0.20000000000000107,
+      "err3": 0.20000000000000107
+    }
+  ],
+  "study2": [
+    {
+      "file": "AC-DC_-_Power_Up_-_Realize_mastered.flac",
+      "true_peak": -0.3,
+      "lufs": -11.8
+    },
+    {
+      "file": "AC-DC_-_Power_Up_-_Shot_in_the_Dark_mastered.flac",
+      "true_peak": -0.3,
+      "lufs": -12.1
+    },
+    {
+      "file": "Annihilator_-_All_For_You_-_All_For_You_mastered.flac",
+      "true_peak": -0.0,
+      "lufs": -8.6
+    },
+    {
+      "file": "Annihilator_-_Criteria_BW_-_Bloodbath_mastered.flac",
+      "true_peak": 0.2,
+      "lufs": -6.6
+    },
+    {
+      "file": "Annihilator_-_Metal_-_Army_of_One_mastered.flac",
+      "true_peak": 0.1,
+      "lufs": -7.2
+    },
+    {
+      "file": "Dio_-_Holy_Diver_(1986_JP)_-_Holy_Diver_mastered.flac",
+      "true_peak": -0.1,
+      "lufs": -12.5
+    },
+    {
+      "file": "Dio_-_Holy_Diver_(1986_JP)_-_Rainbow_in_the_Dark_mastered.flac",
+      "true_peak": -0.0,
+      "lufs": -10.1
+    },
+    {
+      "file": "GVF_-_Starcatcher_-_Fate_of_the_Faithful_mastered.flac",
+      "true_peak": -0.3,
+      "lufs": -6.5
+    },
+    {
+      "file": "GVF_-_Starcatcher_-_Runway_Blues_mastered.flac",
+      "true_peak": -0.2,
+      "lufs": -5.7
+    },
+    {
+      "file": "Gilmour_-_Comfortably_Numb_mastered.flac",
+      "true_peak": 0.8,
+      "lufs": -11.0
+    },
+    {
+      "file": "Gilmour_-_Shine_On_mastered.flac",
+      "true_peak": 0.4,
+      "lufs": -12.6
+    },
+    {
+      "file": "Gilmour_-_Wish_You_Were_Here_mastered.flac",
+      "true_peak": 1.5,
+      "lufs": -15.3
+    },
+    {
+      "file": "Metallica_-_Death_Magnetic_-_All_Nightmare_Long_mastered.flac",
+      "true_peak": 0.3,
+      "lufs": -9.9
+    },
+    {
+      "file": "Metallica_-_Death_Magnetic_-_That_Was_Just_Your_Life_mastered.flac",
+      "true_peak": 0.4,
+      "lufs": -9.6
+    },
+    {
+      "file": "Metallica_-_Load_-_Ain\u2019t_My_Bitch_mastered.flac",
+      "true_peak": 1.6,
+      "lufs": -6.1
+    },
+    {
+      "file": "Metallica_-_Load_-_King_Nothing_mastered.flac",
+      "true_peak": 0.7,
+      "lufs": -9.2
+    },
+    {
+      "file": "Metallica_-_St._Anger_-_Frantic_mastered.flac",
+      "true_peak": 1.5,
+      "lufs": -7.8
+    },
+    {
+      "file": "Metallica_-_St._Anger_-_St._Anger_mastered.flac",
+      "true_peak": 1.4,
+      "lufs": -7.2
+    },
+    {
+      "file": "Mot\u00f6rhead_-_1977_-_Mot\u00f6rhead_mastered.flac",
+      "true_peak": 0.4,
+      "lufs": -10.0
+    },
+    {
+      "file": "Mot\u00f6rhead_-_Ace_of_Spades_(2020)_-_Ace_of_Spades_mastered.flac",
+      "true_peak": -0.1,
+      "lufs": -7.4
+    },
+    {
+      "file": "Mot\u00f6rhead_-_Ace_of_Spades_(2020)_-_Fast_and_Loose_mastered.flac",
+      "true_peak": -0.0,
+      "lufs": -9.3
+    },
+    {
+      "file": "Nightwish_-_Imaginaerum_-_Ghost_River_mastered.flac",
+      "true_peak": 1.2,
+      "lufs": -7.3
+    },
+    {
+      "file": "Nightwish_-_Imaginaerum_-_Storytime_mastered.flac",
+      "true_peak": 1.5,
+      "lufs": -6.5
+    },
+    {
+      "file": "Polyphia_-_GOAT_mastered.flac",
+      "true_peak": 0.8,
+      "lufs": -8.7
+    },
+    {
+      "file": "Polyphia_-_Nasty_mastered.flac",
+      "true_peak": 0.4,
+      "lufs": -6.6
+    },
+    {
+      "file": "Porcupine_Tree_-_Dignity_mastered.flac",
+      "true_peak": 0.4,
+      "lufs": -13.2
+    },
+    {
+      "file": "Porcupine_Tree_-_Harridan_mastered.flac",
+      "true_peak": 0.7,
+      "lufs": -11.8
+    },
+    {
+      "file": "SW_HCE_-_3_Years_Older_mastered.flac",
+      "true_peak": 0.4,
+      "lufs": -13.9
+    },
+    {
+      "file": "SW_HCE_-_Hand_Cannot_Erase_mastered.flac",
+      "true_peak": 0.6,
+      "lufs": -13.8
+    },
+    {
+      "file": "SW_HCE_-_Home_Invasion_mastered.flac",
+      "true_peak": 0.3,
+      "lufs": -12.0
+    },
+    {
+      "file": "SW_HCE_-_Routine_mastered.flac",
+      "true_peak": 0.7,
+      "lufs": -12.2
+    },
+    {
+      "file": "Soda_Stereo_-_Comfort_-_En_La_Ciudad_mastered.flac",
+      "true_peak": 0.7,
+      "lufs": -10.3
+    },
+    {
+      "file": "Soda_Stereo_-_Comfort_-_Zoom_mastered.flac",
+      "true_peak": 1.8,
+      "lufs": -7.1
+    },
+    {
+      "file": "deadmau5_-_I_Remember_mastered.flac",
+      "true_peak": 0.4,
+      "lufs": -10.0
+    }
+  ],
+  "study3": [
+    {
+      "label": "SW HCE / Hand Cannot Erase",
+      "tier": "good",
+      "actual_lufs": -14.3,
+      "fp_lufs": -22.964712006957797,
+      "fp_crest": 22.947600173848212,
+      "gain_applied": 4.187649202435229,
+      "gain_needed": 3.3000000000000007,
+      "gain_error": 0.8876492024352283,
+      "gain_scaled_error": -3.3000000000000007,
+      "crest_scale": 0.0
+    },
+    {
+      "label": "SW HCE / 3 Years Older",
+      "tier": "good",
+      "actual_lufs": -14.1,
+      "fp_lufs": -22.26574846596323,
+      "fp_crest": 22.12945053512691,
+      "gain_applied": 3.9430119630871308,
+      "gain_needed": 3.0999999999999996,
+      "gain_error": 0.8430119630871311,
+      "gain_scaled_error": -3.0999999999999996,
+      "crest_scale": 0.0
+    },
+    {
+      "label": "SW HCE / Routine",
+      "tier": "good",
+      "actual_lufs": -14.2,
+      "fp_lufs": -25.975042744660797,
+      "fp_crest": 19.40654588371485,
+      "gain_applied": 5.241264960631279,
+      "gain_needed": 3.1999999999999993,
+      "gain_error": 2.0412649606312794,
+      "gain_scaled_error": -1.8407019813309669,
+      "crest_scale": 0.2593454116285152
+    },
+    {
+      "label": "SW HCE / Home Invasion",
+      "tier": "good",
+      "actual_lufs": -13.7,
+      "fp_lufs": -17.477872808358754,
+      "fp_crest": 17.042727416262238,
+      "gain_applied": 2.2672554829255636,
+      "gain_needed": 2.6999999999999993,
+      "gain_error": -0.43274451707443573,
+      "gain_scaled_error": -1.5760596554163977,
+      "crest_scale": 0.4957272583737762
+    },
+    {
+      "label": "PT / Harridan",
+      "tier": "good",
+      "actual_lufs": -14.3,
+      "fp_lufs": -17.85624354200911,
+      "fp_crest": 17.549246144628157,
+      "gain_applied": 2.3996852397031887,
+      "gain_needed": 3.3000000000000007,
+      "gain_error": -0.900314760296812,
+      "gain_scaled_error": -2.2319591667712135,
+      "crest_scale": 0.4450753855371843
+    },
+    {
+      "label": "PT / Dignity",
+      "tier": "good",
+      "actual_lufs": -15.7,
+      "fp_lufs": -20.607629331761434,
+      "fp_crest": 18.597391113964484,
+      "gain_applied": 3.3626702661165018,
+      "gain_needed": 4.699999999999999,
+      "gain_error": -1.3373297338834975,
+      "gain_scaled_error": -3.5558148271704573,
+      "crest_scale": 0.34026088860355164
+    },
+    {
+      "label": "Polyphia / Nasty",
+      "tier": "good",
+      "actual_lufs": -7.9,
+      "fp_lufs": -12.65529491878526,
+      "fp_crest": 11.943947694526527,
+      "gain_applied": 0.5793532215748413,
+      "gain_needed": 0.0,
+      "gain_error": 0.5793532215748413,
+      "gain_scaled_error": 0.5793532215748413,
+      "crest_scale": 1.0
+    },
+    {
+      "label": "Gilmour / Wish You Were Here",
+      "tier": "good",
+      "actual_lufs": -16.7,
+      "fp_lufs": -20.003102893749617,
+      "fp_crest": 17.1858143747667,
+      "gain_applied": 3.1510860128123657,
+      "gain_needed": 5.699999999999999,
+      "gain_error": -2.5489139871876336,
+      "gain_scaled_error": -4.183008701324499,
+      "crest_scale": 0.48141856252333004
+    },
+    {
+      "label": "Gilmour / Comfortably Numb",
+      "tier": "good",
+      "actual_lufs": -12.9,
+      "fp_lufs": -16.892700095130788,
+      "fp_crest": 15.526180226387755,
+      "gain_applied": 2.0624450332957758,
+      "gain_needed": 1.9000000000000004,
+      "gain_error": 0.16244503329577542,
+      "gain_scaled_error": -0.5648102561461446,
+      "crest_scale": 0.6473819773612245
+    },
+    {
+      "label": "Gilmour / Shine On",
+      "tier": "good",
+      "actual_lufs": -14.3,
+      "fp_lufs": -21.572702780319723,
+      "fp_crest": 17.892802715912815,
+      "gain_applied": 3.700445973111903,
+      "gain_needed": 3.3000000000000007,
+      "gain_error": 0.4004459731119021,
+      "gain_scaled_error": -1.7801538349323438,
+      "crest_scale": 0.4107197284087185
+    },
+    {
+      "label": "Dio / Rainbow in the Dark",
+      "tier": "good",
+      "actual_lufs": -12.3,
+      "fp_lufs": -16.82694026648184,
+      "fp_crest": 17.13339340838373,
+      "gain_applied": 2.0394290932686445,
+      "gain_needed": 1.3000000000000007,
+      "gain_error": 0.7394290932686438,
+      "gain_scaled_error": -0.30749009315648257,
+      "crest_scale": 0.48666065916162715
+    },
+    {
+      "label": "Soda Stereo / En La Ciudad",
+      "tier": "mixed",
+      "actual_lufs": -9.2,
+      "fp_lufs": -14.966023529825003,
+      "fp_crest": 13.716842598863597,
+      "gain_applied": 1.388108235438751,
+      "gain_needed": 0.0,
+      "gain_error": 1.388108235438751,
+      "gain_scaled_error": 1.1497919003952883,
+      "crest_scale": 0.8283157401136403
+    },
+    {
+      "label": "Soda Stereo / Zoom",
+      "tier": "mixed",
+      "actual_lufs": -8.5,
+      "fp_lufs": -13.008542455017356,
+      "fp_crest": 13.447678885159837,
+      "gain_applied": 0.7029898592560744,
+      "gain_needed": 0.0,
+      "gain_error": 0.7029898592560744,
+      "gain_scaled_error": 0.601219501683424,
+      "crest_scale": 0.8552321114840163
+    },
+    {
+      "label": "Mot\u00f6rhead / 1977",
+      "tier": "mixed",
+      "actual_lufs": -12.0,
+      "fp_lufs": -18.34075549812843,
+      "fp_crest": 16.069692591471195,
+      "gain_applied": 2.5692644243449507,
+      "gain_needed": 1.0,
+      "gain_error": 1.5692644243449507,
+      "gain_scaled_error": 0.5236527850162356,
+      "crest_scale": 0.5930307408528804
+    },
+    {
+      "label": "Annihilator / Army of One",
+      "tier": "bad",
+      "actual_lufs": -8.8,
+      "fp_lufs": -12.460011035528824,
+      "fp_crest": 11.686891017382365,
+      "gain_applied": 0.5110038624350884,
+      "gain_needed": 0.0,
+      "gain_error": 0.5110038624350884,
+      "gain_scaled_error": 0.5110038624350884,
+      "crest_scale": 1.0
+    },
+    {
+      "label": "Annihilator / Bloodbath",
+      "tier": "bad",
+      "actual_lufs": -9.0,
+      "fp_lufs": -12.484549174796138,
+      "fp_crest": 12.462355113595546,
+      "gain_applied": 0.5195922111786483,
+      "gain_needed": 0.0,
+      "gain_error": 0.5195922111786483,
+      "gain_scaled_error": 0.4955685995963618,
+      "crest_scale": 0.9537644886404454
+    },
+    {
+      "label": "Death Magnetic / TWJYL",
+      "tier": "bad",
+      "actual_lufs": -11.7,
+      "fp_lufs": -16.162717163669857,
+      "fp_crest": 12.010201903316135,
+      "gain_applied": 1.80695100728445,
+      "gain_needed": 0.6999999999999993,
+      "gain_error": 1.1069510072844506,
+      "gain_scaled_error": 1.1051075733371198,
+      "crest_scale": 0.9989798096683865
+    },
+    {
+      "label": "Death Magnetic / All Night",
+      "tier": "bad",
+      "actual_lufs": -12.0,
+      "fp_lufs": -16.67529473074929,
+      "fp_crest": 12.357023401507512,
+      "gain_applied": 1.9863531557622511,
+      "gain_needed": 1.0,
+      "gain_error": 0.9863531557622511,
+      "gain_scaled_error": 0.9154356997357094,
+      "crest_scale": 0.9642976598492489
+    },
+    {
+      "label": "AC/DC / Shot in the Dark",
+      "tier": "bad",
+      "actual_lufs": -14.8,
+      "fp_lufs": -18.805700589415704,
+      "fp_crest": 16.16355855934074,
+      "gain_applied": 2.731995206295496,
+      "gain_needed": 3.8000000000000007,
+      "gain_error": -1.0680047937045045,
+      "gain_scaled_error": -2.2054869962294523,
+      "crest_scale": 0.5836441440659261
+    },
+    {
+      "label": "AC/DC / Realize",
+      "tier": "bad",
+      "actual_lufs": -13.7,
+      "fp_lufs": -17.875078164315685,
+      "fp_crest": 15.447903904976917,
+      "gain_applied": 2.4062773575104894,
+      "gain_needed": 2.6999999999999993,
+      "gain_error": -0.29372264248950986,
+      "gain_scaled_error": -1.1233839522313052,
+      "crest_scale": 0.6552096095023083
+    }
+  ]
+}
