@@ -214,7 +214,7 @@ TRACKS = [
     ),
 ]
 
-OUTPUT_DIR = Path(__file__).parent / "output_diverse_test8"
+OUTPUT_DIR = Path(__file__).parent / "output_diverse_test9"
 RESULTS_FILE = OUTPUT_DIR / "results.json"
 
 
