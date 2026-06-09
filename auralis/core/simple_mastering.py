@@ -29,6 +29,7 @@ from .stages import (
     bass_enhancement,
     clarity_boost,
     harmonic_exciter,
+    loudness_maximizer,
     mid_warmth,
     presence_enhancement,
     resonance_notches as resonance_notches_stage,
@@ -65,6 +66,16 @@ class SimpleMasteringPipeline:
         # recursively. Cross-instance parallelism is unaffected — only
         # the same-instance reuse pattern is serialised.
         self._process_lock = threading.RLock()
+        # Per-file accurate ITU-R BS.1770 loudness, measured once in
+        # master_file and consumed by the QuietBranch loudness maximizer.
+        # The fingerprint's `lufs` is a non-K-weighted, non-gated RMS proxy
+        # (median across windows) that under-reads high-dynamic-range material
+        # by 3-5 dB — fine for classification but wrong for deciding how much
+        # makeup the maximizer should apply. None until measured / on the
+        # direct _process() path (tests), where the branch falls back to the
+        # fingerprint value.
+        self._source_lufs: float | None = None
+        self._source_crest_db: float | None = None
 
     @property
     def fingerprint_service(self) -> FingerprintService:
@@ -181,6 +192,8 @@ class SimpleMasteringPipeline:
         # averaging to find stable spectral peaks. The same notch list is
         # applied to every chunk during processing.
         self._notches = []
+        self._source_lufs = None
+        self._source_crest_db = None
         step_start = time.perf_counter()
         notch_sample_seconds = 30
         notch_window = min(total_frames, sr * notch_sample_seconds)
@@ -188,6 +201,16 @@ class SimpleMasteringPipeline:
         with sf.SoundFile(str(input_path)) as audio_file:
             audio_file.seek(notch_start)
             notch_sample = audio_file.read(notch_window).astype(np.float32)
+
+        # Accurate ITU-R BS.1770 integrated loudness + crest on the same
+        # representative window. Drives the QuietBranch loudness maximizer's
+        # makeup decision (the fingerprint's RMS-proxy LUFS under-reads
+        # high-DR material by 3-5 dB). Best-effort: leaves None on failure and
+        # the branch falls back to the fingerprint value.
+        self._source_lufs, self._source_crest_db = self._measure_window_loudness(
+            notch_sample, sr
+        )
+
         # SoundFile returns (samples, channels); ResonanceNotcher handles both
         # mono and stereo input internally.
         detected = ResonanceNotcher.detect(
@@ -578,6 +601,14 @@ class SimpleMasteringPipeline:
     ) -> np.ndarray:
         return safety_limiter.apply(audio, verbose, ceiling=ceiling)
 
+    def _apply_loudness_maximizer(
+        self, audio: np.ndarray, source_lufs: float, source_crest_db: float,
+        sample_rate: int, verbose: bool,
+    ) -> tuple[np.ndarray, dict | None]:
+        return loudness_maximizer.apply(
+            audio, source_lufs, source_crest_db, sample_rate, verbose, self.config
+        )
+
     def _contextualize_notches(self, notches: list[Notch], fingerprint: dict) -> list[Notch]:
         """
         Filter and scale each notch's depth based on the target band's health.
@@ -719,6 +750,50 @@ class SimpleMasteringPipeline:
         intensity: float, sample_rate: int, verbose: bool, hf_lift: float = 1.0,
     ) -> tuple[np.ndarray, dict | None]:
         return air_enhancement.apply(audio, air_pct, spectral_rolloff, intensity, sample_rate, verbose, self.config, hf_lift)
+
+    @staticmethod
+    def _measure_window_loudness(
+        window: np.ndarray, sample_rate: int
+    ) -> tuple[float | None, float | None]:
+        """Accurate ITU-R BS.1770 integrated LUFS + broadband crest on a window.
+
+        Used to drive the loudness maximizer instead of the fingerprint's
+        RMS-proxy LUFS (which under-reads high-dynamic-range material). The
+        window is the representative middle slice already loaded for resonance
+        detection. Returns (None, None) on any failure so callers fall back to
+        the fingerprint value.
+
+        Args:
+            window: Audio (samples, channels) or (samples,), float.
+            sample_rate: Sample rate in Hz.
+
+        Returns:
+            (integrated_lufs, crest_db) or (None, None) if measurement failed
+            or the window was too short/silent.
+        """
+        try:
+            from ..analysis.loudness_meter import LoudnessMeter
+
+            if window.size == 0:
+                return None, None
+
+            meter = LoudnessMeter(sample_rate=sample_rate)
+            block = meter.block_size
+            for start in range(0, len(window), block):
+                chunk = window[start:start + block]
+                if len(chunk) >= block // 2:
+                    meter.measure_chunk(chunk)
+            lufs = meter.finalize_measurement().integrated_lufs
+            if not np.isfinite(lufs):
+                return None, None
+
+            mono = np.mean(window, axis=1) if window.ndim == 2 else window
+            rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
+            peak = float(np.max(np.abs(mono)))
+            crest = (20.0 * np.log10(peak / rms)) if rms > 1e-9 and peak > 0 else None
+            return float(lufs), crest
+        except Exception:
+            return None, None
 
     @staticmethod
     def _peak_db(audio: np.ndarray) -> float:

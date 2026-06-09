@@ -423,6 +423,68 @@ class SimpleMasteringConfig:
     is much shallower."""
 
     # =========================================================================
+    # Loudness Maximizer (quiet / under-mastered material)
+    # =========================================================================
+    # Restores competitive loudness to genuinely under-mastered sources by
+    # trading some crest factor for level via a transparent push-then-limit.
+    #
+    # WHY THIS EXISTS: the QuietBranch's makeup gain is capped (crest > 15 dB)
+    # and then zeroed (peaks already near 0 dBFS) for high-crest material, and
+    # the final stage is a pure peak-normalize — which pins output loudness to
+    # ``peak - crest``. A vintage rock record at -22 LUFS / 18 dB crest with
+    # peaks near full scale therefore came out only ~1-3 dB louder than the
+    # source ("almost no treatment"). The cure is to REDUCE the crest factor
+    # (the only lever that moves loudness once peaks are at the ceiling), which
+    # is exactly what a brick-wall limiter fed with pre-gain does.
+    #
+    # CREST CANNOT DISCRIMINATE alone: a finished dynamic master (Gilmour Live,
+    # -17 LUFS) and a raw under-mastered recording (Oktubre, -22.5 LUFS) BOTH
+    # have high crest. Absolute LUFS is the discriminator — hence the ramp below
+    # keys on source loudness, not crest. Already-competitive sources
+    # (>= LOUDNESS_COMPETITIVE_LUFS) are a strict no-op.
+
+    LOUDNESS_COMPETITIVE_LUFS: float = -14.0
+    """At or above this (accurate BS.1770) source LUFS the material is already
+    competitively loud; the maximizer is a strict no-op. Set from the measured
+    'good'/competitive cluster — Gilmour Live -12.9, Dio -12.3, Polyphia -7.7,
+    Motörhead 1977 -12.0, SW Routine -14.2 — which all sit at/above -14 and must
+    pass through untouched."""
+
+    LOUDNESS_UNDERMASTER_RANGE_DB: float = 6.0
+    """LUFS span below LOUDNESS_COMPETITIVE_LUFS over which treatment ramps from
+    none to full. Source at (COMPETITIVE - this) = -20 LUFS is 'fully
+    under-mastered' and gets the maximum push. Oktubre's tracks (-15.8 to
+    -19.8 LUFS) span this ramp, so the quietest get the most lift and the
+    near-competitive ones only a touch."""
+
+    LOUDNESS_TARGET_LUFS: float = -15.5
+    """Loudness anchor for the maximizer's push, NOT the final output LUFS:
+    push = (TARGET - source_lufs) * undermastered. The downstream EQ +
+    final-normalize add ~3 dB on top, so a -15.5 anchor lands Oktubre's tracks
+    at roughly -13 to -15 LUFS (avg ~-14, the requested 'moderate' target) at
+    ~15-17 dB crest — clearly louder yet still markedly dynamic. Lower this for
+    a hotter master, raise it for a gentler lift."""
+
+    LOUDNESS_MIN_CREST_DB: float = 11.0
+    """Crest-factor floor. The push is clamped so output crest never falls below
+    this — guarantees the result stays clearly dynamic (no loudness-war
+    crushing). 11 dB is still markedly more dynamic than brickwalled masters
+    (~6-8 dB) while permitting a real loudness lift."""
+
+    LOUDNESS_MAX_PUSH_DB: float = 10.0
+    """Absolute ceiling on the push gain, regardless of how quiet the source is.
+    Backstop against pathological inputs (e.g. a -40 LUFS field recording)."""
+
+    LOUDNESS_LIMITER_CEILING_DB: float = -1.0
+    """Brick-wall limiter ceiling. The downstream final normalize lifts the peak
+    back toward the output target, and the per-chunk True-Peak guard in
+    master_file caps inter-sample peaks at -0.5 dBFS."""
+
+    LOUDNESS_LIMITER_RELEASE_MS: float = 60.0
+    """Limiter release. Long enough to avoid pumping on sustained low end,
+    short enough to recover between transients on punchy rock material."""
+
+    # =========================================================================
     # Progress Reporting
     # =========================================================================
 

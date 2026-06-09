@@ -659,6 +659,30 @@ class QuietBranch(ProcessingBranch):
         )
         recorder.add(width_info)
 
+        # Loudness maximizer — competitive loudness for genuinely UNDER-MASTERED
+        # sources (quiet AND high-crest, e.g. vintage/lo-fi rock at -22 LUFS).
+        # The makeup gain above is capped/zeroed for high-crest material and the
+        # final peak-normalize pins loudness to (peak - crest), so without this
+        # such tracks came out only ~1-3 dB louder than source. Reducing the
+        # crest factor (push-then-limit) is the only lever that raises loudness
+        # once peaks are at the ceiling. Strict no-op for already-competitive
+        # sources (LUFS >= LOUDNESS_COMPETITIVE_LUFS), so the well-mastered
+        # 'good' tier is untouched. Runs AFTER stereo expansion so the limiter
+        # also catches any mid/side peaks the widening introduced, and BEFORE
+        # the final normalize which lifts the limited peak back to the ceiling.
+        # Prefer the accurate ITU-R BS.1770 loudness measured per-file in
+        # master_file; fall back to the fingerprint values on the direct
+        # _process() path (e.g. unit tests) where it was not measured.
+        src_lufs = self.pipeline._source_lufs
+        src_crest = self.pipeline._source_crest_db
+        processed, loudness_info = self.pipeline._apply_loudness_maximizer(
+            processed,
+            src_lufs if src_lufs is not None else unpacker.lufs,
+            src_crest if src_crest is not None else unpacker.crest_db,
+            sample_rate, verbose
+        )
+        recorder.add(loudness_info)
+
         # Final normalization — competitive loudness, dynamics protected.
         #
         # A pure peak-normalize is gain only, so crest factor (transient punch)
