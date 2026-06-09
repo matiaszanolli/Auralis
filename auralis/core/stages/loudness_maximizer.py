@@ -73,10 +73,14 @@ def apply(
     # dynamic floor. output_crest ≈ source_crest - push, so cap the push at
     # (source_crest - MIN_CREST). Guarantees the result stays clearly dynamic.
     crest_headroom = source_crest_db - config.LOUDNESS_MIN_CREST_DB
+    # Transient-preservation cap: the push IS crest reduction, so bound it to a
+    # musical amount ('preserve punch') even when the source is very quiet —
+    # trading a little loudness to keep the kick/snare dynamics intact.
     push_db = float(np.clip(
         loudness_push,
         0.0,
-        min(crest_headroom, config.LOUDNESS_MAX_PUSH_DB),
+        min(crest_headroom, config.LOUDNESS_MAX_PUSH_DB,
+            config.LOUDNESS_MAX_CREST_REDUCTION_DB),
     ))
 
     # Below ~0.5 dB the push is inaudible and not worth the limiter pass.

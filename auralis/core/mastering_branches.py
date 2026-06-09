@@ -484,9 +484,12 @@ class QuietBranch(ProcessingBranch):
             processed = amplify(processed, makeup_gain)
             recorder.add({'stage': 'makeup_gain', 'gain_db': makeup_gain})
 
-        # Bass enhancement OR de-congestion (bidirectional based on bass_pct)
+        # Bass enhancement OR de-congestion (bidirectional based on bass_pct).
+        # mid_pct/upper_mid_pct feed the de-mask cut that lowers the masking
+        # bass when the voice is buried (paired with the clarity-boost lift).
         processed, bass_info = self.pipeline._apply_bass_enhancement(
-            processed, unpacker.bass_pct, effective_intensity, sample_rate, verbose
+            processed, unpacker.bass_pct, effective_intensity, sample_rate, verbose,
+            unpacker.mid_pct, unpacker.upper_mid_pct
         )
         recorder.add(bass_info)
 
@@ -554,10 +557,13 @@ class QuietBranch(ProcessingBranch):
         # Clarity boost — Up-Mid bell for vocal/snare definition. Sits between
         # the exciter (which fed new harmonics into 4-8 kHz) and the presence
         # shelf (which lifts 2-8 kHz broadly). The clarity bell narrows the
-        # focus to 1.5-3.5 kHz where consonants and attack-snap live.
+        # focus to 1.5-3.5 kHz where consonants and attack-snap live. bass_pct/
+        # mid_pct enable the relative vocal-masking trigger (voice buried under
+        # a dominant bass), which the absolute Up-Mid deficit alone misses.
         processed, clarity_info = self.pipeline._apply_clarity_boost(
             processed, unpacker.upper_mid_pct,
-            effective_intensity, sample_rate, verbose, hf_lift
+            effective_intensity, sample_rate, verbose, hf_lift,
+            unpacker.bass_pct, unpacker.mid_pct
         )
         recorder.add(clarity_info)
 

@@ -106,6 +106,40 @@ class SmoothCurveUtilities:
         return SmoothCurveUtilities.s_curve(normalized)
 
     @staticmethod
+    def vocal_mask_factor(
+        bass_pct: float, mid_pct: float, upper_mid_pct: float,
+        ratio_low: float, ratio_range: float,
+    ) -> float:
+        """Severity (0-1) of a vocal buried under a dominant bass.
+
+        Uses the bass-to-voice energy ratio ``bass_pct / (mid_pct +
+        upper_mid_pct)``: well-mastered records sit near 2.0, while a buried
+        vocal (e.g. Patricio Rey's Gulp at bass 60% / voice 9%) runs 5-9. Ramps
+        from 0 at ``ratio_low`` to 1 at ``ratio_low + ratio_range`` via the
+        shared S-curve, so balanced bass-heavy genres stay untouched.
+
+        Shared by the clarity-boost (presence lift) and bass-balance (mud cut)
+        stages so both sides of the unmasking move key off one definition.
+
+        Args:
+            bass_pct: Fingerprint bass percentage (0-1).
+            mid_pct: Fingerprint mid percentage (0-1).
+            upper_mid_pct: Fingerprint upper-mid percentage (0-1).
+            ratio_low: Bass/voice ratio at which unmasking begins (→ 0.0).
+            ratio_range: Span above ratio_low mapping to full severity (→ 1.0).
+
+        Returns:
+            Masking severity 0.0-1.0 (0.0 when voice energy is negligible).
+        """
+        voice_pct = mid_pct + upper_mid_pct
+        if voice_pct <= 1e-3:
+            return 0.0
+        mask_ratio = bass_pct / voice_pct
+        return SmoothCurveUtilities.ramp_to_s_curve(
+            max(0.0, mask_ratio - ratio_low), 0.0, ratio_range
+        )
+
+    @staticmethod
     def bell_curve(value: float, center: float, width: float) -> float:
         """
         Symmetric bell curve peaking at center with given width.

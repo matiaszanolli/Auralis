@@ -381,6 +381,55 @@ class SimpleMasteringConfig:
     boosts visibly over-tilt the spectrum."""
 
     # =========================================================================
+    # Vocal Unmasking (bass-vs-voice imbalance, distinct from absolute Up-Mid)
+    # =========================================================================
+    # The clarity bell historically fired only on an ABSOLUTE Up-Mid deficit
+    # (upper_mid < CLARITY_TOL_LOW = 1.5%). That misses the common defect of a
+    # vocal buried by a DOMINANT bass even though Up-Mid is nominally "fine":
+    # Patricio Rey's Gulp sits at bass 60% / mid 5% / Up-Mid 4% — the voice is
+    # 6-9 dB under the bass yet Up-Mid is above the 1.5% floor, so clarity never
+    # engaged. These constants add a second, RELATIVE trigger keyed on the
+    # bass-to-voice energy ratio, so the bell lifts the vocal presence band
+    # whenever the voice is masked — while leaving balanced bass-heavy genres
+    # (reggae/folk, ratio ~2) untouched.
+
+    VOCAL_MASK_RATIO_LOW: float = 3.0
+    """bass_pct / (mid_pct + upper_mid_pct) above which the voice is considered
+    masked by the bass. Reference well-mastered records sit at ~2.0 (bass 0.46 /
+    voice 0.226); 3.0 leaves normal material alone and engages only on genuine
+    burial. Gulp's masked tracks sit at 6-9."""
+
+    VOCAL_MASK_RATIO_RANGE: float = 3.0
+    """Ratio span above VOCAL_MASK_RATIO_LOW that maps to maximum unmasking.
+    At ratio = (LOW + this) = 6.0 the lift is full. Tightened from 4.0 so
+    moderately-masked tracks (Gulp's 'Te voy', ratio 5.3) reach most of the
+    correction instead of sitting mid-ramp — calibrated against well-mastered
+    references whose voice/bass sits at -1 to +2 dB (Dio +2.0, Gilmour -0.6)."""
+
+    VOCAL_MASK_MAX_BOOST_DB: float = 4.0
+    """Max clarity-bell lift on the vocal presence band when fully masked.
+    Higher than CLARITY_MAX_BOOST_DB because unburying a voice that is 6-9 dB
+    under the bass needs more than the gentle absolute-deficit nudge. 4 dB lifts
+    the most-masked tracks (Gulp 'Te voy') meaningfully while the easier cases
+    (La Bestia) only reach a Dio-like +1-2 dB voice/bass, not honky."""
+
+    VOCAL_MASK_CUT_LOW_HZ: float = 150.0
+    """Lower bound of the complementary 'de-mask' cut applied to the bass when a
+    vocal is masked. Sits above the kick fundamental (50-120 Hz) so the low-end
+    weight is preserved while the upper-bass/low-mid mud that masks the vocal
+    body is reduced."""
+
+    VOCAL_MASK_CUT_HIGH_HZ: float = 450.0
+    """Upper bound of the de-mask cut — the boxy 150-450 Hz region where bass
+    energy upward-masks the vocal."""
+
+    VOCAL_MASK_BASS_CUT_DB: float = 3.5
+    """Max depth of the de-mask cut at full masking severity. Works with the
+    clarity boost from the other side: lift the voice AND lower the masker, so
+    extremely bass-dominant tracks (Gulp at 60% bass) unbury without an
+    unnatural narrow presence spike."""
+
+    # =========================================================================
     # Sub-Bass Control (continuous curve, like bass balance)
     # =========================================================================
     # Smooth ramp from target outward. Wide range so that even bass-forward
@@ -474,6 +523,14 @@ class SimpleMasteringConfig:
     LOUDNESS_MAX_PUSH_DB: float = 10.0
     """Absolute ceiling on the push gain, regardless of how quiet the source is.
     Backstop against pathological inputs (e.g. a -40 LUFS field recording)."""
+
+    LOUDNESS_MAX_CREST_REDUCTION_DB: float = 3.0
+    """Transient-preservation cap: the push is also crest reduction (RMS rises
+    ~1:1 while peaks stay at the ceiling), so this bounds how much drum punch the
+    loudness stage may trade for level. Caps the flattening of dynamic material
+    to a musical amount and accepts a slightly quieter master (the chosen
+    'preserve punch' trade-off) rather than crushing the kick/snare. 3 dB keeps
+    e.g. an 18 dB-crest source at >= 15 dB out."""
 
     LOUDNESS_LIMITER_CEILING_DB: float = -1.0
     """Brick-wall limiter ceiling. The downstream final normalize lifts the peak
