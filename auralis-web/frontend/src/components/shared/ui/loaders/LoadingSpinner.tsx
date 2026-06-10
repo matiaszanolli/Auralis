@@ -2,6 +2,7 @@
 import { Box, styled } from '@mui/material';
 import { rotate, pulse } from '@/components/library/Styles/Animation.styles';
 import { tokens, CircularProgress } from '@/design-system';
+import { useId } from 'react';
 
 interface LoadingSpinnerProps {
   size?: number;
@@ -35,7 +36,8 @@ export const LoadingSpinner = ({
   gradient: _gradient = tokens.gradients.aurora,
   className,
 }: LoadingSpinnerProps) => {
-  const gradientId = `gradient-${Math.random().toString(36).substr(2, 9)}`;
+  const uid = useId();
+  const gradientId = `gradient-${uid}`;
 
   return (
     <SpinnerContainer className={className} role="status" aria-label="Loading">
