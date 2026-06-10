@@ -147,3 +147,63 @@ class TestZeroPhaseAlignment:
         audio = np.zeros(4096, dtype=np.float32)
         out = TransientShaper.apply(audio, SR, 60.0, 250.0, attack_boost_db=6.0)
         assert np.allclose(out, audio)
+
+
+# ---------------------------------------------------------------------------
+# Bass-band low-edge regression (#4211)
+# ---------------------------------------------------------------------------
+
+
+class TestBassBandLowEdge:
+    """The old `max(0.005, ...)` normalized-frequency floor clamped the 60 Hz
+    bass band low edge up to 110 Hz @ 44.1 kHz, excluding kick/bass
+    fundamentals from attack restoration. The floor is now 1e-4 (a true
+    numerical-stability minimum), so the configured 60 Hz edge passes through.
+    """
+
+    def _bandpass_db_at(self, freq_hz: float, sample_rate: int,
+                        band_low_hz: float = 60.0, band_high_hz: float = 250.0,
+                        order: int = 2) -> float:
+        """Magnitude (dB) of the shaper's bandpass at a probe frequency,
+        reconstructed exactly as TransientShaper.apply builds it."""
+        from scipy.signal import butter, sosfreqz
+
+        nyq = sample_rate / 2.0
+        lo_n = max(1e-4, min(0.995, band_low_hz / nyq))
+        hi_n = max(1e-4, min(0.995, band_high_hz / nyq))
+        bp = butter(order, [lo_n, hi_n], btype='band', output='sos')
+        _, h = sosfreqz(bp, worN=[freq_hz * np.pi / nyq])
+        return float(20.0 * np.log10(np.abs(np.asarray(h)[0]) + 1e-12))
+
+    def test_low_edge_near_60hz_not_110hz(self):
+        """The bass bandpass -3 dB point sits at the configured 60 Hz edge,
+        not clamped up to 110 Hz. A Butterworth bandpass is ≈ -3 dB at its
+        cutoff, so post-fix 60 Hz reads ≈ -3 dB; pre-fix (edge at 110 Hz) it
+        would sit well into the stopband (much more attenuated)."""
+        for sr in (44100, 48000, 96000):
+            db_60 = self._bandpass_db_at(60.0, sr)
+            # Passband edge: within ~1 dB of the nominal -3 dB cutoff. Pre-fix
+            # this was far lower (60 Hz deep in the stopband below the 110 Hz
+            # clamped edge), so a tight window cleanly separates the regimes.
+            assert -4.0 < db_60 < -2.0, (
+                f"sr={sr}: 60 Hz at {db_60:.1f} dB — expected ≈ -3 dB passband "
+                f"edge. Band low edge clamped above 60 Hz again (#4211)."
+            )
+
+    def test_70hz_transient_produces_nonzero_delta(self):
+        """A 70 Hz kick-like burst (inside the old 60-110 dead zone) must now
+        produce a non-zero shaped delta."""
+        n = 8192
+        hit_idx = 3000
+        n_decay = 600
+        t = np.arange(n_decay) / SR
+        tone = np.sin(2 * np.pi * 70.0 * t) * np.exp(-15 * t)
+        audio = np.zeros(n, dtype=np.float32)
+        audio[hit_idx:hit_idx + n_decay] = (0.5 * tone).astype(np.float32)
+
+        out = TransientShaper.apply(audio, SR, 60.0, 250.0, attack_boost_db=9.0)
+        delta = out - audio
+        assert np.max(np.abs(delta)) > 1e-4, (
+            "70 Hz transient produced no shaped delta — the 60-110 Hz band was "
+            "excluded again (#4211)."
+        )

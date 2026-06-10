@@ -56,7 +56,11 @@ def apply(
     applied_hp = False
     if sub_bass_pct >= config.SUB_HP_ACTIVATE_PCT:
         nyq = sample_rate / 2.0
-        hp_norm = min(0.99, max(0.005, config.SUBBASS_HP_FREQ_HZ / nyq))
+        # Floor is a numerical-stability minimum, NOT a musical cutoff. The old
+        # 0.005 floor mapped to 110 Hz @ 44.1 kHz, so the 25 Hz rumble HP
+        # actually high-passed at 110 Hz and gutted the whole bass region when
+        # it fired (#4211). butter(order<=2) is stable down to ~1e-4 normalized.
+        hp_norm = min(0.99, max(1e-4, config.SUBBASS_HP_FREQ_HZ / nyq))
         hp_sos = butter(config.SUBBASS_HP_ORDER, hp_norm, btype='high', output='sos')
         axis = -1 if processed.ndim > 1 else 0
         processed = np.asarray(sosfilt(hp_sos, processed, axis=axis), dtype=processed.dtype)

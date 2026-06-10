@@ -78,8 +78,13 @@ class TransientShaper:
             return audio
 
         nyq = sample_rate / 2.0
-        lo_n = max(0.005, min(0.995, band_low_hz / nyq))
-        hi_n = max(0.005, min(0.995, band_high_hz / nyq))
+        # Floor is a numerical-stability minimum, NOT a musical low cut. The
+        # old 0.005 floor mapped to 110 Hz @ 44.1 kHz and silently clamped the
+        # 60 Hz kick/bass band up to 110 Hz, excluding the fundamentals this
+        # stage exists to restore (#4211). butter(order<=2) is stable down to
+        # ~1e-4 normalized, so use that as the true floor.
+        lo_n = max(1e-4, min(0.995, band_low_hz / nyq))
+        hi_n = max(1e-4, min(0.995, band_high_hz / nyq))
         if lo_n >= hi_n:
             return audio
 
