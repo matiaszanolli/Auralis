@@ -325,14 +325,32 @@ class GaplessPlaybackEngine:
                 self.invalidate_prebuffer()
             else:
                 info(f"Prebuffer not available, loading: {file_path}")
+            # #4212: load_file() atomically swaps audio_data/sample_rate/
+            # current_file to track N+1. If the queue mutates before we commit
+            # the advance below, we must roll that swap back — otherwise we
+            # return False with audio_data pointing at N+1 while current_index
+            # still points at N (the caller only resets position / reloads the
+            # fingerprint on True), so the new audio would play at the old
+            # position with the old fingerprint. Mirror the prebuffer fallback
+            # rollback above (#4100). Snapshot under _audio_lock so the restore
+            # is atomic with get_audio_chunk() readers.
+            with self.file_manager._audio_lock:
+                old_audio = self.file_manager.audio_data
+                old_sr = self.file_manager.sample_rate
+                old_file = self.file_manager.current_file
             if not self.file_manager.load_file(file_path):
                 return False
             # Load succeeded — commit the queue advance via the same atomic
             # peek+match operation (#3352). If the queue mutated between our
-            # earlier peek and now, the load was wasted — but we hold the
-            # current_index steady rather than blindly advancing onto a
-            # different track.
+            # earlier peek and now, the load was wasted — roll back the audio
+            # swap so audio_data stays consistent with the un-advanced index,
+            # then abort rather than commit a stale advance.
             if not self.queue.advance_if_next_matches(next_track):
+                with self.file_manager._audio_lock:
+                    self.file_manager.audio_data = old_audio
+                    if old_sr is not None:
+                        self.file_manager.sample_rate = old_sr
+                    self.file_manager.current_file = old_file
                 warning(
                     "Queue changed during fallback load — aborting advance to "
                     "avoid pointing current_index at a different track"

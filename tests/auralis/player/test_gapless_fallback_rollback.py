@@ -71,6 +71,52 @@ def test_fallback_double_mutation_restores_prior_track(gapless_playback_engine):
     engine.start_prebuffering.assert_not_called()
 
 
+def test_no_prebuffer_fallback_mutation_restores_prior_track(gapless_playback_engine):
+    """#4212: the non-prebuffer else branch must roll back like the prebuffer one.
+
+    With no prebuffer primed, advance_with_prebuffer() loads the next track
+    directly then commits the advance. If the queue mutates and the commit
+    fails, audio_data was left on the new track while current_index stayed on
+    the old — the same de-sync #4100 fixed for the prebuffer path.
+    """
+    engine = gapless_playback_engine
+    fm = engine.file_manager
+
+    old_audio = np.full(1000, 0.1, dtype=np.float32)
+    with fm._audio_lock:
+        fm.audio_data = old_audio
+        fm.sample_rate = 44100
+        fm.current_file = "/old.wav"
+
+    next_track = {"id": 1, "file_path": "/next.wav"}
+
+    # No prebuffer primed → prebuffer_matches is False → the else branch runs.
+    engine.queue = MagicMock()
+    engine.queue.peek_next_track.return_value = next_track
+    engine.queue.advance_if_next_matches.return_value = False  # commit loses race
+
+    new_audio = np.full(3000, 0.9, dtype=np.float32)
+
+    def fake_load(path):
+        with fm._audio_lock:
+            fm.audio_data = new_audio
+            fm.sample_rate = 48000
+            fm.current_file = path
+        return True
+
+    fm.load_file = MagicMock(side_effect=fake_load)
+    engine.start_prebuffering = MagicMock()  # should not be reached
+
+    result = engine.advance_with_prebuffer(was_playing=True)
+
+    assert result is False
+    # The swap was rolled back: audio_data matches the un-advanced index again.
+    assert fm.audio_data is old_audio
+    assert fm.sample_rate == 44100
+    assert fm.current_file == "/old.wav"
+    engine.start_prebuffering.assert_not_called()
+
+
 def test_fallback_success_keeps_new_track(gapless_playback_engine):
     """Control: when the fallback advance succeeds, the new track is kept."""
     engine = gapless_playback_engine
