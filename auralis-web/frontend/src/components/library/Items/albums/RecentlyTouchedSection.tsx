@@ -38,17 +38,22 @@ export const RecentlyTouchedSection = ({
   onAlbumHover,
   onAlbumHoverEnd,
 }: RecentlyTouchedSectionProps) => {
-  // Don't render if no recent albums
-  if (recentAlbums.length === 0) {
-    return null;
-  }
-
   // Limit to 8 albums for visual balance
   const displayedAlbums = recentAlbums.slice(0, 8);
 
-  // Get album IDs for fingerprint batch fetch
+  // Get album IDs for fingerprint batch fetch.
+  // NOTE: this hook MUST be called unconditionally (Rules of Hooks). The
+  // empty-list guard below must come AFTER every hook call, otherwise the
+  // hook count changes between renders and React throws on the empty↔non-empty
+  // transition (same bug class as #3924). useAlbumFingerprints is a no-op for
+  // an empty array (enabled: albumIds.length > 0).
   const albumIds = displayedAlbums.map(album => album.albumId);
   const { fingerprints } = useAlbumFingerprints(albumIds);
+
+  // Don't render if no recent albums (guard after all hooks)
+  if (recentAlbums.length === 0) {
+    return null;
+  }
 
   return (
     <Box
