@@ -139,7 +139,7 @@ def integration_manager(
 
 @pytest.fixture
 def enhanced_player(get_repository_factory_callable):
-    """Create EnhancedAudioPlayer with RepositoryFactory.
+    """Create AudioPlayer with RepositoryFactory.
 
     This is the main fixture for testing the enhanced player facade.
     It provides a fully configured player with all components properly injected.
@@ -150,7 +150,7 @@ def enhanced_player(get_repository_factory_callable):
         get_repository_factory_callable: Callable that returns RepositoryFactory
 
     Returns:
-        EnhancedAudioPlayer: Configured player instance
+        AudioPlayer: Configured player instance
 
     Example:
         def test_player_playback(enhanced_player):
@@ -159,10 +159,10 @@ def enhanced_player(get_repository_factory_callable):
             assert enhanced_player.is_playing()
     """
     from auralis.player.config import PlayerConfig
-    from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+    from auralis.player.enhanced_audio_player import AudioPlayer
 
     config = PlayerConfig()
-    return EnhancedAudioPlayer(
+    return AudioPlayer(
         config=config,
         get_repository_factory=get_repository_factory_callable
     )

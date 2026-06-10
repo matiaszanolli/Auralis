@@ -566,9 +566,9 @@ class TestLongRunningOperations:
         """Test queue with 1,000 tracks."""
         import gc
 
-        from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+        from auralis.player.enhanced_audio_player import AudioPlayer
 
-        player = EnhancedAudioPlayer()
+        player = AudioPlayer()
 
         # Add tracks incrementally to avoid memory spike
         start = time.time()

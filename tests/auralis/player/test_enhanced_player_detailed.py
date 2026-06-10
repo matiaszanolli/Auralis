@@ -40,7 +40,7 @@ class TestQueueManager:
     """Test QueueManager functionality.
 
     NOTE: Skipped due to database migration issues when initializing LibraryManager
-    through EnhancedAudioPlayer constructor. Needs proper pytest fixture setup.
+    through AudioPlayer constructor. Needs proper pytest fixture setup.
     """
 
     @pytest.fixture
@@ -134,8 +134,8 @@ class TestQueueManager:
 
 
 @pytest.mark.skip(reason="Database migration errors - requires conftest fixture integration")
-class TestEnhancedAudioPlayerCore:
-    """Test EnhancedAudioPlayer core functionality.
+class TestAudioPlayerCore:
+    """Test AudioPlayer core functionality.
 
     NOTE: Skipped due to database migration issues when initializing LibraryManager.
     Needs proper pytest fixture setup in conftest.py.
@@ -164,16 +164,16 @@ class TestEnhancedAudioPlayerCore:
             os.unlink(db_path)
 
     def test_enhanced_player_initialization(self, mock_config, temp_db):
-        """Test EnhancedAudioPlayer initialization."""
+        """Test AudioPlayer initialization."""
         try:
             from auralis.player.enhanced_audio_player import (
-                EnhancedAudioPlayer,
+                AudioPlayer,
                 PlaybackState,
             )
 
             # Test with config only
             try:
-                player = EnhancedAudioPlayer(mock_config)
+                player = AudioPlayer(mock_config)
                 assert player.config == mock_config
                 assert player.state == PlaybackState.STOPPED
 
@@ -196,12 +196,12 @@ class TestEnhancedAudioPlayerCore:
         """Test player state management."""
         try:
             from auralis.player.enhanced_audio_player import (
-                EnhancedAudioPlayer,
+                AudioPlayer,
                 PlaybackState,
             )
 
             try:
-                player = EnhancedAudioPlayer(mock_config)
+                player = AudioPlayer(mock_config)
 
                 # Test state changes
                 state_methods = ['play', 'pause', 'stop']
@@ -231,10 +231,10 @@ class TestEnhancedAudioPlayerCore:
     def test_volume_and_controls(self, mock_config):
         """Test volume and control methods."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+            from auralis.player.enhanced_audio_player import AudioPlayer
 
             try:
-                player = EnhancedAudioPlayer(mock_config)
+                player = AudioPlayer(mock_config)
 
                 # Test volume controls
                 volume_methods = [
@@ -299,10 +299,10 @@ class TestEnhancedPlayerProcessing:
     def test_enhancement_controls(self, mock_config):
         """Test audio enhancement controls."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+            from auralis.player.enhanced_audio_player import AudioPlayer
 
             try:
-                player = EnhancedAudioPlayer(mock_config)
+                player = AudioPlayer(mock_config)
 
                 # Test enhancement methods
                 enhancement_methods = [
@@ -342,10 +342,10 @@ class TestEnhancedPlayerProcessing:
     def test_processing_chain_controls(self, mock_config):
         """Test processing chain controls."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+            from auralis.player.enhanced_audio_player import AudioPlayer
 
             try:
-                player = EnhancedAudioPlayer(mock_config)
+                player = AudioPlayer(mock_config)
 
                 # Test processing chain methods
                 processing_methods = [
@@ -380,10 +380,10 @@ class TestEnhancedPlayerProcessing:
     def test_realtime_processor_integration(self, mock_config):
         """Test real-time processor integration."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+            from auralis.player.enhanced_audio_player import AudioPlayer
 
             try:
-                player = EnhancedAudioPlayer(mock_config)
+                player = AudioPlayer(mock_config)
 
                 # Test processor access
                 if hasattr(player, 'processor') or hasattr(player, 'realtime_processor'):
@@ -432,12 +432,12 @@ class TestEnhancedPlayerLibraryIntegration:
         """Test library integration."""
         try:
             from auralis.library.manager import LibraryManager
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+            from auralis.player.enhanced_audio_player import AudioPlayer
 
             library = LibraryManager(temp_db)
 
             try:
-                player = EnhancedAudioPlayer(mock_config, library)
+                player = AudioPlayer(mock_config, library)
 
                 # Test library access
                 if hasattr(player, 'library'):
@@ -474,10 +474,10 @@ class TestEnhancedPlayerLibraryIntegration:
     def test_queue_integration(self, mock_config):
         """Test queue integration."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+            from auralis.player.enhanced_audio_player import AudioPlayer
 
             try:
-                player = EnhancedAudioPlayer(mock_config)
+                player = AudioPlayer(mock_config)
 
                 # Test queue methods
                 if hasattr(player, 'queue') or hasattr(player, 'queue_manager'):
@@ -546,10 +546,10 @@ class TestEnhancedPlayerAdvanced:
     def test_performance_monitoring(self, mock_config):
         """Test performance monitoring features."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+            from auralis.player.enhanced_audio_player import AudioPlayer
 
             try:
-                player = EnhancedAudioPlayer(mock_config)
+                player = AudioPlayer(mock_config)
 
                 # Test monitoring methods
                 monitoring_methods = [
@@ -589,10 +589,10 @@ class TestEnhancedPlayerAdvanced:
     def test_callback_system(self, mock_config):
         """Test callback system."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+            from auralis.player.enhanced_audio_player import AudioPlayer
 
             try:
-                player = EnhancedAudioPlayer(mock_config)
+                player = AudioPlayer(mock_config)
 
                 # Test callback registration
                 callback_methods = [
@@ -638,10 +638,10 @@ class TestEnhancedPlayerAdvanced:
     def test_error_handling(self, mock_config):
         """Test error handling capabilities."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+            from auralis.player.enhanced_audio_player import AudioPlayer
 
             try:
-                player = EnhancedAudioPlayer(mock_config)
+                player = AudioPlayer(mock_config)
 
                 # Test error methods
                 error_methods = [

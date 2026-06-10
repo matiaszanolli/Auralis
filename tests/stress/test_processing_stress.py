@@ -113,9 +113,9 @@ class TestHighVolumeProcessing:
 
     def test_processing_queue_overflow(self, tmp_path):
         """Test handling of queue overflow gracefully."""
-        from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+        from auralis.player.enhanced_audio_player import AudioPlayer
 
-        player = EnhancedAudioPlayer()
+        player = AudioPlayer()
 
         # Add many files to queue rapidly
         for i in range(1000):
@@ -198,9 +198,9 @@ class TestHighVolumeProcessing:
 
     def test_processing_prioritization(self, tmp_path):
         """Test priority queue under load."""
-        from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+        from auralis.player.enhanced_audio_player import AudioPlayer
 
-        player = EnhancedAudioPlayer()
+        player = AudioPlayer()
 
         # Add tracks with different priorities
         for i in range(100):

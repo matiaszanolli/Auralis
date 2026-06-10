@@ -5,8 +5,8 @@
 Enhanced Audio Player Comprehensive Coverage Test
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Comprehensive tests targeting 40%+ coverage for EnhancedAudioPlayer (currently 17%)
-Tests both QueueManager and EnhancedAudioPlayer classes
+Comprehensive tests targeting 40%+ coverage for AudioPlayer (currently 17%)
+Tests both QueueManager and AudioPlayer classes
 """
 
 import os
@@ -26,7 +26,7 @@ import soundfile as sf
 
 from auralis.player.config import PlayerConfig
 from auralis.player.enhanced_audio_player import (
-    EnhancedAudioPlayer,
+    AudioPlayer,
     PlaybackState,
     QueueController,
     QueueManager,
@@ -34,7 +34,7 @@ from auralis.player.enhanced_audio_player import (
 
 
 # Phase 5E.1: Refactored to use pytest fixtures instead of unittest-style setUp/tearDown
-class TestEnhancedAudioPlayerComprehensive:
+class TestAudioPlayerComprehensive:
     """Comprehensive Enhanced Audio Player coverage tests
 
     REFACTORED FOR PHASE 5E:
@@ -153,7 +153,7 @@ class TestEnhancedAudioPlayerComprehensive:
         assert PlaybackState.ERROR.value == "error"
 
     def test_enhanced_audio_player_initialization(self, enhanced_player, player_config, get_repository_factory_callable):
-        """Test EnhancedAudioPlayer initialization"""
+        """Test AudioPlayer initialization"""
         # Test with config and library manager
         assert enhanced_player is not None
         assert enhanced_player.config is not None
@@ -161,12 +161,12 @@ class TestEnhancedAudioPlayerComprehensive:
         assert enhanced_player.state == PlaybackState.STOPPED or hasattr(enhanced_player, 'state')
 
         # Test without config (should use defaults, but must provide required get_repository_factory)
-        default_player = EnhancedAudioPlayer(get_repository_factory=get_repository_factory_callable)
+        default_player = AudioPlayer(get_repository_factory=get_repository_factory_callable)
         assert default_player.config is not None
         del default_player
 
         # Test with custom config (must provide required get_repository_factory)
-        no_lib_player = EnhancedAudioPlayer(config=player_config, get_repository_factory=get_repository_factory_callable)
+        no_lib_player = AudioPlayer(config=player_config, get_repository_factory=get_repository_factory_callable)
         assert no_lib_player is not None
         no_lib_player.cleanup()
         del no_lib_player
@@ -500,7 +500,7 @@ class TestEnhancedPlayerWithFixtures:
     """
 
     def test_enhanced_player_initialization_with_factory(self, enhanced_player, get_repository_factory_callable):
-        """Test EnhancedAudioPlayer initializes with RepositoryFactory.
+        """Test AudioPlayer initializes with RepositoryFactory.
 
         Phase 5E: Demonstrates proper fixture usage pattern.
         """
