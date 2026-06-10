@@ -124,8 +124,8 @@ export async function retryWithBackoff<T>(
 export class WebSocketManager {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private config: WebSocketErrorConfig;
   private url: string;
   private onOpen: (() => void) | null = null;

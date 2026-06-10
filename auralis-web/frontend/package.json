@@ -55,7 +55,8 @@
     "test:memory:failsafe": "node scripts/memory-test-failsafe.js",
     "test:memory:failsafe:category": "node scripts/memory-test-failsafe.js --category",
     "test:memory:failsafe:custom": "node scripts/memory-test-failsafe.js --max-heap",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "type-check:prod": "tsc --noEmit -p tsconfig.build.json"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

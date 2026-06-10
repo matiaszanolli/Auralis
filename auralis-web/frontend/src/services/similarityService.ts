@@ -69,15 +69,27 @@ export interface FitResult {
   message?: string;
 }
 
+type SimilarityParams = {
+  trackId?: number;
+  trackId1?: number;
+  trackId2?: number;
+  limit?: number;
+  useGraph?: boolean;
+  topN?: number;
+  k?: number;
+  minSamples?: number;
+  [key: string]: unknown;
+};
+
 // Create base service using factory with custom endpoints
-const crudService = createCrudService<any, any>({
+const crudService = createCrudService<unknown, unknown, number, SimilarityParams>({
   custom: {
-    findSimilar: (data) => `${API_BASE}/tracks/${data.trackId}/similar?limit=${data.limit}&use_graph=${data.useGraph}`,
-    compareTracks: (data) => `${API_BASE}/tracks/${data.trackId1}/compare/${data.trackId2}`,
-    explainSimilarity: (data) => `${API_BASE}/tracks/${data.trackId1}/explain/${data.trackId2}?top_n=${data.topN}`,
-    buildGraph: (data) => `${API_BASE}/graph/build?k=${data.k}`,
+    findSimilar: (data) => `${API_BASE}/tracks/${data?.trackId}/similar?limit=${data?.limit}&use_graph=${data?.useGraph}`,
+    compareTracks: (data) => `${API_BASE}/tracks/${data?.trackId1}/compare/${data?.trackId2}`,
+    explainSimilarity: (data) => `${API_BASE}/tracks/${data?.trackId1}/explain/${data?.trackId2}?top_n=${data?.topN}`,
+    buildGraph: (data) => `${API_BASE}/graph/build?k=${data?.k}`,
     getGraphStats: `${API_BASE}/graph/stats`,
-    fit: (data) => `${API_BASE}/fit?min_samples=${data.minSamples}`,
+    fit: (data) => `${API_BASE}/fit?min_samples=${data?.minSamples}`,
   },
 });
 
@@ -94,7 +106,7 @@ export async function findSimilar(
   limit: number = 10,
   useGraph: boolean = true
 ): Promise<SimilarTrack[]> {
-  return crudService.custom('findSimilar', 'get', { trackId, limit, useGraph });
+  return crudService.custom<SimilarTrack[]>('findSimilar', 'get', { trackId, limit, useGraph });
 }
 
 /**
@@ -108,7 +120,7 @@ export async function compareTracks(
   trackId1: number,
   trackId2: number
 ): Promise<ComparisonResult> {
-  return crudService.custom('compareTracks', 'get', { trackId1, trackId2 });
+  return crudService.custom<ComparisonResult>('compareTracks', 'get', { trackId1, trackId2 });
 }
 
 /**
@@ -124,7 +136,7 @@ export async function explainSimilarity(
   trackId2: number,
   topN: number = 5
 ): Promise<SimilarityExplanation> {
-  return crudService.custom('explainSimilarity', 'get', { trackId1, trackId2, topN });
+  return crudService.custom<SimilarityExplanation>('explainSimilarity', 'get', { trackId1, trackId2, topN });
 }
 
 /**
@@ -134,7 +146,7 @@ export async function explainSimilarity(
  * @returns Graph statistics
  */
 export async function buildGraph(k: number = 10): Promise<GraphStats> {
-  return crudService.custom('buildGraph', 'post', { k });
+  return crudService.custom<GraphStats>('buildGraph', 'post', { k });
 }
 
 /**
@@ -144,7 +156,7 @@ export async function buildGraph(k: number = 10): Promise<GraphStats> {
  */
 export async function getGraphStats(): Promise<GraphStats | null> {
   try {
-    return await crudService.custom('getGraphStats', 'get', {});
+    return await crudService.custom<GraphStats>('getGraphStats', 'get', {});
   } catch (error: any) {
     // Handle 404 gracefully (graph doesn't exist)
     if (error.statusCode === 404) {
@@ -161,7 +173,7 @@ export async function getGraphStats(): Promise<GraphStats | null> {
  * @returns Fit result
  */
 export async function fit(minSamples: number = 10): Promise<FitResult> {
-  return crudService.custom('fit', 'post', { minSamples });
+  return crudService.custom<FitResult>('fit', 'post', { minSamples });
 }
 
 /**

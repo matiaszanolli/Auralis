@@ -30,7 +30,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { QueueRecommender, type TrackRecommendation } from '@/utils/queue/queue_recommender';
-import type { Track } from '@/types/domain';
+import type { Track, QueueTrack } from '@/types/domain';
 
 /**
  * Discovery artist with sample tracks
@@ -115,8 +115,8 @@ export interface QueueRecommendationsActions {
  * ```
  */
 export function useQueueRecommendations(
-  queue: Track[],
-  currentTrack: Track | null,
+  queue: (Track | QueueTrack)[],
+  currentTrack: Track | QueueTrack | null,
   availableTracks: Track[]
 ): QueueRecommendationsActions {
   // Guard: Warn if queue exceeds safe size
@@ -136,7 +136,7 @@ export function useQueueRecommendations(
     if (!hasEnoughData) return [];
 
     return QueueRecommender.recommendForYou(
-      queue,
+      queue as Track[],
       availableTracks,
       10,
       {
@@ -151,7 +151,7 @@ export function useQueueRecommendations(
     if (!currentTrack || availableTracks.length === 0) return [];
 
     return QueueRecommender.recommendSimilarTracks(
-      currentTrack,
+      currentTrack as Track,
       availableTracks,
       8,
       {
@@ -172,7 +172,7 @@ export function useQueueRecommendations(
   const newArtists = useMemo(() => {
     if (queue.length === 0 || availableTracks.length === 0) return [];
 
-    return QueueRecommender.discoverNewArtists(queue, availableTracks, 5);
+    return QueueRecommender.discoverNewArtists(queue as Track[], availableTracks, 5);
   }, [queue, availableTracks]);
 
   // Related artists to current playing
@@ -181,7 +181,7 @@ export function useQueueRecommendations(
 
     return QueueRecommender.findRelatedArtists(
       currentTrack.artist,
-      queue,
+      queue as Track[],
       availableTracks,
       5
     );
@@ -201,7 +201,7 @@ export function useQueueRecommendations(
 
   // Utility: Get tracks by artist
   const getByArtist = useCallback((artist: string, count: number = 10) => {
-    return QueueRecommender.getByArtist(artist, availableTracks, count, queue);
+    return QueueRecommender.getByArtist(artist, availableTracks, count, queue as Track[]);
   }, [availableTracks, queue]);
 
   // Utility: Get albums by artist

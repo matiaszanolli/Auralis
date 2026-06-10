@@ -1,10 +1,10 @@
 import { CSSProperties, useState } from 'react';
 import { formatDuration } from '@/utils/timeFormat';
-import type { Track } from '@/types/domain';
+import type { Track, QueueTrack } from '@/types/domain';
 import { styles } from './styles';
 
 export interface QueueTrackItemProps {
-  track: Track;
+  track: Track | QueueTrack;
   index: number;
   isCurrentTrack: boolean;
   isDragging: boolean;

@@ -151,7 +151,7 @@ export function usePlayerControls({
   const [lastError, setLastError] = useState<string>();
 
   // Debounce tracking for seek operations
-  const seekTimeoutRef = useRef<NodeJS.Timeout>();
+  const seekTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const lastSeekRef = useRef<number>(0);
 
   const log = useCallback((msg: string, data?: unknown) => {

@@ -7,7 +7,7 @@ const spin = keyframes`
 `;
 
 interface FingerprintIndicatorProps {
-  fingerprintStatus: 'idle' | 'analyzing' | 'complete' | 'error' | 'failed';
+  fingerprintStatus: 'idle' | 'analyzing' | 'complete' | 'error' | 'failed' | 'cached' | 'queued';
   fingerprintMessage?: string | null;
 }
 

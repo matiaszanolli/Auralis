@@ -76,7 +76,7 @@ export function ConnectionStatusIndicator({
 
   const [showDetails, setShowDetails] = useState(false);
   // Use ref for timer so cleanup always reads the current ID (fixes #2767).
-  const autoHideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guard against dispatch after unmount.
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);

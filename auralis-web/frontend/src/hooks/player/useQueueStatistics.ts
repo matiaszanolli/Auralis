@@ -32,7 +32,7 @@
 
 import { useCallback, useMemo, useRef } from 'react';
 import { QueueStatistics, type QueueStats, type PropertyDistribution } from '@/utils/queue/queue_statistics';
-import type { Track } from '@/types/domain';
+import type { Track, QueueTrack } from '@/types/domain';
 
 /**
  * Top items from distribution (value and count)
@@ -112,7 +112,7 @@ export interface QueueStatisticsActions {
  * console.log(`Top artist: ${topArtists[0].value}`);
  * ```
  */
-export function useQueueStatistics(queue: Track[]): QueueStatisticsActions {
+export function useQueueStatistics(queue: (Track | QueueTrack)[]): QueueStatisticsActions {
   // Warn once per hook instance (not module-level) so HMR and test runs
   // reset correctly (fixes #3974 / HC-11).
   const _warnedRef = useRef(false);
@@ -125,7 +125,7 @@ export function useQueueStatistics(queue: Track[]): QueueStatisticsActions {
     );
   }
   const stats = useMemo(() => {
-    return QueueStatistics.calculateStats(queue);
+    return QueueStatistics.calculateStats(queue as Track[]);
   }, [queue]);
 
   const topArtists = useMemo(() => {
@@ -193,7 +193,7 @@ export function useQueueStatistics(queue: Track[]): QueueStatisticsActions {
   }, [queue.length]);
 
   const compareWith = useCallback((otherQueue: Track[]) => {
-    const comparison = QueueStatistics.compareQueues(queue, otherQueue);
+    const comparison = QueueStatistics.compareQueues(queue as Track[], otherQueue);
     return {
       added: comparison.addedTracks.length,
       removed: comparison.removedTracks.length,

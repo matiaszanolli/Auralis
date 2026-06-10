@@ -33,7 +33,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import type { Track } from '@/types/domain';
+import type { Track, QueueTrack } from '@/types/domain';
 
 /**
  * Search filters configuration
@@ -60,7 +60,7 @@ export interface QueueFilters {
  */
 export interface SearchResult {
   /** Original track */
-  track: Track;
+  track: Track | QueueTrack;
 
   /** Index in original queue */
   originalIndex: number;
@@ -168,7 +168,7 @@ function calculateRelevance(
  */
 let _queueSearchWarned = false;
 
-export function useQueueSearch(queue: Track[]): QueueSearchActions {
+export function useQueueSearch(queue: (Track | QueueTrack)[]): QueueSearchActions {
   // Guard: Warn once in dev if queue exceeds safe size
   if (import.meta.env.DEV && queue.length > 1000 && !_queueSearchWarned) {
     _queueSearchWarned = true;

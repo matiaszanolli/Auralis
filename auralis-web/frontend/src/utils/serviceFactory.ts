@@ -44,7 +44,7 @@ export interface CrudEndpoints<ID = number, P extends Record<string, unknown> = 
  */
 export function createCrudService<
   T = unknown,
-  U extends Record<string, unknown> = Record<string, unknown>,
+  U = unknown,
   ID = number,
   P extends Record<string, unknown> = Record<string, unknown>,
 >(endpoints: CrudEndpoints<ID, P>) {
@@ -85,7 +85,7 @@ export function createCrudService<
       const endpoint = typeof endpoints.create === 'function'
         ? endpoints.create(data as unknown as P)
         : endpoints.create;
-      return post(endpoint, data);
+      return post(endpoint, data as Record<string, unknown>);
     },
 
     /**
@@ -98,7 +98,7 @@ export function createCrudService<
       const endpoint = typeof endpoints.update === 'function'
         ? endpoints.update(id, data as unknown as P)
         : endpoints.update;
-      return put(endpoint, data);
+      return put(endpoint, data as Record<string, unknown>);
     },
 
     /**
@@ -118,7 +118,7 @@ export function createCrudService<
      * Custom endpoint call
      * Useful for actions that don't fit standard CRUD
      */
-    async custom(name: string, method: 'get' | 'post' | 'put' | 'delete', data?: P): Promise<unknown> {
+    async custom<R = unknown>(name: string, method: 'get' | 'post' | 'put' | 'delete', data?: P): Promise<R> {
       if (!endpoints.custom || !endpoints.custom[name]) {
         throw new Error(`custom endpoint "${name}" not configured`);
       }
@@ -129,13 +129,13 @@ export function createCrudService<
 
       switch (method) {
         case 'get':
-          return get(endpoint);
+          return get<R>(endpoint);
         case 'post':
-          return post(endpoint, (data ?? {}) as Record<string, unknown>);
+          return post<R>(endpoint, (data ?? {}) as Record<string, unknown>);
         case 'put':
-          return put(endpoint, (data ?? {}) as Record<string, unknown>);
+          return put<R>(endpoint, (data ?? {}) as Record<string, unknown>);
         case 'delete':
-          return del(endpoint);
+          return del<R>(endpoint);
         default:
           throw new Error(`Unknown HTTP method: ${method}`);
       }

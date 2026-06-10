@@ -161,8 +161,8 @@ export const ALL_MESSAGE_TYPES: readonly WebSocketMessageType[] = [
 type _AssertExhaustive = WebSocketMessageType extends
   (typeof ALL_MESSAGE_TYPES)[number] ? true : never;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _exhaustiveCheck: _AssertExhaustive = true;
+void _exhaustiveCheck;
 
 
 export const PLAYER_STATE_TYPES: WebSocketMessageType[] = [

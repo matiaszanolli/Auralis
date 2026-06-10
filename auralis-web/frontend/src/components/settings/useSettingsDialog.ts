@@ -63,9 +63,9 @@ export const useSettingsDialog = ({ open, onSettingsChange }: UseSettingsDialogP
       setError(null);
       try {
         const result = await settingsService.updateSettings(pendingChanges);
-        setSettings(result.settings);
+        setSettings(result);
         setPendingChanges({});
-        onSettingsChange?.(result.settings);
+        onSettingsChange?.(result);
         onClose();
       } catch (err) {
         console.error('Failed to save settings:', err);

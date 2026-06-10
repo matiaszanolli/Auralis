@@ -1,0 +1,19 @@
+{
+  // Production-scoped type-check config (#4143).
+  //
+  // The base tsconfig.json includes every file under src/, so `tsc --noEmit`
+  // also reports errors in test files. This config inherits all strict
+  // settings but excludes test code so CI can gate on PRODUCTION type safety
+  // (which must stay at zero errors). Test-file type errors are tracked
+  // separately and are NOT yet part of the blocking gate.
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/test/**",
+    "src/tests/**"
+  ]
+}

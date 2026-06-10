@@ -1,0 +1,46 @@
+name: Frontend Type Check
+
+# Gate added for #4143: the frontend had 43 production `tsc` errors that
+# shipped undetected because no CI job ran the type-checker. This workflow
+# runs the production-scoped type-check (`tsconfig.build.json`, which excludes
+# test files) on every push and pull request and FAILS the job on any error,
+# so production type errors can no longer regress silently.
+#
+# Test-file type errors are intentionally out of scope of this blocking gate
+# for now (tracked separately); extend `tsconfig.build.json`'s excludes / add a
+# `type-check` (full) step once those are cleared.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'auralis-web/frontend/**'
+      - '.github/workflows/frontend-typecheck.yml'
+  pull_request:
+    paths:
+      - 'auralis-web/frontend/**'
+      - '.github/workflows/frontend-typecheck.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  type-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: auralis-web/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: auralis-web/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type-check (production)
+        run: npm run type-check:prod

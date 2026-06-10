@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import { tokens } from '@/design-system';
 
 interface TrackInfo {
-  track_id: string;
+  track_id: number;
   completion_percent: number;
   fully_cached: boolean;
 }

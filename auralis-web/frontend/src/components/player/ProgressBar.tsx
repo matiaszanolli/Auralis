@@ -63,11 +63,11 @@ export const ProgressBar = ({
 
   // Handle mouse position calculation (stable — reads from refs)
   const getPositionFromEvent = useCallback(
-    (event: MouseEvent | MouseEvent) => {
+    (event: MouseEvent<HTMLDivElement> | globalThis.MouseEvent) => {
       if (!containerRef.current) return currentTimeRef.current;
 
       const rect = containerRef.current.getBoundingClientRect();
-      const x = ('clientX' in event ? event.clientX : (event as MouseEvent).pageX) - rect.left;
+      const x = event.clientX - rect.left;
       const percentage = Math.max(0, Math.min(1, x / rect.width));
       return percentage * durationRef.current;
     },
@@ -116,7 +116,7 @@ export const ProgressBar = ({
 
   // Handle drag during mouse move (stable — reads from refs)
   const handleGlobalMouseMove = useCallback(
-    (event: MouseEvent) => {
+    (event: globalThis.MouseEvent) => {
       if (!containerRef.current) return;
 
       const position = getPositionFromEvent(event);

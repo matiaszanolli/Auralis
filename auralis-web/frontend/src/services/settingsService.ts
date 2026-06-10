@@ -115,21 +115,21 @@ export async function updateSettings(updates: SettingsUpdate): Promise<UserSetti
  * Reset all settings to defaults
  */
 export async function resetSettings(): Promise<{ message: string; settings: UserSettings }> {
-  return crudService.custom('reset', 'post', {});
+  return crudService.custom<{ message: string; settings: UserSettings }>('reset', 'post', {});
 }
 
 /**
  * Add a scan folder
  */
 export async function addScanFolder(folder: string): Promise<{ message: string; settings: UserSettings }> {
-  return crudService.custom('addScanFolder', 'post', { folder });
+  return crudService.custom<{ message: string; settings: UserSettings }>('addScanFolder', 'post', { folder });
 }
 
 /**
  * Remove a scan folder
  */
 export async function removeScanFolder(folder: string): Promise<{ message: string; settings: UserSettings }> {
-  return crudService.custom('removeScanFolder', 'post', { folder });
+  return crudService.custom<{ message: string; settings: UserSettings }>('removeScanFolder', 'post', { folder });
 }
 
 /**

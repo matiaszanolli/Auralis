@@ -3,7 +3,7 @@ import type { PresetName } from '@/store/slices/playerSlice';
 export interface EnhancementInspectionLayerProps {
   selectedPreset: PresetName;
   intensity: number;
-  fingerprintStatus: 'idle' | 'analyzing' | 'complete' | 'error' | 'failed';
+  fingerprintStatus: 'idle' | 'analyzing' | 'complete' | 'error' | 'failed' | 'cached' | 'queued';
   fingerprintMessage?: string | null;
   streamingState: 'idle' | 'buffering' | 'streaming' | 'error' | 'complete';
   progress: number;

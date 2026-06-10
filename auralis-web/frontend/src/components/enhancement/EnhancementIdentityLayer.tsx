@@ -18,7 +18,7 @@ export interface EnhancementIdentityLayerProps {
   selectedPreset: PresetName;
 
   /** Fingerprint analysis status */
-  fingerprintStatus: 'idle' | 'analyzing' | 'complete' | 'error' | 'failed';
+  fingerprintStatus: 'idle' | 'analyzing' | 'complete' | 'error' | 'failed' | 'cached' | 'queued';
 
   /** Streaming state */
   streamingState: 'idle' | 'buffering' | 'streaming' | 'error' | 'complete';
