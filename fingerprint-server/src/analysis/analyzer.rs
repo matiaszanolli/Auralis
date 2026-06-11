@@ -1,3 +1,4 @@
+use crate::analysis::rhythm;
 use crate::models::Fingerprint;
 use crate::error::{FingerprintError, Result};
 use rustfft::FftPlanner;
@@ -220,23 +221,10 @@ fn analyze_temporal(samples: &[f64], sample_rate: u32) -> Result<(f64, f64, f64,
     // Tempo estimation using onset detection
     let tempo_bpm = estimate_tempo(samples, sample_rate)?;
 
-    // Rhythm stability (based on RMS variation)
-    let _frame_size = sample_rate as usize / 10; // 100ms frames
-    let mut rms_frames = Vec::new();
-
-    for chunk in samples.chunks(_frame_size) {
-        let rms = (chunk.iter().map(|s| s * s).sum::<f64>() / chunk.len() as f64).sqrt();
-        rms_frames.push(rms);
-    }
-
-    let rhythm_stability = if rms_frames.len() > 1 {
-        let mean = rms_frames.iter().sum::<f64>() / rms_frames.len() as f64;
-        let variance = rms_frames.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / rms_frames.len() as f64;
-        let cv = variance.sqrt() / (mean + 1e-10);
-        (1.0 / (1.0 + cv)).max(0.0).min(1.0)
-    } else {
-        0.5
-    };
+    // Rhythm stability: librosa-compatible beat tracking → inter-beat-interval
+    // CV (#4113). The previous RMS-CV formula measured loudness consistency,
+    // not rhythmic regularity, and diverged from the Python fallback.
+    let rhythm_stability = rhythm::rhythm_stability(samples, sample_rate);
 
     // Transient density (peaks per second)
     let mut peaks = 0;
@@ -256,19 +244,10 @@ fn analyze_temporal(samples: &[f64], sample_rate: u32) -> Result<(f64, f64, f64,
         .max(0.0)
         .min(1.0);
 
-    // Silence ratio
-    let silence_threshold = -60.0; // dB
-    let rms = (samples.iter().map(|s| s * s).sum::<f64>() / samples.len() as f64).sqrt();
-    let silence_ratio = if rms > 0.0 {
-        let silence_level = 20.0 * rms.log10();
-        if silence_level < silence_threshold {
-            1.0
-        } else {
-            ((silence_threshold - silence_level) / -60.0).max(0.0).min(1.0)
-        }
-    } else {
-        1.0
-    };
+    // Silence ratio: per-frame RMS, fraction of frames > 40 dB below the
+    // loudest frame (#4113). The previous global-RMS vs −60 dB formula was
+    // algorithmically incompatible with the Python fallback's per-frame count.
+    let silence_ratio = rhythm::silence_ratio(samples);
 
     Ok((
         tempo_bpm.clamp(40.0, 200.0),
