@@ -349,7 +349,13 @@ class AudioPlayer:
             bool: True if successful
         """
         if self.integration.load_track_from_library(track_id):
-            self.playback.load_and_stop()
+            # Mirror load_file (#3667): hold _audio_lock so the position
+            # reset is atomic with the audio swap already done by
+            # integration.load_track_from_library -> file_manager.load_file.
+            # The DB session is closed before we reach here, so no
+            # lock-ordering issue.
+            with self.file_manager._audio_lock:
+                self.playback.load_and_stop()
             # IntegrationManager.load_track_from_library() calls
             # file_manager.load_file() internally, which sets current_file.
             # Schedule the fingerprint loader here (the player wrapper
