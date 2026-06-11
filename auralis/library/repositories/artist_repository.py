@@ -10,10 +10,10 @@ Data access layer for artist operations
 
 from collections.abc import Callable
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..models import Album, Artist, Track
+from ..models import Album, Artist, Track, track_artist
 
 
 class ArtistRepository:
@@ -85,23 +85,24 @@ class ArtistRepository:
 
             # Determine sort column
             if order_by == 'album_count':
-                # Subquery to count albums per artist
-                album_count_query = (
-                    select(Artist.id, func.count(Artist.albums).label('album_count'))
-                    .join(Artist.albums)
-                    .group_by(Artist.id)
-                    .subquery()
+                # Correlated subquery: no JOIN needed — evaluated per row by the DB engine.
+                # Artists with no albums yield COUNT=0 (not NULL), so no COALESCE required.
+                order_column = (
+                    select(func.count(Album.id))
+                    .where(Album.artist_id == Artist.id)
+                    .correlate(Artist)
+                    .scalar_subquery()
+                    .desc()
                 )
-                order_column = desc(album_count_query.c.album_count)
             elif order_by == 'track_count':
-                # Subquery to count tracks per artist
-                track_count_query = (
-                    select(Artist.id, func.count(Artist.tracks).label('track_count'))
-                    .join(Artist.tracks)
-                    .group_by(Artist.id)
-                    .subquery()
+                order_column = (
+                    select(func.count())
+                    .select_from(track_artist)
+                    .where(track_artist.c.artist_id == Artist.id)
+                    .correlate(Artist)
+                    .scalar_subquery()
+                    .desc()
                 )
-                order_column = desc(track_count_query.c.track_count)
             else:  # Default to name
                 order_column = Artist.name.asc()
 
