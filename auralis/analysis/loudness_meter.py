@@ -65,17 +65,17 @@ class LoudnessMeter:
         self._init_true_peak_filter()
 
     def _init_k_weighting_filter(self) -> None:
-        """Initialize K-weighting filter (pre-filter + RLB weighting)"""
-        # Pre-filter (high-pass)
-        # Butterworth high-pass filter at ~40Hz
+        """Initialize K-weighting filter (ITU-R BS.1770-4 pre-filter + RLB)"""
+        # Stage 1: 2nd-order Butterworth high-pass at 38.135 Hz (BS.1770-4 Annex 1)
+        # Previously: 1st-order at 40 Hz (wrong order and wrong corner frequency)
         self.pre_filter_b, self.pre_filter_a = signal.butter(
-            1, 40.0, btype='high', fs=self.sample_rate
+            2, 38.13475657, btype='high', fs=self.sample_rate
         )
 
-        # RLB weighting filter (shelf filter around 1.5kHz)
-        # Simplified implementation
-        f0 = 1500.0  # 1.5 kHz
-        db_gain = 4.0  # +4dB boost
+        # Stage 2: High-shelf at 1681.974 Hz +3.999843 dB (BS.1770-4 Annex 1)
+        # Previously: 1500 Hz +4 dB (shelf freq off by ~1.8 semitones)
+        f0 = 1681.974450955533   # ITU-R BS.1770-4 pre-filter shelf frequency
+        db_gain = 3.999843853973347  # BS.1770-4 shelf gain
         q = 1 / np.sqrt(2)
 
         w0 = 2 * np.pi * f0 / self.sample_rate
