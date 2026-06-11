@@ -16,6 +16,8 @@ from auralis.analysis.fingerprint.metrics import (
     MetricUtils,
 )
 
+_HILBERT_MAX_SECONDS = 30
+
 
 class DynamicRangeAnalyzer:
     """Comprehensive dynamic range analysis"""
@@ -241,8 +243,9 @@ class DynamicRangeAnalyzer:
         # This is a simplified estimation method
         # Real compression detection would require more sophisticated analysis
 
-        # Calculate envelope
-        envelope = np.abs(signal.hilbert(audio))
+        # Calculate envelope (cap to avoid multi-GB allocation on long tracks)
+        _cap = int(self.sample_rate * _HILBERT_MAX_SECONDS)
+        envelope = np.abs(signal.hilbert(audio[:_cap]))
 
         # Smooth envelope
         envelope_smooth = signal.filtfilt([1/100]*100, [1], envelope)
@@ -273,9 +276,10 @@ class DynamicRangeAnalyzer:
     def _estimate_attack_time(self, audio: np.ndarray) -> float:
         """Estimate compressor attack time from transient analysis"""
         # Find sudden level increases (transients)
-        # Flatten audio in case it's 2D
+        # Flatten audio in case it's 2D; cap to avoid multi-GB allocation on long tracks
         audio_flat = audio.flatten()
-        envelope = np.abs(signal.hilbert(audio_flat))
+        _cap = int(self.sample_rate * _HILBERT_MAX_SECONDS)
+        envelope = np.abs(signal.hilbert(audio_flat[:_cap]))
 
         # Calculate derivative to find rapid changes
         envelope_diff = np.diff(envelope)
@@ -320,9 +324,10 @@ class DynamicRangeAnalyzer:
     def _analyze_envelope(self, audio: np.ndarray) -> dict[str, Any]:
         """Analyze audio envelope characteristics"""
         # Calculate envelope using Hilbert transform
-        # Flatten audio in case it's 2D
+        # Flatten audio and cap to avoid multi-GB allocation on long tracks
         audio_flat = audio.flatten()
-        envelope = np.abs(signal.hilbert(audio_flat))
+        _cap = int(self.sample_rate * _HILBERT_MAX_SECONDS)
+        envelope = np.abs(signal.hilbert(audio_flat[:_cap]))
 
         # Smooth the envelope
         window_size = int(0.01 * self.sample_rate)  # 10ms smoothing

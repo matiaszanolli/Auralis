@@ -12,6 +12,8 @@ from scipy import signal
 
 from .fingerprint.common_metrics import MetricUtils, SafeOperations
 
+_HILBERT_MAX_SECONDS = 30
+
 
 class PhaseCorrelationAnalyzer:
     """Stereo phase correlation and spatial analysis"""
@@ -104,9 +106,10 @@ class PhaseCorrelationAnalyzer:
 
     def _calculate_phase_correlation(self, left: np.ndarray, right: np.ndarray) -> float:
         """Calculate phase correlation using analytic signals"""
-        # Use Hilbert transform to get analytic signals
-        left_analytic = signal.hilbert(left)
-        right_analytic = signal.hilbert(right)
+        # Cap to avoid multi-GB allocation on long tracks; phase stats converge in seconds
+        _cap = int(self.sample_rate * _HILBERT_MAX_SECONDS)
+        left_analytic = signal.hilbert(left[:_cap])
+        right_analytic = signal.hilbert(right[:_cap])
 
         # Calculate instantaneous phases
         left_phase = np.angle(left_analytic)
