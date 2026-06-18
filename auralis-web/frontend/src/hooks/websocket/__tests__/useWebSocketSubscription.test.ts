@@ -31,7 +31,7 @@ import {
 import type {
   WebSocketMessage,
   WebSocketMessageType,
-} from '../../../types/websocket';
+} from '@/types/websocket';
 
 describe('useWebSocketSubscription Hook', () => {
   // Mock subscription manager

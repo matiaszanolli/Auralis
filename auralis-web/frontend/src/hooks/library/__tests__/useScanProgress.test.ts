@@ -13,7 +13,7 @@ import {
   setWebSocketManager,
 } from '../../websocket/useWebSocketSubscription';
 import { useScanProgress } from '../useScanProgress';
-import type { WebSocketMessage } from '../../../types/websocket';
+import type { WebSocketMessage } from '@/types/websocket';
 
 // Capture subscription callbacks so we can simulate messages
 type Callback = (message: WebSocketMessage) => void;
