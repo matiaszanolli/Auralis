@@ -170,18 +170,26 @@ class EQProcessor:
         hop_size = chunk_size // 2
         original_length = len(audio)
 
-        # WOLA (Weighted Overlap-Add) with sqrt-Hann windows for both
-        # analysis and synthesis.  At 50% overlap:
-        #   sum_k { sqrt(hann)[n-kH] * sqrt(hann)[n-kH] } = hann sums to 1
-        # This satisfies the COLA constraint and avoids the ~6 dB ripple
-        # that occurred when only a synthesis window was applied (#3294).
+        # WOLA (Weighted Overlap-Add) with a single full-Hann SYNTHESIS window
+        # and NO analysis pre-window. At 50% overlap a full Hann sums to 1, so
+        # this satisfies COLA with the same reconstruction quality as the old
+        # sqrt-Hann×sqrt-Hann scheme — but only sqrt-Hann *synthesis-only* gave
+        # the ~6 dB ripple that #3294 saw, not full Hann (verified COLA ≈ 1).
+        #
+        # Pre-windowing the chunk before process_realtime_chunk double-windowed
+        # the analysis FFT (sqrt-Hann here × Hann inside analyze_spectrum =
+        # hann^1.5), biasing masking band energies toward frame center (#4217).
+        # analyze_spectrum applies its own Hann + coherent-gain compensation
+        # (#4101) and apply_eq processes the un-windowed frame it receives, so
+        # the chunk is now passed through un-windowed and only the OLA output
+        # carries the synthesis window.
         #
         # The output buffer is extended by chunk_size so that the terminal
         # chunk's full synthesis window fits without truncation.  The final
         # output is trimmed to original_length (#3437).
         out_shape = (original_length + chunk_size,) + audio.shape[1:]
         processed_audio = np.zeros(out_shape, dtype=audio.dtype)
-        wola_window = np.sqrt(hann(chunk_size))
+        wola_window = hann(chunk_size)
 
         for i in range(0, original_length, hop_size):
             end_idx = min(i + chunk_size, original_length)
@@ -194,12 +202,8 @@ class EQProcessor:
                 padded_chunk[:len(chunk)] = chunk
                 chunk = padded_chunk
 
-            # Apply analysis window before processing
-            if audio.ndim == 2:
-                chunk = chunk * wola_window[:, np.newaxis]
-            else:
-                chunk = chunk * wola_window
-
+            # No analysis pre-window: analyze_spectrum windows its own analysis
+            # FFT and apply_eq processes the un-windowed frame (#4217).
             # Process chunk with psychoacoustic EQ
             processed_chunk = self.psychoacoustic_eq.process_realtime_chunk(
                 chunk, target_curve, content_profile
