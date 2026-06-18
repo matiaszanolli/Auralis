@@ -49,6 +49,10 @@ export const useMasteringRecommendation = (trackId?: number) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isTimedOut, setIsTimedOut] = useState(false);
   const cache = useRef<MasteringRecommendationCache>({});
+  // #4163: hold the timeout handle in a ref so the WS handler can clear it
+  // without a forward reference to a `const timeout` declared after subscribe()
+  // (a TDZ ReferenceError under synchronous WS delivery, e.g. sync-mock tests).
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Handle incoming mastering recommendation messages
   useEffect(() => {
@@ -64,6 +68,10 @@ export const useMasteringRecommendation = (trackId?: number) => {
       return;
     }
 
+    // #4165: clear the previous track's recommendation on a cache miss so a
+    // stale profile is not shown for up to 10s while the new one loads.
+    setRecommendation(null);
+
     const handleMasteringRecommendation = (message: MasteringRecommendationMessage) => {
       const payload = message.data;
       if (payload?.track_id === trackId) {
@@ -72,7 +80,7 @@ export const useMasteringRecommendation = (trackId?: number) => {
         setRecommendation(rec);
         setIsLoading(false);
         setIsTimedOut(false);
-        clearTimeout(timeout);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
       }
     };
 
@@ -87,14 +95,14 @@ export const useMasteringRecommendation = (trackId?: number) => {
     setIsTimedOut(false);
 
     // Timeout fallback: reset loading after 10s if no WS response (#2994)
-    const timeout = setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       setIsLoading(false);
       setIsTimedOut(true);
     }, RECOMMENDATION_TIMEOUT_MS);
 
     return () => {
       unsubscribe?.();
-      clearTimeout(timeout);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       // Do NOT setIsLoading(false) here — the next effect run sets it true
       // again immediately, producing a one-render false→true flicker on rapid
       // trackId changes. Let the next effect own the loading lifecycle (#3971).
