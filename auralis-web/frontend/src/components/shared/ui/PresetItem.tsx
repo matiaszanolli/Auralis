@@ -44,7 +44,7 @@ export const PresetItem = ({
           <Typography variant="body2" sx={{ fontWeight: tokens.typography.fontWeight.semibold, mb: 0.5 }}>
             {preset.label}
           </Typography>
-          <Typography variant="caption" sx={{ fontSize: 11, opacity: 0.9 }}>
+          <Typography variant="caption" sx={{ fontSize: tokens.typography.fontSize.xs, opacity: 0.9 }}>
             {preset.description}
           </Typography>
         </Box>
@@ -101,7 +101,9 @@ export const PresetItem = ({
       >
         <Box
           sx={{
-            fontSize: isActive ? 28 : 24,
+            // 28 maps to the 2xl token; the inactive 24 is off-scale, so use
+            // the nearest named step xl (22px) per #4204.
+            fontSize: isActive ? tokens.typography.fontSize['2xl'] : tokens.typography.fontSize.xl,
             color: isActive
               ? tokens.colors.text.primary
               : isHovered
