@@ -28,7 +28,7 @@
  * ```
  */
 
-import { MouseEvent, useEffect, useState } from 'react';
+import { MouseEvent, useEffect, useRef, useState } from 'react';
 import { Box, IconButton } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import * as playlistService from '@/services/playlistService';
@@ -63,6 +63,16 @@ export const PlaylistList = ({
   const [contextMenuPlaylist, setContextMenuPlaylist] = useState<playlistService.Playlist | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Guard post-await setState against unmount: the mount fetch and the WS
+  // callbacks can resolve/fire after the component unmounts (#4156).
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Context menu and utilities
   const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
 
@@ -77,6 +87,7 @@ export const PlaylistList = ({
     const loadPlaylists = async () => {
       setLoading(true);
       const loaded = await fetchPlaylistsAsync();
+      if (!isMountedRef.current) return;
       setPlaylists(loaded);
       setLoading(false);
     };
@@ -87,6 +98,7 @@ export const PlaylistList = ({
   usePlaylistWebSocket({
     onPlaylistCreated: async () => {
       const loaded = await fetchPlaylistsAsync();
+      if (!isMountedRef.current) return;
       setPlaylists(loaded);
     },
     onPlaylistUpdated: (playlistId, updates) => {
@@ -101,6 +113,7 @@ export const PlaylistList = ({
     },
     onPlaylistsRefresh: async () => {
       const loaded = await fetchPlaylistsAsync();
+      if (!isMountedRef.current) return;
       setPlaylists(loaded);
     },
   });
@@ -124,6 +137,7 @@ export const PlaylistList = ({
   // Playlist updated handler
   const handlePlaylistUpdated = async () => {
     const loaded = await fetchPlaylistsAsync();
+    if (!isMountedRef.current) return;
     setPlaylists(loaded);
   };
 
