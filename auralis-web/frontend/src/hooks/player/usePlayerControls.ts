@@ -229,10 +229,21 @@ export function usePlayerControls({
     [onSeek, executeControl]
   );
 
+  // Mirror seek/log/seekDebounceMs through refs so seekDebounced has a stable
+  // identity (empty deps). With these in the dep array an inline onSeek prop
+  // recreated seekDebounced every render, clearing the pending timeout and
+  // resetting the debounce mid-drag (#4196). Matches the lastSeekRef pattern.
+  const seekRef = useRef(seek);
+  seekRef.current = seek;
+  const logRef = useRef(log);
+  logRef.current = log;
+  const seekDebounceMsRef = useRef(seekDebounceMs);
+  seekDebounceMsRef.current = seekDebounceMs;
+
   // Seek to position (non-blocking, debounced)
   const seekDebounced = useCallback(
     (position: number) => {
-      log(`Queued debounced seek to ${position}`);
+      logRef.current(`Queued debounced seek to ${position}`);
 
       // Clear existing timeout
       if (seekTimeoutRef.current) {
@@ -243,13 +254,13 @@ export function usePlayerControls({
       seekTimeoutRef.current = setTimeout(() => {
         if (position !== lastSeekRef.current) {
           lastSeekRef.current = position;
-          seek(position).catch((error) => {
+          seekRef.current(position).catch((error) => {
             console.error('[usePlayerControls] Debounced seek error:', error);
           });
         }
-      }, seekDebounceMs);
+      }, seekDebounceMsRef.current);
     },
-    [seek, seekDebounceMs, log]
+    []
   );
 
   // Set volume
