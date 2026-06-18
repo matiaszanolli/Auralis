@@ -66,8 +66,10 @@ class VectorizedEnvelopeFollower:
         if len(input_levels) == 0:
             return np.array([])
 
-        # Allocate output — match input dtype to avoid unnecessary copy
-        output = np.zeros_like(input_levels, dtype=np.float32)
+        # Allocate output inheriting the caller's dtype — forcing float32 here
+        # silently downcast a float64 caller (#4225). compressor.py already
+        # passes float32, so this is contract-correct with no behaviour change.
+        output = np.zeros_like(input_levels)
 
         # Process first sample
         current_env = self.envelope
