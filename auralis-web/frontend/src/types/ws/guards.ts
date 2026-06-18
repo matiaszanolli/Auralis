@@ -40,6 +40,9 @@ import type {
   PlaylistDeletedMessage,
   ScanProgressMessage,
   ScanCompleteMessage,
+  LibraryScanStartedMessage,
+  LibraryScanErrorMessage,
+  LibraryTracksRemovedMessage,
 } from './library';
 
 import type {
@@ -156,6 +159,21 @@ export const isAudioChunkMessage            = makeGuard<AudioChunkMessage>('audi
 export const isAudioStreamErrorMessage      = makeGuard<AudioStreamErrorMessage>('audio_stream_error');
 
 export const isScanCompleteMessage          = makeGuard<ScanCompleteMessage>('scan_complete');
+
+// Library-scan guards mirror isScanProgressMessage's WebSocketMessage signature
+// (not makeGuard's stricter AnyWebSocketMessage) so they accept the
+// WebSocketMessage handed to useWebSocketSubscription callbacks (#4197).
+export function isLibraryScanStartedMessage(msg: WebSocketMessage): msg is LibraryScanStartedMessage {
+  return msg.type === 'library_scan_started';
+}
+
+export function isLibraryScanErrorMessage(msg: WebSocketMessage): msg is LibraryScanErrorMessage {
+  return msg.type === 'library_scan_error';
+}
+
+export function isLibraryTracksRemovedMessage(msg: WebSocketMessage): msg is LibraryTracksRemovedMessage {
+  return msg.type === 'library_tracks_removed';
+}
 
 export const isWebSocketErrorMessage = (msg: AnyWebSocketMessage | WebSocketMessage): msg is WebSocketErrorMessage =>
   msg.type === 'error';

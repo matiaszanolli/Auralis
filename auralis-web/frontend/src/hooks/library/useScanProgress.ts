@@ -10,8 +10,8 @@ import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscrip
 import type {
   ScanProgressMessage,
   ScanCompleteMessage,
-  LibraryTracksRemovedMessage,
 } from '@/types/websocket';
+import { isLibraryTracksRemovedMessage } from '@/types/ws/guards';
 
 export interface ScanProgress {
   isScanning: boolean;
@@ -93,14 +93,13 @@ export function useScanProgress(): ScanStatus {
           ...INITIAL_STATE,
           lastResult: prev.lastResult,
         }));
-      } else if (message.type === 'library_tracks_removed') {
+      } else if (isLibraryTracksRemovedMessage(message)) {
         removedReceivedRef.current = true;
-        const msg = message as LibraryTracksRemovedMessage;
         setState((prev) => ({
           ...prev,
           lastResult: prev.lastResult
-            ? { ...prev.lastResult, filesRemoved: msg.data.count }
-            : { filesAdded: 0, filesRemoved: msg.data.count, duration: 0 },
+            ? { ...prev.lastResult, filesRemoved: message.data.count }
+            : { filesAdded: 0, filesRemoved: message.data.count, duration: 0 },
         }));
       }
     }
