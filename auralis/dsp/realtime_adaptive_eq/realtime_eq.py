@@ -66,6 +66,12 @@ class RealtimeAdaptiveEQ:
         self.input_buffer: deque[Any] = deque(maxlen=64)
         self.output_buffer: deque[Any] = deque(maxlen=16)
 
+        # Persistent FIFO of already-processed output samples. The variable
+        # chunk-size path processes in fixed buffer_size frames but must return
+        # exactly len(audio_chunk) samples per call (#4216), so surplus output
+        # is retained here and drained on subsequent calls.
+        self._output_samples: np.ndarray | None = None
+
         # Lookahead buffer for latency optimization
         if settings.enable_look_ahead:
             lookahead_ms = getattr(settings, 'lookahead_ms', 5.0)
@@ -163,40 +169,47 @@ class RealtimeAdaptiveEQ:
         if total_samples >= self.buffer_size:
             # Concatenate chunks to form processing buffer
             combined_audio = np.concatenate(list(self.input_buffer))
-
-            # Process in fixed-size chunks
-            processed_chunks = []
-            for i in range(0, len(combined_audio), self.buffer_size):
-                chunk = combined_audio[i:i + self.buffer_size]
-                if len(chunk) == self.buffer_size:
-                    processed_chunk = self._process_fixed_chunk(chunk, content_info)
-                    processed_chunks.append(processed_chunk)
-                else:
-                    # Handle remainder — preserve channel dimensionality to avoid
-                    # ValueError when assigning a 2-D stereo chunk into a 1-D array
-                    # (fixes #2399: np.zeros(N) can't hold shape (N, 2)).
-                    padded_chunk = np.zeros((self.buffer_size,) + chunk.shape[1:], dtype=chunk.dtype)
-                    padded_chunk[:len(chunk)] = chunk
-                    processed_chunk = self._process_fixed_chunk(padded_chunk, content_info)
-                    # #3686: guard against EQ-backend regressions that would
-                    # return a different shape than the input. The slice
-                    # `[:len(chunk)]` would otherwise silently mix the padded
-                    # silence into the next chunk's output.
-                    assert processed_chunk.shape == padded_chunk.shape, (
-                        f"EQ backend shape mismatch: expected {padded_chunk.shape}, "
-                        f"got {processed_chunk.shape}"
-                    )
-                    processed_chunks.append(processed_chunk[:len(chunk)])
-
-            # Clear input buffer and return processed audio
             self.input_buffer.clear()
-            return np.concatenate(processed_chunks)
 
+            # Process only whole buffer_size frames. The sub-frame remainder is
+            # retained for the next accumulation cycle rather than padded with
+            # silence mid-stream (which would inject dropouts into the output).
+            n_full = (len(combined_audio) // self.buffer_size) * self.buffer_size
+            processed_chunks = [
+                self._process_fixed_chunk(combined_audio[i:i + self.buffer_size], content_info)
+                for i in range(0, n_full, self.buffer_size)
+            ]
+            if n_full < len(combined_audio):
+                self.input_buffer.append(combined_audio[n_full:])
+            if processed_chunks:
+                self._enqueue_output(np.concatenate(processed_chunks))
+
+        # Always return exactly len(audio_chunk) samples (#4216) so the
+        # sample-count contract holds and HybridProcessor's assert never trips.
+        return self._dequeue_output(audio_chunk)
+
+    def _enqueue_output(self, samples: np.ndarray) -> None:
+        """Append processed samples to the persistent output FIFO."""
+        if self._output_samples is None or len(self._output_samples) == 0:
+            self._output_samples = samples
         else:
-            # Not enough samples yet — return dry audio (passthrough) instead
-            # of silence so there is no dropout at stream start (fixes #2401).
+            self._output_samples = np.concatenate([self._output_samples, samples])
+
+    def _dequeue_output(self, audio_chunk: np.ndarray) -> np.ndarray:
+        """Return exactly len(audio_chunk) processed samples from the FIFO.
+
+        Until enough processed audio has accumulated, pass the dry input
+        through so the stream never blocks and the output length always equals
+        the input length (#2401, #4216).
+        """
+        n = len(audio_chunk)
+        buf = self._output_samples
+        if buf is None or len(buf) < n:
             self.performance_stats['buffer_underruns'] += 1
             return audio_chunk.copy()
+        out = buf[:n]
+        self._output_samples = buf[n:]
+        return out
 
     def set_adaptation_parameters(self, **kwargs: Any) -> None:
         """Update adaptation parameters dynamically (#3788: locked)."""
@@ -259,6 +272,7 @@ class RealtimeAdaptiveEQ:
             self.adaptation_engine = AdaptationEngine(self.settings)
             self.input_buffer.clear()
             self.output_buffer.clear()
+            self._output_samples = None
 
             if self.lookahead_buffer:
                 self.lookahead_buffer.clear()
