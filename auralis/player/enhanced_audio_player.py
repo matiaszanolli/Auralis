@@ -798,7 +798,13 @@ class AudioPlayer:
         # and re-populate audio_data after clear_all(). Daemon=True saves us
         # at process exit, but tests that reuse the player (or assert on
         # post-cleanup state) need a deterministic barrier.
-        advance_thread = self._advance_thread
+        # #4227: read _advance_thread under _audio_lock (it is written under the
+        # same lock at line ~581). A raw read can tear under free-threaded
+        # 3.14+, skipping the join so an in-flight advance thread survives
+        # cleanup. Join outside the lock so a slow thread can't deadlock against
+        # a writer holding _audio_lock.
+        with self.file_manager._audio_lock:
+            advance_thread = self._advance_thread
         if advance_thread is not None and advance_thread.is_alive():
             advance_thread.join(timeout=2.0)
             if advance_thread.is_alive():
