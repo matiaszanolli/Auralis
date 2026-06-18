@@ -914,11 +914,18 @@ class TrackRepository:
                     # Re-verify paths immediately before deletion to narrow the
                     # TOCTOU window (a file could reappear between the initial
                     # exists() check and this point). Fixes #3310.
-                    still_missing = []
-                    for tid in missing_ids:
-                        track = session.get(Track, tid)
-                        if track and not Path(str(track.filepath)).exists():
-                            still_missing.append(tid)
+                    # Batch-fetch filepaths in a single IN query rather than one
+                    # session.get() per id, keeping re-verification O(batches)
+                    # instead of O(missing tracks) (fixes #4223).
+                    recheck_rows = session.execute(
+                        select(Track.id, Track.filepath)
+                        .where(Track.id.in_(missing_ids))
+                    ).all()
+                    still_missing = [
+                        row.id
+                        for row in recheck_rows
+                        if not Path(str(row.filepath)).exists()
+                    ]
                     if still_missing:
                         session.execute(
                             delete(Track).where(Track.id.in_(still_missing))
