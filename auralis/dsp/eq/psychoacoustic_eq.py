@@ -39,7 +39,6 @@ class EQSettings:
     """Psychoacoustic EQ settings"""
     sample_rate: int = 44100
     fft_size: int = 4096
-    overlap: float = 0.75
     smoothing_factor: float = 0.1
     masking_threshold_db: float = -60.0
     adaptation_speed: float = 0.2
@@ -76,7 +75,9 @@ class PsychoacousticEQ:
         self.settings = settings
         self.sample_rate = settings.sample_rate
         self.fft_size = settings.fft_size
-        self.hop_size = int(self.fft_size * (1 - settings.overlap))
+        # NOTE: the WOLA hop is fixed at 50% in EQProcessor for COLA-correct
+        # reconstruction with a full-Hann synthesis window (#4217); there is
+        # no configurable overlap here (the old self.hop_size was never read).
 
         # #4101: Hann window for the *analysis* FFT only (apply_eq_gains stays
         # un-windowed, #3663). Suppresses the rectangular window's -13 dB first

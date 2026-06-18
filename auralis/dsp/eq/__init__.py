@@ -22,7 +22,6 @@ def create_psychoacoustic_eq(sample_rate: int = 44100,
     settings = EQSettings(
         sample_rate=sample_rate,
         fft_size=fft_size,
-        overlap=0.75,
         smoothing_factor=0.1
     )
     return PsychoacousticEQ(settings)

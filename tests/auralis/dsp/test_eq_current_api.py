@@ -37,7 +37,6 @@ class TestEQCurrentAPI:
         self.settings = EQSettings(
             sample_rate=self.sample_rate,
             fft_size=4096,
-            overlap=0.75,
             smoothing_factor=0.1,
             adaptation_speed=0.2
         )
@@ -69,14 +68,12 @@ class TestEQCurrentAPI:
         settings = EQSettings()
         assert settings.sample_rate == 44100
         assert settings.fft_size == 4096
-        assert settings.overlap == 0.75
         assert settings.smoothing_factor == 0.1
 
         # Test with custom values
         custom_settings = EQSettings(
             sample_rate=48000,
             fft_size=8192,
-            overlap=0.5,
             smoothing_factor=0.2,
             masking_threshold_db=-50.0,
             adaptation_speed=0.3
