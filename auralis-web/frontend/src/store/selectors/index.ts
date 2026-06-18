@@ -88,6 +88,12 @@ export const selectPlaybackProgress = createSelector(
   (currentTime, duration): number => (duration > 0 ? currentTime / duration : 0)
 );
 
+/**
+ * @internal Recomputes every second because `currentTime` is an input. No
+ * component subscribes to it today — do NOT call it directly from a component
+ * (that would re-render at 1 Hz). Prefer formatting time at the leaf that needs
+ * it. Kept only as part of the `optimizedSelectors` barrel (#4206).
+ */
 export const selectFormattedTime = createSelector(
   [(state: RootState) => state.player.currentTime, (state: RootState) => state.player.duration],
   (currentTime, duration) => ({
@@ -212,7 +218,13 @@ export const selectConnectionStatus = createSelector(
 // ============================================================================
 
 /**
- * Complete playback state
+ * Complete playback state.
+ *
+ * @internal Recomputes every second because `currentTime` is an input (it
+ * feeds `progress` and the formatted `currentTime`). No component subscribes to
+ * it directly — it backs `selectAppSnapshot` and the `optimizedSelectors`
+ * barrel. Do NOT subscribe a component to it directly or it will re-render at
+ * 1 Hz; read the discrete fields you need from `playerSelectors` instead (#4206).
  */
 export const selectPlaybackState = createSelector(
   [
