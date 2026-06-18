@@ -153,7 +153,12 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   queryType: LibraryQueryType = 'tracks',
   options: LibraryQueryOptions = {}
 ): UseLibraryQueryResult<T> {
-  const api = useRestAPI();
+  // Destructure the stable `get` from useRestAPI's stableMethods. The api
+  // wrapper object itself is re-memoized on every isLoading/error change, so
+  // depending on the whole object churned executeQuery/fetchMore each fetch
+  // cycle and re-fired the auto-fetch effect after completion — a latent
+  // refetch loop (#4164). `get` is referentially stable.
+  const { get } = useRestAPI();
 
   // State
   const [data, setData] = useState<T[]>([]);
@@ -266,7 +271,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       setError(null);
 
       try {
-        const response = await api.get<LibraryQueryResponse<T>>(url);
+        const response = await get<LibraryQueryResponse<T>>(url);
 
         if (!response) {
           throw new Error('No response from server');
@@ -297,7 +302,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         setIsLoading(false);
       }
     },
-    [api, buildEndpoint, queryType]
+    [get, buildEndpoint, queryType]
   );
 
   /**
@@ -317,7 +322,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
     const nextOffset = offset + limit;
 
     try {
-      const response = await api.get<LibraryQueryResponse<T>>(buildEndpoint(nextOffset));
+      const response = await get<LibraryQueryResponse<T>>(buildEndpoint(nextOffset));
 
       if (response) {
         const items = extractItemsFromResponse(response, queryType);
@@ -339,7 +344,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       isFetchingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [api, offset, limit, hasMore, buildEndpoint, extractItemsFromResponse]);
+  }, [get, offset, limit, hasMore, buildEndpoint, extractItemsFromResponse]);
 
   /**
    * Refetch - Reset and fetch from beginning
