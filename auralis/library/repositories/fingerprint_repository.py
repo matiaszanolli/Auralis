@@ -394,7 +394,7 @@ class FingerprintRepository:
                 )
             )
 
-            if limit:
+            if limit is not None:
                 stmt = stmt.limit(limit)
 
             fingerprints = session.execute(stmt).scalars().all()
@@ -444,7 +444,7 @@ class FingerprintRepository:
 
             stmt = select(TrackFingerprint).where(and_(*conditions))
 
-            if limit:
+            if limit is not None:
                 stmt = stmt.limit(limit)
 
             fingerprints = session.execute(stmt).scalars().all()
@@ -497,7 +497,7 @@ class FingerprintRepository:
                 TrackFingerprint.id == None
             )
 
-            if limit:
+            if limit is not None:
                 stmt = stmt.limit(limit)
 
             tracks = session.execute(stmt).scalars().all()

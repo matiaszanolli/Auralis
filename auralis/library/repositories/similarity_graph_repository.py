@@ -153,7 +153,7 @@ class SimilarityGraphRepository:
                 .order_by(SimilarityGraph.rank)
             )
 
-            if limit:
+            if limit is not None:
                 stmt = stmt.limit(limit)
 
             edges = session.execute(stmt).scalars().all()
