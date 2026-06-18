@@ -64,6 +64,19 @@ def load_with_soundfile(file_path: Path) -> tuple[np.ndarray, int]:
                     f"({completeness:.1f}% complete)"
                 )
 
+        # #4220: enforce the duration ceiling via sf.info() BEFORE sf.read()
+        # so a very long lossless file (e.g. a 3-hour 96 kHz FLAC ~ 7.8 GB)
+        # is rejected without first decoding the whole buffer into RAM. This
+        # mirrors the player loader.py sibling path. The post-decode guard in
+        # unified_loader stays as a backstop for any direct callers.
+        from ..loader import MAX_DURATION_SECONDS
+        file_info = sf.info(str(file_path))
+        if file_info.duration > MAX_DURATION_SECONDS:
+            raise ModuleError(
+                f"{Code.ERROR_CORRUPTED}: Audio file exceeds maximum duration "
+                f"({file_info.duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
+            )
+
         # #3748: explicit float32 to match `loader.py`'s sibling sf.read
         # call. Without the dtype hint, soundfile returns float64 for
         # PCM ≥ 16-bit sources, which doubles peak RAM on the canonical
