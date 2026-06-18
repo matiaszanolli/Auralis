@@ -393,8 +393,11 @@ class ParallelBandProcessor:
                     # #3675: include the gain multiply so the failed group's
                     # contribution matches its configured per-band levels.
                     for band_idx in band_groups[i]:
+                        # Pass a copy like the worker path (#4229): an in-place
+                        # band filter would otherwise corrupt `audio` for the
+                        # remaining fallback iterations.
                         group_results[i] += (
-                            band_filters[band_idx](audio)
+                            band_filters[band_idx](audio.copy())
                             * (10 ** (band_gains[band_idx] / 20))
                         )
 
