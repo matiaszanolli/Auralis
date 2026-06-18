@@ -110,7 +110,9 @@ describe('AlbumGrid', () => {
 
     render(<AlbumGrid />);
 
-    expect(screen.getByText(/failed/i)).toBeInTheDocument();
+    // AlbumGrid renders both a hardcoded error heading and error.message, so
+    // both match /failed/i — assert at least one is present (#4209).
+    expect(screen.getAllByText(/failed/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it('should display empty state', () => {
