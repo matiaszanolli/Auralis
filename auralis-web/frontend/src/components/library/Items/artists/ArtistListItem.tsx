@@ -27,10 +27,22 @@ export const ArtistListItem = ({
   onClick,
   onContextMenu
 }: ArtistListItemProps) => {
+  // Expose the album/track counts to screen readers, matching what sighted
+  // users see in ArtistInfo (#4207).
+  const albumLabel = artist.albumCount
+    ? `${artist.albumCount} ${artist.albumCount === 1 ? 'album' : 'albums'}`
+    : '';
+  const trackLabel = artist.trackCount
+    ? `${artist.trackCount} ${artist.trackCount === 1 ? 'track' : 'tracks'}`
+    : '';
+  const ariaLabel = [artist.name, albumLabel, trackLabel]
+    .filter(Boolean)
+    .join(', ');
+
   return (
     <StyledListItem>
       <StyledListItemButton
-        aria-label={artist.name}
+        aria-label={ariaLabel}
         onClick={() => onClick(artist)}
         onContextMenu={(e) => onContextMenu(e, artist)}
       >
