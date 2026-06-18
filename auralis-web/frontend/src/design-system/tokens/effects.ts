@@ -29,6 +29,13 @@ export const shadows = {
     glowAquaIntense: '0 0 32px rgba(71, 214, 255, 0.40)', // Aqua glow (processing)
     glowAquaUltra: '0 0 48px rgba(71, 214, 255, 0.56)',  // Ultra aqua (active states)
 
+    // Compact keyframe glows (10/20px blur) — single source for the global
+    // --glow-* CSS vars consumed by glow/pulse animations (#4201).
+    glowAccentMedium: '0 0 10px rgba(115, 102, 240, 0.5)',
+    glowAccentStrong: '0 0 20px rgba(115, 102, 240, 0.8)',
+    glowAquaMedium: '0 0 10px rgba(71, 214, 255, 0.5)',
+    glowAquaStrong: '0 0 20px rgba(71, 214, 255, 0.8)',
+
     // Glass depth shadows (for glassmorphism layering)
     glassSubtle: '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.05)', // Glass surface
     glassMd: '0 8px 32px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.08)',     // Elevated glass
