@@ -8,7 +8,7 @@
  * robust service architecture. Prefers V2 pattern but maintains V1 compatibility.
  */
 
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react';
 import { keyboardShortcuts, ShortcutDefinition, ShortcutHandler } from '@/services/keyboardShortcutsService';
 import {
   SHORTCUT_CONFIG_MAP,
@@ -216,17 +216,21 @@ export const useKeyboardShortcuts = (
     // eslint-disable-next-line react-hooks/exhaustive-deps -- serializedKey tracks shortcut structure; handlers update via ref below
   }, [serializedKey]);
 
-  // Keep handlers fresh without re-running the full effect.
-  // The service stores handlers by reference, so we update them in-place
-  // on every render to avoid stale closures.
+  // Keep handlers fresh without re-running the full effect. The service stores
+  // handlers by reference, so we re-register in-place when the shortcut array
+  // identity changes. Done in a layout effect (post-commit) rather than the
+  // render body so render stays pure — a render-body side effect double-fired
+  // under Concurrent/Strict mode (#4160).
   const shortcutsRef = useRef(shortcutsToRegister);
-  if (shortcutsRef.current !== shortcutsToRegister) {
-    shortcutsRef.current = shortcutsToRegister;
-    shortcutsToRegister.forEach((shortcut: KeyboardShortcut) => {
-      const { handler, ...definition } = shortcut;
-      keyboardShortcuts.register(definition, handler);
-    });
-  }
+  useLayoutEffect(() => {
+    if (shortcutsRef.current !== shortcutsToRegister) {
+      shortcutsRef.current = shortcutsToRegister;
+      shortcutsToRegister.forEach((shortcut: KeyboardShortcut) => {
+        const { handler, ...definition } = shortcut;
+        keyboardShortcuts.register(definition, handler);
+      });
+    }
+  });
 
   // Enable/disable based on state
   useEffect(() => {
