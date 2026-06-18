@@ -11,6 +11,7 @@
 
 import { MouseEvent, useState } from 'react';
 import { Box } from '@mui/material';
+import { tokens } from '@/design-system';
 import { AlbumArt } from '@/components/album/AlbumArt';
 import { PlayOverlay } from './PlayOverlay';
 import { LoadingOverlay } from './LoadingOverlay';
@@ -29,8 +30,7 @@ const ShimmerOverlay = () => (
       left: '-100%',
       width: '100%',
       height: '100%',
-      background:
-        'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%)',
+      background: tokens.gradients.shimmerSweep,
       pointerEvents: 'none',
     }}
   />

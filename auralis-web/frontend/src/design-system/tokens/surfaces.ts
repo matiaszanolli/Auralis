@@ -20,6 +20,7 @@ export const gradients = {
     glassViolet: 'linear-gradient(135deg, rgba(115, 102, 240, 0.08) 0%, rgba(90, 92, 196, 0.12) 100%)',   // Glass violet tint
     glassAqua: 'linear-gradient(135deg, rgba(71, 214, 255, 0.06) 0%, rgba(0, 188, 196, 0.10) 100%)',     // Glass aqua tint
     glassShimmer: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(255, 255, 255, 0.08) 100%)', // Glass shimmer
+    shimmerSweep: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%)', // Card hover shimmer sweep (#4199) — single source for track/album cards
 
     // Mesh gradients (multi-color glass)
     glassMesh: 'radial-gradient(at 0% 0%, rgba(115, 102, 240, 0.15) 0%, transparent 50%), radial-gradient(at 100% 100%, rgba(71, 214, 255, 0.12) 0%, transparent 50%)',

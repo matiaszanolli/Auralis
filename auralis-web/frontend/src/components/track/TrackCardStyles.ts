@@ -95,7 +95,6 @@ export const ShimmerOverlay = styled(Box)({
   left: '-100%',
   width: '100%',
   height: '100%',
-  background:
-    'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%)',
+  background: tokens.gradients.shimmerSweep,
   pointerEvents: 'none',
 });
