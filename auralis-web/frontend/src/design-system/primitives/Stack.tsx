@@ -29,7 +29,7 @@ export const Stack = forwardRef<
 
   const styles: CSSProperties = {
     display: 'flex',
-    flexDirection: direction as any,
+    flexDirection: direction,
     gap,
     alignItems: align,
     justifyContent: justify,

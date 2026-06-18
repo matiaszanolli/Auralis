@@ -13,6 +13,7 @@
 
 import { memo } from 'react';
 import { Box, styled } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { tokens } from '@/design-system';
 
@@ -45,7 +46,7 @@ export interface AlbumArtDisplayProps {
   /**
    * Additional sx styles
    */
-  sx?: any;
+  sx?: SxProps<Theme>;
 
   /**
    * Placeholder icon size
