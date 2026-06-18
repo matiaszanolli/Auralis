@@ -24,7 +24,7 @@
  * ```
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 /**
  * Similar track response model (matches backend SimilarTrack)
@@ -109,6 +109,15 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
   // the user changes track. Previously the request continued to completion
   // and only the setState was guarded.
   const abortRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight similarity fetch on unmount so dismissing the modal
+  // mid-search doesn't leave the backend running or loading stuck (#4162).
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, []);
 
   /**
    * Find similar tracks for a given track ID
