@@ -6,10 +6,6 @@ import { tokens } from '@/design-system';
 // ============================================================================
 // #3597: every gradient endpoint resolves to a token. Hand-tuned hex strings
 // previously fragmented the brand identity between gradient stops.
-const _COSMIC_DEEP = '#0F2027';   // deepened bg.level0 for the cosmicBlue ramp
-const _COSMIC_MID = '#203A43';
-const _COSMIC_END = '#2C5364';
-
 export const gradients = {
   aurora: tokens.gradients.aurora,
   // #3949 / DS-12: the dark accent stop now resolves to accent.primaryDark
@@ -18,7 +14,7 @@ export const gradients = {
   neonSunset: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.energy} 100%)`,
   deepOcean: `linear-gradient(135deg, ${tokens.colors.semantic.info} 0%, ${tokens.colors.semantic.success} 100%)`,
   electricPurple: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.primary} 100%)`,
-  cosmicBlue: `linear-gradient(135deg, ${_COSMIC_DEEP} 0%, ${_COSMIC_MID} 50%, ${_COSMIC_END} 100%)`,
+  cosmicBlue: tokens.gradients.decorative.cosmicBlue,
   // Light theme gradients (softer) — derive from semantic info / harmonic accents
   auroraLight: `linear-gradient(135deg, ${tokens.colors.semantic.info} 0%, ${tokens.colors.audioSemantic.harmonic} 100%)`,
   sunsetLight: `linear-gradient(135deg, ${tokens.colors.audioSemantic.harmonic} 0%, ${tokens.colors.accent.energy} 100%)`,
