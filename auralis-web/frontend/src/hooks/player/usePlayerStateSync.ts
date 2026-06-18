@@ -93,15 +93,18 @@ export function usePlayerStateSync() {
         // to Math.min(payload, state.duration), so on cold start / reconnect a
         // stale duration (possibly 0) would silently clamp currentTime to the
         // wrong value if applied first (#3936).
-        if ('duration' in state && typeof state.duration === 'number') {
+        // Number.isFinite (not typeof === 'number', which admits NaN): a single
+        // NaN duration permanently NaNs all progress/time UI until reload.
+        // Matches the position_changed guard (#4158).
+        if ('duration' in state && typeof state.duration === 'number' && Number.isFinite(state.duration)) {
           dispatch(setDuration(state.duration));
         }
 
-        if ('current_time' in state && typeof state.current_time === 'number') {
+        if ('current_time' in state && typeof state.current_time === 'number' && Number.isFinite(state.current_time)) {
           dispatch(setCurrentTime(state.current_time));
         }
 
-        if ('volume' in state && typeof state.volume === 'number') {
+        if ('volume' in state && typeof state.volume === 'number' && Number.isFinite(state.volume)) {
           dispatch(setVolume(state.volume));
         }
 
