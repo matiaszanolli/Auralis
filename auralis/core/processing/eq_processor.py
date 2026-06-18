@@ -221,34 +221,29 @@ class EQProcessor:
             eq_curve: EQ curve parameters
 
         Returns:
-            Target curve array (26 bands)
+            Target curve array, one gain per critical band.
         """
-        # Create target curve for 26 critical bands
-        num_bands = len(self.psychoacoustic_eq.critical_bands)
-        target_curve = np.zeros(num_bands)
+        # Assign gains by each band's actual center frequency rather than by
+        # hardcoded indices. The Bark scale yields 25 bands (26 boundaries),
+        # so the old `range(20, 26)` indexed band 25 — out of range — making
+        # this method always raise IndexError and silently fall back to the
+        # simple EQ. Frequency-based mapping is correct and robust to the band
+        # count.
+        bands = self.psychoacoustic_eq.critical_bands
+        target_curve = np.zeros(len(bands))
 
-        # Map frequency ranges to bands
-        bass_bands = range(0, 4)        # ~20-250 Hz
-        low_mid_bands = range(4, 8)     # ~250-500 Hz
-        mid_bands = range(8, 16)        # ~500-2000 Hz
-        high_mid_bands = range(16, 20)  # ~2000-4000 Hz
-        treble_bands = range(20, 26)    # ~4000+ Hz
-
-        # Apply gains to appropriate bands
-        for band_idx in bass_bands:
-            target_curve[band_idx] = eq_curve.get('bass_boost', 0.0)
-
-        for band_idx in low_mid_bands:
-            target_curve[band_idx] = eq_curve.get('low_mid_boost', 0.0)
-
-        for band_idx in mid_bands:
-            target_curve[band_idx] = eq_curve.get('mid_boost', 0.0)
-
-        for band_idx in high_mid_bands:
-            target_curve[band_idx] = eq_curve.get('high_mid_boost', 0.0)
-
-        for band_idx in treble_bands:
-            target_curve[band_idx] = eq_curve.get('treble_boost', 0.0)
+        for i, band in enumerate(bands):
+            center = band.center_freq
+            if center < 250.0:          # Bass (~20-250 Hz)
+                target_curve[i] = eq_curve.get('bass_boost', 0.0)
+            elif center < 500.0:        # Low-mid (~250-500 Hz)
+                target_curve[i] = eq_curve.get('low_mid_boost', 0.0)
+            elif center < 2000.0:       # Mid (~500-2000 Hz)
+                target_curve[i] = eq_curve.get('mid_boost', 0.0)
+            elif center < 4000.0:       # High-mid (~2000-4000 Hz)
+                target_curve[i] = eq_curve.get('high_mid_boost', 0.0)
+            else:                       # Treble (~4000+ Hz)
+                target_curve[i] = eq_curve.get('treble_boost', 0.0)
 
         # Apply mastering intensity scaling
         intensity = eq_curve.get('mastering_intensity', 0.5)
