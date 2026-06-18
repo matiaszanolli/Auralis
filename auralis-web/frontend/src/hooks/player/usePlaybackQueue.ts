@@ -60,6 +60,7 @@ import {
   clearQueue as reduxClearQueue,
   setIsShuffled as reduxSetIsShuffled,
   setRepeatMode as reduxSetRepeatMode,
+  isRepeatMode,
   selectQueueTracks,
   selectCurrentIndex,
   selectIsShuffled,
@@ -227,8 +228,8 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
         case 'repeat_mode_changed': {
           const { data } = msg;
-          if (data.repeat_mode) dispatch(reduxSetRepeatMode(data.repeat_mode));
-          else if (data.repeatMode) dispatch(reduxSetRepeatMode(data.repeatMode));
+          if (isRepeatMode(data.repeat_mode)) dispatch(reduxSetRepeatMode(data.repeat_mode));
+          else if (isRepeatMode(data.repeatMode)) dispatch(reduxSetRepeatMode(data.repeatMode));
           break;
         }
       }
@@ -252,9 +253,12 @@ export function usePlaybackQueue(): PlaybackQueueActions {
           dispatch(reduxSetIsShuffled(
             (response.is_shuffled as boolean) ?? (response.isShuffled as boolean) ?? false
           ));
-          dispatch(reduxSetRepeatMode(
-            (response.repeat_mode as QueueState['repeatMode']) ?? (response.repeatMode as QueueState['repeatMode']) ?? 'off'
-          ));
+          const initialRepeatMode = isRepeatMode(response.repeat_mode)
+            ? response.repeat_mode
+            : isRepeatMode(response.repeatMode)
+              ? response.repeatMode
+              : 'off';
+          dispatch(reduxSetRepeatMode(initialRepeatMode));
         }
       } catch (err) {
         // Silently fail - user can still interact with empty queue

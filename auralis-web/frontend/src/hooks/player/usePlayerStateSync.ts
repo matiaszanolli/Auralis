@@ -41,6 +41,7 @@ import {
   setCurrentIndex,
   setIsShuffled,
   setRepeatMode,
+  isRepeatMode,
 } from '@/store/slices/queueSlice';
 import type { PresetName } from '@/store/slices/playerSlice';
 import type { RawPlayerStateData, TrackInfo } from '@/types/websocket';
@@ -138,7 +139,7 @@ export function usePlayerStateSync() {
           dispatch(setIsShuffled(state.shuffle_enabled));
         }
 
-        if ('repeat_mode' in state && state.repeat_mode) {
+        if ('repeat_mode' in state && isRepeatMode(state.repeat_mode)) {
           dispatch(setRepeatMode(state.repeat_mode));
         }
 
