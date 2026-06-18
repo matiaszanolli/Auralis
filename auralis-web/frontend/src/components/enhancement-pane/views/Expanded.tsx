@@ -76,6 +76,8 @@ export const Expanded = ({
         <IconButton
           onClick={onToggleCollapse}
           size="small"
+          aria-label="Collapse enhancement pane"
+          aria-expanded={true}
           sx={{
             color: tokens.colors.text.primary,
             transition: tokens.transitions.fast,
