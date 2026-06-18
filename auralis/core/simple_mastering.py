@@ -153,316 +153,316 @@ class SimpleMasteringPipeline:
             input_path = _tmp_wav
         else:
             input_path = orig_path
+        try:
+            # Step 1: Get fingerprint (uses orig_path so cache hits still work)
+            if verbose:
+                print(f"📂 Input: {orig_path.name}")
+                print(f"📂 Output: {Path(output_path).name}")
+                print("\n🔍 Fingerprinting...")
 
-        # Step 1: Get fingerprint (uses orig_path so cache hits still work)
-        if verbose:
-            print(f"📂 Input: {orig_path.name}")
-            print(f"📂 Output: {Path(output_path).name}")
-            print("\n🔍 Fingerprinting...")
+            step_start = time.perf_counter()
+            fingerprint = self.fingerprint_service.get_or_compute(orig_path)
+            timings['fingerprint'] = time.perf_counter() - step_start
 
-        step_start = time.perf_counter()
-        fingerprint = self.fingerprint_service.get_or_compute(orig_path)
-        timings['fingerprint'] = time.perf_counter() - step_start
+            if not fingerprint:
+                raise RuntimeError("Failed to compute fingerprint")
 
-        if not fingerprint:
-            raise RuntimeError("Failed to compute fingerprint")
+            # Step 2: Get audio metadata without loading full file
+            if verbose:
+                print("\n🎵 Loading metadata...")
 
-        # Step 2: Get audio metadata without loading full file
-        if verbose:
-            print("\n🎵 Loading metadata...")
+            step_start = time.perf_counter()
+            with sf.SoundFile(str(input_path)) as audio_file:
+                sr = audio_file.samplerate
+                total_frames = len(audio_file)
+                channels = audio_file.channels
+                duration = total_frames / sr
 
-        step_start = time.perf_counter()
-        with sf.SoundFile(str(input_path)) as audio_file:
-            sr = audio_file.samplerate
-            total_frames = len(audio_file)
-            channels = audio_file.channels
-            duration = total_frames / sr
+            timings['load_metadata'] = time.perf_counter() - step_start
 
-        timings['load_metadata'] = time.perf_counter() - step_start
+            if verbose:
+                print(f"   Sample rate: {sr} Hz")
+                print(f"   Duration: {duration:.1f}s")
+                print(f"   Channels: {channels}")
+                self._print_fingerprint(fingerprint)
 
-        if verbose:
-            print(f"   Sample rate: {sr} Hz")
-            print(f"   Duration: {duration:.1f}s")
-            print(f"   Channels: {channels}")
-            self._print_fingerprint(fingerprint)
+            # Step 2b: Detect resonances once per file.
+            # Run on a representative 30s window from the middle of the file —
+            # avoids loading the full file but gives enough data for the FFT
+            # averaging to find stable spectral peaks. The same notch list is
+            # applied to every chunk during processing.
+            self._notches = []
+            self._source_lufs = None
+            self._source_crest_db = None
+            step_start = time.perf_counter()
+            notch_sample_seconds = 30
+            notch_window = min(total_frames, sr * notch_sample_seconds)
+            notch_start = max(0, (total_frames - notch_window) // 2)
+            with sf.SoundFile(str(input_path)) as audio_file:
+                audio_file.seek(notch_start)
+                notch_sample = audio_file.read(notch_window).astype(np.float32)
 
-        # Step 2b: Detect resonances once per file.
-        # Run on a representative 30s window from the middle of the file —
-        # avoids loading the full file but gives enough data for the FFT
-        # averaging to find stable spectral peaks. The same notch list is
-        # applied to every chunk during processing.
-        self._notches = []
-        self._source_lufs = None
-        self._source_crest_db = None
-        step_start = time.perf_counter()
-        notch_sample_seconds = 30
-        notch_window = min(total_frames, sr * notch_sample_seconds)
-        notch_start = max(0, (total_frames - notch_window) // 2)
-        with sf.SoundFile(str(input_path)) as audio_file:
-            audio_file.seek(notch_start)
-            notch_sample = audio_file.read(notch_window).astype(np.float32)
+            # Accurate ITU-R BS.1770 integrated loudness + crest on the same
+            # representative window. Drives the QuietBranch loudness maximizer's
+            # makeup decision (the fingerprint's RMS-proxy LUFS under-reads
+            # high-DR material by 3-5 dB). Best-effort: leaves None on failure and
+            # the branch falls back to the fingerprint value.
+            self._source_lufs, self._source_crest_db = self._measure_window_loudness(
+                notch_sample, sr
+            )
 
-        # Accurate ITU-R BS.1770 integrated loudness + crest on the same
-        # representative window. Drives the QuietBranch loudness maximizer's
-        # makeup decision (the fingerprint's RMS-proxy LUFS under-reads
-        # high-DR material by 3-5 dB). Best-effort: leaves None on failure and
-        # the branch falls back to the fingerprint value.
-        self._source_lufs, self._source_crest_db = self._measure_window_loudness(
-            notch_sample, sr
-        )
+            # SoundFile returns (samples, channels); ResonanceNotcher handles both
+            # mono and stereo input internally.
+            detected = ResonanceNotcher.detect(
+                notch_sample,
+                sample_rate=sr,
+                min_freq=self.config.NOTCH_MIN_FREQ_HZ,
+                max_freq=self.config.NOTCH_MAX_FREQ_HZ,
+                min_prominence_db=self.config.NOTCH_MIN_PROMINENCE_DB,
+                max_notches=self.config.NOTCH_MAX_COUNT,
+                max_depth_db=self.config.NOTCH_MAX_DEPTH_DB,
+            )
 
-        # SoundFile returns (samples, channels); ResonanceNotcher handles both
-        # mono and stereo input internally.
-        detected = ResonanceNotcher.detect(
-            notch_sample,
-            sample_rate=sr,
-            min_freq=self.config.NOTCH_MIN_FREQ_HZ,
-            max_freq=self.config.NOTCH_MAX_FREQ_HZ,
-            min_prominence_db=self.config.NOTCH_MIN_PROMINENCE_DB,
-            max_notches=self.config.NOTCH_MAX_COUNT,
-            max_depth_db=self.config.NOTCH_MAX_DEPTH_DB,
-        )
+            # Band-context awareness: scale each notch's depth by the energy
+            # share of the band it lands in. If the target band is already
+            # under-represented (e.g. Mid at 10% vs 24% target), full-depth
+            # notching gouges an already-deficient band — so we shrink the cut
+            # proportionally. Notch on a well-energized band → full depth;
+            # notch on a deficient band → reduced depth (or skipped entirely
+            # below NOTCH_MIN_BAND_HEALTH).
+            self._notches = self._contextualize_notches(detected, fingerprint)
+            timings['detect_notches'] = time.perf_counter() - step_start
+            if verbose:
+                if self._notches:
+                    print(f"\n🎯 Resonance notches detected ({len(self._notches)}):")
+                    for n in self._notches:
+                        print(f"   {n.freq_hz:6.0f} Hz   {n.depth_db:+5.1f} dB (Q={n.q:.1f})")
+                elif detected:
+                    # Resonances exist but all skipped by band-context filter
+                    print(f"\n🎯 Resonances detected but skipped — target bands too deficient")
+                    print(f"   ({len(detected)} candidates: " +
+                          ", ".join(f"{n.freq_hz:.0f}Hz" for n in detected) + ")")
+                else:
+                    print("\n🎯 No prominent resonances detected — skipping notch stage")
 
-        # Band-context awareness: scale each notch's depth by the energy
-        # share of the band it lands in. If the target band is already
-        # under-represented (e.g. Mid at 10% vs 24% target), full-depth
-        # notching gouges an already-deficient band — so we shrink the cut
-        # proportionally. Notch on a well-energized band → full depth;
-        # notch on a deficient band → reduced depth (or skipped entirely
-        # below NOTCH_MIN_BAND_HEALTH).
-        self._notches = self._contextualize_notches(detected, fingerprint)
-        timings['detect_notches'] = time.perf_counter() - step_start
-        if verbose:
-            if self._notches:
-                print(f"\n🎯 Resonance notches detected ({len(self._notches)}):")
-                for n in self._notches:
-                    print(f"   {n.freq_hz:6.0f} Hz   {n.depth_db:+5.1f} dB (Q={n.q:.1f})")
-            elif detected:
-                # Resonances exist but all skipped by band-context filter
-                print(f"\n🎯 Resonances detected but skipped — target bands too deficient")
-                print(f"   ({len(detected)} candidates: " +
-                      ", ".join(f"{n.freq_hz:.0f}Hz" for n in detected) + ")")
-            else:
-                print("\n🎯 No prominent resonances detected — skipping notch stage")
+            # Step 3: Process in chunks (memory efficient)
+            if verbose:
+                print("\n⚡ Processing (chunked)...")
 
-        # Step 3: Process in chunks (memory efficient)
-        if verbose:
-            print("\n⚡ Processing (chunked)...")
+            step_start = time.perf_counter()
 
-        step_start = time.perf_counter()
+            # Equal-power crossfade between chunks for seamless transitions.
+            # Adjacent chunks both process the overlap region, then we blend
+            # with cosine curves to maintain perceived loudness through the join.
+            crossfade_samples = int(sr * self.config.CROSSFADE_DURATION_SEC)
 
-        # Equal-power crossfade between chunks for seamless transitions.
-        # Adjacent chunks both process the overlap region, then we blend
-        # with cosine curves to maintain perceived loudness through the join.
-        crossfade_samples = int(sr * self.config.CROSSFADE_DURATION_SEC)
+            # Process and write in streaming mode
+            chunk_size = sr * self.config.CHUNK_DURATION_SEC
+            info = {'stages': []}
 
-        # Process and write in streaming mode
-        chunk_size = sr * self.config.CHUNK_DURATION_SEC
-        info = {'stages': []}
+            # Multi-channel (>2ch) sources are downmixed to stereo during chunk
+            # processing, so the output is always stereo.
+            out_channels = min(channels, 2)
+            with sf.SoundFile(str(input_path)) as audio_file:
+                with sf.SoundFile(
+                    output_path,
+                    mode='w',
+                    samplerate=sr,
+                    channels=out_channels,
+                    subtype='PCM_24'
+                ) as output_file:
+                    chunks_processed = 0
+                    total_chunks = int(np.ceil(total_frames / chunk_size))
 
-        # Multi-channel (>2ch) sources are downmixed to stereo during chunk
-        # processing, so the output is always stereo.
-        out_channels = min(channels, 2)
-        with sf.SoundFile(str(input_path)) as audio_file:
-            with sf.SoundFile(
-                output_path,
-                mode='w',
-                samplerate=sr,
-                channels=out_channels,
-                subtype='PCM_24'
-            ) as output_file:
-                chunks_processed = 0
-                total_chunks = int(np.ceil(total_frames / chunk_size))
+                    prev_tail = None  # Previous chunk's processed overlap tail
+                    read_pos = 0
 
-                prev_tail = None  # Previous chunk's processed overlap tail
-                read_pos = 0
+                    while read_pos < total_frames:
+                        core_samples = min(chunk_size, total_frames - read_pos)
+                        is_last = (read_pos + core_samples >= total_frames)
 
-                while read_pos < total_frames:
-                    core_samples = min(chunk_size, total_frames - read_pos)
-                    is_last = (read_pos + core_samples >= total_frames)
-
-                    # Read core + overlap so both chunks process the boundary
-                    audio_file.seek(read_pos)
-                    if is_last:
-                        chunk = audio_file.read(core_samples)
-                    else:
-                        overlap_after = min(
-                            crossfade_samples,
-                            total_frames - read_pos - core_samples
-                        )
-                        chunk = audio_file.read(core_samples + overlap_after)
-
-                    if chunk.size == 0:
-                        break
-
-                    # Ensure float32
-                    chunk = chunk.astype(np.float32)
-
-                    # Ensure stereo (channels, samples) format
-                    if chunk.ndim == 1:
-                        chunk = np.stack([chunk, chunk]).T
-                    elif chunk.ndim == 2 and chunk.shape[1] > 2:
-                        # Multi-channel (e.g. 5.1 surround): take L+R only.
-                        # soundfile yields (samples, channels) at this point.
-                        chunk = chunk[:, :2]
-
-                    # Convert to (channels, samples) for processing.
-                    # soundfile always yields (samples, channels), as does the
-                    # mono→stereo path above, so we always need to transpose here.
-                    # The old heuristic `shape[0] > shape[1]` silently failed for
-                    # square arrays like (2, 2) — 2-sample stereo — because 2 > 2
-                    # is False (issue #2292).
-                    chunk = chunk.T
-
-                    # Compute peak_db per chunk so the peak-reduction gate correctly
-                    # engages on loud sections even when the track starts quietly (fixes
-                    # #2402: stale first-chunk peak caused missed limiting on loud choruses).
-                    peak_db = self._peak_db(chunk)
-
-                    # Process chunk (includes overlap tail for crossfading)
-                    processed_chunk, chunk_info = self._process(
-                        chunk, fingerprint, peak_db, intensity, sr, verbose=False
-                    )
-
-                    # True Peak guard (empirically validated — June 2026 study):
-                    # 74 % of outputs exceeded 0 dBFS True Peak (avg +0.77 dBFS)
-                    # because the harmonic exciter generates near-Nyquist content
-                    # that causes intersample reconstruction peaks even when sample
-                    # peaks are held at 0.97.  4× oversampled peak measurement +
-                    # proportional gain reduction caps True Peak at -0.5 dBFS.
-                    try:
-                        from scipy.signal import resample_poly as _rsp
-                        _TP_CEILING = 10 ** (-0.5 / 20)     # −0.5 dBFS = 0.9441
-                        _chunk_4x = _rsp(processed_chunk, 4, 1, axis=1)
-                        _tp = float(np.max(np.abs(_chunk_4x)))
-                        if _tp > _TP_CEILING:
-                            processed_chunk = processed_chunk * (_TP_CEILING / _tp)
-                    except Exception:
-                        pass   # best-effort; never let this path break the pipeline
-
-                    # #3700: sample-count invariant — crossfade slice arithmetic
-                    # below assumes _process() preserves the time axis. A future
-                    # DSP regression (resampling, time-stretch, IIR padding bug)
-                    # would otherwise silently corrupt the chunk boundary.
-                    assert processed_chunk.shape[1] == chunk.shape[1], (
-                        f"DSP sample-count violation: input {chunk.shape[1]} "
-                        f"-> output {processed_chunk.shape[1]}"
-                    )
-
-                    # Update info from first chunk
-                    if chunks_processed == 0:
-                        info = chunk_info
-
-                    # Assemble output with crossfading at chunk boundaries.
-                    # new_tail stages the next prev_tail value and is only committed
-                    # to prev_tail after output_file.write() succeeds (#2429).
-                    new_tail = None
-
-                    if chunks_processed == 0:
-                        # First chunk: write core, save overlap tail
+                        # Read core + overlap so both chunks process the boundary
+                        audio_file.seek(read_pos)
                         if is_last:
-                            write_region = processed_chunk
+                            chunk = audio_file.read(core_samples)
                         else:
-                            write_region = processed_chunk[:, :core_samples]
-                            new_tail = processed_chunk[:, core_samples:].copy()
-                    elif prev_tail is not None:
-                        # Crossfade head of this chunk with previous tail
-                        head_len = min(prev_tail.shape[1], processed_chunk.shape[1])
+                            overlap_after = min(
+                                crossfade_samples,
+                                total_frames - read_pos - core_samples
+                            )
+                            chunk = audio_file.read(core_samples + overlap_after)
 
-                        if head_len == 0:
-                            # Empty overlap tail — skip crossfade, concatenate directly
-                            # (fixes #2157: np.linspace(..., 0) produces empty array
-                            # and silently drops samples at the chunk boundary)
+                        if chunk.size == 0:
+                            break
+
+                        # Ensure float32
+                        chunk = chunk.astype(np.float32)
+
+                        # Ensure stereo (channels, samples) format
+                        if chunk.ndim == 1:
+                            chunk = np.stack([chunk, chunk]).T
+                        elif chunk.ndim == 2 and chunk.shape[1] > 2:
+                            # Multi-channel (e.g. 5.1 surround): take L+R only.
+                            # soundfile yields (samples, channels) at this point.
+                            chunk = chunk[:, :2]
+
+                        # Convert to (channels, samples) for processing.
+                        # soundfile always yields (samples, channels), as does the
+                        # mono→stereo path above, so we always need to transpose here.
+                        # The old heuristic `shape[0] > shape[1]` silently failed for
+                        # square arrays like (2, 2) — 2-sample stereo — because 2 > 2
+                        # is False (issue #2292).
+                        chunk = chunk.T
+
+                        # Compute peak_db per chunk so the peak-reduction gate correctly
+                        # engages on loud sections even when the track starts quietly (fixes
+                        # #2402: stale first-chunk peak caused missed limiting on loud choruses).
+                        peak_db = self._peak_db(chunk)
+
+                        # Process chunk (includes overlap tail for crossfading)
+                        processed_chunk, chunk_info = self._process(
+                            chunk, fingerprint, peak_db, intensity, sr, verbose=False
+                        )
+
+                        # True Peak guard (empirically validated — June 2026 study):
+                        # 74 % of outputs exceeded 0 dBFS True Peak (avg +0.77 dBFS)
+                        # because the harmonic exciter generates near-Nyquist content
+                        # that causes intersample reconstruction peaks even when sample
+                        # peaks are held at 0.97.  4× oversampled peak measurement +
+                        # proportional gain reduction caps True Peak at -0.5 dBFS.
+                        try:
+                            from scipy.signal import resample_poly as _rsp
+                            _TP_CEILING = 10 ** (-0.5 / 20)     # −0.5 dBFS = 0.9441
+                            _chunk_4x = _rsp(processed_chunk, 4, 1, axis=1)
+                            _tp = float(np.max(np.abs(_chunk_4x)))
+                            if _tp > _TP_CEILING:
+                                processed_chunk = processed_chunk * (_TP_CEILING / _tp)
+                        except Exception:
+                            pass   # best-effort; never let this path break the pipeline
+
+                        # #3700: sample-count invariant — crossfade slice arithmetic
+                        # below assumes _process() preserves the time axis. A future
+                        # DSP regression (resampling, time-stretch, IIR padding bug)
+                        # would otherwise silently corrupt the chunk boundary.
+                        assert processed_chunk.shape[1] == chunk.shape[1], (
+                            f"DSP sample-count violation: input {chunk.shape[1]} "
+                            f"-> output {processed_chunk.shape[1]}"
+                        )
+
+                        # Update info from first chunk
+                        if chunks_processed == 0:
+                            info = chunk_info
+
+                        # Assemble output with crossfading at chunk boundaries.
+                        # new_tail stages the next prev_tail value and is only committed
+                        # to prev_tail after output_file.write() succeeds (#2429).
+                        new_tail = None
+
+                        if chunks_processed == 0:
+                            # First chunk: write core, save overlap tail
                             if is_last:
                                 write_region = processed_chunk
                             else:
                                 write_region = processed_chunk[:, :core_samples]
                                 new_tail = processed_chunk[:, core_samples:].copy()
-                        else:
-                            head = processed_chunk[:, :head_len]
+                        elif prev_tail is not None:
+                            # Crossfade head of this chunk with previous tail
+                            head_len = min(prev_tail.shape[1], processed_chunk.shape[1])
 
-                            # Equal-power crossfade (cosine curves maintain loudness).
-                            # #3684: compute the fade ramps in the chunk's
-                            # dtype so the multiply with prev_tail/head does
-                            # not promote crossfaded → float64.
-                            chunk_dtype = processed_chunk.dtype
-                            t = np.linspace(0.0, np.pi / 2, head_len, dtype=chunk_dtype)
-                            fade_in = np.sin(t) ** 2
-                            fade_out = np.cos(t) ** 2
-                            crossfaded = prev_tail[:, :head_len] * fade_out + head * fade_in
-
-                            if is_last:
-                                body = processed_chunk[:, head_len:]
-                                write_region = np.concatenate([crossfaded, body], axis=1)
+                            if head_len == 0:
+                                # Empty overlap tail — skip crossfade, concatenate directly
+                                # (fixes #2157: np.linspace(..., 0) produces empty array
+                                # and silently drops samples at the chunk boundary)
+                                if is_last:
+                                    write_region = processed_chunk
+                                else:
+                                    write_region = processed_chunk[:, :core_samples]
+                                    new_tail = processed_chunk[:, core_samples:].copy()
                             else:
-                                body = processed_chunk[:, head_len:core_samples]
-                                write_region = np.concatenate([crossfaded, body], axis=1)
-                                # Guard against silent sample drift at chunk boundaries (#2515)
-                                assert write_region.shape[1] == core_samples, (
-                                    f"Crossfade write_region mismatch: expected {core_samples} "
-                                    f"samples, got {write_region.shape[1]}"
-                                )
-                                new_tail = processed_chunk[:, core_samples:].copy()
-                    else:
-                        # No previous tail (safety fallback)
-                        if is_last:
-                            write_region = processed_chunk
+                                head = processed_chunk[:, :head_len]
+
+                                # Equal-power crossfade (cosine curves maintain loudness).
+                                # #3684: compute the fade ramps in the chunk's
+                                # dtype so the multiply with prev_tail/head does
+                                # not promote crossfaded → float64.
+                                chunk_dtype = processed_chunk.dtype
+                                t = np.linspace(0.0, np.pi / 2, head_len, dtype=chunk_dtype)
+                                fade_in = np.sin(t) ** 2
+                                fade_out = np.cos(t) ** 2
+                                crossfaded = prev_tail[:, :head_len] * fade_out + head * fade_in
+
+                                if is_last:
+                                    body = processed_chunk[:, head_len:]
+                                    write_region = np.concatenate([crossfaded, body], axis=1)
+                                else:
+                                    body = processed_chunk[:, head_len:core_samples]
+                                    write_region = np.concatenate([crossfaded, body], axis=1)
+                                    # Guard against silent sample drift at chunk boundaries (#2515)
+                                    assert write_region.shape[1] == core_samples, (
+                                        f"Crossfade write_region mismatch: expected {core_samples} "
+                                        f"samples, got {write_region.shape[1]}"
+                                    )
+                                    new_tail = processed_chunk[:, core_samples:].copy()
                         else:
-                            write_region = processed_chunk[:, :core_samples]
-                            new_tail = processed_chunk[:, core_samples:].copy()
+                            # No previous tail (safety fallback)
+                            if is_last:
+                                write_region = processed_chunk
+                            else:
+                                write_region = processed_chunk[:, :core_samples]
+                                new_tail = processed_chunk[:, core_samples:].copy()
 
-                    # Convert back to (samples, channels) for writing.
-                    # write_region is always (channels, samples) after processing,
-                    # so unconditional transpose is correct here too (issue #2292).
-                    write_region = write_region.T
+                        # Convert back to (samples, channels) for writing.
+                        # write_region is always (channels, samples) after processing,
+                        # so unconditional transpose is correct here too (issue #2292).
+                        write_region = write_region.T
 
-                    # #3660: explicit clamp to [-1.0, 1.0] before PCM_24 encode —
-                    # mirrors the saver.py fix from #3471. Crossfade
-                    # constructive interference at chunk boundaries can push
-                    # samples slightly out of range; libsndfile's implicit
-                    # clipping behaviour varies across builds.
-                    write_region = np.clip(write_region, -1.0, 1.0)
+                        # #3660: explicit clamp to [-1.0, 1.0] before PCM_24 encode —
+                        # mirrors the saver.py fix from #3471. Crossfade
+                        # constructive interference at chunk boundaries can push
+                        # samples slightly out of range; libsndfile's implicit
+                        # clipping behaviour varies across builds.
+                        write_region = np.clip(write_region, -1.0, 1.0)
 
-                    output_file.write(write_region)
-                    # Commit new tail only after write succeeds: if concatenate or
-                    # write raises, prev_tail retains the last-good value (#2429).
-                    prev_tail = new_tail
+                        output_file.write(write_region)
+                        # Commit new tail only after write succeeds: if concatenate or
+                        # write raises, prev_tail retains the last-good value (#2429).
+                        prev_tail = new_tail
 
-                    chunks_processed += 1
-                    read_pos += core_samples
+                        chunks_processed += 1
+                        read_pos += core_samples
 
-                    if verbose and chunks_processed % self.config.PROGRESS_REPORT_INTERVAL_CHUNKS == 0:
-                        progress = (chunks_processed / total_chunks) * 100
-                        print(f"   Progress: {progress:.0f}% ({chunks_processed}/{total_chunks} chunks)")
+                        if verbose and chunks_processed % self.config.PROGRESS_REPORT_INTERVAL_CHUNKS == 0:
+                            progress = (chunks_processed / total_chunks) * 100
+                            print(f"   Progress: {progress:.0f}% ({chunks_processed}/{total_chunks} chunks)")
 
-        timings['processing'] = time.perf_counter() - step_start
+            timings['processing'] = time.perf_counter() - step_start
 
-        timings['total'] = time.perf_counter() - total_start
+            timings['total'] = time.perf_counter() - total_start
 
-        if verbose:
-            size_mb = Path(output_path).stat().st_size / (1024 * 1024)
-            print(f"   ✅ Exported: {size_mb:.1f} MB")
-            print(f"   📦 Processed {chunks_processed} chunks")
-            print(f"\n🎉 Complete! Output: {output_path}")
+            if verbose:
+                size_mb = Path(output_path).stat().st_size / (1024 * 1024)
+                print(f"   ✅ Exported: {size_mb:.1f} MB")
+                print(f"   📦 Processed {chunks_processed} chunks")
+                print(f"\n🎉 Complete! Output: {output_path}")
 
-        if time_metrics:
-            self._print_time_metrics(timings, duration)
+            if time_metrics:
+                self._print_time_metrics(timings, duration)
 
-        if _tmp_dir is not None:
-            _tmp_dir.cleanup()
+            result = {
+                'input': str(orig_path),
+                'output': output_path,
+                'fingerprint': fingerprint,
+                'processing': info,
+                'chunks_processed': chunks_processed
+            }
 
-        result = {
-            'input': str(orig_path),
-            'output': output_path,
-            'fingerprint': fingerprint,
-            'processing': info,
-            'chunks_processed': chunks_processed
-        }
+            if time_metrics:
+                result['timings'] = timings
 
-        if time_metrics:
-            result['timings'] = timings
-
-        return result
+            return result
+        finally:
+            if _tmp_dir is not None:
+                _tmp_dir.cleanup()
 
     def _process(
         self,
