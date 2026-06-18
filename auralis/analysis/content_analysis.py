@@ -10,6 +10,7 @@ Advanced audio content analysis for adaptive mastering
 Comprehensive audio content analysis system for intelligent processing decisions
 """
 
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -107,6 +108,10 @@ class ContentAnalyzer:
 
         # Quality assessment
         quality_assessment = self.quality_metrics.assess_quality(stereo_audio)
+
+        # Reset the stateful correlation history so variance metrics don't
+        # bleed across tracks when this analyzer is reused (#4221, #4222).
+        self.phase_analyzer.reset_history()
 
         # Stereo analysis
         stereo_analysis = self._analyze_stereo_characteristics(stereo_audio)
@@ -221,11 +226,36 @@ class ContentAnalyzer:
         }
 
 
+# Thread-local cache of ContentAnalyzer instances keyed by sample_rate so
+# batch callers don't rebuild the full analyzer stack (~15-20 objects) per
+# track. Thread-local rather than a global singleton because analyze_content()
+# mutates per-instance state (correlation history, loudness meter); a shared
+# instance would corrupt under the parallel-analysis pattern (#4222).
+_analyzer_tls = threading.local()
+
+
+def _get_content_analyzer(sample_rate: int) -> ContentAnalyzer:
+    """Return a thread-local cached ContentAnalyzer for the given sample rate."""
+    cache = getattr(_analyzer_tls, "cache", None)
+    if cache is None:
+        cache = {}
+        _analyzer_tls.cache = cache
+    analyzer = cache.get(sample_rate)
+    if analyzer is None:
+        analyzer = ContentAnalyzer(sample_rate)
+        cache[sample_rate] = analyzer
+    return analyzer
+
+
 # Convenience function for quick content analysis
 def analyze_audio_content(audio_data: np.ndarray, sample_rate: int = 44100) -> ContentProfile:
-    """Quick content analysis function"""
-    analyzer = ContentAnalyzer(sample_rate)
-    return analyzer.analyze_content(audio_data)
+    """Quick content analysis function.
+
+    Reuses a cached ContentAnalyzer per sample rate rather than rebuilding the
+    full analyzer stack on every call. analyze_content() resets the analyzer's
+    per-track history, so reuse does not bleed state across tracks (#4222).
+    """
+    return _get_content_analyzer(sample_rate).analyze_content(audio_data)
 
 
 # Backward compatibility alias
