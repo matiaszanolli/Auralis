@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Track } from '@/types/domain';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { useQueueRecommendations } from '@/hooks/player/useQueueRecommendations';
@@ -32,6 +32,16 @@ export const QueueRecommendationsPanel = ({
   const [activeTab, setActiveTab] = useState<'for-you' | 'similar' | 'discovery' | 'new-artists'>(
     'for-you'
   );
+
+  // The 'Similar' tab only renders while currentTrack is truthy. If playback
+  // stops / the queue clears while it is active, fall back to a valid tab so
+  // aria-labelledby never points at an unmounted tab and no stale
+  // "Similar to Current" content lingers (#4155).
+  useEffect(() => {
+    if (!currentTrack && activeTab === 'similar') {
+      setActiveTab('for-you');
+    }
+  }, [currentTrack, activeTab]);
 
   if (collapsed) {
     return (
