@@ -27,6 +27,10 @@ export const useLibraryScan = ({
   const mountedRef = useRef(true);
 
   const { success, error: toastError, info } = useToast();
+  // useToast returns fresh identities every render; mirror them through a ref
+  // so handleScanFolder stays stable (#4195; mirrors useLibraryPagination #3943).
+  const toastRef = useRef({ success, toastError, info });
+  toastRef.current = { success, toastError, info };
 
   useEffect(() => {
     mountedRef.current = true;
@@ -49,14 +53,14 @@ export const useLibraryScan = ({
         }
       } catch (err) {
         console.error('Failed to open folder picker:', err);
-        toastError('Failed to open folder picker');
+        toastRef.current.toastError('Failed to open folder picker');
         return;
       }
     } else {
       // Web browser: read from the controlled input (set via setWebFolderPath).
       folderPath = webFolderPath.trim() || undefined;
       if (!folderPath) {
-        info('Enter a folder path in the scan field and try again');
+        toastRef.current.info('Enter a folder path in the scan field and try again');
         return;
       }
     }
@@ -78,24 +82,24 @@ export const useLibraryScan = ({
         const result: { files_added?: number } = await response.json();
         // Guard post-success work against unmount (#3987).
         if (!mountedRef.current) return;
-        success(`Scan complete! Added ${result.files_added || 0} tracks`);
+        toastRef.current.success(`Scan complete! Added ${result.files_added || 0} tracks`);
         await fetchTracks();
         if (includeStats) await refetchStats();
       } else {
         const errorData: { detail?: string } = await response.json();
-        toastError(`Scan failed: ${errorData.detail || 'Unknown error'}`);
+        toastRef.current.toastError(`Scan failed: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (err) {
       // Swallow abort errors (unmount / superseded scan) — not user-facing.
       if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Scan error:', err);
-      toastError('Error scanning folder — check the backend is reachable');
+      toastRef.current.toastError('Error scanning folder — check the backend is reachable');
     } finally {
       if (mountedRef.current) {
         setScanning(false);
       }
     }
-  }, [includeStats, fetchTracks, refetchStats, webFolderPath, success, toastError, info]);
+  }, [includeStats, fetchTracks, refetchStats, webFolderPath]);
 
   return { scanning, webFolderPath, setWebFolderPath, handleScanFolder, scanAbortRef };
 };
