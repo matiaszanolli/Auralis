@@ -92,6 +92,12 @@ class QualityMetrics:
         else:
             stereo_audio = audio_data
 
+        # Reset per-track analyzer history so history-dependent metrics
+        # (crest-factor variance, correlation variance) don't bleed across
+        # tracks when this QualityMetrics instance is reused (#4221).
+        self.phase_analyzer.reset_history()
+        self.dynamic_range_analyzer.reset_history()
+
         # Perform all analyses
         spectrum_result = self.spectrum_analyzer.analyze_file(stereo_audio[:, 0])
 
