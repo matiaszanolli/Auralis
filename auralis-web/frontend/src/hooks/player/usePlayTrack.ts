@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { getApiUrl } from '@/config/api';
@@ -28,14 +28,30 @@ export const usePlayTrack = () => {
   const wsContext = useWebSocketContext();
   const { success, error: errorToast } = useToast();
 
+  // #4161: abort the queue POST on unmount so a stray play_enhanced (and a
+  // success toast in the wrong view) doesn't fire after the user navigates away
+  // mid-click.
+  const abortRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      abortRef.current?.abort();
+    };
+  }, []);
+
   const playTrack = useCallback(
     async (track: PlayableTrack): Promise<void> => {
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
         // 1. Set queue via REST (#3641: getApiUrl centralizes URL construction).
         const queueResponse = await fetch(getApiUrl('/api/player/queue'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tracks: [track.id], start_index: 0 }),
+          signal: controller.signal,
         });
 
         // #3953: only stream if the queue POST succeeded.
@@ -44,6 +60,10 @@ export const usePlayTrack = () => {
             `Failed to set queue: ${queueResponse.status} ${queueResponse.statusText}`
           );
         }
+
+        // Skip the stream + toast if the component unmounted while the POST was
+        // in flight.
+        if (controller.signal.aborted || !isMountedRef.current) return;
 
         // 2. Start enhanced playback. The Player's usePlayEnhanced instance
         //    handles the actual stream; Redux state syncs via the player_state
@@ -59,6 +79,8 @@ export const usePlayTrack = () => {
 
         success(`Now playing: ${track.title}`);
       } catch (err) {
+        // Aborted by unmount — not user-facing.
+        if ((err as Error).name === 'AbortError') return;
         console.error('Failed to play track:', err);
         errorToast(err instanceof Error ? err.message : 'Failed to play track');
       }
