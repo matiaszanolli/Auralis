@@ -32,7 +32,7 @@
  * @module hooks/player/useQueueSearch
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import type { Track, QueueTrack } from '@/types/domain';
 
 /**
@@ -166,12 +166,12 @@ function calculateRelevance(
  * console.log(filteredTracks); // Filtered results
  * ```
  */
-let _queueSearchWarned = false;
-
 export function useQueueSearch(queue: (Track | QueueTrack)[]): QueueSearchActions {
-  // Guard: Warn once in dev if queue exceeds safe size
-  if (import.meta.env.DEV && queue.length > 1000 && !_queueSearchWarned) {
-    _queueSearchWarned = true;
+  // Warn once per hook instance (not module-level) so HMR and test runs reset
+  // correctly (fixes #4194; mirrors useQueueStatistics #3974 / HC-11).
+  const _warnedRef = useRef(false);
+  if (import.meta.env.DEV && queue.length > 1000 && !_warnedRef.current) {
+    _warnedRef.current = true;
     console.warn(
       `⚠️ useQueueSearch: Queue size (${queue.length}) exceeds safe limit (1000). ` +
       `This hook is designed for playback queues only (100-500 tracks), not entire libraries. ` +
