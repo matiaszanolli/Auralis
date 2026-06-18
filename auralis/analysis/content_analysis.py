@@ -29,7 +29,6 @@ from .content import (
     create_recommendation_engine,
 )
 from .dynamic_range import DynamicRangeAnalyzer
-from .loudness_meter import LoudnessMeter
 from .phase_correlation import PhaseCorrelationAnalyzer
 from .quality.quality_metrics import QualityMetrics
 from .base_spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
@@ -72,7 +71,6 @@ class ContentAnalyzer:
                 sample_rate=sample_rate
             )
         )
-        self.loudness_meter = LoudnessMeter(sample_rate)
         self.phase_analyzer = PhaseCorrelationAnalyzer(sample_rate)
         self.dynamic_range_analyzer = DynamicRangeAnalyzer(sample_rate)
         self.quality_metrics = QualityMetrics(sample_rate)
