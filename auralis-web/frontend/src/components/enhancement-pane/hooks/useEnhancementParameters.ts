@@ -45,6 +45,11 @@ export const useEnhancementParameters = ({ enabled }: UseEnhancementParametersPr
   const lastFetchTimeRef = useRef<number>(0);
   const CACHE_DURATION_MS = 30000; // Cache for 30 seconds
 
+  // #4157: abort the in-flight fetch and suppress setState after unmount. The
+  // 5s-timeout controller is stored here so the effect cleanup can abort it.
+  const abortRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
+
   const fetchParams = useCallback(async () => {
     // Skip if request already in-flight
     if (inFlightRef.current) {
@@ -60,6 +65,7 @@ export const useEnhancementParameters = ({ enabled }: UseEnhancementParametersPr
     try {
       setIsAnalyzing(true);
       const controller = new AbortController();
+      abortRef.current = controller;
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
       // Create the fetch promise and store it to prevent duplicates
@@ -69,6 +75,7 @@ export const useEnhancementParameters = ({ enabled }: UseEnhancementParametersPr
         clearTimeout(timeoutId);
         if (response.ok) {
           const data = await response.json();
+          if (controller.signal.aborted || !isMountedRef.current) return null;
           setParams(data);
           lastFetchTimeRef.current = Date.now();
           return data;
@@ -79,7 +86,9 @@ export const useEnhancementParameters = ({ enabled }: UseEnhancementParametersPr
         return null;
       }).finally(() => {
         inFlightRef.current = null;
-        setIsAnalyzing(false);
+        if (!controller.signal.aborted && isMountedRef.current) {
+          setIsAnalyzing(false);
+        }
       });
 
       inFlightRef.current = fetchPromise;
@@ -93,9 +102,14 @@ export const useEnhancementParameters = ({ enabled }: UseEnhancementParametersPr
 
   // Fetch params only on mount and when enabled changes (no polling)
   useEffect(() => {
+    isMountedRef.current = true;
     if (enabled) {
       fetchParams();
     }
+    return () => {
+      isMountedRef.current = false;
+      abortRef.current?.abort();
+    };
   }, [enabled]);
 
   return {
