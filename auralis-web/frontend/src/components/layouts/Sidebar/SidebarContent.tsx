@@ -28,7 +28,7 @@ export const SidebarContent = ({ selectedItem, onItemClick }: SidebarContentProp
   ];
 
   return (
-    <Box sx={{
+    <Box component="nav" aria-label="Library navigation" sx={{
       flex: 1,
       overflowY: 'auto',
       overflowX: 'hidden',

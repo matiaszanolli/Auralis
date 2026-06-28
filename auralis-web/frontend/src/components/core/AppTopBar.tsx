@@ -118,7 +118,10 @@ export const AppTopBar = ({
   const statusColor = useConnectionStatus(connectionStatus);
 
   return (
-    <TopBarContainer>
+    // role="banner" marks the top bar as the app's banner landmark (#4183).
+    // role (not component="header") because TopBarContainer is a styled(Box)
+    // whose typed props don't expose `component`.
+    <TopBarContainer role="banner">
       <AppTopBarLeftSection
         showMobileMenu={shouldShowMobileMenu}
         title={title}

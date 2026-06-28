@@ -65,6 +65,8 @@ export const AppMainContent = ({
 }: AppMainContentProps) => {
   return (
     <Box
+      component="main"
+      aria-label="Main content"
       sx={{
         flex: 1,
         display: 'flex',
