@@ -2,6 +2,12 @@
 -- Adds UNIQUE(track_id, playlist_id) constraint + explicit position column
 -- to track_playlist. Date: 2026-05-27
 --
+-- @ALLOW_DROP_TABLE — Step 4 uses the SQLite recreate-and-copy idiom (CREATE
+-- new -> copy rows -> DROP old -> RENAME), the only way to add a UNIQUE
+-- constraint to an existing table. Without this marker migration_manager's
+-- safety check rejects the DROP TABLE and migration to v16 fails, leaving the
+-- app unable to start on a v15 database.
+--
 -- Context (#3724, #3725 — LDB-26-1, LDB-26-2):
 --
 -- The original schema declared `track_playlist` with no primary key and no

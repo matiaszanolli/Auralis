@@ -250,7 +250,12 @@ class MigrationManager:
 
             # Block unqualified DELETE FROM (no WHERE clause) — intentional
             # data wipes.  DELETE FROM ... WHERE ... is allowed (#2925).
-            if re.search(r'DELETE\s+FROM\s+\w+\s*(;|$)', sql_upper, re.MULTILINE):
+            #
+            # NOT re.MULTILINE: with it, `$` matched end-of-line, so a valid
+            # multi-line `DELETE FROM t\nWHERE ...` was wrongly flagged as
+            # unqualified because the newline after the table name satisfied
+            # `$` before the WHERE on the next line. End-of-string `$` only.
+            if re.search(r'DELETE\s+FROM\s+\w+\s*(;|$)', sql_upper):
                 logger.error(f"Migration {migration_file} contains unqualified DELETE FROM (missing WHERE clause)")
                 return False
 
