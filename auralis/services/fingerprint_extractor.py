@@ -278,7 +278,6 @@ class FingerprintExtractor:
         Returns:
             True if successful, False otherwise
         """
-        import os
         import time
         try:
             time.time()
