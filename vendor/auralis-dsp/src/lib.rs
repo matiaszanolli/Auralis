@@ -14,7 +14,6 @@ pub mod hpss;
 pub mod yin;
 pub mod chroma;
 pub mod tempo;
-pub mod median_filter;
 pub mod envelope;
 pub mod compressor;
 pub mod limiter;
