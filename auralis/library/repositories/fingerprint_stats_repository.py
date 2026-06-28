@@ -10,8 +10,9 @@ Statistics, status tracking, and crash-recovery cleanup for fingerprints.
 
 from typing import Any
 from collections.abc import Callable
+from datetime import datetime
 
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from ...utils.logging import error, info
@@ -41,23 +42,21 @@ class FingerprintStatsRepository:
         """
         session = self.get_session()
         try:
-            if status == 'completed':
-                session.execute(
-                    text("""UPDATE track_fingerprints
-                               SET fingerprint_status = :status,
-                                   fingerprint_computed_at = :completed_at,
-                                   fingerprint_started_at = NULL
-                               WHERE track_id = :track_id"""),
-                    {'status': status, 'completed_at': completed_at, 'track_id': track_id},
-                )
-            else:
-                session.execute(
-                    text("""UPDATE track_fingerprints
-                               SET fingerprint_status = :status,
-                                   fingerprint_started_at = NULL
-                               WHERE track_id = :track_id"""),
-                    {'status': status, 'track_id': track_id},
-                )
+            # Fingerprint status/computed_at live on the tracks table (Track
+            # model), not track_fingerprints. The previous raw SQL targeted
+            # track_fingerprints — which has none of these columns — so the
+            # UPDATE failed and the method always returned False (#4108). It also
+            # referenced a non-existent `fingerprint_started_at` column. Use the
+            # ORM update() against Track so column names stay in sync with the
+            # model and a future rename fails at type-check, not silently.
+            values: dict[Any, Any] = {Track.fingerprint_status: status}
+            if status == 'completed' and completed_at:
+                # fingerprint_computed_at is a DateTime column; convert the ISO
+                # string callers pass so SQLite's DateTime bind processor accepts it.
+                values[Track.fingerprint_computed_at] = datetime.fromisoformat(completed_at)
+            session.execute(
+                update(Track).where(Track.id == track_id).values(values)
+            )
             session.commit()
             return True
         except Exception as e:

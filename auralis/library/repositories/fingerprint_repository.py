@@ -18,6 +18,7 @@ from ...utils.logging import debug, error, info, warning
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..fingerprint_quantizer import FingerprintQuantizer
 from ..models import Track, TrackFingerprint
+from .fingerprint_stats_repository import FingerprintStatsRepository
 
 # Whitelist of columns callers may supply to upsert() / store_fingerprint().
 # Derived from the SQLAlchemy model so it stays in sync automatically (#2286).
@@ -61,6 +62,11 @@ class FingerprintRepository:
             session_factory: SQLAlchemy session factory used for all DB access.
         """
         self.session_factory = session_factory
+        # Status/stats methods were split into FingerprintStatsRepository; the
+        # facade composes one and delegates (see bottom of class) so callers that
+        # hold this repo (FingerprintExtractor, fingerprint/similarity routers)
+        # keep working (#4108).
+        self._stats = FingerprintStatsRepository(session_factory)
 
     def get_session(self) -> Session:
         """Get a new database session"""
@@ -666,7 +672,25 @@ class FingerprintRepository:
             session.expunge_all()
             session.close()
 
-    # update_status, get_fingerprint_status, get_fingerprint_stats, and
-    # cleanup_incomplete_fingerprints have been moved to
-    # FingerprintStatsRepository (fingerprint_stats_repository.py).
+    # ------------------------------------------------------------------
+    # Status / stats — delegated to FingerprintStatsRepository (#4108).
+    # These were moved out of this class but callers still hold the facade,
+    # so thin delegators keep the contract (and routes/extractor) intact.
+    # ------------------------------------------------------------------
+
+    def update_status(self, track_id: int, status: str, completed_at: str | None = None) -> bool:
+        """Update fingerprint processing status (delegates to stats repo)."""
+        return self._stats.update_status(track_id, status, completed_at)
+
+    def get_fingerprint_status(self, track_id: int) -> dict[str, Any] | None:
+        """Get fingerprint status for a track (delegates to stats repo)."""
+        return self._stats.get_fingerprint_status(track_id)
+
+    def get_fingerprint_stats(self) -> dict[str, int]:
+        """Get overall fingerprint statistics (delegates to stats repo)."""
+        return self._stats.get_fingerprint_stats()
+
+    def cleanup_incomplete_fingerprints(self) -> int:
+        """Reset stuck/incomplete fingerprint rows (delegates to stats repo)."""
+        return self._stats.cleanup_incomplete_fingerprints()
 
