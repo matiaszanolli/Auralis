@@ -569,6 +569,50 @@ Broadcast when library scan finishes.
 
 ---
 
+### Additional Server → Client Messages
+
+The following message types are also broadcast by the backend. Payload shapes
+are the canonical frontend interfaces in `auralis-web/frontend/src/types/ws/`
+(snake_case is emitted; some carry camelCase fallbacks for legacy consumers).
+
+#### `playback_resumed`
+Broadcast when playback resumes from pause. `{ "data": { "state": "playing" } }`
+
+#### `seek_started`
+Broadcast when a seek begins. `{ "data": { "position": number /* seconds */, "track_id?": number } }`
+
+#### `queue_changed`
+Broadcast when the queue is mutated. `{ "data": { "tracks": TrackInfo[], "current_index?": number, "action?": "added" | "removed" | "reordered" | "cleared" } }`
+
+#### `queue_shuffled`
+Broadcast when shuffle is toggled. `{ "data": { "is_shuffled?": boolean, "tracks?": TrackInfo[] /* reordered queue */ } }`
+
+#### `repeat_mode_changed`
+Broadcast when repeat mode changes. `{ "data": { "repeat_mode?": "off" | "all" | "one" } }`
+
+#### `library_scan_started`
+Broadcast when a library scan starts. `{ "data": { "directories": string[] } }`
+
+#### `library_scan_error`
+Broadcast when a library scan fails. `{ "data": { "error": string } }`
+
+#### `library_tracks_removed`
+Broadcast when tracks are removed from the library. `{ "data": { "count": number } }`
+
+#### `fingerprint_progress`
+Broadcast by `audio_stream_controller.py` while computing a track fingerprint.
+`{ "data": { "track_id": number, "status": "analyzing" | "complete" | "failed" | "error" | "cached" | "queued", "message": string, "stream_type?": "enhanced" | "normal" } }`
+
+#### `audio_chunk`
+Server → client audio chunk message on the streaming path (the metadata sibling
+of the binary audio frames; see "Audio Streaming Messages" above).
+
+#### `error`
+Generic error envelope (top-level fields, not under `data`).
+`{ "type": "error", "error": string /* e.g. "rate_limit_exceeded" */, "message": string, "timestamp?": string }`
+
+---
+
 ## Client → Server Commands
 
 These messages are sent **from the frontend to the backend** to control audio
