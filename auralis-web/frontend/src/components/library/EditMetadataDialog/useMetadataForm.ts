@@ -8,7 +8,7 @@
  * - Handle loading/error/success states
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export interface MetadataFields {
   title?: string;
@@ -35,6 +35,12 @@ export const useMetadataForm = (
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // #4175: cancel an in-flight PUT on unmount so saveMetadata never runs
+  // setSuccess/setSaving/setError on a dead hook (and a reopened dialog can't
+  // race a stale save). Mirrors the GET path's controller (#3601).
+  const saveAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => saveAbortRef.current?.abort(), []);
 
   // #3601: AbortController on metadata fetch so unmount cancels the request
   // and we don't setState on a dead component. Also #3643: shape-guard the
@@ -93,6 +99,11 @@ export const useMetadataForm = (
     setError(null);
     setSuccess(false);
 
+    // Abort any prior in-flight save and track this one so unmount cancels it.
+    saveAbortRef.current?.abort();
+    const controller = new AbortController();
+    saveAbortRef.current = controller;
+
     try {
       // Filter out empty values and convert numbers
       const updates: Partial<MetadataFields> = {};
@@ -122,13 +133,18 @@ export const useMetadataForm = (
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(updates),
+        signal: controller.signal,
       });
+
+      // Bail before any setState if the dialog closed mid-request.
+      if (controller.signal.aborted) return false;
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to save metadata');
       }
 
+      if (controller.signal.aborted) return false;
       setSuccess(true);
 
       // Call onSave callback if provided
@@ -138,11 +154,15 @@ export const useMetadataForm = (
 
       return true;
     } catch (err) {
+      // Aborted by unmount — not user-facing.
+      if ((err as Error).name === 'AbortError') return false;
       console.error('Error saving metadata:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save metadata');
+      if (!controller.signal.aborted) {
+        setError(err instanceof Error ? err.message : 'Failed to save metadata');
+      }
       return false;
     } finally {
-      setSaving(false);
+      if (!controller.signal.aborted) setSaving(false);
     }
   };
 
