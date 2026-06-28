@@ -244,7 +244,9 @@ class ChunkOperations:
                     f"Chunk {chunk_index}: expected 1-D or 2-D audio array, got shape {extracted.shape}"
                 )
             num_channels = extracted.shape[1] if extracted.ndim > 1 else 1
-            padding = np.zeros((padding_needed, num_channels), dtype=np.float32)
+            # Match the buffer's dtype instead of hardcoding float32 (#4134,
+            # same dtype-hygiene fix as #4125) so padding never forces a cast.
+            padding = np.zeros((padding_needed, num_channels), dtype=extracted.dtype)
 
             if extracted.ndim == 1:
                 extracted = extracted[:, np.newaxis]
