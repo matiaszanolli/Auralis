@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { useQueueSearch } from '@/hooks/player/useQueueSearch';
 import type { SearchResult } from '@/hooks/player/useQueueSearch';
+import { useDialogAccessibility } from '@/hooks/shared/useDialogAccessibility';
 import { SearchResultItem } from './SearchResultItem';
 import { panelStyles as styles } from './styles';
 
@@ -30,7 +31,15 @@ export const QueueSearchPanel = ({
   const [durationFilter, setDurationFilter] = useState<'all' | 'short' | 'medium' | 'long'>('all');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Focus search input when panel opens (WCAG 2.1 §2.4.3 — fixes #2546)
+  // Tab focus trap + focus restore on close (WCAG 2.4.3 — #4148). Pass isOpen
+  // because this panel stays mounted and toggles via `return null` below, so
+  // the trap must be (re)created when it opens. The trap also forwards Escape
+  // to onClose, replacing the bespoke handler that used to live on the panel.
+  const dialogRef = useDialogAccessibility(onClose, isOpen);
+
+  // Focus the search input when the panel opens (WCAG 2.1 §2.4.3 — fixes #2546).
+  // Runs after the trap effect (declared above), so it wins the initial focus
+  // over the trap's default "focus first element" (the close button).
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
       searchInputRef.current.focus();
@@ -75,12 +84,12 @@ export const QueueSearchPanel = ({
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div
+        ref={dialogRef}
         style={styles.panel}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Search queue"
-        onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
       >
         {/* Header */}
         <div style={styles.header}>

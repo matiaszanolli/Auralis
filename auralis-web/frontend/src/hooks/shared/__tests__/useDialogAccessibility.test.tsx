@@ -170,4 +170,69 @@ describe('useDialogAccessibility', () => {
       expect(document.activeElement).toBe(outsideBtn);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // isActive toggle for stays-mounted dialogs (#4148)
+  // -------------------------------------------------------------------------
+
+  describe('isActive toggle (stays-mounted dialog, e.g. QueueSearchPanel)', () => {
+    // Mirrors QueueSearchPanel: the component stays mounted and toggles the
+    // dialog body via `return null`, so the trap must (re)create on isActive.
+    function ToggleDialog({ isOpen, onClose: oc }: { isOpen: boolean; onClose: () => void }) {
+      const dialogRef = useDialogAccessibility(oc, isOpen);
+      if (!isOpen) return null;
+      return (
+        <div ref={dialogRef} role="dialog" aria-label="Toggle dialog">
+          <button data-testid="btn-first">First</button>
+          <button data-testid="btn-last">Last</button>
+        </div>
+      );
+    }
+    function ToggleApp({ isOpen, onClose: oc }: { isOpen: boolean; onClose: () => void }) {
+      return (
+        <div>
+          <button data-testid="trigger">Trigger</button>
+          <ToggleDialog isOpen={isOpen} onClose={oc} />
+        </div>
+      );
+    }
+
+    it('creates the trap when isActive flips true and traps Tab', () => {
+      const { rerender } = render(<ToggleApp isOpen={false} onClose={onClose} />);
+      const trigger = screen.getByTestId('trigger');
+      trigger.focus();
+      expect(document.activeElement).toBe(trigger);
+
+      // Open: effect re-runs (isActive dep), trap created, focus moves inside.
+      rerender(<ToggleApp isOpen={true} onClose={onClose} />);
+      expect(document.activeElement).toBe(screen.getByTestId('btn-first'));
+
+      // Tab from last wraps to first (focus stays inside the dialog).
+      const lastBtn = screen.getByTestId('btn-last');
+      lastBtn.focus();
+      fireEvent.keyDown(lastBtn, { key: 'Tab', shiftKey: false });
+      expect(document.activeElement).toBe(screen.getByTestId('btn-first'));
+    });
+
+    it('restores focus to the trigger when isActive flips false', () => {
+      const { rerender } = render(<ToggleApp isOpen={false} onClose={onClose} />);
+      const trigger = screen.getByTestId('trigger');
+      trigger.focus();
+
+      rerender(<ToggleApp isOpen={true} onClose={onClose} />);
+      expect(document.activeElement).toBe(screen.getByTestId('btn-first'));
+
+      // Close: cleanup runs, focus restored to the opener.
+      rerender(<ToggleApp isOpen={false} onClose={onClose} />);
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it('does not trap or forward Escape while isActive is false', () => {
+      render(<ToggleApp isOpen={false} onClose={onClose} />);
+      // No dialog rendered, so nothing to assert on it; Escape on the document
+      // body must not invoke onClose (no trap installed).
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      expect(onClose).not.toHaveBeenCalled();
+    });
+  });
 });
