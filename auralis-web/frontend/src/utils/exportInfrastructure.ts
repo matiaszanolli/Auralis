@@ -252,7 +252,6 @@ export class ExportFormatRegistry {
       json: { mimeType: 'application/json', extension: 'json', description: 'JSON' },
       csv: { mimeType: 'text/csv', extension: 'csv', description: 'CSV' },
       xml: { mimeType: 'application/xml', extension: 'xml', description: 'XML' },
-      pdf: { mimeType: 'application/pdf', extension: 'pdf', description: 'PDF' },
       png: { mimeType: 'image/png', extension: 'png', description: 'PNG Image' },
       svg: { mimeType: 'image/svg+xml', extension: 'svg', description: 'SVG Image' },
     };

@@ -124,7 +124,7 @@ interface AnalysisSession {
 }
 
 interface ExportOptions {
-  format: 'json' | 'csv' | 'xml' | 'pdf' | 'png' | 'svg';
+  format: 'json' | 'csv' | 'xml' | 'png' | 'svg';
   includeMetadata: boolean;
   includeStatistics: boolean;
   includeVisualizations: boolean;
@@ -399,12 +399,6 @@ export class AnalysisExportService {
         filename = `auralis_analysis_${this.currentSession.sessionId}.xml`;
         break;
 
-      case 'pdf':
-        data = await this.exportAsPDF(exportOptions);
-        mimeType = 'application/pdf';
-        filename = `auralis_analysis_${this.currentSession.sessionId}.pdf`;
-        break;
-
       case 'png':
         data = await this.exportAsImage(exportOptions, 'png');
         mimeType = 'image/png';
@@ -560,37 +554,6 @@ export class AnalysisExportService {
     xml += '</auralis_analysis>\n';
 
     return xml;
-  }
-
-  private async exportAsPDF(options: ExportOptions): Promise<string> {
-    this.progressTracker.updateProgress(20, 'Generating PDF report...');
-
-    // This would require a PDF library like jsPDF
-    // For now, return a placeholder as string
-    const pdfContent = this.generatePDFContent(options);
-    return pdfContent;
-  }
-
-  private generatePDFContent(_options: ExportOptions): string {
-    // PDF generation would be implemented here
-    // This is a placeholder that returns text content
-    let content = 'AURALIS AUDIO ANALYSIS REPORT\n\n';
-
-    if (this.currentSession) {
-      content += `Session: ${this.currentSession.sessionId}\n`;
-      content += `Date: ${this.currentSession.metadata.timestamp}\n`;
-      content += `Duration: ${this.currentSession.metadata.duration}s\n\n`;
-
-      content += 'STATISTICS:\n';
-      content += `Total Snapshots: ${this.currentSession.statistics.totalSnapshots}\n`;
-      content += `Average Loudness: ${this.currentSession.statistics.averageLoudness.toFixed(2)} LUFS\n`;
-      content += `Peak Loudness: ${this.currentSession.statistics.peakLoudness.toFixed(2)} LUFS\n`;
-      content += `Average Correlation: ${this.currentSession.statistics.averageCorrelation.toFixed(3)}\n`;
-      content += `Average Dynamic Range: ${this.currentSession.statistics.averageDynamicRange.toFixed(1)} dB\n`;
-      content += `Processing Efficiency: ${this.currentSession.statistics.processingEfficiency.toFixed(1)}%\n`;
-    }
-
-    return content;
   }
 
   private async exportAsImage(options: ExportOptions, format: 'png' | 'svg'): Promise<string> {
