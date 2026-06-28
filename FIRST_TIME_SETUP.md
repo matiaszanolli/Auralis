@@ -11,7 +11,7 @@ This guide walks you through everything you need to get Auralis running on your 
 Before you begin, ensure your system has:
 
 - [ ] **Python 3.13+** - Check with `python3 --version`
-- [ ] **Node.js 20+ LTS** - Check with `node --version`
+- [ ] **Node.js 24+ LTS** - Check with `node --version`
 - [ ] **Git** - Check with `git --version`
 - [ ] **pip** - Check with `pip --version` (comes with Python)
 - [ ] **npm** - Check with `npm --version` (comes with Node)
@@ -100,7 +100,7 @@ To reset, delete the file: `rm ~/.auralis/library.db`
 
 ```bash
 # Check Node version
-node --version  # Should be 20+ LTS
+node --version  # Should be 24+ LTS
 
 # Install frontend dependencies
 cd auralis-web/frontend
@@ -246,7 +246,7 @@ npm test
 | `libsndfile not found` | Install audio libraries (see section above) |
 | `Port 8765 already in use` | Kill existing process: `lsof -ti:8765 \| xargs kill -9` |
 | `SQLite database locked` | Delete database: `rm ~/.auralis/library.db` (will rescan) |
-| `npm: command not found` | Install Node 20+ LTS from https://nodejs.org/ |
+| `npm: command not found` | Install Node 24+ LTS from https://nodejs.org/ |
 | `Module not found (TypeScript)` | Run `cd auralis-web/frontend && npm install` |
 | `Audio file won't play` | Install ffmpeg: `brew install ffmpeg` (macOS) or apt-get (Linux) |
 
