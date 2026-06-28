@@ -19,6 +19,14 @@ import numpy as np
 from ...utils.logging import Code, ModuleError, debug, warning
 from .soundfile_loader import load_with_soundfile
 
+# Upper bound on plausible audio bitrate, used only when ffprobe reports no
+# duration (e.g. true-VBR MP3 without a Xing/VBRI header, #4128). Estimating
+# duration as file_bits / this value yields a *lower bound* on the real
+# duration, so the pre-decode guard rejects only genuinely oversized files
+# (>~1.8 GB at MAX_DURATION_SECONDS=7200) and never a normal one. The
+# post-decode duration check remains the backstop for everything in between.
+_MAX_PLAUSIBLE_BITRATE_BPS = 2_000_000
+
 
 @functools.lru_cache(maxsize=1)
 def check_ffmpeg() -> bool:
@@ -165,11 +173,23 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
     # for a 90-minute MP3. Importing here avoids a circular import with
     # auralis.io.loader.
     from auralis.io.loader import MAX_DURATION_SECONDS
-    if expected_duration is not None and expected_duration > MAX_DURATION_SECONDS:
-        raise ModuleError(
-            f"{Code.ERROR_FFMPEG_CONVERSION}: Audio file exceeds maximum duration "
-            f"({expected_duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
-        )
+    if expected_duration is not None:
+        if expected_duration > MAX_DURATION_SECONDS:
+            raise ModuleError(
+                f"{Code.ERROR_FFMPEG_CONVERSION}: Audio file exceeds maximum duration "
+                f"({expected_duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
+            )
+    else:
+        # #4128: ffprobe returned no duration (true-VBR MP3 without Xing/VBRI).
+        # Fall back to a file-size-based lower-bound estimate so an oversized
+        # file is rejected before FFmpeg decodes it to a multi-hundred-MB temp WAV.
+        min_duration = (file_path.stat().st_size * 8) / _MAX_PLAUSIBLE_BITRATE_BPS
+        if min_duration > MAX_DURATION_SECONDS:
+            raise ModuleError(
+                f"{Code.ERROR_FFMPEG_CONVERSION}: Audio file exceeds maximum duration "
+                f"(size implies >= {min_duration:.0f}s at "
+                f"{_MAX_PLAUSIBLE_BITRATE_BPS // 1000} kbps > {MAX_DURATION_SECONDS}s): {file_path}"
+            )
 
     # Create temporary WAV file
     if temp_folder:
