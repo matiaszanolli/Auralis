@@ -37,8 +37,6 @@ export interface LibraryViewRouterProps {
   selectedAlbumId: number | null;
   selectedArtistId: number | null;
   selectedArtistName: string;
-  currentTrackId?: number;
-  isPlaying: boolean;
 
   // Navigation callbacks
   onBackFromAlbum: () => void;
@@ -58,8 +56,6 @@ export const LibraryViewRouter = ({
   selectedAlbumId,
   selectedArtistId,
   selectedArtistName,
-  currentTrackId,
-  isPlaying,
   onBackFromAlbum,
   onBackFromArtist,
   onAlbumClick,
@@ -71,8 +67,6 @@ export const LibraryViewRouter = ({
       <AlbumDetailView
         albumId={selectedAlbumId}
         onBack={onBackFromAlbum}
-        currentTrackId={currentTrackId}
-        isPlaying={isPlaying}
       />
     );
   }
@@ -95,8 +89,6 @@ export const LibraryViewRouter = ({
           artistName={selectedArtistName}
           onBack={onBackFromArtist}
           onAlbumClick={onAlbumClick}
-          currentTrackId={currentTrackId}
-          isPlaying={isPlaying}
         />
       );
     }

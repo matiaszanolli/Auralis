@@ -22,6 +22,7 @@
 
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
+import { usePlaybackState } from '@/components/library/usePlaybackState';
 import DetailViewHeader from './DetailViewHeader';
 import AlbumArt from '@/components/album/AlbumArt';
 import { AlbumMetadata } from './AlbumMetadata';
@@ -30,8 +31,6 @@ import type { Album } from './useAlbumDetails';
 
 interface AlbumHeaderActionsProps {
   album: Album;
-  isPlaying?: boolean;
-  currentTrackId?: number;
   isFavorite: boolean;
   savingFavorite: boolean;
   onPlay: () => void;
@@ -42,14 +41,14 @@ interface AlbumHeaderActionsProps {
 
 export const AlbumHeaderActions = ({
   album,
-  isPlaying = false,
-  currentTrackId,
   isFavorite,
   savingFavorite,
   onPlay,
   onToggleFavorite,
   artworkGlow,
 }: AlbumHeaderActionsProps) => {
+  // Read playback state from Redux directly instead of prop-drilling (#4154).
+  const { currentTrackId, isPlaying } = usePlaybackState();
   return (
     <DetailViewHeader
       isPlaying={isPlaying} // Phase 1: Reduce header opacity during playback

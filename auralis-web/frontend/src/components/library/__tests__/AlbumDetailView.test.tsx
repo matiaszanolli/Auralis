@@ -332,8 +332,10 @@ describe('AlbumDetailView', () => {
     });
 
     it('should highlight current track', async () => {
+      // #4154: AlbumTrackTable now reads the current track from Redux, not props.
       const { container } = render(
-        <AlbumDetailView albumId={1} currentTrackId={2} isPlaying={true} />
+        <AlbumDetailView albumId={1} />,
+        { preloadedState: { player: { currentTrack: { id: 2 } as any, isPlaying: true } } }
       );
 
       await waitFor(() => {
@@ -348,7 +350,8 @@ describe('AlbumDetailView', () => {
 
     it('should show pause icon for current playing track', async () => {
       render(
-        <AlbumDetailView albumId={1} currentTrackId={1} isPlaying={true} />
+        <AlbumDetailView albumId={1} />,
+        { preloadedState: { player: { currentTrack: { id: 1 } as any, isPlaying: true } } }
       );
 
       await waitFor(() => {
@@ -368,7 +371,8 @@ describe('AlbumDetailView', () => {
       const user = userEvent.setup();
 
       render(
-        <AlbumDetailView albumId={1} currentTrackId={1} />
+        <AlbumDetailView albumId={1} />,
+        { preloadedState: { player: { currentTrack: { id: 1 } as any } } }
       );
 
       await waitFor(() => {
@@ -390,11 +394,8 @@ describe('AlbumDetailView', () => {
 
     it('should change button text when album is playing', async () => {
       const { rerender } = render(
-        <AlbumDetailView
-            albumId={1}
-            currentTrackId={1}
-            isPlaying={false}
-          />
+        <AlbumDetailView albumId={1} />,
+        { preloadedState: { player: { currentTrack: { id: 1 } as any, isPlaying: false } } }
       );
 
       await waitFor(() => {
@@ -408,11 +409,7 @@ describe('AlbumDetailView', () => {
       }
 
       rerender(
-        <AlbumDetailView
-            albumId={1}
-            currentTrackId={1}
-            isPlaying={true}
-          />
+        <AlbumDetailView albumId={1} />
       );
 
       try {
@@ -837,12 +834,8 @@ describe('AlbumDetailView', () => {
       const onBack = vi.fn();
 
       render(
-        <AlbumDetailView
-            albumId={1}
-            onBack={onBack}
-            currentTrackId={1}
-            isPlaying={false}
-          />
+        <AlbumDetailView albumId={1} onBack={onBack} />,
+        { preloadedState: { player: { currentTrack: { id: 1 } as any, isPlaying: false } } }
       );
 
       // 1. Album loads
@@ -872,7 +865,8 @@ describe('AlbumDetailView', () => {
 
     it('should maintain state through interactions', async () => {
       const { rerender } = render(
-        <AlbumDetailView albumId={1} currentTrackId={1} isPlaying={false} />
+        <AlbumDetailView albumId={1} />,
+        { preloadedState: { player: { currentTrack: { id: 1 } as any, isPlaying: false } } }
       );
 
       await waitFor(() => {
@@ -881,7 +875,7 @@ describe('AlbumDetailView', () => {
 
       // Update playing state
       rerender(
-        <AlbumDetailView albumId={1} currentTrackId={1} isPlaying={true} />
+        <AlbumDetailView albumId={1} />
       );
 
       // Current track should be highlighted

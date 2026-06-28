@@ -8,6 +8,7 @@
 
 import { Table, TableBody, TableContainer, TableRow, Paper, Typography, TableCell } from '@mui/material';
 import { tokens } from '@/design-system';
+import { usePlaybackState } from '@/components/library/usePlaybackState';
 import TrackTableHeader from './TrackTableHeader';
 import TrackTableRowItem from './TrackTableRowItem';
 
@@ -15,8 +16,6 @@ import type { DetailTrack as Track } from '@/types/domain';
 
 interface AlbumTrackTableProps {
   tracks: Track[];
-  currentTrackId?: number;
-  isPlaying?: boolean;
   onTrackClick: (track: Track) => void;
   onFindSimilar?: (trackId: number) => void; // Phase 5: Find similar tracks
   formatDuration: (seconds: number) => string;
@@ -24,12 +23,13 @@ interface AlbumTrackTableProps {
 
 export const AlbumTrackTable = ({
   tracks,
-  currentTrackId,
-  isPlaying = false,
   onTrackClick,
   onFindSimilar,
   formatDuration
 }: AlbumTrackTableProps) => {
+  // Read playback state from Redux directly instead of prop-drilling it through
+  // the detail-view chain (#4154).
+  const { currentTrackId, isPlaying } = usePlaybackState();
   return (
     <TableContainer
       component={Paper}

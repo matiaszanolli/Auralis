@@ -1,6 +1,7 @@
 
 import { Table, TableBody, TableRow, TableCell, Typography } from '@mui/material';
 import { TracksTableContainer } from '@/components/library/Styles/ArtistDetail.styles';
+import { usePlaybackState } from '@/components/library/usePlaybackState';
 import TracksTableHeader from './TracksTableHeader';
 import ArtistTrackRow from './ArtistTrackRow';
 import useDurationFormatter from './useDurationFormatter';
@@ -8,8 +9,6 @@ import type { DetailTrack as Track } from '@/types/domain';
 
 interface TracksTabProps {
   tracks: Track[];
-  currentTrackId?: number;
-  isPlaying?: boolean;
   onTrackClick: (track: Track) => void;
 }
 
@@ -25,11 +24,11 @@ interface TracksTabProps {
  */
 export const TracksTab = ({
   tracks,
-  currentTrackId,
-  isPlaying = false,
   onTrackClick,
 }: TracksTabProps) => {
   const { formatDuration } = useDurationFormatter();
+  // Read playback state from Redux directly instead of prop-drilling (#4154).
+  const { currentTrackId, isPlaying } = usePlaybackState();
 
   if (!tracks || tracks.length === 0) {
     return (

@@ -14,8 +14,6 @@ interface ArtistDetailViewProps {
   artistName?: string;
   onBack?: () => void;
   onAlbumClick?: (albumId: number) => void;
-  currentTrackId?: number;
-  isPlaying?: boolean;
 }
 
 /**
@@ -33,8 +31,6 @@ export const ArtistDetailView = ({
   artistId,
   onBack,
   onAlbumClick,
-  currentTrackId,
-  isPlaying = false
 }: ArtistDetailViewProps) => {
   const { artist, loading, error } = useArtistDetailsData(artistId);
   const [activeTab, setActiveTab] = useState(0);
@@ -104,8 +100,6 @@ export const ArtistDetailView = ({
         artist={artist}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        currentTrackId={currentTrackId}
-        isPlaying={isPlaying}
         onTrackClick={handleTrackClick}
         onAlbumClick={handleAlbumClick}
       />

@@ -15,8 +15,6 @@ interface ArtistDetailTabsProps {
   artist: Artist;
   activeTab: number;
   onTabChange: (newValue: number) => void;
-  currentTrackId?: number;
-  isPlaying: boolean;
   onTrackClick: (track: Track) => void;
   onAlbumClick: (albumId: number) => void;
 }
@@ -25,8 +23,6 @@ export const ArtistDetailTabsSection = ({
   artist,
   activeTab,
   onTabChange,
-  currentTrackId,
-  isPlaying,
   onTrackClick,
   onAlbumClick,
 }: ArtistDetailTabsProps) => {
@@ -83,8 +79,6 @@ export const ArtistDetailTabsSection = ({
         <Box id="tracks-panel" role="tabpanel" aria-labelledby="tracks-tab">
           <TracksTab
             tracks={artist.tracks || []}
-            currentTrackId={currentTrackId}
-            isPlaying={isPlaying}
             onTrackClick={onTrackClick}
           />
         </Box>

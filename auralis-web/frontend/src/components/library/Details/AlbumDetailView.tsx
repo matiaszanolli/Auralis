@@ -34,15 +34,11 @@ import { Box, Container, Skeleton } from '@mui/material';
 interface AlbumDetailViewProps {
   albumId: number;
   onBack?: () => void;
-  currentTrackId?: number;
-  isPlaying?: boolean;
 }
 
 export const AlbumDetailView = ({
   albumId,
   onBack,
-  currentTrackId,
-  isPlaying = false
 }: AlbumDetailViewProps) => {
   const { album, loading, error, isFavorite, savingFavorite, toggleFavorite } = useAlbumDetails(albumId);
   const { playTrack } = usePlayTrack();
@@ -197,8 +193,6 @@ export const AlbumDetailView = ({
           {/* Album Header with Actions - Phase 4: Pass artwork glow */}
           <AlbumHeaderActions
             album={album}
-            isPlaying={isPlaying}
-            currentTrackId={currentTrackId}
             isFavorite={isFavorite}
             savingFavorite={savingFavorite}
             onPlay={handlePlayAlbum}
@@ -209,8 +203,6 @@ export const AlbumDetailView = ({
           {/* Track Listing */}
           <AlbumTrackTable
             tracks={album.tracks || []}
-            currentTrackId={currentTrackId}
-            isPlaying={isPlaying}
             onTrackClick={handleTrackClick}
             onFindSimilar={handleFindSimilar}
             formatDuration={formatDuration}
