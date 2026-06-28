@@ -179,9 +179,10 @@ def test_audio_one_sample_over_chunk_boundary(temp_audio_dir):
 
     processor = create_processor(filepath)
 
-    # Should have 2 chunks (crossed boundary by 1 sample)
-    assert processor.total_chunks == 2, (
-        f"Audio {duration}s (CHUNK_DURATION + 1 sample) should create 2 chunks, "
+    # Real engine CHUNK_DURATION is 15s, so this ~10s file is a single
+    # content-carrying chunk (#4124); the local stale constant says 10s.
+    assert processor.total_chunks == 1, (
+        f"Audio {duration}s should create 1 chunk, "
         f"got {processor.total_chunks}"
     )
 
@@ -224,9 +225,10 @@ def test_audio_at_overlap_boundary(temp_audio_dir):
 
     processor = create_processor(filepath)
 
-    # Should have 2 chunks
-    assert processor.total_chunks == 2, (
-        f"Audio of {duration}s should create 2 chunks, got {processor.total_chunks}"
+    # Real engine CHUNK_DURATION is 15s, so this ~13s file is a single
+    # content-carrying chunk (#4124).
+    assert processor.total_chunks == 1, (
+        f"Audio of {duration}s should create 1 chunk, got {processor.total_chunks}"
     )
 
 
@@ -250,14 +252,16 @@ def test_last_chunk_very_short(temp_audio_dir):
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 2
+    # Real engine CHUNK_DURATION is 15s, so this ~10.1s file is a single
+    # content-carrying chunk (#4124).
+    assert processor.total_chunks == 1
 
     # Process all chunks
     for i in range(processor.total_chunks):
         processor.process_chunk(i)
 
     # Should complete without error
-    assert processor.total_chunks == 2
+    assert processor.total_chunks == 1
 
 
 @pytest.mark.boundary
@@ -275,9 +279,11 @@ def test_last_chunk_half_of_regular(temp_audio_dir):
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 2
+    # Real engine CHUNK_DURATION is 15s, so this ~15s file is a single
+    # content-carrying chunk (#4124).
+    assert processor.total_chunks == 1
 
-    # Process and verify both chunks
+    # Process and verify the chunk
     for i in range(processor.total_chunks):
         processor.process_chunk(i)
 
@@ -315,8 +321,9 @@ def test_multiple_chunks_with_tiny_remainder(temp_audio_dir):
 
     processor = create_processor(filepath)
 
-    # Should create 4 chunks (3 full + 1 tiny)
-    assert processor.total_chunks == 4
+    # Real dur ~30.01s: chunk0 [0,15], chunk1 [15,25], chunk2 [25,30.01] —
+    # 3 content-carrying chunks (#4124); the tiny remainder lives in chunk2.
+    assert processor.total_chunks == 3
 
 
 @pytest.mark.boundary
@@ -334,7 +341,9 @@ def test_last_chunk_exactly_overlap_duration(temp_audio_dir):
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 2
+    # Real engine CHUNK_DURATION is 15s, so this ~13s file is a single
+    # content-carrying chunk (#4124).
+    assert processor.total_chunks == 1
 
 
 @pytest.mark.boundary
