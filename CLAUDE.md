@@ -61,7 +61,7 @@ auralis/                          Core Python audio engine
 │   └── realtime_processor.py       Real-time processing
 ├── library/                      SQLite library (~/.auralis/library.db)
 │   ├── manager.py                  LibraryManager
-│   ├── repositories/               12 repos (track, album, artist, playlist, genre,
+│   ├── repositories/               15 repos (track, album, artist, playlist, genre,
 │   │                                 stats, fingerprint, queue, settings, similarity...)
 │   ├── scanner.py                  Folder scanning
 │   └── migration_manager.py        DB migrations (schema v3)
@@ -77,7 +77,7 @@ auralis/                          Core Python audio engine
 auralis-web/
 ├── backend/                      FastAPI REST + WebSocket (:8765)
 │   ├── main.py                     App entry point
-│   ├── routers/                    15 route handlers (player, library, albums,
+│   ├── routers/                    19 route handlers (player, library, albums,
 │   │                                 artists, playlists, enhancement, metadata,
 │   │                                 artwork, system, similarity, streaming...)
 │   ├── processing_engine.py        Audio processing orchestration
@@ -97,9 +97,9 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            ~4,600 test functions across 18 subdirs (unit, integration,
+tests/                            ~4,600 test functions across 19 subdirs (unit, integration,
                                     boundary, concurrency, security, load, regression...)
-docs/                             20 topic dirs (development, features, frontend...)
+docs/                             21 topic dirs (development, features, frontend...)
 ```
 
 ## Architecture Flow
