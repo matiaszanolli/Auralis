@@ -154,10 +154,24 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
         setTotalTracks(data.total || 0);
 
         DEBUG && console.log(`Loaded more: ${newOffset + transformedTracks.length}/${data.total || 0}`);
+      } else {
+        // Mirror fetchTracks' non-OK handling (#4173): surface the error and
+        // clear hasMore so the infinite-scroll trigger stops re-firing into a
+        // retry storm against a struggling server. A manual refetch (which
+        // resets hasMore on success) recovers.
+        console.error('Failed to load more tracks');
+        setError('Failed to load more tracks');
+        toastRef.current.toastError('Failed to load more tracks');
+        setHasMore(false);
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Error loading more tracks:', err);
+      const errorMsg = 'Failed to connect to server';
+      setError(errorMsg);
+      toastRef.current.toastError(errorMsg);
+      // Stop the scroll trigger from looping on a transient network failure.
+      setHasMore(false);
     } finally {
       setIsLoadingMore(false);
       fetchInProgressRef.current = false;
