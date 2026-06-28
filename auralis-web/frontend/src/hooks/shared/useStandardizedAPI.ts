@@ -245,6 +245,17 @@ export function usePaginatedAPI<T = unknown>(
     error: null
   });
 
+  // #4174 (partial regression of #3952, which only covered the initial fetch):
+  // track manual page-turn AbortControllers so unmount aborts the in-flight
+  // request, and skip post-unmount setState. Mirrors useStandardizedAPI.
+  const mountedRef = useRef(true);
+  const activeControllers = useRef<Set<AbortController>>(new Set());
+  useEffect(() => () => {
+    mountedRef.current = false;
+    activeControllers.current.forEach((c) => c.abort());
+    activeControllers.current.clear();
+  }, []);
+
   useEffect(() => {
     if (!apiClient.current) {
       apiClient.current = getAPIClient();
@@ -263,6 +274,8 @@ export function usePaginatedAPI<T = unknown>(
         offset,
         { timeout, signal }
       );
+
+      if (!mountedRef.current) return;
 
       if (isSuccessResponse<T[]>(response)) {
         const paginated = response as PaginatedResponse<T>;
@@ -290,6 +303,7 @@ export function usePaginatedAPI<T = unknown>(
     } catch (error) {
       // Don't surface abort errors as UI errors (#3952).
       if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (!mountedRef.current) return;
       setState({
         data: [],
         loading: false,
@@ -311,26 +325,38 @@ export function usePaginatedAPI<T = unknown>(
     setPagination({ limit, offset: 0, total: 0, hasMore: false });
   }, [limit]);
 
+  // Run a manual page request under a tracked AbortController so unmount cancels
+  // it and fetchPage's mountedRef guards skip post-unmount setState (#4174).
+  const runTracked = useCallback(async (offset: number) => {
+    const controller = new AbortController();
+    activeControllers.current.add(controller);
+    try {
+      await fetchPage(offset, controller.signal);
+    } finally {
+      activeControllers.current.delete(controller);
+    }
+  }, [fetchPage]);
+
   const nextPage = useCallback(async () => {
     if (pagination.hasMore) {
-      await fetchPage(pagination.offset + limit);
+      await runTracked(pagination.offset + limit);
     }
-  }, [pagination.hasMore, pagination.offset, limit, fetchPage]);
+  }, [pagination.hasMore, pagination.offset, limit, runTracked]);
 
   const prevPage = useCallback(async () => {
     if (pagination.offset > 0) {
-      await fetchPage(Math.max(0, pagination.offset - limit));
+      await runTracked(Math.max(0, pagination.offset - limit));
     }
-  }, [pagination.offset, limit, fetchPage]);
+  }, [pagination.offset, limit, runTracked]);
 
   const goToPage = useCallback(async (pageNumber: number) => {
     const offset = (pageNumber - 1) * limit;
-    await fetchPage(offset);
-  }, [limit, fetchPage]);
+    await runTracked(offset);
+  }, [limit, runTracked]);
 
   const refetch = useCallback(
-    () => fetchPage(pagination.offset),
-    [fetchPage, pagination.offset]
+    () => runTracked(pagination.offset),
+    [runTracked, pagination.offset]
   );
 
   return {

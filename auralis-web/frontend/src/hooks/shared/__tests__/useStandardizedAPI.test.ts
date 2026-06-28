@@ -315,6 +315,61 @@ describe('usePaginatedAPI', () => {
     expect(result.current.pagination.total).toBe(0);
     expect(result.current.pagination.hasMore).toBe(false);
   });
+
+  it('passes an AbortSignal to nextPage and aborts it on unmount (#4174)', async () => {
+    let nextPageSignal: AbortSignal | undefined;
+    mockGetPaginated
+      .mockResolvedValueOnce({
+        success: true,
+        data: [{ id: 1 }],
+        pagination: { limit: 50, offset: 0, total: 100, has_more: true },
+      })
+      .mockImplementationOnce((_e: string, _l: number, _o: number, opts: any) => {
+        nextPageSignal = opts?.signal;
+        return new Promise(() => {}); // stays in flight
+      });
+
+    const { result, unmount } = renderHook(() => usePaginatedAPI('/api/items'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      void result.current.pagination.nextPage();
+    });
+
+    // Previously nextPage passed no signal — now it does, and it is live.
+    expect(nextPageSignal).toBeInstanceOf(AbortSignal);
+    expect(nextPageSignal!.aborted).toBe(false);
+
+    unmount();
+    expect(nextPageSignal!.aborted).toBe(true);
+  });
+
+  it('passes an AbortSignal to goToPage and prevPage too (#4174)', async () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    mockGetPaginated.mockImplementation((_e: string, _l: number, _o: number, opts: any) => {
+      signals.push(opts?.signal);
+      return Promise.resolve({
+        success: true,
+        data: [{ id: 1 }],
+        pagination: { limit: 50, offset: 50, total: 100, has_more: true },
+      });
+    });
+
+    const { result } = renderHook(() => usePaginatedAPI('/api/items'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.pagination.goToPage(3);
+    });
+    await act(async () => {
+      await result.current.pagination.prevPage();
+    });
+
+    // Every manual page request (after the initial fetch) carries a signal.
+    const manualSignals = signals.slice(1);
+    expect(manualSignals.length).toBeGreaterThanOrEqual(2);
+    expect(manualSignals.every((s) => s instanceof AbortSignal)).toBe(true);
+  });
 });
 
 // Cache hooks (useCacheStats, useCacheHealth) depend on the internal
