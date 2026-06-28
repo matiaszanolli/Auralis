@@ -394,6 +394,30 @@ class TestFactoryFunction:
 
 
 @pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
+class TestWavMetadataDispatch:
+    """#4130 — WAV must dispatch to the ID3 reader/writer, not the no-op generic
+    path that produced corrupt tag blocks."""
+
+    def test_wav_title_round_trips_via_id3(self):
+        sf = pytest.importorskip("soundfile")
+        import numpy as np
+
+        fd, path = tempfile.mkstemp(suffix=".wav")
+        os.close(fd)
+        try:
+            sf.write(path, np.zeros((8000, 2), dtype="float32"), 8000)
+            editor = create_metadata_editor()
+
+            assert editor.write_metadata(path, {"title": "Hello WAV", "artist": "T"}, backup=False) is True
+            md = editor.read_metadata(path)
+
+            assert md.get("title") == "Hello WAV"
+            assert md.get("artist") == "T"
+        finally:
+            os.unlink(path)
+
+
+@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 class TestMp3CommentLanguageHandling:
     """#4133 — COMM/USLT frames carry a language code; reads must match any
     language and writes must replace (not accumulate) comment frames."""

@@ -15,7 +15,9 @@ try:
     from mutagen import File as MutagenFile  # type: ignore[attr-defined]
     from mutagen.flac import FLAC
     from mutagen.mp4 import MP4
+    from mutagen.oggopus import OggOpus
     from mutagen.oggvorbis import OggVorbis
+    from mutagen.wave import WAVE
     MUTAGEN_AVAILABLE = True
 except ImportError:
     MUTAGEN_AVAILABLE = False
@@ -109,8 +111,14 @@ class MetadataEditor:
                 metadata = self.readers.read_flac_metadata(audio_file)
             elif isinstance(audio_file, MP4) or ext in ('m4a', 'aac', 'mp4'):
                 metadata = self.readers.read_mp4_metadata(audio_file)
+            elif isinstance(audio_file, OggOpus) or ext == 'opus':
+                # OPUS uses Vorbis comments, same as OggVorbis (#4130).
+                metadata = self.readers.read_ogg_metadata(audio_file)
             elif isinstance(audio_file, OggVorbis) or ext in ('ogg', 'oga'):
                 metadata = self.readers.read_ogg_metadata(audio_file)
+            elif isinstance(audio_file, WAVE) or ext == 'wav':
+                # WAV stores tags as embedded ID3 frames (#4130).
+                metadata = self.readers.read_mp3_metadata(audio_file)
             elif ext == 'mp3':
                 metadata = self.readers.read_mp3_metadata(audio_file)
             else:
@@ -159,8 +167,14 @@ class MetadataEditor:
                 self.writers.write_flac_metadata(audio_file, metadata)
             elif isinstance(audio_file, MP4) or ext in ('m4a', 'aac', 'mp4'):
                 self.writers.write_mp4_metadata(audio_file, metadata)
+            elif isinstance(audio_file, OggOpus) or ext == 'opus':
+                # OPUS uses Vorbis comments, same as OggVorbis (#4130).
+                self.writers.write_ogg_metadata(audio_file, metadata)
             elif isinstance(audio_file, OggVorbis) or ext in ('ogg', 'oga'):
                 self.writers.write_ogg_metadata(audio_file, metadata)
+            elif isinstance(audio_file, WAVE) or ext == 'wav':
+                # WAV stores tags as embedded ID3 frames (#4130).
+                self.writers.write_mp3_metadata(audio_file, metadata)
             elif ext == 'mp3':
                 self.writers.write_mp3_metadata(audio_file, metadata)
             else:
