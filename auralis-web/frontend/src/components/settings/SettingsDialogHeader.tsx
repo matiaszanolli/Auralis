@@ -19,7 +19,7 @@ export const SettingsDialogHeader = ({ onClose }: SettingsDialogHeaderProps) => 
       <Typography variant="h6" component="span">
         Settings
       </Typography>
-      <IconButton onClick={onClose} sx={{ color: tokens.colors.text.primaryFull }}>
+      <IconButton onClick={onClose} aria-label="Close settings" sx={{ color: tokens.colors.text.primaryFull }}>
         <CloseIcon />
       </IconButton>
     </StyledDialogTitle>
