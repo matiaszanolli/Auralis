@@ -3,7 +3,7 @@ import { getArtistContextActions } from '@/components/shared/ContextMenu';
 import { useToast } from '@/components/shared/Toast';
 import { getArtistTracks } from '@/services/libraryService';
 import { useQueue } from '@/hooks/shared/useReduxState';
-import { usePlayer } from '@/hooks/shared/useReduxState';
+import { usePlayerActions } from '@/hooks/shared/useReduxState';
 import type { Artist } from '@/types/domain';
 
 interface UseContextMenuActionsProps {
@@ -24,7 +24,9 @@ export const useContextMenuActions = ({
 }: UseContextMenuActionsProps) => {
   const { success, error: showError } = useToast();
   const queue = useQueue();
-  const player = usePlayer();
+  // Action-only player hook so this doesn't re-render at 1Hz during playback
+  // (usePlayer bundles currentTime) (#4176).
+  const player = usePlayerActions();
   const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   const handlePlayAll = useCallback(async () => {

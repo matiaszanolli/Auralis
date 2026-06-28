@@ -16,6 +16,7 @@ export { useGroupedArtists } from './useGroupedArtists';
 export {
   usePlayerState,
   usePlayer,
+  usePlayerActions,
   useQueueState,
   useQueue,
   useCacheState,
