@@ -19,13 +19,16 @@ export const ButtonVariant = memo<EnhancementToggleProps>(({
   onToggle,
   tooltipText,
 }) => {
-  const defaultTooltip = isEnabled
+  // Action-describing label, also used as the button's accessible name so it
+  // announces what activating it does (enable vs disable), not just "Audio
+  // enhancement" (#4150 — fixes the a11y gap and the integration-test query).
+  const actionLabel = isEnabled
     ? 'Disable audio enhancement'
     : 'Enable audio enhancement';
 
   return (
     <Tooltip
-      title={tooltipText || defaultTooltip}
+      title={tooltipText || actionLabel}
       arrow
       placement="top"
     >
@@ -33,7 +36,7 @@ export const ButtonVariant = memo<EnhancementToggleProps>(({
         <ToggleButton
           onClick={() => onToggle(!isEnabled)}
           $isEnabled={isEnabled}
-          aria-label="Audio enhancement"
+          aria-label={actionLabel}
           aria-pressed={isEnabled}
         >
           <AutoAwesomeIcon />
