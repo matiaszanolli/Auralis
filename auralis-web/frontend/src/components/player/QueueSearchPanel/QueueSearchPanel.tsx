@@ -135,6 +135,7 @@ export const QueueSearchPanel = ({
               }}
               onClick={() => setDurationFilter('all')}
               title="All durations"
+              aria-pressed={durationFilter === 'all'}
             >
               All
             </button>
@@ -145,6 +146,7 @@ export const QueueSearchPanel = ({
               }}
               onClick={() => setDurationFilter('short')}
               title="Less than 3 minutes"
+              aria-pressed={durationFilter === 'short'}
             >
               Short (&lt;3m)
             </button>
@@ -155,6 +157,7 @@ export const QueueSearchPanel = ({
               }}
               onClick={() => setDurationFilter('medium')}
               title="3 to 5 minutes"
+              aria-pressed={durationFilter === 'medium'}
             >
               Medium (3-5m)
             </button>
@@ -165,6 +168,7 @@ export const QueueSearchPanel = ({
               }}
               onClick={() => setDurationFilter('long')}
               title="More than 5 minutes"
+              aria-pressed={durationFilter === 'long'}
             >
               Long (&gt;5m)
             </button>
