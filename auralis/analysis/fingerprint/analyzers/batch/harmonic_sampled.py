@@ -62,6 +62,12 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
         # AudioFingerprintAnalyzer's per-instance executor (#3701).
         self._executor: ThreadPoolExecutor | None = None
         self._executor_lock = threading.Lock()
+        # #4137: track in-flight analyses so close() waits for them rather than
+        # shutting the executor down in the window between _get_executor()
+        # returning and executor.submit() (which raised "cannot schedule new
+        # futures after shutdown", swallowed as a wrong harmonic_ratio=0.5).
+        self._active_analyses = 0
+        self._active_cond = threading.Condition(self._executor_lock)
 
     def _get_executor(self) -> ThreadPoolExecutor:
         """Lazily create and return the shared chunk-analysis executor."""
@@ -75,8 +81,13 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
         return self._executor
 
     def close(self) -> None:
-        """Shut down the shared executor, joining workers. Re-inits on next use."""
-        with self._executor_lock:
+        """Shut down the shared executor, joining workers. Re-inits on next use.
+
+        Waits (briefly) for any in-flight analyses so it never shuts the executor
+        down mid-submit (#4137).
+        """
+        with self._active_cond:
+            self._active_cond.wait_for(lambda: self._active_analyses == 0, timeout=5.0)
             if self._executor is not None:
                 self._executor.shutdown(wait=True)
                 self._executor = None
@@ -158,24 +169,33 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
         # avoid the `with`-block shutdown(wait=True) stalling on an exception,
         # #2527.)
         from concurrent.futures import as_completed as _as_completed
-        executor = self._get_executor()
         default_features = (
             self.DEFAULT_FEATURES['harmonic_ratio'],
             self.DEFAULT_FEATURES['pitch_stability'],
             self.DEFAULT_FEATURES['chroma_energy'],
         )
-        future_to_idx = {
-            executor.submit(self._analyze_chunk, chunk, sr, i): i
-            for i, chunk in enumerate(chunks)
-        }
-        results_map: dict[int, tuple[float, float, float]] = {}
-        for future in _as_completed(future_to_idx):
-            idx = future_to_idx[future]
-            try:
-                results_map[idx] = future.result()
-            except Exception as exc:
-                logger.warning(f"Chunk {idx} analysis failed ({exc}); using default features")
-                results_map[idx] = default_features
+        # Mark this analysis in-flight so a concurrent close() waits for it
+        # rather than shutting the executor down between submit() calls (#4137).
+        with self._active_cond:
+            self._active_analyses += 1
+        try:
+            executor = self._get_executor()
+            future_to_idx = {
+                executor.submit(self._analyze_chunk, chunk, sr, i): i
+                for i, chunk in enumerate(chunks)
+            }
+            results_map: dict[int, tuple[float, float, float]] = {}
+            for future in _as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    results_map[idx] = future.result()
+                except Exception as exc:
+                    logger.warning(f"Chunk {idx} analysis failed ({exc}); using default features")
+                    results_map[idx] = default_features
+        finally:
+            with self._active_cond:
+                self._active_analyses -= 1
+                self._active_cond.notify_all()
         # Defensive: a missing index degrades to defaults rather than raising
         # KeyError mid-flight (#4118).
         results = [results_map.get(i, default_features) for i in range(len(chunks))]
