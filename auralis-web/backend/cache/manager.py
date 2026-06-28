@@ -144,8 +144,15 @@ class StreamlinedCacheManager:
 
     def _calculate_total_chunks(self, duration: float) -> int:
         """Calculate total chunks needed for track.
-        Uses CHUNK_INTERVAL (10s) since chunks start every 10s."""
-        return int(duration // CHUNK_INTERVAL) + (1 if duration % CHUNK_INTERVAL > 0 else 0)
+
+        Counts only content-carrying chunks under the overlap model so the
+        cache-completion target matches ChunkedAudioProcessor.total_chunks.
+        ``ceil(duration / CHUNK_INTERVAL)`` over-counted a 0-content trailing
+        chunk for durations in ``(n*INTERVAL, n*INTERVAL + OVERLAP)`` (#4124).
+        """
+        import math
+        overlap = CHUNK_DURATION - CHUNK_INTERVAL
+        return max(1, math.ceil((duration - overlap) / CHUNK_INTERVAL))
 
     async def update_position(
         self,

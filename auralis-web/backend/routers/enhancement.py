@@ -25,7 +25,10 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
-from core.chunk_boundaries import CHUNK_INTERVAL  # single source of truth (#2564)
+from core.chunk_boundaries import (  # single source of truth (#2564)
+    CHUNK_INTERVAL,
+    content_chunk_count,
+)
 from helpers import spawn_background_task
 from schemas import MasteringRecommendationResponse
 
@@ -137,10 +140,11 @@ def create_enhancement_router(
             logger.info(f"🎯 Pre-processing chunks {chunks_to_process} for track {track_id} (current chunk: {current_chunk_idx})")
 
             # Get audio duration to avoid processing non-existent chunks
-            import numpy as np
             info = await asyncio.to_thread(sf.info, filepath)
             total_duration = info.duration
-            total_chunks = int(np.ceil(total_duration / CHUNK_INTERVAL))
+            # Match ChunkedAudioProcessor's content-chunk count so we don't
+            # pre-process a spurious trailing chunk (#4124).
+            total_chunks = content_chunk_count(total_duration)
 
             # Create processor (may perform file I/O — run in thread)
             processor = await asyncio.to_thread(

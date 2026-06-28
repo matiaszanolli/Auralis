@@ -22,6 +22,21 @@ OVERLAP_DURATION = 5.0  # seconds - overlap for natural crossfades
 CONTEXT_DURATION = 5.0  # seconds of context for better processing quality
 
 
+def content_chunk_count(total_duration: float) -> int:
+    """Number of chunks that actually carry new audio content (#4124).
+
+    Under the overlap model, chunk 0 emits CHUNK_DURATION seconds and every
+    later chunk emits CHUNK_INTERVAL seconds of *new* content. The naive
+    ``ceil(total_duration / CHUNK_INTERVAL)`` over-allocated a trailing chunk
+    for any duration in ``(n*INTERVAL, n*INTERVAL + OVERLAP)``: that extra
+    chunk emits 0 new samples, so the real penultimate chunk falls into the
+    regular branch (which expects a full interval), comes up short, and gets
+    padded with silence — while a 0-sample WAV is cached for the spurious
+    chunk. Counting only content-carrying chunks fixes all three.
+    """
+    return max(1, int(np.ceil((total_duration - OVERLAP_DURATION) / CHUNK_INTERVAL)))
+
+
 class ChunkBoundaryManager:
     """
     Manages chunk boundaries and context windows.
@@ -48,7 +63,7 @@ class ChunkBoundaryManager:
         """
         self.total_duration = total_duration
         self.sample_rate = sample_rate
-        self._total_chunks = int(np.ceil(total_duration / CHUNK_INTERVAL))
+        self._total_chunks = content_chunk_count(total_duration)
 
     @property
     def total_chunks(self) -> int:

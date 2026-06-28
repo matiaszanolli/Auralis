@@ -339,15 +339,21 @@ class ChunkOperations:
         """
         Calculate total number of chunks for a given duration.
 
+        Delegates to ``core.chunk_boundaries.content_chunk_count`` so every
+        chunk-count derivation shares one formula: ``ceil(d / chunk_interval)``
+        over-allocated a 0-content trailing chunk for durations in
+        ``(n*INTERVAL, n*INTERVAL + OVERLAP)`` (#4124).
+
         Args:
             total_duration: Total audio duration in seconds
-            chunk_interval: Interval between chunk starts
+            chunk_interval: Interval between chunk starts (kept for back-compat;
+                the canonical overlap model lives in chunk_boundaries)
 
         Returns:
-            Total number of chunks
+            Number of content-carrying chunks
         """
-        import math
-        return int(math.ceil(total_duration / chunk_interval))
+        from core.chunk_boundaries import content_chunk_count
+        return content_chunk_count(total_duration)
 
     @staticmethod
     def get_chunk_time_range(

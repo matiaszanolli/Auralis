@@ -53,9 +53,11 @@ If the issue body mentions specific files or line numbers, start there. Otherwis
 4. Check for sibling bugs — same pattern in adjacent files (see `_audit-common.md` "Sibling Detection" table).
 5. Check `git blame` on the affected lines to understand the intent of existing code.
 6. Look for existing tests that should have caught this.
-7. If the domain is complex, delegate to the matching specialist via the Task tool (`subagent_type: dsp-specialist | backend-specialist | frontend-specialist | library-specialist`).
+7. **Specialists are a last resort, not a default.** Each one is a fresh context window — only delegate (`subagent_type: dsp-specialist | backend-specialist | frontend-specialist | library-specialist`) when the issue genuinely spans a subsystem you can't trace yourself. When you do, ask for a conclusion (file:line + root cause), not file dumps.
 
-Write a brief root-cause analysis (3-5 sentences) to `.claude/issues/$ISSUE/INVESTIGATION.md` before proceeding.
+Don't re-read files already in context, and don't pre-read a whole package — stay on the code path.
+
+**INVESTIGATION.md is optional.** Skip it for single-site fixes — the commit body covers those. Write the 3-5 sentence root-cause analysis only when the investigation surfaced something non-obvious worth preserving (cross-file interaction, a wrong-looking-but-correct invariant).
 
 ## Phase 4: Scope Check
 
@@ -82,12 +84,23 @@ Follow project conventions from CLAUDE.md:
 
 ## Phase 6: Run Tests
 
+Scope first, widen once at the end. Use `-q` (not `-v`) so passes collapse to dots
+and only failures print in full — `-v` dumps every test name into context. Scope
+both pytest and mypy to what the fix touched; run the full suite a single time as
+the final gate, not per iteration.
+
 ```bash
-python -m pytest -m "not slow" -v 2>&1 | tail -30
-mypy auralis/ auralis-web/backend/ --ignore-missing-imports 2>&1 | tail -20
+# Inner loop — the matching tests/ subdir (e.g. tests/backend, tests/audio,
+# tests/concurrency, tests/security) or the specific test module for the fix:
+python -m pytest -q -m "not slow" tests/<subdir> 2>&1 | tail -30
+mypy <changed-dirs-or-files> --ignore-missing-imports 2>&1 | tail -20
+
+# Final gate — full suite, ONCE before commit:
+python -m pytest -q -m "not slow" 2>&1 | tail -30
 ```
 
-If frontend files were changed:
+For a fix confined to one domain, the scoped run is sufficient evidence — note
+that you scoped it in the commit. If frontend files were changed:
 ```bash
 cd auralis-web/frontend && npm run test:memory 2>&1 | tail -30
 ```

@@ -135,24 +135,19 @@ def test_audio_exactly_chunk_duration(processor_factory):
     BOUNDARY: Audio exactly CHUNK_DURATION (15s).
 
     Edge case: When audio length exactly matches chunk duration.
-    Note: Chunks are calculated based on CHUNK_INTERVAL (10s), not CHUNK_DURATION (15s)
-    So 15s audio = ceil(15/10) = 2 chunks
+    A 15s track is covered entirely by chunk 0 (which emits CHUNK_DURATION of
+    content), so it is a single chunk — ``ceil(15/10) = 2`` over-allocated a
+    0-content trailing chunk (#4124).
     """
     processor = processor_factory(duration_seconds=CHUNK_DURATION)
 
-    # 15s / 10s interval = ceil(1.5) = 2 chunks
-    assert processor.total_chunks == 2, \
-        f"Audio of exactly {CHUNK_DURATION}s should have 2 chunks, got {processor.total_chunks}"
+    assert processor.total_chunks == 1, \
+        f"Audio of exactly {CHUNK_DURATION}s should have 1 chunk, got {processor.total_chunks}"
 
-    # First chunk spans 0-10s
+    # The single chunk spans the whole 0-15s track
     chunk1, start1, end1 = processor.load_chunk(0, with_context=False)
     assert chunk1 is not None
     assert len(chunk1) > 0
-
-    # Second chunk spans 10-15s
-    chunk2, start2, end2 = processor.load_chunk(1, with_context=False)
-    assert chunk2 is not None
-    assert len(chunk2) > 0
 
 
 @pytest.mark.boundary
@@ -213,12 +208,13 @@ def test_chunk_boundary_at_45_seconds(processor_factory):
     BOUNDARY: Multiple chunk boundaries with longer audio.
 
     Tests chunks at 45 seconds.
-    Note: 45s / 10s CHUNK_INTERVAL = ceil(4.5) = 5 chunks
+    Coverage: chunk0 [0,15], chunk1 [15,25], chunk2 [25,35], chunk3 [35,45] —
+    4 content-carrying chunks exactly cover 45s. ``ceil(45/10) = 5`` over-
+    allocated a 0-content trailing chunk (#4124).
     """
     processor = processor_factory(duration_seconds=45.0)
 
-    # 45s / 10s interval = ceil(4.5) = 5 chunks
-    expected_chunks = 5
+    expected_chunks = 4
     assert processor.total_chunks == expected_chunks, \
         f"45s audio should have {expected_chunks} chunks, got {processor.total_chunks}"
 

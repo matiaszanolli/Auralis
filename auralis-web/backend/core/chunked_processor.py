@@ -34,7 +34,7 @@ if project_root not in sys.path:
 from core.audio_processing_pipeline import AudioProcessingPipeline
 
 # Core modules (new modular architecture)
-from core.chunk_boundaries import ChunkBoundaryManager
+from core.chunk_boundaries import ChunkBoundaryManager, content_chunk_count
 from core.chunk_cache_manager import ChunkCacheManager  # Phase 5.1: Cache management
 from core.chunk_operations import ChunkOperations  # Phase 3: Unified chunk operations
 from core.encoding import WAVEncoder
@@ -246,9 +246,9 @@ class ChunkedAudioProcessor:
                 self.sample_rate = f.samplerate
                 self.channels = f.channels
                 self.total_duration = len(f) / f.samplerate
-                # Calculate chunks based on CHUNK_INTERVAL (not CHUNK_DURATION)
-                # This accounts for the 5s overlap between chunks
-                self.total_chunks = int(np.ceil(self.total_duration / CHUNK_INTERVAL))
+                # Count only content-carrying chunks under the overlap model
+                # (#4124) — see core.chunk_boundaries.content_chunk_count.
+                self.total_chunks = content_chunk_count(self.total_duration)
         except Exception as e:
             logger.error(f"Failed to load audio metadata: {e}")
             # Fallback: load entire audio (slower)
@@ -256,8 +256,9 @@ class ChunkedAudioProcessor:
             self.sample_rate = sr
             self.channels = audio.ndim if audio.ndim == 1 else audio.shape[0] if audio.shape[0] <= 2 else audio.shape[1]  # Detect mono/stereo
             self.total_duration = len(audio) / sr
-            # Calculate chunks based on CHUNK_INTERVAL (not CHUNK_DURATION)
-            self.total_chunks = int(np.ceil(self.total_duration / CHUNK_INTERVAL))
+            # Count only content-carrying chunks under the overlap model
+            # (#4124) — see core.chunk_boundaries.content_chunk_count.
+            self.total_chunks = content_chunk_count(self.total_duration)
 
 
     def _init_adaptive_mastering(self) -> None:
