@@ -136,7 +136,7 @@ class MasteringFingerprint:
             )
 
         except Exception as e:
-            print(f"Error extracting fingerprint from {file_path}: {e}")
+            warning(f"Error extracting fingerprint from {file_path}: {e}")
             return None
 
     def to_dict(self) -> dict[str, float]:
