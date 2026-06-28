@@ -189,7 +189,11 @@ class EQProcessor:
         # output is trimmed to original_length (#3437).
         out_shape = (original_length + chunk_size,) + audio.shape[1:]
         processed_audio = np.zeros(out_shape, dtype=audio.dtype)
-        wola_window = hann(chunk_size)
+        # Cast the synthesis window to the buffer dtype so the overlap-add
+        # multiply stays in float32: a float64 window promotes each contribution
+        # to float64, which the in-place += into the float32 buffer then
+        # truncates on every overlap step (#4107).
+        wola_window = hann(chunk_size).astype(audio.dtype, copy=False)
 
         for i in range(0, original_length, hop_size):
             end_idx = min(i + chunk_size, original_length)

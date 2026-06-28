@@ -118,3 +118,56 @@ class TestEQOverlapAdd:
             atol=2e-3,
             err_msg="Overlap region not properly accumulated — likely using = instead of +=",
         )
+
+
+@pytest.mark.regression
+class TestEQWolaDtypePreservation:
+    """The WOLA path must keep the buffer dtype (#4107).
+
+    A float64 synthesis window promotes the overlap-add multiply to float64,
+    which the in-place += into the float32 buffer truncates on every overlap
+    step. The window is now cast to the buffer dtype so the accumulation stays
+    in the input dtype.
+    """
+
+    def _make_processor(self, sample_rate=44100):
+        settings = EQSettings(sample_rate=sample_rate, fft_size=4096)
+        eq = PsychoacousticEQ(settings)
+        return EQProcessor(eq)
+
+    def _run(self, audio):
+        """Run the WOLA path with identity EQ, capturing the dtype of each
+        chunk handed to process_realtime_chunk."""
+        seen: list = []
+
+        def capture(self, chunk, target_curve, content_profile=None):
+            seen.append(chunk.dtype)
+            return chunk.copy()
+
+        processor = self._make_processor()
+        with patch.object(PsychoacousticEQ, 'process_realtime_chunk', capture), \
+             patch.object(EQProcessor, '_eq_curve_to_array', _zero_curve):
+            result = processor._process_with_psychoacoustic_eq(audio, {})
+        return result, seen
+
+    def test_float32_input_stays_float32_through_wola(self):
+        n = self._make_processor().psychoacoustic_eq.fft_size * 4
+        audio = np.random.RandomState(7).randn(n, 2).astype(np.float32)
+
+        result, seen = self._run(audio)
+
+        # Every chunk handed to the EQ is float32 (no float64 promotion).
+        assert seen and all(dt == np.float32 for dt in seen)
+        # Output preserves dtype and sample count (WOLA trim intact).
+        assert result.dtype == np.float32
+        assert len(result) == n
+
+    def test_float64_input_stays_float64(self):
+        n = self._make_processor().psychoacoustic_eq.fft_size * 4
+        audio = np.random.RandomState(7).randn(n, 2).astype(np.float64)
+
+        result, seen = self._run(audio)
+
+        assert seen and all(dt == np.float64 for dt in seen)
+        assert result.dtype == np.float64
+        assert len(result) == n
