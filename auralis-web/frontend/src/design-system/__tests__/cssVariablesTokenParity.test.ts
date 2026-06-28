@@ -59,6 +59,20 @@ describe('index.css token parity (#3927)', () => {
     }
   });
 
+  it('--space-* match tokens.spacing (no legacy 4-8px grid drift) (#4172)', () => {
+    expect(cssVar('space-xs')).toBe(tokens.spacing.xs);   // 4px
+    expect(cssVar('space-sm')).toBe(tokens.spacing.sm);   // 6px
+    expect(cssVar('space-md')).toBe(tokens.spacing.md);   // 12px
+    expect(cssVar('space-lg')).toBe(tokens.spacing.lg);   // 20px
+    expect(cssVar('space-xl')).toBe(tokens.spacing.xl);   // 28px
+    expect(cssVar('space-2xl')).toBe(tokens.spacing.xxl); // 40px
+    expect(cssVar('space-3xl')).toBe(tokens.spacing.xxxl); // 56px
+  });
+
+  it('the no-token --space-base var has been removed (#4172)', () => {
+    expect(() => cssVar('space-base')).toThrow();
+  });
+
   it('transition vars use brand cubic-bezier easing, not plain ease', () => {
     for (const name of ['transition-fast', 'transition-normal', 'transition-slow']) {
       const value = cssVar(name);
