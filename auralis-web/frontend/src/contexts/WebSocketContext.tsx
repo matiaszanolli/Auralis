@@ -309,12 +309,16 @@ export const WebSocketProvider = ({
             return;
           }
 
-          // Text frame: JSON message
-          const message: AnyWebSocketMessage | WebSocketMessage = JSON.parse(event.data);
+          // Text frame: JSON message. AudioChunkMetaMessage is included here
+          // (though not part of the public AnyWebSocketMessage union, #4167)
+          // because the backend still sends it and we consume it internally.
+          const message: AnyWebSocketMessage | WebSocketMessage | AudioChunkMetaMessage =
+            JSON.parse(event.data);
 
           // If this is an audio_chunk_meta, stash it and wait for the binary frame.
+          // It is never dispatched to subscribers.
           if (message.type === 'audio_chunk_meta') {
-            pendingAudioChunkMeta = message as AudioChunkMetaMessage;
+            pendingAudioChunkMeta = message;
             return;
           }
 

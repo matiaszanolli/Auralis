@@ -49,9 +49,11 @@ import type {
   AudioStreamStartMessage,
   AudioStreamEndMessage,
   AudioChunkMessage,
-  AudioChunkMetaMessage,
   AudioStreamErrorMessage,
 } from './streaming';
+// Note: AudioChunkMetaMessage is intentionally NOT imported here — it is an
+// internal type consumed by WebSocketContext and is not part of the public
+// AnyWebSocketMessage union / ALL_MESSAGE_TYPES (#4167).
 
 import type {
   EnhancementMessageType,
@@ -103,7 +105,6 @@ export type AnyWebSocketMessage =
   | AudioStreamStartMessage
   | AudioStreamEndMessage
   | AudioChunkMessage
-  | AudioChunkMetaMessage
   | AudioStreamErrorMessage
   | ScanProgressMessage
   | ScanCompleteMessage
@@ -145,7 +146,6 @@ export const ALL_MESSAGE_TYPES: readonly WebSocketMessageType[] = [
   'audio_stream_start',
   'audio_stream_end',
   'audio_chunk',
-  'audio_chunk_meta',
   'audio_stream_error',
   'scan_progress',
   'scan_complete',

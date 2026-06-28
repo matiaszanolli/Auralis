@@ -8,12 +8,16 @@
 import type { EnhancementPreset } from '../domain';
 import type { WebSocketMessage } from './base';
 
-/** Message-type literals owned by the streaming domain. */
+/** Message-type literals owned by the streaming domain.
+ *
+ * Note: 'audio_chunk_meta' is intentionally NOT here. It is a text frame that
+ * WebSocketContext consumes internally (pairing it with the following binary
+ * PCM frame into a synthesised 'audio_chunk'); it is never dispatched, so it is
+ * not a public subscription key (#4167). Its shape is AudioChunkMetaMessage. */
 export type StreamingMessageType =
   | 'audio_stream_start'
   | 'audio_stream_end'
   | 'audio_chunk'
-  | 'audio_chunk_meta'
   | 'audio_stream_error';
 
 
@@ -87,9 +91,14 @@ export interface AudioChunkMessage extends WebSocketMessage {
  *  The backend emits this in _send_pcm_chunk before the matching binary frame.
  *  WebSocketContext pairs the two and synthesises an `audio_chunk` event for
  *  downstream consumers — direct consumers of this raw shape should read seq /
- *  frame_index for desync detection. */
-export interface AudioChunkMetaMessage extends WebSocketMessage {
+ *  frame_index for desync detection.
+ *
+ *  INTERNAL: deliberately does NOT extend WebSocketMessage and 'audio_chunk_meta'
+ *  is not a WebSocketMessageType — this message is consumed by WebSocketContext
+ *  and never dispatched, so it is not a public subscription key (#4167). */
+export interface AudioChunkMetaMessage {
   type: 'audio_chunk_meta';
+  timestamp?: number;
   data: {
     /** Monotonic sequence counter across the entire stream — clients can
      *  detect dropped or reordered frames by checking that seq increases

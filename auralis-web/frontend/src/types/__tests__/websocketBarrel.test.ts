@@ -13,7 +13,10 @@ import * as ws from '@/types/websocket';
 
 describe('@/types/websocket barrel (#4081)', () => {
   it('re-exports the message-type tables', () => {
-    expect(ws.ALL_MESSAGE_TYPES).toHaveLength(35);
+    // 34 public subscription types: 'audio_chunk_meta' was removed (#4167) — it
+    // is consumed internally by WebSocketContext and never dispatched.
+    expect(ws.ALL_MESSAGE_TYPES).toHaveLength(34);
+    expect(ws.ALL_MESSAGE_TYPES).not.toContain('audio_chunk_meta');
     expect(ws.ALL_MESSAGE_TYPES).toContain('player_state');
     expect(ws.ALL_MESSAGE_TYPES).toContain('error');
     expect(ws.PLAYER_STATE_TYPES).toContain('playback_started');
