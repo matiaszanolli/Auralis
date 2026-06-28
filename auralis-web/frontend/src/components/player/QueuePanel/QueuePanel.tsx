@@ -169,6 +169,18 @@ export const QueuePanel = ({
     dragTargetRef.current = toIndex;
   }, []);
 
+  // Stable per-item handlers (take the index) so QueueTrackItem's React.memo
+  // holds across hover/drag — passing inline closures per row would defeat it
+  // and re-render every visible row on each hover (#4177).
+  const handleDragStart = useCallback((index: number) => {
+    setDraggingIndex(index);
+    dragTargetRef.current = null;
+  }, []);
+
+  const handleHover = useCallback((index: number, hovering: boolean) => {
+    setHoveredIndex(hovering ? index : null);
+  }, []);
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -236,16 +248,11 @@ export const QueuePanel = ({
                   isCurrentTrack={index === currentIndex}
                   isDragging={draggingIndex === index}
                   isHovered={hoveredIndex === index}
-                  onRemove={() => handleRemoveTrack(index)}
-                  onDragStart={() => {
-                    setDraggingIndex(index);
-                    dragTargetRef.current = null;
-                  }}
+                  onRemove={handleRemoveTrack}
+                  onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   onDragOver={handleDragOver}
-                  onHover={(hovering) =>
-                    setHoveredIndex(hovering ? index : null)
-                  }
+                  onHover={handleHover}
                   disabled={isLoading}
                   style={{
                     position: 'absolute' as const,
