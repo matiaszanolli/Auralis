@@ -131,6 +131,23 @@ describe('QueueStatistics', () => {
     expect(stats.artists.distribution.size).toBe(5);
   });
 
+  it('builds genre distribution from real track.genre, not always "unknown" (#4038)', () => {
+    const tracks: Track[] = [
+      { id: 1, title: 'A', artist: 'X', album: 'Q', duration: 100, filepath: '/a', genre: 'Rock' },
+      { id: 2, title: 'B', artist: 'Y', album: 'Q', duration: 100, filepath: '/b', genre: 'Rock' },
+      { id: 3, title: 'C', artist: 'Z', album: 'Q', duration: 100, filepath: '/c', genre: 'Pop' },
+      // No genre → 'unknown'
+      { id: 4, title: 'D', artist: 'W', album: 'Q', duration: 100, filepath: '/d' },
+    ];
+
+    const stats = QueueStatistics.calculateStats(tracks);
+
+    expect(stats.genres.distribution.get('Rock')).toBe(2);
+    expect(stats.genres.distribution.get('Pop')).toBe(1);
+    expect(stats.genres.distribution.get('unknown')).toBe(1);
+    expect(stats.genres.unique).toBe(3);
+  });
+
   it('should identify mode in distribution', () => {
     const tracks: Track[] = [
       {

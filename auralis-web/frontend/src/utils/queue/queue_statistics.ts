@@ -219,10 +219,11 @@ export class QueueStatistics {
    * Extract genre from track metadata
    * (assumes genre is stored in track object or derived from metadata)
    */
-  private static extractGenre(_track: Track): string {
-    // For now, we'll use a placeholder
-    // In a real app, this would read from track metadata
-    return 'unknown';
+  private static extractGenre(track: Track): string {
+    // Read the genre already present on the Track model; fall back to 'unknown'
+    // for null/undefined/empty so the distribution panel isn't always
+    // 'unknown: 100%' (#4038).
+    return track.genre || 'unknown';
   }
 
   /**
