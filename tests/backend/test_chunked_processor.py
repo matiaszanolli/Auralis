@@ -109,7 +109,9 @@ class TestChunkedProcessorConstants:
 
     def test_context_duration(self):
         """Test CONTEXT_DURATION constant"""
-        assert isinstance(CONTEXT_DURATION, int)
+        # Now sourced from chunk_boundaries (the single source of truth), which
+        # uses float seconds (#4024) — match the other constants' (int, float).
+        assert isinstance(CONTEXT_DURATION, (int, float))
         assert CONTEXT_DURATION == 5
         assert CONTEXT_DURATION > 0
 

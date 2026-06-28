@@ -34,7 +34,14 @@ if project_root not in sys.path:
 from core.audio_processing_pipeline import AudioProcessingPipeline
 
 # Core modules (new modular architecture)
-from core.chunk_boundaries import ChunkBoundaryManager, content_chunk_count
+from core.chunk_boundaries import (  # noqa: F401 — CONTEXT_DURATION re-exported for callers
+    ChunkBoundaryManager,
+    content_chunk_count,
+    CHUNK_DURATION,
+    CHUNK_INTERVAL,
+    OVERLAP_DURATION,
+    CONTEXT_DURATION,
+)
 from core.chunk_cache_manager import ChunkCacheManager  # Phase 5.1: Cache management
 from core.chunk_operations import ChunkOperations  # Phase 3: Unified chunk operations
 from core.encoding import WAVEncoder
@@ -83,11 +90,10 @@ def _default_get_fingerprints_repository() -> Any | None:
 # Maps preset name -> last_content_profile dict
 _last_content_profiles: dict[str, Any] = {}
 
-# Chunk configuration
-CHUNK_DURATION = 15  # seconds - actual chunk length
-CHUNK_INTERVAL = 10  # seconds - playback interval (CHUNK_DURATION - OVERLAP_DURATION)
-OVERLAP_DURATION = 5  # seconds - overlap for natural crossfades (was 0.1s)
-CONTEXT_DURATION = 5  # seconds of context for better processing quality
+# Chunk geometry (CHUNK_DURATION/CHUNK_INTERVAL/OVERLAP_DURATION/CONTEXT_DURATION)
+# comes from chunk_boundaries — the single source of truth (#4024) — re-exported
+# via the import above so existing `from core.chunked_processor import …` call
+# sites keep working.
 MAX_LEVEL_CHANGE_DB = 1.5  # maximum allowed level change between chunks in dB
 
 
