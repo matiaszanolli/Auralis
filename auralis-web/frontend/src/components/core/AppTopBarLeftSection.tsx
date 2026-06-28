@@ -24,6 +24,7 @@ export const AppTopBarLeftSection = ({
       {showMobileMenu && (
         <IconButton
           onClick={onOpenMobileDrawer}
+          aria-label="Open navigation menu"
           sx={{
             color: tokens.colors.text.secondary,
             padding: '8px',
