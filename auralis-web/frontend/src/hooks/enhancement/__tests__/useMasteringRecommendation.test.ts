@@ -10,7 +10,7 @@ import { renderHook, act } from '@testing-library/react';
 // Capture the subscribe callback so tests can simulate WS messages
 let subscribeCb: ((data: any) => void) | null = null;
 const mockUnsubscribe = vi.fn();
-const mockSubscribe = vi.fn((type: string, cb: (data: any) => void) => {
+const mockSubscribe = vi.fn((_type: string, cb: (data: any) => void) => {
   subscribeCb = cb;
   return mockUnsubscribe;
 });
@@ -32,6 +32,7 @@ const mockRec: MasteringRecommendationData = {
   predicted_loudness_change: 1.2,
   predicted_crest_change: -0.3,
   predicted_centroid_change: 0.5,
+  reasoning: 'Warm profile best matches the source tonal balance',
   is_hybrid: true,
 };
 

@@ -7,35 +7,16 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import type { AnyWebSocketMessage, WebSocketMessage } from '@/types/websocket';
+import type {
+  AnyWebSocketMessage,
+  WebSocketMessage,
+  MasteringRecommendationData,
+  MasteringRecommendationMessage,
+} from '@/types/websocket';
 
-export interface MasteringRecommendationData {
-  track_id: number;
-  primary_profile_id: string;
-  primary_profile_name: string;
-  confidence_score: number;
-  predicted_loudness_change: number;
-  predicted_crest_change: number;
-  predicted_centroid_change: number;
-  weighted_profiles?: Array<{
-    profile_id: string;
-    profile_name: string;
-    weight: number;
-  }>;
-  reasoning?: string;
-  is_hybrid?: boolean;
-  created?: string;
-  alternative_profiles?: Array<{
-    id: string;
-    name: string;
-  }>;
-}
-
-/** WebSocket message shape for mastering_recommendation events */
-interface MasteringRecommendationMessage {
-  type: 'mastering_recommendation';
-  data: MasteringRecommendationData;
-}
+// Single source of truth lives in types/ws/enhancement (#4166). Re-export so
+// existing importers of this type from the hook keep resolving.
+export type { MasteringRecommendationData };
 
 interface MasteringRecommendationCache {
   [trackId: number]: MasteringRecommendationData;

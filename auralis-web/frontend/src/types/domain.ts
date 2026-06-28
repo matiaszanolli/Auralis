@@ -191,28 +191,13 @@ export const ENHANCEMENT_PRESET_DESCRIPTIONS: Record<EnhancementPreset, string> 
 // Mastering Recommendation
 // ============================================================================
 
-export interface MasteringRecommendation {
-  track_id: number;
-  primary_profile_id: string;
-  primary_profile_name: string;
-  confidence_score: number; // 0.0 - 1.0
-
-  // Predicted changes
-  predicted_loudness_change: number; // dB
-  predicted_crest_change: number; // dB
-  predicted_centroid_change: number; // Hz
-
-  // Hybrid blending (if applicable)
-  weighted_profiles: Array<{
-    profile_id: string;
-    profile_name: string;
-    weight: number; // 0.0 - 1.0
-  }>;
-
-  // Explanation
-  reasoning: string;
-  is_hybrid: boolean;
-}
+// Single source of truth lives in types/ws/enhancement (#4166). The old local
+// shape made weighted_profiles REQUIRED, which threw when iterating it for
+// non-hybrid profiles. Alias the canonical type (weighted_profiles optional)
+// and re-export it so existing importers keep resolving.
+export type { MasteringRecommendationData } from '@/types/ws/enhancement';
+import type { MasteringRecommendationData } from '@/types/ws/enhancement';
+export type MasteringRecommendation = MasteringRecommendationData;
 
 // ============================================================================
 // Audio Fingerprint

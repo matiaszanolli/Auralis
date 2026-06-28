@@ -8,24 +8,7 @@
 
 import { memo } from 'react';
 import { tokens } from '@/design-system';
-
-interface ProfileWeight {
-  profile_id: string;
-  profile_name: string;
-  weight: number;
-}
-
-interface MasteringRecommendationData {
-  primary_profile_id: string;
-  primary_profile_name: string;
-  confidence_score: number;
-  predicted_loudness_change: number;
-  predicted_crest_change: number;
-  predicted_centroid_change: number;
-  weighted_profiles?: ProfileWeight[];
-  reasoning?: string;
-  is_hybrid?: boolean;
-}
+import type { MasteringRecommendationData } from '@/types/websocket';
 
 interface MasteringRecommendationProps {
   recommendation: MasteringRecommendationData | null;
