@@ -122,3 +122,49 @@ def test_old_offset_zero_would_have_duplicated_overlap():
 
     # The old slice started OVERLAP_DURATION too early.
     assert new_behaviour[0, 0] - old_behaviour[0, 0] == overlap_samples
+
+
+# ---------------------------------------------------------------------------
+# #4132 — rank consistency: mono 1-D input must return 2-D (N,1) on every
+# validation branch (pad / trim / pass-through), not 1-D on some and 2-D on
+# others.
+# ---------------------------------------------------------------------------
+
+def _extract_mono(buf_1d, chunk_index=0, total_chunks=10, total_duration=100.0):
+    return ChunkOperations.extract_chunk_segment(
+        processed_chunk=buf_1d,
+        chunk_index=chunk_index,
+        sample_rate=SR,
+        chunk_duration=CHUNK_DURATION,
+        chunk_interval=CHUNK_INTERVAL,
+        overlap_duration=OVERLAP_DURATION,
+        total_chunks=total_chunks,
+        total_duration=total_duration,
+    )
+
+
+def test_mono_short_buffer_pads_to_2d():
+    # 1 s buffer for chunk 0 (expects CHUNK_DURATION s) -> pad branch.
+    seg = _extract_mono(np.arange(SR, dtype=np.float64))
+    assert seg.ndim == 2
+    assert seg.shape[1] == 1
+
+
+def test_mono_full_buffer_passthrough_is_2d():
+    # ~CHUNK_DURATION s buffer for chunk 0 -> exact / pass-through branch.
+    seg = _extract_mono(np.arange(int(round(CHUNK_DURATION * SR)), dtype=np.float64))
+    assert seg.ndim == 2
+    assert seg.shape[1] == 1
+
+
+def test_mono_pad_and_passthrough_have_same_rank():
+    short = _extract_mono(np.zeros(SR, dtype=np.float64))                       # pad
+    full = _extract_mono(np.zeros(int(round(CHUNK_DURATION * SR)), dtype=np.float64))  # passthrough
+    assert short.ndim == full.ndim == 2
+
+
+def test_stereo_input_stays_2d():
+    buf = np.column_stack([np.arange(SR, dtype=np.float64)] * 2)  # (SR, 2)
+    seg = _extract_mono(buf)
+    assert seg.ndim == 2
+    assert seg.shape[1] == 2

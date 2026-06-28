@@ -223,6 +223,16 @@ class ChunkOperations:
         # Verify and pad/trim if needed (edge case handling)
         current_samples = len(extracted)
 
+        # Normalize mono to 2-D (N,1) up front so every validation branch below
+        # (pad / trim / pass-through) returns the same rank (#4132) — previously
+        # only the pad path promoted mono to 2-D, the others stayed 1-D.
+        if extracted.ndim not in (1, 2):
+            raise ValueError(
+                f"Chunk {chunk_index}: expected 1-D or 2-D audio array, got shape {extracted.shape}"
+            )
+        if extracted.ndim == 1:
+            extracted = extracted[:, np.newaxis]
+
         if chunk_index == 0:
             max_dur = chunk_duration
             if is_last and total_duration is not None:
@@ -237,26 +247,13 @@ class ChunkOperations:
             expected_for_validation = int(round(chunk_interval * sample_rate))
 
         if current_samples < expected_for_validation:
-            # Pad with silence if too short
+            # Pad with silence if too short. extracted is guaranteed 2-D here.
             padding_needed = expected_for_validation - current_samples
-            if extracted.ndim not in (1, 2):
-                raise ValueError(
-                    f"Chunk {chunk_index}: expected 1-D or 2-D audio array, got shape {extracted.shape}"
-                )
-            num_channels = extracted.shape[1] if extracted.ndim > 1 else 1
+            num_channels = extracted.shape[1]
             # Match the buffer's dtype instead of hardcoding float32 (#4134,
             # same dtype-hygiene fix as #4125) so padding never forces a cast.
             padding = np.zeros((padding_needed, num_channels), dtype=extracted.dtype)
-
-            if extracted.ndim == 1:
-                extracted = extracted[:, np.newaxis]
-                padding = padding.reshape(-1, num_channels)
-
-            extracted = (
-                np.vstack([extracted, padding])
-                if extracted.ndim > 1
-                else np.concatenate([extracted, padding])
-            )
+            extracted = np.vstack([extracted, padding])
             logger.warning(
                 f"⚠️ Chunk {chunk_index} was {padding_needed} samples short, padded with silence"
             )
