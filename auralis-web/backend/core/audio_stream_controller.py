@@ -639,7 +639,7 @@ class AudioStreamController:
                         preset=preset,
                         intensity=intensity,
                     ),
-                    timeout=30.0
+                    timeout=CHUNK_PROCESS_TIMEOUT,
                 )
             except TimeoutError:
                 error_msg = "Audio processor initialization timed out. File may be corrupt or on slow storage."
@@ -1831,7 +1831,7 @@ class AudioStreamController:
                         preset=preset,
                         intensity=intensity,
                     ),
-                    timeout=30.0
+                    timeout=CHUNK_PROCESS_TIMEOUT,
                 )
             except TimeoutError:
                 error_msg = "Audio processor initialization timed out during seek. File may be corrupt or on slow storage."
