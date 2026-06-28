@@ -460,7 +460,9 @@ describe('PlaybackControls', () => {
       );
 
       const playButton = screen.getByTestId('playback-controls-play');
-      expect(playButton).toHaveStyle('opacity: 0.5');
+      // Component applies opacity 0.7 when disabled (#4184); the old 0.5 made
+      // this a permanent false-negative.
+      expect(playButton).toHaveStyle('opacity: 0.7');
     });
 
     it('should have full opacity when enabled', () => {
