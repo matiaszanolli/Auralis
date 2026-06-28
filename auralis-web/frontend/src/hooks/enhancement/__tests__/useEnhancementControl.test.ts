@@ -156,10 +156,9 @@ describe('useEnhancementControl', () => {
       });
 
       expect(result.current.enabled).toBe(true);
-      // post(url, body, options) - enabled is passed as options, not body
+      // post(url, body) - enabled is sent as the JSON body (#4149)
       expect(mockPost).toHaveBeenCalledWith(
         '/api/player/enhancement/toggle',
-        undefined,
         expect.objectContaining({ enabled: true })
       );
     });
@@ -283,10 +282,9 @@ describe('useEnhancementControl', () => {
       });
 
       expect(result.current.preset).toBe('warm');
-      // post(url, body, options) - preset is passed as options, not body
+      // post(url, body) - preset is sent as the JSON body (#4149)
       expect(mockPost).toHaveBeenCalledWith(
         '/api/player/enhancement/preset',
-        undefined,
         expect.objectContaining({ preset: 'warm' })
       );
     });
@@ -404,10 +402,9 @@ describe('useEnhancementControl', () => {
       });
 
       expect(result.current.intensity).toBe(0.5);
-      // post(url, body, options) - intensity is passed as options, not body
+      // post(url, body) - intensity is sent as the JSON body (#4149)
       expect(mockPost).toHaveBeenCalledWith(
         '/api/player/enhancement/intensity',
-        undefined,
         expect.objectContaining({ intensity: 0.5 })
       );
     });
@@ -435,7 +432,6 @@ describe('useEnhancementControl', () => {
       expect(result.current.intensity).toBe(0.0);
       expect(mockPost).toHaveBeenCalledWith(
         '/api/player/enhancement/intensity',
-        undefined,
         expect.objectContaining({ intensity: 0.0 })
       );
     });
@@ -463,7 +459,6 @@ describe('useEnhancementControl', () => {
       expect(result.current.intensity).toBe(1.0);
       expect(mockPost).toHaveBeenCalledWith(
         '/api/player/enhancement/intensity',
-        undefined,
         expect.objectContaining({ intensity: 1.0 })
       );
     });
