@@ -566,3 +566,80 @@ class TestLoadPlaylist:
         result = ctrl.load_playlist(1)
 
         assert result is False
+
+
+class _LockSpy:
+    """Wrap a real lock and count how many times it is entered."""
+
+    def __init__(self, real):
+        self._real = real
+        self.enter_count = 0
+
+    def __enter__(self):
+        self.enter_count += 1
+        return self._real.__enter__()
+
+    def __exit__(self, *exc):
+        return self._real.__exit__(*exc)
+
+    def acquire(self, *a, **k):
+        return self._real.acquire(*a, **k)
+
+    def release(self):
+        return self._real.release()
+
+
+class TestLockedWrites:
+    """#4096/#4098: shuffle/repeat/current_index writes must go through
+    QueueManager._lock, not raw attribute assignment that bypasses it."""
+
+    def test_set_shuffle_acquires_lock_and_round_trips(self):
+        ctrl = _loaded_controller(3)
+        spy = _LockSpy(ctrl.queue._lock)
+        ctrl.queue._lock = spy
+
+        spy.enter_count = 0
+        ctrl.set_shuffle(True)
+
+        assert spy.enter_count >= 1  # write went through the locked setter
+        assert ctrl.shuffle_enabled is True
+
+    def test_set_repeat_acquires_lock_and_round_trips(self):
+        ctrl = _loaded_controller(3)
+        spy = _LockSpy(ctrl.queue._lock)
+        ctrl.queue._lock = spy
+
+        spy.enter_count = 0
+        ctrl.set_repeat(True)
+
+        assert spy.enter_count >= 1
+        assert ctrl.repeat_enabled is True
+
+    def test_set_queue_clamps_index_under_lock(self):
+        ctrl, _ = _make_controller()
+        spy = _LockSpy(ctrl.queue._lock)
+        ctrl.queue._lock = spy
+
+        ctrl.set_queue([_track(1), _track(2), _track(3)], start_index=10)
+
+        # Index clamped to the last valid position, computed + written atomically.
+        assert ctrl.current_index == 2
+        assert spy.enter_count >= 1
+
+    def test_load_playlist_clamps_index_under_lock(self):
+        ctrl, factory = _make_controller()
+        playlist = MagicMock()
+        playlist.name = "Big"
+        playlist.tracks = [MagicMock() for _ in range(3)]
+        for i, t in enumerate(playlist.tracks):
+            t.to_dict.return_value = _track(i + 1)
+        factory.playlists.get_by_id.return_value = playlist
+
+        spy = _LockSpy(ctrl.queue._lock)
+        ctrl.queue._lock = spy
+
+        result = ctrl.load_playlist(1, start_index=99)
+
+        assert result is True
+        assert ctrl.current_index == 2  # clamped to last valid index
+        assert spy.enter_count >= 1

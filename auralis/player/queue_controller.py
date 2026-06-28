@@ -247,11 +247,17 @@ class QueueController:
                 track_info = track.to_dict()
                 self.queue.add_track(track_info)
 
-            # Snapshot under lock to avoid TOCTOU between the bool check and len() use.
-            tracks_snapshot = self.queue.get_queue()
-            if tracks_snapshot:
-                self.queue.current_index = min(start_index, len(tracks_snapshot) - 1)
-                info(f"Loaded playlist: {playlist.name} ({len(tracks_snapshot)} tracks)")
+            # Clamp + write current_index atomically (#4098). The length read and
+            # the write must happen under one held lock (RLock, re-entrant) so a
+            # concurrent queue shrink can't leave the index out of bounds in the
+            # gap between the snapshot and the write.
+            with self.queue._lock:
+                track_count = len(self.queue.tracks)
+                if track_count:
+                    self.queue.current_index = min(start_index, track_count - 1)
+
+            if track_count:
+                info(f"Loaded playlist: {playlist.name} ({track_count} tracks)")
                 return True
 
             warning(f"Playlist is empty: {playlist.name}")
@@ -272,12 +278,16 @@ class QueueController:
 
     def set_shuffle(self, enabled: bool) -> None:
         """Enable/disable shuffle mode"""
-        self.queue.shuffle_enabled = enabled
+        # Route through the locked property setter (#4096) — writing
+        # self.queue.shuffle_enabled directly bypassed QueueManager._lock that
+        # the shuffle_enabled reader (used by peek_next/next_track) holds.
+        self.shuffle_enabled = enabled
         info(f"Shuffle {'enabled' if enabled else 'disabled'}")
 
     def set_repeat(self, enabled: bool) -> None:
         """Enable/disable repeat mode"""
-        self.queue.repeat_enabled = enabled
+        # Route through the locked property setter (#4096), as with set_shuffle.
+        self.repeat_enabled = enabled
         info(f"Repeat {'enabled' if enabled else 'disabled'}")
 
     def is_queue_empty(self) -> bool:
@@ -331,6 +341,9 @@ class QueueController:
             else:
                 # Assume it's a filepath
                 self.queue.add_track({'filepath': track})
-        set_queue_snapshot = self.queue.get_queue()
-        if set_queue_snapshot and start_index >= 0:
-            self.queue.current_index = min(start_index, len(set_queue_snapshot) - 1)
+        # Clamp + write current_index atomically under one held lock (#4098) to
+        # avoid the TOCTOU between reading the length and writing the index.
+        with self.queue._lock:
+            track_count = len(self.queue.tracks)
+            if track_count and start_index >= 0:
+                self.queue.current_index = min(start_index, track_count - 1)
