@@ -69,6 +69,7 @@ export const LibrarySearchControls = ({
                 variant="primary"
                 onClick={onScanFolder}
                 disabled={scanning}
+                aria-label="Scan Folder"
               >
                 <FolderOpen />
               </IconButton>
@@ -80,6 +81,7 @@ export const LibrarySearchControls = ({
               <IconButton
                 onClick={onRefresh}
                 disabled={loading}
+                aria-label="Refresh Library"
               >
                 <Refresh />
               </IconButton>
