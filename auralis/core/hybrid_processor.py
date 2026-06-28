@@ -205,8 +205,8 @@ class HybridProcessor:
 
     def process(
         self,
-        target: str | np.ndarray,
-        reference: str | np.ndarray | None = None,
+        target: np.ndarray,
+        reference: np.ndarray | None = None,
         results: str | list[str] | Result | list[Result] | None = None,
         preview_target: Result | None = None,
         preview_result: Result | None = None
@@ -215,8 +215,8 @@ class HybridProcessor:
         Main processing function supporting both reference and adaptive modes
 
         Args:
-            target: Target audio file path or array
-            reference: Reference audio file path or array (optional for adaptive mode)
+            target: Target audio array (pre-loaded NumPy array)
+            reference: Reference audio array (optional for adaptive mode)
             results: Output file path(s) or Result object(s)
             preview_target: Preview target result (optional)
             preview_result: Preview result output (optional)
@@ -229,8 +229,8 @@ class HybridProcessor:
 
     def _process_impl(
         self,
-        target: str | np.ndarray,
-        reference: str | np.ndarray | None = None,
+        target: np.ndarray,
+        reference: np.ndarray | None = None,
         results: str | list[str] | Result | list[Result] | None = None,
         preview_target: Result | None = None,
         preview_result: Result | None = None
@@ -238,11 +238,8 @@ class HybridProcessor:
         """Inner implementation called under _process_lock."""
         info(f"Starting hybrid processing in {self.config.adaptive.mode} mode")
 
-        # Load target audio (simplified for now - will be enhanced with unified I/O)
-        if isinstance(target, str):
-            target_audio = self._load_audio_placeholder(target)
-        else:
-            target_audio = target
+        # Callers pass a pre-loaded NumPy array (#4035).
+        target_audio = target
 
         # Validate audio array
         if not isinstance(target_audio, np.ndarray):
@@ -285,16 +282,13 @@ class HybridProcessor:
             raise ValueError(f"Invalid processing mode: {self.config.adaptive.mode}")
 
     def _process_reference_mode(self, target_audio: np.ndarray,
-                               reference: str | np.ndarray,
+                               reference: np.ndarray,
                                results: Any) -> np.ndarray:
         """Process using traditional reference-based matching"""
         info("Processing in reference mode")
 
-        # Load reference audio
-        if isinstance(reference, str):
-            reference_audio = self._load_audio_placeholder(reference)
-        else:
-            reference_audio = reference
+        # Reference is a pre-loaded NumPy array (#4035).
+        reference_audio = reference
 
         # Delegate to reference matching
         processed = apply_reference_matching(target_audio, reference_audio)
@@ -369,18 +363,13 @@ class HybridProcessor:
         return processed
 
     def _process_hybrid_mode(self, target_audio: np.ndarray,
-                            reference: str | np.ndarray | None,
+                            reference: np.ndarray | None,
                             results: Any) -> np.ndarray:
         """Process using hybrid approach combining reference and adaptive"""
         info("Processing in hybrid mode")
 
-        # Load reference if provided
-        reference_audio = None
-        if reference is not None:
-            if isinstance(reference, str):
-                reference_audio = self._load_audio_placeholder(reference)
-            else:
-                reference_audio = reference
+        # Reference, if provided, is a pre-loaded NumPy array (#4035).
+        reference_audio = reference
 
         # Delegate to hybrid mode processor
         processed = self.hybrid_mode.process(target_audio, reference_audio, self.eq_processor)
@@ -443,13 +432,6 @@ class HybridProcessor:
             )
 
             return processed_chunk
-
-    def _load_audio_placeholder(self, file_path: str) -> np.ndarray:
-        """File-path audio loading is not implemented; callers must pass a NumPy array."""
-        raise NotImplementedError(
-            f"Loading audio from a file path is not supported. "
-            f"Pass a NumPy array directly instead of: {file_path}"
-        )
 
     # Delegation methods for component managers
 
@@ -630,7 +612,7 @@ def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridP
         return _processor_cache[cache_key]
 
 
-def process_adaptive(target: str | np.ndarray,
+def process_adaptive(target: np.ndarray,
                     config: UnifiedConfig | None = None) -> np.ndarray:
     """
     Quick adaptive processing function (cached)
@@ -644,8 +626,8 @@ def process_adaptive(target: str | np.ndarray,
     return result
 
 
-def process_reference(target: str | np.ndarray,
-                     reference: str | np.ndarray,
+def process_reference(target: np.ndarray,
+                     reference: np.ndarray,
                      config: UnifiedConfig | None = None) -> np.ndarray:
     """
     Quick reference-based processing function (cached)
@@ -659,8 +641,8 @@ def process_reference(target: str | np.ndarray,
     return result
 
 
-def process_hybrid(target: str | np.ndarray,
-                  reference: str | np.ndarray | None = None,
+def process_hybrid(target: np.ndarray,
+                  reference: np.ndarray | None = None,
                   config: UnifiedConfig | None = None) -> np.ndarray:
     """
     Quick hybrid processing function (cached)
