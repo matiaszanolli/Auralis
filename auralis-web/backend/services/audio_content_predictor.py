@@ -20,6 +20,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from core.chunk_boundaries import CHUNK_INTERVAL
+
 logger = logging.getLogger(__name__)
 
 
@@ -136,8 +138,11 @@ class AudioContentAnalyzer:
 
         Uses minimal dependencies for speed.
         """
-        chunk_duration = 10.0
-        start_sec = chunk_idx * chunk_duration
+        # Chunks start every CHUNK_INTERVAL seconds (#4027) — this is the
+        # interval, not the full chunk duration. Source it from chunk_boundaries
+        # instead of a fourth hardcoded copy of the constant.
+        chunk_interval = CHUNK_INTERVAL
+        start_sec = chunk_idx * chunk_interval
 
         try:
             # Try soundfile first (fastest for WAV/FLAC)
@@ -146,7 +151,7 @@ class AudioContentAnalyzer:
             with sf.SoundFile(filepath) as f:
                 sample_rate = f.samplerate
                 start_frame = int(start_sec * sample_rate)
-                num_frames = int(chunk_duration * sample_rate)
+                num_frames = int(chunk_interval * sample_rate)
 
                 f.seek(start_frame)
                 audio: np.ndarray = f.read(num_frames)
@@ -165,7 +170,7 @@ class AudioContentAnalyzer:
 
             audio_full, sample_rate = load_audio(filepath)
             start_frame = int(start_sec * sample_rate)
-            num_frames = int(chunk_duration * sample_rate)
+            num_frames = int(chunk_interval * sample_rate)
             audio = audio_full[start_frame:start_frame + num_frames]
 
             if len(audio.shape) > 1:
