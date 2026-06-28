@@ -29,10 +29,11 @@
   --aurora-violet: #7366F0;     /* Soft Violet/Indigo - primary accent */
   --aurora-pink: #EC4899;       /* #3927: tokens.colors.audioSemantic.harmonic (was #F472B6) */
 
-  /* Gradients */
-  --aurora-gradient: linear-gradient(135deg, #06B6D4 0%, #7366F0 50%, #F472B6 100%);
-  --aurora-horizontal: linear-gradient(90deg, #06B6D4, #7366F0, #F472B6);
-  --aurora-vertical: linear-gradient(180deg, #06B6D4, #7366F0, #F472B6);
+  /* Gradients — reference the token-aligned aurora stops above (#4171) instead
+     of duplicating off-palette Tailwind cyan (#06B6D4) / pink (#F472B6). */
+  --aurora-gradient: linear-gradient(135deg, var(--aurora-cyan) 0%, var(--aurora-violet) 50%, var(--aurora-pink) 100%);
+  --aurora-horizontal: linear-gradient(90deg, var(--aurora-cyan), var(--aurora-violet), var(--aurora-pink));
+  --aurora-vertical: linear-gradient(180deg, var(--aurora-cyan), var(--aurora-violet), var(--aurora-pink));
 
   /* Semantic Colors */
   --success: #10B981;

@@ -38,6 +38,27 @@ describe('index.css token parity (#3927)', () => {
     );
   });
 
+  it('--aurora-cyan/violet match the brand accent tokens (#4171)', () => {
+    expect(cssVar('aurora-cyan').toUpperCase()).toBe(
+      tokens.colors.accent.secondary.toUpperCase(),
+    );
+    expect(cssVar('aurora-violet').toUpperCase()).toBe(
+      tokens.colors.accent.primary.toUpperCase(),
+    );
+  });
+
+  it('--aurora gradients reference the token-aligned stop vars, not off-palette hex (#4171)', () => {
+    for (const name of ['aurora-gradient', 'aurora-horizontal', 'aurora-vertical']) {
+      const value = cssVar(name);
+      expect(value).toContain('var(--aurora-cyan)');
+      expect(value).toContain('var(--aurora-violet)');
+      expect(value).toContain('var(--aurora-pink)');
+      // The old Tailwind cyan/pink must be gone.
+      expect(value.toUpperCase()).not.toContain('#06B6D4');
+      expect(value.toUpperCase()).not.toContain('#F472B6');
+    }
+  });
+
   it('transition vars use brand cubic-bezier easing, not plain ease', () => {
     for (const name of ['transition-fast', 'transition-normal', 'transition-slow']) {
       const value = cssVar(name);
