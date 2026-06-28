@@ -759,8 +759,14 @@ class AudioPlayer:
     @position.setter
     def position(self, value: int) -> None:
         """Set position in samples — thread-safe via PlaybackController.seek()"""
-        max_samples = self.file_manager.get_total_samples()
-        self.playback.seek(value, max_samples)
+        # Hold _audio_lock across the read-then-seek (#4141), like
+        # AudioPlayer.seek(): a gapless transition between get_total_samples()
+        # and playback.seek() could otherwise swap in a shorter track and leave
+        # max_samples stale, seeking past the new track's end. RLock so the
+        # nested get_total_samples() acquisition is safe.
+        with self.file_manager._audio_lock:
+            max_samples = self.file_manager.get_total_samples()
+            self.playback.seek(value, max_samples)
 
     @property
     def sample_rate(self) -> int:
