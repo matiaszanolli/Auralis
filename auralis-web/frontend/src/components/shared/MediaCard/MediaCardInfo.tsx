@@ -81,7 +81,10 @@ export const MediaCardInfo = ({
         variant="caption"
         sx={{
           fontSize: tokens.typography.fontSize.xs,
-          color: tokens.colors.text.disabled,
+          // text.metadata (60% white, ~6.98:1 on the card bg) instead of
+          // text.disabled (40% white, ~3.68:1) which failed WCAG AA for this
+          // 11px content caption (#4182).
+          color: tokens.colors.text.metadata,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
