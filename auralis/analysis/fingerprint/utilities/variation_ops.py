@@ -87,6 +87,18 @@ class VariationOperations:
         Returns:
             Dynamic range variation (0-1)
         """
+        # Contract check (#4140) BEFORE the try: when frame_peaks must be
+        # computed but rms was supplied (so hop/frame aren't derived below),
+        # hop_length and frame_length are required. A bare assert was disabled
+        # under python -O and AssertionError was swallowed by the except below
+        # (and BaseAnalyzer's), yielding a silent wrong 0.5 default — raise a
+        # clear ValueError that actually propagates.
+        if frame_peaks is None and rms is not None and (hop_length is None or frame_length is None):
+            raise ValueError(
+                "calculate_dynamic_range_variation requires hop_length and frame_length "
+                "when frame_peaks is not provided and rms is precomputed"
+            )
+
         try:
             # Import here to avoid circular dependency
             from ..metrics import VariationMetrics
@@ -104,7 +116,6 @@ class VariationOperations:
 
             # Use pre-computed peaks if provided, otherwise compute
             if frame_peaks is None:
-                assert hop_length is not None and frame_length is not None
                 frame_peaks = VariationOperations.get_frame_peaks(audio, hop_length, frame_length)
 
             # Vectorized crest factor calculation (peak/RMS in dB)
