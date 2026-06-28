@@ -12,7 +12,7 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 [![Component Tests](https://img.shields.io/badge/component%20tests-450%2B%20new-brightgreen.svg)]()
 [![Status](https://img.shields.io/badge/Phase-A%20Complete-brightgreen.svg)]()
 
-## 📦 Current Version: 1.2.0-beta.3
+## 📦 Current Version: 1.2.1-beta.2
 
 **🎵 Production-Ready Desktop Release (February 2026)**
 
@@ -91,28 +91,28 @@ Download the latest release from [GitHub Releases](https://github.com/matiaszano
 
 **Windows:**
 ```bash
-# 1. Download Auralis-Setup-1.2.0-beta.3.exe
+# 1. Download Auralis-Setup-1.2.1-beta.2.exe
 # 2. Run the installer
 # 3. Launch Auralis from Start Menu
 ```
 
 **Linux (AppImage):**
 ```bash
-# 1. Download Auralis-1.2.0-beta.3.AppImage
-chmod +x Auralis-1.2.0-beta.3.AppImage
-./Auralis-1.2.0-beta.3.AppImage
+# 1. Download Auralis-1.2.1-beta.2.AppImage
+chmod +x Auralis-1.2.1-beta.2.AppImage
+./Auralis-1.2.1-beta.2.AppImage
 ```
 
 **Linux (Debian/Ubuntu):**
 ```bash
-# 1. Download auralis_1.2.0-beta.3_amd64.deb
-sudo dpkg -i auralis_1.2.0-beta.3_amd64.deb
+# 1. Download auralis_1.2.1-beta.2_amd64.deb
+sudo dpkg -i auralis_1.2.1-beta.2_amd64.deb
 auralis
 ```
 
 **macOS:**
 ```bash
-# 1. Download Auralis-1.2.0-beta.3.dmg
+# 1. Download Auralis-1.2.1-beta.2.dmg
 # 2. Open the DMG and drag Auralis to Applications
 # 3. First launch: Right-click → Open (to bypass Gatekeeper)
 ```
@@ -432,7 +432,7 @@ npm run build
 
 ---
 
-## 🐛 Known Issues (v1.2.0-beta.3)
+## 🐛 Known Issues (v1.2.1-beta.2)
 
 ### ⚠️ Current Limitations
 
@@ -447,7 +447,7 @@ npm run build
 
 ### ✅ Recently Fixed
 
-**v1.2.0-beta.3** (February 2026):
+**v1.2.1-beta.2** (February 2026):
 - **Database migration race condition (CRITICAL)** - Inter-process locking prevents corruption
 - **Chunk boundary artifacts** - Equal-power crossfade for seamless playback
 - **Spectral loss in mastering** - Parallel processing preserves audio quality
