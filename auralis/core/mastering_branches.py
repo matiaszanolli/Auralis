@@ -18,6 +18,7 @@ import numpy as np
 
 from ..dsp.basic import amplify, normalize
 from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
+from ..utils.audio_validation import validate_audio_finite
 from .mastering_config import SimpleMasteringConfig
 from .processing.base import ExpansionStrategies
 from .stages.hf_budget import hf_lift_factor
@@ -161,6 +162,23 @@ class ProcessingBranch(ABC):
         """
         self.pipeline = pipeline
 
+    def _assert_finite(self, audio: np.ndarray, stage: str) -> np.ndarray:
+        """Inter-stage NaN/Inf spot-check (#4099).
+
+        The pipeline validates only at entry and (with repair) at exit, so a
+        non-finite value produced by any one of the ~10 intermediate stages
+        propagates silently to the end, where ``sanitize_audio`` zeros the whole
+        output — erasing which stage was at fault. Calling this at stage-group
+        boundaries with ``repair=False`` raises immediately, naming the group,
+        so the root-cause stage is localized. The all-finite fast path is two
+        cheap array scans. The final ``sanitize_audio`` boundary is unchanged,
+        preserving production resilience.
+
+        Returns ``audio`` unchanged (for inline use:
+        ``processed = self._assert_finite(processed, "...")``).
+        """
+        return validate_audio_finite(audio, context=f"SimpleMastering {stage}", repair=False)
+
     @abstractmethod
     def apply(
         self,
@@ -269,6 +287,8 @@ class CompressedLoudBranch(ProcessingBranch):
         pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
         processed = processed * pre_eq_gain
 
+        processed = self._assert_finite(processed, "CompressedLoud after dynamics/stereo")
+
         # Shared HF lift budget — restrains the exciter + clarity + presence +
         # air stages from stacking into fizz on HF-dead sources (#engine).
         hf_lift = hf_lift_factor(unpacker.presence_pct, unpacker.air_pct)
@@ -305,8 +325,11 @@ class CompressedLoudBranch(ProcessingBranch):
         )
         recorder.add(air_info)
 
+        processed = self._assert_finite(processed, "CompressedLoud after spectral")
+
         # Safety peak limit after enhancements
         processed = self.pipeline._apply_safety_limiter(processed, verbose)
+        processed = self._assert_finite(processed, "CompressedLoud after safety limiter")
 
         # Return with normalization flag
         info = recorder.to_dict()
@@ -371,6 +394,8 @@ class DynamicLoudBranch(ProcessingBranch):
         pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
         processed = processed * pre_eq_gain
 
+        processed = self._assert_finite(processed, "DynamicLoud after dynamics/stereo")
+
         # Shared HF lift budget — see DynamicLoudBranch for rationale.
         hf_lift = hf_lift_factor(unpacker.presence_pct, unpacker.air_pct)
 
@@ -406,8 +431,11 @@ class DynamicLoudBranch(ProcessingBranch):
         )
         recorder.add(air_info)
 
+        processed = self._assert_finite(processed, "DynamicLoud after spectral")
+
         # Safety peak limit after enhancements
         processed = self.pipeline._apply_safety_limiter(processed, verbose)
+        processed = self._assert_finite(processed, "DynamicLoud after safety limiter")
 
         # Return with normalization flag
         info = recorder.to_dict()
@@ -516,6 +544,8 @@ class QuietBranch(ProcessingBranch):
         )
         recorder.add(warmth_info)
 
+        processed = self._assert_finite(processed, "Quiet after low-end/warmth")
+
         # Shared HF lift budget — restrains exciter + clarity + presence + air
         # from stacking into fizz on HF-dead sources (was +6 dB relative presence
         # lift on dark material). See DynamicLoudBranch for rationale.
@@ -580,6 +610,8 @@ class QuietBranch(ProcessingBranch):
             effective_intensity, sample_rate, verbose, hf_lift
         )
         recorder.add(air_info)
+
+        processed = self._assert_finite(processed, "Quiet after spectral")
 
         # Soft clipping with multi-dimensional awareness
         loudness_factor = max(0.0, min(1.0, (-11.0 - unpacker.lufs) / 9.0))
@@ -709,6 +741,8 @@ class QuietBranch(ProcessingBranch):
 
         processed = normalize(processed, adapted_peak)
         recorder.add({'stage': 'normalize', 'target_peak': adapted_peak})
+
+        processed = self._assert_finite(processed, "Quiet after soft-clip/stereo/normalize")
 
         # Return without normalization flag (quiet branch does its own)
         info = recorder.to_dict()

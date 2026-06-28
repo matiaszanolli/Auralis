@@ -211,6 +211,87 @@ class TestSimpleMasteringNaNDetection:
         assert np.isfinite(result).all()
 
 
+_QUIET_FP = {
+    # lufs <= -12 routes to QuietBranch (the longest stage chain).
+    'lufs': -14.0, 'crest_db': 12.0, 'bass_pct': 0.2, 'sub_bass_pct': 0.05,
+    'low_mid_pct': 0.15, 'mid_pct': 0.2, 'upper_mid_pct': 0.2, 'presence_pct': 0.15,
+    'air_pct': 0.1, 'spectral_centroid': 0.5, 'spectral_rolloff': 0.5,
+    'spectral_flatness': 0.5, 'transient_density': 0.5, 'harmonic_ratio': 0.5,
+    'pitch_stability': 0.5, 'dynamic_range_variation': 0.5, 'peak_consistency': 0.5,
+    'stereo_width': 0.5, 'phase_correlation': 1.0,
+}
+
+
+class TestSimpleMasteringInterStageGuard:
+    """Inter-stage NaN/Inf guards localize the failing stage (#4099).
+
+    Without these guards, a NaN produced by any one mid-chain stage propagated
+    silently to the exit, where sanitize_audio zeroed the whole output — hiding
+    which stage was at fault. The guards raise (repair=False) at stage-group
+    boundaries instead, naming the group.
+    """
+
+    @pytest.fixture
+    def pipeline(self):
+        return SimpleMasteringPipeline()
+
+    def _run(self, pipeline):
+        audio = np.random.randn(2, 44100).astype(np.float32) * 0.5
+        return pipeline._process(audio, _QUIET_FP, peak_db=-6.0, intensity=1.0,
+                                 sample_rate=44100, verbose=False)
+
+    def test_nan_from_mid_chain_stage_raises_localized_error(self, pipeline, monkeypatch):
+        """A NaN injected by _apply_mid_warmth raises at the next guard, not zeros."""
+        def inject_nan(processed, *args, **kwargs):
+            bad = processed.copy()
+            bad[0, 0] = np.nan
+            return bad, {'stage': 'mid_warmth', 'injected_nan': True}
+
+        monkeypatch.setattr(pipeline, '_apply_mid_warmth', inject_nan)
+
+        with pytest.raises(ModuleError) as exc_info:
+            self._run(pipeline)
+
+        msg = str(exc_info.value)
+        assert 'NaN' in msg or 'Inf' in msg
+        # Localized to the guard right after the low-end/warmth group.
+        assert 'low-end/warmth' in msg
+
+    def test_nan_from_later_stage_localizes_to_a_different_group(self, pipeline, monkeypatch):
+        """Injecting later (air enhancement) trips the spectral-group guard."""
+        def inject_inf(processed, *args, **kwargs):
+            bad = processed.copy()
+            bad[1, 5] = np.inf
+            return bad, {'stage': 'air', 'injected_inf': True}
+
+        monkeypatch.setattr(pipeline, '_apply_air_enhancement', inject_inf)
+
+        with pytest.raises(ModuleError) as exc_info:
+            self._run(pipeline)
+
+        assert 'Quiet after spectral' in str(exc_info.value)
+
+    def test_guard_is_pass_through_on_finite_audio(self, pipeline):
+        """Happy path is unchanged: guards return finite audio untouched."""
+        result, info = self._run(pipeline)
+        assert result is not None
+        assert np.isfinite(result).all()
+
+    def test_assert_finite_helper_passes_finite_and_raises_nonfinite(self):
+        """Direct unit test of the shared guard helper on ProcessingBranch."""
+        from auralis.core.mastering_branches import QuietBranch
+        branch = QuietBranch(SimpleMasteringPipeline())
+
+        finite = np.random.randn(2, 100).astype(np.float32)
+        # Returns the same array unchanged when finite.
+        assert branch._assert_finite(finite, 'unit') is finite
+
+        bad = finite.copy()
+        bad[0, 0] = np.nan
+        with pytest.raises(ModuleError):
+            branch._assert_finite(bad, 'unit')
+
+
 class TestNaNPropagationPrevention:
     """Tests to ensure NaN doesn't propagate through pipeline"""
 
