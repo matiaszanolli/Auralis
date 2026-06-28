@@ -64,7 +64,10 @@ def apply(
     bass_dominance = np.clip((bass_pct - 0.50) / 0.30, 0.0, 1.0)
     bass_band_boost = boost_db * (1.0 - 0.4 * bass_dominance)
 
-    processed = audio
+    # Copy (not alias) so the both-bands-skipped path returns an independent
+    # array, matching the bypass paths above (#4129). The copy is cheap next to
+    # the sosfiltfilt filtering in the firing path.
+    processed = audio.copy()
     # Bass band — skip if essentially no bass to shape
     if bass_pct >= 0.05:
         processed = TransientShaper.apply(
