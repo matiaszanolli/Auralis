@@ -338,5 +338,39 @@ class TestFactoryFunction:
             assert extractor.artwork_dir == Path(tmpdir)
 
 
+class TestExtractFromGeneric:
+    """Tests for _extract_from_generic (OGG/Vorbis comment artwork)"""
+
+    def test_legacy_coverart_returns_decoded_bytes(self):
+        """Legacy COVERART tags store base64 text; the extractor must return
+        decoded bytes (not the str) so _save_artwork's md5/binary-write work (#4121)."""
+        import base64
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            extractor = ArtworkExtractor(tmpdir)
+
+            image_bytes = b"\xff\xd8\xff\xe0fake-jpeg-bytes"
+            mock_audio = MagicMock()
+            mock_audio.tags = {"COVERART": [base64.b64encode(image_bytes).decode("ascii")]}
+
+            data, mime = extractor._extract_from_generic(mock_audio)
+
+            assert isinstance(data, bytes)  # not the raw base64 str
+            assert data == image_bytes
+            assert mime == "image/jpeg"
+
+    def test_no_artwork_keys_returns_none(self):
+        """No artwork tag → (None, None)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            extractor = ArtworkExtractor(tmpdir)
+            mock_audio = MagicMock()
+            mock_audio.tags = {"TITLE": ["Song"]}
+
+            data, mime = extractor._extract_from_generic(mock_audio)
+
+            assert data is None
+            assert mime is None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -213,17 +213,21 @@ class ArtworkExtractor:
             # Try common artwork tag names
             artwork_keys = ['COVERART', 'COVER', 'METADATA_BLOCK_PICTURE']
 
+            import base64
+
             for key in artwork_keys:
                 if key in tags:
                     # Handle base64-encoded artwork (Vorbis comments)
                     if key == 'METADATA_BLOCK_PICTURE':
-                        import base64
                         picture_data = base64.b64decode(tags[key][0])
                         # Parse FLAC Picture block
                         picture = Picture(picture_data)  # type: ignore[no-untyped-call]
                         return picture.data, picture.mime
                     else:
-                        return tags[key][0], 'image/jpeg'
+                        # Legacy COVERART/COVER store the image as a base64 STRING;
+                        # decode to bytes so _save_artwork (hashlib.md5 / binary
+                        # write) doesn't TypeError and silently drop the art (#4121).
+                        return base64.b64decode(tags[key][0]), 'image/jpeg'
 
         except Exception as e:
             debug(f"Failed to extract from generic tags: {e}")
