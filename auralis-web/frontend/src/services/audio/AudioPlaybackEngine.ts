@@ -14,6 +14,7 @@
  */
 
 import PCMStreamBuffer from './PCMStreamBuffer';
+import { PLAYBACK_ENGINE_CONFIG } from './audioConstants';
 
 export type PlaybackState = 'idle' | 'playing' | 'paused' | 'stopped' | 'error';
 
@@ -32,8 +33,8 @@ function createGlobalAnalyser(audioContext: AudioContext): AnalyserNode {
   }
 
   const analyser = audioContext.createAnalyser();
-  analyser.fftSize = 2048;
-  analyser.smoothingTimeConstant = 0.8;
+  analyser.fftSize = PLAYBACK_ENGINE_CONFIG.fftSize;
+  analyser.smoothingTimeConstant = PLAYBACK_ENGINE_CONFIG.smoothingTimeConstant;
   window.__auralisAnalyser = analyser;
 
   return analyser;
@@ -67,17 +68,16 @@ export class AudioPlaybackEngine {
   // display must start from that position rather than 0:00 (fixes #2259).
   private seekOffsetSeconds: number = 0;
 
-  // Configuration
-  private bufferSize: number = 4096; // samples per process callback
-  private minBufferSamples: number = 96000; // ~1s at 48kHz stereo — start playback quickly; water marks handle recovery
+  // Configuration (centralised in audioConstants.ts — #4031)
+  private bufferSize: number = PLAYBACK_ENGINE_CONFIG.bufferSize; // samples per process callback
+  private minBufferSamples: number = PLAYBACK_ENGINE_CONFIG.minBufferSamples; // ~1s at 48kHz stereo — start playback quickly; water marks handle recovery
   private pausedTime: number = 0;
 
-  // Buffer health thresholds (in seconds of audio)
-  // When buffer drops below lowWaterMark, pause playback to let it recover
-  // Resume playback when buffer rises above highWaterMark
-  // With chunk look-ahead processing, chunks arrive faster so tighter marks are safe.
-  private lowWaterMarkSeconds: number = 5.0;  // Pause when < 5 seconds buffered
-  private highWaterMarkSeconds: number = 8.0; // Resume when > 8 seconds buffered
+  // Buffer health thresholds (in seconds of audio). Water marks stay below the
+  // backend chunk interval (CHUNK_INTERVAL = 10 s) so a single late chunk does
+  // not trigger an avoidable pause. See audioConstants.ts.
+  private lowWaterMarkSeconds: number = PLAYBACK_ENGINE_CONFIG.lowWaterMarkSeconds;  // Pause when < 5 seconds buffered
+  private highWaterMarkSeconds: number = PLAYBACK_ENGINE_CONFIG.highWaterMarkSeconds; // Resume when > 8 seconds buffered
   private isBufferPaused: boolean = false;    // Track if we paused due to low buffer
 
   // Callbacks
@@ -418,7 +418,7 @@ export class AudioPlaybackEngine {
       if (samples.length > 0) {
         this.workletNode!.port.postMessage({ samples });
       }
-    }, 50);
+    }, PLAYBACK_ENGINE_CONFIG.feedIntervalMs);
   }
 
   /**
