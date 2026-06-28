@@ -372,7 +372,9 @@ class ContentAnalyzer:
             return 0.0
 
         # Calculate RMS in 1-second windows
-        window_size = 44100  # 1 second at 44.1 kHz
+        # 1-second window at the actual sample rate (#4029) — hardcoding 44100
+        # gave a 0.92s window at 48 kHz / 0.46s at 96 kHz, biasing the estimate.
+        window_size = int(self.sample_rate)
         rms_values = []
 
         for i in range(0, len(audio) - window_size, window_size // 2):
