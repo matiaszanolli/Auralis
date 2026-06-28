@@ -24,6 +24,12 @@ import numpy as np
 from scipy.signal import find_peaks, sosfiltfilt, tf2sos
 from scipy.signal.windows import hann
 
+# PSD analysis window anchored in TIME, not samples (#4030). A fixed 16384-sample
+# window gave sample-rate-dependent frequency resolution (~1.35 Hz/bin at 22 kHz
+# vs ~5.9 Hz/bin at 96 kHz). 0.37 s reproduces the historical N=16384 at 44.1 kHz
+# (0.37 * 44100 = 16317 -> next power of two = 16384) so that path is unchanged.
+RESONANCE_FFT_WINDOW_SECONDS = 0.37
+
 
 @dataclass(frozen=True)
 class Notch:
@@ -82,8 +88,11 @@ class ResonanceNotcher:
         else:
             mono = audio
 
-        # Welch-style averaged PSD
-        N = 16384
+        # Welch-style averaged PSD. Window size scales with the sample rate so
+        # the frequency resolution stays ~constant (#4030); next power of two for
+        # FFT efficiency, with a floor of 4096 bins.
+        target_window = int(RESONANCE_FFT_WINDOW_SECONDS * sample_rate)
+        N = max(4096, 1 << (target_window - 1).bit_length())
         if len(mono) < N:
             return []
         hop = N // 2
