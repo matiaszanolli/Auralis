@@ -66,7 +66,10 @@ class FeatureExtractor:
         # Basic acoustic features
         rms_val = np.sqrt(np.mean(mono_audio ** 2))
         peak_val = np.max(np.abs(mono_audio))
-        crest_factor_db = crest_factor(audio)
+        # Use the padded mono signal like every sibling feature (#4138): the
+        # original stereo array reflected inter-channel rather than temporal
+        # dynamics (and skipped the min-length padding) for short clips.
+        crest_factor_db = crest_factor(mono_audio)
         zcr = zero_crossing_rate(mono_audio)
 
         # Spectral features
