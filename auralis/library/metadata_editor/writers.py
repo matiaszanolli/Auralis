@@ -29,6 +29,18 @@ except ImportError:
     MUTAGEN_ID3_AVAILABLE = False
 
 
+def _del_id3_frames_by_type(audio_file: Any, frame_id: str) -> None:
+    """Delete all ID3 frames of a type regardless of language/description.
+
+    COMM/USLT frame keys carry a language+desc suffix (e.g. ``COMM::eng``,
+    ``COMM:remark:fra``); deleting only ``COMM::eng`` leaves other-language
+    frames behind, and a subsequent write would accumulate duplicates (#4133).
+    """
+    stale = [k for k in audio_file.keys() if k == frame_id or k.startswith(frame_id + ':')]
+    for key in stale:
+        del audio_file[key]
+
+
 class MetadataWriters:
     """Format-specific metadata writers"""
 
@@ -54,8 +66,11 @@ class MetadataWriters:
             tag_key: str = tag_map[field]
 
             if value is None or value == '':
-                # Remove tag
-                if tag_key in audio_file:
+                # Remove tag. For language-tagged frames (COMM/USLT) clear every
+                # language variant, not just the ::eng one (#4133).
+                if '::' in tag_key:
+                    _del_id3_frames_by_type(audio_file, tag_key.split('::', 1)[0])
+                elif tag_key in audio_file:
                     del audio_file[tag_key]
             else:
                 # Set tag
@@ -76,6 +91,9 @@ class MetadataWriters:
                 elif field == 'disc':
                     audio_file['TPOS'] = TPOS(encoding=3, text=str(value))  # type: ignore[no-untyped-call]
                 elif field == 'comment':
+                    # Replace any existing comment frame (any language) so we
+                    # don't accumulate duplicate COMM frames (#4133).
+                    _del_id3_frames_by_type(audio_file, 'COMM')
                     audio_file['COMM::eng'] = COMM(encoding=3, lang='eng', desc='', text=str(value))  # type: ignore[no-untyped-call]
 
     @staticmethod

@@ -393,5 +393,63 @@ class TestFactoryFunction:
         assert isinstance(editor, MetadataEditor)
 
 
+@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
+class TestMp3CommentLanguageHandling:
+    """#4133 — COMM/USLT frames carry a language code; reads must match any
+    language and writes must replace (not accumulate) comment frames."""
+
+    def _reader(self):
+        from auralis.library.metadata_editor.readers import MetadataReaders
+        return MetadataReaders
+
+    def _writer(self):
+        from auralis.library.metadata_editor.writers import MetadataWriters
+        return MetadataWriters
+
+    def test_read_non_english_comment(self):
+        # A French comment frame must still be read into 'comment'.
+        audio_file = {'TIT2': 'Titre', 'COMM::fra': 'Bonjour'}
+        md = self._reader().read_mp3_metadata(audio_file)
+        assert md.get('comment') == 'Bonjour'
+
+    def test_read_english_comment_still_works(self):
+        audio_file = {'COMM::eng': 'Hello'}
+        md = self._reader().read_mp3_metadata(audio_file)
+        assert md.get('comment') == 'Hello'
+
+    def test_read_non_english_lyrics(self):
+        audio_file = {'USLT::deu': 'Guten Tag'}
+        md = self._reader().read_mp3_metadata(audio_file)
+        assert md.get('lyrics') == 'Guten Tag'
+
+    def _fake_mp3(self):
+        from mutagen.id3 import COMM
+
+        class FakeMP3(dict):
+            pass
+
+        af = FakeMP3()
+        af.tags = af  # non-None so write_mp3_metadata doesn't call add_tags()
+        af['COMM::fra'] = COMM(encoding=3, lang='fra', desc='', text='Bonjour')
+        return af
+
+    def test_write_replaces_other_language_comment(self):
+        af = self._fake_mp3()
+        self._writer().write_mp3_metadata(af, {'comment': 'Hello'})
+        # Old French frame gone, single English frame remains (no accumulation).
+        assert 'COMM::fra' not in af
+        assert 'COMM::eng' in af
+        comm_frames = [k for k in af.keys() if k == 'COMM' or k.startswith('COMM:')]
+        assert len(comm_frames) == 1
+        assert str(af['COMM::eng']) == 'Hello'
+
+    def test_write_empty_removes_all_comment_frames(self):
+        af = self._fake_mp3()
+        af['COMM::eng'] = self._fake_mp3()['COMM::fra']  # add a second frame
+        self._writer().write_mp3_metadata(af, {'comment': ''})
+        comm_frames = [k for k in af.keys() if k == 'COMM' or k.startswith('COMM:')]
+        assert comm_frames == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

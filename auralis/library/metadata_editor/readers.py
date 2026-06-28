@@ -31,13 +31,21 @@ class MetadataReaders:
         tag_map = TAG_MAPPINGS['mp3']
 
         for field, tag_key in tag_map.items():
+            value = None
             if tag_key in audio_file:
                 value = audio_file[tag_key]
-                if field in ('track', 'disc'):
-                    # Handle track/disc as string "number/total"
-                    metadata[field] = str(value) if value else None
-                else:
-                    metadata[field] = str(value) if value else None
+            elif '::' in tag_key:
+                # COMM/USLT frames carry a language code (COMM::eng, COMM::fra,
+                # COMM:desc:deu). Match any language so non-English comment/lyric
+                # frames aren't silently skipped (#4133).
+                frame_prefix = tag_key.split('::', 1)[0] + ':'
+                for key in audio_file.keys():
+                    if key.startswith(frame_prefix):
+                        value = audio_file[key]
+                        break
+
+            if value is not None:
+                metadata[field] = str(value) if value else None
 
         return metadata
 
