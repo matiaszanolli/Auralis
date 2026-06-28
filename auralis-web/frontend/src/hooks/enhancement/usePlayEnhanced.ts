@@ -255,6 +255,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
     // Clear playback engine and buffer references
     // Note: We don't unsubscribe here - subscriptions are managed by the mount effect
+    // dispose() releases the ~100 MB Float32Array immediately instead of leaving
+    // reclamation to GC timing (#4147).
+    pcmBufferRef.current?.dispose();
     pcmBufferRef.current = null;
     playbackEngineRef.current = null;
     streamingMetadataRef.current = null;
@@ -312,7 +315,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         return;
       }
 
-      // Initialize PCMStreamBuffer
+      // Initialize PCMStreamBuffer. Dispose any prior buffer first so replacing
+      // the ref never strands a ~100 MB Float32Array for GC (#4147).
+      pcmBufferRef.current?.dispose();
       const buffer = new PCMStreamBuffer();
       buffer.initialize(message.data.sample_rate, message.data.channels);
       pcmBufferRef.current = buffer;
@@ -593,6 +598,8 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       try {
         // Stop any existing playback
         playbackEngineRef.current?.stopPlayback();
+        // Release the prior ~100 MB buffer before dropping the ref (#4147)
+        pcmBufferRef.current?.dispose();
         pcmBufferRef.current = null;
         streamingMetadataRef.current = null;
         pendingChunksRef.current = [];
@@ -876,6 +883,11 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     return () => {
       // Only stop playback engine, don't call full stopPlayback which cleans up subscriptions
       playbackEngineRef.current?.stopPlayback();
+      // Release the ~100 MB PCM buffer on unmount — cleanupStreaming is not
+      // called here (it would setState on a dead component), so dispose the
+      // buffer directly instead of leaving it for GC (#4147).
+      pcmBufferRef.current?.dispose();
+      pcmBufferRef.current = null;
       // Close AudioContext to release browser audio resources (fixes #2294)
       audioContextRef.current?.close();
       audioContextRef.current = null;

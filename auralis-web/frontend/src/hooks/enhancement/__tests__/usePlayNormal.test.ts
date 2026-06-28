@@ -141,6 +141,7 @@ let mockBufferInstance: {
   getAvailableSamples: ReturnType<typeof vi.fn>;
   getFillPercentage: ReturnType<typeof vi.fn>;
   reset: ReturnType<typeof vi.fn>;
+  dispose: ReturnType<typeof vi.fn>;
 };
 
 let mockEngineInstance: {
@@ -199,6 +200,7 @@ function setupMocks() {
     getAvailableSamples: vi.fn().mockReturnValue(0),
     getFillPercentage: vi.fn().mockReturnValue(0),
     reset: vi.fn(),
+    dispose: vi.fn(),
   };
   // Use `function` (not an arrow) so `new PCMStreamBuffer()` works — arrows
   // have no [[Construct]] and throw "is not a constructor" (#3933).
@@ -484,6 +486,41 @@ describe('usePlayNormal', () => {
 
       const state = store.getState().player;
       expect(state.streaming.normal.error).toBeNull();
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // PCM buffer disposal (#4147)
+  // --------------------------------------------------------------------------
+
+  describe('PCM buffer disposal (#4147)', () => {
+    it('disposes the buffer when cleanupStreaming runs (stream_error)', async () => {
+      const { result } = renderHook(() => usePlayNormal(), { wrapper });
+      await act(async () => { await result.current.playNormal(1); });
+      act(() => { handlers['audio_stream_start'](makeStreamStartMsg()); });
+
+      act(() => { handlers['audio_stream_error'](makeStreamErrorMsg()); });
+      expect(mockBufferInstance.dispose).toHaveBeenCalled();
+    });
+
+    it('disposes the buffer on unmount (cleanupStreaming runs in the unmount effect)', async () => {
+      const { result, unmount } = renderHook(() => usePlayNormal(), { wrapper });
+      await act(async () => { await result.current.playNormal(1); });
+      act(() => { handlers['audio_stream_start'](makeStreamStartMsg()); });
+      expect(mockBufferInstance.dispose).not.toHaveBeenCalled();
+
+      unmount();
+      expect(mockBufferInstance.dispose).toHaveBeenCalled();
+    });
+
+    it('disposes the previous buffer before a new stream replaces it', async () => {
+      const { result } = renderHook(() => usePlayNormal(), { wrapper });
+      await act(async () => { await result.current.playNormal(1); });
+      act(() => { handlers['audio_stream_start'](makeStreamStartMsg()); });
+      mockBufferInstance.dispose.mockClear();
+
+      act(() => { handlers['audio_stream_start'](makeStreamStartMsg({ track_id: 99 })); });
+      expect(mockBufferInstance.dispose).toHaveBeenCalled();
     });
   });
 

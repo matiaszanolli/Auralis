@@ -196,7 +196,10 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     // NOTE: WS subscriptions are managed by a dedicated useEffect (#3377)
     // and must NOT be unsubscribed here — they persist for the hook's lifetime.
 
-    // Clear references
+    // Clear references. dispose() releases the ~100 MB Float32Array immediately
+    // instead of leaving reclamation to GC timing (#4147). This runs on unmount
+    // too (the unmount effect calls cleanupStreaming).
+    pcmBufferRef.current?.dispose();
     pcmBufferRef.current = null;
     playbackEngineRef.current = null;
     streamingMetadataRef.current = null;
@@ -244,7 +247,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         return;
       }
 
-      // Initialize PCMStreamBuffer
+      // Initialize PCMStreamBuffer. Dispose any prior buffer first so replacing
+      // the ref never strands a ~100 MB Float32Array for GC (#4147).
+      pcmBufferRef.current?.dispose();
       const buffer = new PCMStreamBuffer();
       buffer.initialize(message.data.sample_rate, message.data.channels);
       pcmBufferRef.current = buffer;
@@ -499,6 +504,8 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       try {
         // Stop any existing playback
         playbackEngineRef.current?.stopPlayback();
+        // Release the prior ~100 MB buffer before dropping the ref (#4147)
+        pcmBufferRef.current?.dispose();
         pcmBufferRef.current = null;
         streamingMetadataRef.current = null;
 

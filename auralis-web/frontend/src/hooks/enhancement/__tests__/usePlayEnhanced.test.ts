@@ -145,7 +145,9 @@ let mockBufferInstance: {
   initialize: ReturnType<typeof vi.fn>;
   append: ReturnType<typeof vi.fn>;
   getAvailableSamples: ReturnType<typeof vi.fn>;
+  getFillPercentage: ReturnType<typeof vi.fn>;
   reset: ReturnType<typeof vi.fn>;
+  dispose: ReturnType<typeof vi.fn>;
 };
 
 let mockEngineInstance: {
@@ -158,6 +160,7 @@ let mockEngineInstance: {
   onStateChanged: ReturnType<typeof vi.fn>;
   onUnderrun: ReturnType<typeof vi.fn>;
   getCurrentPlaybackTime: ReturnType<typeof vi.fn>;
+  getMinBufferSamples: ReturnType<typeof vi.fn>;
 };
 
 let mockAudioContextInstance: {
@@ -177,9 +180,13 @@ function setupMocks() {
     initialize: vi.fn(),
     append: vi.fn(),
     getAvailableSamples: vi.fn().mockReturnValue(0),
+    getFillPercentage: vi.fn().mockReturnValue(0),
     reset: vi.fn(),
+    dispose: vi.fn(),
   };
-  vi.mocked(PCMStreamBuffer).mockImplementation(() => mockBufferInstance as any);
+  // Use `function` (not an arrow) so `new PCMStreamBuffer()` works — arrows
+  // have no [[Construct]] and throw "is not a constructor" (#3933).
+  vi.mocked(PCMStreamBuffer).mockImplementation(function () { return mockBufferInstance as any; });
 
   // Fresh AudioPlaybackEngine mock
   mockEngineInstance = {
@@ -192,8 +199,12 @@ function setupMocks() {
     onStateChanged: vi.fn(),
     onUnderrun: vi.fn(),
     getCurrentPlaybackTime: vi.fn().mockReturnValue(0),
+    // 2s threshold @ 44100Hz stereo = 176400 samples — matches the auto-start
+    // assertions below (buffer >= threshold ⇒ startPlayback).
+    getMinBufferSamples: vi.fn().mockReturnValue(176400),
   };
-  vi.mocked(AudioPlaybackEngine).mockImplementation(() => mockEngineInstance as any);
+  // `function` form so `new AudioPlaybackEngine()` constructs (see note above, #3933).
+  vi.mocked(AudioPlaybackEngine).mockImplementation(function () { return mockEngineInstance as any; });
 
   // Mock decodeAudioChunkMessage
   vi.mocked(pcmDecoding.decodeAudioChunkMessage).mockReturnValue({
@@ -216,7 +227,9 @@ function setupMocks() {
     close: vi.fn(),
     state: 'running',
   };
-  vi.stubGlobal('AudioContext', vi.fn(() => mockAudioContextInstance));
+  // `function` form so `new AudioContext()` constructs (arrows have no
+  // [[Construct]] and throw "is not a constructor", #3933).
+  vi.stubGlobal('AudioContext', vi.fn(function () { return mockAudioContextInstance; }));
 
   // Mock global fetch (used in playEnhanced to load track data)
   vi.stubGlobal(
@@ -623,6 +636,50 @@ describe('usePlayEnhanced – audio_stream_error', () => {
 
     // State should not change to error
     expect(store.getState().player.streaming.enhanced.state).not.toBe('error');
+  });
+});
+
+// ============================================================================
+// 5b. PCM buffer disposal (#4147)
+// ============================================================================
+
+describe('usePlayEnhanced – PCM buffer disposal (#4147)', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupMocks();
+    store = createTestStore();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('disposes the buffer on unmount (not just nulls the ref)', () => {
+    const { unmount } = renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    fireHandler('audio_stream_start', makeStreamStartMsg());
+    expect(mockBufferInstance.dispose).not.toHaveBeenCalled();
+
+    unmount();
+    expect(mockBufferInstance.dispose).toHaveBeenCalled();
+  });
+
+  it('disposes the buffer when cleanupStreaming runs (stream_error)', () => {
+    renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    fireHandler('audio_stream_start', makeStreamStartMsg());
+
+    fireHandler('audio_stream_error', makeStreamErrorMsg());
+    expect(mockBufferInstance.dispose).toHaveBeenCalled();
+  });
+
+  it('disposes the previous buffer before a new stream replaces it', () => {
+    renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    fireHandler('audio_stream_start', makeStreamStartMsg());
+    mockBufferInstance.dispose.mockClear();
+
+    // A fresh (non-seek) stream_start must release the prior buffer.
+    fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 99 }));
+    expect(mockBufferInstance.dispose).toHaveBeenCalled();
   });
 });
 
