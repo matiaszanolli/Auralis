@@ -345,13 +345,23 @@ class AudioFingerprintAnalyzer:
                 'air_pct': (6000, 20000)
             }
 
+            # Apply a Hann window before the FFT (#4136) to match the
+            # Hann-windowed librosa.stft used for the spectral features. The
+            # shared `magnitude` arg comes from a rectangular-window FFT whose
+            # spectral leakage inflated high-frequency band energy on
+            # transient-rich audio, making the 7D bands inconsistent with the 3D
+            # spectral_centroid/rolloff/flatness. Computed locally so the shared
+            # FFT reused for RMS-based dynamics/variation is unaffected.
+            window = np.hanning(len(audio))
+            windowed_magnitude = np.abs(np.fft.rfft(audio * window))
+
             # Calculate energy per band
             band_energies = {}
             total_energy = 0
 
             for band_name, (low, high) in bands.items():
                 mask = (freqs >= low) & (freqs < high)
-                energy = np.sum(magnitude[mask] ** 2)
+                energy = np.sum(windowed_magnitude[mask] ** 2)
                 band_energies[band_name] = energy
                 total_energy += energy
 

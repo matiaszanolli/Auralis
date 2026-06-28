@@ -8,7 +8,10 @@ __db_schema_version__ = 16  # track_playlist: UNIQUE(track_id, playlist_id) + po
 # algorithm changes in a way that produces different values for the same audio.
 # All existing fingerprints with a lower version will be automatically
 # re-fingerprinted by background workers.
-FINGERPRINT_ALGORITHM_VERSION = 1
+# v2 (#4136): 7-band frequency analysis now applies a Hann window before the FFT
+#             (was rectangular), matching the windowed STFT spectral features and
+#             removing leakage bias on transient-rich audio.
+FINGERPRINT_ALGORITHM_VERSION = 2
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app
