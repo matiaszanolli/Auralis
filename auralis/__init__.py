@@ -11,7 +11,8 @@ Based on Matchering 2.0 by Sergree and contributors
 """
 
 __title__ = "auralis"
-__version__ = "1.0.0"
+# Mirror the single source of truth (auralis/version.py) so this never drifts (#4051).
+from .version import __version__  # noqa: E402,F401
 __author__ = "Auralis Team"
 __license__ = "GPLv3"
 __copyright__ = "Copyright (C) 2024 Auralis Team"
