@@ -88,6 +88,27 @@ def load_with_soundfile(file_path: Path) -> tuple[np.ndarray, int]:
             str(file_path), dtype="float32", always_2d=False
         )
 
+        # Non-WAV truncation detection (#4131). WAV is handled above via the
+        # RIFF header (libsndfile reports the truncated data-chunk size, so
+        # info.frames already matches the short read). For FLAC/AIFF/AU the
+        # header declares the full frame count while sf.read() returns only the
+        # decodable frames, so a cleanly-truncated file yields fewer samples —
+        # compare the two using the same thresholds as the WAV path.
+        if declared_size is None and file_info.frames > 0:
+            actual_frames = len(audio_data)
+            if actual_frames < file_info.frames:
+                completeness = (actual_frames / file_info.frames) * 100
+                if completeness < 10:
+                    raise ModuleError(
+                        f"{Code.ERROR_TRUNCATED_FILE}: File is severely truncated "
+                        f"({completeness:.1f}% complete)"
+                    )
+                elif completeness < 90:
+                    warning(
+                        f"{Code.WARNING_TRUNCATED_FILE}: File appears truncated "
+                        f"({completeness:.1f}% complete)"
+                    )
+
         # Ensure proper shape
         if audio_data.ndim == 1:
             # Mono audio
