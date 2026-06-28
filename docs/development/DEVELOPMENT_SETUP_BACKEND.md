@@ -28,7 +28,7 @@ python launch-auralis-web.py --dev
 
 ### System Requirements
 - **OS**: Linux, macOS, or Windows (WSL2 recommended)
-- **Python**: 3.13+ (check with `python --version`)
+- **Python**: 3.14+ (check with `python --version`)
 - **Git**: Latest version (check with `git --version`)
 - **CPU**: Intel/AMD x86-64 (ARM support depends on audio libraries)
 - **RAM**: 4GB minimum, 8GB recommended
@@ -41,8 +41,8 @@ python launch-auralis-web.py --dev
 # Install Homebrew if not present
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Install Python 3.13
-brew install python@3.13
+# Install Python 3.14
+brew install python@3.14
 
 # Install audio libraries (required for audio processing)
 brew install flac libvorbis libopus
@@ -53,8 +53,8 @@ brew install flac libvorbis libopus
 # Update package manager
 sudo apt update
 
-# Install Python 3.13
-sudo apt install python3.13 python3.13-dev python3.13-venv
+# Install Python 3.14
+sudo apt install python3.14 python3.14-dev python3.14-venv
 
 # Install audio libraries
 sudo apt install libflac-dev libvorbis-dev libopus-dev portaudio19-dev
@@ -67,7 +67,7 @@ sudo apt install build-essential git
 ```bash
 # In WSL2 Ubuntu terminal
 sudo apt update
-sudo apt install python3.13 python3.13-dev python3.13-venv
+sudo apt install python3.14 python3.14-dev python3.14-venv
 sudo apt install libflac-dev libvorbis-dev libopus-dev portaudio19-dev
 sudo apt install build-essential git
 ```
@@ -93,11 +93,11 @@ git status
 **What is a virtual environment?**
 A virtual environment isolates Python packages for this project, preventing conflicts with system Python.
 
-### Using Python 3.13 venv
+### Using Python 3.14 venv
 
 ```bash
 # Create virtual environment named 'venv'
-python3.13 -m venv venv
+python3.14 -m venv venv
 
 # Activate it
 # On macOS/Linux:
@@ -116,7 +116,7 @@ which python
 # Should show: /path/to/Auralis/venv/bin/python
 
 python --version
-# Should show: Python 3.13.x
+# Should show: Python 3.14.x
 ```
 
 **Deactivate later with:**
@@ -319,7 +319,7 @@ Run this verification checklist:
 ```bash
 # 1. Check Python version
 python --version
-# ✅ Should be 3.13+
+# ✅ Should be 3.14+
 
 # 2. Check key packages installed
 pip show fastapi sqlalchemy numpy
@@ -352,9 +352,9 @@ fg  # Bring server to foreground
 
 ## Troubleshooting
 
-### Problem: "python3.13: command not found"
+### Problem: "python3.14: command not found"
 
-**Solution**: Install Python 3.13 or create alias
+**Solution**: Install Python 3.14 or create alias
 
 ```bash
 # Check installed Python versions
@@ -993,7 +993,7 @@ See [PHASE_A_IMPLEMENTATION_PLAN.md](PHASE_A_IMPLEMENTATION_PLAN.md) for Phase B
 
 **Import errors?**
 - Reinstall dependencies: `pip install -r requirements.txt --force-reinstall`
-- Check Python version: `python --version` should be 3.13+
+- Check Python version: `python --version` should be 3.14+
 
 **Performance issues?**
 - Check cache stats: `curl http://localhost:8765/api/cache/stats`

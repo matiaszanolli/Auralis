@@ -10,7 +10,7 @@ This guide walks you through everything you need to get Auralis running on your 
 
 Before you begin, ensure your system has:
 
-- [ ] **Python 3.13+** - Check with `python3 --version`
+- [ ] **Python 3.14+** - Check with `python3 --version`
 - [ ] **Node.js 24+ LTS** - Check with `node --version`
 - [ ] **Git** - Check with `git --version`
 - [ ] **pip** - Check with `pip --version` (comes with Python)
@@ -72,14 +72,14 @@ source .venv/bin/activate
 
 **Option B: Using conda (if you prefer)**
 ```bash
-conda create -n auralis python=3.13
+conda create -n auralis python=3.14
 conda activate auralis
 ```
 
 **Verify activation:**
 ```bash
 which python  # Should show path inside .venv or conda env
-python --version  # Should be 3.13+
+python --version  # Should be 3.14+
 ```
 
 ### 3️⃣ Install Python Dependencies
@@ -241,7 +241,7 @@ npm test
 
 | Issue | Solution |
 |-------|----------|
-| `python: command not found` | Install Python 3.13+ or use `python3` instead |
+| `python: command not found` | Install Python 3.14+ or use `python3` instead |
 | `ModuleNotFoundError: numpy` | Did you activate venv? `source .venv/bin/activate` |
 | `libsndfile not found` | Install audio libraries (see section above) |
 | `Port 8765 already in use` | Kill existing process: `lsof -ti:8765 \| xargs kill -9` |
