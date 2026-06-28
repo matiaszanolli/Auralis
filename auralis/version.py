@@ -23,8 +23,10 @@ SEMANTIC_VERSION = __version__
 # User-friendly display version
 DISPLAY_VERSION = f"Auralis v{__version__}"
 
-# Database schema version (independent of app version)
-DB_SCHEMA_VERSION = 3
+# Database schema version (independent of app version). The live, authoritative
+# value lives in auralis/__version__.py (used by the migration manager); mirror
+# it here instead of hardcoding so this never drifts again (#4054).
+from auralis.__version__ import __db_schema_version__ as DB_SCHEMA_VERSION  # noqa: E402
 
 
 def get_version() -> str:
