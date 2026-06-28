@@ -18,6 +18,7 @@ import asyncio
 import logging
 import shutil
 import tempfile
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -308,17 +309,41 @@ def create_lifespan(deps: dict[str, Any]):
                         )
                         logger.info("✅ Fingerprint Similarity System initialized")
 
-                        # Only create graph_builder if system is already fitted
-                        # (will be created on-demand via /api/similarity/fit endpoint)
-                        if globals_dict['similarity_system'].is_fitted():
-                            globals_dict['graph_builder'] = KNNGraphBuilder(
-                                similarity_system=globals_dict['similarity_system'],
-                                session_factory=globals_dict['library_manager'].SessionLocal
-                            )
-                            logger.info("✅ K-NN Graph Builder initialized (system is fitted)")
-                        else:
-                            globals_dict['graph_builder'] = None
-                            logger.info("ℹ️  K-NN Graph Builder not initialized (system not fitted yet)")
+                        # #4139: auto-fit in the background so an existing
+                        # library gets working recommendations without a manual
+                        # /api/similarity/fit call. fit() is a no-op (returns
+                        # False) below min_samples (fresh install / library
+                        # reset), leaving the system unfitted — the similarity
+                        # router then surfaces a clear 503 rather than silently
+                        # empty results. Runs off the startup path because
+                        # normalizer.fit() streams every fingerprint in batches.
+                        globals_dict['graph_builder'] = None
+
+                        def _auto_fit_similarity(
+                            sim_system=globals_dict['similarity_system'],
+                            lib_mgr=globals_dict['library_manager'],
+                            gd=globals_dict,
+                            builder_cls=KNNGraphBuilder,
+                        ):
+                            try:
+                                if sim_system.fit():
+                                    # get_component reads globals fresh per
+                                    # request, so this late assignment is picked up.
+                                    gd['graph_builder'] = builder_cls(
+                                        similarity_system=sim_system,
+                                        session_factory=lib_mgr.SessionLocal,
+                                    )
+                                    logger.info("✅ Similarity auto-fitted; K-NN Graph Builder ready")
+                                else:
+                                    logger.info("ℹ️  Similarity auto-fit skipped (not enough fingerprints yet)")
+                            except Exception as fit_e:
+                                logger.warning(f"⚠️  Similarity auto-fit failed: {fit_e}")
+
+                        threading.Thread(
+                            target=_auto_fit_similarity,
+                            name="similarity-autofit",
+                            daemon=True,
+                        ).start()
                     except Exception as sim_e:
                         logger.warning(f"⚠️  Failed to initialize Similarity System: {sim_e}")
                         globals_dict['similarity_system'] = None
