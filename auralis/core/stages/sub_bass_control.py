@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy.signal import butter, sosfilt
+from scipy.signal import butter, sosfiltfilt
 
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
@@ -63,7 +63,11 @@ def apply(
         hp_norm = min(0.99, max(1e-4, config.SUBBASS_HP_FREQ_HZ / nyq))
         hp_sos = butter(config.SUBBASS_HP_ORDER, hp_norm, btype='high', output='sos')
         axis = -1 if processed.ndim > 1 else 0
-        processed = np.asarray(sosfilt(hp_sos, processed, axis=axis), dtype=processed.dtype)
+        # Zero-phase (sosfiltfilt) so the rumble HP does not add group delay that
+        # smears low-frequency transients — matching every sibling DSP stage
+        # (#3469/#3470/#3661/#3664/#3666). The HP only fires on pathological
+        # sub-bass, so the doubled filter cost is acceptable (#4097).
+        processed = np.asarray(sosfiltfilt(hp_sos, processed, axis=axis), dtype=processed.dtype)
         applied_hp = True
 
     if abs(reduction_db) < 0.1 and not applied_hp:
