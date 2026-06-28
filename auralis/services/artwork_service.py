@@ -15,6 +15,7 @@ Supported sources (in priority order):
 
 import json
 import logging
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any
@@ -275,8 +276,75 @@ class ArtworkService:
 
         Returns:
             Dictionary with artwork_url and source, or None if not found
+            Example: {'artwork_url': 'https://...', 'source': 'coverartarchive'}
         """
-        # For now, just log that this is not implemented
-        # Can be added later following the same pattern as artist artwork
-        logger.info(f"Album artwork fetching not yet implemented for: {album_title}")
+        # MusicBrainz release-group search + Cover Art Archive (always available,
+        # no API key) — mirrors fetch_artist_artwork's source pattern (#4037).
+        result = self._fetch_album_from_musicbrainz(album_title, artist_name)
+        if result:
+            return result
+
+        logger.warning(f"No artwork found for album: {album_title}")
         return None
+
+    def _fetch_album_from_musicbrainz(
+        self,
+        album_title: str,
+        artist_name: str | None = None
+    ) -> dict[str, Any] | None:
+        """
+        Fetch album artwork via MusicBrainz release-group + Cover Art Archive.
+
+        Steps:
+        1. Search release-groups by album title (and artist if given) -> MBID.
+        2. Resolve the front cover via coverartarchive.org/release-group/{mbid}/front,
+           following the redirect to the actual image (404 -> no cover).
+
+        Returns:
+            Dict with artwork_url and source, or None
+        """
+        try:
+            query = f'releasegroup:"{album_title}"'
+            if artist_name:
+                query += f' AND artist:"{artist_name}"'
+            encoded_query = urllib.parse.quote(query)
+
+            search_url = (
+                f"https://musicbrainz.org/ws/2/release-group/"
+                f"?query={encoded_query}&fmt=json&limit=1"
+            )
+            req = urllib.request.Request(search_url)
+            req.add_header('User-Agent', self.user_agent)
+
+            with urllib.request.urlopen(req, timeout=self.timeout) as response:
+                data = json.loads(response.read().decode('utf-8'))
+
+            groups = data.get('release-groups', [])
+            if not groups:
+                return None
+
+            mbid = groups[0].get('id')
+            if not mbid:
+                return None
+
+            # Cover Art Archive redirects /front to the actual image (404 if none).
+            cover_url = f"https://coverartarchive.org/release-group/{mbid}/front"
+            caa_req = urllib.request.Request(cover_url)
+            caa_req.add_header('User-Agent', self.user_agent)
+
+            try:
+                with urllib.request.urlopen(caa_req, timeout=self.timeout) as caa_response:
+                    resolved_url = caa_response.geturl()
+            except urllib.error.HTTPError as http_err:
+                if http_err.code == 404:
+                    return None  # release-group has no front cover
+                raise
+
+            return {
+                'artwork_url': resolved_url,
+                'source': 'coverartarchive',
+            }
+
+        except Exception as e:
+            logger.debug(f"MusicBrainz/CAA album fetch failed for {album_title}: {e}")
+            return None
