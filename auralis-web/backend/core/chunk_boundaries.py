@@ -208,10 +208,10 @@ class ChunkBoundaryManager:
 
     def trim_context(
         self,
-        audio_chunk: "np.ndarray",  # type: ignore[name-defined]
+        audio_chunk: np.ndarray,
         chunk_index: int,
         max_trim_fraction: float = 0.25
-    ) -> "np.ndarray":  # type: ignore[name-defined]
+    ) -> np.ndarray:
         """
         Trim context padding from processed audio chunk.
 
