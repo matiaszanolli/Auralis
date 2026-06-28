@@ -41,6 +41,7 @@ from encoding.wav_encoder import WAVEncoderError, encode_to_wav, read_wav_frame_
 from fastapi import APIRouter, HTTPException, Path as PathParam, Query, Response
 from pydantic import BaseModel
 
+from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL
 from .dependencies import require_repository_factory
 
 logger = logging.getLogger(__name__)
@@ -213,8 +214,8 @@ class StreamMetadata(BaseModel):
 def create_wav_streaming_router(
     get_multi_tier_buffer: Callable[[], Any],
     chunked_audio_processor_class: Any,
-    chunk_duration: int = 10,
-    chunk_interval: int = 10,
+    chunk_duration: int = int(CHUNK_DURATION),
+    chunk_interval: int = int(CHUNK_INTERVAL),
     get_repository_factory: Callable[[], Any] | None = None
 ) -> APIRouter:
     """
@@ -225,8 +226,8 @@ def create_wav_streaming_router(
     Args:
         get_multi_tier_buffer: Callable that returns MultiTierBuffer instance
         chunked_audio_processor_class: ChunkedAudioProcessor class (now outputs WebM)
-        chunk_duration: Duration of each chunk in seconds (default: 10, reduced from 30s for Phase 2)
-        chunk_interval: Interval between chunk starts in seconds (default: 10, same as duration for no overlap)
+        chunk_duration: Duration of each chunk in seconds (default: chunk_boundaries.CHUNK_DURATION = 15)
+        chunk_interval: Interval between chunk starts in seconds (default: chunk_boundaries.CHUNK_INTERVAL = 10, so 5s overlap)
         get_repository_factory: Callable that returns RepositoryFactory instance
 
     Returns:
