@@ -401,8 +401,11 @@ class ParallelBandProcessor:
                             * (10 ** (band_gains[band_idx] / 20))
                         )
 
-        # Sum all group results
-        output: np.ndarray = np.sum(group_results, axis=0)
+        # Sum all group results. Cast back to the input dtype (#4125): np.sum
+        # promotes to the widest worker dtype, so a single float64 result (e.g.
+        # from scipy sosfiltfilt) would promote float32 input to float64 —
+        # matching the sibling band-summation path's #3760 fix.
+        output: np.ndarray = np.sum(group_results, axis=0).astype(audio.dtype, copy=False)
 
         return output
 
