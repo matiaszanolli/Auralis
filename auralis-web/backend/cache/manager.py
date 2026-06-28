@@ -20,12 +20,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+# Chunk geometry comes from chunk_boundaries — the single source of truth (#4025)
+# — instead of a third local copy that would drift and cause cache-index errors.
+# Re-exported (cache/__init__.py forwards these) so callers keep resolving them.
+from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 # Configuration
-# NEW (Beta 12.1): 15s chunks with 10s intervals = 5s overlap for natural crossfades
-CHUNK_DURATION = 15.0  # seconds per chunk (actual chunk length)
-CHUNK_INTERVAL = 10.0   # seconds between chunk starts (playback interval)
 CHUNK_SIZE_MB = 1.5    # estimated size per chunk (stereo 44.1kHz, float32) - increased from 1.0 for 15s chunks
 
 # Tier 1: Hot cache (current + next chunk)
