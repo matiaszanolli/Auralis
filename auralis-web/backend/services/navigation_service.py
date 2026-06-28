@@ -78,9 +78,15 @@ class NavigationService:
                     # Broadcast track change if queue is available
                     if self.player_state_manager and hasattr(self.audio_player, 'queue'):
                         if hasattr(self.audio_player.queue, 'current_index'):
+                            # Include the new index so clients can sync
+                            # currentTrack/currentIndex immediately instead of
+                            # waiting for the next player_state snapshot (#4144).
                             await self.connection_manager.broadcast({
                                 "type": "track_changed",
-                                "data": {"action": "next"}
+                                "data": {
+                                    "action": "next",
+                                    "track_index": self.audio_player.queue.current_index,
+                                }
                             })
 
                     logger.info("⏭️  Skipped to next track")
@@ -118,9 +124,15 @@ class NavigationService:
                     # Broadcast track change if queue is available
                     if self.player_state_manager and hasattr(self.audio_player, 'queue'):
                         if hasattr(self.audio_player.queue, 'current_index'):
+                            # Include the new index so clients can sync
+                            # currentTrack/currentIndex immediately instead of
+                            # waiting for the next player_state snapshot (#4144).
                             await self.connection_manager.broadcast({
                                 "type": "track_changed",
-                                "data": {"action": "previous"}
+                                "data": {
+                                    "action": "previous",
+                                    "track_index": self.audio_player.queue.current_index,
+                                }
                             })
 
                     logger.info("⏮️  Skipped to previous track")

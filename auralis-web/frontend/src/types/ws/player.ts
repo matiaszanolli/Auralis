@@ -152,8 +152,11 @@ export interface TrackChangedMessage extends WebSocketMessage {
   type: 'track_changed';
   data: {
     // 'next' / 'previous' from sequential advance; 'jumped' is emitted by
-    // NavigationService.jump_to_track and includes a `track_index` field
-    // identifying the new queue position (#3504 / BE-NEW-46).
+    // NavigationService.jump_to_track. All three actions now carry the new
+    // queue position in `track_index` so clients can sync currentTrack/
+    // currentIndex immediately (#3504 / BE-NEW-46, extended in #4144).
+    // Optional because a future/legacy emitter may omit it; subscribers must
+    // guard on `typeof track_index === 'number'`.
     action: 'next' | 'previous' | 'jumped';
     track_index?: number;
   };

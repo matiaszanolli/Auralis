@@ -67,6 +67,9 @@ function makeWrapper(store: TestStore) {
 
 let playerStateHandler: ((message: any) => void) | null = null;
 let positionChangedHandler: ((message: any) => void) | null = null;
+// All captured handlers keyed by message type, so discrete-event tests (#4144)
+// can fire any subscribed type without a dedicated module-level variable.
+const handlers: Record<string, (message: any) => void> = {};
 const mockUnsubscribe = vi.fn();
 
 /**
@@ -94,11 +97,13 @@ function makeMockWsContext(
 function setupWebSocketMock() {
   playerStateHandler = null;
   positionChangedHandler = null;
+  for (const key of Object.keys(handlers)) delete handlers[key];
   mockUnsubscribe.mockReset();
 
   vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue(
     makeMockWsContext({
       subscribe: vi.fn((type: string, handler: (msg: any) => void) => {
+        handlers[type] = handler;
         if (type === 'player_state') {
           playerStateHandler = handler;
         } else if (type === 'position_changed') {
@@ -108,6 +113,13 @@ function setupWebSocketMock() {
       }) as any,
     })
   );
+}
+
+/** Fire an arbitrary subscribed message type (#4144 discrete events). */
+function fire(type: string, data: Record<string, any>) {
+  act(() => {
+    handlers[type]!({ data });
+  });
 }
 
 function firePlayerState(data: Record<string, any>) {
@@ -132,7 +144,7 @@ const backendTrack = {
   artist: 'Led Zeppelin',
   album: 'Led Zeppelin IV',
   duration: 482,
-  album_art: 'https://example.com/art.jpg',
+  artwork_url: 'https://example.com/art.jpg',
 };
 
 const expectedReduxTrack = {
@@ -172,9 +184,10 @@ describe('usePlayerStateSync – subscription lifecycle', () => {
       wrapper: makeWrapper(store),
     });
     unmount();
-    // Two subscriptions are registered (player_state + position_changed, #3937),
-    // so both unsubscribe callbacks fire on unmount.
-    expect(mockUnsubscribe).toHaveBeenCalledTimes(2);
+    // Eight subscriptions are registered (player_state + position_changed (#3937)
+    // + playback_started/resumed/paused/stopped + volume_changed + track_changed
+    // (#4144)), so all eight unsubscribe callbacks fire on unmount.
+    expect(mockUnsubscribe).toHaveBeenCalledTimes(8);
   });
 
   it('does not throw when subscribe is not available', () => {
@@ -215,8 +228,8 @@ describe('usePlayerStateSync – current_track', () => {
     expect(store.getState().player.currentTrack).toEqual(expectedReduxTrack);
   });
 
-  it('maps album_art to artworkUrl', () => {
-    firePlayerState({ current_track: { ...backendTrack, album_art: 'https://cdn.example.com/cover.png' } });
+  it('maps artwork_url to artworkUrl', () => {
+    firePlayerState({ current_track: { ...backendTrack, artwork_url: 'https://cdn.example.com/cover.png' } });
 
     expect(store.getState().player.currentTrack?.artworkUrl).toBe('https://cdn.example.com/cover.png');
   });
@@ -502,8 +515,8 @@ describe('usePlayerStateSync – queue', () => {
   });
 
   const backendQueueTracks = [
-    { id: 1, title: 'Track One', artist: 'Artist A', album: 'Album A', duration: 180, album_art: 'https://example.com/1.jpg' },
-    { id: 2, title: 'Track Two', artist: 'Artist B', album: 'Album B', duration: 240, album_art: 'https://example.com/2.jpg' },
+    { id: 1, title: 'Track One', artist: 'Artist A', album: 'Album A', duration: 180, artwork_url: 'https://example.com/1.jpg' },
+    { id: 2, title: 'Track Two', artist: 'Artist B', album: 'Album B', duration: 240, artwork_url: 'https://example.com/2.jpg' },
   ];
 
   it('maps queue tracks to Redux Track shape', () => {
@@ -521,7 +534,7 @@ describe('usePlayerStateSync – queue', () => {
     });
   });
 
-  it('maps album_art to artworkUrl for each queue track', () => {
+  it('maps artwork_url to artworkUrl for each queue track', () => {
     firePlayerState({ queue: backendQueueTracks });
 
     const { tracks } = store.getState().queue;
@@ -530,14 +543,14 @@ describe('usePlayerStateSync – queue', () => {
   });
 
   it('defaults album to empty string for queue tracks when missing', () => {
-    const noAlbumTracks = [{ id: 5, title: 'T', artist: 'A', duration: 100, album_art: null }];
+    const noAlbumTracks = [{ id: 5, title: 'T', artist: 'A', duration: 100, artwork_url: null }];
     firePlayerState({ queue: noAlbumTracks });
 
     expect(store.getState().queue.tracks[0].album).toBe('');
   });
 
   it('defaults duration to 0 for queue tracks when missing', () => {
-    const noDurationTracks = [{ id: 6, title: 'T', artist: 'A', album: 'X', album_art: null }];
+    const noDurationTracks = [{ id: 6, title: 'T', artist: 'A', album: 'X', artwork_url: null }];
     firePlayerState({ queue: noDurationTracks });
 
     expect(store.getState().queue.tracks[0].duration).toBe(0);
@@ -579,9 +592,9 @@ describe('usePlayerStateSync – queue_index', () => {
       playerStateHandler!({
         data: {
           queue: [
-            { id: 1, title: 'T1', artist: 'A', album: '', duration: 100, album_art: null },
-            { id: 2, title: 'T2', artist: 'A', album: '', duration: 100, album_art: null },
-            { id: 3, title: 'T3', artist: 'A', album: '', duration: 100, album_art: null },
+            { id: 1, title: 'T1', artist: 'A', album: '', duration: 100, artwork_url: null },
+            { id: 2, title: 'T2', artist: 'A', album: '', duration: 100, artwork_url: null },
+            { id: 3, title: 'T3', artist: 'A', album: '', duration: 100, artwork_url: null },
           ],
         },
       });
@@ -743,5 +756,133 @@ describe('usePlayerStateSync – position_changed (#3937)', () => {
     firePositionChanged({});
     // currentTime stays at the last valid value, not NaN/undefined
     expect(store.getState().player.currentTime).toBe(10);
+  });
+});
+
+// ============================================================================
+// Discrete playback events (#4144)
+// ============================================================================
+
+describe('usePlayerStateSync – discrete playback events (#4144)', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('subscribes to all discrete player events on mount', () => {
+    const { subscribe } = vi.mocked(WebSocketContextModule.useWebSocketContext)();
+    for (const type of [
+      'playback_started',
+      'playback_resumed',
+      'playback_paused',
+      'playback_stopped',
+      'volume_changed',
+      'track_changed',
+    ]) {
+      expect(vi.mocked(subscribe)).toHaveBeenCalledWith(type, expect.any(Function));
+    }
+  });
+
+  it('playback_paused sets isPlaying false without a player_state snapshot', () => {
+    firePlayerState({ is_playing: true });
+    expect(store.getState().player.isPlaying).toBe(true);
+
+    fire('playback_paused', { state: 'paused' });
+    expect(store.getState().player.isPlaying).toBe(false);
+  });
+
+  it('playback_stopped sets isPlaying false', () => {
+    firePlayerState({ is_playing: true });
+    fire('playback_stopped', { state: 'stopped' });
+    expect(store.getState().player.isPlaying).toBe(false);
+  });
+
+  it('playback_started sets isPlaying true', () => {
+    fire('playback_started', { state: 'playing' });
+    expect(store.getState().player.isPlaying).toBe(true);
+  });
+
+  it('playback_resumed sets isPlaying true', () => {
+    firePlayerState({ is_playing: false });
+    fire('playback_resumed', { state: 'playing' });
+    expect(store.getState().player.isPlaying).toBe(true);
+  });
+
+  it('volume_changed updates volume (0-100 scale)', () => {
+    fire('volume_changed', { volume: 35 });
+    expect(store.getState().player.volume).toBe(35);
+  });
+
+  it('volume_changed ignores non-finite values', () => {
+    fire('volume_changed', { volume: 60 });
+    fire('volume_changed', { volume: NaN });
+    fire('volume_changed', {});
+    expect(store.getState().player.volume).toBe(60);
+  });
+});
+
+// ============================================================================
+// track_changed → currentIndex / currentTrack (#4144)
+// ============================================================================
+
+describe('usePlayerStateSync – track_changed (#4144)', () => {
+  let store: TestStore;
+
+  const queueTracks = [
+    { id: 1, title: 'T1', artist: 'A', album: '', duration: 100, artwork_url: null },
+    { id: 2, title: 'T2', artist: 'B', album: '', duration: 110, artwork_url: null },
+    { id: 3, title: 'T3', artist: 'C', album: '', duration: 120, artwork_url: null },
+  ];
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+    // Seed the synced queue so track_changed can resolve track_index → track.
+    firePlayerState({ queue: queueTracks, queue_index: 0 });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("updates currentIndex and currentTrack on a 'next' skip with track_index", () => {
+    fire('track_changed', { action: 'next', track_index: 1 });
+    expect(store.getState().queue.currentIndex).toBe(1);
+    expect(store.getState().player.currentTrack?.id).toBe(2);
+  });
+
+  it("updates state on a 'previous' skip", () => {
+    fire('track_changed', { action: 'next', track_index: 2 });
+    fire('track_changed', { action: 'previous', track_index: 1 });
+    expect(store.getState().queue.currentIndex).toBe(1);
+    expect(store.getState().player.currentTrack?.id).toBe(2);
+  });
+
+  it("updates state on a 'jumped' action", () => {
+    fire('track_changed', { action: 'jumped', track_index: 2 });
+    expect(store.getState().queue.currentIndex).toBe(2);
+    expect(store.getState().player.currentTrack?.id).toBe(3);
+  });
+
+  it('ignores track_changed with no track_index (reconciles via player_state)', () => {
+    fire('track_changed', { action: 'next', track_index: 1 });
+    fire('track_changed', { action: 'next' }); // legacy/missing index
+    // currentIndex stays at the last resolved value, not reset/NaN
+    expect(store.getState().queue.currentIndex).toBe(1);
+    expect(store.getState().player.currentTrack?.id).toBe(2);
+  });
+
+  it('ignores out-of-range track_index', () => {
+    fire('track_changed', { action: 'jumped', track_index: 99 });
+    expect(store.getState().queue.currentIndex).toBe(0); // unchanged seed
+    expect(store.getState().player.currentTrack).toBeNull();
   });
 });

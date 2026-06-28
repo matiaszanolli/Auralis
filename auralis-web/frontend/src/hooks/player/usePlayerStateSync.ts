@@ -9,6 +9,12 @@
  * to keep both player and queue state up to date. This is the single synchronization point
  * between WebSocket broadcasts and Redux.
  *
+ * Besides the authoritative `player_state` snapshot, it also applies the discrete
+ * low-latency events the backend emits between snapshots — `position_changed`,
+ * `playback_started`/`playback_resumed`/`playback_paused`/`playback_stopped`,
+ * `volume_changed`, and `track_changed` — so pause/stop/skip/volume reflect in
+ * Redux immediately instead of waiting up to ~1s for the next snapshot (#4144).
+ *
  * State synchronized:
  * - Player: currentTrack, isPlaying, currentTime, duration, volume, isMuted, preset
  * - Queue: tracks, currentIndex, isShuffled, repeatMode
@@ -25,7 +31,9 @@
  */
 
 import { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useStore } from 'react-redux';
+import type { Store } from '@reduxjs/toolkit';
+import type { RootState } from '@/store';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import {
   setCurrentTrack,
@@ -53,6 +61,10 @@ const VALID_PRESETS: readonly string[] = ['adaptive', 'gentle', 'warm', 'bright'
  */
 export function usePlayerStateSync() {
   const dispatch = useDispatch();
+  // Read-only access to current state inside WS callbacks (e.g. to resolve a
+  // track_changed index against the synced queue) without re-subscribing on
+  // every state change.
+  const store = useStore() as Store<RootState>;
   const { subscribe } = useWebSocketContext();
 
   useEffect(() => {
@@ -162,11 +174,61 @@ export function usePlayerStateSync() {
       }
     });
 
+    // Discrete player events (#4144). The periodic player_state snapshot is the
+    // authoritative reconciler, but these give immediate, low-latency updates so
+    // pause/stop/skip/volume reflect in Redux without waiting up to ~1s for the
+    // next snapshot. Previously the command hooks claimed these messages
+    // "update the Redux player slice" but no subscriber existed.
+    const unsubscribeStarted = subscribe('playback_started', () => {
+      dispatch(setIsPlaying(true));
+    });
+    const unsubscribeResumed = subscribe('playback_resumed', () => {
+      dispatch(setIsPlaying(true));
+    });
+    const unsubscribePaused = subscribe('playback_paused', () => {
+      dispatch(setIsPlaying(false));
+    });
+    const unsubscribeStopped = subscribe('playback_stopped', () => {
+      dispatch(setIsPlaying(false));
+    });
+
+    const unsubscribeVolume = subscribe('volume_changed', (message) => {
+      // 0-100 integer scale — matches playerSlice.setVolume and the scale the
+      // player_state snapshot uses.
+      const data = (message as { data?: { volume?: number } }).data;
+      if (data && typeof data.volume === 'number' && Number.isFinite(data.volume)) {
+        dispatch(setVolume(data.volume));
+      }
+    });
+
+    // track_changed carries the new queue position (#4144). next/previous/jumped
+    // all include track_index now; resolve the track from the already-synced
+    // queue rather than replicating backend shuffle/repeat ordering client-side.
+    const unsubscribeTrackChanged = subscribe('track_changed', (message) => {
+      const data = (message as { data?: { action?: string; track_index?: number } }).data;
+      if (!data || typeof data.track_index !== 'number' || !Number.isInteger(data.track_index)) {
+        // No index in payload — let the next player_state snapshot reconcile.
+        return;
+      }
+      const index = data.track_index;
+      const tracks = store.getState().queue.tracks;
+      if (index >= 0 && index < tracks.length) {
+        dispatch(setCurrentIndex(index));
+        dispatch(setCurrentTrack(tracks[index]));
+      }
+    });
+
     return () => {
       unsubscribe?.();
       unsubscribePosition?.();
+      unsubscribeStarted?.();
+      unsubscribeResumed?.();
+      unsubscribePaused?.();
+      unsubscribeStopped?.();
+      unsubscribeVolume?.();
+      unsubscribeTrackChanged?.();
     };
-  }, [subscribe, dispatch]);
+  }, [subscribe, dispatch, store]);
 }
 
 export default usePlayerStateSync;
