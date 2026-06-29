@@ -232,14 +232,40 @@ class TestArtworkPathTraversalProtection:
 class TestArtworkPathValidationIntegration:
     """Integration tests for artwork path validation with real database"""
 
-    @pytest.mark.skip(reason="AlbumRepository has no create() method — test needs rewrite")
-    def test_sql_injection_artwork_path_blocked(self, library_manager):
+    def test_sql_injection_artwork_path_blocked(self, client):
         """
-        Test that SQL injection tampering of artwork_path is blocked
+        Test that a tampered artwork_path containing SQL-injection payloads is
+        not served (#2078 SQL injection + #2237 unvalidated path serving, #4048).
 
-        Simulates issue #2078 (SQL injection) + issue #2237 (unvalidated path serving)
+        Even if such a string is stored on the album, the artwork endpoint
+        resolves and validates the path against the artwork directory, so a
+        payload (not a real file within that directory) is always rejected —
+        never returned with 200.
         """
-        pass
+        payloads = [
+            "'; DROP TABLE albums; --",
+            "/etc/passwd'; DROP TABLE albums; --",
+            "1' OR '1'='1",
+            "../../../etc/passwd' UNION SELECT 1 --",
+        ]
+        for payload in payloads:
+            mock_album = Mock()
+            mock_album.id = 1
+            mock_album.artwork_path = payload
+
+            mock_repos = Mock()
+            mock_repos.albums.get_by_id.return_value = mock_album
+
+            with patch('routers.artwork.require_repository_factory', return_value=mock_repos):
+                response = client.get("/api/albums/1/artwork")
+
+                assert response.status_code != 200, (
+                    f"Tampered artwork_path was served: {payload!r}"
+                )
+                # Rejected as an invalid / out-of-directory / missing path.
+                assert response.status_code in (400, 403, 404), (
+                    f"Unexpected status {response.status_code} for {payload!r}"
+                )
 
 
 if __name__ == "__main__":
