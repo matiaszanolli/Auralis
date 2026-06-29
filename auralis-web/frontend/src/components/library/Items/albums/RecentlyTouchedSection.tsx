@@ -9,11 +9,49 @@
  * Philosophy: "Where you left off" - contextual continuity for browsing.
  */
 
+import { memo, type ComponentProps } from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import { useAlbumFingerprints } from '@/hooks/fingerprint/useAlbumFingerprint';
 import type { RecentlyTouchedEntry } from '@/hooks/library/useRecentlyTouched';
+
+/**
+ * Memoized per-album card (#4189). The onClick/onHoverEnter binds that inject
+ * the album id/title close over `album`, so they must live behind React.memo —
+ * otherwise new closures every parent render defeat AlbumCard's own memo. This
+ * wrapper only re-renders when its album/fingerprint/callbacks actually change.
+ */
+interface RecentAlbumCardProps {
+  album: RecentlyTouchedEntry;
+  fingerprint?: ComponentProps<typeof AlbumCard>['fingerprint'];
+  onAlbumClick?: (albumId: number) => void;
+  onAlbumHover?: (albumId: number, albumTitle?: string, albumArtist?: string) => void;
+  onAlbumHoverEnd?: () => void;
+}
+
+const RecentAlbumCard = memo(function RecentAlbumCard({
+  album,
+  fingerprint,
+  onAlbumClick,
+  onAlbumHover,
+  onAlbumHoverEnd,
+}: RecentAlbumCardProps) {
+  return (
+    <Box sx={{ flexShrink: 0, width: '160px' }}>
+      <AlbumCard
+        albumId={album.albumId}
+        title={album.albumTitle}
+        artist={album.artist}
+        hasArtwork={true}
+        fingerprint={fingerprint}
+        onClick={() => onAlbumClick?.(album.albumId)}
+        onHoverEnter={(id) => onAlbumHover?.(id, album.albumTitle, album.artist)}
+        onHoverLeave={onAlbumHoverEnd}
+      />
+    </Box>
+  );
+});
 
 interface RecentlyTouchedSectionProps {
   /** List of recently touched albums */
@@ -105,30 +143,16 @@ export const RecentlyTouchedSection = ({
           },
         }}
       >
-        {displayedAlbums.map((album) => {
-          const fingerprint = fingerprints.get(album.albumId) ?? undefined;
-
-          return (
-            <Box
-              key={album.albumId}
-              sx={{
-                flexShrink: 0,
-                width: '160px', // Smaller than grid cards (200px)
-              }}
-            >
-              <AlbumCard
-                albumId={album.albumId}
-                title={album.albumTitle}
-                artist={album.artist}
-                hasArtwork={true} // Assume artwork exists for recent
-                fingerprint={fingerprint}
-                onClick={() => onAlbumClick?.(album.albumId)}
-                onHoverEnter={(id) => onAlbumHover?.(id, album.albumTitle, album.artist)}
-                onHoverLeave={onAlbumHoverEnd}
-              />
-            </Box>
-          );
-        })}
+        {displayedAlbums.map((album) => (
+          <RecentAlbumCard
+            key={album.albumId}
+            album={album}
+            fingerprint={fingerprints.get(album.albumId) ?? undefined}
+            onAlbumClick={onAlbumClick}
+            onAlbumHover={onAlbumHover}
+            onAlbumHoverEnd={onAlbumHoverEnd}
+          />
+        ))}
       </Box>
     </Box>
   );
