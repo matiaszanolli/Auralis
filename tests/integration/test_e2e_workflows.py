@@ -34,12 +34,14 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
+from auralis.io.saver import save as save_audio
 from auralis.library.manager import LibraryManager
 from auralis.library.models import Track
 
@@ -892,8 +894,9 @@ def test_add_track_without_artwork(temp_library, sample_audio_file):
     added_track = manager.add_track(track_info)
 
     assert added_track is not None
-    # Artwork should be None or empty
-    # (actual behavior depends on implementation)
+    # The track persists with its title even with no artwork (#4049).
+    assert added_track.title == 'Track Without Artwork'
+    assert added_track.id is not None
 
 
 @pytest.mark.e2e
@@ -920,8 +923,9 @@ def test_track_with_embedded_artwork(temp_library):
 
     added_track = manager.add_track(track_info)
 
-    # Should add successfully even without artwork
+    # Should add successfully even without artwork (#4049).
     assert added_track is not None
+    assert added_track.title == 'Artwork Track'
 
 
 @pytest.mark.e2e
@@ -979,6 +983,7 @@ def test_artwork_file_not_found_handling(temp_library):
     # Should not crash
     added_track = manager.add_track(track_info)
     assert added_track is not None
+    assert added_track.title == 'Missing Artwork Track'  # (#4049)
 
 
 @pytest.mark.e2e

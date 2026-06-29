@@ -289,8 +289,8 @@ def test_title_empty_string(track_repo):
 
     track = track_repo.add(track_info)
     if track is not None:
-        # Empty title should be preserved or replaced with default
-        assert track.title is not None
+        # Empty title is preserved verbatim (no default substitution) (#4049).
+        assert track.title == ''
 
 
 @pytest.mark.boundary
@@ -310,8 +310,8 @@ def test_title_whitespace_only(track_repo):
 
     track = track_repo.add(track_info)
     if track is not None:
-        # Should either preserve, trim, or replace
-        assert track.title is not None
+        # Whitespace-only title is preserved verbatim (not trimmed) (#4049).
+        assert track.title == '   \t\n   '
 
 
 @pytest.mark.boundary
@@ -535,13 +535,15 @@ def test_search_quotes(track_repo):
         'channels': 2
     })
 
-    # Search with quotes
-    result_single = track_repo.search("It's", limit=100, offset=0)
-    result_double = track_repo.search('"Wonderful"', limit=100, offset=0)
+    # Search with quotes — search() returns (results, total).
+    results_single, total_single = track_repo.search("It's", limit=100, offset=0)
+    results_double, total_double = track_repo.search('"Wonderful"', limit=100, offset=0)
 
-    # Should handle without SQL errors
-    assert result_single is not None
-    assert result_double is not None
+    # Should handle without SQL errors and return a well-formed (list, int) (#4049).
+    assert isinstance(results_single, list)
+    assert isinstance(total_single, int)
+    assert isinstance(results_double, list)
+    assert isinstance(total_double, int)
 
 
 @pytest.mark.boundary
@@ -591,8 +593,9 @@ def test_year_negative(track_repo):
 
     track = track_repo.add(track_info)
     if track is not None:
-        # Should either accept or set to None
-        assert track.year is not None or track.year is None
+        # A negative year is stored verbatim (no validation/clamping) — the old
+        # `is not None or is None` assertion was a tautology (#4049).
+        assert track.year == -2000
 
 
 @pytest.mark.boundary

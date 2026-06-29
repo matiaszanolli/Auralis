@@ -212,8 +212,9 @@ def test_one_sample_audio():
 
     try:
         result = processor.process(audio)
-        # Should not crash
-        assert result is not None, "Should return something"
+        # If supported, output is an ndarray preserving the sample count (#4049).
+        assert isinstance(result, np.ndarray)
+        assert len(result) == len(audio)
     except Exception as e:
         pytest.skip(f"1-sample audio not supported: {e}")
 

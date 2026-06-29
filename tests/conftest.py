@@ -446,6 +446,11 @@ def temp_library(temp_test_db):
             # Create and process audio files in audio_dir
             # Use manager to add/query tracks
     """
+    # Local import like the library_manager fixture above — conftest has no
+    # module-level LibraryManager, so temp_library raised NameError for every
+    # E2E test that used it (#4049 / fixture fix).
+    from auralis.library.manager import LibraryManager
+
     db_path, temp_dir = temp_test_db
     audio_dir = str(temp_dir / "audio")
     os.makedirs(audio_dir, exist_ok=True)
