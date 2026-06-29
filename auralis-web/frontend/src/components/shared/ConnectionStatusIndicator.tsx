@@ -15,13 +15,13 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { useState, useEffect, useRef } from 'react';
-import Box from '@mui/material/Box';
+import { useState } from 'react';
 import { tokens } from '@/design-system';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useConnectionState } from '@/hooks/shared/useReduxState';
-import { useDispatch } from 'react-redux';
-import { setAPIConnected, setLatency } from '@/store/slices/connectionSlice';
+import { useAPIHealthPoll } from '@/hooks/shared/useAPIHealthPoll';
+import { useAutoHide } from '@/hooks/shared/useAutoHide';
+import { ConnectionDetailsPanel } from './ConnectionDetailsPanel';
 
 type Position = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
@@ -70,95 +70,14 @@ export function ConnectionStatusIndicator({
   position = 'bottom-right',
   compact = false,
 }: ConnectionStatusIndicatorProps) {
-  const dispatch = useDispatch();
   const { connect } = useWebSocketContext();
   const status = useConnectionState();
-
   const [showDetails, setShowDetails] = useState(false);
-  // Use ref for timer so cleanup always reads the current ID (fixes #2767).
-  const autoHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Guard against dispatch after unmount.
-  const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
 
-  // Auto-hide details panel when connection is restored
-  useEffect(() => {
-    if (status.wsConnected && showDetails) {
-      const timer = setTimeout(() => {
-        if (mountedRef.current) {
-          setShowDetails(false);
-        }
-      }, 2000);
-      autoHideTimerRef.current = timer;
-    }
-
-    return () => {
-      if (autoHideTimerRef.current) {
-        clearTimeout(autoHideTimerRef.current);
-        autoHideTimerRef.current = null;
-      }
-    };
-  }, [status.wsConnected, showDetails]);
-
-  // Measure latency with heartbeats — pauses when tab is hidden (#3257)
-  // Results dispatched to Redux so all consumers see the same values (#3380)
-  useEffect(() => {
-    // #3585: use a ref-stored interval so cleanup can always clear the latest
-    // interval regardless of closure state. Previous version used a `let`
-    // captured in two closures; a `visibilitychange` event firing between
-    // stopPolling() and removeEventListener() could leak a fresh interval.
-    const intervalRef: { current: ReturnType<typeof setInterval> | null } = { current: null };
-
-    const pollHealth = async () => {
-      const start = performance.now();
-      try {
-        const response = await fetch('/api/health', { method: 'GET' });
-        if (!mountedRef.current) return;
-        const latency = Math.round(performance.now() - start);
-        if (response.ok) {
-          dispatch(setAPIConnected(true));
-          dispatch(setLatency(latency));
-        }
-      } catch {
-        if (!mountedRef.current) return;
-        dispatch(setAPIConnected(false));
-        dispatch(setLatency(0));
-      }
-    };
-
-    const startPolling = () => {
-      if (!intervalRef.current) {
-        intervalRef.current = setInterval(pollHealth, 5000);
-      }
-    };
-
-    const stopPolling = () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-
-    const handleVisibility = () => {
-      if (document.hidden) {
-        stopPolling();
-      } else {
-        pollHealth(); // Immediate check on return
-        startPolling();
-      }
-    };
-
-    startPolling();
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    return () => {
-      // Order matters: remove the visibility listener FIRST so it can no
-      // longer call startPolling() between us clearing the current interval
-      // and finishing cleanup.
-      document.removeEventListener('visibilitychange', handleVisibility);
-      stopPolling();
-    };
-  }, [dispatch]);
+  // API latency heartbeats (results dispatched to the store) + auto-hide of the
+  // details panel when the connection is restored — extracted to hooks (#4186).
+  useAPIHealthPoll();
+  useAutoHide(status.wsConnected && showDetails, () => setShowDetails(false));
 
   // Don't show if everything is connected and compact mode
   if (compact && status.wsConnected && status.apiConnected && !showDetails) {
@@ -238,229 +157,16 @@ export function ConnectionStatusIndicator({
 
       {/* Expanded Details */}
       {showDetails && (
-        <div
-          role="region"
-          aria-label="Connection status details"
-          style={{
-            marginTop: tokens.spacing.sm,
-            padding: tokens.spacing.lg,
-            background: tokens.colors.bg.secondary,
-            border: `1px solid ${tokens.colors.border.medium}`,
-            borderRadius: '8px',
-            minWidth: '280px',
-            boxShadow: `0 4px 20px ${tokens.colors.opacityScale.dark.veryStrong}`,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Status Header */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: tokens.spacing.sm,
-              marginBottom: tokens.spacing.md,
-              paddingBottom: tokens.spacing.md,
-              borderBottom: `1px solid ${tokens.colors.border.light}`,
-            }}
-          >
-            <div
-              style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '50%',
-                background: statusColor,
-                boxShadow: `0 0 6px ${statusColor}`,
-                animation: isReconnecting ? 'pulse 1s infinite' : 'none',
-              }}
-            />
-            <div
-              style={{
-                fontSize: tokens.typography.fontSize.sm,
-                fontWeight: tokens.typography.fontWeight.semibold,
-                color: statusColor,
-              }}
-            >
-              {statusText}
-            </div>
-          </div>
-
-          {/* WebSocket Status */}
-          <div
-            style={{
-              marginBottom: tokens.spacing.md,
-              paddingBottom: tokens.spacing.md,
-              borderBottom: `1px solid ${tokens.colors.border.light}`,
-            }}
-          >
-            <div
-              style={{
-                fontSize: tokens.typography.fontSize.xs,
-                color: tokens.colors.text.tertiary,
-                marginBottom: tokens.spacing.xs,
-              }}
-            >
-              WebSocket
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: tokens.spacing.sm,
-              }}
-            >
-              <div
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: status.wsConnected
-                    ? tokens.colors.semantic.success
-                    : tokens.colors.semantic.error,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: tokens.typography.fontSize.sm,
-                  color: tokens.colors.text.secondary,
-                }}
-              >
-                {status.wsConnected ? 'Connected' : 'Disconnected'}
-              </span>
-            </div>
-          </div>
-
-          {/* API Status */}
-          <div
-            style={{
-              marginBottom: tokens.spacing.md,
-              paddingBottom: tokens.spacing.md,
-              borderBottom: `1px solid ${tokens.colors.border.light}`,
-            }}
-          >
-            <div
-              style={{
-                fontSize: tokens.typography.fontSize.xs,
-                color: tokens.colors.text.tertiary,
-                marginBottom: tokens.spacing.xs,
-              }}
-            >
-              API Connection
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: tokens.spacing.sm,
-              }}
-            >
-              <div
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: status.apiConnected
-                    ? tokens.colors.semantic.success
-                    : tokens.colors.semantic.error,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: tokens.typography.fontSize.sm,
-                  color: tokens.colors.text.secondary,
-                }}
-              >
-                {status.apiConnected ? 'Connected' : 'Disconnected'}
-              </span>
-            </div>
-          </div>
-
-          {/* Latency */}
-          {status.latency > 0 && (
-            <div
-              style={{
-                marginBottom: tokens.spacing.md,
-                paddingBottom: tokens.spacing.md,
-                borderBottom: `1px solid ${tokens.colors.border.light}`,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: tokens.typography.fontSize.xs,
-                  color: tokens.colors.text.tertiary,
-                  marginBottom: tokens.spacing.xs,
-                }}
-              >
-                Latency
-              </div>
-              <div
-                style={{
-                  fontSize: tokens.typography.fontSize.md,
-                  fontWeight: tokens.typography.fontWeight.semibold,
-                  color:
-                    status.latency < 50
-                      ? tokens.colors.semantic.success
-                      : status.latency < 100
-                        ? tokens.colors.semantic.warning
-                        : tokens.colors.semantic.error,
-                }}
-              >
-                {status.latency} ms
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {status.lastError && (
-            <div
-              style={{
-                marginBottom: tokens.spacing.md,
-                padding: tokens.spacing.sm,
-                background: tokens.colors.utility.errorBg,
-                borderRadius: '4px',
-                border: `1px solid ${tokens.colors.semantic.error}20`,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: tokens.typography.fontSize.xs,
-                  color: tokens.colors.semantic.error,
-                  wordBreak: 'break-word',
-                }}
-              >
-                {status.lastError}
-              </div>
-            </div>
-          )}
-
-          {/* Reconnect Button */}
-          {isReconnecting && (
-            <Box
-              component="button"
-              onClick={() => {
-                // Trigger manual WebSocket reconnection without full page reload
-                connect();
-              }}
-              sx={{
-                width: '100%',
-                padding: tokens.spacing.sm,
-                background: tokens.colors.accent.primary,
-                border: 'none',
-                borderRadius: '6px',
-                color: tokens.colors.text.primary,
-                fontSize: tokens.typography.fontSize.sm,
-                fontWeight: tokens.typography.fontWeight.semibold,
-                cursor: 'pointer',
-                opacity: 0.9,
-                transition: tokens.transitions.hover_out,
-                '&:hover': {
-                  opacity: 1,
-                },
-              }}
-            >
-              Reconnect
-            </Box>
-          )}
-        </div>
+        <ConnectionDetailsPanel
+          wsConnected={status.wsConnected}
+          apiConnected={status.apiConnected}
+          latency={status.latency}
+          lastError={status.lastError}
+          statusColor={statusColor}
+          statusText={statusText}
+          isReconnecting={isReconnecting}
+          onReconnect={connect}
+        />
       )}
     </div>
   );
