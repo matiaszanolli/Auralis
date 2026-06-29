@@ -98,14 +98,13 @@ def test_one_hour_audio_processing(tmp_path):
 @pytest.mark.boundary
 @pytest.mark.slow
 @pytest.mark.long_audio
-@pytest.mark.skip(reason="Missing module: auralis_web/player")
 def test_very_long_audio_chunk_count(tmp_path):
     """
     BOUNDARY: Chunk count for very long audio.
 
-    10 hour audio with 10s chunks = 3600 chunks.
+    10 hour audio at CHUNK_DURATION-second chunks.
     """
-    from auralis_web.backend.chunked_processor import (
+    from core.chunked_processor import (
         CHUNK_DURATION,
         ChunkedAudioProcessor,
     )
@@ -117,11 +116,13 @@ def test_very_long_audio_chunk_count(tmp_path):
     duration = 36000.0  # 10 hours
     sample_rate = 44100
 
-    # Calculate expected chunks
+    # Calculate expected chunks from the canonical CHUNK_DURATION (15s -> 2400).
     expected_chunks = int(np.ceil(duration / CHUNK_DURATION))
 
-    # For 10 hours with 10s chunks: 3600 chunks
-    assert expected_chunks == 3600, f"Expected 3600 chunks, calculated {expected_chunks}"
+    assert expected_chunks == int(np.ceil(36000.0 / CHUNK_DURATION)), (
+        f"Chunk count must derive from CHUNK_DURATION={CHUNK_DURATION}; got {expected_chunks}"
+    )
+    assert expected_chunks == 2400, f"Expected 2400 chunks at 15s, calculated {expected_chunks}"
 
 
 @pytest.mark.boundary
@@ -258,12 +259,11 @@ def test_sub_frame_duration():
 
 @pytest.mark.boundary
 @pytest.mark.short_audio
-@pytest.mark.skip(reason="Missing module: auralis_web/player")
 def test_very_short_track_chunking(tmp_path):
     """
     BOUNDARY: Track shorter than CHUNK_DURATION.
     """
-    from auralis_web.backend.chunked_processor import ChunkedAudioProcessor
+    from core.chunked_processor import ChunkedAudioProcessor
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()

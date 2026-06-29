@@ -212,12 +212,11 @@ def test_pagination_last_page_partial(library_with_100_tracks):
 
 @pytest.mark.boundary
 @pytest.mark.exact
-@pytest.mark.skip(reason="Missing module: auralis_web/player")
 def test_audio_exactly_chunk_duration(tmp_path):
     """
     BOUNDARY: Audio exactly CHUNK_DURATION seconds (no partial chunks).
     """
-    from auralis_web.backend.chunked_processor import (
+    from core.chunked_processor import (
         CHUNK_DURATION,
         ChunkedAudioProcessor,
     )
@@ -251,14 +250,13 @@ def test_audio_exactly_chunk_duration(tmp_path):
 
 @pytest.mark.boundary
 @pytest.mark.exact
-@pytest.mark.skip(reason="Missing module: auralis_web/player")
 def test_audio_one_sample_over_chunk_duration(tmp_path):
     """
     BOUNDARY: Audio 1 sample longer than CHUNK_DURATION.
 
     Should create 2 chunks (not round down).
     """
-    from auralis_web.backend.chunked_processor import (
+    from core.chunked_processor import (
         CHUNK_DURATION,
         ChunkedAudioProcessor,
     )
@@ -291,12 +289,11 @@ def test_audio_one_sample_over_chunk_duration(tmp_path):
 
 @pytest.mark.boundary
 @pytest.mark.exact
-@pytest.mark.skip(reason="Missing module: auralis_web/player")
 def test_audio_one_sample_under_chunk_duration(tmp_path):
     """
     BOUNDARY: Audio 1 sample shorter than CHUNK_DURATION.
     """
-    from auralis_web.backend.chunked_processor import (
+    from core.chunked_processor import (
         CHUNK_DURATION,
         ChunkedAudioProcessor,
     )
@@ -364,7 +361,12 @@ def test_intensity_exactly_zero_point_five():
 
 @pytest.mark.boundary
 @pytest.mark.precision
-@pytest.mark.skip(reason="Missing module: auralis_web/player")
+@pytest.mark.skip(
+    reason="Predates current AudioPlayer API: needs get_repository_factory + "
+    "load_track_from_library(track_id)/seek() (the old load_track(path)/"
+    "seek_to_position() were removed). Import path fixed under #4044; full "
+    "rewrite to the library-backed player API is separate work."
+)
 def test_position_exactly_duration(tmp_path):
     """
     BOUNDARY: Seek to position exactly equals duration.
@@ -372,7 +374,7 @@ def test_position_exactly_duration(tmp_path):
     Should go to end, not crash.
     """
     from auralis.core.config import UnifiedConfig
-    from auralis.player.player import AudioPlayer as EnhancedPlayer
+    from auralis.player import AudioPlayer as EnhancedPlayer
 
     # Create test audio
     audio_dir = tmp_path / "audio"
@@ -530,12 +532,11 @@ def test_track_title_max_length(tmp_path):
 
 @pytest.mark.boundary
 @pytest.mark.chunking
-@pytest.mark.skip(reason="Missing module: auralis_web/player")
 def test_chunk_at_exact_overlap_boundary(tmp_path):
     """
     BOUNDARY: Chunk boundaries at exact OVERLAP_DURATION.
     """
-    from auralis_web.backend.chunked_processor import (
+    from core.chunked_processor import (
         CHUNK_DURATION,
         OVERLAP_DURATION,
         ChunkedAudioProcessor,
