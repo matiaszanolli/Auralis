@@ -27,14 +27,13 @@ from fastapi.testclient import TestClient
 class TestFastAPIAsyncPatterns:
     """Tests for FastAPI async endpoint patterns."""
 
-    @pytest.mark.xfail(reason="Requires running FastAPI server")
     @pytest.mark.asyncio
     async def test_concurrent_api_requests(self, tmp_path):
         """Test handling 100 concurrent API requests."""
-        from auralis_web.backend.main import app
+        from main import app
 
         # Use async client for concurrent requests
-        async with httpx.AsyncClient(app=app, base_url="http://test") as client:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             # Make 100 concurrent health check requests
             tasks = [client.get("/api/health") for _ in range(100)]
             responses = await asyncio.gather(*tasks)
@@ -43,13 +42,12 @@ class TestFastAPIAsyncPatterns:
             assert len(responses) == 100
             assert all(r.status_code == 200 for r in responses)
 
-    @pytest.mark.xfail(reason="Requires running FastAPI server")
     @pytest.mark.asyncio
     async def test_concurrent_api_requests_1000(self, tmp_path):
         """Test handling 1000 concurrent API requests."""
-        from auralis_web.backend.main import app
+        from main import app
 
-        async with httpx.AsyncClient(app=app, base_url="http://test") as client:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             # Make 1000 concurrent health check requests in batches
             batch_size = 100
             all_responses = []
