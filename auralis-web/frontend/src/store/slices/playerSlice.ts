@@ -134,6 +134,11 @@ const playerSlice = createSlice({
     setDuration: {
       reducer(state, action: PayloadAction<number, string, { timestamp: number }>) {
         state.duration = action.payload;
+        // Re-clamp currentTime: a shorter re-analysed duration would otherwise
+        // leave currentTime > duration (#4191).
+        if (state.currentTime > action.payload) {
+          state.currentTime = action.payload;
+        }
         if (state.currentTrack) {
           state.currentTrack.duration = action.payload;
         }
@@ -253,6 +258,11 @@ const playerSlice = createSlice({
           Object.entries(rest).filter(([, v]) => v !== undefined)
         );
         Object.assign(state, defined);
+        // Re-clamp currentTime to duration — Object.assign bypasses the
+        // setCurrentTime/setDuration clamps (#4191).
+        if (state.currentTime > state.duration) {
+          state.currentTime = state.duration;
+        }
         // Keep currentTrack.duration in sync with top-level duration (#2774)
         if (rest.duration !== undefined && state.currentTrack) {
           state.currentTrack.duration = rest.duration;

@@ -113,6 +113,24 @@ describe('playerSlice', () => {
     expect(state.duration).toBe(300);
   });
 
+  it('setDuration re-clamps currentTime when duration shrinks (#4191)', () => {
+    let state = reducer(initialState, setDuration(300));
+    state = reducer(state, setCurrentTime(250));
+    expect(state.currentTime).toBe(250);
+    // Re-analysed shorter duration must pull currentTime back.
+    state = reducer(state, setDuration(120));
+    expect(state.duration).toBe(120);
+    expect(state.currentTime).toBe(120);
+  });
+
+  it('updatePlaybackState re-clamps currentTime to duration (#4191)', () => {
+    let state = reducer(initialState, setDuration(300));
+    state = reducer(state, setCurrentTime(280));
+    state = reducer(state, updatePlaybackState({ duration: 100 }));
+    expect(state.duration).toBe(100);
+    expect(state.currentTime).toBe(100);
+  });
+
   // ─── Volume reducers ───────────────────────────────────────────
 
   it('setVolume clamps 0-100 and unmutes', () => {
