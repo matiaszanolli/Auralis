@@ -81,7 +81,7 @@ class TestSharedResourceAccess:
             value = cache.get(f"concurrent_key_{i}")
             assert value == f"concurrent_value_{i}", f"Cache corruption detected for key {i}"
 
-    @pytest.mark.xfail(reason="API compatibility - needs updates")
+    @pytest.mark.xfail(reason="API compatibility - needs updates", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_cache_invalidation_race_condition(self, thread_pool):
@@ -127,7 +127,7 @@ class TestSharedResourceAccess:
         assert len(errors) == 0, f"Errors during concurrent access: {errors}"
 
 
-    @pytest.mark.xfail(reason="Database setup requires complex fixtures")
+    @pytest.mark.xfail(reason="Database setup requires complex fixtures", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_database_connection_pool(self, temp_db, thread_pool):
@@ -163,7 +163,7 @@ class TestSharedResourceAccess:
         all_tracks, total = track_repo.get_all(limit=100)
         assert len(all_tracks) == 20
 
-    @pytest.mark.xfail(reason="Database setup requires complex fixtures")
+    @pytest.mark.xfail(reason="Database setup requires complex fixtures", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_concurrent_database_writes(self, temp_db, thread_pool):
@@ -209,7 +209,7 @@ class TestSharedResourceAccess:
         results = [f.result() for f in futures]
         assert all(r for r in results)
 
-    @pytest.mark.xfail(reason="Database setup requires complex fixtures")
+    @pytest.mark.xfail(reason="Database setup requires complex fixtures", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_concurrent_database_transactions(self, temp_db, thread_pool):
@@ -259,7 +259,7 @@ class TestSharedResourceAccess:
         # Count should be close to 50 (allowing for some race conditions in SQLite)
         assert final_count >= 45, f"Play count {final_count} too low, transaction isolation may be broken"
 
-    @pytest.mark.xfail(reason="Database setup requires complex fixtures")
+    @pytest.mark.xfail(reason="Database setup requires complex fixtures", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_library_manager_concurrent_access(self, tmp_path, thread_pool):
@@ -296,7 +296,7 @@ class TestSharedResourceAccess:
         all_tracks, total = manager.get_all_tracks(limit=100)
         assert len(all_tracks) == 30
 
-    @pytest.mark.xfail(reason="Database setup requires complex fixtures")
+    @pytest.mark.xfail(reason="Database setup requires complex fixtures", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_concurrent_metadata_updates(self, temp_db, thread_pool):
@@ -466,7 +466,7 @@ class TestAudioProcessingThreadSafety:
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     @pytest.mark.audio
-    @pytest.mark.xfail(reason="API compatibility issue")
+    @pytest.mark.xfail(reason="API compatibility issue", strict=True)
     def test_processor_instance_isolation(self, test_audio_files, thread_pool):
         """
         Test that processor instances don't interfere with each other.
@@ -529,7 +529,7 @@ class TestAudioProcessingThreadSafety:
         assert all(r > 0 for r in results)
 
     @pytest.mark.concurrency
-    @pytest.mark.xfail(reason="API compatibility - needs updates")
+    @pytest.mark.xfail(reason="API compatibility - needs updates", strict=True)
     @pytest.mark.thread_safety
     @pytest.mark.audio
     def test_concurrent_dynamics_processing(self, test_audio_files, thread_pool):
@@ -579,7 +579,7 @@ class TestAudioProcessingThreadSafety:
         assert all(isinstance(r, (int, float)) for r in results)
 
     @pytest.mark.concurrency
-    @pytest.mark.xfail(reason="API compatibility - needs updates")
+    @pytest.mark.xfail(reason="API compatibility - needs updates", strict=True)
     @pytest.mark.thread_safety
     @pytest.mark.audio
     def test_concurrent_spectrum_analysis(self, test_audio_files, thread_pool):
@@ -603,7 +603,7 @@ class TestAudioProcessingThreadSafety:
         assert all(results)
 
     @pytest.mark.concurrency
-    @pytest.mark.xfail(reason="API compatibility - needs updates")
+    @pytest.mark.xfail(reason="API compatibility - needs updates", strict=True)
     @pytest.mark.thread_safety
     @pytest.mark.audio
     def test_concurrent_content_analysis(self, test_audio_files, thread_pool):
@@ -632,7 +632,7 @@ class TestAudioProcessingThreadSafety:
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     @pytest.mark.audio
-    @pytest.mark.xfail(reason="API compatibility issue")
+    @pytest.mark.xfail(reason="API compatibility issue", strict=True)
     def test_concurrent_target_generation(self, test_audio_files, thread_pool):
         """
         Test TargetGenerator thread-safety.
@@ -814,7 +814,7 @@ class TestThreadPoolManagement:
         final_thread_count = threading.active_count()
         assert final_thread_count <= initial_thread_count + 1  # Allow for minor variation
 
-    @pytest.mark.xfail(reason="API compatibility - needs fixture updates")
+    @pytest.mark.xfail(reason="API compatibility - needs fixture updates", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_thread_pool_exception_handling(self, thread_pool):
@@ -848,7 +848,7 @@ class TestThreadPoolManagement:
         assert successes == 5
         assert failures == 5
 
-    @pytest.mark.xfail(reason="API compatibility - needs fixture updates")
+    @pytest.mark.xfail(reason="API compatibility - needs fixture updates", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_thread_local_storage(self, thread_pool):
