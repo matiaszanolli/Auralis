@@ -9,12 +9,10 @@ import sys
 import time
 from pathlib import Path
 
-import pytest
 import requests
 
 
-@pytest.mark.skip(reason="Integration test - requires full server startup")
-def test_backend_startup():
+def check_backend_startup():
     """Test that backend starts successfully"""
     print("\n1️⃣  Testing Backend Startup...")
     print("=" * 50)
@@ -24,7 +22,8 @@ def test_backend_startup():
     backend_dir = project_root / "auralis-web" / "backend"
 
     if not backend_dir.exists():
-        pytest.skip(f"Backend directory not found: {backend_dir}")
+        print(f"❌ Backend directory not found: {backend_dir}")
+        return False, None
 
     proc = subprocess.Popen(
         [sys.executable, "main.py"],
@@ -71,8 +70,7 @@ def test_backend_startup():
 
     return True, proc
 
-@pytest.mark.skip(reason="Integration test - requires full server startup")
-def test_api_endpoints(proc):
+def check_api_endpoints(proc):
     """Test key API endpoints"""
     print("\n2️⃣  Testing API Endpoints...")
     print("=" * 50)
@@ -102,8 +100,7 @@ def test_api_endpoints(proc):
 
     return all_passed
 
-@pytest.mark.skip(reason="Integration test - requires full server startup")
-def test_frontend_serving(proc):
+def check_frontend_serving(proc):
     """Test that frontend is being served"""
     print("\n3️⃣  Testing Frontend Serving...")
     print("=" * 50)
@@ -137,8 +134,7 @@ def test_frontend_serving(proc):
         print(f"❌ Frontend serving failed: {e}")
         return False
 
-@pytest.mark.skip(reason="Integration test - requires full server startup")
-def test_static_assets(proc):
+def check_static_assets(proc):
     """Test that static assets are accessible"""
     print("\n4️⃣  Testing Static Assets...")
     print("=" * 50)
@@ -189,20 +185,20 @@ def main():
     print("=" * 50)
 
     # Test backend startup
-    success, proc = test_backend_startup()
+    success, proc = check_backend_startup()
     if not success:
         print("\n❌ Backend startup failed. Cannot continue tests.")
         sys.exit(1)
 
     try:
         # Test API endpoints
-        api_ok = test_api_endpoints(proc)
+        api_ok = check_api_endpoints(proc)
 
         # Test frontend serving
-        frontend_ok = test_frontend_serving(proc)
+        frontend_ok = check_frontend_serving(proc)
 
         # Test static assets
-        assets_ok = test_static_assets(proc)
+        assets_ok = check_static_assets(proc)
 
         # Summary
         print("\n" + "=" * 50)
