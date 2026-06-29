@@ -268,7 +268,7 @@ def compare_original_vs_remaster(original_path: Path, remaster_path: Path, descr
     print(f"\n{'=' * 130}\n")
 
 
-def test_remaster_comparison():
+def run_remaster_comparison():
     """Test sampling strategy on remastered versions."""
     print("\n" + "=" * 130)
     print("PHASE 7B: REMASTER COMPARISON TESTING")
@@ -335,4 +335,4 @@ These insights will inform Phase 7C adaptive strategies and production use cases
 
 
 if __name__ == "__main__":
-    test_remaster_comparison()
+    run_remaster_comparison()
