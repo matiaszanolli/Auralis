@@ -17,6 +17,8 @@ import reducer, {
   setIsLoading,
   setError,
   clearError,
+  setIsShuffled,
+  setRepeatMode,
   resetQueue,
   selectQueueTracks,
   selectCurrentIndex,
@@ -231,5 +233,17 @@ describe('queueSlice', () => {
   it('selectCurrentQueueTrack returns null for empty queue', () => {
     const root = { queue: initialState };
     expect(selectCurrentQueueTrack(root as any)).toBeNull();
+  });
+
+  it('setIsShuffled bumps lastUpdated (#4192)', () => {
+    const state = reducer(initialState, setIsShuffled(true));
+    expect(state.isShuffled).toBe(true);
+    expect(state.lastUpdated).toBeGreaterThan(0);
+  });
+
+  it('setRepeatMode bumps lastUpdated (#4192)', () => {
+    const state = reducer(initialState, setRepeatMode('all'));
+    expect(state.repeatMode).toBe('all');
+    expect(state.lastUpdated).toBeGreaterThan(0);
   });
 });

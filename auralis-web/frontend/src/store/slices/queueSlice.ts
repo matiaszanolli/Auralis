@@ -253,15 +253,29 @@ const queueSlice = createSlice({
     /**
      * Set shuffle state
      */
-    setIsShuffled(state, action: PayloadAction<boolean>) {
-      state.isShuffled = action.payload;
+    setIsShuffled: {
+      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
+        state.isShuffled = action.payload;
+        // Bump lastUpdated like every other queue mutator (#4192) so
+        // lastUpdated-based memoization/sync sees the change.
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(isShuffled: boolean) {
+        return { payload: isShuffled, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set repeat mode
      */
-    setRepeatMode(state, action: PayloadAction<RepeatMode>) {
-      state.repeatMode = action.payload;
+    setRepeatMode: {
+      reducer(state, action: PayloadAction<RepeatMode, string, { timestamp: number }>) {
+        state.repeatMode = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(mode: RepeatMode) {
+        return { payload: mode, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
