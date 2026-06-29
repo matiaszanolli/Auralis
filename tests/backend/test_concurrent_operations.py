@@ -383,7 +383,7 @@ def test_concurrent_cache_access(temp_audio_dir):
 # ============================================================================
 
 @pytest.mark.integration
-@pytest.mark.skip(reason="Known issue: Concurrent database initialization causes migration race condition. Database migrations are not thread-safe.")
+@pytest.mark.skip(reason="Known issue #4232: concurrent LibraryManager.__init__ in the same process races during DB migration (the inter-process file lock doesn't serialize same-process threads). Un-skip once #4232 adds an in-process migrate lock.")
 def test_concurrent_connection_cleanup(temp_audio_dir):
     """
     CONCURRENCY: Database connections are cleaned up properly.
