@@ -22,7 +22,9 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
+import { Provider } from 'react-redux';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { createTestStore } from '@/test/test-utils';
 import { ConnectionStatusIndicator } from '../ConnectionStatusIndicator';
 
 // Mock WebSocketContext
@@ -41,7 +43,7 @@ vi.mock('@/contexts/WebSocketContext', () => ({
 }));
 
 // Mock fetch for latency measurements
-global.fetch = vi.fn(() =>
+globalThis.fetch = vi.fn(() =>
   Promise.resolve({
     ok: true,
     json: () => Promise.resolve({ status: 'ok' }),
@@ -52,12 +54,17 @@ global.fetch = vi.fn(() =>
  * Minimal wrapper that avoids WebSocket singleton issues
  */
 function MinimalWrapper({ children }: { children: ReactNode }) {
+  // Redux Provider is required because the component uses useDispatch (#4188:
+  // tests previously rendered without a store and failed at "could not find
+  // react-redux context").
   return (
-    <BrowserRouter>
-      <ThemeProvider>
-        {children}
-      </ThemeProvider>
-    </BrowserRouter>
+    <Provider store={createTestStore()}>
+      <BrowserRouter>
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
+      </BrowserRouter>
+    </Provider>
   );
 }
 

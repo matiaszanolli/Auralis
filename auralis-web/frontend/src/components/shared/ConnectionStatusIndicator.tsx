@@ -213,8 +213,13 @@ export function ConnectionStatusIndicator({
           boxShadow: isHealthy
             ? 'none'
             : `0 0 10px ${statusColor}, inset 0 0 10px ${statusColor}20`,
-          animation: isReconnecting ? 'pulse 1s infinite' : 'none',
-        }}
+          // Status colour fed to the static connection-status-pulse keyframes via
+          // CSS vars (#4188) — no per-status <style> re-injection. Cast because
+          // React.CSSProperties doesn't type custom properties.
+          ['--pulse-shadow-start' as string]: `${statusColor}80`,
+          ['--pulse-shadow-end' as string]: `${statusColor}00`,
+          animation: isReconnecting ? 'connection-status-pulse 1s infinite' : 'none',
+        } as React.CSSProperties}
         aria-label={statusText}
         aria-live="assertive"
         role="status"
@@ -457,20 +462,6 @@ export function ConnectionStatusIndicator({
           )}
         </div>
       )}
-
-      <style>{`
-        @keyframes pulse {
-          0% {
-            box-shadow: 0 0 0 0 ${statusColor}80;
-          }
-          70% {
-            box-shadow: 0 0 0 10px ${statusColor}00;
-          }
-          100% {
-            box-shadow: 0 0 0 0 ${statusColor}00;
-          }
-        }
-      `}</style>
     </div>
   );
 }

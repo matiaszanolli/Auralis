@@ -193,14 +193,6 @@ export const BufferingIndicator = ({
           <span>{statusText}</span>
         </div>
       )}
-
-      <style>{`
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </div>
   );
 };
