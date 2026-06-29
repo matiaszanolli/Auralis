@@ -48,27 +48,27 @@ export const useLibraryWithStats = ({
   autoLoad = true,
   includeStats = true,
 }: UseLibraryWithStatsOptions): UseLibraryWithStatsReturn => {
-  const { fetchTracks, loadMore, fetchAbortRef, ...paginationState } = useLibraryPagination({ view });
-  const { refetchStats, statsAbortRef, ...statsState } = useLibraryStats({ includeStats });
-  const { handleScanFolder, scanAbortRef, ...scanState } = useLibraryScan({
+  // Abort refs are pulled out of the spreads only to keep them out of the public
+  // return; each sub-hook owns its own abort lifecycle (it aborts its previous
+  // request on every new call AND on unmount), so the parent no longer aborts
+  // them (#4193 — the old parent cleanup was a redundant double-abort).
+  const { fetchTracks, loadMore, fetchAbortRef: _fetchAbortRef, ...paginationState } = useLibraryPagination({ view });
+  const { refetchStats, statsAbortRef: _statsAbortRef, ...statsState } = useLibraryStats({ includeStats });
+  const { handleScanFolder, scanAbortRef: _scanAbortRef, ...scanState } = useLibraryScan({
     includeStats,
     fetchTracks,
     refetchStats,
   });
+  void _fetchAbortRef; void _statsAbortRef; void _scanAbortRef;
 
   // Auto-load on mount or when view/options change. Sub-hooks own their own
-  // abort-on-unmount; this effect only drives the initial data load.
+  // abort-on-unmount and abort-on-new-call; this effect only drives the load.
   useEffect(() => {
     if (autoLoad) {
       fetchTracks();
       if (includeStats) refetchStats();
     }
-    return () => {
-      fetchAbortRef.current?.abort();
-      statsAbortRef.current?.abort();
-      scanAbortRef.current?.abort();
-    };
-  }, [view, autoLoad, includeStats, fetchTracks, refetchStats, fetchAbortRef, statsAbortRef, scanAbortRef]);
+  }, [view, autoLoad, includeStats, fetchTracks, refetchStats]);
 
   // Refresh library data when backend broadcasts library_updated (#2871).
   const handleLibraryUpdated = useCallback(() => {
