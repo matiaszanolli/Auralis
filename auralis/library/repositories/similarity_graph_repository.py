@@ -9,22 +9,15 @@ Data access layer for similarity graph operations
 """
 
 from typing import Any
-from collections.abc import Callable
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
 
 from ..models import SimilarityGraph
+from .base import BaseRepository
 
 
-class SimilarityGraphRepository:
+class SimilarityGraphRepository(BaseRepository):
     """Repository for similarity graph database operations"""
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        return self.session_factory()
 
     def clear_all(self) -> int:
         """

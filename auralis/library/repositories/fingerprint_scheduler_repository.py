@@ -9,29 +9,21 @@ Methods here atomically claim tracks so parallel workers never double-process.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from collections.abc import Callable
-
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..models import Track, TrackFingerprint
+from .base import BaseRepository
 
 
-class FingerprintSchedulerRepository:
+class FingerprintSchedulerRepository(BaseRepository):
     """Pessimistic-lock scheduling for fingerprint worker queue.
 
     Each public method atomically claims exactly one track so concurrent
     workers cannot process the same track twice.
     """
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        return self.session_factory()
 
     def claim_next_unfingerprinted_track(self) -> Track | None:
         """Atomically claim the next unfingerprinted track for processing.

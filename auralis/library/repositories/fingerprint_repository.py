@@ -18,6 +18,7 @@ from ...utils.logging import debug, error, info, warning
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..fingerprint_quantizer import FingerprintQuantizer
 from ..models import Track, TrackFingerprint
+from .base import BaseRepository
 from .fingerprint_stats_repository import FingerprintStatsRepository
 
 # Whitelist of columns callers may supply to upsert() / store_fingerprint().
@@ -48,7 +49,7 @@ def _validate_fingerprint_columns(cols: list[str]) -> None:
         )
 
 
-class FingerprintRepository:
+class FingerprintRepository(BaseRepository):
     """Repository for fingerprint database operations"""
 
     def __init__(
@@ -61,16 +62,12 @@ class FingerprintRepository:
         Args:
             session_factory: SQLAlchemy session factory used for all DB access.
         """
-        self.session_factory = session_factory
+        super().__init__(session_factory)
         # Status/stats methods were split into FingerprintStatsRepository; the
         # facade composes one and delegates (see bottom of class) so callers that
         # hold this repo (FingerprintExtractor, fingerprint/similarity routers)
         # keep working (#4108).
         self._stats = FingerprintStatsRepository(session_factory)
-
-    def get_session(self) -> Session:
-        """Get a new database session"""
-        return self.session_factory()
 
     def add(self, track_id: int, fingerprint_data: dict[str, float]) -> TrackFingerprint | None:
         """

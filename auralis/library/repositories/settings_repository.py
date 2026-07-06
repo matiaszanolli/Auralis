@@ -10,29 +10,15 @@ Data access layer for user settings operations
 
 import json
 from typing import Any
-from collections.abc import Callable
 
 from sqlalchemy import delete, select
-from sqlalchemy.orm import Session
 
 from ..models import UserSettings
+from .base import BaseRepository
 
 
-class SettingsRepository:
+class SettingsRepository(BaseRepository):
     """Repository for user settings database operations"""
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        """
-        Initialize settings repository
-
-        Args:
-            session_factory: SQLAlchemy session factory
-        """
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        """Get a new database session"""
-        return self.session_factory()
 
     def get_settings(self) -> UserSettings | None:
         """

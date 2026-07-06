@@ -9,25 +9,18 @@ Statistics, status tracking, and crash-recovery cleanup for fingerprints.
 """
 
 from typing import Any
-from collections.abc import Callable
 from datetime import datetime
 
 from sqlalchemy import delete, func, select, update
-from sqlalchemy.orm import Session
 
 from ...utils.logging import error, info
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..models import Track, TrackFingerprint
+from .base import BaseRepository
 
 
-class FingerprintStatsRepository:
+class FingerprintStatsRepository(BaseRepository):
     """Statistics, status tracking, and startup cleanup for fingerprints."""
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        return self.session_factory()
 
     def update_status(self, track_id: int, status: str, completed_at: str | None = None) -> bool:
         """Update fingerprint processing status for a track.

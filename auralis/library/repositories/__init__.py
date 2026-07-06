@@ -10,6 +10,7 @@ Data access layer for library database operations
 
 from .album_repository import AlbumRepository
 from .artist_repository import ArtistRepository
+from .base import BaseRepository
 from .factory import RepositoryFactory
 from .fingerprint_repository import FingerprintRepository
 from .fingerprint_scheduler_repository import FingerprintSchedulerRepository
@@ -25,6 +26,7 @@ from .stats_repository import StatsRepository
 from .track_repository import TrackRepository
 
 __all__ = [
+    'BaseRepository',
     'TrackRepository',
     'AlbumRepository',
     'ArtistRepository',

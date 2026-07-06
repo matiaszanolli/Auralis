@@ -10,29 +10,15 @@ Data access layer for queue state persistence operations
 
 import json
 from typing import Any
-from collections.abc import Callable
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from ..models import QueueState
+from .base import BaseRepository
 
 
-class QueueRepository:
+class QueueRepository(BaseRepository):
     """Repository for queue state database operations"""
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        """
-        Initialize queue repository
-
-        Args:
-            session_factory: SQLAlchemy session factory
-        """
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        """Get a new database session"""
-        return self.session_factory()
 
     @staticmethod
     def _validate_index(current_index: int, track_ids: list[int]) -> None:

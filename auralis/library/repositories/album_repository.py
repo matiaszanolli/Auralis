@@ -16,20 +16,18 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ..artwork import create_artwork_extractor
 from ..models import Album, Artist
+from .base import BaseRepository
 
 
-class AlbumRepository:
+class AlbumRepository(BaseRepository):
     """Repository for album database operations"""
 
     def __init__(self, session_factory: Callable[[], Session]) -> None:
-        self.session_factory = session_factory
+        super().__init__(session_factory)
 
         # Initialize artwork extractor
         artwork_dir = Path.home() / ".auralis" / "artwork"
         self.artwork_extractor = create_artwork_extractor(str(artwork_dir))
-
-    def get_session(self) -> Session:
-        return self.session_factory()
 
     def get_by_id(self, album_id: int) -> Album | None:
         """Get album by ID with relationships loaded"""

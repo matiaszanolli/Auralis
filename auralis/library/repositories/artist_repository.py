@@ -8,22 +8,15 @@ Data access layer for artist operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from collections.abc import Callable
-
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import selectinload
 
 from ..models import Album, Artist, Track, track_artist
+from .base import BaseRepository
 
 
-class ArtistRepository:
+class ArtistRepository(BaseRepository):
     """Repository for artist database operations"""
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        return self.session_factory()
 
     def get_by_id(self, artist_id: int) -> Artist | None:
         """Get artist by ID with relationships loaded"""

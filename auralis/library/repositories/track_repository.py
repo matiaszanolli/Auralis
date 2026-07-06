@@ -18,9 +18,10 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from ...utils.logging import debug, error, info, warning
 from ..models import Album, Artist, Genre, Track
 from ..utils.artist_normalizer import normalize_artist_name
+from .base import BaseRepository
 
 
-class TrackRepository:
+class TrackRepository(BaseRepository):
     """Repository for track database operations"""
 
     def __init__(self, session_factory: Callable[[], Session], album_repository: Any | None = None) -> None:
@@ -31,12 +32,8 @@ class TrackRepository:
             session_factory: SQLAlchemy session factory
             album_repository: AlbumRepository instance for artwork extraction
         """
-        self.session_factory = session_factory
+        super().__init__(session_factory)
         self.album_repository = album_repository
-
-    def get_session(self) -> Session:
-        """Get a new database session"""
-        return self.session_factory()
 
     def add(self, track_info: dict[str, Any]) -> Track | None:
         """

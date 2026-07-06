@@ -9,32 +9,19 @@ Data access layer for playlist operations
 """
 
 from typing import Any
-from collections.abc import Callable
 
 from sqlalchemy import and_, delete, func, insert, select, text, update
 from sqlalchemy.exc import IntegrityError
 from ..models.base import track_playlist
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import selectinload
 
 from ...utils.logging import debug, error, info
 from ..models import Playlist, Track
+from .base import BaseRepository
 
 
-class PlaylistRepository:
+class PlaylistRepository(BaseRepository):
     """Repository for playlist database operations"""
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        """
-        Initialize playlist repository
-
-        Args:
-            session_factory: SQLAlchemy session factory
-        """
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        """Get a new database session"""
-        return self.session_factory()
 
     def create(self, name: str, description: str = "", track_ids: list[int] | None = None) -> Playlist | None:
         """

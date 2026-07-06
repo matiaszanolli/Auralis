@@ -10,32 +10,19 @@ Data access layer for queue history and undo/redo operations
 
 import json
 from typing import Any, cast
-from collections.abc import Callable
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..models import QueueHistory, QueueState
+from .base import BaseRepository
 
 
-class QueueHistoryRepository:
+class QueueHistoryRepository(BaseRepository):
     """Repository for queue history management and undo/redo operations"""
 
     # Limit history to 20 operations for memory efficiency
     HISTORY_LIMIT = 20
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        """
-        Initialize queue history repository
-
-        Args:
-            session_factory: SQLAlchemy session factory
-        """
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        """Get a new database session"""
-        return self.session_factory()
 
     def push_to_history(self, operation: str, state_before: dict[str, Any],
                         metadata: dict[str, Any] | None = None) -> QueueHistory:

@@ -9,22 +9,15 @@ Data access layer for library statistics
 """
 
 from typing import Any
-from collections.abc import Callable
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from ..models import Album, Artist, Genre, Playlist, Track
+from .base import BaseRepository
 
 
-class StatsRepository:
+class StatsRepository(BaseRepository):
     """Repository for library statistics operations"""
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        return self.session_factory()
 
     def get_library_stats(self) -> dict[str, Any]:
         """

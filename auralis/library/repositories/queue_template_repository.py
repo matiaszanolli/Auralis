@@ -11,29 +11,15 @@ Data access layer for queue template persistence and management
 import json
 from datetime import datetime, timezone
 from typing import Any
-from collections.abc import Callable
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
 
 from ..models import QueueTemplate
+from .base import BaseRepository
 
 
-class QueueTemplateRepository:
+class QueueTemplateRepository(BaseRepository):
     """Repository for queue template CRUD operations"""
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        """
-        Initialize queue template repository
-
-        Args:
-            session_factory: SQLAlchemy session factory
-        """
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        """Get a new database session"""
-        return self.session_factory()
 
     def create(self, name: str, track_ids: list[int], is_shuffled: bool = False,
                repeat_mode: str = 'off', description: str | None = None,

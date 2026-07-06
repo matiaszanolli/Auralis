@@ -10,25 +10,18 @@ Data access layer for genre operations
 
 import logging
 from typing import Any
-from collections.abc import Callable
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import joinedload
 
 from ..models import Genre, Track
+from .base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
 
-class GenreRepository:
+class GenreRepository(BaseRepository):
     """Repository for genre database operations"""
-
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        """Get a new database session"""
-        return self.session_factory()
 
     def get_by_id(self, genre_id: int) -> Genre | None:
         """
