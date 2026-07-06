@@ -174,8 +174,6 @@ export const selectIsHealthy = (state: { cache: CacheState }) =>
 export const selectIsLoading = (state: { cache: CacheState }) => state.cache.isLoading;
 export const selectError = (state: { cache: CacheState }) => state.cache.error;
 export const selectLastUpdated = (state: { cache: CacheState }) => state.cache.lastUpdated;
-/** @deprecated Use selectLastUpdated */
-export const selectLastUpdate = selectLastUpdated;
 export const selectCacheState = (state: { cache: CacheState }) => state.cache;
 
 /**
