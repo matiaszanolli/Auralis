@@ -16,14 +16,14 @@ Auralis uses a layered processor architecture for audio processing:
   - `ContinuousMode`: Continuous learning mode
   - `RealtimeDSPPipeline`: Low-latency chunk processing
 
-**Deprecated**: `processor.py` - Old reference-based processor (use HybridProcessor instead)
+**Removed**: the old `processor.py` reference-based entry point has been deleted — `HybridProcessor` is now the sole core entry point.
 
 ### 2. Specialized Processing Layer (`auralis/core/processing/`)
 
-- **EQProcessor**: Equalization processing
-- **RealtimeProcessor**: Real-time DSP operations
-- **AdaptiveMode**: Spectrum-based adaptation
-- **HybridMode**: Multi-mode processing
+Implements the mode processors and per-stage DSP the HybridProcessor delegates to:
+- **AdaptiveMode / ContinuousMode / HybridMode** (`adaptive_mode.py`, `continuous_mode.py`, `hybrid_mode.py`): mastering modes
+- **RealtimeDSPPipeline** (`realtime_dsp_pipeline.py`): low-latency chunk path
+- **EQProcessor** (`eq_processor.py`), **HF-aware limiter** (`hf_aware_limiter.py`), delta EQ, cross-dimensional guard, target derivation
 
 ### 3. Backend/Streaming Layer (`auralis-web/backend/`)
 
@@ -62,7 +62,7 @@ Auralis uses a layered processor architecture for audio processing:
 
 ### Repository Pattern
 
-All database access MUST use the repository pattern via `RepositoryFactory`:
+All database access MUST use the repository pattern via `RepositoryFactory`. Every repository extends `BaseRepository` (`auralis/library/repositories/base.py`), which centralises the session factory and the `get_session()` / `_session_scope()` lifecycle so a pooling, retry, or async change is a one-file edit:
 
 ```python
 # ✅ CORRECT: Use repository pattern
@@ -119,8 +119,8 @@ def my_function():
   - Pattern: Lifecycle management, resource pooling
 
 - **Repository**: Data access abstraction (CRUD operations)
-  - Example: `TrackRepository`, `AlbumRepository`, `FingerprintRepository`
-  - Pattern: Database access only, no business logic
+  - Example: `TrackRepository`, `AlbumRepository`, `FingerprintRepository` — all 14 extend `BaseRepository`
+  - Pattern: Database access only, no business logic; session lifecycle inherited from `BaseRepository`
 
 - **Factory**: Creates and configures instances
   - Example: `ProcessorFactory`, `RepositoryFactory`

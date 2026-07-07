@@ -24,7 +24,7 @@ This audit covers ONLY the backend code:
 - **App Entry**: `auralis-web/backend/main.py` (FastAPI app, CORS, middleware)
 - **Routers**: `auralis-web/backend/routers/` (19 route handlers: player, library, albums, artists, playlists, enhancement, metadata, artwork, system, similarity, wav_streaming, etc.)
 - **WebSocket Streaming**: `auralis-web/backend/core/audio_stream_controller.py`
-- **Chunked Processor**: `auralis-web/backend/core/chunked_processor.py` (30s chunks, 3s crossfade)
+- **Chunked Processor**: `auralis-web/backend/core/chunked_processor.py` (15s chunks, 10s interval, 5s overlap crossfade)
 - **Processing Engine**: `auralis-web/backend/core/processing_engine.py`
 - **Schemas**: `auralis-web/backend/schemas.py`
 - **Services**: `auralis-web/backend/services/`
@@ -71,8 +71,8 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 ### Dimension 3: Chunked Processing
 
 **Check**:
-- [ ] Chunk boundaries — do 30s chunks align to audio frame boundaries (not mid-sample)?
-- [ ] Crossfade correctness — is the 3s crossfade using equal-power curves? Is `len(output) == len(input)` maintained?
+- [ ] Chunk boundaries — do 15s chunks align to audio frame boundaries (not mid-sample)?
+- [ ] Crossfade correctness — is the 5s overlap crossfade using equal-power curves? Is `len(output) == len(input)` maintained?
 - [ ] First/last chunk — are the first and last chunks handled correctly (no crossfade at start/end of track)?
 - [ ] Sample rate consistency — is the sample rate preserved across chunk boundaries?
 - [ ] Processing failure — if one chunk fails, does it corrupt subsequent chunks or gracefully degrade?
@@ -127,7 +127,7 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 **Check**:
 - [ ] Event loop blocking — are there sync I/O calls (file reads, subprocess, CPU-bound work) on the async event loop?
 - [ ] Connection pooling — is SQLAlchemy connection pooling configured (`pool_pre_ping=True`, appropriate pool size)?
-- [ ] Memory usage — are large audio buffers (30s chunks at 44.1kHz stereo = ~10MB each) managed carefully?
+- [ ] Memory usage — are large audio buffers (15s chunks at 44.1kHz stereo ≈ 5MB each) managed carefully?
 - [ ] Concurrent request handling — can the backend handle multiple simultaneous track requests?
 - [ ] Streaming efficiency — is audio data streamed chunk-by-chunk, or loaded entirely into memory?
 - [ ] Caching — are expensive operations (fingerprinting, analysis) cached to avoid redundant computation?

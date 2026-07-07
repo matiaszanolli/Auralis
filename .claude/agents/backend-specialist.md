@@ -29,7 +29,7 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 
 **Core processing & streaming** (`auralis-web/backend/core/`):
 - `audio_stream_controller.py` — WebSocket audio streaming
-- `chunked_processor.py` — 30s chunks, 3s crossfade (equal-power sqrt curve — commit `0a5df7a3`)
+- `chunked_processor.py` — 15s chunks, 10s interval, 5s overlap crossfade (equal-power sqrt curve — commit `0a5df7a3`)
 - `processing_engine.py` — processing orchestration
 - `audio_processing_pipeline.py` — pipeline assembly
 - `chunk_boundaries.py`, `chunk_cache_manager.py`, `chunk_operations.py` — chunk plumbing

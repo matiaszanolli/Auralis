@@ -37,7 +37,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Play endpoint | Backend | `auralis-web/backend/routers/player.py` or `auralis-web/backend/routers/wav_streaming.py` |
 | Audio loading | Engine | `auralis/io/unified_loader.py` |
 | Processing | Engine | `auralis/core/hybrid_processor.py` → `simple_mastering.py` |
-| Chunking | Backend | `chunked_processor.py` (30s chunks, 3s crossfade) |
+| Chunking | Backend | `chunked_processor.py` (15s chunks, 10s interval, 5s overlap crossfade) |
 | WebSocket stream | Backend | `audio_stream_controller.py` |
 | Audio playback | Frontend | WebSocket hook → Web Audio API |
 

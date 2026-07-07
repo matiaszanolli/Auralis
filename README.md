@@ -6,15 +6,15 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.2.0--beta.3-green.svg)](https://github.com/matiaszanolli/Auralis/releases)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-850%2B%20total-brightgreen.svg)]()
-[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1084%20passing%2F1425%20total-orange.svg)]()
-[![Component Tests](https://img.shields.io/badge/component%20tests-450%2B%20new-brightgreen.svg)]()
-[![Status](https://img.shields.io/badge/Phase-A%20Complete-brightgreen.svg)]()
+[![Release](https://img.shields.io/badge/release-v1.2.1--beta.2-green.svg)](https://github.com/matiaszanolli/Auralis/releases)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-~5%2C100-brightgreen.svg)]()
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-~3%2C500-brightgreen.svg)]()
+[![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)]()
+[![Node](https://img.shields.io/badge/node-24%2B-blue.svg)]()
 
 ## 📦 Current Version: 1.2.1-beta.2
 
-**🎵 Production-Ready Desktop Release (February 2026)**
+**🎵 Production-Ready Desktop Release**
 
 This release focuses on **stability and reliability** with critical concurrency fixes:
 
@@ -34,8 +34,8 @@ This release focuses on **stability and reliability** with critical concurrency 
   - Migration aborts if backup fails (prevents data loss)
   - Platform-specific file locking (fcntl/msvcrt)
 - ✅ **Seamless Audio Playback** - Equal-power crossfade between mastering chunks
-  - Eliminates audible artifacts at 30-second boundaries
-  - 3-second crossfade for smooth transitions
+  - Eliminates audible artifacts at chunk boundaries
+  - 15s chunks with 5s overlap crossfade for smooth transitions
 - ✅ **Parallel DSP Processing** - Prevents spectral loss and phase cancellation
   - Sub-bass control, EQ, and mastering use parallel processing
   - Maintains audio quality across processing pipeline
@@ -45,7 +45,7 @@ This release focuses on **stability and reliability** with critical concurrency 
 - ✅ **Improved Mastering Algorithm** - Energy-adaptive LUFS targeting
   - Content-aware processing adapts to source characteristics
   - 5 enhancement presets: Adaptive, Gentle, Warm, Bright, Punchy
-- ✅ **Comprehensive Test Suite** - 850+ tests with concurrency coverage
+- ✅ **Comprehensive Test Suite** - ~5,100 backend tests with concurrency coverage
   - 6 new tests for database migration race conditions
   - Multiprocessing tests for true parallel execution verification
 - ✅ **Automated CI/CD** - GitHub Actions builds for Linux, Windows, macOS
@@ -79,7 +79,7 @@ Auralis is a **local music player** with professional audio enhancement built-in
 - 🖥️ **Desktop & Web** - Native Electron app or run in your browser
 - 🔒 **100% Private** - Your music, your computer, no cloud required
 - ⚡ **Blazing Fast** - 36.6x real-time audio processing, 740+ files/second scanning
-- ✅ **Well Tested** - 850+ automated tests, production-ready quality, comprehensive test suite
+- ✅ **Well Tested** - ~5,100 automated backend tests, production-ready quality, comprehensive test suite
 
 ---
 
@@ -260,14 +260,15 @@ auralis/                    # Core audio processing engine
 └── io/                     # Multi-format audio I/O
 
 auralis-web/               # Web & Desktop UI
-├── backend/               # FastAPI server
-│   └── main.py           # API endpoints
+├── backend/               # FastAPI server (REST + WebSocket, :8765)
+│   ├── main.py           # App entry point
+│   └── routers/          # 19 route handlers
 └── frontend/              # React app
     └── src/
-        └── components/
-            ├── CozyLibraryView.tsx      # Library browser
-            ├── MagicalMusicPlayer.tsx   # Music player
-            └── ClassicVisualizer.tsx    # Visualizer
+        ├── components/    # UI components (library, player, visualizer)
+        ├── hooks/         # Domain hooks (player, library, enhancement, websocket)
+        ├── store/         # Redux slices
+        └── design-system/ # Design tokens (single source of truth)
 
 desktop/                   # Electron wrapper
 ├── main.js               # Main process
@@ -279,9 +280,9 @@ desktop/                   # Electron wrapper
 
 ## 🧪 Testing & Quality
 
-**850+ automated tests** ensure production-ready quality:
+**~5,100 automated backend tests** ensure production-ready quality:
 
-- **Backend (Python):** 850+ tests covering audio processing, API, security
+- **Backend (Python):** ~5,100 tests covering audio processing, API, security
 - **Frontend (React):** Component and integration tests with Vitest
 - **Security:** OWASP Top 10 coverage (SQL injection, XSS, etc.)
 
@@ -351,9 +352,8 @@ npm run build
 - **[PHASE1_WEEK3_PROGRESS.md](docs/development/PHASE1_WEEK3_PROGRESS.md)** - Current boundary test progress
 
 ### Release Notes
-- **[Beta 12](docs/releases/RELEASE_NOTES_BETA12.md)** - Latest beta release notes
-- **[Beta 11.2](docs/releases/RELEASE_NOTES_BETA11.2.md)** - Previous beta release notes
-- **[All Releases](docs/releases/)** - Complete release history
+- **[CHANGELOG](docs/releases/CHANGELOG.md)** - Full version history
+- **[All Release Notes](docs/releases/)** - Per-release notes archive
 
 ---
 
@@ -369,7 +369,7 @@ npm run build
   - 6 comprehensive concurrency tests
 - [x] Seamless audio playback with equal-power crossfade
   - Eliminates artifacts at chunk boundaries
-  - 3-second overlap between 30-second chunks
+  - 5-second overlap between 15-second chunks
 - [x] Parallel processing for audio DSP
   - Sub-bass control, EQ, mastering use parallel processing
   - Prevents spectral loss and phase cancellation

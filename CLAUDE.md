@@ -84,7 +84,7 @@ auralis-web/
 │   │                                 artists, playlists, enhancement, metadata,
 │   │                                 artwork, system, similarity, streaming...)
 │   ├── processing_engine.py        Audio processing orchestration
-│   ├── chunked_processor.py        30s chunks, 3s crossfade
+│   ├── chunked_processor.py        15s chunks, 10s interval, 5s overlap crossfade
 │   ├── audio_stream_controller.py  WebSocket audio streaming
 │   ├── schemas.py                  Request/response schemas
 │   └── services/, core/, config/   Service layer, encoding, config
@@ -110,7 +110,7 @@ docs/                             21 topic dirs (development, features, frontend
 ```
 User → FastAPI (REST + WebSocket :8765) → Backend Services
          → LibraryManager (SQLite) → HybridProcessor (DSP pipeline)
-         → ChunkedProcessor (30s chunks) → WebSocket stream → React (Redux)
+         → ChunkedProcessor (15s chunks, 5s overlap) → WebSocket stream → React (Redux)
 ```
 
 ## Critical Invariants
