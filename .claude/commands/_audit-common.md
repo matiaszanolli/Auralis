@@ -12,12 +12,12 @@ All code lives in a single repo at `/mnt/data/src/matchering`.
 
 ```
 Audio Engine:        auralis/                                Core Python audio engine
-Core Pipeline:       auralis/core/                           hybrid_processor.py, simple_mastering.py, processor.py, config.py, recording_type_detector.py
-DSP:                 auralis/dsp/                            unified.py, psychoacoustic_eq.py, advanced_dynamics.py, realtime_adaptive_eq.py
+Core Pipeline:       auralis/core/                           hybrid_processor.py, simple_mastering.py, processing/, config/, recording_type_detector.py
+DSP:                 auralis/dsp/                            stages.py (pipeline main()), basic.py, advanced_dynamics.py, eq/ (psychoacoustic_eq), realtime_adaptive_eq/ (realtime_eq), dynamics/, utils/
 Player:              auralis/player/                         enhanced_audio_player.py, gapless_playback_engine.py, queue_controller.py, realtime_processor.py
 Library:             auralis/library/                        manager.py, scanner.py, migration_manager.py
-Repositories:        auralis/library/repositories/           12 repos: track, album, artist, playlist, genre, stats, fingerprint, queue, settings, similarity, ...
-Analysis:            auralis/analysis/                       92 files; fingerprint/ (25D), content/, ml/, quality/
+Repositories:        auralis/library/repositories/           14 repos + base.py (BaseRepository) + factory.py (RepositoryFactory): track, album, artist, playlist, genre, stats, fingerprint, fingerprint_scheduler, fingerprint_stats, queue, queue_history, queue_template, settings, similarity_graph
+Analysis:            auralis/analysis/                       81 files; fingerprint/ (25D), content/, ml/, quality/
 Audio I/O:           auralis/io/                             unified_loader.py, results.py (pcm16/pcm24)
 Parallel:            auralis/optimization/                   parallel_processor.py
 Services:            auralis/services/                       fingerprint, artwork background services
@@ -25,7 +25,7 @@ Learning:            auralis/learning/                       preference engine, 
 Utils:               auralis/utils/                          logging, helpers, preview_creator
 
 Backend:             auralis-web/backend/                    FastAPI :8765
-Backend Routers:     auralis-web/backend/routers/            15 route handlers
+Backend Routers:     auralis-web/backend/routers/            19 route handlers (23 .py files incl. dependencies/errors/serializers/pagination helpers)
 Backend Streaming:   auralis-web/backend/                    chunked_processor.py, audio_stream_controller.py, processing_engine.py
 Backend Schemas:     auralis-web/backend/schemas.py
 Backend Services:    auralis-web/backend/services/
@@ -42,7 +42,7 @@ Frontend Test Utils: auralis-web/frontend/src/test/
 
 Rust DSP:            vendor/auralis-dsp/                     PyO3 module (HPSS, YIN, Chroma)
 Desktop:             desktop/                                Electron wrapper
-Tests:               tests/                                  850+ tests across 21 dirs
+Tests:               tests/                                  ~5,100 test functions (369 files) across 18 dirs
 Audit Reports:       docs/audits/                            Generated audit reports
 Local Issue Cache:   .claude/issues/                         Issue snapshots (per audit-publish / fix-issue)
 Specialist Agents:   .claude/agents/                         dsp, backend, frontend, library specialists
@@ -95,7 +95,7 @@ For complex investigations, the orchestrator audits (`audit-engine`, `audit-back
 | `dsp-specialist` | `auralis/core/`, `auralis/dsp/`, `vendor/auralis-dsp/`, signal flow, audio invariants |
 | `backend-specialist` | `auralis-web/backend/` — routers, streaming, WebSocket, schemas |
 | `frontend-specialist` | `auralis-web/frontend/` — components, hooks, Redux, design tokens |
-| `library-specialist` | `auralis/library/` — 12 repositories, migrations, SQLite, scanner |
+| `library-specialist` | `auralis/library/` — 14 repositories (+ `BaseRepository`), migrations, SQLite, scanner |
 
 Invoke via the Task tool with `subagent_type: <name>`.
 
@@ -119,8 +119,8 @@ When a bug pattern exists, check ALL siblings before declaring scope. Common sib
 | Pattern | Where to grep |
 |---------|---------------|
 | DSP stage missing `.copy()` | All files under `auralis/dsp/` and `auralis/core/` |
-| Repository raw SQL | All 12 files under `auralis/library/repositories/` |
-| Router missing input validation | All 15 files under `auralis-web/backend/routers/` |
+| Repository raw SQL | All 14 repos under `auralis/library/repositories/` (each extends `BaseRepository` in `base.py`; also check `factory.py`) |
+| Router missing input validation | All 19 route handlers under `auralis-web/backend/routers/` |
 | Hook missing cleanup | All files under `auralis-web/frontend/src/hooks/` |
 | Component > 300 lines | All files under `auralis-web/frontend/src/components/` |
 | Service without lifecycle | All files under `auralis/services/` and `auralis-web/backend/services/` |

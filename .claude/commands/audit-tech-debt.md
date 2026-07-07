@@ -136,7 +136,7 @@ Every agent prompt MUST include:
 **Output**: `/tmp/audit/tech-debt/dim_2.md`
 
 ### Dimension 3: Logic Duplication
-**Entry points**: any subsystem with N>1 similar files — the Sibling Detection groups in `_audit-common.md` are the prime targets: `auralis/library/repositories/` (12 repos), `auralis-web/backend/routers/` (15 routers), `auralis/dsp/`, `auralis-web/frontend/src/hooks/`.
+**Entry points**: any subsystem with N>1 similar files — the Sibling Detection groups in `_audit-common.md` are the prime targets: `auralis/library/repositories/` (14 repos, each extends `BaseRepository`), `auralis-web/backend/routers/` (19 routers), `auralis/dsp/`, `auralis-web/frontend/src/hooks/`.
 **Checklist**:
 - Repeated query scaffolding across `auralis/library/repositories/` (session open → query → `selectinload` → map) — should it funnel through a base-repository helper?
 - Repeated request-validation / error-`HTTPException` / response-shaping boilerplate across `auralis-web/backend/routers/` (cross-reference `/sync-contracts` for the schema side).
@@ -181,7 +181,7 @@ Every agent prompt MUST include:
 **Checklist**:
 - Start from the `_audit-validate.sh` output captured in Phase 1 — every STALE line is a trivial-effort Dim 7 finding (backticked path that no longer resolves).
 - **Version drift**: `auralis/version.py` is the single source of truth. Flag any other file (notably `pyproject.toml`, `README.md`, docs) quoting a different version string.
-- CLAUDE.md "Codebase Map" counts that have drifted (e.g. "18 routers", "12 repos", "92 files") — recompute and flag mismatches.
+- CLAUDE.md "Codebase Map" and `_audit-common.md` "Project Layout" counts (router/repo/analysis-file/test totals) — recompute from the live tree and flag any mismatch instead of trusting the documented number.
 - Docstrings / comments referencing renamed or deleted symbols (grep the named symbol; if it has no definition, the doc is stale).
 - README / docs command examples that no longer work (changed flags, moved entry points; cross-check against the verified facts — e.g. entry point is `launch-auralis-web.py`).
 - `auralis-web/backend/WEBSOCKET_API.md` message-shape descriptions that no longer match `auralis-web/backend/schemas.py` or the emitted payloads (cross-reference `/sync-contracts`).

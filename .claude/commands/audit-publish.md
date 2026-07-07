@@ -61,7 +61,7 @@ For each CONFIRMED finding, check which risk patterns apply:
 | **Cross-file consistency risk** | Fix applies a pattern change that exists in multiple files (same DSP pattern, same repository method, same hook pattern) | `CONSISTENCY: Same pattern exists in <file1>, <file2>, ... — fix ALL or note as out of scope.` |
 
 **How to detect siblings**: When a finding references a file, check for files with similar names or roles:
-- `auralis/dsp/psychoacoustic_eq.py` → check other `auralis/dsp/*.py` for same pattern
+- `auralis/dsp/eq/psychoacoustic_eq.py` → check other `auralis/dsp/**/*.py` for same pattern
 - `auralis/library/repositories/track_repository.py` → check other `repositories/*_repository.py`
 - `auralis-web/backend/routers/albums.py` → check other `routers/*.py` for same pattern
 - `auralis-web/frontend/src/hooks/player/` → check other `hooks/*/` directories

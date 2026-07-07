@@ -47,8 +47,8 @@ These are known critical invariants that must ALWAYS be verified, regardless of 
 | Audio loading thread safety | `53cef6b4` | `auralis/analysis/fingerprint/` | Audio loading doesn't block on KeyboardInterrupt |
 | Cursor-based pagination in cleanup | `bd94fd59` | `auralis/library/` | `cleanup_missing_files` uses ID-cursor, not offset pagination |
 | SQLAlchemy engine disposal | `8adb8d0a` | `auralis/library/migration_manager.py` | Engine is disposed in `MigrationManager.close()` |
-| Sample count preservation in DSP pipeline | — | `auralis/core/hybrid_processor.py`, `auralis/dsp/unified.py` | `len(output) == len(input)` invariant maintained across all processing stages |
-| Copy-before-modify pattern | — | `auralis/core/simple_mastering.py`, `auralis/dsp/unified.py` | `audio.copy()` called before any in-place operations |
+| Sample count preservation in DSP pipeline | — | `auralis/core/hybrid_processor.py`, `auralis/dsp/stages.py` | `len(output) == len(input)` invariant maintained across all processing stages |
+| Copy-before-modify pattern | — | `auralis/core/simple_mastering.py`, `auralis/dsp/stages.py` | `audio.copy()` called before any in-place operations |
 | Thread-safe player state (RLock) | — | `auralis/player/enhanced_audio_player.py` | All state mutations protected by RLock |
 | SQLite thread-safe pooling | — | `auralis/library/manager.py` | `pool_pre_ping=True` and proper connection pooling configured |
 | Repository pattern (no raw SQL) | — | `auralis/library/repositories/` | All database access goes through repository classes, no raw SQL |

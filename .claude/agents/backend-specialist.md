@@ -15,9 +15,9 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 - `auralis-web/backend/schemas.py` — Pydantic request/response models (the contract with the frontend)
 - `auralis-web/backend/config/` — startup config, `LibraryAutoScanner` service registration
 
-**Routers** (`auralis-web/backend/routers/` — 18 handlers):
+**Routers** (`auralis-web/backend/routers/` — 19 handlers):
 - `player.py` — playback control
-- `webm_streaming.py` — main streaming endpoint
+- `wav_streaming.py` — main streaming endpoint
 - `library.py`, `albums.py`, `artists.py`, `playlists.py`, `genres` (in library) — library browse
 - `enhancement.py` — enhancement settings & application
 - `metadata.py`, `artwork.py` — track metadata & artwork
@@ -54,7 +54,7 @@ You are the **Backend Specialist** for Auralis — a FastAPI app at `:8765` that
 5. **WebSocket lifetime** — connections survive backend reloads in `--dev` mode. Treat reconnect as the common case; idempotent message handling required.
 6. **Rate limiting** — `RateLimitMiddleware` uses sliding window; safe in asyncio because there's no `await` between the read-time check and the write-back.
 7. **Streaming semaphore** — `stream_enhanced_audio` and `stream_normal_audio` release their semaphores in `finally` blocks; all early-exit paths must remain accounted for.
-8. **Chunked streaming** — `chunk_duration == chunk_interval == 10` (default `webm_streaming.py`); no overlap by default.
+8. **Chunked streaming** — `chunk_duration == chunk_interval == 10` (default `wav_streaming.py`); no overlap by default.
 9. **Localhost only** — Auralis is desktop-only; the backend binds to `127.0.0.1:8765`. Don't flag missing TLS/CORS for remote origins.
 
 ## When Consulted

@@ -32,7 +32,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 
 ### A01: Broken Access Control
 - [ ] WebSocket connections in `audio_stream_controller.py` — is there auth on connect?
-- [ ] All 15 routers in `auralis-web/backend/routers/` — which have NO auth checks?
+- [ ] All 19 routers in `auralis-web/backend/routers/` — which have NO auth checks?
 - [ ] File serving endpoints — can a user request files outside the music library?
 - [ ] Library scanner (`auralis/library/scanner.py`) — does it follow symlinks outside allowed directories?
 - [ ] Artwork endpoints — path traversal via metadata manipulation?
@@ -101,7 +101,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 | File | Purpose |
 |------|---------|
 | `auralis-web/backend/main.py` | FastAPI app, CORS, middleware config |
-| `auralis-web/backend/routers/` | All 15 route handlers |
+| `auralis-web/backend/routers/` | All 19 route handlers |
 | `auralis-web/backend/core/audio_stream_controller.py` | WebSocket streaming |
 | `auralis-web/backend/core/chunked_processor.py` | Audio chunk processing |
 | `auralis/io/unified_loader.py` | File loading (FFmpeg, SoundFile) |

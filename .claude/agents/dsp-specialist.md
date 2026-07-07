@@ -11,17 +11,17 @@ You are the **DSP Specialist** for Auralis — a Python audio engine with a Rust
 ## Your Domain
 
 **Python pipeline** (`auralis/core/` + `auralis/dsp/`):
-- `auralis/core/hybrid_processor.py` — HybridProcessor: main DSP entry point
+- `auralis/core/hybrid_processor.py` — HybridProcessor: main DSP entry point used by the backend
 - `auralis/core/simple_mastering.py` — SimpleMastering algorithm (actively modified — recent commits favor parallel processing to prevent spectral loss)
-- `auralis/core/processor.py` — Core entry point used by backend
+- `auralis/core/processing/` — mode processors invoked by the pipeline (`adaptive_mode.py`, `continuous_mode.py`, `hybrid_mode.py`, `realtime_dsp_pipeline.py`, `psychoacoustic_eq` via `eq_processor.py`)
 - `auralis/core/mastering_branches.py`, `mastering_config.py`, `personal_preferences.py` — branch routing and config
 - `auralis/core/recording_type_detector.py` — content-aware detection
-- `auralis/core/unified_config.py`, `config.py` — processing configuration
-- `auralis/dsp/unified.py` — unified DSP pipeline
-- `auralis/dsp/psychoacoustic_eq.py` — psychoacoustic EQ
+- `auralis/core/config/` — processing configuration (`unified_config.py` → `UnifiedConfig`)
+- `auralis/dsp/stages.py` — DSP pipeline entry (`main()`)
+- `auralis/dsp/eq/psychoacoustic_eq.py` — psychoacoustic EQ
 - `auralis/dsp/advanced_dynamics.py` — dynamics control
-- `auralis/dsp/realtime_adaptive_eq.py` — real-time adaptive EQ
-- `auralis/dsp/basic.py`, `stages.py` — DSP primitives
+- `auralis/dsp/realtime_adaptive_eq/realtime_eq.py` — real-time adaptive EQ
+- `auralis/dsp/basic.py` — DSP primitives
 - `auralis/optimization/parallel_processor.py` — parallel chunk processing
 
 **Player-side real-time DSP** (`auralis/player/`):

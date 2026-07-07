@@ -21,13 +21,13 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 | Component | Path | Key Files |
 |-----------|------|-----------|
-| Core Pipeline | `auralis/core/` | `hybrid_processor.py`, `simple_mastering.py`, `processor.py`, `config.py` |
-| DSP Modules | `auralis/dsp/` | `unified.py`, `psychoacoustic_eq.py`, `advanced_dynamics.py`, `realtime_adaptive_eq.py` |
+| Core Pipeline | `auralis/core/` | `hybrid_processor.py`, `simple_mastering.py`, `processing/`, `config/` |
+| DSP Modules | `auralis/dsp/` | `stages.py`, `basic.py`, `advanced_dynamics.py`, `eq/psychoacoustic_eq.py`, `realtime_adaptive_eq/realtime_eq.py` |
 | Player | `auralis/player/` | `enhanced_audio_player.py`, `gapless_playback_engine.py`, `queue_controller.py`, `realtime_processor.py` |
 | Audio I/O | `auralis/io/` | `unified_loader.py`, `results.py` |
 | Parallel Processing | `auralis/optimization/` | `parallel_processor.py` |
 | Analysis | `auralis/analysis/` | `fingerprint/` (25D system), `content/`, `ml/`, `quality/` |
-| Library | `auralis/library/` | `manager.py`, `repositories/` (12 repos), `scanner.py`, `migration_manager.py` |
+| Library | `auralis/library/` | `manager.py`, `repositories/` (14 repos + `base.py` BaseRepository), `scanner.py`, `migration_manager.py` |
 | Services | `auralis/services/` | Background services (fingerprint, artwork) |
 | Rust DSP | `vendor/auralis-dsp/` | PyO3 bindings (HPSS, YIN, Chroma) |
 
@@ -46,7 +46,7 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 
 ### Dimension 1: Sample Integrity
 
-**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/dsp/unified.py`, all DSP modules
+**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/dsp/stages.py`, all DSP modules
 
 **Check**:
 - [ ] `len(output) == len(input)` — verified at EVERY processing stage, not just the outer wrapper?
@@ -59,7 +59,7 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 
 ### Dimension 2: DSP Pipeline Correctness
 
-**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/dsp/unified.py`, `auralis/dsp/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`, `auralis/dsp/realtime_adaptive_eq.py`
+**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/dsp/stages.py`, `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`, `auralis/dsp/realtime_adaptive_eq/realtime_eq.py`
 
 **Check**:
 - [ ] Processing chain order — is the sequence (EQ → dynamics → mastering) correct and documented?

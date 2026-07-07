@@ -43,7 +43,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ### Dimension 2: Audio Processing Pipeline
 
-**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/optimization/parallel_processor.py`, `auralis/dsp/unified.py`, `vendor/auralis-dsp/`
+**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/optimization/parallel_processor.py`, `auralis/dsp/stages.py`, `vendor/auralis-dsp/`
 
 **Check**:
 - [ ] Parallel processor — are audio chunks independently copied before processing? Can adjacent chunks interfere?
