@@ -33,7 +33,7 @@ Categorize changed files by risk domain:
 | Analysis/Fingerprint | `auralis/analysis/*` | `/audit-engine` |
 | Library/Database | `auralis/library/*` | `/audit-engine`, `/audit-concurrency` |
 | Backend Routes | `auralis-web/backend/routers/*` | `/audit-backend` |
-| WebSocket/Streaming | `auralis-web/backend/audio_stream*`, `chunked_processor*` | `/audit-backend`, `/audit-integration` |
+| WebSocket/Streaming | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*` | `/audit-backend`, `/audit-integration` |
 | Backend Services | `auralis-web/backend/services/*`, `auralis-web/backend/core/*` | `/audit-backend` |
 | Frontend Components | `auralis-web/frontend/src/components/*` | `/audit-frontend` |
 | Frontend Hooks | `auralis-web/frontend/src/hooks/*` | `/audit-frontend`, `/audit-integration` |

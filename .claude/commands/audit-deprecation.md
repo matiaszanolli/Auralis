@@ -13,7 +13,7 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 
 | Severity | Deprecation-Specific Examples |
 |----------|------------------------------|
-| **CRITICAL** | Python 3.14 removed module still imported, React 19 removed API still called, Pydantic V1 syntax on V2 |
+| **CRITICAL** | Python 3.14 removed module still imported, React 18 removed API still called (e.g. `ReactDOM.render`), Pydantic V1 syntax on V2 |
 | **HIGH** | `datetime.utcnow()` (deprecated 3.12), SQLAlchemy 1.x `Query` API, MUI deprecated component props |
 | **MEDIUM** | Legacy React lifecycle methods, deprecated Node.js APIs, old Vite config keys |
 | **LOW** | Old naming conventions, superseded utility functions, stale type patterns |

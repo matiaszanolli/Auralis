@@ -43,7 +43,7 @@ Group changed files by risk domain:
 | **Audio Core** | `auralis/core/*`, `auralis/dsp/*` | HIGH |
 | **Player** | `auralis/player/*` | HIGH |
 | **Audio I/O** | `auralis/io/*` | HIGH |
-| **Backend Streaming** | `auralis-web/backend/audio_stream*`, `chunked_processor*` | HIGH |
+| **Backend Streaming** | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*` | HIGH |
 | **Backend Routes** | `auralis-web/backend/routers/*` | HIGH |
 | **Library/Database** | `auralis/library/*` | HIGH |
 | **Analysis** | `auralis/analysis/*` | MEDIUM |
