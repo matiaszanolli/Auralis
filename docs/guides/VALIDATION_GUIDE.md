@@ -231,7 +231,7 @@ After implementing frequency matching:
 ```python
 # 1. Process test album
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 
 config = UnifiedConfig()
 config.enable_frequency_matching = True  # NEW FEATURE

@@ -29,7 +29,7 @@ npm run dev
 
 ### System Requirements
 - **OS**: Linux, macOS, or Windows (WSL2 recommended)
-- **Node.js**: 20+ LTS (check with `node --version`)
+- **Node.js**: 24+ LTS (check with `node --version`)
 - **npm**: 10+ (check with `npm --version`)
 - **Git**: Latest version (check with `git --version`)
 - **RAM**: 2GB minimum, 4GB recommended for comfortable development
@@ -42,14 +42,14 @@ npm run dev
 # Install Homebrew if not present
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Install Node.js 20 LTS
-brew install node@20
+# Install Node.js 24 LTS
+brew install node@24
 
 # Link node to PATH
-brew link node@20 --force
+brew link node@24 --force
 
 # Verify installation
-node --version  # v20.x.x
+node --version  # v24.x.x
 npm --version   # 10.x.x
 ```
 
@@ -58,19 +58,19 @@ npm --version   # 10.x.x
 # Update package manager
 sudo apt update
 
-# Install Node.js 20 LTS
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# Install Node.js 24 LTS
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt install -y nodejs
 
 # Verify installation
-node --version  # v20.x.x
+node --version  # v24.x.x
 npm --version   # 10.x.x
 ```
 
 #### Windows (WSL2)
 ```bash
 # In WSL2 Ubuntu terminal
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt install -y nodejs
 
 # Verify
@@ -561,7 +561,7 @@ export function PlayerDisplay(): JSX.Element {
 ```bash
 # Check if Node.js is installed
 which node
-# If not found, install Node.js 20+
+# If not found, install Node.js 24+
 
 # Check npm
 which npm
@@ -881,7 +881,7 @@ npm run test:memory -- --watch
 
 ### Start Phase B (Backend Foundation)
 
-See [PHASE_A_IMPLEMENTATION_PLAN.md](../PHASE_A_IMPLEMENTATION_PLAN.md) for Phase B tasks:
+See [PHASE_A_IMPLEMENTATION_PLAN.md](../phases/phase-1-10/PHASE_A_IMPLEMENTATION_PLAN.md) for Phase B tasks:
 - B.1: Backend endpoint standardization
 - B.2: Phase 7.5 cache integration
 - B.3: WebSocket enhancement

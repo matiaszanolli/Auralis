@@ -46,7 +46,7 @@ docs/
 
 ### Prerequisites
 - Rust 1.56+ (via rustup)
-- Python 3.13+ with librosa
+- Python 3.14+ with librosa
 - 200MB disk space for build artifacts
 
 ### Build

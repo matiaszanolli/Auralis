@@ -13,16 +13,16 @@ The Repository Pattern provides a consistent abstraction layer for all database 
 
 ### 1. Session Management
 
-All repositories use the session factory pattern to manage database sessions:
+All repositories extend `BaseRepository` (`auralis/library/repositories/base.py`), which
+stores the session factory and centralises the session lifecycle via `get_session()` and
+the `_session_scope()` context manager. Subclasses inherit both and only add their own
+`__init__` when they store additional state:
 
 ```python
-class MyRepository:
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        self.session_factory = session_factory
+from .base import BaseRepository
 
-    def get_session(self) -> Session:
-        return self.session_factory()
 
+class MyRepository(BaseRepository):
     def get_by_id(self, id: int) -> Optional[MyModel]:
         session = self.get_session()
         try:
@@ -35,7 +35,8 @@ class MyRepository:
 ```
 
 **Key Points:**
-- Each method gets a fresh session via `session_factory()`
+- `BaseRepository.__init__` takes the `session_factory` and exposes `get_session()`
+- Each method gets a fresh session via `get_session()` (or the `_session_scope()` context manager)
 - Always use try-finally to ensure session cleanup
 - Call `session.close()` in the finally block
 
@@ -192,6 +193,10 @@ def delete(self, id: int) -> bool:
 
 ## Available Repositories
 
+There are **14 data repositories**, all extending `BaseRepository`. They are constructed
+and cached by `RepositoryFactory` (`auralis/library/repositories/factory.py`), which
+`LibraryManager` exposes (e.g. `library_manager.tracks`).
+
 ### Core Entity Repositories
 - **TrackRepository** - Track CRUD, metadata updates, missing file cleanup
 - **AlbumRepository** - Album operations, artwork management
@@ -201,6 +206,9 @@ def delete(self, id: int) -> bool:
 
 ### Specialized Repositories
 - **FingerprintRepository** - Audio fingerprinting, fingerprint stats, cleanup
+- **FingerprintStatsRepository** - Fingerprint status/coverage aggregates
+- **FingerprintSchedulerRepository** - Background fingerprint scheduling state
+- **SimilarityGraphRepository** - Track-similarity graph persistence
 - **QueueRepository** - Playback queue state management
 - **QueueHistoryRepository** - Undo/redo history
 - **QueueTemplateRepository** - Saved queue templates
@@ -221,24 +229,21 @@ Data access layer for [entity] operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Callable
-from sqlalchemy.orm import Session
+from typing import Optional, List
 import logging
 
+from .base import BaseRepository
 from ..models import MyModel
 
 logger = logging.getLogger(__name__)
 
 
-class MyModelRepository:
-    """Repository for [entity] database operations"""
+class MyModelRepository(BaseRepository):
+    """Repository for [entity] database operations
 
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
-        self.session_factory = session_factory
-
-    def get_session(self) -> Session:
-        """Get a new database session"""
-        return self.session_factory()
+    Inherits ``__init__``, ``get_session()`` and ``_session_scope()`` from
+    ``BaseRepository``; only override ``__init__`` if you store extra state.
+    """
 
     def get_by_id(self, id: int) -> Optional[MyModel]:
         """Get [entity] by ID"""
@@ -327,7 +332,7 @@ class MyModelRepository:
 ```
 
 ### Checklist
-- ✅ Session factory pattern
+- ✅ Extends `BaseRepository` (inherits `get_session()` / `_session_scope()`)
 - ✅ Try-finally cleanup (all methods)
 - ✅ Object detachment with `session.expunge()`
 - ✅ Pagination returns `(results, total_count)` tuple

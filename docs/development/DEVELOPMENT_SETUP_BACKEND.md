@@ -773,7 +773,7 @@ def test_with_files(tmp_path):
     # Automatically removed after test
 ```
 
-See [PHASE_5_FINAL_COMPLETION_SUMMARY.md](../../PHASE_5_FINAL_COMPLETION_SUMMARY.md) for comprehensive architecture documentation.
+See [PHASE_5_FINAL_COMPLETION_SUMMARY.md](../phases/completed/PHASE_5_FINAL_COMPLETION_SUMMARY.md) for comprehensive architecture documentation.
 
 ---
 
@@ -973,7 +973,7 @@ pip install --upgrade fastapi
 
 ### Start Phase B (Backend Foundation)
 
-See [PHASE_A_IMPLEMENTATION_PLAN.md](PHASE_A_IMPLEMENTATION_PLAN.md) for Phase B tasks:
+See [PHASE_A_IMPLEMENTATION_PLAN.md](../phases/phase-1-10/PHASE_A_IMPLEMENTATION_PLAN.md) for Phase B tasks:
 - B.1: Endpoint standardization
 - B.2: Phase 7.5 cache integration
 - B.3: WebSocket enhancement

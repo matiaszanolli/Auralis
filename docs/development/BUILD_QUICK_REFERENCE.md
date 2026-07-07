@@ -33,8 +33,8 @@ npm run clean                  # Remove all build artifacts
 
 ## 🛠️ Build Requirements
 
-- **Node.js 16+** (for Electron and React)
-- **Python 3.8+** (for audio processing)
+- **Node.js 24+** (for Electron and React)
+- **Python 3.14+** (for audio processing)
 - **PyInstaller** (`pip install pyinstaller`)
 - **~500MB free disk space** (for builds)
 

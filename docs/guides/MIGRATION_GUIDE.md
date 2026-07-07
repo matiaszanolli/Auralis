@@ -150,7 +150,7 @@ stats = factory.stats.get_library_stats()
 
 ## Repository Interface Reference
 
-The `RepositoryFactory` provides access to 11 repositories, each with specific methods:
+The `RepositoryFactory` provides access to 14 repositories, each with specific methods. All repositories extend `BaseRepository` (`auralis/library/repositories/base.py`), which centralises the `get_session()` / `_session_scope()` session lifecycle:
 
 ### TrackRepository (`factory.tracks`)
 

@@ -121,7 +121,7 @@ analyzer.save_profiles(profiles, "mastering_profiles.json")
 
 ```python
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
+from auralis.core.config import UnifiedConfig
 
 # Configure processor
 config = UnifiedConfig()

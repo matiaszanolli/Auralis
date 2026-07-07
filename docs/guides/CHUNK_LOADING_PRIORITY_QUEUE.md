@@ -146,7 +146,7 @@ This makes it easy to monitor chunk loading priority in real-time.
 ## Related Files
 
 - [UnifiedWebMAudioPlayer.ts](../../auralis-web/frontend/src/services/UnifiedWebMAudioPlayer.ts) - Player implementation
-- [webm_streaming.py](../../auralis-web/backend/routers/webm_streaming.py) - Chunk serving endpoint
+- [wav_streaming.py](../../auralis-web/backend/routers/wav_streaming.py) - Chunk serving endpoint
 - [MULTI_TIER_BUFFER_ARCHITECTURE.md](./MULTI_TIER_BUFFER_ARCHITECTURE.md) - Cache system
 
 ## References

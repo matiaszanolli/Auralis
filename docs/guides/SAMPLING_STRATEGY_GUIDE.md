@@ -184,7 +184,7 @@ config.set_fingerprint_strategy("sampling", sampling_interval=30.0)
 
 ```python
 from auralis.services.fingerprint_extractor import FingerprintExtractor
-from auralis.library.fingerprint_repository import FingerprintRepository
+from auralis.library.repositories import FingerprintRepository
 
 repo = FingerprintRepository()
 extractor = FingerprintExtractor(
