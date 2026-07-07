@@ -38,14 +38,15 @@ auralis/                          Core Python audio engine
 ├── core/                         Processing pipeline
 │   ├── hybrid_processor.py         HybridProcessor — main DSP pipeline
 │   ├── simple_mastering.py         SimpleMastering algorithm
-│   ├── processor.py                Core entry point
-│   ├── config.py                   Processing configuration
+│   ├── processing/                 Mode processors (adaptive, continuous, hybrid, realtime pipeline)
+│   ├── config/                     Processing configuration (UnifiedConfig)
 │   └── recording_type_detector.py  Content type detection
 ├── dsp/                          Signal processing
-│   ├── unified.py                  Unified DSP pipeline
-│   ├── psychoacoustic_eq.py        Psychoacoustic EQ
+│   ├── stages.py                   DSP pipeline entry (main())
+│   ├── basic.py                    DSP primitives
 │   ├── advanced_dynamics.py        Dynamics control
-│   └── realtime_adaptive_eq.py     Real-time adaptive EQ
+│   ├── eq/                         Psychoacoustic EQ (psychoacoustic_eq.py)
+│   └── realtime_adaptive_eq/       Real-time adaptive EQ (realtime_eq.py)
 ├── analysis/                     Audio analysis (largest module, 81 files)
 │   ├── fingerprint/                25D fingerprinting system
 │   │   ├── analyzers/                Batch & streaming analyzers
@@ -61,10 +62,12 @@ auralis/                          Core Python audio engine
 │   └── realtime_processor.py       Real-time processing
 ├── library/                      SQLite library (~/.auralis/library.db)
 │   ├── manager.py                  LibraryManager
-│   ├── repositories/               15 repos (track, album, artist, playlist, genre,
-│   │                                 stats, fingerprint, queue, settings, similarity...)
+│   ├── repositories/               14 repos + base.py (BaseRepository) + factory.py
+│   │                                 (track, album, artist, playlist, genre, stats,
+│   │                                 fingerprint, fingerprint_scheduler, fingerprint_stats,
+│   │                                 queue, queue_history, queue_template, settings, similarity_graph)
 │   ├── scanner.py                  Folder scanning
-│   └── migration_manager.py        DB migrations (schema v3)
+│   └── migration_manager.py        DB migrations (schema v16)
 ├── io/                           Audio I/O
 │   ├── unified_loader.py           Unified loading (FFmpeg, SoundFile)
 │   └── results.py                  Output formats (pcm16, pcm24)
@@ -97,7 +100,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            ~4,600 test functions across 19 subdirs (unit, integration,
+tests/                            ~5,100 test functions (369 files) across 18 subdirs (unit, integration,
                                     boundary, concurrency, security, load, regression...)
 docs/                             21 topic dirs (development, features, frontend...)
 ```
