@@ -2,6 +2,7 @@
  * TrackTableRowItem - Individual track row in album table
  */
 
+import { KeyboardEvent } from 'react';
 import { TableCell, Typography, IconButton } from '@mui/material';
 import { MoreVert } from '@mui/icons-material';
 import { tokens } from '@/design-system';
@@ -54,6 +55,14 @@ export const TrackTableRowItem = ({
         onClick={() => onTrackClick(track)}
         onContextMenu={handleTrackContextMenu}
         className={isCurrentTrack ? 'current-track' : ''}
+        tabIndex={0}
+        aria-label={`Play ${track.title}`}
+        onKeyDown={(e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onTrackClick(track);
+          }
+        }}
       >
       <TrackPlayIndicator
         isCurrentTrack={isCurrentTrack}

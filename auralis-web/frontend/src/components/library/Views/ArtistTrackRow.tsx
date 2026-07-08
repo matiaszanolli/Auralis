@@ -2,6 +2,7 @@
  * ArtistTrackRow - Individual track row in artist tracks table
  */
 
+import { KeyboardEvent } from 'react';
 import { TableCell, Typography, Box } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { StyledTableRow, PlayIcon } from '@/components/library/Styles/Table.styles';
@@ -29,6 +30,14 @@ export const ArtistTrackRow = ({
     <StyledTableRow
       onClick={() => onTrackClick(track)}
       className={isCurrentTrack ? 'current-track' : ''}
+      tabIndex={0}
+      aria-label={`Play ${track.title}`}
+      onKeyDown={(e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onTrackClick(track);
+        }
+      }}
     >
       <TableCell>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
