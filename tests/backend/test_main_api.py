@@ -185,6 +185,7 @@ class TestLibraryEndpoints:
         mock_result.scan_time = 0.1
         mock_result.directories_scanned = 1
         mock_result.added_tracks = []
+        mock_result.rejected = False
 
         with patch.dict('main.globals_dict', {'library_manager': mock_library}), \
              patch('auralis.library.scanner.LibraryScanner') as mock_scanner_class, \
@@ -200,6 +201,11 @@ class TestLibraryEndpoints:
             )
 
             assert response.status_code == 200
+            # fixes #3839: REST response must use `duration` — matching the
+            # paired scan_complete WebSocket broadcast — not `scan_time`.
+            data = response.json()
+            assert data["duration"] == 0.1
+            assert "scan_time" not in data
 
     def test_scan_directory_no_library(self, client, tmp_path):
         """Test scan when library manager not available.

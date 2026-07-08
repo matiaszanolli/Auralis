@@ -19,7 +19,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 
-from schemas import LibraryScanRequest
+from schemas import LibraryScanRequest, ScanResultResponse
 
 from .errors import handle_query_error
 
@@ -33,8 +33,8 @@ def create_library_scan_router(
     """Factory: library scan route."""
     router = APIRouter(tags=["library"])
 
-    @router.post("/api/library/scan")
-    async def scan_library(request: LibraryScanRequest) -> dict[str, Any]:
+    @router.post("/api/library/scan", response_model=ScanResultResponse)
+    async def scan_library(request: LibraryScanRequest) -> ScanResultResponse:
         """Scan directories for audio files and add them to the library.
 
         Progress updates are broadcast via WebSocket (see WEBSOCKET_API.md).
@@ -161,15 +161,15 @@ def create_library_scan_router(
                         },
                     })
 
-            return {
-                "files_found": result.files_found,
-                "files_added": result.files_added,
-                "files_updated": result.files_updated,
-                "files_skipped": result.files_skipped,
-                "files_failed": result.files_failed,
-                "scan_time": result.scan_time,
-                "directories_scanned": result.directories_scanned,
-            }
+            return ScanResultResponse(
+                files_found=result.files_found,
+                files_added=result.files_added,
+                files_updated=result.files_updated,
+                files_skipped=result.files_skipped,
+                files_failed=result.files_failed,
+                duration=result.scan_time,
+                directories_scanned=result.directories_scanned,
+            )
 
         except asyncio.TimeoutError:
             raise HTTPException(status_code=504, detail=f"Library scan timed out after {scan_timeout}s")

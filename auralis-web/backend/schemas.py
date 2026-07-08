@@ -287,6 +287,22 @@ class LibraryScanRequest(BaseModel):
     })
 
 
+class ScanResultResponse(BaseModel):
+    """Library scan result (POST /api/library/scan).
+
+    Field name `duration` mirrors the paired `scan_complete` WebSocket
+    broadcast (fixes #3839 — REST previously returned the same value under
+    a different key, `scan_time`).
+    """
+    files_found: int
+    files_added: int
+    files_updated: int
+    files_skipped: int
+    files_failed: int
+    duration: float
+    directories_scanned: int
+
+
 class WebSocketErrorResponse(BaseModel):
     """WebSocket error response."""
     type: str = Field(default="error", description="Message type")
