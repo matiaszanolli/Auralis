@@ -367,6 +367,96 @@ class TestWebSocketRateLimiting:
         assert allowed is True
         assert error is None
 
+    @staticmethod
+    def _mock_ws_with_ip(ip: str) -> Mock:
+        ws = Mock()
+        ws.client = Mock()
+        ws.client.host = ip
+        return ws
+
+    def test_reconnect_from_same_ip_cannot_bypass_rate_limit(self):
+        """Regression test for #3811.
+
+        A per-connection-only rate limit is trivially bypassed by closing
+        and reopening the WebSocket: a fresh connection gets a fresh, empty
+        per-connection bucket. The per-IP fallback bucket must persist
+        across that reconnect cycle and still cap the client.
+        """
+        limiter = WebSocketRateLimiter(max_messages_per_second=10)
+        same_ip = "127.0.0.1"
+
+        # First connection: fill its per-connection limit (10), then
+        # disconnect (cleanup) — simulating hitting the cap and reconnecting.
+        conn1 = self._mock_ws_with_ip(same_ip)
+        for _ in range(10):
+            allowed, _ = limiter.check_rate_limit(conn1)
+            assert allowed is True
+        limiter.cleanup(conn1)
+
+        # Second connection, same IP, fresh connection id: with only a
+        # per-connection bucket this would start at zero and be fully
+        # allowed again. The per-IP bucket (default 3x = 30) has already
+        # recorded 10 messages from this IP, so it still has headroom but
+        # is not reset to zero.
+        conn2 = self._mock_ws_with_ip(same_ip)
+        allowed, _ = limiter.check_rate_limit(conn2)
+        assert allowed is True  # still within the 30/s per-IP ceiling
+
+        # Keep reconnecting and sending — once the AGGREGATE per-IP count
+        # (persisting across every reconnect) reaches the per-IP ceiling,
+        # further messages must be rejected even though each individual
+        # connection's own per-connection bucket is nowhere near its limit.
+        total_sent = 11  # already sent above (10 + 1)
+        blocked = False
+        for _ in range(50):
+            conn = self._mock_ws_with_ip(same_ip)
+            allowed, error = limiter.check_rate_limit(conn)
+            limiter.cleanup(conn)  # reconnect immediately after every message
+            if not allowed:
+                blocked = True
+                assert "this client" in (error or "").lower()
+                break
+            total_sent += 1
+
+        assert blocked, (
+            f"sent {total_sent} messages via {total_sent} distinct reconnects "
+            "from the same IP without ever being rate-limited — the "
+            "per-connection-only bucket allowed an unbounded reconnect bypass"
+        )
+        # Must be blocked at or before the per-IP ceiling, not way past it.
+        assert total_sent <= limiter.max_messages_per_second_per_ip + 1
+
+    def test_reconnect_from_different_ip_is_not_penalized(self):
+        """A different client IP must not be affected by another IP's usage."""
+        limiter = WebSocketRateLimiter(max_messages_per_second=10)
+
+        heavy_user = self._mock_ws_with_ip("127.0.0.1")
+        for _ in range(10):
+            allowed, _ = limiter.check_rate_limit(heavy_user)
+            assert allowed is True
+
+        other_user = self._mock_ws_with_ip("192.168.1.50")
+        allowed, error = limiter.check_rate_limit(other_user)
+        assert allowed is True
+        assert error is None
+
+    def test_cleanup_does_not_reset_per_ip_bucket(self):
+        """cleanup() must only clear the per-connection bucket — the per-IP
+        bucket has to survive disconnects to actually prevent bypass."""
+        limiter = WebSocketRateLimiter(max_messages_per_second=10)
+        ws = self._mock_ws_with_ip("127.0.0.1")
+
+        for _ in range(5):
+            limiter.check_rate_limit(ws)
+        assert len(limiter.ip_message_log["127.0.0.1"]) == 5
+
+        limiter.cleanup(ws)
+
+        assert len(limiter.ip_message_log["127.0.0.1"]) == 5, (
+            "cleanup() must not clear the per-IP bucket, or a client could "
+            "reset its aggregate count just by disconnecting"
+        )
+
 
 @pytest.mark.security
 class TestWebSocketDoSPrevention:
