@@ -204,49 +204,60 @@ class TestAlbumRepositoryDetachedAccess:
     def test_get_by_title_relationships_accessible(
         self, album_repository, track_repository, session_factory
     ):
-        """get_by_title() must return album with accessible relationships"""
+        """get_by_title() must return album with accessible relationships
+        (fixes #4236 — sibling of get_by_id's #2406 fix; per-item
+        session.expunge(album) does not cascade to album.tracks)."""
         self._setup_album(track_repository, session_factory)
 
         album = album_repository.get_by_title('Test Album For Detached')
         assert album is not None
         _ = album.artist
-        _ = album.tracks
+        # Must not raise DetachedInstanceError and must actually be populated
+        assert len(album.tracks) >= 1
 
     def test_get_all_relationships_accessible(
         self, album_repository, track_repository, session_factory
     ):
-        """get_all() must return albums with accessible relationships"""
+        """get_all() must return albums with accessible relationships (#4236)."""
         self._setup_album(track_repository, session_factory)
 
         albums, total = album_repository.get_all(limit=10)
         assert total >= 1
         for album in albums:
             _ = album.artist
-            _ = album.tracks
+            assert len(album.tracks) >= 0  # must not raise DetachedInstanceError
 
     def test_get_recent_relationships_accessible(
         self, album_repository, track_repository, session_factory
     ):
-        """get_recent() must return albums with accessible relationships"""
+        """get_recent() must return albums with accessible relationships (#4236)."""
         self._setup_album(track_repository, session_factory)
 
         albums = album_repository.get_recent(limit=10)
         assert len(albums) >= 1
         for album in albums:
             _ = album.artist
-            _ = album.tracks
+            assert len(album.tracks) >= 0  # must not raise DetachedInstanceError
 
     def test_search_relationships_accessible(
         self, album_repository, track_repository, session_factory
     ):
-        """search() must return albums with accessible relationships"""
+        """search() must return albums with accessible relationships (#4236).
+
+        Pre-existing bug fixed while touching this test: search() returns a
+        (list, total) tuple, but the test previously assigned it directly to
+        `albums` without unpacking, so `len(albums) >= 1` was trivially true
+        on the 2-tuple and `for album in albums` iterated (list, int) rather
+        than the actual album rows — the relationship-access assertions were
+        never exercised.
+        """
         self._setup_album(track_repository, session_factory)
 
-        albums = album_repository.search('Test Album For Detached')
-        assert len(albums) >= 1
+        albums, total = album_repository.search('Test Album For Detached')
+        assert total >= 1
         for album in albums:
             _ = album.artist
-            _ = album.tracks
+            assert len(album.tracks) >= 0  # must not raise DetachedInstanceError
 
 
 class TestArtistRepositoryDetachedAccess:
@@ -281,35 +292,49 @@ class TestArtistRepositoryDetachedAccess:
     def test_get_by_name_relationships_accessible(
         self, artist_repository, track_repository, session_factory
     ):
-        """get_by_name() must return artist with accessible relationships"""
+        """get_by_name() must return artist with accessible relationships,
+        including the NESTED artist.albums[i].tracks (fixes #4236 — sibling
+        of get_by_id's nested selectinload(Artist.albums).selectinload(
+        Album.tracks); get_by_name previously eager-loaded only the flat
+        Artist.albums relationship, so .albums[i].tracks raised
+        DetachedInstanceError)."""
         self._setup_artist(track_repository, session_factory)
 
         artist = artist_repository.get_by_name('Detached Test Artist')
         assert artist is not None
         _ = artist.tracks
-        _ = artist.albums
+        assert len(artist.albums) >= 1
+        for album in artist.albums:
+            # Must not raise DetachedInstanceError
+            assert len(album.tracks) >= 0
 
     def test_get_all_relationships_accessible(
         self, artist_repository, track_repository, session_factory
     ):
-        """get_all() must return artists with accessible relationships"""
+        """get_all() must return artists with accessible relationships,
+        including nested artist.albums[i].tracks (#4236 sibling fix)."""
         self._setup_artist(track_repository, session_factory)
 
         artists, total = artist_repository.get_all(limit=10)
         assert total >= 1
         for artist in artists:
             _ = artist.tracks
+            for album in artist.albums:
+                assert len(album.tracks) >= 0  # must not raise DetachedInstanceError
 
     def test_search_relationships_accessible(
         self, artist_repository, track_repository, session_factory
     ):
-        """search() must return artists with accessible relationships"""
+        """search() must return artists with accessible relationships,
+        including nested artist.albums[i].tracks (#4236 sibling fix)."""
         self._setup_artist(track_repository, session_factory)
 
         artists, total = artist_repository.search('Detached Test')
         assert total >= 1
         for artist in artists:
             _ = artist.tracks
+            for album in artist.albums:
+                assert len(album.tracks) >= 0  # must not raise DetachedInstanceError
 
 
 class TestSettingsRepositoryDetachedAccess:

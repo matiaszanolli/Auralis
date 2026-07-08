@@ -57,7 +57,10 @@ class AlbumRepository(BaseRepository):
                 .where(Album.title == title)
             ).scalars().unique().first()
             if album:
-                session.expunge(album)
+                # Expunge the album AND all eagerly-loaded related objects so
+                # callers can access album.tracks after the session closes
+                # without hitting DetachedInstanceError (fixes #2406 / #4236).
+                session.expunge_all()
             return album
         finally:
             session.close()
@@ -94,8 +97,11 @@ class AlbumRepository(BaseRepository):
                 .offset(offset)
             ).scalars().unique().all()
 
-            for album in albums:
-                session.expunge(album)
+            # Expunge every album AND all eagerly-loaded related objects
+            # (fixes #2406 / #4236 — a per-item expunge(album) does not
+            # cascade to album.tracks, leaving it DetachedInstanceError-prone).
+            if albums:
+                session.expunge_all()
 
             return albums, total
         finally:
@@ -112,8 +118,8 @@ class AlbumRepository(BaseRepository):
                 .limit(limit)
                 .offset(offset)
             ).scalars().unique().all()
-            for album in albums:
-                session.expunge(album)
+            if albums:
+                session.expunge_all()
             return albums
         finally:
             session.close()
@@ -165,8 +171,8 @@ class AlbumRepository(BaseRepository):
                 .offset(offset)
             ).scalars().unique().all()
 
-            for album in results:
-                session.expunge(album)
+            if results:
+                session.expunge_all()
             return results, total
         finally:
             session.close()

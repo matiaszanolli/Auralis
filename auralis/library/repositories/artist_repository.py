@@ -49,7 +49,7 @@ class ArtistRepository(BaseRepository):
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.genres),
                         selectinload(Artist.tracks).selectinload(Track.album),
-                        selectinload(Artist.albums)
+                        selectinload(Artist.albums).selectinload(Album.tracks)
                     )
                     .where(Artist.name == name)
                 ).scalars().first()
@@ -108,7 +108,7 @@ class ArtistRepository(BaseRepository):
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.genres),
                         selectinload(Artist.tracks).selectinload(Track.album),
-                        selectinload(Artist.albums)
+                        selectinload(Artist.albums).selectinload(Album.tracks)
                     )
                     .order_by(order_column)
                     .limit(limit)
@@ -155,7 +155,7 @@ class ArtistRepository(BaseRepository):
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.genres),
                         selectinload(Artist.tracks).selectinload(Track.album),
-                        selectinload(Artist.albums)
+                        selectinload(Artist.albums).selectinload(Album.tracks)
                     )
                     .where(Artist.name.ilike(search_term, escape='\\'))
                     .order_by(Artist.name)
@@ -188,7 +188,7 @@ class ArtistRepository(BaseRepository):
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.album),
                         selectinload(Artist.tracks),
-                        selectinload(Artist.albums),
+                        selectinload(Artist.albums).selectinload(Album.tracks),
                     )
                 ).scalars().all()
             )
