@@ -186,8 +186,8 @@ class TestQueueManagement:
     async def test_set_queue(self, state_manager, mock_ws_manager):
         """Test setting playback queue"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, file_path="/path/2.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=0)
@@ -201,8 +201,8 @@ class TestQueueManagement:
     async def test_next_track_in_queue(self, state_manager, mock_ws_manager):
         """Test moving to next track"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, file_path="/path/2.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=0)
@@ -217,7 +217,7 @@ class TestQueueManagement:
     async def test_next_track_at_end_no_repeat(self, state_manager):
         """Test next track at end of queue without repeat"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=0)
@@ -231,8 +231,8 @@ class TestQueueManagement:
     async def test_next_track_with_repeat_all(self, state_manager):
         """Test next track with repeat all mode"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, file_path="/path/2.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=1)
@@ -249,8 +249,8 @@ class TestQueueManagement:
     async def test_previous_track_restart_if_past_3_seconds(self, state_manager):
         """Test previous track restarts current if > 3 seconds"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, file_path="/path/2.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=1)
@@ -267,8 +267,8 @@ class TestQueueManagement:
     async def test_previous_track_goes_back(self, state_manager):
         """Test previous track goes to previous in queue"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, file_path="/path/2.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=1)
@@ -285,7 +285,7 @@ class TestQueueManagement:
     async def test_previous_track_at_start(self, state_manager):
         """Test previous track at start of queue"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=0)
@@ -380,7 +380,7 @@ class TestAsyncLockFix:
 
         track = TrackInfo(
             id=1, title="T", artist="A", album="B",
-            duration=300.0, file_path="/tmp/t.mp3"
+            duration=300.0, filepath="/tmp/t.mp3"
         )
         state_manager.state.state = PlaybackState.PLAYING
         state_manager.state.is_playing = True
@@ -424,6 +424,71 @@ class TestAsyncLockFix:
         # All five completed — state holds the last write (exact value depends
         # on scheduling order but must be one of 0/10/20/30/40)
         assert state_manager.state.volume in {0, 10, 20, 30, 40}
+
+
+class TestSlowBroadcastDoesNotBlockConcurrentUpdates:
+    """
+    Fixes #3732: a single slow WS client must not stall other update_state()
+    callers. #3723 moved the broadcast await inside `_lock` to fix a message
+    reordering bug; that traded a rare reorder window for a chronic stall
+    whenever one client's TCP receive buffer is backed up.
+
+    The fix: mutation + snapshot happen under the lock, then the lock is
+    released before broadcasting. Reordering is now tolerated via a
+    monotonic `seq` field instead of relying on lock-order = broadcast-order.
+    """
+
+    @pytest.mark.asyncio
+    async def test_slow_broadcast_does_not_stall_concurrent_update_state(self, mock_ws_manager):
+        """A second update_state() call must complete quickly even while a
+        prior call's broadcast is stuck on a slow client."""
+        broadcast_started = asyncio.Event()
+        release_slow_broadcast = asyncio.Event()
+        call_count = 0
+
+        async def slow_broadcast(message):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                broadcast_started.set()
+                await release_slow_broadcast.wait()
+
+        mock_ws_manager.broadcast = AsyncMock(side_effect=slow_broadcast)
+        manager = PlayerStateManager(mock_ws_manager)
+
+        slow_task = asyncio.create_task(manager.update_state(volume=1))
+        await asyncio.wait_for(broadcast_started.wait(), timeout=1.0)
+
+        # The first call's broadcast is now stuck. A second update_state()
+        # must still complete promptly — proving the lock was released
+        # before the broadcast, not held across it.
+        await asyncio.wait_for(manager.update_state(volume=2), timeout=0.5)
+        assert manager.state.volume == 2
+
+        release_slow_broadcast.set()
+        await slow_task
+
+    @pytest.mark.asyncio
+    async def test_seq_increments_monotonically(self, state_manager):
+        """Each update_state() call must assign a strictly increasing seq."""
+        await state_manager.update_state(volume=1)
+        first_seq = state_manager.state.seq
+
+        await state_manager.update_state(volume=2)
+        second_seq = state_manager.state.seq
+
+        assert first_seq > 0
+        assert second_seq == first_seq + 1
+
+    @pytest.mark.asyncio
+    async def test_broadcast_payload_includes_seq(self, state_manager, mock_ws_manager):
+        """The broadcast data must carry `seq` so the frontend can drop stale
+        out-of-order snapshots."""
+        await state_manager.update_state(volume=50)
+
+        call_args = mock_ws_manager.broadcast.call_args[0][0]
+        assert "seq" in call_args["data"]
+        assert call_args["data"]["seq"] == state_manager.state.seq
 
 
 if __name__ == "__main__":

@@ -30,7 +30,7 @@
  * @license GPLv3
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDispatch, useStore } from 'react-redux';
 import type { Store } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
@@ -66,6 +66,11 @@ export function usePlayerStateSync() {
   // every state change.
   const store = useStore() as Store<RootState>;
   const { subscribe } = useWebSocketContext();
+  // Highest `seq` applied so far (fixes #3732). The backend broadcasts
+  // player_state outside its update lock, so concurrent update_state() calls
+  // can deliver snapshots out of order; drop anything older than what we've
+  // already applied instead of regressing the UI to stale state.
+  const lastSeenSeqRef = useRef(0);
 
   useEffect(() => {
     if (!subscribe) {
@@ -77,6 +82,11 @@ export function usePlayerStateSync() {
       try {
         const state = (message as { data: Partial<RawPlayerStateData> }).data;
         if (!state || typeof state !== 'object') return;
+
+        if (typeof state.seq === 'number') {
+          if (state.seq < lastSeenSeqRef.current) return;
+          lastSeenSeqRef.current = state.seq;
+        }
 
         // Player state — guarded on field presence so partial messages do not
         // overwrite valid state with undefined/NaN. React 18 batches these.

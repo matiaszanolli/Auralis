@@ -38,6 +38,7 @@ class PlayerStateManager:
         self.ws_manager: Any = websocket_manager
         self._lock: asyncio.Lock = asyncio.Lock()
         self._position_update_task: asyncio.Task[Any] | None = None
+        self._update_seq: int = 0
 
     def get_state(self) -> PlayerState:
         """Get current player state snapshot"""
@@ -47,18 +48,17 @@ class PlayerStateManager:
         """
         Update player state and broadcast changes.
 
-        #3723: the broadcast is held inside `_lock` so two concurrent
-        update_state() calls cannot reorder their outgoing WebSocket
-        messages. Previously the snapshot was taken under the lock but
-        the broadcast was awaited after release — call A could then
-        suspend on broadcast while B raced through the mutation and
-        broadcast first, leaving observers in a stale state until the
-        next 1s `position_changed` tick self-healed. Localhost WS
-        broadcasts are microsecond-scale (no remote network); holding
-        the lock for the duration is cheap and eliminates the entire
-        reorder window. If broadcast latency ever becomes a bottleneck,
-        switch to a monotonic seq counter and let the frontend reducer
-        drop `seq < last_seen`.
+        #3723 held the broadcast inside `_lock` so concurrent update_state()
+        calls could not reorder their outgoing WebSocket messages — but that
+        meant a single slow WS client (full TCP receive buffer, backgrounded
+        Electron client) stalled every other update_state() call for the
+        duration of its send (#3732). Fixed via a monotonic `seq` counter
+        instead: mutation + snapshot happen under the lock, the lock is
+        released, and the broadcast (which can now race with other
+        broadcasts) runs outside it. The frontend
+        (usePlayerStateSync.ts) drops any snapshot with `seq` less than the
+        highest it has already applied, so out-of-order delivery can no
+        longer regress observers to a stale state.
 
         Args:
             **kwargs: Fields to update in PlayerState
@@ -76,12 +76,15 @@ class PlayerStateManager:
             if self.state.current_track:
                 self.state.duration = self.state.current_track.duration
 
+            self._update_seq += 1
+            self.state.seq = self._update_seq
+
             # Get snapshot for broadcasting
             state_snapshot = self.state.model_copy(deep=True)
 
-            # Broadcast under the lock so concurrent update_state() calls
-            # cannot reorder their outgoing WS messages (#3723).
-            await self._broadcast_state(state_snapshot)
+        # Broadcast outside the lock (#3732) — a slow/stalled WS client no
+        # longer blocks concurrent update_state() callers.
+        await self._broadcast_state(state_snapshot)
 
     async def set_track(self, track: Any, library_manager: Any) -> None:
         """

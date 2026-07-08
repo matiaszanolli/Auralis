@@ -30,6 +30,10 @@ export type PlayerMessageType =
  * Matches the Pydantic PlayerState model in backend/player_state.py.
  */
 export interface RawPlayerStateData {
+  // Monotonic broadcast sequence number (fixes #3732). The backend broadcasts
+  // outside its state lock, so snapshots can arrive out of order; consumers
+  // must drop any message whose `seq` is lower than the highest already seen.
+  seq?: number;
   // 'error' is declared on the backend enum (PlaybackState.ERROR) but not
   // currently emitted by any production code path; included for forward
   // compatibility so downstream switches narrow correctly (#3546 / BE-NEW-88).

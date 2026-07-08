@@ -46,6 +46,12 @@ class TrackInfo(BaseModel):
 
 class PlayerState(BaseModel):
     """Complete player state - single source of truth"""
+    # Monotonic broadcast sequence number (fixes #3732). update_state()
+    # broadcasts outside its lock so concurrent calls can deliver WS
+    # messages out of order; the frontend drops snapshots with
+    # seq < last-seen instead of relying on in-order delivery.
+    seq: int = 0
+
     # Playback state
     state: PlaybackState = PlaybackState.STOPPED
     is_playing: bool = False

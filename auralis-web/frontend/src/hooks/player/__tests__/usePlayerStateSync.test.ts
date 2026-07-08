@@ -946,3 +946,55 @@ describe('usePlayerStateSync – track_changed (#4144)', () => {
     expect(store.getState().player.currentTrack).toBeNull();
   });
 });
+
+// ============================================================================
+// seq — out-of-order snapshot drop (#3732)
+// ============================================================================
+//
+// The backend broadcasts player_state outside its update lock (fixes a
+// stall where one slow WS client blocked every other state update), so
+// concurrent update_state() calls can now deliver messages out of order.
+// Each snapshot carries a monotonic `seq`; the hook must drop any message
+// whose seq is lower than the highest one already applied.
+
+describe('usePlayerStateSync – seq (out-of-order drop, #3732)', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('applies snapshots with increasing seq', () => {
+    firePlayerState({ seq: 1, volume: 10 });
+    expect(store.getState().player.volume).toBe(10);
+
+    firePlayerState({ seq: 2, volume: 20 });
+    expect(store.getState().player.volume).toBe(20);
+  });
+
+  it('drops a snapshot whose seq is lower than the highest already seen', () => {
+    firePlayerState({ seq: 5, volume: 50 });
+    expect(store.getState().player.volume).toBe(50);
+
+    // Arrives late (was broadcast before seq=5 but delayed by a slow client).
+    firePlayerState({ seq: 3, volume: 30 });
+    expect(store.getState().player.volume).toBe(50);
+  });
+
+  it('applies a snapshot whose seq exactly equals the highest already seen', () => {
+    firePlayerState({ seq: 5, volume: 50 });
+    firePlayerState({ seq: 5, volume: 55 });
+    expect(store.getState().player.volume).toBe(55);
+  });
+
+  it('applies messages without a seq field (backward compatible)', () => {
+    firePlayerState({ volume: 33 });
+    expect(store.getState().player.volume).toBe(33);
+  });
+});
