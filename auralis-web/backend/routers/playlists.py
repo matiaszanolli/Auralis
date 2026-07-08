@@ -19,16 +19,14 @@ Endpoints:
 """
 
 import asyncio
-import logging
 from typing import Annotated, Any, cast
 from collections.abc import Callable
 
 from fastapi import Path, APIRouter, HTTPException
 from pydantic import BaseModel
 
-from .dependencies import require_repository_factory
+from .dependencies import require_repository_factory, with_error_handling
 
-logger = logging.getLogger(__name__)
 router = APIRouter(tags=["playlists"])
 
 
@@ -69,6 +67,7 @@ def create_playlists_router(
     """
 
     @router.get("/api/playlists")
+    @with_error_handling("get playlists")
     async def get_playlists() -> dict[str, Any]:
         """
         Get all playlists.
@@ -79,20 +78,15 @@ def create_playlists_router(
         Raises:
             HTTPException: If library manager/factory not available or query fails
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            playlists = await asyncio.to_thread(repos.playlists.get_all)
-            return {
-                "playlists": [p.to_dict() for p in playlists],
-                "total": len(playlists)
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to get playlists: {e}")
-            raise HTTPException(status_code=500, detail="Failed to get playlists")
+        repos = require_repository_factory(get_repository_factory)
+        playlists = await asyncio.to_thread(repos.playlists.get_all)
+        return {
+            "playlists": [p.to_dict() for p in playlists],
+            "total": len(playlists)
+        }
 
     @router.get("/api/playlists/{playlist_id}")
+    @with_error_handling("get playlist")
     async def get_playlist(playlist_id: int) -> dict[str, Any]:
         """
         Get playlist by ID with all tracks.
@@ -106,24 +100,19 @@ def create_playlists_router(
         Raises:
             HTTPException: If library manager/factory not available or playlist not found
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            playlist = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
-            if not playlist:
-                raise HTTPException(status_code=404, detail="Playlist not found")
+        repos = require_repository_factory(get_repository_factory)
+        playlist = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
+        if not playlist:
+            raise HTTPException(status_code=404, detail="Playlist not found")
 
-            playlist_dict = playlist.to_dict()
-            # Add full track details
-            playlist_dict['tracks'] = [track.to_dict() for track in playlist.tracks]
+        playlist_dict = playlist.to_dict()
+        # Add full track details
+        playlist_dict['tracks'] = [track.to_dict() for track in playlist.tracks]
 
-            return cast(dict[str, Any], playlist_dict)
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to get playlist: {e}")
-            raise HTTPException(status_code=500, detail="Failed to get playlist")
+        return cast(dict[str, Any], playlist_dict)
 
     @router.post("/api/playlists")
+    @with_error_handling("create playlist")
     async def create_playlist(request: CreatePlaylistRequest) -> dict[str, Any]:
         """
         Create a new playlist.
@@ -137,38 +126,33 @@ def create_playlists_router(
         Raises:
             HTTPException: If library manager/factory not available or creation fails
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            playlist = await asyncio.to_thread(
-                repos.playlists.create,
-                name=request.name,
-                description=request.description,
-                track_ids=request.track_ids if request.track_ids else None
-            )
+        repos = require_repository_factory(get_repository_factory)
+        playlist = await asyncio.to_thread(
+            repos.playlists.create,
+            name=request.name,
+            description=request.description,
+            track_ids=request.track_ids if request.track_ids else None
+        )
 
-            if not playlist:
-                raise HTTPException(status_code=400, detail="Failed to create playlist")
+        if not playlist:
+            raise HTTPException(status_code=400, detail="Failed to create playlist")
 
-            # Broadcast playlist created event
-            await connection_manager.broadcast({
-                "type": "playlist_created",
-                "data": {
-                    "playlist_id": playlist.id,
-                    "name": playlist.name
-                }
-            })
-
-            return {
-                "message": f"Playlist '{request.name}' created",
-                "playlist": playlist.to_dict()
+        # Broadcast playlist created event
+        await connection_manager.broadcast({
+            "type": "playlist_created",
+            "data": {
+                "playlist_id": playlist.id,
+                "name": playlist.name
             }
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to create playlist: {e}")
-            raise HTTPException(status_code=500, detail="Failed to create playlist")
+        })
+
+        return {
+            "message": f"Playlist '{request.name}' created",
+            "playlist": playlist.to_dict()
+        }
 
     @router.put("/api/playlists/{playlist_id}")
+    @with_error_handling("update playlist")
     async def update_playlist(playlist_id: int, request: UpdatePlaylistRequest) -> dict[str, Any]:
         """
         Update playlist name or description.
@@ -183,40 +167,35 @@ def create_playlists_router(
         Raises:
             HTTPException: If library manager/factory not available, no data provided, or update fails
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            # Build update data dictionary
-            update_data = {}
-            if request.name is not None:
-                update_data['name'] = request.name
-            if request.description is not None:
-                update_data['description'] = request.description
+        repos = require_repository_factory(get_repository_factory)
+        # Build update data dictionary
+        update_data = {}
+        if request.name is not None:
+            update_data['name'] = request.name
+        if request.description is not None:
+            update_data['description'] = request.description
 
-            if not update_data:
-                raise HTTPException(status_code=400, detail="No update data provided")
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No update data provided")
 
-            success = await asyncio.to_thread(repos.playlists.update, playlist_id, update_data)
+        success = await asyncio.to_thread(repos.playlists.update, playlist_id, update_data)
 
-            if not success:
-                raise HTTPException(status_code=404, detail="Playlist not found or update failed")
+        if not success:
+            raise HTTPException(status_code=404, detail="Playlist not found or update failed")
 
-            # Broadcast playlist updated event
-            await connection_manager.broadcast({
-                "type": "playlist_updated",
-                "data": {
-                    "playlist_id": playlist_id,
-                    "action": "renamed"
-                }
-            })
+        # Broadcast playlist updated event
+        await connection_manager.broadcast({
+            "type": "playlist_updated",
+            "data": {
+                "playlist_id": playlist_id,
+                "action": "renamed"
+            }
+        })
 
-            return {"message": "Playlist updated successfully"}
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to update playlist: {e}")
-            raise HTTPException(status_code=500, detail="Failed to update playlist")
+        return {"message": "Playlist updated successfully"}
 
     @router.delete("/api/playlists/{playlist_id}")
+    @with_error_handling("delete playlist")
     async def delete_playlist(playlist_id: int) -> dict[str, Any]:
         """
         Delete a playlist.
@@ -230,29 +209,24 @@ def create_playlists_router(
         Raises:
             HTTPException: If library manager/factory not available or playlist not found
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            success = await asyncio.to_thread(repos.playlists.delete, playlist_id)
+        repos = require_repository_factory(get_repository_factory)
+        success = await asyncio.to_thread(repos.playlists.delete, playlist_id)
 
-            if not success:
-                raise HTTPException(status_code=404, detail="Playlist not found")
+        if not success:
+            raise HTTPException(status_code=404, detail="Playlist not found")
 
-            # Broadcast playlist deleted event
-            await connection_manager.broadcast({
-                "type": "playlist_deleted",
-                "data": {
-                    "playlist_id": playlist_id
-                }
-            })
+        # Broadcast playlist deleted event
+        await connection_manager.broadcast({
+            "type": "playlist_deleted",
+            "data": {
+                "playlist_id": playlist_id
+            }
+        })
 
-            return {"message": "Playlist deleted successfully"}
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to delete playlist: {e}")
-            raise HTTPException(status_code=500, detail="Failed to delete playlist")
+        return {"message": "Playlist deleted successfully"}
 
     @router.post("/api/playlists/{playlist_id}/tracks")
+    @with_error_handling("add tracks to playlist")
     async def add_tracks_to_playlist(playlist_id: int, request: AddTracksRequest) -> dict[str, Any]:
         """
         Add tracks to playlist.
@@ -267,38 +241,33 @@ def create_playlists_router(
         Raises:
             HTTPException: If library manager/factory not available or no tracks added
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            # Single to_thread call for all IDs — avoids N×session-open/commit
-            # overhead and the frontend 5s timeout on large album imports
-            # (fixes #3856; replaces N×add_track loop).
-            added_count = await asyncio.to_thread(
-                repos.playlists.add_tracks, playlist_id, request.track_ids
-            )
+        repos = require_repository_factory(get_repository_factory)
+        # Single to_thread call for all IDs — avoids N×session-open/commit
+        # overhead and the frontend 5s timeout on large album imports
+        # (fixes #3856; replaces N×add_track loop).
+        added_count = await asyncio.to_thread(
+            repos.playlists.add_tracks, playlist_id, request.track_ids
+        )
 
-            if added_count == 0:
-                raise HTTPException(status_code=400, detail="No tracks were added")
+        if added_count == 0:
+            raise HTTPException(status_code=400, detail="No tracks were added")
 
-            # Broadcast playlist updated event
-            await connection_manager.broadcast({
-                "type": "playlist_updated",
-                "data": {
-                    "playlist_id": playlist_id,
-                    "action": "track_added"
-                }
-            })
-
-            return {
-                "message": f"Added {added_count} track(s) to playlist",
-                "added_count": added_count
+        # Broadcast playlist updated event
+        await connection_manager.broadcast({
+            "type": "playlist_updated",
+            "data": {
+                "playlist_id": playlist_id,
+                "action": "track_added"
             }
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to add tracks to playlist: {e}")
-            raise HTTPException(status_code=500, detail="Failed to add tracks")
+        })
+
+        return {
+            "message": f"Added {added_count} track(s) to playlist",
+            "added_count": added_count
+        }
 
     @router.delete("/api/playlists/{playlist_id}/tracks/{track_id}")
+    @with_error_handling("remove track from playlist")
     async def remove_track_from_playlist(playlist_id: int, track_id: int) -> dict[str, Any]:
         """
         Remove a track from playlist.
@@ -313,30 +282,25 @@ def create_playlists_router(
         Raises:
             HTTPException: If library manager/factory not available or track/playlist not found
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            success = await asyncio.to_thread(repos.playlists.remove_track, playlist_id, track_id)
+        repos = require_repository_factory(get_repository_factory)
+        success = await asyncio.to_thread(repos.playlists.remove_track, playlist_id, track_id)
 
-            if not success:
-                raise HTTPException(status_code=404, detail="Playlist or track not found")
+        if not success:
+            raise HTTPException(status_code=404, detail="Playlist or track not found")
 
-            # Broadcast playlist updated event
-            await connection_manager.broadcast({
-                "type": "playlist_updated",
-                "data": {
-                    "playlist_id": playlist_id,
-                    "action": "track_removed"
-                }
-            })
+        # Broadcast playlist updated event
+        await connection_manager.broadcast({
+            "type": "playlist_updated",
+            "data": {
+                "playlist_id": playlist_id,
+                "action": "track_removed"
+            }
+        })
 
-            return {"message": "Track removed from playlist"}
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to remove track from playlist: {e}")
-            raise HTTPException(status_code=500, detail="Failed to remove track")
+        return {"message": "Track removed from playlist"}
 
     @router.delete("/api/playlists/{playlist_id}/tracks")
+    @with_error_handling("clear playlist")
     async def clear_playlist(playlist_id: int) -> dict[str, Any]:
         """
         Remove all tracks from playlist.
@@ -350,27 +314,21 @@ def create_playlists_router(
         Raises:
             HTTPException: If library manager/factory not available or playlist not found
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            success = await asyncio.to_thread(repos.playlists.clear, playlist_id)
+        repos = require_repository_factory(get_repository_factory)
+        success = await asyncio.to_thread(repos.playlists.clear, playlist_id)
 
-            if not success:
-                raise HTTPException(status_code=404, detail="Playlist not found")
+        if not success:
+            raise HTTPException(status_code=404, detail="Playlist not found")
 
-            # Broadcast playlist cleared event
-            await connection_manager.broadcast({
-                "type": "playlist_updated",
-                "data": {
-                    "playlist_id": playlist_id,
-                    "action": "cleared"
-                }
-            })
+        # Broadcast playlist cleared event
+        await connection_manager.broadcast({
+            "type": "playlist_updated",
+            "data": {
+                "playlist_id": playlist_id,
+                "action": "cleared"
+            }
+        })
 
-            return {"message": "Playlist cleared"}
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to clear playlist: {e}")
-            raise HTTPException(status_code=500, detail="Failed to clear playlist")
+        return {"message": "Playlist cleared"}
 
     return router

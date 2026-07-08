@@ -27,8 +27,8 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, Header, HTTPException, Query
 
-from .dependencies import require_repository_factory
-from .errors import NotFoundError, handle_query_error
+from .dependencies import require_repository_factory, with_error_handling
+from .errors import NotFoundError
 from .serializers import serialize_album, serialize_artist, serialize_artists
 
 logger = logging.getLogger(__name__)
@@ -58,6 +58,7 @@ def create_library_router(
     """
 
     @router.post("/api/library/refresh-references")
+    @with_error_handling("refresh reference cloud")
     async def refresh_reference_cloud() -> dict[str, Any]:
         """#3479: rebuild the mastering reference cloud from current library state.
 
@@ -65,34 +66,26 @@ def create_library_router(
         against the seeder thresholds, and flags the top-N candidates.
         Safe to call repeatedly — the seeder is idempotent and does no audio I/O.
         """
-        try:
-            from auralis.learning.reference_seeder import refresh_cloud
-            factory = require_repository_factory(get_repository_factory)
-            cleared, selected = await asyncio.to_thread(
-                refresh_cloud, factory.fingerprints
-            )
-            logger.info(
-                f"🎯 Reference cloud refresh (manual): cleared {cleared}, selected {selected}"
-            )
-            return {"cleared": cleared, "selected": selected}
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("refresh reference cloud", e)
+        from auralis.learning.reference_seeder import refresh_cloud
+        factory = require_repository_factory(get_repository_factory)
+        cleared, selected = await asyncio.to_thread(
+            refresh_cloud, factory.fingerprints
+        )
+        logger.info(
+            f"🎯 Reference cloud refresh (manual): cleared {cleared}, selected {selected}"
+        )
+        return {"cleared": cleared, "selected": selected}
 
     @router.get("/api/library/stats")
+    @with_error_handling("get library stats")
     async def get_library_stats() -> dict[str, Any]:
         """Get library statistics (track count, album count, etc.)."""
-        try:
-            factory = require_repository_factory(get_repository_factory)
-            stats = await asyncio.to_thread(factory.stats.get_library_stats)
-            return cast(dict[str, Any], stats)
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get library stats", e)
+        factory = require_repository_factory(get_repository_factory)
+        stats = await asyncio.to_thread(factory.stats.get_library_stats)
+        return cast(dict[str, Any], stats)
 
     @router.get("/api/library/artists")
+    @with_error_handling("get artists")
     async def get_artists(
         limit: int = Query(50, ge=1, le=200),
         offset: int = Query(0, ge=0),
@@ -100,63 +93,51 @@ def create_library_router(
         order_by: str = "name",
     ) -> dict[str, Any]:
         """Get paginated list of artists with optional search."""
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            limit = min(max(limit, 1), 200)
-            offset = max(offset, 0)
-            valid_order_by = ["name", "album_count", "track_count"]
-            if order_by not in valid_order_by:
-                order_by = "name"
+        repos = require_repository_factory(get_repository_factory)
+        limit = min(max(limit, 1), 200)
+        offset = max(offset, 0)
+        valid_order_by = ["name", "album_count", "track_count"]
+        if order_by not in valid_order_by:
+            order_by = "name"
 
-            if search:
-                artists, total = await asyncio.to_thread(repos.artists.search, search, limit=limit, offset=offset)
-            else:
-                artists, total = await asyncio.to_thread(repos.artists.get_all, limit=limit, offset=offset, order_by=order_by)
+        if search:
+            artists, total = await asyncio.to_thread(repos.artists.search, search, limit=limit, offset=offset)
+        else:
+            artists, total = await asyncio.to_thread(repos.artists.get_all, limit=limit, offset=offset, order_by=order_by)
 
-            has_more = (offset + len(artists)) < total
-            return {
-                "artists": serialize_artists(artists),
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-                "has_more": has_more,
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get artists", e)
+        has_more = (offset + len(artists)) < total
+        return {
+            "artists": serialize_artists(artists),
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": has_more,
+        }
 
     @router.get("/api/library/artists/{artist_id}")
+    @with_error_handling("get artist")
     async def get_artist(artist_id: int) -> dict[str, Any]:
         """Get artist details by ID with albums and tracks."""
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            artist = await asyncio.to_thread(repos.artists.get_by_id, artist_id)
-            if not artist:
-                raise NotFoundError("Artist", artist_id)
-            return serialize_artist(artist)
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get artist", e)
+        repos = require_repository_factory(get_repository_factory)
+        artist = await asyncio.to_thread(repos.artists.get_by_id, artist_id)
+        if not artist:
+            raise NotFoundError("Artist", artist_id)
+        return serialize_artist(artist)
 
     # Removed: GET /api/library/albums — dead endpoint, duplicate of GET /api/albums (fixes #2509)
 
     @router.get("/api/library/albums/{album_id}")
+    @with_error_handling("get album")
     async def get_album(album_id: int) -> dict[str, Any]:
         """Get album details by ID with tracks."""
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
-            if not album:
-                raise NotFoundError("Album", album_id)
-            return serialize_album(album)
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get album", e)
+        repos = require_repository_factory(get_repository_factory)
+        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+        if not album:
+            raise NotFoundError("Album", album_id)
+        return serialize_album(album)
 
     @router.post("/api/library/reset")
+    @with_error_handling("reset library")
     async def reset_library(
         x_confirm_reset: str = Header(
             ...,
@@ -175,47 +156,40 @@ def create_library_router(
                 status_code=400,
                 detail="Invalid confirmation header: X-Confirm-Reset must be 'RESET'",
             )
+        repos = require_repository_factory(get_repository_factory)
+
+        from config.background_workers import (
+            start_background_workers,
+            stop_background_workers,
+        )
+
+        # Pause every background worker (auto_scanner, ondemand + batch
+        # fingerprint queues) so none can insert Track/TrackFingerprint rows
+        # between the deletes and commit, which would make the reset
+        # non-atomic (fixes #3342, #4111). Previously only the on-demand
+        # queue was paused.
+        resolve = resolve_worker or (lambda _key: None)
+        stopped = await stop_background_workers(resolve)
         try:
-            repos = require_repository_factory(get_repository_factory)
+            # Bulk delete runs in the repository layer (no raw session in the
+            # router) and off the event loop.
+            await asyncio.to_thread(repos.reset_library)
 
-            from config.background_workers import (
-                start_background_workers,
-                stop_background_workers,
+            # Drop the LibraryManager query cache so reads don't return
+            # pre-reset data (#3770).
+            if get_library_manager is not None:
+                library_manager = get_library_manager()
+                if library_manager is not None and hasattr(library_manager, "clear_cache"):
+                    library_manager.clear_cache()
+
+            logger.info(
+                "Library reset: all tracks, albums, artists, genres, "
+                "fingerprints, and playlists deleted"
             )
+        finally:
+            # Always restart the workers we paused, even if the reset failed.
+            await start_background_workers(resolve, stopped)
 
-            # Pause every background worker (auto_scanner, ondemand + batch
-            # fingerprint queues) so none can insert Track/TrackFingerprint rows
-            # between the deletes and commit, which would make the reset
-            # non-atomic (fixes #3342, #4111). Previously only the on-demand
-            # queue was paused.
-            resolve = resolve_worker or (lambda _key: None)
-            stopped = await stop_background_workers(resolve)
-            try:
-                # Bulk delete runs in the repository layer (no raw session in the
-                # router) and off the event loop.
-                await asyncio.to_thread(repos.reset_library)
-
-                # Drop the LibraryManager query cache so reads don't return
-                # pre-reset data (#3770).
-                if get_library_manager is not None:
-                    library_manager = get_library_manager()
-                    if library_manager is not None and hasattr(library_manager, "clear_cache"):
-                        library_manager.clear_cache()
-
-                logger.info(
-                    "Library reset: all tracks, albums, artists, genres, "
-                    "fingerprints, and playlists deleted"
-                )
-            finally:
-                # Always restart the workers we paused, even if the reset failed.
-                await start_background_workers(resolve, stopped)
-
-            return {"message": "Library has been reset successfully"}
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error resetting library: {e}", exc_info=True)
-            raise handle_query_error("reset library", e)
+        return {"message": "Library has been reset successfully"}
 
     return router

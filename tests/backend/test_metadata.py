@@ -434,7 +434,10 @@ class TestBatchUpdateMetadata:
         response = test_client.post("/api/metadata/batch", json=batch_request)
 
         assert response.status_code == 500
-        assert "batch update failed" in response.json()["detail"].lower()
+        # Detail is now the standardized @with_error_handling message rather
+        # than the mocked exception's own text (#4018 — routers no longer
+        # hand-roll try/except HTTPException blocks).
+        assert "failed to batch update metadata" in response.json()["detail"].lower()
 
 
 class TestMetadataValidation:

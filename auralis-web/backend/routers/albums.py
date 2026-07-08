@@ -15,8 +15,8 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
 
-from .dependencies import require_repository_factory
-from .errors import NotFoundError, handle_query_error
+from .dependencies import require_repository_factory, with_error_handling
+from .errors import NotFoundError
 from .serializers import serialize_albums, serialize_tracks
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ def create_albums_router(
     router = APIRouter()
 
     @router.get("/api/albums")
+    @with_error_handling("get albums")
     async def get_albums(
         limit: int = Query(50, ge=1, le=200),
         offset: int = Query(0, ge=0),
@@ -66,29 +67,25 @@ def create_albums_router(
         Raises:
             HTTPException: If library manager not available or query fails
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
+        repos = require_repository_factory(get_repository_factory)
 
-            # Get albums with pagination
-            if search:
-                albums, total = await asyncio.to_thread(repos.albums.search, search, limit=limit, offset=offset, order_by=order_by)
-            else:
-                albums, total = await asyncio.to_thread(repos.albums.get_all, limit=limit, offset=offset, order_by=order_by)
-            has_more = (offset + len(albums)) < total
+        # Get albums with pagination
+        if search:
+            albums, total = await asyncio.to_thread(repos.albums.search, search, limit=limit, offset=offset, order_by=order_by)
+        else:
+            albums, total = await asyncio.to_thread(repos.albums.get_all, limit=limit, offset=offset, order_by=order_by)
+        has_more = (offset + len(albums)) < total
 
-            return {
-                "albums": serialize_albums(albums),
-                "total": total,
-                "offset": offset,
-                "limit": limit,
-                "has_more": has_more
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get albums", e)
+        return {
+            "albums": serialize_albums(albums),
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": has_more
+        }
 
     @router.get("/api/albums/{album_id}")
+    @with_error_handling("get album")
     async def get_album(album_id: int) -> Any:
         """
         Get album details by ID.
@@ -102,32 +99,27 @@ def create_albums_router(
         Raises:
             HTTPException: If album not found or query fails
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+        repos = require_repository_factory(get_repository_factory)
+        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
-            if not album:
-                raise NotFoundError("Album", album_id)
+        if not album:
+            raise NotFoundError("Album", album_id)
 
-            # Convert to dict
-            if hasattr(album, 'to_dict'):
-                return album.to_dict()
-            else:
-                return {
-                    'id': album.id,
-                    'title': album.title,
-                    'artist': album.artist.name if album.artist else 'Unknown Artist',
-                    'year': album.year,
-                    'artwork_url': f"/api/albums/{album.id}/artwork" if album.artwork_path else None,
-                    'track_count': len(album.tracks) if hasattr(album, 'tracks') else 0
-                }
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get album", e)
+        # Convert to dict
+        if hasattr(album, 'to_dict'):
+            return album.to_dict()
+        else:
+            return {
+                'id': album.id,
+                'title': album.title,
+                'artist': album.artist.name if album.artist else 'Unknown Artist',
+                'year': album.year,
+                'artwork_url': f"/api/albums/{album.id}/artwork" if album.artwork_path else None,
+                'track_count': len(album.tracks) if hasattr(album, 'tracks') else 0
+            }
 
     @router.get("/api/albums/{album_id}/tracks")
+    @with_error_handling("get album tracks")
     async def get_album_tracks(album_id: int) -> Any:
         """
         Get all tracks for a specific album.
@@ -141,35 +133,30 @@ def create_albums_router(
         Raises:
             HTTPException: If album not found or query fails
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+        repos = require_repository_factory(get_repository_factory)
+        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
-            if not album:
-                raise NotFoundError("Album", album_id)
+        if not album:
+            raise NotFoundError("Album", album_id)
 
-            # Convert tracks to dicts
-            tracks_data = serialize_tracks(album.tracks if hasattr(album, 'tracks') else [])
+        # Convert tracks to dicts
+        tracks_data = serialize_tracks(album.tracks if hasattr(album, 'tracks') else [])
 
-            # Sort by disc and track number
-            tracks_data.sort(key=lambda t: (t.get('disc_number', 1) or 1, t.get('track_number', 0) or 0))
+        # Sort by disc and track number
+        tracks_data.sort(key=lambda t: (t.get('disc_number', 1) or 1, t.get('track_number', 0) or 0))
 
-            return {
-                "album_id": album_id,
-                "album_title": album.title,
-                "artist": album.artist.name if album.artist else 'Unknown Artist',
-                "year": album.year,
-                "artwork_url": f"/api/albums/{album_id}/artwork" if album.artwork_path else None,
-                "tracks": tracks_data,
-                "total_tracks": len(tracks_data)
-            }
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("get album tracks", e)
+        return {
+            "album_id": album_id,
+            "album_title": album.title,
+            "artist": album.artist.name if album.artist else 'Unknown Artist',
+            "year": album.year,
+            "artwork_url": f"/api/albums/{album_id}/artwork" if album.artwork_path else None,
+            "tracks": tracks_data,
+            "total_tracks": len(tracks_data)
+        }
 
     @router.get("/api/albums/{album_id}/fingerprint")
+    @with_error_handling("get album fingerprint")
     async def get_album_fingerprint(album_id: int) -> Any:
         """
         Get median fingerprint for an album (aggregated from all tracks).
@@ -186,90 +173,83 @@ def create_albums_router(
         Raises:
             HTTPException: If album not found, no tracks, or no fingerprints available
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+        repos = require_repository_factory(get_repository_factory)
+        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
-            if not album:
-                raise NotFoundError("Album", album_id)
+        if not album:
+            raise NotFoundError("Album", album_id)
 
-            # Get all tracks for album
-            tracks = album.tracks if hasattr(album, 'tracks') and album.tracks else []
+        # Get all tracks for album
+        tracks = album.tracks if hasattr(album, 'tracks') and album.tracks else []
 
-            if not tracks:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Album {album_id} has no tracks"
-                )
+        if not tracks:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Album {album_id} has no tracks"
+            )
 
-            # Get fingerprints for all tracks in a single query (#3334)
-            track_ids = [track.id for track in tracks]
-            fingerprints = await asyncio.to_thread(repos.fingerprints.get_by_track_ids, track_ids)
+        # Get fingerprints for all tracks in a single query (#3334)
+        track_ids = [track.id for track in tracks]
+        fingerprints = await asyncio.to_thread(repos.fingerprints.get_by_track_ids, track_ids)
 
-            if not fingerprints:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Album {album_id} has no fingerprinted tracks. Run fingerprint extraction first."
-                )
+        if not fingerprints:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Album {album_id} has no fingerprinted tracks. Run fingerprint extraction first."
+            )
 
-            # Compute median for each fingerprint dimension
-            import numpy as np
+        # Compute median for each fingerprint dimension
+        import numpy as np
 
-            # Extract all 25 dimensions from fingerprints.
-            # Map DB column names → API field names to match the AudioFingerprint
-            # interface consumed by the frontend (fixes #2477: _pct suffix mismatch).
-            db_to_api: list[tuple[str, str]] = [
-                # frequency bands: DB uses _pct suffix, API/track endpoint uses bare names
-                ('sub_bass_pct', 'sub_bass'),
-                ('bass_pct', 'bass'),
-                ('low_mid_pct', 'low_mid'),
-                ('mid_pct', 'mid'),
-                ('upper_mid_pct', 'upper_mid'),
-                ('presence_pct', 'presence'),
-                ('air_pct', 'air'),
-                # dynamics / loudness (no rename needed)
-                ('lufs', 'lufs'),
-                ('crest_db', 'crest_db'),
-                ('bass_mid_ratio', 'bass_mid_ratio'),
-                # temporal / rhythm (no rename needed)
-                ('tempo_bpm', 'tempo_bpm'),
-                ('rhythm_stability', 'rhythm_stability'),
-                ('transient_density', 'transient_density'),
-                ('silence_ratio', 'silence_ratio'),
-                # spectral (no rename needed)
-                ('spectral_centroid', 'spectral_centroid'),
-                ('spectral_rolloff', 'spectral_rolloff'),
-                ('spectral_flatness', 'spectral_flatness'),
-                # harmonic / pitch — align with track endpoint field names
-                ('harmonic_ratio', 'harmonic_ratio'),
-                ('pitch_stability', 'pitch_confidence'),   # track uses pitch_confidence
-                ('chroma_energy', 'chroma_energy_mean'),   # track uses chroma_energy_mean
-                # dynamics (no rename needed)
-                ('dynamic_range_variation', 'dynamic_range_variation'),
-                ('loudness_variation_std', 'loudness_variation_std'),
-                ('peak_consistency', 'peak_consistency'),
-                # stereo — align with track endpoint field names
-                ('stereo_width', 'stereo_width'),
-                ('phase_correlation', 'stereo_correlation'),  # track uses stereo_correlation
-            ]
+        # Extract all 25 dimensions from fingerprints.
+        # Map DB column names → API field names to match the AudioFingerprint
+        # interface consumed by the frontend (fixes #2477: _pct suffix mismatch).
+        db_to_api: list[tuple[str, str]] = [
+            # frequency bands: DB uses _pct suffix, API/track endpoint uses bare names
+            ('sub_bass_pct', 'sub_bass'),
+            ('bass_pct', 'bass'),
+            ('low_mid_pct', 'low_mid'),
+            ('mid_pct', 'mid'),
+            ('upper_mid_pct', 'upper_mid'),
+            ('presence_pct', 'presence'),
+            ('air_pct', 'air'),
+            # dynamics / loudness (no rename needed)
+            ('lufs', 'lufs'),
+            ('crest_db', 'crest_db'),
+            ('bass_mid_ratio', 'bass_mid_ratio'),
+            # temporal / rhythm (no rename needed)
+            ('tempo_bpm', 'tempo_bpm'),
+            ('rhythm_stability', 'rhythm_stability'),
+            ('transient_density', 'transient_density'),
+            ('silence_ratio', 'silence_ratio'),
+            # spectral (no rename needed)
+            ('spectral_centroid', 'spectral_centroid'),
+            ('spectral_rolloff', 'spectral_rolloff'),
+            ('spectral_flatness', 'spectral_flatness'),
+            # harmonic / pitch — align with track endpoint field names
+            ('harmonic_ratio', 'harmonic_ratio'),
+            ('pitch_stability', 'pitch_confidence'),   # track uses pitch_confidence
+            ('chroma_energy', 'chroma_energy_mean'),   # track uses chroma_energy_mean
+            # dynamics (no rename needed)
+            ('dynamic_range_variation', 'dynamic_range_variation'),
+            ('loudness_variation_std', 'loudness_variation_std'),
+            ('peak_consistency', 'peak_consistency'),
+            # stereo — align with track endpoint field names
+            ('stereo_width', 'stereo_width'),
+            ('phase_correlation', 'stereo_correlation'),  # track uses stereo_correlation
+        ]
 
-            median_fingerprint = {}
-            for db_col, api_key in db_to_api:
-                values = [getattr(fp, db_col, 0.0) for fp in fingerprints]
-                median_fingerprint[api_key] = float(np.median(values))
+        median_fingerprint = {}
+        for db_col, api_key in db_to_api:
+            values = [getattr(fp, db_col, 0.0) for fp in fingerprints]
+            median_fingerprint[api_key] = float(np.median(values))
 
-            return {
-                "album_id": album_id,
-                "album_title": album.title,
-                "track_count": len(tracks),
-                "fingerprinted_track_count": len(fingerprints),
-                "fingerprint": median_fingerprint
-            }
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error computing album fingerprint: {e}", exc_info=True)
-            raise handle_query_error("get album fingerprint", e)
+        return {
+            "album_id": album_id,
+            "album_title": album.title,
+            "track_count": len(tracks),
+            "fingerprinted_track_count": len(fingerprints),
+            "fingerprint": median_fingerprint
+        }
 
     return router

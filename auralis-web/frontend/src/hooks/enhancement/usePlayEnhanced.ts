@@ -4,6 +4,8 @@
  *
  * Manages WebSocket-based PCM audio streaming for enhanced audio playback.
  * Integrates PCMStreamBuffer, AudioPlaybackEngine, and Redux state management.
+ * Same architecture as usePlayNormal — both compose the shared
+ * `useAudioStreamingCore` (fixes #4019).
  *
  * Usage:
  * ```typescript
@@ -52,12 +54,9 @@ import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import {
   startStreaming,
-  updateStreamingProgress,
-  completeStreaming,
   setStreamingError,
   resetStreaming,
   selectEnhancedStreaming,
-  selectIsPlaying,
   setCurrentTrackAndSyncQueue,
 } from '@/store/slices/playerSlice';
 import {
@@ -65,11 +64,9 @@ import {
 } from '@/utils/audio/pcmDecoding';
 import type {
   AudioStreamStartMessage,
-  AudioChunkMessage,
-  AudioStreamEndMessage,
-  AudioStreamErrorMessage,
 } from '@/contexts/WebSocketContext';
 import type { EnhancementPreset } from '@/types/domain';
+import { useAudioStreamingCore } from './useAudioStreamingCore';
 
 /**
  * Return type for usePlayEnhanced hook
@@ -175,69 +172,20 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const dispatch = useDispatch<AppDispatch>();
   const wsContext = useWebSocketContext();
   const streamingState = useSelector(selectEnhancedStreaming);
-  const isPlaying = useSelector(selectIsPlaying);
 
-  // Internal service references
-  const pcmBufferRef = useRef<PCMStreamBuffer | null>(null);
-  const playbackEngineRef = useRef<AudioPlaybackEngine | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-
-  // Abort controller for cancelling in-flight fetch on unmount (#2780)
-  const abortRef = useRef<AbortController>();
-
-  // Subscription cleanup refs
-  const unsubscribeStreamStartRef = useRef<(() => void) | null>(null);
-  const unsubscribeChunkRef = useRef<(() => void) | null>(null);
-  const unsubscribeStreamEndRef = useRef<(() => void) | null>(null);
-  const unsubscribeErrorRef = useRef<(() => void) | null>(null);
+  // Subscription cleanup refs for the two events not owned by the shared core
+  // (fingerprint_progress, seek_started).
   const unsubscribeFingerprintRef = useRef<(() => void) | null>(null);
   const unsubscribeSeekStartedRef = useRef<(() => void) | null>(null);
-
-  // Stable callback refs — always hold the latest handler version so that the
-  // subscription effect (which only depends on wsContext) never needs to
-  // resubscribe when callbacks change identity, eliminating the missed-message
-  // window on WebSocket reconnect (fixes #2532).
-  const handleStreamStartRef = useRef<((m: AudioStreamStartMessage) => void) | null>(null);
-  const handleChunkRef = useRef<((m: AudioChunkMessage) => void) | null>(null);
-  const handleStreamEndRef = useRef<((m: AudioStreamEndMessage) => void) | null>(null);
-  const handleStreamErrorRef = useRef<((m: AudioStreamErrorMessage) => void) | null>(null);
   const handleFingerprintProgressRef = useRef<((m: FingerprintProgressMessage) => void) | null>(null);
 
   // Timer ref for fingerprint status auto-clear (fixes #2353)
   const fingerprintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Pending chunks queue - handles race condition where chunks arrive before stream_start
-  const pendingChunksRef = useRef<AudioChunkMessage[]>([]);
-
-  // Streaming metadata
-  const streamingMetadataRef = useRef<{
-    sampleRate: number;
-    channels: number;
-    totalChunks: number;
-    processedChunks: number;
-  } | null>(null);
-
-  // Track last received chunk index to detect stream resets
-  const lastReceivedChunkIndexRef = useRef<number>(-1);
-
   // State for UI
-  const [currentTime, setCurrentTime] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
   const [fingerprintStatus, setFingerprintStatus] = useState<'idle' | 'analyzing' | 'complete' | 'failed' | 'error' | 'cached' | 'queued'>('idle');
   const [fingerprintMessage, setFingerprintMessage] = useState<string | null>(null);
-
-  // Tracks the last progress value dispatched to Redux to throttle per-chunk
-  // dispatches. Only dispatch on first chunk, every 10% increment, and completion
-  // so Redux DevTools remains usable during playback (fixes #2535).
-  const lastDispatchedProgressRef = useRef<number>(-1);
-
-  // Flow control: track whether we've told the backend to pause sending.
-  // Prevents the backend from flooding the circular buffer and dropping data.
-  const flowPausedRef = useRef<boolean>(false);
-  // Stable ref for wsContext.send so handleChunk callback doesn't need wsContext in deps
-  const wsSendRef = useRef(wsContext.send);
-  wsSendRef.current = wsContext.send;
 
   // Current track info for seek operations
   const currentTrackInfoRef = useRef<{
@@ -246,31 +194,29 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     intensity: number;
   } | null>(null);
 
-  /**
-   * Cleanup streaming resources (but NOT subscriptions - managed by mount effect)
-   */
-  const cleanupStreaming = useCallback(() => {
-    // Cancel any in-flight fetch (#2780)
-    abortRef.current?.abort();
-
-    // Clear playback engine and buffer references
-    // Note: We don't unsubscribe here - subscriptions are managed by the mount effect
-    // dispose() releases the ~100 MB Float32Array immediately instead of leaving
-    // reclamation to GC timing (#4147).
-    pcmBufferRef.current?.dispose();
-    pcmBufferRef.current = null;
-    playbackEngineRef.current = null;
-    streamingMetadataRef.current = null;
-
-    // Clear pending chunks queue
-    pendingChunksRef.current = [];
-
-    // Reset chunk tracking
-    lastReceivedChunkIndexRef.current = -1;
-
-    // Ensure isSeeking doesn't stick if cleanup runs mid-seek (#2873)
-    setIsSeeking(false);
-  }, []);
+  const core = useAudioStreamingCore(wsContext, {
+    streamType: 'enhanced',
+    sendType: 'play_enhanced',
+    logPrefix: '[usePlayEnhanced]',
+    // Auto-start once the engine's own minimum is satisfied — avoids the engine
+    // entering 'error' state when a fixed threshold undershoots it (#2478).
+    getStartThreshold: (_metadata, engine) => engine.getMinBufferSamples(),
+    throttleProgress: true,
+    detectOutOfSequence: true,
+    closeContextOnCleanup: false,
+    onCleanupExtra: () => {
+      // Ensure isSeeking doesn't stick if cleanup runs mid-seek (#2873)
+      setIsSeeking(false);
+    },
+    onDisconnectExtra: () => {
+      // Cancel orphaned fingerprint timeout so stale callback cannot fire against
+      // the next stream context after disconnect (fixes #2536).
+      if (fingerprintTimeoutRef.current !== null) {
+        clearTimeout(fingerprintTimeoutRef.current);
+        fingerprintTimeoutRef.current = null;
+      }
+    },
+  });
 
   /**
    * Handle audio_stream_start message from backend
@@ -299,13 +245,13 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
       // Resume guard: if we already have a live engine+buffer (e.g. after WS
       // reconnect), skip recreation and let new chunks append seamlessly (#3185).
-      if (isSeek && playbackEngineRef.current && pcmBufferRef.current) {
+      if (isSeek && core.playbackEngineRef.current && core.pcmBufferRef.current) {
         DEBUG && console.log('[usePlayEnhanced] Resuming stream into existing buffer');
-        if (streamingMetadataRef.current) {
-          streamingMetadataRef.current.totalChunks = message.data.total_chunks;
-          streamingMetadataRef.current.processedChunks = 0;
+        if (core.streamingMetadataRef.current) {
+          core.streamingMetadataRef.current.totalChunks = message.data.total_chunks;
+          core.streamingMetadataRef.current.processedChunks = 0;
         }
-        pendingChunksRef.current = [];
+        core.pendingChunksRef.current = [];
         dispatch(startStreaming({
           streamType: 'enhanced',
           trackId: message.data.track_id,
@@ -317,34 +263,34 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
       // Initialize PCMStreamBuffer. Dispose any prior buffer first so replacing
       // the ref never strands a ~100 MB Float32Array for GC (#4147).
-      pcmBufferRef.current?.dispose();
+      core.pcmBufferRef.current?.dispose();
       const buffer = new PCMStreamBuffer();
       buffer.initialize(message.data.sample_rate, message.data.channels);
-      pcmBufferRef.current = buffer;
+      core.pcmBufferRef.current = buffer;
 
       // Create AudioContext with the SAME sample rate as the streaming audio
       // This is critical - if AudioContext runs at 48000Hz but audio is 44100Hz,
       // playback will be ~9% faster and we'll have buffer underruns.
       const sourceSampleRate = message.data.sample_rate;
-      if (!audioContextRef.current || audioContextRef.current.sampleRate !== sourceSampleRate) {
+      if (!core.audioContextRef.current || core.audioContextRef.current.sampleRate !== sourceSampleRate) {
         // Close existing context if sample rate differs
-        if (audioContextRef.current) {
+        if (core.audioContextRef.current) {
           DEBUG && console.log('[usePlayEnhanced] Closing AudioContext (sample rate mismatch)',
-            audioContextRef.current.sampleRate, '→', sourceSampleRate);
-          audioContextRef.current.close();
+            core.audioContextRef.current.sampleRate, '→', sourceSampleRate);
+          core.audioContextRef.current.close();
         }
         // Create new AudioContext with matching sample rate
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        audioContextRef.current = new AudioContextClass({ sampleRate: sourceSampleRate });
+        core.audioContextRef.current = new AudioContextClass({ sampleRate: sourceSampleRate });
         DEBUG && console.log('[usePlayEnhanced] Created AudioContext with sample rate:', sourceSampleRate);
       }
 
       // Initialize AudioPlaybackEngine
       const engine = new AudioPlaybackEngine(
-        audioContextRef.current,
+        core.audioContextRef.current,
         buffer
       );
-      playbackEngineRef.current = engine;
+      core.playbackEngineRef.current = engine;
 
       // When streaming resumes from a seek position, tell the engine where to
       // start its time counter so the UI shows the correct position instead of
@@ -356,9 +302,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // Register state change callback
       engine.onStateChanged((state) => {
         if (state === 'paused') {
-          setIsPaused(true);
+          core.setIsPaused(true);
         } else if (state === 'playing') {
-          setIsPaused(false);
+          core.setIsPaused(false);
         }
       });
 
@@ -368,7 +314,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       });
 
       // Store metadata
-      streamingMetadataRef.current = {
+      core.streamingMetadataRef.current = {
         sampleRate: message.data.sample_rate,
         channels: message.data.channels,
         totalChunks: message.data.total_chunks,
@@ -376,9 +322,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       };
 
       // Reset chunk tracking for new stream
-      lastReceivedChunkIndexRef.current = -1;
-      lastDispatchedProgressRef.current = -1; // Reset progress throttle (fixes #2535)
-      flowPausedRef.current = false; // Reset flow control for new stream
+      core.lastReceivedChunkIndexRef.current = -1;
+      core.lastDispatchedProgressRef.current = -1; // Reset progress throttle (fixes #2535)
+      core.flowPausedRef.current = false; // Reset flow control for new stream
 
       // Update Redux state
       dispatch(
@@ -391,10 +337,10 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       );
 
       // Process any chunks that arrived before stream_start (race condition handling)
-      if (pendingChunksRef.current.length > 0) {
-        DEBUG && console.log('[usePlayEnhanced] Processing queued chunks:', pendingChunksRef.current.length);
-        const queuedChunks = [...pendingChunksRef.current];
-        pendingChunksRef.current = []; // Clear queue before processing
+      if (core.pendingChunksRef.current.length > 0) {
+        DEBUG && console.log('[usePlayEnhanced] Processing queued chunks:', core.pendingChunksRef.current.length);
+        const queuedChunks = [...core.pendingChunksRef.current];
+        core.pendingChunksRef.current = []; // Clear queue before processing
 
         for (const queuedMessage of queuedChunks) {
           try {
@@ -404,7 +350,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
               message.data.channels
             );
             buffer.append(samples, metadata.crossfadeSamples);
-            streamingMetadataRef.current!.processedChunks++;
+            core.streamingMetadataRef.current!.processedChunks++;
           } catch (queuedError) {
             console.error('[usePlayEnhanced] Error processing queued chunk:', queuedError);
           }
@@ -416,152 +362,16 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // when hook threshold (2 s) was below engine threshold (240 000 samples, fixes #2478).
       if (buffer.getAvailableSamples() >= engine.getMinBufferSamples()) {
         engine.startPlayback();
-        setIsPaused(false);
+        core.setIsPaused(false);
       }
     } catch (error) {
       const errorMsg = `Failed to initialize streaming: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[usePlayEnhanced]', errorMsg);
       dispatch(setStreamingError({ streamType: 'enhanced', error: errorMsg }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
-
-  /**
-   * Handle audio_chunk message from backend
-   */
-  const handleChunk = useCallback((message: AudioChunkMessage) => {
-    try {
-      // Only process messages intended for this hook (#2104)
-      if (message.data.stream_type && message.data.stream_type !== 'enhanced') return;
-
-      const incomingChunkIndex = message.data?.chunk_index ?? 0;
-
-      // If stream not yet initialized, queue the chunk instead of dropping it
-      if (!pcmBufferRef.current || !streamingMetadataRef.current) {
-        DEBUG && console.log('[usePlayEnhanced] Queuing chunk until stream initialized:', {
-          chunkIndex: incomingChunkIndex,
-          queueLength: pendingChunksRef.current.length + 1,
-        });
-        pendingChunksRef.current.push(message);
-        return;
-      }
-
-      // Detect out-of-sequence chunks indicating a new stream started without proper audio_stream_start
-      // This can happen if the stream_start message was missed during WebSocket reconnection
-      const lastChunk = lastReceivedChunkIndexRef.current;
-      if (lastChunk >= 0 && incomingChunkIndex < lastChunk - 1) {
-        DEBUG && console.warn('[usePlayEnhanced] Out-of-sequence chunk detected:', {
-          expected: lastChunk + 1,
-          received: incomingChunkIndex,
-          message: 'New stream may have started without audio_stream_start. This can cause audio discontinuity.',
-        });
-        // Reset the buffer to prevent audio glitches from stale data
-        pcmBufferRef.current.reset();
-        setCurrentTime(0);
-        lastReceivedChunkIndexRef.current = -1;
-      }
-
-      // Update chunk tracking
-      lastReceivedChunkIndexRef.current = incomingChunkIndex;
-
-      // Decode PCM samples from base64
-      const { samples, metadata } = decodeAudioChunkMessage(
-        message,
-        streamingMetadataRef.current.sampleRate,
-        streamingMetadataRef.current.channels
-      );
-
-      // Append to circular buffer
-      pcmBufferRef.current.append(samples, metadata.crossfadeSamples);
-
-      // Update tracking
-      streamingMetadataRef.current.processedChunks++;
-      const bufferedSamples = pcmBufferRef.current.getAvailableSamples();
-      const progress =
-        (streamingMetadataRef.current.processedChunks / streamingMetadataRef.current.totalChunks) * 100;
-      const clampedProgress = Math.min(progress, 100);
-
-      // Flow control: tell backend to pause/resume sending based on buffer fill level.
-      // 75% full → pause, 50% full → resume (25% hysteresis prevents rapid toggling).
-      const fillPct = pcmBufferRef.current.getFillPercentage();
-      if (fillPct > 75 && !flowPausedRef.current) {
-        flowPausedRef.current = true;
-        wsSendRef.current({ type: 'buffer_full', data: {} });
-      } else if (fillPct < 50 && flowPausedRef.current) {
-        flowPausedRef.current = false;
-        wsSendRef.current({ type: 'buffer_ready', data: {} });
-      }
-
-      // Throttle Redux dispatches: only update at first chunk, every 10%
-      // increment, or on completion — avoids O(n_chunks) Redux churn that
-      // makes DevTools unusable and causes cascading re-renders (fixes #2535).
-      const lastProgress = lastDispatchedProgressRef.current;
-      const crossedDecile =
-        Math.floor(clampedProgress / 10) > Math.floor(Math.max(0, lastProgress) / 10);
-      if (lastProgress < 0 || crossedDecile || clampedProgress >= 100) {
-        lastDispatchedProgressRef.current = clampedProgress;
-        dispatch(
-          updateStreamingProgress({
-            streamType: 'enhanced',
-            processedChunks: streamingMetadataRef.current.processedChunks,
-            bufferedSamples,
-            progress: clampedProgress,
-          })
-        );
-      }
-
-      // Auto-start when engine's own minimum threshold is met (fixes #2478).
-      const engine = playbackEngineRef.current;
-      if (engine && !engine.isPlaying() && bufferedSamples >= engine.getMinBufferSamples()) {
-        DEBUG && console.log('[usePlayEnhanced] Starting playback with buffer:', (bufferedSamples / (streamingMetadataRef.current.sampleRate * streamingMetadataRef.current.channels)).toFixed(1) + 's');
-        engine.startPlayback();
-        setIsPaused(false);
-      }
-
-      // Calculate buffered duration correctly (divide by sampleRate * channels for stereo)
-      const bufferedDuration = bufferedSamples / (streamingMetadataRef.current.sampleRate * streamingMetadataRef.current.channels);
-
-      DEBUG && console.debug('[usePlayEnhanced] Chunk received:', {
-        chunkIndex: metadata.chunkIndex,
-        frames: `${metadata.frameIndex + 1}/${metadata.frameCount}`,
-        samples: metadata.sampleCount,
-        buffered: `${bufferedDuration.toFixed(1)}s`,
-      });
-    } catch (error) {
-      const errorMsg = `Failed to process audio chunk: ${error instanceof Error ? error.message : String(error)}`;
-      console.error('[usePlayEnhanced]', errorMsg);
-      dispatch(setStreamingError({ streamType: 'enhanced', error: errorMsg }));
-    }
-  }, [dispatch]);
-
-  /**
-   * Handle audio_stream_end message from backend
-   */
-  const handleStreamEnd = useCallback((message: AudioStreamEndMessage) => {
-    // Only process messages intended for this hook (#2104)
-    if (message.data.stream_type && message.data.stream_type !== 'enhanced') return;
-
-    DEBUG && console.log('[usePlayEnhanced] Stream ended:', {
-      trackId: message.data.track_id,
-      totalSamples: message.data.total_samples,
-      duration: message.data.duration,
-    });
-
-    // Mark as complete in Redux
-    dispatch(completeStreaming('enhanced'));
-  }, [dispatch]);
-
-  /**
-   * Handle audio_stream_error message from backend
-   */
-  const handleStreamError = useCallback((message: AudioStreamErrorMessage) => {
-    // Only process messages intended for this hook (#2104)
-    if (message.data.stream_type && message.data.stream_type !== 'enhanced') return;
-
-    const errorMsg = `Streaming error: ${message.data.error} (${message.data.code})`;
-    console.error('[usePlayEnhanced]', errorMsg);
-    dispatch(setStreamingError({ streamType: 'enhanced', error: errorMsg }));
-    cleanupStreaming();
-  }, [dispatch, cleanupStreaming]);
+  core.handleStreamStartRef.current = handleStreamStart;
 
   /**
    * Handle fingerprint_progress message from backend
@@ -587,6 +397,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       }, 2000);
     }
   }, []);
+  handleFingerprintProgressRef.current = handleFingerprintProgress;
 
   /**
    * Start enhanced audio playback
@@ -597,13 +408,13 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     async (trackId: number, preset: EnhancementPreset, intensity: number) => {
       try {
         // Stop any existing playback
-        playbackEngineRef.current?.stopPlayback();
+        core.playbackEngineRef.current?.stopPlayback();
         // Release the prior ~100 MB buffer before dropping the ref (#4147)
-        pcmBufferRef.current?.dispose();
-        pcmBufferRef.current = null;
-        streamingMetadataRef.current = null;
-        pendingChunksRef.current = [];
-        lastReceivedChunkIndexRef.current = -1;
+        core.pcmBufferRef.current?.dispose();
+        core.pcmBufferRef.current = null;
+        core.streamingMetadataRef.current = null;
+        core.pendingChunksRef.current = [];
+        core.lastReceivedChunkIndexRef.current = -1;
 
         // Reset streaming state
         dispatch(resetStreaming('enhanced'));
@@ -619,11 +430,11 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
         // Load track data from backend so we can set currentTrack (fixes #2258)
         // AbortController cancels fetch on unmount/re-invocation (#2780)
-        abortRef.current?.abort();
-        abortRef.current = new AbortController();
+        core.abortRef.current?.abort();
+        core.abortRef.current = new AbortController();
         try {
           const response = await fetch(getApiUrl(`/api/library/tracks/${trackId}`), {
-            signal: abortRef.current.signal,
+            signal: core.abortRef.current.signal,
           });
           if (response.ok) {
             const track = await response.json();
@@ -679,40 +490,6 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   );
 
   /**
-   * Stop playback
-   */
-  const stopPlayback = useCallback(() => {
-    playbackEngineRef.current?.stopPlayback();
-    dispatch(resetStreaming('enhanced'));
-    cleanupStreaming();
-    setCurrentTime(0);
-    setIsPaused(false);
-  }, [dispatch, cleanupStreaming]);
-
-  /**
-   * Pause playback
-   */
-  const pausePlayback = useCallback(() => {
-    playbackEngineRef.current?.pausePlayback();
-    setIsPaused(true);
-  }, []);
-
-  /**
-   * Resume playback
-   */
-  const resumePlayback = useCallback(() => {
-    playbackEngineRef.current?.resumePlayback();
-    setIsPaused(false);
-  }, []);
-
-  /**
-   * Set playback volume
-   */
-  const setVolume = useCallback((volume: number) => {
-    playbackEngineRef.current?.setVolume(Math.max(0, Math.min(1, volume)));
-  }, []);
-
-  /**
    * Seek to a specific position in the current track
    * Sends a seek message to backend which restarts streaming from that position
    */
@@ -735,17 +512,17 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     setIsSeeking(true);
 
     // Stop current playback and clear buffer
-    playbackEngineRef.current?.stopPlayback();
-    pcmBufferRef.current?.reset();
+    core.playbackEngineRef.current?.stopPlayback();
+    core.pcmBufferRef.current?.reset();
 
     // Reset streaming metadata for new seek stream
-    if (streamingMetadataRef.current) {
-      streamingMetadataRef.current.processedChunks = 0;
+    if (core.streamingMetadataRef.current) {
+      core.streamingMetadataRef.current.processedChunks = 0;
     }
 
     // Clear pending chunks
-    pendingChunksRef.current = [];
-    lastReceivedChunkIndexRef.current = -1;
+    core.pendingChunksRef.current = [];
+    core.lastReceivedChunkIndexRef.current = -1;
 
     // Send seek message to backend
     wsContext.send({
@@ -757,41 +534,13 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         intensity,
       },
     });
-  }, [wsContext]);
-
-  // Keep callback refs in sync with the latest versions so stable wrapper
-  // subscriptions always call current logic (part of fixes #2532).
-  handleStreamStartRef.current = handleStreamStart;
-  handleChunkRef.current = handleChunk;
-  handleStreamEndRef.current = handleStreamEnd;
-  handleStreamErrorRef.current = handleStreamError;
-  handleFingerprintProgressRef.current = handleFingerprintProgress;
+  }, [wsContext, core.playbackEngineRef, core.pcmBufferRef, core.streamingMetadataRef, core.pendingChunksRef, core.lastReceivedChunkIndexRef]);
 
   /**
-   * Subscribe to streaming messages on mount (or WebSocket reconnect).
-   * Wrapper functions indirectly call the latest callback via refs so this
-   * effect only needs to resubscribe when wsContext changes — not on every
-   * render where a callback identity changes. This closes the missed-message
-   * gap that occurred on WS reconnect (fixes #2532).
+   * Subscribe to the two events not owned by the shared core (fingerprint
+   * progress, seek acknowledgement) on mount (or WebSocket reconnect).
    */
   useEffect(() => {
-    // Subscribe to streaming messages immediately on mount
-    unsubscribeStreamStartRef.current = wsContext.subscribe(
-      'audio_stream_start',
-      (m) => handleStreamStartRef.current?.(m as AudioStreamStartMessage)
-    );
-    unsubscribeChunkRef.current = wsContext.subscribe(
-      'audio_chunk',
-      (m) => handleChunkRef.current?.(m as AudioChunkMessage)
-    );
-    unsubscribeStreamEndRef.current = wsContext.subscribe(
-      'audio_stream_end',
-      (m) => handleStreamEndRef.current?.(m as AudioStreamEndMessage)
-    );
-    unsubscribeErrorRef.current = wsContext.subscribe(
-      'audio_stream_error',
-      (m) => handleStreamErrorRef.current?.(m as AudioStreamErrorMessage)
-    );
     unsubscribeFingerprintRef.current = wsContext.subscribe(
       'fingerprint_progress',
       (m) => handleFingerprintProgressRef.current?.(m as FingerprintProgressMessage)
@@ -805,92 +554,34 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       () => setIsSeeking(false)
     );
 
-    DEBUG && console.log('[usePlayEnhanced] Subscribed to streaming messages on mount');
+    DEBUG && console.log('[usePlayEnhanced] Subscribed to fingerprint/seek messages on mount');
 
-    // Cleanup on unmount
     return () => {
-      unsubscribeStreamStartRef.current?.();
-      unsubscribeChunkRef.current?.();
-      unsubscribeStreamEndRef.current?.();
-      unsubscribeErrorRef.current?.();
       unsubscribeFingerprintRef.current?.();
       unsubscribeSeekStartedRef.current?.();
-      DEBUG && console.log('[usePlayEnhanced] Unsubscribed from streaming messages on unmount');
+      DEBUG && console.log('[usePlayEnhanced] Unsubscribed from fingerprint/seek messages on unmount');
     };
-  }, [wsContext]); // Only resubscribe when the WS manager itself changes (reconnect)
-
-  // Register resume position getter so WebSocketContext can inject playback
-  // position into the reconnect stream command (#3185).
-  useEffect(() => {
-    wsContext.setResumePositionGetter('play_enhanced', () =>
-      playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0
-    );
-    return () => wsContext.setResumePositionGetter('play_enhanced', null);
   }, [wsContext]);
 
   /**
-   * Handle WebSocket disconnection - clean up playback state to prevent stale state on reconnect.
-   *
-   * When WebSocket disconnects mid-stream, the old playback engine keeps running and
-   * draining its buffer (causing underruns). When reconnection happens and a new stream
-   * starts, the stale engine state can cause audio to jump or play incorrectly.
-   *
-   * By cleaning up on disconnect, we ensure a fresh state when the new stream starts.
-   */
-  // On WS disconnect: preserve playback engine and buffer so buffered audio
-  // continues playing while reconnect happens. Only clean up non-essential state.
-  // The reconnect handler in WebSocketContext will re-issue the stream command
-  // with the current playback position (#3185).
-  useEffect(() => {
-    if (!wsContext.isConnected && playbackEngineRef.current) {
-      DEBUG && console.log('[usePlayEnhanced] WebSocket disconnected - keeping playback engine alive');
-
-      // Cancel orphaned fingerprint timeout so stale callback cannot fire against
-      // the next stream context after disconnect (fixes #2536).
-      if (fingerprintTimeoutRef.current !== null) {
-        clearTimeout(fingerprintTimeoutRef.current);
-        fingerprintTimeoutRef.current = null;
-      }
-
-      // DO NOT destroy engine/buffer/state — let buffered audio play through.
-      // The engine's existing buffer underrun handling will pause if it runs dry.
-    }
-  }, [wsContext.isConnected]);
-
-  /**
-   * Update playback time periodically — only while playing.
-   * The interval starts/stops with isPlaying to avoid gratuitous re-renders
-   * when idle (fixes #2991).
-   */
-  useEffect(() => {
-    if (!isPlaying) return;
-
-    const interval = setInterval(() => {
-      const time = playbackEngineRef.current?.getCurrentPlaybackTime() || 0;
-      setCurrentTime((prev) => (time === prev ? prev : time));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isPlaying]);
-
-  /**
-   * Cleanup on unmount - stop playback but DON'T unsubscribe (handled above)
-   * Also resets Redux streaming state on MOUNT to clear any stale state left by
-   * a previous instance (prevents phantom progress bar on remount — fixes #2533).
+   * Cleanup on unmount - stop playback but DON'T unsubscribe (handled above
+   * and by the shared core). Also resets Redux streaming state on MOUNT to
+   * clear any stale state left by a previous instance (prevents phantom
+   * progress bar on remount — fixes #2533).
    */
   useEffect(() => {
     dispatch(resetStreaming('enhanced'));
     return () => {
       // Only stop playback engine, don't call full stopPlayback which cleans up subscriptions
-      playbackEngineRef.current?.stopPlayback();
+      core.playbackEngineRef.current?.stopPlayback();
       // Release the ~100 MB PCM buffer on unmount — cleanupStreaming is not
       // called here (it would setState on a dead component), so dispose the
       // buffer directly instead of leaving it for GC (#4147).
-      pcmBufferRef.current?.dispose();
-      pcmBufferRef.current = null;
+      core.pcmBufferRef.current?.dispose();
+      core.pcmBufferRef.current = null;
       // Close AudioContext to release browser audio resources (fixes #2294)
-      audioContextRef.current?.close();
-      audioContextRef.current = null;
+      core.audioContextRef.current?.close();
+      core.audioContextRef.current = null;
       dispatch(resetStreaming('enhanced'));
       // Cancel pending fingerprint status timer to avoid setState on dead component (#2353)
       if (fingerprintTimeoutRef.current !== null) {
@@ -898,46 +589,16 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         fingerprintTimeoutRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
-
-  /**
-   * Watch Redux isPlaying state and control AudioPlaybackEngine accordingly.
-   * This allows usePlaybackControl.pause()/stop() to stop the engine immediately
-   * without waiting for buffered audio to drain (issue #2252).
-   *
-   * #3624: isPaused is read via a ref so it cannot drive a re-run of this
-   * effect. Including isPaused in the dep array previously caused two
-   * pausePlayback() calls per transition because setIsPaused(true) inside
-   * this effect re-fired the effect.
-   */
-  const isPausedRef = useRef(isPaused);
-  useEffect(() => {
-    isPausedRef.current = isPaused;
-  }, [isPaused]);
-
-  useEffect(() => {
-    if (!playbackEngineRef.current) return;
-
-    if (isPlaying) {
-      // Resume playback if paused
-      if (isPausedRef.current) {
-        playbackEngineRef.current.resumePlayback();
-        setIsPaused(false);
-      }
-    } else {
-      // Pause playback immediately when isPlaying becomes false
-      playbackEngineRef.current.pausePlayback();
-      setIsPaused(true);
-    }
-  }, [isPlaying]);
 
   return {
     playEnhanced,
     seekTo,
-    stopPlayback,
-    pausePlayback,
-    resumePlayback,
-    setVolume,
+    stopPlayback: core.stopPlayback,
+    pausePlayback: core.pausePlayback,
+    resumePlayback: core.resumePlayback,
+    setVolume: core.setVolume,
     isStreaming: streamingState.state === 'streaming' || streamingState.state === 'buffering',
     streamingState: streamingState.state,
     streamingProgress: streamingState.progress,
@@ -945,8 +606,8 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     processedChunks: streamingState.processedChunks,
     totalChunks: streamingState.totalChunks,
     error: streamingState.error,
-    currentTime,
-    isPaused,
+    currentTime: core.currentTime,
+    isPaused: core.isPaused,
     isSeeking,
     fingerprintStatus,
     fingerprintMessage,

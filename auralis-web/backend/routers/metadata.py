@@ -26,7 +26,7 @@ from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
 
 from security.path_security import PathValidationError, validate_file_path
 
-from .dependencies import require_repository_factory
+from .dependencies import require_repository_factory, with_error_handling
 
 logger = logging.getLogger(__name__)
 # Note: router is created inside create_metadata_router() for better testability
@@ -91,6 +91,7 @@ def create_metadata_router(
         metadata_editor = MetadataEditor()
 
     @router.get("/api/metadata/tracks/{track_id}/fields")
+    @with_error_handling("get editable fields")
     async def get_editable_fields(track_id: int) -> dict[str, Any]:
         """
         Get list of editable metadata fields for a track.
@@ -133,11 +134,9 @@ def create_metadata_router(
             raise  # Re-raise HTTPException as-is (don't wrap in 500)
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail=f"Audio file not found for track {track_id}")
-        except Exception as e:
-            logger.error(f"Failed to get editable fields for track {track_id}: {e}")
-            raise HTTPException(status_code=500, detail="Failed to get editable fields")
 
     @router.get("/api/metadata/tracks/{track_id}")
+    @with_error_handling("get track metadata")
     async def get_track_metadata(track_id: int) -> dict[str, Any]:
         """
         Get current metadata for a track.
@@ -178,11 +177,9 @@ def create_metadata_router(
             raise  # Re-raise HTTPException as-is
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail=f"Audio file not found for track {track_id}")
-        except Exception as e:
-            logger.error(f"Failed to get metadata for track {track_id}: {e}")
-            raise HTTPException(status_code=500, detail="Failed to get metadata")
 
     @router.put("/api/metadata/tracks/{track_id}")
+    @with_error_handling("update track metadata")
     async def update_track_metadata(track_id: int, request: MetadataUpdateRequest) -> dict[str, Any]:
         """
         Update metadata for a track.
@@ -273,11 +270,9 @@ def create_metadata_router(
         except ValueError as e:
             # Invalid metadata error
             raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
-        except Exception as e:
-            logger.error(f"Failed to update metadata for track {track_id}: {e}")
-            raise HTTPException(status_code=500, detail="Failed to update metadata")
 
     @router.post("/api/metadata/batch")
+    @with_error_handling("batch update metadata")
     async def batch_update_metadata(request: BatchMetadataRequest) -> dict[str, Any]:
         """
         Batch update metadata for multiple tracks.
@@ -294,90 +289,81 @@ def create_metadata_router(
         if not request.updates:
             raise HTTPException(status_code=400, detail="No updates provided")
 
-        try:
-            repos = require_repository_factory(get_repository_factory)
+        repos = require_repository_factory(get_repository_factory)
 
-            # Fetch all requested tracks in one WHERE-IN query (fixes #3857 N+1).
-            all_track_ids = [u.track_id for u in request.updates]
-            track_map: dict[int, Any] = await asyncio.to_thread(
-                repos.tracks.get_by_ids, all_track_ids
-            )
+        # Fetch all requested tracks in one WHERE-IN query (fixes #3857 N+1).
+        all_track_ids = [u.track_id for u in request.updates]
+        track_map: dict[int, Any] = await asyncio.to_thread(
+            repos.tracks.get_by_ids, all_track_ids
+        )
 
-            # Prepare batch updates — validate filepath for each found track.
-            batch_updates = []
-            for update_req in request.updates:
-                track = track_map.get(update_req.track_id)
-                if not track:
-                    logger.warning(f"Track {update_req.track_id} not found, skipping")
-                    continue
+        # Prepare batch updates — validate filepath for each found track.
+        batch_updates = []
+        for update_req in request.updates:
+            track = track_map.get(update_req.track_id)
+            if not track:
+                logger.warning(f"Track {update_req.track_id} not found, skipping")
+                continue
 
-                # Validate DB-retrieved filepath before file I/O (fixes #2302)
-                try:
-                    validated_filepath = str(validate_file_path(str(track.filepath)))
-                except PathValidationError as e:
-                    logger.warning(f"Invalid filepath for track {update_req.track_id}: {e}, skipping")
-                    continue
+            # Validate DB-retrieved filepath before file I/O (fixes #2302)
+            try:
+                validated_filepath = str(validate_file_path(str(track.filepath)))
+            except PathValidationError as e:
+                logger.warning(f"Invalid filepath for track {update_req.track_id}: {e}, skipping")
+                continue
 
-                batch_updates.append(MetadataUpdate(
-                    track_id=update_req.track_id,
-                    filepath=validated_filepath,
-                    updates=update_req.metadata,
-                    backup=True  # always enforced server-side (fixes #2407)
-                ))
+            batch_updates.append(MetadataUpdate(
+                track_id=update_req.track_id,
+                filepath=validated_filepath,
+                updates=update_req.metadata,
+                backup=True  # always enforced server-side (fixes #2407)
+            ))
 
-            # Execute batch update (atomic when backup=True).
-            # Offloaded to thread to avoid blocking the event loop (fixes #2317).
-            results = await asyncio.to_thread(metadata_editor.batch_update, batch_updates)
-            rolled_back: bool = results.get('rolled_back', False)
+        # Execute batch update (atomic when backup=True).
+        # Offloaded to thread to avoid blocking the event loop (fixes #2317).
+        results = await asyncio.to_thread(metadata_editor.batch_update, batch_updates)
+        rolled_back: bool = results.get('rolled_back', False)
 
-            # Update database for all successful results in one transaction
-            # (fixes #3857 N+1 on the update side).
-            successful_track_ids = []
+        # Update database for all successful results in one transaction
+        # (fixes #3857 N+1 on the update side).
+        successful_track_ids = []
 
-            if not rolled_back:
-                db_updates: list[tuple[int, dict[str, Any]]] = []
-                for result in results.get('results', []):
-                    if result.get('success'):
-                        track_id = result['track_id']
-                        updates = result.get('updates', {})
-                        if updates:
-                            db_updates.append((track_id, updates))
+        if not rolled_back:
+            db_updates: list[tuple[int, dict[str, Any]]] = []
+            for result in results.get('results', []):
+                if result.get('success'):
+                    track_id = result['track_id']
+                    updates = result.get('updates', {})
+                    if updates:
+                        db_updates.append((track_id, updates))
 
-                if db_updates:
-                    successful_track_ids = await asyncio.to_thread(
-                        repos.tracks.update_metadata_batch, db_updates
-                    )
+            if db_updates:
+                successful_track_ids = await asyncio.to_thread(
+                    repos.tracks.update_metadata_batch, db_updates
+                )
 
-            # Broadcast batch update event
-            if broadcast_manager and successful_track_ids:
-                await broadcast_manager.broadcast({
-                    "type": "metadata_batch_updated",
-                    "data": {
-                        "track_ids": successful_track_ids,
-                        "count": len(successful_track_ids)
-                    }
-                })
+        # Broadcast batch update event
+        if broadcast_manager and successful_track_ids:
+            await broadcast_manager.broadcast({
+                "type": "metadata_batch_updated",
+                "data": {
+                    "track_ids": successful_track_ids,
+                    "count": len(successful_track_ids)
+                }
+            })
 
-            logger.info(
-                f"Batch metadata update: {results['successful']}/{results['total']} successful"
-                + (", rolled back" if rolled_back else "")
-            )
+        logger.info(
+            f"Batch metadata update: {results['successful']}/{results['total']} successful"
+            + (", rolled back" if rolled_back else "")
+        )
 
-            return {
-                "success": results['failed'] == 0,
-                "total": results['total'],
-                "successful": results['successful'],
-                "failed": results['failed'],
-                "results": results['results'],
-                "rolled_back": rolled_back,
-            }
-
-        except HTTPException:
-            # Don't swallow nested HTTPException (e.g. 503 from
-            # require_repository_factory). Fixes #3496 / BE-NEW-38.
-            raise
-        except Exception as e:
-            logger.error(f"Batch metadata update failed: {e}")
-            raise HTTPException(status_code=500, detail="Batch update failed")
+        return {
+            "success": results['failed'] == 0,
+            "total": results['total'],
+            "successful": results['successful'],
+            "failed": results['failed'],
+            "results": results['results'],
+            "rolled_back": rolled_back,
+        }
 
     return router

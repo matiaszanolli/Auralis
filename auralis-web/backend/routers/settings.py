@@ -25,6 +25,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from security.path_security import validate_user_chosen_directory, register_allowed_directory, PathValidationError
 
+from .dependencies import with_error_handling
+
 logger = logging.getLogger(__name__)
 
 
@@ -153,6 +155,7 @@ def create_settings_router(
                 logger.warning(f"Failed to notify auto-scanner of settings change: {exc}")
 
     @router.get("/api/settings", response_model=SettingsResponse)
+    @with_error_handling("get settings")
     async def get_settings() -> dict[str, Any]:
         """Get current user settings."""
         settings = await asyncio.to_thread(_repo().get_settings)
@@ -161,6 +164,7 @@ def create_settings_router(
         return settings.to_dict()
 
     @router.put("/api/settings", response_model=SettingsUpdateResponse)
+    @with_error_handling("update settings")
     async def update_settings(updates: SettingsUpdateRequest) -> dict[str, Any]:
         """
         Update user settings.
@@ -172,19 +176,12 @@ def create_settings_router(
         semantics.
         """
         payload = updates.model_dump(exclude_unset=True)
-        try:
-            settings = await asyncio.to_thread(_repo().update_settings, payload)
-            await _notify_scanner()
-            return {"message": "Settings updated", "settings": settings.to_dict()}
-        except HTTPException:
-            # Preserve 503 from _repo() when settings repo is unavailable
-            # (fixes #3497 / BE-NEW-39).
-            raise
-        except Exception as exc:
-            logger.error(f"Failed to update settings: {exc}")
-            raise HTTPException(status_code=500, detail="Failed to update settings")
+        settings = await asyncio.to_thread(_repo().update_settings, payload)
+        await _notify_scanner()
+        return {"message": "Settings updated", "settings": settings.to_dict()}
 
     @router.post("/api/settings/scan-folders", response_model=SettingsUpdateResponse)
+    @with_error_handling("add scan folder")
     async def add_scan_folder(body: _ScanFolderRequest) -> dict[str, Any]:
         """Add a folder to the list of scanned directories."""
         if not body.folder or not body.folder.strip():
@@ -193,42 +190,26 @@ def create_settings_router(
             validated = validate_user_chosen_directory(body.folder.strip())
         except PathValidationError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        try:
-            settings = await asyncio.to_thread(_repo().add_scan_folder, str(validated))
-            # Register so validate_file_path accepts files under this folder
-            register_allowed_directory(validated)
-            await _notify_scanner()
-            return {"message": f"Scan folder added: {body.folder}", "settings": settings.to_dict()}
-        except HTTPException:
-            raise  # Preserve 503 from _repo() (#3497)
-        except Exception as exc:
-            logger.error(f"Failed to add scan folder: {exc}")
-            raise HTTPException(status_code=500, detail="Failed to add scan folder")
+        settings = await asyncio.to_thread(_repo().add_scan_folder, str(validated))
+        # Register so validate_file_path accepts files under this folder
+        register_allowed_directory(validated)
+        await _notify_scanner()
+        return {"message": f"Scan folder added: {body.folder}", "settings": settings.to_dict()}
 
     @router.post("/api/settings/scan-folders/delete", response_model=SettingsUpdateResponse)
+    @with_error_handling("remove scan folder")
     async def remove_scan_folder(body: _ScanFolderRequest) -> dict[str, Any]:
         """Remove a folder from the list of scanned directories."""
-        try:
-            settings = await asyncio.to_thread(_repo().remove_scan_folder, body.folder)
-            await _notify_scanner()
-            return {"message": f"Scan folder removed: {body.folder}", "settings": settings.to_dict()}
-        except HTTPException:
-            raise  # Preserve 503 from _repo() (#3497)
-        except Exception as exc:
-            logger.error(f"Failed to remove scan folder: {exc}")
-            raise HTTPException(status_code=500, detail="Failed to remove scan folder")
+        settings = await asyncio.to_thread(_repo().remove_scan_folder, body.folder)
+        await _notify_scanner()
+        return {"message": f"Scan folder removed: {body.folder}", "settings": settings.to_dict()}
 
     @router.post("/api/settings/reset", response_model=SettingsUpdateResponse)
+    @with_error_handling("reset settings")
     async def reset_settings() -> dict[str, Any]:
         """Reset all settings to their default values."""
-        try:
-            settings = await asyncio.to_thread(_repo().reset_to_defaults)
-            await _notify_scanner()
-            return {"message": "Settings reset to defaults", "settings": settings.to_dict()}
-        except HTTPException:
-            raise  # Preserve 503 from _repo() (#3497)
-        except Exception as exc:
-            logger.error(f"Failed to reset settings: {exc}")
-            raise HTTPException(status_code=500, detail="Failed to reset settings")
+        settings = await asyncio.to_thread(_repo().reset_to_defaults)
+        await _notify_scanner()
+        return {"message": "Settings reset to defaults", "settings": settings.to_dict()}
 
     return router

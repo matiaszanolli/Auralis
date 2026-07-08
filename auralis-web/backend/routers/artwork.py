@@ -23,7 +23,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 
-from .dependencies import require_repository_factory
+from .dependencies import require_repository_factory, with_error_handling
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["artwork"])
@@ -52,6 +52,7 @@ def create_artwork_router(
         return require_repository_factory(get_repository_factory)
 
     @router.get("/api/albums/{album_id}/artwork")
+    @with_error_handling("get artwork")
     async def get_album_artwork(album_id: int, request: Request) -> Response:
         """
         Get album artwork file (with path traversal protection).
@@ -66,105 +67,99 @@ def create_artwork_router(
             HTTPException: If library manager/factory not available, album/artwork not found,
                          or path validation fails
         """
+        repos = get_repos()
+        # Get album to find artwork path
+        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+
+        if not album:
+            raise HTTPException(status_code=404, detail="Album not found")
+
+        if not album.artwork_path:
+            raise HTTPException(status_code=404, detail="Artwork not found")
+
+        # Security: Validate artwork path is within allowed directory
+        # Define allowed artwork directory
+        artwork_dir = Path.home() / ".auralis" / "artwork"
+        artwork_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+
+        # Resolve allowed directory (handles symlinks in base path)
+        allowed_dir = artwork_dir.resolve()
+
+        # Resolve artwork path (handles symlinks and relative paths)
+        # Use strict=False to resolve path even if file doesn't exist (for security validation)
         try:
-            repos = get_repos()
-            # Get album to find artwork path
-            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+            requested_path = Path(album.artwork_path).resolve(strict=False)
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.warning(f"Invalid artwork path for album {album_id}: {album.artwork_path} - {e}")
+            raise HTTPException(status_code=403, detail="Access denied: invalid path")
 
-            if not album:
-                raise HTTPException(status_code=404, detail="Album not found")
+        # Security: Check that resolved path is within allowed directory
+        # This MUST happen before existence check to prevent path traversal
+        # Use is_relative_to() for safe path comparison (prevents traversal attacks)
+        if not requested_path.is_relative_to(allowed_dir):
+            logger.warning(
+                f"Path traversal attempt blocked for album {album_id}: "
+                f"requested={requested_path}, allowed_dir={allowed_dir}"
+            )
+            raise HTTPException(status_code=403, detail="Access denied: path outside artwork directory")
 
-            if not album.artwork_path:
-                raise HTTPException(status_code=404, detail="Artwork not found")
+        # Additional check: file must exist (after security validation)
+        if not requested_path.exists():
+            raise HTTPException(status_code=404, detail="Artwork not found")
 
-            # Security: Validate artwork path is within allowed directory
-            # Define allowed artwork directory
-            artwork_dir = Path.home() / ".auralis" / "artwork"
-            artwork_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+        # Detect MIME type from file extension first, then fall back to magic bytes
+        # so that PNG files with unrecognized/missing extensions are not served
+        # as image/jpeg (fixes #2510).
+        media_type, _ = mimetypes.guess_type(str(requested_path))
+        if not media_type or not media_type.startswith("image/"):
+            # Read the first 12 bytes to identify the format via magic bytes
+            def _read_header() -> bytes:
+                try:
+                    with open(requested_path, "rb") as _f:
+                        return _f.read(12)
+                except OSError:
+                    return b""
+            header = await asyncio.to_thread(_read_header)
+            if header[:8] == b"\x89PNG\r\n\x1a\n":
+                media_type = "image/png"
+            elif header[:3] == b"\xff\xd8\xff":
+                media_type = "image/jpeg"
+            elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+                media_type = "image/webp"
+            elif header[:4] in (b"GIF8", b"GIF9"):
+                media_type = "image/gif"
+            else:
+                media_type = "image/jpeg"  # safest fallback for browsers
 
-            # Resolve allowed directory (handles symlinks in base path)
-            allowed_dir = artwork_dir.resolve()
+        # Build ETag from file stat for conditional caching (#2864).
+        stat = requested_path.stat()
+        etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
 
-            # Resolve artwork path (handles symlinks and relative paths)
-            # Use strict=False to resolve path even if file doesn't exist (for security validation)
-            try:
-                requested_path = Path(album.artwork_path).resolve(strict=False)
-            except (OSError, RuntimeError, ValueError) as e:
-                logger.warning(f"Invalid artwork path for album {album_id}: {album.artwork_path} - {e}")
-                raise HTTPException(status_code=403, detail="Access denied: invalid path")
-
-            # Security: Check that resolved path is within allowed directory
-            # This MUST happen before existence check to prevent path traversal
-            # Use is_relative_to() for safe path comparison (prevents traversal attacks)
-            if not requested_path.is_relative_to(allowed_dir):
-                logger.warning(
-                    f"Path traversal attempt blocked for album {album_id}: "
-                    f"requested={requested_path}, allowed_dir={allowed_dir}"
-                )
-                raise HTTPException(status_code=403, detail="Access denied: path outside artwork directory")
-
-            # Additional check: file must exist (after security validation)
-            if not requested_path.exists():
-                raise HTTPException(status_code=404, detail="Artwork not found")
-
-            # Detect MIME type from file extension first, then fall back to magic bytes
-            # so that PNG files with unrecognized/missing extensions are not served
-            # as image/jpeg (fixes #2510).
-            media_type, _ = mimetypes.guess_type(str(requested_path))
-            if not media_type or not media_type.startswith("image/"):
-                # Read the first 12 bytes to identify the format via magic bytes
-                def _read_header() -> bytes:
-                    try:
-                        with open(requested_path, "rb") as _f:
-                            return _f.read(12)
-                    except OSError:
-                        return b""
-                header = await asyncio.to_thread(_read_header)
-                if header[:8] == b"\x89PNG\r\n\x1a\n":
-                    media_type = "image/png"
-                elif header[:3] == b"\xff\xd8\xff":
-                    media_type = "image/jpeg"
-                elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
-                    media_type = "image/webp"
-                elif header[:4] in (b"GIF8", b"GIF9"):
-                    media_type = "image/gif"
-                else:
-                    media_type = "image/jpeg"  # safest fallback for browsers
-
-            # Build ETag from file stat for conditional caching (#2864).
-            stat = requested_path.stat()
-            etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
-
-            # If client already has this version, return 304 (no body).
-            if_none_match = request.headers.get("if-none-match")
-            if if_none_match and if_none_match == etag:
-                return Response(
-                    status_code=304,
-                    headers={
-                        "ETag": etag,
-                        "Cache-Control": "public, no-cache",
-                    },
-                )
-
-            # Return artwork file with ETag for conditional caching.
-            # no-cache = always revalidate, but 304 avoids re-download
-            # when content hasn't changed.
-            return FileResponse(
-                str(requested_path),
-                media_type=media_type,
+        # If client already has this version, return 304 (no body).
+        if_none_match = request.headers.get("if-none-match")
+        if if_none_match and if_none_match == etag:
+            return Response(
+                status_code=304,
                 headers={
                     "ETag": etag,
                     "Cache-Control": "public, no-cache",
                 },
             )
 
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to get artwork: {e}")
-            raise HTTPException(status_code=500, detail="Failed to get artwork")
+        # Return artwork file with ETag for conditional caching.
+        # no-cache = always revalidate, but 304 avoids re-download
+        # when content hasn't changed.
+        return FileResponse(
+            str(requested_path),
+            media_type=media_type,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, no-cache",
+            },
+        )
 
     @router.post("/api/albums/{album_id}/artwork/extract")
+    @with_error_handling("extract artwork")
     async def extract_album_artwork(album_id: int) -> dict[str, Any]:
         """
         Extract artwork from album tracks.
@@ -180,42 +175,36 @@ def create_artwork_router(
         Raises:
             HTTPException: If library manager/factory not available or extraction fails
         """
-        try:
-            repos = get_repos()
-            artwork_path = await asyncio.to_thread(repos.albums.extract_and_save_artwork, album_id)
+        repos = get_repos()
+        artwork_path = await asyncio.to_thread(repos.albums.extract_and_save_artwork, album_id)
 
-            if not artwork_path:
-                raise HTTPException(
-                    status_code=404,
-                    detail="No artwork found in album tracks"
-                )
+        if not artwork_path:
+            raise HTTPException(
+                status_code=404,
+                detail="No artwork found in album tracks"
+            )
 
-            # Convert filesystem path to API URL
-            artwork_url = f"/api/albums/{album_id}/artwork"
+        # Convert filesystem path to API URL
+        artwork_url = f"/api/albums/{album_id}/artwork"
 
-            # Broadcast artwork updated event
-            await connection_manager.broadcast({
-                "type": "artwork_updated",
-                "data": {
-                    "action": "extracted",
-                    "album_id": album_id,
-                    "artwork_url": artwork_url
-                }
-            })
-
-            return {
-                "message": "Artwork extracted successfully",
-                "artwork_url": artwork_url,  # API URL — consistent with artist serializer (fixes #2508)
-                "album_id": album_id
+        # Broadcast artwork updated event
+        await connection_manager.broadcast({
+            "type": "artwork_updated",
+            "data": {
+                "action": "extracted",
+                "album_id": album_id,
+                "artwork_url": artwork_url
             }
+        })
 
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to extract artwork: {e}")
-            raise HTTPException(status_code=500, detail="Failed to extract artwork")
+        return {
+            "message": "Artwork extracted successfully",
+            "artwork_url": artwork_url,  # API URL — consistent with artist serializer (fixes #2508)
+            "album_id": album_id
+        }
 
     @router.delete("/api/albums/{album_id}/artwork")
+    @with_error_handling("delete artwork")
     async def delete_album_artwork(album_id: int) -> dict[str, Any]:
         """
         Delete album artwork.
@@ -229,35 +218,29 @@ def create_artwork_router(
         Raises:
             HTTPException: If library manager/factory not available or artwork not found
         """
-        try:
-            repos = get_repos()
-            # Idempotent DELETE per RFC 7231 §4.3.5 — a repeat call after a
-            # successful delete should NOT 404 (#3563 / BE-NEW-105). Only
-            # 404 when the album itself doesn't exist; if artwork is
-            # already gone, return success.
-            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
-            if album is None:
-                raise HTTPException(status_code=404, detail=f"Album {album_id} not found")
-            success = await asyncio.to_thread(repos.albums.delete_artwork, album_id)
-            # If repo returns False the artwork was already absent — also
-            # success from the client's idempotency perspective.
+        repos = get_repos()
+        # Idempotent DELETE per RFC 7231 §4.3.5 — a repeat call after a
+        # successful delete should NOT 404 (#3563 / BE-NEW-105). Only
+        # 404 when the album itself doesn't exist; if artwork is
+        # already gone, return success.
+        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+        if album is None:
+            raise HTTPException(status_code=404, detail=f"Album {album_id} not found")
+        success = await asyncio.to_thread(repos.albums.delete_artwork, album_id)
+        # If repo returns False the artwork was already absent — also
+        # success from the client's idempotency perspective.
 
-            # Broadcast artwork updated event (only when something actually changed)
-            if success:
-                await connection_manager.broadcast({
-                    "type": "artwork_updated",
-                    "data": {"action": "deleted", "album_id": album_id}
-                })
+        # Broadcast artwork updated event (only when something actually changed)
+        if success:
+            await connection_manager.broadcast({
+                "type": "artwork_updated",
+                "data": {"action": "deleted", "album_id": album_id}
+            })
 
-            return {"message": "Artwork deleted successfully", "album_id": album_id}
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to delete artwork: {e}")
-            raise HTTPException(status_code=500, detail="Failed to delete artwork")
+        return {"message": "Artwork deleted successfully", "album_id": album_id}
 
     @router.post("/api/albums/{album_id}/artwork/download")
+    @with_error_handling("download artwork")
     async def download_album_artwork(album_id: int) -> dict[str, Any]:
         """
         Download album artwork from online sources.
@@ -273,64 +256,57 @@ def create_artwork_router(
         Raises:
             HTTPException: If library manager/factory not available or download fails
         """
-        try:
-            repos = get_repos()
-            # Get album using repository (includes eager loading of artist)
-            album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+        repos = get_repos()
+        # Get album using repository (includes eager loading of artist)
+        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
-            if not album:
-                raise HTTPException(status_code=404, detail="Album not found")
+        if not album:
+            raise HTTPException(status_code=404, detail="Album not found")
 
-            # Get artist name (from first track if available)
-            artist_name = album.artist.name if album.artist else "Unknown Artist"
-            album_name = album.title
+        # Get artist name (from first track if available)
+        artist_name = album.artist.name if album.artist else "Unknown Artist"
+        album_name = album.title
 
-            # Download artwork using the artwork downloader service
-            from services.artwork_downloader import get_artwork_downloader
-            downloader = get_artwork_downloader()
+        # Download artwork using the artwork downloader service
+        from services.artwork_downloader import get_artwork_downloader
+        downloader = get_artwork_downloader()
 
-            artwork_path = await downloader.download_artwork(
-                artist=artist_name,
-                album=album_name,
-                album_id=album_id
+        artwork_path = await downloader.download_artwork(
+            artist=artist_name,
+            album=album_name,
+            album_id=album_id
+        )
+
+        if not artwork_path:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No artwork found online for '{album_name}' by '{artist_name}'"
             )
 
-            if not artwork_path:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"No artwork found online for '{album_name}' by '{artist_name}'"
-                )
+        # Save artwork path to database
+        updated_album = await asyncio.to_thread(repos.albums.update_artwork_path, album_id, artwork_path)
+        if not updated_album:
+            raise HTTPException(status_code=404, detail="Album not found")
 
-            # Save artwork path to database
-            updated_album = await asyncio.to_thread(repos.albums.update_artwork_path, album_id, artwork_path)
-            if not updated_album:
-                raise HTTPException(status_code=404, detail="Album not found")
+        # Convert filesystem path to API URL
+        artwork_url = f"/api/albums/{album_id}/artwork"
 
-            # Convert filesystem path to API URL
-            artwork_url = f"/api/albums/{album_id}/artwork"
-
-            # Broadcast artwork updated event
-            await connection_manager.broadcast({
-                "type": "artwork_updated",
-                "data": {
-                    "action": "downloaded",
-                    "album_id": album_id,
-                    "artwork_url": artwork_url
-                }
-            })
-
-            return {
-                "message": "Artwork downloaded successfully",
-                "artwork_url": artwork_url,  # API URL, not filesystem path
+        # Broadcast artwork updated event
+        await connection_manager.broadcast({
+            "type": "artwork_updated",
+            "data": {
+                "action": "downloaded",
                 "album_id": album_id,
-                "artist": artist_name,
-                "album": album_name
+                "artwork_url": artwork_url
             }
+        })
 
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to download artwork: {e}")
-            raise HTTPException(status_code=500, detail="Failed to download artwork")
+        return {
+            "message": "Artwork downloaded successfully",
+            "artwork_url": artwork_url,  # API URL, not filesystem path
+            "album_id": album_id,
+            "artist": artist_name,
+            "album": album_name
+        }
 
     return router
