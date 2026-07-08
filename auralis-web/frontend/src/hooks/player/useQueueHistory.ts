@@ -68,6 +68,37 @@ export interface HistoryEntry {
   createdAt: string;
 }
 
+/** Wire shape returned by the backend (snake_case, matches routers/player.py's
+ * QueueHistoryEntryResponse — no automatic case conversion happens in
+ * useRestAPI, #3805). */
+interface WireHistoryEntry {
+  id: number;
+  operation: HistoryEntry['operation'];
+  state_snapshot: {
+    track_ids: number[];
+    current_index: number;
+    is_shuffled: boolean;
+    repeat_mode: HistoryEntry['stateSnapshot']['repeatMode'];
+  };
+  operation_metadata: Record<string, unknown>;
+  created_at: string | null;
+}
+
+function mapWireEntry(wire: WireHistoryEntry): HistoryEntry {
+  return {
+    id: wire.id,
+    operation: wire.operation,
+    stateSnapshot: {
+      trackIds: wire.state_snapshot?.track_ids ?? [],
+      currentIndex: wire.state_snapshot?.current_index ?? 0,
+      isShuffled: wire.state_snapshot?.is_shuffled ?? false,
+      repeatMode: wire.state_snapshot?.repeat_mode ?? 'off',
+    },
+    metadata: wire.operation_metadata ?? {},
+    createdAt: wire.created_at ?? '',
+  };
+}
+
 /**
  * Return type for useQueueHistory hook
  */
@@ -154,12 +185,12 @@ export function useQueueHistory(): QueueHistoryActions {
     const fetchInitialHistory = async () => {
       try {
         const response = await get<{
-          history: HistoryEntry[];
+          history: WireHistoryEntry[];
           count: number;
         }>('/api/player/queue/history');
 
         if (isMountedRef.current && response) {
-          setHistory(response.history || []);
+          setHistory((response.history || []).map(mapWireEntry));
         }
       } catch (err) {
         // Silently fail - history is optional
@@ -188,7 +219,7 @@ export function useQueueHistory(): QueueHistoryActions {
       setError(null);
 
       try {
-        const response = await post<HistoryEntry>(
+        const response = await post<WireHistoryEntry>(
           '/api/player/queue/history',
           {
             operation,
@@ -204,7 +235,7 @@ export function useQueueHistory(): QueueHistoryActions {
 
         if (isMountedRef.current && response) {
           // Update local history
-          setHistory((prev) => [response, ...prev]);
+          setHistory((prev) => [mapWireEntry(response), ...prev]);
         }
       } catch (err) {
         if (isMountedRef.current) {

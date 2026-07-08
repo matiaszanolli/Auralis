@@ -30,10 +30,10 @@ Endpoints:
 import asyncio
 import logging
 import math
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from collections.abc import Callable
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, field_validator
 from player_state import PlayerState
 from services import (
@@ -107,6 +107,21 @@ class ShuffleRequest(BaseModel):
 class RepeatModeRequest(BaseModel):
     """Request model for setting repeat mode."""
     mode: Literal["off", "all", "one"]
+
+
+class QueueHistoryStateSnapshot(BaseModel):
+    """Queue state snapshot carried by a history entry (#3805)."""
+    track_ids: list[int]
+    current_index: int = 0
+    is_shuffled: bool = False
+    repeat_mode: Literal["off", "all", "one"] = "off"
+
+
+class RecordQueueHistoryRequest(BaseModel):
+    """Request model for POST /api/player/queue/history (#3805)."""
+    operation: Literal["set", "add", "remove", "reorder", "shuffle", "clear"]
+    state_snapshot: QueueHistoryStateSnapshot
+    operation_metadata: dict[str, Any] = {}
 
 
 # ============================================================================
@@ -186,6 +201,29 @@ class MoveQueueTrackResponse(BaseModel):
     queue_size: int
 
 
+class QueueHistoryEntryResponse(BaseModel):
+    """Single queue history entry (#3805)."""
+    id: int
+    operation: str
+    state_snapshot: dict[str, Any]
+    operation_metadata: dict[str, Any]
+    created_at: str | None = None
+
+    model_config = ConfigDict(extra='allow')
+
+
+class QueueHistoryListResponse(BaseModel):
+    """Response for GET /api/player/queue/history (#3805)."""
+    history: list[QueueHistoryEntryResponse]
+    count: int
+
+
+class UndoQueueResponse(BaseModel):
+    """Response for POST /api/player/queue/undo (#3805)."""
+    message: str
+    queue_state: dict[str, Any]
+
+
 def create_player_router(
     get_library_manager: Callable[[], Any],
     get_audio_player: Callable[[], Any],
@@ -248,6 +286,23 @@ def create_player_router(
             connection_manager=connection_manager,
             create_track_info_fn=create_track_info_fn
         )
+
+    def get_queue_history_repo() -> Any:
+        """Lazy repository initialization (#3805).
+
+        Constructed directly from the library manager's session factory
+        rather than via RepositoryFactory — this router only receives
+        get_library_manager, not get_repository_factory. QueueHistoryRepository
+        is cheap to construct (BaseRepository just holds the session factory;
+        no per-instance caching needed for occasional undo/history calls).
+        """
+        library_manager = get_library_manager()
+        if not library_manager:
+            raise HTTPException(status_code=503, detail="Library manager not available")
+        from auralis.library.repositories.queue_history_repository import (
+            QueueHistoryRepository,
+        )
+        return QueueHistoryRepository(library_manager.SessionLocal)
 
     # ============================================================================
     # PLAYBACK ENDPOINTS
@@ -438,6 +493,113 @@ def create_player_router(
         except Exception as e:
             logger.error("Failed to set queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to set queue")
+
+    # ============================================================================
+    # QUEUE HISTORY / UNDO ENDPOINTS (#3805)
+    #
+    # NOTE: Registered BEFORE the `/api/player/queue/{index}` DELETE route
+    # below. FastAPI/Starlette match routes in registration order, not by
+    # literal-vs-parameterized specificity — if `/api/player/queue/history`
+    # were registered after `/api/player/queue/{index}`, a DELETE to
+    # `.../history` would match `{index}` first and fail int coercion (422)
+    # instead of ever reaching this route.
+    # ============================================================================
+
+    @router.get("/api/player/queue/history", response_model=QueueHistoryListResponse)
+    async def get_queue_history(limit: int = Query(20, ge=1, le=100)) -> dict[str, Any]:
+        """Get recent queue-operation history entries (newest first)."""
+        try:
+            repo = get_queue_history_repo()
+            entries = await asyncio.to_thread(repo.get_history, limit)
+            history = [entry.to_dict() for entry in entries]
+            return {"history": history, "count": len(history)}
+        except HTTPException:
+            raise
+        except Exception:
+            logger.error("Failed to get queue history", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to get queue history")
+
+    @router.post("/api/player/queue/history", response_model=QueueHistoryEntryResponse)
+    async def record_queue_history(request: RecordQueueHistoryRequest) -> dict[str, Any]:
+        """Record a queue-state snapshot to history, for later undo."""
+        try:
+            repo = get_queue_history_repo()
+            entry = await asyncio.to_thread(
+                repo.push_to_history,
+                request.operation,
+                request.state_snapshot.model_dump(),
+                request.operation_metadata,
+            )
+            return cast(dict[str, Any], entry.to_dict())
+        except HTTPException:
+            raise
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception:
+            logger.error("Failed to record queue history", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to record queue history")
+
+    @router.post("/api/player/queue/undo", response_model=UndoQueueResponse)
+    async def undo_queue_operation() -> dict[str, Any]:
+        """Undo the last recorded queue operation.
+
+        Restores both the persisted QueueState row and the live queue
+        (track order + position via QueueService.set_queue, repeat/shuffle
+        flags via PlayerStateManager) — restoring only the DB snapshot would
+        make "undo" silently do nothing from the user's perspective (#3805).
+        """
+        try:
+            repo = get_queue_history_repo()
+            restored = await asyncio.to_thread(repo.undo)
+            if restored is None:
+                raise HTTPException(status_code=404, detail="No history available to undo")
+
+            restored_dict = restored.to_dict()
+
+            try:
+                queue_service = get_queue_service()
+                await queue_service.set_queue(
+                    restored_dict['track_ids'], start_index=restored_dict['current_index']
+                )
+            except ValueError as e:
+                # Audio player / state manager not available — the DB state
+                # was still restored; degrade gracefully rather than failing
+                # the whole undo over a live-sync step.
+                logger.warning(f"Queue history restored in DB but live queue sync skipped: {e}")
+
+            state_manager = get_player_state_manager()
+            if state_manager:
+                await state_manager.update_state(
+                    repeat_mode=restored_dict['repeat_mode'],
+                    shuffle_enabled=restored_dict['is_shuffled'],
+                )
+
+            await connection_manager.broadcast({
+                "type": "queue_updated",
+                "data": {"action": "undo", "queue_size": len(restored_dict['track_ids'])},
+            })
+
+            return {"message": "Queue operation undone", "queue_state": restored_dict}
+        except HTTPException:
+            raise
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception:
+            logger.error("Failed to undo queue operation", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to undo queue operation")
+
+    @router.delete("/api/player/queue/history", response_model=MessageResponse)
+    async def clear_queue_history() -> dict[str, Any]:
+        """Clear all queue history entries."""
+        try:
+            repo = get_queue_history_repo()
+            await asyncio.to_thread(repo.clear_history)
+            return {"message": "Queue history cleared"}
+        except HTTPException:
+            raise
+        except Exception:
+            logger.error("Failed to clear queue history", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to clear queue history")
 
     @router.delete("/api/player/queue/{index}", response_model=RemoveFromQueueResponse)
     async def remove_from_queue(index: int) -> dict[str, Any]:

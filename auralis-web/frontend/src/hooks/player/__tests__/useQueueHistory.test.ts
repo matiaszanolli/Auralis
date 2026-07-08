@@ -28,17 +28,33 @@ vi.mock('@/hooks/api/useRestAPI', () => ({
   }),
 }));
 
-const makeEntry = (id: number, operation: HistoryEntry['operation'] = 'add'): HistoryEntry => ({
+/** Wire-format (snake_case) fixture — matches the actual backend response
+ * shape (routers/player.py's QueueHistoryEntryResponse, #3805). The hook
+ * maps this into the camelCase HistoryEntry the rest of the app consumes. */
+const makeWireEntry = (id: number, operation: HistoryEntry['operation'] = 'add') => ({
   id,
   operation,
-  stateSnapshot: {
-    trackIds: [1, 2, 3],
-    currentIndex: 0,
-    isShuffled: false,
-    repeatMode: 'off',
+  state_snapshot: {
+    track_ids: [1, 2, 3],
+    current_index: 0,
+    is_shuffled: false,
+    repeat_mode: 'off' as const,
   },
-  metadata: {},
-  createdAt: new Date().toISOString(),
+  operation_metadata: {},
+  created_at: new Date().toISOString(),
+});
+
+const expectedEntry = (wire: ReturnType<typeof makeWireEntry>): HistoryEntry => ({
+  id: wire.id,
+  operation: wire.operation,
+  stateSnapshot: {
+    trackIds: wire.state_snapshot.track_ids,
+    currentIndex: wire.state_snapshot.current_index,
+    isShuffled: wire.state_snapshot.is_shuffled,
+    repeatMode: wire.state_snapshot.repeat_mode,
+  },
+  metadata: wire.operation_metadata,
+  createdAt: wire.created_at,
 });
 
 describe('useQueueHistory', () => {
@@ -60,22 +76,22 @@ describe('useQueueHistory', () => {
     expect(result.current.error).toBeNull();
   });
 
-  it('should load initial history from API on mount', async () => {
-    const entries = [makeEntry(1), makeEntry(2)];
-    mockGet.mockResolvedValue({ history: entries, count: 2 });
+  it('should load initial history from API on mount, mapping snake_case to camelCase (#3805)', async () => {
+    const wireEntries = [makeWireEntry(1), makeWireEntry(2)];
+    mockGet.mockResolvedValue({ history: wireEntries, count: 2 });
 
     const { result } = renderHook(() => useQueueHistory());
 
     await waitFor(() => expect(result.current.historyCount).toBe(2));
 
-    expect(result.current.history).toEqual(entries);
+    expect(result.current.history).toEqual(wireEntries.map(expectedEntry));
     expect(result.current.canUndo).toBe(true);
   });
 
   describe('recordOperation', () => {
-    it('should add entry to history on success', async () => {
-      const newEntry = makeEntry(10, 'add');
-      mockPost.mockResolvedValue(newEntry);
+    it('should add entry to history on success, mapping the wire response', async () => {
+      const wireEntry = makeWireEntry(10, 'add');
+      mockPost.mockResolvedValue(wireEntry);
 
       const { result } = renderHook(() => useQueueHistory());
       await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -89,9 +105,35 @@ describe('useQueueHistory', () => {
         });
       });
 
-      expect(result.current.history[0]).toEqual(newEntry);
+      expect(result.current.history[0]).toEqual(expectedEntry(wireEntry));
       expect(result.current.historyCount).toBe(1);
       expect(result.current.canUndo).toBe(true);
+    });
+
+    it('should send snake_case field names in the request body', async () => {
+      mockPost.mockResolvedValue(makeWireEntry(1));
+      const { result } = renderHook(() => useQueueHistory());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.recordOperation('shuffle', {
+          trackIds: [4, 5],
+          currentIndex: 1,
+          isShuffled: true,
+          repeatMode: 'all',
+        }, { note: 'test' });
+      });
+
+      expect(mockPost).toHaveBeenCalledWith('/api/player/queue/history', {
+        operation: 'shuffle',
+        state_snapshot: {
+          track_ids: [4, 5],
+          current_index: 1,
+          is_shuffled: true,
+          repeat_mode: 'all',
+        },
+        operation_metadata: { note: 'test' },
+      });
     });
 
     it('should set error state on failure', async () => {
@@ -122,8 +164,8 @@ describe('useQueueHistory', () => {
 
   describe('undo', () => {
     it('should remove first entry from history on success', async () => {
-      const entries = [makeEntry(2, 'add'), makeEntry(1, 'set')];
-      mockGet.mockResolvedValue({ history: entries, count: 2 });
+      const wireEntries = [makeWireEntry(2, 'add'), makeWireEntry(1, 'set')];
+      mockGet.mockResolvedValue({ history: wireEntries, count: 2 });
       mockPost.mockResolvedValue({});
 
       const { result } = renderHook(() => useQueueHistory());
@@ -165,8 +207,8 @@ describe('useQueueHistory', () => {
 
   describe('clearHistory', () => {
     it('should clear all history on success', async () => {
-      const entries = [makeEntry(1), makeEntry(2)];
-      mockGet.mockResolvedValue({ history: entries, count: 2 });
+      const wireEntries = [makeWireEntry(1), makeWireEntry(2)];
+      mockGet.mockResolvedValue({ history: wireEntries, count: 2 });
       mockDelete.mockResolvedValue({});
 
       const { result } = renderHook(() => useQueueHistory());
@@ -205,8 +247,8 @@ describe('useQueueHistory', () => {
     });
 
     it('undo: isLoading returns to false after API failure', async () => {
-      const entries = [makeEntry(1, 'add')];
-      mockGet.mockResolvedValue({ history: entries, count: 1 });
+      const wireEntries = [makeWireEntry(1, 'add')];
+      mockGet.mockResolvedValue({ history: wireEntries, count: 1 });
       mockPost.mockRejectedValue({ message: 'fail', status: 500 });
 
       const { result } = renderHook(() => useQueueHistory());
@@ -232,7 +274,7 @@ describe('useQueueHistory', () => {
     });
 
     it('isLoading also resets on success (smoke check)', async () => {
-      mockPost.mockResolvedValue(makeEntry(1));
+      mockPost.mockResolvedValue(makeWireEntry(1));
       const { result } = renderHook(() => useQueueHistory());
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 

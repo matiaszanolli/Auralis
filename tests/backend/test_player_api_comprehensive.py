@@ -558,3 +558,114 @@ class TestRepeatMode:
             json={}
         )
         assert response.status_code == 422
+
+
+class TestQueueHistory:
+    """Test GET/POST/DELETE /api/player/queue/history and POST /api/player/queue/undo.
+
+    Regression coverage for #3805 — these 4 routes previously did not exist
+    at all (404 on every call from the frontend's useQueueHistory hook).
+    """
+
+    @staticmethod
+    def _snapshot(track_ids=None, current_index=0, is_shuffled=False, repeat_mode="off"):
+        return {
+            "track_ids": track_ids if track_ids is not None else [1, 2, 3],
+            "current_index": current_index,
+            "is_shuffled": is_shuffled,
+            "repeat_mode": repeat_mode,
+        }
+
+    def test_get_history_empty_by_default(self, client):
+        """A fresh (or already-cleared) history returns an empty list, not 404."""
+        client.delete("/api/player/queue/history")  # ensure clean slate
+        response = client.get("/api/player/queue/history")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["history"] == []
+        assert data["count"] == 0
+
+    def test_record_operation_then_appears_in_history(self, client):
+        client.delete("/api/player/queue/history")
+
+        record_response = client.post(
+            "/api/player/queue/history",
+            json={
+                "operation": "add",
+                "state_snapshot": self._snapshot(track_ids=[1, 2, 3]),
+                "operation_metadata": {"track_id": 5},
+            },
+        )
+        assert record_response.status_code == 200
+        entry = record_response.json()
+        assert entry["operation"] == "add"
+        assert entry["state_snapshot"]["track_ids"] == [1, 2, 3]
+        assert entry["operation_metadata"] == {"track_id": 5}
+        assert "id" in entry
+        assert "created_at" in entry
+
+        history_response = client.get("/api/player/queue/history")
+        assert history_response.status_code == 200
+        history_data = history_response.json()
+        assert history_data["count"] >= 1
+        assert any(e["id"] == entry["id"] for e in history_data["history"])
+
+    def test_record_operation_rejects_invalid_operation_type(self, client):
+        response = client.post(
+            "/api/player/queue/history",
+            json={
+                "operation": "not_a_real_operation",
+                "state_snapshot": self._snapshot(),
+            },
+        )
+        assert response.status_code == 422
+
+    def test_record_operation_rejects_missing_state_snapshot(self, client):
+        response = client.post(
+            "/api/player/queue/history",
+            json={"operation": "add"},
+        )
+        assert response.status_code == 422
+
+    def test_undo_with_no_history_returns_404(self, client):
+        client.delete("/api/player/queue/history")
+
+        response = client.post("/api/player/queue/undo")
+
+        assert response.status_code == 404
+
+    def test_undo_after_record_restores_and_removes_entry(self, client):
+        client.delete("/api/player/queue/history")
+        client.post(
+            "/api/player/queue/history",
+            json={
+                "operation": "clear",
+                "state_snapshot": self._snapshot(track_ids=[7, 8, 9], current_index=1),
+            },
+        )
+        before_count = client.get("/api/player/queue/history").json()["count"]
+
+        undo_response = client.post("/api/player/queue/undo")
+
+        assert undo_response.status_code == 200
+        data = undo_response.json()
+        assert data["queue_state"]["track_ids"] == [7, 8, 9]
+        assert data["queue_state"]["current_index"] == 1
+
+        after_count = client.get("/api/player/queue/history").json()["count"]
+        assert after_count == before_count - 1, (
+            "undo must consume (delete) the history entry it restores from"
+        )
+
+    def test_clear_history_empties_it(self, client):
+        client.post(
+            "/api/player/queue/history",
+            json={"operation": "add", "state_snapshot": self._snapshot()},
+        )
+        assert client.get("/api/player/queue/history").json()["count"] >= 1
+
+        clear_response = client.delete("/api/player/queue/history")
+        assert clear_response.status_code == 200
+
+        assert client.get("/api/player/queue/history").json()["count"] == 0
