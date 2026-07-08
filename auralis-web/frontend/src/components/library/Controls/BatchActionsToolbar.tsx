@@ -10,6 +10,7 @@
  * - useBatchActionsMenu - More menu state
  */
 
+import { useState, MouseEvent } from 'react';
 import {
   Close,
   PlaylistAdd,
@@ -25,11 +26,12 @@ import {
 } from './BatchActionsToolbarStyles';
 import { BatchActionButton } from './BatchActionButton';
 import { BatchActionsMoreMenu } from './BatchActionsMoreMenu';
+import { AddToPlaylistMenu } from './AddToPlaylistMenu';
 import { useBatchActionsMenu } from './useBatchActionsMenu';
 
 interface BatchActionsToolbarProps {
   selectedCount: number;
-  onAddToPlaylist?: () => void;
+  onAddToPlaylist?: (playlistId: number, playlistName: string) => Promise<void>;
   onAddToQueue?: () => void;
   onRemove?: () => void;
   onToggleFavorite?: () => void;
@@ -76,6 +78,12 @@ const BatchActionsToolbar = ({
     handleAction: _handleAction,
   } = useBatchActionsMenu();
 
+  const [playlistMenuAnchor, setPlaylistMenuAnchor] = useState<HTMLElement | null>(null);
+  const handlePlaylistMenuOpen = (event: MouseEvent<HTMLElement>) => {
+    setPlaylistMenuAnchor(event.currentTarget);
+  };
+  const handlePlaylistMenuClose = () => setPlaylistMenuAnchor(null);
+
   return (
     <ToolbarContainer elevation={8} role="toolbar" aria-label="Batch actions">
       <SelectionCount>
@@ -84,11 +92,18 @@ const BatchActionsToolbar = ({
 
       {/* Primary Actions */}
       {onAddToPlaylist && (
-        <BatchActionButton
-          icon={<PlaylistAdd />}
-          title="Add to Playlist"
-          onClick={() => onAddToPlaylist()}
-        />
+        <>
+          <BatchActionButton
+            icon={<PlaylistAdd />}
+            title="Add to Playlist"
+            onClick={handlePlaylistMenuOpen}
+          />
+          <AddToPlaylistMenu
+            anchorEl={playlistMenuAnchor}
+            onClose={handlePlaylistMenuClose}
+            onAddToPlaylist={onAddToPlaylist}
+          />
+        </>
       )}
 
       {onAddToQueue && (

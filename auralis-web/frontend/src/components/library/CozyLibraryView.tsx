@@ -157,7 +157,6 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
   } = useBatchOperations({
     selectedTracks,
     selectedCount,
-    view,
     onFetchTracks: fetchTracks,
     onClearSelection: clearSelection,
   });
@@ -221,7 +220,10 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
           selectedCount={selectedCount}
           onAddToQueue={handleBulkAddToQueue}
           onAddToPlaylist={handleBulkAddToPlaylist}
-          onRemove={handleBulkRemove}
+          // #4240: library (non-favourites) track removal has no backend
+          // deletion route yet — hide the button rather than wire it to a
+          // silent no-op toast.
+          onRemove={view === 'favourites' ? handleBulkRemove : undefined}
           onToggleFavorite={handleBulkToggleFavorite}
           onClearSelection={clearSelection}
           context={view === 'favourites' ? 'favorites' : 'library'}

@@ -4,7 +4,7 @@
  * Tests for batch operations on selected tracks:
  * - Bulk add to queue
  * - Bulk add to playlist
- * - Bulk remove operations
+ * - Bulk remove operations (favourites only — #4240)
  * - Bulk toggle favorite
  *
  * Note: Uses MSW for API mocking - handlers defined in src/test/mocks/handlers.ts
@@ -37,7 +37,7 @@ describe('useBatchOperations', () => {
     vi.clearAllMocks();
     server.resetHandlers();
     // Mock confirm globally
-    (global.confirm as any) = vi.fn(() => true);
+    (globalThis.confirm as any) = vi.fn(() => true);
   });
 
   describe('Hook Initialization', () => {
@@ -46,7 +46,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1, 2, 3]),
           selectedCount: 3,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -65,7 +64,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1, 2, 3]),
           selectedCount: 3,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -93,7 +91,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1, 2]),
           selectedCount: 2,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -111,7 +108,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1, 2, 3]),
           selectedCount: 3,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -145,7 +141,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1]),
           selectedCount: 1,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -160,75 +155,7 @@ describe('useBatchOperations', () => {
   });
 
   describe('handleBulkAddToPlaylist', () => {
-    it('should show coming soon message', async () => {
-      const mockToastInfo = vi.fn();
-      vi.mocked(useToast).mockReturnValue({
-        showToast: vi.fn(),
-        success: vi.fn(),
-        error: vi.fn(),
-        info: mockToastInfo,
-        warning: vi.fn(),
-      });
-
-      const { result } = renderHook(() =>
-        useBatchOperations({
-          selectedTracks: new Set([1, 2]),
-          selectedCount: 2,
-          view: 'library',
-          onFetchTracks: mockOnFetchTracks,
-          onClearSelection: mockOnClearSelection,
-        })
-      );
-
-      await act(async () => {
-        await result.current.handleBulkAddToPlaylist();
-      });
-
-      expect(mockToastInfo).toHaveBeenCalledWith('Bulk add to playlist - Coming soon!');
-    });
-  });
-
-  describe('handleBulkRemove', () => {
-    it('should prompt for confirmation', async () => {
-      const { result } = renderHook(() =>
-        useBatchOperations({
-          selectedTracks: new Set([1, 2]),
-          selectedCount: 2,
-          view: 'library',
-          onFetchTracks: mockOnFetchTracks,
-          onClearSelection: mockOnClearSelection,
-        })
-      );
-
-      await act(async () => {
-        await result.current.handleBulkRemove();
-      });
-
-      expect(global.confirm).toHaveBeenCalledWith('Remove 2 tracks?');
-    });
-
-    it('should cancel if not confirmed', async () => {
-      (global.confirm as any).mockReturnValue(false);
-
-      const { result } = renderHook(() =>
-        useBatchOperations({
-          selectedTracks: new Set([1, 2]),
-          selectedCount: 2,
-          view: 'library',
-          onFetchTracks: mockOnFetchTracks,
-          onClearSelection: mockOnClearSelection,
-        })
-      );
-
-      await act(async () => {
-        await result.current.handleBulkRemove();
-      });
-
-      // Should not proceed with deletion
-      expect(mockOnFetchTracks).not.toHaveBeenCalled();
-    });
-
-    it('should delete from favorites when in favorites view', async () => {
+    it('should call the batch add-tracks API and show a success toast (fixes #4240)', async () => {
       const mockToastSuccess = vi.fn();
       vi.mocked(useToast).mockReturnValue({
         showToast: vi.fn(),
@@ -242,7 +169,136 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1, 2]),
           selectedCount: 2,
-          view: 'favourites',
+          onFetchTracks: mockOnFetchTracks,
+          onClearSelection: mockOnClearSelection,
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleBulkAddToPlaylist(42, 'Road Trip');
+      });
+
+      expect(mockToastSuccess).toHaveBeenCalledWith('Added 2 tracks to "Road Trip"');
+      expect(mockOnClearSelection).toHaveBeenCalled();
+    });
+
+    it('should report a partial failure when only some tracks are added', async () => {
+      const mockToastError = vi.fn();
+      vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
+        success: vi.fn(),
+        error: mockToastError,
+        info: vi.fn(),
+        warning: vi.fn(),
+      });
+
+      server.use(
+        http.post('/api/playlists/:id/tracks', () => {
+          return HttpResponse.json({ success: true, added_count: 1 });
+        })
+      );
+
+      const { result } = renderHook(() =>
+        useBatchOperations({
+          selectedTracks: new Set([1, 2]),
+          selectedCount: 2,
+          onFetchTracks: mockOnFetchTracks,
+          onClearSelection: mockOnClearSelection,
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleBulkAddToPlaylist(42, 'Road Trip');
+      });
+
+      expect(mockToastError).toHaveBeenCalledWith('Added 1 of 2 tracks to "Road Trip"');
+    });
+
+    it('should show an error toast on API failure', async () => {
+      const mockToastError = vi.fn();
+      vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
+        success: vi.fn(),
+        error: mockToastError,
+        info: vi.fn(),
+        warning: vi.fn(),
+      });
+
+      server.use(
+        http.post('/api/playlists/:id/tracks', () => {
+          return HttpResponse.error();
+        })
+      );
+
+      const { result } = renderHook(() =>
+        useBatchOperations({
+          selectedTracks: new Set([1]),
+          selectedCount: 1,
+          onFetchTracks: mockOnFetchTracks,
+          onClearSelection: mockOnClearSelection,
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleBulkAddToPlaylist(42, 'Road Trip');
+      });
+
+      expect(mockToastError).toHaveBeenCalledWith('Failed to add tracks to "Road Trip"');
+    });
+  });
+
+  describe('handleBulkRemove (favourites only)', () => {
+    it('should prompt for confirmation', async () => {
+      const { result } = renderHook(() =>
+        useBatchOperations({
+          selectedTracks: new Set([1, 2]),
+          selectedCount: 2,
+          onFetchTracks: mockOnFetchTracks,
+          onClearSelection: mockOnClearSelection,
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleBulkRemove();
+      });
+
+      expect(globalThis.confirm).toHaveBeenCalledWith('Remove 2 tracks?');
+    });
+
+    it('should cancel if not confirmed', async () => {
+      (globalThis.confirm as any).mockReturnValue(false);
+
+      const { result } = renderHook(() =>
+        useBatchOperations({
+          selectedTracks: new Set([1, 2]),
+          selectedCount: 2,
+          onFetchTracks: mockOnFetchTracks,
+          onClearSelection: mockOnClearSelection,
+        })
+      );
+
+      await act(async () => {
+        await result.current.handleBulkRemove();
+      });
+
+      // Should not proceed with deletion
+      expect(mockOnFetchTracks).not.toHaveBeenCalled();
+    });
+
+    it('should remove tracks from favorites', async () => {
+      const mockToastSuccess = vi.fn();
+      vi.mocked(useToast).mockReturnValue({
+        showToast: vi.fn(),
+        success: mockToastSuccess,
+        error: vi.fn(),
+        info: vi.fn(),
+        warning: vi.fn(),
+      });
+
+      const { result } = renderHook(() =>
+        useBatchOperations({
+          selectedTracks: new Set([1, 2]),
+          selectedCount: 2,
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -256,41 +312,11 @@ describe('useBatchOperations', () => {
       expect(mockOnFetchTracks).toHaveBeenCalled();
     });
 
-    it('should show implementation message for library delete', async () => {
-      const mockToastInfo = vi.fn();
-      vi.mocked(useToast).mockReturnValue({
-        showToast: vi.fn(),
-        success: vi.fn(),
-        error: vi.fn(),
-        info: mockToastInfo,
-        warning: vi.fn(),
-      });
-
-      const { result } = renderHook(() =>
-        useBatchOperations({
-          selectedTracks: new Set([1, 2]),
-          selectedCount: 2,
-          view: 'library',
-          onFetchTracks: mockOnFetchTracks,
-          onClearSelection: mockOnClearSelection,
-        })
-      );
-
-      await act(async () => {
-        await result.current.handleBulkRemove();
-      });
-
-      expect(mockToastInfo).toHaveBeenCalledWith(
-        'Bulk delete from library requires API implementation'
-      );
-    });
-
     it('should call onFetchTracks after success', async () => {
       const { result } = renderHook(() =>
         useBatchOperations({
           selectedTracks: new Set([1]),
           selectedCount: 1,
-          view: 'favourites',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -324,7 +350,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1]),
           selectedCount: 1,
-          view: 'favourites',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -334,7 +359,7 @@ describe('useBatchOperations', () => {
         await result.current.handleBulkRemove();
       });
 
-      expect(mockToastError).toHaveBeenCalledWith('Failed to remove tracks');
+      expect(mockToastError).toHaveBeenCalledWith('Failed to remove tracks from favorites');
     });
   });
 
@@ -344,7 +369,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1, 2, 3]),
           selectedCount: 3,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -373,7 +397,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1, 2, 3, 4]),
           selectedCount: 4,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -391,7 +414,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1, 2]),
           selectedCount: 2,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -409,7 +431,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1, 2]),
           selectedCount: 2,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -443,7 +464,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: new Set([1]),
           selectedCount: 1,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -457,42 +477,12 @@ describe('useBatchOperations', () => {
     });
   });
 
-  describe('View-Specific Behavior', () => {
-    it('should behave differently for favorites vs library', async () => {
-      const mockToastSuccess = vi.fn();
-      vi.mocked(useToast).mockReturnValue({
-        showToast: vi.fn(),
-        success: mockToastSuccess,
-        error: vi.fn(),
-        info: vi.fn(),
-        warning: vi.fn(),
-      });
-
-      const favResult = renderHook(() =>
-        useBatchOperations({
-          selectedTracks: new Set([1]),
-          selectedCount: 1,
-          view: 'favourites',
-          onFetchTracks: mockOnFetchTracks,
-          onClearSelection: mockOnClearSelection,
-        })
-      );
-
-      await act(async () => {
-        await favResult.result.current.handleBulkRemove();
-      });
-
-      expect(mockToastSuccess).toHaveBeenCalledWith('Removed 1 tracks from favorites');
-    });
-  });
-
   describe('Empty Selection', () => {
     it('should handle empty selectedTracks', async () => {
       const { result } = renderHook(() =>
         useBatchOperations({
           selectedTracks: new Set(),
           selectedCount: 0,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })
@@ -515,7 +505,6 @@ describe('useBatchOperations', () => {
         useBatchOperations({
           selectedTracks: largeSet,
           selectedCount: 100,
-          view: 'library',
           onFetchTracks: mockOnFetchTracks,
           onClearSelection: mockOnClearSelection,
         })

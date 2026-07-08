@@ -141,9 +141,9 @@ describe('BatchActionsToolbar', () => {
   });
 
   describe('Action Button Callbacks', () => {
-    it('should call onAddToPlaylist when clicked', async () => {
+    it('should call onAddToPlaylist with the selected playlist (fixes #4240)', async () => {
       const user = userEvent.setup();
-      const onAddToPlaylist = vi.fn();
+      const onAddToPlaylist = vi.fn().mockResolvedValue(undefined);
 
       render(
         <BatchActionsToolbar
@@ -153,9 +153,16 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
+      // Clicking the button opens a playlist picker menu instead of firing
+      // onAddToPlaylist immediately (it previously fired with no args and
+      // no real API call, per #4240).
       const button = screen.getByRole('button', { name: /playlist/i });
       await user.click(button);
-      expect(onAddToPlaylist).toHaveBeenCalled();
+
+      const playlistItem = await screen.findByText(/Favorites \(25\)/);
+      await user.click(playlistItem);
+
+      expect(onAddToPlaylist).toHaveBeenCalledWith(1, 'Favorites');
     });
 
     it('should call onAddToQueue when clicked', async () => {
@@ -511,7 +518,7 @@ describe('BatchActionsToolbar', () => {
     it('should handle complete workflow', async () => {
       const user = userEvent.setup();
       const callbacks = {
-        onAddToPlaylist: vi.fn(),
+        onAddToPlaylist: vi.fn().mockResolvedValue(undefined),
         onAddToQueue: vi.fn(),
         onToggleFavorite: vi.fn(),
         onRemove: vi.fn(),
@@ -529,9 +536,11 @@ describe('BatchActionsToolbar', () => {
       // Verify count
       expect(screen.getByText(/5 tracks selected/)).toBeInTheDocument();
 
-      // Click add to playlist
+      // Click add to playlist, then pick a playlist from the picker menu
       await user.click(screen.getByRole('button', { name: /playlist/i }));
-      expect(callbacks.onAddToPlaylist).toHaveBeenCalled();
+      const playlistItem = await screen.findByText(/Favorites \(25\)/);
+      await user.click(playlistItem);
+      expect(callbacks.onAddToPlaylist).toHaveBeenCalledWith(1, 'Favorites');
 
       // Click favorite
       await user.click(screen.getByRole('button', { name: /favorite/i }));

@@ -2,11 +2,11 @@ import { useCallback, useMemo } from 'react';
 import { post, del } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
 import { useToast } from '@/components/shared/Toast';
+import { addTracksToPlaylist } from '@/services/playlistService';
 
 interface UseBatchOperationsProps {
   selectedTracks: Set<number>;
   selectedCount: number;
-  view: string;
   onFetchTracks: () => Promise<void>;
   onClearSelection: () => void;
 }
@@ -37,11 +37,10 @@ function reportBatchResult(
 export const useBatchOperations = ({
   selectedTracks,
   selectedCount,
-  view,
   onFetchTracks,
   onClearSelection,
 }: UseBatchOperationsProps) => {
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
 
   const handleBulkAddToQueue = useCallback(async () => {
     const trackIds = Array.from(selectedTracks);
@@ -60,35 +59,49 @@ export const useBatchOperations = ({
     onClearSelection();
   }, [selectedTracks, onClearSelection, success, error]);
 
-  const handleBulkAddToPlaylist = useCallback(async () => {
-    info('Bulk add to playlist - Coming soon!');
-  }, [info]);
+  const handleBulkAddToPlaylist = useCallback(async (playlistId: number, playlistName: string) => {
+    const trackIds = Array.from(selectedTracks);
+    try {
+      const addedCount = await addTracksToPlaylist(playlistId, trackIds);
+      if (addedCount === trackIds.length) {
+        success(`Added ${addedCount} track${addedCount !== 1 ? 's' : ''} to "${playlistName}"`);
+      } else if (addedCount === 0) {
+        error(`Failed to add tracks to "${playlistName}"`);
+      } else {
+        error(`Added ${addedCount} of ${trackIds.length} tracks to "${playlistName}"`);
+      }
+    } catch {
+      error(`Failed to add tracks to "${playlistName}"`);
+    }
 
+    onClearSelection();
+  }, [selectedTracks, onClearSelection, success, error]);
+
+  // Bulk remove is only wired for the favourites context — non-favourites
+  // library removal has no backend deletion route yet (fixes #4240; the
+  // toolbar's Remove button is hidden outside favourites so this branch
+  // is unreachable rather than a silent no-op toast).
   const handleBulkRemove = useCallback(async () => {
     if (!confirm(`Remove ${selectedCount} tracks?`)) {
       return;
     }
 
-    if (view === 'favourites') {
-      const trackIds = Array.from(selectedTracks);
-      const results = await Promise.allSettled(
-        trackIds.map(trackId => del(ENDPOINTS.TRACK_FAVORITE(trackId)))
-      );
+    const trackIds = Array.from(selectedTracks);
+    const results = await Promise.allSettled(
+      trackIds.map(trackId => del(ENDPOINTS.TRACK_FAVORITE(trackId)))
+    );
 
-      reportBatchResult(
-        results,
-        n => `Removed ${n} track${n !== 1 ? 's' : ''} from favorites`,
-        'Failed to remove tracks from favorites',
-        success,
-        error
-      );
-    } else {
-      info('Bulk delete from library requires API implementation');
-    }
+    reportBatchResult(
+      results,
+      n => `Removed ${n} track${n !== 1 ? 's' : ''} from favorites`,
+      'Failed to remove tracks from favorites',
+      success,
+      error
+    );
 
     onClearSelection();
     await onFetchTracks();
-  }, [selectedTracks, selectedCount, view, onClearSelection, onFetchTracks, success, error, info]);
+  }, [selectedTracks, selectedCount, onClearSelection, onFetchTracks, success, error]);
 
   const handleBulkToggleFavorite = useCallback(async () => {
     const trackIds = Array.from(selectedTracks);
