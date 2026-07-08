@@ -88,7 +88,7 @@ Each audit is independent — they read different files and write separate repor
 
 **Parallelization strategy by preset**:
 
-- **`comprehensive`** (7 audits): Launch ALL 7 as background agents in a single message. Each writes to its own report file — no conflicts.
+- **`comprehensive`** (8 audits): Launch ALL 8 as background agents in a single message. Each writes to its own report file — no conflicts.
 - **`pre-release`** (3 audits): Launch all 3 in parallel.
 - **`post-sprint`** (2 audits): Launch both in parallel.
 - **`security-deep`** (3 audits): Launch all 3 in parallel.
@@ -121,7 +121,7 @@ IMPORTANT: Follow the context management rules from `.claude/commands/_audit-com
 ```
 
 **Launch example for `comprehensive`**:
-Send a SINGLE message with 7 Agent tool calls, all with `run_in_background: true`. Do NOT wait for one to finish before launching the next.
+Send a SINGLE message with 8 Agent tool calls, all with `run_in_background: true`. Do NOT wait for one to finish before launching the next.
 
 ### Step 3: Wait for All Agents to Complete
 
@@ -157,6 +157,6 @@ For each report with NEW findings, run `/audit-publish` in a new conversation:
 
 - Each audit runs as an isolated background agent — it will NOT exhaust this conversation's context.
 - Deep audits (engine, backend, frontend, etc.) internally launch their own sub-agents for each dimension.
-- The `comprehensive` preset launches 7 audits in parallel — typically completes in ~15 min instead of ~60 min.
+- The `comprehensive` preset launches 8 audits in parallel — typically completes in ~15 min instead of ~60 min.
 - Always review reports before publishing to GitHub with `/audit-publish`.
 - If an audit fails, note the error — other audits continue independently since they run in parallel.
