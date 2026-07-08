@@ -550,6 +550,78 @@ class TestWebSocketPlayback:
                     "task's non-cancellable work should have blocked it"
                 )
 
+    def test_play_enhanced_releases_lock_before_awaiting_old_task(self, client):
+        """Regression test for #3828 / BE-WS-2.
+
+        play_enhanced used to `await old_task` from INSIDE
+        _active_streaming_tasks_lock. stream_audio's own finally block also
+        acquires this same (non-reentrant) lock for idempotent self-cleanup
+        — with the lock still held by the outer await, that acquire() could
+        never succeed until the awaiting task itself completed, which it
+        can't do until the awaited task finishes: a real deadlock waiting to
+        happen the moment any future change added lock-guarded cleanup work
+        to the streaming task's finally block.
+
+        The mock below explicitly re-acquires the SAME lock inside its
+        CancelledError handler (modeling that real finally-block behavior)
+        and signals a threading.Event on success — proving the lock was
+        released before the second play_enhanced awaited the first task.
+        threading.Event (not asyncio.Event) because the ASGI app runs its
+        event loop on a different thread than this test.
+        """
+        import threading
+
+        import asyncio
+
+        import routers.system as system_module
+
+        lock_reacquired = threading.Event()
+
+        async def slow_stream_audio(
+            websocket, get_repository_factory, get_enhancement_settings,
+            get_cache_manager, *, track_id, preset, intensity, force,
+            start_position, ws_id,
+        ):
+            try:
+                await asyncio.sleep(1000)
+            except asyncio.CancelledError:
+                # Models stream_audio's real finally block, which also
+                # acquires _active_streaming_tasks_lock (fixes #2425/#2430's
+                # idempotent self-cleanup).
+                async with system_module._active_streaming_tasks_lock:
+                    lock_reacquired.set()
+                raise
+
+        def _recv_until_type(ws, target: str, max_reads: int = 10) -> dict:
+            for _ in range(max_reads):
+                data = json.loads(ws.receive_text())
+                if data.get("type") == target:
+                    return data
+            raise AssertionError(f"No {target!r} frame received within {max_reads} reads")
+
+        with patch.object(system_module, "stream_audio", slow_stream_audio):
+            with client.websocket_connect("/ws") as websocket:
+                websocket.send_text(json.dumps({
+                    "type": "play_enhanced",
+                    "data": {"track_id": 1, "preset": "adaptive", "intensity": 1.0},
+                }))
+                # Let the first task actually start before cancelling it.
+                import time as time_module
+                time_module.sleep(0.05)
+
+                websocket.send_text(json.dumps({
+                    "type": "play_enhanced",
+                    "data": {"track_id": 2, "preset": "adaptive", "intensity": 1.0},
+                }))
+                websocket.send_text(json.dumps({"type": "ping"}))
+                _recv_until_type(websocket, "pong")
+
+        assert lock_reacquired.wait(timeout=2.0), (
+            "stream_audio's finally-block self-cleanup never acquired "
+            "_active_streaming_tasks_lock — the outer handler is still "
+            "holding it during await old_task (#3828 not fixed)"
+        )
+
 
 class TestWebSocketPlayNormal:
     """Tests for the play_normal WS message type (#3859 / BE-TC-4).

@@ -472,22 +472,29 @@ def create_system_router(
                             logger.info(f"Ignoring duplicate play_enhanced for track {track_id} (already streaming on ws {ws_id})")
                             continue
 
-                    # Atomically: clean up done tasks, cancel prior stream, register new task (fixes #2425, #2430)
+                    # Clean up done tasks, pop the prior stream's state under the lock, then
+                    # cancel and await it OUTSIDE the lock (fixes #3828 / BE-WS-2 — mirrors the
+                    # seek branch's pattern). Awaiting while holding the lock meant the old
+                    # task's own finally-block self-cleanup (which also acquires this same
+                    # lock) hit a CancelledError on its next await and never completed.
                     async with _active_streaming_tasks_lock:
                         for k in [k for k, v in _active_streaming_tasks.items() if v.done()]:
                             _active_streaming_tasks.pop(k, None)
                         old_task = _active_streaming_tasks.pop(ws_id, None)
-                        if old_task and not old_task.done():
-                            logger.info(f"Cancelling existing streaming task for ws {ws_id}")
-                            old_task.cancel()
-                            # Await cancellation so the old task releases pause/flow events (#3219)
-                            try:
-                                await old_task
-                            except (asyncio.CancelledError, Exception):
-                                pass
-                        # Clear stale events before creating fresh ones (#3219)
+                        _active_streaming_track_ids.pop(ws_id, None)
                         _stream_pause_events.pop(ws_id, None)
                         _stream_flow_events.pop(ws_id, None)
+
+                    if old_task and not old_task.done():
+                        logger.info(f"Cancelling existing streaming task for ws {ws_id}")
+                        old_task.cancel()
+                        # Await cancellation so the old task releases pause/flow events (#3219)
+                        try:
+                            await old_task
+                        except (asyncio.CancelledError, Exception):
+                            pass
+
+                    async with _active_streaming_tasks_lock:
                         # Create pause event for this stream — set = running (#2106)
                         pause_event = asyncio.Event()
                         pause_event.set()
@@ -533,22 +540,29 @@ def create_system_router(
 
                     ws_id = _ws_id(websocket)
 
-                    # Atomically: clean up done tasks, cancel prior stream, register new task (fixes #2425, #2430)
+                    # Clean up done tasks, pop the prior stream's state under the lock, then
+                    # cancel and await it OUTSIDE the lock (fixes #3828 / BE-WS-2 — mirrors the
+                    # seek branch's pattern). Awaiting while holding the lock meant the old
+                    # task's own finally-block self-cleanup (which also acquires this same
+                    # lock) hit a CancelledError on its next await and never completed.
                     async with _active_streaming_tasks_lock:
                         for k in [k for k, v in _active_streaming_tasks.items() if v.done()]:
                             _active_streaming_tasks.pop(k, None)
                         old_task = _active_streaming_tasks.pop(ws_id, None)
-                        if old_task and not old_task.done():
-                            logger.info(f"Cancelling existing streaming task for ws {ws_id}")
-                            old_task.cancel()
-                            # Await cancellation so the old task releases pause/flow events (#3219)
-                            try:
-                                await old_task
-                            except (asyncio.CancelledError, Exception):
-                                pass
-                        # Clear stale events before creating fresh ones (#3219)
+                        _active_streaming_track_ids.pop(ws_id, None)
                         _stream_pause_events.pop(ws_id, None)
                         _stream_flow_events.pop(ws_id, None)
+
+                    if old_task and not old_task.done():
+                        logger.info(f"Cancelling existing streaming task for ws {ws_id}")
+                        old_task.cancel()
+                        # Await cancellation so the old task releases pause/flow events (#3219)
+                        try:
+                            await old_task
+                        except (asyncio.CancelledError, Exception):
+                            pass
+
+                    async with _active_streaming_tasks_lock:
                         # Create pause event for this stream — set = running (#2106)
                         pause_event = asyncio.Event()
                         pause_event.set()
