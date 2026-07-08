@@ -411,8 +411,11 @@ class TestUploadPermanentStorage:
         import numpy as np
 
         mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
-        mock_lib_obj = Mock()
-        mock_lib_obj.add_track.return_value = self._make_mock_track()
+        # The handler's actual DB call is repos.tracks.add via get_repository_factory
+        # — library_manager.add_track is dead wiring (files.py's own docstring: "Deprecated,
+        # unused. Kept for backward compatibility").
+        mock_factory = Mock()
+        mock_factory.tracks.add.return_value = self._make_mock_track()
 
         def fake_move(src, dst):
             Path(dst).write_bytes(Path(src).read_bytes() if Path(src).exists() else b"")
@@ -420,14 +423,14 @@ class TestUploadPermanentStorage:
         mock_move.side_effect = fake_move
 
         import main as main_module
-        with patch.dict(main_module.globals_dict, {'library_manager': mock_lib_obj}):
-            files = {"files": ("song.mp3", io.BytesIO(b"audio"), "audio/mpeg")}
+        with patch.dict(main_module.globals_dict, {'repository_factory': mock_factory}):
+            files = {"files": ("song.mp3", io.BytesIO(b"RIFF" + b"\x00" * 4 + b"WAVEfmt "), "audio/mpeg")}
             response = client.post("/api/files/upload", files=files)
 
         assert response.status_code == 200
-        assert mock_lib_obj.add_track.call_count == 1
+        assert mock_factory.tracks.add.call_count == 1
 
-        stored_filepath = mock_lib_obj.add_track.call_args[0][0]["filepath"]
+        stored_filepath = mock_factory.tracks.add.call_args[0][0]["filepath"]
 
         # The stored path must NOT be a temp path.
         assert not stored_filepath.startswith(tempfile.gettempdir()), (
@@ -463,7 +466,7 @@ class TestUploadPermanentStorage:
 
         import main as main_module
         with patch.dict(main_module.globals_dict, {'library_manager': mock_lib_obj}):
-            files = {"files": ("song.mp3", io.BytesIO(b"audio"), "audio/mpeg")}
+            files = {"files": ("song.mp3", io.BytesIO(b"RIFF" + b"\x00" * 4 + b"WAVEfmt "), "audio/mpeg")}
             response = client.post("/api/files/upload", files=files)
 
         assert response.status_code == 200
@@ -490,17 +493,26 @@ class TestUploadPermanentStorage:
 
         mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
         mock_lib_obj = Mock()
-        mock_move.side_effect = OSError("Simulated disk full")
+        leaky_message = "Simulated disk full: /home/deploy/secret/tracks.db"
+        mock_move.side_effect = OSError(leaky_message)
 
         import main as main_module
         with patch.dict(main_module.globals_dict, {'library_manager': mock_lib_obj}):
-            files = {"files": ("song.mp3", io.BytesIO(b"audio"), "audio/mpeg")}
+            files = {"files": ("song.mp3", io.BytesIO(b"RIFF" + b"\x00" * 4 + b"WAVEfmt "), "audio/mpeg")}
             response = client.post("/api/files/upload", files=files)
 
         assert response.status_code == 200
         data = response.json()
         assert data["results"][0]["status"] == "error"
         mock_lib_obj.add_track.assert_not_called()
+
+        # Fixes #3825 / BE-RH-8: the per-file error message must never carry
+        # the raw exception text (server paths, decoder internals) — it must
+        # go through _safe_error_message(e) instead.
+        message = data["results"][0]["message"]
+        assert leaky_message not in message
+        assert "/home/" not in message
+        assert message == "Failed to process audio: Audio file could not be read"
 
     @patch('routers.files.load_audio')
     @patch('routers.files.shutil.move')
@@ -517,23 +529,26 @@ class TestUploadPermanentStorage:
         import numpy as np
 
         mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
-        mock_lib_obj = Mock()
+        # The handler's actual DB call is repos.tracks.add via get_repository_factory
+        # — library_manager.add_track is dead wiring (files.py's own docstring: "Deprecated,
+        # unused. Kept for backward compatibility").
+        mock_factory = Mock()
         permanent_file = tmp_path / "permanent.mp3"
 
         mock_move.side_effect = lambda src, dst: _shutil.copy2(src, permanent_file)
 
-        # Capture what add_track was called with.
+        # Capture what add was called with.
         recorded: list[dict] = []
 
-        def capturing_add_track(track_info):
+        def capturing_add(track_info):
             recorded.append(track_info)
             return self._make_mock_track()
 
-        mock_lib_obj.add_track.side_effect = capturing_add_track
+        mock_factory.tracks.add.side_effect = capturing_add
 
         import main as main_module
-        with patch.dict(main_module.globals_dict, {'library_manager': mock_lib_obj}):
-            files = {"files": ("song.mp3", io.BytesIO(b"audio"), "audio/mpeg")}
+        with patch.dict(main_module.globals_dict, {'repository_factory': mock_factory}):
+            files = {"files": ("song.mp3", io.BytesIO(b"RIFF" + b"\x00" * 4 + b"WAVEfmt "), "audio/mpeg")}
             response = client.post("/api/files/upload", files=files)
 
         assert response.status_code == 200
