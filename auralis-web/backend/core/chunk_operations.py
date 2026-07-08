@@ -196,9 +196,11 @@ class ChunkOperations:
 
         elif is_last:
             # Last chunk: skip overlap already emitted by the previous chunk,
-            # then extract only the truly new remaining content.
-            # Note: if trim_context capped the trim (BE-CP-2 / short tracks), the
-            # overlap_samples offset will be wrong — that is a separate issue.
+            # then extract only the truly new remaining content. This offset
+            # assumes trim_context() performed the full CONTEXT_DURATION trim —
+            # true unconditionally as of #3807 (the old max_trim_fraction cap
+            # used to under-trim short tracks' final chunk here, desyncing this
+            # offset and dropping the track's final seconds).
             assert total_duration is not None
             chunk_start_time = chunk_index * chunk_interval
             remaining_duration = max(0, total_duration - (chunk_start_time + overlap_duration))

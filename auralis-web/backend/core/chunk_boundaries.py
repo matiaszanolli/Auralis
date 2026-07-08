@@ -138,17 +138,29 @@ class ChunkBoundaryManager:
         """
         Calculate samples to trim from context at start and end.
 
+        Derived directly from the actual load/core geometry (``load_start``,
+        ``chunk_start``, ``chunk_end``, ``load_end``) rather than assuming a
+        fixed ``CONTEXT_DURATION`` on both sides. ``get_chunk_boundaries()``
+        clamps ``load_start`` to 0 and ``load_end`` to ``total_duration``, so a
+        chunk near either edge of the track may have less context actually
+        loaded than the nominal amount — trimming the nominal amount
+        regardless would eat into real chunk content instead of just context
+        (see #3807: this under/over-trim happened both on a short track's
+        final chunk's start-context and its *penultimate* chunk's
+        end-context, since the latter's context-lookahead is equally capped
+        by ``total_duration``). Using the actual interval differences is
+        correct by construction for every chunk position, first/last or not.
+
         Args:
             chunk_index: Index of chunk (0-based)
 
         Returns:
             Tuple of (trim_start_samples, trim_end_samples)
         """
-        context_samples = round(CONTEXT_DURATION * self.sample_rate)
-        is_last = chunk_index == self.total_chunks - 1
+        load_start, load_end, chunk_start, chunk_end = self.get_chunk_boundaries_samples(chunk_index)
 
-        trim_start = context_samples if chunk_index > 0 else 0
-        trim_end = 0 if is_last else context_samples
+        trim_start = chunk_start - load_start
+        trim_end = load_end - chunk_end
 
         return trim_start, trim_end
 
@@ -210,19 +222,30 @@ class ChunkBoundaryManager:
         self,
         audio_chunk: np.ndarray,
         chunk_index: int,
-        max_trim_fraction: float = 0.25
     ) -> np.ndarray:
         """
         Trim context padding from processed audio chunk.
 
-        Uses calculate_context_trim_samples() to get trim amounts,
-        then safely trims start/end with validation to prevent
-        over-trimming that would result in empty audio.
+        Uses calculate_context_trim_samples() to get trim amounts, then trims
+        start/end, clamping only to avoid producing a negative-length slice.
+
+        The requested trim amounts (CONTEXT_DURATION, a fixed 5s) are
+        mathematically guaranteed to fit: get_chunk_boundaries() derives
+        load_start/load_end so the loaded (pre-DSP) buffer for chunk_index > 0
+        is always longer than the requested start-trim alone, and likewise for
+        the end-trim on non-last chunks — see the boundary-derivation proof in
+        #3807. An earlier `max_trim_fraction` heuristic capped trims to 25% of
+        the chunk's own length, which silently under-trimmed short tracks'
+        final chunk (whose loaded buffer is itself short) and desynced
+        ChunkOperations.extract_chunk_segment's overlap-skip offset —
+        corrupting or dropping the track's final seconds. That heuristic is
+        gone; the only remaining clamp is the hard "never go negative" case,
+        which only matters if a DSP stage unexpectedly shrank the buffer (a
+        separate, `len(output) == len(input)` invariant violation).
 
         Args:
             audio_chunk: Audio chunk with context padding (processed)
             chunk_index: Index of the chunk being processed
-            max_trim_fraction: Never trim more than this fraction of chunk (default 0.25)
 
         Returns:
             Audio chunk with context trimmed to actual content
@@ -236,55 +259,43 @@ class ChunkBoundaryManager:
             >>> len(trimmed)  # Should be ~15s worth of samples
             661500
         """
-        import numpy as np
-
         # Get trim amounts from boundary calculation
         trim_start_samples, trim_end_samples = self.calculate_context_trim_samples(chunk_index)
 
-        # Safety: Ensure we have enough samples to trim
-        chunk_length = len(audio_chunk)
-        max_trim_samples = int(chunk_length * max_trim_fraction)
-
         # Trim start context if not first chunk
         if trim_start_samples > 0:
-            actual_trim_start = min(trim_start_samples, max_trim_samples)
+            chunk_length = len(audio_chunk)
+            # Hard safety net only — clamp to avoid an empty/negative result if
+            # a DSP stage shrank the buffer; does not bind in normal operation.
+            actual_trim_start = min(trim_start_samples, max(0, chunk_length - 1))
             if actual_trim_start < trim_start_samples:
                 logger.warning(
-                    f"Chunk {chunk_index}: start trim capped by max_trim_fraction={max_trim_fraction} "
-                    f"(requested {trim_start_samples} samples, capped to {actual_trim_start})"
+                    f"Chunk {chunk_index}: start trim clamped to avoid emptying the buffer "
+                    f"(requested {trim_start_samples} samples, buffer only had {chunk_length}; "
+                    f"clamped to {actual_trim_start}) — DSP may have shrunk the chunk unexpectedly"
                 )
-            if chunk_length > actual_trim_start:
-                audio_chunk = audio_chunk[actual_trim_start:]
-                logger.debug(
-                    f"Chunk {chunk_index}: trimmed {actual_trim_start/self.sample_rate:.2f}s "
-                    f"from start"
-                )
-            else:
-                logger.warning(
-                    f"Chunk {chunk_index} too short to trim start context "
-                    f"({chunk_length} < {actual_trim_start}). Keeping as-is."
-                )
+            audio_chunk = audio_chunk[actual_trim_start:]
+            logger.debug(
+                f"Chunk {chunk_index}: trimmed {actual_trim_start/self.sample_rate:.2f}s "
+                f"from start"
+            )
 
         # Trim end context if not last chunk
         if trim_end_samples > 0:
             chunk_length = len(audio_chunk)  # Update after potential start trim
-            actual_trim_end = min(trim_end_samples, max_trim_samples)
+            actual_trim_end = min(trim_end_samples, max(0, chunk_length - 1))
             if actual_trim_end < trim_end_samples:
                 logger.warning(
-                    f"Chunk {chunk_index}: end trim capped by max_trim_fraction={max_trim_fraction} "
-                    f"(requested {trim_end_samples} samples, capped to {actual_trim_end})"
+                    f"Chunk {chunk_index}: end trim clamped to avoid emptying the buffer "
+                    f"(requested {trim_end_samples} samples, buffer only had {chunk_length}; "
+                    f"clamped to {actual_trim_end}) — DSP may have shrunk the chunk unexpectedly"
                 )
-            if chunk_length > actual_trim_end:
+            if actual_trim_end > 0:
                 audio_chunk = audio_chunk[:-actual_trim_end]
-                logger.debug(
-                    f"Chunk {chunk_index}: trimmed {actual_trim_end/self.sample_rate:.2f}s "
-                    f"from end"
-                )
-            else:
-                logger.warning(
-                    f"Chunk {chunk_index} too short to trim end context "
-                    f"({chunk_length} < {actual_trim_end}). Keeping as-is."
-                )
+            logger.debug(
+                f"Chunk {chunk_index}: trimmed {actual_trim_end/self.sample_rate:.2f}s "
+                f"from end"
+            )
 
         return audio_chunk
 
