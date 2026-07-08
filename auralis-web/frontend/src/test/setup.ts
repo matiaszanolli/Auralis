@@ -152,12 +152,18 @@ vi.stubGlobal('matchMedia', vi.fn((query: string) => {
 
 // Mock IntersectionObserver (used by virtualization libraries)
 // Create a factory function so tests can spy on and override the constructor
-const createIntersectionObserverMock = () => vi.fn(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-  takeRecords: vi.fn(() => []),
-}));
+//
+// Must be a `function` implementation, not an arrow function: components
+// call `new IntersectionObserver(...)` directly, and arrow functions have no
+// [[Construct]] — vi.fn() wrapping one still throws "is not a constructor"
+// the moment `new` is used on it.
+const createIntersectionObserverMock = () =>
+  vi.fn(function (this: Record<string, unknown>) {
+    this.observe = vi.fn();
+    this.unobserve = vi.fn();
+    this.disconnect = vi.fn();
+    this.takeRecords = vi.fn(() => []);
+  });
 
 global.IntersectionObserver = createIntersectionObserverMock() as any
 

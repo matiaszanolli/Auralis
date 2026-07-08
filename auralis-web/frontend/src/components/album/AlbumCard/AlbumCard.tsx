@@ -33,7 +33,14 @@ export interface AlbumCardProps {
   fingerprint?: Partial<AudioFingerprint>;
   onClick?: (albumId: number) => void;
   onArtworkUpdated?: () => void;
-  onHoverEnter?: (albumId: number) => void;
+  /**
+   * Accepts the full (albumId, title, artist) signature so callers can pass
+   * a single stable callback straight through — mirroring `onClick` above —
+   * instead of allocating a new per-item arrow closing over `title`/`artist`
+   * on every render, which would defeat this component's own React.memo
+   * (fixes #3929).
+   */
+  onHoverEnter?: (albumId: number, title: string, artist: string) => void;
   onHoverLeave?: () => void;
 }
 
@@ -80,7 +87,7 @@ export const AlbumCard = memo(function AlbumCard({
       fingerprint={fingerprint}
       onClick={onClick ? () => onClick(albumId) : undefined}
       onArtworkUpdated={onArtworkUpdated}
-      onHoverEnter={onHoverEnter}
+      onHoverEnter={onHoverEnter ? () => onHoverEnter(albumId, title, artist) : undefined}
       onHoverLeave={onHoverLeave}
     />
   );

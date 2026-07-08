@@ -28,7 +28,7 @@ vi.mock('@/components/album/AlbumCard/AlbumCard', () => {
       return (
         <div
           data-testid={`album-card-${albumId}`}
-          onClick={onClick}
+          onClick={() => onClick?.(albumId)}
           style={{ cursor: 'pointer' }}
         >
           <p>{title}</p>

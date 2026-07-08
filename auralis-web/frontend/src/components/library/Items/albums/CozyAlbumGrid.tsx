@@ -281,7 +281,7 @@ function VirtualizedAlbumGrid({
                       hasArtwork={!!album.artworkUrl}
                       fingerprint={fingerprints.get(album.id) ?? undefined}
                       onClick={onAlbumClick}
-                      onHoverEnter={onAlbumHover ? (id) => onAlbumHover(id, album.title, album.artist) : undefined}
+                      onHoverEnter={onAlbumHover}
                       onHoverLeave={onAlbumHoverEnd}
                     />
                   </div>
@@ -312,7 +312,7 @@ function VirtualizedAlbumGrid({
                   hasArtwork={!!album.artworkUrl}
                   fingerprint={fingerprints.get(album.id) ?? undefined}
                   onClick={onAlbumClick}
-                  onHoverEnter={onAlbumHover ? (id) => onAlbumHover(id, album.title, album.artist) : undefined}
+                  onHoverEnter={onAlbumHover}
                   onHoverLeave={onAlbumHoverEnd}
                 />
               </div>
