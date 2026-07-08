@@ -386,14 +386,24 @@ class ProcessingEngine:
         # The frontend should hide these controls until the engine reads them
         # (see #3490 follow-up). Logging at INFO so developers see it in dev.
         unsupported: list[str] = []
-        if "fingerprint" in job.settings and job.settings["fingerprint"].get("enabled"):
+        # Guard each lookup against an explicit `None` value, not just a missing
+        # key — ProcessingSettings.model_dump() always includes "eq"/"dynamics"/
+        # "fingerprint" with a None default when the client doesn't set them, so
+        # `"eq" in job.settings` is True while `job.settings["eq"]` is None and
+        # `.get()` on it raises AttributeError (fixes #3819, found while writing
+        # the first end-to-end test to drive a real ProcessingEngine — every job
+        # submitted with default settings failed with "unexpected error").
+        fingerprint_settings = job.settings.get("fingerprint")
+        if fingerprint_settings and fingerprint_settings.get("enabled"):
             # parameter_mapper.generate_mastering_parameters used to be called
             # here and its output written to dead config attrs. Kept for
             # reference in case a future wire-up needs the intermediate dict.
             unsupported.append("fingerprint (parameter-mapper output is currently unread by engine)")
-        if "eq" in job.settings and job.settings["eq"].get("enabled"):
+        eq_settings = job.settings.get("eq")
+        if eq_settings and eq_settings.get("enabled"):
             unsupported.append("eq")
-        if "dynamics" in job.settings and job.settings["dynamics"].get("enabled"):
+        dynamics_settings = job.settings.get("dynamics")
+        if dynamics_settings and dynamics_settings.get("enabled"):
             unsupported.append("dynamics")
         level_settings = job.settings.get("level_matching") or job.settings.get("levelMatching")
         if level_settings and level_settings.get("enabled"):
