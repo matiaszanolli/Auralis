@@ -98,31 +98,28 @@ def test_one_hour_audio_processing(tmp_path):
 @pytest.mark.boundary
 @pytest.mark.slow
 @pytest.mark.long_audio
-def test_very_long_audio_chunk_count(tmp_path):
+def test_very_long_audio_chunk_count():
     """
     BOUNDARY: Chunk count for very long audio.
 
-    10 hour audio at CHUNK_DURATION-second chunks.
+    10 hour audio, counted via the real production API (fixes #4285 — the
+    previous version never called any product code and asserted a
+    tautology against itself, and its hardcoded 2400 value was computed
+    with the naive pre-#4124 ceil(duration / CHUNK_DURATION) formula,
+    which doesn't match content_chunk_count()'s overlap-aware model).
     """
-    from core.chunked_processor import (
-        CHUNK_DURATION,
-        ChunkedAudioProcessor,
+    from core.chunk_boundaries import content_chunk_count
+
+    # 10 hours. Under the overlap model (#4124), content-carrying chunks
+    # are ceil((duration - OVERLAP_DURATION) / CHUNK_INTERVAL) — NOT
+    # ceil(duration / CHUNK_DURATION), which would give the wrong 2400.
+    duration = 36000.0
+    actual_chunks = content_chunk_count(duration)
+
+    assert actual_chunks == 3600, (
+        f"Expected 3600 content-carrying chunks for a {duration}s track "
+        f"(ceil((duration - OVERLAP_DURATION) / CHUNK_INTERVAL)); got {actual_chunks}"
     )
-
-    audio_dir = tmp_path / "audio"
-    audio_dir.mkdir()
-
-    # Create 10 hour audio metadata (don't actually create the file)
-    duration = 36000.0  # 10 hours
-    sample_rate = 44100
-
-    # Calculate expected chunks from the canonical CHUNK_DURATION (15s -> 2400).
-    expected_chunks = int(np.ceil(duration / CHUNK_DURATION))
-
-    assert expected_chunks == int(np.ceil(36000.0 / CHUNK_DURATION)), (
-        f"Chunk count must derive from CHUNK_DURATION={CHUNK_DURATION}; got {expected_chunks}"
-    )
-    assert expected_chunks == 2400, f"Expected 2400 chunks at 15s, calculated {expected_chunks}"
 
 
 @pytest.mark.boundary
