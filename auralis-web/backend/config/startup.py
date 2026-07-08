@@ -29,6 +29,53 @@ from fastapi import FastAPI
 logger = logging.getLogger(__name__)
 
 
+# Background services that may already be running (spawned their own workers
+# / tasks) by the time a later startup step fails. Rollback must await each
+# one's .stop() before nulling it out, not just drop the reference — an
+# already-running fingerprint queue or auto-scanner would otherwise keep
+# calling into a library_manager that's about to be rolled back to None
+# (#3812 / BE-MW-3, regression of #3540 / BE-NEW-82).
+_ROLLBACK_SERVICES_TO_STOP: tuple[tuple[str, dict[str, Any]], ...] = (
+    ('auto_scanner', {}),
+    ('ondemand_fingerprint_queue', {}),
+    ('fingerprint_queue', {'timeout': 30.0}),
+)
+
+# Components that only need to be nulled on rollback (never started an async
+# task of their own, or are handled by _ROLLBACK_SERVICES_TO_STOP above).
+_ROLLBACK_COMPONENTS_TO_NULL: tuple[str, ...] = (
+    'library_manager', 'repository_factory', 'settings_repository',
+    'audio_player', 'player_state_manager',
+    'streamlined_cache', 'similarity_system', 'graph_builder',
+)
+
+
+async def _rollback_partial_startup(globals_dict: dict[str, Any]) -> None:
+    """Roll back partially-initialised globals after a startup failure.
+
+    So downstream routers see a coherent 'not ready' state instead of
+    'library_manager truthy but everything else None' (#3540 / BE-NEW-82).
+    Router dependencies that gate on library_manager truthy will then return
+    503 rather than AttributeError -> 500.
+
+    Extracted as a standalone function (#3812) so this behavior — especially
+    awaiting .stop() on already-running background services before nulling
+    them — is directly unit-testable without needing to mock the entire
+    Auralis startup import chain.
+    """
+    for _svc_key, _stop_kwargs in _ROLLBACK_SERVICES_TO_STOP:
+        _svc = globals_dict.get(_svc_key)
+        if _svc is not None:
+            try:
+                await _svc.stop(**_stop_kwargs)
+            except Exception as _stop_exc:
+                logger.warning(f"⚠️  Error stopping {_svc_key} during rollback: {_stop_exc}")
+            finally:
+                globals_dict[_svc_key] = None
+    for _component in _ROLLBACK_COMPONENTS_TO_NULL:
+        globals_dict[_component] = None
+
+
 def reclaim_leftover_stream_temps(temp_root: Path) -> int:
     """Remove temp WAV dirs orphaned by interrupted compressed-format streams.
 
@@ -350,37 +397,11 @@ def create_lifespan(deps: dict[str, Any]):
                         globals_dict['graph_builder'] = None
 
             except Exception as e:
-                # Roll back any partially-initialised globals so downstream
-                # routers see a coherent 'not ready' state instead of
-                # 'library_manager truthy but everything else None'
-                # (#3540 / BE-NEW-82). Router dependencies that gate on
-                # library_manager truthy will now return 503 rather than
-                # AttributeError → 500.
                 import traceback
                 logger.error(f"❌ Failed to initialize Auralis components: {e}")
                 logger.error(f"Traceback:\n{traceback.format_exc()}")
                 logger.error("⚠️  Auralis library initialization failed - rolling back partial state; API will return 503")
-                # Stop any async services that were already started before the failure.
-                for _svc_key, _stop_kwargs in (
-                    ('auto_scanner', {}),
-                    ('ondemand_fingerprint_queue', {}),
-                    ('fingerprint_queue', {'timeout': 30.0}),
-                ):
-                    _svc = globals_dict.get(_svc_key)
-                    if _svc is not None:
-                        try:
-                            await _svc.stop(**_stop_kwargs)
-                        except Exception as _stop_exc:
-                            logger.warning(f"⚠️  Error stopping {_svc_key} during rollback: {_stop_exc}")
-                        finally:
-                            globals_dict[_svc_key] = None
-                for _component in (
-                    'library_manager', 'repository_factory', 'settings_repository',
-                    'audio_player', 'player_state_manager',
-                    'fingerprint_extractor', 'fingerprint_storage',
-                    'streamlined_cache', 'similarity_system', 'graph_builder',
-                ):
-                    globals_dict[_component] = None
+                await _rollback_partial_startup(globals_dict)
         else:
             logger.warning("⚠️  Auralis not available - running in demo mode")
 
