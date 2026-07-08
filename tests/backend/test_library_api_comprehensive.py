@@ -11,10 +11,10 @@ Coverage (13 routes):
 - POST /api/library/tracks/{track_id}/favorite - Mark as favorite
 - DELETE /api/library/tracks/{track_id}/favorite - Remove from favorites
 - GET /api/library/tracks/{track_id}/lyrics - Get track lyrics
-- GET /api/library/artists - Get all artists
-- GET /api/library/artists/{artist_id} - Get artist details
-- GET /api/library/albums - Get all albums
-- GET /api/library/albums/{album_id} - Get album details
+- GET /api/artists - Get all artists (moved from /api/library/artists in #3824)
+- GET /api/artists/{artist_id} - Get artist details (moved from /api/library/artists/{id} in #3824)
+- GET /api/albums - Get all albums (moved from /api/library/albums in #2509)
+- GET /api/albums/{album_id} - Get album details (moved from /api/library/albums/{id} in #3824)
 - POST /api/library/scan - Scan directory
 - GET /api/library/fingerprints/status - Get fingerprint status
 - GET /api/tracks/{track_id}/fingerprint - Get track fingerprint
@@ -226,11 +226,11 @@ class TestGetLyrics:
 
 
 class TestGetArtists:
-    """Test GET /api/library/artists"""
+    """Test GET /api/artists (moved from /api/library/artists in #3824)"""
 
     def test_get_artists_basic(self, client):
         """Test getting all artists"""
-        response = client.get("/api/library/artists")
+        response = client.get("/api/artists")
 
         assert response.status_code == 200
         data = response.json()
@@ -240,38 +240,43 @@ class TestGetArtists:
 
     def test_get_artists_with_pagination(self, client):
         """Test artists with pagination"""
-        response = client.get("/api/library/artists?limit=10&offset=0")
+        response = client.get("/api/artists?limit=10&offset=0")
 
         assert response.status_code == 200
 
     def test_get_artists_with_search(self, client):
         """Test artists with search query"""
-        response = client.get("/api/library/artists?search=test")
+        response = client.get("/api/artists?search=test")
 
         assert response.status_code == 200
 
     def test_get_artists_accepts_get_only(self, client):
         """Test that artists endpoint only accepts GET"""
-        response = client.post("/api/library/artists")
+        response = client.post("/api/artists")
         assert response.status_code in [404, 405]
+
+    def test_library_artists_endpoint_removed(self, client):
+        """The dead-end duplicate /api/library/artists must be gone (#3824)."""
+        response = client.get("/api/library/artists")
+        assert response.status_code == 404
 
 
 class TestGetArtistDetails:
-    """Test GET /api/library/artists/{artist_id}"""
+    """Test GET /api/artists/{artist_id} (moved from /api/library/artists/{id} in #3824)"""
 
-    @patch('routers.library.require_repository_factory')
+    @patch('routers.artists.require_repository_factory')
     def test_get_artist_not_found(self, mock_require_repos, client, mock_repos):
         """Test getting non-existent artist"""
         mock_require_repos.return_value = mock_repos
         mock_repos.artists.get_by_id = Mock(return_value=None)
 
-        response = client.get("/api/library/artists/999")
+        response = client.get("/api/artists/999")
 
         assert response.status_code == 404
 
     def test_get_artist_structure(self, client):
         """Test artist details response structure if exists"""
-        response = client.get("/api/library/artists/1")
+        response = client.get("/api/artists/1")
 
         if response.status_code == 200:
             data = response.json()
@@ -281,8 +286,13 @@ class TestGetArtistDetails:
 
     def test_get_artist_accepts_get_only(self, client):
         """Test that artist details only accepts GET"""
-        response = client.post("/api/library/artists/1")
+        response = client.post("/api/artists/1")
         assert response.status_code in [404, 405]
+
+    def test_library_artist_details_endpoint_removed(self, client):
+        """The dead-end duplicate /api/library/artists/{id} must be gone (#3824)."""
+        response = client.get("/api/library/artists/1")
+        assert response.status_code == 404
 
 
 class TestGetAlbums:
@@ -317,21 +327,21 @@ class TestGetAlbums:
 
 
 class TestGetAlbumDetails:
-    """Test GET /api/library/albums/{album_id}"""
+    """Test GET /api/albums/{album_id} (moved from /api/library/albums/{id} in #3824)"""
 
-    @patch('routers.library.require_repository_factory')
+    @patch('routers.albums.require_repository_factory')
     def test_get_album_not_found(self, mock_require_repos, client, mock_repos):
         """Test getting non-existent album"""
         mock_require_repos.return_value = mock_repos
         mock_repos.albums.get_by_id = Mock(return_value=None)
 
-        response = client.get("/api/library/albums/999")
+        response = client.get("/api/albums/999")
 
         assert response.status_code == 404
 
     def test_get_album_structure(self, client):
         """Test album details response structure if exists"""
-        response = client.get("/api/library/albums/1")
+        response = client.get("/api/albums/1")
 
         if response.status_code == 200:
             data = response.json()
@@ -341,8 +351,13 @@ class TestGetAlbumDetails:
 
     def test_get_album_accepts_get_only(self, client):
         """Test that album details only accepts GET"""
-        response = client.post("/api/library/albums/1")
+        response = client.post("/api/albums/1")
         assert response.status_code in [404, 405]
+
+    def test_library_album_details_endpoint_removed(self, client):
+        """The dead-end duplicate /api/library/albums/{id} must be gone (#3824)."""
+        response = client.get("/api/library/albums/1")
+        assert response.status_code == 404
 
 
 class TestScanLibrary:
@@ -437,12 +452,12 @@ class TestLibraryIntegration:
 
     def test_workflow_get_artists_then_details(self, client):
         """Test workflow: get artists → get artist details"""
-        # 1. Get all artists
-        artists_response = client.get("/api/library/artists")
+        # 1. Get all artists (moved to /api/artists in #3824)
+        artists_response = client.get("/api/artists")
         assert artists_response.status_code == 200
 
         # 2. Get artist details (may fail if no artists)
-        details_response = client.get("/api/library/artists/1")
+        details_response = client.get("/api/artists/1")
         assert details_response.status_code in [200, 404]
 
     def test_workflow_get_albums_then_details(self, client):
@@ -451,8 +466,8 @@ class TestLibraryIntegration:
         albums_response = client.get("/api/albums")
         assert albums_response.status_code == 200
 
-        # 2. Get album details (may fail if no albums)
-        details_response = client.get("/api/library/albums/1")
+        # 2. Get album details (may fail if no albums, moved to /api/albums/{id} in #3824)
+        details_response = client.get("/api/albums/1")
         assert details_response.status_code in [200, 404]
 
 

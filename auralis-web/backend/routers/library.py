@@ -11,10 +11,15 @@ and admin (reset). Track, scan, and fingerprint domains are in dedicated routers
 Endpoints:
 - POST /api/library/refresh-references   - Rebuild mastering reference cloud
 - GET  /api/library/stats                - Library statistics
-- GET  /api/library/artists              - Paginated artist list
-- GET  /api/library/artists/{artist_id}  - Artist detail
-- GET  /api/library/albums/{album_id}    - Album detail
 - POST /api/library/reset                - Destructive full library reset
+
+Artist and album browse/detail endpoints live in the dedicated routers/artists.py
+and routers/albums.py (fixes #3824 / BE-RH-7 — /api/library/artists,
+/api/library/artists/{id}, and /api/library/albums/{id} were dead-end
+duplicates of /api/artists, /api/artists/{id}, and /api/albums/{id} with a
+different, undocumented response shape; the frontend never called them, per
+useLibraryQuery.ts's own comment and its test asserting the library.py URLs
+are never used).
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -25,11 +30,9 @@ import logging
 from typing import Any, cast
 from collections.abc import Callable
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException
 
 from .dependencies import require_repository_factory, with_error_handling
-from .errors import NotFoundError
-from .serializers import serialize_album, serialize_artist, serialize_artists
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["library"])
@@ -84,57 +87,11 @@ def create_library_router(
         stats = await asyncio.to_thread(factory.stats.get_library_stats)
         return cast(dict[str, Any], stats)
 
-    @router.get("/api/library/artists")
-    @with_error_handling("get artists")
-    async def get_artists(
-        limit: int = Query(50, ge=1, le=200),
-        offset: int = Query(0, ge=0),
-        search: str | None = None,
-        order_by: str = "name",
-    ) -> dict[str, Any]:
-        """Get paginated list of artists with optional search."""
-        repos = require_repository_factory(get_repository_factory)
-        limit = min(max(limit, 1), 200)
-        offset = max(offset, 0)
-        valid_order_by = ["name", "album_count", "track_count"]
-        if order_by not in valid_order_by:
-            order_by = "name"
-
-        if search:
-            artists, total = await asyncio.to_thread(repos.artists.search, search, limit=limit, offset=offset)
-        else:
-            artists, total = await asyncio.to_thread(repos.artists.get_all, limit=limit, offset=offset, order_by=order_by)
-
-        has_more = (offset + len(artists)) < total
-        return {
-            "artists": serialize_artists(artists),
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-            "has_more": has_more,
-        }
-
-    @router.get("/api/library/artists/{artist_id}")
-    @with_error_handling("get artist")
-    async def get_artist(artist_id: int) -> dict[str, Any]:
-        """Get artist details by ID with albums and tracks."""
-        repos = require_repository_factory(get_repository_factory)
-        artist = await asyncio.to_thread(repos.artists.get_by_id, artist_id)
-        if not artist:
-            raise NotFoundError("Artist", artist_id)
-        return serialize_artist(artist)
-
     # Removed: GET /api/library/albums — dead endpoint, duplicate of GET /api/albums (fixes #2509)
-
-    @router.get("/api/library/albums/{album_id}")
-    @with_error_handling("get album")
-    async def get_album(album_id: int) -> dict[str, Any]:
-        """Get album details by ID with tracks."""
-        repos = require_repository_factory(get_repository_factory)
-        album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
-        if not album:
-            raise NotFoundError("Album", album_id)
-        return serialize_album(album)
+    # Removed: GET /api/library/artists, GET /api/library/artists/{id}, GET
+    # /api/library/albums/{id} — dead-end duplicates of /api/artists,
+    # /api/artists/{id}, /api/albums/{id} with a different, undocumented
+    # response shape (fixes #3824 / BE-RH-7).
 
     @router.post("/api/library/reset")
     @with_error_handling("reset library")

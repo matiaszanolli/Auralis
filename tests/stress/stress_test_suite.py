@@ -156,10 +156,10 @@ class AuralisStressTest:
         # Test album/artist listing
         print("\n📀 Testing album/artist listing...")
 
-        success, elapsed = await self.request('GET', '/api/library/albums')
+        success, elapsed = await self.request('GET', '/api/albums')
         print(f"  Albums: {elapsed*1000:.2f}ms {'✓' if success else '✗'}")
 
-        success, elapsed = await self.request('GET', '/api/library/artists')
+        success, elapsed = await self.request('GET', '/api/artists')
         print(f"  Artists: {elapsed*1000:.2f}ms {'✓' if success else '✗'}")
 
         self.metrics.record_system_metrics()

@@ -194,7 +194,7 @@ def test_library_search_api(client):
 @pytest.mark.api
 def test_library_albums_api(client):
     """
-    INTEGRATION TEST: /api/library/albums endpoint.
+    INTEGRATION TEST: /api/albums endpoint (moved from /api/library/albums in #2509).
 
     Validates:
     - Albums endpoint accessible
@@ -216,14 +216,14 @@ def test_library_albums_api(client):
 @pytest.mark.api
 def test_library_artists_api(client):
     """
-    INTEGRATION TEST: /api/library/artists endpoint.
+    INTEGRATION TEST: /api/artists endpoint (moved from /api/library/artists in #3824).
 
     Validates:
     - Artists endpoint accessible
     - Returns artist list
     - Includes pagination
     """
-    response = client.get("/api/library/artists")
+    response = client.get("/api/artists")
     assert response.status_code == 200, "Artists endpoint should be accessible"
 
     data = response.json()

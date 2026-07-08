@@ -166,7 +166,7 @@ class TestLibraryEndpoints:
 
     def test_get_artists(self, client):
         """Test getting artists list"""
-        response = client.get("/api/library/artists")
+        response = client.get("/api/artists")
 
         assert response.status_code in [200, 503]
 
@@ -1132,13 +1132,15 @@ class TestAlbumArtistEndpoints:
         mock_artist.album_count = 2
         mock_artist.albums = []  # Prevent Mock infinite recursion
         mock_artist.tracks = []  # Prevent Mock infinite recursion
+        mock_artist.artwork_url = None
+        mock_artist.artwork_source = None
 
         # Router uses repository_factory (not library_manager) via get_repository_factory
         mock_factory = Mock()
         mock_factory.artists.get_by_id.return_value = mock_artist
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
-            response = client.get("/api/library/artists/1")
+            response = client.get("/api/artists/1")
 
             assert response.status_code == 200
             data = response.json()
@@ -1151,23 +1153,26 @@ class TestAlbumArtistEndpoints:
         mock_factory.artists.get_by_id.return_value = None
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
-            response = client.get("/api/library/artists/999")
+            response = client.get("/api/artists/999")
             assert response.status_code == 404
 
     def test_get_album_detail_success(self, client):
         """Test getting album details"""
         # Create mock album with spec to prevent infinite Mock recursion
         # Use a dict-like object instead of Mock to avoid JSON serialization issues
+        from types import SimpleNamespace
+
         album_data = {
             'id': 1,
             'title': 'Test Album',
-            'artist': 'Test Artist',
+            # routers/albums.py's get_album accesses album.artist.name (an ORM
+            # relationship), not a plain string.
+            'artist': SimpleNamespace(name='Test Artist'),
             'year': 2024,
             'artwork_path': None,
             'tracks': []
         }
         # Convert dict to object-like mock with attributes
-        from types import SimpleNamespace
         mock_album = SimpleNamespace(**album_data)
 
         # Router uses repository_factory (not library_manager) via get_repository_factory
@@ -1175,7 +1180,7 @@ class TestAlbumArtistEndpoints:
         mock_factory.albums.get_by_id.return_value = mock_album
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
-            response = client.get("/api/library/albums/1")
+            response = client.get("/api/albums/1")
 
             assert response.status_code == 200
             data = response.json()
@@ -1188,7 +1193,7 @@ class TestAlbumArtistEndpoints:
         mock_factory.albums.get_by_id.return_value = None
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
-            response = client.get("/api/library/albums/999")
+            response = client.get("/api/albums/999")
             assert response.status_code == 404
 
     def test_get_albums_list(self, client):
