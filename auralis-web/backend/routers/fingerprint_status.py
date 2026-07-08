@@ -86,17 +86,32 @@ def create_fingerprint_status_router(
             fp = await asyncio.to_thread(repos.fingerprints.get_by_track_id, track_id)
             logger.info(f"🔍 Fingerprint lookup result: {'FOUND' if fp else 'NOT FOUND'}")
             if not fp:
+                queued = False
                 try:
                     from analysis.fingerprint_queue import get_fingerprint_queue
                     queue = get_fingerprint_queue()
                     if queue:
-                        queue.enqueue(track_id)
-                        logger.info(f"📋 Track {track_id} queued for background fingerprinting")
+                        # Check the return value (#3816) — enqueue() returns
+                        # False when the track is already queued/processing
+                        # or the bounded queue is full; claiming "queued for
+                        # generation" regardless would mislead the caller
+                        # when the track was actually dropped.
+                        queued = queue.enqueue(track_id)
+                        if queued:
+                            logger.info(f"📋 Track {track_id} queued for background fingerprinting")
+                        else:
+                            logger.debug(f"Track {track_id} not newly queued (already queued/processing, or queue full)")
                 except Exception as q_err:
                     logger.debug(f"Could not enqueue track {track_id}: {q_err}")
+                detail = (
+                    f"Fingerprint not available for track {track_id}. Queued for generation."
+                    if queued else
+                    f"Fingerprint not available for track {track_id}. "
+                    "Not queued (already pending, or the background queue is full) — try again shortly."
+                )
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Fingerprint not available for track {track_id}. Queued for generation.",
+                    detail=detail,
                 )
 
             logger.info(f"✅ Returning fingerprint for track {track_id}: LUFS={fp.lufs:.1f}, tempo={fp.tempo_bpm:.1f}")
