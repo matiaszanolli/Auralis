@@ -613,6 +613,36 @@ class TestWebSocketPlayNormal:
                     break
             assert found, "Expected audio_stream_error for nonexistent track in play_normal"
 
+    def test_stream_error_branches_use_safe_message_not_raw_exception_text(self):
+        """The `audio_stream_error` payload sent by the three streaming
+        branches (`play_enhanced`/`stream_enhanced`, `play_normal`/
+        `stream_normal`, `seek`/`stream_from_position`) must never carry a
+        raw exception string — each `except Exception` branch must call
+        `_safe_error_message(e)` instead (fixes #3820 / BE-RH-3 — WS-layer
+        parity with the HTTP-layer `_safe_error_message` pattern already
+        used elsewhere, e.g. `similarity.py`/`cache_streamlined.py`).
+
+        `_safe_error_message` itself (imported from `core.processing_engine`)
+        is a pure function with no websocket/request dependency and needs no
+        further test here. This is a static regression guard on the call
+        sites: it fails if a future edit reintroduces `str(e)`/`repr(e)`
+        into an `audio_stream_error` "error" field.
+        """
+        import inspect
+        import routers.system as system_module
+
+        source = inspect.getsource(system_module)
+
+        assert source.count('"error": _safe_error_message(e)') >= 3, (
+            "Expected _safe_error_message(e) in the audio_stream_error 'error' "
+            "field of all three streaming branches (play_enhanced, play_normal, seek)"
+        )
+        for forbidden in ('"error": str(e)', "'error': str(e)", '"error": repr(e)'):
+            assert forbidden not in source, (
+                f"Found raw exception interpolation {forbidden!r} in routers/system.py — "
+                "audio_stream_error payloads must use _safe_error_message(e) instead"
+            )
+
 
 class TestWebSocketFlowControl:
     """Tests for flow-control and keepalive WS message types (#3859 / BE-TC-4).
