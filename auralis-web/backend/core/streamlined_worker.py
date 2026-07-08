@@ -289,7 +289,14 @@ class StreamlinedCacheWorker:
             cache_key = (track_id, preset, intensity)
             processor = self._processor_cache.get(cache_key)
             if processor is None:
-                processor = ChunkedAudioProcessor(
+                # Offload — ChunkedAudioProcessor.__init__ does a sync SoundFile
+                # open for metadata, a sync fingerprint/DB lookup, and sync
+                # HybridProcessor construction (200-500ms CPU-bound); this
+                # worker loop ticks every 1s, so running it inline stalls the
+                # event loop (and any in-flight stream chunk sends) for that
+                # whole duration on every cache miss (fixes #3817 / BE-PF-3).
+                processor = await asyncio.to_thread(
+                    ChunkedAudioProcessor,
                     track_id=track_id,
                     filepath=track.filepath,
                     preset=preset,  # type: ignore[arg-type]  # None for original

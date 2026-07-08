@@ -180,3 +180,80 @@ class TestProcessorReuse:
 
             # Old track's processor should be evicted
             assert (1, "balanced", 0.5) not in worker._processor_cache
+
+
+class TestProcessorConstructionOffload:
+    """Regression tests for #3817: ChunkedAudioProcessor's blocking
+    constructor (sync SoundFile open, DB fingerprint lookup, HybridProcessor
+    construction — 200-500ms) must run via asyncio.to_thread, not directly
+    on the event loop. The worker loop ticks every 1s, so an inline
+    construction on a cache miss stalls in-flight stream chunk sends for the
+    whole duration."""
+
+    @pytest.mark.asyncio
+    async def test_processor_construction_does_not_block_event_loop(self, worker):
+        import time
+
+        def slow_constructor(**kwargs):
+            time.sleep(0.3)  # simulates SoundFile open + DB lookup + HybridProcessor init
+            inst = Mock()
+            inst.process_chunk_safe = AsyncMock(return_value=("/tmp/chunk.wav", None))
+            return inst
+
+        with patch("core.streamlined_worker.Path") as mock_path, \
+             patch("core.chunked_processor.ChunkedAudioProcessor") as MockProcessor:
+            mock_path.return_value.exists.return_value = True
+            MockProcessor.side_effect = slow_constructor
+
+            track = Mock()
+            track.filepath = "/tmp/test.wav"
+
+            # A concurrent task that should tick every ~30ms if the event
+            # loop stays responsive while the processor is "constructing".
+            ticks: list[float] = []
+
+            async def tick_counter() -> None:
+                for _ in range(10):
+                    ticks.append(time.monotonic())
+                    await asyncio.sleep(0.03)
+
+            counter_task = asyncio.create_task(tick_counter())
+
+            await worker._process_chunk(
+                track, track_id=1, chunk_idx=0,
+                preset="balanced", intensity=0.5, tier="tier2"
+            )
+            await counter_task
+
+            gaps = [b - a for a, b in zip(ticks, ticks[1:])]
+            assert max(gaps) < 0.15, (
+                f"largest gap between event-loop ticks was {max(gaps):.3f}s "
+                "while ChunkedAudioProcessor was constructing — the event "
+                "loop was blocked (construction must run via asyncio.to_thread)"
+            )
+
+    @pytest.mark.asyncio
+    async def test_cached_processor_path_still_skips_construction(self, worker):
+        """Sanity check: the offload change must not affect the reuse path
+        (#2737) — a cached processor should never re-invoke the constructor."""
+        with patch("core.streamlined_worker.Path") as mock_path, \
+             patch("core.chunked_processor.ChunkedAudioProcessor") as MockProcessor:
+            mock_path.return_value.exists.return_value = True
+
+            mock_instance = Mock()
+            mock_instance.process_chunk_safe = AsyncMock(return_value=("/tmp/chunk.wav", None))
+            MockProcessor.return_value = mock_instance
+
+            track = Mock()
+            track.filepath = "/tmp/test.wav"
+
+            await worker._process_chunk(
+                track, track_id=1, chunk_idx=0,
+                preset="balanced", intensity=0.5, tier="tier2"
+            )
+            await worker._process_chunk(
+                track, track_id=1, chunk_idx=1,
+                preset="balanced", intensity=0.5, tier="tier2"
+            )
+
+            assert MockProcessor.call_count == 1
