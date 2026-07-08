@@ -123,7 +123,10 @@ export async function addTracksToPlaylist(
   playlistId: number,
   trackIds: number[]
 ): Promise<number> {
-  const data = await post(ENDPOINTS.ADD_PLAYLIST_TRACK(playlistId), { track_ids: trackIds });
+  const data = await post<{ added_count: number }>(
+    ENDPOINTS.ADD_PLAYLIST_TRACK(playlistId),
+    { track_ids: trackIds }
+  );
   return data.added_count;
 }
 

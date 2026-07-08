@@ -53,7 +53,7 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
  * const playlists = await apiRequest('/playlists');
  * await apiRequest('/playlists/1', { method: 'DELETE' });
  */
-export async function apiRequest<T = any>(
+export async function apiRequest<T = unknown>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
@@ -116,7 +116,7 @@ export async function apiRequest<T = any>(
  * Make a GET request
  * @example const data = await get('/playlists');
  */
-export async function get<T = any>(endpoint: string, options?: RequestOptions): Promise<T> {
+export async function get<T = unknown>(endpoint: string, options?: RequestOptions): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'GET' });
 }
 
@@ -124,7 +124,7 @@ export async function get<T = any>(endpoint: string, options?: RequestOptions): 
  * Make a POST request
  * @example await post('/playlists', { name: 'My Playlist' });
  */
-export async function post<T = any>(
+export async function post<T = unknown>(
   endpoint: string,
   body?: Record<string, any>,
   options?: RequestOptions
@@ -136,7 +136,7 @@ export async function post<T = any>(
  * Make a PUT request
  * @example await put('/playlists/1', { name: 'Updated' });
  */
-export async function put<T = any>(
+export async function put<T = unknown>(
   endpoint: string,
   body?: Record<string, any>,
   options?: RequestOptions
@@ -148,7 +148,7 @@ export async function put<T = any>(
  * Make a PATCH request
  * @example await patch('/playlists/1', { name: 'Updated' });
  */
-export async function patch<T = any>(
+export async function patch<T = unknown>(
   endpoint: string,
   body?: Record<string, any>,
   options?: RequestOptions
@@ -160,7 +160,7 @@ export async function patch<T = any>(
  * Make a DELETE request
  * @example await del('/playlists/1');
  */
-export async function del<T = any>(endpoint: string, options?: RequestOptions): Promise<T> {
+export async function del<T = unknown>(endpoint: string, options?: RequestOptions): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'DELETE' });
 }
 

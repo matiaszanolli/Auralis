@@ -171,7 +171,7 @@ describe('PlaylistService', () => {
 
       await playlistService.addTrackToPlaylist(1, 5)
 
-      expect(apiRequest.post).toHaveBeenCalledWith('/api/playlists/1/tracks', { track_id: 5 })
+      expect(apiRequest.post).toHaveBeenCalledWith('/api/playlists/1/tracks', { track_ids: [5] })
     })
 
     it('throws error when track already in playlist', async () => {
