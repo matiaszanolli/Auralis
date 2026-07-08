@@ -5,11 +5,25 @@
  * Covers: setQueue, addTrack, removeTrack, reorder, shuffle, repeat modes
  */
 
+import { ReactNode, createElement } from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
 import { usePlaybackQueue, usePlaybackQueueView } from '../usePlaybackQueue';
+import queueReducer from '@/store/slices/queueSlice';
 import * as useRestAPIModule from '../../api/useRestAPI';
 import * as useWebSocketModule from '../../websocket/useWebSocketSubscription';
+
+// usePlaybackQueue reads/writes queue state via Redux (queueSlice) — every
+// renderHook call needs a real store wrapped in a Provider, or useDispatch/
+// useSelector throw "could not find react-redux context value".
+const createTestStore = () => configureStore({ reducer: { queue: queueReducer } });
+const createWrapper = () => {
+  const store = createTestStore();
+  return ({ children }: { children: ReactNode }) =>
+    createElement(Provider, { store, children });
+};
 
 // Mock tracks for testing
 const mockTracks = [
@@ -74,7 +88,7 @@ describe('usePlaybackQueue', () => {
   // =========================================================================
 
   it('should initialize with empty queue', () => {
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     expect(result.current.queue).toEqual([]);
     expect(result.current.currentIndex).toBe(0);
@@ -103,7 +117,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.queue).toEqual(mockTracks);
@@ -112,6 +126,51 @@ describe('usePlaybackQueue', () => {
     });
 
     expect(mockGet).toHaveBeenCalledWith('/api/player/queue');
+  });
+
+  it('does not dispatch a stale initial-fetch response after unmount (fixes #3925)', async () => {
+    let resolveGet: (value: unknown) => void = () => {};
+    const pending = new Promise((resolve) => {
+      resolveGet = resolve;
+    });
+    const mockGet = vi.fn().mockReturnValue(pending);
+
+    vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
+      get: mockGet,
+      post: vi.fn().mockResolvedValue({}),
+      put: vi.fn().mockResolvedValue({}),
+      delete: vi.fn().mockResolvedValue({}),
+      patch: vi.fn().mockResolvedValue({}),
+      clearError: vi.fn(),
+      isLoading: false,
+      error: null,
+    } as any);
+
+    const store = createTestStore();
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(Provider, { store, children });
+
+    const { unmount } = renderHook(() => usePlaybackQueue(), { wrapper });
+
+    // Unmount before the in-flight GET resolves — simulates React 18 Strict
+    // Mode's mount->cleanup->remount, or a fast navigation away from the page.
+    unmount();
+
+    await act(async () => {
+      resolveGet({
+        tracks: mockTracks,
+        currentIndex: 1,
+        isShuffled: true,
+        repeatMode: 'all',
+        lastUpdated: Date.now(),
+      });
+      await pending;
+    });
+
+    // The stale response must never reach the store once the effect that
+    // requested it has been cleaned up.
+    expect(store.getState().queue.tracks).toEqual([]);
+    expect(store.getState().queue.currentIndex).toBe(0);
   });
 
   it('should get current track from queue', async () => {
@@ -134,7 +193,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.currentTrack).toEqual(mockTracks[1]);
@@ -165,7 +224,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await act(async () => {
       await result.current.setQueue(mockTracks, 0);
@@ -197,7 +256,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await act(async () => {
       await result.current.setQueue(mockTracks, 2);
@@ -230,7 +289,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await act(async () => {
       try {
@@ -268,7 +327,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.queue.length).toBe(2);
@@ -304,7 +363,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.queue.length).toBe(3);
@@ -353,7 +412,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.queue.length).toBe(3);
@@ -390,7 +449,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.queue.length).toBe(3);
@@ -426,7 +485,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.queue.length).toBe(3);
@@ -465,7 +524,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.isShuffled).toBe(false);
@@ -502,7 +561,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.isShuffled).toBe(true);
@@ -543,7 +602,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.repeatMode).toBe('off');
@@ -553,7 +612,7 @@ describe('usePlaybackQueue', () => {
       await result.current.setRepeatMode('all');
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/player/queue/repeat', undefined, {
+    expect(mockPost).toHaveBeenCalledWith('/api/player/queue/repeat', {
       mode: 'all',
     });
 
@@ -580,7 +639,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.repeatMode).toBe('off');
@@ -596,7 +655,7 @@ describe('usePlaybackQueue', () => {
   });
 
   it('should reject invalid repeat mode', async () => {
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await act(async () => {
       try {
@@ -634,7 +693,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.queue.length).toBe(3);
@@ -673,7 +732,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueue());
+    const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await act(async () => {
       try {
@@ -714,7 +773,7 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    const { result } = renderHook(() => usePlaybackQueueView());
+    const { result } = renderHook(() => usePlaybackQueueView(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.queue).toEqual(mockTracks);
@@ -751,7 +810,7 @@ describe('usePlaybackQueue', () => {
         error: null,
       } as any);
 
-      const { result, rerender } = renderHook(() => usePlaybackQueue());
+      const { result, rerender } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       // Wait for initial mount
       await waitFor(() => {
@@ -799,7 +858,7 @@ describe('usePlaybackQueue', () => {
         error: null,
       } as any);
 
-      const { result, rerender } = renderHook(() => usePlaybackQueue());
+      const { result, rerender } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
         expect(result.current.queue.length).toBe(mockTracks.length);
@@ -844,7 +903,7 @@ describe('usePlaybackQueue', () => {
         error: null,
       } as any);
 
-      const { result, rerender } = renderHook(() => usePlaybackQueue());
+      const { result, rerender } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
         expect(result.current.queue.length).toBe(mockTracks.length);
@@ -889,7 +948,7 @@ describe('usePlaybackQueue', () => {
         error: null,
       } as any);
 
-      const { result, rerender } = renderHook(() => usePlaybackQueue());
+      const { result, rerender } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
         expect(result.current.queue.length).toBe(mockTracks.length);
@@ -940,7 +999,7 @@ describe('usePlaybackQueue', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackQueue());
+      const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
         expect(result.current.queue).toEqual(mockTracks);
@@ -988,7 +1047,7 @@ describe('usePlaybackQueue', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackQueue());
+      const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
         expect(result.current.queue).toEqual(mockTracks);
@@ -1030,7 +1089,7 @@ describe('usePlaybackQueue', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackQueue());
+      const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
         expect(result.current.queue).toEqual(mockTracks);
@@ -1072,7 +1131,7 @@ describe('usePlaybackQueue', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackQueue());
+      const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
         expect(result.current.queue).toEqual(mockTracks);

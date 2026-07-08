@@ -88,6 +88,37 @@ describe('useQueueHistory', () => {
     expect(result.current.canUndo).toBe(true);
   });
 
+  it('does not update state from a stale initial-fetch response after unmount (fixes #3925)', async () => {
+    let resolveGet: (value: unknown) => void = () => {};
+    const pending = new Promise((resolve) => {
+      resolveGet = resolve;
+    });
+    mockGet.mockReturnValue(pending);
+
+    // React logs "Can't perform a React state update on an unmounted
+    // component" via console.error when a stale setState slips through an
+    // unmount guard — the signal this test relies on.
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { unmount } = renderHook(() => useQueueHistory());
+
+    // Unmount before the in-flight GET resolves — simulates React 18 Strict
+    // Mode's mount->cleanup->remount, or a fast navigation away from the page.
+    unmount();
+
+    await act(async () => {
+      resolveGet({ history: [makeWireEntry(1)], count: 1 });
+      await pending;
+    });
+
+    const unmountedUpdateWarning = consoleErrorSpy.mock.calls.some((call) =>
+      String(call[0]).includes("Can't perform a React state update on an unmounted component")
+    );
+    expect(unmountedUpdateWarning).toBe(false);
+
+    consoleErrorSpy.mockRestore();
+  });
+
   describe('recordOperation', () => {
     it('should add entry to history on success, mapping the wire response', async () => {
       const wireEntry = makeWireEntry(10, 'add');

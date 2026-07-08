@@ -180,8 +180,18 @@ export function useQueueHistory(): QueueHistoryActions {
 
   /**
    * Fetch initial history on mount
+   *
+   * Gated on a per-effect `isActive` flag in addition to `isMountedRef`
+   * (fixes #3925): `isMountedRef` only ever flips true->false once and is
+   * never reset, so it can't by itself protect against React 18 Strict
+   * Mode's mount->cleanup->remount double-invoke, where two overlapping
+   * requests fire and the stale one can resolve after — and overwrite —
+   * the fresh one. `isActive` is scoped per effect run, so each duplicate
+   * invocation gets its own flag.
    */
   useEffect(() => {
+    let isActive = true;
+
     const fetchInitialHistory = async () => {
       try {
         const response = await get<{
@@ -189,7 +199,7 @@ export function useQueueHistory(): QueueHistoryActions {
           count: number;
         }>('/api/player/queue/history');
 
-        if (isMountedRef.current && response) {
+        if (isMountedRef.current && isActive && response) {
           setHistory((response.history || []).map(mapWireEntry));
         }
       } catch (err) {
@@ -199,6 +209,10 @@ export function useQueueHistory(): QueueHistoryActions {
     };
 
     fetchInitialHistory();
+
+    return () => {
+      isActive = false;
+    };
   }, [get]);
 
   /**

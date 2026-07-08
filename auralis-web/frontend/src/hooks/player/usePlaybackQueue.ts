@@ -238,13 +238,20 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
   /**
    * Fetch initial queue state on mount
+   *
+   * Gated on a per-effect `isActive` flag (fixes #3925): without it, React 18
+   * Strict Mode's mount->cleanup->remount double-invoke fires two overlapping
+   * requests, and whichever resolves last wins — a stale first response can
+   * overwrite freshly-mounted Redux state if it resolves after the second.
    */
   useEffect(() => {
+    let isActive = true;
+
     const fetchInitialQueue = async () => {
       try {
         const response = await get<Record<string, unknown>>('/api/player/queue');
 
-        if (response) {
+        if (response && isActive) {
           // Backend sends snake_case; map to our state shape
           dispatch(reduxSetQueue((response.tracks as QueueState['tracks']) || []));
           dispatch(reduxSetCurrentIndex(
@@ -267,6 +274,10 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     };
 
     fetchInitialQueue();
+
+    return () => {
+      isActive = false;
+    };
   }, [get, dispatch]);
 
   /**
