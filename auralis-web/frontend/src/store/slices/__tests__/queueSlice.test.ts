@@ -186,6 +186,75 @@ describe('queueSlice', () => {
     expect(state.currentIndex).toBe(0);
   });
 
+  // ─── Repeat mode: 'one' (stay on current track) ────────────────
+
+  it('nextTrack stays on current track when repeatMode is "one"', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = { ...state, currentIndex: 1, repeatMode: 'one' };
+    state = reducer(state, nextTrack());
+    expect(state.currentIndex).toBe(1);
+  });
+
+  it('previousTrack stays on current track when repeatMode is "one"', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = { ...state, currentIndex: 1, repeatMode: 'one' };
+    state = reducer(state, previousTrack());
+    expect(state.currentIndex).toBe(1);
+  });
+
+  it('nextTrack does not bump lastUpdated when repeatMode is "one"', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2)]));
+    state = { ...state, currentIndex: 0, repeatMode: 'one', lastUpdated: 42 };
+    state = reducer(state, nextTrack());
+    expect(state.lastUpdated).toBe(42);
+  });
+
+  // ─── Repeat mode: 'all' (wrap around) ───────────────────────────
+
+  it('nextTrack wraps to first track when repeatMode is "all"', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = { ...state, currentIndex: 2, repeatMode: 'all' };
+    state = reducer(state, nextTrack());
+    expect(state.currentIndex).toBe(0);
+  });
+
+  it('nextTrack still advances normally mid-queue when repeatMode is "all"', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = { ...state, currentIndex: 0, repeatMode: 'all' };
+    state = reducer(state, nextTrack());
+    expect(state.currentIndex).toBe(1);
+  });
+
+  it('previousTrack wraps to last track when repeatMode is "all"', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = { ...state, currentIndex: 0, repeatMode: 'all' };
+    state = reducer(state, previousTrack());
+    expect(state.currentIndex).toBe(2);
+  });
+
+  it('previousTrack still decrements normally mid-queue when repeatMode is "all"', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = { ...state, currentIndex: 2, repeatMode: 'all' };
+    state = reducer(state, previousTrack());
+    expect(state.currentIndex).toBe(1);
+  });
+
+  // ─── Repeat mode: 'off' at boundaries (explicit, mirrors 'all') ─
+
+  it('nextTrack does not wrap when repeatMode is "off" and at the last track', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = { ...state, currentIndex: 2, repeatMode: 'off' };
+    state = reducer(state, nextTrack());
+    expect(state.currentIndex).toBe(2);
+  });
+
+  it('previousTrack does not wrap when repeatMode is "off" and at the first track', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = { ...state, currentIndex: 0, repeatMode: 'off' };
+    state = reducer(state, previousTrack());
+    expect(state.currentIndex).toBe(0);
+  });
+
   // ─── Loading/Error ────────────────────────────────────────────
 
   it('setIsLoading sets loading state', () => {

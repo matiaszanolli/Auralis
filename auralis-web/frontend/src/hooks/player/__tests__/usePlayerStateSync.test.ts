@@ -628,6 +628,66 @@ describe('usePlayerStateSync – queue_index', () => {
 });
 
 // ============================================================================
+// shuffle_enabled / repeat_mode (issue #3934 — the reconnect snapshot sync
+// added in #3586 had zero test coverage)
+// ============================================================================
+
+describe('usePlayerStateSync – shuffle_enabled / repeat_mode', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sets isShuffled from shuffle_enabled', () => {
+    firePlayerState({ shuffle_enabled: true });
+    expect(store.getState().queue.isShuffled).toBe(true);
+  });
+
+  it('sets isShuffled back to false', () => {
+    firePlayerState({ shuffle_enabled: true });
+    firePlayerState({ shuffle_enabled: false });
+    expect(store.getState().queue.isShuffled).toBe(false);
+  });
+
+  it('does not dispatch isShuffled when shuffle_enabled is absent', () => {
+    firePlayerState({ is_playing: true });
+    expect(store.getState().queue.isShuffled).toBe(false); // unchanged default
+  });
+
+  it('does not dispatch isShuffled when shuffle_enabled is undefined', () => {
+    firePlayerState({ shuffle_enabled: undefined });
+    expect(store.getState().queue.isShuffled).toBe(false);
+  });
+
+  it('sets repeatMode from repeat_mode', () => {
+    firePlayerState({ repeat_mode: 'all' });
+    expect(store.getState().queue.repeatMode).toBe('all');
+  });
+
+  it('sets repeatMode to "one"', () => {
+    firePlayerState({ repeat_mode: 'one' });
+    expect(store.getState().queue.repeatMode).toBe('one');
+  });
+
+  it('does not dispatch repeatMode when repeat_mode is absent', () => {
+    firePlayerState({ is_playing: true });
+    expect(store.getState().queue.repeatMode).toBe('off'); // unchanged default
+  });
+
+  it('does not dispatch repeatMode when repeat_mode is an invalid value (#4159)', () => {
+    firePlayerState({ repeat_mode: 'bogus' });
+    expect(store.getState().queue.repeatMode).toBe('off');
+  });
+});
+
+// ============================================================================
 // Full message: all fields together
 // ============================================================================
 
