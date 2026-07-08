@@ -38,6 +38,13 @@ from .repositories import (
 )
 from .repositories.settings_repository import SettingsRepository
 
+# Serializes the migration step across concurrent LibraryManager.__init__
+# calls IN THE SAME PROCESS (fixes #4232). migration_manager.migration_lock
+# is an inter-process file lock (fcntl/msvcrt) — it does not serialize
+# same-process threads, so two threads constructing a LibraryManager
+# against the same DB at once could both attempt to migrate concurrently.
+_migration_lock = threading.Lock()
+
 
 class LibraryManager:
     """
@@ -95,11 +102,15 @@ class LibraryManager:
 
         self.database_path = database_path
 
-        # Check and migrate database before initializing engine
+        # Check and migrate database before initializing engine.
+        # migration_lock (in migration_manager) only serializes across
+        # PROCESSES; _migration_lock additionally serializes same-process
+        # threads racing to construct a LibraryManager concurrently (#4232).
         info("Checking database version...")
-        if not check_and_migrate_database(database_path, auto_backup=True):
-            error("Database migration failed!")
-            raise Exception("Failed to migrate database to current version")
+        with _migration_lock:
+            if not check_and_migrate_database(database_path, auto_backup=True):
+                error("Database migration failed!")
+                raise Exception("Failed to migrate database to current version")
 
         # Configure SQLite for safe, frequent fingerprint writes
         # WAL mode + synchronous=NORMAL enables fast writes with durability guarantees

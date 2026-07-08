@@ -383,41 +383,44 @@ def test_concurrent_cache_access(temp_audio_dir):
 # ============================================================================
 
 @pytest.mark.integration
-@pytest.mark.skip(reason="Known issue #4232: concurrent LibraryManager.__init__ in the same process races during DB migration (the inter-process file lock doesn't serialize same-process threads). Un-skip once #4232 adds an in-process migrate lock.")
 def test_concurrent_connection_cleanup(temp_audio_dir):
     """
     CONCURRENCY: Database connections are cleaned up properly.
 
     Tests that concurrent operations don't leak connections.
 
-    NOTE: This test is skipped because creating multiple LibraryManager instances
-    concurrently in different threads causes a race condition during database migration.
-    The database migration system is not designed to handle concurrent initialization.
-
-    This is a known architectural limitation that would require refactoring the
-    database migration system to be thread-safe (e.g., using file locks or a
-    migration coordinator).
+    Creates 10 LibraryManager instances concurrently in different threads
+    against the same DB file. Un-skipped by #4232, which added an
+    in-process threading.Lock around the migration step in
+    LibraryManager.__init__ — the pre-existing inter-process file lock
+    (fcntl/msvcrt) only serializes across processes, not same-process
+    threads, so 10 threads racing to migrate the same DB concurrently
+    previously produced sporadic failures.
     """
     db_path = temp_audio_dir / "cleanup_test.db"
+    errors: list[Exception] = []
 
     def create_and_close():
-        manager = LibraryManager(database_path=str(db_path))
+        try:
+            manager = LibraryManager(database_path=str(db_path))
 
-        # Add a track
-        track_info = {
-            "filepath": "/test/track.wav",
-            "title": "Test Track",
-            "artist": "Test Artist",
-            "album": "Test Album",
-            "duration": 180.0,
-            "sample_rate": 44100,
-            "channels": 2,
-            "bitrate": 1411200,
-        }
-        manager.tracks.add(track_info)
+            # Add a track
+            track_info = {
+                "filepath": "/test/track.wav",
+                "title": "Test Track",
+                "artist": "Test Artist",
+                "album": "Test Album",
+                "duration": 180.0,
+                "sample_rate": 44100,
+                "channels": 2,
+                "bitrate": 1411200,
+            }
+            manager.tracks.add(track_info)
 
-        # Close cleanly
-        
+            # Close cleanly
+            manager.shutdown()
+        except Exception as e:
+            errors.append(e)
 
     # Create 10 managers in parallel
     threads = []
@@ -430,6 +433,8 @@ def test_concurrent_connection_cleanup(temp_audio_dir):
     for t in threads:
         t.join()
 
+    assert not errors, f"Unexpected errors from concurrent LibraryManager init: {errors}"
+
     # Verify database is still accessible
     final_manager = LibraryManager(database_path=str(db_path))
     tracks, total = final_manager.tracks.get_all(limit=50, offset=0)
@@ -437,7 +442,7 @@ def test_concurrent_connection_cleanup(temp_audio_dir):
     # Should have some tracks
     assert total >= 1
 
-    final_
+    final_manager.shutdown()
 
 
 # ============================================================================
