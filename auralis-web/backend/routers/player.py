@@ -329,7 +329,7 @@ def create_player_router(
             raise HTTPException(status_code=500, detail="Failed to get player status")
 
     @router.post("/api/player/load", response_model=LoadTrackResponse)
-    async def load_track(request: LoadTrackRequest, background_tasks: BackgroundTasks = None) -> dict[str, Any]:
+    async def load_track(request: LoadTrackRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
         """
         Load a track into the player (database-backed, prevents path traversal).
 
@@ -384,14 +384,13 @@ def create_player_router(
                 })
 
                 # Generate mastering recommendation in background (Priority 4)
-                if background_tasks:
-                    service = get_recommendation_service()
-                    background_tasks.add_task(
-                        service.generate_and_broadcast_recommendation,
-                        track_id=track.id,
-                        track_path=track.filepath
-                    )
-                    logger.info(f"🎯 Scheduled mastering recommendation generation for track {track.id}")
+                service = get_recommendation_service()
+                background_tasks.add_task(
+                    service.generate_and_broadcast_recommendation,
+                    track_id=track.id,
+                    track_path=track.filepath
+                )
+                logger.info(f"🎯 Scheduled mastering recommendation generation for track {track.id}")
 
                 return {"message": "Track loaded successfully", "track_id": track.id}
             else:
