@@ -76,6 +76,51 @@ async def _rollback_partial_startup(globals_dict: dict[str, Any]) -> None:
         globals_dict[_component] = None
 
 
+def _watch_critical_worker_task(
+    task: asyncio.Task[Any],
+    globals_dict: dict[str, Any],
+    keys_to_clear: tuple[str, ...],
+    service_name: str,
+) -> None:
+    """Null `globals_dict[key]` for each key if `task` dies unexpectedly.
+
+    ProcessingEngine.start_worker() and StreamlinedCacheWorker._worker_loop()
+    are long-running background tasks started once at startup. #3512 added a
+    done-callback that LOGS a silently-failing task, but globals_dict stays
+    truthy forever — routers gating on it keep accepting requests a dead
+    worker will never service (jobs queue but never run; cache reads are
+    permanent misses with no visible signal). This is a distinct failure
+    mode from #3812 (a *synchronous* exception during startup, before the
+    object was ever considered up) — here the task legitimately started,
+    then died independently, so there's no exception to catch and roll back
+    at startup time; it can only be caught when the task itself finishes
+    (fixes #4318).
+
+    Cancellation is NOT treated as a failure — it's the expected signal from
+    an explicit `stop_worker()`/`worker.stop()` call during graceful
+    shutdown, not an unexpected death.
+    """
+    def _on_done(t: asyncio.Task[Any]) -> None:
+        if t.cancelled():
+            return
+        exc = t.exception()
+        if exc is not None:
+            logger.error(
+                f"❌ {service_name} background task died unexpectedly — marking unavailable "
+                f"({', '.join(keys_to_clear)} will now report 503 to routers)",
+                exc_info=exc,
+            )
+        else:
+            logger.error(
+                f"❌ {service_name} background task exited without being stopped — marking "
+                f"unavailable ({', '.join(keys_to_clear)} will now report 503 to routers)"
+            )
+        for key in keys_to_clear:
+            globals_dict[key] = None
+
+    task.add_done_callback(_on_done)
+
+
 def reclaim_leftover_stream_temps(temp_root: Path) -> int:
     """Remove temp WAV dirs orphaned by interrupted compressed-format streams.
 
@@ -414,6 +459,15 @@ def create_lifespan(deps: dict[str, Any]):
                     globals_dict['processing_engine'].start_worker(),
                     name="processing_engine.start_worker",
                 )
+                # #3512's callback above only logs; also null the global so a
+                # worker that dies AFTER startup returns stops accepting jobs
+                # it will never run (fixes #4318).
+                _watch_critical_worker_task(
+                    globals_dict['_processing_worker_task'],
+                    globals_dict,
+                    ('processing_engine',),
+                    "ProcessingEngine",
+                )
                 logger.info("✅ Processing Engine initialized")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Processing Engine: {e}")
@@ -428,7 +482,8 @@ def create_lifespan(deps: dict[str, Any]):
 
                 # Use global singleton instance
                 globals_dict['streamlined_cache'] = streamlined_cache_manager
-                logger.info("✅ Streamlined Cache Manager initialized (12 MB Tier 1)")
+                from cache.manager import TIER1_MAX_SIZE_MB
+                logger.info(f"✅ Streamlined Cache Manager initialized ({TIER1_MAX_SIZE_MB:.1f} MB Tier 1)")
 
                 # Create and start worker
                 globals_dict['streamlined_worker'] = StreamlinedCacheWorker(
@@ -439,6 +494,20 @@ def create_lifespan(deps: dict[str, Any]):
                 # Start the worker
                 await globals_dict['streamlined_worker'].start()
                 logger.info("✅ Streamlined Cache Worker started")
+
+                # Null both the worker AND the cache manager if the worker's
+                # background loop dies after startup returns — without a
+                # populator the cache never fills, so routers should treat it
+                # as unavailable (503) rather than serve permanent misses
+                # silently (fixes #4318).
+                worker_task = globals_dict['streamlined_worker']._worker_task
+                if worker_task is not None:
+                    _watch_critical_worker_task(
+                        worker_task,
+                        globals_dict,
+                        ('streamlined_cache', 'streamlined_worker'),
+                        "StreamlinedCacheWorker",
+                    )
 
             except Exception as e:
                 logger.error(f"❌ Failed to initialize streamlined cache: {e}")
