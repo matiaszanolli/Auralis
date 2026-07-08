@@ -26,7 +26,7 @@ Coverage (14 active routes):
 
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -91,6 +91,53 @@ class TestLoadTrack:
         """Test that load only accepts POST"""
         response = client.get("/api/player/load")
         assert response.status_code in [404, 405]
+
+    def test_load_track_broadcasts_track_id_not_track_path(self, client):
+        """Regression test for #3809.
+
+        #2479 replaced the track_loaded broadcast's `track_path` field with
+        `track_id` to stop leaking the server filesystem path — but
+        WEBSOCKET_API.md and the frontend TrackLoadedMessage type weren't
+        updated to match at the time. This asserts the actual wire payload:
+        `track_id` present, `track_path` absent.
+        """
+        mock_player = Mock()
+        mock_player.add_to_queue = Mock()
+        mock_player.load_track_from_library.return_value = True
+
+        mock_track = Mock()
+        mock_track.id = 1
+        mock_track.filepath = "/test/song.mp3"
+
+        mock_library = Mock()
+        mock_library.tracks.get_by_id.return_value = mock_track
+
+        # connection_manager is bound into the player router's closures at
+        # router-registration time (config/routes.py: connection_manager=manager),
+        # so patching the module attribute `main.manager` post-hoc wouldn't
+        # affect the already-closed-over reference — patch the .broadcast
+        # method on the actual instance instead.
+        import main as main_module
+
+        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_manager': mock_library}), \
+             patch.object(main_module.manager, 'broadcast', new_callable=AsyncMock) as mock_broadcast:
+            response = client.post("/api/player/load", json={"track_id": 1})
+
+            assert response.status_code == 200
+            track_loaded_calls = [
+                call for call in mock_broadcast.call_args_list
+                if call.args[0].get("type") == "track_loaded"
+            ]
+            assert len(track_loaded_calls) == 1, (
+                f"expected exactly one track_loaded broadcast, got "
+                f"{len(track_loaded_calls)}: {mock_broadcast.call_args_list}"
+            )
+            payload = track_loaded_calls[0].args[0]["data"]
+            assert payload == {"track_id": 1}
+            assert "track_path" not in payload, (
+                "track_loaded broadcast must not leak the server filesystem "
+                "path (#2479) — track_path must never reappear in this payload"
+            )
 
 
 class TestSeekPosition:

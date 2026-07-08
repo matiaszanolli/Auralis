@@ -111,10 +111,12 @@ Broadcast when a new track is loaded into the player.
 {
   "type": "track_loaded",
   "data": {
-    "track_path": string
+    "track_id": number
   }
 }
 ```
+<!-- #2479 replaced track_path (server filesystem path leak) with track_id;
+     this spec wasn't updated to match at the time (#3809). -->
 
 #### `track_changed`
 Broadcast when skipping to next/previous track.

@@ -143,7 +143,9 @@ export interface PlaybackStoppedMessage extends WebSocketMessage {
 export interface TrackLoadedMessage extends WebSocketMessage {
   type: 'track_loaded';
   data: {
-    track_path: string;
+    // #2479 replaced track_path (server filesystem path leak) with
+    // track_id; this type wasn't updated to match at the time (#3809).
+    track_id: number;
   };
 }
 
