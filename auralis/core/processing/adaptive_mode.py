@@ -16,6 +16,7 @@ from ...dsp.basic import amplify, rms
 from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.stereo import stereo_width_analysis
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
+from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug
 from .base import (
     CompressionStrategies,
@@ -236,6 +237,15 @@ class AdaptiveMode:
 
     def _apply_final_normalization(self, audio: np.ndarray, spectrum_params: Any) -> np.ndarray:
         """Apply final gain boost and peak normalization using LUFS-based adaptive control"""
+
+        # Catch NaN/Inf before any of the below computations — an unguarded
+        # NaN/Inf here would propagate through calculate_loudness_units/
+        # np.max/rms into makeup_gain and the peak normalizer, exactly the
+        # failure class #3429 fixed for HybridMode's reference-blend path.
+        # This method is HybridMode's own no-reference fallback (reachable
+        # directly whenever no reference track is set — the common case),
+        # so it needed the same guard (fixes #4237).
+        audio = validate_audio_finite(audio, context="adaptive_mode final normalization", repair=True)
 
         # Step 0: Calculate source LUFS and crest factor for adaptive loudness control
         source_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)

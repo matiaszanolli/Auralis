@@ -19,6 +19,7 @@ from auralis.core.config import UnifiedConfig
 from ...dsp.basic import amplify, rms
 from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.stereo import adjust_stereo_width, stereo_width_analysis
+from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug, warning
 from .cross_dimensional_guard import (
     CrossDimensionalGuard,
@@ -669,6 +670,14 @@ class ContinuousMode:
 
     def _apply_final_normalization(self, audio: np.ndarray, params: Any) -> np.ndarray:
         """Apply final loudness and peak normalization using unified pipeline"""
+
+        # Catch general NaN/Inf from upstream stages before any measurement
+        # below (fixes #4237). This is IN ADDITION to the #4104 guard just
+        # below, which only covers the narrower silence-induced -inf LUFS
+        # case — an arbitrary NaN/Inf already present in `audio` itself
+        # (e.g. from an upstream DSP bug) would otherwise reach
+        # calculate_loudness_units/amplify unguarded.
+        audio = validate_audio_finite(audio, context="continuous_mode final normalization", repair=True)
 
         # Step 1: LUFS-based normalization to target loudness.
         # #3665: previously used unweighted RMS as a proxy for LUFS, which
