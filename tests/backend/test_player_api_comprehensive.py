@@ -196,6 +196,63 @@ class TestLoadTrack:
                 "(add_to_queue must run via asyncio.to_thread, not directly)"
             )
 
+    def test_load_track_does_not_block_event_loop_during_get_by_id(self, client):
+        """Regression test for #3822.
+
+        library_manager.tracks.get_by_id() does a synchronous DB query.
+        Under lock contention or a cold mtime-cache, this can take hundreds
+        of ms. If it runs directly on the event loop instead of via
+        asyncio.to_thread, it stalls every other in-flight request for that
+        duration. Proves the fix (already applied — get_by_id is wrapped in
+        asyncio.to_thread) by running a slow get_by_id concurrently with a
+        lightweight GET and asserting the GET isn't held up.
+        """
+        import threading
+        import time
+
+        mock_player = Mock()
+        mock_player.add_to_queue = Mock()
+        mock_player.load_track_from_library.return_value = True
+
+        mock_track = Mock()
+        mock_track.id = 1
+        mock_track.filepath = "/test/song.mp3"
+
+        def slow_get_by_id(track_id):
+            time.sleep(0.3)
+            return mock_track
+
+        mock_library = Mock()
+        mock_library.tracks.get_by_id = Mock(side_effect=slow_get_by_id)
+
+        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_manager': mock_library}):
+            results = {}
+
+            def do_load():
+                start = time.monotonic()
+                resp = client.post("/api/player/load", json={"track_id": 1})
+                results['load_status'] = resp.status_code
+                results['load_elapsed'] = time.monotonic() - start
+
+            load_thread = threading.Thread(target=do_load)
+            load_thread.start()
+            time.sleep(0.05)  # let the load request actually enter get_by_id's sleep
+
+            health_start = time.monotonic()
+            health_resp = client.get("/api/health")
+            health_elapsed = time.monotonic() - health_start
+
+            load_thread.join(timeout=5)
+
+            assert results.get('load_status') == 200
+            assert results['load_elapsed'] >= 0.3, "sanity check: the slow mock actually ran"
+            assert health_resp.status_code == 200
+            assert health_elapsed < 0.25, (
+                f"GET /api/health took {health_elapsed:.3f}s while a slow "
+                "get_by_id was in flight — the event loop was blocked "
+                "(get_by_id must run via asyncio.to_thread, not directly)"
+            )
+
 
 class TestSeekPosition:
     """Test POST /api/player/seek"""
