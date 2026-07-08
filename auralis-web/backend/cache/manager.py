@@ -3,8 +3,8 @@ Streamlined Cache Manager for Auralis Beta.9
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Two-tier caching strategy:
-- Tier 1 (Hot): Current + next chunk for instant playback and toggle (12 MB)
-- Tier 2 (Warm): Full track cache for instant seeking and navigation (60-120 MB)
+- Tier 1 (Hot): Current + next chunk for instant playback and toggle (~10 MB)
+- Tier 2 (Warm): Full track cache for instant seeking and navigation (240 MB budget)
 
 Replaces the complex multi-tier buffer system (1,459 lines) with a simple,
 predictable caching strategy (~150 lines).
@@ -28,15 +28,30 @@ from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL  # noqa: F401
 logger = logging.getLogger(__name__)
 
 # Configuration
-CHUNK_SIZE_MB = 1.5    # estimated size per chunk (stereo 44.1kHz, float32) - increased from 1.0 for 15s chunks
+#
+# Nominal per-chunk size estimate used only for tier-size eviction accounting
+# (CachedChunk stores a Path, not raw bytes, so there is no in-memory buffer
+# to measure directly). Cached chunks are persisted as 16-bit PCM WAV — see
+# WAVEncoder(default_subtype='PCM_16') / encode_to_wav() in
+# core/chunked_processor.py — NOT float32. The previous 1.5 MB literal
+# assumed float32 (4 bytes/sample) math and was ~3.4x too low relative to the
+# real ~2.5 MB PCM_16 chunk size at the nominal 44.1kHz stereo baseline,
+# letting actual disk usage run well past the documented tier budgets before
+# the size-based eviction check believed it was over budget (fixes #4238).
+_NOMINAL_SAMPLE_RATE = 44100
+_NOMINAL_CHANNELS = 2
+_PCM16_BYTES_PER_SAMPLE = 2
+CHUNK_SIZE_MB = (
+    _NOMINAL_CHANNELS * _NOMINAL_SAMPLE_RATE * CHUNK_DURATION * _PCM16_BYTES_PER_SAMPLE
+) / (1024 * 1024)
 
 # Tier 1: Hot cache (current + next chunk)
 TIER1_MAX_CHUNKS = 2   # Current + next
-TIER1_MAX_SIZE_MB = TIER1_MAX_CHUNKS * CHUNK_SIZE_MB * 2  # × 2 for original + processed = 4 MB
+TIER1_MAX_SIZE_MB = TIER1_MAX_CHUNKS * CHUNK_SIZE_MB * 2  # × 2 for original + processed (~10 MB)
 
 # Tier 2: Warm cache (full track)
 TIER2_MAX_TRACKS = 2   # Keep last 2 tracks fully cached
-TIER2_MAX_SIZE_MB = 240  # Max 240 MB total (2 tracks × 60 MB each average)
+TIER2_MAX_SIZE_MB = 240  # Max 240 MB total (~95 chunks at the corrected CHUNK_SIZE_MB)
 
 
 @dataclass
@@ -92,12 +107,12 @@ class StreamlinedCacheManager:
     """
     Simplified two-tier cache manager for predictable audio streaming.
 
-    Tier 1 (Hot): Current + next chunk (12 MB)
+    Tier 1 (Hot): Current + next chunk (~10 MB)
     - Instant playback continuity
     - Instant auto-mastering toggle
     - Always active
 
-    Tier 2 (Warm): Full track cache (60-120 MB per track)
+    Tier 2 (Warm): Full track cache (240 MB budget across up to 2 tracks)
     - Instant seeking anywhere in track
     - Instant previous track navigation
     - Built in background while playing
@@ -137,7 +152,7 @@ class StreamlinedCacheManager:
         # Thread safety
         self._lock: asyncio.Lock = asyncio.Lock()
 
-        logger.info("StreamlinedCacheManager initialized (12 MB Tier 1)")
+        logger.info(f"StreamlinedCacheManager initialized ({TIER1_MAX_SIZE_MB:.1f} MB Tier 1)")
 
     def _get_current_chunk(self, position: float) -> int:
         """Calculate chunk index from playback position.
