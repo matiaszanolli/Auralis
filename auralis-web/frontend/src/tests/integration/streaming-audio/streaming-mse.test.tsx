@@ -1,20 +1,27 @@
 /**
- * Streaming & Media Source Extensions (MSE) Integration Tests
+ * Streaming & Media Source Extensions (MSE) Integration Tests — SKIPPED
  *
- * Comprehensive integration tests for MSE-based progressive streaming
- * Part of Week 5 frontend testing roadmap (200-test suite)
+ * These 20 tests exercise `TestMSEPlayer` / `MockMediaSource` /
+ * `MockSourceBuffer`, all defined entirely within this file. No production
+ * module is imported. Auralis never adopted browser MediaSource Extensions
+ * for streaming — `grep -rl "MediaSource\|SourceBuffer" src` (excluding
+ * tests) returns nothing. The real streaming path is WebSocket binary PCM
+ * chunks -> PCMStreamBuffer -> AudioPlaybackEngine (Web Audio API), which is
+ * architecturally unrelated to MSE/SourceBuffer.
  *
- * Test Categories:
- * 1. MSE Initialization & Lifecycle (4 tests)
- * 2. Progressive Streaming (4 tests)
- * 3. Preset Switching (4 tests)
- * 4. Buffer Management (3 tests)
- * 5. Audio Format Handling (3 tests)
- * 6. Error Scenarios (2 tests)
+ * The file previously claimed "SKIPPED" in this docstring while actually
+ * running all 20 tests on every CI pass (no `describe.skip` was present) —
+ * a false-green signal: the suite could only ever validate its own fixture
+ * classes, never regress with production code, and gave no real streaming
+ * coverage (fixes #3935 / TC-3).
  *
- * Total: 20 tests
+ * Real coverage for the actual streaming/playback path lives in
+ * `src/services/audio/__tests__/AudioPlaybackEngine.test.ts` (added
+ * alongside this fix — AudioPlaybackEngine.ts previously had zero unit
+ * tests, #3935's named sibling TC-7).
  *
- * SKIPPED: Memory-intensive integration test (882 lines). Run separately with increased heap.
+ * Kept (skipped, not deleted) as a historical fixture in case MSE-based
+ * streaming is revisited — the mock classes are a reasonable starting point.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -427,7 +434,9 @@ class TestMSEPlayer {
 // TESTS
 // ============================================================
 
-describe('Streaming & MSE Integration Tests', () => {
+// Skipped: see the file-level docstring above (#3935 / TC-3) — tests only
+// this file's own mock fixture, not any production module.
+describe.skip('Streaming & MSE Integration Tests', () => {
   let player: TestMSEPlayer;
 
   beforeEach(() => {
