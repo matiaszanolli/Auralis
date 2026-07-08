@@ -479,7 +479,16 @@ class ChunkedAudioProcessor:
 
             # Atomic read-modify-write of shared flag (re-enters RLock if already
             # held by _process_chunk_locked; serialises against get_wav_chunk_path).
-            with self._processor_lock:
+            #
+            # self._processor_lock alone is NOT enough: it's scoped to THIS
+            # ChunkedAudioProcessor instance, but ProcessorFactory.get_or_create()
+            # can hand the SAME HybridProcessor to a different concurrent stream's
+            # ChunkedAudioProcessor (own separate _processor_lock), which can then
+            # interleave writes to processor.content_analyzer.use_fingerprint_analysis
+            # with this one (#3808). Also acquire the shared processor's own
+            # _process_lock (RLock — process() re-enters it safely) so the toggle
+            # is mutually exclusive across every ChunkedAudioProcessor sharing it.
+            with self._processor_lock, self.processor._process_lock:
                 original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
                 self.processor.content_analyzer.use_fingerprint_analysis = False
                 try:
@@ -490,7 +499,10 @@ class ChunkedAudioProcessor:
         else:
             # Normal processing with or without fast-start optimization
             if hasattr(self.processor, 'content_analyzer') and hasattr(self.processor.content_analyzer, 'use_fingerprint_analysis'):
-                with self._processor_lock:
+                # See #3808 note above — also hold the shared processor's own
+                # lock so this toggle is exclusive across every
+                # ChunkedAudioProcessor instance sharing this HybridProcessor.
+                with self._processor_lock, self.processor._process_lock:
                     original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
 
                     if hasattr(self, '_chunk_0_processed'):
