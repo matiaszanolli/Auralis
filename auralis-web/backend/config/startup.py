@@ -487,6 +487,16 @@ def create_lifespan(deps: dict[str, Any]):
                 except Exception as player_err:
                     logger.warning(f"⚠️  Audio player shutdown error: {player_err}")
 
+            # Release cached HybridProcessor thread pools (fixes #3746 — each
+            # cached processor's fingerprint_analyzer owns a 5-thread executor
+            # that outlives the processor unless explicitly closed).
+            try:
+                from core.processor_factory import get_processor_factory
+                get_processor_factory().clear_cache()
+                logger.info("✅ Processor factory cache cleared")
+            except Exception as factory_err:
+                logger.warning(f"⚠️  Processor factory shutdown error: {factory_err}")
+
             # Shut down LibraryManager last — WAL checkpoint + engine dispose (#3210)
             if 'library_manager' in globals_dict and globals_dict['library_manager']:
                 try:

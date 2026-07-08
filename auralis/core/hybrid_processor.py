@@ -165,6 +165,20 @@ class HybridProcessor:
 
         debug(f"Hybrid processor initialized in {config.adaptive.mode} mode with psychoacoustic EQ")
 
+    def close(self) -> None:
+        """Release background resources held by sub-components.
+
+        Must be called when a HybridProcessor is evicted from a cache
+        (module-level `_processor_cache` here, or `ProcessorFactory` in
+        auralis-web/backend) rather than left to the garbage collector —
+        `fingerprint_analyzer` owns a 5-thread executor that is never
+        reclaimed otherwise, leaking up to 50 idle threads across a
+        10-entry cache in long-running sessions (fixes #3746).
+        """
+        close_fn = getattr(self.fingerprint_analyzer, "close", None)
+        if callable(close_fn):
+            close_fn()
+
     def set_fixed_mastering_targets(self, targets: dict[str, Any] | None) -> None:
         """
         Set fixed mastering targets to use for all chunks (Beta.9 optimization)
@@ -605,7 +619,11 @@ def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridP
 
         # Evict oldest entry when the cache exceeds its maximum size (#2161)
         while len(_processor_cache) > _PROCESSOR_CACHE_MAX_SIZE:
-            evicted_key, _ = _processor_cache.popitem(last=False)
+            evicted_key, evicted_processor = _processor_cache.popitem(last=False)
+            # Release the evicted instance's thread pools (fixes #3746) —
+            # otherwise its fingerprint_analyzer executor leaks 5 idle
+            # threads that are never reclaimed.
+            evicted_processor.close()
             debug(f"Evicted cached HybridProcessor (cache full): key={evicted_key}")
 
         debug(f"Created cached HybridProcessor for mode={mode} (cache size: {len(_processor_cache)})")

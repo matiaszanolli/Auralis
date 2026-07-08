@@ -219,3 +219,49 @@ class TestGetOrCreateProcessorCaching:
                             hp_module._processor_cache.popitem(last=False)
 
         assert len(hp_module._processor_cache) <= _PROCESSOR_CACHE_MAX_SIZE
+
+
+# ---------------------------------------------------------------------------
+# close() on eviction (#3746 — thread-pool leak)
+# ---------------------------------------------------------------------------
+
+class TestEvictedProcessorIsClosed:
+    """
+    Fixes #3746: HybridProcessor.fingerprint_analyzer owns a 5-thread
+    executor. Cache eviction previously just dropped the reference,
+    leaking up to 50 idle threads across a 10-entry cache in long-running
+    sessions. Eviction must now call close() on the evicted instance.
+    """
+
+    def setup_method(self):
+        _reset_cache()
+
+    def teardown_method(self):
+        _reset_cache()
+
+    def test_evicted_processor_close_is_called(self):
+        """The LRU-evicted HybridProcessor must have close() called on it."""
+        mock_processors = [MagicMock(name=f"processor_{i}") for i in range(_PROCESSOR_CACHE_MAX_SIZE + 1)]
+
+        with patch.object(hp_module, 'HybridProcessor', side_effect=mock_processors), \
+             patch.object(hp_module, 'UnifiedConfig', return_value=MagicMock()):
+            for i in range(_PROCESSOR_CACHE_MAX_SIZE + 1):
+                cfg = MagicMock()
+                with patch('builtins.id', side_effect=lambda x, _i=i: _i if x is cfg else id.__wrapped__(x)):
+                    hp_module._get_or_create_processor(cfg, "adaptive")
+
+        # The first-created processor (oldest, LRU) must have been evicted
+        # and closed; the rest remain in cache and must not be closed.
+        mock_processors[0].close.assert_called_once()
+        for surviving in mock_processors[1:]:
+            surviving.close.assert_not_called()
+
+    def test_hybrid_processor_close_closes_fingerprint_analyzer(self):
+        """HybridProcessor.close() must propagate to fingerprint_analyzer.close()."""
+        from auralis.core.hybrid_processor import HybridProcessor
+        from auralis.core.config import UnifiedConfig
+
+        processor = HybridProcessor(UnifiedConfig())
+        with patch.object(processor.fingerprint_analyzer, 'close') as mock_close:
+            processor.close()
+        mock_close.assert_called_once()

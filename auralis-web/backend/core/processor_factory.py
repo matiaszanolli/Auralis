@@ -251,6 +251,10 @@ class ProcessorFactory:
                     evicted_track_id = evicted_key[0]
                     if evicted_track_id > 0 and self._active_processors.get(evicted_track_id) is _evicted_proc:
                         self._active_processors.pop(evicted_track_id, None)
+                    # Release the evicted instance's thread pools (fixes #3746) —
+                    # otherwise its fingerprint_analyzer executor leaks 5 idle
+                    # threads that are never reclaimed.
+                    _evicted_proc.close()
                     logger.info(
                         f"ProcessorFactory: LRU-evicted processor for cache_key {evicted_key}"
                     )
@@ -338,7 +342,8 @@ class ProcessorFactory:
             ]
 
             for key in keys_to_remove:
-                self._processor_cache.pop(key)
+                # Release thread pools before dropping the reference (fixes #3746).
+                self._processor_cache.pop(key).close()
 
             logger.info(f"Cleaned up {len(keys_to_remove)} processor(s) for track {track_id}")
 
@@ -404,6 +409,9 @@ class ProcessorFactory:
         """Clear all cached processors (for memory management)."""
         with self._lock:
             count = len(self._processor_cache)
+            # Release thread pools before dropping references (fixes #3746).
+            for processor in self._processor_cache.values():
+                processor.close()
             self._processor_cache.clear()
             self._active_processors.clear()
             logger.info(f"Cleared {count} cached processor(s)")
