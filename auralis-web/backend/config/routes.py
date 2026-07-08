@@ -50,7 +50,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
             - HAS_SIMILARITY: bool
             - manager: ConnectionManager
             - enhancement_settings: dict
-            - processing_cache: dict
             - chunked_audio_processor_class: class
             - create_track_info_fn: callable
             - buffer_presets_fn: callable
@@ -62,7 +61,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     HAS_SIMILARITY: bool = deps.get('HAS_SIMILARITY', False)
     manager: Any = deps.get('manager')
     enhancement_settings: dict[str, Any] = deps.get('enhancement_settings', {})
-    processing_cache: dict[str, Any] = deps.get('processing_cache', {})
     chunked_audio_processor_class: Any = deps.get('chunked_audio_processor_class')
     create_track_info_fn: Any = deps.get('create_track_info_fn')
     buffer_presets_fn: Any = deps.get('buffer_presets_fn')
@@ -132,7 +130,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     enhancement_router: APIRouter = create_enhancement_router(
         get_enhancement_settings=lambda: enhancement_settings,
         connection_manager=manager,
-        get_processing_cache=lambda: processing_cache,
         get_multi_tier_buffer=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
         get_player_state_manager=get_component('player_state_manager'),
         get_processing_engine=lambda: globals_dict.get('processing_engine') if HAS_PROCESSING else None,
@@ -218,7 +215,6 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         get_library_manager=get_component('library_manager'),
         get_audio_player=get_component('audio_player'),
         get_player_state_manager=get_component('player_state_manager'),
-        get_processing_cache=lambda: processing_cache,
         connection_manager=manager,
         chunked_audio_processor_class=chunked_audio_processor_class,
         create_track_info_fn=create_track_info_fn,

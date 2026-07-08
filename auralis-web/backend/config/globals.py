@@ -153,7 +153,6 @@ def create_globals_dict() -> dict[str, Any]:
         'player_state_manager': None,
 
         # Processing and caching
-        'processing_cache': {},  # Cache for processed audio files
         'processing_engine': None,
         'streamlined_cache': None,
         'streamlined_worker': None,

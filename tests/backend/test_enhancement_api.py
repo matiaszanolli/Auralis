@@ -11,7 +11,6 @@ Coverage:
 - GET /api/player/enhancement/status - Get current settings
 - GET /api/player/mastering/recommendation/{track_id} - Get mastering recommendation
 - GET /api/processing/parameters - Get processing parameters
-- POST /api/player/enhancement/cache/clear - Clear cache
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -328,24 +327,23 @@ class TestGetProcessingParameters:
         assert response.status_code == 405  # Method Not Allowed
 
 
-class TestClearProcessingCache:
-    """Test POST /api/player/enhancement/cache/clear"""
+class TestClearProcessingCacheRemoved:
+    """POST /api/player/enhancement/cache/clear was removed (fixes #3835 /
+    BE-PE-2). It operated on `processing_cache`, a dict nothing in the
+    codebase ever wrote to — the endpoint always reported "0 items removed"
+    regardless of real cache state, an actively misleading API surface. The
+    real invalidation path (multi-tier buffer manager) already runs from
+    set_enhancement_intensity/set_enhancement_preset; see #2504.
+    """
 
-    def test_clear_cache_success(self, client):
-        """Test clearing cache successfully"""
+    def test_clear_cache_endpoint_no_longer_exists(self, client):
+        """The dead endpoint must not resolve to any API route. 404 in dev
+        mode; 405 when main.py's StaticFiles catch-all mount is active
+        (production-like test config) and "handles" the unmatched path as a
+        potential static GET, rejecting the POST method — either way, no
+        enhancement-router handler runs."""
         response = client.post("/api/player/enhancement/cache/clear")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "message" in data
-        assert "items_cleared" in data
-        assert isinstance(data["items_cleared"], int)
-
-    def test_clear_cache_accepts_post_only(self, client):
-        """Test that cache clear only accepts POST"""
-        response = client.get("/api/player/enhancement/cache/clear")
-        # Should be 405 (Method Not Allowed) or 404 (Not Found if GET route doesn't exist)
-        assert response.status_code in [404, 405]
+        assert response.status_code in (404, 405)
 
 
 class TestEnhancementIntegration:

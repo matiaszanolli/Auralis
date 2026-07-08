@@ -127,11 +127,6 @@ def create_lifespan(deps: dict[str, Any]):
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # === Startup ===
 
-        # Clear processing cache on startup to avoid serving stale processed audio
-        if 'processing_cache' in globals_dict:
-            globals_dict['processing_cache'].clear()
-        logger.info("🧹 Processing cache cleared on startup")
-
         # Clear chunk files from disk to avoid serving stale chunks with old presets
         chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
         if chunk_dir.exists():

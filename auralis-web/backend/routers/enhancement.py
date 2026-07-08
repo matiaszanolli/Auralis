@@ -93,7 +93,6 @@ class EnhancementSettingsResponse(BaseModel):
 def create_enhancement_router(
     get_enhancement_settings: Callable[[], dict[str, Any]],
     connection_manager: Any,
-    get_processing_cache: Callable[[], dict[str, Any]] | None = None,
     get_multi_tier_buffer: Callable[[], Any] | None = None,
     get_player_state_manager: Callable[[], Any] | None = None,
     get_processing_engine: Callable[[], Any] | None = None,
@@ -105,7 +104,6 @@ def create_enhancement_router(
     Args:
         get_enhancement_settings: Callable that returns enhancement settings dict
         connection_manager: WebSocket connection manager for broadcasts
-        get_processing_cache: Optional callable that returns processing cache dict
         get_player_state_manager: Optional callable that returns PlayerStateManager
         get_processing_engine: Optional callable that returns ProcessingEngine
         get_repository_factory: Optional callable that returns RepositoryFactory
@@ -327,16 +325,7 @@ def create_enhancement_router(
             old_intensity = enhancement_settings.get("intensity")
             enhancement_settings["intensity"] = intensity
 
-            # Clear cache entries for tracks with the old intensity to force reprocessing
             preset = enhancement_settings.get("preset", "adaptive")
-            if get_processing_cache is not None and old_intensity != intensity:
-                cache = get_processing_cache()
-                # Cache keys include intensity, so we need to clear all entries for current preset
-                keys_to_remove = [k for k in cache.keys() if f"_{preset}_{old_intensity}_" in k]
-                for key in keys_to_remove:
-                    del cache[key]
-                if keys_to_remove:
-                    logger.info(f"🧹 Cleared {len(keys_to_remove)} cache entries for old intensity {old_intensity}")
 
             # Notify multi-tier buffer manager so pre-buffered chunks at the old
             # intensity are replaced — mirrors the same call in set_enhancement_preset
@@ -578,30 +567,12 @@ def create_enhancement_router(
                 detail="Failed to get processing parameters",
             )
 
-    @router.post("/api/player/enhancement/cache/clear")
-    async def clear_processing_cache() -> dict[str, Any]:
-        """
-        Clear the processing cache (all cached enhanced audio files).
-        Useful when testing or when cache becomes stale.
-
-        Returns:
-            dict: Status message with number of items cleared
-        """
-        if get_processing_cache is None:
-            raise HTTPException(status_code=501, detail="Cache management not available")
-
-        try:
-            cache = get_processing_cache()
-            cache_size = len(cache)
-            cache.clear()
-
-            logger.info(f"🧹 Processing cache cleared ({cache_size} items removed)")
-            return {
-                "message": "Processing cache cleared",
-                "items_cleared": cache_size
-            }
-        except Exception as e:
-            logger.error(f"Failed to clear cache: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to clear cache")
+    # Removed: POST /api/player/enhancement/cache/clear (fixes #3835 / BE-PE-2).
+    # It operated on `processing_cache`, a dict declared in main.py/globals.py
+    # that nothing in the codebase ever wrote to (grep -rn "processing_cache\["
+    # returned zero hits) — the endpoint always reported "0 items removed"
+    # regardless of real cache state. The real processed-chunk caches
+    # (ChunkCacheManager / StreamlinedCacheManager / ProcessorFactory) are
+    # invalidated by the multi-tier buffer manager call above, not this dict.
 
     return router

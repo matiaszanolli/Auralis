@@ -228,7 +228,6 @@ def create_player_router(
     get_library_manager: Callable[[], Any],
     get_audio_player: Callable[[], Any],
     get_player_state_manager: Callable[[], Any],
-    get_processing_cache: Callable[[], dict[str, Any]],
     connection_manager: Any,
     chunked_audio_processor_class: type | None,
     create_track_info_fn: Callable[[Any], Any],
@@ -243,7 +242,6 @@ def create_player_router(
         get_library_manager: Callable that returns LibraryManager instance
         get_audio_player: Callable that returns AudioPlayer instance
         get_player_state_manager: Callable that returns PlayerStateManager instance
-        get_processing_cache: Callable that returns processing cache dict
         connection_manager: WebSocket connection manager for broadcasts
         chunked_audio_processor_class: ChunkedAudioProcessor class (or None if not available)
         create_track_info_fn: Function to create TrackInfo from database track
