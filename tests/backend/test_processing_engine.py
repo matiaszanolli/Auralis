@@ -65,9 +65,10 @@ class TestProcessingEngine:
         assert len(engine.jobs) == 0
         assert isinstance(engine.job_queue, asyncio.Queue)
 
-    def test_create_job(self, engine, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_create_job(self, engine, temp_audio_file):
         """Test creating a job"""
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"}
         )
@@ -80,7 +81,7 @@ class TestProcessingEngine:
     @pytest.mark.asyncio
     async def test_submit_job(self, engine, temp_audio_file):
         """Test submitting a job to queue"""
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"}
         )
@@ -90,47 +91,52 @@ class TestProcessingEngine:
         assert job_id == job.job_id
         assert engine.job_queue.qsize() == 1
 
-    def test_get_job(self, engine, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_get_job(self, engine, temp_audio_file):
         """Test retrieving a job"""
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"}
         )
 
-        retrieved = engine.get_job(job.job_id)
+        retrieved = await engine.get_job(job.job_id)
 
         assert retrieved is not None
         assert retrieved.job_id == job.job_id
 
-    def test_get_nonexistent_job(self, engine):
+    @pytest.mark.asyncio
+    async def test_get_nonexistent_job(self, engine):
         """Test getting nonexistent job returns None"""
-        job = engine.get_job("nonexistent-id")
+        job = await engine.get_job("nonexistent-id")
         assert job is None
 
-    def test_cancel_job(self, engine, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_cancel_job(self, engine, temp_audio_file):
         """Test cancelling a job"""
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"}
         )
 
-        result = engine.cancel_job(job.job_id)
+        result = await engine.cancel_job(job.job_id)
 
         assert result is True
         assert job.status == ProcessingStatus.CANCELLED
 
-    def test_cancel_nonexistent_job(self, engine):
+    @pytest.mark.asyncio
+    async def test_cancel_nonexistent_job(self, engine):
         """Test cancelling nonexistent job"""
-        result = engine.cancel_job("nonexistent-id")
+        result = await engine.cancel_job("nonexistent-id")
         assert result is False
 
-    def test_get_all_jobs(self, engine, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_get_all_jobs(self, engine, temp_audio_file):
         """Test getting all jobs"""
-        job1 = engine.create_job(
+        job1 = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"}
         )
-        job2 = engine.create_job(
+        job2 = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "gentle"}
         )
@@ -156,7 +162,7 @@ class TestProcessingEngine:
     @pytest.mark.asyncio
     async def test_queue_status_with_jobs(self, engine, temp_audio_file):
         """Test queue status with jobs"""
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"}
         )
@@ -167,14 +173,15 @@ class TestProcessingEngine:
         assert status["total_jobs"] >= 1
         assert status["queued"] >= 1
 
-    def test_register_progress_callback(self, engine):
+    @pytest.mark.asyncio
+    async def test_register_progress_callback(self, engine):
         """Test registering progress callback"""
         callback_called = {"called": False}
 
         async def test_callback(job_id, progress, message):
             callback_called["called"] = True
 
-        engine.register_progress_callback("test-job", test_callback)
+        await engine.register_progress_callback("test-job", test_callback)
 
         assert "test-job" in engine.progress_callbacks
 
@@ -183,7 +190,7 @@ class TestProcessingEngine:
         """Test cleaning up old jobs"""
         from datetime import datetime, timedelta
 
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"}
         )
@@ -203,7 +210,7 @@ class TestProcessingEngine:
         """Test submitting multiple jobs"""
         jobs = []
         for i in range(3):
-            job = engine.create_job(
+            job = await engine.create_job(
                 input_path=str(temp_audio_file),
                 settings={"mode": "adaptive"}
             )
@@ -222,7 +229,18 @@ class TestProcessingJobProcessing:
 
     @pytest.mark.asyncio
     async def test_process_job_with_mocks(self, temp_audio_file):
-        """Test processing with mocked dependencies"""
+        """Test processing with mocked dependencies (fixes #3818).
+
+        This test used to mock process()'s return value as a bare Mock()
+        with .audio/.lufs attributes — a shape production stopped accepting
+        after #3489 (HybridProcessor.process() returns a bare np.ndarray; the
+        old result-object contract silently raised AttributeError on every
+        successful job). The test's own `except Exception: pass` absorbed the
+        resulting TypeError and passed without exercising a single line of
+        the post-process save/telemetry/completion flow — exactly the
+        bug-masking pattern that let #3489 ship. No more try/except: a
+        regression here must fail the test.
+        """
         engine = ProcessingEngine(max_concurrent_jobs=1)
 
         with patch('core.processing_engine.load_audio') as mock_load, \
@@ -230,17 +248,27 @@ class TestProcessingJobProcessing:
              patch('core.processing_engine.save') as mock_save:
 
             # Setup mocks
-            mock_load.return_value = (np.zeros((1000, 2)), 44100)
+            mock_load.return_value = (np.zeros((1000, 2), dtype=np.float32), 44100)
 
             mock_proc_instance = Mock()
-            mock_result = Mock()
-            mock_result.audio = np.zeros((1000, 2))
-            mock_result.lufs = -14.0
-            mock_proc_instance.process.return_value = mock_result
+            # HybridProcessor.process() returns a bare np.ndarray — the
+            # post-#3489 contract asserted by processing_engine.py's
+            # isinstance(result, np.ndarray) guard.
+            mock_proc_instance.process.return_value = np.zeros((1000, 2), dtype=np.float32)
+            # Telemetry side-channel (processing_engine.py pulls this instead
+            # of result attributes, also post-#3489) — assert it's actually
+            # read, not just tolerated if absent.
+            mock_proc_instance.get_processing_info.return_value = {
+                "last_processing_time": 1.23,
+                "last_lufs": -14.0,
+            }
+            mock_content_profile = Mock()
+            mock_content_profile.genre = "rock"
+            mock_proc_instance.last_content_profile = mock_content_profile
             mock_processor.return_value = mock_proc_instance
 
             # Create and process job
-            job = engine.create_job(
+            job = await engine.create_job(
                 input_path=str(temp_audio_file),
                 settings={
                     "mode": "adaptive",
@@ -249,20 +277,25 @@ class TestProcessingJobProcessing:
                 }
             )
 
-            try:
-                await engine.process_job(job)
-                # If it completes, great!
-            except Exception:
-                # Some errors expected without full setup
-                pass
+            await engine.process_job(job)
+
+            assert job.status == ProcessingStatus.COMPLETED
+            assert job.result_data is not None
+            assert job.result_data["processing_time"] == 1.23
+            assert job.result_data["lufs"] == -14.0
+            assert job.result_data["genre_detected"] == "rock"
+
+            mock_save.assert_called_once()
+            assert mock_save.call_args.kwargs["subtype"] == "PCM_16"
 
 
 class TestJobCreation:
     """Test job creation with different modes"""
 
-    def test_create_adaptive_job(self, engine, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_create_adaptive_job(self, engine, temp_audio_file):
         """Test creating adaptive mode job"""
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"},
             mode="adaptive"
@@ -271,9 +304,10 @@ class TestJobCreation:
         assert job.mode == "adaptive"
         assert job.status == ProcessingStatus.QUEUED
 
-    def test_create_reference_job(self, engine, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_create_reference_job(self, engine, temp_audio_file):
         """Test creating reference mode job"""
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "reference"},
             mode="reference"
@@ -281,9 +315,10 @@ class TestJobCreation:
 
         assert job.mode == "reference"
 
-    def test_create_hybrid_job(self, engine, temp_audio_file):
+    @pytest.mark.asyncio
+    async def test_create_hybrid_job(self, engine, temp_audio_file):
         """Test creating hybrid mode job"""
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "hybrid"},
             mode="hybrid",
@@ -297,9 +332,10 @@ class TestJobCreation:
 class TestEdgeCases:
     """Test edge cases and error handling"""
 
-    def test_create_job_with_invalid_file(self, engine):
+    @pytest.mark.asyncio
+    async def test_create_job_with_invalid_file(self, engine):
         """Test creating job with nonexistent file"""
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path="/nonexistent/file.wav",
             settings={"mode": "adaptive"}
         )
@@ -312,7 +348,7 @@ class TestEdgeCases:
     async def test_concurrent_limit(self, engine, temp_audio_file):
         """Test concurrent job limit"""
         for i in range(5):
-            job = engine.create_job(
+            job = await engine.create_job(
                 input_path=str(temp_audio_file),
                 settings={"mode": "adaptive"}
             )
@@ -353,7 +389,7 @@ class TestQueueBackpressure:
 
         # Fill the queue to capacity
         for _ in range(3):
-            job = engine.create_job(
+            job = await engine.create_job(
                 input_path=str(temp_audio_file),
                 settings={"mode": "adaptive"},
             )
@@ -362,7 +398,7 @@ class TestQueueBackpressure:
         assert engine.job_queue.full()
 
         # One more submit must raise QueueFull
-        overflow_job = engine.create_job(
+        overflow_job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"},
         )
@@ -374,13 +410,13 @@ class TestQueueBackpressure:
         """When submit_job raises QueueFull the job is cleaned from self.jobs"""
         engine = ProcessingEngine(max_queue_size=1)
 
-        first_job = engine.create_job(
+        first_job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"},
         )
         await engine.submit_job(first_job)
 
-        overflow_job = engine.create_job(
+        overflow_job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"},
         )
@@ -468,7 +504,7 @@ class TestJobDictBoundedMemory:
 
         # Simulate 100 completed jobs whose completed_at is in the past
         for _ in range(100):
-            job = engine.create_job(
+            job = await engine.create_job(
                 input_path=str(temp_audio_file),
                 settings={"mode": "adaptive"},
             )
@@ -487,11 +523,11 @@ class TestJobDictBoundedMemory:
         """QUEUED and PROCESSING jobs must never be removed by cleanup"""
         engine = ProcessingEngine(max_concurrent_jobs=2, completed_job_ttl_hours=0.0)
 
-        queued_job = engine.create_job(
+        queued_job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"},
         )
-        processing_job = engine.create_job(
+        processing_job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"},
         )
@@ -509,11 +545,11 @@ class TestJobDictBoundedMemory:
 
         engine = ProcessingEngine(max_concurrent_jobs=1, completed_job_ttl_hours=0.0)
 
-        job = engine.create_job(
+        job = await engine.create_job(
             input_path=str(temp_audio_file),
             settings={"mode": "adaptive"},
         )
-        engine.register_progress_callback(job.job_id, lambda *_: None)
+        await engine.register_progress_callback(job.job_id, lambda *_: None)
         job.status = ProcessingStatus.COMPLETED
         job.completed_at = datetime.now() - timedelta(seconds=1)
 
@@ -552,7 +588,7 @@ class TestProcessingTimeout:
             mock_proc.process.side_effect = lambda *a, **kw: time.sleep(10)
             mock_processor_cls.return_value = mock_proc
 
-            job = engine.create_job(
+            job = await engine.create_job(
                 input_path=str(temp_audio_file),
                 settings={"mode": "adaptive", "output_format": "wav", "bit_depth": 16},
             )
