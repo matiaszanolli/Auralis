@@ -17,6 +17,7 @@ from core.audio_stream_controller import AudioStreamController, ws_id as _ws_id
 from core.processing_engine import _safe_error_message
 from helpers import spawn_background_task
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import (
     WebSocketRateLimiter,
@@ -713,13 +714,26 @@ def create_system_router(
                     processing_engine = get_processing_engine()
                     if processing_engine:
                         async def progress_callback(job_id: str, progress: float, message: str) -> None:
+                            # Skip (and self-unregister) once the socket is no longer
+                            # connected — closing this window matters because the
+                            # engine's own catch-all in _notify_progress only removes
+                            # a callback AFTER it raises, so without this guard every
+                            # progress tick between disconnect and cleanup still
+                            # attempts a send on a dead socket (fixes #3826 / BE-RH-9).
+                            if websocket.client_state != WebSocketState.CONNECTED:
+                                await processing_engine.unregister_progress_callback(job_id)
+                                return
                             await websocket.send_text(json.dumps({
                                 "type": "job_progress",
                                 "data": {"job_id": job_id, "progress": progress, "message": message}
                             }))
 
-                        await processing_engine.register_progress_callback(job_id, progress_callback)
+                        # Track subscription intent BEFORE registering with the engine
+                        # (not after) so the disconnect-cleanup loop below always knows
+                        # to unregister this job_id even if this task is cancelled
+                        # mid-await inside register_progress_callback.
                         _subscribed_job_ids.add(job_id)
+                        await processing_engine.register_progress_callback(job_id, progress_callback)
 
                 else:
                     # Unknown message type (fixes #2417); sanitize before reflecting to client
