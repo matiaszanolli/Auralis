@@ -367,7 +367,10 @@ def create_player_router(
                 'filepath': track.filepath,  # Security: Use validated path from database
                 'id': track.id,
             }
-            audio_player.add_to_queue(track_info)
+            # Offload — add_to_queue() may synchronously load the file (SoundFile
+            # open, 50-500ms) when the player has nothing loaded yet, e.g. the
+            # very first track played this session (fixes #3815 / BE-PF-1).
+            await asyncio.to_thread(audio_player.add_to_queue, track_info)
             success = await asyncio.to_thread(
                 audio_player.load_track_from_library, request.track_id
             )
