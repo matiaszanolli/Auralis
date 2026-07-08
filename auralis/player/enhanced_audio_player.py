@@ -182,7 +182,14 @@ class AudioPlayer:
         # auto-advance. PlaybackController.seek() takes only its own
         # `_lock`; the canonical nesting `_audio_lock → PlaybackController._lock`
         # is already used by `get_audio_chunk` so no inversion risk.
-        with self.file_manager._audio_lock:
+        #
+        # #3781: `defer_notifications()` is the OUTER context manager (exits
+        # last) so `playback.seek()`'s notify — which re-enters `_audio_lock`
+        # via `IntegrationManager._on_playback_state_change` — fires only
+        # after `_audio_lock` is released below, closing the deadlock against
+        # `get_playback_info()`'s opposite `_position_lock` -> `_audio_lock`
+        # order.
+        with self.playback.defer_notifications(), self.file_manager._audio_lock:
             if not self.file_manager.is_loaded():
                 warning("No audio file loaded")
                 return False
@@ -219,7 +226,9 @@ class AudioPlayer:
             # has already swapped audio_data inside _audio_lock — re-taking
             # the RLock here (it's reentrant) keeps swap+reset visible to
             # readers as a single critical section.
-            with self.file_manager._audio_lock:
+            # #3781: defer_notifications() outer so load_and_stop()'s notify
+            # fires after _audio_lock releases (see seek() for full rationale).
+            with self.playback.defer_notifications(), self.file_manager._audio_lock:
                 self.playback.load_and_stop()
 
             self._schedule_fingerprint_load(file_path)
@@ -354,7 +363,9 @@ class AudioPlayer:
             # integration.load_track_from_library -> file_manager.load_file.
             # The DB session is closed before we reach here, so no
             # lock-ordering issue.
-            with self.file_manager._audio_lock:
+            # #3781: defer_notifications() outer so load_and_stop()'s notify
+            # fires after _audio_lock releases (see seek() for full rationale).
+            with self.playback.defer_notifications(), self.file_manager._audio_lock:
                 self.playback.load_and_stop()
             # IntegrationManager.load_track_from_library() calls
             # file_manager.load_file() internally, which sets current_file.
@@ -390,7 +401,11 @@ class AudioPlayer:
         # free. Lock nesting `_audio_lock → PlaybackController._lock`
         # is consistent with `get_audio_chunk()` (the prior caller of
         # this pattern), so no inversion risk.
-        with self.file_manager._audio_lock:
+        #
+        # #3781: defer_notifications() outer so seek()/play()/stop()'s
+        # notify calls below fire only after _audio_lock releases (see
+        # AudioPlayer.seek() for full rationale).
+        with self.playback.defer_notifications(), self.file_manager._audio_lock:
             was_playing = self.playback.is_playing()
 
             if self.gapless.advance_with_prebuffer(was_playing):
@@ -764,7 +779,9 @@ class AudioPlayer:
         # and playback.seek() could otherwise swap in a shorter track and leave
         # max_samples stale, seeking past the new track's end. RLock so the
         # nested get_total_samples() acquisition is safe.
-        with self.file_manager._audio_lock:
+        # #3781: defer_notifications() outer so seek()'s notify fires after
+        # _audio_lock releases (see AudioPlayer.seek() for full rationale).
+        with self.playback.defer_notifications(), self.file_manager._audio_lock:
             max_samples = self.file_manager.get_total_samples()
             self.playback.seek(value, max_samples)
 
