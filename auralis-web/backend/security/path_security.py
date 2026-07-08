@@ -36,6 +36,27 @@ def register_allowed_directory(directory: Path) -> None:
         _extra_allowed_dirs.append(resolved)
 
 
+def unregister_allowed_directory(directory: Path) -> None:
+    """Remove a directory registered via `register_allowed_directory` (fixes #3842).
+
+    Called when a user removes a scan folder, so `validate_file_path()` stops
+    trusting it for the rest of the session instead of only on next restart.
+    """
+    resolved = directory.resolve()
+    if resolved in _extra_allowed_dirs:
+        _extra_allowed_dirs.remove(resolved)
+
+
+def clear_extra_allowed_directories() -> None:
+    """Remove all runtime-registered extra directories (fixes #3842).
+
+    Called on settings reset, since `reset_to_defaults` wipes the configured
+    `scan_folders` list — none of the previously-registered extra directories
+    should remain implicitly trusted afterward.
+    """
+    _extra_allowed_dirs.clear()
+
+
 class PathValidationError(Exception):
     """Raised when path validation fails."""
     pass

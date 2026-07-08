@@ -1098,17 +1098,31 @@ class TestSettingsEndpoints:
         assert "reset to defaults" in response.json()["message"]
         mock_repo.reset_to_defaults.assert_called_once()
 
-    def test_add_scan_folder_success(self, client):
-        """POST /api/settings/scan-folders adds folder."""
+    def test_add_scan_folder_success(self, client, tmp_path):
+        """POST /api/settings/scan-folders adds folder.
+
+        Uses a real, existing directory (tmp_path) — validate_user_chosen_directory
+        requires the path to exist, so a literal "/new/music" 400s regardless
+        of mocking (pre-existing bug in this test, unrelated to #3842).
+        """
+        from security.path_security import _extra_allowed_dirs
+
         mock_repo = Mock()
         mock_repo.add_scan_folder.return_value = self._mock_settings()
+        resolved = str(tmp_path.resolve())
 
         with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
-            response = client.post("/api/settings/scan-folders", json={"folder": "/new/music"})
+            response = client.post("/api/settings/scan-folders", json={"folder": str(tmp_path)})
 
-        assert response.status_code == 200
-        assert "Scan folder added" in response.json()["message"]
-        mock_repo.add_scan_folder.assert_called_once_with("/new/music")
+        try:
+            assert response.status_code == 200
+            assert "Scan folder added" in response.json()["message"]
+            mock_repo.add_scan_folder.assert_called_once_with(resolved)
+        finally:
+            # add_scan_folder also calls register_allowed_directory — avoid
+            # leaking this test's tmp_path into other tests' global state.
+            if tmp_path.resolve() in _extra_allowed_dirs:
+                _extra_allowed_dirs.remove(tmp_path.resolve())
 
     def test_remove_scan_folder_success(self, client):
         """POST /api/settings/scan-folders/delete removes folder."""
@@ -1121,6 +1135,53 @@ class TestSettingsEndpoints:
         assert response.status_code == 200
         assert "Scan folder removed" in response.json()["message"]
         mock_repo.remove_scan_folder.assert_called_once_with("/music")
+
+    def test_remove_scan_folder_unregisters_allowed_directory(self, client):
+        """Removing a scan folder must revoke it from validate_file_path()'s
+        allowlist immediately, not just on next backend restart (fixes #3842)."""
+        from security.path_security import _extra_allowed_dirs, register_allowed_directory
+
+        mock_repo = Mock()
+        mock_repo.remove_scan_folder.return_value = self._mock_settings()
+
+        removed_dir = Path("/tmp/removed_scan_folder")
+        register_allowed_directory(removed_dir)
+        try:
+            assert removed_dir.resolve() in _extra_allowed_dirs
+
+            with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+                response = client.post(
+                    "/api/settings/scan-folders/delete",
+                    json={"folder": str(removed_dir)},
+                )
+
+            assert response.status_code == 200
+            assert removed_dir.resolve() not in _extra_allowed_dirs
+        finally:
+            if removed_dir.resolve() in _extra_allowed_dirs:
+                _extra_allowed_dirs.remove(removed_dir.resolve())
+
+    def test_reset_settings_clears_extra_allowed_directories(self, client):
+        """Reset wipes the configured scan_folders list, so no previously
+        registered extra directory should remain trusted (fixes #3842)."""
+        from security.path_security import _extra_allowed_dirs, register_allowed_directory
+
+        mock_repo = Mock()
+        mock_repo.reset_to_defaults.return_value = self._mock_settings()
+
+        stale_dir = Path("/tmp/stale_scan_folder")
+        register_allowed_directory(stale_dir)
+        try:
+            assert stale_dir.resolve() in _extra_allowed_dirs
+
+            with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+                response = client.post("/api/settings/reset")
+
+            assert response.status_code == 200
+            assert _extra_allowed_dirs == []
+        finally:
+            if stale_dir.resolve() in _extra_allowed_dirs:
+                _extra_allowed_dirs.remove(stale_dir.resolve())
 
 
 class TestAlbumArtistEndpoints:

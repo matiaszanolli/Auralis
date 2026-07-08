@@ -17,13 +17,20 @@ Endpoints:
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from security.path_security import validate_user_chosen_directory, register_allowed_directory, PathValidationError
+from security.path_security import (
+    validate_user_chosen_directory,
+    register_allowed_directory,
+    unregister_allowed_directory,
+    clear_extra_allowed_directories,
+    PathValidationError,
+)
 
 from .dependencies import with_error_handling
 
@@ -201,6 +208,10 @@ def create_settings_router(
     async def remove_scan_folder(body: _ScanFolderRequest) -> dict[str, Any]:
         """Remove a folder from the list of scanned directories."""
         settings = await asyncio.to_thread(_repo().remove_scan_folder, body.folder)
+        # Undo the registration made in add_scan_folder so validate_file_path()
+        # stops trusting this folder for the rest of the session (fixes #3842),
+        # instead of only reverting on the next backend restart.
+        unregister_allowed_directory(Path(body.folder))
         await _notify_scanner()
         return {"message": f"Scan folder removed: {body.folder}", "settings": settings.to_dict()}
 
@@ -209,6 +220,9 @@ def create_settings_router(
     async def reset_settings() -> dict[str, Any]:
         """Reset all settings to their default values."""
         settings = await asyncio.to_thread(_repo().reset_to_defaults)
+        # reset_to_defaults wipes the configured scan_folders list, so no
+        # previously-registered extra directory should remain trusted (#3842).
+        clear_extra_allowed_directories()
         await _notify_scanner()
         return {"message": "Settings reset to defaults", "settings": settings.to_dict()}
 
