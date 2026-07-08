@@ -653,9 +653,17 @@ def create_system_router(
                     if old_task and not old_task.done():
                         logger.info("Cancelling existing streaming task for seek")
                         old_task.cancel()
+                        # Await unconditionally (fixes #3806) — the prior 100ms
+                        # wait_for/shield let the old task's DSP work (200ms-2s
+                        # inside asyncio.to_thread) outlive the timeout, so it
+                        # resumed and sent its own chunk over the same websocket
+                        # concurrently with the new seek task, interleaving
+                        # frames. play_enhanced/play_normal already await
+                        # unconditionally (see above); seek was the outlier. No
+                        # deadlock risk: the lock was released above this block.
                         try:
-                            await asyncio.wait_for(asyncio.shield(old_task), timeout=0.1)
-                        except (asyncio.CancelledError, TimeoutError):
+                            await old_task
+                        except (asyncio.CancelledError, Exception):
                             pass
 
                     await websocket.send_text(json.dumps({

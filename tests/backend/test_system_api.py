@@ -464,6 +464,92 @@ class TestWebSocketPlayback:
             assert data["type"] == "seek_started"
             assert data["data"]["position"] == 30.0
 
+    def test_seek_awaits_old_task_before_starting_new_one(self, client):
+        """Regression test for #3806.
+
+        The seek handler used to give the prior streaming task only a 100ms
+        `wait_for`/`shield` window before abandoning it and starting a new
+        one: if the old task caught the cancellation but needed real time to
+        finish up (e.g. flushing an already-computed chunk it was mid-way
+        through sending), the 100ms deadline could fire first — the seek
+        handler moved on to create the new task while the old one was still
+        alive and finishing its own send, interleaving frames on the shared
+        websocket.
+
+        The mock below explicitly catches CancelledError and performs 0.2s
+        of further async work before finishing (modeling that
+        finish-sending-in-progress-chunk behavior) — longer than the old
+        100ms deadline. Asserts the old task's completion marker is recorded
+        before the second seek's acknowledgement is sent, proving the
+        handler now waits for the old task's FULL lifecycle unconditionally
+        rather than abandoning it on a timeout.
+        """
+        import asyncio
+        import time as time_module
+
+        import routers.system as system_module
+
+        call_order = []
+
+        async def slow_stream_from_position(
+            websocket, get_repository_factory, get_enhancement_settings,
+            get_cache_manager, *, track_id, preset, intensity, position,
+            enhancement_enabled, ws_id,
+        ):
+            try:
+                await asyncio.sleep(1000)  # normally streams chunks until cancelled
+            except asyncio.CancelledError:
+                # Model finishing an in-flight send after being cancelled —
+                # takes longer than the old 100ms wait_for/shield deadline.
+                await asyncio.sleep(0.2)
+                call_order.append(f"old_task_completed:{position}")
+                raise
+
+        def _recv_until_type(ws, target: str, max_reads: int = 10) -> dict:
+            """Drain frames until one matches ``target`` type (other broadcast
+            traffic, e.g. enhancement_settings_changed, may arrive first)."""
+            for _ in range(max_reads):
+                data = json.loads(ws.receive_text())
+                if data.get("type") == target:
+                    return data
+            raise AssertionError(f"No '{target}' frame received within {max_reads} reads")
+
+        with patch.object(system_module, "stream_from_position", slow_stream_from_position):
+            with client.websocket_connect("/ws") as websocket:
+                websocket.send_text(json.dumps({
+                    "type": "seek",
+                    "data": {"track_id": 1, "position": 10.0},
+                }))
+                _recv_until_type(websocket, "seek_started")
+                # The task-creation block runs just AFTER the ack send, on
+                # the server's next event-loop iteration — give it a moment
+                # to register the task before popping it as "old_task" below,
+                # so this test isn't racing the server's own async handoff.
+                time_module.sleep(0.05)
+
+                # Seek again while the first task is still sleeping inside
+                # to_thread — this must fully await it before its own
+                # acknowledgement is sent.
+                start = time_module.monotonic()
+                websocket.send_text(json.dumps({
+                    "type": "seek",
+                    "data": {"track_id": 1, "position": 20.0},
+                }))
+                second_ack = _recv_until_type(websocket, "seek_started")
+                elapsed = time_module.monotonic() - start
+
+                assert second_ack["data"]["position"] == 20.0
+                # The old task's completion must have already happened by the
+                # time the new seek is acknowledged — not abandoned mid-flight.
+                assert call_order == ["old_task_completed:10.0"], (
+                    "seek did not wait for the prior streaming task to finish "
+                    f"before proceeding (call_order={call_order})"
+                )
+                assert elapsed >= 0.2, (
+                    f"seek acknowledged after only {elapsed:.3f}s — the old "
+                    "task's non-cancellable work should have blocked it"
+                )
+
 
 class TestWebSocketPlayNormal:
     """Tests for the play_normal WS message type (#3859 / BE-TC-4).
