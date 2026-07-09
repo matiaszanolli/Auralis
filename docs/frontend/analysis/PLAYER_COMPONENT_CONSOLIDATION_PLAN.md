@@ -1,6 +1,8 @@
 # Player Component Consolidation Plan
 
-**Status**: Analysis Complete | **Priority**: High | **Estimated Impact**: 30% code deduplication
+**Status**: ⚠️ SUPERSEDED (2026-07-09) — see note below | **Priority**: High | **Estimated Impact**: 30% code deduplication
+
+> **Superseded notice (2026-07-09)**: This plan directs consolidation *toward* `player-bar-v2/` — the opposite of what actually happened. `player-bar-v2/` (including `PlayerBarV2Connected.tsx`) was deleted in `67f82aa8` (#4089); `player/` (this doc's "Legacy" implementation) is the current, only player. `LyricsPanel.tsx`/`TrackQueue.tsx` were dropped, not migrated into `player-bar-v2/`. See [PLAYER_ENHANCEMENT_ARCHITECTURE.md](../PLAYER_ENHANCEMENT_ARCHITECTURE.md) for the current architecture. Kept for historical reference only.
 
 ## Executive Summary
 

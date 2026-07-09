@@ -1,8 +1,10 @@
 # 🏗️ Frontend Architecture V3 (Redesigned)
 
 **Version:** 3.0.0-design
-**Status:** Planning Phase
+**Status:** ⚠️ SUPERSEDED (2026-07-09) — see note below
 **Created:** November 30, 2025
+
+> **Superseded notice (2026-07-09)**: This describes a planned `PlayerBar-v3`/`LibraryView-v3`/`EnhancementPane-v3` redesign with `usePlayer()`/`useLibrary()`/`useEnhancement()` hooks that were never built (or were built and later deleted in `67f82aa8`, #4089) — none of it exists in the current frontend. For the current, code-verified player/enhancement architecture, see [PLAYER_ENHANCEMENT_ARCHITECTURE.md](PLAYER_ENHANCEMENT_ARCHITECTURE.md). Kept for historical reference only.
 
 ---
 

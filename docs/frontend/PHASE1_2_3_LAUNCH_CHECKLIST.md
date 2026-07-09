@@ -13,7 +13,7 @@
 - [ ] **Read all documentation**
   - [ ] [FRONTEND_REDESIGN_ROADMAP_2_0.md](../roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md) - Your phase section
   - [ ] [PHASE0_COMPLETE_SUMMARY.md](PHASE0_COMPLETE_SUMMARY.md) - Foundation reference
-  - [ ] [ARCHITECTURE_V3.md](ARCHITECTURE_V3.md) - System design
+  - [ ] [PLAYER_ENHANCEMENT_ARCHITECTURE.md](PLAYER_ENHANCEMENT_ARCHITECTURE.md) - Current system design
 
 - [ ] **Understand your team's scope**
   - [ ] Review your specific phase (1, 2, or 3)
@@ -412,7 +412,7 @@ A Phase is complete when:
 **Documentation:**
 - [FRONTEND_REDESIGN_ROADMAP_2_0.md](../roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md) - Complete specs
 - [PHASE0_COMPLETE_SUMMARY.md](PHASE0_COMPLETE_SUMMARY.md) - Foundation reference
-- [ARCHITECTURE_V3.md](ARCHITECTURE_V3.md) - System design
+- [PLAYER_ENHANCEMENT_ARCHITECTURE.md](PLAYER_ENHANCEMENT_ARCHITECTURE.md) - Current system design
 
 **Code References:**
 - [src/types/websocket.ts](../../auralis-web/frontend/src/types/websocket.ts) - Message types

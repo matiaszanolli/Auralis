@@ -1,5 +1,7 @@
 # PlayerBarV2Connected Refactoring - Complete Fix
 
+> **Superseded notice (2026-07-09)**: `PlayerBarV2Connected.tsx` was deleted in `67f82aa8` (#4089) along with the rest of the `player-bar-v2/` variant. The current, only player bar is `components/player/Player.tsx`. See [PLAYER_ENHANCEMENT_ARCHITECTURE.md](../../PLAYER_ENHANCEMENT_ARCHITECTURE.md) for the current architecture. Kept for historical reference only.
+
 ## Problem Statement
 The PlayerBarV2Connected component had incomplete refactoring that prevented proper playback control and state synchronization. The user identified: **"PlayerBarV2Connected.tsx was never properly refactored."**
 

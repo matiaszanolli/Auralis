@@ -422,7 +422,7 @@ useEffect(() => {
 | "How do I style a component?" | [Design tokens](../../auralis-web/frontend/src/design-system/tokens.ts) |
 | "Why is my test failing?" | Check [TESTING_GUIDELINES.md](../../docs/development/TESTING_GUIDELINES.md) |
 | "What's the API for X endpoint?" | [Backend routers](../../auralis-web/backend/routers/) or [WEBSOCKET_API.md](../../auralis-web/backend/WEBSOCKET_API.md) |
-| "How do I debug WebSocket?" | Check [ARCHITECTURE_V3.md § Debugging](ARCHITECTURE_V3.md) |
+| "How do I debug WebSocket?" | Check [WEBSOCKET_API.md](../../auralis-web/backend/WEBSOCKET_API.md) |
 
 ---
 

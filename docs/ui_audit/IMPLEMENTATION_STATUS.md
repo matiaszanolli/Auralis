@@ -2,7 +2,9 @@
 
 **Date**: November 9, 2025
 **Session**: UI Audit & Implementation + Frontend Testing Infrastructure
-**Status**: 🎉 **94% COMPLETE** - All Major Components Refactored + MSW Testing Ready
+**Status**: ⚠️ SUPERSEDED (2026-07-09) — see note below
+
+> **Superseded notice (2026-07-09)**: The remaining "NOT STARTED" item here (PlayerBarV2 integration against `BottomPlayerBarUnified`) and the pending `EnhancementPaneV2` item (against `AutoMasteringPane`) both describe components that don't exist in the current tree — `PlayerBarV2*`/`BottomPlayerBarUnified` were deleted in `67f82aa8` (#4089), and `AutoMasteringPane` was never the enhancement UI's actual name. The current player is `components/player/Player.tsx`; the current right-side pane is `components/library/AlbumCharacterPane/`, not `EnhancementPane`. See [PLAYER_ENHANCEMENT_ARCHITECTURE.md](../frontend/PLAYER_ENHANCEMENT_ARCHITECTURE.md) for the current architecture. Kept for historical reference only.
 
 ---
 
