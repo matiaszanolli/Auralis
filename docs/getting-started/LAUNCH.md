@@ -5,6 +5,8 @@
 **Teams:** 3 (Player, Library, Enhancement)
 **Target Release:** 1.2.0 (March 2026)
 
+> **📜 Historical snapshot (Dec 2025 launch plan)**: This was the kickoff command for the Dec-2025 frontend-redesign sprint. Its 1.2.0/March-2026 target has since shipped and been surpassed (current: 1.2.1-beta.2, `auralis/version.py`). The `FRONTEND_REDESIGN_ROADMAP_2_0.md` spec referenced throughout was removed in a 2025-12-27 docs cleanup (`866b7dae`) and is no longer in the repo. Kept for historical reference.
+
 ---
 
 ## 📋 PRE-LAUNCH CHECKLIST (Dec 1, 5 PM)
@@ -21,7 +23,7 @@
 # 2. Verify development environment (1 hour)
 cd /mnt/data/src/matchering/auralis-web/frontend
 npm install
-npm run typecheck
+npm run type-check
 npm test
 
 # 3. Create branches (5 minutes)
@@ -85,7 +87,7 @@ Meeting: Brief overview of the day
 cd auralis-web/frontend
 
 # Verify TypeScript compiles
-npm run typecheck
+npm run type-check
 
 # Verify tests pass
 npm test
@@ -226,7 +228,7 @@ npm test           # Watch mode
 npm test -- --ui   # Visual UI
 
 # Type checking
-npm run typecheck  # No errors allowed
+npm run type-check  # No errors allowed
 
 # Code quality
 npm run lint       # If available
@@ -249,7 +251,7 @@ Detailed explanation.
 ## ✅ SUCCESS CRITERIA (Daily)
 
 **Before 5 PM Each Day:**
-- [ ] TypeScript: `npm run typecheck` → 0 errors
+- [ ] TypeScript: `npm run type-check` → 0 errors
 - [ ] Tests: `npm test` → all passing
 - [ ] Dev Server: `npm run dev` → runs on port 3000
 - [ ] Console: No errors or warnings
@@ -262,7 +264,7 @@ Detailed explanation.
 **Check these in order:**
 
 1. **TypeScript error?**
-   → Run `npm run typecheck`
+   → Run `npm run type-check`
    → Check imports are from `src/types/`
    → Verify QUICK_REFERENCE.md for correct types
 
@@ -320,7 +322,7 @@ A phase is done when:
 - [ ] No console errors
 
 ✅ **Type safety**
-- [ ] `npm run typecheck` → 0 errors
+- [ ] `npm run type-check` → 0 errors
 - [ ] All props typed
 - [ ] All returns typed
 - [ ] No `any` types

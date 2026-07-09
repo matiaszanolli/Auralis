@@ -1,9 +1,11 @@
 # Auralis Master Roadmap
 
-**Last Updated**: November 27, 2025
+**Last Updated**: November 27, 2025 (version facts refreshed 2026-07-09)
 **Current Phase**: Phase 7B Complete, Phase 7C Ready, Performance Optimizations Complete
-**Current Version**: 1.1.0-beta.2 (with critical optimizations)
-**Next Release**: 1.1.0 (Target: December 2025)
+**Current Version**: 1.2.1-beta.2 (source of truth: `auralis/version.py`)
+**Next Release**: see git tags for the latest published release
+
+> **ℹ️ Scope note (2026-07-09)**: This roadmap was authored during the 1.1.0-beta cycle. The **1.2.x line has since shipped** (current: 1.2.1-beta.2) — anything below framed as "planned for 1.2.0" is now largely delivered. The dated milestones remain as a historical record of the plan; treat `auralis/version.py`, `docs/releases/CHANGELOG.md`, and the git tag history as the authoritative record of what has actually shipped.
 
 ---
 
@@ -173,7 +175,7 @@ Replace full-track fingerprint analysis with strategic time-domain sampling. Use
    - Confidence scoring and pass/fail determination
 
 5. 📋 Documentation (Phase 7B summary created)
-   - [docs/completed/PHASE_7B_COMPLETION_SUMMARY.md](docs/completed/PHASE_7B_COMPLETION_SUMMARY.md)
+   - PHASE_7B_COMPLETION_SUMMARY.md (removed in a 2025-12-27 docs cleanup, `866b7dae`; no longer in the repo)
 
 **Results**:
 - ✅ Overall average correlation: 89.5% (24 tracks tested)

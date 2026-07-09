@@ -1,12 +1,12 @@
 # Auralis Versioning Strategy & Release Management
 
-**Status**: Beta Release Preparation
-**Date**: October 24, 2025
-**Current Version**: 0.8.0 (pre-beta)
+**Status**: Living reference
+**Date**: October 24, 2025 (last version-fact review: 2026-07-09)
+**Current Version**: 1.2.1-beta.2 (source of truth: `auralis/version.py`)
 
 ## Executive Summary
 
-This document defines the versioning standard, release process, and binary build triggers for Auralis as we approach the beta release milestone.
+This document defines the versioning standard, release process, and binary build triggers for Auralis. The semantic-versioning rules below are stable; the concrete version numbers in the examples are illustrative and may lag the current release — always treat `auralis/version.py` as the source of truth.
 
 ## Semantic Versioning Standard
 
@@ -61,9 +61,9 @@ Examples:
 
 ### Where We Are Now
 
-**Version**: `0.8.0` (internal development)
+**Version**: `1.2.1-beta.2` (see `auralis/version.py`)
 
-**Status**: Pre-beta, feature complete with optimizations
+**Status**: Beta, feature complete with optimizations
 
 **Completed Major Features**:
 - ✅ Adaptive mastering (core processing)
@@ -127,7 +127,7 @@ Examples:
 
 ### Single Source of Truth: `version.py`
 
-**File**: `auralis/version.py`
+**File**: `auralis/version.py` (already the established source of truth — it is read, not created, by the release process)
 
 ```python
 """
@@ -135,16 +135,16 @@ Auralis version information.
 Single source of truth for version across the entire project.
 """
 
-__version__ = "1.0.0-beta.1"
-__version_info__ = (1, 0, 0, "beta", 1)
-__build_date__ = "2025-10-24"
-__git_commit__ = "a1b2c3d"  # Auto-populated during build
+__version__ = "1.2.1-beta.2"
+__version_info__ = (1, 2, 1, "beta", 2)
+__build_date__ = "2026-03-23"
+__git_commit__ = ""  # Auto-populated during build
 
 # Version components for programmatic access
 VERSION_MAJOR = 1
-VERSION_MINOR = 0
-VERSION_PATCH = 0
-VERSION_PRERELEASE = "beta.1"  # Empty string for stable releases
+VERSION_MINOR = 2
+VERSION_PATCH = 1
+VERSION_PRERELEASE = "beta.2"  # Empty string for stable releases
 VERSION_BUILD = ""  # Optional build metadata
 
 # Semantic version string
@@ -367,14 +367,14 @@ jobs:
 # 1. Ensure all changes committed
 git status
 
-# 2. Update version in version.py
-# Edit auralis/version.py: __version__ = "1.0.0-beta.1"
+# 2. Update version in version.py (this file always exists — edit, don't create)
+# Edit auralis/version.py: __version__ = "1.2.1-beta.2"
 
-# 3. Update CHANGELOG.md
+# 3. Update docs/releases/CHANGELOG.md
 # Add release notes
 
-# 4. Sync versions across project
-python scripts/sync_version.py  # Updates package.json files
+# 4. Sync versions across project (sync_version.py lives at the repo root)
+python sync_version.py  # Updates package.json files
 
 # 5. Run full test suite
 python -m pytest
@@ -454,13 +454,13 @@ gh release edit v1.0.0-beta.1 --draft=false
 
 ## Version Bump Script
 
-**File**: `scripts/sync_version.py`
+**File**: `sync_version.py` (repo root)
 
 ```python
 #!/usr/bin/env python3
 """
 Sync version across all project files.
-Usage: python scripts/sync_version.py [NEW_VERSION]
+Usage: python sync_version.py [NEW_VERSION]
 """
 
 import re
@@ -583,7 +583,7 @@ def migrate_database(current_version: int, target_version: int):
 
 ## Changelog Format
 
-**File**: `CHANGELOG.md`
+**File**: `docs/releases/CHANGELOG.md`
 
 ```markdown
 # Changelog
@@ -654,17 +654,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [x] Desktop build working
 - [x] Documentation comprehensive
 
-### Beta 1 Requirements
-- [ ] Create `auralis/version.py` with version info
-- [ ] Create `scripts/sync_version.py` for version management
-- [ ] Implement version tracking in database
-- [ ] Add version endpoint to API
-- [ ] Display version in UI
-- [ ] Library scan UI implementation
-- [ ] Frontend test coverage ≥ 50%
-- [ ] Update CHANGELOG.md with beta.1 notes
-- [ ] Create GitHub Actions workflow for builds
-- [ ] Tag v1.0.0-beta.1 and test build process
+### Beta 1 Requirements (completed — historical checklist)
+> These items shipped with the 1.0.0-beta.1 cycle and are retained for context. The versioning infrastructure they describe now exists.
+- [x] `auralis/version.py` with version info (the single source of truth — already present)
+- [x] `sync_version.py` for version management (at the repo root)
+- [x] Version tracking in database
+- [x] Version endpoint in API
+- [x] Display version in UI
+- [x] Library scan UI implementation
+- [x] Update `docs/releases/CHANGELOG.md` with release notes
+- [x] GitHub Actions workflow for builds
+- [x] Tag releases (`v1.0.0-beta.1` and onward) and test build process
 
 ### Release Candidate Requirements
 - [ ] All beta feedback addressed
@@ -682,17 +682,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Summary
 
 **Versioning System**: Semantic Versioning 2.0.0
-**Next Release**: 1.0.0-beta.1 (after completing beta checklist)
-**Build Trigger**: Git tags starting with `v` (e.g., `v1.0.0-beta.1`)
+**Current Release**: 1.2.1-beta.2 (see `auralis/version.py`; latest tags in git history)
+**Build Trigger**: Git tags starting with `v` (e.g., `v1.2.1-beta.1`)
 **Version Source**: `auralis/version.py` (single source of truth)
 **Release Process**: Tag → CI/CD Build → Test → Publish
 
-**Immediate Next Steps**:
-1. Create `auralis/version.py`
-2. Create `scripts/sync_version.py`
-3. Implement version tracking in database
-4. Set up GitHub Actions build workflow
-5. Complete beta checklist items
+**To cut a release** (the infrastructure below already exists — this is the standing process, not a setup task):
+1. Edit `auralis/version.py` with the new version
+2. Run `python sync_version.py` from the repo root to propagate to `package.json` files
+3. Update `docs/releases/CHANGELOG.md`
+4. Commit, tag `vX.Y.Z[-pre]`, and push the tag to trigger CI/CD builds
+5. See [RELEASE_GUIDE.md](RELEASE_GUIDE.md) for the full checklist
 
 ---
 

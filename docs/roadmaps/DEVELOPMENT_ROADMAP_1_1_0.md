@@ -4,6 +4,8 @@
 **Current Version:** 1.1.0-beta.1
 **Status:** Development Release (No Binaries)
 
+> **📜 Historical snapshot (as of 1.1.0-beta.1, Nov 2025)**: This is a point-in-time roadmap captured during the 1.1.0-beta cycle. The **1.2.x line has since shipped** (current: 1.2.1-beta.2). Version numbers, dates, and "planned/current" labels below reflect that earlier moment, not today. For the living roadmap see [MASTER_ROADMAP.md](../MASTER_ROADMAP.md); for what actually shipped see `auralis/version.py` and [CHANGELOG.md](../releases/CHANGELOG.md).
+
 ---
 
 ## 📊 High-Level Vision

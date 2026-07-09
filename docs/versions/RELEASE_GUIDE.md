@@ -7,7 +7,7 @@
 - [ ] All features complete and tested
 - [ ] All tests passing (`python -m pytest`)
 - [ ] Performance benchmarks run and documented
-- [ ] CHANGELOG.md updated with release notes
+- [ ] docs/releases/CHANGELOG.md updated with release notes
 - [ ] Known issues documented
 - [ ] GitHub Actions configured (`.github/workflows/build-release.yml`)
 - [ ] Git repository clean (`git status` shows no uncommitted changes)
@@ -53,7 +53,7 @@ npm run package:linux  # Or package:win / package:mac
 #   - 1.0.0         (stable release)
 
 # Bump version across all files
-python scripts/sync_version.py 1.0.0-beta.1
+python sync_version.py 1.0.0-beta.1
 
 # Review changes
 git diff
@@ -66,7 +66,7 @@ cat auralis-web/frontend/package.json | grep version
 
 ### Step 3: Update CHANGELOG (15 minutes)
 
-Edit `CHANGELOG.md`:
+Edit `docs/releases/CHANGELOG.md`:
 
 ```markdown
 ## [1.0.0-beta.1] - 2025-10-24
@@ -91,7 +91,7 @@ Edit `CHANGELOG.md`:
 git add auralis/version.py
 git add desktop/package.json
 git add auralis-web/frontend/package.json
-git add CHANGELOG.md
+git add docs/releases/CHANGELOG.md
 
 # Commit with standardized message
 git commit -m "chore: bump version to 1.0.0-beta.1
@@ -101,7 +101,7 @@ Preparing for beta.1 release with:
 - Version management system
 - Library scan API
 
-See CHANGELOG.md for full details."
+See docs/releases/CHANGELOG.md for full details."
 
 # Push to master
 git push origin master
@@ -124,7 +124,7 @@ Improvements:
 - Large library support (50k+ tracks)
 - Modular backend architecture
 
-See CHANGELOG.md for full details."
+See docs/releases/CHANGELOG.md for full details."
 
 # Push tag to trigger CI/CD builds
 git push origin v1.0.0-beta.1
@@ -240,7 +240,7 @@ git checkout -b hotfix/1.0.0-beta.1-fix v1.0.0-beta.1
 git commit -am "fix: critical bug description"
 
 # Bump to patch or next beta
-python scripts/sync_version.py 1.0.0-beta.2
+python sync_version.py 1.0.0-beta.2
 git commit -am "chore: bump version to 1.0.0-beta.2"
 
 # Merge back to master
@@ -343,7 +343,7 @@ git push origin v1.0.0-beta.1
 ### "Version mismatch"
 ```bash
 # Re-sync version across all files
-python scripts/sync_version.py
+python sync_version.py
 
 # Verify
 git diff
@@ -354,7 +354,7 @@ git diff
 ### Version Management
 ```bash
 # Bump version
-python scripts/sync_version.py <NEW_VERSION>
+python sync_version.py <NEW_VERSION>
 
 # Check current version
 python -c "from auralis.version import get_version; print(get_version())"
@@ -448,7 +448,7 @@ If release has critical issues and needs to be pulled:
 
 **Key documents**:
 - [VERSIONING_STRATEGY.md](VERSIONING_STRATEGY.md) - Versioning standard and strategy
-- [CHANGELOG.md](CHANGELOG.md) - Release history and notes
+- [CHANGELOG](../releases/CHANGELOG.md) - Release history and notes
 - [PERFORMANCE_OPTIMIZATION_QUICK_START.md](PERFORMANCE_OPTIMIZATION_QUICK_START.md) - Performance info
 - This file (RELEASE_GUIDE.md) - Release process
 
@@ -468,10 +468,10 @@ For experienced maintainers:
 python -m pytest && python benchmark_performance.py
 
 # 2. Bump version
-python scripts/sync_version.py 1.0.0-beta.1
+python sync_version.py 1.0.0-beta.1
 
 # 3. Update CHANGELOG
-vim CHANGELOG.md
+vim docs/releases/CHANGELOG.md
 
 # 4. Commit & tag
 git commit -am "chore: bump version to 1.0.0-beta.1"

@@ -34,6 +34,62 @@ Replaced hard thresholds with cosine-interpolated curves for natural transitions
 
 ---
 
+## [1.2.1-beta.2] - 2026-03-23
+
+### Overview
+Current release. Stability and correctness pass over the mastering pipeline, playback concurrency, and streaming, plus a large documentation/audit remediation effort. Highlights derived from git history (`v1.2.1-beta.1..`); see the commit log for the full list.
+
+### Fixed
+- **Mastering**: QuietBranch makeup-gain now uses the whole-song peak instead of a per-chunk peak; improved loudness targeting and crest reduction; NaN/Inf guard on AdaptiveMode/ContinuousMode final normalization
+- **Concurrency**: resolved hard deadlock between `seek`/`load_file`/`next_track` and `get_playback_info`; guarded against a `LibraryManager()` construction race during migration; a single slow WebSocket client no longer stalls player-state updates
+- **Resource leaks**: HybridProcessor cache eviction no longer leaks fingerprint-analyzer threads; ProcessingEngine/StreamlinedCacheWorker no longer stay truthy after their background task dies
+- **Repositories**: Album/Artist sibling lookups now apply the `DetachedInstanceError` fix; scan endpoint REST/WS payloads reconciled
+
+### Changed
+- Removed the deprecated engine `process()` wrapper and `API_VERSION`/`MIN_COMPATIBLE_VERSION`/`is_compatible()` machinery
+- `version.py` `DB_SCHEMA_VERSION` now mirrors the live schema (16)
+- Extensive documentation accuracy pass (architecture, testing, style guides, versioning docs)
+
+## [1.2.1-beta.1] - 2026-02-20
+
+### Overview
+Large batched audit-remediation release resolving dozens of concurrency, data-integrity, API-contract, DSP, and security issues (`v1.2.0-beta.3..v1.2.1-beta.1`).
+
+### Fixed
+- **Concurrency**: `RLock` added to QueueManager (fixed `_auto_advancing` bypass); `asyncio.Lock` for PlayerStateManager and streaming-task tracking; stop processing on client disconnect
+- **DSP / correctness**: vectorized EQ gain curve; batch metadata updates made atomic with rollback
+- **Desktop**: resolved DB version mismatch and WebSocket heartbeat rejection
+- **Testing**: fixed test-collection failures from `sys.path` and missing schemas; added AudioStreamController lifecycle tests
+- Multiple batched fixes across issues #2299–#2472
+
+## [1.2.0-beta.3] - 2026-01-03
+
+### Added
+- Multiband stereo expansion and bass enhancement in the mastering pipeline
+- `ARCHITECTURE.md` documenting the processor hierarchy and naming conventions
+
+### Changed
+- Enforced the repository pattern for all database access
+- Removed "Enhanced"/"Advanced" naming violations; resolved the RealtimeProcessor naming collision
+- Split god-files into modular packages (`base_processing_mode.py` → `base/`, `common_metrics.py` → `metrics/`); moved fingerprint services from `library/` to `services/`; consolidated the duplicate WebM encoder
+
+### Fixed
+- CI/build: Rust toolchain + `auralis-dsp` build in GitHub Actions; Electron output paths; Vite build output moved to `dist/`; WebSocket deps in the PyInstaller spec
+
+## [1.2.0-beta.2] - 2025-12-27
+
+### Added
+- Tempo detection, fluid bass handling, and time metrics in the mastering pipeline (with regression tests)
+- UX polish: Inter font, simplified player, flat design, visual-hierarchy pass
+
+### Changed
+- **AppImage size**: reduced from ~2.8GB to ~205MB by removing CUDA/GPU libraries and optimizing dependencies
+- Reorganized root documentation into `docs/` subfolders
+
+### Fixed
+- Restored AppImage playback by migrating to WebSocket streaming
+- Included the Rust DSP module and backend modules (config, routers) in PyInstaller builds
+
 ## [1.2.0-beta.1] - 2025-12-21
 
 ### Overview
