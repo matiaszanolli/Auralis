@@ -1,7 +1,7 @@
 # Auralis Testing Guidelines
 
 **Version:** 1.0.0
-**Last Updated:** November 6, 2024
+**Last Updated:** July 9, 2026
 **Status:** 🎯 **MANDATORY** - All contributors must follow these guidelines
 
 ---
@@ -23,17 +23,25 @@
 
 ## Overview
 
-### Current State (Nov 2024)
+### Current State
 
-**Test Count:** ~4,900+ test functions across 18 test directories
-**Coverage:** 74% (backend), ~95% (frontend pass rate)
-**Problem:** Low test count for complexity, insufficient quality validation
+Don't hardcode test counts here — they go stale. Get live numbers instead:
 
-### Target State (Beta 10.0 - Q1 2025)
+```bash
+# Backend: total collected test count
+python -m pytest --collect-only -q 2>/dev/null | tail -1
+# Backend: number of test files / tests/ subdirectories
+find tests -name "test_*.py" -not -path "*/__pycache__/*" | wc -l
+ls -d tests/*/ | grep -v __pycache__ | wc -l
+# Frontend: colocated *.test.ts(x) files under src/
+find auralis-web/frontend/src -name "*.test.ts" -o -name "*.test.tsx" | wc -l
+```
 
-**Test Count:** 2,500+ tests (5x increase)
-**Coverage:** >85% with quality validation
-**Focus:** Invariant testing, integration testing, property-based testing
+Snapshot as of 2026-07-09 (for orientation only — re-run the commands above): ~5,400 backend tests collected across 378 files / 18 `tests/` subdirectories, plus 204 colocated frontend test files.
+
+**Focus:** Invariant testing, integration testing, property-based testing — quality of validation matters far more than raw count (see the case study below).
+
+> **Historical note**: Earlier versions of this doc carried a "Beta 10.0 / Q1 2025: 2,500+ tests" roadmap. Those targets were met and long surpassed; the roadmap has been removed to avoid confusion. The `Implementation Roadmap` section near the end is likewise retained only as a historical artifact.
 
 ### Why These Guidelines?
 
@@ -361,7 +369,7 @@ def test_corrupt_audio_file_is_skipped_during_scan():
 
 **Minimum Coverage Requirements:**
 - Backend: **85%** line coverage
-- Frontend: **80%** line coverage
+- Frontend: **85%** line / functions / statements, **80%** branches (enforced by `auralis-web/frontend/vitest.config.ts` — check there for the authoritative thresholds)
 - Critical paths: **100%** coverage (audio processing, database writes)
 
 **But coverage alone is meaningless!** Also track:
@@ -897,47 +905,24 @@ describe('Playback Integration', () => {
 
 ### Directory Structure
 
+**Backend** tests live under `tests/` (18 subdirectories as of 2026-07-09). **Frontend** tests are **colocated with source** as `*.test.ts(x)` next to the component/module they cover (e.g. `auralis-web/frontend/src/components/album/AlbumArt.test.tsx`), or under a `__tests__/` folder beside it — there is **no** top-level `tests/frontend/` directory. Likewise there is no `tests/helpers/`; shared fixtures live in `conftest.py` files and `tests/utils/`.
+
+Run `ls -d tests/*/` for the current authoritative list. Representative layout:
+
 ```
 tests/
-├── backend/                    # Backend Python tests
-│   ├── conftest.py            # Shared fixtures
-│   ├── test_library.py        # Library management
-│   ├── test_player.py         # Audio player
-│   ├── test_chunked_processor.py  # Chunked processing
-│   └── integration/
-│       ├── test_library_scan.py   # Library scan workflow
-│       └── test_playback.py       # Playback workflow
-│
-├── frontend/                   # Frontend TypeScript tests
-│   ├── setup.ts               # Test setup
-│   ├── components/            # Component tests
-│   │   ├── LibraryView.test.tsx
-│   │   ├── PlayerBar.test.tsx
-│   │   └── AlbumCard.test.tsx
-│   └── integration/           # Integration tests
-│       └── playback.test.tsx
-│
-├── auralis/                   # Audio processing tests
-│   ├── core/
-│   │   └── test_hybrid_processor.py
-│   ├── dsp/
-│   │   ├── test_eq.py
-│   │   ├── test_dynamics.py
-│   │   └── test_stages.py
-│   ├── analysis/
-│   │   └── test_fingerprint.py
-│   └── player/
-│       └── test_realtime.py
-│
-├── validation/                # Validation & E2E tests
-│   ├── test_preset_integration.py
-│   ├── test_e2e_processing.py
-│   └── test_performance.py
-│
-└── helpers/                   # Test utilities
-    ├── audio_generators.py    # Audio generation
-    ├── fixtures.py            # Common fixtures
-    └── assertions.py          # Custom assertions
+├── auralis/        # Core library tests (core/, dsp/, analysis/, library/, player/)
+├── backend/        # FastAPI backend + API tests
+├── integration/    # Cross-component & end-to-end workflows (test_e2e_workflows.py lives here)
+├── boundaries/     # Boundary / edge-condition tests
+├── concurrency/    # Thread-safety & race-condition tests
+├── security/       # Path traversal, injection, validation
+├── performance/    # Benchmarks & scaling
+├── regression/     # Regression tests for fixed bugs
+├── validation/     # Input validation & data integrity
+├── audio/, edge_cases/, input_media/, load_stress/, mutation/,
+├── stress/, utils/, vendor/            # (see `ls -d tests/*/` for the full set)
+└── conftest.py     # Shared fixtures (per-directory conftest.py files also exist)
 ```
 
 ### Naming Conventions
@@ -969,10 +954,10 @@ def test_edge_case()  # Which edge case?
 
 ### Test Markers
 
-Use pytest markers to organize tests:
+Use pytest markers to organize tests. The **authoritative list of registered markers lives in `pytest.ini`** (`markers =` block — ~42 markers as of 2026-07-09, far more than the abbreviated set shown below). Run `python -m pytest --markers` to see the current registered set. A representative subset:
 
 ```python
-# pytest.ini
+# pytest.ini (excerpt — see the file for the full ~42-marker list)
 [pytest]
 markers =
     unit: Unit tests (fast, isolated)
@@ -983,6 +968,8 @@ markers =
     player: Player tests
     performance: Performance benchmarks
     slow: Slow tests (>1s)
+    # ...plus boundary, invariant, security, concurrency, regression,
+    # mutation, memory, and ~25 more — see pytest.ini
 ```
 
 **Usage:**
@@ -1097,7 +1084,7 @@ jobs:
 
 **Merge Requirements:**
 - ✅ All tests pass
-- ✅ Coverage ≥85% (backend), ≥80% (frontend)
+- ✅ Coverage ≥85% (backend), ≥85% lines (frontend; see `vitest.config.ts`)
 - ✅ No new critical issues (mutation testing)
 - ✅ Performance benchmarks within 10% of baseline
 
@@ -1315,7 +1302,9 @@ def test_chunks_concatenate_without_gaps():
 6. **Fail Fast** - Don't mark tests as xfail, fix the bugs
 7. **Measure Quality** - Track mutation score, not just coverage
 
-### Implementation Roadmap
+### Implementation Roadmap (historical)
+
+> This roadmap is a 2024 planning artifact. Its targets (up to "2,500+ tests") have all been met and surpassed — the suite is now ~5,400 tests. Kept for context on how the suite grew; not a live plan.
 
 **Phase 1 (Beta 9.1 - Dec 2024):**
 - Add 500 invariant tests for critical paths
@@ -1348,5 +1337,4 @@ def test_chunks_concatenate_without_gaps():
 ---
 
 **Document Owner:** Engineering Team
-**Last Reviewed:** November 6, 2024
-**Next Review:** December 2024
+**Last Reviewed:** July 9, 2026

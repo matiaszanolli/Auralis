@@ -4,6 +4,8 @@
 **Testing Framework**: Vitest + React Testing Library
 **Coverage**: Phase 1 Components (Album Art, Playlists, Queue)
 
+> **Historical snapshot (note added 2026-07-09)**: This documents one specific 2025 test batch and its "4 files / 75 tests" figure — **not** the current frontend suite (now 200+ colocated `*.test.ts(x)` files; run `find auralis-web/frontend/src -name '*.test.ts*' | wc -l` for the live count). One of the four files described below, **`EnhancedTrackQueue.test.tsx` (25 tests), no longer exists** — that component was decomposed into `QueuePanel` / `QueueStatisticsPanel` / etc., each with its own tests under `components/player/__tests__/`. So the "4 files, 75 tests" total is stale (`AlbumArt.test.tsx`, `PlaylistList.test.tsx`, and `playlistService.test.ts` do still exist). The Vitest patterns and setup guidance below remain valid.
+
 ---
 
 ## 🎯 What Was Implemented
@@ -27,7 +29,7 @@
    - Delete playlist tests (confirmation, API calls)
    - Event propagation tests
 
-3. **`EnhancedTrackQueue.test.tsx`** (~250 lines)
+3. **`EnhancedTrackQueue.test.tsx`** (~250 lines) — ⚠️ **no longer exists** (component decomposed into `QueuePanel`/`QueueStatisticsPanel`; see the note at the top of this doc)
    - Rendering tests (tracks, artists, durations)
    - Empty state tests
    - Current track highlighting tests
@@ -294,11 +296,11 @@ describe('myService', () => {
 
 ## 🎯 Total Test Coverage
 
-**Summary**:
-- **Test Files**: 4
-- **Total Tests**: 75 tests
+**Summary** (historical — see note at top; `EnhancedTrackQueue` has since been removed):
+- **Test Files**: 4 (3 still exist; `EnhancedTrackQueue.test.tsx` was deleted)
+- **Total Tests**: 75 tests as originally written (now ~50 in these files, since the 25 EnhancedTrackQueue tests were replaced by QueuePanel/QueueStatisticsPanel tests elsewhere)
 - **Lines of Test Code**: ~800 lines
-- **Components Covered**: 3 (AlbumArt, PlaylistList, EnhancedTrackQueue)
+- **Components Covered**: originally 3 (AlbumArt, PlaylistList, EnhancedTrackQueue)
 - **Services Covered**: 1 (playlistService)
 
 ---
@@ -496,7 +498,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '24'
 
       - name: Install dependencies
         run: |

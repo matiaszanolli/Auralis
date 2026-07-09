@@ -1,8 +1,20 @@
 # Test Execution Guide
 
-**Date:** November 7, 2024
-**Status:** Complete
-**Coverage:** 238 Phase 1 tests + 445 existing tests = 683 total tests
+**Date:** July 9, 2026 (originally November 7, 2024)
+**Status:** Living reference
+
+> **On test counts**: This guide previously hardcoded specific totals ("683 total tests", "invariant: 109", "boundary: 79", etc.). Those went badly stale — the suite is now ~5,400 collected tests. Don't trust any hardcoded number here; get live counts with `--collect-only`. Per-marker counts vary widely and some markers are barely used (e.g. `invariant` currently tags exactly **1** test — it is not a general "run all invariant tests" bucket).
+
+```bash
+# Total collected
+python -m pytest --collect-only -q 2>/dev/null | tail -1
+# Count for any marker, e.g. boundary / slow / fast
+python -m pytest -m boundary  --collect-only -q 2>/dev/null | tail -1
+python -m pytest -m slow      --collect-only -q 2>/dev/null | tail -1
+python -m pytest -m fast      --collect-only -q 2>/dev/null | tail -1
+```
+
+Snapshot as of 2026-07-09 (orientation only — re-run the commands): ~5,400 total; `boundary` ~350; `slow` ~178; `fast` ~61; `invariant` 1.
 
 ---
 
@@ -11,36 +23,31 @@
 ### Run All Tests
 ```bash
 pytest tests/
-# Runs: All 683 tests
-# Time: ~275 seconds (~4.5 minutes)
 ```
 
-### Run Phase 1 Tests Only
+### Run By Category
 ```bash
-# Week 1: Invariant tests (109 tests)
+# Invariant tests (note: currently only 1 test carries this marker)
 pytest -m invariant tests/
 
-# Week 2: Integration tests (50 tests)
-pytest -m integration tests/backend/test_e2e_workflows.py tests/backend/test_api_endpoint_integration.py tests/backend/test_artwork_integration.py tests/backend/test_playlist_integration.py
+# Integration tests — note test_e2e_workflows.py lives in tests/integration/,
+# the other integration suites are under tests/backend/
+pytest -m integration tests/integration/test_e2e_workflows.py tests/backend/test_api_endpoint_integration.py tests/backend/test_artwork_integration.py tests/backend/test_playlist_integration.py
 
-# Week 3: Boundary tests (79 tests)
-pytest -m boundary tests/backend/
+# Boundary tests
+pytest -m boundary tests/
 ```
 
 ### Run Fast Tests Only (CI/PR)
 ```bash
 pytest -m "fast and not slow" tests/
-# Runs: ~580 tests (85% of total)
-# Time: ~60 seconds
-# Catches: ~95% of bugs
+# Fastest subset for quick pre-commit checks
 ```
 
 ### Run Slow Tests (Nightly)
 ```bash
 pytest -m slow tests/
-# Runs: ~23 tests (3% of total)
-# Time: ~177 seconds
-# Catches: Performance regressions, memory leaks, long audio processing
+# Performance regressions, memory leaks, long audio processing
 ```
 
 ---
@@ -84,13 +91,13 @@ pytest -m slow tests/
 **@pytest.mark.fast**
 - Fast tests (< 100ms)
 - Run in CI/PR checks
-- ~580 tests (85%)
+- Count: `pytest -m fast --collect-only -q | tail -1`
 - Example: `pytest -m fast tests/`
 
 **@pytest.mark.slow**
 - Slow tests (> 1s)
 - Run nightly or weekly
-- ~23 tests (3%)
+- Count: `pytest -m slow --collect-only -q | tail -1`
 - Example: `pytest -m slow tests/`
 
 ### Domain Markers
@@ -340,16 +347,15 @@ pytest -m "security or performance" tests/
 
 ## Test Execution Performance
 
-### Execution Time by Test Type
+### Measuring Execution Time
 
-```
-Test Type               Count    Time      Avg/Test
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Fast tests (< 100ms)    580      ~60s      103ms
-Medium tests (100-1s)    80      ~40s      500ms
-Slow tests (> 1s)        23     ~177s      7.7s
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Total                    683     ~277s      406ms
+Get real timings for the current suite rather than trusting a stale table:
+
+```bash
+# Slowest 20 tests
+pytest --durations=20 tests/
+# Time a marker subset
+time pytest -m "fast and not slow" tests/
 ```
 
 ### Optimization Strategies
@@ -444,7 +450,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.14'
 
     - name: Install dependencies
       run: |
@@ -470,7 +476,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.14'
 
     - name: Install dependencies
       run: |
@@ -546,7 +552,7 @@ pytest --durations=10 tests/
 **Solution:**
 ```bash
 # Run test multiple times
-pytest --count=10 tests/backend/test_e2e_workflows.py
+pytest --count=10 tests/integration/test_e2e_workflows.py
 
 # Check for race conditions in concurrent tests
 pytest -m "not concurrent" tests/
@@ -649,30 +655,21 @@ pytest -m "boundary and library" tests/
 
 ### Directory Structure
 
+`tests/` has 18 subdirectories (as of 2026-07-09). Run `ls -d tests/*/` for the current list. Representative:
+
 ```
 tests/
-├── auralis/                    # Core library tests
-│   ├── analysis/              # Analysis module tests
-│   ├── core/                  # Core processing tests
-│   ├── dsp/                   # DSP tests
-│   ├── library/               # Library management tests
-│   │   ├── test_library_manager_invariants.py  # Week 1 ✨
-│   │   └── test_scanning_invariants.py         # Week 1 ✨
-│   └── player/                # Player tests
-│
-├── backend/                    # Backend API tests
-│   ├── test_e2e_workflows.py              # Week 2 ✨
-│   ├── test_api_endpoint_integration.py   # Week 2 ✨
-│   ├── test_artwork_integration.py        # Week 2 ✨
-│   ├── test_playlist_integration.py       # Week 2 ✨
-│   ├── test_boundary_empty_single.py      # Week 3 ✨
-│   ├── test_boundary_exact_conditions.py  # Week 3 ✨
-│   └── test_boundary_max_min_values.py    # Week 3 ✨
-│
-└── validation/                 # Validation tests
-
-✨ = Phase 1 new tests (238 tests)
+├── auralis/        # Core library tests (analysis/, core/, dsp/, library/, player/)
+├── backend/        # Backend/API tests (test_api_endpoint_integration.py,
+│                   #   test_artwork_integration.py, test_playlist_integration.py,
+│                   #   test_boundary_*.py, ...)
+├── integration/    # Cross-component & E2E workflows (test_e2e_workflows.py)
+├── boundaries/, concurrency/, security/, performance/, regression/,
+├── validation/, audio/, edge_cases/, input_media/, load_stress/,
+├── mutation/, stress/, utils/, vendor/
 ```
+
+> **Note (2026-07-09)**: `test_e2e_workflows.py` moved from `tests/backend/` to `tests/integration/`. Frontend tests are **not** under `tests/` — they are colocated with source as `*.test.ts(x)` under `auralis-web/frontend/src/`.
 
 ### Test Naming Conventions
 
@@ -731,15 +728,14 @@ def test_extreme_value():
 
 ### Test Execution Times
 
-| Test Suite | Tests | Time | When to Run |
-|------------|-------|------|-------------|
-| Fast | 580 | ~60s | Every commit (CI) |
-| All | 683 | ~277s | Before PR |
-| Slow | 23 | ~177s | Nightly |
-| Performance | ~15 | ~120s | Weekly |
+| Test Suite | When to Run | Count / time |
+|------------|-------------|--------------|
+| Fast | Every commit (CI) | `pytest -m "fast and not slow" --collect-only -q \| tail -1` |
+| All | Before PR | `pytest --collect-only -q \| tail -1` |
+| Slow | Nightly | `pytest -m slow --collect-only -q \| tail -1` |
+| Performance | Weekly | `pytest -m performance --collect-only -q \| tail -1` |
 
 ---
 
 **Prepared by:** Claude Code
-**Date:** November 7, 2024
-**Phase:** Week 4 - Test Organization Complete
+**Originally:** November 7, 2024 · **Last updated:** July 9, 2026
