@@ -25,7 +25,7 @@ The Priority 4 implementation from the core Adaptive Mastering Engine (v1.2.0) h
 
 ### 1. Backend: Chunked Audio Processor
 
-**File:** `auralis-web/backend/chunked_processor.py`
+**File:** `auralis-web/backend/core/chunked_processor.py`
 
 Added mastering profile analysis to the streaming processor:
 
@@ -55,7 +55,7 @@ class ChunkedAudioProcessor:
 
 ### 2. Backend: Streaming Cache
 
-**File:** `auralis-web/backend/streamlined_cache.py`
+**File:** `auralis-web/backend/cache/manager.py`
 
 Extended cache manager to store mastering recommendations:
 
@@ -170,9 +170,9 @@ New message type for mastering recommendations:
 
 ### 6. Frontend: Components
 
-**Files:**
-- `src/components/enhancement-pane-v2/MasteringRecommendation.tsx` (NEW)
-- `src/components/enhancement-pane-v2/EnhancementPaneExpanded.tsx` (UPDATED)
+**Files:** (`enhancement-pane-v2/` was renamed to `enhancement-pane/`)
+- `src/components/enhancement-pane/sections/MasteringRecommendation/MasteringRecommendation.tsx` (NEW)
+- `EnhancementPaneExpanded.tsx` (UPDATED) — no longer exists under any name in the current tree
 
 **MasteringRecommendation Component:**
 - Displays primary profile with confidence badge
@@ -401,8 +401,8 @@ python -m pytest tests/integration/test_priority4_streaming_integration.py -v
 ### Backend
 | File | Type | Changes |
 |------|------|---------|
-| `auralis-web/backend/chunked_processor.py` | Modified | +58 lines: get_mastering_recommendation() method |
-| `auralis-web/backend/streamlined_cache.py` | Modified | +38 lines: recommendation caching methods |
+| `auralis-web/backend/core/chunked_processor.py` | Modified | +58 lines: get_mastering_recommendation() method |
+| `auralis-web/backend/cache/manager.py` | Modified | +38 lines: recommendation caching methods |
 | `auralis-web/backend/routers/enhancement.py` | Modified | +66 lines: HTTP endpoint for recommendations |
 | `auralis-web/backend/routers/player.py` | Modified | +61 lines: WebSocket broadcast on track load |
 | `auralis-web/backend/WEBSOCKET_API.md` | Modified | +68 lines: mastering_recommendation message type |
@@ -410,8 +410,8 @@ python -m pytest tests/integration/test_priority4_streaming_integration.py -v
 ### Frontend
 | File | Type | Changes |
 |------|------|---------|
-| `auralis-web/frontend/src/components/enhancement-pane-v2/MasteringRecommendation.tsx` | Created | 235 lines: UI component for recommendations |
-| `auralis-web/frontend/src/components/enhancement-pane-v2/EnhancementPaneExpanded.tsx` | Modified | +16 lines: Integration with pane display |
+| `auralis-web/frontend/src/components/enhancement-pane/sections/MasteringRecommendation/MasteringRecommendation.tsx` | Created | 235 lines: UI component for recommendations |
+| `EnhancementPaneExpanded.tsx` | Modified | +16 lines: Integration with pane display — no longer exists under any name in the current tree |
 | `auralis-web/frontend/src/hooks/useMasteringRecommendation.ts` | Created | 89 lines: WebSocket subscription hook |
 
 ### Tests

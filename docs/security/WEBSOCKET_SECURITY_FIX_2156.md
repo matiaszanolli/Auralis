@@ -32,7 +32,7 @@ Fixed HIGH severity security vulnerability in WebSocket handler that allowed unv
 
 ### New Files
 
-#### 1. `auralis-web/backend/websocket_security.py`
+#### 1. `auralis-web/backend/websocket_security.py` (moved into `websocket/websocket_security.py`)
 Security utilities for WebSocket validation and rate limiting:
 - `WebSocketRateLimiter` - Per-connection rate limiter with sliding window
 - `validate_and_parse_message()` - Message size, JSON, and schema validation
@@ -58,7 +58,7 @@ Comprehensive security tests (200+ lines):
 
 #### 1. `auralis-web/backend/schemas.py`
 Added WebSocket message schemas:
-- `WebSocketMessageType` enum - Whitelist of 17 valid message types
+- `WebSocketMessageType` enum - Whitelist of valid message types (24 members as of 2026-07-09; was 17 at the time of this fix)
 - `WebSocketMessageBase` - Base message schema with validation
 - Specific payload schemas for each message type:
   - `PlayEnhancedData` - track_id, preset, intensity validation
@@ -104,7 +104,7 @@ if error or not message:
 - Validated before JSON parsing
 
 ### ✅ Schema Validation
-- Only 17 whitelisted message types accepted
+- Only whitelisted message types accepted (24 as of 2026-07-09)
 - All fields validated against Pydantic schemas
 - Unknown message types rejected with error
 
@@ -195,7 +195,7 @@ All acceptance criteria from issue #2156 met:
 - Error responses follow standardized format
 
 **Configuration**:
-- Limits can be adjusted in `websocket_security.py`:
+- Limits can be adjusted in `websocket/websocket_security.py`:
   ```python
   MAX_MESSAGE_SIZE = 64 * 1024  # Increase if needed
   MAX_MESSAGES_PER_SECOND = 10  # Adjust for use case

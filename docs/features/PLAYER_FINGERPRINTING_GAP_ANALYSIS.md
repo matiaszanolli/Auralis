@@ -129,7 +129,7 @@ class AutoMasterProcessor:
 - **Used by:** Library scanner, content analyzer
 
 ### 2. FingerprintGenerator (Backend)
-- **Location:** `auralis-web/backend/fingerprint_generator.py`
+- **Location:** `auralis-web/backend/analysis/fingerprint_generator.py`
 - **Purpose:** Wrapper for PyO3 fingerprinting with 3-tier cache
 - **Duplicates:** Database lookup, .25d file loading, type conversion
 - **Used by:** `AudioStreamController` (WebSocket playback)

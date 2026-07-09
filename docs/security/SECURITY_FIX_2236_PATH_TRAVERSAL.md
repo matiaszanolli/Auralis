@@ -65,12 +65,12 @@ async def load_track(request: LoadTrackRequest, background_tasks: BackgroundTask
 
 ### Files Modified
 
-- `auralis-web/backend/routers/player.py`:
-  - Lines 159-213: Fixed `load_track` endpoint
-  - Lines 315-333: Fixed `add_to_queue` endpoint
-  - Lines 67-75: Added `LoadTrackRequest` Pydantic model
+- `auralis-web/backend/routers/player.py` (line numbers as of 2026-07-09; drift over time):
+  - `load_track` endpoint (`POST /api/player/load`)
+  - `add_track_to_queue` endpoint (`POST /api/player/queue/add-track` — renamed from `queue/add` since this fix)
+  - `LoadTrackRequest` Pydantic model
 - `tests/backend/test_main_api.py`:
-  - Lines 452-462: Updated test to use new API contract
+  - `TestPlayerEndpoints::test_load_track` — updated test to use new API contract
 
 ### API Contract Changes
 

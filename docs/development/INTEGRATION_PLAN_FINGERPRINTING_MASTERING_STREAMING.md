@@ -90,7 +90,7 @@ User hears enhanced audio with 2D LWRP applied
 ## Implementation Tasks
 
 ### Task 1: Fingerprint Lookup Integration
-**File**: `auralis-web/backend/chunked_processor.py`
+**File**: `auralis-web/backend/core/chunked_processor.py`
 **Goal**: Check DB before computing new fingerprint
 
 ```python
@@ -132,7 +132,7 @@ def _load_fingerprint(self):
 ```
 
 ### Task 2: Adaptive Mastering Engine Initialization
-**File**: `auralis-web/backend/chunked_processor.py`
+**File**: `auralis-web/backend/core/chunked_processor.py`
 **Goal**: Initialize AdaptiveMode with fingerprint context before chunk processing
 
 ```python
@@ -170,7 +170,7 @@ def _init_adaptive_mastering(self):
 ```
 
 ### Task 3: Integrate Mastering into Chunk Processing
-**File**: `auralis-web/backend/chunked_processor.py`
+**File**: `auralis-web/backend/core/chunked_processor.py`
 **Goal**: Apply adaptive mastering (with 2D LWRP) to each processed chunk
 
 ```python
@@ -248,11 +248,11 @@ async def play_enhanced(data: dict):
 ```
 
 ### Task 5: Fingerprint Generation on Demand
-**File**: New utility: `auralis-web/backend/fingerprint_generator.py`
+**File**: New utility: `auralis-web/backend/analysis/fingerprint_generator.py`
 **Goal**: Async fingerprint generation with gRPC server
 
 ```python
-# NEW FILE: auralis-web/backend/fingerprint_generator.py
+# NEW FILE: auralis-web/backend/analysis/fingerprint_generator.py
 
 import asyncio
 import requests
@@ -363,8 +363,8 @@ class FingerprintGenerator:
 
 | File | Changes | Priority |
 |------|---------|----------|
-| `auralis-web/backend/chunked_processor.py` | Add fingerprint loading + adaptive mastering init | P1 |
-| `auralis-web/backend/audio_stream_controller.py` | Pass fingerprint to ChunkedAudioProcessor | P1 |
+| `auralis-web/backend/core/chunked_processor.py` | Add fingerprint loading + adaptive mastering init | P1 |
+| `auralis-web/backend/core/audio_stream_controller.py` | Pass fingerprint to ChunkedAudioProcessor | P1 |
 | `auralis-web/backend/routers/system.py` | Update play_enhanced WebSocket handler | P1 |
 | `auralis/core/processing/adaptive_mode.py` | ✅ Already integrated 2D LWRP | Done |
 
@@ -372,7 +372,7 @@ class FingerprintGenerator:
 
 | File | Purpose | Priority |
 |------|---------|----------|
-| `auralis-web/backend/fingerprint_generator.py` | Async fingerprint generation | P2 |
+| `auralis-web/backend/analysis/fingerprint_generator.py` | Async fingerprint generation | P2 |
 | `auralis-web/backend/fingerprint_cache_manager.py` | Multi-tier caching (DB + memory) | P3 |
 
 ---

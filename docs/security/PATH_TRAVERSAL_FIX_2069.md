@@ -8,6 +8,8 @@ Fixed path traversal vulnerability in `/api/library/scan` endpoint that allowed 
 
 **Severity**: MEDIUM (adjusted from HIGH for local media player context)
 
+> **Note (2026-07-09)**: The protection described below is still in place and correct in spirit, but names/paths have since drifted: `ScanRequest`/`directory: str` is now `LibraryScanRequest`/`directories: list[str]` (plural, `schemas.py`), the security module moved from `auralis-web/backend/path_security.py` to `auralis-web/backend/security/path_security.py`, and the endpoint is registered in `routers/library_scan.py` (not `routers/files.py`). The code samples below are kept as originally written (singular `directory`) for historical accuracy of the original fix.
+
 ## Vulnerability Details
 
 ### Before Fix
@@ -94,7 +96,7 @@ async def scan_directory(request: ScanRequest):
 
 ## Files Created
 
-### 1. `auralis-web/backend/path_security.py` (280 lines)
+### 1. `auralis-web/backend/security/path_security.py` (280 lines at the time; module since moved into `security/`)
 Security utilities module with:
 
 **Functions**:
@@ -128,10 +130,10 @@ Comprehensive security tests covering:
 
 ## Files Modified
 
-### 1. `auralis-web/backend/routers/files.py`
+### 1. `auralis-web/backend/routers/files.py` (endpoint since relocated to `routers/library_scan.py`)
 **Changes**:
 - Added `path_security` import
-- Updated `ScanRequest` with `@field_validator`
+- Updated `ScanRequest` (now `LibraryScanRequest`) with `@field_validator`
 - Enhanced endpoint documentation with security notes
 - Added proper HTTP status codes (400, 403, 404)
 
@@ -292,7 +294,7 @@ Response (422 Unprocessable Entity):
 
 ### Allowed Directories
 
-Default configuration (in `path_security.py`):
+Default configuration (in `security/path_security.py`):
 ```python
 DEFAULT_ALLOWED_DIRS = [
     Path.home(),              # /home/user

@@ -1,5 +1,7 @@
 # Player Components Quick Reference
 
+> **Superseded notice (2026-07-09)**: References to `auralis.player.enhanced_audio_player_refactored.EnhancedAudioPlayer` below are stale — that module/class was never created. The current player is the `AudioPlayer` class in `auralis/player/enhanced_audio_player.py`. The facade + component split this doc describes never shipped; individual component modules referenced below (e.g. `PlaybackController`) may still exist but are not wired into a facade of this name.
+
 ## Component at a Glance
 
 ### PlaybackController
@@ -405,8 +407,7 @@ print(f"Prebuffered: {player.gapless.has_prebuffered_track()}")
 
 - **Version**: 1.0.0-beta.12.1
 - **API**: 100% backward compatible
-- **Original**: Original `enhanced_audio_player.py` still available
-- **New**: `enhanced_audio_player_refactored.py` recommended for new code
+- **Current**: `AudioPlayer` in `enhanced_audio_player.py` is the only player class — the `enhanced_audio_player_refactored.py` facade split described in this doc was never built
 
 ---
 

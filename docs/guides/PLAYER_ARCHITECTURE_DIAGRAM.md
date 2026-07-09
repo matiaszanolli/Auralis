@@ -1,5 +1,7 @@
 # EnhancedAudioPlayer Architecture Diagram
 
+> **Superseded notice (2026-07-09)**: This describes a planned facade split of `EnhancedAudioPlayer` into `enhanced_audio_player_refactored.py` + 5 focused components. That module was never created and the split never shipped. The current player is the `AudioPlayer` class (838 lines, monolithic) in `auralis/player/enhanced_audio_player.py`. Kept for historical reference only — do not import `enhanced_audio_player_refactored` or expect the component split described below.
+
 ## Component Overview
 
 ```

@@ -401,7 +401,7 @@ This message contains weighted profile information for hybrid mastering scenario
 
 ### Audio Streaming Messages (Server → Client)
 
-These four messages form the core audio streaming protocol. They are emitted in response to `play_enhanced` / `play_normal` WebSocket commands — not REST calls. See `core/audio_stream_controller.py` for the Python implementation and `src/types/websocket.ts:425-518` for the canonical TypeScript types.
+These four messages form the core audio streaming protocol. They are emitted in response to `play_enhanced` / `play_normal` WebSocket commands — not REST calls. See `core/audio_stream_controller.py` for the Python implementation and `src/types/ws/streaming.ts` for the canonical TypeScript types.
 
 #### `audio_stream_start`
 Sent once at the beginning of every stream (including seeks/resumes).
@@ -759,8 +759,8 @@ function MyComponent() {
 - `playback_paused` message when playback is paused
 
 **Files Modified**:
-- [auralis-web/backend/routers/player.py](routers/player.py:315-318) - Added `playback_started` broadcast
-- [auralis-web/backend/routers/player.py](routers/player.py:350-353) - Added `playback_paused` broadcast
+- [auralis-web/backend/services/playback_service.py](services/playback_service.py) - Added `playback_started` broadcast (moved from `routers/player.py` since this was written)
+- [auralis-web/backend/services/playback_service.py](services/playback_service.py) - Added `playback_paused` broadcast (moved from `routers/player.py` since this was written)
 
 **Result**:
 - Frontend components can now reliably track all play/pause state changes
@@ -845,9 +845,9 @@ subscribe('*', (msg) => console.log('[WS]', msg));
 
 Complete TypeScript types for all WebSocket messages are available in:
 
-**Frontend**: [auralis-web/frontend/src/types/websocket.ts](../frontend/src/types/websocket.ts)
+**Frontend**: [auralis-web/frontend/src/types/websocket.ts](../frontend/src/types/websocket.ts) — a barrel re-export (#4081); the canonical source is [`auralis-web/frontend/src/types/ws/registry.ts`](../frontend/src/types/ws/registry.ts)
 
-The canonical source of truth is [`auralis-web/frontend/src/types/websocket.ts`](../frontend/src/types/websocket.ts). The complete union (35 members as of v1.2) is reproduced here for quick reference:
+The complete `WebSocketMessageType` union (34 members) is reproduced here for quick reference. Note `audio_chunk_meta` is intentionally excluded from this union — it's a JSON text frame fused with the following binary frame into a synthetic `audio_chunk` event by `WebSocketContext` before reaching consumers (see `ws/streaming.ts`):
 
 ```typescript
 export type WebSocketMessageType =
@@ -888,7 +888,6 @@ export type WebSocketMessageType =
   | 'audio_stream_start'
   | 'audio_stream_end'
   | 'audio_chunk'
-  | 'audio_chunk_meta'
   | 'audio_stream_error'
   // System messages
   | 'scan_progress'
@@ -913,7 +912,7 @@ export type WebSocketMessageType =
 | Artwork | `artwork_updated` |
 | Fingerprint | `fingerprint_progress` |
 | Seek | `seek_started` |
-| Audio streaming | `audio_stream_start`, `audio_chunk_meta`, `audio_chunk`, `audio_stream_end`, `audio_stream_error` |
+| Audio streaming | `audio_stream_start`, `audio_chunk`, `audio_stream_end`, `audio_stream_error` (`audio_chunk_meta` is a wire-level text frame, not part of this TS union — see note above) |
 | Scan | `scan_progress`, `scan_complete` |
 | Errors | `error` |
 

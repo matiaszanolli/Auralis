@@ -277,7 +277,7 @@ fingerprint = service.get_or_compute(Path("track.flac"))
 - ⏳ To update: `auralis/player/enhanced_audio_player.py`
 - ⏳ To update: `auralis/player/realtime/auto_master.py`
 - ⏳ To update: `auralis/player/realtime/processor.py`
-- ⏳ To remove: `auralis-web/backend/fingerprint_generator.py` (redundant)
+- ⏳ To remove: `auralis-web/backend/analysis/fingerprint_generator.py` (redundant)
 - ⏳ To remove: `auralis-web/backend/core/mastering_target_service.py` (redundant)
 - ⏳ To update: `auralis-web/backend/routers/system.py`
 - ⏳ To update: `auralis-web/backend/routers/enhancement.py`

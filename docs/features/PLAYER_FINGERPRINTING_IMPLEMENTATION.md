@@ -271,7 +271,7 @@ recommendation = generate_mastering_recommendation(fingerprint)
 - `auralis/player/enhanced_audio_player.py` (loads fingerprints)
 
 ### Pending Removal ⏳
-- `auralis-web/backend/fingerprint_generator.py` (now redundant)
+- `auralis-web/backend/analysis/fingerprint_generator.py` (now redundant)
 - `auralis-web/backend/core/mastering_target_service.py` (now redundant)
 
 ---

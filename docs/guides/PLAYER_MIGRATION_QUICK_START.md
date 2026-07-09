@@ -1,5 +1,7 @@
 # Player Refactoring Migration Guide
 
+> **Superseded notice (2026-07-09)**: The `enhanced_audio_player_refactored.py` module described throughout this guide was never created — the facade/component split never shipped. The current player is the `AudioPlayer` class in `auralis/player/enhanced_audio_player.py`. Kept for historical reference only.
+
 Quick-start guide for migrating to the refactored `EnhancedAudioPlayer`.
 
 ## Good News: No Code Changes Required
@@ -265,16 +267,17 @@ The refactored version has the same performance characteristics as the original:
 
 ### "ImportError: cannot import name 'EnhancedAudioPlayer'"
 
-Make sure you're importing from the correct module:
+Neither import below is current. The `enhanced_audio_player_refactored` module was never created, and the class in `enhanced_audio_player.py` is named `AudioPlayer`, not `EnhancedAudioPlayer`:
 
 ```python
-# ✅ Correct - new refactored version
+# ✅ Correct (as of 2026-07-09)
+from auralis.player.enhanced_audio_player import AudioPlayer
+
+# ❌ Stale — module never created
 from auralis.player.enhanced_audio_player_refactored import EnhancedAudioPlayer
 
-# ✅ Also correct - old monolithic version (backward compatible)
+# ❌ Stale — class was renamed to AudioPlayer
 from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
-
-# ❌ Wrong - both paths are valid but use one consistently
 ```
 
 ### Components not initialized
