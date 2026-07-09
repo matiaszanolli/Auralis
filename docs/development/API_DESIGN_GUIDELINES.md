@@ -28,28 +28,28 @@ All similar operations must return the same type structure. Users should never g
 
 ### Paginated Queries
 
-**Rule:** All paginated queries MUST return `tuple[List[T], int]`
+**Rule:** All paginated queries MUST return `tuple[list[T], int]`
 
 **Format:** `(data, total_count)`
 
 **Examples:**
 ```python
 # ✅ CORRECT - Returns tuple
-def get_all_tracks(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+def get_all_tracks(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
     """Returns: Tuple of (track list, total count)"""
     tracks, total = self.repository.get_all(limit, offset)
     return tracks, total
 
-def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
     """Returns: Tuple of (matching tracks, total count)"""
     results, total = self.repository.search(query, limit, offset)
     return results, total
 
 # ❌ WRONG - Inconsistent return types
-def get_all_tracks(...) -> tuple[List[Track], int]:  # Returns tuple
+def get_all_tracks(...) -> tuple[list[Track], int]:  # Returns tuple
     return tracks, total
 
-def search_tracks(...) -> List[Track]:  # Returns list only!
+def search_tracks(...) -> list[Track]:  # Returns list only!
     return tracks  # No total count - inconsistent!
 ```
 
@@ -61,16 +61,16 @@ def search_tracks(...) -> List[Track]:  # Returns list only!
 
 ### Single Item Queries
 
-**Rule:** Single item lookups return `Optional[T]`
+**Rule:** Single item lookups return `T | None`
 
 **Examples:**
 ```python
 # ✅ CORRECT
-def get_track(self, track_id: int) -> Optional[Track]:
+def get_track(self, track_id: int) -> Track | None:
     """Returns: Track if found, None otherwise"""
     return self.repository.get_by_id(track_id)
 
-def get_album(self, album_id: int) -> Optional[Album]:
+def get_album(self, album_id: int) -> Album | None:
     """Returns: Album if found, None otherwise"""
     return self.repository.get_by_id(album_id)
 
@@ -83,7 +83,7 @@ def get_track(self, track_id: int) -> Track:
     return track
 ```
 
-**Why Optional[T]?**
+**Why T | None?**
 - Graceful handling of missing items
 - No exceptions for expected "not found" cases
 - Explicit in type signature that None is possible
@@ -96,11 +96,11 @@ def get_track(self, track_id: int) -> Track:
 **Create/Update:**
 ```python
 # ✅ CORRECT - Return created/updated object
-def add_track(self, track_info: dict) -> Optional[Track]:
+def add_track(self, track_info: dict) -> Track | None:
     """Returns: Created track or None if failed"""
     return self.repository.add(track_info)
 
-def update_track(self, track_id: int, track_info: dict) -> Optional[Track]:
+def update_track(self, track_id: int, track_info: dict) -> Track | None:
     """Returns: Updated track or None if not found"""
     return self.repository.update(track_id, track_info)
 ```
@@ -136,22 +136,22 @@ def set_track_favorite(self, track_id: int, favorite: bool = True) -> bool:
 
 ```python
 # Single item by ID
-get_track(track_id: int) -> Optional[Track]
-get_album(album_id: int) -> Optional[Album]
-get_playlist(playlist_id: int) -> Optional[Playlist]
+get_track(track_id: int) -> Track | None
+get_album(album_id: int) -> Album | None
+get_playlist(playlist_id: int) -> Playlist | None
 
 # All items (paginated)
-get_all_tracks(limit, offset) -> tuple[List[Track], int]
-get_all_albums(limit, offset) -> tuple[List[Album], int]
+get_all_tracks(limit, offset) -> tuple[list[Track], int]
+get_all_albums(limit, offset) -> tuple[list[Album], int]
 
 # Filtered items (paginated)
-get_favorite_tracks(limit, offset) -> tuple[List[Track], int]
-get_recent_tracks(limit, offset) -> tuple[List[Track], int]
-get_popular_tracks(limit, offset) -> tuple[List[Track], int]
+get_favorite_tracks(limit, offset) -> tuple[list[Track], int]
+get_recent_tracks(limit, offset) -> tuple[list[Track], int]
+get_popular_tracks(limit, offset) -> tuple[list[Track], int]
 
 # Search (paginated)
-search_tracks(query, limit, offset) -> tuple[List[Track], int]
-search_albums(query, limit, offset) -> tuple[List[Album], int]
+search_tracks(query, limit, offset) -> tuple[list[Track], int]
+search_albums(query, limit, offset) -> tuple[list[Album], int]
 ```
 
 ### Mutation Methods
@@ -160,11 +160,11 @@ search_albums(query, limit, offset) -> tuple[List[Album], int]
 
 ```python
 # Create
-add_track(track_info: dict) -> Optional[Track]
-create_playlist(name: str, description: str) -> Optional[Playlist]
+add_track(track_info: dict) -> Track | None
+create_playlist(name: str, description: str) -> Playlist | None
 
 # Update
-update_track(track_id: int, track_info: dict) -> Optional[Track]
+update_track(track_id: int, track_info: dict) -> Track | None
 update_playlist(playlist_id: int, update_data: dict) -> bool
 
 # Delete
@@ -186,9 +186,9 @@ def tracks(...) -> ???  # Is this get_tracks? search_tracks? all tracks?
 def favorite(track_id: int) -> ???  # Get favorites? Set favorite? Toggle?
 
 # ✅ CORRECT - Clear intent
-def get_all_tracks(...) -> tuple[List[Track], int]
+def get_all_tracks(...) -> tuple[list[Track], int]
 def set_track_favorite(track_id: int, favorite: bool) -> None
-def get_favorite_tracks(...) -> tuple[List[Track], int]
+def get_favorite_tracks(...) -> tuple[list[Track], int]
 ```
 
 ---
@@ -208,7 +208,7 @@ def search_tracks(
     query: str,
     limit: int = 50,
     offset: int = 0
-) -> tuple[List[Track], int]:
+) -> tuple[list[Track], int]:
     """
     Search tracks by query.
 
@@ -229,23 +229,24 @@ def search_tracks(self, query, limit=50, offset=0):
 
 ### Complex Type Hints
 
-**Use standard typing module:**
+**Use built-in generics (PEP 585) and the `|` union operator (PEP 604) — not the `typing` module's `List`/`Dict`/`Optional`/`Union`.** This is the repo-wide convention (Python 3.14+): a full-tree grep finds ~1000 `X | None` / built-in-generic usages and effectively zero `Optional[...]`/`-> List[...]`. Only import from `typing` for things that still live there (e.g. `Any`, `Generic`, `TypeVar`, `Protocol`).
+
 ```python
-from typing import List, Dict, Optional, Tuple, Any, Union
+from typing import Any  # Any/Generic/TypeVar still come from typing
 
 # Collections
-List[Track]
-Dict[str, Any]
-tuple[List[Track], int]  # Python 3.9+ syntax
+list[Track]
+dict[str, Any]
+tuple[list[Track], int]
 
-# Optional values
-Optional[Track]  # Same as Union[Track, None]
+# Optional values (PEP 604 — no typing.Optional)
+Track | None
 
 # Multiple possible types
-Union[Track, Album]
+Track | Album
 
 # Any type (use sparingly)
-Dict[str, Any]  # For flexible dictionaries
+dict[str, Any]  # For flexible dictionaries
 ```
 
 ### Docstring Requirements
@@ -258,7 +259,7 @@ def search_tracks(
     query: str,
     limit: int = 50,
     offset: int = 0
-) -> tuple[List[Track], int]:
+) -> tuple[list[Track], int]:
     """
     Search tracks by title, artist, album, or genre.
 
@@ -314,7 +315,7 @@ def set_track_favorite(self, track_id: int, favorite: bool = True) -> None:
 
 **Add track:**
 ```python
-def add_track(self, track_info: dict) -> Optional[Track]:
+def add_track(self, track_info: dict) -> Track | None:
     track = self.repository.add(track_info)
     if track:
         # Invalidate queries listing tracks
@@ -324,7 +325,7 @@ def add_track(self, track_info: dict) -> Optional[Track]:
 
 **Update track metadata:**
 ```python
-def update_track(self, track_id: int, track_info: dict) -> Optional[Track]:
+def update_track(self, track_id: int, track_info: dict) -> Track | None:
     track = self.repository.update(track_id, track_info)
     if track:
         # Invalidate queries showing metadata
@@ -392,7 +393,7 @@ def rebuild_indexes(self) -> None:
 
 ```python
 # ✅ CORRECT - Return None for "not found"
-def get_track(self, track_id: int) -> Optional[Track]:
+def get_track(self, track_id: int) -> Track | None:
     """Returns: Track if found, None otherwise"""
     track = self.repository.get_by_id(track_id)
     if not track:
@@ -410,7 +411,7 @@ def delete_track(self, track_id: int) -> bool:
 
 ```python
 # ✅ CORRECT - Raise for database errors
-def add_track(self, track_info: dict) -> Optional[Track]:
+def add_track(self, track_info: dict) -> Track | None:
     """Returns: Created track or None if validation fails"""
     try:
         track = self.repository.add(track_info)
@@ -434,7 +435,7 @@ def search_tracks(
     query: str,
     limit: int = 50,
     offset: int = 0
-) -> tuple[List[Track], int]:
+) -> tuple[list[Track], int]:
     """Search tracks"""
     # Validate inputs
     if not isinstance(query, str):
@@ -461,7 +462,7 @@ def get_all_<noun>(
     limit: int = 50,      # Maximum results per page
     offset: int = 0,      # Number of results to skip
     order_by: str = 'title'  # Optional: sort column
-) -> tuple[List[T], int]:
+) -> tuple[list[T], int]:
     """
     Args:
         limit: Maximum results to return (default: 50, max: 1000)
@@ -487,7 +488,7 @@ def get_all_tracks(
     self,
     limit: int = 50,
     offset: int = 0
-) -> tuple[List[Track], int]:
+) -> tuple[list[Track], int]:
     # Clamp limit to max
     limit = min(limit, 1000)
     return self.repository.get_all(limit, offset)
@@ -530,7 +531,7 @@ def get_page(self, page: int = 1, per_page: int = 50) -> dict:
 ### Complete Good Example
 
 ```python
-from typing import List, Optional, Dict, Any
+from typing import Any  # built-in list/dict/tuple + `X | None` need no typing import
 from auralis.library.cache import cached_query, invalidate_cache
 
 class LibraryManager:
@@ -542,7 +543,7 @@ class LibraryManager:
         query: str,
         limit: int = 50,
         offset: int = 0
-    ) -> tuple[List[Track], int]:
+    ) -> tuple[list[Track], int]:
         """
         Search tracks by title, artist, album, or genre.
 
@@ -568,7 +569,7 @@ class LibraryManager:
         # Delegate to repository
         return self.repository.search(query, limit, offset)
 
-    def add_track(self, track_info: Dict[str, Any]) -> Optional[Track]:
+    def add_track(self, track_info: dict[str, Any]) -> Track | None:
         """
         Add a track to the library.
 
@@ -587,7 +588,7 @@ class LibraryManager:
             invalidate_cache('get_all_tracks', 'search_tracks', 'get_recent_tracks')
         return track
 
-    def get_track(self, track_id: int) -> Optional[Track]:
+    def get_track(self, track_id: int) -> Track | None:
         """
         Get track by ID.
 
@@ -623,17 +624,17 @@ class LibraryManager:
 
 ```python
 # ❌ ANTI-PATTERN 1: Inconsistent return types
-def get_all_tracks(...) -> tuple[List[Track], int]:  # Returns tuple
+def get_all_tracks(...) -> tuple[list[Track], int]:  # Returns tuple
     return tracks, total
 
-def search_tracks(...) -> List[Track]:  # Returns list - INCONSISTENT!
+def search_tracks(...) -> list[Track]:  # Returns list - INCONSISTENT!
     return tracks
 
 # ✅ CORRECT: Consistent
-def get_all_tracks(...) -> tuple[List[Track], int]:
+def get_all_tracks(...) -> tuple[list[Track], int]:
     return tracks, total
 
-def search_tracks(...) -> tuple[List[Track], int]:  # Consistent!
+def search_tracks(...) -> tuple[list[Track], int]:  # Consistent!
     return tracks, total
 
 
@@ -646,7 +647,7 @@ def search_tracks(
     self,
     query: str,
     limit: int = 50
-) -> tuple[List[Track], int]:
+) -> tuple[list[Track], int]:
     return self.repository.search(query, limit)
 
 
@@ -669,7 +670,7 @@ def get_track(track_id):
     return track
 
 # ✅ CORRECT: Return None for expected failures
-def get_track(self, track_id: int) -> Optional[Track]:
+def get_track(self, track_id: int) -> Track | None:
     return self.repository.get_by_id(track_id)  # Returns None if not found
 
 
@@ -679,7 +680,7 @@ def favorite(id):  # Get or set?
 def delete(id):  # Delete what?
 
 # ✅ CORRECT: Clear names
-def get_all_tracks() -> tuple[List[Track], int]:
+def get_all_tracks() -> tuple[list[Track], int]:
 def set_track_favorite(track_id: int, favorite: bool) -> None:
 def delete_track(track_id: int) -> bool:
 ```

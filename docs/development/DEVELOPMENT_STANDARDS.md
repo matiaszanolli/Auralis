@@ -52,6 +52,8 @@ This document establishes mandatory standards for all code contributions to the 
 
 **Rationale**: Modules over 300 lines are typically doing multiple things and become harder to understand, test, and maintain.
 
+> **Known exceptions (not yet met)**: This is a target for *new* code, not a claim that the codebase already satisfies it. Several existing modules exceed 300 lines — some by 3–6× (e.g. `audio_stream_controller.py`, `common_metrics.py`, `simple_mastering.py`) — and their decomposition is a tracked backlog (**"13 god-file splits", issues #4071–#4083**). Don't treat the rule as universally enforced; do avoid adding new oversized modules.
+
 **Pattern**:
 ```
 auralis/
@@ -110,10 +112,10 @@ __all__ = ['AudioProcessor', 'ParameterValidator', 'MetricsCollector']
 **Functions**: `snake_case`
 ```python
 # ✅ Good
-def calculate_fingerprint(audio_data: np.ndarray) -> Dict[str, float]:
+def calculate_fingerprint(audio_data: np.ndarray) -> dict[str, float]:
     pass
 
-def get_track_by_id(track_id: int) -> Optional[Track]:
+def get_track_by_id(track_id: int) -> Track | None:
     pass
 
 # ❌ Bad
@@ -132,7 +134,7 @@ class FingerprintValidator:
         pass
 
 class SmartCache:
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         pass
 
 # ❌ Bad
@@ -159,16 +161,16 @@ max_cache_size = 256
 ```python
 # ✅ Good
 class Analyzer:
-    def analyze(self) -> List[float]:
+    def analyze(self) -> list[float]:
         return self._compute_features()
 
-    def _compute_features(self) -> List[float]:
+    def _compute_features(self) -> list[float]:
         # Internal method, only called within class
         pass
 
 # ❌ Bad
 class Analyzer:
-    def analyze(self) -> List[float]:
+    def analyze(self) -> list[float]:
         return self.compute_features()  # Looks public
 ```
 
@@ -187,7 +189,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from pydantic import BaseModel
@@ -209,10 +211,10 @@ import sys
 ```python
 # ✅ Good
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any
 
 path = Path('file.txt')
-data: Dict[str, int] = {}
+data: dict[str, int] = {}
 
 # ⚠️ Less clear (circular/namespace pollution)
 from pathlib import *
@@ -232,7 +234,7 @@ def search_tracks(
     query: str,
     limit: int = 50,
     offset: int = 0,
-) -> List[Track]:
+) -> list[Track]:
     """Search library for matching tracks.
 
     Args:
@@ -262,18 +264,16 @@ def search_tracks(query, limit=50, offset=0):
     pass
 ```
 
-**Generic types**:
+**Generic types** — use built-in generics (PEP 585) and `X | None` (PEP 604); do **not** import `List`/`Dict`/`Optional`/`Tuple` from `typing` (repo convention, Python 3.14+):
 ```python
-# ✅ Good
-from typing import Dict, List, Optional, Tuple
-
-def get_stats(self) -> Dict[str, float]:
+# ✅ Good — no typing import needed for these
+def get_stats(self) -> dict[str, float]:
     return {'avg': 0.5, 'max': 1.0}
 
-def find_similar(self, fingerprint: List[float]) -> Tuple[str, float]:
+def find_similar(self, fingerprint: list[float]) -> tuple[str, float]:
     return ('track_id', 0.95)
 
-def get_optional(self, key: str) -> Optional[str]:
+def get_optional(self, key: str) -> str | None:
     return self.data.get(key)
 
 # ❌ Bad (implicit types)
@@ -301,13 +301,29 @@ class Node:
 
 ### Docstrings
 
-**Format**: Google style (3 blank lines after imports, summary first)
+**Module headers** — most backend/engine modules open with a Sphinx/RST-style header (title + `~~~~` underline, then `:copyright:`/`:license:` fields), e.g.:
+
+```python
+"""
+Chunk Boundary Manager
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Manages chunk boundaries and context windows for audio processing.
+
+:copyright: (C) 2024 Auralis Team
+:license: GPLv3
+"""
+```
+
+(Note: source headers currently say `:license: GPLv3` while the repo `LICENSE` is AGPL-3.0 — reconciling the two is a separate, source-level task, not covered by this doc.)
+
+**Function/method docstrings**: Google style (summary first, then `Args:`/`Returns:`/`Raises:`). The `Example:` and `Note:` sections in the template below are **encouraged where they add value, not mandatory** — in practice only a minority of files carry an `Example:` block. Keep `Args`/`Returns`/`Raises` complete; add `Example`/`Note` when the behavior isn't obvious from the signature.
 
 ```python
 def calculate_fingerprint(
     audio_data: np.ndarray,
     sample_rate: int = 44100,
-) -> Dict[str, List[float]]:
+) -> dict[str, list[float]]:
     """Calculate audio fingerprint with streaming analysis.
 
     Analyzes audio in chunks to compute a 25-dimensional fingerprint
@@ -427,7 +443,7 @@ def process_audio(audio_data, gain):
 **Logging over silent failures**:
 ```python
 # ✅ Good (log failures)
-def get_cache_value(key: str) -> Optional[Any]:
+def get_cache_value(key: str) -> Any | None:
     """Get value from cache."""
     try:
         return self.cache.get(key)
@@ -460,7 +476,7 @@ def initialize_cache(max_size_mb: int) -> SmartCache:
 
     return cache
 
-def validate_fingerprint(fp: Dict) -> bool:
+def validate_fingerprint(fp: dict) -> bool:
     """Validate fingerprint structure."""
     if not fp.get('frequencies'):
         warning(f"Fingerprint missing 'frequencies' data")
@@ -495,7 +511,7 @@ def initialize_cache(max_size_mb):
 def calculate_fingerprint_streaming(
     audio_data: np.ndarray,
     chunk_size: int = 2048,
-) -> Generator[Dict[str, float], None, None]:
+) -> Generator[dict[str, float], None, None]:
     """Generate fingerprints for audio chunks.
 
     Processes audio in streaming fashion to support real-time
@@ -585,13 +601,13 @@ def add_track(track, queue=None):
 **3. Not closing resources**:
 ```python
 # ❌ Bad (file not closed)
-def read_config(path: str) -> Dict:
+def read_config(path: str) -> dict:
     f = open(path)
     config = json.load(f)
     return config  # File handle leaked!
 
 # ✅ Good (context manager)
-def read_config(path: str) -> Dict:
+def read_config(path: str) -> dict:
     with open(path) as f:
         config = json.load(f)
     return config  # File automatically closed
@@ -614,7 +630,7 @@ result = some_function()  # Now with proper types
 
 ### Component Organization
 
-**File Size Limit**: Maximum 300 lines per component
+**File Size Limit**: Maximum 300 lines per component (target for new components; some existing components still exceed it — same caveat as the Python module limit above)
 
 **Structure**:
 ```
@@ -1378,42 +1394,38 @@ const typography = {
 
 ### Request/Response Format
 
-All API responses follow standardized structure:
+Response envelopes are defined in `auralis-web/backend/schemas.py` — that file is the source of truth. `timestamp` is a **top-level** field (there is no `meta` wrapper and no `version` field). For paginated responses, `pagination` is a top-level sibling of `data`, not nested inside it.
+
+**Success** (`SuccessResponse` / `PaginatedResponse`):
 
 ```json
 {
   "status": "success",
-  "data": {
-    "items": [],
-    "pagination": {
-      "offset": 0,
-      "limit": 50,
-      "total": 150
-    }
+  "data": [],
+  "pagination": {
+    "limit": 50,
+    "offset": 0,
+    "total": 1000,
+    "remaining": 950,
+    "has_more": true
   },
-  "meta": {
-    "timestamp": "2024-11-28T10:30:00Z",
-    "version": "v1"
-  }
+  "timestamp": "2024-11-28T10:00:00Z"
 }
 ```
 
+(Non-paginated `SuccessResponse` omits `pagination` and carries `data` plus an optional `message`.)
+
 ### Error Responses
+
+`ErrorResponse` — `error` is a short type/code **string** (not a nested object); `message` and optional `details` are siblings:
 
 ```json
 {
   "status": "error",
-  "error": {
-    "code": "INVALID_INPUT",
-    "message": "User-friendly error message",
-    "details": {
-      "field": "query",
-      "reason": "Must be at least 3 characters"
-    }
-  },
-  "meta": {
-    "timestamp": "2024-11-28T10:30:00Z"
-  }
+  "error": "validation_error",
+  "message": "Invalid request parameters",
+  "details": {"field": "limit", "issue": "Must be positive"},
+  "timestamp": "2024-11-28T10:00:00Z"
 }
 ```
 
@@ -1459,7 +1471,7 @@ All API responses follow standardized structure:
 
 **Always validate user input**:
 ```python
-def search_library(query: str) -> List[Track]:
+def search_library(query: str) -> list[Track]:
     """Search library."""
     # Validate input
     if not isinstance(query, str):
