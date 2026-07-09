@@ -113,7 +113,7 @@ borderRadius: tokens.borderRadius.lg,
 ### 4. Revised UI Overhaul Roadmap ✅
 
 **Status**: **COMPLETE** ✅
-**Document**: `docs/roadmaps/UI_OVERHAUL_REVISED.md` (371 lines)
+**Document**: `docs/roadmaps/UI_OVERHAUL_REVISED.md` (371 lines) — removed in a docs cleanup (`c389853f`); no longer in the repo
 
 **Key Changes from Original Plan**:
 - ✅ Incremental 1-week sprints (not big-bang 6-week rewrite)
@@ -473,7 +473,7 @@ const USE_PLAYER_V2 = process.env.REACT_APP_USE_PLAYER_V2 === 'true';
 ## 📚 Documentation References
 
 - **Audits**: [docs/ui_audit/](../ui_audit/) - All component audits
-- **Roadmap**: [docs/roadmaps/UI_OVERHAUL_REVISED.md](../roadmaps/UI_OVERHAUL_REVISED.md)
+- **Roadmap**: `docs/roadmaps/UI_OVERHAUL_REVISED.md` — removed in a docs cleanup (`c389853f`); no longer in the repo
 - **Design Guidelines**: [docs/guides/UI_DESIGN_GUIDELINES.md](../guides/UI_DESIGN_GUIDELINES.md)
 - **Design Tokens**: [auralis-web/frontend/src/design-system/tokens.ts](../../auralis-web/frontend/src/design-system/tokens.ts)
 - **PlayerBarV2 Implementation**: [docs/sessions/nov9_ui_overhaul/PLAYERBARV2_IMPLEMENTATION_COMPLETE.md](../sessions/nov9_ui_overhaul/PLAYERBARV2_IMPLEMENTATION_COMPLETE.md)

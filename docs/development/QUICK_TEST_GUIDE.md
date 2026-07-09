@@ -77,4 +77,4 @@ If you find problems:
 
 ---
 
-**Full Testing Guide**: See [PHASE1_TESTING_PLAN.md](PHASE1_TESTING_PLAN.md)
+**Full Testing Guide**: See [TESTING_GUIDELINES.md](TESTING_GUIDELINES.md) (PHASE1_TESTING_PLAN.md was removed in a docs cleanup, `408b632a`)

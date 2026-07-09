@@ -15,21 +15,11 @@ Core feature development and optimization phases.
 
 [View Phase 1-10 Documentation](phase-1-10/)
 
-## Phase 25
+## Completed Phases
 
-Specialized audio processing enhancement phases focused on eq, saturation, and listening validation.
+Phase completion summaries (5A-6C) not covered above.
 
-[View Phase 25 Documentation](phase-25/)
-
-## Phases A-C
-
-UI modernization, component consolidation, and feature parity phases.
-
-**Phase A**: UI/UX modernization and design system  
-**Phase B**: Component consolidation and refactoring  
-**Phase C**: WebSocket/streaming and performance  
-
-[View Phases A-C Documentation](phases-a-c/)
+[View Completed Phase Documentation](completed/)
 
 ---
 

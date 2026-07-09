@@ -572,9 +572,7 @@ class ProcessingParameters:
 
 ## References
 
-- [Audio Fingerprint System](../sessions/oct26_fingerprint_system/)
-- [25D Fingerprint Validation](../sessions/oct26_fingerprint_system/VALIDATION_RESULTS.md)
-- [Genre Profile Research](../sessions/oct26_genre_profiles/)
+- Audio Fingerprint System / 25D Fingerprint Validation / Genre Profile Research — session notes under `docs/sessions/oct26_*` removed in a docs cleanup (`866b7dae`); current fingerprinting lives in `auralis/analysis/fingerprint/`
 - [Current Preset System](../../auralis/core/config/preset_profiles.py)
 - [Adaptive Processing](../../auralis/core/processing/adaptive_mode.py)
 

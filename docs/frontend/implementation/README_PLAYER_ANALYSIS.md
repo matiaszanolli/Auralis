@@ -14,14 +14,14 @@ This directory contains a comprehensive analysis of duplicate player components 
 
 ## 📚 Documentation Files
 
-### 1. **Start Here** → [PLAYER_ANALYSIS_SUMMARY.md](./PLAYER_ANALYSIS_SUMMARY.md)
+### 1. **Start Here** → [PLAYER_ANALYSIS_SUMMARY.md](../analysis/PLAYER_ANALYSIS_SUMMARY.md)
    - Executive overview for decision makers
    - Key findings and bugs
    - High-level consolidation approach
    - Success criteria
    - **Read Time**: 5 minutes
 
-### 2. **Implementation Guide** → [PLAYER_COMPONENT_CONSOLIDATION_PLAN.md](./PLAYER_COMPONENT_CONSOLIDATION_PLAN.md)
+### 2. **Implementation Guide** → [PLAYER_COMPONENT_CONSOLIDATION_PLAN.md](../analysis/PLAYER_COMPONENT_CONSOLIDATION_PLAN.md)
    - Detailed 7-phase consolidation plan
    - Step-by-step instructions for each phase
    - Testing strategy and validation approach
@@ -29,7 +29,7 @@ This directory contains a comprehensive analysis of duplicate player components 
    - Rollback procedures
    - **Read Time**: 20 minutes
 
-### 3. **Quick Reference** → [PLAYER_CONSOLIDATION_QUICK_REFERENCE.md](./PLAYER_CONSOLIDATION_QUICK_REFERENCE.md)
+### 3. **Quick Reference** → [PLAYER_CONSOLIDATION_QUICK_REFERENCE.md](../analysis/PLAYER_CONSOLIDATION_QUICK_REFERENCE.md)
    - Component decision matrix
    - Checklists for each phase
    - File movement map
@@ -37,7 +37,7 @@ This directory contains a comprehensive analysis of duplicate player components 
    - Testing checklist
    - **Use During**: Implementation (quick lookup)
 
-### 4. **Deep Technical Dive** → [PLAYER_ARCHITECTURE_IMPROVEMENTS.md](./PLAYER_ARCHITECTURE_IMPROVEMENTS.md)
+### 4. **Deep Technical Dive** → [PLAYER_ARCHITECTURE_IMPROVEMENTS.md](../analysis/PLAYER_ARCHITECTURE_IMPROVEMENTS.md)
    - Detailed architectural analysis
    - Design system comparison
    - Composition pattern benefits
@@ -141,9 +141,9 @@ Maintenance Hours/Year:
 ## 🚀 Quick Start (For Implementers)
 
 ### Before You Start
-1. Read [PLAYER_ANALYSIS_SUMMARY.md](./PLAYER_ANALYSIS_SUMMARY.md) (5 min)
-2. Skim [PLAYER_COMPONENT_CONSOLIDATION_PLAN.md](./PLAYER_COMPONENT_CONSOLIDATION_PLAN.md) (10 min)
-3. Keep [PLAYER_CONSOLIDATION_QUICK_REFERENCE.md](./PLAYER_CONSOLIDATION_QUICK_REFERENCE.md) open
+1. Read [PLAYER_ANALYSIS_SUMMARY.md](../analysis/PLAYER_ANALYSIS_SUMMARY.md) (5 min)
+2. Skim [PLAYER_COMPONENT_CONSOLIDATION_PLAN.md](../analysis/PLAYER_COMPONENT_CONSOLIDATION_PLAN.md) (10 min)
+3. Keep [PLAYER_CONSOLIDATION_QUICK_REFERENCE.md](../analysis/PLAYER_CONSOLIDATION_QUICK_REFERENCE.md) open
 
 ### Implementation
 1. Start with Phase 1 (fix bugs) - simplest, lowest risk
@@ -254,10 +254,10 @@ Queue              → ✅ Display and interactions working
 ## 📞 Need Help?
 
 ### Questions About...
-- **Architecture & Design**: See [PLAYER_ARCHITECTURE_IMPROVEMENTS.md](./PLAYER_ARCHITECTURE_IMPROVEMENTS.md)
-- **Implementation Steps**: See [PLAYER_COMPONENT_CONSOLIDATION_PLAN.md](./PLAYER_COMPONENT_CONSOLIDATION_PLAN.md)
-- **Checklists & Procedures**: See [PLAYER_CONSOLIDATION_QUICK_REFERENCE.md](./PLAYER_CONSOLIDATION_QUICK_REFERENCE.md)
-- **High Level Overview**: See [PLAYER_ANALYSIS_SUMMARY.md](./PLAYER_ANALYSIS_SUMMARY.md)
+- **Architecture & Design**: See [PLAYER_ARCHITECTURE_IMPROVEMENTS.md](../analysis/PLAYER_ARCHITECTURE_IMPROVEMENTS.md)
+- **Implementation Steps**: See [PLAYER_COMPONENT_CONSOLIDATION_PLAN.md](../analysis/PLAYER_COMPONENT_CONSOLIDATION_PLAN.md)
+- **Checklists & Procedures**: See [PLAYER_CONSOLIDATION_QUICK_REFERENCE.md](../analysis/PLAYER_CONSOLIDATION_QUICK_REFERENCE.md)
+- **High Level Overview**: See [PLAYER_ANALYSIS_SUMMARY.md](../analysis/PLAYER_ANALYSIS_SUMMARY.md)
 
 ### Blocked on Something?
 1. Check the relevant documentation section above
@@ -271,10 +271,10 @@ Queue              → ✅ Display and interactions working
 
 | File | Purpose | Audience | Read Time |
 |------|---------|----------|-----------|
-| [PLAYER_ANALYSIS_SUMMARY.md](./PLAYER_ANALYSIS_SUMMARY.md) | Executive overview, decision makers | PMs, Leads, Managers | 5 min |
-| [PLAYER_COMPONENT_CONSOLIDATION_PLAN.md](./PLAYER_COMPONENT_CONSOLIDATION_PLAN.md) | Detailed implementation guide | Developers | 20 min |
-| [PLAYER_CONSOLIDATION_QUICK_REFERENCE.md](./PLAYER_CONSOLIDATION_QUICK_REFERENCE.md) | Checklists and quick lookup | Developers (during implementation) | 10 min |
-| [PLAYER_ARCHITECTURE_IMPROVEMENTS.md](./PLAYER_ARCHITECTURE_IMPROVEMENTS.md) | Technical deep dive | Senior developers, architects | 25 min |
+| [PLAYER_ANALYSIS_SUMMARY.md](../analysis/PLAYER_ANALYSIS_SUMMARY.md) | Executive overview, decision makers | PMs, Leads, Managers | 5 min |
+| [PLAYER_COMPONENT_CONSOLIDATION_PLAN.md](../analysis/PLAYER_COMPONENT_CONSOLIDATION_PLAN.md) | Detailed implementation guide | Developers | 20 min |
+| [PLAYER_CONSOLIDATION_QUICK_REFERENCE.md](../analysis/PLAYER_CONSOLIDATION_QUICK_REFERENCE.md) | Checklists and quick lookup | Developers (during implementation) | 10 min |
+| [PLAYER_ARCHITECTURE_IMPROVEMENTS.md](../analysis/PLAYER_ARCHITECTURE_IMPROVEMENTS.md) | Technical deep dive | Senior developers, architects | 25 min |
 | [README_PLAYER_ANALYSIS.md](./README_PLAYER_ANALYSIS.md) | This file - Navigation | Everyone | 5 min |
 
 ---
@@ -296,4 +296,4 @@ Queue              → ✅ Display and interactions working
 **Risk Level**: 🟢 LOW
 **Expected Benefit**: 🎯 HIGH (108 hours/year savings)
 
-Start with [PLAYER_ANALYSIS_SUMMARY.md](./PLAYER_ANALYSIS_SUMMARY.md)
+Start with [PLAYER_ANALYSIS_SUMMARY.md](../analysis/PLAYER_ANALYSIS_SUMMARY.md)

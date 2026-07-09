@@ -386,10 +386,10 @@ All environments verified
 
 ## 🔗 Quick Links (Keep These Handy)
 
-- **[QUICK_REFERENCE.md](docs/frontend/QUICK_REFERENCE.md)** - Your goto card
-- **[FRONTEND_REDESIGN_ROADMAP_2_0.md](docs/roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md)** - Your specs
-- **[PHASE1_2_3_LAUNCH_CHECKLIST.md](docs/frontend/PHASE1_2_3_LAUNCH_CHECKLIST.md)** - Your guide
-- **[ARCHITECTURE_V3.md](docs/frontend/ARCHITECTURE_V3.md)** - System design
+- **[QUICK_REFERENCE.md](../frontend/QUICK_REFERENCE.md)** - Your goto card
+- **FRONTEND_REDESIGN_ROADMAP_2_0.md** - removed in a 2025-12-27 docs cleanup, no longer in the repo
+- **[PHASE1_2_3_LAUNCH_CHECKLIST.md](../frontend/PHASE1_2_3_LAUNCH_CHECKLIST.md)** - Your guide
+- **[ARCHITECTURE_V3.md](../frontend/ARCHITECTURE_V3.md)** - System design
 
 ---
 

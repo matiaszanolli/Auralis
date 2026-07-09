@@ -70,8 +70,8 @@ The current frontend is heavily fragmented due to iterative patching without a s
    - Endpoint now returns 200 with proper response
 
 **Documentation:**
-- ✅ [PHASE4_API_AUDIT.md](../../PHASE4_API_AUDIT.md) - Complete audit of all endpoints
-- ✅ [PHASE_4_INTEGRATION_COMPLETE.md](../../PHASE_4_INTEGRATION_COMPLETE.md) - Full completion details
+- ✅ [PHASE4_API_AUDIT.md](../phases/PHASE4_API_AUDIT.md) - Complete audit of all endpoints
+- ✅ PHASE_4_INTEGRATION_COMPLETE.md - Full completion details (removed in a docs cleanup, `866b7dae`)
 
 **Verification:** End-to-end testing shows all systems operational:
 - ✅ REST API endpoints: All query parameter contracts verified
@@ -94,7 +94,7 @@ The current frontend is heavily fragmented due to iterative patching without a s
 
 ### Complete Roadmap
 
-📋 **See [FRONTEND_REDESIGN_ROADMAP_2_0.md](FRONTEND_REDESIGN_ROADMAP_2_0.md)** for full implementation details including:
+📋 **FRONTEND_REDESIGN_ROADMAP_2_0.md** (removed in a 2025-12-27 docs cleanup, `866b7dae`; no longer in the repo) covered full implementation details including:
 - Phase 0: Foundation (types, hooks, fingerprint cache, testing setup)
 - Phase 1: Player redesign (state management, playback controls, streaming integration)
 - Phase 2: Library browser (queries with caching, infinite scroll, metadata editor)
@@ -177,7 +177,7 @@ The current frontend is heavily fragmented due to iterative patching without a s
 - ✅ **Removed duplicate components** - Cleaner architecture, ready for expansion
 - ✅ **Module-level optimization** - Established pattern for re-usable optimizations
 - ✅ **Performance analysis complete** - 10 additional opportunities identified for Q1 2026
-- 📊 See [HYBRID_PROCESSOR_OPTIMIZATION_ANALYSIS.md](../../HYBRID_PROCESSOR_OPTIMIZATION_ANALYSIS.md)
+- 📊 See [HYBRID_PROCESSOR_OPTIMIZATION_ANALYSIS.md](../features/audio-processing/HYBRID_PROCESSOR_OPTIMIZATION_ANALYSIS.md)
 
 #### Key Improvements (Q1 2026+)
 
@@ -807,7 +807,7 @@ For questions about this roadmap:
 - **Discussion Thread:** GitHub Discussions - Roadmap Planning
 - **Issue Tracker:** GitHub Issues with `roadmap` label
 - **Email:** (via GitHub)
-- **Documentation:** [docs/MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md)
+- **Documentation:** [docs/MASTER_ROADMAP.md](../MASTER_ROADMAP.md)
 
 ---
 

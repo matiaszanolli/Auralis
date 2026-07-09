@@ -632,7 +632,7 @@ export const mockPlayerState: PlayerStateMessage['data'] = {
 - **Backend API:** `auralis-web/backend/WEBSOCKET_API.md`
 - **Design System:** `src/design-system/tokens.ts`
 - **Testing Guide:** `docs/development/TESTING_GUIDELINES.md`
-- **Frontend Redesign:** `docs/roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md`
+- **Frontend Redesign:** `docs/roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md` — removed in a 2025-12-27 docs cleanup (`866b7dae`); no longer in the repo
 
 ---
 

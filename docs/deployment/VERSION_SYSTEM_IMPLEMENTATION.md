@@ -54,12 +54,12 @@ class SchemaVersion(Base):
 
 **Purpose:** Track which database migrations have been applied
 
-**Location:** [auralis/library/models.py](auralis/library/models.py#L346-L364)
+**Location:** [auralis/library/models.py](../../auralis/library/models.py)
 
 ### 3. Migration System
 
 #### `MigrationManager` Class
-**Location:** [auralis/library/migrations.py](auralis/library/migrations.py)
+**Location:** [auralis/library/migration_manager.py](../../auralis/library/migration_manager.py)
 
 **Key Methods:**
 - `get_current_version()` - Get database schema version
@@ -93,7 +93,7 @@ check_and_migrate_database(db_path, auto_backup=True)
 
 ### 4. Library Manager Integration
 
-**Modified:** [auralis/library/manager.py](auralis/library/manager.py#L54-L58)
+**Modified:** [auralis/library/manager.py](../../auralis/library/manager.py#L54-L58)
 
 ```python
 def __init__(self, database_path: Optional[str] = None):
@@ -147,7 +147,7 @@ migration_v002_to_v003_add_user_preferences.sql    # Planned
 
 ### 7. Comprehensive Test Suite
 
-**File:** [tests/test_migrations.py](tests/test_migrations.py)
+**File:** [tests/test_migrations.py](../../tests/test_migrations.py)
 
 **Test Coverage:**
 - ✅ Fresh database initialization
@@ -239,7 +239,7 @@ migration_v002_to_v003_add_user_preferences.sql    # Planned
 | Version Info | `auralis/__version__.py` | 7 |
 | Backend Version | `auralis-web/backend/version.py` | 35 |
 | Schema Version Model | `auralis/library/models.py` | 19 |
-| Migration Manager | `auralis/library/migrations.py` | 331 |
+| Migration Manager | `auralis/library/migration_manager.py` | 331 |
 | Library Manager Integration | `auralis/library/manager.py` | 4 |
 | Migration Tests | `tests/test_migrations.py` | 290 |
 | Version API Endpoint | `auralis-web/backend/main.py` | 14 |

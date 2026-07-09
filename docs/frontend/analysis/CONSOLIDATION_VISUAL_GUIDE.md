@@ -1,6 +1,6 @@
 # Frontend Component Consolidation - Visual Guide
 
-**Quick Reference:** See detailed roadmap in [COMPONENT_CONSOLIDATION_ROADMAP.md](./COMPONENT_CONSOLIDATION_ROADMAP.md)
+**Quick Reference:** Detailed roadmap in COMPONENT_CONSOLIDATION_ROADMAP.md was removed in a 2025-12-27 docs cleanup (`866b7dae`); no longer in the repo
 
 ---
 
@@ -473,10 +473,10 @@ A: Yes. Industry best practice for variant components (React docs recommend).
 
 ## References
 
-- **Primary:** [COMPONENT_CONSOLIDATION_ROADMAP.md](./COMPONENT_CONSOLIDATION_ROADMAP.md) - Full implementation guide
+- **Primary:** COMPONENT_CONSOLIDATION_ROADMAP.md - Full implementation guide - removed in a 2025-12-27 docs cleanup (`866b7dae`); no longer in the repo
 - **Reference:** [COMPONENT_PATTERNS.md](./COMPONENT_PATTERNS.md) - Architecture patterns & best practices
 - **Summary:** [AUDIT_SUMMARY.md](./AUDIT_SUMMARY.md) - High-level findings
-- **Project:** [CLAUDE.md](./CLAUDE.md) - General development guidelines
+- **Project:** [CLAUDE.md](../../../CLAUDE.md) - General development guidelines
 
 ---
 

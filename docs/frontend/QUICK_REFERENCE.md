@@ -429,7 +429,7 @@ useEffect(() => {
 ## 🔗 Important Links
 
 **Roadmaps:**
-- [FRONTEND_REDESIGN_ROADMAP_2_0.md](../roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md) - Full specs
+- ~~FRONTEND_REDESIGN_ROADMAP_2_0.md - Full specs~~ (removed in a 2025-12-27 docs cleanup, `866b7dae`)
 - [PHASE0_COMPLETE_SUMMARY.md](PHASE0_COMPLETE_SUMMARY.md) - What's done
 - [PHASE1_2_3_LAUNCH_CHECKLIST.md](PHASE1_2_3_LAUNCH_CHECKLIST.md) - Launch guide
 

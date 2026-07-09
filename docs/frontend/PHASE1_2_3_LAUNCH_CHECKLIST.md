@@ -11,7 +11,7 @@
 ### Team Leads: Complete These Tasks
 
 - [ ] **Read all documentation**
-  - [ ] [FRONTEND_REDESIGN_ROADMAP_2_0.md](../roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md) - Your phase section
+  - [ ] ~~FRONTEND_REDESIGN_ROADMAP_2_0.md - Your phase section~~ (removed in a 2025-12-27 docs cleanup, `866b7dae`)
   - [ ] [PHASE0_COMPLETE_SUMMARY.md](PHASE0_COMPLETE_SUMMARY.md) - Foundation reference
   - [ ] [PLAYER_ENHANCEMENT_ARCHITECTURE.md](PLAYER_ENHANCEMENT_ARCHITECTURE.md) - Current system design
 
@@ -57,7 +57,7 @@
 
 #### Task 1.1: Player State Management (Day 1-2)
 - [ ] Create `src/hooks/player/usePlaybackControl.ts`
-  - Reference: [FRONTEND_REDESIGN_ROADMAP_2_0.md § 1.2](../roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md)
+  - Reference: FRONTEND_REDESIGN_ROADMAP_2_0.md § 1.2 (removed in a 2025-12-27 docs cleanup, `866b7dae`)
   - Implement: play, pause, seek, next, previous, setVolume
   - Test with: `npm run test -- usePlaybackControl`
 
@@ -110,7 +110,7 @@ Each component should:
 
 #### Task 2.1: Library State Management (Day 1-2)
 - [ ] Create `src/hooks/library/useLibraryQuery.ts`
-  - Reference: [FRONTEND_REDESIGN_ROADMAP_2_0.md § 2.1](../roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md)
+  - Reference: FRONTEND_REDESIGN_ROADMAP_2_0.md § 2.1 (removed in a 2025-12-27 docs cleanup, `866b7dae`)
   - Implement: tracks, albums, artists queries
   - Pagination support
 
@@ -164,7 +164,7 @@ Each component should:
 
 #### Task 3.1: Enhancement State Management (Day 1)
 - [ ] Create `src/hooks/enhancement/useEnhancementControl.ts`
-  - Reference: [FRONTEND_REDESIGN_ROADMAP_2_0.md § 3.1](../roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md)
+  - Reference: FRONTEND_REDESIGN_ROADMAP_2_0.md § 3.1 (removed in a 2025-12-27 docs cleanup, `866b7dae`)
   - Implement: toggleEnabled, setPreset, setIntensity
   - Sync with backend via REST API
 
@@ -410,7 +410,7 @@ A Phase is complete when:
 ## 🔗 Key Resources
 
 **Documentation:**
-- [FRONTEND_REDESIGN_ROADMAP_2_0.md](../roadmaps/FRONTEND_REDESIGN_ROADMAP_2_0.md) - Complete specs
+- ~~FRONTEND_REDESIGN_ROADMAP_2_0.md - Complete specs~~ (removed in a 2025-12-27 docs cleanup, `866b7dae`)
 - [PHASE0_COMPLETE_SUMMARY.md](PHASE0_COMPLETE_SUMMARY.md) - Foundation reference
 - [PLAYER_ENHANCEMENT_ARCHITECTURE.md](PLAYER_ENHANCEMENT_ARCHITECTURE.md) - Current system design
 

@@ -418,7 +418,7 @@ If you encounter issues during migration:
 
 ## See Also
 
-- [Phase 6 Deprecation Plan](PHASE_6_DEPRECATION_PLAN.md) - Technical details of the deprecation strategy
-- [Phase 5 Migration Overview](PHASE_5_MIGRATION_OVERVIEW.md) - Test suite migration details
+- [Phase 6 Deprecation Plan](../phases/PHASE_6_DEPRECATION_PLAN.md) - Technical details of the deprecation strategy
+- [Phase 5 Migration Overview](../phases/PHASE_5_MIGRATION_OVERVIEW.md) - Test suite migration details
 - Repository source code: `auralis/library/repositories/`
 

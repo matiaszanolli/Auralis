@@ -108,9 +108,9 @@ dist/
 
 ## 🆘 Need Help?
 
-- **Full guide**: [STANDALONE_APP_BUILD_GUIDE.md](STANDALONE_APP_BUILD_GUIDE.md)
-- **Architecture**: [CLAUDE.md](CLAUDE.md)
-- **Processing UI**: [AUDIO_PROCESSING_UI_IMPLEMENTATION.md](AUDIO_PROCESSING_UI_IMPLEMENTATION.md)
+- **Full guide**: STANDALONE_APP_BUILD_GUIDE.md — removed in a docs cleanup (`408b632a`); no longer in the repo
+- **Architecture**: [CLAUDE.md](../../CLAUDE.md)
+- **Processing UI**: AUDIO_PROCESSING_UI_IMPLEMENTATION.md — removed in a docs cleanup (`ccb6d87b`); no longer in the repo
 - **Issues**: GitHub Issues
 
 ---

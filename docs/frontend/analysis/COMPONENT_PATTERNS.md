@@ -1063,8 +1063,8 @@ When creating or refactoring a component, use this checklist:
 
 ## References
 
-- [Component Consolidation Roadmap](./COMPONENT_CONSOLIDATION_ROADMAP.md)
-- [CLAUDE.md - Component Guidelines](./CLAUDE.md#-component-guidelines)
+- Component Consolidation Roadmap - removed in a 2025-12-27 docs cleanup (`866b7dae`); no longer in the repo
+- [CLAUDE.md](../../../CLAUDE.md)
 - [React Documentation - Composition vs Inheritance](https://react.dev/learn/composition-vs-inheritance)
 - [Airbnb React Style Guide](https://github.com/airbnb/javascript/tree/master/react)
 

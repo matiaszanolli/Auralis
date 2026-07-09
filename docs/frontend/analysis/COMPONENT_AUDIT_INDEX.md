@@ -9,7 +9,7 @@
 ## 📚 Documentation Files
 
 ### Primary Implementation Guide (START HERE)
-**[COMPONENT_CONSOLIDATION_ROADMAP.md](./COMPONENT_CONSOLIDATION_ROADMAP.md)** (36 KB, 500+ lines)
+**COMPONENT_CONSOLIDATION_ROADMAP.md** (36 KB, 500+ lines) — removed in a 2025-12-27 docs cleanup (`866b7dae`); no longer in the repo
 - **Purpose:** Detailed step-by-step implementation guide
 - **Contains:**
   - Executive summary with statistics
@@ -82,22 +82,22 @@
 ### For Different Audiences
 
 **If you're a Developer:**
-1. Start with [COMPONENT_CONSOLIDATION_ROADMAP.md](./COMPONENT_CONSOLIDATION_ROADMAP.md) (primary)
+1. Start with COMPONENT_CONSOLIDATION_ROADMAP.md (removed, see note above) (primary)
 2. Reference [COMPONENT_PATTERNS.md](./COMPONENT_PATTERNS.md) for future component decisions
 3. Use [CONSOLIDATION_VISUAL_GUIDE.md](./CONSOLIDATION_VISUAL_GUIDE.md) during implementation
 
 **If you're a Team Lead/Manager:**
 1. Read [AUDIT_SUMMARY.md](./AUDIT_SUMMARY.md) for overview
-2. Review [COMPONENT_CONSOLIDATION_ROADMAP.md](./COMPONENT_CONSOLIDATION_ROADMAP.md) for timeline/risk
+2. Review COMPONENT_CONSOLIDATION_ROADMAP.md (removed, see note above) for timeline/risk
 3. Use summary stats to brief stakeholders
 
 **If you're Approving/Reviewing:**
 1. Check [AUDIT_SUMMARY.md](./AUDIT_SUMMARY.md) for findings
-2. Review phases in [COMPONENT_CONSOLIDATION_ROADMAP.md](./COMPONENT_CONSOLIDATION_ROADMAP.md)
+2. Review phases in COMPONENT_CONSOLIDATION_ROADMAP.md (removed, see note above)
 3. Assess risk in [CONSOLIDATION_VISUAL_GUIDE.md](./CONSOLIDATION_VISUAL_GUIDE.md)
 
 **If you're Implementing:**
-1. Follow step-by-step in [COMPONENT_CONSOLIDATION_ROADMAP.md](./COMPONENT_CONSOLIDATION_ROADMAP.md)
+1. Follow step-by-step in COMPONENT_CONSOLIDATION_ROADMAP.md (removed, see note above)
 2. Use [CONSOLIDATION_VISUAL_GUIDE.md](./CONSOLIDATION_VISUAL_GUIDE.md) checklist
 3. Reference [COMPONENT_PATTERNS.md](./COMPONENT_PATTERNS.md) for pattern guidance
 
