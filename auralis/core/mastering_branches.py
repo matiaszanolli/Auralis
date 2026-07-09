@@ -487,6 +487,14 @@ class QuietBranch(ProcessingBranch):
 
         # Crest-factor thresholds shared between exciter attenuation and the
         # soft-clip bypass/relax logic further below.
+        #
+        # 2026-07-08 calibration note: widening these to 20/26 (from 18/22) was
+        # tried and measured to have negligible effect (<0.15 dB on both LUFS
+        # and crest across the Gulp 1985 + Oktubre 1986 albums) — the
+        # soft-clipper's knee is gentle enough that where it starts relaxing
+        # barely changes its output. Reverted; see mastering_config.py's
+        # LOUDNESS_* constants for the change that actually moved these
+        # numbers (docs/sessions/MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md).
         CLIP_BYPASS_CREST = 22.0   # ≥ this → skip soft_clip, minimal exciter
         CLIP_RELAX_CREST  = 18.0   # ≥ this → relax soft_clip knee, reduce exciter
 
@@ -563,16 +571,16 @@ class QuietBranch(ProcessingBranch):
         # Scale exciter intensity down for high-DR sources proportionally.
         # Thresholds are shared with the soft-clip bypass block below so that
         # both decisions track the same measurement:
-        #   crest < 12 dB   → full exciter (compressed sources benefit most)
-        #   crest 12–18 dB  → blend 1.0 → 0.5 (gentle ramp)
-        #   crest 18–22 dB  → blend 0.5 → 0.2 (conservative; avoid RMS inflation)
-        #   crest ≥ 22 dB   → 0.15x cap (near-bypass; truly wide-dynamic sources)
-        if unpacker.crest_db >= CLIP_BYPASS_CREST:       # ≥ 22 dB
+        #   crest < 12 dB               → full exciter (compressed sources benefit most)
+        #   crest 12 dB–CLIP_RELAX_CREST  → blend 1.0 → 0.5 (gentle ramp)
+        #   crest CLIP_RELAX_CREST–CLIP_BYPASS_CREST → blend 0.5 → 0.15 (conservative; avoid RMS inflation)
+        #   crest ≥ CLIP_BYPASS_CREST   → 0.15x cap (near-bypass; truly wide-dynamic sources)
+        if unpacker.crest_db >= CLIP_BYPASS_CREST:
             exciter_intensity = effective_intensity * 0.15
-        elif unpacker.crest_db >= CLIP_RELAX_CREST:      # 18–22 dB
+        elif unpacker.crest_db >= CLIP_RELAX_CREST:
             blend = (unpacker.crest_db - CLIP_RELAX_CREST) / (CLIP_BYPASS_CREST - CLIP_RELAX_CREST)
             exciter_intensity = effective_intensity * (0.5 - blend * (0.5 - 0.15))
-        elif unpacker.crest_db >= 12.0:                  # 12–18 dB
+        elif unpacker.crest_db >= 12.0:
             blend = (unpacker.crest_db - 12.0) / (CLIP_RELAX_CREST - 12.0)
             exciter_intensity = effective_intensity * (1.0 - blend * 0.5)
         else:

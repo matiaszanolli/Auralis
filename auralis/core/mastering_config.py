@@ -506,13 +506,25 @@ class SimpleMasteringConfig:
     -19.8 LUFS) span this ramp, so the quietest get the most lift and the
     near-competitive ones only a touch."""
 
-    LOUDNESS_TARGET_LUFS: float = -15.5
+    LOUDNESS_TARGET_LUFS: float = -12.5
     """Loudness anchor for the maximizer's push, NOT the final output LUFS:
     push = (TARGET - source_lufs) * undermastered. The downstream EQ +
-    final-normalize add ~3 dB on top, so a -15.5 anchor lands Oktubre's tracks
-    at roughly -13 to -15 LUFS (avg ~-14, the requested 'moderate' target) at
-    ~15-17 dB crest — clearly louder yet still markedly dynamic. Lower this for
-    a hotter master, raise it for a gentler lift."""
+    final-normalize add ~3 dB on top.
+
+    2026-07-08 recalibration: was -15.5, chosen as a deliberately 'moderate'
+    target landing Oktubre-like sources at -13 to -15 LUFS avg ~-14. A
+    full-album measurement (Gulp 1985 + Oktubre 1986, 21 tracks, see
+    docs/sessions/MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md) found
+    that -15.5 anchor left the *push itself* at ~0 dB for most of the corpus
+    (true source LUFS -15.6 to -19.6 sits barely below -15.5, so
+    push = (TARGET - source) * undermastered rounded under the 0.5 dB audible
+    floor and the stage silently no-op'd) — the actual loudness lift measured
+    on that corpus came almost entirely from the branch's final peak-normalize,
+    not this stage. Raised to -12.5 (near the measured 'good'/competitive
+    cluster used for LOUDNESS_COMPETITIVE_LUFS) so the maximizer has real
+    headroom to push toward on genuinely under-mastered vintage material
+    instead of being a near-permanent no-op. Lower this for a gentler lift,
+    raise for a hotter master."""
 
     LOUDNESS_MIN_CREST_DB: float = 11.0
     """Crest-factor floor. The push is clamped so output crest never falls below
@@ -524,13 +536,21 @@ class SimpleMasteringConfig:
     """Absolute ceiling on the push gain, regardless of how quiet the source is.
     Backstop against pathological inputs (e.g. a -40 LUFS field recording)."""
 
-    LOUDNESS_MAX_CREST_REDUCTION_DB: float = 3.0
+    LOUDNESS_MAX_CREST_REDUCTION_DB: float = 6.0
     """Transient-preservation cap: the push is also crest reduction (RMS rises
     ~1:1 while peaks stay at the ceiling), so this bounds how much drum punch the
-    loudness stage may trade for level. Caps the flattening of dynamic material
-    to a musical amount and accepts a slightly quieter master (the chosen
-    'preserve punch' trade-off) rather than crushing the kick/snare. 3 dB keeps
-    e.g. an 18 dB-crest source at >= 15 dB out."""
+    loudness stage may trade for level.
+
+    2026-07-08 recalibration: was 3.0, chosen for one track (Gulp 1985, "preserve
+    punch, accept ~-15/-16 LUFS over flatter drums"). Measured across the full
+    Gulp+Oktubre corpus (21 tracks, mean source crest ~19 dB) this cap was
+    binding on the highest-crest tracks specifically — the ones with the most
+    room to give up before dynamics start feeling flat — while combined with
+    the LOUDNESS_TARGET_LUFS raise above, those are exactly the tracks that
+    otherwise see the least loudness benefit. Doubled to give real headroom;
+    LOUDNESS_MIN_CREST_DB (11 dB) remains the hard floor against crushing, so
+    this only widens how much can be traded on sources that start well above
+    that floor."""
 
     LOUDNESS_LIMITER_CEILING_DB: float = -1.0
     """Brick-wall limiter ceiling. The downstream final normalize lifts the peak
