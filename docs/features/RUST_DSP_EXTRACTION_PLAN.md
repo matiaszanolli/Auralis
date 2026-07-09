@@ -1,5 +1,7 @@
 # Rust DSP Library Extraction Plan
 
+> **Status note (2026-07-09)**: This was the original 4-week plan (HPSS/YIN/Chroma only). All three shipped, and the crate has since grown to 16 modules (compressor, limiter, tempo, onset detection, stereo/spectral analysis, a unified 25D fingerprint orchestrator, and a `grpc_fingerprint_server` binary) well beyond this plan's scope. The algorithm descriptions below remain accurate background reading. See [RUST_DSP_STATUS.md](RUST_DSP_STATUS.md) for current, verified status.
+
 ## Overview
 
 Extract and reimplement 3 computationally expensive librosa functions in Rust for 10-50x performance improvement.

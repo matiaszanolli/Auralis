@@ -3,6 +3,8 @@
 **Date**: November 24, 2025
 **Phase**: 1 (Setup & Extraction) - ✅ COMPLETE
 
+> **Superseded notice (2026-07-09)**: This snapshot describes YIN and Chroma as skeletons/pending (Phase 3-4, "Week 2"/"Week 3") — both have since been fully implemented (`yin.rs` 456 lines/12 tests, `chroma.rs` 502 lines/15 tests), PyO3 bindings are active (not disabled), and the crate has grown to 16 modules plus a `grpc_fingerprint_server` binary. See [RUST_DSP_STATUS.md](RUST_DSP_STATUS.md) for the current, verified status. Kept for historical reference only.
+
 ---
 
 ## Overview
@@ -197,8 +199,8 @@ Output: Chromagram [12, n_frames]
 ## Key Files
 
 ### Documentation
-- `/mnt/data/src/matchering/docs/RUST_DSP_EXTRACTION_PLAN.md` - Comprehensive specifications
-- `/mnt/data/src/matchering/docs/RUST_DSP_PROJECT_STATUS.md` - This file
+- [RUST_DSP_EXTRACTION_PLAN.md](RUST_DSP_EXTRACTION_PLAN.md) - Comprehensive specifications
+- `RUST_DSP_PROJECT_STATUS.md` - This file
 
 ### Project Structure
 ```
