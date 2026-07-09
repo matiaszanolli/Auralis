@@ -1,6 +1,6 @@
 # Mastering Algorithm "Dulling" Research — Current State
 **Date**: 2026-07-08
-**Status**: 🔎 RESEARCH / DIAGNOSIS — no code changes yet
+**Status**: ✅ DIAGNOSED, RECALIBRATED, AND CHUNK-CONSISTENCY-FIXED — see §7-8 for applied changes, §9 for what's still open
 **Reported symptom**: The offline mastering algorithm (`SimpleMastering`) produces a much smaller overall improvement over source material than it used to. The hypothesis is that a sequence of targeted fixes for specific problem tracks (dark/bass-heavy, quiet/high-crest vintage, buried-vocal) has cumulatively suppressed enhancement on typical, non-outlier material — i.e. we tuned away harshness on the tails and lost effect size in the middle of the distribution.
 
 This document is a factual snapshot: current pipeline architecture, the exact numeric history of every tuning change to date, and the mechanism by which those changes could compound into "dulling." It does not yet contain a verdict — see **Open Questions** and **What I Need From You** at the end.
@@ -138,9 +138,30 @@ Post-master crest now runs ~13.0-18.1 dB across Gulp/Oktubre (down from ~15.1-19
 
 ---
 
-## 8. Still open
+## 8. Chunk-consistency fix — whole-song peak (2026-07-08, same session)
 
-§7's recalibration is applied and cross-checked, not just proposed. What's left:
+After listening to the §7 masters, the user flagged a distinct architectural issue: `SimpleMastering` processes 30s chunks (`CHUNK_DURATION_SEC`, 3s crossfade), and while the *spectral* dimensions (bass/presence/air/lufs/crest from the fingerprint) are correctly computed once per file and reused for every chunk, one value was NOT: `peak_db`, recomputed fresh per chunk and fed into `QuietBranch`'s makeup-gain headroom clamp (`AdaptiveLoudnessControl.calculate_adaptive_gain`). Confirmed with a direct unit check — same song (lufs -17, crest 18), a quiet-verse chunk (local peak -8 dB) computed **+4.0 dB** makeup gain while a loud-chorus chunk (local peak -1 dB) computed **0.0 dB** — a 4 dB jump between two sections of the *same song*, purely from each chunk's own transient content, not an actual change in the song's characteristics.
+
+**Fix** (`simple_mastering.py`, `mastering_branches.py`): added a whole-song peak pre-scan (reads the file once in `CHUNK_DURATION_SEC`-sized blocks, tracks the running max, stored as `self._song_peak_db`) run once before the chunk loop starts, alongside the existing per-file fingerprint/notch/LUFS-window measurements. This value — not the per-chunk one — is now what's passed to `branch.apply()` for the makeup-gain headroom check, so every chunk of a song is clamped by the same, single worst-case peak. Stage 1's clip-prevention (`_process()`, uses the chunk's own peak to avoid clipping *that* chunk) is untouched — it's correctly chunk-local and was never the problem. Falls back to the per-chunk value when `_song_peak_db` is unset (the direct-`_process()` test path in `tests/auralis/core/test_nan_detection.py`, which bypasses `master_file` entirely).
+
+Re-ran the same unit check post-fix: both verse and chorus now compute **0.0 dB** consistently (the song's one loudest moment — the chorus's own -1 dB peak — sets the ceiling for the whole file). Still fully clip-safe by construction: the global peak is by definition ≥ any chunk's own peak.
+
+**Full-battery re-validation** (same 26-case harness as §7):
+
+| Category | §7 (loudness recal only) | §8 (+ whole-song peak) |
+|---|---|---|
+| Gulp dLUFS / dCrest mean | +4.69 / -1.73 | +4.41 / -1.41 |
+| Oktubre dLUFS / dCrest mean | +5.42 / -3.13 | +5.18 / -2.89 |
+| quiet_other (Porcupine Tree, Blind Guardian) | +3.71 / -2.63 | +3.56 / -2.58 |
+| out_of_scope / charlyfito1 | unchanged | unchanged |
+
+Small, expected, uniform reduction in average magnitude (~0.2-0.3 dB less gain and crest reduction) — the cost of enforcing one consistent gain per song instead of letting individual chunks over- or under-shoot based on their own local peak. `tests/regression/test_mastering_regression.py`: still exactly 4 failed / 2 passed, identical error messages to the pre-existing baseline — no new failures. `tests/auralis/core/test_nan_detection.py` (the direct-`_process()` fallback path): all 15 pass.
+
+---
+
+## 9. Still open
+
+§7's recalibration and §8's chunk-consistency fix are both applied and cross-checked, not just proposed. What's left:
 
 1. **Whether to push further.** Post-master crest is now ~13-18 dB across Gulp/Oktubre — better, but still above the 9-14 dB "world-class reference" band in [MASTERING_QUALITY_VALIDATION.md](../guides/MASTERING_QUALITY_VALIDATION.md) (written for the other pipeline, `HybridProcessor` — whether that's the right target for `SimpleMastering`'s vintage-material path is itself a judgment call, not just a number to hit). A second, smaller pass on the same two constants could get closer if that's the goal.
 2. **The `air_enhancement.py` hardcoded 1.5 dB vs. declared 2.5 dB config bug (§3)** is still unfixed — untouched by this recalibration, independent small correctness fix whenever wanted.

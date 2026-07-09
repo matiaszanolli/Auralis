@@ -76,6 +76,14 @@ class SimpleMasteringPipeline:
         # fingerprint value.
         self._source_lufs: float | None = None
         self._source_crest_db: float | None = None
+        # Per-file whole-song peak (dB), measured once in master_file, used
+        # ONLY as the headroom reference for the QuietBranch makeup-gain
+        # clamp (AdaptiveLoudnessControl.calculate_adaptive_gain) — NOT for
+        # Stage 1's per-chunk clip prevention in _process(), which correctly
+        # keeps using each chunk's own peak. None until measured / on the
+        # direct _process() path (tests), where the per-chunk peak is used
+        # as a fallback (matches pre-fix behavior for those tests).
+        self._song_peak_db: float | None = None
 
     @property
     def fingerprint_service(self) -> FingerprintService:
@@ -194,6 +202,7 @@ class SimpleMasteringPipeline:
             self._notches = []
             self._source_lufs = None
             self._source_crest_db = None
+            self._song_peak_db = None
             step_start = time.perf_counter()
             notch_sample_seconds = 30
             notch_window = min(total_frames, sr * notch_sample_seconds)
@@ -244,6 +253,38 @@ class SimpleMasteringPipeline:
                           ", ".join(f"{n.freq_hz:.0f}Hz" for n in detected) + ")")
                 else:
                     print("\n🎯 No prominent resonances detected — skipping notch stage")
+
+            # Step 2c: Whole-song peak, scanned once up front.
+            # 2026-07-08: the QuietBranch makeup-gain headroom clamp (see
+            # AdaptiveLoudnessControl.calculate_adaptive_gain) used to receive
+            # each chunk's OWN peak_db, computed fresh per 30s chunk in the
+            # loop below. That's correct for Stage 1's per-chunk clip
+            # prevention (a chunk's own peak is exactly what must not clip),
+            # but wrong for the gain-staging decision: a song's quiet verse
+            # chunk would get its full makeup gain while a loud chorus chunk
+            # — same song, same target loudness — got clamped down hard
+            # because ITS peak happened to be high, producing an audible
+            # level inconsistency between sections instead of one consistent
+            # gain for the whole song. Scanning once here and using this
+            # value (not the per-chunk one) for that specific headroom check
+            # fixes the inconsistency and is still fully clip-safe: it's the
+            # max peak that will ever occur, so no chunk's headroom is
+            # under-estimated.
+            step_start = time.perf_counter()
+            song_peak_linear = 0.0
+            scan_block_frames = sr * self.config.CHUNK_DURATION_SEC
+            with sf.SoundFile(str(input_path)) as audio_file:
+                while True:
+                    block = audio_file.read(scan_block_frames)
+                    if block.size == 0:
+                        break
+                    block_peak = float(np.max(np.abs(block)))
+                    if block_peak > song_peak_linear:
+                        song_peak_linear = block_peak
+            self._song_peak_db = (
+                20 * np.log10(song_peak_linear) if song_peak_linear > 0 else -96.0
+            )
+            timings['measure_song_peak'] = time.perf_counter() - step_start
 
             # Step 3: Process in chunks (memory efficient)
             if verbose:
@@ -516,9 +557,23 @@ class SimpleMasteringPipeline:
         if verbose:
             print(f"   Material type: {material_type}")
 
+        # Branches receive the WHOLE-SONG peak here, not the per-chunk
+        # `peak_db` used above for Stage 1's clip prevention. The only
+        # consumer is QuietBranch's makeup-gain headroom clamp, and using a
+        # per-chunk value there made a quiet verse chunk get its full gain
+        # while a loud chorus chunk (same song, same target) got clamped
+        # down hard purely because its own peak was high — an audible
+        # inconsistency between sections rather than one consistent gain for
+        # the whole song. Falls back to the local peak_db when unset (the
+        # direct _process() test path, which never runs the pre-scan).
+        gain_reference_peak_db = (
+            self._song_peak_db if self._song_peak_db is not None else peak_db
+        )
+
         # Delegate to branch-specific processing
         processed, branch_info = branch.apply(
-            processed, unpacker, peak_db, effective_intensity, sample_rate, self.config, verbose
+            processed, unpacker, gain_reference_peak_db, effective_intensity,
+            sample_rate, self.config, verbose
         )
 
         # Merge branch stages into main info

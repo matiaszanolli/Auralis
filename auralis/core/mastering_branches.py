@@ -196,7 +196,12 @@ class ProcessingBranch(ABC):
         Args:
             audio: Input audio (channels, samples)
             unpacker: Fingerprint unpacker with all 25 dimensions
-            peak_db: Peak level in dB
+            peak_db: WHOLE-SONG peak level in dB (scanned once in master_file,
+                not this chunk's own peak) — used only as the headroom
+                reference for QuietBranch's makeup-gain clamp so every chunk
+                of a song gets consistent gain-staging. Distinct from the
+                per-chunk peak_db used earlier in _process() for clip
+                prevention.
             effective_intensity: Adaptive intensity (from _calculate_intensity)
             sample_rate: Sample rate in Hz
             config: Configuration constants
