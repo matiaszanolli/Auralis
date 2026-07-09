@@ -1,5 +1,7 @@
 # Chunk Loading Priority Queue System
 
+> **⚠️ SUPERSEDED (2026-07-09)**: The `ChunkLoadPriorityQueue` class and its `services/UnifiedWebMAudioPlayer.ts` host (plus `preloadChunk`/`processLoadQueue`) no longer exist anywhere in the frontend, and WebM/Opus chunk loading was never the streaming model that shipped. Audio now streams as binary PCM over WebSocket into `services/audio/PCMStreamBuffer.ts` → `services/audio/AudioPlaybackEngine.ts`. See [CHUNK_AND_CACHE_ARCHITECTURE.md](../features/cache-system/CHUNK_AND_CACHE_ARCHITECTURE.md). Kept for historical reference only.
+
 ## Overview
 
 The async priority queue system manages WebM/Opus chunk loading in the unified player, ensuring seek operations are responsive and background preloads don't interfere with user interactions.

@@ -1,8 +1,10 @@
 # Cache and Chunking System Audit Report
 
 **Date:** November 22, 2025
-**Status:** Comprehensive Audit Complete
+**Status:** ⚠️ SUPERSEDED (2026-07-09) — see note below
 **Impact Assessment:** 5 Critical Issues, 12 Major Improvement Opportunities
+
+> **Superseded notice (2026-07-09)**: This audit critiques modules that no longer exist — `streamlined_cache.py`, `webm_streaming.py`, `MultiTierWebMBuffer.ts`, `ChunkPreloadManager.ts`, `PlaybackController.ts` are all gone, and the `CHUNK_SIZE_MB = 1.5` fixed-tier constant it flags was replaced by a path-based byte-budget cache (`MAX_CHUNK_DISK_BYTES`, 512 MB) with no fixed-size tiers. The current chunk model is 15s/10s/5s and streaming is WebSocket binary PCM (not WebM/MSE). See [CHUNK_AND_CACHE_ARCHITECTURE.md](CHUNK_AND_CACHE_ARCHITECTURE.md) for the current architecture. Kept for historical reference only.
 
 ---
 

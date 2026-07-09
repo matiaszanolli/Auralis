@@ -3,6 +3,8 @@
 **Date**: October 27, 2025
 **Topic**: Media Source Extensions browser support for Auralis progressive streaming
 
+> **⚠️ SUPERSEDED (2026-07-09)**: MediaSource Extensions (MSE) was never adopted by Auralis, so its browser-compatibility matrix is moot. Audio streams as binary PCM over WebSocket into the Web Audio API (`services/audio/PCMStreamBuffer.ts` → `AudioPlaybackEngine.ts`), which has different browser considerations than MSE. See [CHUNK_AND_CACHE_ARCHITECTURE.md](../features/cache-system/CHUNK_AND_CACHE_ARCHITECTURE.md). Kept for historical reference only.
+
 ---
 
 ## Executive Summary

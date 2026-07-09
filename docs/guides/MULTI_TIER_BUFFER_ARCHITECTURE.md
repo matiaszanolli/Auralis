@@ -1,6 +1,8 @@
 # Multi-Tier Buffer Architecture Design
 ## CPU-Inspired Hierarchical Caching with Branch Prediction
 
+> **⚠️ SUPERSEDED (2026-07-09)**: This L1/L2/L3 multi-tier buffer design was never built. The referenced modules (`multi_tier_buffer.py`, `multi_tier_worker.py`, `routers/cache.py`) do not exist, and the 30-second chunk size assumed throughout its calculations is wrong — the real chunk model is 15s duration / 10s interval / 5s overlap. The actual cache is a streamlined in-memory + on-disk chunk cache with no L1/L2/L3 tiers and no branch prediction. See [CHUNK_AND_CACHE_ARCHITECTURE.md](../features/cache-system/CHUNK_AND_CACHE_ARCHITECTURE.md) for the current architecture. Kept for historical reference only.
+
 ### Executive Summary
 
 This document proposes a sophisticated multi-tier buffering system inspired by CPU cache hierarchies (L1/L2/L3) with branch prediction for audio chunk processing. The goal is to achieve **near-instantaneous preset switching** and **predictive long-term caching** while maintaining memory efficiency.

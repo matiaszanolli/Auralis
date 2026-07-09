@@ -3,6 +3,8 @@
 **Date**: October 27, 2025
 **Topic**: Frontend integration guide for MSEPlayer progressive streaming
 
+> **⚠️ SUPERSEDED (2026-07-09)**: MediaSource Extensions (MSE) streaming was never adopted. `MSEPlayer.ts`, `useMSEPlayer.ts`, and the `/api/mse/stream/...` route described here do not exist anywhere in the codebase. Audio streams as binary PCM over WebSocket (`services/audio/PCMStreamBuffer.ts` → `AudioPlaybackEngine.ts`; protocol in `WEBSOCKET_API.md`). See [CHUNK_AND_CACHE_ARCHITECTURE.md](../features/cache-system/CHUNK_AND_CACHE_ARCHITECTURE.md). Kept for historical reference only.
+
 ---
 
 ## Quick Start

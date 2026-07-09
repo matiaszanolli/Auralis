@@ -1,5 +1,7 @@
 # Multi-Tier Buffer Integration Guide
 
+> **⚠️ SUPERSEDED (2026-07-09)**: The multi-tier buffer system this guide integrates was never built — none of the `multi_tier_buffer.py` / `multi_tier_worker.py` / `routers/cache.py` files exist. The real cache is a streamlined in-memory + on-disk chunk cache (`core/chunk_cache_manager.py`, `cache/manager.py`, `routers/cache_streamlined.py`) and the chunk model is 15s/10s/5s, not 30s. See [CHUNK_AND_CACHE_ARCHITECTURE.md](../features/cache-system/CHUNK_AND_CACHE_ARCHITECTURE.md). Kept for historical reference only.
+
 ##Overview
 
 This guide explains how to integrate the multi-tier buffer system into the existing Auralis web backend.
