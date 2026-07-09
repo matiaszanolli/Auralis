@@ -1,7 +1,7 @@
 # Backend Development Environment Setup
 
-**Version**: 1.0.0
-**Last Updated**: 2024-11-28
+**Version**: 1.0.0 (setup steps below last verified against 1.2.1-beta.2 on 2026-07-08 — env-var/config sections were corrected, see inline notes)
+**Last Updated**: 2026-07-08
 **Status**: Ready for Use
 **Target Audience**: Backend developers (Python)
 
@@ -173,96 +173,15 @@ sqlite3 ~/.auralis/library.db "SELECT COUNT(*) as track_count FROM tracks;"
 
 ---
 
-## Step 5: Configure Environment Variables
+## Step 5: Runtime Configuration
 
-**What are environment variables?**
-Settings that control how the backend behaves (port, log level, cache size, etc.).
+> **Correction (2026-07-08)**: This section previously documented a `.env` file with ~15 environment variables (`SERVER_HOST`, `SERVER_PORT`, `DATABASE_URL`, `DATABASE_POOL_SIZE`, cache/WebSocket/hot-reload settings, etc.). None of them are read anywhere in the backend code — there is no `.env.example` in the repo, and the app does not use `os.environ`/`os.getenv`/`pydantic.BaseSettings` for any of these. Setting them has zero effect. The actual configuration surface is much smaller:
 
-### Create .env File
+- **Host/port**: hardcoded to `127.0.0.1:8765` in `auralis-web/backend/main.py`. To change it, pass `--port` to `launch-auralis-web.py` (see `python launch-auralis-web.py --help`) rather than an env var.
+- **Database**: hardcoded to SQLite at `~/.auralis/library.db` (`auralis/library/constants.py::DEFAULT_DB_PATH`). There is no supported Postgres/MySQL/remote-DB configuration — this is a desktop-only, localhost-only application by design (see CLAUDE.md).
+- **Dev/reload mode**: controlled by the `--dev` flag to `launch-auralis-web.py`, not an env var.
 
-```bash
-# Create .env file in project root
-cat > .env << 'EOF'
-# Backend Configuration
-
-# Server
-SERVER_HOST=127.0.0.1
-SERVER_PORT=8765
-DEBUG=1
-
-# Database
-DATABASE_URL=sqlite:///~/.auralis/library.db
-DATABASE_POOL_SIZE=5
-DATABASE_MAX_OVERFLOW=10
-
-# Cache
-CACHE_MAX_SIZE_MB=256
-CACHE_TTL_SECONDS=300
-CACHE_CONFIDENCE_THRESHOLD=0.7
-
-# Logging
-LOG_LEVEL=INFO
-
-# Audio Processing
-SAMPLE_RATE=44100
-CHUNK_SIZE=2048
-
-# WebSocket
-WEBSOCKET_HEARTBEAT_INTERVAL=30
-WEBSOCKET_HEARTBEAT_TIMEOUT=10
-
-# Development
-HOT_RELOAD=1
-RELOAD_DIRS=auralis,auralis_web/backend
-EOF
-
-# Verify .env created
-cat .env
-```
-
-### Copy .env.example (Alternative)
-
-```bash
-# Or copy from provided template
-cp .env.example .env
-
-# Edit with your preferences
-nano .env  # or vim, or your favorite editor
-```
-
-**Reference Environment Variables:**
-
-```ini
-# [Server Configuration]
-SERVER_HOST=127.0.0.1          # Listen on localhost only
-SERVER_PORT=8765               # API port
-DEBUG=1                         # Enable debug mode
-
-# [Database]
-DATABASE_URL=...               # SQLite path
-DATABASE_POOL_SIZE=5           # Connection pool size
-DATABASE_MAX_OVERFLOW=10       # Extra connections allowed
-
-# [Phase 7.5 Cache]
-CACHE_MAX_SIZE_MB=256          # 256MB in-memory cache
-CACHE_TTL_SECONDS=300          # 5 minute TTL
-CACHE_CONFIDENCE_THRESHOLD=0.7 # 70% confidence threshold
-
-# [Logging]
-LOG_LEVEL=INFO                 # DEBUG, INFO, WARNING, ERROR
-
-# [Audio]
-SAMPLE_RATE=44100              # 44.1kHz
-CHUNK_SIZE=2048                # Processing chunk size
-
-# [WebSocket]
-WEBSOCKET_HEARTBEAT_INTERVAL=30 # Ping every 30s
-WEBSOCKET_HEARTBEAT_TIMEOUT=10   # Timeout after 10s
-
-# [Development]
-HOT_RELOAD=1                   # Enable auto-reload on changes
-RELOAD_DIRS=auralis,auralis_web/backend  # Watch these directories
-```
+If you need a setting that isn't covered above, check `auralis-web/backend/main.py` and `launch-auralis-web.py --help` directly rather than assuming an env var exists for it.
 
 ---
 
@@ -338,10 +257,10 @@ python launch-auralis-web.py --dev &
 sleep 2
 
 curl http://localhost:8765/api/health
-# ✅ Should return {"status":"healthy"}
+# ✅ Should return {"status":"healthy","auralis_available":true}
 
-curl http://localhost:8765/api/stats
-# ✅ Should return library statistics
+curl http://localhost:8765/api/cache/stats
+# ✅ Should return cache statistics (there is no /api/stats endpoint)
 
 # Stop server
 fg  # Bring server to foreground
@@ -396,8 +315,8 @@ netstat -ano | findstr :8765  # Windows
 kill -9 <PID>  # macOS/Linux
 taskkill /PID <PID> /F  # Windows
 
-# Or use different port
-SERVER_PORT=8766 python launch-auralis-web.py --dev
+# Or use a different port (there is no SERVER_PORT env var — use the CLI flag)
+python launch-auralis-web.py --dev --port 8766
 ```
 
 ### Problem: "Database is locked"
@@ -617,14 +536,12 @@ def test_get_artists_api(client, mock_data_source):
 
 ### Running Phase 5 Tests
 
-```bash
-# Run all Phase 5 tests
-pytest tests/ -m phase5 -v
+> **Note (2026-07-08)**: `phase5` and `phase5e` are not registered pytest markers — `pytest.ini` uses `--strict-markers`, so both commands below fail immediately with "marker not found." Only `phase5c` and `phase5d` are real (registered in `tests/backend/conftest.py` and `tests/performance/conftest.py` respectively).
 
-# Run specific Phase 5 sub-phase
+```bash
+# Run specific Phase 5 sub-phase (only these two markers actually exist)
 pytest tests/ -m phase5c -v   # Backend API tests (Phase 5C)
 pytest tests/ -m phase5d -v   # Performance tests (Phase 5D)
-pytest tests/ -m phase5e -v   # Player component tests (Phase 5E)
 
 # Run with fixture dependency injection
 pytest tests/backend/ -v --tb=short
@@ -779,46 +696,10 @@ See [PHASE_5_FINAL_COMPLETION_SUMMARY.md](../phases/completed/PHASE_5_FINAL_COMP
 
 ## Advanced Configuration
 
-### Custom Music Directory
-
-```bash
-# Create .env setting
-echo "MUSIC_DIRECTORY=/path/to/music" >> .env
-
-# Set custom directory via environment variable, then launch
-# (database auto-initializes on first launch)
-```
-
-### Disable Hot Reload (Production-like)
-
-```bash
-# Without --dev flag
-python launch-auralis-web.py
-
-# Or set environment variable
-HOT_RELOAD=0 python launch-auralis-web.py --dev
-```
-
-### Enable Debug Logging
-
-```bash
-# Set log level to DEBUG
-LOG_LEVEL=DEBUG python launch-auralis-web.py --dev
-
-# Or temporarily
-DEBUG=1 LOG_LEVEL=DEBUG python launch-auralis-web.py --dev
-```
-
-### Connect External Database
-
-```bash
-# Edit .env
-DATABASE_URL=postgresql://user:password@localhost/auralis
-
-# Or MySQL
-DATABASE_URL=mysql+pymysql://user:password@localhost/auralis
-# Database auto-initializes on next launch
-```
+> **Correction (2026-07-08)**: The three sub-sections below (`MUSIC_DIRECTORY`, `HOT_RELOAD`, `DATABASE_URL`) documented environment variables that are not read anywhere in the codebase (verified via repo-wide grep) — setting any of them has no effect. Removed rather than "fixed" since there is currently no equivalent working mechanism for any of them:
+> - There is no configurable music-library-directory env var; the library folder is chosen through the app UI/scanner, not at launch.
+> - "Disable hot reload" is just: don't pass `--dev` to `launch-auralis-web.py`.
+> - There is no external-database support. The app is hardcoded to SQLite at `~/.auralis/library.db` (desktop-only, localhost-only by design — see CLAUDE.md). If you need Postgres/MySQL support, that would be new work, not a configuration flag.
 
 ---
 
@@ -840,6 +721,8 @@ Choose: ./venv/bin/python
 Create .vscode/launch.json:
 ```
 
+> **Correction (2026-07-08)**: `auralis_web.backend.main:app` is not a valid dotted module path — the real directory is `auralis-web` (hyphen), which Python cannot import as a package. The actual launcher (`launch-auralis-web.py`) avoids this entirely by running uvicorn with `cwd` set to `auralis-web/backend` and importing `main:app` directly (see its own `__main__` comment: "to avoid module duplication"). The configs below use the same `cwd` approach instead of a dotted path.
+
 ```json
 {
   "version": "0.2.0",
@@ -849,8 +732,9 @@ Create .vscode/launch.json:
       "type": "python",
       "request": "launch",
       "module": "uvicorn",
+      "cwd": "${workspaceFolder}/auralis-web/backend",
       "args": [
-        "auralis_web.backend.main:app",
+        "main:app",
         "--reload",
         "--host", "127.0.0.1",
         "--port", "8765"
@@ -874,7 +758,8 @@ Then press F5 to start debugging.
    - `tests/` as Test Sources Root
 5. Run → Edit Configurations → Add Python configuration:
    - Module: uvicorn
-   - Parameters: auralis_web.backend.main:app --reload
+   - Working directory: `auralis-web/backend`
+   - Parameters: `main:app --reload`
 
 ---
 
@@ -998,10 +883,9 @@ See [PHASE_A_IMPLEMENTATION_PLAN.md](../phases/phase-1-10/PHASE_A_IMPLEMENTATION
 **Performance issues?**
 - Check cache stats: `curl http://localhost:8765/api/cache/stats`
 - Monitor memory: `top -o MEM | grep python`
-- Enable debug: `LOG_LEVEL=DEBUG python launch-auralis-web.py --dev`
 
 ---
 
-**Last Updated**: 2024-11-28
-**Status**: Ready for Phase A/B development
+**Last Updated**: 2026-07-08
+**Status**: Ready for Use
 **Maintained By**: Auralis Team

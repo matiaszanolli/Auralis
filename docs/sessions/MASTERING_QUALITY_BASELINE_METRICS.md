@@ -1,7 +1,9 @@
 # Mastering Quality - Baseline Metrics
 **Date**: November 17, 2025
-**Status**: 📊 BASELINE ESTABLISHED
+**Status**: ⚠️ SUPERSEDED (2026-07-08) — see note below
 **Purpose**: Quantify current quality across all metrics as starting point for improvements
+
+> **Superseded notice (2026-07-08)**: These baselines were measured against the real-time adaptive pipeline (`HybridProcessor` / 26-band psychoacoustic EQ), which existed at the time this document was written. The offline file-mastering path (`SimpleMastering`, `auralis/core/mastering_branches.py`) has since become the primary target of quality tuning and has a substantially different architecture (3-branch classifier, per-stage HF/bass/loudness budgets) — none of the specific numbers below apply to it. For current, validated baseline/recalibration data on `SimpleMastering`, see [MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md](MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md). This document is kept for historical reference on the real-time pipeline only.
 
 ---
 

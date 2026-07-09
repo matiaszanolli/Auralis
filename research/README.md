@@ -1,25 +1,29 @@
 # Auralis Research Documentation
 
-This directory contains academic research materials related to the Auralis real-time adaptive audio mastering system.
+This directory contains academic research materials related to the Auralis real-time adaptive audio mastering system. It is git-ignored (a local research sandbox, not part of the tracked codebase).
+
+**Start with [TIMELINE.md](TIMELINE.md)** for a chronological narrative of everything that's happened here (Oct 2025–present) — it's the fastest way to find what you need without reading 20+ individual session files. Superseded/duplicate working files from that history are in `archive/`, kept for reference rather than deleted.
 
 ## Directory Structure
 
 ```
 research/
 ├── README.md                          # This file
+├── TIMELINE.md                        # Chronological narrative — start here
+├── archive/                           # Superseded/duplicate drafts, kept for reference
 ├── paper/                             # Technical papers and publications
-│   └── auralis_realtime_adaptive_mastering.md  # Main technical paper (AES/ACM/IEEE-style)
+│   └── auralis_realtime_adaptive_mastering_v2.md  # Main technical paper (AES/ACM/IEEE-style) — v2.3 is current, NOT the v1 file of the same name minus "_v2"
 ├── figures/                           # Diagrams, plots, and visual materials
 └── data/                              # Benchmark data, test results, measurements
 ```
 
 ## Papers
 
-### Auralis: A Real-Time Adaptive Audio Mastering System with Progressive Streaming and Multi-Tier Buffering
+### Auralis: A Real-Time Adaptive Audio Mastering System with 25D Acoustic Fingerprinting and Progressive Streaming
 
-**File**: [paper/auralis_realtime_adaptive_mastering.md](paper/auralis_realtime_adaptive_mastering.md)
+**File**: [paper/auralis_realtime_adaptive_mastering_v2.md](paper/auralis_realtime_adaptive_mastering_v2.md) (the `_v2` file — the non-suffixed `auralis_realtime_adaptive_mastering.md` is the frozen v1.0 draft, superseded)
 
-**Status**: Draft v1.0 (October 27, 2025)
+**Status**: v2.3 (July 8, 2026) — see `PAPER_SUBMISSION_CHECKLIST.md` for submission status
 
 **Abstract**: We present Auralis, a novel real-time adaptive audio mastering system that combines progressive streaming with intelligent multi-tier buffering to enable instant audio enhancement preset switching during playback. The system achieves <100ms preset switching latency (20-50x improvement over traditional systems), processes audio at 36.6x real-time speed, and reduces storage requirements by 86% through WebM/Opus encoding.
 

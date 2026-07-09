@@ -2,8 +2,8 @@
 
 **Authors**: Auralis Team
 **Affiliation**: [To be determined]
-**Date**: December 13, 2025
-**Version**: 2.2 (Phase 5 Test Suite Migration & Quality Assurance Complete)
+**Date**: July 8, 2026 (originally December 13, 2025)
+**Version**: 2.3 (adds §8.6: July 2026 mastering-pipeline recalibration and chunk-consistency follow-up study)
 **Keywords**: Audio mastering, Real-time processing, Acoustic fingerprinting, Media Source Extensions, Adaptive audio, Progressive streaming, Multi-tier caching, Content-aware processing, Rust DSP, High-performance fingerprinting, Quality assurance, Automated testing, Dual-mode validation
 
 ---
@@ -58,7 +58,7 @@ This paper makes the following contributions:
 
 ### 1.4 Paper Organization
 
-Section 2 provides background on digital audio, offline mastering, and MSE. Section 3 describes the 25D fingerprint system, mathematical framework, and chunked processing methodology. Section 4 details implementation including sidecar format, unified streaming, and multi-tier buffering. Section 5 presents performance results including fingerprint extraction, similarity search, and preset switching benchmarks. Section 6 discusses limitations and perceptual considerations. Section 7 describes the comprehensive validation and quality assurance infrastructure, including Phase 5 test suite migration, dual-mode testing patterns, and reproducibility details. Section 8 outlines future work. Section 9 concludes.
+Section 2 provides background on digital audio, offline mastering, and MSE. Section 3 describes the 25D fingerprint system, mathematical framework, and chunked processing methodology. Section 4 details implementation including sidecar format, unified streaming, and multi-tier buffering. Section 5 presents performance results including fingerprint extraction, similarity search, and preset switching benchmarks. Section 6 discusses limitations and perceptual considerations. Section 7 describes the comprehensive validation and quality assurance infrastructure, including Phase 5 test suite migration, dual-mode testing patterns, and reproducibility details. Section 8 presents empirical validation studies of the mastering pipeline itself (LUFS estimation bias, True Peak compliance, makeup-gain modeling, and a July 2026 follow-up study on cross-track guard-rail calibration). Section 9 outlines future work. Section 10 concludes.
 
 ---
 
@@ -1480,7 +1480,7 @@ Result: Architecture safely ready for LibraryManager deprecation
 
 ---
 
-## 8. Mastering Pipeline Empirical Validation Study (June 2026)
+## 8. Mastering Pipeline Empirical Validation Studies (June–July 2026)
 
 ### 8.1 Motivation and Study Design
 
@@ -1577,9 +1577,38 @@ These findings demonstrate the value of study-before-implementation discipline i
 
 ---
 
+### 8.6 Follow-up Study (July 2026) — Guard Rails Tuned on One Outlier Can Become the Norm for a Whole Genre
+
+**Motivation.** Studies 1–3 (§8.2–§8.4) and the buried-vocal/drum-punch fixes that followed them (not detailed above) were each validated against a *single* motivating recording: a dark, bass-heavy track for the harmonic-exciter overdrive fix; a quiet, ~19–21 dB crest 1986 vintage-rock album (*Oktubre*, Patricio Rey y sus Redonditos de Ricota) for the loudness-undertreatment fix; a specific buried-vocal track from the band's 1985 album *Gulp* for the vocal-masking fix. Roughly one month after these fixes shipped, informal listening reported that the pipeline's overall improvement over source material had become noticeably smaller — the opposite of what §8.5's confirmed changes were meant to produce. This raised a methodological question the original studies could not answer: were the crest-factor guard rails introduced to protect *that one* high-DR outlier (bypass ≥ 22 dB, relax 18–22 dB, §8.4) actually rare edge cases, or had they inadvertently been tuned to describe an entire class of source material?
+
+**Method.** Both full albums used as tuning fixtures (*Gulp*, 1985, 12 tracks; *Oktubre*, 1986, 9 tracks — 21 tracks total) were re-mastered and measured end-to-end against source, using the pipeline's own ITU-R BS.1770-4 loudness meter over the complete file (not the sampling-strategy fingerprint proxy used internally for speed, which Study 1 had already shown reads 3–5 dB quiet on high-DR material). Four additional tracks already validated in the project's standing regression suite were included as controls: two `CompressedLoudBranch`/`DynamicLoudBranch` tracks expected to be entirely outside the affected code path, and two further `QuietBranch` tracks of different character to check for effects beyond the two tuning-fixture albums.
+
+**Finding 1 — the guard rail covers the whole population, not the tail.** All 21 corpus tracks (100%) fell inside the 12–22 dB crest range that the relax/bypass ramp (§8.4) attenuates the harmonic exciter and soft-clipper for. A mechanism introduced to protect one atypically dynamic recording was, for this entire genre and era, simply describing the median case.
+
+**Finding 2 — the loudness-maximizer target was calibrated to be a near-permanent no-op.** The stage introduced to fix loudness-undertreatment computes its gain as `(target_LUFS − source_LUFS) × undermastered_ramp`. With the shipped target of −15.5 LUFS, and true source loudness on this corpus running −15.6 to −19.6 LUFS, the computed push for most tracks fell under the stage's own 0.5 dB audibility floor — the fix for under-treatment had itself become a case of near-total under-treatment. The loudness gain actually observed post-fix was traced to the branch's unconditional final peak-normalization step, not to the purpose-built stage at all.
+
+**Recalibration.** Two constants were adjusted using the 21-track corpus (plus the four control tracks) as the calibration set, rather than the single track each was originally tuned against: the loudness-maximizer target was raised from −15.5 to −12.5 LUFS (near the already-validated "competitive" threshold used elsewhere in the same module), and its crest-reduction cap — a deliberate "preserve drum punch" trade-off from the earlier fix — was raised from 3 dB to 6 dB.
+
+| Corpus | ΔLUFS mean (before → after) | ΔCrest mean (before → after) |
+|---|---|---|
+| *Gulp* (12 tracks) | +3.73 → **+4.69** dB | −0.61 → **−1.73** dB |
+| *Oktubre* (9 tracks) | +3.94 → **+5.42** dB | −1.70 → **−3.13** dB |
+| Control tracks, same branch (2) | +2.55 → +3.71 dB | −1.75 → −2.63 dB |
+| Control tracks, other branches (2) | unchanged | unchanged |
+
+A third candidate change — widening the crest-ramp thresholds themselves (§8.4's 18/22 dB boundaries) rather than the loudness-maximizer target — was tried first and measured to have negligible effect (< 0.15 dB across the corpus): the soft-clipper's knee is gentle enough that shifting where it begins relaxing does not materially change its output. This negative result is reported for the same reason Study 3 (§8.4) reports a disconfirmed hypothesis — an intuitively plausible lever turned out not to be the operative one, and only measurement against the full corpus revealed that.
+
+**Cross-check against the original motivating cases.** Because a fix validated only on a population average can silently regress the specific outlier it was first built for, all three original fixtures were re-verified: the dark/bass-heavy overdrive fixture was provably unaffected (its measured loudness already sits above the maximizer's competitive threshold, making the stage a structural no-op for it independent of the retuned constants); the buried-vocal fixture's voice-to-bass energy ratio improved from −5.6 dB to −1.6 dB (i.e., strictly less masked, not regressed) alongside its own loudness and dynamics gain; and the two control tracks outside the affected branch were byte-identical before and after. The project's standing regression suite showed the same pre-existing 4-failed/2-passed result both before and after — all four failures assert on source-classification properties the change does not touch.
+
+**Finding 3 — a second, independent inconsistency in chunk-level gain-staging.** Manual review of the recalibrated output surfaced a distinct issue: within the same 30-second-chunked pipeline (§3.4), the makeup-gain stage's headroom safety clamp used each chunk's *own* transient peak rather than the source file's peak. On a directly-constructed test case (a single source with a quiet passage at −8 dBFS peak and a loud passage at −1 dBFS peak, identical loudness/dynamics fingerprint otherwise), the quiet passage computed +4.0 dB of makeup gain while the loud passage computed 0.0 dB — an audible level discontinuity between two sections of the same recording, introduced by the chunked-processing architecture itself rather than by any content-analysis decision. The fix scans the source file's true peak once, prior to chunking, and uses that single value for every chunk's gain-staging decision, while leaving each chunk's own peak in place for its original purpose (per-chunk clip prevention). This traded a further small, uniform reduction in average gain (≈0.2–0.3 dB) for consistent treatment across every chunk of a song — the correctness property the original per-chunk design had not provided.
+
+**Conclusion.** Beyond the specific recalibration, this study's methodological finding generalizes to any content-adaptive mastering system tuned iteratively against reported problem cases: a guard rail validated only against the recording that motivated it can describe the *typical* case for an entire genre or era rather than a rare tail, and only re-validating against a broader corpus — not the original fixture alone — surfaces this. The chunked-processing consistency issue (Finding 3) further illustrates that architectural properties (what varies per-chunk vs. per-file) require the same empirical scrutiny as the content-analysis heuristics themselves.
+
+---
+
 ## 9. Future Work
 
-### 8.1 Cross-Platform Stability (3-4 months)
+### 9.1 Cross-Platform Stability (3-4 months)
 
 **Objectives**:
 - macOS native build with code signing
@@ -1592,7 +1621,7 @@ These findings demonstrate the value of study-before-implementation discipline i
 - ARM64: Ensure Numba JIT compatibility, optimize for ARM NEON SIMD
 - macOS: Notarization, Gatekeeper compliance, certificate management
 
-### 8.2 Perceptual Testing (2-3 months)
+### 9.2 Perceptual Testing (2-3 months)
 
 **MUSHRA Listening Test**:
 - **Objective**: Validate perceptual quality of chunked vs full-file processing
@@ -1614,7 +1643,7 @@ These findings demonstrate the value of study-before-implementation discipline i
 - **Tracks**: 12 tracks × 5 presets = 60 comparisons
 - **Target**: ±1 dB perceived loudness variation (acceptable range)
 
-### 8.3 ML-Based Adaptation (6-8 months)
+### 9.3 ML-Based Adaptation (6-8 months)
 
 **Deep Learning Genre Classifier**:
 - **Objective**: Replace rule-based genre detection with deep learning
@@ -1637,7 +1666,7 @@ These findings demonstrate the value of study-before-implementation discipline i
 - **Output**: DSP parameters (EQ gains, compression ratios, stereo width)
 - **Target**: Perceptually smooth interpolation between presets
 
-### 8.4 Enhanced Caching (2-3 months)
+### 9.4 Enhanced Caching (2-3 months)
 
 **Adaptive Cache Sizing**:
 - **Objective**: Dynamically adjust cache sizes based on available system memory
@@ -1655,7 +1684,7 @@ These findings demonstrate the value of study-before-implementation discipline i
 - **Protocol**: Peer-to-peer or cloud sync (Google Drive, Dropbox integration)
 - **Benefits**: Faster cache warm-up on new devices, redundancy
 
-### 8.5 Advanced Processing (4-6 months)
+### 9.5 Advanced Processing (4-6 months)
 
 **User-Customizable Presets**:
 - **UI**: Preset editor with EQ curve, compression curve, stereo width sliders
@@ -1673,7 +1702,7 @@ These findings demonstrate the value of study-before-implementation discipline i
 - **Target**: Restore 1-3 dB dynamic range on brick-walled material
 - **Validation**: Compare to original analog masters (where available)
 
-### 8.6 Music Recommendation (3-4 months)
+### 9.6 Music Recommendation (3-4 months)
 
 **Similarity-Based Discovery**:
 - **Objective**: "Find music like this track" feature based on 25D fingerprint distance
@@ -1695,7 +1724,7 @@ These findings demonstrate the value of study-before-implementation discipline i
 
 ---
 
-## 9. Conclusion
+## 10. Conclusion
 
 Auralis achieves **instant preset switching** (<100ms) during real-time playback and **170x fingerprinting acceleration** through six key innovations (including comprehensive quality assurance):
 

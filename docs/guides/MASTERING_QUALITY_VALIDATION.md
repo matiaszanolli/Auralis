@@ -1,8 +1,8 @@
-##
-
- Mastering Quality Validation Framework
+# Mastering Quality Validation Framework
 
 **Goal**: Ensure Auralis meets or exceeds the standards set by legendary mastering engineers (Steven Wilson, Quincy Jones, Butch Vig, etc.)
+
+> **Note (2026-07-08)**: This framework's reference-engineer LUFS/DR targets were written before the offline `SimpleMastering` pipeline (`auralis/core/mastering_branches.py`) existed in its current form, and have not yet been explicitly confirmed as the intended target for that pipeline's quiet/vintage-material path. See [MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md](../sessions/MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md) §9 for the current open question and a real recalibration measured against it.
 
 ---
 

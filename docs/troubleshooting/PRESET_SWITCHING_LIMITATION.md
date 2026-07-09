@@ -2,7 +2,9 @@
 
 **Date**: October 26, 2025
 **Severity**: P2 (Medium - UX inconvenience, not a bug)
-**Status**: Known Limitation - Requires architectural change
+**Status**: ⚠️ SUPERSEDED (2026-07-08) — see note below
+
+> **Superseded notice (2026-07-08)**: This document describes the architecture as full-file REST streaming (`GET /api/player/stream/{track_id}`, `FileResponse`, HTML5 `<audio>` element reload on preset change) and proposes browser MediaSource Extensions (MSE) as the future fix. Neither is current: `auralis-web/backend/routers/player.py` now states explicitly *"Audio streaming is now handled exclusively via WebSocket... No REST streaming endpoints remain,"* and the MSE approach proposed below was never built — the actual streaming path is WebSocket binary PCM chunks → `PCMStreamBuffer` → `AudioPlaybackEngine` (see `auralis-web/frontend/src/tests/integration/streaming-audio/streaming-mse.test.tsx`'s own header comment confirming Auralis never adopted MSE). Whether preset-switching still has a buffering delay under the current WebSocket architecture is not established by this document — verify against current behavior before treating the "Known Limitation" below as still true. Kept for historical context on the original diagnosis only.
 
 ---
 

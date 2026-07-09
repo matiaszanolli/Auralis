@@ -159,7 +159,7 @@ Your testing and feedback are invaluable for making Auralis production-ready. To
 
 ---
 
-**License**: GPL-3.0
+**License**: AGPL-3.0 (dual-licensed; see COMMERCIAL_LICENSE.md for the commercial option)
 **Repository**: https://github.com/matiaszanolli/Auralis
 **Documentation**: See README.md and docs folder
 

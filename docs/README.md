@@ -2,7 +2,7 @@
 
 **Welcome to the Auralis development documentation.**
 
-This is the central navigation point for all project documentation. Current project version: **1.1.0-beta.5**
+This is the central navigation point for all project documentation. Current project version: **1.2.1-beta.2** (see `auralis/version.py`, the source of truth)
 
 ---
 
@@ -72,9 +72,9 @@ This is the central navigation point for all project documentation. Current proj
 - **Performance** → [MASTER_ROADMAP.md](MASTER_ROADMAP.md)
 
 ### By Phase
-- **Current (Phase 1.1.0-beta.5)** → [phases/completed/](phases/completed/)
-- **All Phases** → [MASTER_ROADMAP.md](MASTER_ROADMAP.md)
-- **Historical** → [archive/](../archive/) (old phases, early designs)
+- **Completed phases** → [phases/completed/](phases/completed/)
+- **All Phases** → [MASTER_ROADMAP.md](MASTER_ROADMAP.md) (itself stale as of 2026-07-08 — see note below)
+- ~~Historical → archive/~~ (this directory does not currently exist in the repo)
 
 ---
 
@@ -85,7 +85,7 @@ This documentation is organized for **clarity and discovery**:
 - **Single Source of Truth** - CLAUDE.md is authoritative for architecture
 - **Organized by Topic** - Not by phase or date
 - **Clear Hierarchy** - Browse by category or search by keyword
-- **Always Current** - Reflects version 1.1.0-beta.5
+- **Always Current** - Aspirational; see the 2026-07-08 note at the bottom of this file for known drift
 - **Archived, Not Deleted** - Historical docs in archive/ (reference only)
 
 ---
@@ -99,4 +99,6 @@ This documentation is organized for **clarity and discovery**:
 
 ---
 
-**Current Version**: 1.1.0-beta.5 | **Last Updated**: December 2024
+**Current Version**: 1.2.1-beta.2 | **Last Updated**: July 8, 2026
+
+> **Freshness note (2026-07-08)**: A broad docs/ audit this date found ~100 stale claims across ~60 files in this tree (wrong versions, broken links, removed/renamed code paths, outdated architecture descriptions). The highest-severity ones are fixed as of this note; the rest are tracked as GitHub issues (search for the `docs-audit-2026-07` label). When in doubt, verify against the actual code rather than trusting a doc's own "current" framing.

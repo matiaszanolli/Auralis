@@ -1,7 +1,9 @@
 # Mastering Quality Improvement Session
 **Date**: November 17, 2025
-**Status**: 🚀 ACTIVE SESSION
+**Status**: ⚠️ SUPERSEDED (2026-07-08) — see note below
 **Goal**: Systematically improve mastering quality to match world-class standards
+
+> **Superseded notice (2026-07-08)**: Written against the real-time adaptive pipeline (`HybridProcessor` / 26-band psychoacoustic EQ / `auralis/core/processing/adaptive_mode.py`) — the "Current Architecture Overview" below describes that pipeline, not the offline `SimpleMastering` path (`auralis/core/mastering_branches.py`) that has since become the main target of mastering-quality work. For the current architecture and the latest (2026-07-08) quality investigation/recalibration on `SimpleMastering`, see [MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md](MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md). Kept for historical reference on the real-time pipeline only; the "Questions for User" section at the end was never followed up in this thread.
 
 ---
 

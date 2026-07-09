@@ -1,7 +1,7 @@
 # Frontend Development Environment Setup
 
-**Version**: 1.0.0
-**Last Updated**: 2024-11-28
+**Version**: 1.0.0 (setup steps below corrected against the real codebase on 2026-07-08 — see inline notes)
+**Last Updated**: 2026-07-08
 **Status**: Ready for Use
 **Target Audience**: Frontend developers (React/TypeScript)
 
@@ -137,7 +137,7 @@ rm -rf node_modules package-lock.json
 # 3. Reinstall
 npm install
 
-# 4. Check Node.js version (must be 20+)
+# 4. Check Node.js version (must be 24+)
 node --version
 ```
 
@@ -180,13 +180,7 @@ cat .env.local
 
 ### Copy .env.local.example (Alternative)
 
-```bash
-# If .env.local.example exists
-cp .env.local.example .env.local
-
-# Edit with your preferences
-nano .env.local  # or vim, or your favorite editor
-```
+> **Note (2026-07-08)**: `.env.local.example` does not currently exist in the repo — use the "Create .env.local File" method above instead.
 
 **Reference Environment Variables:**
 
@@ -262,7 +256,7 @@ Run this verification checklist:
 ```bash
 # 1. Check Node.js version
 node --version
-# ✅ Should be v20+
+# ✅ Should be v24+
 
 # 2. Check npm version
 npm --version
@@ -369,7 +363,7 @@ See [DEVELOPMENT_SETUP_BACKEND.md](DEVELOPMENT_SETUP_BACKEND.md#testing-with-pha
 # Build optimized bundle
 npm run build
 
-# Output in: auralis-web/frontend/build/
+# Output in: auralis-web/frontend/dist/ (vite.config.mts sets build.outDir to 'dist', not 'build')
 
 # Preview production build locally
 npm run preview
@@ -392,19 +386,7 @@ npm run type-check 2>&1 | head -20
 
 ### Linting & Formatting
 
-```bash
-# Run ESLint
-npm run lint
-
-# Fix linting issues automatically
-npm run lint -- --fix
-
-# Format code with Prettier
-npm run format
-
-# Check formatting without fixing
-npm run format -- --check
-```
+> **Note (2026-07-08)**: There are currently no `lint` or `format` scripts in `package.json`, and neither ESLint nor Prettier are in `devDependencies` — this tooling has been removed from the project. Rely on `npm run type-check` (below) and the test suite instead.
 
 ---
 
@@ -412,58 +394,28 @@ npm run format -- --check
 
 Understanding the frontend organization:
 
+> **Correction (2026-07-08)**: The diagram below was largely aspirational — no `features/`, `pages/`, or `services/websocket.ts`/`services/cache.ts` exist. Replaced with the actual current top-level layout of `auralis-web/frontend/src/`:
+
 ```
 src/
-├── components/           # Reusable React components
-│   ├── Player/          # Player-related components
-│   │   ├── PlayerControls.tsx
-│   │   ├── PlayerControls.test.tsx
-│   │   └── types.ts
-│   ├── Queue/           # Queue-related components
-│   ├── Library/         # Library browser components
-│   └── Common/          # Shared components (Button, Modal, etc.)
-│
-├── features/            # Feature slices (Redux)
-│   ├── player/
-│   │   ├── playerSlice.ts      # Redux state
-│   │   ├── playerSelectors.ts  # Memoized selectors
-│   │   └── hooks.ts            # usePlayer hook
-│   ├── queue/
-│   └── library/
-│
-├── hooks/               # Custom React hooks
-│   ├── usePlayer.ts
-│   ├── useQueue.ts
-│   ├── useWebSocket.ts
-│   └── useKeyboardShortcuts.ts
-│
-├── services/            # API and external services
-│   ├── api.ts          # REST API calls
-│   ├── websocket.ts    # WebSocket client
-│   └── cache.ts        # TanStack Query setup
-│
-├── store/              # Redux store configuration
-│   ├── store.ts
-│   └── middleware.ts
-│
-├── design-system/      # Design tokens (single source of truth)
-│   └── tokens.ts       # Colors, spacing, typography
-│
-├── test/               # Test utilities and mocks
-│   ├── mocks/
-│   │   └── handlers.ts # MSW mock handlers
-│   ├── test-utils.ts   # Custom render function
-│   └── setup.ts        # Test setup
-│
-├── pages/              # Page-level components
-│   ├── Player.tsx
-│   ├── Library.tsx
-│   └── Settings.tsx
-│
-├── App.tsx             # Root component
-├── main.tsx            # Entry point
-└── index.css           # Global styles
+├── components/           # Reusable React components (player/, library/, enhancement-pane/, etc.)
+├── hooks/                # Custom React hooks (including hooks/player/, hooks/websocket/)
+├── services/             # API and external services — libraryService.ts, playlistService.ts,
+│                         #   processingService.ts, queueService.ts, similarityService.ts, api/, audio/, fingerprint/
+├── store/                # Redux state
+│   ├── slices/           # playerSlice.ts, queueSlice.ts, cacheSlice.ts, connectionSlice.ts
+│   ├── middleware/       # errorTrackingMiddleware.ts, loggerMiddleware.ts
+│   └── selectors/
+├── contexts/             # ThemeContext.tsx, WebSocketContext.tsx
+├── design-system/        # Design tokens (single source of truth)
+│   └── tokens/           # colors.ts, spacing/layout.ts, typography.ts, effects.ts, surfaces.ts, semantics.ts
+├── test/, tests/         # Test utilities, mocks, and integration test suites
+├── api/, config/, theme/, types/, utils/, a11y/, performance/
+├── App.tsx               # Root component
+└── main.tsx              # Entry point
 ```
+
+There is no `pages/` directory — routing/top-level views live under `components/`.
 
 ---
 
@@ -533,7 +485,8 @@ describe('MyComponent', () => {
 ```tsx
 // src/components/PlayerDisplay.tsx
 import { useAppDispatch, useAppSelector } from '@/store';
-import { playerSelectors, playerSlice } from '@/features/player';
+import { playerSlice } from '@/store/slices/playerSlice';
+// there is no @/features/player — Redux slices live under @/store/slices/
 
 export function PlayerDisplay(): JSX.Element {
   const dispatch = useAppDispatch();
@@ -687,7 +640,7 @@ npm outdated
 1. Open Project → auralis-web/frontend
 2. Mark src/ as Sources Root (right-click → Mark Directory as)
 3. Configure → Project → Node.js and npm
-4. Set Node interpreter to 20 LTS
+4. Set Node interpreter to 24 LTS
 5. Run → Edit Configurations → Add npm:
    - Command: run
    - Scripts: dev
@@ -820,8 +773,8 @@ npm run dev
 ### Reset Build Artifacts
 
 ```bash
-# Remove build directory
-rm -rf build/
+# Remove build directory (vite outputs to dist/, not build/)
+rm -rf dist/
 
 # Remove test results
 rm -rf test-results/
@@ -922,6 +875,6 @@ Then Phase C (Frontend Foundation):
 
 ---
 
-**Last Updated**: 2024-11-28
-**Status**: Ready for Phase A/B development
+**Last Updated**: 2026-07-08
+**Status**: Ready for Use
 **Maintained By**: Auralis Team

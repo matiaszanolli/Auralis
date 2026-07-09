@@ -365,7 +365,7 @@ mypy auralis/analysis/fingerprint/
 
 ## License
 
-GPL-3.0 (See LICENSE file)
+AGPL-3.0, dual-licensed (see LICENSE and COMMERCIAL_LICENSE.md)
 
 ---
 

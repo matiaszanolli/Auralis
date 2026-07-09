@@ -1,5 +1,7 @@
 # Playback Restart Debug Guide
 
+> **Superseded notice (2026-07-08)**: This guide describes debugging via the removed REST streaming path (`GET /api/player/stream/X → 206 Partial Content`) and instructs editing `auralis-web/frontend/src/hooks/usePlayerAPI.ts`, which no longer exists (split into `hooks/player/usePlayerControls.ts`, `usePlayerStateSync.ts`, `usePlayerDisplay.ts`). Playback is now WebSocket-based end to end — if you're debugging a similar restart/replay issue today, look at the WebSocket message flow (`contexts/WebSocketContext.tsx`, `hooks/websocket/`) and those player hooks instead of the REST/network-tab steps below. Kept for the underlying diagnostic *pattern* (rapid-repeat queue/play calls), not the specific commands.
+
 ## Issue Summary
 Songs play for a split second and restart, even with mastering disabled.
 

@@ -320,7 +320,7 @@ Version: 1.0.0-beta.1
 ### General
 
 **Q: Is Auralis free?**
-A: Yes! Auralis is open-source (GPL-3.0) and completely free.
+A: Yes! Auralis is open-source (AGPL-3.0) and free to use.
 
 **Q: Does it phone home or collect data?**
 A: No. All processing is 100% local. Zero telemetry, zero tracking.
@@ -330,7 +330,7 @@ A: Input: WAV, FLAC, MP3, OGG, M4A, AAC, WMA
 Output (if exporting): WAV, FLAC
 
 **Q: Can I use it for commercial projects?**
-A: Yes, GPL-3.0 allows commercial use.
+A: Auralis is dual-licensed. Under AGPL-3.0 you can use it commercially as long as you release your complete source code under AGPL-3.0 too (including for network/SaaS use, per AGPL's copyleft). If you need to keep your code proprietary while using Auralis commercially, see [COMMERCIAL_LICENSE.md](../../COMMERCIAL_LICENSE.md) for the paid alternative.
 
 **Q: How is this different from traditional mastering?**
 A: Traditional tools require reference tracks. Auralis uses adaptive processing to enhance based on content analysis.
@@ -389,7 +389,7 @@ A: Yes! `python launch-auralis-web.py` runs the web interface.
 A: Not officially, but users report it works (albeit slowly).
 
 **Q: Can I contribute code?**
-A: Yes! See CONTRIBUTING.md in the repo.
+A: Yes! Open a pull request against the repo (note: no `CONTRIBUTING.md` currently exists in this repo as of 2026-07-08 — ask in an issue if you're unsure where to start).
 
 ### Updates
 
@@ -454,11 +454,11 @@ A: Beta: Every 2-4 weeks. Stable (1.0): When bugs are ironed out.
 
 ## License
 
-Auralis is licensed under GPL-3.0. See LICENSE file for details.
+Auralis is dual-licensed under AGPL-3.0 (open-source) and a commercial license (for proprietary/SaaS use). See the `LICENSE` file and [COMMERCIAL_LICENSE.md](../../COMMERCIAL_LICENSE.md) for details.
 
 ---
 
 **Thank you for being part of the Auralis beta! Your feedback shapes the future of this project.** 🎵
 
-*Last Updated: October 26, 2025*
-*Version: 1.0.0-beta.1*
+*Last Updated: 2026-07-08 (license section corrected; rest of document may still describe an earlier beta — see [docs/README.md](../README.md) for current version)*
+*Version at original writing: 1.0.0-beta.1*

@@ -652,8 +652,15 @@ def test_db(tmp_path):
 
 @pytest.fixture
 def library_manager(test_db):
-    """Provide library manager with test database"""
-    manager = LibraryManager(db_path=test_db)
+    """Provide library manager with test database.
+
+    Note (2026-07-08): LibraryManager's constructor takes `database_path`,
+    not `db_path` — this example previously used the wrong kwarg and would
+    raise TypeError. LibraryManager is also deprecated in favor of
+    RepositoryFactory for new code (see auralis/library/manager.py's own
+    docstring) — prefer RepositoryFactory-based fixtures where practical.
+    """
+    manager = LibraryManager(database_path=test_db)
     yield manager
     manager.close()
 
@@ -1136,22 +1143,29 @@ def test_library_scan():
         assert mock_index.called
 ```
 
-**✅ RIGHT:**
+**✅ RIGHT** (illustrative — see note below on what's changed vs. the original example):
 ```python
 def test_library_scan(test_db):
     """GOOD: Use real dependencies, test real behavior"""
     # Create real test file
     track_path = create_test_flac("test.flac")
 
-    # Use real scanner with real database
-    scanner = Scanner(db_path=test_db)
+    # Real scanner: the class is LibraryScanner (auralis/library/scanner/scanner.py),
+    # not "Scanner", and its constructor takes a library_manager instance, not a
+    # db_path string.
+    manager = LibraryManager(database_path=test_db)
+    scanner = LibraryScanner(library_manager=manager)
     scanner.scan_folder(os.path.dirname(track_path))
 
-    # Verify real outcome
-    tracks = scanner.get_tracks()
+    # Verify real outcome via the library manager, not the scanner —
+    # LibraryScanner has no get_tracks() method. get_all_tracks() returns
+    # (list[Track], total_count), not just a list.
+    tracks, total = manager.get_all_tracks()
     assert len(tracks) == 1
     assert tracks[0].title == "Test Track"
 ```
+
+> **Note (2026-07-08)**: The original example here used a nonexistent `Scanner` class with a `db_path` kwarg and a `scanner.get_tracks()` method that doesn't exist on `LibraryScanner`. Verify the exact query method signature against current code before relying on this snippet verbatim — `get_all_tracks()`'s return shape above was checked, but the surrounding scan-then-query flow was not run end-to-end.
 
 ### Pitfall 3: Flaky Tests
 
