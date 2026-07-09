@@ -198,7 +198,7 @@ Once Performance is deployed, we'll implement:
 
 ### Using Optimized Selectors
 ```typescript
-import { selectPlaybackProgress } from '@/store/selectors/advanced';
+import { selectPlaybackProgress } from '@/store/selectors';
 
 const progress = useSelector(selectPlaybackProgress);
 // Automatically memoized with performance tracking
@@ -255,8 +255,8 @@ auralis-web/frontend/src/
 │   ├── slices/ (C.2)
 │   ├── middleware/ (C.4a)
 │   ├── selectors/
-│   │   ├── index.ts (C.2)
-│   │   └── advanced.ts (C.4b) ✅
+│   │   ├── index.ts (C.2, C.4b/d — includes the advanced memoized selectors) ✅
+│   │   └── __tests__/
 │   └── __tests__/
 ├── components/ (C.3)
 ├── hooks/ (C.4a)

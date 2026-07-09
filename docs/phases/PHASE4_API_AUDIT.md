@@ -1,7 +1,9 @@
 # Phase 4 API Audit - Backend vs Frontend Contract Mismatch
 
 **Date:** November 30, 2025
-**Status:** ASSESSMENT IN PROGRESS
+**Status:** ✅ RESOLVED (2026-07-09) — see note below
+
+> **✅ Resolved in the opposite direction from this audit's recommendation.** This audit recommended "FIX FRONTEND to match the backend's query-parameter pattern." Instead, the **backend** was migrated to accept **Pydantic JSON request bodies**, matching what the frontend already sent. `/api/player/load`, `/seek`, and `/volume` now take `LoadTrackRequest`, `SeekRequest`, and `SetVolumeRequest` respectively (see `auralis-web/backend/routers/player.py`). The query-parameter contract described throughout this document is **historical** — treat the router source as authoritative. Kept for historical reference.
 
 ---
 

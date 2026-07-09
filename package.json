@@ -4,18 +4,18 @@
   "description": "Auralis Audio Mastering Suite",
   "main": "desktop/main.js",
   "scripts": {
-    "dev": "node scripts/dev.js",
-    "build": "node scripts/build.js",
-    "package": "node scripts/package.js",
-    "package:win": "node scripts/package.js win",
-    "package:mac": "node scripts/package.js mac",
-    "package:linux": "node scripts/package.js linux",
+    "dev": "node dev.js",
+    "build": "node build.js",
+    "package": "node package.js",
+    "package:win": "node package.js win",
+    "package:mac": "node package.js mac",
+    "package:linux": "node package.js linux",
     "test": "python -m pytest tests/",
     "test:coverage": "python -m pytest tests/ --cov=auralis --cov-report=html",
     "install:all": "npm run install:desktop && npm run install:frontend",
     "install:desktop": "cd desktop && npm install",
-    "install:frontend": "cd frontend && npm install",
-    "clean": "rm -rf dist/ desktop/node_modules/ frontend/node_modules/ frontend/dist/ backend/dist/"
+    "install:frontend": "cd auralis-web/frontend && npm install",
+    "clean": "rm -rf dist/ desktop/node_modules/ auralis-web/frontend/node_modules/ auralis-web/frontend/dist/ backend/dist/"
   },
   "repository": {
     "type": "git",
@@ -30,7 +30,7 @@
     "react"
   ],
   "author": "Auralis Team",
-  "license": "GPLv3",
+  "license": "AGPL-3.0",
   "bugs": {
     "url": "https://github.com/matiaszanolli/Auralis/issues"
   },

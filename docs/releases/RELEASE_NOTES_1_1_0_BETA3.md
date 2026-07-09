@@ -200,7 +200,7 @@ width = MetricUtils.scale_to_range(width, 0.0, 2.0, 0.0, 1.0)
 - **Python**: 3.14+ (tested with 3.13, 3.14)
 - **Node.js**: 24+ (for frontend development)
 - **Release Type**: Development (source code only, no binaries)
-- **License**: GPL-3.0
+- **License**: AGPL-3.0
 
 ### Breaking Changes
 **None** - This is a pure refactoring release with zero API changes.

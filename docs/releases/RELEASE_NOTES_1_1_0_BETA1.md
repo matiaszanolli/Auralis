@@ -407,7 +407,7 @@ For feedback, issues, or contributions:
 
 ## 📄 License
 
-Auralis is released under the **GPL-3.0 License**. See [LICENSE](LICENSE) file for details.
+Auralis is released under the **AGPL-3.0 License**. See [LICENSE](../../LICENSE) file for details.
 
 ---
 

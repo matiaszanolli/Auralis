@@ -319,7 +319,7 @@ Get-FileHash "Auralis Setup 1.0.0-beta.11.exe" -Algorithm SHA256
 - **GitHub Repository**: https://github.com/matiaszanolli/Auralis
 - **Issues**: https://github.com/matiaszanolli/Auralis/issues
 - **Documentation**: https://github.com/matiaszanolli/Auralis/tree/master/docs
-- **License**: GPL-3.0
+- **License**: AGPL-3.0
 
 ---
 

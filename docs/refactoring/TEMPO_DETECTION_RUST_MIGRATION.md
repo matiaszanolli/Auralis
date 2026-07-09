@@ -1,12 +1,14 @@
 # Tempo Detection Migrated to Rust - Librosa Warning Fixed
 
+**Date**: December 16, 2025
+**Status**: ⚠️ **SUPERSEDED / REVERTED (2026-07-09)**
+**Issue**: `FutureWarning: librosa.beat.tempo moved to librosa.feature.rhythm.tempo`
+
+> **⚠️ Superseded — this migration was reverted.** Tempo detection was switched **back to librosa** for accuracy in commit `cd2d8fc4` ("Tempo detection switched from Rust spectral flux to librosa beat_track for accuracy"). Current code calls `librosa.beat.beat_track` directly (`auralis/analysis/fingerprint/utilities/temporal_ops.py`), **not** the Rust `DSPBackend.detect_tempo()`. The document below describes the short-lived Rust approach and is kept for historical reference only. (The original `FutureWarning` is avoided by using `librosa.beat.beat_track`, which is not the deprecated `librosa.beat.tempo` API.)
+
 ## Summary
 
 Fixed librosa deprecation warning in AppImage by migrating tempo detection to use the Rust DSP backend instead of librosa.
-
-**Date**: December 16, 2025
-**Status**: ✅ Complete
-**Issue**: `FutureWarning: librosa.beat.tempo moved to librosa.feature.rhythm.tempo`
 
 ---
 

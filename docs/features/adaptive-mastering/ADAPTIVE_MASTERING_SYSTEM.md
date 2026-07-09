@@ -6,6 +6,8 @@ A complete **25D adaptive mastering library** for Auralis that learns from succe
 
 **Status:** Core framework complete and integrated ✓
 
+> **ℹ️ Two mastering pipelines (read this first).** This document covers the **adaptive classification/recommendation framework**, which feeds the real-time `HybridProcessor` (`auralis/core/hybrid_processor.py`). Auralis also has a second, **offline `SimpleMastering` pipeline** (`auralis/core/simple_mastering.py` + `auralis/core/mastering_branches.py`) that handles the batch/offline mastering path and has been the primary target of audio-quality tuning since mid-2026 (loudness targeting, crest handling, quiet-branch makeup gain, multiband stereo/bass — see the `docs/sessions/MASTERING_QUALITY_*.md` notes). The two are complementary: the adaptive layer here selects strategy/parameters; `SimpleMastering`/`mastering_branches.py` is where much of the offline signal-path work now lives. Neither replaces the other.
+
 ---
 
 ## Architecture

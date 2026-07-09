@@ -1,9 +1,11 @@
 # Phase 6: LibraryManager Deprecation Plan
 
 **Date**: December 12, 2025
-**Status**: 🚀 **READY TO IMPLEMENT**
+**Status**: ✅ **DONE (2026-07-09)** — implemented and surpassed the plan below
 **Foundation**: Phases 5A-5D prove RepositoryFactory equivalence
 **Decision**: **OPTION B - MINIMAL FACADE** (recommended)
+
+> **✅ Completed.** This plan has been executed and the codebase has gone further than the success criteria below: `LibraryManager` now emits `DeprecationWarning`s (`auralis/library/manager.py`), and consumers have fully migrated to the `RepositoryFactory` pattern — e.g. `queue_controller.py` documents "Phase 6C: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)." The "ready to start / dependencies: none" framing below is historical planning context.
 
 ---
 
@@ -441,6 +443,6 @@ Phase 6 transforms the codebase from "dual pattern support" (Phases 5A-5D) to "R
 
 ---
 
-**Document Status**: Implementation Ready
+**Document Status**: ✅ Completed (see banner at top) — historical plan
 **Risk Level**: Low
-**Dependencies**: None - ready to start now
+**Dependencies**: None — was ready to start; has since shipped

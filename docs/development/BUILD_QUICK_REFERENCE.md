@@ -25,8 +25,8 @@ npm run clean                  # Remove all build artifacts
 
 | File | Purpose |
 |------|---------|
-| `scripts/build.js` | Builds React frontend + bundles Python backend |
-| `scripts/package.js` | Creates Electron distributable |
+| `build.js` (repo root) | Builds React frontend + bundles Python backend |
+| `package.js` (repo root) | Creates Electron distributable |
 | `desktop/main.js` | Electron main process (window management) |
 | `desktop/package.json` | Electron Builder configuration |
 | `auralis-web/backend/auralis-backend.spec` | PyInstaller configuration |
@@ -54,7 +54,7 @@ dist/
 |-------|----------|
 | "PyInstaller not found" | `pip install pyinstaller` |
 | "Backend startup timeout" | Increase timeout in `desktop/main.js` line 77 |
-| "White screen" | Check backend is running: visit http://localhost:8000 |
+| "White screen" | Check backend is running: visit http://localhost:8765 |
 | "Module not found" | Add to hiddenimports in `auralis-backend.spec` |
 | Large file size | Enable UPX compression in `.spec` file |
 

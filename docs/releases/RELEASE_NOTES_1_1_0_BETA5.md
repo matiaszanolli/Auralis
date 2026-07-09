@@ -2,7 +2,7 @@
 
 **Release Date:** December 2024
 **Status:** Audio Mastering Refinement - Phase 9D Complete
-**License:** GPL-3.0
+**License:** AGPL-3.0
 
 ---
 

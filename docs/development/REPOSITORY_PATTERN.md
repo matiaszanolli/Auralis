@@ -543,22 +543,26 @@ def test_get_by_id():
 ### Integration Test with Real Database
 ```python
 @pytest.mark.integration
-def test_create_and_retrieve():
+def test_add_and_retrieve(session_factory):  # a Callable[[], Session] fixture
     from auralis.library.repositories import TrackRepository
 
-    # Create track
-    track = TrackRepository.create(
-        title="Test Track",
-        filepath="/tmp/test.wav"
-    )
-    assert track.id is not None
+    # Repositories are instances, constructed with a session_factory
+    # (see BaseRepository.__init__); they are never used as bare classmethods.
+    repo = TrackRepository(session_factory)
+
+    # Add a track — .add() takes a dict and returns Track | None (not .create())
+    track = repo.add({
+        "title": "Test Track",
+        "filepath": "/tmp/test.wav",
+    })
+    assert track is not None and track.id is not None
 
     # Retrieve track
-    retrieved = TrackRepository.get_by_id(track.id)
+    retrieved = repo.get_by_id(track.id)
     assert retrieved.title == "Test Track"
 
-    # Clean up
-    TrackRepository.delete(track.id)
+    # Clean up — .delete(track_id) returns a bool
+    assert repo.delete(track.id)
 ```
 
 ## Troubleshooting
