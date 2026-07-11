@@ -157,7 +157,7 @@ class TestActiveStreamsLifecycle:
             patch.object(controller, "_get_repository_factory") as mock_factory,
             patch.object(controller, "_send_stream_start", side_effect=_mock_send_start),
             patch.object(controller, "_check_or_queue_fingerprint", new_callable=AsyncMock, return_value=False),
-            patch("audio_stream_controller.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
+            patch("core.stream_enhanced.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
         ):
             # Mock semaphore acquire
             controller._stream_semaphore = asyncio.Semaphore(10)
@@ -170,7 +170,7 @@ class TestActiveStreamsLifecycle:
             factory.tracks.get_by_id = Mock(return_value=track)
 
             # Mock Path.exists
-            with patch("audio_stream_controller.Path") as mock_path:
+            with patch("core.stream_enhanced.Path") as mock_path:
                 mock_path.return_value.exists.return_value = True
 
                 # Mock processor creation
@@ -200,7 +200,7 @@ class TestActiveStreamsLifecycle:
             patch.object(controller, "_get_repository_factory") as mock_factory,
             patch.object(controller, "_send_stream_start", new_callable=AsyncMock, return_value=False),
             patch.object(controller, "_check_or_queue_fingerprint", new_callable=AsyncMock, return_value=False),
-            patch("audio_stream_controller.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
+            patch("core.stream_enhanced.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
         ):
             controller._stream_semaphore = asyncio.Semaphore(10)
 
@@ -210,7 +210,7 @@ class TestActiveStreamsLifecycle:
             track.filepath = "/tmp/fake.wav"
             factory.tracks.get_by_id = Mock(return_value=track)
 
-            with patch("audio_stream_controller.Path") as mock_path:
+            with patch("core.stream_enhanced.Path") as mock_path:
                 mock_path.return_value.exists.return_value = True
                 processor = _make_processor(total_chunks=2)
                 mock_wait_for.return_value = processor
@@ -239,7 +239,7 @@ class TestActiveStreamsLifecycle:
                 side_effect=RuntimeError("simulated send failure")
             ),
             patch.object(controller, "_check_or_queue_fingerprint", new_callable=AsyncMock, return_value=False),
-            patch("audio_stream_controller.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
+            patch("core.stream_enhanced.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
         ):
             controller._stream_semaphore = asyncio.Semaphore(10)
 
@@ -249,7 +249,7 @@ class TestActiveStreamsLifecycle:
             track.filepath = "/tmp/fake.wav"
             factory.tracks.get_by_id = Mock(return_value=track)
 
-            with patch("audio_stream_controller.Path") as mock_path:
+            with patch("core.stream_enhanced.Path") as mock_path:
                 mock_path.return_value.exists.return_value = True
                 processor = _make_processor(total_chunks=2)
                 mock_wait_for.return_value = processor
@@ -289,7 +289,7 @@ class TestSeekFinallyCleanup:
                 controller, "_send_stream_start", new_callable=AsyncMock,
                 return_value=False  # immediate disconnect
             ),
-            patch("audio_stream_controller.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
+            patch("core.stream_seek.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
         ):
             controller._stream_semaphore = asyncio.Semaphore(10)
 
@@ -299,7 +299,7 @@ class TestSeekFinallyCleanup:
             track.filepath = "/tmp/fake.wav"
             factory.tracks.get_by_id = Mock(return_value=track)
 
-            with patch("audio_stream_controller.Path") as mock_path:
+            with patch("core.stream_seek.Path") as mock_path:
                 mock_path.return_value.exists.return_value = True
                 processor = _make_processor(total_chunks=3)
                 mock_wait_for.return_value = processor
@@ -331,7 +331,7 @@ class TestSeekFinallyCleanup:
                 controller, "_send_stream_start", new_callable=AsyncMock,
                 side_effect=RuntimeError("boom")
             ),
-            patch("audio_stream_controller.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
+            patch("core.stream_seek.asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for,
         ):
             controller._stream_semaphore = asyncio.Semaphore(10)
 
@@ -341,7 +341,7 @@ class TestSeekFinallyCleanup:
             track.filepath = "/tmp/fake.wav"
             factory.tracks.get_by_id = Mock(return_value=track)
 
-            with patch("audio_stream_controller.Path") as mock_path:
+            with patch("core.stream_seek.Path") as mock_path:
                 mock_path.return_value.exists.return_value = True
                 processor = _make_processor(total_chunks=3)
                 mock_wait_for.return_value = processor
@@ -475,7 +475,7 @@ class TestSafeSendDisconnectClassification:
         controller = _make_controller()
         ws = self._ws_raising_after_disconnect("send_text")
 
-        with caplog.at_level(logging.DEBUG, logger="core.audio_stream_controller"):
+        with caplog.at_level(logging.DEBUG, logger="core.stream_protocol"):
             result = await controller._safe_send(ws, {"type": "ping"})
 
         assert result is False
@@ -492,7 +492,7 @@ class TestSafeSendDisconnectClassification:
         controller = _make_controller()
         ws = self._ws_raising_after_disconnect("send_bytes")
 
-        with caplog.at_level(logging.DEBUG, logger="core.audio_stream_controller"):
+        with caplog.at_level(logging.DEBUG, logger="core.stream_protocol"):
             result = await controller._safe_send_bytes(ws, b"\x00\x01")
 
         assert result is False
@@ -511,7 +511,7 @@ class TestSafeSendDisconnectClassification:
         # Raise without flipping state → still CONNECTED at the except re-check.
         ws.send_text = AsyncMock(side_effect=RuntimeError("some other failure"))
 
-        with caplog.at_level(logging.DEBUG, logger="core.audio_stream_controller"):
+        with caplog.at_level(logging.DEBUG, logger="core.stream_protocol"):
             result = await controller._safe_send(ws, {"type": "ping"})
 
         assert result is False
