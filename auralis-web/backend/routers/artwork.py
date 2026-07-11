@@ -17,7 +17,7 @@ import asyncio
 import logging
 import mimetypes
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Request

@@ -12,10 +12,10 @@ import asyncio
 import functools
 import logging
 import uuid
-from typing import Annotated, Any, ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
 from collections.abc import Callable
 
-from fastapi import Path, APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import (

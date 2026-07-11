@@ -16,10 +16,10 @@ Endpoints:
 
 import asyncio
 import logging
-from typing import Annotated, Any
+from typing import Any
 from collections.abc import Callable
 
-from fastapi import Path, APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate

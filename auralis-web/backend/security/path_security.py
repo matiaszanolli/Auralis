@@ -13,7 +13,6 @@ Fixes #2069: Path traversal in directory scanning endpoint
 import logging
 import os
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
