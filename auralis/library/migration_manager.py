@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import create_engine, event, select, text
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import sessionmaker
 
 from auralis.__version__ import __db_schema_version__

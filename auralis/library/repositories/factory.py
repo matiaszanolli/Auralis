@@ -10,7 +10,6 @@ Enables dependency injection across the application without global singletons.
 """
 
 from collections.abc import Callable
-from pathlib import Path
 
 from sqlalchemy.orm import Session
 

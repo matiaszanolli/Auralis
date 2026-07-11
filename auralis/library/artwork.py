@@ -14,7 +14,7 @@ from typing import Any
 
 from mutagen import File as MutagenFile  # type: ignore[attr-defined]
 from mutagen.flac import FLAC, Picture
-from mutagen.id3 import APIC, ID3  # type: ignore[attr-defined]
+from mutagen.id3 import ID3
 from mutagen.mp4 import MP4, MP4Cover
 
 from ..utils.logging import debug, error, info
