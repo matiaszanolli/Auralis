@@ -13,7 +13,7 @@ Coverage: All new helper classes in MetricUtils
 import numpy as np
 import pytest
 
-from auralis.analysis.fingerprint.common_metrics import (
+from auralis.analysis.fingerprint.metrics import (
     BandNormalizationTable,
     MetricUtils,
     StabilityMetrics,

@@ -27,7 +27,7 @@ import logging
 from typing import Any
 
 
-from .fingerprint.common_metrics import MetricUtils
+from .fingerprint.metrics import MetricUtils
 
 logger = logging.getLogger(__name__)
 

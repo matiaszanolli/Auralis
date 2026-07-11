@@ -20,7 +20,7 @@ Test Categories:
 import numpy as np
 import pytest
 
-from auralis.analysis.fingerprint.common_metrics import MetricUtils
+from auralis.analysis.fingerprint.metrics import MetricUtils
 
 
 class TestWinsorizedRobustScaling:

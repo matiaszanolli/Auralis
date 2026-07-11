@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from .fingerprint.common_metrics import SafeOperations
+from .fingerprint.metrics import SafeOperations
 
 logger = logging.getLogger(__name__)
 

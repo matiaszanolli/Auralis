@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from .fingerprint.common_metrics import AggregationUtils
+from .fingerprint.metrics import AggregationUtils
 from .spectrum_operations import SpectrumOperations
 
 

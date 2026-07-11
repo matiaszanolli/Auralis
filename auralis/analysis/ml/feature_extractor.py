@@ -14,7 +14,7 @@ import numpy as np
 from ...dsp.utils.spectral import crest_factor, spectral_centroid, spectral_rolloff, tempo_estimate, zero_crossing_rate
 from ...dsp.utils import create_mel_triangular_filters
 from ...utils.logging import debug
-from ..fingerprint.common_metrics import SafeOperations
+from ..fingerprint.metrics import SafeOperations
 from .features import AudioFeatures
 
 

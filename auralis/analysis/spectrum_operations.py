@@ -16,7 +16,7 @@ from typing import Any, cast
 import numpy as np
 from scipy import signal
 
-from .fingerprint.common_metrics import AggregationUtils, AudioMetrics
+from .fingerprint.metrics import AggregationUtils, AudioMetrics
 
 
 class SpectrumOperations:

@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from .fingerprint.common_metrics import MetricUtils
+from .fingerprint.metrics import MetricUtils
 
 try:
     import yaml  # type: ignore[import-untyped]

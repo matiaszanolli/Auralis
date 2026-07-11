@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 from scipy import signal
 
-from .fingerprint.common_metrics import MetricUtils, SafeOperations
+from .fingerprint.metrics import MetricUtils, SafeOperations
 
 _HILBERT_MAX_SECONDS = 30
 

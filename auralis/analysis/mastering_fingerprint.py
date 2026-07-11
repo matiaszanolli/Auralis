@@ -30,7 +30,7 @@ from typing import Any
 import librosa
 import numpy as np
 
-from .fingerprint.common_metrics import AudioMetrics
+from .fingerprint.metrics import AudioMetrics
 from ..utils.logging import warning
 
 

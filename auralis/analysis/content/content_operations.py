@@ -16,7 +16,7 @@ from scipy.fft import fft, fftfreq
 from scipy.signal import find_peaks
 
 from ...dsp.utils.spectral import energy_profile
-from ..fingerprint.common_metrics import AggregationUtils
+from ..fingerprint.metrics import AggregationUtils
 
 
 class ContentAnalysisOperations:

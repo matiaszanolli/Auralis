@@ -14,7 +14,7 @@ Tests all safety guards, normalizations, and metric conversions.
 import numpy as np
 import pytest
 
-from auralis.analysis.fingerprint.common_metrics import (
+from auralis.analysis.fingerprint.metrics import (
     AggregationUtils,
     AudioMetrics,
     FingerprintConstants,

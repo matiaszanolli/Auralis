@@ -17,7 +17,7 @@ import numpy as np
 from ..optimization.parallel_processor import ParallelConfig, ParallelFFTProcessor
 from ..utils.logging import debug
 from .base_spectrum_analyzer import BaseSpectrumAnalyzer, SpectrumSettings
-from .fingerprint.common_metrics import AggregationUtils, SafeOperations
+from .fingerprint.metrics import AggregationUtils, SafeOperations
 from .spectrum_operations import SpectrumOperations
 
 
@@ -306,7 +306,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
                 spectrum[i] = np.mean(magnitude[mask])
 
         # Convert to dB using safe log conversion
-        from .fingerprint.common_metrics import AudioMetrics
+        from .fingerprint.metrics import AudioMetrics
         spectrum = AudioMetrics.rms_to_db(spectrum)
 
         return spectrum
