@@ -23,18 +23,21 @@ import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { CacheManagementPanel } from '../CacheManagementPanel/index';
 import * as hooks from '@/hooks/shared/useStandardizedAPI';
+import * as restApiHooks from '@/hooks/api/useRestAPI';
 import {
   mockCacheStats,
   mockUseCacheStats,
   mockUseCacheHealth,
-  mockUseStandardizedAPI,
+  mockUseRestAPI,
 } from './test-utils';
 
 // Mock the hooks
 vi.mock('@/hooks/shared/useStandardizedAPI', () => ({
   useCacheStats: vi.fn(),
   useCacheHealth: vi.fn(),
-  useStandardizedAPI: vi.fn(),
+}));
+vi.mock('@/hooks/api/useRestAPI', () => ({
+  useRestAPI: vi.fn(),
 }));
 
 describe('CacheManagementPanel', () => {
@@ -42,7 +45,7 @@ describe('CacheManagementPanel', () => {
     vi.clearAllMocks();
     (hooks.useCacheStats as any).mockImplementation(mockUseCacheStats());
     (hooks.useCacheHealth as any).mockImplementation(mockUseCacheHealth());
-    (hooks.useStandardizedAPI as any).mockImplementation(mockUseStandardizedAPI());
+    (restApiHooks.useRestAPI as any).mockImplementation(mockUseRestAPI());
   });
 
   afterEach(() => {
@@ -132,9 +135,9 @@ describe('CacheManagementPanel', () => {
     const mockClearCache = vi.fn().mockResolvedValue(undefined);
     const mockRefetch = vi.fn().mockResolvedValue(undefined);
 
-    (hooks.useStandardizedAPI as any).mockImplementation(() => ({
-      refetch: mockClearCache,
-      loading: false,
+    (restApiHooks.useRestAPI as any).mockImplementation(() => ({
+      post: mockClearCache,
+      isLoading: false,
       error: null,
     }));
 
@@ -237,9 +240,9 @@ describe('CacheManagementPanel', () => {
     const mockClearCache = vi.fn().mockResolvedValue(undefined);
     const mockRefetch = vi.fn().mockResolvedValue(undefined);
 
-    (hooks.useStandardizedAPI as any).mockImplementation(() => ({
-      refetch: mockClearCache,
-      loading: false,
+    (restApiHooks.useRestAPI as any).mockImplementation(() => ({
+      post: mockClearCache,
+      isLoading: false,
       error: null,
     }));
 

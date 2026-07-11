@@ -152,14 +152,18 @@ export function mockUseCacheHealth(overrides = {}) {
 }
 
 /**
- * Create mock useStandardizedAPI hook
+ * Create mock useRestAPI hook
  */
-export function mockUseStandardizedAPI(overrides = {}) {
+export function mockUseRestAPI(overrides = {}) {
   return vi.fn().mockReturnValue({
-    data: null,
-    loading: false,
+    get: vi.fn().mockResolvedValue(undefined),
+    post: vi.fn().mockResolvedValue(undefined),
+    put: vi.fn().mockResolvedValue(undefined),
+    patch: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    clearError: vi.fn(),
+    isLoading: false,
     error: null,
-    refetch: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   });
 }

@@ -1,9 +1,15 @@
 /**
- * useStandardizedAPI Hook
- * ~~~~~~~~~~~~~~~~~~~~~~~
+ * Standardized API Hooks — cache, pagination, and batch specializations
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * React hook for accessing standardized API client with automatic error handling,
- * loading states, and cache management.
+ * These hooks are intentional specializations built on `StandardizedAPIClient`
+ * (cache-aware responses, pagination envelopes, batch operations) that
+ * `useRestAPI` (hooks/api/useRestAPI.ts) does not provide. They are not a
+ * competing generic API-client hook (#4300): the generic `useStandardizedAPI()`
+ * fetch-on-mount hook that used to live here had exactly one production
+ * consumer, which has been migrated to `useRestAPI` — use that for plain
+ * REST calls, and reach for the hooks below only when you need their specific
+ * cache/pagination/batch behavior.
  *
  * Phase C.1: Frontend Integration
  *
@@ -17,8 +23,6 @@ import {
   StandardizedAPIClient,
   CacheAwareAPIClient,
   BatchAPIClient,
-  SuccessResponse,
-  ErrorResponse,
   isSuccessResponse,
   PaginatedResponse,
   CacheStats,
@@ -26,7 +30,6 @@ import {
   BatchItem,
   BatchItemResult,
   APIClientConfig,
-  RequestOptions
 } from '@/services/api/standardizedAPIClient';
 import { getAPIClient, initializeAPIClient } from '@/services/api/standardizedAPIClient';
 import { API_BASE_URL } from '@/config/api';
@@ -50,157 +53,6 @@ export interface APICacheStats {
   cachedRequests: number;
 }
 
-
-// ============================================================================
-// Main API Hook
-// ============================================================================
-
-/**
- * Hook for making standardized API requests
- */
-export function useStandardizedAPI<T = unknown>(
-  endpoint: string,
-  options?: {
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-    body?: Record<string, unknown>;
-    autoFetch?: boolean;
-    timeout?: number;
-    cache?: boolean;
-    deps?: readonly unknown[];
-  }
-): APIRequestState<T> & {
-  refetch: () => Promise<void>;
-  reset: () => void;
-} {
-  const apiClient = useRef<StandardizedAPIClient | null>(null);
-  const [state, setState] = useState<APIRequestState<T>>({
-    data: null,
-    loading: true,
-    error: null
-  });
-
-  // Destructure primitives so inline option objects don't cause dependency churn
-  const method = options?.method ?? 'GET';
-  const timeout = options?.timeout;
-  const cache = options?.cache ?? true;
-  const autoFetch = options?.autoFetch !== false;
-
-  // Keep body in a ref — updated every render so fetch always sees the latest
-  // value, but changes to body don't recreate the callback
-  const bodyRef = useRef(options?.body);
-  bodyRef.current = options?.body;
-
-  // Guard against setState after unmount (#3234)
-  const mountedRef = useRef(true);
-  // Track AbortControllers created by manual refetch() calls so they can be
-  // cancelled on unmount — otherwise a manual refetch races to completion and
-  // calls setState on an unmounted component (#3972).
-  const activeControllers = useRef<Set<AbortController>>(new Set());
-  useEffect(() => () => {
-    mountedRef.current = false;
-    activeControllers.current.forEach((c) => c.abort());
-    activeControllers.current.clear();
-  }, []);
-
-  // Initialize API client
-  useEffect(() => {
-    if (!apiClient.current) {
-      apiClient.current = getAPIClient();
-    }
-  }, []);
-
-  // Fetch data.  Accepts an optional AbortSignal so callers (including the
-  // auto-fetch effect) can cancel in-flight requests on unmount (#3393).
-  const fetch = useCallback(async (signal?: AbortSignal) => {
-    if (!apiClient.current) return;
-
-    setState(prev => ({ ...prev, loading: true, error: null }));
-
-    try {
-      const requestOptions: RequestOptions = {
-        method,
-        timeout,
-        cache,
-        signal,
-      };
-
-      let response: SuccessResponse<T> | ErrorResponse;
-
-      if (method === 'POST') {
-        response = await apiClient.current.post<T>(endpoint, bodyRef.current, requestOptions);
-      } else if (method === 'PUT') {
-        response = await apiClient.current.put<T>(endpoint, bodyRef.current, requestOptions);
-      } else if (method === 'DELETE') {
-        response = await apiClient.current.delete<T>(endpoint, requestOptions);
-      } else {
-        response = await apiClient.current.get<T>(endpoint, requestOptions);
-      }
-
-      if (!mountedRef.current) return;
-
-      if (isSuccessResponse<T>(response)) {
-        setState({
-          data: response.data,
-          loading: false,
-          error: null,
-          cacheSource: response.cache_source,
-          processingTimeMs: response.processing_time_ms
-        });
-      } else {
-        setState({
-          data: null,
-          loading: false,
-          error: response.message || 'Request failed',
-          cacheSource: undefined,
-          processingTimeMs: undefined
-        });
-      }
-    } catch (error) {
-      if (!mountedRef.current) return;
-      // Don't surface abort errors as UI errors
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      setState({
-        data: null,
-        loading: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-        cacheSource: undefined,
-        processingTimeMs: undefined
-      });
-    }
-  }, [endpoint, method, timeout, cache]); // primitives only — no object references
-
-  // Auto-fetch on mount or when dependencies change.
-  // Spread options.deps so individual values are compared, not the array reference.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!autoFetch) return;
-
-    const controller = new AbortController();
-    fetch(controller.signal);
-
-    return () => controller.abort();
-  }, [fetch, ...(options?.deps ?? [])]);
-
-  const reset = useCallback(() => setState({ data: null, loading: false, error: null }), []);
-
-  // Public refetch() — creates a tracked AbortController so a manual refetch
-  // is cancelled on unmount, then delegates to the internal fetch (#3972).
-  const refetch = useCallback(async () => {
-    const controller = new AbortController();
-    activeControllers.current.add(controller);
-    try {
-      await fetch(controller.signal);
-    } finally {
-      activeControllers.current.delete(controller);
-    }
-  }, [fetch]);
-
-  return {
-    ...state,
-    refetch,
-    reset,
-  };
-}
 
 // ============================================================================
 // Pagination Hook

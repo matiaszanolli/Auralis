@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheStats, useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
-import { useStandardizedAPI } from '@/hooks/shared/useStandardizedAPI';
+import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { ConfirmationDialog } from '@/components/shared/ui/ConfirmationDialog';
 import { MemoryGauge } from './MemoryGauge';
 import { QuickActions } from './QuickActions';
@@ -31,10 +31,7 @@ export function CacheManagementPanel({
   const { data: cacheStats, loading: statsLoading, error: statsError, refetch: refetchStats } =
     useCacheStats();
   const { data: cacheHealth, loading: _healthLoading, error: healthError } = useCacheHealth();
-  const { refetch: clearCache, loading: clearLoading } = useStandardizedAPI('/api/cache/clear', {
-    method: 'POST',
-    autoFetch: false,
-  });
+  const { post, isLoading: clearLoading } = useRestAPI();
 
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [selectedTrackForClear, setSelectedTrackForClear] = useState<string | null>(null);
@@ -86,7 +83,7 @@ export function CacheManagementPanel({
 
   const handleClearCache = async () => {
     try {
-      await clearCache();
+      await post('/api/cache/clear');
       setShowClearConfirmation(false);
       refetchStats();
       onCacheClearRequest?.();

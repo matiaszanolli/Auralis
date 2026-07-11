@@ -1,16 +1,19 @@
 /**
- * useStandardizedAPI Hook Tests
+ * Standardized API Hooks Tests
  *
  * Tests for the standardized API hooks including:
- * - useStandardizedAPI (GET, POST, PUT, DELETE)
  * - usePaginatedAPI (pagination navigation)
  * - useCacheStats / useCacheHealth (cache monitoring)
+ *
+ * The generic useStandardizedAPI() fetch-on-mount hook was removed (#4300,
+ * duplicate of useRestAPI) — see useRestAPI.test.ts for GET/POST/PUT/DELETE
+ * coverage of the canonical generic hook.
  *
  * @module hooks/shared/__tests__/useStandardizedAPI.test
  */
 
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock the API client module
 const mockGet = vi.fn();
 const mockPost = vi.fn();
@@ -49,146 +52,7 @@ vi.mock('@/config/api', () => ({
   API_BASE_URL: 'http://localhost:8765',
 }));
 
-import {
-  useStandardizedAPI,
-  usePaginatedAPI,
-} from '../useStandardizedAPI';
-
-describe('useStandardizedAPI', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('should start with loading state', () => {
-    mockGet.mockReturnValue(new Promise(() => {})); // never resolves
-
-    const { result } = renderHook(() => useStandardizedAPI('/api/test'));
-
-    expect(result.current.loading).toBe(true);
-    expect(result.current.data).toBeNull();
-    expect(result.current.error).toBeNull();
-  });
-
-  it('should fetch data on mount with GET by default', async () => {
-    mockGet.mockResolvedValueOnce({
-      success: true,
-      data: { tracks: [1, 2, 3] },
-      cache_source: 'miss',
-      processing_time_ms: 42,
-    });
-
-    const { result } = renderHook(() =>
-      useStandardizedAPI<{ tracks: number[] }>('/api/tracks')
-    );
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.data).toEqual({ tracks: [1, 2, 3] });
-    expect(result.current.error).toBeNull();
-    expect(result.current.cacheSource).toBe('miss');
-    expect(result.current.processingTimeMs).toBe(42);
-  });
-
-  it('should handle error response', async () => {
-    mockGet.mockResolvedValueOnce({
-      success: false,
-      message: 'Not found',
-    });
-
-    const { result } = renderHook(() => useStandardizedAPI('/api/missing'));
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.data).toBeNull();
-    expect(result.current.error).toBe('Not found');
-  });
-
-  it('should handle thrown error', async () => {
-    mockGet.mockRejectedValueOnce(new Error('Network timeout'));
-
-    const { result } = renderHook(() => useStandardizedAPI('/api/test'));
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.error).toBe('Network timeout');
-  });
-
-  it('should use POST method when specified', async () => {
-    mockPost.mockResolvedValueOnce({
-      success: true,
-      data: { id: 1 },
-    });
-
-    const { result } = renderHook(() =>
-      useStandardizedAPI('/api/items', {
-        method: 'POST',
-        body: { name: 'test' },
-      })
-    );
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(mockPost).toHaveBeenCalledWith(
-      '/api/items',
-      { name: 'test' },
-      expect.objectContaining({ method: 'POST' })
-    );
-  });
-
-  it('should not auto-fetch when autoFetch is false', async () => {
-    const { result } = renderHook(() =>
-      useStandardizedAPI('/api/test', { autoFetch: false })
-    );
-
-    // Flush microtasks to ensure no fetch was triggered
-    await act(async () => {});
-
-    expect(mockGet).not.toHaveBeenCalled();
-    expect(result.current.loading).toBe(true);
-  });
-
-  it('should support manual refetch', async () => {
-    mockGet
-      .mockResolvedValueOnce({ success: true, data: 'first' })
-      .mockResolvedValueOnce({ success: true, data: 'second' });
-
-    const { result } = renderHook(() => useStandardizedAPI<string>('/api/test'));
-
-    await waitFor(() => expect(result.current.data).toBe('first'));
-
-    await act(async () => {
-      await result.current.refetch();
-    });
-
-    expect(result.current.data).toBe('second');
-  });
-
-  it('should reset state via reset()', async () => {
-    mockGet.mockResolvedValueOnce({ success: true, data: 'value' });
-
-    const { result } = renderHook(() => useStandardizedAPI<string>('/api/test'));
-
-    await waitFor(() => expect(result.current.data).toBe('value'));
-
-    act(() => {
-      result.current.reset();
-    });
-
-    expect(result.current.data).toBeNull();
-    expect(result.current.loading).toBe(false);
-    expect(result.current.error).toBeNull();
-  });
-
-  it('should handle non-Error thrown values', async () => {
-    mockGet.mockRejectedValueOnce('raw string error');
-
-    const { result } = renderHook(() => useStandardizedAPI('/api/test'));
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.error).toBe('Unknown error occurred');
-  });
-});
+import { usePaginatedAPI } from '../useStandardizedAPI';
 
 describe('usePaginatedAPI', () => {
   beforeEach(() => {
