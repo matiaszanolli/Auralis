@@ -15,15 +15,12 @@ from pathlib import Path
 
 import numpy as np
 import soundfile as sf
-from scipy.signal import butter, sosfilt
 
 from ..analysis.fingerprint.fingerprint_service import FingerprintService
-from ..dsp.basic import normalize
-from ..dsp.dynamics.soft_clipper import soft_clip
-from ..utils.audio_validation import sanitize_audio, validate_audio_finite
-from .dsp import Notch, ResonanceNotcher
-from .mastering_branches import MaterialClassifier
+from . import mastering_chunk_loop, mastering_diagnostics, mastering_prepare
+from .dsp import Notch
 from .mastering_config import SimpleMasteringConfig
+from .mastering_process_chunk import process_chunk
 from .stages import (
     air_enhancement,
     bass_enhancement,
@@ -38,7 +35,6 @@ from .stages import (
     sub_bass_control,
     transient_shaper,
 )
-from .utils import FingerprintUnpacker, SmoothCurveUtilities
 
 
 class SimpleMasteringPipeline:
@@ -58,31 +54,25 @@ class SimpleMasteringPipeline:
         self._notches: list[Notch] = []
         # #3715: serialise concurrent master_file()/process() calls on the
         # SAME instance so the per-file `_notches` write-then-read pattern
-        # cannot cross-contaminate between tracks. Two concurrent
-        # invocations would otherwise race: thread A writes its notches,
-        # thread B overwrites them, then both chunk loops apply B's
-        # notches to A's audio (and vice versa). RLock so internal
-        # methods can re-acquire if a future refactor calls them
-        # recursively. Cross-instance parallelism is unaffected — only
-        # the same-instance reuse pattern is serialised.
+        # cannot cross-contaminate between tracks (thread A's notches
+        # overwritten by thread B before A's chunk loop reads them, or
+        # vice versa). RLock so internal methods can re-acquire if a
+        # future refactor calls them recursively; cross-instance
+        # parallelism is unaffected.
         self._process_lock = threading.RLock()
         # Per-file accurate ITU-R BS.1770 loudness, measured once in
-        # master_file and consumed by the QuietBranch loudness maximizer.
-        # The fingerprint's `lufs` is a non-K-weighted, non-gated RMS proxy
-        # (median across windows) that under-reads high-dynamic-range material
-        # by 3-5 dB — fine for classification but wrong for deciding how much
-        # makeup the maximizer should apply. None until measured / on the
-        # direct _process() path (tests), where the branch falls back to the
-        # fingerprint value.
+        # master_file (mastering_prepare.prepare_file) and consumed by the
+        # QuietBranch loudness maximizer — the fingerprint's `lufs` is a
+        # non-K-weighted RMS proxy that under-reads high-DR material by
+        # 3-5 dB. None on the direct _process() test path, where the
+        # branch falls back to the fingerprint value.
         self._source_lufs: float | None = None
         self._source_crest_db: float | None = None
         # Per-file whole-song peak (dB), measured once in master_file, used
         # ONLY as the headroom reference for the QuietBranch makeup-gain
-        # clamp (AdaptiveLoudnessControl.calculate_adaptive_gain) — NOT for
-        # Stage 1's per-chunk clip prevention in _process(), which correctly
-        # keeps using each chunk's own peak. None until measured / on the
-        # direct _process() path (tests), where the per-chunk peak is used
-        # as a fallback (matches pre-fix behavior for those tests).
+        # clamp — NOT for Stage 1's per-chunk clip prevention, which
+        # correctly keeps using each chunk's own peak. None on the direct
+        # _process() test path, where the per-chunk peak is the fallback.
         self._song_peak_db: float | None = None
 
     @property
@@ -103,8 +93,7 @@ class SimpleMasteringPipeline:
     ) -> dict:
         """
         Master an audio file with adaptive processing using chunked processing.
-
-        Memory-efficient: Processes audio in chunks instead of loading entire file.
+        Memory-efficient: processes audio in chunks instead of loading entire file.
 
         Args:
             input_path: Input audio file
@@ -118,11 +107,10 @@ class SimpleMasteringPipeline:
         """
         # #3715: hold `_process_lock` across the entire master_file
         # invocation. The per-file `_notches` instance attribute is
-        # written at line ~134 and read by `_apply_resonance_notches`
-        # for every chunk; without serialisation, two concurrent
-        # master_file calls on the same instance overwrite each
-        # other's notches and cross-contaminate the chunk processing
-        # for both tracks.
+        # written by mastering_prepare.prepare_file and read by
+        # `_apply_resonance_notches` for every chunk; without
+        # serialisation, two concurrent master_file calls on the same
+        # instance would cross-contaminate notches between tracks.
         with self._process_lock:
             return self._master_file_impl(
                 input_path, output_path, intensity, verbose, time_metrics
@@ -137,7 +125,6 @@ class SimpleMasteringPipeline:
         time_metrics: bool = False,
     ) -> dict:
         """Inner implementation called under `_process_lock` (#3715)."""
-        timings: dict[str, float] = {}
         total_start = time.perf_counter()
 
         import tempfile as _tempfile
@@ -158,326 +145,30 @@ class SimpleMasteringPipeline:
             _tmp_wav = Path(_tmp_dir.name) / (orig_path.stem + "_dec.wav")
             _raw, _raw_sr = load_with_ffmpeg(orig_path, _tmp_dir.name)
             sf.write(str(_tmp_wav), _raw, _raw_sr, subtype="PCM_24")
-            input_path = _tmp_wav
+            resolved_input_path = _tmp_wav
         else:
-            input_path = orig_path
+            resolved_input_path = orig_path
         try:
-            # Step 1: Get fingerprint (uses orig_path so cache hits still work)
-            if verbose:
-                print(f"📂 Input: {orig_path.name}")
-                print(f"📂 Output: {Path(output_path).name}")
-                print("\n🔍 Fingerprinting...")
-
-            step_start = time.perf_counter()
-            fingerprint = self.fingerprint_service.get_or_compute(orig_path)
-            timings['fingerprint'] = time.perf_counter() - step_start
-
-            if not fingerprint:
-                raise RuntimeError("Failed to compute fingerprint")
-
-            # Step 2: Get audio metadata without loading full file
-            if verbose:
-                print("\n🎵 Loading metadata...")
-
-            step_start = time.perf_counter()
-            with sf.SoundFile(str(input_path)) as audio_file:
-                sr = audio_file.samplerate
-                total_frames = len(audio_file)
-                channels = audio_file.channels
-                duration = total_frames / sr
-
-            timings['load_metadata'] = time.perf_counter() - step_start
-
-            if verbose:
-                print(f"   Sample rate: {sr} Hz")
-                print(f"   Duration: {duration:.1f}s")
-                print(f"   Channels: {channels}")
-                self._print_fingerprint(fingerprint)
-
-            # Step 2b: Detect resonances once per file.
-            # Run on a representative 30s window from the middle of the file —
-            # avoids loading the full file but gives enough data for the FFT
-            # averaging to find stable spectral peaks. The same notch list is
-            # applied to every chunk during processing.
-            self._notches = []
-            self._source_lufs = None
-            self._source_crest_db = None
-            self._song_peak_db = None
-            step_start = time.perf_counter()
-            notch_sample_seconds = 30
-            notch_window = min(total_frames, sr * notch_sample_seconds)
-            notch_start = max(0, (total_frames - notch_window) // 2)
-            with sf.SoundFile(str(input_path)) as audio_file:
-                audio_file.seek(notch_start)
-                notch_sample = audio_file.read(notch_window).astype(np.float32)
-
-            # Accurate ITU-R BS.1770 integrated loudness + crest on the same
-            # representative window. Drives the QuietBranch loudness maximizer's
-            # makeup decision (the fingerprint's RMS-proxy LUFS under-reads
-            # high-DR material by 3-5 dB). Best-effort: leaves None on failure and
-            # the branch falls back to the fingerprint value.
-            self._source_lufs, self._source_crest_db = self._measure_window_loudness(
-                notch_sample, sr
+            prep = mastering_prepare.prepare_file(
+                self, orig_path, resolved_input_path, output_path, verbose
             )
-
-            # SoundFile returns (samples, channels); ResonanceNotcher handles both
-            # mono and stereo input internally.
-            detected = ResonanceNotcher.detect(
-                notch_sample,
-                sample_rate=sr,
-                min_freq=self.config.NOTCH_MIN_FREQ_HZ,
-                max_freq=self.config.NOTCH_MAX_FREQ_HZ,
-                min_prominence_db=self.config.NOTCH_MIN_PROMINENCE_DB,
-                max_notches=self.config.NOTCH_MAX_COUNT,
-                max_depth_db=self.config.NOTCH_MAX_DEPTH_DB,
-            )
-
-            # Band-context awareness: scale each notch's depth by the energy
-            # share of the band it lands in. If the target band is already
-            # under-represented (e.g. Mid at 10% vs 24% target), full-depth
-            # notching gouges an already-deficient band — so we shrink the cut
-            # proportionally. Notch on a well-energized band → full depth;
-            # notch on a deficient band → reduced depth (or skipped entirely
-            # below NOTCH_MIN_BAND_HEALTH).
-            self._notches = self._contextualize_notches(detected, fingerprint)
-            timings['detect_notches'] = time.perf_counter() - step_start
-            if verbose:
-                if self._notches:
-                    print(f"\n🎯 Resonance notches detected ({len(self._notches)}):")
-                    for n in self._notches:
-                        print(f"   {n.freq_hz:6.0f} Hz   {n.depth_db:+5.1f} dB (Q={n.q:.1f})")
-                elif detected:
-                    # Resonances exist but all skipped by band-context filter
-                    print(f"\n🎯 Resonances detected but skipped — target bands too deficient")
-                    print(f"   ({len(detected)} candidates: " +
-                          ", ".join(f"{n.freq_hz:.0f}Hz" for n in detected) + ")")
-                else:
-                    print("\n🎯 No prominent resonances detected — skipping notch stage")
-
-            # Step 2c: Whole-song peak, scanned once up front.
-            # 2026-07-08: the QuietBranch makeup-gain headroom clamp (see
-            # AdaptiveLoudnessControl.calculate_adaptive_gain) used to receive
-            # each chunk's OWN peak_db, computed fresh per 30s chunk in the
-            # loop below. That's correct for Stage 1's per-chunk clip
-            # prevention (a chunk's own peak is exactly what must not clip),
-            # but wrong for the gain-staging decision: a song's quiet verse
-            # chunk would get its full makeup gain while a loud chorus chunk
-            # — same song, same target loudness — got clamped down hard
-            # because ITS peak happened to be high, producing an audible
-            # level inconsistency between sections instead of one consistent
-            # gain for the whole song. Scanning once here and using this
-            # value (not the per-chunk one) for that specific headroom check
-            # fixes the inconsistency and is still fully clip-safe: it's the
-            # max peak that will ever occur, so no chunk's headroom is
-            # under-estimated.
-            step_start = time.perf_counter()
-            song_peak_linear = 0.0
-            scan_block_frames = sr * self.config.CHUNK_DURATION_SEC
-            with sf.SoundFile(str(input_path)) as audio_file:
-                while True:
-                    block = audio_file.read(scan_block_frames)
-                    if block.size == 0:
-                        break
-                    block_peak = float(np.max(np.abs(block)))
-                    if block_peak > song_peak_linear:
-                        song_peak_linear = block_peak
-            self._song_peak_db = (
-                20 * np.log10(song_peak_linear) if song_peak_linear > 0 else -96.0
-            )
-            timings['measure_song_peak'] = time.perf_counter() - step_start
+            fingerprint = prep['fingerprint']
+            sr = prep['sr']
+            total_frames = prep['total_frames']
+            channels = prep['channels']
+            duration = prep['duration']
+            timings: dict[str, float] = prep['timings']
 
             # Step 3: Process in chunks (memory efficient)
             if verbose:
                 print("\n⚡ Processing (chunked)...")
 
             step_start = time.perf_counter()
-
-            # Equal-power crossfade between chunks for seamless transitions.
-            # Adjacent chunks both process the overlap region, then we blend
-            # with cosine curves to maintain perceived loudness through the join.
-            crossfade_samples = int(sr * self.config.CROSSFADE_DURATION_SEC)
-
-            # Process and write in streaming mode
-            chunk_size = sr * self.config.CHUNK_DURATION_SEC
-            info = {'stages': []}
-
-            # Multi-channel (>2ch) sources are downmixed to stereo during chunk
-            # processing, so the output is always stereo.
-            out_channels = min(channels, 2)
-            with sf.SoundFile(str(input_path)) as audio_file:
-                with sf.SoundFile(
-                    output_path,
-                    mode='w',
-                    samplerate=sr,
-                    channels=out_channels,
-                    subtype='PCM_24'
-                ) as output_file:
-                    chunks_processed = 0
-                    total_chunks = int(np.ceil(total_frames / chunk_size))
-
-                    prev_tail = None  # Previous chunk's processed overlap tail
-                    read_pos = 0
-
-                    while read_pos < total_frames:
-                        core_samples = min(chunk_size, total_frames - read_pos)
-                        is_last = (read_pos + core_samples >= total_frames)
-
-                        # Read core + overlap so both chunks process the boundary
-                        audio_file.seek(read_pos)
-                        if is_last:
-                            chunk = audio_file.read(core_samples)
-                        else:
-                            overlap_after = min(
-                                crossfade_samples,
-                                total_frames - read_pos - core_samples
-                            )
-                            chunk = audio_file.read(core_samples + overlap_after)
-
-                        if chunk.size == 0:
-                            break
-
-                        # Ensure float32
-                        chunk = chunk.astype(np.float32)
-
-                        # Ensure stereo (channels, samples) format
-                        if chunk.ndim == 1:
-                            chunk = np.stack([chunk, chunk]).T
-                        elif chunk.ndim == 2 and chunk.shape[1] > 2:
-                            # Multi-channel (e.g. 5.1 surround): take L+R only.
-                            # soundfile yields (samples, channels) at this point.
-                            chunk = chunk[:, :2]
-
-                        # Convert to (channels, samples) for processing.
-                        # soundfile always yields (samples, channels), as does the
-                        # mono→stereo path above, so we always need to transpose here.
-                        # The old heuristic `shape[0] > shape[1]` silently failed for
-                        # square arrays like (2, 2) — 2-sample stereo — because 2 > 2
-                        # is False (issue #2292).
-                        chunk = chunk.T
-
-                        # Compute peak_db per chunk so the peak-reduction gate correctly
-                        # engages on loud sections even when the track starts quietly (fixes
-                        # #2402: stale first-chunk peak caused missed limiting on loud choruses).
-                        peak_db = self._peak_db(chunk)
-
-                        # Process chunk (includes overlap tail for crossfading)
-                        processed_chunk, chunk_info = self._process(
-                            chunk, fingerprint, peak_db, intensity, sr, verbose=False
-                        )
-
-                        # True Peak guard (empirically validated — June 2026 study):
-                        # 74 % of outputs exceeded 0 dBFS True Peak (avg +0.77 dBFS)
-                        # because the harmonic exciter generates near-Nyquist content
-                        # that causes intersample reconstruction peaks even when sample
-                        # peaks are held at 0.97.  4× oversampled peak measurement +
-                        # proportional gain reduction caps True Peak at -0.5 dBFS.
-                        try:
-                            from scipy.signal import resample_poly as _rsp
-                            _TP_CEILING = 10 ** (-0.5 / 20)     # −0.5 dBFS = 0.9441
-                            _chunk_4x = _rsp(processed_chunk, 4, 1, axis=1)
-                            _tp = float(np.max(np.abs(_chunk_4x)))
-                            if _tp > _TP_CEILING:
-                                processed_chunk = processed_chunk * (_TP_CEILING / _tp)
-                        except Exception:
-                            pass   # best-effort; never let this path break the pipeline
-
-                        # #3700: sample-count invariant — crossfade slice arithmetic
-                        # below assumes _process() preserves the time axis. A future
-                        # DSP regression (resampling, time-stretch, IIR padding bug)
-                        # would otherwise silently corrupt the chunk boundary.
-                        assert processed_chunk.shape[1] == chunk.shape[1], (
-                            f"DSP sample-count violation: input {chunk.shape[1]} "
-                            f"-> output {processed_chunk.shape[1]}"
-                        )
-
-                        # Update info from first chunk
-                        if chunks_processed == 0:
-                            info = chunk_info
-
-                        # Assemble output with crossfading at chunk boundaries.
-                        # new_tail stages the next prev_tail value and is only committed
-                        # to prev_tail after output_file.write() succeeds (#2429).
-                        new_tail = None
-
-                        if chunks_processed == 0:
-                            # First chunk: write core, save overlap tail
-                            if is_last:
-                                write_region = processed_chunk
-                            else:
-                                write_region = processed_chunk[:, :core_samples]
-                                new_tail = processed_chunk[:, core_samples:].copy()
-                        elif prev_tail is not None:
-                            # Crossfade head of this chunk with previous tail
-                            head_len = min(prev_tail.shape[1], processed_chunk.shape[1])
-
-                            if head_len == 0:
-                                # Empty overlap tail — skip crossfade, concatenate directly
-                                # (fixes #2157: np.linspace(..., 0) produces empty array
-                                # and silently drops samples at the chunk boundary)
-                                if is_last:
-                                    write_region = processed_chunk
-                                else:
-                                    write_region = processed_chunk[:, :core_samples]
-                                    new_tail = processed_chunk[:, core_samples:].copy()
-                            else:
-                                head = processed_chunk[:, :head_len]
-
-                                # Equal-power crossfade (cosine curves maintain loudness).
-                                # #3684: compute the fade ramps in the chunk's
-                                # dtype so the multiply with prev_tail/head does
-                                # not promote crossfaded → float64.
-                                chunk_dtype = processed_chunk.dtype
-                                t = np.linspace(0.0, np.pi / 2, head_len, dtype=chunk_dtype)
-                                fade_in = np.sin(t) ** 2
-                                fade_out = np.cos(t) ** 2
-                                crossfaded = prev_tail[:, :head_len] * fade_out + head * fade_in
-
-                                if is_last:
-                                    body = processed_chunk[:, head_len:]
-                                    write_region = np.concatenate([crossfaded, body], axis=1)
-                                else:
-                                    body = processed_chunk[:, head_len:core_samples]
-                                    write_region = np.concatenate([crossfaded, body], axis=1)
-                                    # Guard against silent sample drift at chunk boundaries (#2515)
-                                    assert write_region.shape[1] == core_samples, (
-                                        f"Crossfade write_region mismatch: expected {core_samples} "
-                                        f"samples, got {write_region.shape[1]}"
-                                    )
-                                    new_tail = processed_chunk[:, core_samples:].copy()
-                        else:
-                            # No previous tail (safety fallback)
-                            if is_last:
-                                write_region = processed_chunk
-                            else:
-                                write_region = processed_chunk[:, :core_samples]
-                                new_tail = processed_chunk[:, core_samples:].copy()
-
-                        # Convert back to (samples, channels) for writing.
-                        # write_region is always (channels, samples) after processing,
-                        # so unconditional transpose is correct here too (issue #2292).
-                        write_region = write_region.T
-
-                        # #3660: explicit clamp to [-1.0, 1.0] before PCM_24 encode —
-                        # mirrors the saver.py fix from #3471. Crossfade
-                        # constructive interference at chunk boundaries can push
-                        # samples slightly out of range; libsndfile's implicit
-                        # clipping behaviour varies across builds.
-                        write_region = np.clip(write_region, -1.0, 1.0)
-
-                        output_file.write(write_region)
-                        # Commit new tail only after write succeeds: if concatenate or
-                        # write raises, prev_tail retains the last-good value (#2429).
-                        prev_tail = new_tail
-
-                        chunks_processed += 1
-                        read_pos += core_samples
-
-                        if verbose and chunks_processed % self.config.PROGRESS_REPORT_INTERVAL_CHUNKS == 0:
-                            progress = (chunks_processed / total_chunks) * 100
-                            print(f"   Progress: {progress:.0f}% ({chunks_processed}/{total_chunks} chunks)")
-
+            info, chunks_processed = mastering_chunk_loop.process_chunks(
+                self, resolved_input_path, output_path, sr, total_frames,
+                channels, fingerprint, intensity, self.config, verbose,
+            )
             timings['processing'] = time.perf_counter() - step_start
-
             timings['total'] = time.perf_counter() - total_start
 
             if verbose:
@@ -487,7 +178,7 @@ class SimpleMasteringPipeline:
                 print(f"\n🎉 Complete! Output: {output_path}")
 
             if time_metrics:
-                self._print_time_metrics(timings, duration)
+                mastering_diagnostics.print_time_metrics(timings, duration)
 
             result = {
                 'input': str(orig_path),
@@ -514,142 +205,13 @@ class SimpleMasteringPipeline:
         sample_rate: int,
         verbose: bool
     ) -> tuple[np.ndarray, dict]:
-        """Core processing logic using all 25D fingerprint dimensions."""
+        """Core processing logic using all 25D fingerprint dimensions.
 
-        # Unpack fingerprint using type-safe unpacker
-        unpacker = FingerprintUnpacker.from_dict(fp)
-
-        info = {'stages': []}
-        processed = audio.copy()
-
-        # Validate input audio for NaN/Inf (fail fast on corrupted input)
-        processed = validate_audio_finite(processed, context="simple mastering input", repair=False)
-
-        # Adaptive intensity based on dynamics + loudness
-        effective_intensity = self._calculate_intensity(intensity, unpacker.lufs, unpacker.crest_db)
-
-        # STAGE 1: Gentle peak reduction for clipping prevention only
-        # Only intervene when peak is dangerously close to or above 0 dBFS
-        # Uses smooth S-curve to avoid filtering effect - just prevents actual clipping
-        if peak_db > self.config.PEAK_REDUCTION_THRESHOLD_DB:
-            # Smooth curve: gentle near threshold, stronger for severe clipping
-            # clip_severity: 0 at threshold, 1 at threshold + range
-            smooth_factor = SmoothCurveUtilities.ramp_to_s_curve(
-                peak_db,
-                self.config.PEAK_REDUCTION_THRESHOLD_DB,
-                self.config.PEAK_REDUCTION_THRESHOLD_DB + self.config.PEAK_CLIP_SEVERITY_RANGE_DB
-            )
-
-            # Target: threshold to max_target based on severity
-            peak_range = abs(self.config.MAX_TARGET_PEAK_REDUCTION_DB - self.config.PEAK_REDUCTION_THRESHOLD_DB)
-            target_peak = self.config.PEAK_REDUCTION_THRESHOLD_DB - smooth_factor * peak_range
-
-            if verbose:
-                print(f"   Peak reduction: {peak_db:.1f} → {target_peak:.1f} dB")
-
-            processed, peak_db = self._reduce_peaks(processed, peak_db, target_peak)
-            info['stages'].append({'stage': 'peak_reduction', 'target': target_peak, 'result': peak_db})
-
-        # STAGE 2: Classify material and dispatch to appropriate processing branch
-        material_type = MaterialClassifier.classify(unpacker.lufs, unpacker.crest_db, self.config)
-        branch = MaterialClassifier.get_branch(material_type, self)
-
-        if verbose:
-            print(f"   Material type: {material_type}")
-
-        # Branches receive the WHOLE-SONG peak here, not the per-chunk
-        # `peak_db` used above for Stage 1's clip prevention. The only
-        # consumer is QuietBranch's makeup-gain headroom clamp, and using a
-        # per-chunk value there made a quiet verse chunk get its full gain
-        # while a loud chorus chunk (same song, same target) got clamped
-        # down hard purely because its own peak was high — an audible
-        # inconsistency between sections rather than one consistent gain for
-        # the whole song. Falls back to the local peak_db when unset (the
-        # direct _process() test path, which never runs the pre-scan).
-        gain_reference_peak_db = (
-            self._song_peak_db if self._song_peak_db is not None else peak_db
-        )
-
-        # Delegate to branch-specific processing
-        processed, branch_info = branch.apply(
-            processed, unpacker, gain_reference_peak_db, effective_intensity,
-            sample_rate, self.config, verbose
-        )
-
-        # Merge branch stages into main info
-        info['stages'].extend(branch_info.get('stages', []))
-        needs_output_normalize = branch_info.get('needs_output_normalize', False)
-
-        # STAGE 3: Unified output normalization for loud material
-        # Always normalize to compensate for pre-EQ headroom and RMS expansion
-        if needs_output_normalize:
-            # Target slightly below 0 dBFS to leave headroom for playback
-            output_target = 0.95
-
-            current_peak = np.max(np.abs(processed))
-            # Normalize in both directions — boost quiet material AND reduce hot
-            # peaks above the target ceiling (fixes #2306: was only normalizing UP).
-            if current_peak > 0:
-                processed = normalize(processed, output_target)
-                if verbose:
-                    gain_db = 20 * np.log10(output_target / current_peak)
-                    direction = "+" if gain_db >= 0 else ""
-                    print(f"   Output normalize: {direction}{gain_db:.1f} dB → {output_target*100:.0f}% peak")
-                info['stages'].append({'stage': 'output_normalize', 'target_peak': output_target})
-
-        # Validate output for NaN/Inf (graceful handling for production resilience)
-        processed = sanitize_audio(processed, context="simple mastering output")
-
-        info['effective_intensity'] = effective_intensity
-        return processed, info
-
-    def _calculate_intensity(self, base: float, lufs: float, crest_db: float) -> float:
+        Thin delegate to mastering_process_chunk.process_chunk (#4072).
+        Kept as a method (not inlined) because tests/auralis/core/
+        test_nan_detection.py calls pipeline._process(...) directly.
         """
-        Calculate effective intensity from base + audio characteristics.
-
-        Uses smooth interpolation instead of hard thresholds:
-        - Crest factor determines dynamic range preservation needs
-        - LUFS determines how much room we have to work with
-        """
-        # Smooth crest factor curve: 8 dB (compressed) → 15 dB (dynamic)
-        # Maps to multiplier range based on material type
-        crest_norm = np.clip((crest_db - 8.0) / 7.0, 0.0, 1.0)  # 0=compressed, 1=dynamic
-
-        # LUFS factor: -13 (quiet) → -11 (loud)
-        # Quiet material can handle more processing, loud needs preservation
-        lufs_norm = np.clip((lufs + 13.0) / 2.0, 0.0, 1.0)  # 0=quiet, 1=loud
-
-        # Intensity multiplier based on 2D space:
-        # - Compressed (low crest): always reduce intensity (0.5-0.7)
-        # - Dynamic + quiet: boost intensity (up to 1.2)
-        # - Dynamic + loud: preserve (reduce to 0.6-0.8)
-        if crest_norm < 0.3:
-            # Compressed material: gentle processing regardless of loudness
-            multiplier = 0.5 + crest_norm * 0.67  # 0.5 → 0.7
-        else:
-            # Dynamic material: depends on loudness
-            # Quiet (lufs_norm=0): multiplier up to 1.2
-            # Loud (lufs_norm=1): multiplier down to 0.6
-            dynamic_range = 0.7 + (1.0 - crest_norm) * 0.5  # Base for dynamic material
-            quiet_boost = (1.0 - lufs_norm) * 0.5  # Extra boost for quiet
-            loud_reduction = lufs_norm * 0.4  # Reduction for loud
-            multiplier = dynamic_range + quiet_boost - loud_reduction
-
-        return base * np.clip(multiplier, 0.5, 1.2)
-
-    def _reduce_peaks(
-        self,
-        audio: np.ndarray,
-        current_db: float,
-        target_db: float
-    ) -> tuple[np.ndarray, float]:
-        """Surgical peak reduction via soft clipping."""
-        if current_db <= target_db:
-            return audio, current_db
-
-        threshold = 10 ** (target_db / 20.0)
-        processed = soft_clip(audio, threshold=threshold, ceiling=min(0.99, threshold * 1.05))
-        return processed, self._peak_db(processed)
+        return process_chunk(self, audio, fp, peak_db, intensity, sample_rate, verbose)
 
     def _apply_safety_limiter(
         self, audio: np.ndarray, verbose: bool, ceiling: float = 0.98
@@ -663,84 +225,6 @@ class SimpleMasteringPipeline:
         return loudness_maximizer.apply(
             audio, source_lufs, source_crest_db, sample_rate, verbose, self.config
         )
-
-    def _contextualize_notches(self, notches: list[Notch], fingerprint: dict) -> list[Notch]:
-        """
-        Filter and scale each notch's depth based on the target band's health.
-
-        Three regimes (driven by `band_pct / band_target` ratio):
-
-        - **health ≥ NOTCH_CAPPED_HEALTH (≥0.7)**: full notch — band is well-
-          energized, scaling depth proportionally is safe.
-        - **NOTCH_MIN_BAND_HEALTH ≤ health < NOTCH_CAPPED_HEALTH (0.6-0.7)**:
-          allow the notch but hard-cap its depth to NOTCH_LOW_HEALTH_CAP_DB
-          (e.g. -1 dB). The resonance is real but we tread lightly because
-          the band is borderline thin.
-        - **health < NOTCH_MIN_BAND_HEALTH (<0.6)**: skip entirely. Notching
-          an already-deficient band makes the perceived scoop worse than
-          leaving the resonance alone.
-
-        These thresholds were tuned from A/B analysis on a source where Mid
-        was at 53% of target — proportional scaling alone still produced
-        -2.2 pp of additional Mid scoop, contributing to the perceived
-        'high-passed' sound.
-        """
-        if not notches:
-            return notches
-
-        # Map (low, high) Hz → fingerprint key name → reference target (median
-        # across n=27 reference tracks across 8 genres). The previous values
-        # were "pop-master" theoretical numbers; these are measured medians
-        # from actual well-mastered records. Critically: presence/brillance/air
-        # targets used to be 11%/6%/4% which made even normal records appear
-        # "deficient" — now correctly set to ~1.5%/0.4%/0.1%.
-        BAND_LOOKUP = [
-            ((20, 60),       'sub_bass_pct',   0.087),
-            ((60, 250),      'bass_pct',       0.460),
-            ((250, 500),     'low_mid_pct',    0.136),
-            ((500, 2000),    'mid_pct',        0.171),
-            ((2000, 4000),   'upper_mid_pct',  0.055),
-            ((4000, 8000),   'presence_pct',   0.015),
-            ((8000, 12000),  'brilliance_pct', 0.004),
-            ((12000, 24000), 'air_pct',        0.001),
-        ]
-
-        out: list[Notch] = []
-        for n in notches:
-            # Find which band this notch lands in
-            band_pct = None
-            band_target = None
-            for (lo, hi), key, tgt in BAND_LOOKUP:
-                if lo <= n.freq_hz < hi:
-                    band_pct = fingerprint.get(key, tgt)
-                    band_target = tgt
-                    break
-
-            if band_pct is None or band_target is None:
-                out.append(n)
-                continue
-
-            # Health metric: ratio of actual to target energy share, capped at 1.0.
-            # 1.0 = well-energized band, 0.5 = half-energized, etc.
-            health = min(1.0, band_pct / band_target) if band_target > 0 else 1.0
-
-            if health < self.config.NOTCH_MIN_BAND_HEALTH:
-                # Band is severely deficient — leave the resonance alone.
-                continue
-
-            # Proportional scaling for moderately-deficient bands. The 0.7+
-            # zone gets full proportional depth; the 0.6-0.7 zone is capped
-            # to a hard floor regardless of the configured max depth.
-            scaled_depth = n.depth_db * health
-
-            if health < self.config.NOTCH_CAPPED_HEALTH:
-                # Cap to the low-health cap (compare absolute values; both negative)
-                if abs(scaled_depth) > abs(self.config.NOTCH_LOW_HEALTH_CAP_DB):
-                    scaled_depth = self.config.NOTCH_LOW_HEALTH_CAP_DB
-
-            out.append(Notch(freq_hz=n.freq_hz, depth_db=scaled_depth, q=n.q))
-
-        return out
 
     def _apply_resonance_notches(
         self, audio: np.ndarray, sample_rate: int, verbose: bool
@@ -807,182 +291,6 @@ class SimpleMasteringPipeline:
         intensity: float, sample_rate: int, verbose: bool, hf_lift: float = 1.0,
     ) -> tuple[np.ndarray, dict | None]:
         return air_enhancement.apply(audio, air_pct, spectral_rolloff, intensity, sample_rate, verbose, self.config, hf_lift)
-
-    @staticmethod
-    def _measure_window_loudness(
-        window: np.ndarray, sample_rate: int
-    ) -> tuple[float | None, float | None]:
-        """Accurate ITU-R BS.1770 integrated LUFS + broadband crest on a window.
-
-        Used to drive the loudness maximizer instead of the fingerprint's
-        RMS-proxy LUFS (which under-reads high-dynamic-range material). The
-        window is the representative middle slice already loaded for resonance
-        detection. Returns (None, None) on any failure so callers fall back to
-        the fingerprint value.
-
-        Args:
-            window: Audio (samples, channels) or (samples,), float.
-            sample_rate: Sample rate in Hz.
-
-        Returns:
-            (integrated_lufs, crest_db) or (None, None) if measurement failed
-            or the window was too short/silent.
-        """
-        try:
-            from ..analysis.loudness_meter import LoudnessMeter
-
-            if window.size == 0:
-                return None, None
-
-            meter = LoudnessMeter(sample_rate=sample_rate)
-            block = meter.block_size
-            for start in range(0, len(window), block):
-                chunk = window[start:start + block]
-                if len(chunk) >= block // 2:
-                    meter.measure_chunk(chunk)
-            lufs = meter.finalize_measurement().integrated_lufs
-            if not np.isfinite(lufs):
-                return None, None
-
-            mono = np.mean(window, axis=1) if window.ndim == 2 else window
-            rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
-            peak = float(np.max(np.abs(mono)))
-            crest = (20.0 * np.log10(peak / rms)) if rms > 1e-9 and peak > 0 else None
-            return float(lufs), crest
-        except Exception:
-            return None, None
-
-    @staticmethod
-    def _peak_db(audio: np.ndarray) -> float:
-        """Calculate peak level in dB."""
-        peak = np.max(np.abs(audio))
-        return 20 * np.log10(peak) if peak > 0 else -96.0
-
-    @staticmethod
-    def _print_fingerprint(fp: dict) -> None:
-        """Print key fingerprint metrics organized by category."""
-        print(f"\n📊 Fingerprint (25D):")
-
-        # Dynamics (3D) - Critical for loudness/compression decisions
-        lufs = fp.get('lufs', -14.0)
-        crest_db = fp.get('crest_db', 12.0)
-        bass_mid_ratio = fp.get('bass_mid_ratio', 0.0)
-
-        # Classify material type based on LUFS + Crest
-        if lufs > -12.0 and crest_db < 13.0:
-            if crest_db < 8.0:
-                material_type = "Hyper-compressed loud"
-            else:
-                material_type = "Compressed loud"
-        elif lufs > -12.0:
-            material_type = "Dynamic loud"
-        else:
-            material_type = "Quiet"
-
-        print(f"   🔊 Dynamics: {material_type}")
-        print(f"      LUFS: {lufs:.1f} dB  │  Crest: {crest_db:.1f} dB  │  Bass/Mid: {bass_mid_ratio:.2f}")
-
-        # Frequency (7D) - Spectral balance
-        sub_bass_pct = fp.get('sub_bass_pct', 0.05)
-        bass_pct = fp.get('bass_pct', 0.15)
-        low_mid_pct = fp.get('low_mid_pct', 0.10)
-        mid_pct = fp.get('mid_pct', 0.20)
-        upper_mid_pct = fp.get('upper_mid_pct', 0.25)
-        presence_pct = fp.get('presence_pct', 0.15)
-        air_pct = fp.get('air_pct', 0.10)
-
-        print(f"   🎚️  Frequency Balance:")
-        print(f"      Sub: {sub_bass_pct:.0%}  │  Bass: {bass_pct:.0%}  │  Lo-Mid: {low_mid_pct:.0%}  │  Mid: {mid_pct:.0%}")
-        print(f"      Up-Mid: {upper_mid_pct:.0%}  │  Presence: {presence_pct:.0%}  │  Air: {air_pct:.0%}")
-
-        # Temporal (4D) - Rhythm and dynamics
-        tempo_bpm = fp.get('tempo_bpm', 120.0)
-        rhythm_stability = fp.get('rhythm_stability', 0.5)
-        transient_density = fp.get('transient_density', 0.5)
-        silence_ratio = fp.get('silence_ratio', 0.0)
-
-        print(f"   🥁 Temporal:")
-        print(f"      Tempo: {tempo_bpm:.0f} BPM  │  Rhythm: {rhythm_stability:.0%}  │  Transients: {transient_density:.0%}  │  Silence: {silence_ratio:.0%}")
-
-        # Spectral (3D) - Brightness and noise characteristics
-        spectral_centroid = fp.get('spectral_centroid', 0.5)
-        spectral_rolloff = fp.get('spectral_rolloff', 0.5)
-        spectral_flatness = fp.get('spectral_flatness', 0.5)
-
-        # Interpret brightness
-        if spectral_centroid > 0.6 and spectral_rolloff > 0.6:
-            brightness = "Bright"
-        elif spectral_centroid < 0.4 and spectral_rolloff < 0.4:
-            brightness = "Dark"
-        else:
-            brightness = "Neutral"
-
-        print(f"   ✨ Spectral: {brightness}")
-        print(f"      Centroid: {spectral_centroid:.0%}  │  Rolloff: {spectral_rolloff:.0%}  │  Flatness: {spectral_flatness:.0%}")
-
-        # Harmonic (3D) - Tonality
-        harmonic_ratio = fp.get('harmonic_ratio', 0.5)
-        pitch_stability = fp.get('pitch_stability', 0.5)
-        chroma_energy = fp.get('chroma_energy', 0.5)
-
-        # Classify harmonic content
-        avg_harmonic = (harmonic_ratio + pitch_stability) / 2
-        if avg_harmonic > 0.7:
-            tonality = "Highly tonal"
-        elif avg_harmonic > 0.5:
-            tonality = "Tonal"
-        elif avg_harmonic > 0.3:
-            tonality = "Mixed"
-        else:
-            tonality = "Percussive/Noisy"
-
-        print(f"   🎼 Harmonic: {tonality}")
-        print(f"      Harmonic: {harmonic_ratio:.0%}  │  Pitch: {pitch_stability:.0%}  │  Chroma: {chroma_energy:.0%}")
-
-        # Stereo (2D)
-        stereo_width = fp.get('stereo_width', 0.5)
-        phase_correlation = fp.get('phase_correlation', 1.0)
-
-        # Classify stereo field
-        if stereo_width < 0.3:
-            stereo_type = "Narrow"
-        elif stereo_width < 0.6:
-            stereo_type = "Normal"
-        else:
-            stereo_type = "Wide"
-
-        print(f"   🎧 Stereo: {stereo_type}")
-        print(f"      Width: {stereo_width:.0%}  │  Phase Corr: {phase_correlation:.2f}")
-
-        # Variation (3D) - Consistency metrics
-        dynamic_range_variation = fp.get('dynamic_range_variation', 0.5)
-        loudness_variation_std = fp.get('loudness_variation_std', 0.0)
-        peak_consistency = fp.get('peak_consistency', 0.5)
-
-        print(f"   📊 Variation:")
-        print(f"      DR Var: {dynamic_range_variation:.0%}  │  Loudness σ: {loudness_variation_std:.1f}  │  Peak Cons: {peak_consistency:.0%}")
-
-    @staticmethod
-    def _print_time_metrics(timings: dict[str, float], duration_sec: float) -> None:
-        """Print detailed timing breakdown (development only)."""
-        print("\n⏱️  Time Metrics:")
-        print("   ─────────────────────────────────────")
-
-        # Individual steps
-        for step, elapsed in timings.items():
-            if step == 'total':
-                continue
-            pct = (elapsed / timings['total']) * 100
-            print(f"   {step:<15} {elapsed:>7.2f}s  ({pct:>5.1f}%)")
-
-        print("   ─────────────────────────────────────")
-        print(f"   {'TOTAL':<15} {timings['total']:>7.2f}s  (100.0%)")
-
-        # Real-time ratio
-        realtime_ratio = duration_sec / timings['total']
-        print(f"\n   Audio duration: {duration_sec:.1f}s")
-        print(f"   Real-time ratio: {realtime_ratio:.1f}x")
-
 
 # Factory function
 def create_simple_mastering_pipeline() -> SimpleMasteringPipeline:
