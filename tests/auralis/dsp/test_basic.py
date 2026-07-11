@@ -19,13 +19,14 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 from auralis.dsp.basic import (
     amplify,
-    channel_count,
     mid_side_decode,
     mid_side_encode,
     normalize,
     rms,
-    size,
 )
+# channel_count/size were de-duplicated out of dsp.basic in favor of the
+# canonical implementation in dsp.utils.audio_info (#4021).
+from auralis.dsp.utils.audio_info import channel_count, size
 
 
 class TestDSPBasicComprehensive:

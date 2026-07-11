@@ -14,18 +14,6 @@ Refactored from Matchering 2.0 by Sergree and contributors
 import numpy as np
 
 
-def channel_count(audio: np.ndarray) -> int:
-    """Get the number of audio channels"""
-    if audio.ndim == 1:
-        return 1
-    return int(audio.shape[1])
-
-
-def size(audio: np.ndarray) -> int:
-    """Get the number of audio samples"""
-    return int(audio.shape[0])
-
-
 def rms(audio: np.ndarray) -> float:
     """Calculate RMS (Root Mean Square) of audio signal"""
     return float(np.sqrt(np.mean(audio ** 2)))
