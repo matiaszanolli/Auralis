@@ -14,6 +14,7 @@ Features:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import hashlib
 import logging
 from pathlib import Path
@@ -95,6 +96,30 @@ class ArtworkDownloader:
         self.coverart_api = "https://coverartarchive.org"
         self.itunes_api = "https://itunes.apple.com/search"
 
+        # Shared session (fixes #3915 regression of #3558): reused across
+        # calls with a small connection pool so bulk artwork backfills reuse
+        # keep-alive connections instead of a fresh TCP/TLS handshake per
+        # request. Created lazily on first use, not in __init__, because it
+        # must be opened from within the event loop it will be used on.
+        self._session: aiohttp.ClientSession | None = None
+
+    def _get_session(self) -> aiohttp.ClientSession:
+        """Return the shared HTTP session, creating it on first use."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(limit=4, ttl_dns_cache=300)
+            )
+        return self._session
+
+    async def close(self) -> None:
+        """Close the shared HTTP session, releasing pooled connections.
+
+        Call from application shutdown (see close_artwork_downloader()).
+        """
+        if self._session is not None and not self._session.closed:
+            await self._session.close()
+        self._session = None
+
     async def download_artwork(
         self,
         artist: str,
@@ -150,52 +175,52 @@ class ArtworkDownloader:
             str: Path to downloaded artwork, or None if not found
         """
         try:
-            async with aiohttp.ClientSession() as session:
-                # Search for release
-                search_url = f"{self.musicbrainz_api}/release/"
-                params = {
-                    "query": f'artist:"{artist}" AND release:"{album}"',
-                    "fmt": "json",
-                    "limit": 1
-                }
-                headers = {
-                    "User-Agent": "Auralis/1.0 (https://github.com/matiaszanolli/Auralis)"
-                }
+            session = self._get_session()
+            # Search for release
+            search_url = f"{self.musicbrainz_api}/release/"
+            params = {
+                "query": f'artist:"{artist}" AND release:"{album}"',
+                "fmt": "json",
+                "limit": 1
+            }
+            headers = {
+                "User-Agent": "Auralis/1.0 (https://github.com/matiaszanolli/Auralis)"
+            }
 
-                async with session.get(search_url, params=params, headers=headers) as resp:  # type: ignore[arg-type]
-                    if resp.status != 200:
-                        return None
+            async with session.get(search_url, params=params, headers=headers) as resp:  # type: ignore[arg-type]
+                if resp.status != 200:
+                    return None
 
-                    data = await resp.json()
-                    releases = data.get("releases", [])
+                data = await resp.json()
+                releases = data.get("releases", [])
 
-                    if not releases:
-                        return None
+                if not releases:
+                    return None
 
-                    release_id = releases[0]["id"]
+                release_id = releases[0]["id"]
 
-                # Get cover art
-                coverart_url = f"{self.coverart_api}/release/{release_id}/front"
+            # Get cover art
+            coverart_url = f"{self.coverart_api}/release/{release_id}/front"
 
-                async with session.get(coverart_url, headers=headers) as resp:
-                    if resp.status != 200:
-                        return None
+            async with session.get(coverart_url, headers=headers) as resp:
+                if resp.status != 200:
+                    return None
 
-                    # Validate final URL after redirects (SSRF mitigation #2576)
-                    if not _validate_artwork_url(str(resp.url)):
-                        logger.warning(f"Rejecting untrusted MusicBrainz redirect: {resp.url!r}")
-                        return None
+                # Validate final URL after redirects (SSRF mitigation #2576)
+                if not _validate_artwork_url(str(resp.url)):
+                    logger.warning(f"Rejecting untrusted MusicBrainz redirect: {resp.url!r}")
+                    return None
 
-                    # Size-limited read to prevent memory exhaustion (#2576)
-                    content_length = resp.content_length or 0
-                    if content_length > _MAX_ARTWORK_BYTES:
-                        logger.warning(f"MusicBrainz artwork too large: {content_length} bytes")
-                        return None
-                    artwork_data = await resp.content.read(_MAX_ARTWORK_BYTES + 1)
-                    if len(artwork_data) > _MAX_ARTWORK_BYTES:
-                        logger.warning(f"MusicBrainz artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")
-                        return None
-                    return self._save_artwork(artwork_data, album_id, "jpg")
+                # Size-limited read to prevent memory exhaustion (#2576)
+                content_length = resp.content_length or 0
+                if content_length > _MAX_ARTWORK_BYTES:
+                    logger.warning(f"MusicBrainz artwork too large: {content_length} bytes")
+                    return None
+                artwork_data = await resp.content.read(_MAX_ARTWORK_BYTES + 1)
+                if len(artwork_data) > _MAX_ARTWORK_BYTES:
+                    logger.warning(f"MusicBrainz artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")
+                    return None
+                return await self._save_artwork(artwork_data, album_id, "jpg")
 
         except Exception as e:
             logger.debug(f"MusicBrainz lookup failed: {e}")
@@ -219,58 +244,58 @@ class ArtworkDownloader:
             str: Path to downloaded artwork, or None if not found
         """
         try:
-            async with aiohttp.ClientSession() as session:
-                # Search iTunes
-                params = {
-                    "term": f"{artist} {album}",
-                    "media": "music",
-                    "entity": "album",
-                    "limit": 1
-                }
+            session = self._get_session()
+            # Search iTunes
+            params = {
+                "term": f"{artist} {album}",
+                "media": "music",
+                "entity": "album",
+                "limit": 1
+            }
 
-                async with session.get(self.itunes_api, params=params) as resp:  # type: ignore[arg-type]
-                    if resp.status != 200:
-                        return None
+            async with session.get(self.itunes_api, params=params) as resp:  # type: ignore[arg-type]
+                if resp.status != 200:
+                    return None
 
-                    data = await resp.json()
-                    results = data.get("results", [])
+                data = await resp.json()
+                results = data.get("results", [])
 
-                    if not results:
-                        return None
+                if not results:
+                    return None
 
-                    # Get high-res artwork URL (replace 100x100 with larger size)
-                    artwork_url = results[0].get("artworkUrl100", "")
-                    if not artwork_url:
-                        return None
+                # Get high-res artwork URL (replace 100x100 with larger size)
+                artwork_url = results[0].get("artworkUrl100", "")
+                if not artwork_url:
+                    return None
 
-                    # Request larger artwork (600x600)
-                    artwork_url = artwork_url.replace("100x100", "600x600")
+                # Request larger artwork (600x600)
+                artwork_url = artwork_url.replace("100x100", "600x600")
 
-                    # Validate artwork URL against trusted domains (fixes #2416: SSRF mitigation)
-                    if not _validate_artwork_url(artwork_url):
-                        logger.warning(f"Rejecting untrusted artwork URL: {artwork_url!r}")
-                        return None
+                # Validate artwork URL against trusted domains (fixes #2416: SSRF mitigation)
+                if not _validate_artwork_url(artwork_url):
+                    logger.warning(f"Rejecting untrusted artwork URL: {artwork_url!r}")
+                    return None
 
-                # Download artwork (size-limited, #2576)
-                async with session.get(artwork_url) as resp:
-                    if resp.status != 200:
-                        return None
+            # Download artwork (size-limited, #2576)
+            async with session.get(artwork_url) as resp:
+                if resp.status != 200:
+                    return None
 
-                    content_length = resp.content_length or 0
-                    if content_length > _MAX_ARTWORK_BYTES:
-                        logger.warning(f"iTunes artwork too large: {content_length} bytes")
-                        return None
-                    artwork_data = await resp.content.read(_MAX_ARTWORK_BYTES + 1)
-                    if len(artwork_data) > _MAX_ARTWORK_BYTES:
-                        logger.warning(f"iTunes artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")
-                        return None
-                    return self._save_artwork(artwork_data, album_id, "jpg")
+                content_length = resp.content_length or 0
+                if content_length > _MAX_ARTWORK_BYTES:
+                    logger.warning(f"iTunes artwork too large: {content_length} bytes")
+                    return None
+                artwork_data = await resp.content.read(_MAX_ARTWORK_BYTES + 1)
+                if len(artwork_data) > _MAX_ARTWORK_BYTES:
+                    logger.warning(f"iTunes artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")
+                    return None
+                return await self._save_artwork(artwork_data, album_id, "jpg")
 
         except Exception as e:
             logger.debug(f"iTunes lookup failed: {e}")
             return None
 
-    def _save_artwork(self, data: bytes, album_id: int, ext: str) -> str:
+    async def _save_artwork(self, data: bytes, album_id: int, ext: str) -> str:
         """
         Save artwork data to cache directory.
 
@@ -287,9 +312,9 @@ class ArtworkDownloader:
         filename = f"album_{album_id}_{data_hash}.{ext}"
         filepath = self.cache_dir / filename
 
-        # Save file
-        with open(filepath, "wb") as f:
-            f.write(data)
+        # Offload the blocking write so the event loop isn't stalled during
+        # bulk artwork backfills (#3915).
+        await asyncio.to_thread(filepath.write_bytes, data)
 
         return str(filepath)
 
@@ -313,3 +338,10 @@ def get_artwork_downloader() -> ArtworkDownloader:
     if _artwork_downloader is None:
         _artwork_downloader = ArtworkDownloader()
     return _artwork_downloader
+
+
+async def close_artwork_downloader() -> None:
+    """Close the global artwork downloader's HTTP session, if one was ever
+    created. Call from application shutdown (#3915)."""
+    if _artwork_downloader is not None:
+        await _artwork_downloader.close()

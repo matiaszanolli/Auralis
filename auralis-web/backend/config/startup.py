@@ -566,6 +566,15 @@ def create_lifespan(deps: dict[str, Any]):
             except Exception as factory_err:
                 logger.warning(f"⚠️  Processor factory shutdown error: {factory_err}")
 
+            # Close the artwork downloader's shared aiohttp session, if one
+            # was ever created (fixes #3915).
+            try:
+                from services.artwork_downloader import close_artwork_downloader
+                await close_artwork_downloader()
+                logger.info("✅ Artwork downloader session closed")
+            except Exception as artwork_err:
+                logger.warning(f"⚠️  Artwork downloader shutdown error: {artwork_err}")
+
             # Shut down LibraryManager last — WAL checkpoint + engine dispose (#3210)
             if 'library_manager' in globals_dict and globals_dict['library_manager']:
                 try:
