@@ -66,8 +66,17 @@ def apply(
         return audio.copy(), None
 
     # Push toward the loudness target, scaled by how under-mastered the source
-    # is so borderline-quiet dynamic tracks get only a gentle lift.
-    loudness_push = (config.LOUDNESS_TARGET_LUFS - source_lufs) * undermastered
+    # is so borderline-quiet dynamic tracks get only a gentle lift. Also scaled
+    # by LOUDNESS_GAP_CLOSURE_FACTOR (< 1.0) so the maximizer only closes part
+    # of the gap to the target instead of converging every quiet source to the
+    # same anchor — preserves the natural loudness spread between recordings
+    # (e.g. a genuinely quiet vintage record should end up noticeably quieter
+    # than a moderately quiet one, not the same).
+    loudness_push = (
+        (config.LOUDNESS_TARGET_LUFS - source_lufs)
+        * undermastered
+        * config.LOUDNESS_GAP_CLOSURE_FACTOR
+    )
 
     # Crest-floor clamp: never push so hard that output crest drops below the
     # dynamic floor. output_crest ≈ source_crest - push, so cap the push at

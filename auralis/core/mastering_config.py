@@ -508,8 +508,8 @@ class SimpleMasteringConfig:
 
     LOUDNESS_TARGET_LUFS: float = -14.5
     """Loudness anchor for the maximizer's push, NOT the final output LUFS:
-    push = (TARGET - source_lufs) * undermastered. The downstream EQ +
-    final-normalize add ~3 dB on top.
+    push = (TARGET - source_lufs) * undermastered * LOUDNESS_GAP_CLOSURE_FACTOR.
+    The downstream EQ + final-normalize add ~3 dB on top.
 
     2026-07-08 recalibration raised this -15.5→-12.5 to fix a near-permanent
     no-op (see docs/sessions/MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md).
@@ -524,6 +524,22 @@ class SimpleMasteringConfig:
     avoiding both the old no-op (anchor too close to typical source LUFS) and
     the loudness-war overshoot (anchor above the competitive line). Lower this
     for a gentler lift, raise for a hotter master."""
+
+    LOUDNESS_GAP_CLOSURE_FACTOR: float = 0.5
+    """2026-07-10: fraction of the (TARGET - source_lufs) gap the push actually
+    closes, on top of the existing `undermastered` ramp. Without this (i.e. at
+    1.0), the maximizer converges ALL under-mastered sources toward the same
+    anchor once `undermastered` saturates at 1.0 (roughly source <= -20 LUFS) —
+    a genuinely quiet vintage record (-22 LUFS) and a moderately quiet one
+    (-17 LUFS) ended up within ~0.5 dB of each other post-master, erasing the
+    natural loudness difference between eras/recordings (user report: "older
+    records tend to be way more quiet, we should take that into account").
+
+    At 0.5, output loudness gaps shrink to ~50% of the source gap instead of
+    being erased (e.g. a 5 dB source gap becomes a ~2.5 dB master gap) — still
+    a real, audible lift for genuinely quiet material, but the relative
+    loudness character between recordings survives instead of everything
+    converging to one target."""
 
     LOUDNESS_MIN_CREST_DB: float = 11.0
     """Crest-factor floor. The push is clamped so output crest never falls below
