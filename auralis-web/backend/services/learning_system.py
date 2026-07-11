@@ -14,7 +14,6 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from typing import Any
-from collections import deque
 
 logger = logging.getLogger(__name__)
 

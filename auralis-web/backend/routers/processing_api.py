@@ -12,7 +12,6 @@ FastAPI routes for audio processing functionality.
 
 import asyncio
 import logging
-import struct
 import tempfile
 import uuid
 from collections.abc import Callable

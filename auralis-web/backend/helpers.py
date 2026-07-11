@@ -466,8 +466,6 @@ def validate_batch_request(batch_request: BatchRequest) -> bool:
 # Cache-Aware Helpers (Phase 7.5)
 # ============================================================================
 
-import time
-
 
 def calculate_cache_hit_probability(
     total_hits: int,
