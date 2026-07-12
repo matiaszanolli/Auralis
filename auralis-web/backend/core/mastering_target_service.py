@@ -207,9 +207,12 @@ class MasteringTargetService:
         try:
             logger.info(f"🔍 Extracting fingerprint from audio: {Path(filepath).name}")
 
-            # Try to use PyO3 Rust fingerprinting
+            # Try to use PyO3 Rust fingerprinting (via the schema glue so the
+            # output uses the schema keys/units the downstream expects — #13).
             try:
-                from auralis_dsp import compute_fingerprint
+                from auralis.analysis.fingerprint.rust_fingerprint import (
+                    compute_fingerprint_schema,
+                )
 
                 # Load audio file (unified loader handles FFMPEG formats)
                 full_audio, sr = load_audio(filepath)
@@ -230,8 +233,8 @@ class MasteringTargetService:
                 audio_array = np.ascontiguousarray(audio_array, dtype=np.float32)
                 logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sr}, CH={channels}")
 
-                # Call PyO3 Rust fingerprinting
-                fingerprint_data = compute_fingerprint(audio_array, sr, channels)
+                # Call PyO3 Rust fingerprinting (schema-conformant via the glue)
+                fingerprint_data = compute_fingerprint_schema(audio_array, sr, channels)
                 logger.info(f"✅ PyO3 Rust extracted fingerprint for {Path(filepath).name}")
 
             except (ImportError, Exception) as e:

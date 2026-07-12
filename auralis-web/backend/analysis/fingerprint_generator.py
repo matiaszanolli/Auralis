@@ -133,8 +133,8 @@ def _compute_fingerprint_in_process(
     """
     # Import inside function to ensure it's available in the subprocess
     try:
-        from auralis_dsp import compute_fingerprint as rust_compute
-        return rust_compute(audio_data, sample_rate, channels)
+        from auralis.analysis.fingerprint.rust_fingerprint import compute_fingerprint_schema
+        return compute_fingerprint_schema(audio_data, sample_rate, channels)
     except Exception as e:
         # Log in subprocess (will be captured)
         import logging

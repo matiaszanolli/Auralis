@@ -11,7 +11,7 @@ __db_schema_version__ = 16  # track_playlist: UNIQUE(track_id, playlist_id) + po
 # v2 (#4136): 7-band frequency analysis now applies a Hann window before the FFT
 #             (was rectangular), matching the windowed STFT spectral features and
 #             removing leakage bias on transient-rich audio.
-FINGERPRINT_ALGORITHM_VERSION = 2
+FINGERPRINT_ALGORITHM_VERSION = 3
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

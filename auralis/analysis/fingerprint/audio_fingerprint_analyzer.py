@@ -1,502 +1,107 @@
 """
 Audio Fingerprint Analyzer
 
-Unified analyzer that extracts a complete 25D fingerprint from audio.
+Thin Python facade over the in-process Rust 25D engine
+(``auralis_dsp.compute_fingerprint`` via
+:func:`auralis.analysis.fingerprint.rust_fingerprint.compute_fingerprint_schema`).
 
-Combines:
-  - Frequency analysis (7D): sub-bass, bass, low-mid, mid, upper-mid, presence, air
-  - Dynamics analysis (3D): LUFS, crest factor, bass/mid ratio
-  - Temporal analysis (4D): tempo, rhythm stability, transient density, silence ratio
-  - Spectral analysis (3D): spectral centroid, rolloff, flatness
-  - Harmonic analysis (3D): harmonic ratio, pitch stability, chroma energy
-  - Variation analysis (3D): dynamic range variation, loudness variation, peak consistency
-  - Stereo analysis (2D): stereo width, phase correlation
+Rust owns the heavy DSP; this class is glue — input validation, sample-rate
+normalization, and mono/stereo marshalling. It returns the 25 schema
+dimensions (see ``schema.py``) or an empty dict for empty/invalid/too-short
+audio.
 
-Total: 25 dimensions capturing frequency, dynamics, temporal, spectral, harmonic, variation, and stereo characteristics.
-
-Dependencies:
-  - numpy for numerical operations
-  - librosa for advanced audio analysis
-  - All individual analyzer modules
+The ``fingerprint_strategy`` / ``sampling_interval`` arguments are accepted for
+backward compatibility but **ignored**: the Rust engine computes the full 25D
+directly, so the Phase-7 sampling-vs-full-track distinction no longer applies.
+These parameters are slated for removal across callers.
 """
 
 import logging
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed, wait
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 
-from auralis.analysis.loudness_meter import LoudnessMeter
-from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyzer
-from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import (
-    SampledHarmonicAnalyzer,
-)
-from auralis.analysis.fingerprint.analyzers.batch.spectral import SpectralAnalyzer
-from auralis.analysis.fingerprint.analyzers.batch.stereo import StereoAnalyzer
-from auralis.analysis.fingerprint.analyzers.batch.temporal import TemporalAnalyzer
-from auralis.analysis.fingerprint.analyzers.batch.variation import VariationAnalyzer
+from auralis.analysis.fingerprint.rust_fingerprint import compute_fingerprint_schema
 
 logger = logging.getLogger(__name__)
 
+# Normalize every input to a fixed rate before analysis so the same file yields
+# the same fingerprint regardless of how it was loaded (#3657).
+_TARGET_SR = 22050
+
 
 class AudioFingerprintAnalyzer:
-    """Extract complete 25D audio fingerprint."""
+    """Extract a complete 25D audio fingerprint via the in-process Rust engine."""
 
-    def __init__(self,
-                 fingerprint_strategy: Literal["full-track", "sampling"] = "sampling",
-                 sampling_interval: float = 20.0):
-        """
-        Initialize all sub-analyzers.
-
-        Args:
-            fingerprint_strategy: "full-track" or "sampling" (Phase 7)
-            sampling_interval: Interval between chunk starts in seconds (for sampling)
-        """
-        self.temporal_analyzer = TemporalAnalyzer()
-        self.spectral_analyzer = SpectralAnalyzer()
-        self.harmonic_analyzer = HarmonicAnalyzer()
-        self.sampled_harmonic_analyzer = SampledHarmonicAnalyzer(
-            chunk_duration=5.0,
-            interval_duration=sampling_interval
-        )
-        self.variation_analyzer = VariationAnalyzer()
-        self.stereo_analyzer = StereoAnalyzer()
-
+    def __init__(self, fingerprint_strategy: Any = None, sampling_interval: float = 20.0):
+        # Accepted-but-ignored (see module docstring).
         self.fingerprint_strategy = fingerprint_strategy
         self.sampling_interval = sampling_interval
 
-        # #3701: long-lived executor reused across analyze() calls. Lazy-init
-        # (on first analyze) avoids spawning idle threads for analyzers that
-        # are constructed but never invoked (tests, schema introspection).
-        # Under concurrent library scans (16 workers × 5 threads per analyze()
-        # = 80 thread peak previously); a single 5-thread pool per analyzer
-        # instance bounds this.
-        self._executor: ThreadPoolExecutor | None = None
-        self._executor_lock = threading.Lock()
-
-        logger.debug(f"AudioFingerprintAnalyzer initialized with strategy={fingerprint_strategy}")
-
-    def _get_executor(self) -> ThreadPoolExecutor:
-        if self._executor is None:
-            with self._executor_lock:
-                if self._executor is None:
-                    self._executor = ThreadPoolExecutor(
-                        max_workers=5,
-                        thread_name_prefix="FingerprintAnalyzer",
-                    )
-        return self._executor
-
     def close(self) -> None:
-        """Shut down the shared executor. Subsequent analyze() calls will re-init it."""
-        with self._executor_lock:
-            if self._executor is not None:
-                self._executor.shutdown(wait=True)
-                self._executor = None
-        # Propagate to sub-analyzers that own their own executor (#4118).
-        sub_close = getattr(self.sampled_harmonic_analyzer, "close", None)
-        if callable(sub_close):
-            sub_close()
+        """No-op. The Rust engine holds no Python-side executor; kept for API compat."""
 
     def analyze(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """
-        Extract complete 25D audio fingerprint.
+        Extract the 25D fingerprint (schema-conformant) from ``audio``.
 
         Args:
-            audio: Audio signal (stereo or mono)
-            sr: Sample rate
+            audio: mono ``(n,)`` or stereo ``(2, n)`` / ``(n, 2)`` samples.
+            sr: sample rate in Hz.
 
         Returns:
-            Dict with 25 fingerprint features:
-
-            Frequency (7D):
-              - sub_bass_pct: 20-60 Hz energy percentage
-              - bass_pct: 60-250 Hz energy percentage
-              - low_mid_pct: 250-500 Hz energy percentage
-              - mid_pct: 500-2000 Hz energy percentage
-              - upper_mid_pct: 2000-4000 Hz energy percentage
-              - presence_pct: 4000-6000 Hz energy percentage
-              - air_pct: 6000-20000 Hz energy percentage
-
-            Dynamics (3D):
-              - lufs: Integrated loudness (ITU-R BS.1770-4)
-              - crest_db: Peak-to-RMS ratio in dB
-              - bass_mid_ratio: Bass/Mid energy ratio in dB
-
-            Temporal (4D):
-              - tempo_bpm: Detected tempo
-              - rhythm_stability: Beat consistency (0-1)
-              - transient_density: Drum/percussion prominence (0-1)
-              - silence_ratio: Silence/space proportion (0-1)
-
-            Spectral (3D):
-              - spectral_centroid: Brightness (0-1)
-              - spectral_rolloff: High-frequency content (0-1)
-              - spectral_flatness: Noise-like vs tonal (0-1)
-
-            Harmonic (3D):
-              - harmonic_ratio: Harmonic vs percussive (0-1)
-              - pitch_stability: Pitch consistency (0-1)
-              - chroma_energy: Tonal complexity (0-1)
-
-            Variation (3D):
-              - dynamic_range_variation: Crest factor std dev over time (0-1)
-              - loudness_variation_std: Loudness consistency (0-1)
-              - peak_consistency: Peak level consistency (0-1)
-
-            Stereo (2D):
-              - stereo_width: Mono (0) to wide stereo (1)
-              - phase_correlation: -1 (out of phase) to +1 (in phase)
+            dict of the 25 schema dimensions, or ``{}`` for empty/invalid/too-short audio.
         """
         try:
-            # Validate input audio (#2586)
-            if audio is None or audio.size == 0:
+            if audio is None or getattr(audio, "size", 0) == 0:
                 logger.warning("Fingerprint skipped: empty or None audio")
                 return {}
             if sr <= 0:
                 logger.warning(f"Fingerprint skipped: invalid sample rate {sr}")
                 return {}
 
-            # #3657: normalize sample rate to 22 050 Hz before any FFT-based
-            # analysis. FingerprintService already resamples; the
-            # FingerprintExtractor Python fallback previously passed native
-            # sr through unchanged, producing different FFT sizes / bin
-            # widths / hop-to-time mappings → same file produced different
-            # 25D fingerprints depending on which path computed it.
-            _TARGET_SR = 22050
+            audio = np.asarray(audio, dtype=np.float32)
+
+            # Normalize sample rate (#3657) before handing off to Rust.
             if sr != _TARGET_SR:
                 import librosa
-                if len(audio.shape) > 1:
-                    # (channels, samples) or (samples, channels) — resample per channel
-                    channel_axis = 0 if audio.shape[0] <= 2 else 1
-                    if channel_axis == 0:
-                        audio = np.stack([
-                            librosa.resample(audio[ch].astype(np.float32), orig_sr=sr, target_sr=_TARGET_SR)
-                            for ch in range(audio.shape[0])
-                        ])
-                    else:
-                        audio = np.stack([
-                            librosa.resample(audio[:, ch].astype(np.float32), orig_sr=sr, target_sr=_TARGET_SR)
-                            for ch in range(audio.shape[1])
-                        ], axis=1)
+                if audio.ndim > 1:
+                    ch_axis = 0 if audio.shape[0] <= 2 else 1
+                    channels = [audio[c] if ch_axis == 0 else audio[:, c]
+                                for c in range(audio.shape[ch_axis])]
+                    audio = np.stack(
+                        [librosa.resample(c.astype(np.float32), orig_sr=sr, target_sr=_TARGET_SR)
+                         for c in channels],
+                        axis=ch_axis,
+                    )
                 else:
-                    audio = librosa.resample(audio.astype(np.float32), orig_sr=sr, target_sr=_TARGET_SR)
+                    audio = librosa.resample(audio, orig_sr=sr, target_sr=_TARGET_SR)
                 sr = _TARGET_SR
 
-            # Require minimum 0.5s of audio for meaningful fingerprinting
-            min_samples = sr // 2
-            # Determine sample count: (channels, samples) if first dim ≤ 2, else (samples, channels)
-            if len(audio.shape) > 1:
-                num_samples = audio.shape[-1] if audio.shape[0] <= 2 else audio.shape[0]
-            else:
-                num_samples = audio.shape[0]
-            if num_samples < min_samples:
-                logger.warning(f"Fingerprint skipped: audio too short ({num_samples} < {min_samples} samples)")
+            # Minimum 0.5 s of audio for a meaningful fingerprint.
+            num_samples = audio.shape[-1] if (audio.ndim > 1 and audio.shape[0] <= 2) else audio.shape[0]
+            if num_samples < sr // 2:
+                logger.warning(f"Fingerprint skipped: audio too short ({num_samples} < {sr // 2} samples)")
                 return {}
 
-            # Convert to mono for most analysis (except stereo analyzer)
-            if len(audio.shape) > 1:
-                audio_mono = np.mean(audio, axis=0) if audio.shape[0] == 2 else np.mean(audio, axis=1)
-            else:
-                audio_mono = audio
+            # Marshal to the Rust engine: mono (n,) or interleaved stereo (2n,).
+            if audio.ndim > 1:
+                if audio.shape[0] == 2:
+                    left, right = audio[0], audio[1]
+                elif audio.shape[-1] == 2:
+                    left, right = audio[:, 0], audio[:, 1]
+                else:
+                    # >2 channels or a singleton axis — downmix to mono.
+                    mono_axis = 0 if audio.shape[0] < audio.shape[-1] else -1
+                    mono = np.ascontiguousarray(np.mean(audio, axis=mono_axis), dtype=np.float32)
+                    return compute_fingerprint_schema(mono, sr, 1)
+                interleaved = np.empty(len(left) * 2, dtype=np.float32)
+                interleaved[0::2] = left
+                interleaved[1::2] = right
+                return compute_fingerprint_schema(np.ascontiguousarray(interleaved), sr, 2)
 
-            # Initialize fingerprint dict
-            fingerprint: dict[str, Any] = {}
-
-            # OPTIMIZATION: Pre-compute FFT and RMS once, reuse for frequency/dynamics/variation
-            fft = np.fft.rfft(audio_mono)
-            magnitude = np.abs(fft)
-            freqs = np.fft.rfftfreq(len(audio_mono), 1/sr)
-            rms = np.sqrt(np.mean(audio_mono ** 2))
-
-            # 1. Frequency analysis (7D)
-            frequency_features = self._analyze_frequency_cached(audio_mono, sr, fft, magnitude, freqs)
-            fingerprint.update(frequency_features)
-
-            # 2. Dynamics analysis (3D)
-            dynamics_features = self._analyze_dynamics_cached(audio_mono, sr, fft, magnitude, freqs, rms)
-            fingerprint.update(dynamics_features)
-
-            # OPTIMIZATION: Parallelize remaining analyzers (3-7) with ThreadPoolExecutor
-            # Analyzers 1-2 (frequency/dynamics) depend on pre-computed FFT, run sequentially first
-            # Analyzers 3-7 are independent and can run concurrently
-
-            # Harmonic analyzer selection
-            harmonic_analyzer = (self.sampled_harmonic_analyzer
-                                if self.fingerprint_strategy == "sampling"
-                                else self.harmonic_analyzer)
-
-            # Run independent analyzers in parallel.
-            # #3701: reuse the per-instance executor instead of creating a new
-            # 5-thread pool per analyze() call. Under concurrent library scans
-            # this previously peaked at ~80 threads / ~640 MB stack VM.
-            executor = self._get_executor()
-            futures = {
-                # 3. Temporal analysis (4D)
-                executor.submit(self.temporal_analyzer.analyze, audio_mono, sr): 'temporal',
-
-                # 4. Spectral analysis (3D)
-                executor.submit(self.spectral_analyzer.analyze, audio_mono, sr): 'spectral',
-
-                # 5. Harmonic analysis (3D)
-                executor.submit(harmonic_analyzer.analyze, audio_mono, sr): 'harmonic',
-
-                # 6. Variation analysis (3D)
-                executor.submit(self.variation_analyzer.analyze, audio_mono, sr): 'variation',
-
-                # 7. Stereo analysis (2D) - uses original stereo audio
-                executor.submit(self.stereo_analyzer.analyze, audio, sr): 'stereo'
-            }
-            try:
-                # Collect results as they complete
-                failed_analyzers: list[str] = []
-                for future in as_completed(futures):
-                    analyzer_name = futures[future]
-                    try:
-                        features = future.result()
-                        fingerprint.update(features)
-                    except Exception as exc:
-                        logger.error(f"Sub-analyzer '{analyzer_name}' failed: {exc}")
-                        failed_analyzers.append(analyzer_name)
-                        continue
-
-                    # Mark harmonic analysis method
-                    if analyzer_name == 'harmonic':
-                        fingerprint["_harmonic_analysis_method"] = ("sampled"
-                                                                   if self.fingerprint_strategy == "sampling"
-                                                                   else "full-track")
-
-                if failed_analyzers:
-                    logger.warning(
-                        f"Fingerprint incomplete: {len(failed_analyzers)} sub-analyzer(s) failed "
-                        f"({', '.join(failed_analyzers)}). Missing dimensions will be zero."
-                    )
-            except (KeyboardInterrupt, Exception):
-                # #2514 + #3477: cancel and wait for the futures *we
-                # submitted* to finish before re-raising so they cannot
-                # write partial results to `fingerprint` after this
-                # function returns. Originally caught only
-                # KeyboardInterrupt; broadened to `Exception` so any
-                # surprise raise from `fingerprint.update(features)`
-                # (e.g. TypeError on a malformed sub-analyzer result,
-                # or MemoryError) also drains the futures rather than
-                # leaving them writing into a half-cleaned state. The
-                # executor itself is long-lived and intentionally not
-                # shut down here — close() handles that.
-                for f in futures:
-                    f.cancel()  # No-op for already-running futures; drops queued ones.
-                wait(futures)
-                raise
-
-            # Sanitize NaN/Inf values (replace with 0.0) and count replacements
-            # so regressions in individual analyzers are surfaced rather than
-            # silently hidden (fixes #2531).
-            nan_replaced: list[str] = []
-            for key, value in fingerprint.items():
-                try:
-                    if isinstance(value, (int, float, np.number)):
-                        if np.isnan(value) or np.isinf(value):
-                            logger.warning(
-                                f"Fingerprint dimension '{key}' contains NaN/Inf, replacing with 0.0"
-                            )
-                            fingerprint[key] = 0.0
-                            nan_replaced.append(key)
-                except (TypeError, ValueError):
-                    # Skip non-numeric values (like strings)
-                    pass
-
-            if nan_replaced:
-                logger.warning(
-                    f"Fingerprint sanitized {len(nan_replaced)} NaN/Inf dimension(s): "
-                    f"{nan_replaced}. Check the contributing analyzers for bugs."
-                )
-
-            return fingerprint
+            return compute_fingerprint_schema(np.ascontiguousarray(audio, dtype=np.float32), sr, 1)
 
         except Exception as e:
             logger.error(f"Audio fingerprint analysis failed: {e}")
             return {}
-
-    def _analyze_frequency_cached(self, audio: np.ndarray, sr: int,
-                                   fft: np.ndarray, magnitude: np.ndarray,
-                                   freqs: np.ndarray) -> dict[str, float]:
-        """
-        Analyze frequency distribution (7-band) using pre-computed FFT.
-
-        Args:
-            audio: Audio signal (mono)
-            sr: Sample rate
-            fft: Pre-computed FFT
-            magnitude: Pre-computed magnitude spectrum
-            freqs: Pre-computed frequency bins
-
-        Returns:
-            Dict with 7 frequency band percentages
-        """
-        try:
-            # Define 7 frequency bands
-            bands = {
-                'sub_bass_pct': (20, 60),
-                'bass_pct': (60, 250),
-                'low_mid_pct': (250, 500),
-                'mid_pct': (500, 2000),
-                'upper_mid_pct': (2000, 4000),
-                'presence_pct': (4000, 6000),
-                'air_pct': (6000, 20000)
-            }
-
-            # Apply a Hann window before the FFT (#4136) to match the
-            # Hann-windowed librosa.stft used for the spectral features. The
-            # shared `magnitude` arg comes from a rectangular-window FFT whose
-            # spectral leakage inflated high-frequency band energy on
-            # transient-rich audio, making the 7D bands inconsistent with the 3D
-            # spectral_centroid/rolloff/flatness. Computed locally so the shared
-            # FFT reused for RMS-based dynamics/variation is unaffected.
-            window = np.hanning(len(audio))
-            windowed_magnitude = np.abs(np.fft.rfft(audio * window))
-
-            # Calculate energy per band
-            band_energies = {}
-            total_energy = 0
-
-            for band_name, (low, high) in bands.items():
-                mask = (freqs >= low) & (freqs < high)
-                energy = np.sum(windowed_magnitude[mask] ** 2)
-                band_energies[band_name] = energy
-                total_energy += energy
-
-            # Convert to normalized percentages (0-1 range for compatibility with adaptive gain calculations)
-            # Do NOT multiply by 100 - keep as 0.0-1.0 for consistency with rest of system
-            if total_energy > 0:
-                for band_name in bands.keys():
-                    band_energies[band_name] = band_energies[band_name] / total_energy
-            else:
-                for band_name in bands.keys():
-                    band_energies[band_name] = 0.0
-
-            return band_energies
-
-        except Exception as e:
-            logger.debug(f"Frequency analysis failed: {e}")
-            # Return normalized defaults (0-1 range, must sum to 1.0)
-            return {
-                'sub_bass_pct': 0.05,
-                'bass_pct': 0.15,
-                'low_mid_pct': 0.15,
-                'mid_pct': 0.30,
-                'upper_mid_pct': 0.20,
-                'presence_pct': 0.10,
-                'air_pct': 0.05
-            }
-
-    def _analyze_dynamics_cached(self, audio: np.ndarray, sr: int,
-                                  fft: np.ndarray, magnitude: np.ndarray,
-                                  freqs: np.ndarray, rms: float) -> dict[str, float]:
-        """
-        Analyze dynamics (LUFS, crest factor, bass/mid ratio) using pre-computed values.
-
-        Args:
-            audio: Audio signal (mono)
-            sr: Sample rate
-            fft: Pre-computed FFT
-            magnitude: Pre-computed magnitude spectrum
-            freqs: Pre-computed frequency bins
-            rms: Pre-computed RMS
-
-        Returns:
-            Dict with 3 dynamics features
-        """
-        try:
-            # 1. LUFS (K-weighted per ITU-R BS.1770)
-            meter = LoudnessMeter(sample_rate=sr)
-            # Feed audio through the meter in block-sized chunks.
-            # #3677: previously the trailing partial block (up to 399 ms)
-            # was always discarded via `if len(chunk) >= block_size:`. That
-            # systematically excluded the fade-out region from integrated
-            # LUFS, biasing the measurement upward by ~0.1-0.3 LU. We now
-            # feed any partial trailing block ≥ half-block_size to the
-            # meter; tails shorter than that are too short to contribute
-            # meaningful K-weighted energy and are still skipped.
-            block_size = meter.block_size
-            min_useful = block_size // 2
-            for start in range(0, len(audio), block_size):
-                chunk = audio[start:start + block_size]
-                if len(chunk) >= min_useful:
-                    meter.measure_chunk(chunk)
-            measurement = meter.finalize_measurement()
-            lufs = measurement.integrated_lufs
-            if not np.isfinite(lufs):
-                # Fall back to RMS approximation for very short/silent segments
-                lufs = 20 * np.log10(rms + 1e-10) - 0.691
-
-            # 2. Crest factor
-            peak = np.max(np.abs(audio))
-            crest_db = 20 * np.log10(peak / (rms + 1e-10))
-
-            # 3. Bass/Mid ratio (using pre-computed FFT)
-            bass_mask = (freqs >= 60) & (freqs < 250)
-            mid_mask = (freqs >= 250) & (freqs < 2000)
-
-            bass_energy = np.sum(magnitude[bass_mask] ** 2)
-            mid_energy = np.sum(magnitude[mid_mask] ** 2)
-
-            if mid_energy > 0:
-                bass_mid_ratio = 10 * np.log10(bass_energy / mid_energy)
-            else:
-                bass_mid_ratio = 0.0
-
-            return {
-                'lufs': float(lufs),
-                'crest_db': float(crest_db),
-                'bass_mid_ratio': float(bass_mid_ratio)
-            }
-
-        except Exception as e:
-            logger.debug(f"Dynamics analysis failed: {e}")
-            return {
-                'lufs': -20.0,
-                'crest_db': 15.0,
-                'bass_mid_ratio': 0.0
-            }
-
-    def _get_default_fingerprint(self) -> dict[str, float]:
-        """
-        Get default fingerprint on analysis failure.
-
-        Returns:
-            Dict with 25 default values
-        """
-        return {
-            # Frequency (7D) — 0-1 range, sums to 1.0 (matches _analyze_frequency_cached output)
-            'sub_bass_pct': 0.05,
-            'bass_pct': 0.15,
-            'low_mid_pct': 0.15,
-            'mid_pct': 0.30,
-            'upper_mid_pct': 0.20,
-            'presence_pct': 0.10,
-            'air_pct': 0.05,
-            # Dynamics (3D)
-            'lufs': -20.0,
-            'crest_db': 15.0,
-            'bass_mid_ratio': 0.0,
-            # Temporal (4D)
-            'tempo_bpm': 120.0,
-            'rhythm_stability': 0.5,
-            'transient_density': 0.5,
-            'silence_ratio': 0.1,
-            # Spectral (3D)
-            'spectral_centroid': 0.5,
-            'spectral_rolloff': 0.5,
-            'spectral_flatness': 0.3,
-            # Harmonic (3D)
-            'harmonic_ratio': 0.5,
-            'pitch_stability': 0.7,
-            'chroma_energy': 0.5,
-            # Variation (3D)
-            'dynamic_range_variation': 0.5,
-            'loudness_variation_std': 0.5,
-            'peak_consistency': 0.5,
-            # Stereo (2D)
-            'stereo_width': 0.5,
-            'phase_correlation': 1.0
-        }
