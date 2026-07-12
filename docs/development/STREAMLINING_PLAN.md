@@ -41,7 +41,7 @@ Each item = **one PR**, independently revertible:
 
 | # | Item | Verified state | Status |
 |---|------|----------------|--------|
-| 5 | `AdaptiveMode` (legacy adaptive path) | `use_continuous_space=False` is set **nowhere**. `chunked_processor` built its own `AdaptiveMode` in `_init_adaptive_mastering` — but that instance was never used for processing and **poisoned** the `adaptive_mastering_engine` slot with the wrong type (a latent bug, see below). `HybridMode` still delegates to `AdaptiveMode` as a no-reference fallback; `hybrid_processor` still holds `self.adaptive_mode` | 🟡 **Partial 2026-07-11** — removed the `chunked_processor` usage (+ fixed the latent bug). **Remaining:** rework `HybridMode`'s fallback and retire `hybrid_processor.adaptive_mode` |
+| 5 | `AdaptiveMode` (legacy adaptive path) | Removed its `chunked_processor` usage (+ fixed a latent bug, see below). After that, `AdaptiveMode` has **no production caller** — it backs only the `hybrid`/`reference` mastering modes, which the app never selects | ✅ **Closed 2026-07-11 — kept intentionally.** Per product decision, the `hybrid`/`reference` modes stay, so `AdaptiveMode` stays as their backing. Documented as legacy in its class docstring. Not further retired |
 | 6 | Two processor caches | `hybrid_processor._processor_cache` (max 10, core library) vs `ProcessorFactory` (max 32, backend). **These sit at different layers** — `auralis` core cannot import the backend's `ProcessorFactory` (confirmed), so this is layered, not a naive merge. The real duplication was 3 **unused** `process_adaptive/reference/hybrid` wrappers in `processor_factory` duplicating `hybrid_processor`'s public API | ✅ **Done 2026-07-11** — removed the 3 dead `processor_factory` convenience fns. Two caches **kept** (layered/intentional) |
 
 ---
@@ -52,8 +52,7 @@ Each item = **one PR**, independently revertible:
 |---|------|--------------|------|
 | 1 | **Two `SpectralOperations` classes, same name** — `metrics/spectral_ops.py` (low-level magnitude helpers, test-only) vs `utilities/spectral_ops.py` (high-level `calculate_*`, used in production by `batch/spectral.py`) | Both re-exported via package `__init__`s → **name collision** | ✅ **Done 2026-07-11** — renamed the metrics class → `SpectralMetrics` (fits the package's `*Metrics` convention); updated both `__init__`s + the test. Production `utilities.SpectralOperations` untouched. 52 metrics tests pass |
 | 7 | Two frontend REST clients: `useRestAPI` (16 sites) + `standardizedAPIClient` (9 sites) | 25 call sites | Pick one canonical; migrate the other. Biggest consistency win |
-| 8 | Two genre systems: `ml/genre_classifier` (2) + `content/GenreAnalyzer` (1) | 3 sites | Consolidate |
-| 9 | Two quality packages: `quality/` (1 caller) + `quality_assessors/` (5) | 6 sites | Consolidate — note the doc-designated "main" (`quality/`) has *fewer* callers; decide direction |
+| 8 | **Two parallel content-analysis stacks** (reclassified — bigger than "two genre classifiers"). `ml/RuleBasedGenreClassifier` feeds `core/analysis/content_analyzer.py` (mastering path); `content/GenreAnalyzer`+`MoodAnalyzer` feed `analysis/content_analysis.py::ContentAnalyzer`, which is behind the public `analyze_audio_content` API. Each stack has its own `ContentAnalyzer` class (a second name collision). `content/RecommendationEngine` has **no callers** | design-level + public API | **Wave 4 / needs decision** — pick a canonical content stack; `analyze_audio_content` removal is a breaking public-API change. `RecommendationEngine` is separately dead-removable |
 | 10 | Two `.25d` systems: `FingerprintStorage` (3) + `SidecarManager` (1) | 4 sites | **Investigate first** — may be legitimately different (centralized cache vs per-file sidecar) |
 
 ---
@@ -78,6 +77,13 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
 - **Three chunk paths** (WS streaming / REST batch / REST WAV) — different transports/uses.
 - **`HybridProcessor` (streaming) vs `SimpleMasteringPipeline` (offline file)** — different
   workflows that share only the audio invariants.
+- **`analysis/quality/` vs `analysis/quality_assessors/`** (was #9) — **not duplication.**
+  `quality/` (the assessment modules) imports its base class and utilities *from*
+  `quality_assessors/` (`base_assessor`, `utilities/scoring_ops`, `assessment_constants`).
+  `quality_assessors/` is the shared base layer, `quality/` builds on it. Confusing names, but
+  complementary — a future rename for clarity is the only cleanup, not a collapse.
+- **`AdaptiveMode`** — kept as the backing for the `hybrid`/`reference` mastering modes (see #5).
+  Legacy but load-bearing for those modes; documented in its class docstring.
 
 ---
 
@@ -95,6 +101,12 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
 
 ## Progress log
 
+- **2026-07-11 (#5 closed, #8/#9 reclassified)** — Per product decision the `hybrid`/`reference`
+  modes are kept, so #5 is closed with `AdaptiveMode` retained (documented as legacy in its
+  docstring). #9 reclassified as **not duplication** (`quality_assessors/` is the base layer for
+  `quality/`) → moved to do-not-collapse. #8 reclassified as **two parallel content-analysis
+  stacks** (design-level + public `analyze_audio_content` API), bigger than "two genre
+  classifiers"; `content/RecommendationEngine` is separately dead-removable.
 - **2026-07-11 (Wave 3)** — #1 done: resolved the `SpectralOperations` name collision by
   renaming the test-only metrics class → `SpectralMetrics` (52 metrics tests pass; production
   `utilities.SpectralOperations` untouched).

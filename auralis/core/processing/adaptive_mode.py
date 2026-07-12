@@ -34,6 +34,13 @@ class AdaptiveMode:
     """
     Adaptive processing mode - intelligent mastering without reference tracks
     Uses spectrum-based analysis to determine optimal processing parameters
+
+    Legacy path. The default engine is ``ContinuousMode`` (selected whenever
+    ``config.use_continuous_space`` is True, which is the default and the only
+    value the app ever sets). ``AdaptiveMode`` is retained as the adaptive
+    component of the ``hybrid`` and ``reference`` mastering modes (see
+    ``HybridMode``) and the ``use_continuous_space=False`` branch. Do not remove
+    it without also retiring those modes. See docs/development/STREAMLINING_PLAN.md #5.
     """
 
     def __init__(self, config: Any, content_analyzer: Any, target_generator: Any, spectrum_mapper: Any) -> None:
