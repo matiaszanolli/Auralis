@@ -50,7 +50,7 @@ This release focuses on **stability and reliability** with critical concurrency 
   - Multiprocessing tests for true parallel execution verification
 - ✅ **Automated CI/CD** - GitHub Actions builds for Linux, Windows, macOS
 
-📖 **[Release Notes](docs/releases/CHANGELOG.md)** | 🔗 **[Development Roadmap](docs/roadmaps/DEVELOPMENT_ROADMAP_1_1_0.md)**
+📖 **[Release Notes](docs/releases/CHANGELOG.md)** | 🔗 **[Roadmap](docs/MASTER_ROADMAP.md)**
 
 ### 🎯 Previous Releases
 
@@ -60,7 +60,7 @@ This release focuses on **stability and reliability** with critical concurrency 
 
 ---
 
-📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | ⚡ **[Performance Optimizations](docs/optimization/CRITICAL_OPTIMIZATIONS_IMPLEMENTED.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 🚀 **[Development Roadmap](docs/roadmaps/DEVELOPMENT_ROADMAP_1_1_0.md)**
+📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | ⚡ **[Performance Optimizations](docs/optimization/CRITICAL_OPTIMIZATIONS_IMPLEMENTED.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 📖 **[Developer Docs](docs/README.md)**
 
 ---
 
@@ -349,7 +349,7 @@ npm run build
 ### Testing Documentation
 - **[TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)** - **MANDATORY** - Test quality principles
 - **[AUTOMATED_TESTING_GUIDE.md](docs/development/AUTOMATED_TESTING_GUIDE.md)** - Automated testing workflow
-- **[PHASE1_WEEK3_PROGRESS.md](docs/development/PHASE1_WEEK3_PROGRESS.md)** - Current boundary test progress
+- **[TEST_EXECUTION_GUIDE.md](docs/development/TEST_EXECUTION_GUIDE.md)** - How to run the test suites
 
 ### Release Notes
 - **[CHANGELOG](docs/releases/CHANGELOG.md)** - Full version history
