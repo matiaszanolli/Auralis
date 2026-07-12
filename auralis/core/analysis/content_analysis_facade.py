@@ -85,7 +85,6 @@ class ContentAnalysisFacade:
         # Lazy initialization (only create when needed)
         self._content_analyzer: Any | None = None
         self._target_generator: Any | None = None
-        self._spectrum_mapper: Any | None = None
         
         logger.debug(
             f"ContentAnalysisFacade initialized: "
@@ -121,23 +120,6 @@ class ContentAnalysisFacade:
             self._target_generator = AdaptiveTargetGenerator(config, processor=None)
             logger.debug("AdaptiveTargetGenerator initialized (lazy)")
         return self._target_generator
-
-    @property
-    def spectrum_mapper(self) -> Any:
-        """Lazy-load SpectrumMapper."""
-        if self._spectrum_mapper is None:
-            from ..analysis.spectrum_mapper import SpectrumMapper
-
-            # Create config if not provided
-            if self.config is None:
-                from ..config import UnifiedConfig
-                config = UnifiedConfig(internal_sample_rate=self.sample_rate)
-            else:
-                config = self.config
-            
-            self._spectrum_mapper = SpectrumMapper(config)
-            logger.debug("SpectrumMapper initialized (lazy)")
-        return self._spectrum_mapper
 
     def analyze_full(
         self,
@@ -259,7 +241,6 @@ class ContentAnalysisFacade:
         """Reset all analyzers (clear cached state)."""
         self._content_analyzer = None
         self._target_generator = None
-        self._spectrum_mapper = None
         logger.debug("ContentAnalysisFacade reset (analyzers cleared)")
 
 

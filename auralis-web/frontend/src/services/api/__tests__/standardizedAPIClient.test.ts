@@ -21,10 +21,8 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   StandardizedAPIClient,
   CacheAwareAPIClient,
-  BatchAPIClient,
   isSuccessResponse,
   isErrorResponse,
-  isPaginatedResponse,
   APIClientConfig
 } from '../standardizedAPIClient';
 
@@ -56,19 +54,6 @@ const mockErrorResponse = {
   timestamp: new Date().toISOString()
 };
 
-const mockPaginatedResponse = {
-  status: 'success',
-  data: [{ id: 1 }, { id: 2 }],
-  pagination: {
-    limit: 50,
-    offset: 0,
-    total: 100,
-    remaining: 98,
-    has_more: true
-  },
-  timestamp: new Date().toISOString()
-};
-
 // ============================================================================
 // Type Guard Tests
 // ============================================================================
@@ -84,12 +69,6 @@ describe('Type Guards', () => {
     expect(isErrorResponse(mockErrorResponse)).toBe(true);
     expect(isErrorResponse(mockSuccessResponse)).toBe(false);
     expect(isErrorResponse(null)).toBe(false);
-  });
-
-  it('should correctly identify paginated responses', () => {
-    expect(isPaginatedResponse(mockPaginatedResponse)).toBe(true);
-    expect(isPaginatedResponse(mockSuccessResponse)).toBe(false);
-    expect(isPaginatedResponse(mockErrorResponse)).toBe(false);
   });
 });
 
@@ -321,20 +300,6 @@ describe('StandardizedAPIClient', () => {
     expect(result.status).toBe('error');
   });
 
-  it('should handle paginated responses', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue(mockPaginatedResponse)
-    });
-    global.fetch = mockFetch;
-
-    const result = await client.getPaginated('/api/test', 50, 0);
-
-    expect(isPaginatedResponse(result)).toBe(true);
-    expect((result as any).pagination.total).toBe(100);
-    expect((result as any).pagination.has_more).toBe(true);
-  });
-
   it('should clear cache', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -520,83 +485,5 @@ describe('CacheAwareAPIClient', () => {
 
     expect(health).not.toBeNull();
     expect(health?.healthy).toBe(true);
-  });
-});
-
-// ============================================================================
-// Batch Client Tests
-// ============================================================================
-
-describe('BatchAPIClient', () => {
-  let client: StandardizedAPIClient;
-  let batchClient: BatchAPIClient;
-
-  beforeEach(() => {
-    client = new StandardizedAPIClient(mockConfig);
-    batchClient = new BatchAPIClient(client);
-  });
-
-  it('should execute batch operations', async () => {
-    const mockResults = [
-      { id: '1', status: 'success', message: 'Success' },
-      { id: '2', status: 'success', message: 'Success' }
-    ];
-
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        ...mockSuccessResponse,
-        data: mockResults
-      })
-    });
-    global.fetch = mockFetch;
-
-    const items = [
-      { id: '1', action: 'favorite' },
-      { id: '2', action: 'favorite' }
-    ];
-
-    const results = await batchClient.executeBatch(items);
-
-    expect(results).not.toBeNull();
-    expect(results?.length).toBe(2);
-    expect(results?.[0].status).toBe('success');
-  });
-
-  it('should favorite multiple tracks', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        status: 'success',
-        data: [
-          { id: '1', status: 'success' },
-          { id: '2', status: 'success' }
-        ]
-      })
-    });
-    global.fetch = mockFetch;
-
-    const success = await batchClient.favoriteTracks(['1', '2']);
-
-    expect(success).toBe(true);
-    expect(mockFetch).toHaveBeenCalled();
-  });
-
-  it('should remove multiple tracks', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        status: 'success',
-        data: [
-          { id: '1', status: 'success' },
-          { id: '2', status: 'success' }
-        ]
-      })
-    });
-    global.fetch = mockFetch;
-
-    const success = await batchClient.removeTracks(['1', '2']);
-
-    expect(success).toBe(true);
   });
 });

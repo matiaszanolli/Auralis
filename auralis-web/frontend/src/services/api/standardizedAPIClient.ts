@@ -41,24 +41,6 @@ export interface ErrorResponse {
 }
 
 /**
- * Pagination metadata
- */
-export interface PaginationMeta {
-  limit: number;
-  offset: number;
-  total: number;
-  remaining: number;
-  has_more: boolean;
-}
-
-/**
- * Paginated response
- */
-export interface PaginatedResponse<T> extends SuccessResponse<T[]> {
-  pagination: PaginationMeta;
-}
-
-/**
  * Cache statistics response
  */
 export interface CacheStats {
@@ -107,41 +89,6 @@ export interface CacheHealth {
   timestamp: string;
 }
 
-/**
- * Batch operation item
- */
-export interface BatchItem {
-  id: string;
-  action: string;
-  data?: Record<string, any>;
-}
-
-/**
- * Batch operation request
- */
-export interface BatchRequest {
-  items: BatchItem[];
-  atomic: boolean;
-}
-
-/**
- * Batch operation result
- */
-export interface BatchItemResult {
-  id: string;
-  status: 'success' | 'error';
-  message?: string;
-  error?: string;
-}
-
-/**
- * Batch operation response
- */
-export interface BatchResponse extends SuccessResponse<BatchItemResult[]> {
-  successful: number;
-  failed: number;
-}
-
 // ============================================================================
 // API Client Configuration
 // ============================================================================
@@ -184,17 +131,6 @@ export function isSuccessResponse<T>(response: any): response is SuccessResponse
  */
 export function isErrorResponse(response: any): response is ErrorResponse {
   return !!(response && response.status === 'error' && response.error !== undefined);
-}
-
-/**
- * Type guard for paginated responses
- */
-export function isPaginatedResponse<T>(response: any): response is PaginatedResponse<T> {
-  return (
-    isSuccessResponse(response) &&
-    Array.isArray(response.data) &&
-    (response as any).pagination !== undefined
-  );
 }
 
 // ============================================================================
@@ -383,20 +319,6 @@ export class StandardizedAPIClient {
   }
 
   /**
-   * Get paginated results
-   */
-  async getPaginated<T>(
-    endpoint: string,
-    limit: number = 50,
-    offset: number = 0,
-    options?: RequestOptions
-  ): Promise<PaginatedResponse<T> | ErrorResponse> {
-    const separator = endpoint.includes('?') ? '&' : '?';
-    const url = `${endpoint}${separator}limit=${limit}&offset=${offset}`;
-    return this.request<T[]>(url, { ...options, method: 'GET' }) as Promise<PaginatedResponse<T> | ErrorResponse>;
-  }
-
-  /**
    * Clear response cache
    */
   clearCache(): void {
@@ -469,54 +391,6 @@ export class CacheAwareAPIClient {
     }
 
     return null;
-  }
-}
-
-/**
- * Batch operations API client
- */
-export class BatchAPIClient {
-  constructor(private apiClient: StandardizedAPIClient) {}
-
-  /**
-   * Execute batch operation
-   */
-  async executeBatch(items: BatchItem[], atomic: boolean = false): Promise<BatchItemResult[] | null> {
-    const request: BatchRequest = { items, atomic };
-    const response = await this.apiClient.post<BatchItemResult[]>('/api/batch', request);
-
-    if (isSuccessResponse<BatchItemResult[]>(response)) {
-      return response.data;
-    }
-
-    console.error('Batch operation failed:', response);
-    return null;
-  }
-
-  /**
-   * Batch favorite tracks
-   */
-  async favoriteTracks(trackIds: string[]): Promise<boolean> {
-    const items: BatchItem[] = trackIds.map(id => ({
-      id,
-      action: 'favorite'
-    }));
-
-    const results = await this.executeBatch(items, false);
-    return results ? results.every(r => r.status === 'success') : false;
-  }
-
-  /**
-   * Batch remove tracks
-   */
-  async removeTracks(trackIds: string[]): Promise<boolean> {
-    const items: BatchItem[] = trackIds.map(id => ({
-      id,
-      action: 'remove'
-    }));
-
-    const results = await this.executeBatch(items, false);
-    return results ? results.every(r => r.status === 'success') : false;
   }
 }
 

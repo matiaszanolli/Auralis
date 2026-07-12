@@ -88,8 +88,11 @@ class HybridMode:
         # Start with reference matching
         reference_matched = apply_reference_matching(target_audio, reference_audio)
 
-        # Generate adaptive targets
-        self.target_generator.generate_targets(content_profile)
+        # NOTE: hybrid mode does not currently consume AdaptiveTargetGenerator output
+        # (self.target_generator remains injected for a future adaptive-targets pass).
+        # A prior call here computed targets and discarded the result — a no-op that
+        # was removed. Wiring the targets into the blend below is a behavior change,
+        # deferred pending a mastering-quality decision.
 
         # Apply adaptive enhancements with reduced intensity
         adaptation_strength = self.config.adaptive.adaptation_strength * 0.5  # Reduced for hybrid
