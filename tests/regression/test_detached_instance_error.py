@@ -338,51 +338,83 @@ class TestArtistRepositoryDetachedAccess:
 
 
 class TestSettingsRepositoryDetachedAccess:
-    """Verify SettingsRepository methods return safely detached objects"""
+    """Verify SettingsRepository methods return safely detached objects.
+
+    UserSettings has no relationships (scalar columns only), so unlike the
+    Track/Album/Artist suites above there is no lazy-loaded collection to
+    exercise here. These assertions instead verify the returned object
+    carries the actual values the operation was supposed to produce, not
+    just a truthy id — `is not None` alone would pass even if the write
+    silently no-op'd or returned a stale/wrong row (#4257).
+    """
 
     def test_get_settings_accessible(self, settings_repository):
-        """get_settings() must return accessible object"""
+        """get_settings() must return an accessible object with real defaults"""
         settings = settings_repository.get_settings()
         assert settings is not None
-        # Access attributes after session close
-        _ = settings.id
+        # Access attributes after session close, and confirm they're the
+        # actual column defaults, not just present.
+        assert settings.id is not None
+        assert settings.volume == 0.8
+        assert settings.theme == 'dark'
 
     def test_update_settings_accessible(self, settings_repository):
-        """update_settings() must return accessible object"""
-        settings = settings_repository.update_settings({'volume': 0.8})
+        """update_settings() must return an accessible object reflecting the write"""
+        settings = settings_repository.update_settings({'volume': 0.35, 'theme': 'light'})
         assert settings is not None
-        _ = settings.id
+        assert settings.volume == 0.35
+        assert settings.theme == 'light'
 
     def test_reset_to_defaults_accessible(self, settings_repository):
-        """reset_to_defaults() must return accessible object"""
+        """reset_to_defaults() must return an accessible object with default values"""
+        settings_repository.update_settings({'volume': 0.1, 'theme': 'light'})
+
         settings = settings_repository.reset_to_defaults()
         assert settings is not None
-        _ = settings.id
+        assert settings.volume == 0.8
+        assert settings.theme == 'dark'
 
 
 class TestQueueRepositoryDetachedAccess:
-    """Verify QueueRepository methods return safely detached objects"""
+    """Verify QueueRepository methods return safely detached objects.
+
+    QueueState also has no relationships, so these assertions verify the
+    returned object's actual field values rather than just its presence
+    (#4257) — matching the rationale in TestSettingsRepositoryDetachedAccess.
+    """
 
     def _get_queue_repo(self, repository_factory):
         return repository_factory.queue
 
     def test_get_queue_state_accessible(self, repository_factory):
-        """get_queue_state() must return accessible object"""
+        """get_queue_state() must return an accessible object with real defaults"""
+        import json
+
         repo = self._get_queue_repo(repository_factory)
         state = repo.get_queue_state()
         assert state is not None
-        _ = state.id
+        assert state.id is not None
+        assert json.loads(state.track_ids) == []
+        assert state.current_index == 0
 
     def test_set_queue_state_accessible(self, repository_factory):
-        """set_queue_state() must return accessible object"""
+        """set_queue_state() must return an accessible object reflecting the write"""
+        import json
+
         repo = self._get_queue_repo(repository_factory)
-        state = repo.set_queue_state(track_ids=[1, 2, 3], current_index=0)
+        state = repo.set_queue_state(track_ids=[1, 2, 3], current_index=1)
         assert state is not None
-        _ = state.id
+        assert json.loads(state.track_ids) == [1, 2, 3]
+        assert state.current_index == 1
 
     def test_clear_queue_accessible(self, repository_factory):
-        """clear_queue() must return accessible object"""
+        """clear_queue() must return an accessible object with the queue actually cleared"""
+        import json
+
         repo = self._get_queue_repo(repository_factory)
+        repo.set_queue_state(track_ids=[1, 2, 3], current_index=2)
+
         state = repo.clear_queue()
         assert state is not None
-        _ = state.id
+        assert json.loads(state.track_ids) == []
+        assert state.current_index == 0

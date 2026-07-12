@@ -135,9 +135,12 @@ def test_unique_filepath_constraint(integrity_library):
         # Duplicate rejected - this is acceptable
         pass
 
-    # Library should remain consistent
+    # Library should remain consistent — the duplicate-add attempt must not
+    # have dropped or corrupted the pre-existing tracks (#4257: `tracks is
+    # not None` alone is trivially true since get_all_tracks() always
+    # returns a list, never None).
     tracks, total = manager.get_all_tracks(limit=100)
-    assert tracks is not None
+    assert len(tracks) >= len(track_ids)
 
 
 @pytest.mark.boundary
@@ -347,9 +350,12 @@ def test_empty_string_metadata(tmp_path):
         'title': '',  # Empty string
     })
 
-    # Should be stored as empty string or have default
+    # Should be stored as empty string or have default — #4257: the prior
+    # `retrieved is not None` check never actually verified the empty
+    # string round-tripped, which was this test's whole stated purpose.
     retrieved = manager.get_track(track.id)
     assert retrieved is not None
+    assert retrieved.title == ''
 
 
 @pytest.mark.boundary
@@ -386,6 +392,10 @@ def test_very_long_metadata_values(tmp_path):
         if track is not None:
             retrieved = manager.get_track(track.id)
             assert retrieved is not None
+            # #4257: verify the actual stored value, not just presence.
+            # TrackRepository truncates title to 500 chars (#2073) rather
+            # than storing it unbounded or rejecting it.
+            assert retrieved.title == long_title[:500]
     except Exception:
         # Some implementations might reject long strings
         pass
@@ -423,13 +433,18 @@ def test_special_characters_in_metadata(tmp_path):
             })
 
             if track is not None:
-                # Verify stored correctly
+                # Verify stored correctly — #4257: the actual point of this
+                # test is that the raw special-char string round-trips
+                # unmangled (i.e. it was parameterized, not concatenated
+                # into SQL), which the prior `is not None` check never
+                # verified.
                 retrieved = manager.get_track(track.id)
                 assert retrieved is not None
+                assert retrieved.title == special
 
                 # Database should still exist
                 tracks, _ = manager.get_all_tracks(limit=10)
-                assert tracks is not None
+                assert len(tracks) >= 1
 
                 # Clean up for next iteration
                 manager.delete_track(track.id)
@@ -475,8 +490,10 @@ def test_unicode_metadata_handling(tmp_path):
 
             if track is not None:
                 retrieved = manager.get_track(track.id)
-                # Should retrieve successfully
+                # Should retrieve successfully, with the unicode string
+                # round-tripping intact (#4257: previously unverified).
                 assert retrieved is not None
+                assert retrieved.title == unicode_str
 
                 manager.delete_track(track.id)
         except Exception:
@@ -553,10 +570,16 @@ def test_failed_update_preserves_original_data(integrity_library):
     except Exception:
         pass
 
-    # Original data should be preserved
+    # Original data should be preserved — #4257: assert the actual
+    # documented invariant (unchanged-or-validly-updated) instead of just
+    # that *some* row still exists, which would pass even if the failed
+    # update partially corrupted the title.
     current_track = manager.get_track(target_id)
-    # Title should either be unchanged or validly updated
     assert current_track is not None
+    # The attempted update was {"title": None}; either it was rejected
+    # (title unchanged) or applied (title is now None) — anything else
+    # would indicate silent data corruption.
+    assert current_track.title == original_title or current_track.title is None
 
 
 # ============================================================================
@@ -634,12 +657,17 @@ def test_relationship_integrity_after_operations(integrity_library):
     manager.update_track(track_ids[1], {"title": "Updated"})
     manager.delete_track(track_ids[2])
 
-    # All remaining tracks should have valid relationships
+    # All remaining tracks should have valid relationships — #4257: the
+    # docstring's actual claim ("Album/artist relationships intact") was
+    # previously never exercised; access them so a DetachedInstanceError
+    # or a broken relationship load would fail this test.
     tracks, _ = manager.get_all_tracks(limit=100)
     for track in tracks:
         assert track.id is not None
         assert track.filepath is not None
         # Album and artist should be valid (or None if not set)
+        _ = track.album
+        _ = track.artists
 
 
 @pytest.mark.boundary

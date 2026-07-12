@@ -330,8 +330,10 @@ class TestInvalidInputs:
         # Should either load audio or fail gracefully
         try:
             audio_data, sr = load_audio(str(filepath))
-            # If it loads, should have audio data
+            # If it loads, should have real (non-empty) audio data, not just
+            # a non-None placeholder (#4257).
             assert audio_data is not None
+            assert len(audio_data) > 0
         except Exception:
             # Expected - corrupted file
             pass
@@ -497,17 +499,19 @@ class TestInvalidInputs:
         # Should be escaped and not execute SQL
         try:
             results, _ = repo.search(malicious_query)
-            # Should return empty results or error, but not execute DROP
-            assert results is not None
+            # Should return empty results (no track title matches the raw
+            # injection string) rather than executing the embedded DROP
+            # (#4257: `results is not None` is trivially true — search()
+            # always returns a list, never None).
+            assert results == []
 
-            # Verify table still exists
+            # Verify table still exists and was not dropped
             from auralis.library.models import Track
 
-            # Get session to verify table exists
             test_session = repo.get_session()
             count = test_session.query(Track).count()
             test_session.close()
-            # Table should still exist (count may be 0)
+            assert count == 0  # no tracks were added in this test
         except Exception:
             # Expected - handled gracefully
             pass
@@ -538,16 +542,18 @@ class TestErrorRecovery:
             manager2 = LibraryManager(database_path=str(db_path))
             session2 = manager2.SessionLocal()
             session2.close()
-        except Exception as e:
-            # Expected - corruption detected
-            assert e is not None
-
-            # Recovery: Delete and recreate
+        except Exception:
+            # Expected - corruption detected. #4257: `assert e is not None`
+            # here was tautological — an `except ... as e:` binding is never
+            # None, so it could never fail. Assert the actual recovery
+            # invariant instead: the new database is genuinely usable, not
+            # just that construction didn't raise.
             db_path.unlink()
             manager3 = LibraryManager(database_path=str(db_path))
+            tracks, total = manager3.get_all_tracks(limit=10)
+            assert total == 0
             session3 = manager3.SessionLocal()
             session3.close()
-            # Should work after recreation
 
     def test_cache_corruption_recovery(self, tmp_path):
         """Test rebuilding cache after corruption."""
@@ -604,8 +610,12 @@ class TestErrorRecovery:
         # Rescan (should update, not duplicate)
         results2 = scanner.scan_single_directory(str(music_dir))
 
-        # Should handle gracefully
+        # Should handle gracefully and, critically, not duplicate tracks in
+        # the library (#4257: `results2 is not None` never verified this —
+        # the test's own docstring is "should update, not duplicate").
         assert results2 is not None
+        tracks, total = manager.get_all_tracks(limit=200)
+        assert total == 50
 
     def test_processing_crash_recovery(self, tmp_path):
         """Test resuming after processing crash."""
@@ -615,10 +625,13 @@ class TestErrorRecovery:
         config = UnifiedConfig()
         processor = HybridProcessor(config)
 
-        # Process successfully
+        # Process successfully — verify the core sample-count invariant
+        # (#4257: `is not None` alone wouldn't catch a truncated/expanded
+        # or empty result).
         audio1 = np.random.randn(44100, 2).astype(np.float32) * 0.1
         result1 = processor.process(audio1)
         assert result1 is not None
+        assert len(result1) == len(audio1)
 
         # Simulate crash (invalid input)
         try:
@@ -632,8 +645,10 @@ class TestErrorRecovery:
         audio2 = np.random.randn(44100, 2).astype(np.float32) * 0.1
         result2 = processor.process(audio2)
 
-        # Should work after crash
+        # Should work after crash, with the processor back to producing
+        # correctly-shaped output (not a leftover from the failed call).
         assert result2 is not None
+        assert len(result2) == len(audio2)
 
     def test_graceful_shutdown_under_load(self, tmp_path):
         """Test clean shutdown during heavy load."""
@@ -673,6 +688,17 @@ class TestErrorRecovery:
                     # May timeout, that's ok
                     pass
 
-        # System should still be functional
-        tracks = manager.get_recent_tracks(limit=10)
-        assert tracks is not None
+        # System should still be functional — #4257: `tracks is not None`
+        # was tautological (get_recent_tracks() always returns a tuple,
+        # never None). Exercise an actual write+read round trip to confirm
+        # the manager genuinely still works, not just that a call didn't
+        # raise.
+        tracks, _ = manager.get_recent_tracks(limit=10)
+        assert isinstance(tracks, list)
+
+        audio = np.random.randn(44100, 2).astype(np.float32) * 0.1
+        filepath = tmp_path / "post_shutdown.wav"
+        sf.write(str(filepath), audio, 44100)
+        track = manager.add_track({'filepath': str(filepath), 'title': 'Post-shutdown'})
+        assert track is not None
+        assert manager.get_track(track.id) is not None
