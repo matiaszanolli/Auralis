@@ -296,7 +296,6 @@ There are **two separate processor caches**: the module-level convenience cache 
 | `fft_size` | 4096 | Asserted power of 2 |
 | `mastering_profile` | `"adaptive"` | Named preset |
 | `use_continuous_space` | `True` | ContinuousMode vs legacy AdaptiveMode |
-| `fingerprint_strategy` | `"sampling"` | Sampling (25% coverage) vs full-track |
 | `enable_cross_dimensional_guard` | `True` | ContinuousMode per-stage compensation |
 | `quality_gate_enabled` / `quality_gate_interval` | `True` / 5 | Sampled quality gate |
 

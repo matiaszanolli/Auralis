@@ -10,7 +10,7 @@ Extracts 25D audio fingerprints during library scanning
 
 import gc
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
@@ -37,8 +37,7 @@ class FingerprintExtractor:
     """
 
     def __init__(self, fingerprint_repository: Any, track_repository: Any = None,
-                 use_sidecar_files: bool = True,
-                 fingerprint_strategy: Literal['full-track', 'sampling'] = "sampling", sampling_interval: float = 20.0) -> None:
+                 use_sidecar_files: bool = True) -> None:
         """
         Initialize fingerprint extractor
 
@@ -48,21 +47,14 @@ class FingerprintExtractor:
                               via the repository pattern (#2288).  When None, corrupted-
                               track deletion is skipped with a warning.
             use_sidecar_files: Enable .25d sidecar file caching (default: True)
-            fingerprint_strategy: "full-track" or "sampling" (Phase 7)
-            sampling_interval: Interval between chunk starts in seconds (for sampling)
         """
         self.fingerprint_repo = fingerprint_repository
         self.track_repo = track_repository
-        self.analyzer = AudioFingerprintAnalyzer(
-            fingerprint_strategy=fingerprint_strategy,
-            sampling_interval=sampling_interval
-        )
+        self.analyzer = AudioFingerprintAnalyzer()
         self.use_sidecar_files = use_sidecar_files
         self.sidecar_manager = SidecarManager() if use_sidecar_files else None
-        self.fingerprint_strategy = fingerprint_strategy
-        self.sampling_interval = sampling_interval
 
-        debug(f"FingerprintExtractor initialized with strategy={fingerprint_strategy}")
+        debug("FingerprintExtractor initialized")
 
     def _delete_corrupted_track(self, track_id: int, filepath: str) -> bool:
         """

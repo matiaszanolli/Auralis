@@ -135,31 +135,42 @@ Harness (scratchpad `fp_parity.py`) ran Rust vs Python on 5 real files. Findings
 (Stage 1 gap): decorrelated L/R → width 0.24 / corr 0.82; identical → 0.0 / 1.0; real files →
 0.10–0.17 / 0.93–0.98. Rust stereo is correct.
 
-### ⚠️ Scope discovery: Stage 3 obsoletes the Phase-7 sampling subsystem
+**User decision: "Full port, remove sampling."** Rust computes the full 25D fast enough that
+the Phase-7 sampling-vs-full-track distinction is moot, so the entire sampling subsystem was
+removed rather than kept behind a flag.
 
-Routing `AudioFingerprintAnalyzer.analyze()` through Rust makes a whole subsystem dead, because
-Rust computes the full 25D fast enough that sampling-vs-full-track is moot:
-- `SampledHarmonicAnalyzer`, `HarmonicAnalyzer`, and the `batch/` analyzers (spectral, temporal,
-  variation, stereo) + the librosa `utilities`/`metrics` that only serve them.
-- `fingerprint_strategy` / `sampling_interval` params threaded through `UnifiedConfig`,
-  `FingerprintExtractor`, `FingerprintService`, `AudioFingerprintAnalyzer`.
-- The `_harmonic_analysis_method` metadata flag and `tests/test_phase7a_sampling_integration.py`
-  (asserts 26 keys + "sampled"/"full-track") — obsolete.
+### Stage 3 — the switch (done 2026-07-11, commit 871356f7, −2,821 LOC)
 
-So Stage 3/4 is a **~15-file, value-changing refactor** (all fingerprints change → version bump →
-re-fingerprint), not a one-method rewire. **Needs a go/no-go on removing the sampling feature.**
+`AudioFingerprintAnalyzer` rewritten as a thin glue facade over `compute_fingerprint_schema`
+(validation + sr-normalize to 22050 + mono/stereo marshalling); the librosa per-dim analyzers
+are no longer invoked. Fixed the two raw-Rust consumers (`mastering_target_service`,
+`fingerprint_generator`) to go through the glue (closes the `sub_bass_pct` default-fallback
+bug). **Bumped `FINGERPRINT_ALGORITHM_VERSION` 2 → 3** → the library re-fingerprints via the
+Phase-2 worker. Verified: 40 core fingerprint tests + all 14 similarity-system tests pass.
 
-### Stage 3+ — plan (blocked on scope decision)
+### Stage 4 — dead-code cleanup (done 2026-07-12, −~8,870 LOC across 43 files)
 
-1. Add one canonical **glue** `rust_fingerprint_to_schema(raw) -> 25D schema dict` (renames +
-   normalizations above). Single source of truth.
-2. Route `AudioFingerprintAnalyzer` (→ `FingerprintExtractor`/`FingerprintService`) and the
-   existing raw-Rust consumers (`mastering_target_service`, `fingerprint_generator`) through
-   `compute_fingerprint` + glue.
-3. Delete the redundant librosa/NumPy analyzers; lift the >300 MB OOM guard.
-4. **Bump `FINGERPRINT_ALGORITHM_VERSION`** (values change) → library re-fingerprints (Phase-2
-   worker machinery already does this on a version bump).
-5. Verify: fingerprint tests, similarity sanity, stereo dims.
+Deleted the now-unreferenced source and its tests:
+- `analyzers/` (base + `batch/` spectral/temporal/harmonic/harmonic_sampled/variation/stereo)
+  and `utilities/` (dsp_backend + the librosa `*_ops`) — zero production importers once the
+  analyzer became Rust glue. **`metrics/` was kept** — it's used by ~15 production modules
+  (spectrum analyzers, dynamic range, ML feature extractor, distance, …), independent of the
+  removed analyzers.
+- The Phase-7 sampling-strategy cluster: `strategy_selector`, `feature_adaptive_sampler`,
+  `confidence_scorer`, `runtime_strategy_manager` (`runtime_strategy_manager` had no production
+  importer; the other three only fed it).
+- Removed `fingerprint_strategy` / `sampling_interval` params from `UnifiedConfig` (+
+  `set_fingerprint_strategy` / `use_sampling_strategy` / `use_fulltrack_strategy`),
+  `FingerprintService`, `FingerprintExtractor`, and the analyzer signature.
+- Deleted 17 obsolete phase-7 / batch-analyzer / utilities-contract test files.
+- **OOM guard kept:** the >300 MB skip in `FingerprintExtractor` protects the Python
+  `load_audio()` full-file **decode** (still multi-GB), which the Rust port does not change —
+  the 90 s cap happens after decode. Lifting it would need a partial-decode rewrite (out of scope).
+- Updated the sidecar tests stale after the version bump / thin-analyzer rewrite (16/16 green);
+  updated `fingerprinting.md` + `dsp-engine.md`; deleted the obsolete `SAMPLING_STRATEGY_GUIDE.md`.
+
+Verified: 85 targeted fingerprint/similarity/extractor tests pass; suite collects 5,339 clean
+(no import errors); all dependents of the changed modules import.
 
 ## Progress log
 

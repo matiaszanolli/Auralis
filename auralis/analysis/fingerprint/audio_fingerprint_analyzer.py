@@ -9,15 +9,9 @@ Rust owns the heavy DSP; this class is glue — input validation, sample-rate
 normalization, and mono/stereo marshalling. It returns the 25 schema
 dimensions (see ``schema.py``) or an empty dict for empty/invalid/too-short
 audio.
-
-The ``fingerprint_strategy`` / ``sampling_interval`` arguments are accepted for
-backward compatibility but **ignored**: the Rust engine computes the full 25D
-directly, so the Phase-7 sampling-vs-full-track distinction no longer applies.
-These parameters are slated for removal across callers.
 """
 
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -33,10 +27,8 @@ _TARGET_SR = 22050
 class AudioFingerprintAnalyzer:
     """Extract a complete 25D audio fingerprint via the in-process Rust engine."""
 
-    def __init__(self, fingerprint_strategy: Any = None, sampling_interval: float = 20.0):
-        # Accepted-but-ignored (see module docstring).
-        self.fingerprint_strategy = fingerprint_strategy
-        self.sampling_interval = sampling_interval
+    def __init__(self) -> None:
+        pass
 
     def close(self) -> None:
         """No-op. The Rust engine holds no Python-side executor; kept for API compat."""

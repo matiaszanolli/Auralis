@@ -43,57 +43,48 @@ fingerprint drives adaptive mastering, similarity search, and quality assessment
 
 **Count is hard-enforced everywhere:** `< 25` dims are discarded, not cached
 ([`fingerprint_service.py:387`](../../auralis/analysis/fingerprint/fingerprint_service.py));
-the Rust server must return exactly 25; distance/normalize assert `len == 25`.
+the Rust engine must return exactly 25; distance/normalize assert `len == 25`.
 
-> **Known code-level inconsistencies** (real, not just doc drift — verify before relying):
-> `phase_correlation` schema says 0–1 but the analyzer returns −1..+1; two different default
-> value sets exist for the variation dims (`batch/variation.py` vs the orchestrator's
-> `_get_default_fingerprint`).
+> **Known code-level inconsistency** (real, not just doc drift — verify before relying):
+> `phase_correlation` schema says 0–1 but the Rust engine returns −1..+1 (passed through
+> unchanged by the glue).
 
 ---
 
 ## 2. Extraction — the analyzer
 
 `AudioFingerprintAnalyzer.analyze()`
-([`audio_fingerprint_analyzer.py:101`](../../auralis/analysis/fingerprint/audio_fingerprint_analyzer.py))
-is the whole-track extraction entry point:
+([`audio_fingerprint_analyzer.py`](../../auralis/analysis/fingerprint/audio_fingerprint_analyzer.py))
+is a **thin Python facade over the in-process Rust 25D engine**. Rust owns the heavy
+DSP; the Python class is glue — input validation, sample-rate normalization, and
+mono/stereo marshalling:
 
 ```
 validate → resample to 22050 Hz  (so all paths produce identical fingerprints)
-         → require ≥ 0.5 s → mono downmix
-         → precompute ONE shared rfft / magnitude / freqs / rms
-         → frequency (7D) + dynamics (3D)     [sequential]
-         → temporal + spectral + harmonic + variation + stereo   [5-thread pool]
-         → sanitize NaN/Inf → 0.0
+         → require ≥ 0.5 s
+         → marshal mono (n,) or interleaved stereo (2n,)
+         → auralis_dsp.compute_fingerprint(...)     [Rust computes all 25 dims]
+         → rust_fingerprint_to_schema(): map raw Rust keys → schema keys
 ```
 
-Only a `batch/` analyzer package exists. The `streaming/` analyzers referenced in some
-docstrings and in `analyzers/__init__.py` **do not exist as files** — treat those references
-as stale. All batch analyzers subclass
-[`analyzers/base_analyzer.py:21`](../../auralis/analysis/fingerprint/analyzers/base_analyzer.py),
-which wraps `_analyze_impl` in try/except returning `DEFAULT_FEATURES.copy()`.
+All 25 dimensions come from the Rust module
+`fingerprint_compute::compute_complete_fingerprint` (its own frequency / spectral /
+temporal / harmonic / variation / stereo submodules, plus HPSS / YIN / Chroma /
+tempo), exposed via PyO3 as `auralis_dsp.compute_fingerprint`. The glue layer
+[`rust_fingerprint.py`](../../auralis/analysis/fingerprint/rust_fingerprint.py)
+renames the 7 band keys → `*_pct`, normalizes centroid (÷8000) / rolloff (÷10000) /
+dynamic-range-variation (÷6 dB), converts `bass_mid_ratio` from a Rust fraction to
+dB, and renames `loudness_variation` → `loudness_variation_std`. It fails loud
+(`KeyError`) if the Rust engine drops a key.
 
-| Analyzer | File | Notes |
-|----------|------|-------|
-| `SpectralAnalyzer` | `batch/spectral.py` | one shared `librosa.stft` |
-| `TemporalAnalyzer` | `batch/temporal.py` | single `beat_track` pass (#3704) |
-| `HarmonicAnalyzer` | `batch/harmonic.py` | full-track |
-| `SampledHarmonicAnalyzer` | `batch/harmonic_sampled.py` | **default** ("sampling"); 5 s chunks at `sampling_interval`, own 4-thread pool |
-| `VariationAnalyzer` | `batch/variation.py` | |
-| `StereoAnalyzer` | `batch/stereo.py` | |
-
-### Backend split (which dims use Rust vs librosa)
-
-| Dims | Backend |
-|------|---------|
-| Frequency (7) + Dynamics (3) | NumPy `rfft` in the orchestrator |
-| Harmonic (3) | **Rust** — HPSS, YIN, Chroma via `DSPBackend` |
-| Spectral (3) + Temporal (4) + Variation (3) | **librosa / NumPy**, in-process |
-
-`DSPBackend`
-([`utilities/dsp_backend.py:24`](../../auralis/analysis/fingerprint/utilities/dsp_backend.py))
-is **Rust-only** (raises `RuntimeError` at import if `auralis_dsp` is missing) and coerces all
-inputs to float64 before the FFI call. See [dsp-engine.md §5](dsp-engine.md#5-rust-dsp-module-vendorauralis-dsp).
+> **History (removed in the #13 Rust port):** the former Python/librosa per-dimension
+> analyzers (`analyzers/batch/`, `utilities/`) and the entire Phase-7
+> sampling-vs-full-track strategy subsystem (`strategy_selector`,
+> `feature_adaptive_sampler`, `confidence_scorer`, `runtime_strategy_manager`) were
+> deleted once Rust became the single source of truth. **Sampling no longer exists** —
+> Rust computes the full 25D directly, so `fingerprint_strategy` / `sampling_interval`
+> parameters are gone from `UnifiedConfig`, `FingerprintService`, and
+> `FingerprintExtractor`.
 
 ---
 
@@ -117,7 +108,7 @@ per-file sidecar during scanning.
 > numbers as authoritative. Treat `schema.py` as truth.
 
 **Version gating:** fingerprints carry a version; sidecars older than
-`FINGERPRINT_ALGORITHM_VERSION` (= **2**,
+`FINGERPRINT_ALGORITHM_VERSION` (= **3** — bumped when Rust became the source of truth,
 [`auralis/__version__.py:14`](../../auralis/__version__.py)) are rejected and re-extracted.
 Bumping that constant auto-triggers Phase-2 re-fingerprinting (see §5).
 
@@ -204,20 +195,17 @@ the 3-tier cache (DB → `.25d` → compute). Its `_compute_fingerprint` runs th
 
 ## 7. Performance
 
-- **Two Rust surfaces — one live, one dead:** the in-process PyO3 module (HPSS/YIN/Chroma,
-  and the shared `fingerprint_compute::compute_complete_fingerprint`) is the real one. The
-  standalone **gRPC fingerprint server**
-  ([`vendor/auralis-dsp/src/bin/grpc_fingerprint_server.rs`](../../vendor/auralis-dsp/src/bin/grpc_fingerprint_server.rs))
-  is **abandoned/non-functional**: it has its *own* `compute_25d_fingerprint` with **hardcoded
-  placeholder values** for the 7 frequency bands + 3 spectral features + `rhythm_stability`;
-  it's a `tonic` gRPC server while the Python client (`FINGERPRINT_ENDPOINT`) posts **HTTP
-  JSON**; and nothing launches it. The extractor probes port 8766 but the branch never fires.
-  Slated for removal (streamlining #12).
-- **Parallelism layers:** the worker pool (0.5–2.0×CPU threads), a per-analyzer 5-thread
-  pool for the 5 independent analyzers, and a per-`SampledHarmonicAnalyzer` 4-thread pool.
+- **One Rust surface:** the in-process PyO3 module. All 25 dims come from
+  `fingerprint_compute::compute_complete_fingerprint` (exposed as
+  `auralis_dsp.compute_fingerprint`). The former standalone gRPC fingerprint server
+  (a `tonic` binary with hardcoded placeholder values that nothing launched) was removed
+  in streamlining #12, and the redundant Python/librosa analyzers in #13.
+- **Parallelism:** the Phase-2 worker pool (0.5–2.0×CPU threads) fingerprints tracks
+  concurrently; each track's 25D compute is a single Rust FFI call (Rust parallelizes
+  internally). The former per-analyzer Python thread pools are gone.
 - **Timing figures to cite carefully:** the popular "~500 ms/track" number is from a planning
-  doc, not asserted in code. The code-level throughput claim is concurrent batching
-  `28.7 → 140+ tracks/sec`; the server targets 10–40 tracks/sec on low-end hardware.
+  doc, not asserted in code. Historical throughput claims (`28.7 → 140+ tracks/sec`) predate
+  the Rust port; re-benchmark before quoting.
 
 ---
 
@@ -226,7 +214,8 @@ the 3-tier cache (DB → `.25d` → compute). Its `_compute_fingerprint` runs th
 1. [`schema.py`](../../auralis/analysis/fingerprint/schema.py) — the 25 dimensions and their
    real units (authoritative).
 2. [`audio_fingerprint_analyzer.py`](../../auralis/analysis/fingerprint/audio_fingerprint_analyzer.py)
-   — the extraction orchestrator.
+   + [`rust_fingerprint.py`](../../auralis/analysis/fingerprint/rust_fingerprint.py)
+   — the thin Rust facade and its schema glue.
 3. [`fingerprint_service.py`](../../auralis/analysis/fingerprint/fingerprint_service.py) — the
    3-tier cache and multi-window correction.
 4. [`distance.py`](../../auralis/analysis/fingerprint/distance.py) +

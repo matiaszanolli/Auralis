@@ -16,6 +16,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.services.fingerprint_extractor import FingerprintExtractor
 from auralis.library.sidecar_manager import SidecarManager
 
@@ -79,7 +80,7 @@ def sample_fingerprint():
         "peak_consistency": 0.773,
         "stereo_width": 0.204,
         "phase_correlation": 0.591,
-        "fingerprint_version": 1
+        "fingerprint_version": FINGERPRINT_ALGORITHM_VERSION
     }
 
 
@@ -312,39 +313,36 @@ def test_disabled_sidecar_never_writes(mock_load_audio, extractor_without_sideca
 
 # ===== Incomplete Fingerprint Tests =====
 
-def test_incomplete_fingerprint_not_used(extractor_with_sidecar, temp_audio_file, mock_repository):
+def test_incomplete_fingerprint_not_used(extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that sidecar with incomplete fingerprint is rejected"""
+    import numpy as np
+
     # Create sidecar with incomplete fingerprint
     incomplete_fp = {"lufs": -14.0}  # Only 1 dimension
     sidecar_data = {'fingerprint': incomplete_fp, 'metadata': {}}
     extractor_with_sidecar.sidecar_manager.write(temp_audio_file, sidecar_data)
 
-    # Mock the analyzer to return complete fingerprint
+    # Analyzer returns a complete 25D fingerprint on the fresh analysis pass.
     with patch('auralis.services.fingerprint_extractor.load_audio') as mock_load, \
-         patch('auralis.services.fingerprint_extractor.AudioFingerprintAnalyzer') as mock_analyzer_class:
+         patch.object(extractor_with_sidecar.analyzer, 'analyze', return_value=sample_fingerprint):
 
-        mock_load.return_value = ([0.1], 44100)
-        mock_analyzer = Mock()
-        complete_fp = {"lufs": -14.0}
-        for i in range(24):  # Add 24 more dimensions
-            complete_fp[f"dim_{i}"] = float(i)
-        mock_analyzer.analyze.return_value = complete_fp
-        mock_analyzer_class.return_value = mock_analyzer
+        mock_load.return_value = (np.array([0.1, 0.2, 0.3]), 44100)
 
         # Extract fingerprint
         success = extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
 
-        # Should fall back to analysis (incomplete fingerprint)
+        # Should fall back to analysis (incomplete sidecar fingerprint)
         assert success
         mock_load.assert_called_once()
 
 
 # ===== Batch Extraction Tests =====
 
-@patch('auralis.services.fingerprint_extractor.AudioFingerprintAnalyzer')
 @patch('auralis.services.fingerprint_extractor.load_audio')
-def test_batch_extraction_cache_statistics(mock_load_audio, mock_analyzer_class, extractor_with_sidecar, tmp_path, sample_fingerprint):
+def test_batch_extraction_cache_statistics(mock_load_audio, extractor_with_sidecar, tmp_path, sample_fingerprint):
     """Test batch extraction tracks cache hit statistics"""
+    import numpy as np
+
     # Create 3 files: 2 with cache, 1 without
     files = [tmp_path / f"track{i}.flac" for i in range(3)]
     for f in files:
@@ -356,17 +354,14 @@ def test_batch_extraction_cache_statistics(mock_load_audio, mock_analyzer_class,
         extractor_with_sidecar.sidecar_manager.write(f, sidecar_data)
 
     # Setup mocks
-    mock_audio = ([0.1], 44100)
-    mock_load_audio.return_value = mock_audio
-    mock_analyzer = Mock()
-    mock_analyzer.analyze.return_value = sample_fingerprint
-    mock_analyzer_class.return_value = mock_analyzer
+    mock_load_audio.return_value = (np.array([0.1, 0.2, 0.3]), 44100)
 
     # Prepare batch
     track_ids_paths = [(i+1, str(f)) for i, f in enumerate(files)]
 
-    # Extract batch
-    stats = extractor_with_sidecar.extract_batch(track_ids_paths)
+    # Extract batch (analyzer returns a complete fingerprint on the uncached file)
+    with patch.object(extractor_with_sidecar.analyzer, 'analyze', return_value=sample_fingerprint):
+        stats = extractor_with_sidecar.extract_batch(track_ids_paths)
 
     # Should have 3 successes
     assert stats['success'] == 3

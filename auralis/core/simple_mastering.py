@@ -80,7 +80,7 @@ class SimpleMasteringPipeline:
         """Lazy-init fingerprint service (thread-safe, fixes #2434)."""
         with self._fp_service_lock:
             if self._fingerprint_service is None:
-                self._fingerprint_service = FingerprintService(fingerprint_strategy="sampling")
+                self._fingerprint_service = FingerprintService()
             return self._fingerprint_service
 
     def master_file(

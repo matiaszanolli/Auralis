@@ -28,7 +28,6 @@ Usage:
     # }
 """
 
-from auralis.analysis.fingerprint.analyzers.base_analyzer import BaseAnalyzer
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
@@ -69,5 +68,4 @@ __all__ = [
     'AudioMetrics',
     'AggregationUtils',
     'SpectralMetrics',
-    'BaseAnalyzer',
 ]

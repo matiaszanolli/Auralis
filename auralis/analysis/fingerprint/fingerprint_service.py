@@ -74,7 +74,6 @@ class FingerprintService:
     def __init__(
         self,
         db_path: Path | None = None,
-        fingerprint_strategy: str = "sampling",
         session_factory: Callable[[], Session] | None = None,
     ):
         """
@@ -82,7 +81,6 @@ class FingerprintService:
 
         Args:
             db_path: Path to SQLite database (default: ~/.auralis/library.db)
-            fingerprint_strategy: "sampling" or "full-track" (Phase 7)
             session_factory: Optional SQLAlchemy session factory. When provided
                              the service uses the caller's connection pool.
                              When omitted a minimal engine is created from db_path.
@@ -92,8 +90,7 @@ class FingerprintService:
             db_path = DEFAULT_DB_PATH
 
         self.db_path = Path(db_path)
-        self.fingerprint_strategy = fingerprint_strategy
-        self.analyzer = AudioFingerprintAnalyzer(fingerprint_strategy=fingerprint_strategy)
+        self.analyzer = AudioFingerprintAnalyzer()
 
         if session_factory is None:
             self._engine = _make_engine(self.db_path)
@@ -144,7 +141,7 @@ class FingerprintService:
             if fingerprint:
                 # Cache to both database and .25d file
                 self._save_to_database(str(audio_path), fingerprint)
-                FingerprintStorage.save(audio_path, fingerprint, {}, self.fingerprint_strategy)
+                FingerprintStorage.save(audio_path, fingerprint, {})
                 logger.debug(f"Fingerprint cached for: {audio_path.name}")
                 return fingerprint
 
@@ -194,7 +191,7 @@ class FingerprintService:
     def _load_from_file_cache(self, audio_path: Path) -> dict | None:
         """Load fingerprint from .25d file cache, discarding stale entries."""
         try:
-            cached_data = FingerprintStorage.load(audio_path, self.fingerprint_strategy)
+            cached_data = FingerprintStorage.load(audio_path)
             if cached_data:
                 fingerprint, _ = cached_data
                 if not self._band_pct_valid(fingerprint):
