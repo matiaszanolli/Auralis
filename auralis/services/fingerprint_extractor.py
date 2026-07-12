@@ -9,24 +9,14 @@ Extracts 25D audio fingerprints during library scanning
 """
 
 import gc
-import threading
 from pathlib import Path
 from typing import Any, Literal
-
-import aiohttp
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..io.unified_loader import load_audio
 from ..library.sidecar_manager import SidecarManager
 from ..utils.logging import debug, error, info, warning
-
-# NOTE: requests library removed in favor of async aiohttp for true concurrent HTTP
-# (synchronous requests were causing 98% worker idle time with 16 workers + 64-thread Rust server)
-
-# Rust fingerprinting server endpoint
-RUST_SERVER_URL = "http://localhost:8766"
-FINGERPRINT_ENDPOINT = f"{RUST_SERVER_URL}/fingerprint"
 
 
 class CorruptedTrackError(Exception):
@@ -48,8 +38,7 @@ class FingerprintExtractor:
 
     def __init__(self, fingerprint_repository: Any, track_repository: Any = None,
                  use_sidecar_files: bool = True,
-                 fingerprint_strategy: Literal['full-track', 'sampling'] = "sampling", sampling_interval: float = 20.0,
-                 use_rust_server: bool = True) -> None:
+                 fingerprint_strategy: Literal['full-track', 'sampling'] = "sampling", sampling_interval: float = 20.0) -> None:
         """
         Initialize fingerprint extractor
 
@@ -61,7 +50,6 @@ class FingerprintExtractor:
             use_sidecar_files: Enable .25d sidecar file caching (default: True)
             fingerprint_strategy: "full-track" or "sampling" (Phase 7)
             sampling_interval: Interval between chunk starts in seconds (for sampling)
-            use_rust_server: Use Rust fingerprinting server (default: True, much faster)
         """
         self.fingerprint_repo = fingerprint_repository
         self.track_repo = track_repository
@@ -73,160 +61,8 @@ class FingerprintExtractor:
         self.sidecar_manager = SidecarManager() if use_sidecar_files else None
         self.fingerprint_strategy = fingerprint_strategy
         self.sampling_interval = sampling_interval
-        self.use_rust_server = use_rust_server
-        self._rust_server_available: bool | None = None  # Cache availability check
-        self._rust_server_lock = threading.Lock()  # Serialize availability probe
 
-        debug(f"FingerprintExtractor initialized with strategy={fingerprint_strategy}, use_rust_server={use_rust_server}")
-
-    def _is_rust_server_available(self) -> bool:
-        """Check if Rust fingerprinting server is available (with caching)"""
-        if self._rust_server_available is not None:
-            return self._rust_server_available
-
-        with self._rust_server_lock:
-            # Double-check after acquiring lock
-            if self._rust_server_available is not None:
-                return self._rust_server_available
-
-            # Server availability not yet determined, check now
-            available = False
-            try:
-                import socket
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2.0)
-                result = sock.connect_ex(('127.0.0.1', 8766))
-                sock.close()
-                available = result == 0
-                if available:
-                    debug("Rust fingerprinting server is available")
-                else:
-                    warning("Rust server not available")
-            except Exception as e:
-                warning(f"Rust fingerprinting server not available: {e}")
-                available = False
-
-            self._rust_server_available = available
-            return available
-
-    async def _get_fingerprint_from_rust_server_async(self, track_id: int, filepath: str) -> dict[str, Any] | None:
-        """
-        Async version: Call Rust fingerprinting server to extract fingerprint using aiohttp
-
-        Args:
-            track_id: Track ID for logging
-            filepath: Path to audio file
-
-        Returns:
-            Dictionary with 25 fingerprint dimensions, or None on error
-
-        Raises:
-            CorruptedTrackError: If the file is detected as corrupted (will be deleted from database)
-        """
-        try:
-            payload = {"track_id": track_id, "filepath": filepath}
-
-            # CRITICAL FIX: Create fresh session for each request and close it immediately after
-            # This avoids event loop lifecycle issues when running in thread-local event loops
-            # Never reuse sessions across different event loops (unsafe for threading)
-            async with aiohttp.ClientSession() as session:
-                async with session.post(FINGERPRINT_ENDPOINT, json=payload, timeout=aiohttp.ClientTimeout(total=60.0)) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-
-                        # Check if file is corrupted (HTTP 400 with corruption message)
-                        if response.status == 400 and "appears corrupted" in error_text.lower():
-                            error(f"Corrupted audio file detected for track {track_id}: {filepath}")
-                            raise CorruptedTrackError(f"File appears corrupted: {filepath}")
-
-                        error(f"Rust server error for track {track_id}: HTTP {response.status} - {error_text}")
-                        return None
-
-                    data = await response.json()
-                    fingerprint: dict[str, Any] = data.get("fingerprint", {})
-
-                    # Validate we got all 25 dimensions
-                    if len(fingerprint) != 25:
-                        warning(f"Rust server returned {len(fingerprint)} dimensions, expected 25")
-                        return None
-
-                    debug(f"Extracted fingerprint via Rust server for track {track_id} in {data.get('processing_time_ms', '?')}ms")
-                    return fingerprint
-
-        except CorruptedTrackError:
-            raise  # Re-raise corruption errors to be handled at higher level
-        except TimeoutError as e:
-            error(f"Timeout calling Rust fingerprint server for track {track_id}: {e}")
-            return None
-        except Exception as e:
-            error(f"Failed to call Rust fingerprint server for track {track_id}: {e}")
-            return None
-
-    def _get_fingerprint_from_rust_server_sync(self, track_id: int, filepath: str) -> dict[str, Any] | None:
-        """
-        Synchronous HTTP request to Rust fingerprinting server.
-
-        Uses synchronous requests library for simplicity in thread-per-worker context.
-        aiohttp async approach requires shared event loop which is incompatible with
-        multiple concurrent worker threads each creating their own event loops.
-
-        NOTE: Future architecture improvement - migrate to true async when replacing
-        thread pool with async worker pool. Requires refactoring worker architecture.
-        """
-        import requests  # type: ignore[import-untyped]
-        try:
-            payload = {"track_id": track_id, "filepath": filepath}
-            # CRITICAL: Use aggressive timeout for Rust server
-            # - 10s timeout per request ensures problematic files fail fast
-            # - Avoids stalling workers on files with unsupported FLAC features
-            # - Falls back to Python analyzer if Rust server hangs on file
-            response = requests.post(
-                FINGERPRINT_ENDPOINT,
-                json=payload,
-                timeout=10.0  # Reduced from 60s - fail fast on problematic files
-            )
-
-            if response.status_code != 200:
-                error_text = response.text
-
-                # Check if file is missing from filesystem (404)
-                if response.status_code == 404:
-                    error(f"Audio file not found for track {track_id}: {filepath}")
-                    raise CorruptedTrackError(f"File not found: {filepath}")
-
-                # Check if file is corrupted (multiple corruption indicators)
-                corruption_indicators = [
-                    "appears corrupted",
-                    "unexpected end of bitstream",
-                    "invalid fingerprint",
-                    "only 0/25 dimensions",  # Completely invalid fingerprint
-                ]
-                if response.status_code == 400 and any(indicator in error_text.lower() for indicator in corruption_indicators):
-                    error(f"Corrupted audio file detected for track {track_id}: {filepath}")
-                    raise CorruptedTrackError(f"File appears corrupted: {filepath}")
-
-                error(f"Rust server error for track {track_id}: HTTP {response.status_code} - {error_text[:200]}")
-                return None
-
-            data = response.json()
-            fingerprint: dict[str, Any] = data.get("fingerprint", {})
-
-            # Validate we got all 25 dimensions
-            if len(fingerprint) != 25:
-                warning(f"Rust server returned {len(fingerprint)} dimensions, expected 25")
-                return None
-
-            debug(f"Extracted fingerprint via Rust server for track {track_id} in {data.get('processing_time_ms', '?')}ms")
-            return fingerprint
-
-        except CorruptedTrackError:
-            raise  # Re-raise corruption errors
-        except requests.Timeout:
-            error(f"Timeout calling Rust fingerprint server for track {track_id}")
-            return None
-        except Exception as e:
-            error(f"Failed to call Rust fingerprint server for track {track_id}: {e}")
-            return None
+        debug(f"FingerprintExtractor initialized with strategy={fingerprint_strategy}")
 
     def _delete_corrupted_track(self, track_id: int, filepath: str) -> bool:
         """
@@ -306,54 +142,33 @@ class FingerprintExtractor:
                         warning(f"Invalid fingerprint in .25d file, will re-analyze")
                         fingerprint = None
 
-            # Extraction path: Use Rust server only (Python fallback disabled for debugging)
+            # No cached fingerprint — compute it with the in-process analyzer.
             if not fingerprint:
-                # Try Rust server first (much faster, ~25ms vs ~2000ms for Python)
-                # Uses async HTTP (_get_fingerprint_from_rust_server_sync wrapper) for true parallelism
-                # This allows 16 workers to make concurrent requests to the 64-thread Rust server
-                if self.use_rust_server and self._is_rust_server_available():
-                    try:
-                        fingerprint = self._get_fingerprint_from_rust_server_sync(track_id, filepath)
-                    except CorruptedTrackError:
-                        # File is corrupted - delete from database and return False (skip)
-                        self._delete_corrupted_track(track_id, filepath)
-                        return False
+                file_size_mb = Path(filepath).stat().st_size / (1024 * 1024)
 
-                # Python fallback enabled: If Rust server fails, fall back to Python analyzer
-                # CRITICAL: Skip Python fallback for large files to prevent OOM crashes
-                # Large FLAC files (>300MB) uncompresses to 1.8-3.6GB, causing peak memory usage
-                # of 32-48GB with 16 concurrent workers. Rust server uses efficient Claxon
-                # decoder (200-300MB), so just skip Python fallback for large files.
-                if not fingerprint:
-                    file_size_mb = Path(filepath).stat().st_size / (1024 * 1024)
+                # Skip very large files: decoded audio can be 1.8-3.6 GB and, with many
+                # concurrent workers, cause OOM (>300 MB FLAC → 32-48 GB peak with 16 workers).
+                if file_size_mb > 300:
+                    warning(f"Skipping fingerprint for large file ({file_size_mb:.1f}MB): {filepath}")
+                    return False
 
-                    # Hard limit: Skip Python fallback for files > 300MB to prevent OOM
-                    if file_size_mb > 300:
-                        warning(f"Skipping Python fallback for large file ({file_size_mb:.1f}MB): {filepath}")
-                        warning(f"Track {track_id} requires Rust server (Claxon decoder more efficient)")
-                        # Return False to mark as failed and re-queue if Rust server wasn't available
-                        return False
+                debug(f"Loading audio for fingerprint: {filepath}")
+                audio, sr = load_audio(filepath)
 
-                    # Fall back to Python analyzer (slower but reliable for small files)
-                    debug(f"Using Python analyzer for fingerprint: {filepath}")
-                    debug(f"Loading audio for fingerprint: {filepath}")
-                    audio, sr = load_audio(filepath)
+                # Cap at 90 s to match FingerprintService and prevent OOM
+                # on long files (podcasts, DJ mixes) (#2896).
+                max_samples = int(90.0 * sr)
+                if len(audio) > max_samples:
+                    audio = audio[:max_samples]
 
-                    # Cap at 90 s to match FingerprintService and prevent OOM
-                    # on long files (podcasts, DJ mixes) (#2896).
-                    max_samples = int(90.0 * sr)
-                    if len(audio) > max_samples:
-                        audio = audio[:max_samples]
-
-                    try:
-                        debug(f"Extracting fingerprint for track {track_id}")
-                        fingerprint = self.analyzer.analyze(audio, sr)
-                    finally:
-                        # CRITICAL: Explicitly free audio array immediately after analysis
-                        # With 16 concurrent workers, audio arrays can accumulate (50-150MB each)
-                        # Without explicit cleanup, this causes unbounded memory growth
-                        del audio
-                        gc.collect()
+                try:
+                    debug(f"Extracting fingerprint for track {track_id}")
+                    fingerprint = self.analyzer.analyze(audio, sr)
+                finally:
+                    # Free the audio array immediately; with many concurrent workers these
+                    # (50-150 MB each) accumulate and cause unbounded memory growth.
+                    del audio
+                    gc.collect()
 
             # Filter out metadata keys (like '_harmonic_analysis_method') that shouldn't be stored
             # Keep only the 25 actual fingerprint dimensions
@@ -413,122 +228,6 @@ class FingerprintExtractor:
         except Exception as e:
             error(f"Error extracting fingerprint for track {track_id} ({filepath}): {e}")
             return False
-
-    async def _get_fingerprints_concurrent(self, track_ids_paths: list[tuple[int, str]], batch_size: int = 5) -> dict[int, dict[str, Any] | None]:
-        """
-        Extract fingerprints concurrently for multiple tracks (Phase 3B: Request Pipelining).
-
-        Sends up to `batch_size` requests concurrently to the Rust server, reducing HTTP
-        overhead compared to sequential requests. This achieves 15-20% throughput improvement.
-
-        Args:
-            track_ids_paths: List of (track_id, filepath) tuples
-            batch_size: Number of concurrent requests (default: 5)
-
-        Returns:
-            Dictionary mapping track_id -> fingerprint dict or None
-        """
-        import asyncio
-
-        results = {}
-
-        # Process in groups of batch_size
-        for i in range(0, len(track_ids_paths), batch_size):
-            batch = track_ids_paths[i:i+batch_size]
-
-            # Create concurrent tasks for this batch
-            async def fetch_fingerprint(track_id: int, filepath: str) -> tuple[int, dict[str, Any] | None]:
-                """Fetch single fingerprint with error handling."""
-                try:
-                    return track_id, await self._get_fingerprint_from_rust_server_async(track_id, filepath)
-                except CorruptedTrackError:
-                    self._delete_corrupted_track(track_id, filepath)
-                    return track_id, None
-                except Exception as e:
-                    warning(f"Error getting fingerprint for track {track_id}: {e}")
-                    return track_id, None
-
-            # Run all tasks in batch concurrently
-            try:
-                tasks = [fetch_fingerprint(track_id, filepath) for track_id, filepath in batch]
-                batch_results = await asyncio.gather(*tasks, return_exceptions=False)
-
-                # Collect results
-                for track_id, fingerprint in batch_results:
-                    results[track_id] = fingerprint
-
-            except Exception as e:
-                error(f"Error processing batch: {e}")
-
-        return results
-
-    async def extract_batch_concurrent(self, track_ids_paths: list[tuple[int, str]], batch_size: int = 5) -> dict[str, int]:
-        """
-        Extract and store fingerprints concurrently for multiple tracks (Phase 3D).
-
-        Extracts all fingerprints concurrently using asyncio, reducing total time from
-        N*T (sequential) to ceil(N/batch_size)*T (concurrent with batching).
-        Expected improvement: 5-10x throughput increase (28.7 tracks/sec → 140+ tracks/sec).
-
-        Args:
-            track_ids_paths: List of (track_id, filepath) tuples
-            batch_size: Number of concurrent requests per batch (default: 5)
-
-        Returns:
-            Dictionary with counts: {'success': N, 'failed': M, 'corrupted': K}
-        """
-        from datetime import datetime, timezone
-
-        stats = {'success': 0, 'failed': 0, 'corrupted': 0}
-
-        # Extract all fingerprints concurrently
-        fingerprints = await self._get_fingerprints_concurrent(track_ids_paths, batch_size)
-
-        # Store results in database
-        for track_id, fingerprint in fingerprints.items():
-            try:
-                if fingerprint is None:
-                    # Fingerprint extraction failed
-                    stats['failed'] += 1
-                    # Mark as failed in database
-                    self.fingerprint_repo.update_status(track_id, 'failed', None)
-                else:
-                    # Success - store fingerprint
-                    self.fingerprint_repo.store_fingerprint(
-                        track_id,
-                        fingerprint['sub_bass_pct'],
-                        fingerprint['bass_pct'],
-                        fingerprint['low_mid_pct'],
-                        fingerprint['mid_pct'],
-                        fingerprint['upper_mid_pct'],
-                        fingerprint['presence_pct'],
-                        fingerprint['air_pct'],
-                        fingerprint['lufs'],
-                        fingerprint['crest_db'],
-                        fingerprint['bass_mid_ratio'],
-                        fingerprint['tempo_bpm'],
-                        fingerprint['rhythm_stability'],
-                        fingerprint['transient_density'],
-                        fingerprint['silence_ratio'],
-                        fingerprint['spectral_centroid'],
-                        fingerprint['spectral_rolloff'],
-                        fingerprint['spectral_flatness'],
-                        fingerprint['harmonic_ratio'],
-                        fingerprint['pitch_stability'],
-                        fingerprint['chroma_energy'],
-                        fingerprint['dynamic_range_variation'],
-                        fingerprint['loudness_variation_std'],
-                        fingerprint['peak_consistency'],
-                        fingerprint['stereo_width'],
-                        fingerprint['phase_correlation'],
-                    )
-                    self.fingerprint_repo.update_status(track_id, 'completed', datetime.now(timezone.utc).isoformat())
-                    stats['success'] += 1
-            except Exception as e:
-                error(f"Error storing fingerprint for track {track_id}: {e}")
-                stats['failed'] += 1
-
-        return stats
 
     def extract_batch(self, track_ids_paths: list[tuple[int, str]], max_failures: int = 10) -> dict[str, int]:
         """

@@ -11,21 +11,10 @@ rustfft = "6.1"
 realfft = "3.3"
 pyo3 = { version = "0.23", features = ["extension-module"] }
 numpy = "0.23"
-# gRPC dependencies
-tonic = "0.12"
-prost = "0.13"
-tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
 
 [lib]
 name = "auralis_dsp"
 crate-type = ["cdylib", "rlib"]  # Build as Python extension + Rust library
-
-[[bin]]
-name = "grpc-fingerprint-server"
-path = "src/bin/grpc_fingerprint_server.rs"
-
-[build-dependencies]
-tonic-build = "0.12"
 
 [dev-dependencies]
 criterion = "0.5"
