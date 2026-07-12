@@ -62,7 +62,7 @@ Each item = **one PR**, independently revertible:
 | # | Item | Note |
 |---|------|------|
 | 11 | `SpectrumMapper` → fold into `AdaptiveTargetGenerator` | The old roadmap's never-done "architecture cleanup." Still used by `HybridProcessor`. Needs a design pass |
-| 12 | Two Rust fingerprint surfaces (PyO3 in-process vs gRPC server) | **Investigated 2026-07-11 — the gRPC server is DEAD, not a parallel impl.** `grpc_fingerprint_server.rs` has its own `compute_25d_fingerprint` with **hardcoded placeholder** values (7 freq bands, 3 spectral, rhythm_stability) vs the PyO3 path's real `fingerprint_compute::compute_complete_fingerprint`. It's a `tonic` gRPC server but the Python client posts **HTTP JSON**, and **nothing launches it** — `_is_rust_server_available()` is always False, so the branch never runs. **Recommend removal** (Rust bin + Cargo `[[bin]]`/tonic-build + the Python client path `_call_rust_server`/`_is_rust_server_available`/`use_rust_server`/`RUST_SERVER_URL`). Sizable — touches the Rust build (needs `maturin`/`cargo` rebuild to verify) + the extractor API. Also corrected the deep-dive docs that wrongly called it the "primary path" |
+| 12 | Two Rust fingerprint surfaces (PyO3 in-process vs gRPC server) | ✅ **Done 2026-07-11 — removed the dead gRPC path** (−1,031 LOC: Rust bin/proto/build.rs + tonic/prost/tokio Cargo deps; Python client machinery + unused concurrent-batch subsystem + `use_rust_server`; 2 dead tests). Behavior-preserving (the path never ran). Lib + PyO3 module rebuild clean; suite collects. **Investigated 2026-07-11 — the gRPC server was DEAD, not a parallel impl.** `grpc_fingerprint_server.rs` has its own `compute_25d_fingerprint` with **hardcoded placeholder** values (7 freq bands, 3 spectral, rhythm_stability) vs the PyO3 path's real `fingerprint_compute::compute_complete_fingerprint`. It's a `tonic` gRPC server but the Python client posts **HTTP JSON**, and **nothing launches it** — `_is_rust_server_available()` is always False, so the branch never runs. **Recommend removal** (Rust bin + Cargo `[[bin]]`/tonic-build + the Python client path `_call_rust_server`/`_is_rust_server_available`/`use_rust_server`/`RUST_SERVER_URL`). Sizable — touches the Rust build (needs `maturin`/`cargo` rebuild to verify) + the extractor API. Also corrected the deep-dive docs that wrongly called it the "primary path" |
 
 ---
 
@@ -102,8 +102,34 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
   slot now stays `None` and is lazily filled with the correct `AdaptiveMasteringEngine`). This
   was found while working item #5.
 
+## Follow-on: consolidate fingerprint computation on in-process Rust (#13, proposed)
+
+The **key discovery** from #12: the Rust `fingerprint_compute::compute_complete_fingerprint`
+is a **complete, real 25D implementation** (frequency real-FFT, dynamics, temporal, spectral,
+harmonic, variation, stereo — each its own Rust module), already exposed via PyO3
+`compute_fingerprint` and **already used** by some backend paths
+(`mastering_target_service`, `fingerprint_generator`). Meanwhile the heavy Python
+`AudioFingerprintAnalyzer` recomputes most dims in **librosa/NumPy** — redundant.
+
+**Proposed:** route `AudioFingerprintAnalyzer` (and thus `FingerprintExtractor` /
+`FingerprintService`) through the in-process Rust `compute_fingerprint`, then delete the
+redundant librosa/NumPy DSP. Also lifts the >300 MB OOM guard (Rust decodes efficiently).
+
+**Consequences (needs a plan + decision):**
+- Rust vs librosa produce *different* values → **all fingerprints change** → bump
+  `FINGERPRINT_ALGORITHM_VERSION` and re-fingerprint the library (machinery exists).
+- Requires **parity/sanity validation** (compare Rust vs Python on real audio; confirm
+  similarity still behaves) before flipping.
+- Staged: (1) validate Rust≈Python, (2) switch the analyzer, (3) delete redundant Python DSP,
+  (4) verify + re-fingerprint.
+
 ## Progress log
 
+- **2026-07-11 (#12 removal)** — Removed the dead gRPC fingerprint path entirely (−1,031 LOC,
+  Rust + Python + 2 tests). Behavior-preserving (the path never ran). Rebuilt the PyO3 module
+  without tonic/prost/tokio; `compute_fingerprint` still returns 25 dims; suite collects 5,442.
+  The 6 pre-existing `test_fingerprint_extractor_sidecar` failures are unrelated (identical at
+  HEAD). Surfaced the follow-on port (#13 above).
 - **2026-07-11 (#12 investigated + doc fix)** — The "primary" Rust gRPC fingerprint server is
   **dead code**: stub compute (placeholder dims), `tonic` gRPC server vs an **HTTP** Python
   client, and nothing launches it → the extractor branch never fires; the real primary path is
