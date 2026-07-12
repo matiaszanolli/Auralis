@@ -16,7 +16,6 @@ from fastapi import APIRouter, FastAPI
 from routers.albums import create_albums_router
 from routers.artists import create_artists_router
 from routers.artwork import create_artwork_router
-from routers.cache_streamlined import create_streamlined_cache_router
 from routers.enhancement import create_enhancement_router
 from routers.files import create_files_router
 from routers.library import create_library_router
@@ -27,12 +26,17 @@ from routers.metadata import create_metadata_router
 from routers.player import create_player_router
 from routers.playlists import create_playlists_router
 from routers.settings import create_settings_router
-from routers.similarity import create_similarity_router
-from routers.wav_streaming import create_wav_streaming_router
 
 # Import router factories
 from routers.system import create_system_router
 from routers.health import create_health_router
+
+# NOTE: cache_streamlined, similarity, and wav_streaming router factories are
+# imported locally inside their own try/except blocks below (matching
+# processing_api), not at module level — their `include_router()` calls are
+# already guarded so a broken transitive dependency degrades gracefully
+# (fixes #2324), but a module-level import here would raise before that
+# protection is ever reached, hard-crashing startup anyway (#3907).
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +236,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     # was still empty at setup_routers() time).
     if HAS_STREAMLINED_CACHE:
         try:
+            from routers.cache_streamlined import create_streamlined_cache_router
             cache_router: APIRouter = create_streamlined_cache_router(
                 get_cache_manager=lambda: globals_dict.get('streamlined_cache'),
                 broadcast_manager=manager
@@ -244,6 +249,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     # Create and include similarity router (if available)
     if HAS_SIMILARITY:
         try:
+            from routers.similarity import create_similarity_router
             similarity_router: APIRouter = create_similarity_router(
                 get_similarity_system=get_component('similarity_system'),
                 get_graph_builder=get_component('graph_builder'),
@@ -256,6 +262,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
 
     # Create and include WAV streaming router
     try:
+        from routers.wav_streaming import create_wav_streaming_router
         streaming_router: APIRouter = create_wav_streaming_router(
             get_multi_tier_buffer=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
             chunked_audio_processor_class=chunked_audio_processor_class,
