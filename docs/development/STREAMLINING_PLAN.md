@@ -39,10 +39,10 @@ Each item = **one PR**, independently revertible:
 
 ## Wave 2 — Flag-gated / effectively-dead legacy paths (low-medium risk)
 
-| # | Item | Verified state | Action |
+| # | Item | Verified state | Status |
 |---|------|----------------|--------|
-| 5 | `AdaptiveMode` (legacy adaptive path) | `use_continuous_space=False` is set **nowhere** → dead in production. **But** `HybridMode` delegates to it as a no-reference fallback, and `chunked_processor` + one test reference it | Rework `HybridMode`'s fallback off `AdaptiveMode`, then retire it. Not a pure delete |
-| 6 | Two processor caches | `hybrid_processor._processor_cache` (max 10, module-level convenience fns) vs `ProcessorFactory` (max 32, web backend). Convenience fns used by `auralis/__init__.py`, `audio_processing_pipeline.py`, `processor_factory.py`, tests | Make `ProcessorFactory` the single cache owner; convenience fns delegate |
+| 5 | `AdaptiveMode` (legacy adaptive path) | `use_continuous_space=False` is set **nowhere**. `chunked_processor` built its own `AdaptiveMode` in `_init_adaptive_mastering` — but that instance was never used for processing and **poisoned** the `adaptive_mastering_engine` slot with the wrong type (a latent bug, see below). `HybridMode` still delegates to `AdaptiveMode` as a no-reference fallback; `hybrid_processor` still holds `self.adaptive_mode` | 🟡 **Partial 2026-07-11** — removed the `chunked_processor` usage (+ fixed the latent bug). **Remaining:** rework `HybridMode`'s fallback and retire `hybrid_processor.adaptive_mode` |
+| 6 | Two processor caches | `hybrid_processor._processor_cache` (max 10, core library) vs `ProcessorFactory` (max 32, backend). **These sit at different layers** — `auralis` core cannot import the backend's `ProcessorFactory` (confirmed), so this is layered, not a naive merge. The real duplication was 3 **unused** `process_adaptive/reference/hybrid` wrappers in `processor_factory` duplicating `hybrid_processor`'s public API | ✅ **Done 2026-07-11** — removed the 3 dead `processor_factory` convenience fns. Two caches **kept** (layered/intentional) |
 
 ---
 
@@ -81,9 +81,26 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
 
 ---
 
+## Bugs discovered during streamlining
+
+- **`get_mastering_recommendation` silently returned `None` for fingerprinted tracks**
+  (chunked_processor). `_init_adaptive_mastering()` (run whenever a fingerprint was cached at
+  init) stored an `AdaptiveMode` in `self.adaptive_mastering_engine`, but
+  `get_mastering_recommendation` expects that slot to hold an `AdaptiveMasteringEngine` and
+  calls `.recommend_weighted()` on it → `AttributeError` → swallowed by `except` → `None`. So
+  weighted mastering recommendations failed exactly when a fingerprint was available (the normal
+  case). **Fixed 2026-07-11** by removing the dead-and-harmful `_init_adaptive_mastering` (the
+  slot now stays `None` and is lazily filled with the correct `AdaptiveMasteringEngine`). This
+  was found while working item #5.
+
 ## Progress log
 
-- **2026-07-11** — Plan created. Wave 1 (#2 `main.tsx`, #3 old health/version schemas, #4
-  phantom `streaming/` docstring) completed and verified (schemas import clean; affected test
-  collects 50 tests). #1 reclassified from Wave 1 → Wave 3 after re-verification revealed two
-  distinct same-named classes, not dead code.
+- **2026-07-11 (Wave 2)** — #6 done: removed 3 unused `processor_factory` convenience wrappers
+  (the two caches are layered, kept). #5 partial: removed the `AdaptiveMode` usage from
+  `chunked_processor` and fixed the recommendation bug above; `HybridMode` fallback +
+  `hybrid_processor.adaptive_mode` still to retire. Verified: both files compile/import;
+  recommendation integration tests pass (6 passed); `test_enhancement_api` shows 10 failures
+  that are **pre-existing** (identical on a clean HEAD worktree) — no regression.
+- **2026-07-11 (Wave 1)** — Plan created. Wave 1 (#2 `main.tsx`, #3 old health/version schemas,
+  #4 phantom `streaming/` docstring) completed and verified. #1 reclassified from Wave 1 → Wave
+  3 after re-verification revealed two distinct same-named classes, not dead code.
