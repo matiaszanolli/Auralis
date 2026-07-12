@@ -589,8 +589,8 @@ class TrackRepository(BaseRepository):
         try:
             track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
             if track:
-                track.play_count = (track.play_count or 0) + 1  # type: ignore[assignment]
-                track.last_played = func.now()  # type: ignore[assignment]
+                track.play_count = (track.play_count or 0) + 1
+                track.last_played = func.now()
                 session.commit()
                 debug(f"Recorded play for track: {track.title}")
         except Exception as e:
@@ -605,7 +605,7 @@ class TrackRepository(BaseRepository):
         try:
             track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
             if track:
-                track.favorite = favorite  # type: ignore[assignment]
+                track.favorite = favorite
                 session.commit()
                 debug(f"Set favorite={favorite} for track: {track.title}")
         except Exception as e:

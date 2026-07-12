@@ -18,7 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base, TimestampMixin
 
 
-class UserSettings(Base, TimestampMixin):  # type: ignore[misc]
+class UserSettings(Base, TimestampMixin):
     """Model for user settings and preferences."""
     __tablename__ = 'user_settings'
 

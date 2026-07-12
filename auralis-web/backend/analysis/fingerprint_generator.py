@@ -34,7 +34,7 @@ try:
     logger.info("✅ Rust fingerprinting (PyO3) module available")
 except ImportError:
     RUST_AVAILABLE = False
-    compute_fingerprint = None  # type: ignore
+    compute_fingerprint = None
     logger.warning("⚠️  Rust fingerprinting module not available, fingerprint generation will fail")
 
 

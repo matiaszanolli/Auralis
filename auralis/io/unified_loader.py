@@ -63,7 +63,7 @@ def load_audio(
     # Check file size
     file_size = file_path.stat().st_size
     if file_size == 0:
-        raise ModuleError(f"{Code.ERROR_EMPTY_FILE}: {file_path}")  # type: ignore[attr-defined]
+        raise ModuleError(f"{Code.ERROR_EMPTY_FILE}: {file_path}")
 
     debug(f"File size: {file_size / (1024*1024):.2f} MB")
 
@@ -71,7 +71,7 @@ def load_audio(
     file_ext = file_path.suffix.lower()
 
     if file_ext not in SUPPORTED_FORMATS:
-        raise ModuleError(f"{Code.ERROR_UNSUPPORTED_FORMAT}: {file_ext}")  # type: ignore[attr-defined]
+        raise ModuleError(f"{Code.ERROR_UNSUPPORTED_FORMAT}: {file_ext}")
 
     info(f"Detected format: {SUPPORTED_FORMATS[file_ext]}")
 
@@ -89,7 +89,7 @@ def load_audio(
     from auralis.io.loader import MAX_DURATION_SECONDS
     duration = len(audio_data) / max(sample_rate, 1)
     if duration > MAX_DURATION_SECONDS:
-        raise ModuleError(  # type: ignore[attr-defined]
+        raise ModuleError(
             f"{Code.ERROR_CORRUPTED}: Audio file exceeds maximum duration "
             f"({duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
         )

@@ -19,7 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base, TimestampMixin
 
 
-class LibraryStats(Base, TimestampMixin):  # type: ignore[misc]
+class LibraryStats(Base, TimestampMixin):
     """Model for library-wide statistics."""
     __tablename__ = 'library_stats'
 

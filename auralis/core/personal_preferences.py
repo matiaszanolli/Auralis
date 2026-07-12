@@ -52,7 +52,7 @@ except ImportError:
 
     except ImportError:
         @contextlib.contextmanager
-        def _exclusive_lock(lock_path: Path):  # type: ignore[misc]
+        def _exclusive_lock(lock_path: Path):
             """No-op fallback when neither fcntl nor msvcrt is available."""
             yield
 

@@ -252,7 +252,7 @@ class MasteringTargetService:
                 except Exception:
                     duration_value = len(full_audio) / sr
 
-                fingerprint_data['_metadata'] = {  # type: ignore[assignment]
+                fingerprint_data['_metadata'] = {
                     'duration': duration_value,
                     'sample_rate': sr
                 }

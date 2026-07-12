@@ -31,7 +31,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, TimestampMixin, track_artist, track_genre, track_playlist
 
 
-class Track(Base, TimestampMixin):  # type: ignore[misc]
+class Track(Base, TimestampMixin):
     """Model for audio tracks."""
     __tablename__ = 'tracks'
     __table_args__ = (
@@ -170,7 +170,7 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
             }
 
 
-class Album(Base, TimestampMixin):  # type: ignore[misc]
+class Album(Base, TimestampMixin):
     """Model for albums."""
     __tablename__ = 'albums'
 
@@ -224,7 +224,7 @@ class Album(Base, TimestampMixin):  # type: ignore[misc]
         }
 
 
-class Artist(Base, TimestampMixin):  # type: ignore[misc]
+class Artist(Base, TimestampMixin):
     """Model for artists."""
     __tablename__ = 'artists'
 
@@ -262,7 +262,7 @@ class Artist(Base, TimestampMixin):  # type: ignore[misc]
         }
 
 
-class Genre(Base, TimestampMixin):  # type: ignore[misc]
+class Genre(Base, TimestampMixin):
     """Model for music genres."""
     __tablename__ = 'genres'
 
@@ -291,7 +291,7 @@ class Genre(Base, TimestampMixin):  # type: ignore[misc]
         }
 
 
-class Playlist(Base, TimestampMixin):  # type: ignore[misc]
+class Playlist(Base, TimestampMixin):
     """Model for playlists."""
     __tablename__ = 'playlists'
 
@@ -338,7 +338,7 @@ class Playlist(Base, TimestampMixin):  # type: ignore[misc]
         }
 
 
-class QueueState(Base, TimestampMixin):  # type: ignore[misc]
+class QueueState(Base, TimestampMixin):
     """
     Model for persisting playback queue state.
 
@@ -400,7 +400,7 @@ class QueueState(Base, TimestampMixin):  # type: ignore[misc]
         return state
 
 
-class QueueHistory(Base, TimestampMixin):  # type: ignore[misc]
+class QueueHistory(Base, TimestampMixin):
     """
     Model for tracking queue state history for undo/redo operations.
 
@@ -465,7 +465,7 @@ class QueueHistory(Base, TimestampMixin):  # type: ignore[misc]
         return entry
 
 
-class QueueTemplate(Base, TimestampMixin):  # type: ignore[misc]
+class QueueTemplate(Base, TimestampMixin):
     """
     Model for saving and restoring queue configurations (templates).
 

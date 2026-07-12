@@ -121,7 +121,7 @@ def create_track_info(track: Any) -> TrackInfo | None:
     album_art_url: str | None = None
     album_id = getattr(track, 'album_id', None)
     if not album_id and hasattr(track, 'album') and track.album and not isinstance(track.album, str) and hasattr(track.album, 'id'):
-        album_id = track.album.id  # type: ignore[union-attr]
+        album_id = track.album.id
     if album_id:
         album_art_url = f"/api/albums/{album_id}/artwork"
 

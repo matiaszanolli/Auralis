@@ -185,7 +185,7 @@ class DSPBackend:
                 n_fft=n_fft,
                 hop_length=hop_length,
                 threshold_multiplier=threshold
-            )  # type: ignore[no-any-return]
+            )
         except Exception as e:
             logger.error(f"Tempo detection failed: {e}")
             raise

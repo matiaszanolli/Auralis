@@ -88,10 +88,10 @@ class QueueRepository(BaseRepository):
                 session.add(queue_state)
 
             # Update queue state
-            queue_state.track_ids = json.dumps(track_ids)  # type: ignore[assignment]
-            queue_state.current_index = current_index  # type: ignore[assignment]
-            queue_state.is_shuffled = is_shuffled  # type: ignore[assignment]
-            queue_state.repeat_mode = repeat_mode  # type: ignore[assignment]
+            queue_state.track_ids = json.dumps(track_ids)
+            queue_state.current_index = current_index
+            queue_state.is_shuffled = is_shuffled
+            queue_state.repeat_mode = repeat_mode
 
             session.commit()
             session.refresh(queue_state)
@@ -126,7 +126,7 @@ class QueueRepository(BaseRepository):
             if 'track_ids' in updates:
                 track_ids = updates['track_ids']
                 if isinstance(track_ids, list):
-                    queue_state.track_ids = json.dumps(track_ids)  # type: ignore[assignment]
+                    queue_state.track_ids = json.dumps(track_ids)
                 else:
                     queue_state.track_ids = track_ids
             else:
@@ -148,7 +148,7 @@ class QueueRepository(BaseRepository):
 
             # Update is_shuffled
             if 'is_shuffled' in updates:
-                queue_state.is_shuffled = bool(updates['is_shuffled'])  # type: ignore[assignment]
+                queue_state.is_shuffled = bool(updates['is_shuffled'])
 
             session.commit()
             session.refresh(queue_state)
@@ -172,10 +172,10 @@ class QueueRepository(BaseRepository):
                 queue_state = QueueState()
                 session.add(queue_state)
             else:
-                queue_state.track_ids = json.dumps([])  # type: ignore[assignment]
-                queue_state.current_index = 0  # type: ignore[assignment]
-                queue_state.is_shuffled = False  # type: ignore[assignment]
-                queue_state.repeat_mode = 'off'  # type: ignore[assignment]
+                queue_state.track_ids = json.dumps([])
+                queue_state.current_index = 0
+                queue_state.is_shuffled = False
+                queue_state.repeat_mode = 'off'
 
             session.commit()
             session.refresh(queue_state)

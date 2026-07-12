@@ -62,7 +62,7 @@ class SettingsRepository(BaseRepository):
             # Handle scan_folders separately as it needs JSON serialization
             if 'scan_folders' in updates:
                 if isinstance(updates['scan_folders'], list):
-                    settings.scan_folders = json.dumps(updates['scan_folders'])  # type: ignore[assignment]
+                    settings.scan_folders = json.dumps(updates['scan_folders'])
                 else:
                     settings.scan_folders = updates['scan_folders']
                 del updates['scan_folders']
@@ -70,7 +70,7 @@ class SettingsRepository(BaseRepository):
             # Handle file_types as comma-separated string
             if 'file_types' in updates:
                 if isinstance(updates['file_types'], list):
-                    settings.file_types = ','.join(updates['file_types'])  # type: ignore[assignment]
+                    settings.file_types = ','.join(updates['file_types'])
                 else:
                     settings.file_types = updates['file_types']
                 del updates['file_types']
@@ -145,7 +145,7 @@ class SettingsRepository(BaseRepository):
             folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
             if folder not in folders:
                 folders.append(folder)
-                settings.scan_folders = json.dumps(folders)  # type: ignore[assignment]
+                settings.scan_folders = json.dumps(folders)
 
             session.commit()
             session.refresh(settings)
@@ -171,7 +171,7 @@ class SettingsRepository(BaseRepository):
             folders: list[str] = json.loads(str(settings.scan_folders)) if settings.scan_folders else []
             if folder in folders:
                 folders.remove(folder)
-                settings.scan_folders = json.dumps(folders)  # type: ignore[assignment]
+                settings.scan_folders = json.dumps(folders)
 
             session.commit()
             session.refresh(settings)

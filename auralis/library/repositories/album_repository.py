@@ -207,7 +207,7 @@ class AlbumRepository(BaseRepository):
 
                     if artwork_path:
                         # Update album with artwork path
-                        album.artwork_path = artwork_path  # type: ignore[assignment]
+                        album.artwork_path = artwork_path
                         session.commit()
                         session.refresh(album)
                         return artwork_path
@@ -232,7 +232,7 @@ class AlbumRepository(BaseRepository):
         try:
             album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
             if album:
-                album.artwork_path = artwork_path  # type: ignore[assignment]
+                album.artwork_path = artwork_path
                 session.commit()
                 return True
             return False
@@ -257,9 +257,9 @@ class AlbumRepository(BaseRepository):
             album = session.execute(select(Album).where(Album.id == album_id)).scalars().first()
             if album and album.artwork_path:
                 # Delete file
-                self.artwork_extractor.delete_artwork(album.artwork_path)  # type: ignore[arg-type]
+                self.artwork_extractor.delete_artwork(album.artwork_path)
                 # Clear database reference
-                album.artwork_path = None  # type: ignore[assignment]
+                album.artwork_path = None
                 session.commit()
                 return True
             return False
@@ -289,7 +289,7 @@ class AlbumRepository(BaseRepository):
             if not album:
                 return None
 
-            album.artwork_path = artwork_path  # type: ignore[assignment]
+            album.artwork_path = artwork_path
             session.commit()
             session.refresh(album)
             session.expunge(album)

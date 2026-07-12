@@ -19,7 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base
 
 
-class SchemaVersion(Base):  # type: ignore[misc]
+class SchemaVersion(Base):
     """Model for tracking database schema versions."""
     __tablename__ = 'schema_version'
 

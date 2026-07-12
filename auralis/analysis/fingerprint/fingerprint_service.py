@@ -346,7 +346,7 @@ class FingerprintService:
             # Validated empirically: reduces LUFS RMSE from 1.96 → 1.07 dB,
             # max error from 9.2 → 3.6 dB (June 2026 study, 31 tracks).
             try:
-                if '_probe_audios' in dir() and _probe_audios and fingerprint:  # type: ignore[name-defined]
+                if '_probe_audios' in dir() and _probe_audios and fingerprint:
                     def _rms_lufs_crest(a: np.ndarray) -> tuple[float, float]:
                         """Return (lufs_approx, crest_db) from a mono/stereo array."""
                         mono = np.mean(a, axis=0) if a.ndim == 2 else a
@@ -363,7 +363,7 @@ class FingerprintService:
                     all_lufs  = [lufs_body]
                     all_crest = [crest_body]
 
-                    for _pa in _probe_audios:  # type: ignore[name-defined]
+                    for _pa in _probe_audios:
                         _pl, _pc = _rms_lufs_crest(_pa.astype(np.float64))
                         if _pl > -70.0:   # skip silent probes
                             all_lufs.append(_pl)

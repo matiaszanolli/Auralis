@@ -30,8 +30,8 @@ try:
     HAS_WATCHDOG = True
 except ImportError:
     HAS_WATCHDOG = False
-    Observer = None  # type: ignore[assignment,misc]
-    FileSystemEventHandler = object  # type: ignore[assignment,misc]
+    Observer = None
+    FileSystemEventHandler = object
 
 
 class _DebounceHandler(FileSystemEventHandler):  # type: ignore[misc]
@@ -372,7 +372,7 @@ class LibraryAutoScanner:
         # Compare current watched dirs against new list
         current_dirs: set[str] = set()
         if self._observer and self._observer.is_alive():
-            current_dirs = {str(w.path) for w in self._observer._watches}  # type: ignore[union-attr]
+            current_dirs = {str(w.path) for w in self._observer._watches}
 
         new_dirs = set(scan_folders)
         if current_dirs == new_dirs:

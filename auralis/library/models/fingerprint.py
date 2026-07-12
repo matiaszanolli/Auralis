@@ -19,7 +19,7 @@ from .base import Base, TimestampMixin
 from .core import Track
 
 
-class TrackFingerprint(Base, TimestampMixin):  # type: ignore[misc]
+class TrackFingerprint(Base, TimestampMixin):
     """Model for 25D audio fingerprints used in similarity analysis.
 
     Stores multi-dimensional acoustic fingerprints for cross-genre music
@@ -203,7 +203,7 @@ class TrackFingerprint(Base, TimestampMixin):  # type: ignore[misc]
         ]
 
 
-class SimilarityGraph(Base, TimestampMixin):  # type: ignore[misc]
+class SimilarityGraph(Base, TimestampMixin):
     """Model for K-nearest neighbors similarity graph.
 
     Stores pre-computed similarity relationships for fast queries.

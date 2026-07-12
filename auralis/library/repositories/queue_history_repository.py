@@ -139,16 +139,16 @@ class QueueHistoryRepository(BaseRepository):
 
             # Parse the snapshot
             try:
-                state_snapshot = json.loads(latest_history.state_snapshot)  # type: ignore[arg-type]
+                state_snapshot = json.loads(latest_history.state_snapshot)
             except json.JSONDecodeError:
                 raise ValueError(f"Corrupted history entry {latest_history.id}: invalid JSON")
 
             # Apply the snapshot directly in this session so the queue-state
             # update and the history deletion are committed atomically (issue #2239).
-            queue_state.track_ids = json.dumps(state_snapshot.get('track_ids', []))  # type: ignore[assignment]
-            queue_state.current_index = state_snapshot.get('current_index', 0)  # type: ignore[assignment]
-            queue_state.is_shuffled = state_snapshot.get('is_shuffled', False)  # type: ignore[assignment]
-            queue_state.repeat_mode = state_snapshot.get('repeat_mode', 'off')  # type: ignore[assignment]
+            queue_state.track_ids = json.dumps(state_snapshot.get('track_ids', []))
+            queue_state.current_index = state_snapshot.get('current_index', 0)
+            queue_state.is_shuffled = state_snapshot.get('is_shuffled', False)
+            queue_state.repeat_mode = state_snapshot.get('repeat_mode', 'off')
 
             # Delete the history entry — both changes land in one commit
             session.delete(latest_history)

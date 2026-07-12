@@ -717,7 +717,7 @@ class ChunkedAudioProcessor:
             if self.fingerprint is None:
                 logger.info(f"📊 Extracting mastering fingerprint for recommendation analysis...")
                 try:
-                    self.fingerprint = MasteringFingerprint.from_audio_file(self.filepath)  # type: ignore[assignment]
+                    self.fingerprint = MasteringFingerprint.from_audio_file(self.filepath)
                 except Exception as e:
                     logger.warning(f"Failed to extract fingerprint for recommendations: {e}")
                     return None
