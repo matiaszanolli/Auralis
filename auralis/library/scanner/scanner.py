@@ -77,7 +77,8 @@ class LibraryScanner:
         )
         self.duplicate_detector: Any = DuplicateDetector(
             self.file_discovery,
-            self.audio_analyzer
+            self.audio_analyzer,
+            library_manager
         )
 
     def set_progress_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
