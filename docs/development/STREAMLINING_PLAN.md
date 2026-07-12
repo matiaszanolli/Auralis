@@ -52,8 +52,8 @@ Each item = **one PR**, independently revertible:
 |---|------|--------------|------|
 | 1 | **Two `SpectralOperations` classes, same name** — `metrics/spectral_ops.py` (low-level magnitude helpers, test-only) vs `utilities/spectral_ops.py` (high-level `calculate_*`, used in production by `batch/spectral.py`) | Both re-exported via package `__init__`s → **name collision** | ✅ **Done 2026-07-11** — renamed the metrics class → `SpectralMetrics` (fits the package's `*Metrics` convention); updated both `__init__`s + the test. Production `utilities.SpectralOperations` untouched. 52 metrics tests pass |
 | 7 | Two frontend REST clients: `useRestAPI` (16 sites) + `standardizedAPIClient` (9 sites) | 25 call sites | Pick one canonical; migrate the other. Biggest consistency win |
-| 8 | **Two parallel content-analysis stacks** (reclassified — bigger than "two genre classifiers"). `ml/RuleBasedGenreClassifier` feeds `core/analysis/content_analyzer.py` (mastering path); `content/GenreAnalyzer`+`MoodAnalyzer` feed `analysis/content_analysis.py::ContentAnalyzer`, which is behind the public `analyze_audio_content` API. Each stack has its own `ContentAnalyzer` class (a second name collision). `content/RecommendationEngine` has **no callers** | design-level + public API | **Wave 4 / needs decision** — pick a canonical content stack; `analyze_audio_content` removal is a breaking public-API change. `RecommendationEngine` is separately dead-removable |
-| 10 | Two `.25d` systems: `FingerprintStorage` (3) + `SidecarManager` (1) | 4 sites | **Investigate first** — may be legitimately different (centralized cache vs per-file sidecar) |
+| 8 | **Two parallel content-analysis stacks** (reclassified — bigger than "two genre classifiers"). `ml/RuleBasedGenreClassifier` feeds `core/analysis/content_analyzer.py` (mastering path); `content/GenreAnalyzer`+`MoodAnalyzer`+`RecommendationEngine` feed `analysis/content_analysis.py::ContentAnalyzer`, which is behind the public `analyze_audio_content` API. Each stack has its own `ContentAnalyzer` class (a second name collision) | design-level + public API | **Wave 4 / needs decision** — pick a canonical content stack; `analyze_audio_content` removal is a breaking public-API change. (NOTE: `RecommendationEngine` is **not** dead — it's used via the `create_recommendation_engine` factory in `content_analysis.py`; an earlier note wrongly called it removable, caught by re-verify) |
+| 10 | Two `.25d` systems: `FingerprintStorage` + `SidecarManager` | — | ✅ **Investigated 2026-07-11 — not duplication.** `FingerprintStorage` = centralized machine-local cache (`~/.auralis/fingerprints/<hash>.25d`, content-keyed); `SidecarManager` = portable per-file sidecar (`<audio>.25d`, travels with the file). Complementary — moved to do-not-collapse. *Optional* future nicety: share the `.25d` JSON schema/serializer between them to prevent format drift |
 
 ---
 
@@ -84,6 +84,9 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
   complementary — a future rename for clarity is the only cleanup, not a collapse.
 - **`AdaptiveMode`** — kept as the backing for the `hybrid`/`reference` mastering modes (see #5).
   Legacy but load-bearing for those modes; documented in its class docstring.
+- **`FingerprintStorage` vs `SidecarManager`** (was #10) — **not duplication.** Centralized
+  content-keyed cache (`~/.auralis/fingerprints/`) vs portable per-file sidecar (`<audio>.25d`).
+  Different capabilities; keep both. Only *optional* cleanup: share the `.25d` serializer.
 
 ---
 
@@ -101,12 +104,21 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
 
 ## Progress log
 
+- **2026-07-11 (#10 classified, RecommendationEngine correction)** — #10 investigated →
+  **not duplication** (centralized cache vs portable sidecar), moved to do-not-collapse. A trial
+  delete of `content/RecommendationEngine` was **reverted** — it's live via the
+  `create_recommendation_engine` factory in `content_analysis.py`; the earlier "dead" note
+  grepped the class name but the import surface is the factory. **Lesson:** grep the factory
+  function name too, not just the class. With this, the mechanical/safe pass is complete —
+  every remaining item (#7, #8, #11, #12) is design-level or decision-gated.
 - **2026-07-11 (#5 closed, #8/#9 reclassified)** — Per product decision the `hybrid`/`reference`
   modes are kept, so #5 is closed with `AdaptiveMode` retained (documented as legacy in its
   docstring). #9 reclassified as **not duplication** (`quality_assessors/` is the base layer for
   `quality/`) → moved to do-not-collapse. #8 reclassified as **two parallel content-analysis
   stacks** (design-level + public `analyze_audio_content` API), bigger than "two genre
-  classifiers"; `content/RecommendationEngine` is separately dead-removable.
+  classifiers". (Corrected: `content/RecommendationEngine` is **not** dead — used via the
+  `create_recommendation_engine` factory in `content_analysis.py`; caught by re-verify when a
+  trial delete broke the import. Grep the factory name, not just the class.)
 - **2026-07-11 (Wave 3)** — #1 done: resolved the `SpectralOperations` name collision by
   renaming the test-only metrics class → `SpectralMetrics` (52 metrics tests pass; production
   `utilities.SpectralOperations` untouched).
