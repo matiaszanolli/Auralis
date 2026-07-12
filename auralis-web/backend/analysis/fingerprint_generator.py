@@ -24,6 +24,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from auralis.io.unified_loader import load_audio
+from core.env_config import get_int_env
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +47,11 @@ except ImportError:
 # without the overhead of ProcessPoolExecutor (pickling, process spawn,
 # module re-import — which can exceed 10s timeout in AppImage environments).
 
-# Number of worker threads for fingerprinting
-_FINGERPRINT_WORKERS = max(1, min(2, (os.cpu_count() or 2) // 2))
+# Number of worker threads for fingerprinting. Override via
+# AURALIS_FINGERPRINT_WORKERS (#3917) — see auralis-web/backend/CONFIG.md.
+_FINGERPRINT_WORKERS = get_int_env(
+    "AURALIS_FINGERPRINT_WORKERS", max(1, min(2, (os.cpu_count() or 2) // 2))
+)
 
 # Module-level ThreadPoolExecutor (lazy initialized)
 _fingerprint_executor: ThreadPoolExecutor | None = None

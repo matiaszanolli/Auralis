@@ -41,6 +41,7 @@ from analysis.fingerprint_generator import FingerprintGenerator
 from auralis.library.repositories.factory import RepositoryFactory
 
 from .chunk_cache import SimpleChunkCache
+from .env_config import get_int_env
 from .stream_protocol import _SEND_QUEUE_MAXSIZE  # noqa: F401 (re-exported for compat)
 
 logger = logging.getLogger(__name__)
@@ -71,8 +72,10 @@ _frame_seq_var: contextvars.ContextVar[list[int] | None] = contextvars.ContextVa
 
 # Maximum number of concurrent audio streams (enhanced, normal, seek).
 # Each stream holds a ChunkedProcessor in memory; unbounded concurrency
-# causes OOM under load (issue #2185).
-MAX_CONCURRENT_STREAMS: int = 10
+# causes OOM under load (issue #2185). Override via AURALIS_MAX_CONCURRENT_STREAMS
+# for deployments beyond the default single-user desktop scope (#3917) — see
+# auralis-web/backend/CONFIG.md.
+MAX_CONCURRENT_STREAMS: int = get_int_env("AURALIS_MAX_CONCURRENT_STREAMS", 10)
 
 # Module-level shared semaphore so the cap is enforced across ALL
 # AudioStreamController instances (fixes #2469: per-instance semaphore

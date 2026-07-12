@@ -19,6 +19,8 @@ import threading
 from collections import OrderedDict
 from typing import Any, NamedTuple
 
+from .env_config import get_int_env
+
 
 class ProcessorCacheKey(NamedTuple):
     """#3733: structured cache key for `ProcessorFactory._processor_cache`.
@@ -43,7 +45,9 @@ logger = logging.getLogger(__name__)
 # 32 entries the cache caps at a few GB worst-case, easily within reach
 # of typical desktop RAM, while still amortising creation cost across
 # rapid track switches and A/B preset comparisons (fixes #3515 / BE-NEW-57).
-_PROCESSOR_CACHE_MAX = 32
+# Override via AURALIS_PROCESSOR_CACHE_MAX (#3917) — see
+# auralis-web/backend/CONFIG.md.
+_PROCESSOR_CACHE_MAX = get_int_env("AURALIS_PROCESSOR_CACHE_MAX", 32)
 
 
 class ProcessorFactory:

@@ -33,6 +33,7 @@ import numpy as np
 from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
+from .env_config import get_int_env
 
 if TYPE_CHECKING:
     from .audio_stream_controller import AudioStreamController
@@ -41,7 +42,9 @@ logger = logging.getLogger(__name__)
 
 # Maximum number of encoded frames queued ahead of the WebSocket sender.
 # Limits Python-heap memory when the client is slower than the encoder.
-_SEND_QUEUE_MAXSIZE: int = 4
+# Override via AURALIS_SEND_QUEUE_MAXSIZE (#3917) — see
+# auralis-web/backend/CONFIG.md.
+_SEND_QUEUE_MAXSIZE: int = get_int_env("AURALIS_SEND_QUEUE_MAXSIZE", 4)
 
 
 def is_websocket_connected(websocket: WebSocket) -> bool:
