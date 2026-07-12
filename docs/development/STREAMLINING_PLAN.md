@@ -128,7 +128,28 @@ Harness (scratchpad `fp_parity.py`) ran Rust vs Python on 5 real files. Findings
   path the key is `sub_bass`, so the real band values are **silently replaced by defaults**.
   The canonical glue fixes this.
 
-### Stage 2+ — plan (not started)
+### Stage 2 — glue (done 2026-07-11, commit d005825b)
+
+`auralis/analysis/fingerprint/rust_fingerprint.py` — `rust_fingerprint_to_schema(raw)` +
+`compute_fingerprint_schema(audio, sr, ch)`. 8 unit tests pass. **Stereo dims re-validated**
+(Stage 1 gap): decorrelated L/R → width 0.24 / corr 0.82; identical → 0.0 / 1.0; real files →
+0.10–0.17 / 0.93–0.98. Rust stereo is correct.
+
+### ⚠️ Scope discovery: Stage 3 obsoletes the Phase-7 sampling subsystem
+
+Routing `AudioFingerprintAnalyzer.analyze()` through Rust makes a whole subsystem dead, because
+Rust computes the full 25D fast enough that sampling-vs-full-track is moot:
+- `SampledHarmonicAnalyzer`, `HarmonicAnalyzer`, and the `batch/` analyzers (spectral, temporal,
+  variation, stereo) + the librosa `utilities`/`metrics` that only serve them.
+- `fingerprint_strategy` / `sampling_interval` params threaded through `UnifiedConfig`,
+  `FingerprintExtractor`, `FingerprintService`, `AudioFingerprintAnalyzer`.
+- The `_harmonic_analysis_method` metadata flag and `tests/test_phase7a_sampling_integration.py`
+  (asserts 26 keys + "sampled"/"full-track") — obsolete.
+
+So Stage 3/4 is a **~15-file, value-changing refactor** (all fingerprints change → version bump →
+re-fingerprint), not a one-method rewire. **Needs a go/no-go on removing the sampling feature.**
+
+### Stage 3+ — plan (blocked on scope decision)
 
 1. Add one canonical **glue** `rust_fingerprint_to_schema(raw) -> 25D schema dict` (renames +
    normalizations above). Single source of truth.
