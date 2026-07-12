@@ -171,12 +171,13 @@ adaptive gains and fingerprint LUFS/crest errors (#3428 / #2518).
 Built with `maturin develop` (PyO3 0.23 + numpy 0.23, crate `auralis_dsp`). Two separate
 Rust surfaces exist:
 
-1. **In-process PyO3 module** `auralis_dsp` — HPSS, YIN pitch, Chroma, tempo, envelope
-   follower, compress/limit, and the full 25D `compute_fingerprint`. Registered in
+1. **In-process PyO3 module** `auralis_dsp` (the live one) — HPSS, YIN pitch, Chroma, tempo,
+   envelope follower, compress/limit, and the full 25D `compute_fingerprint`. Registered in
    [`src/py_bindings.rs`](../../vendor/auralis-dsp/src/py_bindings.rs).
 2. **Standalone gRPC fingerprint server** —
-   [`src/bin/grpc_fingerprint_server.rs`](../../vendor/auralis-dsp/src/bin/grpc_fingerprint_server.rs),
-   the *primary* fingerprint extraction path (see [fingerprinting.md](fingerprinting.md)).
+   [`src/bin/grpc_fingerprint_server.rs`](../../vendor/auralis-dsp/src/bin/grpc_fingerprint_server.rs).
+   **Abandoned/non-functional** (stub compute, gRPC-vs-HTTP client mismatch, never launched);
+   slated for removal. See [fingerprinting.md §7](fingerprinting.md#7-performance).
 
 ### The PyO3 boundary contract
 

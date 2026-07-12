@@ -62,7 +62,7 @@ Each item = **one PR**, independently revertible:
 | # | Item | Note |
 |---|------|------|
 | 11 | `SpectrumMapper` → fold into `AdaptiveTargetGenerator` | The old roadmap's never-done "architecture cleanup." Still used by `HybridProcessor`. Needs a design pass |
-| 12 | Two Rust fingerprint surfaces (PyO3 in-process vs gRPC server) | **Investigate first** — likely *not* duplication (batch throughput vs in-process harmonic ops). May just need documenting |
+| 12 | Two Rust fingerprint surfaces (PyO3 in-process vs gRPC server) | **Investigated 2026-07-11 — the gRPC server is DEAD, not a parallel impl.** `grpc_fingerprint_server.rs` has its own `compute_25d_fingerprint` with **hardcoded placeholder** values (7 freq bands, 3 spectral, rhythm_stability) vs the PyO3 path's real `fingerprint_compute::compute_complete_fingerprint`. It's a `tonic` gRPC server but the Python client posts **HTTP JSON**, and **nothing launches it** — `_is_rust_server_available()` is always False, so the branch never runs. **Recommend removal** (Rust bin + Cargo `[[bin]]`/tonic-build + the Python client path `_call_rust_server`/`_is_rust_server_available`/`use_rust_server`/`RUST_SERVER_URL`). Sizable — touches the Rust build (needs `maturin`/`cargo` rebuild to verify) + the extractor API. Also corrected the deep-dive docs that wrongly called it the "primary path" |
 
 ---
 
@@ -104,6 +104,13 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
 
 ## Progress log
 
+- **2026-07-11 (#12 investigated + doc fix)** — The "primary" Rust gRPC fingerprint server is
+  **dead code**: stub compute (placeholder dims), `tonic` gRPC server vs an **HTTP** Python
+  client, and nothing launches it → the extractor branch never fires; the real primary path is
+  the Python analyzer. Corrected `fingerprinting.md` + `dsp-engine.md`, which wrongly called the
+  gRPC server the primary path (the code's own aspirational structure misled the earlier
+  write-up). Recommended full removal (Rust bin + Cargo deps + Python client path); deferred as
+  a dedicated change since it touches the Rust build (needs a rebuild to verify).
 - **2026-07-11 (#8 done)** — Retired the dead Stack B content-analysis island (~1,130 LOC, 7
   files incl. one test) per decision; removed the `analyze_audio_content` public export. Two
   more grep-exclusion false-negatives caught during verification: `AdvancedContentAnalyzer`

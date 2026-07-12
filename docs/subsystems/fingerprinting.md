@@ -165,8 +165,11 @@ race. Outdated claims use a `version = 0` sentinel and a rowcount check.
 tries, in order:
 
 1. Valid `.25d` sidecar → instant.
-2. **Rust gRPC server** (port 8766, the primary path — see §7).
-3. Python analyzer fallback — **only for files ≤ 300 MB** (OOM guard).
+2. **Rust server (port 8766)** — attempted first in code, but **currently dead** (see §7):
+   nothing launches the server, the client speaks HTTP while the server is gRPC, and its
+   compute is a stub. `_is_rust_server_available()` is effectively always False, so this branch
+   never runs in practice.
+3. **Python analyzer** — the *actual* primary path (≤ 300 MB OOM guard).
 
 It stamps `fingerprint_version`, filters to exactly the 25 keys, rejects incomplete
 fingerprints, and deletes corrupted files via `TrackRepository`.
@@ -186,8 +189,10 @@ the 3-tier cache (DB → `.25d` → compute). Its `_compute_fingerprint` runs th
   [`ml/genre_classifier.py:22`](../../auralis/analysis/ml/genre_classifier.py) is
   `RuleBasedGenreClassifier`: 10 genres, hand-coded linear weights, softmax, 0.6 confidence
   threshold → falls back to "pop". Cached singleton (#2528).
-- **Content** — [`analysis/content/`](../../auralis/analysis/content/) has a *second,
-  separate* `GenreAnalyzer` / `MoodAnalyzer` / `RecommendationEngine`, distinct from `ml/`.
+- **Content** — `ml/` is now the sole genre classifier. The former parallel content-analysis
+  stack (`analysis/content/`: a second `GenreAnalyzer`/`MoodAnalyzer`/`RecommendationEngine`)
+  was **retired** in the 2026-07 streamlining (dead except a test-only public API). The live
+  content analyzer for mastering is [`core/analysis/content_analyzer.py`](../../auralis/core/analysis/content_analyzer.py).
 - **Quality** — `QualityMetrics.assess_quality`
   ([`quality/quality_metrics.py:79`](../../auralis/analysis/quality/quality_metrics.py))
   runs 5 assessors → weighted `overall_score` 0–100 (frequency .25, dynamic .20, stereo .15,
@@ -199,15 +204,17 @@ the 3-tier cache (DB → `.25d` → compute). Its `_compute_fingerprint` runs th
 
 ## 7. Performance
 
-- **Two Rust surfaces:** the in-process PyO3 module (HPSS/YIN/Chroma) and a standalone
-  **gRPC fingerprint server**
+- **Two Rust surfaces — one live, one dead:** the in-process PyO3 module (HPSS/YIN/Chroma,
+  and the shared `fingerprint_compute::compute_complete_fingerprint`) is the real one. The
+  standalone **gRPC fingerprint server**
   ([`vendor/auralis-dsp/src/bin/grpc_fingerprint_server.rs`](../../vendor/auralis-dsp/src/bin/grpc_fingerprint_server.rs))
-  that computes the full 25D natively and is the primary extraction path. The extractor
-  probes port 8766 via a raw socket; the endpoint constant is named
-  `FINGERPRINT_ENDPOINT` but the transport is gRPC/protobuf.
-- **Four parallelism layers:** the worker pool (0.5–2.0×CPU threads), a per-analyzer 5-thread
-  pool for the 5 independent analyzers, a per-`SampledHarmonicAnalyzer` 4-thread pool, and
-  async batch pipelining to the Rust server (batch size 5).
+  is **abandoned/non-functional**: it has its *own* `compute_25d_fingerprint` with **hardcoded
+  placeholder values** for the 7 frequency bands + 3 spectral features + `rhythm_stability`;
+  it's a `tonic` gRPC server while the Python client (`FINGERPRINT_ENDPOINT`) posts **HTTP
+  JSON**; and nothing launches it. The extractor probes port 8766 but the branch never fires.
+  Slated for removal (streamlining #12).
+- **Parallelism layers:** the worker pool (0.5–2.0×CPU threads), a per-analyzer 5-thread
+  pool for the 5 independent analyzers, and a per-`SampledHarmonicAnalyzer` 4-thread pool.
 - **Timing figures to cite carefully:** the popular "~500 ms/track" number is from a planning
   doc, not asserted in code. The code-level throughput claim is concurrent batching
   `28.7 → 140+ tracks/sec`; the server targets 10–40 tracks/sec on low-end hardware.
