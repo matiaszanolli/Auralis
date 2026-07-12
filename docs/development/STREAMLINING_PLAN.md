@@ -52,7 +52,7 @@ Each item = **one PR**, independently revertible:
 |---|------|--------------|------|
 | 1 | **Two `SpectralOperations` classes, same name** — `metrics/spectral_ops.py` (low-level magnitude helpers, test-only) vs `utilities/spectral_ops.py` (high-level `calculate_*`, used in production by `batch/spectral.py`) | Both re-exported via package `__init__`s → **name collision** | ✅ **Done 2026-07-11** — renamed the metrics class → `SpectralMetrics` (fits the package's `*Metrics` convention); updated both `__init__`s + the test. Production `utilities.SpectralOperations` untouched. 52 metrics tests pass |
 | 7 | Two frontend REST clients: `useRestAPI` (16 sites) + `standardizedAPIClient` (9 sites) | 25 call sites | Pick one canonical; migrate the other. Biggest consistency win |
-| 8 | **Two parallel content-analysis stacks** (reclassified — bigger than "two genre classifiers"). `ml/RuleBasedGenreClassifier` feeds `core/analysis/content_analyzer.py` (mastering path); `content/GenreAnalyzer`+`MoodAnalyzer`+`RecommendationEngine` feed `analysis/content_analysis.py::ContentAnalyzer`, which is behind the public `analyze_audio_content` API. Each stack has its own `ContentAnalyzer` class (a second name collision) | design-level + public API | **Wave 4 / needs decision** — pick a canonical content stack; `analyze_audio_content` removal is a breaking public-API change. (NOTE: `RecommendationEngine` is **not** dead — it's used via the `create_recommendation_engine` factory in `content_analysis.py`; an earlier note wrongly called it removable, caught by re-verify) |
+| 8 | **Two parallel content-analysis stacks.** `core/analysis/content_analyzer.py::ContentAnalyzer` (Stack A, live — mastering path) vs `analysis/content_analysis.py` + the `analysis/content/` package (Stack B — its own `ContentAnalyzer`, `GenreAnalyzer`, `MoodAnalyzer`, `RecommendationEngine`, `ContentAnalysisOperations`). Stack B was **dead** except the public `analyze_audio_content` export, used only by tests | ~1,130 LOC | ✅ **Done 2026-07-11** — retired Stack B entirely (per decision): deleted `content_analysis.py` + the 6-file `content/` package, dropped the `analyze_audio_content` public export, removed the `TestAdvancedContentAnalysis` class + `test_content_operations_stereo.py` (both tested only Stack B). Resolves the `ContentAnalyzer`/`ContentProfile` name collision + a duplicate genre/mood system. Suite collects 5,454; `test_adaptive_processing` 22 pass |
 | 10 | Two `.25d` systems: `FingerprintStorage` + `SidecarManager` | — | ✅ **Investigated 2026-07-11 — not duplication.** `FingerprintStorage` = centralized machine-local cache (`~/.auralis/fingerprints/<hash>.25d`, content-keyed); `SidecarManager` = portable per-file sidecar (`<audio>.25d`, travels with the file). Complementary — moved to do-not-collapse. *Optional* future nicety: share the `.25d` JSON schema/serializer between them to prevent format drift |
 
 ---
@@ -104,6 +104,15 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
 
 ## Progress log
 
+- **2026-07-11 (#8 done)** — Retired the dead Stack B content-analysis island (~1,130 LOC, 7
+  files incl. one test) per decision; removed the `analyze_audio_content` public export. Two
+  more grep-exclusion false-negatives caught during verification: `AdvancedContentAnalyzer`
+  (an alias `= ContentAnalyzer`, missed by the symbol list) and
+  `tests/auralis/analysis/content/test_content_operations_stereo.py` (the `analysis/content/`
+  path exclusion also filtered the *tests* tree). **Lesson:** when excluding a source path,
+  don't let the same substring filter the mirrored tests path; grep aliases too. Note: a
+  *separate* unrelated `analyze_audio_content` function still lives in
+  `analysis/content_aware_analyzer.py` — different module, left as-is.
 - **2026-07-11 (#10 classified, RecommendationEngine correction)** — #10 investigated →
   **not duplication** (centralized cache vs portable sidecar), moved to do-not-collapse. A trial
   delete of `content/RecommendationEngine` was **reverted** — it's live via the

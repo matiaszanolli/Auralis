@@ -24,10 +24,6 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from auralis.analysis.content_analysis import (
-    AdvancedContentAnalyzer,
-    analyze_audio_content,
-)
 from auralis.core.hybrid_processor import (
     AdaptiveTargetGenerator,
     ContentAnalyzer,
@@ -416,72 +412,6 @@ class TestHybridProcessor:
             assert key in info
 
 
-class TestAdvancedContentAnalysis:
-    """Test advanced content analysis framework"""
-
-    def setup_method(self):
-        """Set up advanced analyzer"""
-        self.sample_rate = 44100
-        self.analyzer = AdvancedContentAnalyzer(self.sample_rate)
-
-        # Create rich test audio
-        duration = 5.0
-        t = np.linspace(0, duration, int(self.sample_rate * duration))
-
-        # Multi-tonal signal with rhythm
-        self.rich_audio = (
-            np.sin(2 * np.pi * 220 * t) * 0.3 +  # Fundamental
-            np.sin(2 * np.pi * 440 * t) * 0.2 +  # Octave
-            np.sin(2 * np.pi * 660 * t) * 0.1 +  # Fifth
-            np.random.randn(len(t)) * 0.05      # Noise
-        ) * (1 + 0.3 * np.sin(2 * np.pi * 2 * t))  # 120 BPM rhythm
-
-    def test_comprehensive_analysis(self):
-        """Test comprehensive content analysis"""
-        content_profile = self.analyzer.analyze_content(self.rich_audio)
-
-        # Check that we get all analysis components
-        assert hasattr(content_profile, 'features')
-        assert hasattr(content_profile, 'genre')
-        assert hasattr(content_profile, 'mood')
-        assert hasattr(content_profile, 'quality_assessment')
-        assert hasattr(content_profile, 'processing_recommendations')
-
-    def test_feature_extraction(self):
-        """Test comprehensive feature extraction"""
-        features = self.analyzer._extract_content_features(self.rich_audio,
-                                                          np.column_stack([self.rich_audio, self.rich_audio]))
-
-        # Check that all features are present and reasonable
-        assert 0 < features.rms_energy < 1
-        assert 0 < features.peak_energy <= 1
-        assert features.spectral_centroid > 0
-        assert 0 <= features.harmonic_ratio <= 1
-        assert features.tempo_estimate > 0
-
-    def test_mood_analysis(self):
-        """Test mood and energy analysis"""
-        features = self.analyzer._extract_content_features(self.rich_audio,
-                                                          np.column_stack([self.rich_audio, self.rich_audio]))
-        mood = self.analyzer._analyze_mood(features, self.rich_audio)
-
-        assert mood.energy_level in ["low", "medium", "high"]
-        assert 0 <= mood.valence <= 1
-        assert 0 <= mood.arousal <= 1
-        assert 0 <= mood.danceability <= 1
-        assert 0 <= mood.acousticness <= 1
-
-    def test_processing_recommendations(self):
-        """Test processing recommendation generation"""
-        content_profile = self.analyzer.analyze_content(self.rich_audio)
-        recommendations = content_profile.processing_recommendations
-
-        assert "suggested_genre_profile" in recommendations
-        assert "processing_intensity" in recommendations
-        assert "eq_suggestions" in recommendations
-        assert "dynamics_suggestions" in recommendations
-
-
 class TestIntegration:
     """Integration tests for the complete system"""
 
@@ -572,11 +502,6 @@ def test_system_integration():
     duration = 1.0
     t = np.linspace(0, duration, int(sample_rate * duration))
     test_audio = np.sin(2 * np.pi * 440 * t) * 0.5
-
-    # Test quick analysis function
-    content_profile = analyze_audio_content(test_audio, sample_rate)
-    assert hasattr(content_profile, 'features')
-    assert hasattr(content_profile, 'genre')
 
     # Test unified processing
     config = UnifiedConfig()

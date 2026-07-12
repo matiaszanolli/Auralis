@@ -17,8 +17,6 @@ __author__ = "Auralis Team"
 __license__ = "GPLv3"
 __copyright__ = "Copyright (C) 2024 Auralis Team"
 
-from .analysis.content_analysis import analyze_audio_content
-
 # Modern config and processing
 from .core.config import (
     PresetProfile,
@@ -54,5 +52,4 @@ __all__ = [
     "HybridProcessor",
     "process_adaptive",
     "process_reference",
-    "analyze_audio_content"
 ]
