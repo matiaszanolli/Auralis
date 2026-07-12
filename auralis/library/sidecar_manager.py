@@ -19,7 +19,6 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
-from collections.abc import Callable
 
 from ..utils.logging import debug, error, info, warning
 from ..version import __version__
@@ -324,39 +323,6 @@ class SidecarManager:
         except (OSError, ValueError) as e:
             error(f"Failed to compute checksum for {audio_path}: {e}")
             return None
-
-    def bulk_generate(self, audio_paths: list[str | Path], progress_callback: Callable[[int, int], None] | None = None) -> dict[str, int]:
-        """
-        Generate .25d files for multiple audio files.
-
-        Args:
-            audio_paths: List of audio file paths
-            progress_callback: Optional callback(current, total) for progress updates
-
-        Returns:
-            Dict with counts: {'success': N, 'failed': M, 'skipped': K}
-        """
-        stats = {'success': 0, 'failed': 0, 'skipped': 0}
-
-        for i, audio_path in enumerate(audio_paths, 1):
-            if isinstance(audio_path, str):
-                audio_path = Path(audio_path)
-
-            # Check if already valid
-            if self.is_valid(audio_path):
-                stats['skipped'] += 1
-                if progress_callback:
-                    progress_callback(i, len(audio_paths))
-                continue
-
-            # Generate new sidecar (would need to integrate with fingerprint extraction)
-            # For now, just count as skipped
-            stats['skipped'] += 1
-
-            if progress_callback:
-                progress_callback(i, len(audio_paths))
-
-        return stats
 
     def bulk_delete(self, audio_paths: list[str | Path]) -> int:
         """
