@@ -202,10 +202,6 @@ class ChunkedAudioProcessor:
                 self.fingerprint, self.mastering_targets = result
                 logger.info(f"✅ Loaded fingerprint/targets via MasteringTargetService for track {track_id}")
 
-            # Initialize adaptive mastering engine with fingerprint context
-            if self.fingerprint is not None:
-                self._init_adaptive_mastering()
-
         # CRITICAL FIX: Create single shared processor instance to maintain state
         # across chunks. This prevents audio artifacts from resetting compressor
         # envelope followers at chunk boundaries.
@@ -265,56 +261,6 @@ class ChunkedAudioProcessor:
             # Count only content-carrying chunks under the overlap model
             # (#4124) — see core.chunk_boundaries.content_chunk_count.
             self.total_chunks = content_chunk_count(self.total_duration)
-
-
-    def _init_adaptive_mastering(self) -> None:
-        """
-        NEW (Phase 7.3): Initialize adaptive mastering engine with 2D LWRP.
-
-        Sets up the AdaptiveMode processor with fingerprint context for intelligent
-        processing decisions (compressed loud detection, expansion, etc.)
-        """
-        try:
-            from auralis.analysis.adaptive_target_generator import (
-                AdaptiveTargetGenerator,
-            )
-            from auralis.analysis.content_analyzer import ContentAnalyzer
-            from auralis.analysis.spectrum_mapper import SpectrumMapper
-            from auralis.core.processing.adaptive_mode import AdaptiveMode
-            from auralis.core.processing.psychoacoustic_eq import PsychoacousticEQ
-            from auralis.core.config import UnifiedConfig
-
-            # Ensure sample rate is available
-            assert self.sample_rate is not None, "Sample rate not loaded"
-
-            # Initialize configuration
-            config = UnifiedConfig(
-                mastering_profile=self.preset or "adaptive",
-                internal_sample_rate=self.sample_rate
-            )
-
-            # Initialize analysis components
-            content_analyzer = ContentAnalyzer(config)
-            target_generator = AdaptiveTargetGenerator(config)
-            spectrum_mapper = SpectrumMapper(config)
-
-            # Initialize EQ processor for psychoacoustic adjustments
-            self.eq_processor = PsychoacousticEQ()
-
-            # Create adaptive mode processor (includes 2D LWRP logic)
-            self.adaptive_mastering_engine = AdaptiveMode(
-                config=config,
-                content_analyzer=content_analyzer,
-                target_generator=target_generator,
-                spectrum_mapper=spectrum_mapper
-            )
-
-            logger.info(f"✅ Adaptive mastering engine initialized (preset: {self.preset}, fingerprint context available)")
-
-        except Exception as e:
-            logger.warning(f"Failed to initialize adaptive mastering: {e}")
-            logger.debug("Will continue without adaptive mastering (fallback to basic processing)")
-            self.adaptive_mastering_engine = None
 
 
     def _get_chunk_path(self, chunk_index: int) -> Path:
@@ -459,10 +405,9 @@ class ChunkedAudioProcessor:
 
     def _process_chunk_with_hybrid_processor(self, audio_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
         """
-        NEW (Phase 7.3): Encapsulated HybridProcessor processing logic.
+        Encapsulated HybridProcessor processing logic.
 
-        Extracted for clarity and fallback when AdaptiveMode not available.
-        This is the original processing pipeline using self.processor (HybridProcessor).
+        This is the chunk processing pipeline using self.processor (HybridProcessor).
 
         Args:
             audio_chunk: Raw audio chunk with context
