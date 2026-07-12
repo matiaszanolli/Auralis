@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import and_, delete, func, insert, select, text, update
 from sqlalchemy.exc import IntegrityError
 from ..models.base import track_playlist
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from ...utils.logging import debug, error, info
 from ..models import Playlist, Track
@@ -22,6 +22,32 @@ from .base import BaseRepository
 
 class PlaylistRepository(BaseRepository):
     """Repository for playlist database operations"""
+
+    def _insert_track_at_next_position(self, session: Session, playlist_id: int, track_id: int) -> None:
+        """Insert a (playlist_id, track_id) row at MAX(position)+1, atomically.
+
+        Shared by ``add_track`` and ``add_tracks`` (fixes duplicated SQL, #4248).
+        Folds the MAX(position)+1 derivation INTO the INSERT statement via
+        INSERT...SELECT so SQLite serialises the read and the write as one
+        atomic step — a separate SELECT-then-INSERT leaves a window where two
+        concurrent appends both see the same MAX and land on the same
+        position. ``INSERT OR IGNORE`` makes the call idempotent if the
+        composite PK (track_id, playlist_id) already exists.
+
+        text() form is needed because SQLAlchemy Core's insert().from_select()
+        doesn't pass through OR IGNORE cleanly with bound parameters in a way
+        SQLite likes. Caller is responsible for commit/rollback.
+        """
+        session.execute(
+            text(
+                "INSERT OR IGNORE INTO track_playlist "
+                "(track_id, playlist_id, position) "
+                "SELECT :tid, :pid, "
+                "COALESCE(MAX(position), -1) + 1 "
+                "FROM track_playlist WHERE playlist_id = :pid"
+            ),
+            {"tid": track_id, "pid": playlist_id},
+        )
 
     def create(self, name: str, description: str = "", track_ids: list[int] | None = None) -> Playlist | None:
         """
@@ -275,20 +301,7 @@ class PlaylistRepository(BaseRepository):
             # same MAX and INSERT at the same position. INSERT...SELECT
             # under SQLite's WAL writer lock collapses the race.
             if position is None:
-                # text() form is needed because SQLAlchemy Core's
-                # insert().from_select() doesn't pass through OR IGNORE
-                # cleanly with bound parameters in a way SQLite likes.
-                # Inline scalars + SQL functions for portability.
-                session.execute(
-                    text(
-                        "INSERT OR IGNORE INTO track_playlist "
-                        "(track_id, playlist_id, position) "
-                        "SELECT :tid, :pid, "
-                        "COALESCE(MAX(position), -1) + 1 "
-                        "FROM track_playlist WHERE playlist_id = :pid"
-                    ),
-                    {"tid": track_id, "pid": playlist_id},
-                )
+                self._insert_track_at_next_position(session, playlist_id, track_id)
                 # Read back what position we landed at, for the log /
                 # return value (also confirms the insert took effect
                 # vs being ignored by the composite-PK collision).
@@ -394,16 +407,7 @@ class PlaylistRepository(BaseRepository):
                 # inserted for previous track_ids in this loop — SQLite's
                 # read-your-own-writes guarantee closes the position-race
                 # that the per-call version had between sessions.
-                session.execute(
-                    text(
-                        "INSERT OR IGNORE INTO track_playlist "
-                        "(track_id, playlist_id, position) "
-                        "SELECT :tid, :pid, "
-                        "COALESCE(MAX(position), -1) + 1 "
-                        "FROM track_playlist WHERE playlist_id = :pid"
-                    ),
-                    {"tid": track_id, "pid": playlist_id},
-                )
+                self._insert_track_at_next_position(session, playlist_id, track_id)
                 added += 1
 
             session.commit()

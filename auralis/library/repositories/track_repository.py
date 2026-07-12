@@ -35,20 +35,8 @@ class TrackRepository(BaseRepository):
         super().__init__(session_factory)
         self.album_repository = album_repository
 
-    def add(self, track_info: dict[str, Any]) -> Track | None:
-        """
-        Add a track to the library
-
-        Args:
-            track_info: Dictionary with track information
-
-        Returns:
-            Track object if successful, None if failed
-        """
-        # Validate required fields and ranges (#2073)
-        if not track_info.get('filepath'):
-            warning("Cannot add track: missing 'filepath'")
-            return None
+    def _validate_and_normalize_track_info(self, track_info: dict[str, Any]) -> None:
+        """Validate required fields/ranges and normalize text fields in place (#2073)."""
         if 'duration' in track_info and (not isinstance(track_info['duration'], (int, float)) or track_info['duration'] < 0):
             track_info['duration'] = 0.0
         if 'sample_rate' in track_info and (not isinstance(track_info['sample_rate'], (int, float)) or track_info['sample_rate'] <= 0):
@@ -61,6 +49,82 @@ class TrackRepository(BaseRepository):
                 track_info[field] = track_info[field][:max_len]
         if 'artists' in track_info:
             track_info['artists'] = [a[:200] for a in track_info['artists'] if isinstance(a, str)]
+
+    def _get_or_create_artists(self, session: Session, artist_names: list[str]) -> list[Artist]:
+        """Resolve or create artists by normalized name matching.
+
+        Handles concurrent scans where two sessions try to insert the same
+        artist simultaneously — the loser's INSERT raises IntegrityError on
+        the UNIQUE constraint, and we fall back to querying (fixes #2594).
+        """
+        artists = []
+        for artist_name in artist_names:
+            normalized = normalize_artist_name(artist_name)
+            # Match by normalized name to prevent duplicates (AC/DC vs ACDC)
+            artist = session.execute(
+                select(Artist).where(Artist.normalized_name == normalized)
+            ).scalars().first()
+            if not artist:
+                try:
+                    with session.begin_nested():  # savepoint so rollback is scoped
+                        artist = Artist(name=artist_name, normalized_name=normalized)
+                        session.add(artist)
+                        session.flush()
+                except IntegrityError:
+                    artist = session.execute(
+                        select(Artist).where(Artist.normalized_name == normalized)
+                    ).scalars().one()
+            artists.append(artist)
+        return artists
+
+    def _get_or_create_genres(self, session: Session, genre_names: list[str]) -> list[Genre]:
+        """Resolve or create genres by name (same IntegrityError handling as artists, fixes #2594)."""
+        genres = []
+        for genre_name in genre_names:
+            genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
+            if not genre:
+                try:
+                    with session.begin_nested():  # savepoint so rollback is scoped
+                        genre = Genre(name=genre_name)
+                        session.add(genre)
+                        session.flush()
+                except IntegrityError:
+                    genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().one()
+            genres.append(genre)
+        return genres
+
+    def _get_or_create_album(
+        self, session: Session, album_title: str, year: Any, artist_id: int | None
+    ) -> Album | None:
+        """Resolve or create an album for the given artist (same IntegrityError guard as artists, fixes #3365)."""
+        album_filter = Album.title == album_title
+        if artist_id is not None:
+            album_filter = and_(album_filter, Album.artist_id == artist_id)
+        album = session.execute(select(Album).where(album_filter)).scalars().first()
+        if not album and artist_id is not None:
+            try:
+                with session.begin_nested():
+                    album = Album(title=album_title, artist_id=artist_id, year=year)
+                    session.add(album)
+                    session.flush()
+            except IntegrityError:
+                album = session.execute(select(Album).where(album_filter)).scalars().first()
+        return album
+
+    def add(self, track_info: dict[str, Any]) -> Track | None:
+        """
+        Add a track to the library
+
+        Args:
+            track_info: Dictionary with track information
+
+        Returns:
+            Track object if successful, None if failed
+        """
+        if not track_info.get('filepath'):
+            warning("Cannot add track: missing 'filepath'")
+            return None
+        self._validate_and_normalize_track_info(track_info)
 
         session = self.get_session()
         try:
@@ -91,64 +155,14 @@ class TrackRepository(BaseRepository):
                 except Exception as e:
                     debug(f"Failed to auto-extract audio info: {e}")
 
-            # Get or create artist(s) using normalized name matching.
-            # Handles concurrent scans where two sessions try to insert the same
-            # artist simultaneously — the loser's INSERT raises IntegrityError on
-            # the UNIQUE constraint, and we fall back to querying (fixes #2594).
-            artists = []
-            for artist_name in track_info.get('artists', []):
-                normalized = normalize_artist_name(artist_name)
-                # Match by normalized name to prevent duplicates (AC/DC vs ACDC)
-                artist = session.execute(
-                    select(Artist).where(Artist.normalized_name == normalized)
-                ).scalars().first()
-                if not artist:
-                    try:
-                        with session.begin_nested():  # savepoint so rollback is scoped
-                            artist = Artist(name=artist_name, normalized_name=normalized)
-                            session.add(artist)
-                            session.flush()
-                    except IntegrityError:
-                        artist = session.execute(
-                            select(Artist).where(Artist.normalized_name == normalized)
-                        ).scalars().first()
-                artists.append(artist)
-
-            # Get or create album (same IntegrityError guard as artists, fixes #3365)
+            artists = self._get_or_create_artists(session, track_info.get('artists', []))
             album = None
             if track_info.get('album'):
-                album_filter = Album.title == track_info['album']
-                if artists:
-                    album_filter = and_(album_filter, Album.artist_id == artists[0].id)
-                album = session.execute(select(Album).where(album_filter)).scalars().first()
-                if not album and artists:
-                    try:
-                        with session.begin_nested():
-                            album = Album(
-                                title=track_info['album'],
-                                artist_id=artists[0].id,
-                                year=track_info.get('year')
-                            )
-                            session.add(album)
-                            session.flush()
-                    except IntegrityError:
-                        album = session.execute(
-                            select(Album).where(album_filter)
-                        ).scalars().first()
-
-            # Get or create genres (same IntegrityError handling as artists, fixes #2594)
-            genres = []
-            for genre_name in track_info.get('genres', []):
-                genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
-                if not genre:
-                    try:
-                        with session.begin_nested():  # savepoint so rollback is scoped
-                            genre = Genre(name=genre_name)
-                            session.add(genre)
-                            session.flush()
-                    except IntegrityError:
-                        genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
-                genres.append(genre)
+                album = self._get_or_create_album(
+                    session, track_info['album'], track_info.get('year'),
+                    artists[0].id if artists else None
+                )
+            genres = self._get_or_create_genres(session, track_info.get('genres', []))
 
             # Create track
             track = Track(
@@ -660,39 +674,11 @@ class TrackRepository(BaseRepository):
 
     def _update_artists(self, session: Session, track: Track, artist_names: list[str]) -> None:
         """Update track artists using normalized name matching"""
-        track.artists = []
-        for artist_name in artist_names:
-            normalized = normalize_artist_name(artist_name)
-            # Match by normalized name to prevent duplicates (AC/DC vs ACDC)
-            artist = session.execute(
-                select(Artist).where(Artist.normalized_name == normalized)
-            ).scalars().first()
-            if not artist:
-                try:
-                    with session.begin_nested():
-                        artist = Artist(name=artist_name, normalized_name=normalized)
-                        session.add(artist)
-                        session.flush()
-                except IntegrityError:
-                    artist = session.execute(
-                        select(Artist).where(Artist.normalized_name == normalized)
-                    ).scalars().one()
-            track.artists.append(artist)
+        track.artists = self._get_or_create_artists(session, artist_names)
 
     def _update_genres(self, session: Session, track: Track, genre_names: list[str]) -> None:
         """Update track genres"""
-        track.genres = []
-        for genre_name in genre_names:
-            genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
-            if not genre:
-                try:
-                    with session.begin_nested():
-                        genre = Genre(name=genre_name)
-                        session.add(genre)
-                        session.flush()
-                except IntegrityError:
-                    genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().one()
-            track.genres.append(genre)
+        track.genres = self._get_or_create_genres(session, genre_names)
 
     def delete(self, track_id: int) -> bool:
         """

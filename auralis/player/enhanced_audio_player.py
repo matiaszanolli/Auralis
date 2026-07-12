@@ -18,19 +18,20 @@ Uses Facade pattern to maintain backward-compatible API.
 """
 
 import threading
-from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
 import numpy as np
 
 from ..analysis.fingerprint.fingerprint_service import FingerprintService
-from ..utils.logging import debug, info, warning
+from ..utils.logging import info, warning
 from .audio_file_manager import AudioFileManager
 from .config import PlayerConfig
+from .fingerprint_loader_mixin import PlayerFingerprintLoaderMixin
 from .gapless_playback_engine import GaplessPlaybackEngine
 from .integration_manager import IntegrationManager
 from .playback_controller import PlaybackController, PlaybackState
+from .player_properties_mixin import PlayerPropertiesMixin
 from .queue_controller import QueueController
 from .realtime_processor import RealtimeProcessor
 
@@ -38,7 +39,7 @@ from .realtime_processor import RealtimeProcessor
 QueueManager = QueueController
 
 
-class AudioPlayer:
+class AudioPlayer(PlayerFingerprintLoaderMixin, PlayerPropertiesMixin):
     """
     Real-time audio player with advanced DSP and library integration.
 
@@ -48,6 +49,12 @@ class AudioPlayer:
     - QueueController: Queue/playlist
     - GaplessPlaybackEngine: Prebuffering
     - IntegrationManager: Library/callbacks
+
+    Fingerprint-scheduling (PlayerFingerprintLoaderMixin) and the backward-
+    compatible property surface (PlayerPropertiesMixin) are mixed in rather
+    than composed as separate objects, so existing code/tests that read or
+    patch attributes like ``player._track_generation`` or ``player.position``
+    directly continue to work unchanged (#4249).
 
     Features:
     - Advanced real-time DSP processing
@@ -244,89 +251,6 @@ class AudioPlayer:
         else:
             self.playback.set_error()
             return False
-
-    def _schedule_fingerprint_load(self, file_path: str) -> None:
-        """
-        Bump the generation counter and spawn a background fingerprint loader.
-
-        Called by every track-load entry point (``load_file``,
-        ``load_track_from_library``, gapless ``next_track``) so that stale
-        in-flight fingerprint threads are invalidated and the new track gets
-        its adaptive-mastering fingerprint applied (#3445, #3463).
-
-        Increment + publish runs under ``_fingerprint_lock`` so two
-        concurrent loads don't both observe the same value and pass the
-        same generation to their loaders (#3473). Plain ``self._x += 1`` is
-        LOAD_ATTR/STORE_ATTR at bytecode level — not atomic.
-
-        Args:
-            file_path: Path of the now-current audio file.
-        """
-        with self._fingerprint_lock:
-            self._track_generation += 1
-            generation = self._track_generation
-
-        threading.Thread(
-            target=self._load_fingerprint_for_file,
-            args=(file_path, generation),
-            daemon=True,
-            name="fingerprint-loader",
-        ).start()
-
-    def _load_fingerprint_for_file(self, file_path: str, generation: int) -> None:
-        """
-        Load 25D fingerprint for file and apply to processor for adaptive mastering.
-
-        Uses 3-tier caching: database → .25d file → on-demand computation.
-        Non-blocking operation (uses cache hits when available).
-
-        Args:
-            file_path: Path to audio file
-            generation: Track generation counter — result is discarded if the
-                track has changed since this thread was started (#3445).
-        """
-        try:
-            audio_path = Path(file_path)
-            fingerprint = self.fingerprint_service.get_or_compute(audio_path)
-
-            # #3719: hold `_fingerprint_lock` across the staleness check
-            # AND the processor write. Previously the check was an
-            # unlocked atomic int read (#3445) and the
-            # `processor.set_fingerprint()` write was OUTSIDE the lock
-            # entirely. Race: thread T_A (fp for track 5) passes the
-            # check; user skips to track 6 → T_B spawned; T_B hits cache,
-            # passes check, calls set_fingerprint(fp6); T_A (still in
-            # flight) then calls set_fingerprint(fp5) — overwriting fp6.
-            # Holding the lock across check+act serialises the two threads
-            # so the newer generation always wins.
-            if fingerprint:
-                with self._fingerprint_lock:
-                    if self._track_generation != generation:
-                        debug(f"Discarding stale fingerprint for {audio_path.name} (generation {generation} != {self._track_generation})")
-                        return
-                    self._current_fingerprint = fingerprint
-                    self.processor.set_fingerprint(fingerprint)
-                info(f"Fingerprint loaded for adaptive mastering: "
-                     f"LUFS {fingerprint.get('lufs', 0):.1f} dB, "
-                     f"crest {fingerprint.get('crest_db', 0):.1f} dB")
-            else:
-                debug(f"Failed to load fingerprint for {audio_path.name}, using profile-based mastering")
-                with self._fingerprint_lock:
-                    if self._track_generation != generation:
-                        return
-                    self._current_fingerprint = None
-                    self.processor.set_fingerprint(None)
-
-        except Exception as e:
-            warning(f"Error loading fingerprint: {e}")
-            # Same lock discipline on the error path — check generation
-            # and write under the same lock so a newer load doesn't get
-            # its fingerprint reset by this stale error handler.
-            with self._fingerprint_lock:
-                if self._track_generation != generation:
-                    return
-                self._current_fingerprint = None
-                self.processor.set_fingerprint(None)
 
     def load_reference(self, file_path: str) -> bool:
         """
@@ -719,52 +643,9 @@ class AudioPlayer:
         self.gapless.invalidate_prebuffer()
         self.integration._notify_callbacks({'action': 'repeat_changed', 'enabled': enabled})
 
-    # ========== Properties for backward compatibility ==========
-
-    @property
-    def current_file(self) -> str | None:
-        """Get current audio file path"""
-        return self.file_manager.current_file
-
-    @property
-    def current_track(self) -> Any:
-        """Get current track object from library"""
-        return self.integration.current_track
-
-    @current_track.setter
-    def current_track(self, value: Any) -> None:
-        """Set current track (for compatibility)"""
-        self.integration.current_track = value
-
-    @property
-    def reference_file(self) -> str | None:
-        """Get current reference file path"""
-        return self.file_manager.reference_file
-
-    @property
-    def audio_data(self) -> Any:
-        """Get raw audio data"""
-        return self.file_manager.audio_data
-
-    @audio_data.setter
-    def audio_data(self, value: Any) -> None:
-        """Set audio data under lock with dtype enforcement (#3443)"""
-        import numpy as np
-        with self.file_manager._audio_lock:
-            if value is not None and isinstance(value, np.ndarray):
-                if value.dtype not in (np.float32, np.float64):
-                    value = value.astype(np.float32)
-            self.file_manager.audio_data = value
-
-    @property
-    def reference_data(self) -> Any:
-        """Get raw reference audio data"""
-        return self.file_manager.reference_data
-
-    @reference_data.setter
-    def reference_data(self, value: Any) -> None:
-        """Set reference data (for compatibility)"""
-        self.file_manager.reference_data = value
+    # ========== Position (kept on AudioPlayer, not PlayerPropertiesMixin) ==========
+    # test_no_direct_attribute_bypass inspects `type(player).__dict__["position"]`
+    # directly (no MRO walk), so this property must live on this class itself.
 
     @property
     def position(self) -> int:
@@ -784,16 +665,6 @@ class AudioPlayer:
         with self.playback.defer_notifications(), self.file_manager._audio_lock:
             max_samples = self.file_manager.get_total_samples()
             self.playback.seek(value, max_samples)
-
-    @property
-    def sample_rate(self) -> int:
-        """Get current sample rate"""
-        return self.file_manager.sample_rate
-
-    @sample_rate.setter
-    def sample_rate(self, value: int) -> None:
-        """Set sample rate (for compatibility)"""
-        self.file_manager.sample_rate = value
 
     # ========== Cleanup ==========
 
