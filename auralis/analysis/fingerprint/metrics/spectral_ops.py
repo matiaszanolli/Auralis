@@ -14,10 +14,13 @@ import numpy as np
 from .safe_operations import SafeOperations
 
 
-class SpectralOperations:
+class SpectralMetrics:
     """
-    Spectral analysis utility operations.
-    Consolidates spectral normalization and processing patterns.
+    Low-level spectral metric primitives operating on magnitude spectra
+    (normalization, flatness, safe centroid).
+
+    Distinct from ``utilities.spectral_ops.SpectralOperations``, which computes
+    the high-level spectral features (centroid/rolloff/flatness) from raw audio.
     """
 
     @staticmethod

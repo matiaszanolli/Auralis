@@ -20,7 +20,7 @@ from auralis.analysis.fingerprint.metrics import (
     FingerprintConstants,
     MetricUtils,
     SafeOperations,
-    SpectralOperations,
+    SpectralMetrics,
 )
 
 
@@ -340,7 +340,7 @@ class TestAggregationUtils:
         assert results["std"] > 0
 
 
-class TestSpectralOperations:
+class TestSpectralMetrics:
     """Test spectral analysis operations."""
 
     def test_normalize_magnitude(self):
@@ -348,7 +348,7 @@ class TestSpectralOperations:
         magnitude = np.array([[1.0, 2.0], [3.0, 4.0]])
 
         # Normalize along frequency axis (axis=0)
-        normalized = SpectralOperations.normalize_magnitude(magnitude, axis=0)
+        normalized = SpectralMetrics.normalize_magnitude(magnitude, axis=0)
 
         # Each column should sum to 1
         col_sums = np.sum(normalized, axis=0)
@@ -360,7 +360,7 @@ class TestSpectralOperations:
         np.random.seed(42)
         magnitude = np.random.rand(512, 100) + 0.1  # Add offset to avoid zeros
 
-        flatness = SpectralOperations.spectral_flatness(magnitude)
+        flatness = SpectralMetrics.spectral_flatness(magnitude)
 
         # Flatness should be positive and bounded
         assert np.all(flatness >= 0)
@@ -373,7 +373,7 @@ class TestSpectralOperations:
         magnitude = np.abs(np.fft.rfft(np.sin(2 * np.pi * 0.1 * np.arange(1024))))
         magnitude = magnitude.reshape(-1, 1)  # Make 2D
 
-        flatness = SpectralOperations.spectral_flatness(magnitude)
+        flatness = SpectralMetrics.spectral_flatness(magnitude)
 
         # Flatness should be low for pure tone
         assert flatness[0] < 0.5
@@ -384,7 +384,7 @@ class TestSpectralOperations:
         magnitude = np.array([1.0, 0.5, 0.1, 0.01])
         frequencies = np.array([0, 100, 200, 300])
 
-        centroid = SpectralOperations.spectral_centroid_safe(magnitude, frequencies)
+        centroid = SpectralMetrics.spectral_centroid_safe(magnitude, frequencies)
 
         # Centroid should be closer to 0 than to 300
         assert centroid < 150

@@ -25,7 +25,7 @@ from .band_normalization import BandNormalizationTable
 from .constants import FingerprintConstants
 from .normalization import MetricUtils
 from .safe_operations import SafeOperations
-from .spectral_ops import SpectralOperations
+from .spectral_ops import SpectralMetrics
 from .stability_metrics import StabilityMetrics
 from .variation_metrics import VariationMetrics
 
@@ -35,7 +35,7 @@ __all__ = [
     "AudioMetrics",
     "MetricUtils",
     "AggregationUtils",
-    "SpectralOperations",
+    "SpectralMetrics",
     "VariationMetrics",
     "StabilityMetrics",
     "BandNormalizationTable",
