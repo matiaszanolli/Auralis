@@ -102,26 +102,43 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
   slot now stays `None` and is lazily filled with the correct `AdaptiveMasteringEngine`). This
   was found while working item #5.
 
-## Follow-on: consolidate fingerprint computation on in-process Rust (#13, proposed)
+## #13: consolidate fingerprint computation on in-process Rust (Rust = source of truth)
 
-The **key discovery** from #12: the Rust `fingerprint_compute::compute_complete_fingerprint`
-is a **complete, real 25D implementation** (frequency real-FFT, dynamics, temporal, spectral,
-harmonic, variation, stereo — each its own Rust module), already exposed via PyO3
-`compute_fingerprint` and **already used** by some backend paths
-(`mastering_target_service`, `fingerprint_generator`). Meanwhile the heavy Python
-`AudioFingerprintAnalyzer` recomputes most dims in **librosa/NumPy** — redundant.
+**Decision (user):** let Rust own the heavy DSP; Python is the glue layer.
 
-**Proposed:** route `AudioFingerprintAnalyzer` (and thus `FingerprintExtractor` /
-`FingerprintService`) through the in-process Rust `compute_fingerprint`, then delete the
-redundant librosa/NumPy DSP. Also lifts the >300 MB OOM guard (Rust decodes efficiently).
+**Discovery:** Rust `fingerprint_compute::compute_complete_fingerprint` is a **complete, real
+25D impl** (each family its own Rust module), PyO3-exposed as `compute_fingerprint`, and
+**already used** by `mastering_target_service` + `fingerprint_generator`. The heavy Python
+`AudioFingerprintAnalyzer` recomputes most dims in librosa/NumPy — redundant.
 
-**Consequences (needs a plan + decision):**
-- Rust vs librosa produce *different* values → **all fingerprints change** → bump
-  `FINGERPRINT_ALGORITHM_VERSION` and re-fingerprint the library (machinery exists).
-- Requires **parity/sanity validation** (compare Rust vs Python on real audio; confirm
-  similarity still behaves) before flipping.
-- Staged: (1) validate Rust≈Python, (2) switch the analyzer, (3) delete redundant Python DSP,
-  (4) verify + re-fingerprint.
+### Stage 1 — validation (done 2026-07-11)
+
+Harness (scratchpad `fp_parity.py`) ran Rust vs Python on 5 real files. Findings:
+- Rust is **real & discriminative**; **band fractions sum to exactly 1.0**. Rust is *better*
+  than Python on `chroma_energy` (Python stuck at 0.208) and `silence_ratio` (Python always 0).
+- Rust output does **not** conform to `schema.py` — the glue must:
+  - **rename** 7 bands (`sub_bass`→`sub_bass_pct`…) and `loudness_variation`→`loudness_variation_std`
+  - **normalize** `spectral_centroid` (raw Hz → ÷ `CENTROID_NORMALIZATION_HZ`), `spectral_rolloff`
+    (raw Hz → ÷ its const), `dynamic_range_variation` (raw ~0–11 → 0–1)
+  - **convert** `bass_mid_ratio` (Rust linear ratio → schema dB)
+  - **stereo dims** (`stereo_width`/`phase_correlation`) need a stereo re-test (Stage 1 fed mono)
+  - sanity-flag: `harmonic_ratio` (always 0.77–1.0), one `rhythm_stability=0.0` outlier
+- **Latent bug this exposes:** raw Rust keys already leak into schema-expecting consumers.
+  `mastering_target_service.py:392` reads `fp_dict.get('sub_bass_pct', …, 5.0)` — on the Rust
+  path the key is `sub_bass`, so the real band values are **silently replaced by defaults**.
+  The canonical glue fixes this.
+
+### Stage 2+ — plan (not started)
+
+1. Add one canonical **glue** `rust_fingerprint_to_schema(raw) -> 25D schema dict` (renames +
+   normalizations above). Single source of truth.
+2. Route `AudioFingerprintAnalyzer` (→ `FingerprintExtractor`/`FingerprintService`) and the
+   existing raw-Rust consumers (`mastering_target_service`, `fingerprint_generator`) through
+   `compute_fingerprint` + glue.
+3. Delete the redundant librosa/NumPy analyzers; lift the >300 MB OOM guard.
+4. **Bump `FINGERPRINT_ALGORITHM_VERSION`** (values change) → library re-fingerprints (Phase-2
+   worker machinery already does this on a version bump).
+5. Verify: fingerprint tests, similarity sanity, stereo dims.
 
 ## Progress log
 
