@@ -50,7 +50,7 @@ Each item = **one PR**, independently revertible:
 
 | # | Item | Blast radius | Note |
 |---|------|--------------|------|
-| 1 | **Two `SpectralOperations` classes, same name** — `metrics/spectral_ops.py` (low-level magnitude helpers: `normalize_magnitude`, `spectral_flatness`, `spectral_centroid_safe`; used only by `test_common_metrics.py`) vs `utilities/spectral_ops.py` (high-level `calculate_*`, used in production by `batch/spectral.py`) | Both re-exported via package `__init__`s → **name collision** | **Reclassified here from Wave 1.** Not dead code. Merge/rename to kill the collision; update the test |
+| 1 | **Two `SpectralOperations` classes, same name** — `metrics/spectral_ops.py` (low-level magnitude helpers, test-only) vs `utilities/spectral_ops.py` (high-level `calculate_*`, used in production by `batch/spectral.py`) | Both re-exported via package `__init__`s → **name collision** | ✅ **Done 2026-07-11** — renamed the metrics class → `SpectralMetrics` (fits the package's `*Metrics` convention); updated both `__init__`s + the test. Production `utilities.SpectralOperations` untouched. 52 metrics tests pass |
 | 7 | Two frontend REST clients: `useRestAPI` (16 sites) + `standardizedAPIClient` (9 sites) | 25 call sites | Pick one canonical; migrate the other. Biggest consistency win |
 | 8 | Two genre systems: `ml/genre_classifier` (2) + `content/GenreAnalyzer` (1) | 3 sites | Consolidate |
 | 9 | Two quality packages: `quality/` (1 caller) + `quality_assessors/` (5) | 6 sites | Consolidate — note the doc-designated "main" (`quality/`) has *fewer* callers; decide direction |
@@ -95,6 +95,17 @@ These read like duplicates but are deliberate; collapsing them reintroduces fixe
 
 ## Progress log
 
+- **2026-07-11 (Wave 3)** — #1 done: resolved the `SpectralOperations` name collision by
+  renaming the test-only metrics class → `SpectralMetrics` (52 metrics tests pass; production
+  `utilities.SpectralOperations` untouched).
+- **2026-07-11 (#5 gate)** — After removing the `chunked_processor` usage, `AdaptiveMode` has
+  **no production caller**: the app always runs `mode="adaptive"` + `use_continuous_space=True`
+  → `ContinuousMode`. `AdaptiveMode` survives only via `HybridMode` (which uses it as its core
+  adaptive component, not just a fallback) and the dead `use_continuous_space=False` branch —
+  both reachable only through the `hybrid`/`reference` config modes the app never selects.
+  **Full retirement is gated on a product decision:** keep the `hybrid`/`reference` mastering
+  modes (→ `AdaptiveMode` stays, document as legacy) or drop them (→ larger refactor,
+  behavior change to currently-unused modes). Not a mechanical cleanup.
 - **2026-07-11 (Wave 2)** — #6 done: removed 3 unused `processor_factory` convenience wrappers
   (the two caches are layered, kept). #5 partial: removed the `AdaptiveMode` usage from
   `chunked_processor` and fixed the recommendation bug above; `HybridMode` fallback +
