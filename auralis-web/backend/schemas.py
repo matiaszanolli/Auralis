@@ -383,26 +383,7 @@ class ResponseStatus(str, Enum):
     PARTIAL = "partial"
 
 
-class HealthCheckResponse(BaseModel):
-    """Health check endpoint response."""
-    status: str = Field(default="healthy", description="Service status")
-    version: str | None = Field(default=None, description="Service version")
-    uptime_seconds: float | None = Field(default=None, description="Service uptime in seconds")
-    timestamp: datetime.datetime = Field(
-        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
-    )
-
-
-class VersionResponse(BaseModel):
-    """Version information response."""
-    version: str = Field(description="Application version string")
-    build: str | None = Field(default=None, description="Build identifier")
-    python_version: str | None = Field(default=None, description="Python runtime version")
-
-
 # Typed response models for /api/health and /api/version (fixes #3863 / BE-RH-18).
-# The existing HealthCheckResponse / VersionResponse models above serve other
-# callers; these are narrowed to match what the endpoints actually emit.
 
 class HealthResponse(BaseModel):
     """Response model for GET /api/health."""

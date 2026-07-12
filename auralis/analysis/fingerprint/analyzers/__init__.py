@@ -1,11 +1,10 @@
 """
 Fingerprint Analyzers
 
-Batch and streaming analyzers for audio fingerprinting.
+Batch feature analyzers for audio fingerprinting.
 
 Organized into:
 - batch/ - Batch feature analyzers (process full audio at once)
-- streaming/ - Streaming feature analyzers (process audio incrementally)
 """
 
 # Re-export base analyzer for convenience
