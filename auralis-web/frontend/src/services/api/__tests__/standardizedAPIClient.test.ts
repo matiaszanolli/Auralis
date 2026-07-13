@@ -486,4 +486,71 @@ describe('CacheAwareAPIClient', () => {
     expect(health).not.toBeNull();
     expect(health?.healthy).toBe(true);
   });
+
+  // --------------------------------------------------------------------------
+  // Real backend contract: bare payloads with NO {status,data} envelope (#4440)
+  // --------------------------------------------------------------------------
+
+  it('returns parsed stats from a BARE CacheStatsResponse (no envelope) (#4440)', async () => {
+    const bareStats = {
+      tier1: { chunks: 1, size_mb: 2, hits: 3, misses: 4, hit_rate: 0.4 },
+      tier2: { chunks: 5, size_mb: 6, hits: 7, misses: 8, hit_rate: 0.5 },
+      overall: {
+        total_chunks: 6, total_size_mb: 8, total_hits: 10, total_misses: 12,
+        overall_hit_rate: 0.45, tracks_cached: 2,
+      },
+      tracks: {},
+    };
+    // Note: NO `mockSuccessResponse` spread — this is exactly what the backend sends.
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(bareStats),
+    });
+
+    const stats = await cacheClient.getCacheStats();
+
+    expect(stats.overall.overall_hit_rate).toBe(0.45);
+    expect(stats.overall.tracks_cached).toBe(2);
+  });
+
+  it('returns parsed health from a BARE dict without a timestamp (#4440)', async () => {
+    const bareHealth = {
+      healthy: true,
+      tier1_size_mb: 6, tier1_healthy: true,
+      tier2_size_mb: 200, tier2_healthy: true,
+      total_size_mb: 206, memory_healthy: true,
+      tier1_hit_rate: 0.95, overall_hit_rate: 0.94,
+      // no `timestamp` — the endpoint doesn't emit one
+    };
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(bareHealth),
+    });
+
+    const health = await cacheClient.getCacheHealth();
+
+    expect(health.healthy).toBe(true);
+    expect(health.total_size_mb).toBe(206);
+  });
+
+  it('throws (not silent null) when the response shape is unrecognized (#4440)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ nonsense: true }),
+    });
+
+    await expect(cacheClient.getCacheStats()).rejects.toThrow(/unexpected response shape/i);
+  });
+
+  it('throws when the underlying request fails (#4440)', async () => {
+    // ok:false with no JSON content-type → request() returns an ErrorResponse,
+    // which unwrapCachePayload turns into a thrown error rather than null.
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: vi.fn().mockResolvedValue('Server Error'),
+    });
+
+    await expect(cacheClient.getCacheHealth()).rejects.toThrow(/cache health request failed/i);
+  });
 });

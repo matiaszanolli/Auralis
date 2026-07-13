@@ -86,7 +86,8 @@ export interface CacheHealth {
   memory_healthy: boolean;
   tier1_hit_rate: number;
   overall_hit_rate: number;
-  timestamp: string;
+  /** Optional: the /api/cache/health endpoint does not currently emit this (#4440). */
+  timestamp?: string;
 }
 
 // ============================================================================
@@ -131,6 +132,57 @@ export function isSuccessResponse<T>(response: any): response is SuccessResponse
  */
 export function isErrorResponse(response: any): response is ErrorResponse {
   return !!(response && response.status === 'error' && response.error !== undefined);
+}
+
+/**
+ * Runtime shape check for a bare CacheStats payload (#4440). The
+ * /api/cache/stats endpoint returns this object directly, NOT wrapped in a
+ * SuccessResponse envelope.
+ */
+export function isCacheStatsShape(v: unknown): v is CacheStats {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.tier1 === 'object' && o.tier1 !== null &&
+    typeof o.tier2 === 'object' && o.tier2 !== null &&
+    typeof o.overall === 'object' && o.overall !== null
+  );
+}
+
+/**
+ * Runtime shape check for a bare CacheHealth payload (#4440). The
+ * /api/cache/health endpoint returns this dict directly (and without a
+ * `timestamp`), NOT wrapped in a SuccessResponse envelope.
+ */
+export function isCacheHealthShape(v: unknown): v is CacheHealth {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.healthy === 'boolean' && typeof o.total_size_mb === 'number';
+}
+
+/**
+ * Unwrap a cache-endpoint response into its typed payload (#4440).
+ *
+ * These endpoints return the payload BARE (no `{status,data}` envelope), so the
+ * old `isSuccessResponse` gate (`status === 'success'`) never matched and every
+ * 200 OK resolved to `null`. This accepts both a bare payload and (defensively)
+ * a wrapped one, throws on a genuine ErrorResponse from `request()`, and throws
+ * on an unrecognized shape — surfacing a real error instead of a silent null.
+ */
+function unwrapCachePayload<T>(
+  response: SuccessResponse<T> | ErrorResponse,
+  guard: (v: unknown) => v is T,
+  label: string
+): T {
+  if (isErrorResponse(response)) {
+    throw new Error(`${label} request failed: ${response.message}`);
+  }
+  // Support both the (currently unused) envelope and the real bare shape.
+  const payload = isSuccessResponse<T>(response) ? response.data : (response as unknown);
+  if (!guard(payload)) {
+    throw new Error(`${label} returned an unexpected response shape`);
+  }
+  return payload;
 }
 
 // ============================================================================
@@ -368,29 +420,27 @@ export class CacheAwareAPIClient {
   }
 
   /**
-   * Get cache statistics
+   * Get cache statistics.
+   *
+   * The backend returns a bare CacheStatsResponse (no envelope), so this parses
+   * the bare shape and throws on error/mismatch rather than resolving `null`
+   * on every 200 OK (#4440).
    */
-  async getCacheStats(): Promise<CacheStats | null> {
+  async getCacheStats(): Promise<CacheStats> {
     const response = await this.apiClient.get<CacheStats>('/api/cache/stats');
-
-    if (isSuccessResponse<CacheStats>(response)) {
-      return response.data;
-    }
-
-    return null;
+    return unwrapCachePayload(response, isCacheStatsShape, 'cache stats');
   }
 
   /**
-   * Get cache health status
+   * Get cache health status.
+   *
+   * The backend returns a bare health dict (no envelope, no `timestamp`), so
+   * this parses the bare shape and throws on error/mismatch rather than
+   * resolving `null` on every 200 OK (#4440).
    */
-  async getCacheHealth(): Promise<CacheHealth | null> {
+  async getCacheHealth(): Promise<CacheHealth> {
     const response = await this.apiClient.get<CacheHealth>('/api/cache/health');
-
-    if (isSuccessResponse<CacheHealth>(response)) {
-      return response.data;
-    }
-
-    return null;
+    return unwrapCachePayload(response, isCacheHealthShape, 'cache health');
   }
 }
 
