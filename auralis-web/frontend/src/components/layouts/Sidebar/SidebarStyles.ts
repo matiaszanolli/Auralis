@@ -33,11 +33,14 @@ export const SidebarContainer = styled(Box)({
 export const SectionLabel = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
   fontWeight: tokens.typography.fontWeight.medium, // Reduced from semibold
-  color: tokens.colors.text.disabled,
+  // text.metadata (60% white) is validated for WCAG AA 4.5:1 on small text;
+  // text.disabled (40%) is only calibrated for the 3:1 large-text minimum, and
+  // the previous extra `opacity: 0.4` compounded it to ~16% effective alpha —
+  // near-invisible and well under AA against the dark glass sidebar (#4451).
+  color: tokens.colors.text.metadata,
   textTransform: 'uppercase',
   letterSpacing: '1px',
   padding: `${tokens.spacing.md} ${tokens.spacing.lg} ${tokens.spacing.sm}`,
-  opacity: 0.4, // Fade even more (~60%) to make labels fade into background (§4.3)
 });
 
 /**
