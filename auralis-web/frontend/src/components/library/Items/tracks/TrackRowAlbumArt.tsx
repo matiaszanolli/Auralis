@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { MusicNote } from '@mui/icons-material';
+import MusicNote from '@mui/icons-material/MusicNote';
 import { tokens } from '@/design-system';
 import { AlbumArtThumbnail } from './TrackRow.styles';
 

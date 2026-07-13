@@ -9,7 +9,7 @@
 
 import { memo } from 'react';
 import { Box, Typography, Stack } from '@mui/material';
-import { Audiotrack } from '@mui/icons-material';
+import Audiotrack from '@mui/icons-material/Audiotrack';
 import { tokens } from '@/design-system';
 import ParameterBar from '@/components/enhancement-pane/sections/ProcessingParameters/ParameterBar';
 

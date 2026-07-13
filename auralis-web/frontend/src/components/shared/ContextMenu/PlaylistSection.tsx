@@ -15,7 +15,8 @@ import {
   Box,
   styled,
 } from '@mui/material';
-import { PlaylistAdd, Add } from '@mui/icons-material';
+import PlaylistAdd from '@mui/icons-material/PlaylistAdd';
+import Add from '@mui/icons-material/Add';
 import * as playlistService from '@/services/playlistService';
 import { tokens } from '@/design-system';
 

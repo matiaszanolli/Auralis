@@ -27,7 +27,7 @@ import { useAlbumDetails } from './useAlbumDetails';
 import { useArtworkPalette } from '@/hooks/app/useArtworkPalette';
 import { useAlbumFingerprint } from '@/hooks/fingerprint/useAlbumFingerprint';
 import { AlbumCharacterPane } from '@/components/library/AlbumCharacterPane';
-import { ArrowBack } from '@mui/icons-material';
+import ArrowBack from '@mui/icons-material/ArrowBack';
 import { Button, IconButton } from '@/design-system';
 import { Box, Container, Skeleton } from '@mui/material';
 

@@ -4,7 +4,7 @@
 
 import { KeyboardEvent } from 'react';
 import { TableCell, Typography, IconButton } from '@mui/material';
-import { MoreVert } from '@mui/icons-material';
+import MoreVert from '@mui/icons-material/MoreVert';
 import { tokens } from '@/design-system';
 import { StyledTableRow } from '@/components/library/Styles/Table.styles';
 import { TrackPlayIndicator } from '@/components/library/Items/tracks/TrackPlayIndicator';

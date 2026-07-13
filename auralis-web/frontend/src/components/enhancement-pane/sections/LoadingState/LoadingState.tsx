@@ -7,7 +7,7 @@
 
 import { memo } from 'react';
 import { Paper, Typography } from '@mui/material';
-import { AutoAwesome } from '@mui/icons-material';
+import AutoAwesome from '@mui/icons-material/AutoAwesome';
 import { tokens } from '@/design-system';
 
 const LoadingState = memo(() => {

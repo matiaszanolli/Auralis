@@ -1,14 +1,12 @@
 import { SyntheticEvent } from 'react';
 import { Box, Tab } from '@mui/material';
-import {
-  LibraryMusic as LibraryMusicIcon,
-  PlayArrow as PlayArrowIcon,
-  Tune as TuneIcon,
-  Palette as PaletteIcon,
-  AutoAwesome as AutoAwesomeIcon,
-  Build as BuildIcon,
-  FiberManualRecord as ScanDotIcon,
-} from '@mui/icons-material';
+import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import TuneIcon from '@mui/icons-material/Tune';
+import PaletteIcon from '@mui/icons-material/Palette';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import BuildIcon from '@mui/icons-material/Build';
+import ScanDotIcon from '@mui/icons-material/FiberManualRecord';
 import { StyledTabs } from '@/components/library/Styles/Dialog.styles';
 import { tokens } from '@/design-system';
 

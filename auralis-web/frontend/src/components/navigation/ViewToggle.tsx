@@ -1,6 +1,7 @@
 import { MouseEvent } from 'react';
 import { ToggleButtonGroup, ToggleButton, styled } from '@mui/material';
-import { ViewModule, ViewList } from '@mui/icons-material';
+import ViewModule from '@mui/icons-material/ViewModule';
+import ViewList from '@mui/icons-material/ViewList';
 import { tokens } from '@/design-system';
 
 export type ViewMode = 'grid' | 'list';

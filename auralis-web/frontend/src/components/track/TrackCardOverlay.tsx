@@ -8,7 +8,8 @@
  */
 
 import { MouseEvent } from 'react';
-import { PlayArrow, MusicNote } from '@mui/icons-material';
+import PlayArrow from '@mui/icons-material/PlayArrow';
+import MusicNote from '@mui/icons-material/MusicNote';
 import { tokens } from '@/design-system';
 import { PlayOverlay, DurationBadge, NoArtworkIcon, ShimmerOverlay } from './TrackCardStyles';
 import { formatDuration } from './TrackCardHelpers';

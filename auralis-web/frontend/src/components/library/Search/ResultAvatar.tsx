@@ -1,9 +1,7 @@
 
-import {
-  Album as AlbumIcon,
-  Person as PersonIcon,
-  MusicNote as MusicNoteIcon
-} from '@mui/icons-material';
+import AlbumIcon from '@mui/icons-material/Album';
+import PersonIcon from '@mui/icons-material/Person';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import {
   ArtistSearchAvatar,
   DefaultSearchAvatar

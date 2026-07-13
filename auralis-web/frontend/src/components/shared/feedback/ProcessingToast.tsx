@@ -6,7 +6,7 @@
  */
 
 import { Box, Paper, Typography, Fade, Stack } from '@mui/material';
-import { AutoAwesome } from '@mui/icons-material';
+import AutoAwesome from '@mui/icons-material/AutoAwesome';
 import { tokens } from '@/design-system';
 import { ProcessingStatsChips } from './ProcessingStatsChips';
 

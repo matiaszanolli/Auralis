@@ -1,5 +1,5 @@
 import { KeyboardEvent, memo } from 'react';
-import { MoreVert } from '@mui/icons-material';
+import MoreVert from '@mui/icons-material/MoreVert';
 import { ContextMenu } from '@/components/shared/ContextMenu';
 import {
   RowContainer,

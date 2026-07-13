@@ -3,7 +3,8 @@
  */
 
 import { TableCell, Box, Typography } from '@mui/material';
-import { PlayArrow, Pause } from '@mui/icons-material';
+import PlayArrow from '@mui/icons-material/PlayArrow';
+import Pause from '@mui/icons-material/Pause';
 import { PlayIcon } from '@/components/library/Styles/Table.styles';
 import { tokens } from '@/design-system';
 

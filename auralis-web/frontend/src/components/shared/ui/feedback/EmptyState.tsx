@@ -9,7 +9,10 @@
 
 import { ReactNode, Suspense, lazy } from 'react';
 import { Box } from '@mui/material';
-import { MusicNote, SearchOff, PlaylistPlay, FolderOpen } from '@mui/icons-material';
+import MusicNote from '@mui/icons-material/MusicNote';
+import SearchOff from '@mui/icons-material/SearchOff';
+import PlaylistPlay from '@mui/icons-material/PlaylistPlay';
+import FolderOpen from '@mui/icons-material/FolderOpen';
 import { Button } from '@/design-system/primitives/Button';
 import { Container, IconContainer, Title, Description } from './EmptyState.styles';
 

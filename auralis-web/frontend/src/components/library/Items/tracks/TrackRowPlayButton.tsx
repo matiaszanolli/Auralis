@@ -1,5 +1,6 @@
 import { MouseEvent, memo } from 'react';
-import { PlayArrow, Pause } from '@mui/icons-material';
+import PlayArrow from '@mui/icons-material/PlayArrow';
+import Pause from '@mui/icons-material/Pause';
 import { PlayButton } from './TrackRow.styles';
 
 interface TrackRowPlayButtonProps {

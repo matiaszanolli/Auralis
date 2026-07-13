@@ -18,7 +18,8 @@
  */
 
 import { Dialog, DialogContent } from '@mui/material';
-import { Save as SaveIcon, Close as CloseIcon } from '@mui/icons-material';
+import SaveIcon from '@mui/icons-material/Save';
+import CloseIcon from '@mui/icons-material/Close';
 import { CircularProgress } from '@/design-system';
 import { MetadataFormFields } from './MetadataFormFields';
 import { EditMetadataDialogHeader } from './EditMetadataDialogHeader';

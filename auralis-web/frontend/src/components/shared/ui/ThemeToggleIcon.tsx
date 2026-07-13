@@ -1,5 +1,6 @@
 
-import { LightMode, DarkMode } from '@mui/icons-material';
+import LightMode from '@mui/icons-material/LightMode';
+import DarkMode from '@mui/icons-material/DarkMode';
 import { ThemeToggleIconContainer } from './ThemeToggle.styles';
 import { tokens } from '@/design-system';
 

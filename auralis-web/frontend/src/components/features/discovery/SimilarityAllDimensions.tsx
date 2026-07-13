@@ -1,5 +1,5 @@
 
-import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { tokens } from '@/design-system';
 import { useSimilarityFormatting } from './useSimilarityFormatting';
 import { LinearProgress } from '@/design-system';

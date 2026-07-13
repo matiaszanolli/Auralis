@@ -4,14 +4,12 @@
  * Shows interactive controls for album playback and actions.
  */
 
-import {
-  PlayArrow,
-  Pause,
-  AddToQueue,
-  MoreVert,
-  Favorite,
-  FavoriteBorder,
-} from '@mui/icons-material';
+import PlayArrow from '@mui/icons-material/PlayArrow';
+import Pause from '@mui/icons-material/Pause';
+import AddToQueue from '@mui/icons-material/AddToQueue';
+import MoreVert from '@mui/icons-material/MoreVert';
+import Favorite from '@mui/icons-material/Favorite';
+import FavoriteBorder from '@mui/icons-material/FavoriteBorder';
 import { Tooltip, tokens } from '@/design-system';
 import { IconButton, Button } from '@/design-system';
 import { Box } from '@mui/material';

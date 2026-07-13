@@ -1,5 +1,6 @@
 
-import { ChevronRight, AutoAwesome } from '@mui/icons-material';
+import ChevronRight from '@mui/icons-material/ChevronRight';
+import AutoAwesome from '@mui/icons-material/AutoAwesome';
 import { tokens } from '@/design-system';
 import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 import { useSelector } from 'react-redux';

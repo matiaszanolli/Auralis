@@ -1,6 +1,6 @@
 
 import { Typography } from '@mui/material';
-import { Keyboard } from '@mui/icons-material';
+import Keyboard from '@mui/icons-material/Keyboard';
 import { EmptyStateBox } from './KeyboardShortcutsHelp.styles';
 
 /**

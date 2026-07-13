@@ -1,9 +1,7 @@
 
 import { Box, Typography } from '@mui/material';
-import {
-  MusicNote as MusicNoteIcon,
-  AutoAwesome as SparklesIcon
-} from '@mui/icons-material';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import SparklesIcon from '@mui/icons-material/AutoAwesome';
 import { tokens } from '@/design-system';
 
 interface SimilarTracksEmptyStateProps {

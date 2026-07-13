@@ -9,7 +9,9 @@
 
 import { memo } from 'react';
 import { Box, Typography, Stack } from '@mui/material';
-import { GraphicEq, VolumeUp, Compress } from '@mui/icons-material';
+import GraphicEq from '@mui/icons-material/GraphicEq';
+import VolumeUp from '@mui/icons-material/VolumeUp';
+import Compress from '@mui/icons-material/Compress';
 import { tokens } from '@/design-system';
 import { ParameterRow } from './ParameterRow';
 import { useParameterFormatting } from '@/components/enhancement-pane/hooks/useParameterFormatting';

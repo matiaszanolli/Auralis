@@ -2,12 +2,10 @@
  * FoldersList - Library folders list with add and remove buttons
  */
 
-import {
-  Folder as FolderIcon,
-  FolderOpen as FolderOpenIcon,
-  Delete as DeleteIcon,
-  Add as AddIcon,
-} from '@mui/icons-material';
+import FolderIcon from '@mui/icons-material/Folder';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 import { tokens } from '@/design-system';
 import { List, IconButton, Button } from '@/design-system';

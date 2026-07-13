@@ -5,7 +5,7 @@
  */
 
 import { MouseEvent } from 'react';
-import { MoreVert } from '@mui/icons-material';
+import MoreVert from '@mui/icons-material/MoreVert';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 

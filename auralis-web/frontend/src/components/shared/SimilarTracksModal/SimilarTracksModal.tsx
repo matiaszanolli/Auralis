@@ -38,7 +38,9 @@ import {
   ListItemButton,
   ListItemText,
 } from '@mui/material';
-import { Close, PlayArrow, Explore } from '@mui/icons-material';
+import Close from '@mui/icons-material/Close';
+import PlayArrow from '@mui/icons-material/PlayArrow';
+import Explore from '@mui/icons-material/Explore';
 import { tokens } from '@/design-system';
 import { useSimilarTracks, type SimilarTrack } from '@/hooks/fingerprint';
 

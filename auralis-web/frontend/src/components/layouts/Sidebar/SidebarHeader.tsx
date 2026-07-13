@@ -2,7 +2,7 @@
  * SidebarHeader - Sidebar header with logo and collapse button
  */
 
-import { ChevronLeft } from '@mui/icons-material';
+import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import { tokens } from '@/design-system';
 import { AuroraLogo } from '@/components/navigation/AuroraLogo';
 import { IconButton } from '@/design-system';

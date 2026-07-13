@@ -8,13 +8,11 @@
  * - Circular positions (0-360 degrees)
  */
 
-import {
-  AutoAwesome,
-  WavesOutlined,
-  WhatshotOutlined,
-  FlareOutlined,
-  BoltOutlined,
-} from '@mui/icons-material';
+import AutoAwesome from '@mui/icons-material/AutoAwesome';
+import WavesOutlined from '@mui/icons-material/WavesOutlined';
+import WhatshotOutlined from '@mui/icons-material/WhatshotOutlined';
+import FlareOutlined from '@mui/icons-material/FlareOutlined';
+import BoltOutlined from '@mui/icons-material/BoltOutlined';
 import { tokens } from '@/design-system';
 
 export interface Preset {

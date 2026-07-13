@@ -30,7 +30,7 @@
 
 import { MouseEvent, useEffect, useRef, useState } from 'react';
 import { Box } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import Add from '@mui/icons-material/Add';
 import * as playlistService from '@/services/playlistService';
 import { useContextMenu } from '@/components/shared/ContextMenu';
 import CreatePlaylistDialog from './CreatePlaylistDialog';

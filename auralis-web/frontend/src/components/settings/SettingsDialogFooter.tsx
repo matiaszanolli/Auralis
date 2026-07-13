@@ -1,5 +1,5 @@
 
-import { RestartAlt as ResetIcon } from '@mui/icons-material';
+import ResetIcon from '@mui/icons-material/RestartAlt';
 import { CircularProgress } from '@mui/material';
 import { SettingsDialogActions, SaveButtonGradient, FlexSpacer } from './SettingsDialog.styles';
 import { Button } from '@/design-system';

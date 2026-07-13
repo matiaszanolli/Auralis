@@ -12,10 +12,8 @@ import {
   Divider,
   Tooltip,
 } from '@mui/material';
-import {
-  PlayArrow as ScanNowIcon,
-  FolderOff as FolderOffIcon,
-} from '@mui/icons-material';
+import ScanNowIcon from '@mui/icons-material/PlayArrow';
+import FolderOffIcon from '@mui/icons-material/FolderOff';
 import { Button } from '@/design-system';
 import { tokens } from '@/design-system';
 import { useScanProgress } from '@/hooks/library/useScanProgress';

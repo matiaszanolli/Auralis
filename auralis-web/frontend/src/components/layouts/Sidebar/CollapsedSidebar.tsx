@@ -1,5 +1,5 @@
 
-import { ChevronRight } from '@mui/icons-material';
+import ChevronRight from '@mui/icons-material/ChevronRight';
 import { tokens } from '@/design-system';
 import { CollapsedSidebarContainer } from './SidebarStyles';
 import { IconButton } from '@/design-system';

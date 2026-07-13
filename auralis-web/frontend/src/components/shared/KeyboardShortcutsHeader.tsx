@@ -1,5 +1,6 @@
 
-import { Close, Keyboard } from '@mui/icons-material';
+import Close from '@mui/icons-material/Close';
+import Keyboard from '@mui/icons-material/Keyboard';
 import { StyledDialogTitle } from '@/components/library/Styles/Dialog.styles';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';

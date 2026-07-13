@@ -1,6 +1,6 @@
 
 import { Box, Typography } from '@mui/material';
-import { AutoAwesome as SparklesIcon } from '@mui/icons-material';
+import SparklesIcon from '@mui/icons-material/AutoAwesome';
 import { tokens } from '@/design-system';
 
 /**

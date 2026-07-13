@@ -5,7 +5,9 @@
  */
 
 import { Box } from '@mui/material';
-import { CloudUpload, FolderOpen, CheckCircle } from '@mui/icons-material';
+import CloudUpload from '@mui/icons-material/CloudUpload';
+import FolderOpen from '@mui/icons-material/FolderOpen';
+import CheckCircle from '@mui/icons-material/CheckCircle';
 import { tokens } from '@/design-system';
 
 interface DropZoneIconProps {

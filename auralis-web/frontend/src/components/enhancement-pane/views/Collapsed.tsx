@@ -1,5 +1,6 @@
 
-import { ChevronLeft, AutoAwesome } from '@mui/icons-material';
+import ChevronLeft from '@mui/icons-material/ChevronLeft';
+import AutoAwesome from '@mui/icons-material/AutoAwesome';
 import { tokens } from '@/design-system';
 import { IconButton, Tooltip } from '@/design-system';
 import {

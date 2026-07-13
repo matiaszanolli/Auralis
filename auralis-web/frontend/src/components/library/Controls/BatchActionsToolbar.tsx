@@ -11,14 +11,12 @@
  */
 
 import { useState, MouseEvent } from 'react';
-import {
-  Close,
-  PlaylistAdd,
-  QueueMusic,
-  Delete,
-  Favorite,
-  MoreVert
-} from '@mui/icons-material';
+import Close from '@mui/icons-material/Close';
+import PlaylistAdd from '@mui/icons-material/PlaylistAdd';
+import QueueMusic from '@mui/icons-material/QueueMusic';
+import Delete from '@mui/icons-material/Delete';
+import Favorite from '@mui/icons-material/Favorite';
+import MoreVert from '@mui/icons-material/MoreVert';
 import {
   ToolbarContainer,
   SelectionCount,

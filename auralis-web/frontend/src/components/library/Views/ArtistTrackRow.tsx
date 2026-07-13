@@ -4,7 +4,8 @@
 
 import { KeyboardEvent } from 'react';
 import { TableCell, Typography, Box } from '@mui/material';
-import { PlayArrow, Pause } from '@mui/icons-material';
+import PlayArrow from '@mui/icons-material/PlayArrow';
+import Pause from '@mui/icons-material/Pause';
 import { StyledTableRow, PlayIcon } from '@/components/library/Styles/Table.styles';
 import type { DetailTrack as Track } from '@/types/domain';
 import { tokens } from '@/design-system';

@@ -5,7 +5,7 @@
  */
 
 import { Menu, MenuItem } from '@mui/material';
-import { Edit } from '@mui/icons-material';
+import Edit from '@mui/icons-material/Edit';
 import { tokens } from '@/design-system';
 
 interface BatchActionsMoreMenuProps {

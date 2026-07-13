@@ -1,8 +1,6 @@
 
-import {
-  FolderOpen,
-  Refresh
-} from '@mui/icons-material';
+import FolderOpen from '@mui/icons-material/FolderOpen';
+import Refresh from '@mui/icons-material/Refresh';
 import SearchBar from '@/components/navigation/SearchBar';
 import ViewToggle, { ViewMode } from '@/components/navigation/ViewToggle';
 import { tokens } from '@/design-system';

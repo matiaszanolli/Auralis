@@ -1,9 +1,7 @@
 
-import {
-  PlayArrow,
-  Shuffle,
-  MoreVert
-} from '@mui/icons-material';
+import PlayArrow from '@mui/icons-material/PlayArrow';
+import Shuffle from '@mui/icons-material/Shuffle';
+import MoreVert from '@mui/icons-material/MoreVert';
 import { tokens } from '@/design-system';
 import DetailViewHeader from './DetailViewHeader';
 import { ArtistAvatarCircle } from '@/components/library/Styles/ArtistDetail.styles';

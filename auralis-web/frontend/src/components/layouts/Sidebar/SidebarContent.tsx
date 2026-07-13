@@ -3,7 +3,11 @@
  */
 
 import { Box } from '@mui/material';
-import { LibraryMusic, Album, Person, Favorite, History } from '@mui/icons-material';
+import LibraryMusic from '@mui/icons-material/LibraryMusic';
+import Album from '@mui/icons-material/Album';
+import Person from '@mui/icons-material/Person';
+import Favorite from '@mui/icons-material/Favorite';
+import History from '@mui/icons-material/History';
 import { tokens } from '@/design-system';
 import { SectionLabel } from './SidebarStyles';
 import NavigationSection from './NavigationSection';

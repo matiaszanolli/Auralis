@@ -8,7 +8,7 @@
 
 import { MouseEvent, ReactNode } from 'react';
 import { Box, IconButton } from '@mui/material';
-import { PlayArrow } from '@mui/icons-material';
+import PlayArrow from '@mui/icons-material/PlayArrow';
 import { tokens } from '@/design-system';
 
 interface MediaCardOverlayProps {

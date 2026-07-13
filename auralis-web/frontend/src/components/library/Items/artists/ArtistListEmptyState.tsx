@@ -1,5 +1,5 @@
 
-import { Person } from '@mui/icons-material';
+import Person from '@mui/icons-material/Person';
 import { EmptyState } from '@/components/shared/ui/feedback';
 
 interface ArtistListEmptyStateProps {

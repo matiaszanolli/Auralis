@@ -1,5 +1,8 @@
 import { MouseEvent, useCallback } from 'react';
-import { QueueMusic, Add, ExpandMore, ExpandLess } from '@mui/icons-material';
+import QueueMusic from '@mui/icons-material/QueueMusic';
+import Add from '@mui/icons-material/Add';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import ExpandLess from '@mui/icons-material/ExpandLess';
 import { SectionHeader, SectionTitle, AddButton } from './PlaylistList.styles';
 import { Tooltip, tokens } from '@/design-system';
 import { Box } from '@mui/material';

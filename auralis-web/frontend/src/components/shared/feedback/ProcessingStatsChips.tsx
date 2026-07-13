@@ -5,7 +5,9 @@
  */
 
 import { Stack } from '@mui/material';
-import { TrendingUp, Speed, Memory } from '@mui/icons-material';
+import TrendingUp from '@mui/icons-material/TrendingUp';
+import Speed from '@mui/icons-material/Speed';
+import Memory from '@mui/icons-material/Memory';
 import { Chip, tokens } from '@/design-system';
 
 interface ProcessingStatsChipsProps {

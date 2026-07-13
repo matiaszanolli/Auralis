@@ -2,10 +2,8 @@
 import {
   InputAdornment
 } from '@mui/material';
-import {
-  Search as SearchIcon,
-  Close as CloseIcon
-} from '@mui/icons-material';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
 import {
   SearchContainer,
   SearchField

@@ -14,7 +14,7 @@
  */
 
 import { DialogContent, DialogActions, Box } from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
+import CloseIcon from '@mui/icons-material/Close';
 import { tokens } from '@/design-system';
 import { StyledDialog, StyledDialogTitle, CancelButtonForDialog } from '@/components/library/Styles/Dialog.styles';
 import type { Artist } from '@/types/domain';

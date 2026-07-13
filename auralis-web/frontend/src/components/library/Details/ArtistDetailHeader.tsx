@@ -5,7 +5,7 @@
  */
 
 import { tokens } from '@/design-system';
-import { ArrowBack } from '@mui/icons-material';
+import ArrowBack from '@mui/icons-material/ArrowBack';
 import ArtistHeader from './ArtistHeader';
 import { type Artist } from './useArtistDetailsData';
 import { IconButton } from '@/design-system';

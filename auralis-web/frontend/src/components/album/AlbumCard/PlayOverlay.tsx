@@ -6,7 +6,7 @@
  */
 
 import { MouseEvent } from 'react';
-import { PlayArrow } from '@mui/icons-material';
+import PlayArrow from '@mui/icons-material/PlayArrow';
 import { tokens } from '@/design-system';
 import { IconButton } from '@/design-system';
 import { Box } from '@mui/material';

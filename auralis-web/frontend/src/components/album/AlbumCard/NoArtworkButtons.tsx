@@ -6,7 +6,8 @@
  */
 
 import { MouseEvent } from 'react';
-import { CloudDownload, ImageSearch } from '@mui/icons-material';
+import CloudDownload from '@mui/icons-material/CloudDownload';
+import ImageSearch from '@mui/icons-material/ImageSearch';
 import { tokens } from '@/design-system';
 import { IconButton, Tooltip } from '@/design-system';
 import { Box } from '@mui/material';

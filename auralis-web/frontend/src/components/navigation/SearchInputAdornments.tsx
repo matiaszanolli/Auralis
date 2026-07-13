@@ -5,7 +5,8 @@
  */
 
 import { InputAdornment, Box } from '@mui/material';
-import { Search, Close } from '@mui/icons-material';
+import Search from '@mui/icons-material/Search';
+import Close from '@mui/icons-material/Close';
 import { ClearButton, ResultCount } from './SearchBar.styles';
 import { tokens, CircularProgress } from '@/design-system';
 

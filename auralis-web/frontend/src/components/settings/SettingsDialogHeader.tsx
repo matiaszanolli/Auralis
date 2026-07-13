@@ -1,5 +1,5 @@
 
-import { Close as CloseIcon } from '@mui/icons-material';
+import CloseIcon from '@mui/icons-material/Close';
 import { StyledDialogTitle } from '@/components/library/Styles/Dialog.styles';
 import { IconButton, tokens } from '@/design-system';
 import { Typography } from '@mui/material';

@@ -17,7 +17,7 @@
  */
 
 import { Box, styled } from '@mui/material';
-import { MusicNote } from '@mui/icons-material';
+import MusicNote from '@mui/icons-material/MusicNote';
 import { tokens } from '@/design-system';
 import { SkeletonContainer } from '@/components/library/Styles/Skeleton.styles';
 import { fadeIn } from '@/components/library/Styles/Animation.styles';

@@ -8,7 +8,9 @@
  */
 
 import { Menu, MenuItem } from '@mui/material';
-import { CloudDownload, ImageSearch, Delete } from '@mui/icons-material';
+import CloudDownload from '@mui/icons-material/CloudDownload';
+import ImageSearch from '@mui/icons-material/ImageSearch';
+import Delete from '@mui/icons-material/Delete';
 
 export interface ArtworkMenuProps {
   open: boolean;

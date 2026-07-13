@@ -3,7 +3,7 @@
  */
 
 import { Box, ListItemIcon, ListItemText } from '@mui/material';
-import { Settings } from '@mui/icons-material';
+import Settings from '@mui/icons-material/Settings';
 import { tokens } from '@/design-system';
 import ThemeToggle from '@/components/shared/ui/ThemeToggle';
 import { StyledListItemButton } from './SidebarStyles';

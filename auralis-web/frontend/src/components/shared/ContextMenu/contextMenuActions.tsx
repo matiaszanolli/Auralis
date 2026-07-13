@@ -9,19 +9,17 @@
  */
 
 import { ReactNode } from 'react';
-import {
-  PlayArrow,
-  QueueMusic,
-  PlaylistAdd,
-  Favorite,
-  FavoriteBorder,
-  Info,
-  Delete,
-  Edit,
-  Album as AlbumIcon,
-  Person,
-  Explore, // Phase 5: Find Similar Tracks icon
-} from '@mui/icons-material';
+import PlayArrow from '@mui/icons-material/PlayArrow';
+import QueueMusic from '@mui/icons-material/QueueMusic';
+import PlaylistAdd from '@mui/icons-material/PlaylistAdd';
+import Favorite from '@mui/icons-material/Favorite';
+import FavoriteBorder from '@mui/icons-material/FavoriteBorder';
+import Info from '@mui/icons-material/Info';
+import Delete from '@mui/icons-material/Delete';
+import Edit from '@mui/icons-material/Edit';
+import AlbumIcon from '@mui/icons-material/Album';
+import Person from '@mui/icons-material/Person';
+import Explore from '@mui/icons-material/Explore';
 
 export interface ContextMenuAction {
   id: string;
