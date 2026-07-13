@@ -29,7 +29,7 @@
  */
 
 import { MouseEvent, useEffect, useRef, useState } from 'react';
-import { Box, IconButton } from '@mui/material';
+import { Box } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import * as playlistService from '@/services/playlistService';
 import { useContextMenu } from '@/components/shared/ContextMenu';
@@ -189,8 +189,15 @@ export const PlaylistList = ({
       />
 
       {hideHeader && (
+        // The click target itself is a native <button> so it is keyboard
+        // focusable/activatable, with an explicit accessible name — previously
+        // this was a non-semantic Box onClick wrapping an unlabeled icon-only
+        // IconButton, which Tab landed on as a bare "button" (#4450).
         <Box
+          component="button"
+          type="button"
           onClick={() => setCreateDialogOpen(true)}
+          aria-label="Create new playlist"
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -199,21 +206,19 @@ export const PlaylistList = ({
             cursor: 'pointer',
             color: tokens.colors.text.secondary,
             transition: tokens.transitions.fast,
+            // Reset native button chrome so it matches the surrounding rows.
+            width: '100%',
+            background: 'transparent',
+            border: 'none',
+            font: 'inherit',
+            textAlign: 'left',
             '&:hover': {
               color: tokens.colors.text.primary,
               backgroundColor: tokens.colors.bg.level2,
             },
           }}
         >
-          <IconButton
-            size="small"
-            sx={{
-              color: 'inherit',
-              padding: 0,
-            }}
-          >
-            <Add fontSize="small" />
-          </IconButton>
+          <Add fontSize="small" />
           <span>New Playlist</span>
         </Box>
       )}

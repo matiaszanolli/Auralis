@@ -355,4 +355,39 @@ describe('PlaylistList', () => {
       expect(handleSelect).toHaveBeenCalled()
     })
   })
+
+  // ==========================================================================
+  // Sidebar create-playlist trigger accessibility (#4450)
+  // ==========================================================================
+  describe('Sidebar create button accessibility (#4450)', () => {
+    it('exposes the create trigger as a single focusable button with an accessible name', async () => {
+      render(<PlaylistList hideHeader />)
+
+      const createButton = await screen.findByRole('button', {
+        name: /create new playlist/i,
+      })
+
+      // The click target itself must be a real, focusable <button> — not a div.
+      expect(createButton.tagName).toBe('BUTTON')
+      createButton.focus()
+      expect(createButton).toHaveFocus()
+    })
+
+    it('opens the create dialog when activated from the keyboard', async () => {
+      const user = userEvent.setup()
+      render(<PlaylistList hideHeader />)
+
+      const createButton = await screen.findByRole('button', {
+        name: /create new playlist/i,
+      })
+
+      createButton.focus()
+      await user.keyboard('{Enter}')
+
+      // A native button fires onClick on Enter → the create dialog opens.
+      expect(
+        await screen.findByRole('dialog', { name: /create new playlist/i })
+      ).toBeInTheDocument()
+    })
+  })
 })
