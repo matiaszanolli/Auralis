@@ -25,6 +25,7 @@ export const KeyboardShortcutsHeader = ({ onClose }: KeyboardShortcutsHeaderProp
       </Typography>
       <IconButton
         onClick={onClose}
+        aria-label="Close keyboard shortcuts"
         sx={{
           color: tokens.colors.text.primary,
           '&:hover': {
