@@ -152,6 +152,44 @@ describe('useBatchOperations', () => {
 
       expect(mockToastError).toHaveBeenCalledWith('Failed to add tracks to queue');
     });
+
+    it('is a no-op when re-entered while a batch is already in flight (#4443)', async () => {
+      // Count how many add-track requests actually reach the server, and hold
+      // them open until we release, so both handler calls overlap in flight.
+      let addTrackCalls = 0;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      server.use(
+        http.post('/api/player/queue/add-track', async () => {
+          addTrackCalls += 1;
+          await gate;
+          return HttpResponse.json({ success: true });
+        })
+      );
+
+      const { result } = renderHook(() =>
+        useBatchOperations({
+          selectedTracks: new Set([1, 2, 3]),
+          selectedCount: 3,
+          onFetchTracks: mockOnFetchTracks,
+          onClearSelection: mockOnClearSelection,
+        })
+      );
+
+      const handler = result.current.handleBulkAddToQueue;
+
+      await act(async () => {
+        const first = handler();   // starts the batch, sets the in-flight guard
+        const second = handler();  // re-entrant → must short-circuit to a no-op
+        release();                 // let the in-flight requests complete
+        await Promise.all([first, second]);
+      });
+
+      // Exactly one batch of 3 requests fired — not 6 — and the selection was
+      // cleared once, not twice.
+      expect(addTrackCalls).toBe(3);
+      expect(mockOnClearSelection).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('handleBulkAddToPlaylist', () => {

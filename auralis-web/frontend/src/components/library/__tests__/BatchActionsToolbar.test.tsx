@@ -557,4 +557,33 @@ describe('BatchActionsToolbar', () => {
       expect(callbacks.onClearSelection).toHaveBeenCalled();
     });
   });
+
+  describe('Disabled state during a batch (#4443)', () => {
+    it('disables action buttons when disabled is true', () => {
+      render(
+        <BatchActionsToolbar
+          selectedCount={3}
+          onAddToQueue={vi.fn()}
+          onToggleFavorite={vi.fn()}
+          onClearSelection={vi.fn()}
+          disabled
+        />
+      );
+
+      expect(screen.getByRole('button', { name: /queue/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /favorite/i })).toBeDisabled();
+    });
+
+    it('keeps action buttons enabled when disabled is false', () => {
+      render(
+        <BatchActionsToolbar
+          selectedCount={3}
+          onAddToQueue={vi.fn()}
+          onClearSelection={vi.fn()}
+        />
+      );
+
+      expect(screen.getByRole('button', { name: /queue/i })).toBeEnabled();
+    });
+  });
 });

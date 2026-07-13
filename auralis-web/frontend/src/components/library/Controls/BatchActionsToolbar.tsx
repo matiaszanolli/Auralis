@@ -38,6 +38,8 @@ interface BatchActionsToolbarProps {
   onEditMetadata?: () => void;
   onClearSelection: () => void;
   context?: 'library' | 'playlist' | 'favorites' | 'queue';
+  /** Disable action buttons while a batch operation is in flight (#4443). */
+  disabled?: boolean;
 }
 
 /**
@@ -70,6 +72,7 @@ const BatchActionsToolbar = ({
   onEditMetadata,
   onClearSelection,
   context = 'library',
+  disabled = false,
 }: BatchActionsToolbarProps) => {
   const {
     moreMenuAnchor,
@@ -97,6 +100,7 @@ const BatchActionsToolbar = ({
             icon={<PlaylistAdd />}
             title="Add to Playlist"
             onClick={handlePlaylistMenuOpen}
+            disabled={disabled}
           />
           <AddToPlaylistMenu
             anchorEl={playlistMenuAnchor}
@@ -111,6 +115,7 @@ const BatchActionsToolbar = ({
           icon={<QueueMusic />}
           title="Add to Queue"
           onClick={() => onAddToQueue()}
+          disabled={disabled}
         />
       )}
 
@@ -119,6 +124,7 @@ const BatchActionsToolbar = ({
           icon={<Favorite />}
           title="Toggle Favorite"
           onClick={() => onToggleFavorite()}
+          disabled={disabled}
         />
       )}
 
@@ -127,6 +133,7 @@ const BatchActionsToolbar = ({
           icon={<Delete />}
           title={getRemoveLabel(context)}
           onClick={() => onRemove()}
+          disabled={disabled}
         />
       )}
 
@@ -137,6 +144,7 @@ const BatchActionsToolbar = ({
             icon={<MoreVert />}
             title="More Actions"
             onClick={handleMoreMenuOpen}
+            disabled={disabled}
           />
           <BatchActionsMoreMenu
             anchorEl={moreMenuAnchor}

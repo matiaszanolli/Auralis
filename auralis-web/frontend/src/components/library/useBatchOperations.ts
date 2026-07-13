@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { post, del } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
 import { useToast } from '@/components/shared/Toast';
@@ -42,7 +42,27 @@ export const useBatchOperations = ({
 }: UseBatchOperationsProps) => {
   const { success, error } = useToast();
 
-  const handleBulkAddToQueue = useCallback(async () => {
+  // In-flight guard (#4443): bulk handlers fire N concurrent requests; a quick
+  // double-click (or an interaction while a prior toast lingers) previously
+  // fired a second full batch — duplicate favorite flips / queue insertions.
+  // The ref blocks re-entrancy synchronously (state updates are async); the
+  // state drives the toolbar's disabled UI.
+  const isSubmittingRef = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const runExclusive = useCallback(async (op: () => Promise<void>): Promise<void> => {
+    if (isSubmittingRef.current) return; // re-entrant call while a batch is in flight → no-op
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    try {
+      await op();
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  const handleBulkAddToQueue = useCallback(() => runExclusive(async () => {
     const trackIds = Array.from(selectedTracks);
     const results = await Promise.allSettled(
       trackIds.map(trackId => post(ENDPOINTS.QUEUE_ADD_TRACK, { track_id: trackId }))
@@ -57,9 +77,9 @@ export const useBatchOperations = ({
     );
 
     onClearSelection();
-  }, [selectedTracks, onClearSelection, success, error]);
+  }), [runExclusive, selectedTracks, onClearSelection, success, error]);
 
-  const handleBulkAddToPlaylist = useCallback(async (playlistId: number, playlistName: string) => {
+  const handleBulkAddToPlaylist = useCallback((playlistId: number, playlistName: string) => runExclusive(async () => {
     const trackIds = Array.from(selectedTracks);
     try {
       const addedCount = await addTracksToPlaylist(playlistId, trackIds);
@@ -75,13 +95,13 @@ export const useBatchOperations = ({
     }
 
     onClearSelection();
-  }, [selectedTracks, onClearSelection, success, error]);
+  }), [runExclusive, selectedTracks, onClearSelection, success, error]);
 
   // Bulk remove is only wired for the favourites context — non-favourites
   // library removal has no backend deletion route yet (fixes #4240; the
   // toolbar's Remove button is hidden outside favourites so this branch
   // is unreachable rather than a silent no-op toast).
-  const handleBulkRemove = useCallback(async () => {
+  const handleBulkRemove = useCallback(() => runExclusive(async () => {
     if (!confirm(`Remove ${selectedCount} tracks?`)) {
       return;
     }
@@ -101,9 +121,9 @@ export const useBatchOperations = ({
 
     onClearSelection();
     await onFetchTracks();
-  }, [selectedTracks, selectedCount, onClearSelection, onFetchTracks, success, error]);
+  }), [runExclusive, selectedTracks, selectedCount, onClearSelection, onFetchTracks, success, error]);
 
-  const handleBulkToggleFavorite = useCallback(async () => {
+  const handleBulkToggleFavorite = useCallback(() => runExclusive(async () => {
     const trackIds = Array.from(selectedTracks);
     const results = await Promise.allSettled(
       trackIds.map(trackId => post(ENDPOINTS.TRACK_FAVORITE(trackId)))
@@ -119,12 +139,13 @@ export const useBatchOperations = ({
 
     onClearSelection();
     await onFetchTracks();
-  }, [selectedTracks, onClearSelection, onFetchTracks, success, error]);
+  }), [runExclusive, selectedTracks, onClearSelection, onFetchTracks, success, error]);
 
   return useMemo(() => ({
     handleBulkAddToQueue,
     handleBulkAddToPlaylist,
     handleBulkRemove,
     handleBulkToggleFavorite,
-  }), [handleBulkAddToQueue, handleBulkAddToPlaylist, handleBulkRemove, handleBulkToggleFavorite]);
+    isSubmitting,
+  }), [handleBulkAddToQueue, handleBulkAddToPlaylist, handleBulkRemove, handleBulkToggleFavorite, isSubmitting]);
 };

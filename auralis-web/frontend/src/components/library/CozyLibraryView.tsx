@@ -154,6 +154,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     handleBulkAddToPlaylist,
     handleBulkRemove,
     handleBulkToggleFavorite,
+    isSubmitting: isBatchSubmitting,
   } = useBatchOperations({
     selectedTracks,
     selectedCount,
@@ -227,6 +228,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
           onToggleFavorite={handleBulkToggleFavorite}
           onClearSelection={clearSelection}
           context={view === 'favourites' ? 'favorites' : 'library'}
+          disabled={isBatchSubmitting}
         />
       )}
 
