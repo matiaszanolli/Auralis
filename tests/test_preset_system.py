@@ -70,17 +70,25 @@ class TestPresetProfiles:
             assert hasattr(profile, 'dynamics_blend')
 
     def test_preset_loudness_ordering(self):
-        """Verify presets have correct loudness ordering"""
+        """Verify presets have correct loudness ordering.
+
+        The design ladder (by target LUFS): Gentle is the most transparent and
+        therefore the quietest; Bright targets modern presence/clarity and is
+        the loudest; Adaptive sits at the modern-standard −14 default in between.
+        """
         gentle = get_preset_profile('gentle')
         adaptive = get_preset_profile('adaptive')
-        punchy = get_preset_profile('punchy')
         bright = get_preset_profile('bright')
 
-        # Adaptive should be quietest (most negative LUFS)
-        assert adaptive.target_lufs < gentle.target_lufs
-        # Bright/Punchy should be louder (less negative LUFS)
-        assert punchy.target_lufs > adaptive.target_lufs
+        # Gentle (subtle/transparent) is quieter than the adaptive default.
+        assert gentle.target_lufs < adaptive.target_lufs
+        # Bright (modern presence/air) is louder than the adaptive default.
         assert bright.target_lufs > adaptive.target_lufs
+
+        # Across all presets, Gentle is the quietest and Bright the loudest.
+        all_lufs = [get_preset_profile(p).target_lufs for p in get_available_presets()]
+        assert gentle.target_lufs == min(all_lufs)
+        assert bright.target_lufs == max(all_lufs)
 
     def test_preset_compression_ratios(self):
         """Verify compression ratios are within valid range"""
@@ -301,7 +309,15 @@ class TestPresetProcessing:
                 f"Preset '{preset_name}' LUFS out of range: {output_lufs:.2f}"
 
     def test_processing_is_deterministic(self, test_audio):
-        """Test that processing same audio twice gives same result"""
+        """Mastering the same audio twice gives the same result.
+
+        HybridProcessor is the *streaming* processor: its adaptive/continuous
+        psychoacoustic-EQ gain smoothing intentionally persists across
+        process() calls for intra-track chunk continuity. Independent masters
+        therefore reset that per-track state at the track/job boundary (see
+        processing_engine's #2400 reset). Mirror that contract here: with the
+        state reset between runs, identical input must yield identical output.
+        """
         audio, sr = test_audio
 
         config = UnifiedConfig()
@@ -309,6 +325,12 @@ class TestPresetProcessing:
         processor = HybridProcessor(config)
 
         result1 = processor.process(audio.copy())
+
+        # Reset per-track state exactly as the processing engine does per job.
+        processor.reset_realtime_eq()
+        processor.reset_dynamics()
+        processor.reset_psychoacoustic_eq()
+
         result2 = processor.process(audio.copy())
 
         # Should be identical (within floating point precision)

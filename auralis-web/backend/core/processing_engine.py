@@ -453,8 +453,12 @@ class ProcessingEngine:
 
             # Reset EQ state before each job so cached processors don't bleed
             # the previous track's psychoacoustic EQ curve into the new track (fixes #2400).
+            # reset_realtime_eq() only clears the real-time EQ path's own EQ; the
+            # adaptive/continuous path uses a separate main psychoacoustic EQ whose
+            # gain-smoothing state also has to be reset here (completes #2400).
             processor.reset_realtime_eq()
             processor.reset_dynamics()
+            processor.reset_psychoacoustic_eq()
 
             # Process audio — CPU-bound; offload to thread (fixes #2319)
             # Wrap with wait_for so a hung DSP/Rust call cannot hold the

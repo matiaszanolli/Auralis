@@ -338,11 +338,21 @@ def test_processing_is_deterministic(processor, test_audio_stereo):
     INVARIANT: Processing the same audio twice should produce identical results.
 
     Non-deterministic processing makes debugging impossible and breaks caching.
+
+    HybridProcessor is the streaming processor: its adaptive psychoacoustic-EQ
+    gain smoothing persists across process() calls for intra-track chunk
+    continuity, so independent masters reset that per-track state at the
+    track/job boundary (see processing_engine's #2400 reset). Reset it between
+    the two runs here to assert the real invariant — deterministic output for a
+    given input from a clean starting state.
     """
     audio, sr = test_audio_stereo
 
-    # Process twice
+    # Process twice, resetting per-track state between runs as production does.
     result1 = processor.process(audio.copy())
+    processor.reset_realtime_eq()
+    processor.reset_dynamics()
+    processor.reset_psychoacoustic_eq()
     result2 = processor.process(audio.copy())
 
     # Results should be identical (or very close due to floating point)

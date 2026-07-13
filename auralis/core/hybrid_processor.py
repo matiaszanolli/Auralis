@@ -477,6 +477,19 @@ class HybridProcessor:
         with self._process_lock:
             self.dynamics_manager.reset()
 
+    def reset_psychoacoustic_eq(self) -> None:
+        """Reset the main adaptive/continuous psychoacoustic EQ smoothing state.
+
+        This is the EQ used by the adaptive and continuous processing paths
+        (via ``self.eq_processor``). Its ``current_gains``/``target_gains``
+        gain-smoothing state persists across ``process()`` calls for
+        intra-track streaming continuity; resetting it at a track/job boundary
+        keeps one master from bleeding the previous track's EQ curve into the
+        next. Distinct from ``reset_realtime_eq()``, which resets the *separate*
+        psychoacoustic EQ owned by the real-time EQ path (completes #2400)."""
+        with self._process_lock:
+            self.psychoacoustic_eq.reset()
+
     def set_user(self, user_id: str) -> None:
         """Set the current user for preference learning (#3787: locked).
 
