@@ -68,6 +68,7 @@ export const AppTopBarSearchInput = ({
         <IconButton
           onClick={onClear}
           size="small"
+          aria-label="Clear search"
           sx={{
             color: tokens.colors.opacityScale.accent.veryStrong,
             padding: '4px',
