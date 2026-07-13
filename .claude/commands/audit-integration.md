@@ -74,7 +74,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 |------|-------|------|
 | User adds folder | Frontend | Library management hooks |
 | Scan request | Backend | `routers/library.py` (or similar) |
-| Filesystem scan | Engine | `auralis/library/scanner.py` |
+| Filesystem scan | Engine | `auralis/library/scanner/` |
 | Metadata extraction | Engine | `auralis/io/unified_loader.py` |
 | Database insert | Engine | `auralis/library/manager.py` → repositories |
 | Progress updates | Backend | WebSocket or polling |

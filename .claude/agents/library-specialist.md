@@ -12,10 +12,10 @@ You are the **Library Specialist** for Auralis — the SQLite-backed library at 
 
 **Top-level library** (`auralis/library/`):
 - `auralis/library/manager.py` — `LibraryManager` orchestrator
-- `auralis/library/scanner.py` — folder scanning (filesystem → tracks)
-- `auralis/library/migration_manager.py` — schema migrations (currently v3)
-- `auralis/library/models.py` — SQLAlchemy ORM models
-- `auralis/library/artwork.py`, `metadata_editor.py`, `sidecar_manager.py` — track metadata helpers
+- `auralis/library/scanner/scanner.py` — folder scanning (filesystem → tracks)
+- `auralis/library/migration_manager.py` — schema migrations (currently v16)
+- `auralis/library/models/` — SQLAlchemy ORM models (package: `base.py`, `core.py`, `fingerprint.py`)
+- `auralis/library/artwork.py`, `sidecar_manager.py`, `metadata_editor/` — track metadata helpers
 - `auralis/library/fingerprint_quantizer.py` — fingerprint indexing helpers
 - `auralis/library/cache.py`, `caching/` — caching layer
 - `auralis/library/resource_monitor.py` — disk/memory monitoring
@@ -65,7 +65,7 @@ Answer questions about:
 2. **Raw SQL scan**: `grep -rn "execute(\|text(" auralis/ auralis-web/` finds any raw SQL outside repositories.
 3. **Selectinload audit**: `grep -rn "selectinload\|joinedload" auralis/library/repositories/` — every list operation should appear.
 4. **Migration walk**: read `auralis/library/migrations/` in order. Check that each migration has both `up` and `down`.
-5. **Scan flow**: trace from `LibraryAutoScanner` (backend service) → `scanner.py` → `track_repository.py` → DB. Look for transaction boundaries and atomicity gaps.
+5. **Scan flow**: trace from `LibraryAutoScanner` (backend service) → `scanner/scanner.py` → `track_repository.py` → DB. Look for transaction boundaries and atomicity gaps.
 6. **Disprove your finding**: try to construct a query plan or scan sequence where the supposed bug doesn't fire. If you can't, it's a finding.
 
 ## What You Don't Do
@@ -78,4 +78,4 @@ Answer questions about:
 
 - `CLAUDE.md` — project conventions ("Database" invariants block)
 - `docs/audits/` — prior library audits (search for `AUDIT_LIBRARY_*.md`, `AUDIT_BACKEND_*.md`)
-- `auralis/library/migrations/` — schema history (currently v3)
+- `auralis/library/migrations/` — schema history (currently v16)

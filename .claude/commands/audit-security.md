@@ -34,7 +34,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] WebSocket connections in `audio_stream_controller.py` — is there auth on connect?
 - [ ] All 19 routers in `auralis-web/backend/routers/` — which have NO auth checks?
 - [ ] File serving endpoints — can a user request files outside the music library?
-- [ ] Library scanner (`auralis/library/scanner.py`) — does it follow symlinks outside allowed directories?
+- [ ] Library scanner (`auralis/library/scanner/`) — does it follow symlinks outside allowed directories?
 - [ ] Artwork endpoints — path traversal via metadata manipulation?
 - [ ] Streaming endpoints — can a user stream any file on the filesystem?
 
@@ -105,7 +105,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 | `auralis-web/backend/core/audio_stream_controller.py` | WebSocket streaming |
 | `auralis-web/backend/core/chunked_processor.py` | Audio chunk processing |
 | `auralis/io/unified_loader.py` | File loading (FFmpeg, SoundFile) |
-| `auralis/library/scanner.py` | Filesystem scanning |
+| `auralis/library/scanner/` | Filesystem scanning |
 | `auralis/library/manager.py` | Database access orchestration |
 | `auralis/library/migration_manager.py` | Schema migrations |
 | `auralis-web/frontend/src/services/` | API clients |
@@ -118,7 +118,7 @@ Trace how user-controlled data flows through the system:
 1. **File paths**: Frontend search → Backend router → LibraryManager → unified_loader → FFmpeg — is the path validated at each boundary?
 2. **Audio metadata**: File on disk → unified_loader → ID3/metadata parser → database → API response → Frontend render — is metadata sanitized?
 3. **WebSocket messages**: Frontend → WebSocket → audio_stream_controller → processing_engine → chunked_processor → audio engine — are messages validated?
-4. **Library scan paths**: User adds folder → scanner.py → filesystem walk → database insert — can symlinks or special paths escape?
+4. **Library scan paths**: User adds folder → `scanner/` → filesystem walk → database insert — can symlinks or special paths escape?
 
 ## Phase 1: Setup
 

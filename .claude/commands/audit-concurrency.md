@@ -66,7 +66,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ### Dimension 4: Library & Database
 
-**Key files**: `auralis/library/manager.py`, `auralis/library/repositories/`, `auralis/library/scanner.py`, `auralis/library/migration_manager.py`
+**Key files**: `auralis/library/manager.py`, `auralis/library/repositories/`, `auralis/library/scanner/`, `auralis/library/migration_manager.py`
 
 **Check**:
 - [ ] SQLite thread safety — `check_same_thread=False`? Connection pooling config?

@@ -22,7 +22,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 This audit covers ONLY the frontend code:
 
 - **Components**: `auralis-web/frontend/src/components/`
-- **Hooks**: `auralis-web/frontend/src/hooks/` (player, library, enhancement, websocket, api, app, fingerprint, shared)
+- **Hooks**: `auralis-web/frontend/src/hooks/` (player, library, enhancement, websocket, api, app, audio, fingerprint, shared)
 - **Store**: `auralis-web/frontend/src/store/` (Redux slices, selectors, middleware)
 - **Services**: `auralis-web/frontend/src/services/` (API clients)
 - **Design System**: `auralis-web/frontend/src/design-system/` (tokens, theme)

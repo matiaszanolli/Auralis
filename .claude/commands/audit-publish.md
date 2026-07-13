@@ -11,7 +11,7 @@ See `.claude/commands/_audit-common.md` for project layout, methodology, dedupli
 
 ## Input
 
-The `$ARGUMENTS` should be the path to an audit report file (e.g., `docs/audits/AUDIT_BACKEND_2026-03-19.md`).
+The `$ARGUMENTS` should be the path to an audit report file (e.g., *docs/audits/AUDIT_BACKEND_2026-03-19.md*).
 
 If no argument is provided, look for the most recent file in `docs/audits/` by modification time and confirm with the user before proceeding.
 

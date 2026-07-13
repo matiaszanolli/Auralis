@@ -26,8 +26,8 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Player | `auralis/player/` | `enhanced_audio_player.py`, `gapless_playback_engine.py`, `queue_controller.py`, `realtime_processor.py` |
 | Audio I/O | `auralis/io/` | `unified_loader.py`, `results.py` |
 | Parallel Processing | `auralis/optimization/` | `parallel_processor.py` |
-| Analysis | `auralis/analysis/` | `fingerprint/` (25D system), `content/`, `ml/`, `quality/` |
-| Library | `auralis/library/` | `manager.py`, `repositories/` (14 repos + `base.py` BaseRepository), `scanner.py`, `migration_manager.py` |
+| Analysis | `auralis/analysis/` | `fingerprint/` (25D system), `ml/`, `quality/`, `quality_assessors/` |
+| Library | `auralis/library/` | `manager.py`, `repositories/` (14 repos + `base.py` BaseRepository), `scanner/`, `migration_manager.py` |
 | Services | `auralis/services/` | Background services (fingerprint, artwork) |
 | Rust DSP | `vendor/auralis-dsp/` | PyO3 bindings (HPSS, YIN, Chroma) |
 
@@ -115,7 +115,7 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 
 ### Dimension 6: Analysis Subsystem
 
-**Key files**: `auralis/analysis/fingerprint/`, `auralis/analysis/content/`, `auralis/analysis/ml/`, `auralis/analysis/quality/`
+**Key files**: `auralis/analysis/fingerprint/`, `auralis/analysis/ml/`, `auralis/analysis/quality/`, `auralis/analysis/quality_assessors/`
 
 **Check**:
 - [ ] Fingerprint determinism — same file always produces same fingerprint?
@@ -128,7 +128,7 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 
 ### Dimension 7: Library & Database
 
-**Key files**: `auralis/library/manager.py`, `auralis/library/repositories/`, `auralis/library/scanner.py`, `auralis/library/migration_manager.py`
+**Key files**: `auralis/library/manager.py`, `auralis/library/repositories/`, `auralis/library/scanner/`, `auralis/library/migration_manager.py`
 
 **Check**:
 - [ ] Repository pattern — ALL database access via repository classes? No raw SQL?

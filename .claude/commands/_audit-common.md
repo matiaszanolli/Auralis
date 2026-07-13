@@ -15,9 +15,9 @@ Audio Engine:        auralis/                                Core Python audio e
 Core Pipeline:       auralis/core/                           hybrid_processor.py, simple_mastering.py, processing/, config/, recording_type_detector.py
 DSP:                 auralis/dsp/                            stages.py (pipeline main()), basic.py, advanced_dynamics.py, eq/ (psychoacoustic_eq), realtime_adaptive_eq/ (realtime_eq), dynamics/, utils/
 Player:              auralis/player/                         enhanced_audio_player.py, gapless_playback_engine.py, queue_controller.py, realtime_processor.py
-Library:             auralis/library/                        manager.py, scanner.py, migration_manager.py
+Library:             auralis/library/                        manager.py, scanner/ (package), models/ (ORM package), migration_manager.py
 Repositories:        auralis/library/repositories/           14 repos + base.py (BaseRepository) + factory.py (RepositoryFactory): track, album, artist, playlist, genre, stats, fingerprint, fingerprint_scheduler, fingerprint_stats, queue, queue_history, queue_template, settings, similarity_graph
-Analysis:            auralis/analysis/                       81 files; fingerprint/ (25D), content/, ml/, quality/
+Analysis:            auralis/analysis/                       56 files; fingerprint/ (25D), ml/, quality/, quality_assessors/
 Audio I/O:           auralis/io/                             unified_loader.py, results.py (pcm16/pcm24)
 Parallel:            auralis/optimization/                   parallel_processor.py
 Services:            auralis/services/                       fingerprint, artwork background services
@@ -25,16 +25,16 @@ Learning:            auralis/learning/                       preference engine, 
 Utils:               auralis/utils/                          logging, helpers, preview_creator
 
 Backend:             auralis-web/backend/                    FastAPI :8765
-Backend Routers:     auralis-web/backend/routers/            19 route handlers (23 .py files incl. dependencies/errors/serializers/pagination helpers)
+Backend Routers:     auralis-web/backend/routers/            19 route handlers (24 .py files incl. dependencies/errors/serializers/pagination helpers)
 Backend Streaming:   auralis-web/backend/core/               chunked_processor.py, audio_stream_controller.py, processing_engine.py
 Backend Schemas:     auralis-web/backend/schemas.py
 Backend Services:    auralis-web/backend/services/
-Backend Config:      auralis-web/backend/config/             startup.py (LibraryAutoScanner)
+Backend Config:      auralis-web/backend/config/             startup.py (lifespan); LibraryAutoScanner now in services/library_auto_scanner.py
 Backend Core:        auralis-web/backend/core/
 
 Frontend:            auralis-web/frontend/src/               React 18 + TS + Vite + Redux + MUI
 Frontend Components: auralis-web/frontend/src/components/
-Frontend Hooks:      auralis-web/frontend/src/hooks/         player, library, enhancement, websocket, api, app, fingerprint, shared
+Frontend Hooks:      auralis-web/frontend/src/hooks/         player, library, enhancement, websocket, api, app, audio, fingerprint, shared
 Frontend Store:      auralis-web/frontend/src/store/         Redux slices
 Frontend Design:     auralis-web/frontend/src/design-system/ Design tokens (single source of truth)
 Frontend Services:   auralis-web/frontend/src/services/      API clients
@@ -42,7 +42,7 @@ Frontend Test Utils: auralis-web/frontend/src/test/
 
 Rust DSP:            vendor/auralis-dsp/                     PyO3 module (HPSS, YIN, Chroma)
 Desktop:             desktop/                                Electron wrapper
-Tests:               tests/                                  ~5,100 test functions (369 files) across 18 dirs
+Tests:               tests/                                  ~5,000 test functions (410 files) across 17 dirs
 Audit Reports:       docs/audits/                            Generated audit reports
 Local Issue Cache:   .claude/issues/                         Issue snapshots (per audit-publish / fix-issue)
 Specialist Agents:   .claude/agents/                         dsp, backend, frontend, library specialists
