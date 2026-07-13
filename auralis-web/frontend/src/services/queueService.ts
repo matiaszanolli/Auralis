@@ -49,13 +49,18 @@ const crudService = createCrudService<QueueResponse, SetQueueRequest>({
  * Get current queue
  */
 export async function getQueue(): Promise<QueueResponse> {
-  const result = await crudService.list();
-  // list() returns an array, but for queue we expect the first item or create a response
-  if (Array.isArray(result) && result.length > 0) {
-    return result[0];
+  // crudService.list() is typed Promise<QueueResponse[]>, but GET /api/player/queue
+  // actually returns a single QueueInfoResponse object, never an array — so the old
+  // `Array.isArray` check was always false and unconditionally discarded the real
+  // response for a hardcoded empty queue. Handle both shapes at runtime, mirroring
+  // settingsService.getSettings() (#3977 / #4441).
+  const result = (await crudService.list()) as QueueResponse[] | QueueResponse;
+  if (Array.isArray(result)) {
+    if (result.length > 0) return result[0];
+    // Empty array → no queue data; return the empty default.
+    return { tracks: [], current_index: 0, track_count: 0 };
   }
-  // Return empty queue response if list is empty
-  return { tracks: [], current_index: 0, track_count: 0 };
+  return result;
 }
 
 /**

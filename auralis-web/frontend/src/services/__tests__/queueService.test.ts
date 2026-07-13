@@ -47,7 +47,7 @@ const mockQueueTracks: QueueTrack[] = [
 const mockQueueResponse: QueueResponse = {
   tracks: mockQueueTracks,
   current_index: 0,
-  total_tracks: 3,
+  track_count: 3,
 };
 
 describe('QueueService', () => {
@@ -57,7 +57,10 @@ describe('QueueService', () => {
 
   describe('getQueue', () => {
     it('should get current queue successfully', async () => {
-      mockGet.mockResolvedValueOnce([mockQueueResponse]);
+      // GET /api/player/queue returns a single QueueInfoResponse object, NOT an
+      // array — mock the real wire shape so a regression to the array-only path
+      // (which discarded the response for an empty default) is caught (#4441).
+      mockGet.mockResolvedValueOnce(mockQueueResponse);
 
       const result = await getQueue();
 
@@ -71,11 +74,11 @@ describe('QueueService', () => {
 
       const result = await getQueue();
 
-      expect(result).toEqual({ tracks: [], current_index: 0, total_tracks: 0 });
+      expect(result).toEqual({ tracks: [], current_index: 0, track_count: 0 });
     });
 
     it('should return tracks with all fields', async () => {
-      mockGet.mockResolvedValueOnce([mockQueueResponse]);
+      mockGet.mockResolvedValueOnce(mockQueueResponse);
 
       const result = await getQueue();
       const track = result.tracks[0];
@@ -87,7 +90,7 @@ describe('QueueService', () => {
     });
 
     it('should handle tracks without optional fields', async () => {
-      mockGet.mockResolvedValueOnce([mockQueueResponse]);
+      mockGet.mockResolvedValueOnce(mockQueueResponse);
 
       const result = await getQueue();
       const trackWithoutOptional = result.tracks[2];
