@@ -10,6 +10,13 @@
 
 import { getApiUrl } from '@/config/api';
 
+/**
+ * Default request timeout (ms). Matches the 30s timeout already used by the
+ * app's other two HTTP layers (hooks/api/useRestAPI.ts and
+ * services/api/standardizedAPIClient.ts) so all three behave the same (#4442).
+ */
+export const DEFAULT_TIMEOUT_MS = 30000;
+
 export interface APIError {
   message: string;
   detail?: string;
@@ -39,6 +46,61 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
    * controller.abort();
    */
   signal?: AbortSignal;
+
+  /**
+   * Per-request timeout in milliseconds. Defaults to {@link DEFAULT_TIMEOUT_MS}.
+   * The internal timeout composes with any caller-supplied `signal` — whichever
+   * aborts first wins. Pass `0` to disable the internal timeout.
+   */
+  timeoutMs?: number;
+}
+
+/**
+ * fetch() wrapper that aborts after `timeoutMs` and composes an internal
+ * timeout AbortController with any caller-supplied signal (#4442). Mirrors the
+ * pattern in standardizedAPIClient so all HTTP layers behave the same.
+ *
+ * On timeout it throws an {@link APIRequestError} (status 0); a caller-triggered
+ * abort propagates as the underlying AbortError for the caller-visible catch.
+ */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  callerSignal?: AbortSignal
+): Promise<Response> {
+  // timeoutMs <= 0 disables the internal timeout; still forward the caller signal.
+  if (timeoutMs <= 0) {
+    return fetch(url, { ...init, signal: callerSignal ?? init.signal });
+  }
+
+  const controller = new AbortController();
+  let didTimeout = false;
+  const timeoutId = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeoutMs);
+
+  // Forward a caller-supplied signal (e.g. unmount cancellation) to the internal
+  // controller so either source can abort the in-flight request.
+  const onExternalAbort = () => controller.abort();
+  if (callerSignal?.aborted) {
+    controller.abort();
+  } else {
+    callerSignal?.addEventListener('abort', onExternalAbort, { once: true });
+  }
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (didTimeout) {
+      throw new APIRequestError(`Request timed out after ${timeoutMs}ms`, 0);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    callerSignal?.removeEventListener('abort', onExternalAbort);
+  }
 }
 
 /**
@@ -58,7 +120,7 @@ export async function apiRequest<T = unknown>(
   options: RequestOptions = {}
 ): Promise<T> {
   const url = getApiUrl(endpoint);
-  const { body, headers = {}, ...fetchOptions } = options;
+  const { body, headers = {}, signal, timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
 
   // Prepare request headers
   const requestHeaders: HeadersInit = {
@@ -70,11 +132,16 @@ export async function apiRequest<T = unknown>(
   const fetchBody = body ? JSON.stringify(body) : undefined;
 
   try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      headers: requestHeaders,
-      body: fetchBody,
-    });
+    const response = await fetchWithTimeout(
+      url,
+      {
+        ...fetchOptions,
+        headers: requestHeaders,
+        body: fetchBody,
+      },
+      timeoutMs,
+      signal
+    );
 
     // Handle successful responses
     if (response.ok) {
@@ -171,14 +238,19 @@ export async function del<T = unknown>(endpoint: string, options?: RequestOption
  */
 export async function getBlob(endpoint: string, options?: Omit<RequestOptions, 'body'>): Promise<Blob> {
   const url = getApiUrl(endpoint);
-  const { headers = {}, ...fetchOptions } = options ?? {};
+  const { headers = {}, signal, timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options ?? {};
 
   try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      method: 'GET',
-      headers: { ...headers },
-    });
+    const response = await fetchWithTimeout(
+      url,
+      {
+        ...fetchOptions,
+        method: 'GET',
+        headers: { ...headers },
+      },
+      timeoutMs,
+      signal
+    );
 
     if (response.ok) {
       return response.blob();

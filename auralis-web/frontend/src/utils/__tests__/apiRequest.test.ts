@@ -187,3 +187,86 @@ describe('apiRequest (#4452)', () => {
     expect(error.message).toBe('Forbidden');
   });
 });
+
+// ----------------------------------------------------------------------------
+// Request timeout (#4442)
+// ----------------------------------------------------------------------------
+
+describe('apiRequest timeout (#4442)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  /** A fetch that hangs until its AbortSignal fires, then rejects like the platform does. */
+  function hangingFetch() {
+    return vi
+      .mocked(globalThis.fetch)
+      .mockImplementation(
+        (_url, init?: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(new DOMException('The operation was aborted.', 'AbortError'))
+            );
+          }) as Promise<Response>
+      );
+  }
+
+  it('aborts and rejects after the internal timeout when fetch never resolves', async () => {
+    hangingFetch();
+
+    const promise = apiRequest('/slow', { timeoutMs: 5000 });
+    // Attach a catch synchronously so the rejection is never unhandled.
+    const settled = promise.catch((e) => e as APIRequestError);
+
+    await vi.advanceTimersByTimeAsync(5000);
+
+    const error = (await settled) as APIRequestError;
+    expect(error).toBeInstanceOf(APIRequestError);
+    expect(error.statusCode).toBe(0);
+    expect(error.message).toMatch(/timed out/i);
+  });
+
+  it('does not reject before the timeout elapses', async () => {
+    hangingFetch();
+
+    let settled = false;
+    const promise = apiRequest('/slow', { timeoutMs: 5000 });
+    promise.then(
+      () => { settled = true; },
+      () => { settled = true; }
+    );
+
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(settled).toBe(false);
+
+    // Drain the pending request so it doesn't leak into the next test.
+    await vi.advanceTimersByTimeAsync(1);
+    await promise.catch(() => undefined);
+  });
+
+  it('composes a caller-supplied signal: an early caller abort wins over the timeout', async () => {
+    hangingFetch();
+    const controller = new AbortController();
+
+    const settled = apiRequest('/slow', {
+      timeoutMs: 30000,
+      signal: controller.signal,
+    }).catch((e) => e as APIRequestError);
+
+    controller.abort();
+    await vi.advanceTimersByTimeAsync(0);
+
+    const error = (await settled) as APIRequestError;
+    // Caller abort surfaces as a wrapped network error (not the timeout message).
+    expect(error).toBeInstanceOf(APIRequestError);
+    expect(error.statusCode).toBe(0);
+    expect(error.message).not.toMatch(/timed out/i);
+  });
+});
