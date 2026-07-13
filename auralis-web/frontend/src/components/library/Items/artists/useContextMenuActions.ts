@@ -69,8 +69,6 @@ export const useContextMenuActions = ({
     if (!artist) return;
 
     try {
-      success(`Added ${artist.name} to queue`);
-
       // Fetch all tracks for the artist
       const response = await getArtistTracks(artist.id);
       const tracks = response.tracks.map((track) => ({
@@ -88,6 +86,12 @@ export const useContextMenuActions = ({
 
       // Add all tracks to queue
       queue.addMany(tracks);
+
+      // Show success only after the tracks are actually added — previously this
+      // fired before the fetch, so a failure/empty result produced a false
+      // "Added…" toast immediately followed by an error toast. Mirrors
+      // handlePlayAll, which shows success last (#4444).
+      success(`Added ${artist.name} to queue`);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to add artist tracks to queue';
