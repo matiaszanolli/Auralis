@@ -24,6 +24,7 @@ import {
   generateArtworkGlow,
   type ArtworkPalette,
 } from '@/utils/colorExtraction';
+import { getArtworkUrl } from '@/services/artworkService';
 
 /**
  * In-memory cache for artwork palettes
@@ -99,7 +100,9 @@ export function useArtworkPalette(
       setError(null);
 
       try {
-        const artworkUrl = `/api/albums/${albumId}/artwork`;
+        // Colour extraction downsamples heavily, so a small thumbnail is more
+        // than enough — never fetch the full-resolution bitmap for this (#4447).
+        const artworkUrl = getArtworkUrl(albumId, { size: 64 });
         const extractedPalette = await extractArtworkColors(artworkUrl, {
           colorCount: 5,
           sampleRate: 10,

@@ -11,6 +11,7 @@ import { Box, styled } from '@mui/material';
 import { ProgressiveImage } from '@/components/shared/ui/media';
 import { tokens } from '@/design-system';
 import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
+import { getArtworkUrl } from '@/services/artworkService';
 
 interface AlbumArtProps {
   albumId?: number;
@@ -97,8 +98,11 @@ export const AlbumArt = ({
 }: AlbumArtProps) => {
   // Subscribe to artwork_updated WS messages for cache-busting (#2867)
   const artworkRevision = useArtworkRevision(albumId ?? 0);
+  // Request a size-appropriate variant so a small thumbnail doesn't decode the
+  // full-resolution bitmap (#4447). Only a numeric size is a usable px hint.
+  const sizeHint = typeof size === 'number' ? size : undefined;
   const artworkUrl = albumId
-    ? `/api/albums/${albumId}/artwork${artworkRevision > 0 ? `?v=${artworkRevision}` : ''}`
+    ? getArtworkUrl(albumId, { size: sizeHint, revision: artworkRevision })
     : '';
 
   return (

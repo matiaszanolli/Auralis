@@ -76,7 +76,9 @@ describe('useArtworkPalette', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(mockExtract).toHaveBeenCalledWith('/api/albums/101/artwork', {
+    // Colour extraction requests a small thumbnail variant, not the full-res
+    // bitmap (#4447).
+    expect(mockExtract).toHaveBeenCalledWith('/api/albums/101/artwork?size=64', {
       colorCount: 5,
       sampleRate: 10,
       vibrantThreshold: 40,

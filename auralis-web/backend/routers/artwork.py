@@ -14,19 +14,87 @@ Endpoints:
 """
 
 import asyncio
+import hashlib
 import logging
 import mimetypes
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
 
 from .dependencies import require_repository_factory, with_error_handling
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["artwork"])
+
+# Downscaled-thumbnail support (#4447). Requested sizes snap UP to one of these
+# buckets so the on-disk cache holds at most len(_THUMB_BUCKETS) variants per
+# source image instead of an unbounded set of arbitrary sizes.
+_THUMB_BUCKETS: tuple[int, ...] = (64, 128, 256, 512, 1024)
+
+
+def _bucket_size(size: int) -> int:
+    """Snap a requested max-dimension up to the nearest cache bucket."""
+    for bucket in _THUMB_BUCKETS:
+        if size <= bucket:
+            return bucket
+    return _THUMB_BUCKETS[-1]
+
+
+def _thumb_target(media_type: str) -> tuple[str, str, str]:
+    """Map a source media type to (PIL format, file extension, response type).
+
+    JPEG stays JPEG; WEBP stays WEBP; everything else (PNG/GIF/unknown) is
+    rendered as PNG so transparency is preserved.
+    """
+    if media_type == "image/jpeg":
+        return "JPEG", ".jpg", "image/jpeg"
+    if media_type == "image/webp":
+        return "WEBP", ".webp", "image/webp"
+    return "PNG", ".png", "image/png"
+
+
+def _get_or_create_thumbnail(
+    src: Path, requested_size: int, media_type: str, thumb_dir: Path
+) -> tuple[Path, str] | None:
+    """Return (thumbnail_path, media_type) for a downscaled copy of ``src``.
+
+    Blocking (PIL + disk IO) — call via ``asyncio.to_thread``. The cache key
+    includes the source path hash, bucketed size, and source mtime/size so an
+    artwork edit produces a new file and stale thumbnails are never served.
+    Returns ``None`` on any failure so the caller can fall back to the original.
+    """
+    try:
+        from PIL import Image
+
+        bucket = _bucket_size(requested_size)
+        pil_fmt, ext, resp_type = _thumb_target(media_type)
+
+        stat = src.stat()
+        path_hash = hashlib.sha1(str(src).encode("utf-8")).hexdigest()[:12]
+        key = f"{path_hash}_{bucket}_{stat.st_mtime_ns:x}_{stat.st_size:x}{ext}"
+        dst = thumb_dir / key
+
+        if not dst.exists():
+            thumb_dir.mkdir(parents=True, exist_ok=True)
+            with Image.open(src) as image:
+                # thumbnail() preserves aspect ratio and only ever downsizes, so
+                # a small source is served as-is rather than upscaled.
+                image.thumbnail((bucket, bucket))
+                if pil_fmt == "JPEG" and image.mode not in ("RGB", "L"):
+                    image = image.convert("RGB")
+                # Write atomically-ish: render to a temp then rename so a
+                # concurrent request never reads a half-written file.
+                tmp = dst.with_suffix(dst.suffix + ".tmp")
+                image.save(tmp, format=pil_fmt)
+                tmp.replace(dst)
+
+        return dst, resp_type
+    except Exception:
+        logger.exception("Thumbnail generation failed for %s", src)
+        return None
 
 
 def create_artwork_router(
@@ -53,15 +121,28 @@ def create_artwork_router(
 
     @router.get("/api/albums/{album_id}/artwork")
     @with_error_handling("get artwork")
-    async def get_album_artwork(album_id: int, request: Request) -> Response:
+    async def get_album_artwork(
+        album_id: int,
+        request: Request,
+        size: int | None = Query(
+            None,
+            ge=16,
+            le=2048,
+            description=(
+                "Optional max dimension (px) for a downscaled thumbnail. Snaps "
+                "up to a cache bucket; omit for the full-resolution image (#4447)."
+            ),
+        ),
+    ) -> Response:
         """
         Get album artwork file (with path traversal protection).
 
         Args:
             album_id: Album ID
+            size: Optional max dimension for a downscaled thumbnail variant.
 
         Returns:
-            FileResponse: Artwork image file
+            FileResponse: Artwork image file (or a size-appropriate thumbnail).
 
         Raises:
             HTTPException: If library manager/factory not available, album/artwork not found,
@@ -131,8 +212,21 @@ def create_artwork_router(
             else:
                 media_type = "image/jpeg"  # safest fallback for browsers
 
-        # Build ETag from file stat for conditional caching (#2864).
-        stat = requested_path.stat()
+        # If a thumbnail size was requested, serve a downscaled variant instead
+        # of the full-resolution bitmap (#4447). On any failure we fall back to
+        # the original, so a broken/unsupported image never 500s the request.
+        serve_path = requested_path
+        serve_media_type = media_type
+        if size is not None:
+            thumb_dir = artwork_dir / "thumbnails"
+            thumbnail = await asyncio.to_thread(
+                _get_or_create_thumbnail, requested_path, size, media_type, thumb_dir
+            )
+            if thumbnail is not None:
+                serve_path, serve_media_type = thumbnail
+
+        # Build ETag from the SERVED file's stat for conditional caching (#2864).
+        stat = serve_path.stat()
         etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
 
         # If client already has this version, return 304 (no body).
@@ -150,8 +244,8 @@ def create_artwork_router(
         # no-cache = always revalidate, but 304 avoids re-download
         # when content hasn't changed.
         return FileResponse(
-            str(requested_path),
-            media_type=media_type,
+            str(serve_path),
+            media_type=serve_media_type,
             headers={
                 "ETag": etag,
                 "Cache-Control": "public, no-cache",

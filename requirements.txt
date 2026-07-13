@@ -18,6 +18,10 @@ python-multipart==0.0.27
 # Database
 SQLAlchemy==2.0.44
 
+# Image Processing
+# Used by the artwork endpoint to serve downscaled thumbnail variants (#4447).
+pillow==12.0.0
+
 # Async HTTP & Utilities
 aiohttp==3.13.4
 psutil==7.1.3
@@ -34,7 +38,6 @@ httpx==0.28.1
 # alembic>=1.12.0              # DB migrations - not needed at runtime
 # asyncpg>=0.28.0              # PostgreSQL driver - we use SQLite
 # redis>=5.0.0                 # Redis cache - not using Redis
-# pillow>=12.0.0               # Image processing - not used
 # python-jose[cryptography]    # JWT auth - not needed for desktop app
 # passlib[bcrypt]              # Password hashing - not needed
 # email-validator>=2.0.0       # Email validation - not used

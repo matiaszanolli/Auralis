@@ -29,6 +29,7 @@ import {
   downloadArtwork,
   deleteArtwork,
   getArtworkUrl,
+  withArtworkSize,
   type ArtworkResponse,
 } from '../artworkService';
 import { post, del } from '../../utils/apiRequest';
@@ -263,5 +264,54 @@ describe('getArtworkUrl — stable URL (issue #2387)', () => {
   it('handles edge-case albumIds (0, large numbers)', () => {
     expect(getArtworkUrl(0)).toContain('/albums/0/artwork');
     expect(getArtworkUrl(999999999)).toContain('/albums/999999999/artwork');
+  });
+});
+
+// ============================================================================
+// getArtworkUrl size/revision + withArtworkSize (#4447)
+// ============================================================================
+
+describe('getArtworkUrl — size / revision (#4447)', () => {
+  it('appends a rounded size param when a size hint is given', () => {
+    expect(getArtworkUrl(1, { size: 80 })).toBe('/api/albums/1/artwork?size=80');
+    expect(getArtworkUrl(1, { size: 63.6 })).toBe('/api/albums/1/artwork?size=64');
+  });
+
+  it('omits size for zero/negative/undefined hints', () => {
+    expect(getArtworkUrl(1, { size: 0 })).toBe('/api/albums/1/artwork');
+    expect(getArtworkUrl(1, { size: -10 })).toBe('/api/albums/1/artwork');
+    expect(getArtworkUrl(1)).toBe('/api/albums/1/artwork');
+  });
+
+  it('combines size and revision', () => {
+    expect(getArtworkUrl(7, { size: 256, revision: 3 })).toBe(
+      '/api/albums/7/artwork?size=256&v=3'
+    );
+  });
+
+  it('appends only the revision when no size is given (unchanged behavior)', () => {
+    expect(getArtworkUrl(7, { revision: 2 })).toBe('/api/albums/7/artwork?v=2');
+  });
+});
+
+describe('withArtworkSize (#4447)', () => {
+  it('appends a size param to an artwork endpoint URL', () => {
+    expect(withArtworkSize('/api/albums/9/artwork', 80)).toBe(
+      '/api/albums/9/artwork?size=80'
+    );
+    expect(withArtworkSize('/api/albums/9/artwork?v=4', 80)).toBe(
+      '/api/albums/9/artwork?v=4&size=80'
+    );
+  });
+
+  it('leaves non-artwork, already-sized, and empty URLs untouched', () => {
+    expect(withArtworkSize('data:image/png;base64,AAAA', 80)).toBe(
+      'data:image/png;base64,AAAA'
+    );
+    expect(withArtworkSize('/api/albums/9/artwork?size=128', 80)).toBe(
+      '/api/albums/9/artwork?size=128'
+    );
+    expect(withArtworkSize(undefined, 80)).toBeUndefined();
+    expect(withArtworkSize('/api/albums/9/artwork', 0)).toBe('/api/albums/9/artwork');
   });
 });

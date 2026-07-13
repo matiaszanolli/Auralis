@@ -20,6 +20,7 @@
 import { memo } from 'react';
 import { MediaCard } from '@/components/shared/MediaCard';
 import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
+import { getArtworkUrl } from '@/services/artworkService';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 
 export interface AlbumCardProps {
@@ -69,8 +70,10 @@ export const AlbumCard = memo(function AlbumCard({
 }: AlbumCardProps) {
   // Subscribe to artwork_updated WS messages for cache-busting (#2867)
   const artworkRevision = useArtworkRevision(albumId);
+  // Album grid cards render ~200px; request a 256-bucket thumbnail rather than
+  // the full-resolution bitmap (#4447).
   const artworkUrl = hasArtwork
-    ? `/api/albums/${albumId}/artwork${artworkRevision > 0 ? `?v=${artworkRevision}` : ''}`
+    ? getArtworkUrl(albumId, { size: 256, revision: artworkRevision })
     : undefined;
 
   return (

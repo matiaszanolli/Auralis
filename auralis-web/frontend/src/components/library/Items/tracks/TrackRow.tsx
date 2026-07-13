@@ -14,6 +14,7 @@ import TrackRowMetadata from './TrackRowMetadata';
 import { useTrackRowHandlers } from './useTrackRowHandlers';
 import { useTrackContextMenu } from './useTrackContextMenu';
 import { useTrackImage } from './useTrackImage';
+import { withArtworkSize } from '@/services/artworkService';
 import { useTrackFormatting } from './useTrackFormatting';
 import type { LibraryTrack } from '@/types/domain';
 
@@ -95,6 +96,10 @@ const TrackRowComponent = ({
   const isCurrentStr = isCurrent ? 'true' : 'false';
   const isAnyPlayingStr = isAnyPlaying ? 'true' : 'false'; // Phase 1: Convert to string for styled-components
 
+  // The row thumbnail is 40×40; request an ~80px (retina) variant so the browser
+  // doesn't decode/hold the full-resolution album bitmap per row (#4447).
+  const rowArtworkUrl = withArtworkSize(track.artworkUrl ?? undefined, 80);
+
   return (
     <>
       <RowContainer
@@ -133,10 +138,10 @@ const TrackRowComponent = ({
 
         {/* Album Art Thumbnail */}
         <TrackRowAlbumArt
-          albumArt={track.artworkUrl ?? undefined}
+          albumArt={rowArtworkUrl}
           title={track.title}
           album={track.album}
-          shouldShowImage={shouldShowImage(track.artworkUrl ?? undefined)}
+          shouldShowImage={shouldShowImage(rowArtworkUrl)}
           onImageError={handleImageError}
         />
 

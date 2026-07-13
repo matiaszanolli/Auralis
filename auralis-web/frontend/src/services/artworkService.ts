@@ -54,9 +54,38 @@ export async function deleteArtwork(albumId: number): Promise<{ message: string;
   return crudService.custom<{ message: string; album_id: number }>('delete', 'delete', { albumId });
 }
 
+export interface ArtworkUrlOptions {
+  /**
+   * Max dimension (px) hint for a downscaled thumbnail. The backend snaps this
+   * up to a cache bucket and serves a size-appropriate image, so small
+   * thumbnails don't force the browser to decode/hold full-resolution bitmaps
+   * (#4447). Omit for full resolution (e.g. a detail hero).
+   */
+  size?: number;
+  /** Cache-busting revision (from artwork_updated WS messages, #2867). */
+  revision?: number;
+}
+
 /**
- * Get artwork URL for an album
+ * Get the artwork URL for an album, optionally requesting a downscaled variant.
  */
-export function getArtworkUrl(albumId: number): string {
-  return `${API_BASE_URL}/api/albums/${albumId}/artwork`;
+export function getArtworkUrl(albumId: number, options: ArtworkUrlOptions = {}): string {
+  const params = new URLSearchParams();
+  if (options.size && options.size > 0) params.set('size', String(Math.round(options.size)));
+  if (options.revision && options.revision > 0) params.set('v', String(options.revision));
+  const query = params.toString();
+  return `${API_BASE_URL}/api/albums/${albumId}/artwork${query ? `?${query}` : ''}`;
+}
+
+/**
+ * Append a thumbnail `size` hint to an already-built artwork URL (e.g. a
+ * backend-provided `track.artworkUrl`). No-op for empty/undefined URLs (#4447).
+ */
+export function withArtworkSize(url: string | undefined, size: number): string | undefined {
+  // Only append to the album-artwork endpoint (which understands `size`); leave
+  // data URIs / external URLs / already-sized URLs untouched.
+  if (!url || !size || size <= 0) return url;
+  if (!url.includes('/artwork') || /[?&]size=/.test(url)) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}size=${Math.round(size)}`;
 }
