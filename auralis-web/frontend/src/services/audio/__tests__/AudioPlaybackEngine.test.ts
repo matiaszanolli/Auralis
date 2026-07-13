@@ -22,7 +22,7 @@ const CHANNELS = 2;
 /** Minimal Web Audio node/context mocks — just enough surface for
  * AudioPlaybackEngine's constructor + ScriptProcessorNode fallback path. */
 function createMockAudioContext() {
-  const gainNode = { gain: { value: 1 }, connect: vi.fn() };
+  const gainNode = { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() };
   const analyserNode: any = {
     fftSize: 0,
     smoothingTimeConstant: 0,
@@ -88,6 +88,30 @@ describe('AudioPlaybackEngine', () => {
     expect(gainNode.connect).toHaveBeenCalledWith(analyserNode);
     expect(analyserNode.connect).toHaveBeenCalledWith(ctx.destination);
     expect(window.__auralisAudioContext).toBe(ctx);
+  });
+
+  it('disconnects the gainNode on dispose() so it is not stranded (#4445)', () => {
+    const { ctx, gainNode } = createMockAudioContext();
+    const engine = new AudioPlaybackEngine(ctx, makeBuffer(0.1));
+
+    engine.dispose();
+
+    // The permanently-wired gainNode must be released (disconnectProcessor never
+    // touched it), otherwise enhanced-mode track switches strand one per switch.
+    expect(gainNode.disconnect).toHaveBeenCalled();
+  });
+
+  it('dispose() is idempotent and swallows a disconnect throw (closed context) (#4445)', () => {
+    const { ctx, gainNode } = createMockAudioContext();
+    const engine = new AudioPlaybackEngine(ctx, makeBuffer(0.1));
+    gainNode.disconnect.mockImplementationOnce(() => {
+      throw new DOMException('context closed', 'InvalidStateError');
+    });
+
+    expect(() => {
+      engine.dispose();
+      engine.dispose();
+    }).not.toThrow();
   });
 
   it('clamps volume to [0, 1]', () => {

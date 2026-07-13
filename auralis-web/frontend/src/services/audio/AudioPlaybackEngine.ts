@@ -214,6 +214,26 @@ export class AudioPlaybackEngine {
   }
 
   /**
+   * Fully tear down this engine's Web Audio graph.
+   *
+   * disconnectProcessor()/stopPlayback() only tear down the worklet/script
+   * nodes; the gainNode is wired permanently in the constructor
+   * (gainNode → analyser → destination) and is never otherwise disconnected.
+   * In enhanced mode the AudioContext stays open across track switches
+   * (closeContextOnCleanup: false), so without this each new engine strands the
+   * previous engine's gainNode — connected to the analyser for the life of the
+   * context (#4445). Idempotent; safe to call after the context has closed.
+   */
+  dispose(): void {
+    this.disconnectProcessor();
+    try {
+      this.gainNode.disconnect();
+    } catch {
+      // Node already disconnected or its context is closed — nothing to free.
+    }
+  }
+
+  /**
    * Set playback volume (0.0 - 1.0)
    */
   setVolume(volume: number): void {

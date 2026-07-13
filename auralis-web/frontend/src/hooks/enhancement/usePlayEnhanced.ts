@@ -285,6 +285,12 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         DEBUG && console.log('[usePlayEnhanced] Created AudioContext with sample rate:', sourceSampleRate);
       }
 
+      // Dispose the previous engine's permanently-wired gainNode before
+      // replacing the ref. In enhanced mode the AudioContext persists across
+      // track switches (closeContextOnCleanup: false), so a stranded gainNode
+      // would stay connected to the analyser for the whole session (#4445).
+      core.playbackEngineRef.current?.dispose();
+
       // Initialize AudioPlaybackEngine
       const engine = new AudioPlaybackEngine(
         core.audioContextRef.current,
@@ -572,8 +578,10 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   useEffect(() => {
     dispatch(resetStreaming('enhanced'));
     return () => {
-      // Only stop playback engine, don't call full stopPlayback which cleans up subscriptions
-      core.playbackEngineRef.current?.stopPlayback();
+      // Fully dispose the engine (disconnects the gainNode too, not just the
+      // processor) before closing the context (#4445).
+      core.playbackEngineRef.current?.dispose();
+      core.playbackEngineRef.current = null;
       // Release the ~100 MB PCM buffer on unmount — cleanupStreaming is not
       // called here (it would setState on a dead component), so dispose the
       // buffer directly instead of leaving it for GC (#4147).

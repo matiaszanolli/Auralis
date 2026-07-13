@@ -161,6 +161,7 @@ let mockEngineInstance: {
   onUnderrun: ReturnType<typeof vi.fn>;
   getCurrentPlaybackTime: ReturnType<typeof vi.fn>;
   getMinBufferSamples: ReturnType<typeof vi.fn>;
+  dispose: ReturnType<typeof vi.fn>;
 };
 
 let mockAudioContextInstance: {
@@ -202,6 +203,7 @@ function setupMocks() {
     // 2s threshold @ 44100Hz stereo = 176400 samples — matches the auto-start
     // assertions below (buffer >= threshold ⇒ startPlayback).
     getMinBufferSamples: vi.fn().mockReturnValue(176400),
+    dispose: vi.fn(),
   };
   // `function` form so `new AudioPlaybackEngine()` constructs (see note above, #3933).
   vi.mocked(AudioPlaybackEngine).mockImplementation(function () { return mockEngineInstance as any; });
