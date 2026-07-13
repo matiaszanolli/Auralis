@@ -19,10 +19,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import playerReducer from '@/store/slices/playerSlice';
-import queueReducer from '@/store/slices/queueSlice';
-import cacheReducer from '@/store/slices/cacheSlice';
-import connectionReducer from '@/store/slices/connectionSlice';
+import playerReducer, { setError as playerSetError, setVolume } from '@/store/slices/playerSlice';
+import queueReducer, { setError as queueSetError } from '@/store/slices/queueSlice';
+import cacheReducer, { setError as cacheSetError } from '@/store/slices/cacheSlice';
+import connectionReducer, { setError as connectionSetError } from '@/store/slices/connectionSlice';
 import {
   createErrorTrackingMiddleware,
   ErrorCategory,
@@ -60,10 +60,7 @@ describe('Error Tracking Middleware', () => {
         ),
     });
 
-    store.dispatch({
-      type: 'player/setError',
-      payload: 'Playback failed',
-    });
+    store.dispatch(playerSetError('Playback failed'));
 
     expect(onErrorCallback).toHaveBeenCalled();
   });
@@ -85,10 +82,7 @@ describe('Error Tracking Middleware', () => {
         ),
     });
 
-    store.dispatch({
-      type: 'player/setVolume',
-      payload: 50,
-    });
+    store.dispatch(setVolume(50));
 
     expect(onErrorCallback).not.toHaveBeenCalled();
   });
@@ -115,10 +109,7 @@ describe('Error Tracking Middleware', () => {
         ),
     });
 
-    store.dispatch({
-      type: 'connection/setError',
-      payload: 'Connection timeout',
-    });
+    store.dispatch(connectionSetError('Connection timeout'));
   });
 
   it('should categorize validation errors', () => {
@@ -139,10 +130,7 @@ describe('Error Tracking Middleware', () => {
         ),
     });
 
-    store.dispatch({
-      type: 'queue/setError',
-      payload: 'Invalid track format',
-    });
+    store.dispatch(queueSetError('Invalid track format'));
   });
 
   it('should categorize authentication errors', () => {
@@ -187,10 +175,7 @@ describe('Error Tracking Middleware', () => {
         ),
     });
 
-    store.dispatch({
-      type: 'cache/setError',
-      payload: 'Internal server error 500',
-    });
+    store.dispatch(cacheSetError('Internal server error 500'));
   });
 
   // ============================================================================
@@ -218,10 +203,7 @@ describe('Error Tracking Middleware', () => {
     });
 
     const beforeDispatch = Date.now();
-    store.dispatch({
-      type: 'player/setError',
-      payload: 'Test error',
-    });
+    store.dispatch(playerSetError('Test error'));
     const afterDispatch = Date.now();
 
     expect(trackedError).toBeDefined();
@@ -249,15 +231,8 @@ describe('Error Tracking Middleware', () => {
         ),
     });
 
-    store.dispatch({
-      type: 'player/setError',
-      payload: 'Error 1',
-    });
-
-    store.dispatch({
-      type: 'player/setError',
-      payload: 'Error 2',
-    });
+    store.dispatch(playerSetError('Error 1'));
+    store.dispatch(playerSetError('Error 2'));
 
     expect(errors).toHaveLength(2);
     expect(errors[0].id).not.toBe(errors[1].id);
@@ -283,11 +258,7 @@ describe('Error Tracking Middleware', () => {
         ),
     });
 
-    store.dispatch({
-      type: 'player/setError',
-      payload: 'Playback failed',
-      meta: { trackId: 123 },
-    });
+    store.dispatch(playerSetError('Playback failed'));
 
     expect(trackedError).toBeDefined();
     expect(trackedError!.action).toBe('player/setError');
@@ -297,9 +268,7 @@ describe('Error Tracking Middleware', () => {
   // Recovery Tests
   // ============================================================================
 
-  it('should trigger connection recovery on network error', () => {
-    vi.spyOn(store || { dispatch: vi.fn() }, 'dispatch', 'get');
-
+  it('defers connection recovery for a non-connection network error (#4455)', async () => {
     store = configureStore({
       reducer: {
         player: playerReducer,
@@ -311,13 +280,49 @@ describe('Error Tracking Middleware', () => {
         getDefaultMiddleware().concat(createErrorTrackingMiddleware()),
     });
 
-    store.dispatch({
-      type: 'connection/setError',
-      payload: 'Network connection lost',
+    // A NETWORK-category error from a non-`connection/*` action. The middleware
+    // must schedule a deferred connection/setError to trigger auto-recovery.
+    // (A `connection/setError` action is excluded by the guard, so it would
+    // NOT exercise this path — the pre-#4455 test used exactly that and passed
+    // only via the connection reducer, never the recovery dispatch.)
+    store.dispatch(playerSetError('Network connection lost'));
+
+    // The recovery dispatch is deferred to a microtask (#3023) — before it runs,
+    // connection state is untouched by the player action.
+    expect(store.getState().connection.lastError).toBeNull();
+
+    // Flush the microtask; the deferred connectionActions.setError now runs.
+    await Promise.resolve();
+
+    expect(store.getState().connection.lastError).toBe('Network connection lost');
+  });
+
+  it('does not defer recovery for a connection-namespaced error (guard) (#4455)', async () => {
+    const dispatchSpy = vi.fn();
+    store = configureStore({
+      reducer: {
+        player: playerReducer,
+        queue: queueReducer,
+        cache: cacheReducer,
+        connection: connectionReducer,
+      },
+      middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware().concat(
+          createErrorTrackingMiddleware({
+            onError: () => dispatchSpy(),
+          })
+        ),
     });
 
-    // Error should be tracked
-    expect(store.getState().connection.lastError).toBeTruthy();
+    // A connection/* NETWORK error is handled by its own reducer but must NOT
+    // trigger the deferred connection/setError recovery (guard avoids a loop).
+    store.dispatch(connectionSetError('Network connection lost'));
+    await Promise.resolve();
+
+    // Reducer set it directly; there is no second (recovery) dispatch to observe,
+    // but the value is present and tracking still fired exactly once.
+    expect(store.getState().connection.lastError).toBe('Network connection lost');
+    expect(dispatchSpy).toHaveBeenCalledTimes(1);
   });
 
   // ============================================================================
@@ -384,10 +389,7 @@ describe('Error Tracking Middleware', () => {
         ),
     });
 
-    store.dispatch({
-      type: 'player/setError',
-      payload: 'Test error',
-    });
+    store.dispatch(playerSetError('Test error'));
 
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({
       category: expect.any(String),
@@ -400,7 +402,7 @@ describe('Error Tracking Middleware', () => {
   // Configuration Tests
   // ============================================================================
 
-  it('should respect enabled config', () => {
+  it('does not track when enabled is false (#4453)', () => {
     const onError = vi.fn();
 
     store = configureStore({
@@ -416,13 +418,33 @@ describe('Error Tracking Middleware', () => {
         ),
     });
 
-    store.dispatch({
-      type: 'player/setError',
-      payload: 'Test error',
+    store.dispatch(playerSetError('Test error'));
+
+    // With tracking disabled the onError callback must never fire...
+    expect(onError).not.toHaveBeenCalled();
+    // ...but the action itself must still reach the reducer (pure passthrough).
+    expect(store.getState().player.error).toBe('Test error');
+  });
+
+  it('tracks when enabled is true (#4453 counterpart)', () => {
+    const onError = vi.fn();
+
+    store = configureStore({
+      reducer: {
+        player: playerReducer,
+        queue: queueReducer,
+        cache: cacheReducer,
+        connection: connectionReducer,
+      },
+      middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware().concat(
+          createErrorTrackingMiddleware({ enabled: true, onError })
+        ),
     });
 
-    // onError might not be called if error detection is disabled
-    // This depends on implementation
+    store.dispatch(playerSetError('Test error'));
+
+    expect(onError).toHaveBeenCalledTimes(1);
   });
 });
 

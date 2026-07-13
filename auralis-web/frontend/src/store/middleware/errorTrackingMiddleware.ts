@@ -200,6 +200,14 @@ export function createErrorTrackingMiddleware(
 
   return (store) => {
     return (next) => (action: unknown): unknown => {
+      // Error tracking disabled — pass the action straight through so nothing
+      // is tracked, logged, reported, or recovered (#4453). Previously the
+      // `enabled` flag was never read in a conditional, so `{ enabled: false }`
+      // silently kept tracking.
+      if (!finalConfig.enabled) {
+        return next(action);
+      }
+
       // Runtime guards to safely access action properties without Record<string, any> cast (#3044)
       const actionType = (action != null && typeof action === 'object' && 'type' in action && typeof (action as { type: unknown }).type === 'string')
         ? (action as { type: string }).type
