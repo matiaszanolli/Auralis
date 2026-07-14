@@ -285,6 +285,7 @@ export function useAudioStreamingCore(
               processedChunks: streamingMetadataRef.current.processedChunks,
               bufferedSamples,
               progress: clampedProgress,
+              trackId: message.data.track_id, // drop stale updates after a skip (#4434)
             })
           );
         }
@@ -295,6 +296,7 @@ export function useAudioStreamingCore(
             processedChunks: streamingMetadataRef.current.processedChunks,
             bufferedSamples,
             progress: clampedProgress,
+            trackId: message.data.track_id, // drop stale updates after a skip (#4434)
           })
         );
       }
@@ -329,7 +331,9 @@ export function useAudioStreamingCore(
       duration: message.data.duration,
     });
 
-    dispatch(completeStreaming(streamType));
+    // Pass track_id so a stale 'end' from a superseded track after a rapid
+    // skip doesn't prematurely mark the new track complete (#4434).
+    dispatch(completeStreaming({ streamType, trackId: message.data.track_id }));
   }, [dispatch, streamType, logPrefix]);
 
   const handleStreamError = useCallback((message: AudioStreamErrorMessage) => {
@@ -338,7 +342,9 @@ export function useAudioStreamingCore(
 
     const errorMsg = `Streaming error: ${message.data.error} (${message.data.code})`;
     console.error(logPrefix, errorMsg);
-    dispatch(setStreamingError({ streamType, error: errorMsg }));
+    // Pass track_id so a stale error from a superseded track after a rapid
+    // skip isn't shown on the new track (#4434).
+    dispatch(setStreamingError({ streamType, error: errorMsg, trackId: message.data.track_id }));
     cleanupStreaming();
   }, [dispatch, streamType, logPrefix, cleanupStreaming]);
 

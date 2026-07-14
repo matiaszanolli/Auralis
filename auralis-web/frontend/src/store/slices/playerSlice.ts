@@ -345,12 +345,16 @@ const playerSlice = createSlice({
             processedChunks: number;
             bufferedSamples: number;
             progress: number;
+            /** When set, the update is ignored unless it matches the active stream's trackId (#4434). */
+            trackId?: number;
           },
           string,
           { timestamp: number }
         >
       ) {
         const s = state.streaming[action.payload.streamType];
+        // Drop late updates from a superseded track after a rapid skip (#4434).
+        if (action.payload.trackId != null && s.trackId !== action.payload.trackId) return;
         s.processedChunks = action.payload.processedChunks;
         s.bufferedSamples = action.payload.bufferedSamples;
         s.progress = action.payload.progress;
@@ -364,6 +368,7 @@ const playerSlice = createSlice({
         processedChunks: number;
         bufferedSamples: number;
         progress: number;
+        trackId?: number;
       }) {
         return { payload: params, meta: { timestamp: Date.now() } };
       },
@@ -373,14 +378,21 @@ const playerSlice = createSlice({
      * Mark streaming as complete
      */
     completeStreaming: {
-      reducer(state, action: PayloadAction<{ streamType: StreamType }, string, { timestamp: number }>) {
+      reducer(
+        state,
+        action: PayloadAction<{ streamType: StreamType; trackId?: number }, string, { timestamp: number }>
+      ) {
         const s = state.streaming[action.payload.streamType];
+        // Ignore a stale 'end' from a superseded track after a rapid skip (#4434).
+        if (action.payload.trackId != null && s.trackId !== action.payload.trackId) return;
         s.state = 'complete';
         s.progress = 100;
         state.lastUpdated = action.meta.timestamp;
       },
-      prepare(streamType: StreamType) {
-        return { payload: { streamType }, meta: { timestamp: Date.now() } };
+      prepare(params: StreamType | { streamType: StreamType; trackId?: number }) {
+        // Back-compat: accept a bare streamType or a { streamType, trackId } object.
+        const payload = typeof params === 'string' ? { streamType: params } : params;
+        return { payload, meta: { timestamp: Date.now() } };
       },
     },
 
@@ -388,13 +400,18 @@ const playerSlice = createSlice({
      * Set streaming error
      */
     setStreamingError: {
-      reducer(state, action: PayloadAction<{ streamType: StreamType; error: string }, string, { timestamp: number }>) {
+      reducer(
+        state,
+        action: PayloadAction<{ streamType: StreamType; error: string; trackId?: number }, string, { timestamp: number }>
+      ) {
         const s = state.streaming[action.payload.streamType];
+        // Ignore a stale error from a superseded track after a rapid skip (#4434).
+        if (action.payload.trackId != null && s.trackId !== action.payload.trackId) return;
         s.state = 'error';
         s.error = action.payload.error;
         state.lastUpdated = action.meta.timestamp;
       },
-      prepare(params: { streamType: StreamType; error: string }) {
+      prepare(params: { streamType: StreamType; error: string; trackId?: number }) {
         return { payload: params, meta: { timestamp: Date.now() } };
       },
     },

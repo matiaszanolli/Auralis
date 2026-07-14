@@ -339,6 +339,87 @@ describe('playerSlice', () => {
     });
   });
 
+  // ==========================================================================
+  // Rapid-skip: stale updates for a superseded trackId must be ignored (#4434)
+  // ==========================================================================
+  describe('streaming trackId validation (#4434)', () => {
+    const started = () =>
+      reducer(
+        initialState,
+        startStreaming({ streamType: 'enhanced', trackId: 1, totalChunks: 10, intensity: 1 }),
+      );
+
+    it('updateStreamingProgress ignores a mismatched trackId', () => {
+      const state = reducer(
+        started(),
+        updateStreamingProgress({
+          streamType: 'enhanced',
+          processedChunks: 5,
+          bufferedSamples: 999,
+          progress: 50,
+          trackId: 2, // stale — active stream is track 1
+        }),
+      );
+      expect(state.streaming.enhanced.processedChunks).toBe(0);
+      expect(state.streaming.enhanced.progress).toBe(0);
+      expect(state.streaming.enhanced.state).toBe('buffering');
+    });
+
+    it('updateStreamingProgress applies a matching trackId', () => {
+      const state = reducer(
+        started(),
+        updateStreamingProgress({
+          streamType: 'enhanced',
+          processedChunks: 5,
+          bufferedSamples: 999,
+          progress: 50,
+          trackId: 1,
+        }),
+      );
+      expect(state.streaming.enhanced.processedChunks).toBe(5);
+      expect(state.streaming.enhanced.progress).toBe(50);
+    });
+
+    it('completeStreaming ignores a stale end for a superseded track', () => {
+      const state = reducer(started(), completeStreaming({ streamType: 'enhanced', trackId: 2 }));
+      expect(state.streaming.enhanced.state).toBe('buffering'); // NOT 'complete'
+      expect(state.streaming.enhanced.progress).toBe(0);
+    });
+
+    it('completeStreaming applies for the active track', () => {
+      const state = reducer(started(), completeStreaming({ streamType: 'enhanced', trackId: 1 }));
+      expect(state.streaming.enhanced.state).toBe('complete');
+      expect(state.streaming.enhanced.progress).toBe(100);
+    });
+
+    it('setStreamingError ignores a stale error for a superseded track', () => {
+      const state = reducer(
+        started(),
+        setStreamingError({ streamType: 'enhanced', error: 'old-track error', trackId: 2 }),
+      );
+      expect(state.streaming.enhanced.state).toBe('buffering'); // NOT 'error'
+      expect(state.streaming.enhanced.error).toBeNull();
+    });
+
+    it('setStreamingError applies for the active track', () => {
+      const state = reducer(
+        started(),
+        setStreamingError({ streamType: 'enhanced', error: 'real error', trackId: 1 }),
+      );
+      expect(state.streaming.enhanced.state).toBe('error');
+      expect(state.streaming.enhanced.error).toBe('real error');
+    });
+
+    it('updates without a trackId still apply (back-compat for local errors)', () => {
+      const state = reducer(
+        started(),
+        setStreamingError({ streamType: 'enhanced', error: 'local error' }),
+      );
+      expect(state.streaming.enhanced.state).toBe('error');
+      expect(state.streaming.enhanced.error).toBe('local error');
+    });
+  });
+
   // ─── setCurrentTrackAndSyncQueue thunk (#3587) ─────────────────
   describe('setCurrentTrackAndSyncQueue', () => {
     type RecordedAction = { type: string; payload: unknown };

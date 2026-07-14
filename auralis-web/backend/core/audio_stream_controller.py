@@ -70,6 +70,14 @@ _frame_seq_var: contextvars.ContextVar[list[int] | None] = contextvars.ContextVa
     '_frame_seq', default=None
 )
 
+# Per-stream track id (#4434). Like _stream_type_var, seeded per-task at each
+# audio_stream_start so send_pcm_chunk can stamp track_id onto audio_chunk_meta.
+# This lets the client drop late chunk-progress updates from a superseded track
+# after a rapid skip (the client already gets track_id on stream_end/error).
+_track_id_var: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    '_track_id', default=None
+)
+
 # Maximum number of concurrent audio streams (enhanced, normal, seek).
 # Each stream holds a ChunkedProcessor in memory; unbounded concurrency
 # causes OOM under load (issue #2185). Override via AURALIS_MAX_CONCURRENT_STREAMS

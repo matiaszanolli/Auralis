@@ -63,6 +63,9 @@ async def send_stream_start(
     # (fixes #3841). A fresh cell per stream-start keeps concurrent streams
     # in different tasks isolated.
     _asc._frame_seq_var.set([0])
+    # Seed the per-stream track id so send_pcm_chunk can stamp it on each
+    # audio_chunk_meta (#4434).
+    _asc._track_id_var.set(track_id)
 
     is_seek = (
         start_chunk is not None

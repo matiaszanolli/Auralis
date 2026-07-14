@@ -200,6 +200,10 @@ async def send_pcm_chunk(
                     "type": "audio_chunk_meta",
                     "data": {
                         "seq": seq_cell[0],
+                        # Stamp the owning track so the client can drop late
+                        # chunk-progress from a superseded track after a rapid
+                        # skip (#4434). Seeded per-stream in send_stream_start.
+                        "track_id": _asc._track_id_var.get(),
                         "chunk_index": chunk_index,
                         "chunk_count": total_chunks,
                         "frame_index": frame_idx,

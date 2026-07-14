@@ -70,6 +70,9 @@ export interface AudioChunkMessage extends WebSocketMessage {
     /** Monotonic sequence counter carried over from audio_chunk_meta (fixes #3944 / TS-2).
      *  Consumers can detect dropped or reordered frames by checking seq increments by 1. */
     seq?: number;
+    /** Owning track id, carried over from audio_chunk_meta so consumers can drop
+     *  late chunk-progress from a superseded track after a rapid skip (#4434). */
+    track_id?: number;
     chunk_index: number;
     chunk_count: number;
     frame_index: number;
@@ -104,6 +107,9 @@ export interface AudioChunkMetaMessage {
      *  detect dropped or reordered frames by checking that seq increases
      *  by exactly 1 per frame (fixes #3189). */
     seq: number;
+    /** Owning track id so the client can drop late chunk-progress from a
+     *  superseded track after a rapid skip (#4434). */
+    track_id?: number;
     chunk_index: number;
     chunk_count: number;
     frame_index: number;
