@@ -24,6 +24,26 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
+
+def _detect_image_extension(data: bytes, default: str = "jpg") -> str:
+    """Pick a file extension from an image's magic bytes.
+
+    Cover Art Archive / iTunes can return PNG or WebP even when we requested
+    a JPEG, and the GET endpoint infers Content-Type from the extension, so a
+    PNG saved as .jpg is served image/jpeg (#4419). Mirrors the embedded
+    extractor in auralis/library/artwork.py. Falls back to ``default`` for
+    unrecognised bytes.
+    """
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data[:3] == b"\xff\xd8\xff":
+        return "jpg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    return default
+
 # Trusted domains for artwork downloads (fixes #2416: SSRF via unvalidated URL).
 _TRUSTED_ARTWORK_DOMAINS = frozenset({
     "is1-ssl.mzstatic.com",
@@ -295,18 +315,23 @@ class ArtworkDownloader:
             logger.debug(f"iTunes lookup failed: {e}")
             return None
 
-    async def _save_artwork(self, data: bytes, album_id: int, ext: str) -> str:
+    async def _save_artwork(self, data: bytes, album_id: int, ext: str = "jpg") -> str:
         """
         Save artwork data to cache directory.
 
         Args:
             data: Image data bytes
             album_id: Album ID
-            ext: File extension (jpg, png, etc.)
+            ext: Fallback extension used only when the bytes are unrecognised;
+                the real extension is sniffed from magic bytes (#4419).
 
         Returns:
             str: Path to saved artwork file
         """
+        # Sniff the true format from magic bytes so a downloaded PNG/WebP is not
+        # mislabelled .jpg and later served with the wrong Content-Type (#4419).
+        ext = _detect_image_extension(data, default=ext)
+
         # Create unique filename based on album ID and data hash
         data_hash = hashlib.md5(data).hexdigest()[:8]
         filename = f"album_{album_id}_{data_hash}.{ext}"
