@@ -44,6 +44,16 @@ import type {
   AudioStreamErrorMessage,
 } from '@/contexts/WebSocketContext';
 
+/**
+ * Client-side watchdog for the first stream message after a play command
+ * (#4433). Must exceed the backend's own bound (CHUNK_PROCESS_TIMEOUT = 30s,
+ * plus a 5s stream-semaphore wait) so the backend's audio_stream_error surfaces
+ * first in the normal timeout case — this only fires for a fully-hung worker
+ * that never emits anything, which would otherwise leave the UI in 'buffering'
+ * forever (the duplicate-play guard blocks a naive retry).
+ */
+export const STREAM_START_WATCHDOG_MS = 45000;
+
 export interface StreamingMetadata {
   sampleRate: number;
   channels: number;
@@ -95,6 +105,8 @@ export interface StreamingCoreReturn {
   setIsPaused: React.Dispatch<React.SetStateAction<boolean>>;
 
   cleanupStreaming: () => void;
+  /** Arm the first-stream-message watchdog; call right after sending a play command (#4433). */
+  armStreamStartWatchdog: () => void;
   handleChunk: (message: AudioChunkMessage) => void;
   handleStreamEnd: (message: AudioStreamEndMessage) => void;
   handleStreamError: (message: AudioStreamErrorMessage) => void;
@@ -148,7 +160,17 @@ export function useAudioStreamingCore(
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
+  // Watchdog for the first stream message after a play command (#4433).
+  const streamStartWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearStreamStartWatchdog = useCallback(() => {
+    if (streamStartWatchdogRef.current !== null) {
+      clearTimeout(streamStartWatchdogRef.current);
+      streamStartWatchdogRef.current = null;
+    }
+  }, []);
+
   const cleanupStreaming = useCallback(() => {
+    clearStreamStartWatchdog();
     abortRef.current?.abort();
 
     pcmBufferRef.current?.dispose();
@@ -164,7 +186,27 @@ export function useAudioStreamingCore(
     }
 
     onCleanupExtra?.();
-  }, [closeContextOnCleanup, onCleanupExtra]);
+  }, [closeContextOnCleanup, onCleanupExtra, clearStreamStartWatchdog]);
+
+  // Armed by the caller right after it sends a play command. If neither an
+  // audio_stream_start nor any other stream message arrives within the window,
+  // surface a streaming error instead of hanging in 'buffering' (#4433).
+  const armStreamStartWatchdog = useCallback(() => {
+    clearStreamStartWatchdog();
+    streamStartWatchdogRef.current = setTimeout(() => {
+      streamStartWatchdogRef.current = null;
+      console.error(
+        `${logPrefix} No audio stream started within ${STREAM_START_WATCHDOG_MS}ms — surfacing error`
+      );
+      dispatch(
+        setStreamingError({
+          streamType,
+          error: 'Timed out waiting for the audio stream to start. Please try again.',
+        })
+      );
+      cleanupStreaming();
+    }, STREAM_START_WATCHDOG_MS);
+  }, [clearStreamStartWatchdog, dispatch, streamType, logPrefix, cleanupStreaming]);
 
   const handleChunk = useCallback((message: AudioChunkMessage) => {
     try {
@@ -314,30 +356,33 @@ export function useAudioStreamingCore(
   handleStreamErrorRef.current = handleStreamError;
 
   useEffect(() => {
+    // Any incoming stream message means the backend is responding, so disarm
+    // the first-stream watchdog (#4433).
     const unsubscribeStart = wsContext.subscribe(
       'audio_stream_start',
-      (m) => handleStreamStartRef.current?.(m as AudioStreamStartMessage)
+      (m) => { clearStreamStartWatchdog(); handleStreamStartRef.current?.(m as AudioStreamStartMessage); }
     );
     const unsubscribeChunk = wsContext.subscribe(
       'audio_chunk',
-      (m) => handleChunkRef.current?.(m as AudioChunkMessage)
+      (m) => { clearStreamStartWatchdog(); handleChunkRef.current?.(m as AudioChunkMessage); }
     );
     const unsubscribeEnd = wsContext.subscribe(
       'audio_stream_end',
-      (m) => handleStreamEndRef.current?.(m as AudioStreamEndMessage)
+      (m) => { clearStreamStartWatchdog(); handleStreamEndRef.current?.(m as AudioStreamEndMessage); }
     );
     const unsubscribeError = wsContext.subscribe(
       'audio_stream_error',
-      (m) => handleStreamErrorRef.current?.(m as AudioStreamErrorMessage)
+      (m) => { clearStreamStartWatchdog(); handleStreamErrorRef.current?.(m as AudioStreamErrorMessage); }
     );
 
     return () => {
+      clearStreamStartWatchdog();
       unsubscribeStart();
       unsubscribeChunk();
       unsubscribeEnd();
       unsubscribeError();
     };
-  }, [wsContext]);
+  }, [wsContext, clearStreamStartWatchdog]);
 
   const stopPlayback = useCallback(() => {
     playbackEngineRef.current?.stopPlayback();
@@ -434,6 +479,7 @@ export function useAudioStreamingCore(
     isPaused,
     setIsPaused,
     cleanupStreaming,
+    armStreamStartWatchdog,
     handleChunk,
     handleStreamEnd,
     handleStreamError,

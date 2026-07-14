@@ -481,6 +481,11 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           },
         });
 
+        // Arm the first-stream watchdog so a hung worker that never emits any
+        // stream message surfaces an error instead of leaving the UI stuck in
+        // 'buffering' (#4433). Cleared by the core on the first stream message.
+        core.armStreamStartWatchdog();
+
         DEBUG && console.log('[usePlayEnhanced] Play enhanced requested (buffering...):', {
           trackId,
           preset,

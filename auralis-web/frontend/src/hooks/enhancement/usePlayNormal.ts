@@ -346,6 +346,11 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
           },
         });
 
+        // Arm the first-stream watchdog so a hung worker that never emits any
+        // stream message surfaces an error instead of leaving the UI stuck in
+        // 'buffering' (#4433). Cleared by the core on the first stream message.
+        core.armStreamStartWatchdog();
+
         DEBUG && console.log('[usePlayNormal] Play normal requested:', { trackId });
       } catch (error) {
         const errorMsg = `Failed to start normal playback: ${error instanceof Error ? error.message : String(error)}`;
