@@ -6,7 +6,7 @@
  */
 
 export { useFingerprintCache } from './useFingerprintCache';
-export { useTrackFingerprint, usePlayingTrackFingerprint } from './useTrackFingerprint';
+export { useTrackFingerprint } from './useTrackFingerprint';
 export { useAlbumFingerprint, useAlbumFingerprints } from './useAlbumFingerprint';
 export { useSimilarTracks } from './useSimilarTracks';
 export type { SimilarTrack, SimilarityOptions } from './useSimilarTracks';

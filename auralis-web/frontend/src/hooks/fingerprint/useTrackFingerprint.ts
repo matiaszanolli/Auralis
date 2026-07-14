@@ -104,13 +104,3 @@ export function useTrackFingerprint(
     refetch: query.refetch,
   };
 }
-
-/**
- * Hook to get fingerprint for currently playing track
- * Automatically uses the current track from player state
- */
-export function usePlayingTrackFingerprint() {
-  // This would integrate with Redux player state
-  // For now, it's a simple wrapper that can be enhanced later
-  return useTrackFingerprint(null, { enabled: false });
-}

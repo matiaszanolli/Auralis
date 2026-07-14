@@ -20,7 +20,9 @@ export { useQueueSearch } from './useQueueSearch';
 export { useQueueStatistics } from './useQueueStatistics';
 
 // New hooks moved from root
-export { usePlayerControls } from './usePlayerControls';
+// usePlayerControls removed (#4387) — orphaned hook with zero production
+// consumers; togglePlayPause was a permanent {success:false} stub. Use
+// usePlaybackControl / play() / pause() directly.
 // #3776: usePlayerStreaming removed — was 475 lines of dead code with
 // zero production importers. Six prior fix PRs (#3261 / #2816 / #3185
 // reconnect resume / etc.) churned the file with no observable user
