@@ -323,6 +323,28 @@ class TestQueueTemplateSearch:
         assert len(results) == 1
         assert results[0].name == 'test%all'
 
+    def test_get_by_tag_escapes_like_metacharacters(self, template_repo):
+        """get_by_tag must treat %/_ as literals, not wildcards (#4348)."""
+        template_repo.create('Rock Mix', [1], tags=['rock'])
+        template_repo.create('Wildcard', [2], tags=['%'])
+        template_repo.create('Underscore', [3], tags=['a_b'])
+        template_repo.create('Literal AB', [4], tags=['aXb'])
+
+        # A literal '%' tag must match ONLY the %-tagged template, not every one.
+        pct = template_repo.get_by_tag('%')
+        assert len(pct) == 1
+        assert json.loads(pct[0].tags) == ['%']
+
+        # '_' is a single-char wildcard in LIKE; escaped, it matches only 'a_b'.
+        underscore = template_repo.get_by_tag('a_b')
+        assert len(underscore) == 1
+        assert json.loads(underscore[0].tags) == ['a_b']
+
+        # An ordinary tag still matches exactly one.
+        rock = template_repo.get_by_tag('rock')
+        assert len(rock) == 1
+        assert json.loads(rock[0].tags) == ['rock']
+
 
 class TestQueueTemplateData:
     """Test template data handling"""

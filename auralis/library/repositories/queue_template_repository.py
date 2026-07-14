@@ -152,8 +152,11 @@ class QueueTemplateRepository(BaseRepository):
             # Use SQL LIKE on the JSON string to avoid loading the full table (fixes #2249).
             # Tags are stored as JSON arrays (e.g. '["rock", "chill"]'), so matching
             # the quoted tag value is sufficient and avoids false positives.
+            # Escape LIKE metacharacters so a tag containing %/_/\ matches literally
+            # rather than as a wildcard (#4348) — mirrors search_templates at :344.
+            escaped_tag = tag.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
             templates = session.execute(select(QueueTemplate).where(
-                QueueTemplate.tags.like(f'%"{tag}"%')
+                QueueTemplate.tags.like(f'%"{escaped_tag}"%', escape='\\')
             )).scalars().all()
             for template in templates:
                 session.expunge(template)
