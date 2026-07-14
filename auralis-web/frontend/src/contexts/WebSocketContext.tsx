@@ -483,6 +483,12 @@ export const WebSocketProvider = ({
 
   // Connect on mount
   useEffect(() => {
+    // Reset the mounted flag on every (re)mount. Under StrictMode the
+    // mount→cleanup→remount cycle sets it false in the first cleanup; without
+    // this reset it stays false forever and the re-subscribed open/close/error
+    // handlers (all gated on mountedRef) never update isConnected/
+    // connectionStatus again (#4436).
+    mountedRef.current = true;
     connect();
 
     // Cleanup on unmount
