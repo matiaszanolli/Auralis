@@ -101,12 +101,20 @@ class ArtworkDownloader:
     3. Last.fm API (requires API key)
     """
 
-    def __init__(self, cache_dir: str = "~/.auralis/artwork_cache"):
+    def __init__(self, cache_dir: str = "~/.auralis/artwork"):
         """
         Initialize artwork downloader.
 
         Args:
-            cache_dir: Directory to cache downloaded artwork
+            cache_dir: Directory to cache downloaded artwork. Defaults to the
+                single served directory ``~/.auralis/artwork`` — the same one
+                the embedded extractor (``auralis/library/artwork.py``) writes
+                to and the only one the GET endpoint
+                (``routers/artwork.py``) will serve. A sibling
+                ``~/.auralis/artwork_cache`` used to be the default, so every
+                downloaded image failed the serving guard with 403 (#4408).
+                Both writers share the ``album_{id}_{hash}.{ext}`` naming, so
+                they coexist in this directory without collision.
         """
         self.cache_dir = Path(cache_dir).expanduser()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
