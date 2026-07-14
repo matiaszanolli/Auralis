@@ -155,7 +155,11 @@ desktop/package-lock.json
 
 # Root Node.js files
 **/node_modules/
+# pnpm is the single package manager (#4357). Ignore stray npm/yarn lockfiles so
+# a `npm install` / `yarn` never commits a competing lockfile; CI enforces this
+# too (.github/workflows/lockfile-guard.yml).
 **/package-lock.json
+**/yarn.lock
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

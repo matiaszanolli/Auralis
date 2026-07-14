@@ -1,0 +1,44 @@
+name: Lockfile Guard
+
+# #4357: pnpm is the single package manager for every JS package. A stray
+# package-lock.json (npm) or yarn.lock (yarn) makes the resolved — and audited —
+# dependency graph depend on which tool the builder happens to run. This job
+# fails if any package directory contains a non-pnpm lockfile or more than one
+# lockfile, so a competing lockfile can never land on master.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  one-lockfile-per-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enforce exactly one pnpm lockfile per JS package
+        run: |
+          set -euo pipefail
+          status=0
+          # Every directory that has a package.json is a JS package (skip node_modules).
+          while IFS= read -r pkg_json; do
+            dir=$(dirname "$pkg_json")
+            stray=$(ls "$dir"/package-lock.json "$dir"/yarn.lock 2>/dev/null || true)
+            if [ -n "$stray" ]; then
+              echo "::error file=$dir::Non-pnpm lockfile(s) in $dir — pnpm is the only supported manager (#4357):"
+              echo "$stray"
+              status=1
+            fi
+            if [ ! -f "$dir/pnpm-lock.yaml" ]; then
+              echo "::warning file=$dir::$dir has a package.json but no pnpm-lock.yaml"
+            fi
+          done < <(find . -name package.json -not -path '*/node_modules/*' -not -path './node_modules/*')
+          if [ "$status" -ne 0 ]; then
+            echo "Delete the stray lockfile(s) and use 'pnpm install' instead."
+            exit 1
+          fi
+          echo "OK: every JS package has a single pnpm lockfile."

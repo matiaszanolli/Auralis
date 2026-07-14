@@ -3,6 +3,7 @@
   "version": "1.2.1-beta.2",
   "description": "Auralis Audio Mastering Desktop Application",
   "main": "main.js",
+  "packageManager": "pnpm@10.20.0",
   "author": "Auralis Team",
   "license": "AGPL-3.0-or-later",
   "private": true,

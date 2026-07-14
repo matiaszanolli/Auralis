@@ -3,6 +3,7 @@
   "version": "1.2.1-beta.2",
   "description": "Modern web frontend for Auralis audio processing",
   "private": true,
+  "packageManager": "pnpm@10.20.0",
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",

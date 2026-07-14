@@ -14,18 +14,18 @@ python launch-auralis-web.py --dev      # Backend :8765, Frontend :3000
 
 # Run (components)
 cd auralis-web/backend && python -m uvicorn main:app --reload
-cd auralis-web/frontend && npm install && npm run dev
-cd desktop && npm install && npm run dev
+cd auralis-web/frontend && pnpm install && pnpm run dev   # pnpm is the only supported JS package manager (#4357)
+cd desktop && pnpm install && pnpm run dev
 
 # Test
 python -m pytest tests/ -v                         # All (~2-3 min)
 python -m pytest -m "not slow" -v                   # Fast subset
 python -m pytest tests/path.py::test_name -vv -s    # Single test
-cd auralis-web/frontend && npm run test:memory       # Frontend (2GB heap)
+cd auralis-web/frontend && pnpm run test:memory       # Frontend (2GB heap)
 
 # Type check
 mypy auralis/ auralis-web/backend/ --ignore-missing-imports
-cd auralis-web/frontend && npm run type-check
+cd auralis-web/frontend && pnpm run type-check
 
 # Build Rust DSP (required before first run)
 cd vendor/auralis-dsp && maturin develop
@@ -150,7 +150,7 @@ Branch from `master`. Prefixes: `feature/`, `fix/`, `refactor/`, `docs/`. Commit
 | Problem | Fix |
 |---------|-----|
 | Port 8765 in use | `lsof -ti:8765 \| xargs kill -9` |
-| Frontend tests OOM | `npm run test:memory` (2GB heap) |
+| Frontend tests OOM | `pnpm run test:memory` (2GB heap) |
 | Database locked | Kill python, delete `~/.auralis/library.db` |
 | Rust module missing | `cd vendor/auralis-dsp && maturin develop` |
 
