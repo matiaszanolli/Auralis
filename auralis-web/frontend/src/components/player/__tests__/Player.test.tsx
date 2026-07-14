@@ -10,9 +10,12 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import Player from '../Player';
+
+// Captured across renders so tests can assert on the exact playEnhanced args.
+const { mockPlayEnhanced } = vi.hoisted(() => ({ mockPlayEnhanced: vi.fn() }));
 
 // Heavy hooks remain stubbed — they pull in WebSocket / AudioContext
 // machinery that has no analog in jsdom. The Redux integration tests
@@ -20,7 +23,7 @@ import Player from '../Player';
 // playback state from Redux, not from these hooks.
 vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
   usePlayEnhanced: () => ({
-    playEnhanced: vi.fn(),
+    playEnhanced: mockPlayEnhanced,
     seekTo: vi.fn(),
     pausePlayback: vi.fn(),
     resumePlayback: vi.fn(),
@@ -30,6 +33,12 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
     setStreamingVolume: vi.fn(),
     error: null,
   }),
+}));
+
+// Current enhancement selection — Player must pass this to playEnhanced on
+// track transitions instead of hardcoded adaptive/1.0 (#4410).
+vi.mock('@/hooks/enhancement/useEnhancementControl', () => ({
+  useEnhancementControl: () => ({ preset: 'warm', intensity: 0.5 }),
 }));
 
 const mockTrack = {
@@ -68,6 +77,24 @@ describe('Player', () => {
     // Both transport buttons present when a queue has multiple entries.
     expect(screen.getByRole('button', { name: /previous/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
+  });
+
+  it('Next passes the current preset/intensity, not hardcoded adaptive/1.0 (#4410)', async () => {
+    mockPlayEnhanced.mockClear();
+    render(<Player />, {
+      preloadedState: {
+        player: { currentTrack: mockTrack } as never,
+        queue: {
+          tracks: [mockTrack, { ...mockTrack, id: 2, title: 'Next' }],
+          currentIndex: 0,
+        } as never,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+
+    await waitFor(() => expect(mockPlayEnhanced).toHaveBeenCalled());
+    expect(mockPlayEnhanced).toHaveBeenCalledWith(2, 'warm', 0.5);
   });
 
   it('should render the queue panel toggle', () => {

@@ -29,6 +29,7 @@ const pulse = keyframes`
 
 // Playback hooks
 import { usePlayNormal } from '@/hooks/enhancement/usePlayNormal';
+import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 
 /**
  * Playback control functions passed from parent Player component
@@ -80,6 +81,10 @@ export const PlayerEnhancementPanel = ({
   // Get streaming state from Redux (typed selectors fix #2463)
   const streaming = useSelector((state: RootState) => state.player.streaming.enhanced);
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
+
+  // Current enhancement selection — enhanced playback must honour it instead of
+  // resetting to adaptive/1.0 (#4410). Live via enhancement_settings_changed.
+  const { preset: enhancementPreset, intensity: enhancementIntensity } = useEnhancementControl();
 
   // Play mode state (normal vs enhanced)
   const [playMode, setPlayMode] = useState<'normal' | 'enhanced'>('enhanced');
@@ -153,11 +158,10 @@ export const PlayerEnhancementPanel = ({
         await playNormal.playNormal(activeTrackId);
       } else {
         DEBUG && console.log('[PlayerEnhancementPanel] Starting enhanced playback');
-        // Use 'adaptive' preset with full intensity as default
-        await playbackControls.playEnhanced(activeTrackId, 'adaptive', 1.0);
+        await playbackControls.playEnhanced(activeTrackId, enhancementPreset, enhancementIntensity);
       }
     },
-    [playMode, activeTrackId, playNormal, playbackControls]
+    [playMode, activeTrackId, playNormal, playbackControls, enhancementPreset, enhancementIntensity]
   );
 
   if (!shouldShow) {

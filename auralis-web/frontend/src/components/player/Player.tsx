@@ -23,6 +23,7 @@ import QueuePanel from './QueuePanel';
 
 // WebSocket Audio Streaming Hook (replaces REST API playback)
 import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
+import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 
 // Redux hooks and actions
 import { useSelector, useDispatch } from 'react-redux';
@@ -69,6 +70,12 @@ const Player = () => {
     error: streamingError,
   } = usePlayEnhanced();
 
+  // Current enhancement selection (preset/intensity) — the transport paths must
+  // preserve it across track changes instead of resetting to adaptive/1.0
+  // (#4410). Seeded from persisted settings at startup (#4409) and kept live via
+  // the enhancement_settings_changed WS event.
+  const { preset: enhancementPreset, intensity: enhancementIntensity } = useEnhancementControl();
+
   // Derived buffering state for UI
   const isBuffering = streamingState === 'buffering';
   const hasError = streamingState === 'error';
@@ -104,11 +111,11 @@ const Player = () => {
 
       // Play using the locally-computed track (not re-read from Redux)
       DEBUG && console.log('[Player] Playing next track:', nextTrackData.title);
-      await playEnhanced(nextTrackData.id, 'adaptive', 1.0);
+      await playEnhanced(nextTrackData.id, enhancementPreset, enhancementIntensity);
     } catch (err) {
       console.error('[Player] Next command error:', err);
     }
-  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced]);
+  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced, enhancementPreset, enhancementIntensity]);
 
   const handlePrevious = useCallback(async () => {
     try {
@@ -128,11 +135,11 @@ const Player = () => {
 
       // Play using the locally-computed track (not re-read from Redux)
       DEBUG && console.log('[Player] Playing previous track:', prevTrackData.title);
-      await playEnhanced(prevTrackData.id, 'adaptive', 1.0);
+      await playEnhanced(prevTrackData.id, enhancementPreset, enhancementIntensity);
     } catch (err) {
       console.error('[Player] Previous command error:', err);
     }
-  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced]);
+  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced, enhancementPreset, enhancementIntensity]);
 
   const handlePlayPause = useCallback(async () => {
     if (!currentTrack?.id) {
@@ -153,12 +160,12 @@ const Player = () => {
       } else {
         // Not streaming - start new stream
         DEBUG && console.log('[Player] Starting WebSocket audio streaming for track:', currentTrack.id);
-        await playEnhanced(currentTrack.id, 'adaptive', 1.0);
+        await playEnhanced(currentTrack.id, enhancementPreset, enhancementIntensity);
       }
     } catch (err) {
       console.error('[Player] Play/Pause command error:', err);
     }
-  }, [currentTrack?.id, isStreaming, isPaused, resumePlayback, pausePlayback, playEnhanced]);
+  }, [currentTrack?.id, isStreaming, isPaused, resumePlayback, pausePlayback, playEnhanced, enhancementPreset, enhancementIntensity]);
 
   const handleVolumeChange = useCallback(async (vol: number) => {
     try {
