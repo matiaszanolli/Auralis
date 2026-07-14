@@ -251,7 +251,27 @@ class FingerprintSimilarity:
         # Get dimension contributions
         contributions = self.distance_calc.get_dimension_contributions(vec1, vec2)
 
-        # Sort by contribution
+        # Raw (denormalized) per-dimension values for display. fp.to_vector()
+        # produces the 25 dimensions in FingerprintNormalizer.DIMENSION_NAMES
+        # order (the same order normalize() consumes above), so index i maps to
+        # DIMENSION_NAMES[i].
+        raw1 = fp1.to_vector()
+        raw2 = fp2.to_vector()
+        dim_index = {name: i for i, name in enumerate(self.normalizer.DIMENSION_NAMES)}
+
+        def _entry(dim: str, contrib: float) -> dict[str, Any]:
+            idx = dim_index.get(dim)
+            v1 = float(raw1[idx]) if idx is not None and idx < len(raw1) else 0.0
+            v2 = float(raw2[idx]) if idx is not None and idx < len(raw2) else 0.0
+            return {
+                'dimension': dim,
+                'contribution': float(contrib),
+                'value1': v1,
+                'value2': v2,
+                'difference': v1 - v2,
+            }
+
+        # Sort by contribution (descending)
         sorted_dims = sorted(contributions.items(), key=lambda x: x[1], reverse=True)
 
         return {
@@ -259,11 +279,8 @@ class FingerprintSimilarity:
             'track_id2': track_id2,
             'distance': distance,
             'similarity_score': similarity_score,
-            'top_differences': [
-                {'dimension': dim, 'contribution': float(contrib)}
-                for dim, contrib in sorted_dims[:top_n]
-            ],
-            'all_contributions': {dim: float(contrib) for dim, contrib in contributions.items()}
+            'top_differences': [_entry(dim, contrib) for dim, contrib in sorted_dims[:top_n]],
+            'all_contributions': [_entry(dim, contrib) for dim, contrib in sorted_dims],
         }
 
     def _get_prefiltered_candidates(

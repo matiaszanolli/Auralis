@@ -80,13 +80,37 @@ class SimilarTrack(BaseModel):
     album: str | None = None
 
 
+class ComparisonResult(BaseModel):
+    """Pairwise comparison of two specific tracks."""
+    track_id1: int = Field(..., description="First track ID")
+    track_id2: int = Field(..., description="Second track ID")
+    distance: float = Field(..., description="Fingerprint distance (lower = more similar)")
+    similarity_score: float = Field(..., ge=0.0, le=1.0, description="Similarity score 0-1")
+
+
+class DimensionContribution(BaseModel):
+    """A single fingerprint dimension's contribution to the distance.
+
+    value1/value2/difference are the raw (denormalized) per-track values and
+    are optional so a partial engine payload never fails validation (#4415).
+    """
+    dimension: str
+    contribution: float
+    value1: float | None = None
+    value2: float | None = None
+    difference: float | None = None
+
+
 class SimilarityExplanation(BaseModel):
     """Detailed similarity explanation"""
     track_id1: int
     track_id2: int
     distance: float
     similarity_score: float
-    top_differences: list[dict[str, float]]
+    # Both are arrays of DimensionContribution (#4415/#4416): top_differences
+    # is the top-N by contribution, all_contributions is every dimension.
+    top_differences: list[DimensionContribution]
+    all_contributions: list[DimensionContribution]
 
 
 class GraphStatsResponse(BaseModel):
@@ -218,12 +242,12 @@ def create_similarity_router(
 
         return results
 
-    @router.get("/tracks/{track_id1}/compare/{track_id2}", response_model=SimilarTrack)
+    @router.get("/tracks/{track_id1}/compare/{track_id2}", response_model=ComparisonResult)
     @_with_similarity_error_handling("Error comparing tracks")
     async def compare_tracks(
         track_id1: int,
         track_id2: int
-    ) -> SimilarTrack:
+    ) -> ComparisonResult:
         """
         Compare two specific tracks for similarity
 
@@ -262,14 +286,11 @@ def create_similarity_router(
         if not result:
             raise HTTPException(status_code=500, detail="Failed to calculate similarity")
 
-        return SimilarTrack(
-            track_id=track_id2,
+        return ComparisonResult(
+            track_id1=track_id1,
+            track_id2=track_id2,
             distance=result.distance,
             similarity_score=result.similarity_score,
-            rank=None,
-            title=track2.title,
-            artist=track2.artists[0].name if track2.artists else None,
-            album=track2.album.title if track2.album else None
         )
 
     @router.get("/tracks/{track_id1}/explain/{track_id2}", response_model=SimilarityExplanation)

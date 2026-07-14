@@ -39,9 +39,11 @@ export interface ComparisonResult {
 export interface DimensionContribution {
   dimension: string;
   contribution: number;
-  value1: number;
-  value2: number;
-  difference: number;
+  // Raw per-track values are optional: the backend model declares them
+  // nullable so a partial payload never breaks the contract (#4415/#4416).
+  value1?: number | null;
+  value2?: number | null;
+  difference?: number | null;
 }
 
 export interface SimilarityExplanation {

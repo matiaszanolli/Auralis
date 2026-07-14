@@ -8,8 +8,10 @@ import { Box, Typography } from '@mui/material';
 export interface TopDifference {
   dimension: string;
   contribution: number;
-  value1: number;
-  value2: number;
+  // Optional: the backend sends these as nullable (#4415/#4416); the value
+  // comparison is only rendered when both are present.
+  value1?: number | null;
+  value2?: number | null;
 }
 
 interface SimilarityTopDifferencesProps {
@@ -61,15 +63,17 @@ export const SimilarityTopDifferences = ({
             }}
           />
 
-          {/* Value Comparison */}
-          <ValueComparisonBox>
-            <Typography variant="caption" sx={{ color: tokens.colors.text.secondary }}>
-              Track 1: {formatValue(diff.value1, diff.dimension)}
-            </Typography>
-            <Typography variant="caption" sx={{ color: tokens.colors.text.secondary }}>
-              Track 2: {formatValue(diff.value2, diff.dimension)}
-            </Typography>
-          </ValueComparisonBox>
+          {/* Value Comparison — only when raw per-track values are present */}
+          {diff.value1 != null && diff.value2 != null && (
+            <ValueComparisonBox>
+              <Typography variant="caption" sx={{ color: tokens.colors.text.secondary }}>
+                Track 1: {formatValue(diff.value1, diff.dimension)}
+              </Typography>
+              <Typography variant="caption" sx={{ color: tokens.colors.text.secondary }}>
+                Track 2: {formatValue(diff.value2, diff.dimension)}
+              </Typography>
+            </ValueComparisonBox>
+          )}
         </DimensionRow>
       ))}
     </SectionDivider>
