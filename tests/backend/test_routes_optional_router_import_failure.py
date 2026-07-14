@@ -1,13 +1,13 @@
 """
 Regression tests for setup_routers() import-time robustness (#3907).
 
-cache_streamlined, similarity, and wav_streaming each wrap their
+cache_streamlined and similarity each wrap their
 app.include_router(...) call in try/except so a broken transitive
 dependency degrades gracefully instead of crashing startup (fixes #2324).
 That protection was previously bypassed because their factory functions
 were imported at module load time (top of config/routes.py), outside any
 try/except — a broken import raised before the protected block was ever
-reached. The fix moves those three imports inside their own try/except,
+reached. The fix moves those imports inside their own try/except,
 matching the pattern already used for processing_api, so the import is
 deferred to when setup_routers() actually runs.
 
@@ -48,7 +48,7 @@ def _base_deps() -> dict:
 
 @pytest.mark.parametrize(
     "broken_module",
-    ["routers.cache_streamlined", "routers.similarity", "routers.wav_streaming"],
+    ["routers.cache_streamlined", "routers.similarity"],
 )
 def test_broken_optional_router_import_does_not_crash_setup(broken_module):
     """A broken import for an optional router must not prevent the other

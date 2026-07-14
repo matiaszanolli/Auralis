@@ -31,9 +31,9 @@ from routers.settings import create_settings_router
 from routers.system import create_system_router
 from routers.health import create_health_router
 
-# NOTE: cache_streamlined, similarity, and wav_streaming router factories are
-# imported locally inside their own try/except blocks below (matching
-# processing_api), not at module level — their `include_router()` calls are
+# NOTE: cache_streamlined and similarity router factories are imported locally
+# inside their own try/except blocks below (matching processing_api), not at
+# module level — their `include_router()` calls are
 # already guarded so a broken transitive dependency degrades gracefully
 # (fixes #2324), but a module-level import here would raise before that
 # protection is ever reached, hard-crashing startup anyway (#3907).
@@ -260,25 +260,10 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         except Exception as e:
             logger.warning(f"⚠️  Failed to register similarity router: {e}", exc_info=True)
 
-    # Create and include WAV streaming router
-    try:
-        from routers.wav_streaming import create_wav_streaming_router
-        streaming_router: APIRouter = create_wav_streaming_router(
-            get_multi_tier_buffer=lambda: globals_dict.get('streamlined_cache') if HAS_STREAMLINED_CACHE else None,
-            chunked_audio_processor_class=chunked_audio_processor_class,
-            get_repository_factory=get_component('repository_factory'),
-        )
-        app.include_router(streaming_router)
-        logger.info("✅ WAV streaming router registered")
-    except Exception as e:
-        # WAV streaming is the production audio delivery path; promote to
-        # ERROR with exc_info so a silent failure here surfaces as a CI /
-        # log-monitor signal rather than a soft warning amongst the
-        # genuinely-optional cache/similarity router warnings (#3538 /
-        # BE-NEW-80).
-        logger.error(
-            f"❌ Failed to register WAV streaming router (audio delivery WILL be broken): {e}",
-            exc_info=True,
-        )
+    # NOTE: the WAV streaming / MSE REST router (routers/wav_streaming.py,
+    # /api/stream/*) was retired (#4435). Live playback is entirely
+    # WebSocket-based (play_normal / play_enhanced); the REST/MSE chunk surface
+    # had no production frontend caller — only MSW test mocks — consistent with
+    # the app not using MSE. Retired rather than kept as dead cross-layer surface.
 
     logger.info("✅ All routers configured and registered")
