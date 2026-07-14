@@ -213,10 +213,9 @@ class WebSocketMessageType(str, Enum):
     PING = "ping"
     PONG = "pong"
     HEARTBEAT = "heartbeat"
-    PROCESSING_SETTINGS_UPDATE = "processing_settings_update"
-    PROCESSING_SETTINGS_APPLIED = "processing_settings_applied"
-    AB_TRACK_LOADED = "ab_track_loaded"
-    AB_TRACK_READY = "ab_track_ready"
+    # processing_settings_* and ab_track_* removed (#4421): dead both
+    # directions — the frontend never sent the inbound types nor subscribed
+    # to the outbound ones, and the handlers were never triggered.
     PLAY_ENHANCED = "play_enhanced"
     PLAY_NORMAL = "play_normal"
     PAUSE = "pause"

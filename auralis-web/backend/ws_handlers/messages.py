@@ -3,9 +3,9 @@ WebSocket Misc Message Handlers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Handlers for message types that don't touch streaming-task state: ping,
-pong, heartbeat, processing_settings_update, ab_track_loaded,
-subscribe_job_progress, and the unknown-type fallback. Extracted verbatim
-from the websocket_endpoint dispatch loop in routers/system.py (#4074).
+pong, heartbeat, subscribe_job_progress, and the unknown-type fallback.
+Extracted verbatim from the websocket_endpoint dispatch loop in
+routers/system.py (#4074).
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -38,18 +38,6 @@ def handle_heartbeat(heartbeat: HeartbeatManager, connection_id: str) -> None:
     # Keepalive from RealTimeAnalysisStream — use mark_alive (not
     # mark_pong) so an outstanding ping is not masked (#3866 / BE-WS-5).
     heartbeat.mark_alive(connection_id)
-
-
-async def handle_processing_settings_update(message: dict[str, Any], manager: Any) -> None:
-    settings = message.get("data", {})
-    logger.info(f"Processing settings updated: {settings}")
-    await manager.broadcast({"type": "processing_settings_applied", "data": settings})
-
-
-async def handle_ab_track_loaded(message: dict[str, Any], manager: Any) -> None:
-    track_data = message.get("data", {})
-    logger.info(f"A/B track loaded: {track_data}")
-    await manager.broadcast({"type": "ab_track_ready", "data": track_data})
 
 
 async def handle_subscribe_job_progress(

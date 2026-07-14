@@ -100,7 +100,6 @@ async def dispatch_message(
     message: dict[str, Any],
     state: StreamState,
     deps: WSDeps,
-    manager: Any,
     heartbeat: HeartbeatManager,
     connection_id: str,
     subscribed_job_ids: set[str],
@@ -114,10 +113,6 @@ async def dispatch_message(
         msg_handlers.handle_pong(heartbeat, connection_id)
     elif msg_type == "heartbeat":
         msg_handlers.handle_heartbeat(heartbeat, connection_id)
-    elif msg_type == "processing_settings_update":
-        await msg_handlers.handle_processing_settings_update(message, manager)
-    elif msg_type == "ab_track_loaded":
-        await msg_handlers.handle_ab_track_loaded(message, manager)
     elif msg_type == "play_enhanced":
         await playback_commands.handle_play_enhanced(websocket, message, state, deps)
     elif msg_type == "play_normal":

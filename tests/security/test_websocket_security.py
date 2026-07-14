@@ -199,7 +199,7 @@ class TestWebSocketSchemaValidation:
         """Valid message types should be accepted."""
         valid_types = [
             "ping",
-            "processing_settings_update",
+            "heartbeat",
             "play_enhanced",
             "play_normal",
             "pause",

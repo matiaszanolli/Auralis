@@ -345,7 +345,7 @@ def create_system_router(
                     continue
 
                 await ws_connection.dispatch_message(
-                    websocket, message, state, deps, manager, heartbeat, connection_id, subscribed_job_ids
+                    websocket, message, state, deps, heartbeat, connection_id, subscribed_job_ids
                 )
 
         except WebSocketDisconnect:

@@ -711,42 +711,6 @@ class TestWebSocketConnection:
 
             assert response["type"] == "pong"
 
-    def test_websocket_processing_settings_update(self, client):
-        """Test processing settings update via WebSocket"""
-        with client.websocket_connect("/ws") as websocket:
-            # Consume initial enhancement_settings_changed message
-            websocket.receive_json()
-
-            # Send processing settings update
-            settings = {"mode": "adaptive", "target_loudness": -14}
-            websocket.send_json({
-                "type": "processing_settings_update",
-                "data": settings
-            })
-
-            # Should receive broadcast confirmation
-            response = websocket.receive_json()
-            assert response["type"] == "processing_settings_applied"
-            assert response["data"] == settings
-
-    def test_websocket_ab_track_loaded(self, client):
-        """Test A/B track loading via WebSocket"""
-        with client.websocket_connect("/ws") as websocket:
-            # Consume initial enhancement_settings_changed message
-            websocket.receive_json()
-
-            # Send A/B track loaded message
-            track_data = {"track_id": "123", "name": "test.wav"}
-            websocket.send_json({
-                "type": "ab_track_loaded",
-                "data": track_data
-            })
-
-            # Should receive broadcast confirmation
-            response = websocket.receive_json()
-            assert response["type"] == "ab_track_ready"
-            assert response["data"] == track_data
-
     def test_websocket_subscribe_job_progress(self, client):
         """Test subscribing to job progress updates"""
         with client.websocket_connect("/ws") as websocket:
@@ -778,29 +742,6 @@ class TestWebSocketConnection:
             ws2.send_json({"type": "ping"})
             response2 = ws2.receive_json()
             assert response2["type"] == "pong"
-
-    def test_websocket_broadcast(self, client):
-        """Test that messages are broadcast to all connections"""
-        with client.websocket_connect("/ws") as ws1, \
-             client.websocket_connect("/ws") as ws2:
-
-            # Consume initial enhancement_settings_changed messages
-            ws1.receive_json()
-            ws2.receive_json()
-
-            # Send processing settings from first connection
-            settings = {"mode": "adaptive"}
-            ws1.send_json({
-                "type": "processing_settings_update",
-                "data": settings
-            })
-
-            # Both connections should receive broadcast
-            response1 = ws1.receive_json()
-            assert response1["type"] == "processing_settings_applied"
-
-            response2 = ws2.receive_json()
-            assert response2["type"] == "processing_settings_applied"
 
 
 class TestCORS:

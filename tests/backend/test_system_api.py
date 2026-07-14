@@ -9,8 +9,6 @@ Coverage:
 - GET /api/version - Version information
 - WebSocket /ws - Real-time communication
   - ping/pong
-  - processing_settings_update
-  - ab_track_loaded
   - play_enhanced
   - play_normal
   - pause
@@ -221,67 +219,6 @@ class TestWebSocketMessageValidation:
 
             # Rate limiting should have triggered
             assert response_received, "Rate limiting did not trigger"
-
-
-class TestWebSocketProcessingSettings:
-    """Test WebSocket processing settings messages"""
-
-    @patch('main.connection_manager')
-    def test_processing_settings_update(self, mock_manager, client):
-        """Test processing settings update message"""
-        mock_manager.broadcast = AsyncMock()
-
-        with client.websocket_connect("/ws") as websocket:
-            settings = {
-                "preset": "warm",
-                "intensity": 0.8
-            }
-
-            # Send processing settings update
-            websocket.send_text(json.dumps({
-                "type": "processing_settings_update",
-                "data": settings
-            }))
-
-            # May receive broadcast response (depending on implementation)
-            # Just verify no error
-            try:
-                response = websocket.receive_text()
-                data = json.loads(response)
-                # Should not be an error
-                assert data.get("type") != "error"
-            except Exception:
-                # No response is also acceptable
-                pass
-
-
-class TestWebSocketABTesting:
-    """Test WebSocket A/B comparison messages"""
-
-    @patch('main.connection_manager')
-    def test_ab_track_loaded(self, mock_manager, client):
-        """Test A/B track loaded message"""
-        mock_manager.broadcast = AsyncMock()
-
-        with client.websocket_connect("/ws") as websocket:
-            track_data = {
-                "track_id": 1,
-                "filepath": "/path/to/track.mp3"
-            }
-
-            # Send A/B track loaded message
-            websocket.send_text(json.dumps({
-                "type": "ab_track_loaded",
-                "data": track_data
-            }))
-
-            # Should broadcast without error
-            try:
-                response = websocket.receive_text()
-                data = json.loads(response)
-                assert data.get("type") != "error"
-            except Exception:
-                pass
 
 
 class TestWebSocketPlayback:
