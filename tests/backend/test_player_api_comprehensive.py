@@ -772,6 +772,34 @@ class TestQueueHistory:
             "undo must consume (delete) the history entry it restores from"
         )
 
+    def test_undo_broadcasts_queue_changed_not_queue_updated(self, client):
+        """#4420: the undo straggler must emit the canonical `queue_changed`
+        (the #3492 rename), never the unsubscribed `queue_updated`."""
+        from config.globals import ConnectionManager
+
+        client.delete("/api/player/queue/history")
+        client.post(
+            "/api/player/queue/history",
+            json={
+                "operation": "clear",
+                "state_snapshot": self._snapshot(track_ids=[7, 8, 9], current_index=1),
+            },
+        )
+
+        # Patch at the class level so whichever ConnectionManager instance the
+        # router captured is covered.
+        with patch.object(ConnectionManager, "broadcast", new=AsyncMock()) as mock_bcast:
+            response = client.post("/api/player/queue/undo")
+            assert response.status_code == 200
+
+        broadcast_types = [
+            call.args[0].get("type")
+            for call in mock_bcast.call_args_list
+            if call.args and isinstance(call.args[0], dict)
+        ]
+        assert "queue_changed" in broadcast_types
+        assert "queue_updated" not in broadcast_types
+
     def test_clear_history_empties_it(self, client):
         client.post(
             "/api/player/queue/history",

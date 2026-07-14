@@ -577,9 +577,16 @@ def create_player_router(
                     shuffle_enabled=restored_dict['is_shuffled'],
                 )
 
+            # Canonical queue event is `queue_changed` (the #3492 rename that
+            # this undo straggler missed); `queue_updated` had no FE subscriber
+            # so the dedicated broadcast was silently dropped (#4420).
             await connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {"action": "undo", "queue_size": len(restored_dict['track_ids'])},
+                "type": "queue_changed",
+                "data": {
+                    "action": "undo",
+                    "current_index": restored_dict['current_index'],
+                    "queue_size": len(restored_dict['track_ids']),
+                },
             })
 
             return {"message": "Queue operation undone", "queue_state": restored_dict}
