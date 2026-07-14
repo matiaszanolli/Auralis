@@ -209,6 +209,28 @@ class LevelManager:
                 f"Chunk {chunk_index}: Level transition OK "
                 f"(RMS: {current_rms:.1f} dB, diff: {level_diff_db:.1f} dB)"
             )
+
+            # #4352: the previous chunk may have ended holding a non-zero gain
+            # across its whole body (the #3831 adjustment branch holds
+            # `new_gain` flat after its ramp-in). Snapping straight back to
+            # unity here would step the boundary by the full held gain. Ramp
+            # back to unity over the same window #3831 uses instead — but
+            # only for the live path (apply_adjustment=True); a cache-hit
+            # recording call (apply_adjustment=False) must leave the
+            # already-emitted chunk untouched (#3832).
+            prev_gain_db = self.gain_history[-1] if self.gain_history else 0.0
+            if apply_adjustment and prev_gain_db != 0.0:
+                prev_gain = float(10 ** (prev_gain_db / 20))
+                env = self._gain_envelope(
+                    n_samples=len(chunk),
+                    prev_gain=prev_gain,
+                    new_gain=1.0,
+                    sample_rate=sample_rate,
+                    dtype=chunk.dtype,
+                )
+                chunk = chunk * (env[:, None] if chunk.ndim == 2 else env)
+                current_rms = self.calculate_rms(chunk)
+
             self.rms_history.append(current_rms)
             self.gain_history.append(0.0)
             return chunk, 0.0, False

@@ -128,6 +128,47 @@ def test_ramp_length_tracks_sample_rate():
     assert col[ramp_len + 500] == pytest.approx(col[ramp_len + 50], rel=1e-6)
 
 
+def test_ramps_back_to_unity_after_held_adjustment():
+    """#4352: after an adjusted chunk (held gain != 0 dB), the next
+    in-tolerance chunk must ramp from that held gain back to unity instead of
+    snapping straight to unity — otherwise contiguous source audio steps at
+    the boundary."""
+    lm = LevelManager()
+    lm.smooth_transition(_loud(), 0, sample_rate=SR)              # baseline
+    quiet = _quiet()
+    adjusted_chunk, gain_db, adjusted = lm.smooth_transition(quiet, 1, sample_rate=SR)
+    assert adjusted and gain_db != 0.0
+
+    # Chunk 2 is in tolerance relative to chunk 1's (adjusted) RMS.
+    next_chunk = _quiet(amp=float(np.sqrt(np.mean(adjusted_chunk ** 2))))
+    out, next_gain_db, next_adjusted = lm.smooth_transition(next_chunk, 2, sample_rate=SR)
+    assert not next_adjusted and next_gain_db == 0.0
+
+    held_gain = 10 ** (gain_db / 20)
+    ramp_len = int(round(GAIN_RAMP_SECONDS * SR))
+    first = float(out[0, 0])
+    held = float(out[ramp_len + 100, 0])
+
+    # First sample starts at the previous held gain, not unity.
+    assert first == pytest.approx(float(next_chunk[0, 0]) * held_gain, rel=1e-3)
+    # By the end of the ramp window it has settled at unity (raw sample).
+    assert held == pytest.approx(float(next_chunk[ramp_len + 100, 0]), rel=1e-3)
+
+
+def test_cache_hit_after_held_adjustment_stays_unmodified():
+    """A record-only (apply_adjustment=False) call must never modify the
+    chunk, even when the previous chunk ended at a held non-zero gain."""
+    lm = LevelManager()
+    lm.smooth_transition(_loud(), 0, sample_rate=SR)              # baseline
+    lm.smooth_transition(_quiet(), 1, sample_rate=SR)              # triggers adjustment
+
+    chunk = _quiet(amp=0.02)
+    original = chunk.copy()
+    out, gain_db, adjusted = lm.smooth_transition(chunk, 2, apply_adjustment=False, sample_rate=SR)
+    assert not adjusted and gain_db == 0.0
+    np.testing.assert_array_equal(out, original)
+
+
 def test_handles_1d_and_2d_chunks():
     for shape_fn in (lambda: np.ones(SR, dtype=np.float32) * 0.5,
                      lambda: np.ones((SR, 2), dtype=np.float32) * 0.5):
