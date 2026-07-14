@@ -264,8 +264,17 @@ export function useAudioStreamingCore(
         wsContext.send({ type: 'buffer_ready', data: {} });
       }
 
-      // Update tracking
-      streamingMetadataRef.current.processedChunks++;
+      // Update tracking. The backend splits each CONTENT chunk into
+      // metadata.frameCount ~300 KB binary sub-frames, each arriving as its own
+      // audio_chunk message. Advance the progress counter once per content chunk
+      // (on its final frame) rather than per frame — otherwise the numerator
+      // climbs ~12-18x too fast against totalChunks (the content-chunk count from
+      // audio_stream_start) and the bar hits 100% during the first chunk (#4414).
+      // frameCount defaults to 1 in the decoder, so single-frame chunks still
+      // increment exactly once.
+      if (metadata.frameIndex >= metadata.frameCount - 1) {
+        streamingMetadataRef.current.processedChunks++;
+      }
       const bufferedSamples = pcmBufferRef.current.getAvailableSamples();
       const progress =
         (streamingMetadataRef.current.processedChunks / streamingMetadataRef.current.totalChunks) * 100;
