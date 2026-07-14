@@ -35,7 +35,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, field_validator
-from player_state import PlayerState
+from player_state import PlayerState, TrackInfo
 from services import (
     NavigationService,
     PlaybackService,
@@ -153,10 +153,13 @@ class VolumeResponse(BaseModel):
 
 class QueueInfoResponse(BaseModel):
     """Response for GET /api/player/queue."""
-    tracks: list[Any]
+    # tracks/current_track are canonical TrackInfo (#4374): queue_service
+    # enriches the engine queue's filepath-only entries into full TrackInfo
+    # before returning, so the schema is real rather than `Any`.
+    tracks: list[TrackInfo]
     current_index: int
     track_count: int | None = None
-    current_track: Any | None = None
+    current_track: TrackInfo | None = None
     has_next: bool | None = None
     has_previous: bool | None = None
     shuffle_enabled: bool | None = None

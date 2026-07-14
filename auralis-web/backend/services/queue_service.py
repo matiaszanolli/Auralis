@@ -10,8 +10,10 @@ Coordinates with AudioPlayer and PlayerStateManager to keep queue state synchron
 
 import asyncio
 import logging
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 from collections.abc import Callable
+
+from player_state import TrackInfo
 
 logger = logging.getLogger(__name__)
 
@@ -205,21 +207,109 @@ class QueueService:
             raise ValueError("Audio player not available")
 
         try:
-            if hasattr(self.audio_player, 'queue'):
-                queue_obj = self.audio_player.queue
-                if hasattr(queue_obj, 'get_queue_info'):
-                    return cast(dict[str, Any], queue_obj.get_queue_info())
-                else:
-                    return {
-                        "tracks": list(queue_obj.queue),  # type: ignore[attr-defined]
-                        "current_index": queue_obj.current_index,
-                        "track_count": len(queue_obj.queue)  # type: ignore[attr-defined]
-                    }
-            else:
+            queue_obj = getattr(self.audio_player, 'queue', None)
+            if queue_obj is None:
                 return {"tracks": [], "current_index": 0, "track_count": 0}
+
+            if hasattr(queue_obj, 'get_queue_info'):
+                info = dict(queue_obj.get_queue_info())
+            else:
+                info = {
+                    "tracks": list(queue_obj.queue),
+                    "current_index": queue_obj.current_index,
+                    "track_count": len(queue_obj.queue),
+                }
+
+            # The engine queue is the source of truth for order/contents but
+            # stores only filepaths; enrich those into full TrackInfo so the
+            # response matches its schema instead of leaking bare dicts (#4374).
+            raw_current = info.get("current_track")
+            tracks = await self._enrich_queue_tracks(info.get("tracks", []))
+            info["tracks"] = tracks
+            info["current_track"] = self._resolve_current_track(
+                tracks, raw_current, info.get("current_index", 0)
+            )
+            return info
         except Exception as e:
             logger.error(f"Failed to get queue info: {e}")
             raise
+
+    async def _enrich_queue_tracks(self, entries: list[Any]) -> list[TrackInfo]:
+        """Resolve engine queue entries (filepath dicts) to full TrackInfo.
+
+        Uses the player state manager's TrackInfo queue as an in-memory
+        filepath map (it covers the whole queue right after set_queue), and
+        falls back to a single batched library lookup for any filepath it does
+        not cover (e.g. a track appended via add-track since the last
+        set_queue). Entries that resolve to neither are dropped rather than
+        emitted as schema-invalid partial dicts (#4374).
+        """
+        if not entries:
+            return []
+
+        # 1) Build filepath -> TrackInfo from the state manager snapshot.
+        by_fp: dict[str, TrackInfo] = {}
+        if self.player_state_manager is not None:
+            try:
+                state = self.player_state_manager.get_state()
+            except Exception:
+                state = None
+            for ti in getattr(state, "queue", None) or []:
+                fp = getattr(ti, "filepath", None)
+                if fp:
+                    by_fp[fp] = ti
+
+        filepaths = [self._entry_filepath(e) for e in entries]
+
+        # 2) Resolve filepaths missing from the state map via the library.
+        missing = {fp for fp in filepaths if fp and fp not in by_fp}
+        if missing and self.library_manager is not None:
+            def _lookup() -> dict[str, TrackInfo]:
+                found: dict[str, TrackInfo] = {}
+                for fp in missing:
+                    track = self.library_manager.tracks.get_by_path(fp)
+                    ti = self.create_track_info_fn(track) if track else None
+                    if ti is not None:
+                        found[fp] = ti
+                return found
+            by_fp.update(await asyncio.to_thread(_lookup))
+
+        # 3) Emit resolved TrackInfo in engine order; drop unresolvable ones.
+        resolved: list[TrackInfo] = []
+        for entry, fp in zip(entries, filepaths):
+            if isinstance(entry, TrackInfo):
+                resolved.append(entry)
+            elif fp is not None and fp in by_fp:
+                resolved.append(by_fp[fp])
+        return resolved
+
+    @staticmethod
+    def _entry_filepath(entry: Any) -> str | None:
+        """Extract a filepath from an engine queue entry (dict or TrackInfo)."""
+        if isinstance(entry, TrackInfo):
+            return entry.filepath
+        if isinstance(entry, dict):
+            fp = entry.get("filepath") or entry.get("file_path")
+            return fp if isinstance(fp, str) else None
+        fp = getattr(entry, "filepath", None)
+        return fp if isinstance(fp, str) else None
+
+    def _resolve_current_track(
+        self, tracks: list[TrackInfo], raw_current: Any, current_index: int
+    ) -> TrackInfo | None:
+        """Pick the current track from the enriched list.
+
+        Matches on the engine's reported current filepath so it stays correct
+        even if an unresolvable entry was dropped; falls back to current_index.
+        """
+        cur_fp = self._entry_filepath(raw_current) if raw_current is not None else None
+        if cur_fp is not None:
+            match = next((t for t in tracks if t.filepath == cur_fp), None)
+            if match is not None:
+                return match
+        if 0 <= current_index < len(tracks):
+            return tracks[current_index]
+        return None
 
     async def set_queue(self, track_ids: list[int], start_index: int = 0) -> dict[str, Any]:
         """
