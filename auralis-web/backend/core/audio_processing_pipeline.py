@@ -32,7 +32,6 @@ class AudioProcessingPipeline:
 
     Consolidates processing orchestration logic from:
     - chunked_processor._process_chunk_core()
-    - chunked_processor._process_chunk_with_hybrid_processor()
     - hybrid_processor.process() / _process_adaptive_mode()
     - realtime_processor.process_chunk()
 
@@ -180,41 +179,50 @@ class AudioProcessingPipeline:
         if targets is not None:
             logger.debug(f"Processing with fixed targets (8x faster)")
 
-            # Temporarily disable per-chunk fingerprint analysis
-            original_setting = getattr(
-                getattr(processor, 'content_analyzer', None),
-                'use_fingerprint_analysis',
-                None
-            )
+            # #4354 (regression of #3808): the shared ProcessorFactory hands
+            # the SAME HybridProcessor to concurrent callers, so the toggle
+            # set/process/restore below must be atomic under the processor's
+            # own `_process_lock` (RLock — process() re-enters it safely) —
+            # otherwise interleaved set/restore across threads corrupts the
+            # shared flag or leaves it permanently False.
+            with processor._process_lock:
+                # Temporarily disable per-chunk fingerprint analysis
+                original_setting = getattr(
+                    getattr(processor, 'content_analyzer', None),
+                    'use_fingerprint_analysis',
+                    None
+                )
 
-            if original_setting is not None:
-                processor.content_analyzer.use_fingerprint_analysis = False
-
-            try:
-                processed = processor.process(audio)
-            finally:
-                # Restore setting
                 if original_setting is not None:
-                    processor.content_analyzer.use_fingerprint_analysis = original_setting
+                    processor.content_analyzer.use_fingerprint_analysis = False
+
+                try:
+                    processed = processor.process(audio)
+                finally:
+                    # Restore setting
+                    if original_setting is not None:
+                        processor.content_analyzer.use_fingerprint_analysis = original_setting
 
         # Fast-start optimization for first chunk (skip fingerprint analysis)
         elif fast_start and chunk_index == 0:
             logger.debug("Fast-start: Skipping fingerprint analysis for chunk 0")
 
-            original_setting = getattr(
-                getattr(processor, 'content_analyzer', None),
-                'use_fingerprint_analysis',
-                None
-            )
+            # #4354: same shared-processor toggle race as the branch above.
+            with processor._process_lock:
+                original_setting = getattr(
+                    getattr(processor, 'content_analyzer', None),
+                    'use_fingerprint_analysis',
+                    None
+                )
 
-            if original_setting is not None:
-                processor.content_analyzer.use_fingerprint_analysis = False
-
-            try:
-                processed = processor.process(audio)
-            finally:
                 if original_setting is not None:
-                    processor.content_analyzer.use_fingerprint_analysis = original_setting
+                    processor.content_analyzer.use_fingerprint_analysis = False
+
+                try:
+                    processed = processor.process(audio)
+                finally:
+                    if original_setting is not None:
+                        processor.content_analyzer.use_fingerprint_analysis = original_setting
 
         # Normal processing
         else:

@@ -326,15 +326,23 @@ class AudioPlayer(PlayerFingerprintLoaderMixin, PlayerPropertiesMixin):
         # is consistent with `get_audio_chunk()` (the prior caller of
         # this pattern), so no inversion risk.
         #
-        # #3781: defer_notifications() outer so seek()/play()/stop()'s
-        # notify calls below fire only after _audio_lock releases (see
-        # AudioPlayer.seek() for full rationale).
+        # #3781: defer_notifications() outer so seek()'s notify call below
+        # fires only after _audio_lock releases (see AudioPlayer.seek() for
+        # full rationale).
+        #
+        # #3735: only the swap + seek stay under _audio_lock — that's all
+        # #3717 needs atomic with the audio callback's chunk read. The
+        # callback dispatch, fingerprint scheduling, and play()/stop() below
+        # are not time-critical and don't touch file_manager state, so they
+        # run after the lock releases (matching previous_track()'s shape).
+        # play()/stop() no longer hold _audio_lock while they notify, so
+        # they don't need defer_notifications() either.
         with self.playback.defer_notifications(), self.file_manager._audio_lock:
             was_playing = self.playback.is_playing()
+            advanced = self.gapless.advance_with_prebuffer(was_playing)
+            current_file = None
 
-            if self.gapless.advance_with_prebuffer(was_playing):
-                self.integration.record_track_completion()
-
+            if advanced:
                 # Reset position to 0 for the incoming track (#2283).
                 # Both the gapless (prebuffer) and fallback paths inside
                 # advance_with_prebuffer() bypass AudioPlayer.load_file(), so
@@ -343,32 +351,40 @@ class AudioPlayer(PlayerFingerprintLoaderMixin, PlayerPropertiesMixin):
                 # Now atomic with the swap (#3717).
                 self.playback.seek(0, self.file_manager.get_total_samples())
 
-                # The gapless advance also bypasses AudioPlayer.load_file(), so
-                # schedule the fingerprint loader here too — otherwise adaptive
-                # mastering keeps the previous track's fingerprint, and any
-                # in-flight fingerprint thread for the previous file would pass
-                # the staleness guard and be applied to the new track (#3463).
+                # current_file is file_manager state guarded by _audio_lock —
+                # capture it into a local now so the fingerprint scheduling
+                # below (after the lock releases) can't race a concurrent
+                # load/advance that swaps file_manager.current_file.
                 current_file = self.file_manager.current_file
-                if current_file:
-                    self._schedule_fingerprint_load(current_file)
 
-                # #3712: use `_stop_requested.is_set()` for the cancellation
-                # check — identical pattern to previous_track() so the two
-                # paths cannot drift. Today the gapless path is safe because
-                # it doesn't call load_and_stop (so `is_stopped()` would also
-                # be False), but a future refactor that adds a stop+load
-                # could re-introduce the previous_track regression here too.
-                # #4126: double-check after play() — stop() sets _stop_requested
-                # without holding _audio_lock, so a concurrent stop() may have
-                # won the race between the first check and the play() call.
-                if was_playing and not self._stop_requested.is_set():
-                    self.playback.play()
-                    if self._stop_requested.is_set():
-                        self.playback.stop()
+        if not advanced:
+            return False
 
-                return True
+        self.integration.record_track_completion()
 
-        return False
+        # The gapless advance also bypasses AudioPlayer.load_file(), so
+        # schedule the fingerprint loader here too — otherwise adaptive
+        # mastering keeps the previous track's fingerprint, and any
+        # in-flight fingerprint thread for the previous file would pass
+        # the staleness guard and be applied to the new track (#3463).
+        if current_file:
+            self._schedule_fingerprint_load(current_file)
+
+        # #3712: use `_stop_requested.is_set()` for the cancellation
+        # check — identical pattern to previous_track() so the two
+        # paths cannot drift. Today the gapless path is safe because
+        # it doesn't call load_and_stop (so `is_stopped()` would also
+        # be False), but a future refactor that adds a stop+load
+        # could re-introduce the previous_track regression here too.
+        # #4126: double-check after play() — stop() sets _stop_requested
+        # without holding _audio_lock, so a concurrent stop() may have
+        # won the race between the first check and the play() call.
+        if was_playing and not self._stop_requested.is_set():
+            self.playback.play()
+            if self._stop_requested.is_set():
+                self.playback.stop()
+
+        return True
 
     def previous_track(self) -> bool:
         """Skip to previous track in queue.

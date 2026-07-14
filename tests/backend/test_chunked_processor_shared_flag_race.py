@@ -9,18 +9,22 @@ targets_hash) — by design, to preserve DSP state (compressor envelope follower
 etc.) across chunks. Two concurrent ChunkedAudioProcessor instances streaming the
 same track therefore share one HybridProcessor.
 
-ChunkedAudioProcessor._process_chunk_with_hybrid_processor() toggles
+AudioProcessingPipeline.apply_enhancement() toggles
 processor.content_analyzer.use_fingerprint_analysis around processor.process(),
-restoring it in a finally block. The existing guard (`self._processor_lock`) is
-scoped to ONE ChunkedAudioProcessor instance — a second concurrent instance has
-its OWN separate `_processor_lock` and can freely interleave its own flag writes
-with the first's, even though both point at the same HybridProcessor.
+restoring it in a finally block (#4354 — this used to also live in the now-deleted
+ChunkedAudioProcessor._process_chunk_with_hybrid_processor(), which had zero
+callers). A per-`ChunkedAudioProcessor`-instance lock alone is NOT enough — a
+second concurrent instance has its OWN separate lock and can freely interleave
+its own flag writes with the first's, even though both point at the same
+HybridProcessor.
 
 This test reproduces the race directly against the toggle pattern (using a
 lightweight fake processor to force the interleaving window open reliably,
 without needing real audio/DSP) and proves the fix — additionally holding the
 shared `processor._process_lock` — makes the two "streams'" toggles mutually
-exclusive.
+exclusive. A second test below (`test_apply_enhancement_toggle_is_atomic_under_concurrent_calls`)
+exercises the real `AudioProcessingPipeline.apply_enhancement` production code
+directly, not just the mirrored pattern.
 
 :license: GPLv3
 """
@@ -70,8 +74,8 @@ def _toggle_and_process(
     iterations: int,
     hold_ms: float = 0.005,
 ) -> None:
-    """Mirrors ChunkedAudioProcessor._process_chunk_with_hybrid_processor's
-    exact toggle/process/restore shape, parameterized on whether the fix
+    """Mirrors AudioProcessingPipeline.apply_enhancement's exact
+    toggle/process/restore shape, parameterized on whether the fix
     (also acquiring processor._process_lock) is applied."""
     for _ in range(iterations):
         if also_hold_shared_lock:
@@ -168,3 +172,81 @@ def test_shared_lock_fix_is_reliable_across_runs(run):
     for stream_name, observed_value in processor.observed_during_process:
         expected = False if stream_name == "A" else True
         assert observed_value == expected
+
+
+# ---------------------------------------------------------------------------
+# #4354 — exercise the real production code path directly
+# ---------------------------------------------------------------------------
+
+class _RealShapeContentAnalyzer:
+    def __init__(self) -> None:
+        self.use_fingerprint_analysis = True
+
+
+class _RealShapeProcessor:
+    """Matches what AudioProcessingPipeline.apply_enhancement actually
+    touches on a processor: `.content_analyzer.use_fingerprint_analysis`,
+    `._process_lock`, and `.process(audio) -> np.ndarray`."""
+
+    def __init__(self) -> None:
+        self.content_analyzer = _RealShapeContentAnalyzer()
+        self._process_lock = threading.RLock()
+        self.observed_during_process: list[tuple[str, bool]] = []
+        self._observed_lock = threading.Lock()
+
+    def process(self, audio):
+        with self._process_lock:
+            time.sleep(0.005)
+            with self._observed_lock:
+                # stream identity is smuggled in via the audio array's first sample
+                stream_name = "A" if audio[0, 0] == 0.0 else "B"
+                self.observed_during_process.append(
+                    (stream_name, self.content_analyzer.use_fingerprint_analysis)
+                )
+        return audio
+
+
+def test_apply_enhancement_toggle_is_atomic_under_concurrent_calls():
+    """#4354: calls the REAL AudioProcessingPipeline.apply_enhancement (not a
+    mirrored pattern) from two threads sharing one processor — one with
+    `targets` set (exercises the first branch), one with `fast_start` at
+    chunk 0 (exercises the second branch) — and asserts neither ever
+    observes or restores the other's use_fingerprint_analysis setting."""
+    import numpy as np
+
+    from core.audio_processing_pipeline import AudioProcessingPipeline
+
+    processor = _RealShapeProcessor()
+    audio_a = np.zeros((4, 2), dtype=np.float32)
+    audio_b = np.ones((4, 2), dtype=np.float32)
+
+    def run_targets_branch(iterations: int = 100) -> None:
+        for _ in range(iterations):
+            AudioProcessingPipeline.apply_enhancement(
+                audio_a, processor, targets={"target_lufs": -14.0}, intensity=1.0
+            )
+
+    def run_fast_start_branch(iterations: int = 100) -> None:
+        for _ in range(iterations):
+            AudioProcessingPipeline.apply_enhancement(
+                audio_b, processor, fast_start=True, chunk_index=0, intensity=1.0
+            )
+
+    thread_a = threading.Thread(target=run_targets_branch)
+    thread_b = threading.Thread(target=run_fast_start_branch)
+    thread_a.start()
+    thread_b.start()
+    thread_a.join(timeout=10)
+    thread_b.join(timeout=10)
+    assert not thread_a.is_alive() and not thread_b.is_alive(), "threads did not finish in time"
+
+    assert len(processor.observed_during_process) == 200
+    for stream_name, observed_value in processor.observed_during_process:
+        assert observed_value is False, (
+            f"stream {stream_name} observed use_fingerprint_analysis="
+            f"{observed_value} — both branches disable it, so it must always "
+            f"be False while process() runs (#4354 regression)"
+        )
+
+    # Flag restored to its original steady-state value after both finish.
+    assert processor.content_analyzer.use_fingerprint_analysis is True
