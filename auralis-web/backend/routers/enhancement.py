@@ -18,7 +18,7 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any, Literal
+from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
@@ -29,7 +29,7 @@ from core.chunk_boundaries import (  # single source of truth (#2564)
     content_chunk_count,
 )
 from helpers import spawn_background_task
-from schemas import MasteringRecommendationResponse
+from schemas import EnhancementPresetLiteral, MasteringRecommendationResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
@@ -41,14 +41,9 @@ router = APIRouter(tags=["enhancement"])
 _recommendation_cache: dict[tuple[int, float], tuple[float, dict[str, Any]]] = {}
 _RECOMMENDATION_TTL_S: float = 60.0
 
-# Valid enhancement presets — single source of truth, also used by the
-# WS validation path in routers/system.py via the EnhancementPreset
-# Literal in schemas.py.
-VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
-
-# Pydantic Literal alias so OpenAPI docs see the constraint, not just a
-# free-form string (#3549 / BE-NEW-91).
-EnhancementPresetLiteral = Literal["adaptive", "gentle", "warm", "bright", "punchy"]
+# EnhancementPresetLiteral is the single source of truth in schemas.py (#4424),
+# imported above. It drives OpenAPI so the preset constraint shows up in the docs,
+# not just as a free-form string (#3549 / BE-NEW-91).
 
 
 class ToggleEnhancementRequest(BaseModel):

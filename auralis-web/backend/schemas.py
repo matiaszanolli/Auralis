@@ -13,9 +13,20 @@ Phase B.1: Backend Endpoint Standardization
 
 import datetime
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# ============================================================================
+# Enhancement presets — single source of truth (#4424)
+# ============================================================================
+
+# Canonical list/Literal of valid enhancement presets. Every validating surface
+# (enhancement router, settings PUT, WS playback commands) imports these rather
+# than re-declaring an inline copy, so the definitions cannot drift apart.
+VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
+EnhancementPresetLiteral = Literal["adaptive", "gentle", "warm", "bright", "punchy"]
+
 
 # ============================================================================
 # Generic Response Wrappers

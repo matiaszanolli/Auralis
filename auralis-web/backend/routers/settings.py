@@ -24,6 +24,8 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from schemas import EnhancementPresetLiteral  # shared preset enum (#4424)
+
 from security.path_security import (
     validate_user_chosen_directory,
     register_allowed_directory,
@@ -74,7 +76,9 @@ class SettingsUpdateRequest(BaseModel):
     show_visualizations: bool | None = None
     mini_player_on_close: bool | None = None
     # Enhancement
-    default_preset: str | None = None
+    # Constrained to the shared preset enum so an invalid value 422s at the
+    # boundary instead of silently falling back to adaptive downstream (#4424).
+    default_preset: EnhancementPresetLiteral | None = None
     auto_enhance: bool | None = None
     enhancement_intensity: float | None = Field(default=None, ge=0.0, le=1.0)
     # Advanced

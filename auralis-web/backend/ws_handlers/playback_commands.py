@@ -19,13 +19,12 @@ from typing import Any
 from fastapi import WebSocket
 
 from core.audio_stream_controller import ws_id as _ws_id
+from schemas import VALID_PRESETS  # single source of truth (#4424)
 from websocket.websocket_security import send_error_response
 
 from .context import StreamState, WSDeps
 
 logger = logging.getLogger(__name__)
-
-VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
 
 
 async def _cancel_prior_task(ws_id: str, state: StreamState) -> None:

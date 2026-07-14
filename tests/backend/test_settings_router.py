@@ -128,6 +128,21 @@ def test_update_settings_accepts_multiple_known_fields(client: TestClient) -> No
     }
 
 
+def test_update_settings_rejects_invalid_preset(client: TestClient) -> None:
+    """default_preset is constrained to the shared EnhancementPreset enum, so a
+    bogus value 422s at the boundary instead of silently reaching the repo (#4424)."""
+    resp = client.put("/api/settings", json={"default_preset": "bogus"})
+    assert resp.status_code == 422
+    assert client._repo.updated_with is None  # type: ignore[attr-defined]
+
+
+def test_update_settings_accepts_valid_preset(client: TestClient) -> None:
+    """A canonical preset from the shared enum passes validation (#4424)."""
+    resp = client.put("/api/settings", json={"default_preset": "warm"})
+    assert resp.status_code == 200
+    assert client._repo.updated_with == {"default_preset": "warm"}  # type: ignore[attr-defined]
+
+
 def test_get_settings_returns_typed_shape(client: TestClient) -> None:
     """GET still works and is shaped by SettingsResponse."""
     resp = client.get("/api/settings")
