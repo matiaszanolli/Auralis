@@ -228,12 +228,22 @@ class AudioProcessingPipeline:
         # Apply intensity blending if < 1.0
         if intensity < 1.0:
             logger.debug(f"Blending processed audio at intensity {intensity:.2f}")
-            # Ensure both arrays have same length for blending
-            min_len = min(len(audio), len(processed))
-            processed = (
-                audio[:min_len] * (1.0 - intensity) +
-                processed[:min_len] * intensity
-            )
+            # Sample-count preservation is a critical gapless invariant
+            # (project CLAUDE.md: len(output) == len(input)). The processor is
+            # expected to uphold it upstream; if it ever returns a different
+            # length, fail loudly rather than silently truncating to min_len
+            # and masking the glitch (#4371).
+            if len(processed) != len(audio):
+                logger.error(
+                    "Processor violated sample-count invariant: "
+                    f"input={len(audio)} output={len(processed)}"
+                )
+                raise ValueError(
+                    "Processed audio length "
+                    f"({len(processed)}) does not match input "
+                    f"({len(audio)}); refusing to truncate-blend"
+                )
+            processed = audio * (1.0 - intensity) + processed * intensity
 
         return processed
 
