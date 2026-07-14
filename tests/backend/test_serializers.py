@@ -30,6 +30,7 @@ from routers.serializers import (
     DEFAULT_PLAYLIST_FIELDS,
     DEFAULT_TRACK_FIELDS,
     serialize_album,
+    serialize_album_detail,
     serialize_albums,
     serialize_artist,
     serialize_artists,
@@ -238,6 +239,55 @@ class TestSerializeAlbum:
         albums = [self._make_album(track_durations=[60.0]) for _ in range(3)]
         results = serialize_albums(albums)
         assert len(results) == 3
+
+
+class TestSerializeAlbumDetail:
+    """GET /api/albums/{id} camelCase contract (#4423)."""
+
+    def _make_album(self, extra=None, track_durations=None):
+        dict_result = {
+            'id': 10,
+            'title': 'Album A',
+            'artist': 'Artist B',
+            'artist_id': 7,
+            'year': 2020,
+            'artwork_path': None,
+            'genre': 'Rock',
+            'track_count': 0,
+            'total_duration': 0,
+        }
+        if extra:
+            dict_result.update(extra)
+        tracks = [types.SimpleNamespace(duration=d) for d in (track_durations or [])] or None
+        return _FakeModel(dict_result, tracks=tracks)
+
+    def test_returns_camelcase_domain_keys(self):
+        album = self._make_album(track_durations=[120.0, 180.0])
+        result = serialize_album_detail(album)
+        # Matches the frontend Album domain / albumTransformer output.
+        assert result == {
+            'id': 10,
+            'title': 'Album A',
+            'artist': 'Artist B',
+            'artistId': 7,
+            'year': 2020,
+            'artworkUrl': None,
+            'genre': 'Rock',
+            'trackCount': 2,
+            'totalDuration': 300.0,
+            'dateAdded': None,
+        }
+
+    def test_never_leaks_snake_case_keys(self):
+        album = self._make_album(track_durations=[60.0])
+        result = serialize_album_detail(album)
+        for snake in ('track_count', 'artwork_url', 'total_duration', 'artist_id', 'album_id'):
+            assert snake not in result
+
+    def test_date_added_falls_back_to_created_at(self):
+        album = self._make_album(extra={'created_at': '2020-01-02T03:04:05Z'})
+        result = serialize_album_detail(album)
+        assert result['dateAdded'] == '2020-01-02T03:04:05Z'
 
 
 # ---------------------------------------------------------------------------

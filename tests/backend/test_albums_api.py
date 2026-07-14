@@ -225,6 +225,13 @@ class TestGetAlbumById:
             assert data["title"] == "Test Album"
             assert data["artist"] == "Test Artist"
 
+            # camelCase domain contract (#4423): the detail endpoint is consumed
+            # on the Album domain convention, so it exposes trackCount, never the
+            # snake_case track_count.
+            assert "trackCount" in data
+            assert "track_count" not in data
+            assert "artwork_url" not in data
+
     def test_get_album_by_id_not_found(self, client, mock_repos):
         """Test getting non-existent album"""
         mock_repos.albums.get_by_id.return_value = None

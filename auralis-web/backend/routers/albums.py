@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
-from .serializers import serialize_albums, serialize_tracks
+from .serializers import serialize_album_detail, serialize_albums, serialize_tracks
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,9 @@ def create_albums_router(
             album_id: Album ID
 
         Returns:
-            dict: Album object with full details
+            dict: Album object in the frontend camelCase domain shape
+                (``trackCount``/``artworkUrl``/``totalDuration``), ready for
+                album-detail navigation on the camelCase convention (#4423).
 
         Raises:
             HTTPException: If album not found or query fails
@@ -105,18 +107,10 @@ def create_albums_router(
         if not album:
             raise NotFoundError("Album", album_id)
 
-        # Convert to dict
-        if hasattr(album, 'to_dict'):
-            return album.to_dict()
-        else:
-            return {
-                'id': album.id,
-                'title': album.title,
-                'artist': album.artist.name if album.artist else 'Unknown Artist',
-                'year': album.year,
-                'artwork_url': f"/api/albums/{album.id}/artwork" if album.artwork_path else None,
-                'track_count': len(album.tracks) if hasattr(album, 'tracks') else 0
-            }
+        # camelCase domain shape — see serialize_album_detail (#4423). The
+        # sibling {id}/tracks endpoint intentionally stays snake_case for its
+        # existing consumer (useAlbumDetails.ts).
+        return serialize_album_detail(album)
 
     @router.get("/api/albums/{album_id}/tracks")
     @with_error_handling("get album tracks")
