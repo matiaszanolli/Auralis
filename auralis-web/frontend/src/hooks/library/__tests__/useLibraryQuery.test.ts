@@ -357,6 +357,55 @@ describe('useLibraryQuery', () => {
       expect(mockGet).toHaveBeenCalledTimes(1);
     });
 
+    it('pages to the final item when the backend omits has_more (#4407)', async () => {
+      // Regression for the double-counting gate `(offset + data.length) < total`.
+      // With total=200/limit=50 that formula flipped hasMore false after the
+      // third page (offset=100 + cumulative data.length=150 = 250 >= 200),
+      // leaving the last 50 rows unreachable. The fallback must use the
+      // page-local length, not the cumulative array, so scroll reaches the end.
+      // The backend flag is deliberately absent to exercise the fallback path.
+      const page = (offset: number) => ({
+        items: Array.from({ length: 50 }, (_, i) => ({ ...mockTrack, id: offset + i })),
+        total: 200,
+        offset,
+        limit: 50,
+        // no has_more / hasMore — forces the cursor fallback
+      });
+
+      const mockGet = vi
+        .fn()
+        .mockResolvedValueOnce(page(0))
+        .mockResolvedValueOnce(page(50))
+        .mockResolvedValueOnce(page(100))
+        .mockResolvedValueOnce(page(150));
+
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet,
+        post: vi.fn(),
+        put: vi.fn(),
+        patch: vi.fn(),
+        delete: vi.fn(),
+      } as any);
+
+      const { result } = renderHook(() => useLibraryQuery('tracks', { limit: 50 }));
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      // Walk every page; hasMore must stay true past the half-way point that
+      // the old formula truncated at.
+      for (const expectedLen of [100, 150, 200]) {
+        expect(result.current.hasMore).toBe(true);
+        await act(async () => {
+          await result.current.fetchMore();
+        });
+        expect(result.current.data.length).toBe(expectedLen);
+      }
+
+      // Final page consumed: every row reachable, gate now closed.
+      expect(result.current.data.length).toBe(result.current.total);
+      expect(result.current.hasMore).toBe(false);
+    });
+
     it('should handle errors in fetchMore', async () => {
       const mockGet = vi
         .fn()
