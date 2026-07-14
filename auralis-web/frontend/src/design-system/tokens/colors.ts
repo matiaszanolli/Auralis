@@ -109,7 +109,9 @@ export const colors = {
       // Disabled text: ≥40% opacity for WCAG AA 3:1 large-text minimum (#2803)
       disabled: 'rgba(255, 255, 255, 0.40)',
 
-      // Legacy aliases (for backwards compatibility)
+      // Semantic aliases — actively used across primitives/components. Auralis
+      // is desktop-only with no external token consumers, so these are internal
+      // convenience names, not backwards-compat shims (#4402).
       tertiary: 'rgba(255, 255, 255, 0.60)',  // Maps to metadata
       muted: 'rgba(255, 255, 255, 0.50)',     // Between metadata and disabled
 

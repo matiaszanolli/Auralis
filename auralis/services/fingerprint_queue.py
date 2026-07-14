@@ -28,6 +28,7 @@ from typing import Any
 from collections.abc import Callable
 
 from auralis.services.fingerprint_extractor import FingerprintExtractor
+from auralis.services.resizable_semaphore import ResizableSemaphore
 from auralis.library.repositories.factory import RepositoryFactory
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 
@@ -116,7 +117,9 @@ class FingerprintExtractionQueue:
         # Limits concurrent audio file loading to prevent memory bloat
         # Generous limit: 1 semaphore per worker (allows full parallelism with Rust server)
         # Rust server has 64 blocking threads, so allow high concurrency in Python
-        self.processing_semaphore: threading.Semaphore = threading.Semaphore(
+        # Resizable so the adaptive monitor's recommendation can actually be
+        # applied at runtime (#4404), not just logged.
+        self.processing_semaphore: ResizableSemaphore = ResizableSemaphore(
             max(8, max_workers)  # At least 8, up to max_workers
         )
 
@@ -215,19 +218,22 @@ class FingerprintExtractionQueue:
         """
         Callback invoked by AdaptiveResourceMonitor when semaphore size changes.
 
-        NOTE: Python's threading.Semaphore doesn't support safe dynamic resizing.
-        The semaphore is pre-configured at initialization based on max_workers.
-        We log the monitor's recommendation but don't modify the semaphore.
+        Applies the monitor's recommendation to the processing semaphore
+        (#4404). ResizableSemaphore supports safe runtime resizing — growing
+        wakes waiting workers, shrinking takes effect as in-flight extractions
+        release — so the adaptive concurrency signal is no longer a no-op.
 
         Args:
             new_semaphore_size: Recommended concurrent audio processing limit from monitor
         """
-        # Python's Semaphore doesn't provide a safe way to dynamically resize.
-        # To properly implement this, we'd need to replace it with a custom semaphore class
-        # that uses locks and a counter internally. For now, we just log the recommendation.
+        old_size = self.processing_semaphore.capacity
+        if new_semaphore_size == old_size:
+            return
+        self.processing_semaphore.resize(new_semaphore_size)
+        direction = "↑" if new_semaphore_size > old_size else "↓"
         debug(
-            f"Adaptive monitor recommends semaphore size: {new_semaphore_size} "
-            f"(using pre-configured value based on max_workers)"
+            f"{direction} Adaptive semaphore resize: {old_size} → {new_semaphore_size} "
+            f"concurrent audio processors"
         )
 
     async def start(self) -> None:

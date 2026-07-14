@@ -42,7 +42,7 @@ Frontend Test Utils: auralis-web/frontend/src/test/
 
 Rust DSP:            vendor/auralis-dsp/                     PyO3 module (HPSS, YIN, Chroma)
 Desktop:             desktop/                                Electron wrapper
-Tests:               tests/                                  ~5,000 test functions (410 files) across 17 dirs
+Tests:               tests/                                  ~5,000 test functions (415 files) across 19 dirs
 Audit Reports:       docs/audits/                            Generated audit reports
 Local Issue Cache:   .claude/issues/                         Issue snapshots (per audit-publish / fix-issue)
 Specialist Agents:   .claude/agents/                         dsp, backend, frontend, library specialists

@@ -95,7 +95,9 @@ export const transitions = {
     slow: '600ms',       // Slower state changes
     audioLag: '100ms',   // Audio-reactive lag: 80–120ms (middle of range)
 
-    // Legacy aliases
+    // Semantic duration aliases — actively used across components. Internal
+    // convenience names (desktop-only app, no external consumers), not
+    // backwards-compat shims (#4402).
     fast: '150ms',
     base: '450ms',
     verySlow: '600ms',
@@ -110,7 +112,8 @@ export const transitions = {
     state_inOut: '450ms cubic-bezier(0.4, 0, 0.6, 1)',
     slow_inOut: '600ms cubic-bezier(0.4, 0, 0.6, 1)',
 
-    // Legacy combined aliases
+    // Semantic combined aliases — actively used (e.g. ThemeToggle, ContextMenu,
+    // EmptyState). Internal convenience names, not backwards-compat shims (#4402).
     fast_out: '150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
     base_inOut: '450ms cubic-bezier(0.4, 0, 0.6, 1)',
     verySlow_inOut: '600ms cubic-bezier(0.25, 0.1, 0.25, 1)',
