@@ -30,6 +30,12 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from .dependencies import require_repository_factory
 from core.processing_engine import _safe_error_message
 
+# Upload limits. The per-file byte cap lives at the read site (500 MB); this
+# bounds how many files a single multipart request may carry so one request
+# can't monopolise the backend / bloat the DB with tens of thousands of tiny
+# valid-magic files (#4349).
+_MAX_UPLOAD_FILES = 200
+
 # Magic byte signatures for supported audio formats (issue #2415)
 _AUDIO_MAGIC: tuple[bytes, ...] = (
     b'\xff\xfb', b'\xff\xf3', b'\xff\xf2',  # MP3 (sync word variants)
@@ -104,6 +110,14 @@ def create_files_router(
         """
         if not files:
             raise HTTPException(status_code=400, detail="No files provided")
+
+        # Cap the file count before decoding anything (#4349): reject an
+        # over-large batch with 413 rather than looping over every element.
+        if len(files) > _MAX_UPLOAD_FILES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Too many files in one request (max {_MAX_UPLOAD_FILES})",
+            )
 
         repos = get_repos()
 
