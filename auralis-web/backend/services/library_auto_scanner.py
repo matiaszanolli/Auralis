@@ -19,7 +19,7 @@ import asyncio
 import logging
 import json
 from typing import Any
-from helpers import spawn_background_task
+from helpers import spawn_background_task, scan_progress_percentage
 
 logger = logging.getLogger(__name__)
 
@@ -210,8 +210,9 @@ class LibraryAutoScanner:
         async def _async_progress(data: dict[str, Any]) -> None:
             total = data.get('total_found', 0) or data.get('processed', 0)
             processed = data.get('processed', 0)
-            frac = data.get('progress', 0)
-            pct = round(frac * 100) if frac else (round(processed / total * 100) if total > 0 else 0)
+            # Shared with the manual scan emitter: indeterminate unless a real
+            # `progress` fraction is supplied (#4411 / F4-04).
+            pct = scan_progress_percentage(data)
             await connection_manager_safe_broadcast(
                 self._connection_manager,
                 {
@@ -221,6 +222,7 @@ class LibraryAutoScanner:
                         "total": total,
                         "percentage": pct,
                         "current_file": data.get('current_file') or data.get('file') or data.get('directory'),
+                        "phase": data.get('stage', 'processing'),
                     }
                 }
             )

@@ -67,7 +67,10 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
               Scanning…
             </Typography>
             <Typography variant="caption" sx={{ color: tokens.colors.text.metadata }}>
-              {total > 0 ? `${current} / ${total}` : `${current} files`}
+              {/* Only show "N / total" when the percentage is a real fraction;
+                  in the streaming scan model total is not yet known, so show the
+                  climbing count instead of a misleading N / N (#4411). */}
+              {percentage != null && total > 0 ? `${current} / ${total}` : `${current} files`}
             </Typography>
           </Box>
           <LinearProgress

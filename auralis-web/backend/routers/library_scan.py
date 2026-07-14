@@ -20,6 +20,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException
 
 from schemas import LibraryScanRequest, ScanResultResponse
+from helpers import scan_progress_percentage
 
 from .errors import handle_query_error
 
@@ -68,10 +69,9 @@ def create_library_scan_router(
                     try:
                         total = progress_data.get('total_found', 0) or progress_data.get('processed', 0)
                         processed = progress_data.get('processed', 0)
-                        progress_frac = progress_data.get('progress', 0)
-                        percentage = round(progress_frac * 100) if progress_frac else (
-                            round(processed / total * 100) if total > 0 else 0
-                        )
+                        # Indeterminate unless the scanner supplies a real fraction
+                        # (streaming scan makes processed/total meaningless) — #4411.
+                        percentage = scan_progress_percentage(progress_data)
                         stage = progress_data.get('stage', 'processing')
                         asyncio.run_coroutine_threadsafe(
                             connection_manager.broadcast({
@@ -79,7 +79,7 @@ def create_library_scan_router(
                                 "data": {
                                     "current": processed,
                                     "total": total,
-                                    "percentage": percentage if stage != 'discovering' else None,
+                                    "percentage": percentage,
                                     "current_file": progress_data.get('current_file') or progress_data.get('file'),
                                     "phase": stage,
                                 },
