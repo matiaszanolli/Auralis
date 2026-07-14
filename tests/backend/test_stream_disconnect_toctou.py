@@ -51,6 +51,7 @@ def _make_processor(total_chunks: int = 5, sample_rate: int = 44100) -> Mock:
     processor.chunk_duration = 10.0
     processor.preset = "adaptive"
     processor.intensity = 1.0
+    processor.file_signature = "testsig"  # #4358: cache keys include this
     # process_chunk_safe returns (path, pcm_array)
     pcm = np.zeros((total_chunks * sample_rate, 2), dtype=np.float32)
     processor.process_chunk_safe = AsyncMock(
@@ -115,11 +116,12 @@ class TestProcessAndStreamChunkDisconnectGuard:
         processor = _make_processor(total_chunks=1)
         ws = _make_websocket(connected=False)
 
-        # Pre-populate cache
+        # Pre-populate cache. Must use the processor's file_signature so the
+        # production get() (which now keys on it, #4358) actually hits.
         pcm = np.zeros((100, 2), dtype=np.float32)
         controller.cache_manager.put(
             track_id=1, chunk_idx=0, preset="adaptive", intensity=1.0,
-            audio=pcm, sample_rate=44100,
+            audio=pcm, sample_rate=44100, file_signature=processor.file_signature,
         )
 
         # Should complete without error; _safe_send returns False silently

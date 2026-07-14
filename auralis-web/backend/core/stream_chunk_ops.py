@@ -75,7 +75,10 @@ async def process_chunk_only(
                 track_id=processor.track_id,
                 chunk_idx=chunk_index,
                 preset=processor.preset,
-                intensity=processor.intensity
+                intensity=processor.intensity,
+                # #4358: key on the file signature so an in-session file change
+                # (same track_id) misses instead of serving stale audio.
+                file_signature=processor.file_signature,
             )
             if cached_result:
                 pcm_samples, sr = cached_result
@@ -130,7 +133,8 @@ async def process_chunk_only(
                     preset=processor.preset,
                     intensity=processor.intensity,
                     audio=pcm_samples,
-                    sample_rate=sr
+                    sample_rate=sr,
+                    file_signature=processor.file_signature,  # #4358
                 )
         except Exception as e:
             logger.debug(f"Failed to cache chunk (not critical): {e}")

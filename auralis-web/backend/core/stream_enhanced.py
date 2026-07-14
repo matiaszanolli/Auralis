@@ -252,6 +252,7 @@ async def stream_enhanced_audio(
                         chunk_idx=chunk_idx,
                         preset=preset,
                         intensity=intensity,
+                        file_signature=processor.file_signature,  # #4358
                     )
                 # Proactively remove crossfade tail so the next chunk
                 # starts clean (lock-protected per #3527).

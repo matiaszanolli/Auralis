@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .chunk_cache import SimpleChunkCache
+from .file_signature import FileSignatureService
 
 if TYPE_CHECKING:
     from .audio_stream_controller import AudioStreamController
@@ -90,11 +91,18 @@ async def prefetch_next_track(
             websocket=None,
         )
 
-        # Check if chunk 0 is already cached
+        # Check if chunk 0 is already cached. Compute the file signature the
+        # same way the ChunkedAudioProcessor will (below), so this pre-fetch
+        # lookup and the eventual put() agree on the key — and so a changed
+        # file misses instead of returning stale audio (#4358).
+        file_signature = await asyncio.to_thread(
+            FileSignatureService.generate, str(next_track.filepath)
+        )
         if isinstance(controller.cache_manager, SimpleChunkCache):
             cached = controller.cache_manager.get(
                 track_id=next_track_id, chunk_idx=0,
                 preset=preset, intensity=intensity,
+                file_signature=file_signature,
             )
             if cached:
                 logger.info(f"Next track {next_track_id} chunk 0 already cached")
