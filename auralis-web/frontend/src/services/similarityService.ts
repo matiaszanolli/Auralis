@@ -60,7 +60,10 @@ export interface GraphStats {
   avg_distance: number;
   min_distance: number;
   max_distance: number;
-  build_time_seconds: number;
+  // Nullable: the graph can be built without timing, in which case the backend
+  // (GraphStatsResponse.build_time_seconds: float | None) sends null. Guard any
+  // `.toFixed()` at the call site (#4373).
+  build_time_seconds: number | null;
 }
 
 export interface FitResult {
