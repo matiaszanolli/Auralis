@@ -1039,4 +1039,50 @@ describe('useLibraryQuery', () => {
       expect(artist).not.toHaveProperty('album_count');
     });
   });
+
+  // #4422 / F2-01: hasMore must follow the backend has_more contract (as
+  // useLibraryPagination does), not a local offset recomputation.
+  describe('hasMore backend contract', () => {
+    const mockRest = (payload: Record<string, unknown>) => {
+      const mockGet = vi.fn().mockResolvedValue(payload);
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+    };
+
+    it('trusts backend has_more=false even when offset math would say true', async () => {
+      // offset(0) + items(2) < total(100) would compute hasMore=true, but the
+      // backend says there is no more — the backend wins.
+      mockRest({
+        items: [mockTrack, mockTrack], total: 100, offset: 0, limit: 50, has_more: false,
+      });
+
+      const { result } = renderHook(() => useLibraryQuery('tracks', { limit: 50 }));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.hasMore).toBe(false);
+    });
+
+    it('trusts backend has_more=true even when offset math would say false', async () => {
+      // offset(0) + items(1) >= total(1) would compute hasMore=false.
+      mockRest({
+        items: [mockTrack], total: 1, offset: 0, limit: 50, has_more: true,
+      });
+
+      const { result } = renderHook(() => useLibraryQuery('tracks', { limit: 50 }));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.hasMore).toBe(true);
+    });
+
+    it('falls back to cursor math when backend omits has_more', async () => {
+      mockRest({ items: [mockTrack], total: 10, offset: 0, limit: 50 });
+
+      const { result } = renderHook(() => useLibraryQuery('tracks', { limit: 50 }));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      // 0 + 1 < 10 → still more pages
+      expect(result.current.hasMore).toBe(true);
+    });
+  });
 });

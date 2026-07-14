@@ -128,6 +128,23 @@ const QUERY_TYPE_ENDPOINT: Record<LibraryQueryType, string> = {
 };
 
 /**
+ * Derive `hasMore` from a page response, preferring the backend `has_more`
+ * contract — the same one useLibraryPagination uses — so the two track
+ * pagination stacks no longer disagree (#4422 / F2-01). Falls back to a cursor
+ * comparison only when the backend omits the flag.
+ */
+function deriveHasMore(
+  response: Record<string, unknown>,
+  pageOffset: number,
+  pageLength: number
+): boolean {
+  const backend = response.has_more ?? response.hasMore;
+  if (typeof backend === 'boolean') return backend;
+  const total = typeof response.total === 'number' ? response.total : 0;
+  return pageOffset + pageLength < total;
+}
+
+/**
  * Hook for querying library (tracks, albums, artists)
  *
  * @param queryType Type of query: 'tracks', 'albums', or 'artists'
@@ -169,6 +186,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   const [isLoading, setIsLoading] = useState(!options.skip);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const [hasMore, setHasMore] = useState(false);
 
   // Refs for tracking ongoing requests and query stability
   // Note: request cancellation is handled by useRestAPI's own AbortController.
@@ -179,7 +197,6 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   // Constants
   const limit = options.limit || 50;
   const skip = options.skip || false;
-  const hasMore = (offset + data.length) < total;
 
   /**
    * Extract items from response based on query type
@@ -273,8 +290,10 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         }
 
         const items = extractItemsFromResponse(response, queryType);
+        const newOffset = typeof response.offset === 'number' ? response.offset : 0;
         setTotal(response.total || 0);
-        setOffset(typeof response.offset === 'number' ? response.offset : 0);
+        setOffset(newOffset);
+        setHasMore(deriveHasMore(response as unknown as Record<string, unknown>, newOffset, items.length));
 
         if (append) {
           // Append to existing data (infinite scroll)
@@ -329,6 +348,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
           setData(prev => [...prev, ...items]);
         }
         setTotal(response.total);
+        setHasMore(deriveHasMore(response as unknown as Record<string, unknown>, nextOffset, items.length));
       }
     } catch (err) {
       const apiError = ApiErrorHandler.parseWithCode(err, 'FETCH_MORE_ERROR');
