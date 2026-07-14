@@ -76,30 +76,9 @@ export const EasingFunctions = {
   easeInQuart: (t: number) => t * t * t * t,
   easeOutQuart: (t: number) => 1 - (--t) * t * t * t,
   easeInOutQuart: (t: number) => t < 0.5 ? 8 * t * t * t * t : 1 - 8 * (--t) * t * t * t,
-  easeInElastic: (t: number) => {
-    if (t === 0 || t === 1) return t;
-    const p = 0.3;
-    const s = p / 4;
-    return -(Math.pow(2, 10 * (t -= 1)) * Math.sin((t - s) * (2 * Math.PI) / p));
-  },
-  easeOutElastic: (t: number) => {
-    if (t === 0 || t === 1) return t;
-    const p = 0.3;
-    const s = p / 4;
-    return Math.pow(2, -10 * t) * Math.sin((t - s) * (2 * Math.PI) / p) + 1;
-  },
-  easeInBounce: (t: number) => 1 - EasingFunctions.easeOutBounce(1 - t),
-  easeOutBounce: (t: number) => {
-    if (t < 1 / 2.75) {
-      return 7.5625 * t * t;
-    } else if (t < 2 / 2.75) {
-      return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75;
-    } else if (t < 2.5 / 2.75) {
-      return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375;
-    } else {
-      return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
-    }
-  },
+  // Bounce/elastic easings intentionally omitted — Style Guide §6.1 ("No bounce
+  // easing"). They had zero consumers and were dead surface duplicated from the
+  // now-deleted SmoothAnimationEngine (#4013).
   audioTaper: (t: number) => Math.pow(t, 2.2),
   smoothStep: (t: number) => t * t * (3 - 2 * t),
 };
