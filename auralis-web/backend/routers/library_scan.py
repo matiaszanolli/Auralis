@@ -172,10 +172,28 @@ def create_library_scan_router(
             )
 
         except asyncio.TimeoutError:
+            # Terminal WS frame so a `library_scan_started`-driven UI leaves the
+            # scanning state instead of hanging on "Scanning..." (#4413). Mirrors
+            # the auto-scanner's error broadcast; no OS paths leak (#3543).
+            if connection_manager:
+                await connection_manager.broadcast({
+                    "type": "library_scan_error",
+                    "data": {"error": f"library scan timed out after {int(scan_timeout)}s"},
+                })
             raise HTTPException(status_code=504, detail=f"Library scan timed out after {scan_timeout}s")
         except HTTPException:
+            # Includes the 409 "already in progress" path: another scan owns the
+            # UI state and will emit its own terminal frame, so we must NOT clear
+            # it here.
             raise
         except Exception as e:
+            # Class-name-only redaction, matching the auto-scanner (#3543), so a
+            # 500 also releases the scanning state (#4413).
+            if connection_manager:
+                await connection_manager.broadcast({
+                    "type": "library_scan_error",
+                    "data": {"error": f"{type(e).__name__} during library scan"},
+                })
             raise handle_query_error("scan library", e)
 
     return router
