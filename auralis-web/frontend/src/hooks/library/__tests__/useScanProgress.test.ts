@@ -161,8 +161,24 @@ describe('useScanProgress', () => {
       expect(result.current.lastResult).toEqual({
         filesAdded: 12,
         filesRemoved: 0,
+        filesFailed: 0,
+        filesSkipped: 0,
         duration: 3.5,
       });
+    });
+
+    it('surfaces files_failed / files_skipped from scan_complete (#4412)', () => {
+      const { result } = renderHook(() => useScanProgress());
+
+      act(() => {
+        manager.deliver({
+          type: 'scan_complete',
+          data: { files_added: 4, files_failed: 3, files_skipped: 2, duration: 1 },
+        } as unknown as WebSocketMessage);
+      });
+
+      expect(result.current.lastResult?.filesFailed).toBe(3);
+      expect(result.current.lastResult?.filesSkipped).toBe(2);
     });
 
     it('preserves filesRemoved when library_tracks_removed arrived during this scan', () => {
@@ -252,6 +268,8 @@ describe('useScanProgress', () => {
       expect(result.current.lastResult).toEqual({
         filesAdded: 5,
         filesRemoved: 7,
+        filesFailed: 0,
+        filesSkipped: 0,
         duration: 1,
       });
     });
@@ -269,6 +287,8 @@ describe('useScanProgress', () => {
       expect(result.current.lastResult).toEqual({
         filesAdded: 0,
         filesRemoved: 2,
+        filesFailed: 0,
+        filesSkipped: 0,
         duration: 0,
       });
     });

@@ -26,6 +26,10 @@ export interface ScanProgress {
 export interface ScanResult {
   filesAdded: number;
   filesRemoved: number;
+  /** Files the backend could not read/decode (#4412). */
+  filesFailed: number;
+  /** Files skipped (already present / unchanged) (#4412). */
+  filesSkipped: number;
   duration: number;
 }
 
@@ -84,6 +88,8 @@ export function useScanProgress(): ScanStatus {
           lastResult: {
             filesAdded: msg.data.files_added ?? 0,
             filesRemoved: hadRemovals ? (prev.lastResult?.filesRemoved ?? 0) : 0,
+            filesFailed: msg.data.files_failed ?? 0,
+            filesSkipped: msg.data.files_skipped ?? 0,
             duration: msg.data.duration,
           },
         }));
@@ -99,7 +105,7 @@ export function useScanProgress(): ScanStatus {
           ...prev,
           lastResult: prev.lastResult
             ? { ...prev.lastResult, filesRemoved: message.data.count }
-            : { filesAdded: 0, filesRemoved: message.data.count, duration: 0 },
+            : { filesAdded: 0, filesRemoved: message.data.count, filesFailed: 0, filesSkipped: 0, duration: 0 },
         }));
       }
     }

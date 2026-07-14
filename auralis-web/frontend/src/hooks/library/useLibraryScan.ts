@@ -79,10 +79,21 @@ export const useLibraryScan = ({
       });
 
       if (response.ok) {
-        const result: { files_added?: number } = await response.json();
+        const result: { files_added?: number; files_failed?: number; files_skipped?: number } =
+          await response.json();
         // Guard post-success work against unmount (#3987).
         if (!mountedRef.current) return;
-        toastRef.current.success(`Scan complete! Added ${result.files_added || 0} tracks`);
+        // Surface partial failures instead of a silent "Added 0 tracks" (#4412).
+        const added = result.files_added || 0;
+        const failed = result.files_failed || 0;
+        const skipped = result.files_skipped || 0;
+        const extras = [
+          failed > 0 ? `${failed} failed` : null,
+          skipped > 0 ? `${skipped} skipped` : null,
+        ].filter(Boolean).join(', ');
+        const summary = `Scan complete! Added ${added} tracks${extras ? ` (${extras})` : ''}`;
+        if (failed > 0) toastRef.current.toastError(summary);
+        else toastRef.current.success(summary);
         await fetchTracks();
         if (includeStats) await refetchStats();
       } else {

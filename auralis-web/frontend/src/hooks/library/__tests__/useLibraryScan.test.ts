@@ -93,6 +93,24 @@ describe('useLibraryScan (#4185)', () => {
     expect(mockError).toHaveBeenCalledWith(expect.stringContaining('boom'));
   });
 
+  it('surfaces failed/skipped counts in the completion toast (#4412)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ files_added: 5, files_failed: 3, files_skipped: 2 }),
+    });
+
+    const { result } = setup();
+    act(() => result.current.setWebFolderPath('/music'));
+    await act(async () => {
+      await result.current.handleScanFolder();
+    });
+
+    // Nonzero failures escalate to an error toast that names the counts.
+    expect(mockError).toHaveBeenCalledWith(expect.stringContaining('3 failed'));
+    expect(mockError).toHaveBeenCalledWith(expect.stringContaining('2 skipped'));
+    expect(mockSuccess).not.toHaveBeenCalled();
+  });
+
   it('aborts the in-flight scan on unmount', async () => {
     let signal: AbortSignal | undefined;
     mockFetch.mockImplementation((_url: string, opts: RequestInit) => {

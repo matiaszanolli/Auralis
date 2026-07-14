@@ -110,6 +110,12 @@ export interface ScanCompleteMessage extends WebSocketMessage {
   data: {
     files_processed: number;
     files_added: number;
+    // Emitted by the backend but previously unmodelled (#4412) — surfacing these
+    // lets the UI report partial failures instead of a silent "Added 0 tracks".
+    files_updated?: number;
+    files_skipped?: number;
+    files_failed?: number;
+    directories_scanned?: number;
     duration: number; // Seconds
   };
 }
