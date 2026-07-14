@@ -605,3 +605,43 @@ def create_cache_aware_response(
         "message": message or f"Data from {cache_source}",
         "timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat(),
     }
+
+
+# ============================================================================
+# Library-scan helpers (#4409, #4411)
+# ============================================================================
+
+def scan_progress_percentage(progress_data: dict[str, Any]) -> int | None:
+    """Compute the scan progress percentage, or ``None`` when indeterminate.
+
+    The streaming scanner interleaves discovery and processing, so
+    ``total_found`` only reflects files seen so far (≈ ``processed`` at every
+    checkpoint) and ``processed / total`` is always ~100% — a meaningless
+    determinate bar. Return a real percentage only when the scanner supplies a
+    ``progress`` fraction; otherwise ``None`` so the UI shows an indeterminate
+    bar plus the climbing count (#4411 / F4-04). Shared by the manual-scan and
+    auto-scan progress emitters.
+    """
+    frac = progress_data.get('progress', 0)
+    return round(frac * 100) if frac else None
+
+
+def seed_enhancement_settings(
+    enhancement_settings: dict[str, Any], user_settings: Any
+) -> None:
+    """Seed the runtime ``enhancement_settings`` dict from persisted settings.
+
+    Maps ``default_preset`` → ``preset``, ``enhancement_intensity`` →
+    ``intensity`` and ``auto_enhance`` → ``enabled`` so a user's saved
+    enhancement defaults actually affect playback (#4409). Mutates
+    ``enhancement_settings`` in place — routers capture this exact dict object.
+    ``user_settings`` may be ``None`` (nothing to seed).
+    """
+    if user_settings is None:
+        return
+    if getattr(user_settings, 'default_preset', None):
+        enhancement_settings['preset'] = user_settings.default_preset
+    intensity = getattr(user_settings, 'enhancement_intensity', None)
+    if intensity is not None:
+        enhancement_settings['intensity'] = float(intensity)
+    enhancement_settings['enabled'] = bool(getattr(user_settings, 'auto_enhance', True))

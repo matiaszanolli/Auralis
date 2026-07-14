@@ -260,6 +260,23 @@ def create_lifespan(deps: dict[str, Any]):
                 )
                 logger.info("✅ Settings Repository initialized")
 
+                # Seed the runtime enhancement settings from persisted user
+                # settings so a saved default preset / intensity / auto-enhance
+                # actually affects playback (#4409). Without this the dict stays
+                # hardcoded adaptive/1.0/enabled. seed_enhancement_settings mutates
+                # in place — routers captured this exact dict object via
+                # deps['enhancement_settings'].
+                try:
+                    from helpers import seed_enhancement_settings
+                    _user_settings = globals_dict['settings_repository'].get_settings()
+                    seed_enhancement_settings(globals_dict['enhancement_settings'], _user_settings)
+                    logger.info(
+                        f"✅ Enhancement settings seeded from user settings: "
+                        f"{globals_dict['enhancement_settings']}"
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️  Failed to seed enhancement settings: {e}")
+
                 # Register user-configured scan folders as allowed directories
                 # so validate_file_path accepts files from custom locations.
                 try:

@@ -50,7 +50,10 @@ class UserSettings(Base, TimestampMixin):
 
     # Enhancement Settings
     default_preset: Mapped[str | None] = mapped_column(String, default='adaptive')
-    auto_enhance: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Default True so a fresh install keeps enhanced playback on: at startup this
+    # seeds the runtime enhancement `enabled` gate (#4409), and playEnhanced does
+    # not send `force`, so a False default would reject all enhanced playback.
+    auto_enhance: Mapped[bool] = mapped_column(Boolean, default=True)
     enhancement_intensity: Mapped[float] = mapped_column(Float, default=1.0)  # 0.0-1.0
 
     # Advanced Settings
