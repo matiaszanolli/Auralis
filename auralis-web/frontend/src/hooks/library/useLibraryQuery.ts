@@ -37,6 +37,8 @@ import { useRestAPI } from '@/hooks/api/useRestAPI';
 import type { ApiError } from '@/types/api';
 import type { Track, Album, Artist } from '@/types/domain';
 import { ApiErrorHandler } from '@/types/api';
+import { transformAlbums, transformArtists } from '@/api/transformers';
+import type { AlbumApiResponse, ArtistApiResponse } from '@/api/transformers';
 
 /**
  * Query type for library queries
@@ -198,22 +200,15 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         case 'tracks':
           return ((response.tracks ?? response.items) as T[]) || [];
         case 'albums':
-          // Backend returns snake_case fields; transform to camelCase to match Album interface (fixes #2378).
-          return ((response.albums ?? response.items ?? []) as Record<string, unknown>[]).map(
-            (album) => ({
-              ...album,
-              trackCount: album.trackCount ?? album.track_count,
-              totalDuration: album.totalDuration ?? album.total_duration,
-            })
+          // Canonical transformer is the single source of truth for snake→camel
+          // album mapping (incl. artworkUrl/artistId); no inline variant (#4418).
+          return transformAlbums(
+            (response.albums ?? response.items ?? []) as AlbumApiResponse[]
           ) as T[];
         case 'artists':
-          // Backend returns snake_case fields; transform to camelCase to match Artist interface (fixes #2853).
-          return ((response.artists ?? response.items ?? []) as Record<string, unknown>[]).map(
-            (artist) => ({
-              ...artist,
-              trackCount: artist.trackCount ?? artist.track_count,
-              albumCount: artist.albumCount ?? artist.album_count,
-            })
+          // Canonical transformer maps every field incl. artworkUrl/dateAdded (#4418).
+          return transformArtists(
+            (response.artists ?? response.items ?? []) as ArtistApiResponse[]
           ) as T[];
         default: {
           const _exhaustive: never = qType;

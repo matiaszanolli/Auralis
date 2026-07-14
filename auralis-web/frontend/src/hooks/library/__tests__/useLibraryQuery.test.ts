@@ -765,8 +765,11 @@ describe('useLibraryQuery', () => {
     });
 
     it('should use useAlbumsQuery for albums', async () => {
+      // Backend sends snake_case; the hook runs it through transformAlbums (#4418).
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockAlbum],
+        items: [{
+          id: 1, title: 'Test Album', artist: 'Test Artist', year: 2023, track_count: 10,
+        }],
         total: 1,
         offset: 0,
         limit: 50,
@@ -787,12 +790,14 @@ describe('useLibraryQuery', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.data).toEqual([mockAlbum]);
+      const album = result.current.data[0] as unknown as Album;
+      expect(album.id).toBe(1);
+      expect(album.trackCount).toBe(10);
     });
 
     it('should use useArtistsQuery for artists', async () => {
       const mockGet = vi.fn().mockResolvedValue({
-        items: [mockArtist],
+        items: [{ id: 1, name: 'Test Artist', track_count: 25, album_count: 3 }],
         total: 1,
         offset: 0,
         limit: 50,
@@ -813,7 +818,10 @@ describe('useLibraryQuery', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.data).toEqual([mockArtist]);
+      const artist = result.current.data[0] as unknown as Artist;
+      expect(artist.id).toBe(1);
+      expect(artist.trackCount).toBe(25);
+      expect(artist.albumCount).toBe(3);
     });
 
     it('should transform artist snake_case fields to camelCase (fixes #2853)', async () => {
@@ -975,6 +983,60 @@ describe('useLibraryQuery', () => {
 
       const callUrl = mockGet.mock.calls[0][0];
       expect(callUrl).toBe('/api/custom/endpoint');
+    });
+  });
+
+  // #4418: album/artist results must go through the canonical transformers
+  // (artworkUrl mapped, no stale snake_case keys), not the old inline mapper.
+  describe('snake_case → camelCase transformation', () => {
+    const mockRest = (payload: Record<string, unknown>) => {
+      const mockGet = vi.fn().mockResolvedValue(payload);
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+      return mockGet;
+    };
+
+    it('maps album artwork_url → artworkUrl and drops snake keys', async () => {
+      mockRest({
+        albums: [{
+          id: 1, title: 'A', artist: 'Artist', artist_id: 7,
+          artwork_url: '/api/albums/1/artwork', track_count: 10, total_duration: 3600,
+        }],
+        total: 1, offset: 0, limit: 50, hasMore: false,
+      });
+
+      const { result } = renderHook(() => useLibraryQuery('albums'));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      const album = result.current.data[0] as unknown as Album;
+      expect(album.artworkUrl).toBe('/api/albums/1/artwork');
+      expect(album.artistId).toBe(7);
+      expect(album.trackCount).toBe(10);
+      expect(album.totalDuration).toBe(3600);
+      expect(album).not.toHaveProperty('artwork_url');
+      expect(album).not.toHaveProperty('track_count');
+    });
+
+    it('maps artist artwork_url → artworkUrl and drops snake keys', async () => {
+      mockRest({
+        artists: [{
+          id: 2, name: 'Artist', artwork_url: '/api/artists/2/artwork',
+          track_count: 25, album_count: 3, date_added: '2026-01-01',
+        }],
+        total: 1, offset: 0, limit: 50, hasMore: false,
+      });
+
+      const { result } = renderHook(() => useLibraryQuery('artists'));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      const artist = result.current.data[0] as unknown as Artist;
+      expect(artist.artworkUrl).toBe('/api/artists/2/artwork');
+      expect(artist.trackCount).toBe(25);
+      expect(artist.albumCount).toBe(3);
+      expect(artist.dateAdded).toBe('2026-01-01');
+      expect(artist).not.toHaveProperty('artwork_url');
+      expect(artist).not.toHaveProperty('album_count');
     });
   });
 });
