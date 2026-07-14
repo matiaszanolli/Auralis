@@ -26,16 +26,30 @@ logger = logging.getLogger(__name__)
 # Generated programmatically over the same host x port matrix as CORS
 # (see config/middleware.py), plus `file://` for packaged Electron builds
 # whose renderer Origin header is `file://`.
-_DEV_PORTS = list(range(3000, 3007)) + [8765]
-ALLOWED_WS_ORIGINS = frozenset(
-    {
-        f"{scheme}://{host}:{port}"
-        for scheme in ("http", "https", "ws", "wss")
-        for host in ("localhost", "127.0.0.1")
-        for port in _DEV_PORTS
-    }
-    | {"file://"}
-)
+def build_ws_origins() -> frozenset[str]:
+    """Build the allowed WebSocket origins.
+
+    The Vite dev ports (3000-3006) are only legitimate in dev — gate them on
+    is_dev_mode() so a packaged build won't accept WS upgrades from those origins
+    (#4350). 8765 (the backend) and file:// (Electron renderer) are always
+    allowed. Shares the dev-gating contract with middleware.cors_allowed_origins.
+    """
+    from .app import is_dev_mode
+    ports = (list(range(3000, 3007)) if is_dev_mode() else []) + [8765]
+    return frozenset(
+        {
+            f"{scheme}://{host}:{port}"
+            for scheme in ("http", "https", "ws", "wss")
+            for host in ("localhost", "127.0.0.1")
+            for port in ports
+        }
+        | {"file://"}
+    )
+
+
+# Frozen at import time: dev/prod mode is fixed for the process lifetime (set by
+# the launcher via --dev / DEV_MODE), so the runtime WS origin check reads this.
+ALLOWED_WS_ORIGINS = build_ws_origins()
 
 # Hosts considered loopback — empty-Origin connections are allowed only from
 # these addresses so non-browser local processes on non-loopback interfaces

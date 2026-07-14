@@ -159,9 +159,14 @@ class TestOriginCheck:
 
     @pytest.mark.asyncio
     async def test_allowed_origin_accepted(self):
-        """A connection whose Origin is in ALLOWED_WS_ORIGINS is accepted."""
+        """A connection whose Origin is in ALLOWED_WS_ORIGINS is accepted.
+
+        Uses port 8765 (the backend, always allowed) rather than a dev port —
+        the 3000-3006 range is now gated on is_dev_mode() (#4350) and absent in
+        the non-dev test environment.
+        """
         manager = ConnectionManager()
-        ws = _make_connect_ws(origin="http://localhost:3000")
+        ws = _make_connect_ws(origin="http://localhost:8765")
         await manager.connect(ws)
         ws.accept.assert_awaited_once()
         ws.close.assert_not_awaited()

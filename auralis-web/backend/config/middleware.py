@@ -163,6 +163,27 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+def cors_allowed_origins() -> list[str]:
+    """Build the CORS allow-origins list.
+
+    Both `localhost` and `127.0.0.1` are emitted for every port — browsers treat
+    them as distinct origins, so a dev opening the app via the IP form on an alt
+    port (e.g. 127.0.0.1:3001) would otherwise be blocked by CORS preflight
+    (#3539 / BE-NEW-81). The Vite dev ports (3000-3006) are only legitimate in
+    dev; a packaged build never serves the frontend from them, so they are
+    included only when is_dev_mode() (#4350). Port 8765 (the backend itself) is
+    always allowed. Shares the dev-gating contract with globals.ALLOWED_WS_ORIGINS.
+    """
+    from .app import is_dev_mode
+    dev_ports = list(range(3000, 3007)) if is_dev_mode() else []
+    all_ports = dev_ports + [8765]
+    return [
+        f"http://{host}:{port}"
+        for host in ("localhost", "127.0.0.1")
+        for port in all_ports
+    ]
+
+
 def setup_middleware(app: FastAPI) -> None:
     """
     Add middleware to FastAPI application.
@@ -198,16 +219,9 @@ def setup_middleware(app: FastAPI) -> None:
     # the IP form on an alt port (e.g. 127.0.0.1:3001) was previously blocked
     # by CORS preflight even though localhost:3001 was allowed (#3539 /
     # BE-NEW-81).
-    _DEV_PORTS = list(range(3000, 3007))
-    _ALL_PORTS = _DEV_PORTS + [8765]
-    _allowed_origins = [
-        f"http://{host}:{port}"
-        for host in ("localhost", "127.0.0.1")
-        for port in _ALL_PORTS
-    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=_allowed_origins,
+        allow_origins=cors_allowed_origins(),
         allow_credentials=True,
         # Explicit lists instead of wildcards — allow_credentials=True with "*"
         # violates the CORS spec and overly broadens the attack surface (#2224).
