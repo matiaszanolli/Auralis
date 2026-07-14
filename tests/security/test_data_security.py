@@ -81,6 +81,31 @@ class TestFilePermissions:
 
             print("✓ Config file permissions secure")
 
+    def test_wal_sidecars_are_owner_only(self, tmp_path):
+        """
+        SECURITY (#4347): WAL mode creates library.db-wal/-shm sidecars with the
+        process umask; they must be chmod'd 0o600 like the main DB so another
+        local account can't read recently-played/library data from them.
+        """
+        if os.name == 'nt':
+            pytest.skip("POSIX permission bits not applicable on Windows")
+
+        from auralis.library.manager import LibraryManager
+
+        db_path = tmp_path / "library.db"
+        manager = LibraryManager(database_path=str(db_path))
+        try:
+            found = False
+            for suffix in ("-wal", "-shm"):
+                sidecar = tmp_path / f"library.db{suffix}"
+                if sidecar.exists():
+                    found = True
+                    perms = stat.S_IMODE(os.stat(sidecar).st_mode)
+                    assert perms == 0o600, f"{suffix} is {oct(perms)}, expected 0o600"
+            assert found, "expected a WAL sidecar (-wal/-shm) after opening in WAL mode"
+        finally:
+            manager.engine.dispose()
+
 
 @pytest.mark.security
 class TestSensitiveDataExposure:

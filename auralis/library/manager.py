@@ -98,6 +98,12 @@ class LibraryManager:
 
         if database_path is None:
             DEFAULT_DB_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            # mkdir(mode=) is ignored when the dir already exists, so re-restrict
+            # it to owner-only even for a pre-existing ~/.auralis (#4347).
+            try:
+                os.chmod(DEFAULT_DB_PATH.parent, 0o700)
+            except OSError:
+                pass
             database_path = str(DEFAULT_DB_PATH)
 
         self.database_path = database_path
@@ -164,8 +170,23 @@ class LibraryManager:
 
         self.SessionLocal = sessionmaker(self.engine)
 
-        # Create tables if they don't exist (for fresh databases)
+        # Create tables if they don't exist (for fresh databases). This opens a
+        # connection, which fires the connect event above and switches the DB to
+        # WAL mode — creating the -wal/-shm sidecars.
         Base.metadata.create_all(self.engine)
+
+        # WAL sidecars are created lazily by SQLite with the process umask (often
+        # world/group-readable) and never chmod'd, unlike the main DB at :145.
+        # Restrict them to owner-only so recently-played/library data isn't
+        # readable by other local accounts on a custom path or a pre-existing
+        # loose ~/.auralis (#4347).
+        for _suffix in ("-wal", "-shm"):
+            _sidecar = Path(database_path + _suffix)
+            if _sidecar.exists():
+                try:
+                    os.chmod(_sidecar, 0o600)
+                except OSError:
+                    pass
 
         # Initialize repositories (album repository first for artwork extraction)
         self.albums = AlbumRepository(self.SessionLocal)
