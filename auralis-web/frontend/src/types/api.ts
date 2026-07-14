@@ -138,15 +138,10 @@ export interface LibraryTracksResponse extends ApiListResponse {
  * - Request/response types for endpoints without transformers yet
  */
 
-export interface LibraryScanRequest {
-  directory?: string; // Optional: specific directory to scan
-}
-
-export interface LibraryScanResponse {
-  scan_id: string;
-  status: 'started' | 'in_progress' | 'completed';
-  progress: number; // 0-100
-}
+// LibraryScanRequest/LibraryScanResponse removed (#4372) — diverged from the
+// backend contract (backend takes {directories: list[str]} and returns
+// ScanResultResponse) and had zero importers. Real scan consumers use the
+// actual backend shapes directly.
 
 export type { LibraryStats as LibraryStatsResponse } from './domain';
 
@@ -154,31 +149,9 @@ export type { LibraryStats as LibraryStatsResponse } from './domain';
 // Metadata API
 // ============================================================================
 
-export interface MetadataUpdateRequest {
-  title?: string;
-  artist?: string;
-  album?: string;
-  genre?: string;
-  year?: number;
-  [key: string]: unknown; // Allow additional fields
-}
-
-export interface MetadataBatchUpdateRequest {
-  track_ids: number[];
-  updates: MetadataUpdateRequest;
-}
-
-export interface MetadataUpdateResponse {
-  track_id: number;
-  updated_fields: string[];
-  success: boolean;
-}
-
-export interface MetadataBatchUpdateResponse {
-  updated_count: number;
-  failed_count: number;
-  details: MetadataUpdateResponse[];
-}
+// MetadataUpdateRequest / MetadataBatchUpdate{Request,Response} /
+// MetadataUpdateResponse removed (#4372) — structurally incompatible with the
+// backend metadata router and consumed by no fetch site.
 
 // ============================================================================
 // Enhancement API
@@ -190,12 +163,8 @@ export interface EnhancementSettingsRequest {
   intensity: number; // 0.0 - 1.0
 }
 
-export interface EnhancementSettingsResponse {
-  enabled: boolean;
-  preset: 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
-  intensity: number;
-  last_updated: string; // ISO timestamp
-}
+// EnhancementSettingsResponse removed (#4372) — backend returns
+// {message, settings:{...}} (nested), not this flat shape; no importers.
 
 export interface EnhancementPreset {
   id: string;
@@ -306,22 +275,10 @@ export interface FingerprintResponse {
   computation_time_ms: number;
 }
 
-export interface SimilarTracksRequest {
-  track_id: number;
-  limit?: number;
-  threshold?: number; // 0.0 - 1.0
-}
-
-export interface SimilarTrack {
-  track: TrackInfo;
-  similarity_score: number; // 0.0 - 1.0
-}
-
-export interface SimilarTracksResponse {
-  query_track: TrackInfo;
-  similar_tracks: SimilarTrack[];
-  execution_time_ms: number;
-}
+// SimilarTracksRequest / SimilarTrack / SimilarTracksResponse removed (#4372)
+// — the api.ts SimilarTrack was nested ({track, similarity_score}) while the
+// backend returns a flat shape; every real consumer imports SimilarTrack from
+// '@/services/similarityService' or '@/hooks/fingerprint' instead.
 
 // ============================================================================
 // Health & Status API
