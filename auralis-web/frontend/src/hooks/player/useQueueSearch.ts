@@ -50,9 +50,6 @@ export interface QueueFilters {
 
   /** Filter by bitrate (if available) */
   minBitrate?: number;
-
-  /** Only show current playing track */
-  currentTrackOnly?: boolean;
 }
 
 /**
@@ -235,13 +232,6 @@ export function useQueueSearch(queue: (Track | QueueTrack)[]): QueueSearchAction
         continue;
       }
       if (filters.maxDuration !== undefined && track.duration > filters.maxDuration) {
-        continue;
-      }
-
-      // Check current track only filter
-      if (filters.currentTrackOnly && queue.indexOf(track) !== queue.indexOf(queue[0])) {
-        // This filter would need context about current playing index
-        // For now, we'll skip this check as it needs integration with usePlaybackQueue
         continue;
       }
 
