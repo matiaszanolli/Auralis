@@ -21,6 +21,7 @@ from auralis.services.fingerprint_queue import (
     FingerprintExtractionQueue,
     FingerprintQueueManager,
 )
+from auralis.services.resizable_semaphore import ResizableSemaphore
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +43,14 @@ def _make_queue(
 
     if factory is None:
         factory = MagicMock()
-        factory.fingerprints.claim_next_unfingerprinted_track.return_value = None
+        # Both claim methods MUST default to a falsy value. The worker loop reads
+        # them off `factory.fingerprint_scheduler` (moved there by #4073); if left
+        # unset, the bare MagicMock auto-generates a *truthy* child, so
+        # `if not track:` never breaks and the daemon worker spins forever,
+        # recording calls into MagicMock's unbounded call list until the process
+        # OOMs. Phase 1 = unfingerprinted, Phase 2 = outdated (algo v>1).
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.return_value = None
+        factory.fingerprint_scheduler.claim_next_outdated_fingerprint.return_value = None
 
     queue = FingerprintExtractionQueue(
         fingerprint_extractor=extractor,
@@ -64,7 +72,7 @@ class TestFingerprintQueueStart:
     async def test_start_spawns_correct_worker_count(self):
         queue, _, factory = _make_queue(num_workers=3)
         # Workers exit immediately when no tracks are available
-        factory.fingerprints.claim_next_unfingerprinted_track.return_value = None
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.return_value = None
 
         await queue.start()
 
@@ -94,7 +102,7 @@ class TestFingerprintQueueStart:
         queue, _, factory = _make_queue(num_workers=2)
 
         # Workers block until released
-        factory.fingerprints.claim_next_unfingerprinted_track.side_effect = (
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.side_effect = (
             lambda: (block.wait(timeout=5.0) or None)
         )
 
@@ -157,7 +165,7 @@ class TestFingerprintQueueStop:
         queue, _, factory = _make_queue(num_workers=1)
 
         # Worker blocks indefinitely (simulates slow I/O)
-        factory.fingerprints.claim_next_unfingerprinted_track.side_effect = (
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.side_effect = (
             lambda: (block.wait(timeout=60.0) or None)
         )
 
@@ -183,7 +191,7 @@ class TestWorkerLoop:
         """Worker calls claim_next... until None is returned, then exits."""
         tracks = [_make_track(1), _make_track(2), _make_track(3)]
         queue, extractor, factory = _make_queue(num_workers=1)
-        factory.fingerprints.claim_next_unfingerprinted_track.side_effect = (
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.side_effect = (
             tracks + [None]
         )
 
@@ -199,20 +207,20 @@ class TestWorkerLoop:
         queue, _, factory = _make_queue(num_workers=1)
         queue.should_stop = True
         # Would return a track if loop ran — but it shouldn't
-        factory.fingerprints.claim_next_unfingerprinted_track.return_value = _make_track()
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.return_value = _make_track()
 
         t = threading.Thread(target=queue._worker_loop, args=(0,))
         t.start()
         t.join(timeout=2.0)
 
         assert not t.is_alive(), "Worker must exit when should_stop is True"
-        factory.fingerprints.claim_next_unfingerprinted_track.assert_not_called()
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.assert_not_called()
 
     def test_worker_recovers_from_processing_exception(self):
         """Exception during _process_track causes a brief sleep, then loop continues."""
         queue, extractor, factory = _make_queue(num_workers=1)
         # First call raises, second returns None to end the loop
-        factory.fingerprints.claim_next_unfingerprinted_track.side_effect = [
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.side_effect = [
             _make_track(1),
             None,
         ]
@@ -237,7 +245,7 @@ class TestWorkerLoop:
             return True
 
         extractor.extract_and_store.side_effect = slow_extract
-        factory.fingerprints.claim_next_unfingerprinted_track.return_value = _make_track()
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.return_value = _make_track()
 
         t = threading.Thread(target=queue._worker_loop, args=(0,))
         t.start()
@@ -295,27 +303,30 @@ class TestProcessTrack:
         """Semaphore must be released after successful processing."""
         queue, extractor, _ = _make_queue()
         extractor.extract_and_store.return_value = True
-        initial = queue.processing_semaphore._value
+        # ResizableSemaphore exposes in_use (#4404); a fully released semaphore
+        # has zero slots in use.
+        assert queue.processing_semaphore.in_use == 0
 
         queue._process_track(_make_track(1), worker_id=0)
 
-        assert queue.processing_semaphore._value == initial
+        assert queue.processing_semaphore.in_use == 0
 
     def test_semaphore_released_on_failure(self):
         """Semaphore must be released even when processing raises."""
         queue, extractor, _ = _make_queue()
         extractor.extract_and_store.side_effect = RuntimeError("fail")
-        initial = queue.processing_semaphore._value
+        assert queue.processing_semaphore.in_use == 0
 
         queue._process_track(_make_track(1), worker_id=0)
 
-        assert queue.processing_semaphore._value == initial
+        assert queue.processing_semaphore.in_use == 0
 
     def test_semaphore_limits_concurrent_processing(self):
         """At most semaphore_value tracks may be processed concurrently."""
         sem_size = 2
         queue, extractor, factory = _make_queue(num_workers=sem_size + 2)
-        queue.processing_semaphore = threading.Semaphore(sem_size)
+        # Use the production semaphore type (#4404), not threading.Semaphore.
+        queue.processing_semaphore = ResizableSemaphore(sem_size)
 
         concurrent_peak = [0]
         lock = threading.Lock()
@@ -407,7 +418,7 @@ class TestGracefulShutdown:
         queue, extractor, factory = _make_queue(num_workers=1)
 
         # Worker will process one track then there are no more
-        factory.fingerprints.claim_next_unfingerprinted_track.side_effect = [
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.side_effect = [
             _make_track(1),
             None,
         ]
@@ -432,7 +443,7 @@ class TestGracefulShutdown:
         n_tracks = 5
         queue, extractor, factory = _make_queue(num_workers=2)
 
-        factory.fingerprints.claim_next_unfingerprinted_track.side_effect = (
+        factory.fingerprint_scheduler.claim_next_unfingerprinted_track.side_effect = (
             [_make_track(i) for i in range(n_tracks)] + [None, None]
         )
         extractor.extract_and_store.return_value = True
@@ -454,7 +465,7 @@ class TestFingerprintQueueManager:
     def _make_manager(self) -> FingerprintQueueManager:
         mock_extractor = MagicMock()
         mock_lib = MagicMock()
-        mock_lib.repository_factory.fingerprints.claim_next_unfingerprinted_track.return_value = None
+        mock_lib.repository_factory.fingerprint_scheduler.claim_next_unfingerprinted_track.return_value = None
         return FingerprintQueueManager(
             fingerprint_extractor=mock_extractor,
             library_manager=mock_lib,
