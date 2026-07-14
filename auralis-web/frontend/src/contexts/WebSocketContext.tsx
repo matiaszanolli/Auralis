@@ -322,6 +322,19 @@ export const WebSocketProvider = ({
             return;
           }
 
+          // Answer the server heartbeat. The backend arms a pending-pong on
+          // every `ping` and force-closes the socket (~60s) if no `pong`
+          // clears it; a `heartbeat` frame only touches liveness, not the
+          // pending-pong slot, so it never clears the armed ping (#4406).
+          if ((message.type as string) === 'ping') {
+            try {
+              manager.send(JSON.stringify({ type: 'pong' }));
+            } catch (err) {
+              console.warn('[WebSocket] Failed to reply pong to server ping:', err);
+            }
+            return;
+          }
+
           dispatchMessage(message);
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);
