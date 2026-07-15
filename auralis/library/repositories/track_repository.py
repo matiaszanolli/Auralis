@@ -21,6 +21,22 @@ from ..utils.artist_normalizer import normalize_artist_name
 from .base import BaseRepository
 
 
+def _track_eager_options(*, collections_via_selectin: bool = False) -> tuple:
+    """Standard eager-loads for every Track read path (#4500).
+
+    ``artists`` and ``album`` load inline (joined) by default, or via a separate
+    IN query (selectin) for paginated / DISTINCT queries where a join would
+    multiply rows. ``genres`` ALWAYS loads via selectin — a join on this
+    many-to-many explodes rows — and MUST be eager-loaded on EVERY path: read
+    paths ``expunge()`` the Track, so a lazy ``genres`` access inside
+    ``to_dict()`` raises ``DetachedInstanceError`` (swallowed, yielding
+    ``genres: []``). Centralised here so no read path can silently drop it again
+    (extends the get_by_artist fix in #2523).
+    """
+    loader = selectinload if collections_via_selectin else joinedload
+    return (loader(Track.artists), loader(Track.album), selectinload(Track.genres))
+
+
 class TrackRepository(BaseRepository):
     """Repository for track database operations"""
 
@@ -131,7 +147,7 @@ class TrackRepository(BaseRepository):
             # Check if track already exists
             existing = session.execute(
                 select(Track).options(
-                    joinedload(Track.artists), joinedload(Track.album)
+                    *_track_eager_options()
                 ).where(Track.filepath == track_info['filepath'])
             ).scalars().unique().first()
             if existing:
@@ -214,7 +230,7 @@ class TrackRepository(BaseRepository):
             # Re-query with eager loading before detaching from session
             track = session.execute(
                 select(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
+                .options(*_track_eager_options())
                 .where(Track.id == track.id)
             ).scalars().unique().first()
             session.expunge(track)
@@ -233,7 +249,7 @@ class TrackRepository(BaseRepository):
         try:
             track = session.execute(
                 select(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
+                .options(*_track_eager_options())
                 .where(Track.id == track_id)
             ).scalars().unique().first()
             if track:
@@ -253,7 +269,7 @@ class TrackRepository(BaseRepository):
         try:
             tracks = session.execute(
                 select(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
+                .options(*_track_eager_options())
                 .where(Track.id.in_(track_ids))
             ).scalars().unique().all()
             result = {}
@@ -270,7 +286,7 @@ class TrackRepository(BaseRepository):
         try:
             track = session.execute(
                 select(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
+                .options(*_track_eager_options())
                 .where(Track.filepath == filepath)
             ).scalars().unique().first()
             if track:
@@ -342,7 +358,7 @@ class TrackRepository(BaseRepository):
             # Re-query with eager loading before detaching from session
             track = session.execute(
                 select(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
+                .options(*_track_eager_options())
                 .where(Track.filepath == filepath)
             ).scalars().unique().first()
             info(f"Updated track: {track.title}")
@@ -395,7 +411,7 @@ class TrackRepository(BaseRepository):
                 select(Track)
                 .join(Track.artists, isouter=True)
                 .join(Track.album, isouter=True)
-                .options(selectinload(Track.artists), selectinload(Track.album))
+                .options(*_track_eager_options(collections_via_selectin=True))
                 .where(search_filter)
                 .distinct()
                 .limit(limit)
@@ -415,7 +431,7 @@ class TrackRepository(BaseRepository):
             tracks = session.execute(
                 select(Track)
                 .join(Track.genres)
-                .options(selectinload(Track.artists), selectinload(Track.album))
+                .options(*_track_eager_options(collections_via_selectin=True))
                 .where(Genre.name == genre_name)
                 .limit(limit)
             ).scalars().all()
@@ -434,9 +450,7 @@ class TrackRepository(BaseRepository):
                 select(Track).join(Track.artists).where(
                     Artist.name == artist_name
                 ).options(
-                    joinedload(Track.artists),
-                    joinedload(Track.album),
-                    selectinload(Track.genres)  # separate IN query avoids N×G row explosion (fixes #2523)
+                    *_track_eager_options()  # includes selectinload(genres) — #2523/#4500
                 ).limit(limit)
             ).scalars().unique().all()
 
@@ -468,7 +482,7 @@ class TrackRepository(BaseRepository):
             # Get paginated results
             results = session.execute(
                 select(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
+                .options(*_track_eager_options())
                 .order_by(Track.created_at.desc())
                 .limit(limit)
                 .offset(offset)
@@ -500,7 +514,7 @@ class TrackRepository(BaseRepository):
             # Get paginated results
             results = session.execute(
                 select(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
+                .options(*_track_eager_options())
                 .order_by(Track.play_count.desc())
                 .limit(limit)
                 .offset(offset)
@@ -533,7 +547,7 @@ class TrackRepository(BaseRepository):
             # Get paginated results
             results = session.execute(
                 select(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
+                .options(*_track_eager_options())
                 .where(Track.favorite == True)
                 .order_by(Track.title.asc())
                 .limit(limit)
@@ -571,7 +585,7 @@ class TrackRepository(BaseRepository):
             order_column = getattr(Track, order_by, Track.title)
             tracks = session.execute(
                 select(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
+                .options(*_track_eager_options())
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
@@ -636,7 +650,7 @@ class TrackRepository(BaseRepository):
             if track.artists:
                 artist_tracks = session.execute(
                     select(Track)
-                    .options(selectinload(Track.artists), selectinload(Track.album))
+                    .options(*_track_eager_options(collections_via_selectin=True))
                     .where(Track.artists.any(Artist.id.in_([a.id for a in track.artists])))
                     .where(Track.id != track.id)
                     .limit(limit)
@@ -656,7 +670,7 @@ class TrackRepository(BaseRepository):
                     genre_filters.append(~Track.id.in_(seen_ids))
                 genre_tracks = session.execute(
                     select(Track)
-                    .options(selectinload(Track.artists), selectinload(Track.album))
+                    .options(*_track_eager_options(collections_via_selectin=True))
                     .where(*genre_filters)
                     .limit(limit - len(similar_tracks))
                 ).scalars().all()
@@ -754,7 +768,7 @@ class TrackRepository(BaseRepository):
             # Re-query with eager loading before detaching from session
             track = session.execute(
                 select(Track)
-                .options(joinedload(Track.artists), joinedload(Track.album))
+                .options(*_track_eager_options())
                 .where(Track.id == track_id)
             ).scalars().unique().first()
             debug(f"Updated track: {track.title}")
