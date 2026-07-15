@@ -214,6 +214,49 @@ describe('WebSocketContext - binary audio-chunk pairing (#4454)', () => {
   });
 
   // --------------------------------------------------------------------------
+  // Blob decode must not clobber the NEXT chunk's meta (#4331)
+  // --------------------------------------------------------------------------
+
+  it('does not drop the next chunk when a Blob decode resolves after the following meta (#4331)', async () => {
+    const { result } = await setup();
+
+    const received: Msg[] = [];
+    await act(async () => {
+      result.current.subscribe('audio_chunk', (m) => received.push(m));
+    });
+
+    // A real Blob (so `instanceof Blob` holds) whose arrayBuffer() resolution we
+    // control, letting us interleave the next chunk's meta before it resolves.
+    let resolveBlob1: (buf: ArrayBuffer) => void = () => {};
+    const blob1 = new Blob([new Uint8Array([1, 1, 1, 1])]);
+    blob1.arrayBuffer = () =>
+      new Promise<ArrayBuffer>((res) => {
+        resolveBlob1 = res;
+      });
+
+    await act(async () => {
+      mockMgr.emit('message', { data: JSON.stringify(metaFrame(1)) }); // chunk 1 meta
+      mockMgr.emit('message', { data: blob1 });                        // chunk 1 binary (decode pending)
+      mockMgr.emit('message', { data: JSON.stringify(metaFrame(2)) }); // chunk 2 meta arrives first
+    });
+
+    // Resolving chunk 1's decode must NOT null chunk 2's pending meta.
+    await act(async () => {
+      resolveBlob1(new Uint8Array([1, 1, 1, 1]).buffer);
+      await Promise.resolve();
+    });
+
+    // Chunk 2's binary (plain ArrayBuffer) — its meta must still be present.
+    await act(async () => {
+      mockMgr.emit('message', { data: new Uint8Array([2, 2, 2, 2]).buffer });
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(received).toHaveLength(2);
+    expect(received.map((m) => (m as any).data.seq).sort()).toEqual([1, 2]);
+  });
+
+  // --------------------------------------------------------------------------
   // Binary without preceding meta is dropped
   // --------------------------------------------------------------------------
 

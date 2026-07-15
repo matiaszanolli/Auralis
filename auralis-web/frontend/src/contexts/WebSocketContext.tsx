@@ -292,7 +292,15 @@ export const WebSocketProvider = ({
 
           // Handle Blob data (some browsers send binary as Blob)
           if (event.data instanceof Blob) {
+            // Capture AND clear synchronously: the pending meta belongs to THIS
+            // blob (it always arrives immediately after its audio_chunk_meta
+            // text frame). Nulling inside the async .then() would instead clear
+            // whatever is pending when the promise resolves — which may be the
+            // NEXT chunk's meta if its text frame arrived while arrayBuffer()
+            // was still decoding, dropping that chunk (#4331). This mirrors the
+            // synchronous ArrayBuffer path above.
             const meta = pendingAudioChunkMeta;
+            pendingAudioChunkMeta = null;
             event.data.arrayBuffer().then((buffer: ArrayBuffer) => {
               if (meta) {
                 const combined: AudioChunkMessage = {
@@ -302,7 +310,6 @@ export const WebSocketProvider = ({
                     pcm_binary: buffer,
                   },
                 };
-                pendingAudioChunkMeta = null;
                 dispatchMessage(combined);
               }
             });
