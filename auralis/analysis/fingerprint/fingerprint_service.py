@@ -102,6 +102,28 @@ class FingerprintService:
         self._fingerprint_repo = FingerprintRepository(session_factory)
         self._track_repo = TrackRepository(session_factory)
 
+    def close(self) -> None:
+        """Dispose the connection pool of the engine this service created.
+
+        Only an engine the service built itself (no ``session_factory`` was
+        injected) is disposed — when a caller passes its own factory, that caller
+        owns the engine and must dispose it. Without this the private engine's
+        pool leaked until GC finalizers ran (#4501, same class as #2395/#3746).
+        Idempotent: safe to call more than once.
+        """
+        engine = self._engine
+        if engine is not None:
+            self._engine = None
+            engine.dispose()
+
+    def __del__(self) -> None:
+        # GC safety net for owners that forget to call close(); the explicit
+        # teardown wiring in the owners is the real fix (#4501).
+        try:
+            self.close()
+        except Exception:
+            pass
+
     def get_or_compute(self, audio_path: Path, audio: np.ndarray | None = None, sr: int | None = None) -> dict | None:
         """
         Get fingerprint using 3-tier cache strategy, or compute new one.

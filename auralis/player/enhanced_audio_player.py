@@ -722,4 +722,9 @@ class AudioPlayer(PlayerFingerprintLoaderMixin, PlayerPropertiesMixin):
         self.file_manager.clear_all()
         self.gapless.cleanup()
         self.integration.cleanup()
+        # Dispose the fingerprint service's self-created engine pool (#4501).
+        try:
+            self.fingerprint_service.close()
+        except Exception:
+            pass
         info("AudioPlayer cleanup completed")

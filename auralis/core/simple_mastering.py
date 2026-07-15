@@ -83,6 +83,25 @@ class SimpleMasteringPipeline:
                 self._fingerprint_service = FingerprintService()
             return self._fingerprint_service
 
+    def close(self) -> None:
+        """Dispose the fingerprint service's self-created engine pool (#4501).
+
+        Idempotent; only disposes a service that was actually lazily created.
+        """
+        with self._fp_service_lock:
+            service = self._fingerprint_service
+            self._fingerprint_service = None
+        if service is not None:
+            service.close()
+
+    def __del__(self) -> None:
+        # GC safety net; explicit close() is preferred where a caller owns the
+        # pipeline's lifecycle (#4501).
+        try:
+            self.close()
+        except Exception:
+            pass
+
     def master_file(
         self,
         input_path: str,
