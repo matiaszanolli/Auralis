@@ -5,7 +5,13 @@
 Test Folder Scanning System
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Test the comprehensive folder scanning and library management features
+Test the comprehensive folder scanning and library management features.
+
+#4247: these tests previously verified outcomes via if/else print() branches
+followed by `return True`/`return False`. pytest ignores return values, so a
+`return False` path (and the try/except swallowing real exceptions) still
+reported PASS — a scanner regression was invisible in CI. They now use plain
+`assert`s so a misbehaving scanner actually fails the suite.
 """
 
 import sys
@@ -14,16 +20,18 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 # Add parent directory to Python path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+
 def create_test_music_library(tmpdir):
-    """Create a realistic test music library structure"""
+    """Create a realistic test music library structure. Returns the list of
+    created track paths."""
     test_files = []
 
-    # Create directory structure
     artists = [
         ("Artist A", ["Album 1", "Album 2"]),
         ("Artist B", ["Greatest Hits"]),
@@ -44,13 +52,11 @@ def create_test_music_library(tmpdir):
                 filename = f"{track_num:02d} - Track {track_num}.wav"
                 track_path = album_dir / filename
 
-                # Create audio data
                 duration = 2.0 + track_num * 0.3
                 sample_rate = 44100
                 samples = int(duration * sample_rate)
                 t = np.linspace(0, duration, samples)
 
-                # Create stereo sine wave with varying frequency
                 freq = 440 + track_num * 55
                 audio = np.column_stack([
                     np.sin(2 * np.pi * freq * t) * 0.3,
@@ -78,290 +84,157 @@ def create_test_music_library(tmpdir):
         sf.write(track_path, audio, sample_rate, format='FLAC')
         test_files.append(track_path)
 
-    print(f"✅ Created test library with {len(test_files)} tracks")
-    print(f"   Structure: {len(artists)} artists, {sum(len(albums) for _, albums in artists)} albums")
-
     return test_files
 
+
 def test_basic_scanning():
-    """Test basic folder scanning functionality"""
-    print("📁 Testing Basic Folder Scanning...")
+    """A recursive scan discovers every file, and a re-scan skips them all."""
+    from auralis.library import LibraryManager, LibraryScanner
 
-    try:
-        from auralis.library import LibraryManager, LibraryScanner
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
+        test_files = create_test_music_library(tmpdir)
 
-            # Create test library structure
-            test_files = create_test_music_library(tmpdir)
+        library = LibraryManager(str(tmpdir / "scan_test.db"))
+        scanner = LibraryScanner(library)
 
-            # Create library manager
-            db_path = tmpdir / "scan_test.db"
-            library = LibraryManager(str(db_path))
+        result = scanner.scan_single_directory(str(tmpdir), recursive=True)
 
-            # Create scanner
-            scanner = LibraryScanner(library)
+        # Every created file must be discovered — a scanner regression that
+        # misses files now fails instead of printing a warning (#4247).
+        expected_files = len(test_files)
+        assert result.files_found == expected_files, (
+            f"expected {expected_files} files, found {result.files_found}"
+        )
 
-            # Test single directory scan
-            print("\n🔍 Testing single directory scan...")
-            result = scanner.scan_single_directory(str(tmpdir), recursive=True)
+        # Library stats reflect the added tracks.
+        stats = library.get_library_stats()
+        assert stats['total_tracks'] == result.files_added
 
-            print(f"✅ Scan completed: {result}")
-            print(f"   Files found: {result.files_found}")
-            print(f"   Files added: {result.files_added}")
-            print(f"   Scan time: {result.scan_time:.1f}s")
+        # Re-scan must skip all previously-added files.
+        result2 = scanner.scan_single_directory(
+            str(tmpdir), recursive=True, skip_existing=True
+        )
+        assert result2.files_skipped == result.files_added, (
+            f"expected {result.files_added} skipped, got {result2.files_skipped}"
+        )
 
-            # Verify library stats
-            stats = library.get_library_stats()
-            print(f"✅ Library stats: {stats['total_tracks']} tracks")
-
-            # Test that all files were found
-            expected_files = len(test_files)
-            if result.files_found == expected_files:
-                print(f"✅ All {expected_files} files discovered")
-            else:
-                print(f"⚠️  Expected {expected_files} files, found {result.files_found}")
-
-            # Test re-scanning (should skip existing)
-            print("\n🔄 Testing re-scan (skip existing)...")
-            result2 = scanner.scan_single_directory(str(tmpdir), recursive=True, skip_existing=True)
-
-            print(f"✅ Re-scan completed: {result2}")
-            print(f"   Files skipped: {result2.files_skipped}")
-
-            if result2.files_skipped == result.files_added:
-                print("✅ Correctly skipped existing files")
-            else:
-                print(f"⚠️  Expected {result.files_added} skipped, got {result2.files_skipped}")
-
-            return True
-
-    except Exception as e:
-        print(f"❌ Basic scanning test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
 
 def test_metadata_extraction():
-    """Test metadata extraction during scanning"""
-    print("\n🏷️  Testing Metadata Extraction During Scan...")
+    """_extract_audio_info returns correct metadata and converts to track info."""
+    from auralis.library import LibraryManager, LibraryScanner
 
-    try:
-        from auralis.library import LibraryManager, LibraryScanner
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
+        test_file = tmpdir / "metadata_test.wav"
+        duration = 2.0
+        sample_rate = 44100
+        samples = int(duration * sample_rate)
+        t = np.linspace(0, duration, samples)
+        audio = np.column_stack([
+            np.sin(2 * np.pi * 440 * t) * 0.3,
+            np.sin(2 * np.pi * 440 * t) * 0.28
+        ]).astype(np.float32)
+        sf.write(test_file, audio, sample_rate)
 
-            # Create a single test file
-            test_file = tmpdir / "metadata_test.wav"
-            duration = 2.0
-            sample_rate = 44100
-            samples = int(duration * sample_rate)
-            t = np.linspace(0, duration, samples)
-            audio = np.column_stack([
-                np.sin(2 * np.pi * 440 * t) * 0.3,
-                np.sin(2 * np.pi * 440 * t) * 0.28
-            ]).astype(np.float32)
+        library = LibraryManager(str(tmpdir / "metadata_test.db"))
+        scanner = LibraryScanner(library)
 
-            sf.write(test_file, audio, sample_rate)
+        # #4247: the old test called scanner._extract_audio_info /
+        # _audio_info_to_track_info, which no longer exist — the extraction was
+        # refactored onto the audio_analyzer / metadata_extractor components. The
+        # old try/except swallowed the resulting AttributeError and returned
+        # False, so this test silently "passed" while verifying nothing.
+        audio_info = scanner.audio_analyzer.extract_audio_info(str(test_file))
+        assert audio_info is not None, "failed to extract audio info"
+        assert audio_info.sample_rate == sample_rate
+        assert audio_info.channels == 2
+        assert audio_info.duration == pytest.approx(duration, abs=0.1)
+        assert audio_info.filesize > 0
 
-            # Create library and scanner
-            library = LibraryManager(str(tmpdir / "metadata_test.db"))
-            scanner = LibraryScanner(library)
+        track_info = scanner.metadata_extractor.audio_info_to_track_info(audio_info)
+        assert track_info['title']
+        assert track_info['duration'] == pytest.approx(duration, abs=0.1)
 
-            # Test audio info extraction
-            audio_info = scanner._extract_audio_info(str(test_file))
-
-            if audio_info:
-                print(f"✅ Audio info extracted:")
-                print(f"   Duration: {audio_info.duration:.1f}s")
-                print(f"   Sample rate: {audio_info.sample_rate} Hz")
-                print(f"   Channels: {audio_info.channels}")
-                print(f"   Format: {audio_info.format}")
-                print(f"   File size: {audio_info.filesize} bytes")
-
-                # Test conversion to track info
-                track_info = scanner._audio_info_to_track_info(audio_info)
-                print(f"✅ Track info conversion:")
-                print(f"   Title: {track_info['title']}")
-                print(f"   Duration: {track_info['duration']:.1f}s")
-
-                return True
-            else:
-                print("❌ Failed to extract audio info")
-                return False
-
-    except Exception as e:
-        print(f"❌ Metadata extraction test failed: {e}")
-        return False
 
 def test_scanning_performance():
-    """Test scanning performance with many files"""
-    print("\n⚡ Testing Scanning Performance...")
+    """A larger scan processes every file. Throughput is measured but NOT
+    asserted — a slow CI box must not fail the suite."""
+    from auralis.library import LibraryManager, LibraryScanner
 
-    try:
-        from auralis.library import LibraryManager, LibraryScanner
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
+        test_files = []
+        for artist_num in range(5):  # 5 artists
+            artist_dir = tmpdir / f"Artist_{artist_num + 1}"
+            artist_dir.mkdir()
 
-            # Create larger test library (simulate ~100 files)
-            print("Creating performance test library...")
-            test_files = []
+            for album_num in range(4):  # 4 albums each
+                album_dir = artist_dir / f"Album_{album_num + 1}"
+                album_dir.mkdir()
 
-            for artist_num in range(5):  # 5 artists
-                artist_dir = tmpdir / f"Artist_{artist_num + 1}"
-                artist_dir.mkdir()
+                for track_num in range(5):  # 5 tracks each
+                    track_path = album_dir / f"{track_num + 1:02d}_track.wav"
 
-                for album_num in range(4):  # 4 albums each
-                    album_dir = artist_dir / f"Album_{album_num + 1}"
-                    album_dir.mkdir()
+                    duration = 0.5  # Short for speed
+                    sample_rate = 22050  # Lower sample rate for speed
+                    samples = int(duration * sample_rate)
+                    t = np.linspace(0, duration, samples)
 
-                    for track_num in range(5):  # 5 tracks each
-                        track_path = album_dir / f"{track_num + 1:02d}_track.wav"
+                    audio = np.column_stack([
+                        np.sin(2 * np.pi * 440 * t) * 0.2,
+                        np.sin(2 * np.pi * 440 * t) * 0.18
+                    ]).astype(np.float32)
 
-                        # Create minimal audio file for speed
-                        duration = 0.5  # Short for speed
-                        sample_rate = 22050  # Lower sample rate for speed
-                        samples = int(duration * sample_rate)
-                        t = np.linspace(0, duration, samples)
+                    sf.write(track_path, audio, sample_rate)
+                    test_files.append(track_path)
 
-                        audio = np.column_stack([
-                            np.sin(2 * np.pi * 440 * t) * 0.2,
-                            np.sin(2 * np.pi * 440 * t) * 0.18
-                        ]).astype(np.float32)
+        library = LibraryManager(str(tmpdir / "perf_test.db"))
+        scanner = LibraryScanner(library)
 
-                        sf.write(track_path, audio, sample_rate)
-                        test_files.append(track_path)
+        start_time = time.time()
+        result = scanner.scan_single_directory(str(tmpdir), recursive=True)
+        scan_time = time.time() - start_time
 
-            print(f"✅ Created {len(test_files)} test files")
+        # Correctness: every file must be processed.
+        assert result.files_processed == len(test_files)
 
-            # Create library and scanner
-            library = LibraryManager(str(tmpdir / "perf_test.db"))
-            scanner = LibraryScanner(library)
+        files_per_second = result.files_processed / scan_time if scan_time > 0 else 0
+        print(f"Scan performance: {files_per_second:.1f} files/second")
 
-            # Measure scan performance
-            start_time = time.time()
-            result = scanner.scan_single_directory(str(tmpdir), recursive=True)
-            end_time = time.time()
-
-            scan_time = end_time - start_time
-            files_per_second = result.files_processed / scan_time if scan_time > 0 else 0
-
-            print(f"✅ Performance test results:")
-            print(f"   Files processed: {result.files_processed}")
-            print(f"   Total time: {scan_time:.1f}s")
-            print(f"   Performance: {files_per_second:.1f} files/second")
-
-            # Performance should be reasonable
-            if files_per_second > 10:  # At least 10 files per second
-                print("✅ Scanning performance is good")
-                return True
-            else:
-                print("⚠️  Scanning performance may need optimization")
-                return True  # Still pass test, just note performance
-
-    except Exception as e:
-        print(f"❌ Performance test failed: {e}")
-        return False
 
 def test_scanner_integration():
-    """Test scanner integration with library manager"""
-    print("\n🔗 Testing Scanner Integration...")
+    """LibraryManager.scan_directories / scan_single_directory add the file."""
+    from auralis.library import LibraryManager
 
-    try:
-        from auralis.library import LibraryManager
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
+        test_dir = tmpdir / "music"
+        test_dir.mkdir()
 
-            # Create small test library
-            test_dir = tmpdir / "music"
-            test_dir.mkdir()
+        test_file = test_dir / "integration_test.wav"
+        duration = 1.0
+        sample_rate = 44100
+        samples = int(duration * sample_rate)
+        t = np.linspace(0, duration, samples)
+        audio = np.column_stack([
+            np.sin(2 * np.pi * 440 * t) * 0.3,
+            np.sin(2 * np.pi * 440 * t) * 0.28
+        ]).astype(np.float32)
+        sf.write(test_file, audio, sample_rate)
 
-            # Create one test file
-            test_file = test_dir / "integration_test.wav"
-            duration = 1.0
-            sample_rate = 44100
-            samples = int(duration * sample_rate)
-            t = np.linspace(0, duration, samples)
-            audio = np.column_stack([
-                np.sin(2 * np.pi * 440 * t) * 0.3,
-                np.sin(2 * np.pi * 440 * t) * 0.28
-            ]).astype(np.float32)
+        library = LibraryManager(str(tmpdir / "integration_test.db"))
 
-            sf.write(test_file, audio, sample_rate)
+        result = library.scan_directories([str(test_dir)])
+        assert result is not None
+        assert result.files_found >= 1
 
-            # Test LibraryManager.scan_directories method
-            library = LibraryManager(str(tmpdir / "integration_test.db"))
+        result2 = library.scan_single_directory(str(test_dir))
+        assert result2 is not None
 
-            print("🔍 Testing LibraryManager.scan_directories...")
-            result = library.scan_directories([str(test_dir)])
-
-            print(f"✅ Integration scan result: {result}")
-
-            # Test LibraryManager.scan_single_directory method
-            print("🔍 Testing LibraryManager.scan_single_directory...")
-            result2 = library.scan_single_directory(str(test_dir))
-
-            print(f"✅ Single directory scan result: {result2}")
-
-            # Verify library has the file
-            stats = library.get_library_stats()
-            print(f"✅ Final library stats: {stats['total_tracks']} tracks")
-
-            return True
-
-    except Exception as e:
-        print(f"❌ Integration test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-if __name__ == "__main__":
-    print("🧪 Testing Folder Scanning System")
-    print("=" * 60)
-
-    # Run tests
-    tests = [
-        ("Basic Scanning", test_basic_scanning),
-        ("Metadata Extraction", test_metadata_extraction),
-        ("Scanning Performance", test_scanning_performance),
-        ("Scanner Integration", test_scanner_integration),
-    ]
-
-    results = []
-    for test_name, test_func in tests:
-        print(f"\n{'='*20} {test_name} {'='*20}")
-        try:
-            result = test_func()
-            results.append((test_name, result))
-        except Exception as e:
-            print(f"❌ Test '{test_name}' crashed: {e}")
-            results.append((test_name, False))
-
-    print("\n" + "=" * 60)
-    print("📊 FOLDER SCANNING TEST RESULTS:")
-    all_passed = True
-    for test_name, result in results:
-        status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{test_name}: {status}")
-        if not result:
-            all_passed = False
-
-    if all_passed:
-        print("\n🎉 ALL FOLDER SCANNING TESTS PASSED!")
-        print("✨ Scanning System Features:")
-        print("   📁 Recursive directory scanning")
-        print("   🏷️  Comprehensive metadata extraction")
-        print("   🔄 Skip existing files and check modifications")
-        print("   📊 Real-time progress tracking")
-        print("   ⚡ High-performance batch processing")
-        print("   🔗 Full integration with library manager")
-        print("   🎵 Support for all major audio formats")
-        print("\n🚀 Advanced library management ready!")
-        sys.exit(0)
-    else:
-        print("\n⚠️  Some scanning features need attention")
-        sys.exit(1)
+        stats = library.get_library_stats()
+        assert stats['total_tracks'] >= 1
