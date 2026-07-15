@@ -55,7 +55,7 @@ from core.processor_factory import (
     get_processor_factory,  # Singleton accessor
 )
 
-from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
+from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine, MasteringRecommendation
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from auralis.io.saver import save as save_audio
 from auralis.io.unified_loader import load_audio
@@ -112,7 +112,7 @@ class ChunkedAudioProcessor:
         self,
         track_id: int,
         filepath: str,
-        preset: str = "adaptive",
+        preset: str | None = "adaptive",
         intensity: float = 1.0,
         chunk_cache: dict[str, Any] | None = None
     ) -> None:
@@ -185,8 +185,8 @@ class ChunkedAudioProcessor:
 
         # NEW (Priority 4): Weighted profile recommendation caching
         # Stores mastering profile analysis for real-time UI display
-        self.mastering_recommendation = None
-        self.adaptive_mastering_engine = None
+        self.mastering_recommendation: MasteringRecommendation | None = None
+        self.adaptive_mastering_engine: AdaptiveMasteringEngine | None = None
 
         # NEW (Phase 7.3, updated Phase 4): Enhanced fingerprint loading via MasteringTargetService
         # 3-tier loading: Database (fastest) → .25d file → Extract from audio (if needed)
@@ -211,13 +211,13 @@ class ChunkedAudioProcessor:
         if self.preset is not None:
             self.processor = self._processor_factory.get_or_create(
                 track_id=track_id,
-                preset=preset,
+                preset=self.preset,  # narrowed to str by the guard (#4028)
                 intensity=intensity,
                 mastering_targets=self.mastering_targets
             )
             logger.info(f"🎯 Processor initialized via ProcessorFactory for track {track_id}")
         else:
-            self.processor = None  # type: ignore[unreachable]  # No processing for original audio
+            self.processor = None  # No processing for original audio (preset is None)
 
         # Processing state tracking for smooth transitions
         self.chunk_rms_history: list[float] = []  # Track RMS levels of processed chunks
@@ -589,12 +589,12 @@ class ChunkedAudioProcessor:
         """
         # Return cached recommendation if available
         if self.mastering_recommendation is not None:
-            return self.mastering_recommendation  # type: ignore[unreachable]
+            return self.mastering_recommendation
 
         try:
             # Initialize engine on first use
             if self.adaptive_mastering_engine is None:
-                self.adaptive_mastering_engine = AdaptiveMasteringEngine()  # type: ignore[assignment]
+                self.adaptive_mastering_engine = AdaptiveMasteringEngine()
 
             # Get or extract fingerprint
             if self.fingerprint is None:
@@ -607,7 +607,7 @@ class ChunkedAudioProcessor:
 
             # Get weighted recommendation
             if self.fingerprint is not None and self.adaptive_mastering_engine is not None:
-                recommendation = self.adaptive_mastering_engine.recommend_weighted(  # type: ignore[unreachable]
+                recommendation = self.adaptive_mastering_engine.recommend_weighted(
                     self.fingerprint,
                     confidence_threshold=confidence_threshold
                 )
@@ -777,7 +777,7 @@ class ChunkedAudioProcessor:
         # This allows the /api/processing/parameters endpoint to show real processing data
         if self.processor is not None:
             processor_profile = getattr(self.processor, 'last_content_profile', None)
-            if processor_profile:
+            if processor_profile and self.preset is not None:
                 _last_content_profiles[self.preset.lower()] = processor_profile
                 logger.debug(f"📊 Stored processing profile for preset '{self.preset}'")
 

@@ -76,13 +76,15 @@ class MetricsCollector:
         self.metrics_history: deque[PerformanceMetrics] = deque(maxlen=history_size)
         self.collection_count = 0
 
-        # References to system components (set externally)
-        self.buffer_manager = None
-        self.worker = None
-        self.learning_system = None
-        self.weight_tuner = None
-        self.memory_monitor = None
-        self.degradation_manager = None
+        # References to system components (set externally via set_components()).
+        # Annotated Any (not inferred None) so post-guard code isn't flagged
+        # unreachable — set_components assigns Any-typed components (#4028).
+        self.buffer_manager: Any = None
+        self.worker: Any = None
+        self.learning_system: Any = None
+        self.weight_tuner: Any = None
+        self.memory_monitor: Any = None
+        self.degradation_manager: Any = None
 
         logger.info(f"Metrics collector initialized (history_size={history_size})")
 
@@ -114,7 +116,7 @@ class MetricsCollector:
             raise RuntimeError("Components not set. Call set_components() first.")
 
         # Get cache statistics
-        cache_stats = self.buffer_manager.get_cache_stats()  # type: ignore[unreachable]
+        cache_stats = self.buffer_manager.get_cache_stats()
 
         # Calculate hit rates
         l1_hit_rate = self._calculate_hit_rate(cache_stats['l1'])
@@ -260,7 +262,7 @@ class MetricsCollector:
                 'is_running': False
             }
 
-        is_running = getattr(self.worker, 'running', False)  # type: ignore[unreachable]
+        is_running = getattr(self.worker, 'running', False)
 
         if not is_running:
             return {

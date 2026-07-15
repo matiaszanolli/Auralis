@@ -126,7 +126,7 @@ class GraphStatsResponse(BaseModel):
 
 def create_similarity_router(
     get_similarity_system: Callable[[], FingerprintSimilarity],
-    get_graph_builder: Callable[[], KNNGraphBuilder],
+    get_graph_builder: Callable[[], KNNGraphBuilder | None],
     get_repository_factory: Callable[[], Any]
 ) -> APIRouter:
     """
@@ -423,7 +423,7 @@ def create_similarity_router(
         graph_builder = get_graph_builder()
 
         if graph_builder is None:
-            return None  # type: ignore[unreachable]
+            return None
 
         stats = await asyncio.to_thread(graph_builder.get_graph_stats)
         if stats:
@@ -442,7 +442,7 @@ def create_similarity_router(
         graph_builder = get_graph_builder()
 
         if graph_builder is None:
-            return {"edges_deleted": 0}  # type: ignore[unreachable]
+            return {"edges_deleted": 0}
 
         count = await asyncio.to_thread(graph_builder.clear_graph)
         return {"edges_deleted": count}
