@@ -5,8 +5,13 @@ Fingerprint Generator - On-Demand Fingerprint Generation
 Manages fingerprint generation via PyO3 Rust bindings when fingerprints are not cached.
 Handles async generation, database storage, and graceful fallback on failure.
 
-**Process Isolation**: Uses ProcessPoolExecutor to run fingerprinting in a separate
-process, ensuring that CPU-intensive Rust/PyO3 operations never block playback threads.
+**Threading model**: fingerprinting runs on a ThreadPoolExecutor, off the asyncio
+event loop. The PyO3 Rust computation releases the GIL, so worker threads get true
+parallelism without ProcessPoolExecutor's pickling / process-spawn / module re-import
+overhead (which can exceed the timeout in AppImage environments). This is NOT crash
+isolation: a pathological file that hangs the Rust DSP is not reclaimed on timeout —
+the future is cancelled but the worker thread runs to completion, since threads
+cannot be force-killed (#4377).
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -112,16 +117,17 @@ def _load_and_prepare_audio(filepath: str) -> tuple[np.ndarray, int, int]:
     return audio_array, int(sample_rate), int(channels)
 
 
-def _compute_fingerprint_in_process(
+def _compute_fingerprint_in_thread(
     audio_data: np.ndarray,
     sample_rate: int,
     channels: int
 ) -> dict[str, Any] | None:
     """
-    Module-level function to compute fingerprint in a separate process.
+    Compute a fingerprint from prepared audio on a ThreadPoolExecutor worker.
 
-    Must be at module level for ProcessPoolExecutor pickling to work.
-    This function runs in a subprocess, completely isolated from the main process.
+    Kept at module level (not a closure) so executor submission stays simple.
+    Runs in a worker thread of the current process — the PyO3 Rust call releases
+    the GIL, so it does not block the event loop or playback threads.
 
     Args:
         audio_data: Audio samples as float32 numpy array
@@ -131,14 +137,13 @@ def _compute_fingerprint_in_process(
     Returns:
         Dict with 25 fingerprint dimensions, or None if computation fails
     """
-    # Import inside function to ensure it's available in the subprocess
+    # Import inside the function so the (one-time) import cost is paid on the
+    # worker thread rather than at module import.
     try:
         from auralis.analysis.fingerprint.rust_fingerprint import compute_fingerprint_schema
         return compute_fingerprint_schema(audio_data, sample_rate, channels)
     except Exception as e:
-        # Log in subprocess (will be captured)
-        import logging
-        logging.getLogger(__name__).error(f"Fingerprint computation failed in subprocess: {e}")
+        logging.getLogger(__name__).error(f"Fingerprint computation failed on worker thread: {e}")
         return None
 
 
@@ -152,11 +157,13 @@ class FingerprintGenerator:
     - Timeout handling (10 seconds max per fingerprint)
     - Graceful fallback (proceed without fingerprint if generation fails)
     - Database storage (cache for future use)
-    - **Process isolation** (ProcessPoolExecutor ensures fingerprinting never blocks playback)
+    - **Off-loop execution** (a ThreadPoolExecutor keeps fingerprinting off the event loop)
 
-    **Process Isolation**: CPU-intensive fingerprint computation runs in a separate
-    subprocess via ProcessPoolExecutor. This guarantees that playback threads are
-    never blocked by fingerprinting operations, even under heavy load.
+    **Threading model**: CPU-intensive fingerprint computation runs on a
+    ThreadPoolExecutor worker; the PyO3 Rust call releases the GIL, so playback
+    threads and the event loop are not blocked. This is not crash isolation — a
+    hung Rust DSP thread cannot be force-killed, so on timeout the future is
+    cancelled but the worker thread keeps running to completion (#4377).
     """
 
     # Generation timeout (seconds) — includes audio loading + Rust computation.
@@ -240,8 +247,10 @@ class FingerprintGenerator:
         """
         Call PyO3 Rust fingerprinting function to generate fingerprint.
 
-        **Process Isolation**: Runs in a separate process via ProcessPoolExecutor,
-        ensuring CPU-intensive fingerprinting never blocks playback threads.
+        **Threading model**: runs on a ThreadPoolExecutor worker (not a separate
+        process); the GIL-releasing Rust call keeps the event loop and playback
+        threads responsive. On timeout the future is cancelled but the worker
+        thread is not reclaimed (#4377).
 
         Args:
             filepath: Path to audio file
@@ -272,7 +281,7 @@ class FingerprintGenerator:
             fingerprint = await asyncio.wait_for(
                 loop.run_in_executor(
                     executor,
-                    _compute_fingerprint_in_process,
+                    _compute_fingerprint_in_thread,
                     audio_array,
                     int(sample_rate),
                     int(channels)
