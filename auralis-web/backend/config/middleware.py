@@ -23,6 +23,19 @@ from starlette.responses import JSONResponse, Response
 logger = logging.getLogger(__name__)
 
 
+def _middleware_error_response(exc: Exception, where: str) -> JSONResponse:
+    """Uniform JSON 500 for an exception raised inside a middleware dispatch.
+
+    ``BaseHTTPMiddleware.dispatch`` runs outside FastAPI's ExceptionMiddleware,
+    so ``@app.exception_handler(Exception)`` does not cover it — a raise here
+    would otherwise reach Starlette's ``ServerErrorMiddleware`` and return a
+    plaintext ``Internal Server Error`` without the ``{"detail": ...}`` shape the
+    frontend expects (#4378).
+    """
+    logger.error(f"Unhandled exception in {where}: {exc}", exc_info=True)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
 class NoCacheMiddleware(BaseHTTPMiddleware):
     """
     Middleware to disable caching for frontend static files.
@@ -32,17 +45,20 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
 
-        # Only disable caching for frontend static files (not API endpoints)
-        # API streaming responses must NOT have cache-control headers modified
-        if not request.url.path.startswith('/api') and not request.url.path.startswith('/ws'):
-            if request.url.path.endswith(('.html', '.js', '.css')) or request.url.path == '/':
-                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
-                response.headers["Pragma"] = "no-cache"
-                response.headers["Expires"] = "0"
+            # Only disable caching for frontend static files (not API endpoints)
+            # API streaming responses must NOT have cache-control headers modified
+            if not request.url.path.startswith('/api') and not request.url.path.startswith('/ws'):
+                if request.url.path.endswith(('.html', '.js', '.css')) or request.url.path == '/':
+                    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+                    response.headers["Pragma"] = "no-cache"
+                    response.headers["Expires"] = "0"
 
-        return cast(Response, response)
+            return cast(Response, response)
+        except Exception as exc:
+            return _middleware_error_response(exc, "NoCacheMiddleware")
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -54,23 +70,26 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
 
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data: blob:; "
-            "connect-src 'self' ws://localhost:* http://localhost:*; "
-            "media-src 'self' blob:;"
-        )
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline'; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "img-src 'self' data: blob:; "
+                "connect-src 'self' ws://localhost:* http://localhost:*; "
+                "media-src 'self' blob:;"
+            )
 
-        return cast(Response, response)
+            return cast(Response, response)
+        except Exception as exc:
+            return _middleware_error_response(exc, "SecurityHeadersMiddleware")
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -115,52 +134,55 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             del self._windows[k]
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
-        path = request.url.path
+        try:
+            path = request.url.path
 
-        # Find matching rate-limit rule
-        limit_rule: tuple[int, int] | None = None
-        for prefix, rule in self._RATE_LIMITS.items():
-            if path.startswith(prefix):
-                limit_rule = rule
-                break
+            # Find matching rate-limit rule
+            limit_rule: tuple[int, int] | None = None
+            for prefix, rule in self._RATE_LIMITS.items():
+                if path.startswith(prefix):
+                    limit_rule = rule
+                    break
 
-        if limit_rule is None:
-            return await call_next(request)
+            if limit_rule is None:
+                return await call_next(request)
 
-        max_requests, window_sec = limit_rule
-        client_ip = request.client.host if request.client else "unknown"
-        key = f"{client_ip}:{path}"
-        now = time.monotonic()
+            max_requests, window_sec = limit_rule
+            client_ip = request.client.host if request.client else "unknown"
+            key = f"{client_ip}:{path}"
+            now = time.monotonic()
 
-        # Critical section (#3329): eviction + sliding-window get/check/write
-        # must be atomic with respect to other concurrent dispatches.
-        async with self._lock:
-            # Periodic eviction of stale keys to prevent unbounded growth (#2630)
-            self._request_count += 1
-            if self._request_count >= self._EVICTION_INTERVAL:
-                self._request_count = 0
-                self._evict_stale_keys(now)
+            # Critical section (#3329): eviction + sliding-window get/check/write
+            # must be atomic with respect to other concurrent dispatches.
+            async with self._lock:
+                # Periodic eviction of stale keys to prevent unbounded growth (#2630)
+                self._request_count += 1
+                if self._request_count >= self._EVICTION_INTERVAL:
+                    self._request_count = 0
+                    self._evict_stale_keys(now)
 
-            # Prune expired entries and check limit
-            timestamps = self._windows.get(key, [])
-            timestamps = [t for t in timestamps if now - t < window_sec]
+                # Prune expired entries and check limit
+                timestamps = self._windows.get(key, [])
+                timestamps = [t for t in timestamps if now - t < window_sec]
 
-            if not timestamps:
-                self._windows.pop(key, None)
+                if not timestamps:
+                    self._windows.pop(key, None)
 
-            if len(timestamps) >= max_requests:
+                if len(timestamps) >= max_requests:
+                    self._windows[key] = timestamps
+                    retry_after = int(window_sec - (now - timestamps[0])) + 1
+                    return JSONResponse(
+                        status_code=429,
+                        content={"detail": "Too many requests"},
+                        headers={"Retry-After": str(retry_after)},
+                    )
+
+                timestamps.append(now)
                 self._windows[key] = timestamps
-                retry_after = int(window_sec - (now - timestamps[0])) + 1
-                return JSONResponse(
-                    status_code=429,
-                    content={"detail": "Too many requests"},
-                    headers={"Retry-After": str(retry_after)},
-                )
 
-            timestamps.append(now)
-            self._windows[key] = timestamps
-
-        return await call_next(request)
+            return await call_next(request)
+        except Exception as exc:
+            return _middleware_error_response(exc, "RateLimitMiddleware")
 
 
 def cors_allowed_origins() -> list[str]:
