@@ -26,8 +26,8 @@ from security.path_security import PathValidationError, validate_file_path
 
 logger = logging.getLogger(__name__)
 
-# Upload security constants (#2560)
-_MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB hard limit
+# Upload security constants (#2560). Single source of truth in config.limits (#4033).
+from config.limits import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
 # Derived from the single source of truth (auralis.io.formats) so the upload
 # allowlist tracks exactly what the loader can decode (#4109).
 from auralis.io.formats import AUDIO_EXTENSIONS as _ALLOWED_AUDIO_EXTENSIONS

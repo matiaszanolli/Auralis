@@ -30,11 +30,12 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from .dependencies import require_repository_factory
 from core.processing_engine import _safe_error_message
 
-# Upload limits. The per-file byte cap lives at the read site (500 MB); this
-# bounds how many files a single multipart request may carry so one request
-# can't monopolise the backend / bloat the DB with tens of thousands of tiny
-# valid-magic files (#4349).
-_MAX_UPLOAD_FILES = 200
+# Upload limits — single source of truth in config.limits (#4033). MAX_UPLOAD_FILES
+# bounds how many files one multipart request may carry so a single request can't
+# monopolise the backend / bloat the DB (#4349); MAX_UPLOAD_BYTES is the per-file
+# byte cap enforced at the read site below.
+from config.limits import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
+from config.limits import MAX_UPLOAD_FILES as _MAX_UPLOAD_FILES
 
 # Magic byte signatures for supported audio formats (issue #2415)
 _AUDIO_MAGIC: tuple[bytes, ...] = (
@@ -149,7 +150,6 @@ def create_files_router(
                 # cap AFTER reading, so a 2 GB POST OOM'd the backend before
                 # rejection). +1 lets us detect overflow via length compare.
                 suffix = Path(file.filename).suffix if file.filename else ""
-                _MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB cap (fixes #2248)
                 content = await file.read(_MAX_UPLOAD_BYTES + 1)
                 if len(content) > _MAX_UPLOAD_BYTES:
                     logger.warning(f"Rejected oversized upload: {file.filename!r} ({len(content)} bytes)")
