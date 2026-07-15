@@ -8,16 +8,79 @@ Audio loading using FFmpeg for MP3/M4A/AAC/OGG/WMA
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import functools
 import os
 import subprocess
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 import numpy as np
 
 from ...utils.logging import Code, ModuleError, debug, warning
 from .soundfile_loader import load_with_soundfile
+
+
+def _terminate_process(proc: "subprocess.Popen[str]") -> None:
+    """Terminate an FFmpeg child promptly: SIGTERM, escalate to SIGKILL.
+
+    Best-effort — the child is going away regardless, so any error while
+    signalling it is swallowed.
+    """
+    try:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+    except Exception:
+        pass
+
+
+def _run_ffmpeg_cancellable(
+    cmd: list[str],
+    timeout: float,
+    cancel_event: "threading.Event | None",
+) -> "subprocess.CompletedProcess[str]":
+    """Run an FFmpeg command, honouring a cooperative cancellation token.
+
+    With no ``cancel_event`` this is a plain blocking ``subprocess.run`` —
+    byte-for-byte the previous behaviour, so library-scan and other non-job
+    callers are unaffected.
+
+    With a ``cancel_event``, FFmpeg runs under ``Popen`` and is polled so that a
+    ``cancel_event.set()`` from another thread (``ProcessingEngine.cancel_job``)
+    terminates the child within ~100 ms instead of parking a worker thread and a
+    CPU core for up to ``timeout`` seconds (#4496). On cancel the child is
+    terminated and ``asyncio.CancelledError`` is raised so the abort surfaces as
+    a clean cancellation rather than a spurious decode failure.
+    """
+    if cancel_event is None:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+
+    if cancel_event.is_set():
+        raise asyncio.CancelledError()
+
+    # FFmpeg writes the decoded WAV to a file (not stdout), so stdout stays
+    # empty and stderr carries only modest progress text — the pipe buffers
+    # never fill, so repeated poll-timeout communicate() calls cannot deadlock.
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    start = time.monotonic()
+    poll_interval = 0.1
+    while True:
+        try:
+            stdout, stderr = proc.communicate(timeout=poll_interval)
+            return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+        except subprocess.TimeoutExpired:
+            if cancel_event.is_set():
+                _terminate_process(proc)
+                raise asyncio.CancelledError()
+            if time.monotonic() - start > timeout:
+                _terminate_process(proc)
+                raise  # -> ModuleError(ERROR_FFMPEG_TIMEOUT) in the caller
 
 # Upper bound on plausible audio bitrate, used only when ffprobe reports no
 # duration (e.g. true-VBR MP3 without a Xing/VBRI header, #4128). Estimating
@@ -131,8 +194,18 @@ def _probe_audio(file_path: Path) -> dict:
     return result_dict
 
 
-def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[np.ndarray, int]:
-    """Load audio using FFmpeg conversion to WAV"""
+def load_with_ffmpeg(
+    file_path: Path,
+    temp_folder: str | None = None,
+    cancel_event: "threading.Event | None" = None,
+) -> tuple[np.ndarray, int]:
+    """Load audio using FFmpeg conversion to WAV.
+
+    If ``cancel_event`` is provided and set from another thread mid-decode, the
+    FFmpeg child is terminated promptly and ``asyncio.CancelledError`` is raised
+    (#4496). When it is ``None`` (the default for every non-job caller) the
+    decode runs exactly as before.
+    """
 
     # Check if FFmpeg is available
     if not check_ffmpeg():
@@ -225,11 +298,10 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
         debug(f"FFmpeg: converting at {source_sample_rate} Hz, "
               f"downmixing {source_channels} → 2 ch")
 
-        result = subprocess.run(
+        result = _run_ffmpeg_cancellable(
             ffmpeg_cmd,
-            capture_output=True,
-            text=True,
-            timeout=300  # 5 minute timeout
+            timeout=300,  # 5 minute timeout
+            cancel_event=cancel_event,
         )
 
         if result.returncode != 0:
