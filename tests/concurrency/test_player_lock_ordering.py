@@ -118,6 +118,33 @@ class TestNotifyFiresAfterAudioLockReleased:
             "still held by the calling thread — regression of #3781"
         )
 
+    def test_next_track_integration_callback_does_not_hold_audio_lock(self, test_audio_files):
+        """#4328: next_track() calls IntegrationManager.record_track_completion(),
+        which dispatches the public AudioPlayer.add_callback() callbacks. #3781's
+        defer_notifications() only covers PlaybackController._notify_callbacks, NOT
+        the IntegrationManager path — so this specifically probes that a callback
+        registered via the public API does not fire while _audio_lock is held.
+        """
+        player = _make_player()
+        assert player.load_file(test_audio_files[0])
+        player.queue.add_track({'title': 'Next', 'file_path': test_audio_files[1]})
+
+        owned_at_notify: list[bool] = []
+        # Public API -> IntegrationManager.add_callback (the #4328 path), NOT
+        # player.playback.add_callback (the #3781 PlaybackController path).
+        player.add_callback(
+            lambda state_info: owned_at_notify.append(player.file_manager._audio_lock._is_owned())
+        )
+
+        assert player.next_track()
+
+        completions = [c for c in owned_at_notify]  # every fired callback
+        assert completions, "next_track() must fire the track_completed callback"
+        assert not any(completions), (
+            "next_track()'s IntegrationManager callback (record_track_completion) "
+            "fired while _audio_lock was still held — regression of #4328"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Live concurrency regression (issue Test Plan PTS-1.a/b/c)
