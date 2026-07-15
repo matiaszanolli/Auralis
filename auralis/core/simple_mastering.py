@@ -155,7 +155,6 @@ class SimpleMasteringPipeline:
             fingerprint = prep['fingerprint']
             sr = prep['sr']
             total_frames = prep['total_frames']
-            channels = prep['channels']
             duration = prep['duration']
             timings: dict[str, float] = prep['timings']
 
@@ -166,7 +165,7 @@ class SimpleMasteringPipeline:
             step_start = time.perf_counter()
             info, chunks_processed = mastering_chunk_loop.process_chunks(
                 self, resolved_input_path, output_path, sr, total_frames,
-                channels, fingerprint, intensity, self.config, verbose,
+                fingerprint, intensity, self.config, verbose,
             )
             timings['processing'] = time.perf_counter() - step_start
             timings['total'] = time.perf_counter() - total_start

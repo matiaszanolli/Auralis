@@ -32,7 +32,6 @@ def process_chunks(
     output_path: str,
     sr: int,
     total_frames: int,
-    channels: int,
     fingerprint: dict,
     intensity: float,
     config: 'SimpleMasteringConfig',
@@ -55,9 +54,12 @@ def process_chunks(
     chunk_size = sr * config.CHUNK_DURATION_SEC
     info = {'stages': []}
 
-    # Multi-channel (>2ch) sources are downmixed to stereo during chunk
-    # processing, so the output is always stereo.
-    out_channels = min(channels, 2)
+    # Every processing path yields stereo: mono is expanded to 2 channels
+    # (see the `chunk.ndim == 1` branch below) and >2ch sources are downmixed
+    # to L+R, so the output sink is always opened with 2 channels. Using
+    # `min(channels, 2)` here opened a 1-channel sink for mono input and then
+    # crashed with a shape mismatch on the first stereo write (#4494).
+    out_channels = 2
     with sf.SoundFile(str(input_path)) as audio_file:
         with sf.SoundFile(
             output_path,
