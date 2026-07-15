@@ -17,7 +17,6 @@ import sys
 import tempfile
 import uuid
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -33,6 +32,21 @@ from auralis.core.config import UnifiedConfig
 from auralis.io.processing import resample_audio
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
+
+# ProcessingJob / ProcessingStatus live in job_models so the worker can import
+# them without a circular dependency; re-exported here so existing
+# `from core.processing_engine import ProcessingJob, ProcessingStatus` keeps
+# working (#4250).
+from core.job_models import ProcessingJob, ProcessingStatus
+from core.processor_pool import ProcessorPool
+from core.job_worker import JobWorker
+
+__all__ = [
+    "ProcessingEngine",
+    "ProcessingJob",
+    "ProcessingStatus",
+    "_safe_error_message",
+]
 
 
 logger = logging.getLogger(__name__)
@@ -66,62 +80,6 @@ def _safe_error_message(exc: Exception) -> str:
     return "An unexpected error occurred during processing"
 
 
-class ProcessingStatus(str, Enum):
-    """Processing job status"""
-    QUEUED = "queued"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
-class ProcessingJob:
-    """Represents a single audio processing job"""
-
-    def __init__(
-        self,
-        job_id: str,
-        input_path: str,
-        output_path: str,
-        settings: dict[str, Any],
-        mode: str = "adaptive"
-    ):
-        self.job_id = job_id
-        self.input_path = input_path
-        self.output_path = output_path
-        self.settings = settings
-        self.mode = mode  # "adaptive", "reference", "hybrid"
-
-        self.status = ProcessingStatus.QUEUED
-        self.progress = 0.0
-        self.error_message: str | None = None
-        self.result_data: dict[str, Any] | None = None
-
-        self.created_at = datetime.now()
-        self.started_at: datetime | None = None
-        self.completed_at: datetime | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert job to dictionary for API responses.
-
-        Exposes filenames only (no absolute paths) to avoid leaking
-        server-side directory structure (#3322).
-        """
-        return {
-            "job_id": self.job_id,
-            "input_file": Path(self.input_path).name,
-            "output_file": Path(self.output_path).name,
-            "mode": self.mode,
-            "status": self.status.value,
-            "progress": self.progress,
-            "error_message": self.error_message,
-            "result_data": self.result_data,
-            "created_at": self.created_at.isoformat(),
-            "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-        }
-
-
 class ProcessingEngine:
     """
     Audio processing engine that manages the job queue and executes
@@ -147,23 +105,20 @@ class ProcessingEngine:
         self.processing_timeout: float = (
             processing_timeout if processing_timeout is not None else self.DEFAULT_PROCESSING_TIMEOUT
         )
-        self.job_queue: asyncio.Queue[ProcessingJob] = asyncio.Queue(maxsize=max_queue_size)
 
-        # Semaphore is the single source of truth for concurrency limiting.
-        # Replaces the busy-wait loop in start_worker (fixes #2332) and the
-        # unsynchronised active_jobs counter (fixes #2299).
-        self._concurrency_semaphore: asyncio.Semaphore = asyncio.Semaphore(max_concurrent_jobs)
+        # Processor instance cache (#4250: extracted to ProcessorPool). The
+        # factory keeps HybridProcessor instantiation in this module so tests
+        # patching core.processing_engine.HybridProcessor still intercept it.
+        self._pool: ProcessorPool = ProcessorPool(self._construct_processor)
 
-        # Public counter incremented after semaphore.acquire() and decremented
-        # in the finally block of start_worker.  Replaces the fragile
-        # `semaphore._value` CPython implementation detail (#2459).
-        self._active_job_count: int = 0
+        # Queue / concurrency / dispatch loop (#4250: extracted to JobWorker).
+        self._worker: JobWorker = JobWorker(self, max_concurrent_jobs, max_queue_size)
+        # Expose the worker's queue as a plain (settable) attribute — same object,
+        # so submit_job/get_queue_status and the worker share one queue, while a
+        # legacy test that assigns engine.job_queue still works.
+        self.job_queue: "asyncio.Queue[ProcessingJob]" = self._worker.job_queue
 
-        # Processing components
-        self.processors: dict[str, HybridProcessor] = {}
-
-        # Locks — guards concurrent access to the two shared dicts (fixes #2320, #2435)
-        self._processor_lock: asyncio.Lock = asyncio.Lock()
+        # Guards concurrent access to jobs / progress_callbacks (fixes #2435)
         self._jobs_lock: asyncio.Lock = asyncio.Lock()
 
         # Temporary file management
@@ -173,10 +128,38 @@ class ProcessingEngine:
         # Progress callbacks
         self.progress_callbacks: dict[str, Callable[..., Any]] = {}
 
-        # Per-job asyncio Tasks so cancel_job() can stop them (fixes #2217)
-        self._tasks: dict[str, asyncio.Task[None]] = {}
-        self._stopping: bool = False
-        self._worker_task: asyncio.Task[None] | None = None
+    # --- Worker/pool state exposed for the engine's public methods and for
+    # tests that reach directly into these (e.g. test_cancel_job_stops_processing
+    # mutates ._tasks / .job_queue). They delegate to the worker's objects, whose
+    # identity is stable, so in-place mutation works (#4250). ---
+
+    @property
+    def _tasks(self) -> dict[str, "asyncio.Task[None]"]:
+        return self._worker._tasks
+
+    @property
+    def _active_job_count(self) -> int:
+        return self._worker.active_job_count
+
+    @_active_job_count.setter
+    def _active_job_count(self, value: int) -> None:
+        # Some tests mutate this directly to simulate slot occupancy (#2459).
+        self._worker.active_job_count = value
+
+    @property
+    def _concurrency_semaphore(self) -> asyncio.Semaphore:
+        return self._worker._concurrency_semaphore
+
+    @property
+    def processors(self) -> dict[str, HybridProcessor]:
+        return self._pool.processors
+
+    async def _construct_processor(self, config: UnifiedConfig) -> HybridProcessor:
+        """Factory for the ProcessorPool. Kept on the engine so HybridProcessor
+        is resolved from this module (patchable in tests). Construction is
+        CPU-bound (200-500 ms) — offloaded to a thread so the event loop stays
+        responsive while the pool lock is held."""
+        return await asyncio.to_thread(HybridProcessor, config)
 
     async def create_job(
         self,
@@ -260,99 +243,16 @@ class ProcessingEngine:
                 async with self._jobs_lock:
                     self.progress_callbacks.pop(job_id, None)
 
+    # Processor-pool operations delegate to self._pool (#4250). Thin wrappers are
+    # kept so any caller/test using the engine-level names still works.
     def _get_processor_cache_key(self, mode: str, config: UnifiedConfig) -> str:
-        """
-        Generate a cache key for processor instance caching.
-
-        Processors can be reused across jobs if they have identical:
-        - Processing mode (adaptive, reference, hybrid)
-        - Key configuration parameters (sample rate, EQ target, dynamics params)
-
-        This avoids expensive reinitialization for repeated configurations.
-
-        Args:
-            mode: Processing mode string
-            config: UnifiedConfig instance
-
-        Returns:
-            Cache key string
-        """
-        import hashlib
-        # Include mode, sample rate, adaptive mode, and an explicit set of
-        # the actually-relevant settings (#2218 + fixes #3528 / BE-NEW-70).
-        # Prior code hashed `vars(config)`; the @dataclass __repr__ on
-        # AdaptiveConfig only covers declared fields, so dynamically-attached
-        # attributes (eq_gains, compressor, target_lufs, gain, genre_override)
-        # were silently excluded from the hash and two jobs with different
-        # EQ settings produced identical cache keys. Also: `processing_mode`
-        # is not a UnifiedConfig attribute — that slot collapsed to
-        # 'unknown' for every key. Switched to config.adaptive.mode.
-        adaptive = getattr(config, "adaptive", None)
-        key_parts: list[str] = [
-            mode,
-            str(config.internal_sample_rate),
-            getattr(adaptive, "mode", "unknown") if adaptive else "unknown",
-            getattr(config, "mastering_profile", ""),
-            repr(getattr(adaptive, "eq_gains", None)) if adaptive else "",
-            repr(getattr(adaptive, "compressor", None)) if adaptive else "",
-            repr(getattr(adaptive, "target_lufs", None)) if adaptive else "",
-            repr(getattr(adaptive, "gain", None)) if adaptive else "",
-            repr(getattr(adaptive, "genre_override", None)) if adaptive else "",
-        ]
-        return hashlib.md5("|".join(key_parts).encode()).hexdigest()
+        return self._pool.cache_key(mode, config)
 
     async def _get_or_create_processor(self, mode: str, config: UnifiedConfig) -> HybridProcessor:
-        """
-        Get cached processor instance or create new one.
+        return await self._pool.get_or_create(mode, config)
 
-        Processor instances are expensive to create because they:
-        - Initialize analysis modules
-        - Pre-compute window functions
-        - Set up DSP stage instances
-
-        Caching reusable processors provides 200-500ms speedup per job.
-
-        Access is serialised with _processor_lock so that:
-        - Concurrent jobs with identical config share one HybridProcessor instead
-          of each allocating ~200 MB.
-        - FIFO eviction is never interleaved with a concurrent read or write,
-          eliminating the "RuntimeError: dictionary changed size during iteration"
-          reported in #2320.
-        - HybridProcessor.__init__ (200-500 ms, CPU-bound) is offloaded to a
-          thread so the event loop stays responsive while the lock is held.
-
-        Args:
-            mode: Processing mode
-            config: UnifiedConfig for processor
-
-        Returns:
-            HybridProcessor instance (cached or new)
-        """
-        async with self._processor_lock:
-            cache_key = self._get_processor_cache_key(mode, config)
-
-            # Pop from cache so no concurrent job shares this instance (#3201).
-            # Caller must return it via _return_processor() after use.
-            if cache_key in self.processors:
-                return self.processors.pop(cache_key)
-
-            # Construction is CPU-bound (200-500 ms) — run off the event loop
-            # so we don't stall request handling while the lock is held.
-            processor = await asyncio.to_thread(HybridProcessor, config)
-
-            return processor
-
-    async def _return_processor(self, mode: str, config: 'UnifiedConfig', processor: 'HybridProcessor') -> None:
-        """Return a processor to the cache after job completion (#3201)."""
-        async with self._processor_lock:
-            cache_key = self._get_processor_cache_key(mode, config)
-            self.processors[cache_key] = processor
-
-            # Keep cache size bounded (max 5 different processor configurations).
-            if len(self.processors) > 5:
-                cache_keys = list(self.processors)
-                if cache_keys:
-                    self.processors.pop(cache_keys[0], None)
+    async def _return_processor(self, mode: str, config: UnifiedConfig, processor: HybridProcessor) -> None:
+        await self._pool.return_to_cache(mode, config, processor)
 
     def _create_processor_config(self, job: ProcessingJob) -> UnifiedConfig:
         """
@@ -422,6 +322,166 @@ class ProcessingEngine:
 
         return config
 
+    async def _prepare_job(
+        self, job: ProcessingJob
+    ) -> tuple[np.ndarray, int, UnifiedConfig, HybridProcessor]:
+        """Mark the job started, load its input audio, build its config, and
+        acquire an exclusively-owned processor (#4250). The processor is popped
+        from the pool (#3201) and MUST be returned by the caller — process_job
+        does so on every exit path."""
+        job.status = ProcessingStatus.PROCESSING
+        job.started_at = datetime.now()
+
+        await self._notify_progress(job.job_id, 0.0, "Loading audio file...")
+
+        # Load input audio — disk-bound; offload to thread (fixes #2319)
+        audio, sample_rate = await asyncio.to_thread(load_audio, job.input_path)
+
+        await self._notify_progress(job.job_id, 20.0, "Analyzing audio content...")
+
+        # Create processor config
+        config = self._create_processor_config(job)
+
+        # Get or create processor — exclusively owned until returned (#3201)
+        processor = await self._get_or_create_processor(job.mode, config)
+
+        return audio, sample_rate, config, processor
+
+    async def _execute_job(
+        self,
+        job: ProcessingJob,
+        audio: np.ndarray,
+        sample_rate: int,
+        processor: HybridProcessor,
+    ) -> np.ndarray:
+        """Reset processor state, run the timeout-guarded DSP process, and save
+        the output. Returns the processed audio array (#4250)."""
+        await self._notify_progress(job.job_id, 40.0, "Processing audio...")
+
+        # Reset EQ state before each job so cached processors don't bleed
+        # the previous track's psychoacoustic EQ curve into the new track (fixes #2400).
+        # reset_realtime_eq() only clears the real-time EQ path's own EQ; the
+        # adaptive/continuous path uses a separate main psychoacoustic EQ whose
+        # gain-smoothing state also has to be reset here (completes #2400).
+        processor.reset_realtime_eq()
+        processor.reset_dynamics()
+        processor.reset_psychoacoustic_eq()
+
+        # Process audio — CPU-bound; offload to thread (fixes #2319)
+        # Wrap with wait_for so a hung DSP/Rust call cannot hold the
+        # semaphore slot indefinitely (fixes #2747).
+        timeout = self.processing_timeout
+        if job.mode == "reference" or job.mode == "hybrid":
+            # Load reference audio if needed
+            reference_path = job.settings.get("reference_path")
+            if reference_path and Path(reference_path).exists():
+                reference_audio, reference_sr = await asyncio.to_thread(
+                    load_audio, reference_path
+                )
+                # Resample reference if needed — CPU-bound; offload to thread
+                if reference_sr != sample_rate:
+                    reference_audio = await asyncio.to_thread(
+                        resample_audio, reference_audio, reference_sr, sample_rate
+                    )
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(processor.process, audio, reference_audio),
+                    timeout=timeout,
+                )
+            else:
+                # Fall back to adaptive mode if no reference
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(processor.process, audio),
+                    timeout=timeout,
+                )
+        else:
+            # Adaptive mode
+            result = await asyncio.wait_for(
+                asyncio.to_thread(processor.process, audio),
+                timeout=timeout,
+            )
+
+        await self._notify_progress(job.job_id, 80.0, "Saving processed audio...")
+
+        # Save output audio (output_format is recorded in _finalize_job).
+        bit_depth = job.settings.get("bit_depth", 16)
+
+        # Determine subtype based on bit depth
+        subtype_map: dict[int, str] = {16: 'PCM_16', 24: 'PCM_24', 32: 'PCM_32'}
+        subtype = subtype_map.get(bit_depth, 'PCM_16')
+
+        # HybridProcessor.process() returns a bare np.ndarray. Earlier
+        # versions of this code accessed `result.audio` / `result.lufs` /
+        # `result.processing_time` etc., which silently raised
+        # AttributeError on every successful job and routed every job
+        # through the catch-all "An unexpected error occurred" branch
+        # (fixes #3489). Pull richer telemetry from the processor's
+        # last_content_profile / get_processing_info() in _finalize_job.
+        if not isinstance(result, np.ndarray):
+            raise TypeError(
+                f"HybridProcessor.process() returned {type(result).__name__}, "
+                "expected numpy.ndarray"
+            )
+        audio_data: np.ndarray = result
+
+        # Disk-bound write; offload to thread (fixes #2319)
+        await asyncio.to_thread(
+            save,
+            file_path=job.output_path,
+            audio_data=audio_data,
+            sample_rate=sample_rate,
+            subtype=subtype,
+        )
+
+        await self._notify_progress(job.job_id, 100.0, "Processing complete!")
+
+        return audio_data
+
+    def _finalize_job(
+        self,
+        job: ProcessingJob,
+        audio_data: np.ndarray,
+        sample_rate: int,
+        processor: HybridProcessor,
+    ) -> None:
+        """Collect best-effort telemetry and record the completed result (#4250)."""
+        # Extract optional telemetry from processor side-channels (best-effort).
+        processing_time: float | None = None
+        genre_detected: str | None = None
+        lufs: float | None = None
+        try:
+            proc_info = processor.get_processing_info() if hasattr(processor, "get_processing_info") else None
+            if isinstance(proc_info, dict):
+                processing_time = proc_info.get("last_processing_time") or proc_info.get("processing_time")
+                lufs_val = proc_info.get("last_lufs") or proc_info.get("lufs")
+                if lufs_val is not None:
+                    lufs = float(lufs_val)
+            content_profile = getattr(processor, "last_content_profile", None)
+            if content_profile is not None:
+                genre_detected = getattr(content_profile, "genre", None) or genre_detected
+        except Exception:
+            # Telemetry is non-critical; never let it fail the job.
+            pass
+
+        output_format = job.settings.get("output_format", "wav")
+        bit_depth = job.settings.get("bit_depth", 16)
+
+        # Store result metadata — use filename-only for output_file so
+        # the absolute temp path never appears in API responses (#3848,
+        # sibling of the input_file sanitisation in #3322).
+        job.result_data = {
+            "output_file": Path(job.output_path).name,
+            "sample_rate": int(sample_rate),
+            "duration": float(len(audio_data) / sample_rate),
+            "format": output_format,
+            "bit_depth": bit_depth,
+            "processing_time": processing_time,
+            "genre_detected": genre_detected,
+            "lufs": lufs,
+        }
+
+        job.status = ProcessingStatus.COMPLETED
+        job.completed_at = datetime.now()
+
     async def process_job(self, job: ProcessingJob) -> None:
         """
         Process a single job using the HybridProcessor
@@ -433,135 +493,9 @@ class ProcessingEngine:
         processor = None
         config = None
         try:
-            job.status = ProcessingStatus.PROCESSING
-            job.started_at = datetime.now()
-
-            await self._notify_progress(job.job_id, 0.0, "Loading audio file...")
-
-            # Load input audio — disk-bound; offload to thread (fixes #2319)
-            audio, sample_rate = await asyncio.to_thread(load_audio, job.input_path)
-
-            await self._notify_progress(job.job_id, 20.0, "Analyzing audio content...")
-
-            # Create processor config
-            config = self._create_processor_config(job)
-
-            # Get or create processor — exclusively owned until returned (#3201)
-            processor = await self._get_or_create_processor(job.mode, config)
-
-            await self._notify_progress(job.job_id, 40.0, "Processing audio...")
-
-            # Reset EQ state before each job so cached processors don't bleed
-            # the previous track's psychoacoustic EQ curve into the new track (fixes #2400).
-            # reset_realtime_eq() only clears the real-time EQ path's own EQ; the
-            # adaptive/continuous path uses a separate main psychoacoustic EQ whose
-            # gain-smoothing state also has to be reset here (completes #2400).
-            processor.reset_realtime_eq()
-            processor.reset_dynamics()
-            processor.reset_psychoacoustic_eq()
-
-            # Process audio — CPU-bound; offload to thread (fixes #2319)
-            # Wrap with wait_for so a hung DSP/Rust call cannot hold the
-            # semaphore slot indefinitely (fixes #2747).
-            timeout = self.processing_timeout
-            if job.mode == "reference" or job.mode == "hybrid":
-                # Load reference audio if needed
-                reference_path = job.settings.get("reference_path")
-                if reference_path and Path(reference_path).exists():
-                    reference_audio, reference_sr = await asyncio.to_thread(
-                        load_audio, reference_path
-                    )
-                    # Resample reference if needed — CPU-bound; offload to thread
-                    if reference_sr != sample_rate:
-                        reference_audio = await asyncio.to_thread(
-                            resample_audio, reference_audio, reference_sr, sample_rate
-                        )
-                    result = await asyncio.wait_for(
-                        asyncio.to_thread(processor.process, audio, reference_audio),
-                        timeout=timeout,
-                    )
-                else:
-                    # Fall back to adaptive mode if no reference
-                    result = await asyncio.wait_for(
-                        asyncio.to_thread(processor.process, audio),
-                        timeout=timeout,
-                    )
-            else:
-                # Adaptive mode
-                result = await asyncio.wait_for(
-                    asyncio.to_thread(processor.process, audio),
-                    timeout=timeout,
-                )
-
-            await self._notify_progress(job.job_id, 80.0, "Saving processed audio...")
-
-            # Save output audio
-            output_format = job.settings.get("output_format", "wav")
-            bit_depth = job.settings.get("bit_depth", 16)
-
-            # Determine subtype based on bit depth
-            subtype_map: dict[int, str] = {16: 'PCM_16', 24: 'PCM_24', 32: 'PCM_32'}
-            subtype = subtype_map.get(bit_depth, 'PCM_16')
-
-            # HybridProcessor.process() returns a bare np.ndarray. Earlier
-            # versions of this code accessed `result.audio` / `result.lufs` /
-            # `result.processing_time` etc., which silently raised
-            # AttributeError on every successful job and routed every job
-            # through the catch-all "An unexpected error occurred" branch
-            # (fixes #3489). Pull richer telemetry from the processor's
-            # last_content_profile / get_processing_info() instead.
-            if not isinstance(result, np.ndarray):
-                raise TypeError(
-                    f"HybridProcessor.process() returned {type(result).__name__}, "
-                    "expected numpy.ndarray"
-                )
-            audio_data: np.ndarray = result
-
-            # Disk-bound write; offload to thread (fixes #2319)
-            await asyncio.to_thread(
-                save,
-                file_path=job.output_path,
-                audio_data=audio_data,
-                sample_rate=sample_rate,
-                subtype=subtype,
-            )
-
-            await self._notify_progress(job.job_id, 100.0, "Processing complete!")
-
-            # Extract optional telemetry from processor side-channels (best-effort).
-            processing_time: float | None = None
-            genre_detected: str | None = None
-            lufs: float | None = None
-            try:
-                proc_info = processor.get_processing_info() if hasattr(processor, "get_processing_info") else None
-                if isinstance(proc_info, dict):
-                    processing_time = proc_info.get("last_processing_time") or proc_info.get("processing_time")
-                    lufs_val = proc_info.get("last_lufs") or proc_info.get("lufs")
-                    if lufs_val is not None:
-                        lufs = float(lufs_val)
-                content_profile = getattr(processor, "last_content_profile", None)
-                if content_profile is not None:
-                    genre_detected = getattr(content_profile, "genre", None) or genre_detected
-            except Exception:
-                # Telemetry is non-critical; never let it fail the job.
-                pass
-
-            # Store result metadata — use filename-only for output_file so
-            # the absolute temp path never appears in API responses (#3848,
-            # sibling of the input_file sanitisation in #3322).
-            job.result_data = {
-                "output_file": Path(job.output_path).name,
-                "sample_rate": int(sample_rate),
-                "duration": float(len(audio_data) / sample_rate),
-                "format": output_format,
-                "bit_depth": bit_depth,
-                "processing_time": processing_time,
-                "genre_detected": genre_detected,
-                "lufs": lufs,
-            }
-
-            job.status = ProcessingStatus.COMPLETED
-            job.completed_at = datetime.now()
+            audio, sample_rate, config, processor = await self._prepare_job(job)
+            audio_data = await self._execute_job(job, audio, sample_rate, processor)
+            self._finalize_job(job, audio_data, sample_rate, processor)
 
             # Return processor to cache for reuse (#3201)
             await self._return_processor(job.mode, config, processor)
@@ -607,102 +541,18 @@ class ProcessingEngine:
             )
 
 
-    async def _run_job(self, job: ProcessingJob) -> None:
-        """Run a single job inside a concurrency slot, then clean up.
-
-        Slot lifecycle is tracked via the local `acquired` flag so a
-        CancelledError raised inside `acquire()` (queue full, then task
-        cancelled while waiting) does NOT enter the finally with the
-        semaphore unbalanced. Prior code unconditionally released, which
-        would silently raise the effective concurrency cap above
-        max_concurrent_jobs on every cancel-during-acquire (#3531 /
-        BE-NEW-73).
-        """
-        acquired = False
-        try:
-            await self._concurrency_semaphore.acquire()
-            acquired = True
-            self._active_job_count += 1
-
-            task = asyncio.current_task()
-            if task is not None:
-                self._tasks[job.job_id] = task
-
-            try:
-                await self.process_job(job)
-            except asyncio.CancelledError:
-                if job.status != ProcessingStatus.CANCELLED:
-                    raise
-        finally:
-            self._tasks.pop(job.job_id, None)
-            if acquired:
-                self._active_job_count = max(0, self._active_job_count - 1)
-                self._concurrency_semaphore.release()
-            await self.cleanup_old_jobs(self.completed_job_ttl_hours)
-
     async def stop_worker(self) -> None:
-        """Stop the worker loop and cancel all in-progress jobs.
-
-        Cancels all running tasks, drains the queue, and signals the
-        start_worker loop to exit via the _stopping flag.
-        """
-        self._stopping = True
-        logger.info("Stopping processing engine worker...")
-
-        # Cancel all in-progress tasks
-        for job_id, task in list(self._tasks.items()):
-            if not task.done():
-                task.cancel()
-                job = self.jobs.get(job_id)
-                if job and job.status == ProcessingStatus.PROCESSING:
-                    job.status = ProcessingStatus.CANCELLED
-                    job.completed_at = datetime.now()
-
-        # Drain the queue
-        while not self.job_queue.empty():
-            try:
-                job = self.job_queue.get_nowait()
-                job.status = ProcessingStatus.CANCELLED
-                job.completed_at = datetime.now()
-            except asyncio.QueueEmpty:
-                break
-
-        # Cancel the worker task itself
-        if self._worker_task and not self._worker_task.done():
-            self._worker_task.cancel()
-            try:
-                await self._worker_task
-            except asyncio.CancelledError:
-                pass
-
-        logger.info("Processing engine worker stopped")
+        """Stop the worker loop and cancel all in-progress jobs (#4250: delegated
+        to JobWorker)."""
+        await self._worker.stop()
 
     async def start_worker(self) -> None:
-        """Start the job processing worker.
+        """Start the job processing worker (#4250: delegated to JobWorker).
 
-        Jobs are dispatched as concurrent tasks up to max_concurrent_jobs.
-        The semaphore inside _run_job governs how many execute simultaneously;
-        the worker loop itself never blocks on a running job (#2746).
-        """
-        self._stopping = False
-        self._worker_task = asyncio.current_task()
-        from helpers import spawn_background_task
-
-        while not self._stopping:
-            try:
-                job = await self.job_queue.get()
-                # Fire-and-forget: _run_job acquires a semaphore slot and
-                # cleans up after itself.  The worker loop immediately
-                # returns to dequeue the next job.  spawn_background_task
-                # attaches a done-callback so an unhandled exception inside
-                # _run_job is logged rather than silently swallowed
-                # (fixes #3512 / BE-NEW-54).
-                spawn_background_task(
-                    self._run_job(job), name=f"_run_job:{job.job_id}"
-                )
-            except Exception as e:
-                logger.exception(f"Worker error: {e}")
-                await asyncio.sleep(1)
+        Jobs are dispatched as concurrent tasks up to max_concurrent_jobs; the
+        semaphore inside the worker governs how many execute simultaneously and
+        the loop never blocks on a running job (#2746)."""
+        await self._worker.start()
 
     async def cancel_job(self, job_id: str) -> bool:
         """Cancel a job.
