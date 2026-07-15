@@ -14,7 +14,6 @@ eliminating ~400 lines of duplicate validation and processing logic.
 :license: GPLv3
 """
 
-import asyncio
 import logging
 from typing import Any
 
@@ -332,54 +331,6 @@ class AudioProcessingPipeline:
 
         # Step 4: Return processed audio
         return processed
-
-    @classmethod
-    async def process_audio_async(
-        cls,
-        audio: np.ndarray,
-        preset: str | None = None,
-        intensity: float = 1.0,
-        processor_factory: Any | None = None,
-        processor_lock: asyncio.Lock | None = None,
-        **kwargs: Any
-    ) -> np.ndarray:
-        """
-        Async version of process_audio with thread-safe locking.
-
-        Uses asyncio.Lock to prevent concurrent processor access (critical for
-        maintaining compressor envelope followers and gain reduction tracking).
-
-        Args:
-            audio: Input audio array
-            preset: Processing preset or None for original
-            intensity: Processing intensity (0.0-1.0)
-            processor_factory: ProcessorFactory instance (Phase 2: unified factory)
-            processor_lock: Optional asyncio.Lock for thread safety
-            **kwargs: Additional arguments passed to process_audio()
-
-        Returns:
-            Processed audio array
-        """
-        # process_audio() is synchronous CPU work (NumPy + Rust FFT via
-        # PyO3), typically 100-500 ms per chunk. Offload to a thread so
-        # we don't block the FastAPI event loop (fixes #3529 / BE-NEW-71
-        # — prior `async def` was async in name only).
-        import asyncio as _asyncio
-
-        def _run() -> np.ndarray:
-            return cls.process_audio(
-                audio=audio,
-                preset=preset,
-                intensity=intensity,
-                processor_factory=processor_factory,
-                **kwargs,
-            )
-
-        if processor_lock is not None:
-            async with processor_lock:
-                return await _asyncio.to_thread(_run)
-        return await _asyncio.to_thread(_run)
-
 
 class AudioValidationError(ValueError):
     """Custom exception for audio validation failures"""
