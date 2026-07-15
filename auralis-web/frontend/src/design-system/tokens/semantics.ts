@@ -1,8 +1,13 @@
 /**
  * Auralis Design System Tokens — see ./README or tokens barrel.
- * Split from the former monolithic tokens.ts (#4079). Do not add cross-category
- * references here; each category is self-contained and merged in the barrel.
+ * Split from the former monolithic tokens.ts (#4079). Categories are otherwise
+ * self-contained, but `components.*` intentionally composes its glass surface
+ * backgrounds from `colors.bg.*` via `withOpacity` so component tokens track
+ * palette updates instead of drifting (#4203). Keep all other categories free
+ * of cross-category references.
  */
+import { colors } from './colors';
+import { withOpacity } from './with-opacity';
 
 
   /**
@@ -89,7 +94,7 @@ export const components = {
     playerBar: {
       height: '96px',
       zIndex: 1030,
-      background: 'rgba(11, 16, 32, 0.85)',        // Deep blue-black (translucent)
+      background: withOpacity(colors.bg.level0, 0.85), // Deep blue-black (translucent)
       backdropFilter: 'blur(24px) saturate(1.2)',
       borderTop: 'none',                           // Top edge blends with content
       shadow: '0 -8px 32px rgba(0, 0, 0, 0.28)',   // Depth via shadow
@@ -98,7 +103,7 @@ export const components = {
     sidebar: {
       width: '256px',
       collapsedWidth: '72px',
-      background: 'rgba(16, 23, 41, 0.20)',
+      background: withOpacity(colors.bg.level1, 0.2),
       backdropFilter: 'blur(6px) saturate(0.95)',
       borderRight: 'none',  // No hard border - use bevel shadow instead
       // Glass bevel: outer shadow + right edge highlight
@@ -109,7 +114,7 @@ export const components = {
       width: '360px',
       minWidth: '300px',
       // Match sidebar's subtle transparency (muscle memory UI)
-      background: 'rgba(16, 23, 41, 0.20)',
+      background: withOpacity(colors.bg.level1, 0.2),
       backdropFilter: 'blur(6px) saturate(0.95)',
       borderLeft: 'none',
       // Glass bevel: mirrored from sidebar (left edge highlight)
@@ -145,15 +150,17 @@ export const components = {
     searchBar: {
       height: '48px',
       borderRadius: '24px',  // Pill shape
-      background: 'rgba(31, 41, 54, 0.60)',
+      background: withOpacity(colors.bg.level4, 0.6),
       padding: '0 16px',
     },
 
     // Input surface backgrounds at rest / hover / focus (#3981 — was raw rgba
-    // in design-system/primitives/Input.tsx). Base color #1F2936 = rgb(31,41,54).
+    // in design-system/primitives/Input.tsx). Composed from bg.level4 (#1F2940)
+    // via withOpacity so it tracks palette updates (#4203). This snaps the
+    // former off-palette #1F2936 base onto the canonical bg.level4.
     inputSurface: {
-      base: 'rgba(31, 41, 54, 0.60)',
-      hover: 'rgba(31, 41, 54, 0.80)',
-      focus: 'rgba(31, 41, 54, 0.95)',
+      base: withOpacity(colors.bg.level4, 0.6),
+      hover: withOpacity(colors.bg.level4, 0.8),
+      focus: withOpacity(colors.bg.level4, 0.95),
     },
 } as const;

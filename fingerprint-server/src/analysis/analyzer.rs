@@ -173,10 +173,16 @@ fn analyze_dynamics(
     freqs: &[f64],
     _sample_rate: u32,
 ) -> Result<(f64, f64, f64)> {
-    // LUFS approximation (simplified)
+    // LUFS approximation (RMS proxy). This dimension is intentionally an RMS
+    // proxy, NOT full ITU-R BS.1770-4: the canonical in-process path
+    // (`auralis_dsp::dsp_math::estimate_lufs`) and the Python fingerprint path
+    // (`fingerprint_service._rms_lufs_crest`) both compute `20*log10(rms) - ~0.691`
+    // — amplitude→dB (20·log10 of RMS, equivalently 10·log10 of mean-square).
+    // The prior `10 * rms.log10()` was half-scale and diverged from every other
+    // fingerprint path by ~2× in dB on dynamic content (#4123).
     let rms = (samples.iter().map(|s| s * s).sum::<f64>() / samples.len() as f64).sqrt();
     let lufs = if rms > 0.0 {
-        -0.691 + 10.0 * rms.log10()
+        -0.691 + 20.0 * rms.log10()
     } else {
         -120.0
     };
@@ -579,4 +585,37 @@ fn analyze_stereo(_samples: &[f64]) -> Result<(f64, f64)> {
     // Simplified stereo analysis (mono signal has no stereo info)
     // In real implementation, would need actual stereo channels
     Ok((0.0, 1.0)) // mono width = 0, perfect correlation = 1.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// LUFS must match the RMS proxy shared by the in-process PyO3 path
+    /// (`auralis_dsp::dsp_math::estimate_lufs`) and the Python fingerprint
+    /// proxy (`fingerprint_service._rms_lufs_crest`): `-0.691 + 20*log10(rms)`.
+    /// Guards against regressing to the half-scale `10*log10(rms)` (#4123).
+    #[test]
+    fn lufs_matches_rms_proxy() {
+        // Constant-amplitude signal → rms == amplitude == 0.5.
+        let samples = vec![0.5_f64; 4096];
+        let (lufs, _crest, _bmr) = analyze_dynamics(&samples, &[], &[], 44_100).unwrap();
+
+        let expected = -0.691 + 20.0 * 0.5_f64.log10();
+        assert!(
+            (lufs - expected).abs() < 1e-6,
+            "lufs={lufs} diverges from RMS proxy expected={expected}"
+        );
+        // Sanity: -6.7 LUFS for a -6 dBFS RMS tone, not the ~-3.7 the old
+        // half-scale formula produced.
+        assert!(lufs < -6.0 && lufs > -7.0, "lufs={lufs} out of expected band");
+    }
+
+    /// Silent input floors at -120 LUFS (matches the Python/PyO3 floor).
+    #[test]
+    fn lufs_silent_floors() {
+        let samples = vec![0.0_f64; 1024];
+        let (lufs, _crest, _bmr) = analyze_dynamics(&samples, &[], &[], 44_100).unwrap();
+        assert_eq!(lufs, -120.0);
+    }
 }
