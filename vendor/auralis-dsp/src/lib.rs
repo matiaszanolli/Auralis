@@ -21,6 +21,9 @@ pub mod biquad_filter;
 pub mod onset_detector;
 pub mod chunk_processor;
 
+// Shared DSP math primitives (compute_rms, estimate_lufs) — #4022
+pub(crate) mod dsp_math;
+
 // Fingerprinting modules (25D audio analysis)
 pub mod frequency_analysis;
 pub mod spectral_features;

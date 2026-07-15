@@ -1,6 +1,8 @@
 /// Temporal variation analysis
 /// Measures how audio characteristics vary over time
 
+use crate::dsp_math::estimate_lufs;
+
 /// Compute dynamic range in decibels
 fn compute_dynamic_range_db(signal: &[f32]) -> f32 {
     if signal.is_empty() {
@@ -19,30 +21,6 @@ fn compute_dynamic_range_db(signal: &[f32]) -> f32 {
     }
 
     20.0 * (max_abs / min_nonzero).log10()
-}
-
-/// Compute RMS level of signal
-fn compute_rms(signal: &[f32]) -> f32 {
-    if signal.is_empty() {
-        return 0.0;
-    }
-
-    let sum_sq: f32 = signal.iter().map(|s| s * s).sum();
-    (sum_sq / signal.len() as f32).sqrt()
-}
-
-/// Estimate LUFS (approximate, uses RMS + loudness weighting)
-fn estimate_lufs(signal: &[f32], sample_rate: u32) -> f32 {
-    let rms = compute_rms(signal);
-    if rms < 1e-10 {
-        return -120.0;
-    }
-
-    // Simple LUFS approximation (not ITU-1771 certified)
-    // True LUFS uses frequency weighting, gate, and integration
-    let db = 20.0 * rms.log10() + 1.0; // Arbitrary calibration
-
-    db.max(-120.0).min(0.0) // Clamp to reasonable range
 }
 
 /// Divide signal into frames and compute metric for each
@@ -137,7 +115,7 @@ pub fn compute_loudness_variation(audio: &[f32], sample_rate: u32) -> f32 {
 
     let frame_duration = 1.0;
     let loudness_values = frame_analysis(audio, sample_rate, frame_duration, |frame| {
-        estimate_lufs(frame, sample_rate)
+        estimate_lufs(frame)
     });
 
     if loudness_values.is_empty() {
@@ -198,7 +176,7 @@ mod tests {
     #[test]
     fn test_compute_rms() {
         let audio = vec![0.1, 0.1, 0.1, 0.1];
-        let rms = compute_rms(&audio);
+        let rms = crate::dsp_math::compute_rms(&audio);
         assert!((rms - 0.1).abs() < 0.01);
     }
 

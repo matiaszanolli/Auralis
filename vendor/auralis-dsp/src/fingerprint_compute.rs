@@ -1,6 +1,7 @@
 /// Unified 25D audio fingerprinting
 /// Orchestrates all fingerprint dimensions from specialized modules
 
+use crate::dsp_math::{compute_rms, estimate_lufs};
 use crate::frequency_analysis;
 use crate::spectral_features;
 use crate::variation_analysis;
@@ -98,16 +99,6 @@ impl AudioFingerprint {
     }
 }
 
-/// Compute RMS energy of signal
-fn compute_rms(signal: &[f32]) -> f32 {
-    if signal.is_empty() {
-        return 0.0;
-    }
-
-    let sum_sq: f32 = signal.iter().map(|s| s * s).sum();
-    (sum_sq / signal.len() as f32).sqrt()
-}
-
 /// Estimate peak-to-RMS ratio (crest factor)
 fn compute_crest_factor(signal: &[f32]) -> f32 {
     if signal.is_empty() {
@@ -123,19 +114,6 @@ fn compute_crest_factor(signal: &[f32]) -> f32 {
 
     // Convert to dB
     20.0 * (peak / rms).log10()
-}
-
-/// Estimate LUFS (loudness units relative to full scale)
-fn estimate_lufs(signal: &[f32]) -> f32 {
-    let rms = compute_rms(signal);
-    if rms < 1e-10 {
-        return -120.0;
-    }
-
-    // Simplified LUFS (not ITU-1771 certified)
-    let db = 20.0 * rms.log10() - 0.7; // Calibration constant
-
-    db.max(-120.0).min(0.0)
 }
 
 /// Compute bass/mid energy ratio
