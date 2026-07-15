@@ -51,8 +51,7 @@ from core.mastering_target_service import (
     MasteringTargetService,  # Phase 4: Unified fingerprint/target management
 )
 from core.processor_factory import (
-    ProcessorFactory,  # Phase 2: Replaced ProcessorManager
-    get_processor_factory,  # Singleton accessor
+    get_processor_factory,  # Singleton accessor (ProcessorFactory is injected, not constructed here)
 )
 
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine, MasteringRecommendation
