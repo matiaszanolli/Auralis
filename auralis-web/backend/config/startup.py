@@ -201,12 +201,15 @@ def create_lifespan(deps: dict[str, Any]):
                 # Ensure database directory exists before initializing LibraryManager
                 music_dir = Path.home() / "Music" / "Auralis"
                 music_dir.mkdir(parents=True, exist_ok=True)
-                logger.info(f"📁 Database directory ready: {music_dir}")
+                # Absolute home/database paths are sensitive and persist to the
+                # on-disk electron-log, so they log at DEBUG — consistent with the
+                # #3844 demotion of the sibling path-validation logs (#4376).
+                logger.debug(f"📁 Database directory ready: {music_dir}")
 
                 # Initialize LibraryManager
                 globals_dict['library_manager'] = LibraryManager()
                 logger.info("✅ Auralis LibraryManager initialized")
-                logger.info(f"📊 Database location: {globals_dict['library_manager'].database_path}")
+                logger.debug(f"📊 Database location: {globals_dict['library_manager'].database_path}")
 
                 # Initialize RepositoryFactory for dependency injection
                 # This enables gradual migration from LibraryManager to repositories
