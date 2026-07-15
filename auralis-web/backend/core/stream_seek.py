@@ -81,28 +81,31 @@ async def stream_enhanced_audio_from_position(
     # even on early-exit paths (fixes #3493 unbound-var hazard).
     lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
 
-    # Get track from library
+    # A single try/finally from here guards the semaphore permit acquired above:
+    # it is released exactly once in the finally at the end. The track lookup
+    # lives INSIDE this try so a task cancellation (CancelledError — a
+    # BaseException that `except Exception` does not catch) during the awaited
+    # get_by_id cannot escape before the permit is released, which would leak a
+    # permit permanently for the process lifetime (#4329).
     try:
-        factory = controller._get_repository_factory()
-        track = await asyncio.to_thread(factory.tracks.get_by_id, track_id)
-        if not track:
-            await controller._send_error(websocket, track_id, "Track not found")
-            controller._stream_semaphore.release()
+        # Get track from library
+        try:
+            factory = controller._get_repository_factory()
+            track = await asyncio.to_thread(factory.tracks.get_by_id, track_id)
+            if not track:
+                await controller._send_error(websocket, track_id, "Track not found")
+                return
+
+            if not Path(track.filepath).exists():
+                await controller._send_error(
+                    websocket, track_id, "Audio file not found"
+                )
+                return
+        except Exception as e:
+            logger.error(f"Failed to load track {track_id}: {e}", exc_info=True)
+            await controller._send_error(websocket, track_id, "Failed to load track")
             return
 
-        if not Path(track.filepath).exists():
-            await controller._send_error(
-                websocket, track_id, "Audio file not found"
-            )
-            controller._stream_semaphore.release()
-            return
-    except Exception as e:
-        logger.error(f"Failed to load track {track_id}: {e}", exc_info=True)
-        await controller._send_error(websocket, track_id, "Failed to load track")
-        controller._stream_semaphore.release()
-        return
-
-    try:
         # Create processor for this track with timeout (#2125)
         try:
             processor: 'ChunkedAudioProcessor' = await asyncio.wait_for(

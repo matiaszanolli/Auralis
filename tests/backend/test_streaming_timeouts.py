@@ -30,6 +30,13 @@ class TestSemaphoreTimeout:
     async def test_rejects_when_semaphore_full(self):
         """Client receives error when all stream slots are occupied."""
         controller = AudioStreamController()
+        # Both must be truthy to pass the top-of-function guards and reach the
+        # semaphore acquire (the impl now lives in core.stream_enhanced).
+        controller.chunked_processor_class = MagicMock()
+        controller._get_repository_factory = MagicMock()
+        # Fresh semaphore bound to THIS test's event loop (the default is a
+        # module-level global bound to import-time's loop → cross-loop errors).
+        controller._stream_semaphore = asyncio.Semaphore(MAX_CONCURRENT_STREAMS)
 
         # Exhaust all semaphore slots
         for _ in range(MAX_CONCURRENT_STREAMS):
@@ -58,6 +65,10 @@ class TestSemaphoreTimeout:
     async def test_semaphore_value_after_timeout(self):
         """Semaphore must not leak after timeout rejection."""
         controller = AudioStreamController()
+        controller.chunked_processor_class = MagicMock()
+        controller._get_repository_factory = MagicMock()
+        # Fresh semaphore bound to THIS test's event loop (see sibling test).
+        controller._stream_semaphore = asyncio.Semaphore(MAX_CONCURRENT_STREAMS)
         initial_value = controller._stream_semaphore._value
 
         # Exhaust all slots
@@ -134,20 +145,40 @@ class TestProcessorInitTimeout:
 
 @pytest.mark.asyncio
 class TestSemaphoreCleanup:
-    """Ensure semaphore is always released in finally blocks."""
+    """Ensure the semaphore is released exactly once, in a finally block.
 
-    async def test_source_has_finally_release(self):
-        """stream_enhanced_audio must release semaphore in a finally block."""
+    The controller methods are thin wrappers; the real implementations (and the
+    release-guaranteeing finally) live in the core.stream_* modules. These tests
+    inspect those module functions directly and assert the single-release-in-
+    finally invariant that #4329 depends on.
+    """
+
+    def _assert_single_finally_release(self, func):
         import inspect
-        source = inspect.getsource(AudioStreamController.stream_enhanced_audio)
-        assert "semaphore.release()" in source or "_stream_semaphore.release()" in source, (
-            "stream_enhanced_audio must release semaphore in finally block"
+        source = inspect.getsource(func)
+        # Exactly one release — no manual pre-finally release() can be skipped
+        # by an early return or a BaseException (#4329).
+        assert source.count("_stream_semaphore.release()") == 1, (
+            f"{func.__name__} must release the semaphore exactly once "
+            f"(found {source.count('_stream_semaphore.release()')})"
+        )
+        # And that single release must sit inside a finally block.
+        finally_idx = source.rfind("finally:")
+        release_idx = source.rfind("_stream_semaphore.release()")
+        assert finally_idx != -1 and release_idx > finally_idx, (
+            f"{func.__name__} must release the semaphore in a finally block"
+        )
+
+    async def test_source_enhanced_has_finally_release(self):
+        from core import stream_enhanced
+        self._assert_single_finally_release(stream_enhanced.stream_enhanced_audio)
+
+    async def test_source_seek_has_finally_release(self):
+        from core import stream_seek
+        self._assert_single_finally_release(
+            stream_seek.stream_enhanced_audio_from_position
         )
 
     async def test_source_normal_has_finally_release(self):
-        """stream_normal_audio must release semaphore in a finally block."""
-        import inspect
-        source = inspect.getsource(AudioStreamController.stream_normal_audio)
-        assert "semaphore.release()" in source or "_stream_semaphore.release()" in source, (
-            "stream_normal_audio must release semaphore in finally block"
-        )
+        from core import stream_normal
+        self._assert_single_finally_release(stream_normal.stream_normal_audio)
