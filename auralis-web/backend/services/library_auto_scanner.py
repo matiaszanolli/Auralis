@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Optional watchdog for real-time filesystem events
 try:
     from watchdog.observers import Observer
-    from watchdog.events import FileSystemEventHandler, FileSystemEvent
+    from watchdog.events import FileSystemEventHandler
     HAS_WATCHDOG = True
 except ImportError:
     HAS_WATCHDOG = False
