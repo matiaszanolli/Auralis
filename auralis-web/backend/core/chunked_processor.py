@@ -44,6 +44,10 @@ from core.chunk_boundaries import (  # noqa: F401 — CONTEXT_DURATION re-export
 )
 from core.chunk_cache_manager import ChunkCacheManager  # Phase 5.1: Cache management
 from core.chunk_operations import ChunkOperations  # Phase 3: Unified chunk operations
+# Crossfade math + mastering recommendation extracted to their own modules (#4245).
+# apply_crossfade_between_chunks is re-exported so existing imports keep working.
+from core.chunk_crossfade import apply_crossfade_between_chunks
+from core.chunk_mastering import compute_mastering_recommendation
 from core.encoding import WAVEncoder
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
 from core.level_manager import LevelManager
@@ -55,7 +59,6 @@ from core.processor_factory import (
 )
 
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine, MasteringRecommendation
-from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from auralis.io.saver import save as save_audio
 from auralis.io.unified_loader import load_audio
 
@@ -167,7 +170,7 @@ class ChunkedAudioProcessor:
         # (envelope followers, gain reduction tracking, etc.)
         # Must be a threading.RLock (not asyncio.Lock) so it can be acquired
         # inside asyncio.to_thread() worker threads (issue #2388) and re-entered
-        # from _process_chunk_locked (fixes #3808 / shared flag race — the
+        # from process_chunk(locked=True) (fixes #3808 / shared flag race — the
         # use_fingerprint_analysis toggle itself is serialised in
         # AudioProcessingPipeline.apply_enhancement via the shared
         # processor's own _process_lock, see #4354).
@@ -457,7 +460,9 @@ class ChunkedAudioProcessor:
 
         return processed_chunk
 
-    def process_chunk(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
+    def process_chunk(
+        self, chunk_index: int, fast_start: bool = False, locked: bool = False
+    ) -> tuple[str, np.ndarray]:
         """
         Process a single chunk with Auralis HybridProcessor and save to WAV.
 
@@ -467,10 +472,19 @@ class ChunkedAudioProcessor:
         Args:
             chunk_index: Index of chunk to process
             fast_start: If True, skip expensive fingerprint analysis for faster initial buffering
+            locked: If True, hold _processor_lock (threading.Lock) for the whole
+                chunk so concurrent calls serialise. Used by process_chunk_safe,
+                which runs this in a thread pool (#2388). Default False keeps the
+                direct sync call (and tests) lock-free (#4245: collapses the old
+                process_chunk / _process_chunk_locked pair).
 
         Returns:
             Tuple of (path_to_chunk_file, processed_audio_array)
         """
+        if locked:
+            with self._processor_lock:
+                return self.process_chunk(chunk_index, fast_start, locked=False)
+
         # Check cache first (Phase 5.1: Using ChunkCacheManager)
         cache_key = ChunkCacheManager.get_chunk_cache_key(
             self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
@@ -536,17 +550,6 @@ class ChunkedAudioProcessor:
         # Return both path (for caching) and audio array (for immediate streaming)
         return (str(chunk_path), extracted_chunk)
 
-    def _process_chunk_locked(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
-        """
-        Synchronous helper: acquire the threading lock then process the chunk.
-
-        Called exclusively via asyncio.to_thread() from process_chunk_safe so that
-        the CPU-bound DSP work runs in a thread-pool worker rather than on the
-        event loop thread (issue #2388).
-        """
-        with self._processor_lock:
-            return self.process_chunk(chunk_index, fast_start)
-
     async def process_chunk_safe(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
         """
         Process a single chunk with thread-safe locking (async version).
@@ -568,63 +571,19 @@ class ChunkedAudioProcessor:
             - path: for caching/durability
             - audio: numpy array for immediate streaming (avoids disk round-trip)
         """
-        return await asyncio.to_thread(self._process_chunk_locked, chunk_index, fast_start)
+        return await asyncio.to_thread(self.process_chunk, chunk_index, fast_start, True)
 
 
 
 
     def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Any | None:
+        """Get a weighted mastering profile recommendation for this track.
+
+        Delegates to core.chunk_mastering (#4245) — this is not a chunk-streaming
+        concern. State (adaptive_mastering_engine / fingerprint /
+        mastering_recommendation) is read and cached on this processor.
         """
-        Get weighted mastering profile recommendation for this track (Priority 4).
-
-        Lazily initializes the adaptive mastering engine and caches the recommendation.
-        Uses the track's fingerprint if available, otherwise analyzes from audio.
-
-        Args:
-            confidence_threshold: Threshold for blending (default 0.4)
-
-        Returns:
-            MasteringRecommendation with weighted_profiles populated if hybrid, or None if unable to analyze
-        """
-        # Return cached recommendation if available
-        if self.mastering_recommendation is not None:
-            return self.mastering_recommendation
-
-        try:
-            # Initialize engine on first use
-            if self.adaptive_mastering_engine is None:
-                self.adaptive_mastering_engine = AdaptiveMasteringEngine()
-
-            # Get or extract fingerprint
-            if self.fingerprint is None:
-                logger.info(f"📊 Extracting mastering fingerprint for recommendation analysis...")
-                try:
-                    self.fingerprint = MasteringFingerprint.from_audio_file(self.filepath)
-                except Exception as e:
-                    logger.warning(f"Failed to extract fingerprint for recommendations: {e}")
-                    return None
-
-            # Get weighted recommendation
-            if self.fingerprint is not None and self.adaptive_mastering_engine is not None:
-                recommendation = self.adaptive_mastering_engine.recommend_weighted(
-                    self.fingerprint,
-                    confidence_threshold=confidence_threshold
-                )
-                self.mastering_recommendation = recommendation
-                if self.mastering_recommendation is not None:
-                    logger.info(
-                        f"🎯 Mastering recommendation generated: "
-                        f"profile={self.mastering_recommendation.primary_profile.name}, "
-                        f"confidence={self.mastering_recommendation.confidence_score:.0%}, "
-                        f"blended={'yes' if self.mastering_recommendation.weighted_profiles else 'no'}"
-                    )
-                return self.mastering_recommendation
-
-        except Exception as e:
-            logger.error(f"Failed to generate mastering recommendation: {e}")
-            return None
-
-        return None
+        return compute_mastering_recommendation(self, confidence_threshold)
 
 
 
@@ -781,58 +740,6 @@ class ChunkedAudioProcessor:
                 logger.debug(f"📊 Stored processing profile for preset '{self.preset}'")
 
         return str(wav_chunk_path)
-
-
-def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overlap_samples: int) -> np.ndarray:
-    """
-    Apply crossfade between two audio chunks and return concatenated result.
-
-    Uses overlap-add: the last N samples of chunk1 are mixed with the first N samples
-    of chunk2, then we keep all of chunk1 + the non-overlapping part of chunk2.
-    This preserves total duration without losing audio.
-
-    Args:
-        chunk1: First audio chunk
-        chunk2: Second audio chunk
-        overlap_samples: Number of samples to crossfade
-
-    Returns:
-        Concatenated audio with crossfade applied at boundary (no audio lost)
-    """
-    # Ensure we don't try to overlap more than available
-    actual_overlap = min(overlap_samples, len(chunk1), len(chunk2))
-
-    if actual_overlap <= 0:
-        # No overlap possible, just concatenate
-        result: np.ndarray = np.concatenate([chunk1, chunk2], axis=0)
-        return result
-
-    # Get overlap regions
-    chunk1_tail = chunk1[-actual_overlap:]
-    chunk2_head = chunk2[:actual_overlap]
-
-    # Create equal-power fade curves (sin²/cos²) to avoid energy dip at midpoint (fixes #2080)
-    t = np.linspace(0.0, np.pi / 2, actual_overlap)
-    fade_out = np.cos(t) ** 2
-    fade_in = np.sin(t) ** 2
-
-    # Handle stereo
-    if chunk1_tail.ndim == 2:
-        fade_out = fade_out[:, np.newaxis]
-        fade_in = fade_in[:, np.newaxis]
-
-    # Apply fades and mix the overlap region
-    crossfade = chunk1_tail * fade_out + chunk2_head * fade_in
-
-    # IMPORTANT: Don't lose audio!
-    # Result = full chunk1 (except last overlap) + crossfaded overlap + rest of chunk2
-    result = np.concatenate([
-        chunk1[:-actual_overlap],  # Chunk1 without the tail that will be mixed
-        crossfade,                  # The mixed overlap region
-        chunk2[actual_overlap:]     # Chunk2 without the head that was mixed
-    ], axis=0)
-
-    return result
 
 
 def get_last_content_profile(preset: str) -> dict[str, Any] | None:
