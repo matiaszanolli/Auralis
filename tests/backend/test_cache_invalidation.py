@@ -478,36 +478,3 @@ def test_rapid_invalidation(temp_library):
     manager.get_all_tracks(limit=10)
     stats = manager.get_cache_stats()
     assert stats['size'] == 1
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of cache invalidation test suite.
-    """
-    test_categories = {
-        'Pattern-Based Invalidation': 3,
-        'Mutation-Specific Invalidation': 4,
-        'Cache Hit Rate': 2,
-        'Edge Cases': 2,
-        'Concurrency Safety': 1
-    }
-
-    total = sum(test_categories.values())
-
-    print("\n" + "=" * 60)
-    print("Cache Invalidation Test Suite Summary")
-    print("=" * 60)
-    for category, count in test_categories.items():
-        print(f"  {category:.<40} {count:>3} tests")
-    print("-" * 60)
-    print(f"  {'Total':.<40} {total:>3} tests")
-    print("=" * 60)
-    print("\nTest Organization:")
-    print("  - Unit tests: Fast, isolated cache behavior")
-    print("  - Integration tests: Multi-component cache interactions")
-    print("  - Performance tests: Cache hit rate benchmarks")
-    print("=" * 60)

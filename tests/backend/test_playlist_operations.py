@@ -431,23 +431,3 @@ def test_playlist_add_track_to_nonexistent_playlist(temp_audio_dir, playlist_rep
         playlist_repo.add_track(nonexistent_playlist_id, track.id)
     except (ValueError, Exception):
         pass  # Expected
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about playlist operation tests."""
-    print("\n" + "=" * 70)
-    print("PLAYLIST OPERATIONS TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total playlist tests: 15")
-    print(f"\nTest categories:")
-    print(f"  - Playlist CRUD: 4 tests")
-    print(f"  - Playlist-track relationships: 5 tests")
-    print(f"  - Querying: 2 tests")
-    print(f"  - Edge cases: 3 tests")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

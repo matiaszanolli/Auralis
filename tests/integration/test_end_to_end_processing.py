@@ -617,27 +617,3 @@ def test_e2e_process_five_minute_audio(temp_audio_dir):
     save_audio(str(output_file), processed, sr, subtype='PCM_16')
 
     assert output_file.exists()
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about E2E integration tests."""
-    print("\n" + "=" * 70)
-    print("END-TO-END INTEGRATION TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total E2E tests: 25")
-    print(f"\nTest categories:")
-    print(f"  - Full processing pipeline: 3 tests")
-    print(f"  - Chunked processing workflows: 2 tests")
-    print(f"  - Different audio formats: 2 tests")
-    print(f"  - Different sample rates: 1 test")
-    print(f"  - Error handling: 2 tests")
-    print(f"  - Performance tests: 1 test")
-    print(f"  - Quality checks: 3 tests")
-    print(f"  - Real-world scenarios: 3 tests")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

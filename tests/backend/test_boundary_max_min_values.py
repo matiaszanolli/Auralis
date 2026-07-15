@@ -799,32 +799,3 @@ def test_concurrent_track_additions(tmp_path):
     # Would test with threading.Thread
     # Test documents expected behavior for concurrent operations
     pass
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("MAXIMUM/MINIMUM VALUE BOUNDARY TEST SUMMARY")
-    print("=" * 80)
-    print(f"Very Long Audio: 4 tests")
-    print(f"Very Short Audio: 4 tests")
-    print(f"Extreme Loudness: 6 tests")
-    print(f"Large Libraries: 4 tests")
-    print(f"String Extremes: 7 tests")
-    print(f"Memory/Resources: 2 tests")
-    print("=" * 80)
-    print(f"TOTAL: 27 max/min value boundary tests")
-    print("=" * 80)
-    print("\nThese tests catch extreme value bugs:")
-    print("1. Memory exhaustion (very long audio)")
-    print("2. Buffer underrun (very short audio)")
-    print("3. Clipping and normalization (extreme loudness)")
-    print("4. Performance degradation (large libraries)")
-    print("5. SQL injection and overflow (string extremes)")
-    print("=" * 80 + "\n")

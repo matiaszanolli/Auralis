@@ -380,26 +380,3 @@ def test_error_load_corrupt_audio_file(temp_audio_dir):
 
     with pytest.raises((IOError, ValueError, Exception)):
         load_audio(str(corrupt_file))
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about error handling tests."""
-    print("\n" + "=" * 70)
-    print("ERROR HANDLING TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total error handling tests: 15")
-    print(f"\nTest categories:")
-    print(f"  - File operations: 3 tests")
-    print(f"  - Invalid audio data: 3 tests")
-    print(f"  - Database operations: 3 tests")
-    print(f"  - Invalid parameters: 2 tests")
-    print(f"  - Resource cleanup: 1 test")
-    print(f"  - Concurrent access: 1 test")
-    print(f"  - Invalid file formats: 1 test")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

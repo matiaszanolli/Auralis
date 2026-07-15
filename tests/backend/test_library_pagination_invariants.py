@@ -921,39 +921,3 @@ def test_pagination_consistency_with_concurrent_modifications():
     # This test is intentionally marked as expected to have issues
     # Just documenting the limitation of offset-based pagination
     pytest.skip("Known limitation: offset-based pagination not consistent with concurrent writes")
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("LIBRARY PAGINATION INVARIANT TEST SUMMARY")
-    print("=" * 80)
-    print(f"Core Pagination Invariants: 5 tests")
-    print(f"Ordering Invariants: 2 tests")
-    print(f"Boundary Tests: 3 tests")
-    print(f"Album Pagination: 2 tests")
-    print(f"Artist Pagination: 1 test")
-    print(f"Search Pagination: 2 tests")
-    print(f"Filtered List Pagination: 2 tests")
-    print(f"Limit Validation Invariants: 2 tests")
-    print(f"Offset Validation Invariants: 2 tests")
-    print(f"Total Count Accuracy Invariants: 2 tests")
-    print(f"Popular Tracks Pagination: 2 tests")
-    print(f"Edge Cases: 3 tests")
-    print("=" * 80)
-    print(f"TOTAL: 30 pagination invariant tests")
-    print("=" * 80)
-    print("\nThese tests validate the fundamental pagination invariants:")
-    print("1. Completeness: All items returned exactly once")
-    print("2. Consistency: Same items regardless of page size")
-    print("3. Ordering: Items maintain sort order across pages")
-    print("4. Boundary handling: Edge cases handled correctly")
-    print("5. Limit/offset validation: Parameters respected correctly")
-    print("6. Total count accuracy: Reported totals match actual counts")
-    print("=" * 80 + "\n")

@@ -502,28 +502,3 @@ def test_concurrent_search_operations(temp_audio_dir):
     assert len(search_results) == len(queries)
 
     print(f"\n  Search results: {search_results}")
-
-    
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about concurrent operations tests."""
-    print("\n" + "=" * 70)
-    print("CONCURRENT OPERATIONS TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total concurrency tests: 10")
-    print(f"\nTest categories:")
-    print(f"  - Concurrent reads: 1 test")
-    print(f"  - Concurrent writes: 1 test")
-    print(f"  - Read-write mix: 1 test")
-    print(f"  - Audio processing: 1 test")
-    print(f"  - Cache consistency: 1 test")
-    print(f"  - Resource cleanup: 1 test")
-    print(f"  - Search under load: 1 test")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

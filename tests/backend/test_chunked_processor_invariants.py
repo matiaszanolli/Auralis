@@ -827,36 +827,3 @@ def test_handles_exactly_one_chunk_interval():
 
     finally:
         Path(filepath).unlink()
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-
-    This is not a real test, just documentation.
-    """
-    print("\n" + "=" * 80)
-    print("CHUNKED PROCESSOR INVARIANT TEST SUMMARY")
-    print("=" * 80)
-    print(f"Configuration Invariants: 5 tests")
-    print(f"Chunk Boundary Invariants: 5 tests")
-    print(f"Audio Processing Invariants: 2 tests")
-    print(f"Crossfade Invariants: 4 tests")
-    print(f"Cache Invariants: 3 tests")
-    print(f"Level Smoothing Invariants: 2 tests")
-    print(f"File Signature Invariants: 1 test")
-    print(f"Sample Alignment Invariants: 2 tests")
-    print(f"Chunk Overlap Edge Cases: 2 tests")
-    print(f"Duration Preservation Edge Cases: 2 tests")
-    print(f"General Edge Case Tests: 2 tests")
-    print("=" * 80)
-    print(f"TOTAL: 30 critical invariant tests")
-    print("=" * 80)
-    print("\nThese tests validate properties that MUST always hold,")
-    print("regardless of implementation details.")
-    print("\nKey Principle: Test behavior, not code.")
-    print("=" * 80 + "\n")

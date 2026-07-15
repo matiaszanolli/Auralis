@@ -451,30 +451,3 @@ def test_delete_track_from_playlist_cascade(library_with_playlists):
 
     # Verify playlist still exists
     assert playlist_after is not None, "Playlist should still exist"
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("PLAYLIST OPERATIONS INTEGRATION TEST SUMMARY")
-    print("=" * 80)
-    print(f"CRUD Operations: 4 tests")
-    print(f"Track Management: 3 tests")
-    print(f"Query Operations: 2 tests")
-    print(f"Edge Cases: 2 tests")
-    print("=" * 80)
-    print(f"TOTAL: 11 playlist integration tests")
-    print("=" * 80)
-    print("\nThese tests validate playlist operations:")
-    print("1. Create, Read, Update, Delete playlists")
-    print("2. Add, remove, reorder tracks")
-    print("3. Search and query playlists")
-    print("4. Cascade deletion behavior")
-    print("5. Edge cases (duplicates, empty playlists)")
-    print("=" * 80 + "\n")

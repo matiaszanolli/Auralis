@@ -334,24 +334,3 @@ def test_format_scanner_skips_unsupported_files(temp_audio_dir, library_manager)
     added, skipped, errors = scanner.scan_folder(str(temp_audio_dir))
 
     assert added == 0
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about file format support tests."""
-    print("\n" + "=" * 70)
-    print("FILE FORMAT SUPPORT TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total format tests: 15")
-    print(f"\nTest categories:")
-    print(f"  - WAV format: 3 tests")
-    print(f"  - FLAC format: 2 tests")
-    print(f"  - Sample rates: 3 tests")
-    print(f"  - Channel configurations: 2 tests")
-    print(f"  - Scanner format detection: 3 tests")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

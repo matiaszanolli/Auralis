@@ -426,24 +426,3 @@ def test_load_chunk_beyond_last_index(processor_factory):
     except (IndexError, ValueError, RuntimeError):
         # Raising an error is also acceptable behavior
         pass
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about boundary tests."""
-    print("\n" + "=" * 70)
-    print("CHUNKED PROCESSOR BOUNDARY TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total boundary tests: 15")
-    print(f"\nTest categories:")
-    print(f"  - Minimum duration tests: 3")
-    print(f"  - Chunk boundary tests: 3")
-    print(f"  - Maximum duration tests: 2")
-    print(f"  - Sample rate tests: 2")
-    print(f"  - Chunk index tests: 3")
-    print(f"  - Summary stats: 1")
-    print("=" * 70)

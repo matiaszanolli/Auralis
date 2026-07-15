@@ -307,24 +307,3 @@ def test_migration_handles_old_schema_gracefully(temp_db_dir):
         # Some implementations may not support automatic migration
         # That's acceptable as long as it doesn't crash silently
         pass
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about database migration tests."""
-    print("\n" + "=" * 70)
-    print("DATABASE MIGRATION TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total migration tests: 10")
-    print(f"\nTest categories:")
-    print(f"  - Schema version: 2 tests")
-    print(f"  - Data preservation: 2 tests")
-    print(f"  - Table structure: 3 tests")
-    print(f"  - Index creation: 1 test")
-    print(f"  - Backward compatibility: 1 test")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

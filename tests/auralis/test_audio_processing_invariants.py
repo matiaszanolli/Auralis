@@ -543,36 +543,3 @@ def test_processing_handles_very_quiet_input():
     # Should produce valid output
     assert not np.any(np.isnan(result)), "Quiet input produced NaN"
     assert not np.any(np.isinf(result)), "Quiet input produced Inf"
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("AUDIO PROCESSING INVARIANT TEST SUMMARY")
-    print("=" * 80)
-    print(f"Sample Count Preservation: 3 tests")
-    print(f"Amplitude Limit Invariants: 3 tests")
-    print(f"Channel Handling: 2 tests")
-    print(f"DC Offset Invariants: 1 test")
-    print(f"Signal-to-Noise Ratio: 1 test")
-    print(f"Determinism: 1 test")
-    print(f"Energy Conservation: 1 test")
-    print(f"Frequency Content: 1 test")
-    print(f"Amplify Function: 2 tests")
-    print(f"Edge Cases: 5 tests")
-    print("=" * 80)
-    print(f"TOTAL: 20 audio processing invariant tests")
-    print("=" * 80)
-    print("\nThese tests validate fundamental audio processing properties:")
-    print("1. Sample count preservation (no truncation/padding)")
-    print("2. Amplitude limits (prevent clipping)")
-    print("3. Channel integrity (stereo/mono handling)")
-    print("4. Signal quality (SNR, DC offset)")
-    print("5. Determinism (reproducible results)")
-    print("=" * 80 + "\n")

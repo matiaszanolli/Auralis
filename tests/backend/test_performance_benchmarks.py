@@ -398,25 +398,3 @@ def test_perf_scalability_increasing_track_counts():
 
     assert scaling_factor < 5.0, \
         f"Poor scaling: {scaling_factor:.2f}x (should be <5x for 10x more data)"
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about performance benchmark tests."""
-    print("\n" + "=" * 70)
-    print("PERFORMANCE BENCHMARK TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total performance tests: 10")
-    print(f"\nTest categories:")
-    print(f"  - Audio processing: 2 tests")
-    print(f"  - Library operations: 3 tests")
-    print(f"  - Search operations: 1 test")
-    print(f"  - Cache effectiveness: 1 test")
-    print(f"  - Memory usage: 1 test")
-    print(f"  - Scalability: 1 test")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

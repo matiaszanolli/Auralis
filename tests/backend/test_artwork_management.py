@@ -388,24 +388,3 @@ def test_artwork_empty_image_file(temp_audio_dir):
 
     assert cover_path.exists()
     assert cover_path.stat().st_size == 0
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about artwork management tests."""
-    print("\n" + "=" * 70)
-    print("ARTWORK MANAGEMENT TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total artwork tests: 15")
-    print(f"\nTest categories:")
-    print(f"  - Artwork extraction: 3 tests")
-    print(f"  - Artwork caching: 3 tests")
-    print(f"  - Artwork formats: 3 tests")
-    print(f"  - Artwork retrieval: 2 tests")
-    print(f"  - Edge cases: 3 tests")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

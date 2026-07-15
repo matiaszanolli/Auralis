@@ -671,30 +671,3 @@ def test_state_consistency_after_errors(tmp_path):
     tracks, total = manager.get_all_tracks(limit=10)
     assert total == 1
     assert tracks[0].id == track.id
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("INTEGRATION STRESS BOUNDARY TEST SUMMARY")
-    print("=" * 80)
-    print(f"Stress Scenarios: 10 tests")
-    print(f"Resource Cleanup: 2 tests")
-    print(f"Performance Degradation: 2 tests")
-    print(f"Edge Case Workflows: 7 tests")
-    print("=" * 80)
-    print(f"TOTAL: 21 integration stress boundary tests")
-    print("=" * 80)
-    print("\nThese tests validate:")
-    print("1. System behavior under high load")
-    print("2. Resource cleanup and leak prevention")
-    print("3. Performance scaling characteristics")
-    print("4. Edge case workflow handling")
-    print("5. State consistency under stress")
-    print("=" * 80 + "\n")

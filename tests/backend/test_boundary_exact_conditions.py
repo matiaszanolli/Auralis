@@ -577,33 +577,3 @@ def test_chunk_at_exact_overlap_boundary(tmp_path):
     assert abs(overlap_amount - OVERLAP_DURATION) < 0.01, (
         f"Overlap should be {OVERLAP_DURATION}s, got {overlap_amount}s"
     )
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("EXACT BOUNDARY CONDITION TEST SUMMARY")
-    print("=" * 80)
-    print(f"Pagination Boundaries: 7 tests")
-    print(f"Audio Duration Boundaries: 3 tests")
-    print(f"Floating Point Precision: 4 tests")
-    print(f"Integer Boundaries: 2 tests")
-    print(f"Sample Rate Boundaries: 6 tests (parametrized)")
-    print(f"String Length Boundaries: 2 tests")
-    print(f"Chunk Boundaries: 1 test")
-    print("=" * 80)
-    print(f"TOTAL: 25 exact boundary condition tests")
-    print("=" * 80)
-    print("\nThese tests catch boundary bugs:")
-    print("1. Off-by-one errors at exact limits")
-    print("2. Floating point precision issues")
-    print("3. Integer overflow")
-    print("4. Rounding errors")
-    print("5. Exact duration/position handling")
-    print("=" * 80 + "\n")

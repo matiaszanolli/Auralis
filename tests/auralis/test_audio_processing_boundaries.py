@@ -424,24 +424,3 @@ def test_audio_with_ultrasonic_content(processor):
     assert processed is not None
     assert len(processed) == len(audio_stereo)
     assert not np.isnan(processed).any()
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about audio processing boundary tests."""
-    print("\n" + "=" * 70)
-    print("AUDIO PROCESSING BOUNDARY TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total boundary tests: 20")
-    print(f"\nTest categories:")
-    print(f"  - Duration extremes: 4 tests")
-    print(f"  - Amplitude extremes: 4 tests")
-    print(f"  - Sample rates: 4 tests")
-    print(f"  - Channel configurations: 2 tests")
-    print(f"  - Special audio patterns: 5 tests")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

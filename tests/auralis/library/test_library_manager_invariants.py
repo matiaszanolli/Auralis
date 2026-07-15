@@ -749,34 +749,3 @@ def test_operations_on_nonexistent_track_id(populated_manager):
         # If we get here, operations handled gracefully
     except Exception as e:
         pytest.fail(f"Operation on nonexistent ID should not raise exception: {e}")
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("LIBRARY MANAGER INVARIANT TEST SUMMARY")
-    print("=" * 80)
-    print(f"Cache Consistency: 4 tests")
-    print(f"Database Consistency: 3 tests")
-    print(f"Track Uniqueness: 2 tests")
-    print(f"Favorite Management: 3 tests")
-    print(f"Play Count Invariants: 3 tests")
-    print(f"Search Invariants: 2 tests")
-    print(f"Deletion Cascading: 2 tests")
-    print(f"Edge Cases: 2 tests")
-    print("=" * 80)
-    print(f"TOTAL: 21 library manager invariant tests")
-    print("=" * 80)
-    print("\nThese tests validate critical library manager properties:")
-    print("1. Cache invalidation (fresh data after modifications)")
-    print("2. Count consistency (stats match actual data)")
-    print("3. Data uniqueness (no duplicate IDs or paths)")
-    print("4. Cascade deletion (favorites/recent cleaned up)")
-    print("5. Operation safety (empty library, bad IDs)")
-    print("=" * 80 + "\n")

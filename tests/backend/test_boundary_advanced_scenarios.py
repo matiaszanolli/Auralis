@@ -835,30 +835,3 @@ def test_invalid_metadata_values(tmp_path):
     # Database should still be functional
     tracks, total = manager.get_all_tracks(limit=10)
     assert tracks is not None
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("ADVANCED BOUNDARY SCENARIO TEST SUMMARY")
-    print("=" * 80)
-    print(f"Batch Operations: 5 tests")
-    print(f"Streaming/Pagination: 5 tests")
-    print(f"Concurrent Access: 5 tests")
-    print(f"Error Recovery: 6 tests")
-    print("=" * 80)
-    print(f"TOTAL: 21 advanced boundary tests")
-    print("=" * 80)
-    print("\nThese tests validate:")
-    print("1. Batch operation correctness and performance")
-    print("2. Pagination consistency and edge cases")
-    print("3. Concurrent access safety")
-    print("4. Error recovery and resilience")
-    print("5. Database integrity under stress")
-    print("=" * 80 + "\n")

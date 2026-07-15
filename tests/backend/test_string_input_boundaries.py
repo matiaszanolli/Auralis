@@ -457,25 +457,3 @@ def test_leading_trailing_whitespace(temp_audio_dir, track_repo):
 
     # May trim whitespace or preserve it
     assert len(track.title) > 0
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about string input boundary tests."""
-    print("\n" + "=" * 70)
-    print("STRING INPUT BOUNDARY TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total string boundary tests: 15")
-    print(f"\nTest categories:")
-    print(f"  - Empty strings: 2 tests")
-    print(f"  - Very long strings: 2 tests")
-    print(f"  - Special characters: 3 tests")
-    print(f"  - SQL injection (security): 2 tests")
-    print(f"  - Path traversal (security): 2 tests")
-    print(f"  - Whitespace handling: 2 tests")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

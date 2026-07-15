@@ -349,31 +349,3 @@ def test_handle_missing_artwork_file():
     """
     # Test would verify error handling for missing files
     pass
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("ARTWORK MANAGEMENT INTEGRATION TEST SUMMARY")
-    print("=" * 80)
-    print(f"Extraction Tests: 3 tests")
-    print(f"Caching Tests: 3 tests")
-    print(f"Serving Tests: 2 tests")
-    print(f"Format Tests: 2 tests")
-    print(f"Error Handling: 2 tests")
-    print("=" * 80)
-    print(f"TOTAL: 12 artwork integration tests")
-    print("=" * 80)
-    print("\nThese tests validate artwork management workflow:")
-    print("1. Extraction from embedded tags or folder")
-    print("2. Cache creation and management")
-    print("3. Serving with fallback")
-    print("4. Format conversion and thumbnail generation")
-    print("5. Error handling for corrupted/missing files")
-    print("=" * 80 + "\n")

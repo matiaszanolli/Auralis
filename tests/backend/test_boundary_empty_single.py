@@ -583,32 +583,3 @@ def test_create_playlist_empty_name(empty_library):
     except ValueError:
         # If rejected, that's also acceptable behavior
         pass
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("EMPTY/SINGLE-ITEM BOUNDARY TEST SUMMARY")
-    print("=" * 80)
-    print(f"Empty Library Tests: 10 tests")
-    print(f"Single Track Tests: 10 tests")
-    print(f"Empty → Single → Empty: 1 test")
-    print(f"Empty Playlist Tests: 3 tests")
-    print(f"Zero-Length Audio: 1 test")
-    print(f"Empty String Tests: 2 tests")
-    print("=" * 80)
-    print(f"TOTAL: 27 empty/single-item boundary tests")
-    print("=" * 80)
-    print("\nThese tests catch common boundary bugs:")
-    print("1. Null pointer exceptions")
-    print("2. Empty list iteration crashes")
-    print("3. Division by zero")
-    print("4. Off-by-one errors")
-    print("5. Missing null checks")
-    print("=" * 80 + "\n")

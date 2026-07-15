@@ -385,28 +385,6 @@ def test_cache_clear_multiple_times(library_manager):
     library_manager.clear_cache()
     library_manager.clear_cache()
 
-    # Should not raise errors
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about cache operation tests."""
-    print("\n" + "=" * 70)
-    print("CACHE OPERATIONS TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total cache tests: 12")
-    print(f"\nTest categories:")
-    print(f"  - Cache hit/miss: 3 tests")
-    print(f"  - Cache invalidation: 3 tests")
-    print(f"  - Cache statistics: 2 tests")
-    print(f"  - Cache clearing: 2 tests")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)
-
 
 # ============================================================================
 # Phase 5A: Dual-Mode Cache Testing

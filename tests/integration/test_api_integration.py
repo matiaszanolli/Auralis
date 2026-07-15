@@ -409,27 +409,3 @@ def test_api_cors_headers_present(client):
     # Check for CORS headers (may vary based on configuration)
     # Just verify response is successful
     assert "content-type" in response.headers
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about API integration tests."""
-    print("\n" + "=" * 70)
-    print("API INTEGRATION TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total API integration tests: 20")
-    print(f"\nTest categories:")
-    print(f"  - Health & system: 2 tests")
-    print(f"  - Player endpoints: 4 tests")
-    print(f"  - Library endpoints: 3 tests")
-    print(f"  - Albums & artists: 2 tests")
-    print(f"  - Enhancement settings: 2 tests")
-    print(f"  - Error handling: 3 tests")
-    print(f"  - Cache management: 2 tests")
-    print(f"  - CORS headers: 1 test")
-    print(f"  - Summary stats: 1 test")
-    print("=" * 70)

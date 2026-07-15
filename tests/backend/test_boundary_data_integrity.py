@@ -704,30 +704,3 @@ def test_count_consistency_after_modifications(integrity_library):
     # Favorites should reflect deletes
     final_favorites, total = manager.get_favorite_tracks(limit=100)
     assert len(final_favorites) == 5  # 5 deleted, 5 remaining
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("DATA INTEGRITY BOUNDARY TEST SUMMARY")
-    print("=" * 80)
-    print(f"Data Integrity: 7 tests")
-    print(f"Validation: 6 tests")
-    print(f"Transaction Atomicity: 2 tests")
-    print(f"Consistency Under Load: 4 tests")
-    print("=" * 80)
-    print(f"TOTAL: 19 data integrity boundary tests")
-    print("=" * 80)
-    print("\nThese tests validate:")
-    print("1. Referential integrity constraints")
-    print("2. Data validation and sanitization")
-    print("3. Transaction atomicity")
-    print("4. Consistency under concurrent operations")
-    print("5. No orphaned records")
-    print("=" * 80 + "\n")

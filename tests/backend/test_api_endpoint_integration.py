@@ -573,37 +573,6 @@ def test_version_info_api(client):
     assert "version" in data, "Version response should include version"
 
 
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("API ENDPOINT INTEGRATION TEST SUMMARY")
-    print("=" * 80)
-    print(f"Player API: 3 tests")
-    print(f"Library API: 4 tests")
-    print(f"Enhancement API: 2 tests")
-    print(f"Metadata API: 1 test")
-    print(f"Queue API: 2 tests")
-    print(f"Playlist API: 2 tests")
-    print(f"Favorites API: 2 tests")
-    print(f"Health Check: 2 tests")
-    print("=" * 80)
-    print(f"TOTAL: 18 API endpoint integration tests")
-    print("=" * 80)
-    print("\nThese tests validate API contracts and workflows:")
-    print("1. Endpoint accessibility")
-    print("2. Request/response schemas")
-    print("3. Status code correctness")
-    print("4. State persistence across API calls")
-    print("5. Error handling")
-    print("=" * 80 + "\n")
-
-
 # ============================================================
 # Phase 5C.2: Dual-Mode Backend Testing Patterns
 # ============================================================

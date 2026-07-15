@@ -417,23 +417,3 @@ def test_limit_larger_than_total_returns_all(temp_audio_dir):
         assert total == 50
     finally:
         track_repo.close()
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-@pytest.mark.unit
-def test_summary_stats():
-    """Print summary statistics about library boundary tests."""
-    print("\n" + "=" * 70)
-    print("LIBRARY BOUNDARY TESTS - SUMMARY")
-    print("=" * 70)
-    print(f"Total boundary tests: 15")
-    print(f"\nTest categories:")
-    print(f"  - Empty library tests: 3")
-    print(f"  - Single item tests: 3")
-    print(f"  - Exact page boundaries: 3")
-    print(f"  - Offset boundaries: 3")
-    print(f"  - Limit values: 3")
-    print("=" * 70)

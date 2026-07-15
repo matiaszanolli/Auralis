@@ -420,31 +420,3 @@ def test_scanner_ignores_non_audio_files(library_manager):
     finally:
         import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-# ============================================================================
-# Summary Statistics
-# ============================================================================
-
-def test_summary_stats():
-    """
-    Print summary of what these tests validate.
-    """
-    print("\n" + "=" * 80)
-    print("LIBRARY SCANNING INVARIANT TEST SUMMARY")
-    print("=" * 80)
-    print(f"Scan Completeness: 3 tests")
-    print(f"Metadata Extraction: 4 tests")
-    print(f"File Path Invariants: 3 tests")
-    print(f"Recursive Scanning: 1 test")
-    print(f"Edge Cases: 3 tests")
-    print("=" * 80)
-    print(f"TOTAL: 14 scanning invariant tests")
-    print("=" * 80)
-    print("\nThese tests validate critical scanning properties:")
-    print("1. Completeness (all audio files found)")
-    print("2. No duplicates (each file found once)")
-    print("3. Determinism (same results on rescan)")
-    print("4. Metadata extraction (duration, SR, channels, format)")
-    print("5. Path correctness (absolute, existing, readable)")
-    print("=" * 80 + "\n")
