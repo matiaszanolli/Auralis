@@ -60,7 +60,7 @@ from core.processor_factory import (
 
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine, MasteringRecommendation
 from auralis.io.saver import save as save_audio
-from auralis.io.unified_loader import load_audio
+from auralis.io.unified_loader import get_audio_info, load_audio
 
 # Phase 2 (Analysis caching) modules created but not yet integrated
 # To be integrated after resolving import structure issues
@@ -245,23 +245,39 @@ class ChunkedAudioProcessor:
 
 
     def _load_metadata(self) -> None:
-        """Load audio file metadata without loading full audio"""
+        """Load audio file metadata without loading full audio.
+
+        Routes by extension via ``unified_loader.get_audio_info()``: a
+        millisecond ``ffprobe`` for FFmpeg-only formats (mp3/m4a/aac/ogg/wma/
+        opus) and ``sf.info()`` for natively-decodable ones. The previous
+        implementation opened ``sf.SoundFile()`` directly, which libsndfile
+        cannot do for FFmpeg-only formats — the open raised and the ``except``
+        fell back to a full-file decode (temp-WAV + full float32 read) just to
+        read duration/sample-rate/channels, defeating the bounded-decode
+        architecture for the dominant library format (#4497).
+        """
         try:
-            import soundfile as sf
-            with sf.SoundFile(self.filepath) as f:
-                self.sample_rate = f.samplerate
-                self.channels = f.channels
-                self.total_duration = len(f) / f.samplerate
-                # Count only content-carrying chunks under the overlap model
-                # (#4124) — see core.chunk_boundaries.content_chunk_count.
-                self.total_chunks = content_chunk_count(self.total_duration)
+            meta = get_audio_info(self.filepath)
+            if meta.get('error') or 'sample_rate' not in meta:
+                raise RuntimeError(meta.get('error', 'incomplete audio metadata'))
+            self.sample_rate = int(meta['sample_rate'])
+            self.channels = int(meta['channels'])
+            self.total_duration = float(meta['duration_seconds'])
+            # Count only content-carrying chunks under the overlap model
+            # (#4124) — see core.chunk_boundaries.content_chunk_count.
+            self.total_chunks = content_chunk_count(self.total_duration)
         except Exception as e:
-            logger.error(f"Failed to load audio metadata: {e}")
-            # Fallback: load entire audio (slower)
+            # Last-resort fallback for a genuine probe failure: full decode.
+            logger.error(f"Metadata probe failed, falling back to full decode: {e}")
             audio, sr = load_audio(self.filepath)
             self.sample_rate = sr
-            self.channels = audio.ndim if audio.ndim == 1 else audio.shape[0] if audio.shape[0] <= 2 else audio.shape[1]  # Detect mono/stereo
-            self.total_duration = len(audio) / sr
+            # load_audio() returns mono as a 1-D (frames,) array and
+            # multi-channel as (frames, channels) — samples-first — so channels
+            # is shape[1] and frame count is always shape[0]. The old chained
+            # ternary keyed on `shape[0] <= 2`, mislabelling very short stereo
+            # clips as mono (#3881).
+            self.channels = 1 if audio.ndim == 1 else audio.shape[1]
+            self.total_duration = audio.shape[0] / sr
             # Count only content-carrying chunks under the overlap model
             # (#4124) — see core.chunk_boundaries.content_chunk_count.
             self.total_chunks = content_chunk_count(self.total_duration)

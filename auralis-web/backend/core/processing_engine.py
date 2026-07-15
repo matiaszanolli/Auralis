@@ -15,6 +15,7 @@ import asyncio
 import logging
 import sys
 import tempfile
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -127,6 +128,13 @@ class ProcessingEngine:
 
         # Progress callbacks
         self.progress_callbacks: dict[str, Callable[..., Any]] = {}
+
+        # Per-job cooperative cancellation tokens (#4496). A job's input/reference
+        # FFmpeg decode runs in a `to_thread` worker that `task.cancel()` cannot
+        # interrupt; `cancel_job()` sets this event so the loader terminates the
+        # in-flight FFmpeg child and frees the thread-pool slot promptly. Keyed by
+        # job_id; created in `_prepare_job`, removed when the job finishes.
+        self._cancel_events: dict[str, threading.Event] = {}
 
     # --- Worker/pool state exposed for the engine's public methods and for
     # tests that reach directly into these (e.g. test_cancel_job_stops_processing
@@ -334,8 +342,14 @@ class ProcessingEngine:
 
         await self._notify_progress(job.job_id, 0.0, "Loading audio file...")
 
+        # Register a cooperative cancellation token so cancel_job() can abort an
+        # in-flight FFmpeg decode running in the to_thread worker (#4496).
+        cancel_event = self._cancel_events.setdefault(job.job_id, threading.Event())
+
         # Load input audio — disk-bound; offload to thread (fixes #2319)
-        audio, sample_rate = await asyncio.to_thread(load_audio, job.input_path)
+        audio, sample_rate = await asyncio.to_thread(
+            load_audio, job.input_path, cancel_event=cancel_event
+        )
 
         await self._notify_progress(job.job_id, 20.0, "Analyzing audio content...")
 
@@ -375,8 +389,12 @@ class ProcessingEngine:
             # Load reference audio if needed
             reference_path = job.settings.get("reference_path")
             if reference_path and Path(reference_path).exists():
+                # Same cooperative-cancel token as the input load (#4496 SIBLING):
+                # the reference decode is the identical to_thread(load_audio)
+                # pattern and must also stop its FFmpeg child on cancel.
+                cancel_event = self._cancel_events.get(job.job_id)
                 reference_audio, reference_sr = await asyncio.to_thread(
-                    load_audio, reference_path
+                    load_audio, reference_path, cancel_event=cancel_event
                 )
                 # Resample reference if needed — CPU-bound; offload to thread
                 if reference_sr != sample_rate:
@@ -539,6 +557,10 @@ class ProcessingEngine:
             await self._notify_progress(
                 job.job_id, 100.0, f"Processing failed: {job.error_message}"
             )
+        finally:
+            # Drop the cancellation token now the job is terminal so the
+            # registry cannot leak an entry per job (#4496).
+            self._cancel_events.pop(job.job_id, None)
 
 
     async def stop_worker(self) -> None:
@@ -572,6 +594,15 @@ class ProcessingEngine:
             job.status = ProcessingStatus.CANCELLED
             job.completed_at = datetime.now()
             self.progress_callbacks.pop(job_id, None)
+
+        # Signal the loader to terminate any in-flight FFmpeg child (#4496).
+        # task.cancel() alone injects CancelledError only at the next await, but
+        # the task is parked inside a to_thread FFmpeg decode that cannot be
+        # interrupted that way; setting the event kills the child promptly and
+        # frees the worker thread. Safe to set even if no decode is in flight.
+        cancel_event = self._cancel_events.get(job_id)
+        if cancel_event is not None:
+            cancel_event.set()
 
         # Cancel the asyncio Task outside the lock — task.cancel() is
         # thread-safe and the await would block under the lock.

@@ -12,6 +12,7 @@ Verifies that:
 
 import asyncio
 import sys
+import threading
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch, call
@@ -47,58 +48,65 @@ def _make_job(job_id: str = "job-1") -> ProcessingJob:
 # Tests: cancel_job() return value and status
 # ---------------------------------------------------------------------------
 
-def test_cancel_queued_job_returns_true():
+@pytest.mark.asyncio
+async def test_cancel_queued_job_returns_true():
     engine = _make_engine()
     job = _make_job()
     engine.jobs[job.job_id] = job
-    assert engine.cancel_job(job.job_id) is True
+    assert await engine.cancel_job(job.job_id) is True
 
 
-def test_cancel_queued_job_sets_status_cancelled():
+@pytest.mark.asyncio
+async def test_cancel_queued_job_sets_status_cancelled():
     engine = _make_engine()
     job = _make_job()
     engine.jobs[job.job_id] = job
-    engine.cancel_job(job.job_id)
+    await engine.cancel_job(job.job_id)
     assert job.status == ProcessingStatus.CANCELLED
 
 
-def test_cancel_queued_job_sets_completed_at():
+@pytest.mark.asyncio
+async def test_cancel_queued_job_sets_completed_at():
     engine = _make_engine()
     job = _make_job()
     engine.jobs[job.job_id] = job
     before = datetime.now()
-    engine.cancel_job(job.job_id)
+    await engine.cancel_job(job.job_id)
     assert job.completed_at is not None
     assert job.completed_at >= before
 
 
-def test_cancel_nonexistent_job_returns_false():
+@pytest.mark.asyncio
+async def test_cancel_nonexistent_job_returns_false():
     engine = _make_engine()
-    assert engine.cancel_job("does-not-exist") is False
+    assert await engine.cancel_job("does-not-exist") is False
 
 
-def test_cancel_completed_job_returns_false():
+@pytest.mark.asyncio
+async def test_cancel_completed_job_returns_false():
     engine = _make_engine()
     job = _make_job()
     job.status = ProcessingStatus.COMPLETED
     engine.jobs[job.job_id] = job
-    assert engine.cancel_job(job.job_id) is False
+    assert await engine.cancel_job(job.job_id) is False
     assert job.status == ProcessingStatus.COMPLETED  # unchanged
 
 
-def test_cancel_failed_job_returns_false():
+@pytest.mark.asyncio
+async def test_cancel_failed_job_returns_false():
     engine = _make_engine()
     job = _make_job()
     job.status = ProcessingStatus.FAILED
     engine.jobs[job.job_id] = job
-    assert engine.cancel_job(job.job_id) is False
+    assert await engine.cancel_job(job.job_id) is False
 
 
 # ---------------------------------------------------------------------------
 # Tests: Task.cancel() is called for in-flight jobs
 # ---------------------------------------------------------------------------
 
-def test_cancel_processing_job_cancels_task():
+@pytest.mark.asyncio
+async def test_cancel_processing_job_cancels_task():
     """cancel_job() must call task.cancel() for a PROCESSING job."""
     engine = _make_engine()
     job = _make_job()
@@ -109,12 +117,13 @@ def test_cancel_processing_job_cancels_task():
     mock_task.done.return_value = False
     engine._tasks[job.job_id] = mock_task
 
-    engine.cancel_job(job.job_id)
+    await engine.cancel_job(job.job_id)
 
     mock_task.cancel.assert_called_once()
 
 
-def test_cancel_does_not_call_task_cancel_if_task_done():
+@pytest.mark.asyncio
+async def test_cancel_does_not_call_task_cancel_if_task_done():
     """If the task is already done, task.cancel() must NOT be called."""
     engine = _make_engine()
     job = _make_job()
@@ -125,19 +134,42 @@ def test_cancel_does_not_call_task_cancel_if_task_done():
     mock_task.done.return_value = True
     engine._tasks[job.job_id] = mock_task
 
-    engine.cancel_job(job.job_id)
+    await engine.cancel_job(job.job_id)
 
     mock_task.cancel.assert_not_called()
 
 
-def test_cancel_queued_job_no_task_cancel_needed():
+@pytest.mark.asyncio
+async def test_cancel_queued_job_no_task_cancel_needed():
     """QUEUED jobs have no task yet — cancel_job() must not raise."""
     engine = _make_engine()
     job = _make_job()
     engine.jobs[job.job_id] = job
     # No entry in _tasks — cancelling should not blow up
-    engine.cancel_job(job.job_id)
+    await engine.cancel_job(job.job_id)
     assert job.status == ProcessingStatus.CANCELLED
+
+
+@pytest.mark.asyncio
+async def test_cancel_processing_job_sets_cancel_event():
+    """#4496: cancel_job() must set the job's cooperative cancellation token so
+    an in-flight FFmpeg decode in the to_thread worker is terminated promptly."""
+    engine = _make_engine()
+    job = _make_job()
+    job.status = ProcessingStatus.PROCESSING
+    engine.jobs[job.job_id] = job
+
+    # Simulate the token _prepare_job registers for an in-flight decode.
+    event = threading.Event()
+    engine._cancel_events[job.job_id] = event
+    assert not event.is_set()
+
+    await engine.cancel_job(job.job_id)
+
+    assert event.is_set(), (
+        "cancel_job() did not signal the loader's cancellation token — an "
+        "in-flight FFmpeg child would keep running after cancel (#4496)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +187,7 @@ async def test_process_job_skips_if_already_cancelled():
     engine.jobs[job.job_id] = job
 
     # Pre-cancel before processing starts
-    engine.cancel_job(job.job_id)
+    await engine.cancel_job(job.job_id)
     assert job.status == ProcessingStatus.CANCELLED
 
     # process_job() must return immediately without touching job.status

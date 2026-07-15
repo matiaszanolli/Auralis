@@ -11,6 +11,7 @@ Unified audio loading system combining Matchering and Auralis capabilities
 """
 
 import subprocess
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -33,7 +34,8 @@ def load_audio(
     temp_folder: str | None = None,
     target_sample_rate: int | None = None,
     force_stereo: bool = False,
-    normalize_on_load: bool = False
+    normalize_on_load: bool = False,
+    cancel_event: "threading.Event | None" = None,
 ) -> tuple[np.ndarray, int]:
     """
     Load an audio file with format detection and conversion
@@ -45,6 +47,10 @@ def load_audio(
         target_sample_rate: Resample to this sample rate (optional)
         force_stereo: Convert mono to stereo if True
         normalize_on_load: Normalize audio on loading
+        cancel_event: Optional cooperative cancellation token. When set from
+            another thread during an FFmpeg decode, the FFmpeg child is
+            terminated promptly and ``asyncio.CancelledError`` is raised (#4496).
+            Ignored for natively-decodable formats (no subprocess to cancel).
 
     Returns:
         tuple: (audio_data, sample_rate)
@@ -77,7 +83,9 @@ def load_audio(
 
     # Load audio based on format
     if file_ext in FFMPEG_FORMATS:
-        audio_data, sample_rate = load_with_ffmpeg(file_path, temp_folder)
+        audio_data, sample_rate = load_with_ffmpeg(
+            file_path, temp_folder, cancel_event=cancel_event
+        )
     else:
         audio_data, sample_rate = load_with_soundfile(file_path)
 
