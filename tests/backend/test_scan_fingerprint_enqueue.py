@@ -70,6 +70,9 @@ class TestScannerNoAsyncioCreateTask:
         track_obj = _make_track(42)
 
         library_manager = MagicMock()
+        # try_acquire_scan_slot returns (acquired, max) — a bare MagicMock
+        # unpacks to zero values (its default __iter__ is empty), so configure it.
+        library_manager.try_acquire_scan_slot.return_value = (True, 1)
 
         scanner = LibraryScanner(library_manager)
 
@@ -101,6 +104,7 @@ class TestScannerNoAsyncioCreateTask:
 
         track_obj = _make_track(7)
         library_manager = MagicMock()
+        library_manager.try_acquire_scan_slot.return_value = (True, 1)
         fake_queue = MagicMock()
         scanner = LibraryScanner(library_manager, fingerprint_queue=fake_queue)
 

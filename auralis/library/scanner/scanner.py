@@ -96,6 +96,14 @@ class LibraryScanner:
         self.file_discovery.stop()
         self.batch_processor.stop()
 
+    def _release_scan_slot_safe(self) -> None:
+        """Release a scan slot, tolerating a lightweight mock library_manager
+        that lacks release_scan_slot (mirrors the try_acquire guard)."""
+        try:
+            self.library_manager.release_scan_slot()
+        except AttributeError:
+            pass
+
     def scan_directories(self, directories: list[str],
                         recursive: bool = True,
                         skip_existing: bool = True,
@@ -143,6 +151,13 @@ class LibraryScanner:
                     f"Scan rejected: directories already being scanned: {already_scanning}"
                 )
                 result.rejected = True
+                # #4330: this early return happens BEFORE the try/finally that
+                # releases the slot, so release it here or the slot leaks
+                # permanently. We must NOT fall through to that finally: it also
+                # removes `normalized` from _active_paths, which on this path
+                # belong to the OTHER (already-running) scan.
+                if _acquired:
+                    self._release_scan_slot_safe()
                 return result
             self._active_paths.update(normalized)
         # --- End per-directory dedup guard ---
@@ -228,10 +243,7 @@ class LibraryScanner:
             # Release per-directory dedup guard (#3455)
             with self._active_paths_lock:
                 self._active_paths.difference_update(normalized)
-            try:
-                self.library_manager.release_scan_slot()
-            except AttributeError:
-                pass
+            self._release_scan_slot_safe()
 
             # #3479: fire scan-complete callback outside the scan-slot lock
             # so the consumer (reference cloud refresh) can do its own DB I/O
