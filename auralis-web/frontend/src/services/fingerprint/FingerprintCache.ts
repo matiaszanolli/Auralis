@@ -376,10 +376,3 @@ export function getFingerprintCache(): FingerprintCache {
   }
   return cacheInstance;
 }
-
-/**
- * Reset the fingerprint cache singleton (for testing).
- */
-export function resetFingerprintCache(): void {
-  cacheInstance = null;
-}

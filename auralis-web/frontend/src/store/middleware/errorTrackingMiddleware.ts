@@ -397,39 +397,6 @@ export async function retryAction<T>(
   throw lastError ?? new Error('Max retries exceeded');
 }
 
-/**
- * Create recovery action dispatcher
- */
-export function createRecoveryDispatcher(config: ErrorTrackingConfig = {}) {
-  const recoveryStrategies = config.recoveryStrategies || new Map();
-
-  return (error: TrackedError) => {
-    // Get recovery strategy for error category
-    const strategy = recoveryStrategies.get(error.category);
-
-    if (strategy) {
-      return strategy();
-    }
-
-    // Default recovery strategies
-    switch (error.category) {
-      case ErrorCategory.NETWORK:
-        return connectionActions.setError(error.message);
-
-      case ErrorCategory.AUTHENTICATION:
-        // Trigger logout/re-authentication
-        return { type: 'AUTH_REQUIRED' };
-
-      case ErrorCategory.SERVER:
-        // Show user-friendly error message
-        return { type: 'SHOW_ERROR', payload: { message: error.message } };
-
-      default:
-        return { type: 'ERROR_OCCURRED', payload: error };
-    }
-  };
-}
-
 // ============================================================================
 // Error Analytics
 // ============================================================================
