@@ -173,8 +173,6 @@ export const selectIsHealthy = (state: { cache: CacheState }) =>
   state.cache.health?.healthy ?? false;
 export const selectIsLoading = (state: { cache: CacheState }) => state.cache.isLoading;
 export const selectError = (state: { cache: CacheState }) => state.cache.error;
-export const selectLastUpdated = (state: { cache: CacheState }) => state.cache.lastUpdated;
-export const selectCacheState = (state: { cache: CacheState }) => state.cache;
 
 /**
  * Select overall cache hit rate percentage
