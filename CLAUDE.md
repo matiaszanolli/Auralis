@@ -9,7 +9,8 @@
 
 ```bash
 # Run (web)
-pip install -r requirements.txt
+uv venv && source .venv/bin/activate    # uv manages the Python interpreter + venv; .python-version pins 3.13.9 transitionally
+uv pip install -r requirements.txt
 python launch-auralis-web.py --dev      # Backend :8765, Frontend :3000
 
 # Run (components)

@@ -206,20 +206,23 @@ Python 3.14 (with free-threading):
 ```bash
 # Check current environment
 python3 --version
-pip list | grep -E "numpy|scipy|librosa"
+uv pip list | grep -E "numpy|scipy|librosa"
 
-# Test on 3.14 if available
-pyenv install 3.14.0
-pyenv local 3.14.0
-pip install -r requirements.txt
+# Test on 3.14 (uv provisions the interpreter itself, no separate install step)
+echo "3.14" > .python-version
+uv venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
 python -m pytest tests/ -v
 ```
+
+> **Update (2026-07-16)**: The project migrated its Python tooling from pyenv to `uv` (see [CLAUDE.md](../../CLAUDE.md)). Attempting Phase 1 surfaced a concrete blocker beyond anything analyzed above: **`vendor/auralis-dsp/Cargo.toml` pins `pyo3 = "0.23"`, which only supports up to Python 3.13** — building against 3.14 fails immediately with "the configured Python interpreter version (3.14) is newer than PyO3's maximum supported version (3.13)". Bumping `pyo3`/`numpy` (the Rust crate) to 0.29 fixes the compile (mainly a mechanical `Python::allow_threads` → `Python::detach` rename, plus 3 return-type tweaks to resolve an `IntoPyObject` ambiguity), but the resulting extension throws `TypeError: 'ndarray' object is not an instance of 'ndarray'` on every array-accepting call. This reproduces identically on Python 3.13.9 with the same crate bump, so it is **not a 3.14 issue** — it's a `numpy`-rs 0.29 / NumPy 2.3.5 C-API incompatibility (numpy-rs 0.29 moved to target NumPy's "ABI v2"; see its [CHANGELOG](https://github.com/PyO3/rust-numpy/blob/main/CHANGELOG.md)) that blocks the pyo3 bump on its own, independent of which CPython version is targeted. The 3.14 migration (and any pyo3 bump) stays blocked until that's resolved upstream or an intermediate pyo3/numpy-rs version is found that's compatible with NumPy 2.3.x.
 
 ### Phase 2: Enable Free-Threading (Week 1-2)
 
 ```bash
 # Install free-threading build
-pyenv install 3.14.0-free-threaded
+uv python install 3.14.0+freethreaded
 # OR use Docker image with free-threading support
 
 # Update FingerprintExtractionQueue to use free-threading benefits

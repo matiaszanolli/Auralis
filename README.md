@@ -121,8 +121,9 @@ auralis
 
 **Web Interface:**
 ```bash
-# 1. Install dependencies
-pip install -r requirements.txt
+# 1. Install dependencies (uv manages the Python interpreter + venv)
+uv venv && source .venv/bin/activate
+uv pip install -r requirements.txt
 
 # 2. Launch Auralis
 python launch-auralis-web.py
@@ -133,7 +134,8 @@ python launch-auralis-web.py
 **Desktop App:**
 ```bash
 # 1. Install Python + Node.js dependencies
-pip install -r requirements.txt
+uv venv && source .venv/bin/activate
+uv pip install -r requirements.txt
 cd desktop && npm install
 
 # 2. Launch desktop app

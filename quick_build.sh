@@ -83,12 +83,12 @@ fi
 echo -e "${BLUE}📦 Checking dependencies...${NC}"
 if ! python -c "import customtkinter" 2>/dev/null; then
     echo -e "${YELLOW}📦 Installing dependencies...${NC}"
-    pip install -r requirements-desktop.txt
+    uv pip install -r requirements-desktop.txt
 fi
 
 if ! python -c "import PyInstaller" 2>/dev/null; then
     echo -e "${YELLOW}📦 Installing PyInstaller...${NC}"
-    pip install pyinstaller
+    uv pip install pyinstaller
 fi
 
 # Build arguments

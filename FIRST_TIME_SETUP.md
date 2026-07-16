@@ -10,10 +10,9 @@ This guide walks you through everything you need to get Auralis running on your 
 
 Before you begin, ensure your system has:
 
-- [ ] **Python 3.14+** - Check with `python3 --version`
+- [ ] **[uv](https://docs.astral.sh/uv/)** - Manages the Python interpreter + virtual environment (replaces pyenv/venv/pip). Check with `uv --version`
 - [ ] **Node.js 24+ LTS** - Check with `node --version`
 - [ ] **Git** - Check with `git --version`
-- [ ] **pip** - Check with `pip --version` (comes with Python)
 - [ ] **npm** - Check with `npm --version` (comes with Node)
 - [ ] **Audio libraries** (platform-dependent, see section below)
 - [ ] **~5GB free disk space** for dependencies, database, and build artifacts
@@ -56,36 +55,24 @@ git clone https://github.com/matiaszanolli/Auralis.git
 cd Auralis
 ```
 
-### 2️⃣ Set Up Python Environment (Recommended: Virtual Environment)
+### 2️⃣ Set Up Python Environment
 
-**Option A: Using venv (built-in)**
 ```bash
-# Create virtual environment
-python3 -m venv .venv
-
-# Activate it
-# On Linux/macOS:
+# uv creates the venv using the interpreter pinned in .python-version
+# (currently 3.13.9, transitional — see docs/development/PYTHON_3_13_vs_3_14_COMPATIBILITY.md)
+uv venv
 source .venv/bin/activate
-# On Windows:
-.venv\Scripts\activate
-```
-
-**Option B: Using conda (if you prefer)**
-```bash
-conda create -n auralis python=3.14
-conda activate auralis
 ```
 
 **Verify activation:**
 ```bash
-which python  # Should show path inside .venv or conda env
-python --version  # Should be 3.14+
+which python  # Should show a path inside .venv
+python --version
 ```
 
 ### 3️⃣ Install Python Dependencies
 ```bash
-pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 **Expected output**: 40-60 packages installed, no errors
@@ -241,8 +228,8 @@ npm test
 
 | Issue | Solution |
 |-------|----------|
-| `python: command not found` | Install Python 3.14+ or use `python3` instead |
-| `ModuleNotFoundError: numpy` | Did you activate venv? `source .venv/bin/activate` |
+| `python: command not found` | Run `uv venv && source .venv/bin/activate`, or use `python3` instead |
+| `ModuleNotFoundError: numpy` | Did you activate the venv? `source .venv/bin/activate`, then `uv pip install -r requirements.txt` |
 | `libsndfile not found` | Install audio libraries (see section above) |
 | `Port 8765 already in use` | Kill existing process: `lsof -ti:8765 \| xargs kill -9` |
 | `SQLite database locked` | Delete database: `rm ~/.auralis/library.db` (will rescan) |
