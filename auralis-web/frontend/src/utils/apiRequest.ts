@@ -17,12 +17,6 @@ import { getApiUrl } from '@/config/api';
  */
 export const DEFAULT_TIMEOUT_MS = 30000;
 
-export interface APIError {
-  message: string;
-  detail?: string;
-  statusCode: number;
-}
-
 export class APIRequestError extends Error {
   constructor(
     message: string,

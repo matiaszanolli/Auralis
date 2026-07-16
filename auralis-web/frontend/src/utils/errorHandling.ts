@@ -367,39 +367,6 @@ export function createTimeoutPromise<T>(
 // Error Recovery Strategies
 // ============================================================================
 
-/**
- * Create an error recovery chain
- */
-export class ErrorRecoveryChain {
-  private strategies: ErrorRecoveryStrategy[] = [];
-
-  /**
-   * Add a recovery strategy
-   */
-  add(strategy: ErrorRecoveryStrategy): this {
-    this.strategies.push(strategy);
-    return this;
-  }
-
-  /**
-   * Try to recover from an error
-   */
-  async tryRecover(error: Error): Promise<boolean> {
-    for (const strategy of this.strategies) {
-      if (strategy.canRecover(error)) {
-        try {
-          console.log(`[ErrorRecovery] Using strategy: ${strategy.name}`);
-          await strategy.recover();
-          return true;
-        } catch (err) {
-          console.error(`[ErrorRecovery] Strategy ${strategy.name} failed:`, err);
-        }
-      }
-    }
-    return false;
-  }
-}
-
 // ============================================================================
 // Error Logging & Monitoring
 // ============================================================================
@@ -458,48 +425,3 @@ export class ErrorLogger {
 // ============================================================================
 
 export const globalErrorLogger = new ErrorLogger();
-
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
-/**
- * Wrap a function with error logging
- */
-export function withErrorLogging<T extends (...args: any[]) => Promise<any>>(
-  fn: T,
-  context: string
-): T {
-  return (async (...args: any[]) => {
-    try {
-      return await fn(...args);
-    } catch (error) {
-      globalErrorLogger.log(error as Error, context);
-      throw error;
-    }
-  }) as T;
-}
-
-/**
- * Create a resilient fetch with retry logic
- */
-export async function resilientFetch(
-  url: string,
-  options: RequestInit = {},
-  retryPolicy?: Partial<RetryPolicy>
-): Promise<Response> {
-  return retryWithBackoff(
-    async () => {
-      const response = await fetch(url, options);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      return response;
-    },
-    {
-      ...DEFAULT_RETRY_POLICY,
-      ...retryPolicy,
-      shouldRetry: (error) => isRetryableError(error),
-    }
-  );
-}
