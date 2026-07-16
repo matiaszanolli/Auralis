@@ -102,6 +102,28 @@ class FingerprintService:
         self._fingerprint_repo = FingerprintRepository(session_factory)
         self._track_repo = TrackRepository(session_factory)
 
+    def close(self) -> None:
+        """Dispose the connection pool of the engine this service created.
+
+        Only an engine the service built itself (no ``session_factory`` was
+        injected) is disposed — when a caller passes its own factory, that caller
+        owns the engine and must dispose it. Without this the private engine's
+        pool leaked until GC finalizers ran (#4501, same class as #2395/#3746).
+        Idempotent: safe to call more than once.
+        """
+        engine = self._engine
+        if engine is not None:
+            self._engine = None
+            engine.dispose()
+
+    def __del__(self) -> None:
+        # GC safety net for owners that forget to call close(); the explicit
+        # teardown wiring in the owners is the real fix (#4501).
+        try:
+            self.close()
+        except Exception:
+            pass
+
     def get_or_compute(self, audio_path: Path, audio: np.ndarray | None = None, sr: int | None = None) -> dict | None:
         """
         Get fingerprint using 3-tier cache strategy, or compute new one.
@@ -309,6 +331,14 @@ class FingerprintService:
                 # Ensures fingerprints are comparable regardless of loading path.
                 _target_sr = 22050
                 _max_samples = int(_target_sr * 90.0)
+                # Crop to ~90 s at the ORIGINAL sample rate BEFORE resampling.
+                # Resampling the whole buffer and cropping afterwards was an
+                # O(duration) resample + full-duration float32 allocation on a
+                # multi-hour pre-loaded buffer, only to discard all but the first
+                # 90 s — reopening the #4116 OOM/latency class (#4499). This
+                # matches the crop-then-resample order at every other entry point
+                # (MasteringFingerprint.from_audio_file, AudioFingerprintAnalyzer).
+                audio = audio[..., :int(sr * 90.0)]
                 if sr != _target_sr:
                     # Resample to target sr.
                     if audio.ndim == 1:
@@ -319,7 +349,8 @@ class FingerprintService:
                             for ch in range(audio.shape[0])
                         ])
                     sr = _target_sr
-                # Cap at 90 seconds (works for both 1-D and 2-D audio).
+                # Final exact cap at 90 s in the target rate (rounding safety;
+                # works for both 1-D and 2-D audio).
                 audio = audio[..., :_max_samples]
 
             # Ensure float64 for PyO3 compatibility
