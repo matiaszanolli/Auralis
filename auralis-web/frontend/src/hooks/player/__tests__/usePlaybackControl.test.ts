@@ -150,6 +150,23 @@ describe('usePlaybackControl', () => {
       expect(result.current.error).toBeDefined();
       expect(result.current.error?.message).toBe(errorMessage);
     });
+
+    it('should throw "No track selected" when no current track is set (#4479)', async () => {
+      // Drive the guard at usePlaybackControl.ts:138-140 via the documented
+      // seedTrack: null harness option — no current track, no queue.
+      const { result } = renderHook(() => usePlaybackControl(), {
+        wrapper: createWrapper({ seedTrack: null }),
+      });
+
+      await act(async () => {
+        await expect(result.current.play()).rejects.toThrow('No track selected');
+      });
+
+      // Guard rejects before any WebSocket message is sent.
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(result.current.error).toBeDefined();
+      expect(result.current.error?.message).toBe('No track selected. Set queue first.');
+    });
   });
 
   describe('pause()', () => {
