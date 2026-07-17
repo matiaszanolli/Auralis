@@ -59,7 +59,6 @@ export const useLibraryWithStats = ({
     fetchTracks,
     refetchStats,
   });
-  void _fetchAbortRef; void _statsAbortRef; void _scanAbortRef;
 
   // Auto-load on mount or when view/options change. Sub-hooks own their own
   // abort-on-unmount and abort-on-new-call; this effect only drives the load.
