@@ -12,10 +12,24 @@ import { renderHook, act } from '@testing-library/react';
 // Module mocking — must come before imports of the module under test
 // ============================================================================
 
+// Mutable player state so individual tests can toggle playback (#4481: the
+// decay branch only runs when isPlaying flips false). Hoisted so the mock
+// factory — which vitest hoists above imports — can close over it.
+// NOTE: the shape must match the real selectors — selectEnhancedStreamingState
+// reads state.player.streaming.enhanced.state. The prior inline mock provided
+// `streaming: { state: null }` (no `enhanced`), which made EVERY test in this
+// file throw at render — a pre-existing breakage fixed here alongside #4481.
+const { mockPlayerState } = vi.hoisted(() => ({
+  mockPlayerState: {
+    isPlaying: true,
+    streaming: { enhanced: { state: null as string | null } },
+  },
+}));
+
 // Mock redux so the hook doesn't need a real store
 vi.mock('react-redux', () => ({
   useSelector: vi.fn((selector: (s: any) => any) =>
-    selector({ player: { isPlaying: true, streaming: { state: null } } })
+    selector({ player: mockPlayerState })
   ),
 }));
 
@@ -74,6 +88,10 @@ describe('useAudioVisualization', () => {
     rafCallbacks = new Map();
     rafIdCounter = 1;
     performanceNowRef = { value: 0 };
+
+    // Reset playback to the default (playing) state for every test.
+    mockPlayerState.isPlaying = true;
+    mockPlayerState.streaming.enhanced.state = null;
 
     // Intercept rAF
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
@@ -243,5 +261,99 @@ describe('useAudioVisualization', () => {
     });
 
     expect(result.current.isActive).toBe(true);
+  });
+
+  // ============================================================================
+  // 5. No-AudioContext polling branch (#4481)
+  // ============================================================================
+
+  it('polls for an AudioContext when none exists yet, then stops once found (#4481)', () => {
+    // Enter the init effect with NO global context so the polling branch runs
+    // (useAudioVisualization.ts:158-171). beforeEach installed one — remove it.
+    delete window.__auralisAudioContext;
+    delete window.__auralisAnalyser;
+
+    const intervals = new Map<number, () => void>();
+    let intervalId = 1;
+    const setIntervalSpy = vi
+      .spyOn(window, 'setInterval')
+      .mockImplementation(((cb: () => void) => {
+        const id = intervalId++;
+        intervals.set(id, cb);
+        return id;
+      }) as unknown as typeof window.setInterval);
+    const clearIntervalSpy = vi
+      .spyOn(window, 'clearInterval')
+      .mockImplementation(((id: number) => {
+        intervals.delete(id);
+      }) as unknown as typeof window.clearInterval);
+
+    const { unmount } = renderHook(() => useAudioVisualization(true));
+
+    // No context at mount → a 500ms poll was scheduled.
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 500);
+    expect(intervals.size).toBe(1);
+
+    // First poll: still no context → nothing created, interval keeps running.
+    act(() => {
+      for (const cb of [...intervals.values()]) cb();
+    });
+    expect(window.__auralisAnalyser).toBeUndefined();
+    expect(clearIntervalSpy).not.toHaveBeenCalled();
+
+    // Context appears → next poll wires up the analyser and clears the interval.
+    window.__auralisAudioContext = {
+      sampleRate: 44100,
+      createAnalyser: () => makeFakeAnalyser(128),
+    } as unknown as AudioContext;
+    act(() => {
+      for (const cb of [...intervals.values()]) cb();
+    });
+    expect(window.__auralisAnalyser).toBeDefined();
+    expect(clearIntervalSpy).toHaveBeenCalled();
+
+    // Unmount runs the effect cleanup path without throwing.
+    unmount();
+  });
+
+  // ============================================================================
+  // 6. Decay-to-DEFAULT_DATA branch when playback stops (#4481)
+  // ============================================================================
+
+  it('decays smoothed values to default after playback stops (#4481)', () => {
+    // Build up non-trivial smoothed values while "playing" loud audio.
+    window.__auralisAnalyser = makeFakeAnalyser(200);
+
+    const { result, rerender } = renderHook(() => useAudioVisualization(true));
+
+    act(() => {
+      runFrames(rafCallbacks, 12, 0, 40, performanceNowRef);
+    });
+
+    expect(result.current.isActive).toBe(true);
+    const builtUpLoudness = result.current.loudness;
+    expect(builtUpLoudness).toBeGreaterThan(0);
+
+    // Stop playback → the start/stop effect enters the decay branch
+    // (useAudioVisualization.ts:276-300).
+    act(() => {
+      mockPlayerState.isPlaying = false;
+      rerender();
+    });
+
+    // A few decay frames: values fade but are still non-zero and marked inactive.
+    act(() => {
+      runFrames(rafCallbacks, 3, 0, 16, performanceNowRef);
+    });
+    expect(result.current.isActive).toBe(false);
+    expect(result.current.loudness).toBeGreaterThan(0);
+    expect(result.current.loudness).toBeLessThan(builtUpLoudness);
+
+    // Many more frames: fully decays to DEFAULT_DATA.
+    act(() => {
+      runFrames(rafCallbacks, 300, 0, 16, performanceNowRef);
+    });
+    expect(result.current.loudness).toBe(0);
+    expect(result.current.isActive).toBe(false);
   });
 });
