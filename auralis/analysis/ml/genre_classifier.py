@@ -34,7 +34,8 @@ class RuleBasedGenreClassifier:
             "hip_hop", "acoustic", "ambient", "metal", "country"
         ]
 
-        # Model weights (this would normally be loaded from a trained model)
+        # Rule-based feature weights — hand-tuned, the accepted permanent
+        # design (not loaded from a trained model; see genre_weights.py).
         self.weights = initialize_genre_weights(self.genres)
         self.confidence_threshold = 0.6
 
