@@ -23,10 +23,16 @@ def apply(
     Returns:
         Limited audio array (same shape and dtype as input)
     """
+    # NOTE: unlike the 11 tuple-contract stages (which return
+    # ``(processed, stage_info)`` and share the ``stages.no_op`` bypass helper),
+    # this terminal limiter intentionally returns a bare ``np.ndarray`` — its
+    # caller in ``mastering_branches`` consumes the array directly and there is
+    # no per-stage ``stage_info`` to report. Do NOT "align" it to the tuple
+    # contract; that would break the caller (#4298).
     current_peak = np.max(np.abs(audio))
 
     if current_peak <= ceiling:
-        return audio.copy()  # No limiting needed
+        return audio.copy()  # No limiting needed (bare array, see contract note above)
 
     # Use soft clip with threshold slightly below ceiling for smooth knee
     threshold = ceiling * 0.95  # Start limiting ~0.4 dB before ceiling

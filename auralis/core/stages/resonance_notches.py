@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from . import no_op
+
 from ..dsp import Notch, ResonanceNotcher
 
 
@@ -26,7 +28,7 @@ def apply(
         (processed_audio, stage_info) or (audio, None) if no notches
     """
     if not notches:
-        return audio.copy(), None
+        return no_op(audio)
 
     processed = ResonanceNotcher.apply(audio, sample_rate, notches)
     if verbose:

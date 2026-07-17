@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from . import no_op
+
 from ...dsp.dynamics.brick_wall_limiter import create_brick_wall_limiter
 
 if TYPE_CHECKING:
@@ -63,7 +65,7 @@ def apply(
         1.0,
     ))
     if undermastered <= 0.0:
-        return audio.copy(), None
+        return no_op(audio)
 
     # Push toward the loudness target, scaled by how under-mastered the source
     # is so borderline-quiet dynamic tracks get only a gentle lift. Also scaled
@@ -94,7 +96,7 @@ def apply(
 
     # Below ~0.5 dB the push is inaudible and not worth the limiter pass.
     if push_db < 0.5:
-        return audio.copy(), None
+        return no_op(audio)
 
     gained = audio * (10.0 ** (push_db / 20.0))
 

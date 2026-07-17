@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from . import no_op
+
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
 
@@ -100,7 +102,7 @@ def apply(
         applied.append(f"de-mask {demask_db:.1f}dB @{config.VOCAL_MASK_CUT_LOW_HZ:.0f}-{config.VOCAL_MASK_CUT_HIGH_HZ:.0f}Hz")
 
     if not applied:
-        return audio.copy(), None
+        return no_op(audio)
 
     if verbose:
         print(f"   Bass balance: {' / '.join(applied)}  (bass={bass_pct:.0%})")

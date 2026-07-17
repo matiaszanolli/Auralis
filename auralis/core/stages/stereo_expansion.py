@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from . import no_op
+
 from ...dsp.utils.stereo import adjust_stereo_width_multiband
 from ..utils import SmoothCurveUtilities
 
@@ -43,13 +45,13 @@ def apply(
         (processed_audio, stage_info) or (audio, None) if no expansion applied
     """
     if current_width >= 0.40:
-        return audio.copy(), None  # Already has decent width
+        return no_op(audio)  # Already has decent width
 
     # Poor phase correlation — skip
     if phase_correlation < 0.3:
         if verbose:
             print(f"   ⚠️  Skipping stereo expansion (poor phase correlation: {phase_correlation:.2f})")
-        return audio.copy(), None
+        return no_op(audio)
 
     # Phase correlation factor: 0.3-0.7 fades in smoothly, 0.7+ = full
     if phase_correlation < 0.7:
@@ -91,7 +93,7 @@ def apply(
     expansion_amount = max_expansion * combined_factor
 
     if expansion_amount < 0.01:
-        return audio.copy(), None
+        return no_op(audio)
 
     width_factor = 0.5 + expansion_amount
 
