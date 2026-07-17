@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from . import no_op
+
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
 
@@ -47,7 +49,7 @@ def apply(
     darkness_factor = (1.0 - air_pct) * 0.6 + (1.0 - spectral_rolloff) * 0.4
 
     if darkness_factor < 0.4:
-        return audio.copy(), None
+        return no_op(audio)
 
     air_factor = SmoothCurveUtilities.ramp_to_s_curve(darkness_factor, 0.4, 1.0)
 
@@ -55,7 +57,7 @@ def apply(
     boost_db = max_boost_db * air_factor * hf_lift
 
     if boost_db < 0.3:
-        return audio.copy(), None
+        return no_op(audio)
 
     processed = ParallelEQUtilities.apply_high_shelf_boost(
         audio,

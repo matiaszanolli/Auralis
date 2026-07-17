@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from . import no_op
+
 from ..dsp import HarmonicExciter
 from ..utils import SmoothCurveUtilities
 
@@ -58,7 +60,7 @@ def apply(
 
     activate_threshold = 1.0 - config.EXCITER_DARKNESS_ACTIVATE
     if darkness < activate_threshold:
-        return audio.copy(), None
+        return no_op(audio)
 
     excite_factor = SmoothCurveUtilities.ramp_to_s_curve(darkness, activate_threshold, 1.0)
 

@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from . import no_op
+
 from ..dsp import TransientShaper
 from ..utils import SmoothCurveUtilities
 
@@ -42,7 +44,7 @@ def apply(
     """
     threshold = config.TRANSIENT_ACTIVATE_CREST_DB
     if crest_db >= threshold:
-        return audio.copy(), None
+        return no_op(audio)
 
     # Compressed-ness factor: 0 at threshold, 1 at very compressed (8 dB)
     compress_factor = SmoothCurveUtilities.ramp_to_s_curve(
@@ -53,7 +55,7 @@ def apply(
     boost_db = max_boost * compress_factor
 
     if boost_db < 0.5:
-        return audio.copy(), None
+        return no_op(audio)
 
     # On already bass-dominant material a full attack boost on the low band
     # piles more energy onto the band that is already loudest, feeding the

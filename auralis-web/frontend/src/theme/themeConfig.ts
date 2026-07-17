@@ -89,7 +89,7 @@ export const glassEffects = {
       ? tokens.colors.opacityScale.white.light
       : tokens.colors.opacityScale.accent.light),
     boxShadow: isDark
-      ? '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px ' + tokens.colors.opacityScale.white.veryLight
+      ? '0 4px 16px ' + tokens.colors.opacityScale.dark.light + ', 0 0 0 1px ' + tokens.colors.opacityScale.white.veryLight
       : '0 4px 16px ' + tokens.colors.opacityScale.accent.ultraLight + ', 0 0 0 1px ' + tokens.colors.opacityScale.white.light,
   }),
 
@@ -105,7 +105,7 @@ export const glassEffects = {
       ? tokens.colors.opacityScale.white.lighter
       : tokens.colors.opacityScale.accent.standard),
     boxShadow: isDark
-      ? '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px ' + tokens.colors.opacityScale.white.light
+      ? '0 16px 48px ' + tokens.colors.opacityScale.dark.standard + ', 0 0 0 1px ' + tokens.colors.opacityScale.white.light
       : '0 16px 48px ' + tokens.colors.opacityScale.accent.light + ', 0 0 0 1px ' + tokens.colors.opacityScale.white.lighter,
   }),
 
@@ -242,7 +242,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
             boxShadow: 'none',
             '&:hover': {
               boxShadow: isDark
-                ? '0 4px 12px rgba(0, 0, 0, 0.3)'
+                ? '0 4px 12px ' + tokens.colors.opacityScale.dark.strong
                 : `0 4px 12px ${tokens.colors.opacityScale.accent.standard}`,
             },
           },
@@ -314,8 +314,8 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
             width: 24,
             height: 24,
             boxShadow: isDark
-              ? '0 2px 4px rgba(0, 0, 0, 0.2)'
-              : '0 2px 4px rgba(0, 0, 0, 0.1)',
+              ? '0 2px 4px ' + tokens.colors.opacityScale.dark.standard
+              : '0 2px 4px ' + tokens.colors.opacityScale.dark.light,
           },
           track: {
             borderRadius: 16,

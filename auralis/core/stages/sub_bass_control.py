@@ -3,6 +3,8 @@
 from typing import TYPE_CHECKING
 
 import numpy as np
+
+from . import no_op
 from scipy.signal import butter, sosfiltfilt
 
 from ..dsp import ParallelEQUtilities
@@ -71,7 +73,7 @@ def apply(
         applied_hp = True
 
     if abs(reduction_db) < 0.1 and not applied_hp:
-        return audio.copy(), None
+        return no_op(audio)
 
     if verbose:
         msg = f"   Sub-bass tighten: {reduction_db:.1f} dB @ <{config.SUB_BASS_CUTOFF_HZ:.0f}Hz"

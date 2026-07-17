@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from . import no_op
+
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
 
@@ -40,7 +42,7 @@ def apply(
     body_content = (low_mid_pct + mid_pct) / 2.0
 
     if body_content >= 0.25:
-        return audio.copy(), None
+        return no_op(audio)
 
     body_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(body_content, 0.0, 0.25)
 
@@ -48,7 +50,7 @@ def apply(
     boost_db = max_boost_db * body_factor
 
     if boost_db < 0.3:
-        return audio.copy(), None
+        return no_op(audio)
 
     processed = ParallelEQUtilities.apply_bandpass_boost(
         audio,
