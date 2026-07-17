@@ -12,8 +12,9 @@
 For experienced Python developers, here's the fastest path:
 
 ```bash
-# 1. Install dependencies
-pip install -r requirements.txt
+# 1. Install dependencies (uv manages the Python interpreter + venv)
+uv venv && source .venv/bin/activate
+uv pip install -r requirements.txt
 
 # 2. Start backend with hot reload (database auto-initializes on first run)
 python launch-auralis-web.py --dev
@@ -93,30 +94,31 @@ git status
 **What is a virtual environment?**
 A virtual environment isolates Python packages for this project, preventing conflicts with system Python.
 
-### Using Python 3.14 venv
+### Using uv
+
+`uv` provisions the interpreter (pinned in `.python-version`) and creates the venv in one step — no separate Python install needed.
 
 ```bash
-# Create virtual environment named 'venv'
-python3.14 -m venv venv
+# Create the virtual environment at .venv
+uv venv
 
 # Activate it
 # On macOS/Linux:
-source venv/bin/activate
+source .venv/bin/activate
 
 # On Windows (PowerShell):
-# venv\Scripts\Activate.ps1
+# .venv\Scripts\Activate.ps1
 
-# You should see '(venv)' prefix in terminal
-# (venv) user@computer:~/Auralis$
+# You should see '(.venv)' prefix in terminal
+# (.venv) user@computer:~/Auralis$
 ```
 
 **Verify activation:**
 ```bash
 which python
-# Should show: /path/to/Auralis/venv/bin/python
+# Should show: /path/to/Auralis/.venv/bin/python
 
 python --version
-# Should show: Python 3.14.x
 ```
 
 **Deactivate later with:**
@@ -132,19 +134,19 @@ deactivate
 Installs all Python packages the project needs (FastAPI, SQLAlchemy, NumPy, etc.).
 
 ```bash
-# Make sure virtual environment is activated
-# (venv) should be visible in terminal prompt
+# Make sure the virtual environment is activated
+# (.venv) should be visible in terminal prompt
 
 # Install all dependencies
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 
-# This will take 2-5 minutes depending on internet speed
+# uv resolves and installs from its cache — typically seconds, not minutes
 ```
 
 **Verify installation:**
 ```bash
 # List installed packages (should be 50+)
-pip list | head -20
+uv pip list | head -20
 
 # Test a few key imports
 python -c "import fastapi; import sqlalchemy; import numpy; print('All imports OK')"
@@ -193,7 +195,7 @@ If you need a setting that isn't covered above, check `auralis-web/backend/main.
 
 ```bash
 # Make sure virtual environment is activated
-# (venv) should be visible
+# (.venv) should be visible
 
 # Start with hot reload
 python launch-auralis-web.py --dev
@@ -241,7 +243,7 @@ python --version
 # ✅ Should be 3.14+
 
 # 2. Check key packages installed
-pip show fastapi sqlalchemy numpy
+uv pip show fastapi sqlalchemy numpy
 # ✅ Should show version info for each
 
 # 3. Check database exists
@@ -352,7 +354,7 @@ sudo apt install libflac-dev libvorbis-dev libopus-dev
 
 Then reinstall audioread:
 ```bash
-pip install --force-reinstall audioread
+uv pip install --force-reinstall audioread
 ```
 
 ---
@@ -796,7 +798,7 @@ curl http://localhost:8765/api/cache/stats
 top -o MEM -n 1 | grep python
 
 # Or use psutil
-pip install psutil
+uv pip install psutil
 python -c "import psutil; p = psutil.Process(); print(f'Memory: {p.memory_info().rss / 1024 / 1024:.1f}MB')"
 ```
 
@@ -821,7 +823,7 @@ find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null
 find . -type f -name "*.pyc" -delete
 
 # Reinstall dependencies (optional)
-pip install --upgrade -r requirements.txt
+uv pip install --upgrade -r requirements.txt
 
 # Database auto-initializes on next launch
 ```
@@ -837,13 +839,13 @@ rm ~/.auralis/library.db
 
 ```bash
 # Check for updates
-pip list --outdated
+uv pip list --outdated
 
 # Update all packages
-pip install --upgrade -r requirements.txt
+uv pip install --upgrade -r requirements.txt
 
 # Or update specific package
-pip install --upgrade fastapi
+uv pip install --upgrade fastapi
 ```
 
 ---
@@ -877,7 +879,7 @@ See [PHASE_A_IMPLEMENTATION_PLAN.md](../phases/phase-1-10/PHASE_A_IMPLEMENTATION
 - Check database: `sqlite3 ~/.auralis/library.db ".tables"`
 
 **Import errors?**
-- Reinstall dependencies: `pip install -r requirements.txt --force-reinstall`
+- Reinstall dependencies: `uv pip install -r requirements.txt --force-reinstall`
 - Check Python version: `python --version` should be 3.14+
 
 **Performance issues?**

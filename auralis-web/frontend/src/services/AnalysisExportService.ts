@@ -16,7 +16,6 @@
  * - Eliminates 100+ lines of duplicate code
  */
 
-import { useCallback, useEffect, useState } from 'react';
 import { tokens } from '@/design-system';
 import { createTimeoutPromise, globalErrorLogger } from '@/utils/errorHandling';
 import {
@@ -839,60 +838,6 @@ export class AnalysisExportService {
     this.currentSession = null;
     this.progressTracker.clear();
   }
-}
-
-// React Hook for Analysis Export
-export function useAnalysisExport() {
-  const [exportService] = useState(() => new AnalysisExportService());
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
-  const [exportStatus, setExportStatus] = useState('');
-
-  useEffect(() => {
-    const unsubscribe = exportService.onExportProgress((progress, status) => {
-      setExportProgress(progress);
-      setExportStatus(status);
-      setIsExporting(progress < 100);
-    });
-
-    return () => {
-      unsubscribe();
-      exportService.destroy();
-    };
-  }, [exportService]);
-
-  const exportSession = useCallback(async (options?: Partial<ExportOptions>) => {
-    setIsExporting(true);
-    try {
-      const blob = await exportService.exportSession(options);
-
-      // Download the file
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `auralis_analysis_${Date.now()}.${options?.format || 'json'}`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-      return blob;
-    } finally {
-      setIsExporting(false);
-    }
-  }, [exportService]);
-
-  return {
-    exportService,
-    isExporting,
-    exportProgress,
-    exportStatus,
-    exportSession,
-    addSnapshot: (data: Partial<AnalysisSnapshot>) => exportService.addSnapshot(data),
-    startSession: (metadata?: Partial<ExportMetadata>) => exportService.startNewSession(metadata),
-    endSession: () => exportService.endCurrentSession(),
-    exportCurrentSnapshot: (format?: 'json' | 'csv') => exportService.exportCurrentSnapshot(format),
-    getCurrentSession: () => exportService.getCurrentSession(),
-    getSnapshotCount: () => exportService.getSnapshotCount(),
-  };
 }
 
 export default AnalysisExportService;

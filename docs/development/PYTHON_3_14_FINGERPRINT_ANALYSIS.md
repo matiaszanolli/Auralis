@@ -377,14 +377,13 @@ scipy >= 1.11.0  # Ensure compatibility
 librosa >= 0.10.1  # Ensure compatibility
 ```
 
-### pyenv (CLAUDE.md references this)
+### uv (CLAUDE.md references this; project migrated off pyenv, see [PYTHON_3_13_vs_3_14_COMPATIBILITY.md](PYTHON_3_13_vs_3_14_COMPATIBILITY.md))
 ```
-# Current: auralis-3.14.0 virtualenv
-# Update to use Python 3.14+ when available
-
-pyenv install 3.14.0
-pyenv virtualenv 3.14.0 auralis-3.14.0
-pyenv local auralis-3.14.0
+# .python-version pins the interpreter; uv provisions it and creates .venv
+echo "3.14" > .python-version
+uv venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
 ```
 
 ### Docker (if applicable)

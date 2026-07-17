@@ -11,6 +11,7 @@ how to test and ship a change. For architecture, start at
 | Tool | Version | Notes |
 |------|---------|-------|
 | **Python** | 3.14+ | The requirement; the test env still runs 3.13.9 transitionally |
+| **[uv](https://docs.astral.sh/uv/)** | latest | Manages the Python interpreter + venv (replaces pyenv/venv/pip) |
 | **Node** | 24+ | Frontend + Electron |
 | **Rust** | stable + `maturin` | Required — the DSP module has no Python fallback |
 
@@ -19,8 +20,9 @@ how to test and ship a change. For architecture, start at
 ## 2. First-time setup
 
 ```bash
-# 1. Python deps
-pip install -r requirements.txt
+# 1. Python env + deps (.python-version pins the interpreter uv provisions)
+uv venv && source .venv/bin/activate
+uv pip install -r requirements.txt
 
 # 2. Build the Rust DSP module (REQUIRED before first run)
 cd vendor/auralis-dsp && maturin develop && cd ../..

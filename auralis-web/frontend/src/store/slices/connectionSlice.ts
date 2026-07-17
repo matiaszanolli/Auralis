@@ -201,14 +201,6 @@ export const selectLatency = (state: { connection: ConnectionState }) =>
   state.connection.latency;
 export const selectReconnectAttempts = (state: { connection: ConnectionState }) =>
   state.connection.reconnectAttempts;
-export const selectMaxReconnectAttempts = (state: { connection: ConnectionState }) =>
-  state.connection.maxReconnectAttempts;
-export const selectLastError = (state: { connection: ConnectionState }) =>
-  state.connection.lastError;
-export const selectLastReconnectTime = (state: { connection: ConnectionState }) =>
-  state.connection.lastReconnectTime;
-export const selectConnectionState = (state: { connection: ConnectionState }) =>
-  state.connection;
 
 /**
  * Select if fully connected (both WebSocket and API)
