@@ -2,7 +2,7 @@
  * useQueueHistory Hook Tests
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Runtime behavior tests for queue history undo/redo functionality.
+ * Runtime behavior tests for queue history undo functionality.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -71,7 +71,6 @@ describe('useQueueHistory', () => {
 
     expect(result.current.historyCount).toBe(0);
     expect(result.current.canUndo).toBe(false);
-    expect(result.current.canRedo).toBe(false);
     expect(result.current.history).toEqual([]);
     expect(result.current.error).toBeNull();
   });
@@ -220,19 +219,6 @@ describe('useQueueHistory', () => {
           await result.current.undo();
         })
       ).rejects.toThrow('No history available to undo');
-    });
-  });
-
-  describe('redo', () => {
-    it('should throw not implemented error', async () => {
-      const { result } = renderHook(() => useQueueHistory());
-      await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-      await expect(
-        act(async () => {
-          await result.current.redo();
-        })
-      ).rejects.toThrow('Redo not yet implemented');
     });
   });
 

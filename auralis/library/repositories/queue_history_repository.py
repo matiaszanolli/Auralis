@@ -160,20 +160,6 @@ class QueueHistoryRepository(BaseRepository):
         finally:
             session.close()
 
-    def redo(self, queue_repository: Any) -> QueueState | None:
-        """
-        Redo a previously undone queue operation
-
-        Current implementation: Redo not yet supported
-        Future: Could maintain separate redo stack
-
-        Returns:
-            None (not implemented)
-        """
-        # Redo would require tracking operations separately or maintaining a redo stack
-        # For now, return None to indicate redo not available
-        return None
-
     def clear_history(self) -> bool:
         """
         Clear all queue history
