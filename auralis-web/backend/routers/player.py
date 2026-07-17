@@ -325,7 +325,7 @@ def create_player_router(
             return await service.get_status()
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to get player status", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to get player status")
 
@@ -399,7 +399,7 @@ def create_player_router(
 
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
             logger.error("Failed to load track", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to load track")
 
@@ -437,7 +437,7 @@ def create_player_router(
             return result
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to seek", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to seek")
 
@@ -465,7 +465,7 @@ def create_player_router(
             return result
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to set volume", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to set volume")
 
@@ -481,7 +481,7 @@ def create_player_router(
             return await service.get_queue_info()
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to get queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to get queue")
 
@@ -493,7 +493,7 @@ def create_player_router(
             return await service.set_queue(request.tracks, request.start_index)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e) if "valid" in str(e) else "Player not available")
-        except Exception as e:
+        except Exception:
             logger.error("Failed to set queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to set queue")
 
@@ -620,7 +620,7 @@ def create_player_router(
         except ValueError as e:
             status_code = 400 if "Invalid" in str(e) else 503
             raise HTTPException(status_code=status_code, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to remove from queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to remove from queue")
 
@@ -632,7 +632,7 @@ def create_player_router(
             return await service.reorder_queue(request.new_order)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to reorder queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to reorder queue")
 
@@ -644,7 +644,7 @@ def create_player_router(
             return await service.clear_queue()
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to clear queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to clear queue")
 
@@ -657,7 +657,7 @@ def create_player_router(
         except ValueError as e:
             status_code = 404 if "not found" in str(e).lower() else 503
             raise HTTPException(status_code=status_code, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to add track to queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to add track to queue")
 
@@ -669,7 +669,7 @@ def create_player_router(
             return await service.move_track_in_queue(request.from_index, request.to_index)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to move track", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to move track")
 
@@ -684,7 +684,7 @@ def create_player_router(
                 return await service.unshuffle_queue()
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to shuffle queue", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to shuffle queue")
 
@@ -725,7 +725,7 @@ def create_player_router(
             return await service.next_track()
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to skip track", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to skip track")
 
@@ -737,7 +737,7 @@ def create_player_router(
             return await service.previous_track()
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
+        except Exception:
             logger.error("Failed to skip track", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to skip track")
 
