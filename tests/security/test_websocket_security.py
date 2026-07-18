@@ -21,13 +21,14 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
+from core.audio_stream_controller import ws_id as _stable_ws_id
 from websocket.websocket_security import (
     MAX_MESSAGE_SIZE,
     MAX_MESSAGES_PER_SECOND,
@@ -308,6 +309,37 @@ class TestWebSocketRateLimiting:
         limiter.cleanup(mock_ws)
 
         # Should be removed
+        assert len(limiter.message_log) == 0
+
+    def test_force_cleanup_clears_bucket_by_known_ws_id(self):
+        """Regression test for #3906: force_cleanup() clears a connection's
+        bucket given an already-known ws_id, without re-deriving it from the
+        websocket object. This is the fallback teardown_connection uses when
+        cleanup() itself raises, so a bucket doesn't leak forever if
+        whatever made cleanup() fail keeps failing."""
+        limiter = WebSocketRateLimiter(max_messages_per_second=10)
+        mock_ws = Mock()
+
+        for _ in range(3):
+            limiter.check_rate_limit(mock_ws)
+        assert len(limiter.message_log) == 1
+
+        known_ws_id = _stable_ws_id(mock_ws)
+        limiter.force_cleanup(known_ws_id)
+
+        assert len(limiter.message_log) == 0
+
+    def test_cleanup_delegates_to_force_cleanup(self):
+        """cleanup() should be a thin wrapper around force_cleanup() so the
+        two can never drift out of sync."""
+        limiter = WebSocketRateLimiter(max_messages_per_second=10)
+        mock_ws = Mock()
+        limiter.check_rate_limit(mock_ws)
+
+        with patch.object(limiter, "force_cleanup", wraps=limiter.force_cleanup) as spy:
+            limiter.cleanup(mock_ws)
+
+        spy.assert_called_once_with(_stable_ws_id(mock_ws))
         assert len(limiter.message_log) == 0
 
     def test_rate_limit_key_is_stable_uuid_not_address(self):
@@ -613,6 +645,44 @@ class TestWebSocketOriginValidation:
             await mock_ws.close(code=4003, reason="Forbidden origin")
 
         mock_ws.close.assert_awaited_once_with(code=4003, reason="Forbidden origin")
+
+
+@pytest.mark.security
+class TestUnknownMessageTypeNotReflected:
+    """Regression tests for #3910 / BE-EH-12: an unknown WS message type must
+    never be echoed back to the client — only logged server-side. Sibling of
+    the caller-controlled reflection closed in #3332."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_type_error_response_is_static(self):
+        from ws_handlers.messages import handle_unknown
+
+        mock_ws = AsyncMock()
+        mock_ws.send_text = AsyncMock()
+
+        await handle_unknown(mock_ws, {"type": "<script>alert(1)</script>"})
+
+        mock_ws.send_text.assert_awaited_once()
+        payload = json.loads(mock_ws.send_text.call_args[0][0])
+        assert payload["error"] == "unknown_message_type"
+        assert payload["message"] == "Unrecognised message type"
+        assert "script" not in payload["message"]
+
+    @pytest.mark.asyncio
+    async def test_unknown_type_with_control_characters_not_reflected(self):
+        """A message type containing log-injection-style control characters
+        (newlines, escape sequences) must not reach the client payload."""
+        from ws_handlers.messages import handle_unknown
+
+        mock_ws = AsyncMock()
+        mock_ws.send_text = AsyncMock()
+
+        malicious_type = "normal\n[ERROR] fake log line\x1b[31m"
+        await handle_unknown(mock_ws, {"type": malicious_type})
+
+        payload = json.loads(mock_ws.send_text.call_args[0][0])
+        assert malicious_type not in payload["message"]
+        assert "\n" not in payload["message"]
 
 
 if __name__ == "__main__":

@@ -191,6 +191,13 @@ async def teardown_connection(
         rate_limiter.cleanup(websocket)
     except Exception:
         logger.warning("Rate-limiter cleanup failed", exc_info=True)
+        # Best-effort second pass keyed on the ws_id we already derived above,
+        # so the bucket doesn't leak forever if cleanup() keeps failing
+        # (fixes #3906 / BE-MW-17).
+        try:
+            rate_limiter.force_cleanup(ws_id)
+        except Exception:
+            logger.warning("Rate-limiter fallback cleanup also failed", exc_info=True)
 
     # Remove stale progress callbacks on WS disconnect (#3325).
     # Wrap each unregister so one failure doesn't skip the rest.

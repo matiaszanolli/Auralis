@@ -146,8 +146,22 @@ class WebSocketRateLimiter:
         Args:
             websocket: WebSocket connection
         """
+        self.force_cleanup(_stable_ws_id(websocket))
+
+    def force_cleanup(self, ws_id: str) -> None:
+        """
+        Clear a connection's rate-limit bucket by its already-known ws_id.
+
+        Used as a fallback when cleanup() itself raises (fixes #3906 /
+        BE-MW-17): callers that already computed ws_id elsewhere (e.g. the
+        WS teardown sequence) can retry the removal directly without
+        re-deriving it from the websocket object, so the bucket doesn't leak
+        forever if whatever made cleanup() fail is still failing.
+
+        Args:
+            ws_id: Stable connection id, as returned by ws_id(websocket)
+        """
         with self._lock:  # Thread-safe access to message_log (#2442)
-            ws_id = _stable_ws_id(websocket)
             if ws_id in self.message_log:
                 del self.message_log[ws_id]
                 logger.debug(f"Cleaned up rate limiter for WebSocket {ws_id}")

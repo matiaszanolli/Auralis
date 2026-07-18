@@ -79,8 +79,10 @@ async def handle_subscribe_job_progress(
 
 
 async def handle_unknown(websocket: WebSocket, message: dict[str, Any]) -> None:
-    # Unknown message type (fixes #2417); sanitize before reflecting to client
+    # Unknown message type (fixes #2417). The raw value is logged server-side
+    # for forensics only — never reflected to the client, which would let a
+    # caller-controlled string reach frontend log rendering (fixes #3910 /
+    # BE-EH-12, sibling of the caller-controlled reflection closed in #3332).
     raw_type = message.get("type", "unknown")
-    safe_type = str(raw_type)[:32] if isinstance(raw_type, str) else "non-string"
     logger.warning(f"Unknown WebSocket message type: {raw_type!r}")
-    await send_error_response(websocket, "unknown_message_type", f"Unknown message type: {safe_type}")
+    await send_error_response(websocket, "unknown_message_type", "Unrecognised message type")
