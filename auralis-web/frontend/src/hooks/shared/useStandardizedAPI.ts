@@ -42,6 +42,10 @@ export interface APIRequestState<T> {
 // Cache Hooks
 // ============================================================================
 
+// Single source of truth for useCacheStats' poll cadence — also consumed by
+// CacheStatsDashboard's footer label so the two can't drift out of sync (#4310).
+export const CACHE_STATS_REFRESH_INTERVAL_MS = 5000;
+
 // Shared client instance for cache queries (avoids recreating per hook call)
 let _cacheClient: CacheAwareAPIClient | null = null;
 function getCacheClient(): CacheAwareAPIClient {
@@ -60,7 +64,7 @@ export function useCacheStats(): APIRequestState<CacheStats> & {
   const query = useQuery<CacheStats | null>({
     queryKey: ['cache', 'stats'],
     queryFn: () => getCacheClient().getCacheStats(),
-    refetchInterval: 5000,
+    refetchInterval: CACHE_STATS_REFRESH_INTERVAL_MS,
   });
 
   const refetchRef = useRef(query.refetch);

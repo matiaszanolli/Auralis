@@ -14,7 +14,7 @@
  */
 
 import { tokens } from '@/design-system';
-import { useCacheStats } from '@/hooks/shared/useStandardizedAPI';
+import { CACHE_STATS_REFRESH_INTERVAL_MS, useCacheStats } from '@/hooks/shared/useStandardizedAPI';
 import { PercentageDisplay, FileSizeDisplay, TierCard } from './CacheStatsDashboard/StatCards';
 
 interface CacheStatsDashboardProps {
@@ -260,7 +260,7 @@ export function CacheStatsDashboard({
           textAlign: 'center',
         }}
       >
-        Auto-refreshing every 5s
+        Auto-refreshing every {CACHE_STATS_REFRESH_INTERVAL_MS / 1000}s
       </div>
     </div>
   );
