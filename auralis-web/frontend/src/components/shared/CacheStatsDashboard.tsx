@@ -19,10 +19,6 @@ import { PercentageDisplay, FileSizeDisplay, TierCard } from './CacheStatsDashbo
 
 interface CacheStatsDashboardProps {
   /**
-   * Refresh interval in milliseconds (default 5000ms)
-   */
-  refreshInterval?: number;
-  /**
    * Whether to show per-track details
    */
   showTracks?: boolean;
