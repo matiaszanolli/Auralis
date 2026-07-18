@@ -19,6 +19,13 @@ from mutagen.mp4 import MP4, MP4Cover
 
 from ..utils.logging import debug, error, info
 
+# Cap the largest side of stored artwork (#4439). Embedded/folder covers can be
+# arbitrarily large (e.g. 6000x6000); bounding the source here keeps disk usage
+# and client-side decode cost in check while retaining more than enough
+# resolution for the largest served thumbnail bucket (1024px) and full-size
+# display. Matches the GET endpoint's maximum requestable size (le=2048).
+_MAX_ARTWORK_DIMENSION = 2048
+
 
 class ArtworkExtractor:
     """
@@ -234,6 +241,43 @@ class ArtworkExtractor:
 
         return None, None
 
+    def _bound_dimensions(self, artwork_data: bytes, ext: str) -> bytes:
+        """Downscale artwork whose largest side exceeds ``_MAX_ARTWORK_DIMENSION``.
+
+        Bounds arbitrarily large embedded/folder covers (#4439) so oversized
+        images are neither stored nor later streamed at full resolution.
+        Best-effort: any failure (Pillow missing, unsupported/corrupt image)
+        returns the original bytes unchanged so artwork is never dropped.
+
+        Args:
+            artwork_data: Raw image bytes.
+            ext: Target file extension ('.png' or '.jpg'), selects re-encode format.
+
+        Returns:
+            Downscaled image bytes, or the original bytes if no resize was
+            needed or possible.
+        """
+        try:
+            import io
+
+            from PIL import Image
+
+            with Image.open(io.BytesIO(artwork_data)) as image:
+                if max(image.size) <= _MAX_ARTWORK_DIMENSION:
+                    return artwork_data
+                # thumbnail() preserves aspect ratio and only ever downsizes.
+                image.thumbnail((_MAX_ARTWORK_DIMENSION, _MAX_ARTWORK_DIMENSION))
+                fmt = 'PNG' if ext == '.png' else 'JPEG'
+                if fmt == 'JPEG' and image.mode not in ('RGB', 'L'):
+                    image = image.convert('RGB')
+                buffer = io.BytesIO()
+                image.save(buffer, format=fmt)
+                debug(f"Downscaled oversized artwork to <= {_MAX_ARTWORK_DIMENSION}px")
+                return buffer.getvalue()
+        except Exception as e:
+            debug(f"Artwork dimension-bounding skipped: {e}")
+            return artwork_data
+
     def _save_artwork(self, artwork_data: bytes, album_id: int, mime_type: str | None) -> str | None:
         """
         Save artwork data to file
@@ -252,6 +296,11 @@ class ArtworkExtractor:
                 ext = '.png'
             else:
                 ext = '.jpg'  # Default to JPEG
+
+            # Bound the stored image to a sane maximum dimension (#4439) so an
+            # oversized embedded/folder cover isn't persisted and later streamed
+            # at full resolution. Best-effort — falls back to the original bytes.
+            artwork_data = self._bound_dimensions(artwork_data, ext)
 
             # Generate unique filename using album ID and content hash
             content_hash = hashlib.md5(artwork_data).hexdigest()[:8]

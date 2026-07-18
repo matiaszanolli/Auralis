@@ -255,6 +255,66 @@ class TestSaveArtwork:
             assert Path(result1).name == Path(result2).name
 
 
+class TestBoundDimensions:
+    """Tests for extract-time artwork dimension bounding (#4439)"""
+
+    @staticmethod
+    def _encode(width: int, height: int, fmt: str = "JPEG") -> bytes:
+        import io
+
+        from PIL import Image
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (width, height), (10, 20, 30)).save(buffer, format=fmt)
+        return buffer.getvalue()
+
+    def _dimensions(self, data: bytes) -> tuple[int, int]:
+        import io
+
+        from PIL import Image
+
+        with Image.open(io.BytesIO(data)) as image:
+            return image.size
+
+    def test_oversized_image_is_downscaled(self):
+        """A cover larger than the cap is downscaled so its largest side fits."""
+        from auralis.library.artwork import _MAX_ARTWORK_DIMENSION
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            extractor = ArtworkExtractor(tmpdir)
+            oversized = self._encode(4000, 3000)
+
+            saved = extractor._save_artwork(oversized, album_id=1, mime_type="image/jpeg")
+
+            assert saved is not None
+            width, height = self._dimensions(Path(saved).read_bytes())
+            assert max(width, height) <= _MAX_ARTWORK_DIMENSION
+            # Aspect ratio preserved (4:3)
+            assert width > height
+
+    def test_small_image_is_left_untouched(self):
+        """An image already within the cap is stored byte-for-byte unchanged."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            extractor = ArtworkExtractor(tmpdir)
+            small = self._encode(300, 300)
+
+            saved = extractor._save_artwork(small, album_id=2, mime_type="image/jpeg")
+
+            assert saved is not None
+            assert Path(saved).read_bytes() == small
+
+    def test_non_image_bytes_are_preserved(self):
+        """Best-effort: undecodable bytes fall through unchanged (artwork never dropped)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            extractor = ArtworkExtractor(tmpdir)
+            junk = b"not-a-real-image"
+
+            saved = extractor._save_artwork(junk, album_id=3, mime_type="image/jpeg")
+
+            assert saved is not None
+            assert Path(saved).read_bytes() == junk
+
+
 class TestGetArtworkPath:
     """Tests for get_artwork_path method"""
 
