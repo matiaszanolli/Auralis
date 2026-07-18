@@ -91,6 +91,10 @@ def _default_get_fingerprints_repository() -> Any | None:
 # Global cache for last content profiles (used by visualizer API)
 # Maps preset name -> last_content_profile dict
 _last_content_profiles: dict[str, Any] = {}
+# Guards _last_content_profiles: get_wav_chunk_path writes it from concurrent
+# asyncio.to_thread workers across streams, while get_last_content_profile
+# reads it from the event-loop thread for /api/processing/parameters (#4341).
+_last_content_profiles_lock = threading.Lock()
 
 # Chunk geometry (CHUNK_DURATION/CHUNK_INTERVAL/OVERLAP_DURATION/CONTEXT_DURATION)
 # comes from chunk_boundaries — the single source of truth (#4024) — re-exported
@@ -752,11 +756,15 @@ class ChunkedAudioProcessor:
             self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
 
         # Store last_content_profile globally for visualizer API access
-        # This allows the /api/processing/parameters endpoint to show real processing data
+        # This allows the /api/processing/parameters endpoint to show real processing data.
+        # Runs across concurrent asyncio.to_thread workers (#4341) — guard with
+        # the dedicated lock so a write here can't interleave with a read in
+        # get_last_content_profile() from the event-loop thread.
         if self.processor is not None:
             processor_profile = getattr(self.processor, 'last_content_profile', None)
             if processor_profile and self.preset is not None:
-                _last_content_profiles[self.preset.lower()] = processor_profile
+                with _last_content_profiles_lock:
+                    _last_content_profiles[self.preset.lower()] = processor_profile
                 logger.debug(f"📊 Stored processing profile for preset '{self.preset}'")
 
         return str(wav_chunk_path)
@@ -773,7 +781,8 @@ def get_last_content_profile(preset: str) -> dict[str, Any] | None:
     Returns:
         Last content profile dict or None if not available
     """
-    value = _last_content_profiles.get(preset.lower())
+    with _last_content_profiles_lock:
+        value = _last_content_profiles.get(preset.lower())
     if isinstance(value, dict):
         return value
     return None
