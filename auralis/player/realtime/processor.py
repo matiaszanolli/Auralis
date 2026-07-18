@@ -17,7 +17,6 @@ import numpy as np
 from ...utils.logging import info
 from ..config import PlayerConfig
 from .auto_master import AutoMasterProcessor
-from .gain_smoother import AdaptiveGainSmoother
 from .level_matcher import RealtimeLevelMatcher
 from .performance_monitor import PerformanceMonitor
 
@@ -73,7 +72,7 @@ class RealtimeProcessor:
 
                 # Update component state
                 if effect_name == 'level_matching' and self.level_matcher:
-                    self.level_matcher.enabled = enabled
+                    self.level_matcher.set_enabled(enabled)
                 elif effect_name == 'auto_mastering' and self.auto_master:
                     self.auto_master.set_enabled(enabled)
 
@@ -194,9 +193,7 @@ class RealtimeProcessor:
         """Reset all effects to initial state"""
         with self.lock:
             if self.level_matcher:
-                self.level_matcher.reference_rms = None
-                self.level_matcher.enabled = False
-                self.level_matcher.gain_smoother = AdaptiveGainSmoother()
+                self.level_matcher.reset()
 
             if self.auto_master:
                 self.auto_master.set_profile("balanced")

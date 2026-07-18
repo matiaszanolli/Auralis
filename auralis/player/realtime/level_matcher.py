@@ -55,6 +55,32 @@ class RealtimeLevelMatcher:
             info(f"Reference RMS set: {self.reference_rms:.6f}")
             return True
 
+    def set_enabled(self, enabled: bool) -> None:
+        """Enable/disable level matching under `_lock` (#4340).
+
+        `process()` reads `self.enabled` under the same lock; a raw
+        attribute write from the owning RealtimeProcessor (under its own,
+        different lock) does not serialise against a concurrent process()
+        call.
+        """
+        with self._lock:
+            self.enabled = enabled
+
+    def reset(self) -> None:
+        """Reset to initial state under `_lock` (#4340).
+
+        Mirrors AutoMasterProcessor's locked reset — `reference_rms`,
+        `enabled`, and `gain_smoother` must only be mutated while holding
+        this lock, since `process()` reads all three under it.
+        """
+        with self._lock:
+            self.reference_rms = None
+            self.enabled = False
+            self.gain_smoother = AdaptiveGainSmoother(
+                attack_alpha=0.02,
+                release_alpha=0.005,
+            )
+
     def process(self, audio: np.ndarray) -> np.ndarray:
         """Process audio chunk with level matching"""
         with self._lock:
