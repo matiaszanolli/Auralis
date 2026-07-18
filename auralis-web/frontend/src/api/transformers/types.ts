@@ -134,10 +134,6 @@ export interface AlbumDetailApiResponse extends AlbumApiResponse {
 export interface ArtistDetailApiResponse {
   id: number;
   name: string;
-  /** @deprecated Use id/name — kept for backward compat during rollout */
-  artist_id?: number;
-  /** @deprecated Use id/name — kept for backward compat during rollout */
-  artist_name?: string;
   albums: AlbumApiResponse[];
   total_albums: number;
   total_tracks: number;

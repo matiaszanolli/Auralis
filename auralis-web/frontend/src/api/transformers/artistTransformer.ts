@@ -58,8 +58,8 @@ export function transformArtistsResponse(apiResponse: ArtistsApiResponse) {
  */
 export function transformArtistDetail(apiDetail: ArtistDetailApiResponse): Artist {
   return {
-    id: apiDetail.id ?? apiDetail.artist_id,
-    name: apiDetail.name ?? apiDetail.artist_name,
+    id: apiDetail.id,
+    name: apiDetail.name,
     artworkUrl: apiDetail.artwork_url ?? undefined,
     albumCount: apiDetail.total_albums,
     trackCount: apiDetail.total_tracks,
