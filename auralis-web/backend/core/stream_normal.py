@@ -73,10 +73,14 @@ async def stream_normal_audio(
     # even on early-exit paths (fixes #3493 unbound-var hazard).
     lookahead_read: asyncio.Task[np.ndarray] | None = None
 
-    # temp_wav_path is declared before the guard so the finally cleanup can see
-    # it regardless of where control leaves the try below.
+    # temp_dir / temp_wav_path are declared before the guard so the finally
+    # cleanup can see them regardless of where control leaves the try below.
+    # temp_dir is what we remove: it is created by mkdtemp BEFORE temp_wav_path
+    # is assigned, so if load_audio / sf.write raises, temp_wav_path stays None
+    # but the dir still exists — clean up on temp_dir, not temp_wav_path (#4365).
     # For compressed formats (MP3, M4A, etc.), convert to temp WAV first
     # since sf.SoundFile only supports PCM formats (#3225).
+    temp_dir: str | None = None
     temp_wav_path: str | None = None
 
     # A single try/finally from here guards the semaphore permit acquired above:
@@ -323,18 +327,21 @@ async def stream_normal_audio(
             controller.active_streams.pop(_asc.ws_id(websocket), None)
         controller._stream_semaphore.release()
         # Clean up temp WAV created for compressed format streaming (#3225).
+        # Clean up on temp_dir (created by mkdtemp) not temp_wav_path — a
+        # load_audio/WAV-write failure leaves temp_dir present but temp_wav_path
+        # None, and that orphan must still be removed (#4365).
         # Log on failure instead of swallowing it (#3877): an EBUSY/EACCES
         # holdout is swept and counted at next startup (config/startup.py).
-        if temp_wav_path:
+        if temp_dir:
             import shutil
             try:
                 shutil.rmtree(
-                    Path(temp_wav_path).parent,
+                    temp_dir,
                     onexc=lambda _func, path, exc: logger.warning(
                         f"Failed to remove temp stream file {path}: {exc}"
                     ),
                 )
             except Exception as cleanup_error:
                 logger.warning(
-                    f"Temp stream cleanup failed for {temp_wav_path}: {cleanup_error}"
+                    f"Temp stream cleanup failed for {temp_dir}: {cleanup_error}"
                 )
