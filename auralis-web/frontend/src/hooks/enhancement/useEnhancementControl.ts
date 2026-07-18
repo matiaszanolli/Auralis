@@ -236,6 +236,14 @@ export function useEnhancementControl(): EnhancementControlActions {
   const intensityRef = useRef(state.intensity);
   intensityRef.current = state.intensity;
 
+  // Monotonic request ids so overlapping setPreset/setIntensity calls (rapid
+  // preset clicks / slider drags) apply state from whichever call was
+  // dispatched LAST, not whichever *resolves* last (fixes #4339 — unlike
+  // isTogglingRef, these must allow overlap, so a counter rather than a
+  // boolean guard).
+  const presetRequestIdRef = useRef(0);
+  const intensityRequestIdRef = useRef(0);
+
   const toggleEnabled = useCallback(async (): Promise<void> => {
     if (isTogglingRef.current) return;
     isTogglingRef.current = true;
@@ -309,8 +317,18 @@ export function useEnhancementControl(): EnhancementControlActions {
       throw apiError;
     }
 
+    // #4339: capture this call's id before awaiting so a later, overlapping
+    // setPreset call can supersede it.
+    const requestId = ++presetRequestIdRef.current;
+
     try {
       await post('/api/player/enhancement/preset', { preset });
+
+      // A newer setPreset call was dispatched while this POST was in
+      // flight — its own resolution is authoritative, not this stale one.
+      // Prevents out-of-order resolution from clobbering the UI with an
+      // older preset (#4339).
+      if (requestId !== presetRequestIdRef.current) return;
 
       // Optimistic update - server will broadcast confirmation via WebSocket
       setState((prevState) => ({
@@ -331,6 +349,8 @@ export function useEnhancementControl(): EnhancementControlActions {
         });
       }
     } catch (err) {
+      if (requestId !== presetRequestIdRef.current) return;
+
       const apiError = ApiErrorHandler.parseWithCode(err, 'PRESET_ERROR');
 
       setError(apiError);
@@ -353,8 +373,18 @@ export function useEnhancementControl(): EnhancementControlActions {
     // Clamp intensity to valid range
     const validIntensity = Math.max(0.0, Math.min(1.0, intensity));
 
+    // #4339: capture this call's id before awaiting so a later, overlapping
+    // setIntensity call (e.g. the next tick of a slider drag) can supersede
+    // it — collapses a rapid-drag burst to a single applied value/reissue
+    // instead of one per intermediate value.
+    const requestId = ++intensityRequestIdRef.current;
+
     try {
       await post('/api/player/enhancement/intensity', { intensity: validIntensity });
+
+      // A newer setIntensity call was dispatched while this POST was in
+      // flight — its own resolution is authoritative, not this stale one.
+      if (requestId !== intensityRequestIdRef.current) return;
 
       // Optimistic update - server will broadcast confirmation via WebSocket
       setState((prevState) => ({
@@ -371,6 +401,8 @@ export function useEnhancementControl(): EnhancementControlActions {
         });
       }
     } catch (err) {
+      if (requestId !== intensityRequestIdRef.current) return;
+
       const apiError = ApiErrorHandler.parseWithCode(err, 'INTENSITY_ERROR');
 
       setError(apiError);

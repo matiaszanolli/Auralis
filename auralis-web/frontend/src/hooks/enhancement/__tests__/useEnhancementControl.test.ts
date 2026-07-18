@@ -491,6 +491,138 @@ describe('useEnhancementControl', () => {
     });
   });
 
+  // ==========================================================================
+  // Out-of-order request resolution (#4339)
+  //
+  // setPreset/setIntensity had no in-flight guard, so overlapping calls could
+  // resolve out of order — the optimistic setState runs AFTER the await, so
+  // whichever POST *resolves* last wins, not whichever was *dispatched* last.
+  // A monotonic request id now makes only the last-dispatched call's own
+  // resolution authoritative.
+  // ==========================================================================
+
+  describe('out-of-order request resolution (#4339)', () => {
+    /** A promise plus externally-callable resolve, for controlling settle order. */
+    function deferred<T>() {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>((res) => { resolve = res; });
+      return { promise, resolve };
+    }
+
+    it('applies the last-dispatched setIntensity value even if it resolves first', async () => {
+      const first = deferred<{ success: boolean }>();
+      const second = deferred<{ success: boolean }>();
+      const mockPost = vi.fn()
+        .mockReturnValueOnce(first.promise)
+        .mockReturnValueOnce(second.promise);
+
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: vi.fn().mockResolvedValue(null),
+        post: mockPost,
+        put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+
+      const { result } = renderHook(() => useEnhancementControl());
+
+      // Dispatch 0.9 then 0.5, but let 0.5's POST (dispatched second) resolve
+      // FIRST — simulating out-of-order network resolution.
+      let call1: Promise<void>;
+      let call2: Promise<void>;
+      act(() => {
+        call1 = result.current.setIntensity(0.9);
+        call2 = result.current.setIntensity(0.5);
+      });
+
+      await act(async () => {
+        second.resolve({ success: true }); // last-dispatched resolves first
+        await call2!;
+        first.resolve({ success: true }); // first-dispatched resolves last (stale)
+        await call1!;
+      });
+
+      // The last-DISPATCHED value (0.5) must win, not the last-RESOLVED one.
+      expect(result.current.intensity).toBe(0.5);
+    });
+
+    it('applies the last-dispatched setPreset value even if it resolves first', async () => {
+      const first = deferred<{ success: boolean }>();
+      const second = deferred<{ success: boolean }>();
+      const mockPost = vi.fn()
+        .mockReturnValueOnce(first.promise)
+        .mockReturnValueOnce(second.promise);
+
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: vi.fn().mockResolvedValue(null),
+        post: mockPost,
+        put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+
+      const { result } = renderHook(() => useEnhancementControl());
+
+      let call1: Promise<void>;
+      let call2: Promise<void>;
+      act(() => {
+        call1 = result.current.setPreset('bright');
+        call2 = result.current.setPreset('warm');
+      });
+
+      await act(async () => {
+        second.resolve({ success: true });
+        await call2!;
+        first.resolve({ success: true });
+        await call1!;
+      });
+
+      expect(result.current.preset).toBe('warm');
+    });
+
+    it('collapses a rapid setIntensity burst into a single stream reissue', async () => {
+      const reissueMock = vi.fn(() => true);
+      vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue({
+        isConnected: true,
+        connectionStatus: 'connected' as const,
+        subscribe: vi.fn(() => vi.fn()),
+        subscribeAll: vi.fn(() => vi.fn()),
+        send: vi.fn(),
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        setResumePositionGetter: vi.fn(),
+        reissueActiveStreamAs: reissueMock,
+      });
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: vi.fn().mockResolvedValue({ enabled: true, preset: 'adaptive', intensity: 1.0 }),
+        post: vi.fn().mockResolvedValue({ success: true }),
+        put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+
+      const { result } = renderHook(() => useEnhancementControl());
+      await waitFor(() => expect(result.current.enabled).toBe(true));
+
+      // Simulate a fast slider drag: five overlapping calls before any resolve.
+      await act(async () => {
+        await Promise.all([
+          result.current.setIntensity(0.2),
+          result.current.setIntensity(0.4),
+          result.current.setIntensity(0.6),
+          result.current.setIntensity(0.8),
+          result.current.setIntensity(1.0),
+        ]);
+      });
+
+      expect(result.current.intensity).toBe(1.0);
+      // Only the last-dispatched call's resolution reissues the stream —
+      // not one restart per intermediate value.
+      expect(reissueMock).toHaveBeenCalledTimes(1);
+      expect(reissueMock).toHaveBeenCalledWith('play_enhanced', {
+        preset: 'adaptive',
+        intensity: 1.0,
+      });
+    });
+  });
+
   describe('error handling', () => {
     it('should clear error state', async () => {
       const mockPost = vi.fn().mockRejectedValue(new Error('API error'));
