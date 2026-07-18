@@ -28,39 +28,20 @@
  * await toggleShuffle();
  * ```
  *
- * Features:
- * - Queue state management with persistence
- * - Track reordering and removal
- * - Shuffle mode (random playback order)
- * - Repeat modes (off, all, one)
- * - Real-time sync via WebSocket
- * - Optimistic UI updates with error rollback
- * - Memoized callbacks for performance
+ * Composed from three focused hooks (#4292):
+ * - useQueueFetch — initial fetch on mount
+ * - useQueueSubscription — real-time sync via WebSocket
+ * - useQueueMutations — set/add/remove/reorder/shuffle/repeat/clear actions
  *
  * @module hooks/player/usePlaybackQueue
  */
 
-import { useCallback, useState, useEffect, useRef, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useRestAPI } from '@/hooks/api/useRestAPI';
-import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
-import type {
-  QueueChangedMessage,
-  QueueShuffledMessage,
-  RepeatModeChangedMessage,
-} from '@/types/websocket';
-
-type QueueWSMessage =
-  | QueueChangedMessage
-  | QueueShuffledMessage
-  | RepeatModeChangedMessage;
+import { useMemo } from 'react';
+import { useSelector } from 'react-redux';
+import { useQueueFetch } from './useQueueFetch';
+import { useQueueSubscription } from './useQueueSubscription';
+import { useQueueMutations } from './useQueueMutations';
 import {
-  setQueue as reduxSetQueue,
-  setCurrentIndex as reduxSetCurrentIndex,
-  clearQueue as reduxClearQueue,
-  setIsShuffled as reduxSetIsShuffled,
-  setRepeatMode as reduxSetRepeatMode,
-  isRepeatMode,
   selectQueueTracks,
   selectCurrentIndex,
   selectIsShuffled,
@@ -70,9 +51,6 @@ import {
 import { selectCurrentQueueTrack } from '@/store/selectors';
 import type { Track, QueueTrack } from '@/types/domain';
 import type { ApiError } from '@/types/api';
-
-import type { AppDispatch } from '@/store';
-import { ApiErrorHandler } from '@/types/api';
 
 /**
  * Queue state and metadata
@@ -170,9 +148,6 @@ export interface PlaybackQueueActions {
  * ```
  */
 export function usePlaybackQueue(): PlaybackQueueActions {
-  const { get, post, put, delete: apiDelete } = useRestAPI();
-  const dispatch = useDispatch<AppDispatch>();
-
   // All queue state lives in Redux (single source of truth)
   const tracks = useSelector(selectQueueTracks);
   const currentIndex = useSelector(selectCurrentIndex);
@@ -180,9 +155,6 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   const isShuffled = useSelector(selectIsShuffled);
   const repeatMode = useSelector(selectRepeatMode);
   const lastUpdated = useSelector(selectLastUpdated);
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<ApiError | null>(null);
 
   // Compose a QueueState view from Redux (single source of truth)
   const state: QueueState = useMemo(() => ({
@@ -193,380 +165,13 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     lastUpdated,
   }), [tracks, currentIndex, isShuffled, repeatMode, lastUpdated]);
 
-  /**
-   * Ref to track latest state without causing callback recreation
-   * Used for optimistic rollback in callbacks
-   */
-  const stateRef = useRef<QueueState>(state);
-  stateRef.current = state;
+  // Subscribe to real-time queue updates via WebSocket (dispatches to Redux)
+  useQueueSubscription();
 
-  /**
-   * Subscribe to real-time queue updates via WebSocket
-   * Dispatch to Redux so all consumers see the same data.
-   */
-  useWebSocketSubscription(
-    ['queue_changed', 'queue_shuffled', 'repeat_mode_changed'],
-    (message) => {
-      const msg = message as QueueWSMessage;
+  // Fetch initial queue state on mount (dispatches to Redux)
+  useQueueFetch();
 
-      switch (msg.type) {
-        case 'queue_changed': {
-          const { data } = msg;
-          if (data.tracks) dispatch(reduxSetQueue(data.tracks));
-          if (data.current_index != null) dispatch(reduxSetCurrentIndex(data.current_index));
-          else if (data.currentIndex != null) dispatch(reduxSetCurrentIndex(data.currentIndex));
-          break;
-        }
-
-        case 'queue_shuffled': {
-          const { data } = msg;
-          if (data.is_shuffled != null) dispatch(reduxSetIsShuffled(data.is_shuffled));
-          else if (data.isShuffled != null) dispatch(reduxSetIsShuffled(data.isShuffled));
-          if (data.tracks) dispatch(reduxSetQueue(data.tracks));
-          break;
-        }
-
-        case 'repeat_mode_changed': {
-          const { data } = msg;
-          if (isRepeatMode(data.repeat_mode)) dispatch(reduxSetRepeatMode(data.repeat_mode));
-          else if (isRepeatMode(data.repeatMode)) dispatch(reduxSetRepeatMode(data.repeatMode));
-          break;
-        }
-      }
-    }
-  );
-
-  /**
-   * Fetch initial queue state on mount
-   *
-   * Gated on a per-effect `isActive` flag (fixes #3925): without it, React 18
-   * Strict Mode's mount->cleanup->remount double-invoke fires two overlapping
-   * requests, and whichever resolves last wins — a stale first response can
-   * overwrite freshly-mounted Redux state if it resolves after the second.
-   */
-  useEffect(() => {
-    let isActive = true;
-
-    const fetchInitialQueue = async () => {
-      try {
-        const response = await get<Record<string, unknown>>('/api/player/queue');
-
-        if (response && isActive) {
-          // Backend sends snake_case; map to our state shape
-          dispatch(reduxSetQueue((response.tracks as QueueState['tracks']) || []));
-          dispatch(reduxSetCurrentIndex(
-            (response.current_index as number) ?? (response.currentIndex as number) ?? 0
-          ));
-          dispatch(reduxSetIsShuffled(
-            (response.is_shuffled as boolean) ?? (response.isShuffled as boolean) ?? false
-          ));
-          const initialRepeatMode = isRepeatMode(response.repeat_mode)
-            ? response.repeat_mode
-            : isRepeatMode(response.repeatMode)
-              ? response.repeatMode
-              : 'off';
-          dispatch(reduxSetRepeatMode(initialRepeatMode));
-        }
-      } catch (err) {
-        // Silently fail - user can still interact with empty queue
-        console.warn('Failed to fetch initial queue:', err);
-      }
-    };
-
-    fetchInitialQueue();
-
-    return () => {
-      isActive = false;
-    };
-  }, [get, dispatch]);
-
-  /**
-   * Set entire queue with optional start index
-   *
-   * @param tracks Tracks to add to queue
-   * @param startIndex Optional index to start playback (default: 0)
-   * @throws Error if set queue fails
-   */
-  const setQueue = useCallback(
-    async (tracks: Track[], startIndex: number = 0): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
-
-      // Optimistic update via Redux
-      const previousTracks = stateRef.current.tracks;
-      const previousIndex = stateRef.current.currentIndex;
-
-      dispatch(reduxSetQueue(tracks));
-      dispatch(reduxSetCurrentIndex(startIndex));
-
-      try {
-        // Send to backend
-        await post('/api/player/queue', {
-          tracks: tracks.map((t) => t.id),
-          start_index: startIndex,
-        });
-
-        // Server will broadcast confirmation via WebSocket
-      } catch (err) {
-        // Rollback on error
-        dispatch(reduxSetQueue(previousTracks));
-        dispatch(reduxSetCurrentIndex(previousIndex));
-
-        const apiError = ApiErrorHandler.parseWithCode(err, 'QUEUE_SET_ERROR');
-
-        setError(apiError);
-        throw apiError;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [post, dispatch]
-  );
-
-  /**
-   * Add single track to queue
-   *
-   * @param track Track to add
-   * @param position Optional position (default: append to end)
-   * @throws Error if add fails
-   */
-  const addTrack = useCallback(
-    async (track: Track, position?: number): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // Add to backend
-        await post('/api/player/queue/add-track', {
-          track_id: track.id,
-          position: position !== undefined ? position : undefined,
-        });
-
-        // Server will broadcast confirmation via WebSocket
-      } catch (err) {
-        const apiError = ApiErrorHandler.parseWithCode(err, 'ADD_TRACK_ERROR');
-
-        setError(apiError);
-        throw apiError;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [post]
-  );
-
-  /**
-   * Remove track at index from queue
-   *
-   * @param index Index of track to remove
-   * @throws Error if remove fails
-   */
-  const removeTrack = useCallback(
-    async (index: number): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // Remove from backend
-        await apiDelete(`/api/player/queue/${index}`);
-
-        // Server will broadcast confirmation via WebSocket
-      } catch (err) {
-        const apiError = ApiErrorHandler.parseWithCode(err, 'REMOVE_TRACK_ERROR');
-
-        setError(apiError);
-        throw apiError;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [apiDelete]
-  );
-
-  /**
-   * Reorder single track within queue (drag and drop)
-   *
-   * @param fromIndex Current position
-   * @param toIndex Destination position
-   * @throws Error if reorder fails
-   */
-  const reorderTrack = useCallback(
-    async (fromIndex: number, toIndex: number): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // Reorder in backend
-        await put('/api/player/queue/reorder', {
-          from_index: fromIndex,
-          to_index: toIndex,
-        });
-
-        // Server will broadcast confirmation via WebSocket
-      } catch (err) {
-        const apiError = ApiErrorHandler.parseWithCode(err, 'REORDER_ERROR');
-
-        setError(apiError);
-        throw apiError;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [put]
-  );
-
-  /**
-   * Reorder entire queue by specifying new track order
-   *
-   * @param newOrder Array of track IDs in new order
-   * @throws Error if reorder fails
-   */
-  const reorderQueue = useCallback(
-    async (newOrder: number[]): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // Reorder in backend
-        await put('/api/player/queue/reorder', {
-          new_order: newOrder,
-        });
-
-        // Server will broadcast confirmation via WebSocket
-      } catch (err) {
-        const apiError = ApiErrorHandler.parseWithCode(err, 'REORDER_QUEUE_ERROR');
-
-        setError(apiError);
-        throw apiError;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [put]
-  );
-
-  /**
-   * Toggle shuffle mode
-   *
-   * @throws Error if toggle fails
-   */
-  const toggleShuffle = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
-    setError(null);
-
-    // Use ref to get latest state without dependency
-    const newShuffle = !stateRef.current.isShuffled;
-    const previousShuffle = stateRef.current.isShuffled;
-
-    dispatch(reduxSetIsShuffled(newShuffle));
-
-    try {
-      // Send enabled as query param — backend reads it as ?enabled=true/false
-      await post('/api/player/queue/shuffle', undefined, {
-        enabled: newShuffle,
-      });
-
-      // Server will broadcast confirmation via WebSocket
-    } catch (err) {
-      // Rollback on error
-      dispatch(reduxSetIsShuffled(previousShuffle));
-
-      const apiError = ApiErrorHandler.parseWithCode(err, 'SHUFFLE_ERROR');
-
-      setError(apiError);
-      throw apiError;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [post, dispatch]);
-
-  /**
-   * Set repeat mode
-   *
-   * @param mode Repeat mode: 'off', 'all', or 'one'
-   * @throws Error if set fails
-   */
-  const setRepeatMode = useCallback(
-    async (mode: 'off' | 'all' | 'one'): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
-
-      // Validate mode
-      if (!['off', 'all', 'one'].includes(mode)) {
-        const apiError = {
-          message: `Invalid repeat mode: ${mode}`,
-          code: 'INVALID_REPEAT_MODE',
-          status: 400,
-        };
-        setError(apiError);
-        throw apiError;
-      }
-
-      // Optimistic update
-      const previousMode = stateRef.current.repeatMode;
-
-      dispatch(reduxSetRepeatMode(mode));
-
-      try {
-        // Send to backend
-        await post('/api/player/queue/repeat', { mode });
-
-        // Server will broadcast confirmation via WebSocket
-      } catch (err) {
-        // Rollback on error
-        dispatch(reduxSetRepeatMode(previousMode));
-
-        const apiError = ApiErrorHandler.parseWithCode(err, 'REPEAT_MODE_ERROR');
-
-        setError(apiError);
-        throw apiError;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [post, dispatch]
-  );
-
-  /**
-   * Clear entire queue
-   *
-   * @throws Error if clear fails
-   */
-  const clearQueue = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
-    setError(null);
-
-    // Optimistic update via Redux
-    const previousTracks = stateRef.current.tracks;
-    const previousIndex = stateRef.current.currentIndex;
-
-    dispatch(reduxClearQueue());
-
-    try {
-      // Send to backend
-      await post('/api/player/queue/clear');
-
-      // Server will broadcast confirmation via WebSocket
-    } catch (err) {
-      // Rollback on error
-      dispatch(reduxSetQueue(previousTracks));
-      dispatch(reduxSetCurrentIndex(previousIndex));
-
-      const apiError = ApiErrorHandler.parseWithCode(err, 'CLEAR_QUEUE_ERROR');
-
-      setError(apiError);
-      throw apiError;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [post, dispatch]);
-
-  /**
-   * Clear error state
-   */
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
+  const mutations = useQueueMutations();
 
   // Memoize return value so object identity is stable when deps haven't changed,
   // preventing cascading re-renders in consumers (fixes #2465).
@@ -577,22 +182,8 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     currentTrack,
     isShuffled: state.isShuffled,
     repeatMode: state.repeatMode,
-    setQueue,
-    addTrack,
-    removeTrack,
-    reorderTrack,
-    reorderQueue,
-    toggleShuffle,
-    setRepeatMode,
-    clearQueue,
-    isLoading,
-    error,
-    clearError,
-  }), [
-    state, currentTrack, isLoading, error,
-    setQueue, addTrack, removeTrack, reorderTrack, reorderQueue,
-    toggleShuffle, setRepeatMode, clearQueue, clearError,
-  ]);
+    ...mutations,
+  }), [state, currentTrack, mutations]);
 }
 
 /**
