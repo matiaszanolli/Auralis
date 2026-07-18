@@ -115,7 +115,7 @@ const styles = {
     overflow: 'hidden',
 
     // Enhanced shadow for artwork depth
-    boxShadow: `0 16px 48px ${tokens.colors.opacityScale.dark.strong}, 0 0 0 1px rgba(255, 255, 255, 0.08)`,
+    boxShadow: `0 16px 48px ${tokens.colors.opacityScale.dark.strong}, 0 0 0 1px ${tokens.colors.opacityScale.white.subtle}`,
   },
 
   artwork: {

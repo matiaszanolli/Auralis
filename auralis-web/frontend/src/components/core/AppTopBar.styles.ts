@@ -11,7 +11,7 @@ export const TopBarContainer = styled(Box)({
   background: tokens.glass.starfield.strong, // #3950: unified starfield glass
   backdropFilter: 'blur(8px) saturate(1.05)',
   // Glass bevel: top highlight + bottom shadow (no hard borders)
-  boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 ${tokens.colors.opacityScale.dark.standard}`,
+  boxShadow: `inset 0 1px 0 ${tokens.colors.opacityScale.white.subtle}, inset 0 -1px 0 ${tokens.colors.opacityScale.dark.standard}`,
   height: 70,
   gap: tokens.spacing.md,
 });

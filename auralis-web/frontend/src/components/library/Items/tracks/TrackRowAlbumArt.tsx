@@ -28,7 +28,7 @@ const TrackRowAlbumArtComponent = ({
       {shouldShowImage && albumArt ? (
         <img src={albumArt} alt={album || title} onError={onImageError} loading="lazy" />
       ) : (
-        <MusicNote sx={{ color: 'rgba(255, 255, 255, 0.3)', fontSize: tokens.typography.fontSize.lg }} />
+        <MusicNote sx={{ color: tokens.colors.opacityScale.white.strong, fontSize: tokens.typography.fontSize.lg }} />
       )}
     </AlbumArtThumbnail>
   );

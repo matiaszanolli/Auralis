@@ -53,7 +53,7 @@ export const MobileSidebarDrawer = ({
             background: tokens.glass.starfield.strong, // #3950: unified starfield glass
             backdropFilter: 'blur(8px) saturate(1.05)',
             // Glass bevel: right highlight + inner shadow (no hard borders)
-            boxShadow: `2px 0 16px ${tokens.colors.opacityScale.dark.light}, inset -1px 0 0 rgba(255, 255, 255, 0.06)`,
+            boxShadow: `2px 0 16px ${tokens.colors.opacityScale.dark.light}, inset -1px 0 0 ${tokens.colors.opacityScale.white.faint}`,
           },
         },
       }}

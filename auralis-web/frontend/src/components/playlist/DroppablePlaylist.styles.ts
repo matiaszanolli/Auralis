@@ -22,7 +22,7 @@ export const StyledListItemButton = styled(ListItemButton, {
       ? tokens.colors.opacityScale.accent.light
       : selected
         ? tokens.colors.opacityScale.accent.lighter
-        : 'rgba(255, 255, 255, 0.05)',
+        : tokens.colors.opacityScale.white.veryLight,
   },
 }));
 

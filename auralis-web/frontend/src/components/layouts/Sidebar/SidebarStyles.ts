@@ -96,7 +96,7 @@ export const CollapsedSidebarContainer = styled(Box)({
   background: tokens.glass.starfield.soft, // #3950: unified starfield glass
   backdropFilter: 'blur(6px) saturate(0.95)',
   // Glass bevel: right highlight + inner shadow (no hard borders)
-  boxShadow: `2px 0 16px ${tokens.colors.opacityScale.dark.lighter}, inset -1px 0 0 rgba(255, 255, 255, 0.06)`,
+  boxShadow: `2px 0 16px ${tokens.colors.opacityScale.dark.lighter}, inset -1px 0 0 ${tokens.colors.opacityScale.white.faint}`,
   display: 'flex',
   flexDirection: 'column',
   transition: `width ${tokens.transitions.slow}`,

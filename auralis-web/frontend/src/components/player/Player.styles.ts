@@ -22,7 +22,7 @@ export const styles = {
     backdropFilter: 'blur(10px) saturate(1.08)',          // Moderate blur preserves starfield
     border: 'none',
     // Glass bevel: top highlight + outer shadow
-    boxShadow: `0 -8px 32px ${tokens.colors.opacityScale.dark.standard}, inset 0 1px 0 rgba(255, 255, 255, 0.10)`,
+    boxShadow: `0 -8px 32px ${tokens.colors.opacityScale.dark.standard}, inset 0 1px 0 ${tokens.colors.opacityScale.white.light}`,
 
     zIndex: tokens.zIndex.dropdown,
     padding: 0,
@@ -126,7 +126,7 @@ export const styles = {
     background: tokens.colors.utility.errorBgMedium,      // Error tint with transparency
     backdropFilter: 'blur(20px) saturate(1.1)',           // Glass blur
     border: `1px solid ${tokens.colors.utility.errorBorder}`,  // Error border
-    boxShadow: `0 4px 16px ${tokens.colors.utility.errorGlow}, 0 0 0 1px rgba(255, 255, 255, 0.05)`,
+    boxShadow: `0 4px 16px ${tokens.colors.utility.errorGlow}, 0 0 0 1px ${tokens.colors.opacityScale.white.veryLight}`,
 
     borderRadius: tokens.borderRadius.md,                 // 12px - softer curves
     margin: tokens.spacing.sm,

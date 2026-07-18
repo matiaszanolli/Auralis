@@ -42,14 +42,14 @@ export const StyledListItemButton = styled(ButtonBase)({
   background: tokens.glass.starfield.faint, // #3950: unified starfield glass
   backdropFilter: 'blur(4px) saturate(1.02)',
   // Glass bevel
-  boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 -1px 0 ${tokens.colors.opacityScale.dark.light}`,
+  boxShadow: `inset 0 1px 0 ${tokens.colors.opacityScale.white.micro}, inset 0 -1px 0 ${tokens.colors.opacityScale.dark.light}`,
 
   '&:hover': {
     // Enhanced glass on hover
     background: tokens.glass.starfield.subtle, // #3950: unified starfield glass
     backdropFilter: 'blur(8px) saturate(1.05)',
     // Stronger glass bevel
-    boxShadow: `0 4px 16px ${tokens.colors.opacityScale.dark.lighter}, inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 ${tokens.colors.opacityScale.dark.lighter}`,
+    boxShadow: `0 4px 16px ${tokens.colors.opacityScale.dark.lighter}, inset 0 1px 0 ${tokens.colors.opacityScale.white.subtle}, inset 0 -1px 0 ${tokens.colors.opacityScale.dark.lighter}`,
     transform: 'translateY(-1px)',
 
     '& .artist-name': {
@@ -105,7 +105,7 @@ export const SectionHeader = styled(Box)({
   marginBottom: tokens.spacing.lg, // #3947: was 24px → token scale (20px)
   paddingBottom: tokens.spacing.md, // #3947: was 16px → token scale (12px)
   // Glass bevel: bottom shadow instead of hard border
-  boxShadow: 'inset 0 -1px 0 rgba(255, 255, 255, 0.05)',
+  boxShadow: `inset 0 -1px 0 ${tokens.colors.opacityScale.white.veryLight}`,
 });
 
 /**
