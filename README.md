@@ -6,19 +6,21 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.5.0-green.svg)](https://github.com/matiaszanolli/Auralis/releases)
+[![Release](https://img.shields.io/badge/next%20release-v1.5.0%20(WIP)-yellow.svg)](https://github.com/matiaszanolli/Auralis/releases)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-~5%2C400-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-~3%2C500-brightgreen.svg)]()
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)]()
 [![Node](https://img.shields.io/badge/node-24%2B-blue.svg)]()
 
-## 📦 Current Version: 1.5.0 — First Stable Release
+## 🚧 In Progress: v1.5.0 — First Stable Release
 
-**🎵 Auralis is now stable.** v1.5.0 consolidates everything built since the last binary release (v1.2.0-beta.2, Dec 2025) — two source-only pre-release tags plus a mastering-quality refinement pass, all folded into one stable line.
+> **Not yet released.** v1.5.0 is in preparation on `master` — not tagged, not built, no binaries. `auralis/version.py` reflects the in-progress version, ahead of the last actual release.
+
+**🎵 Auralis is preparing its first stable release.** v1.5.0 will consolidate everything built since the last binary release (v1.2.0-beta.2, Dec 2025) — two source-only pre-release tags plus a mastering-quality refinement pass, folded into one stable line.
 
 ### Downloads
 
-> ⚠️ **No v1.5.0 binaries yet.** The last release with downloadable binaries is **v1.2.0-beta.2** (Dec 2025) — several months behind current `master`. For all the fixes described below, **build from source** (see Option 2 below); a fresh v1.5.0 binary build is planned as a near-term follow-up.
+> ⚠️ **No v1.5.0 binaries yet — it hasn't shipped.** The last release with downloadable binaries is **v1.2.0-beta.2** (Dec 2025) — several months behind current `master`. To try the fixes described below now, **build from source** (see Option 2 below); a v1.5.0 binary build will follow once it's tagged.
 
 | Platform | Download (v1.2.0-beta.2) | Notes |
 |----------|----------|-------|
@@ -27,7 +29,7 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 | **Windows** | [.exe](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2) | Run installer |
 | **macOS** | [.dmg](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2) | Drag to Applications |
 
-### Highlights (since v1.2.0-beta.2)
+### Highlights so far (targeting v1.5.0, since v1.2.0-beta.2)
 
 - ✅ **First stable release** — no longer beta; production-ready quality bar
 - ✅ **Mastering pipeline refinement** — Linkwitz-Riley LR4 crossovers for phase-coherent stereo band splitting, fixed headroom calculation for quiet/loud-peak tracks, cosine-interpolated smooth processing curves (intensity, stereo expansion, bass enhancement)
@@ -104,7 +106,7 @@ auralis
 # 3. First launch: Right-click → Open (to bypass Gatekeeper)
 ```
 
-### Option 2: Run from Source (Recommended — current v1.5.0)
+### Option 2: Run from Source (Recommended — latest `master`, pre-v1.5.0)
 
 **Web Interface:**
 ```bash
@@ -354,9 +356,9 @@ npm run build
 
 This section is a brief summary — **[MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md)** is the detailed, actively-maintained source of truth (current state, open backlog, longer-term vision).
 
-### ✅ Recently Completed (v1.5.0)
+### 🚧 Merged to `master`, pending the v1.5.0 release
 
-- [x] **First stable release** — production-ready, no longer beta
+- [x] Version bumped to 1.5.0 — first stable (non-beta) release, not yet tagged/shipped
 - [x] Mastering-pipeline refinement (Linkwitz-Riley crossovers, headroom fix, smooth processing curves)
 - [x] Large concurrency/data-integrity/security audit-remediation effort (#2299–#2472 and beyond)
 - [x] Enhancement presets UI (5 presets: Adaptive, Gentle, Warm, Bright, Punchy)
@@ -406,7 +408,7 @@ See **[MASTER_ROADMAP.md §5](docs/MASTER_ROADMAP.md#5-open-backlog-real-tracked
 
 ---
 
-## 🐛 Known Issues (v1.5.0)
+## 🐛 Known Issues (current `master`, pre-v1.5.0)
 
 ### ⚠️ Current Limitations
 
@@ -416,12 +418,12 @@ See **[MASTER_ROADMAP.md §5](docs/MASTER_ROADMAP.md#5-open-backlog-real-tracked
 - **Status:** Tracked on the roadmap
 
 **No v1.5.0 Binaries Yet**
-- The last binary release is v1.2.0-beta.2 (Dec 2025); see Downloads above
-- **Workaround:** Build from source to run current v1.5.0
+- v1.5.0 hasn't been tagged or released — the last binary release is v1.2.0-beta.2 (Dec 2025); see Downloads above
+- **Workaround:** Build from source to run the latest `master`
 
-### ✅ Recently Fixed
+### ✅ Fixed on `master` (landing in v1.5.0)
 
-**v1.5.0** (July 2026):
+**Pending release** (merged, targeting v1.5.0):
 - **Playback concurrency deadlock** - Fixed a hard deadlock between seek/load/next-track and playback-info reads
 - **Resource leaks** - Processing engine and cache workers no longer leak threads/state after failures
 - **Database migration concurrency (CRITICAL)** - Inter-process locking prevents corruption
