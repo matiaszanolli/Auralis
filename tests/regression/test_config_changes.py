@@ -21,6 +21,7 @@ import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
+from auralis.io.unified_loader import load_audio
 
 
 @pytest.mark.regression
@@ -228,7 +229,8 @@ class TestPresetCompatibility:
             processor = HybridProcessor(config)
 
             # Should process without error
-            result = processor.process(filepath)
+            preset_audio, _ = load_audio(filepath)
+            result = processor.process(preset_audio)
 
             assert isinstance(result, np.ndarray), \
                 f"Preset '{preset}' should return numpy array"
@@ -341,7 +343,8 @@ class TestEQCurveModifications:
         processor = HybridProcessor(config)
 
         # Process (EQ is part of pipeline)
-        result = processor.process(filepath)
+        eq_audio, _ = load_audio(filepath)
+        result = processor.process(eq_audio)
 
         # Should succeed
         assert isinstance(result, np.ndarray)
@@ -384,7 +387,8 @@ class TestDynamicsProcessingChanges:
         processor = HybridProcessor(config)
 
         # Process (dynamics processing is automatic)
-        result = processor.process(filepath)
+        dynamics_audio, _ = load_audio(filepath)
+        result = processor.process(dynamics_audio)
 
         # Should process successfully
         assert isinstance(result, np.ndarray)

@@ -27,6 +27,7 @@ import pytest
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save
+from auralis.io.unified_loader import load_audio
 from auralis.library.repositories import ArtistRepository, TrackRepository
 
 
@@ -103,7 +104,8 @@ class TestChunkProcessingBugs:
         processor = HybridProcessor(config)
 
         # Process file
-        result = processor.process(test_audio_file)
+        audio, _ = load_audio(test_audio_file)
+        result = processor.process(audio)
 
         # REGRESSION: Should not have state-related artifacts
         # Check for discontinuities that indicate state loss
@@ -127,7 +129,8 @@ class TestChunkProcessingBugs:
         config.set_processing_mode('adaptive')
         processor = HybridProcessor(config)
 
-        result = processor.process(test_audio_file)
+        audio, _ = load_audio(test_audio_file)
+        result = processor.process(audio)
 
         # REGRESSION: Check for gain pumping artifacts
         # Measure RMS in different segments
@@ -254,7 +257,8 @@ class TestAudioQualityBugs:
         filepath = os.path.join(os.path.dirname(test_audio_file), 'peaks.wav')
         save(filepath, audio, sample_rate, subtype='PCM_16')
 
-        result = processor.process(filepath)
+        peaks_audio, _ = load_audio(filepath)
+        result = processor.process(peaks_audio)
 
         # REGRESSION: Check for harsh clipping
         # Soft limiter should not create hard clipping
@@ -278,7 +282,8 @@ class TestAudioQualityBugs:
         config.set_processing_mode('adaptive')
         processor = HybridProcessor(config)
 
-        result = processor.process(test_audio_file)
+        audio, _ = load_audio(test_audio_file)
+        result = processor.process(audio)
 
         # REGRESSION: Check for volume discontinuities
         # Measure RMS in overlapping windows
@@ -312,7 +317,8 @@ class TestAudioQualityBugs:
         config.set_processing_mode('adaptive')
         processor = HybridProcessor(config)
 
-        result = processor.process(test_audio_file)
+        audio, _ = load_audio(test_audio_file)
+        result = processor.process(audio)
 
         # REGRESSION: Check spectral continuity (fuzziness check)
         # Fuzziness often shows up as high-frequency noise

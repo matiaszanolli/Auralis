@@ -462,6 +462,7 @@ class TestBackwardCompatibility:
 
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
+        from auralis.io.unified_loader import load_audio
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
@@ -473,8 +474,10 @@ class TestBackwardCompatibility:
         import soundfile as sf
         sf.write(filepath, audio, 16000, subtype='PCM_16')
 
-        # Process
-        result = processor.process(filepath)
+        # Callers are responsible for resampling to the processor's internal
+        # sample rate before calling process() (#4035).
+        loaded_audio, _ = load_audio(filepath, target_sample_rate=config.internal_sample_rate)
+        result = processor.process(loaded_audio)
 
         # Should always return numpy array
         assert isinstance(result, np.ndarray), "Output should be numpy array"
@@ -506,6 +509,7 @@ class TestBackwardCompatibility:
 
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
+        from auralis.io.unified_loader import load_audio
 
         config = UnifiedConfig()
         processor1 = HybridProcessor(config)
@@ -518,9 +522,11 @@ class TestBackwardCompatibility:
         import soundfile as sf
         sf.write(filepath, audio, 44100, subtype='PCM_16')
 
-        # Process twice
-        result1 = processor1.process(filepath)
-        result2 = processor2.process(filepath)
+        # Process twice (independent loads, in case process() ever mutates its input)
+        loaded_audio1, _ = load_audio(filepath)
+        loaded_audio2, _ = load_audio(filepath)
+        result1 = processor1.process(loaded_audio1)
+        result2 = processor2.process(loaded_audio2)
 
         # Should be identical (or very close due to floating point)
         assert len(result1) == len(result2), "Output lengths should match"
