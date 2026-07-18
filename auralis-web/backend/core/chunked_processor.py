@@ -699,6 +699,15 @@ class ChunkedAudioProcessor:
             Path to WAV chunk file
         """
         assert self.sample_rate is not None and self.total_chunks is not None and self.total_duration is not None
+        # Enforce the ceiling here so every caller is protected regardless of
+        # whether it pre-checks total_chunks itself — an out-of-range index
+        # would otherwise reach load_chunk_from_file's uncached full-file-decode
+        # fallback, a small-request -> large-work amplifier (#4342).
+        if chunk_index < 0 or chunk_index >= self.total_chunks:
+            raise ValueError(
+                f"chunk_index {chunk_index} out of range "
+                f"(valid: 0..{self.total_chunks - 1})"
+            )
         # _sync_cache_lock serialises the full check→process→cache cycle so that
         # two concurrent thread-pool calls for the same chunk cannot both miss the
         # cache, both process the chunk, and produce conflicting results.

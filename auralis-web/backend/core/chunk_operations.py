@@ -90,6 +90,19 @@ class ChunkOperations:
         if total_duration is not None:
             load_end = min(load_end, total_duration)
 
+        # An out-of-range chunk_index (beyond total_duration) collapses this
+        # window to empty or inverted once chunk_end is capped above. Bail out
+        # here instead of letting the soundfile read fail and fall through to
+        # the full-file-decode fallback below — that fallback is a small-
+        # request -> large-work amplifier for an out-of-bounds index (#4342).
+        if load_start >= load_end:
+            logger.warning(
+                f"Chunk {chunk_index} window is empty/inverted "
+                f"(start={load_start:.1f}s, end={load_end:.1f}s) — out of range, returning silence"
+            )
+            silence = np.zeros((int(0.1 * sample_rate), 2), dtype=np.float32)
+            return silence, chunk_start, chunk_end
+
         # Load audio segment
         try:
             import soundfile as sf
