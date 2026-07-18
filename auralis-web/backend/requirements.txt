@@ -1,22 +1,45 @@
 # Auralis Web Backend Dependencies
-# Core web framework
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
+#
+# This file is bundled verbatim into the shipped desktop app via CI's
+# `rsync auralis-web/backend/ desktop/resources/backend/`
+# (.github/workflows/build-release.yml) — it is the actual manifest that
+# ships, not the root requirements.txt. It MUST mirror the root
+# requirements.txt (the single source of truth) so the untrusted-audio
+# parsing stack (numpy/scipy/soundfile/mutagen) that reaches the shipped
+# app carries the same reproducible, vetted pins as the dev/CI environment
+# instead of resolving whatever is on PyPI at build time (#4343).
+#
+# To update: change root requirements.txt first, then copy its pins here.
+# The requirements-pin-guard CI check fails if this drifts to an unpinned
+# entry for a sensitive parser package.
 
-# API and data handling
-python-multipart
-aiofiles
-websockets
+# Core Audio Processing
+numpy==2.3.5
+scipy==1.16.3
+soundfile==0.13.1
+librosa==0.11.0
+resampy==0.4.3
+mutagen==1.47.0
 
-# Development tools
-python-dotenv
+# FastAPI Backend
+fastapi==0.122.0
+uvicorn[standard]==0.38.0
+pydantic==2.12.4
+pydantic-settings==2.12.0
+python-multipart==0.0.27
 
-# Audio processing (existing Auralis dependencies)
-numpy
-scipy
-soundfile
-mutagen
+# Database
+SQLAlchemy==2.0.44
 
-# Database (if needed for extended features)
-sqlalchemy
-aiosqlite
+# Image Processing
+pillow==12.0.0
+
+# Async HTTP & Utilities
+aiohttp==3.13.4
+psutil==7.1.3
+python-dotenv==1.2.1
+
+# HTTP dependencies (automatically installed by FastAPI/aiohttp)
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1

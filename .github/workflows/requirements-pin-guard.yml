@@ -1,0 +1,44 @@
+name: Requirements Pin Guard
+
+# #4343: auralis-web/backend/requirements.txt is rsync'd verbatim into the
+# shipped desktop app (see .github/workflows/build-release.yml). If the
+# untrusted-audio parsing stack (numpy, scipy, soundfile, mutagen) in that
+# file ever drifts back to unpinned, the shipped build resolves whatever is
+# on PyPI at build time instead of the vetted, reproducible pins in the root
+# requirements.txt. This job fails if any sensitive package there is missing
+# an `==` pin.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-parser-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify sensitive parser packages are == pinned
+        run: |
+          set -euo pipefail
+          pin_status=0
+          # Sensitive: parses untrusted audio/metadata files directly.
+          for pkg in numpy scipy soundfile mutagen; do
+            line=$(grep -iE "^${pkg}([<>=~!\[ ]|$)" auralis-web/backend/requirements.txt || true)
+            if [ -z "$line" ]; then
+              echo "::error file=auralis-web/backend/requirements.txt::Missing entry for '$pkg'"
+              pin_status=1
+            elif ! echo "$line" | grep -qE '==[0-9]'; then
+              echo "::error file=auralis-web/backend/requirements.txt::'$line' is not ==-pinned (#4343)"
+              pin_status=1
+            fi
+          done
+          if [ "$pin_status" -ne 0 ]; then
+            echo "Pin every sensitive parser package with == in auralis-web/backend/requirements.txt (mirror root requirements.txt)."
+            exit 1
+          fi
+          echo "OK: numpy/scipy/soundfile/mutagen are all ==-pinned in the shipped manifest."
