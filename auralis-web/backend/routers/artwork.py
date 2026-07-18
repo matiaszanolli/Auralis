@@ -25,6 +25,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
 
 from .dependencies import require_repository_factory, with_error_handling
+from .errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["artwork"])
@@ -153,10 +154,10 @@ def create_artwork_router(
         album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
         if not album:
-            raise HTTPException(status_code=404, detail="Album not found")
+            raise NotFoundError("Album")
 
         if not album.artwork_path:
-            raise HTTPException(status_code=404, detail="Artwork not found")
+            raise NotFoundError("Artwork")
 
         # Security: Validate artwork path is within allowed directory
         # Define allowed artwork directory
@@ -186,7 +187,7 @@ def create_artwork_router(
 
         # Additional check: file must exist (after security validation)
         if not requested_path.exists():
-            raise HTTPException(status_code=404, detail="Artwork not found")
+            raise NotFoundError("Artwork")
 
         # Detect MIME type from file extension first, then fall back to magic bytes
         # so that PNG files with unrecognized/missing extensions are not served
@@ -319,7 +320,7 @@ def create_artwork_router(
         # already gone, return success.
         album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
         if album is None:
-            raise HTTPException(status_code=404, detail=f"Album {album_id} not found")
+            raise NotFoundError("Album", album_id)
         success = await asyncio.to_thread(repos.albums.delete_artwork, album_id)
         # If repo returns False the artwork was already absent — also
         # success from the client's idempotency perspective.
@@ -355,7 +356,7 @@ def create_artwork_router(
         album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
 
         if not album:
-            raise HTTPException(status_code=404, detail="Album not found")
+            raise NotFoundError("Album")
 
         # Get artist name (from first track if available)
         artist_name = album.artist.name if album.artist else "Unknown Artist"
@@ -380,7 +381,7 @@ def create_artwork_router(
         # Save artwork path to database
         updated_album = await asyncio.to_thread(repos.albums.update_artwork_path, album_id, artwork_path)
         if not updated_album:
-            raise HTTPException(status_code=404, detail="Album not found")
+            raise NotFoundError("Album")
 
         # Convert filesystem path to API URL
         artwork_url = f"/api/albums/{album_id}/artwork"

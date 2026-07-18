@@ -24,11 +24,14 @@ class ServiceUnavailableError(HTTPException):
 
 class NotFoundError(HTTPException):
     """Resource not found (404 Not Found)"""
-    def __init__(self, resource_type: str, resource_id: Any | None = None) -> None:
-        if resource_id is not None:
-            detail = f"{resource_type} {resource_id} not found"
-        else:
-            detail = f"{resource_type} not found"
+    def __init__(
+        self, resource_type: str, resource_id: Any | None = None, *, detail: str | None = None
+    ) -> None:
+        if detail is None:
+            if resource_id is not None:
+                detail = f"{resource_type} {resource_id} not found"
+            else:
+                detail = f"{resource_type} not found"
         super().__init__(status_code=404, detail=detail)
 
 

@@ -34,6 +34,8 @@ from typing import Any, Literal, cast
 from collections.abc import Callable
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+
+from .errors import NotFoundError
 from pydantic import BaseModel, ConfigDict, field_validator
 from player_state import PlayerState, TrackInfo
 from services import (
@@ -354,7 +356,7 @@ def create_player_router(
         library_manager = get_library_manager()
         track = await asyncio.to_thread(library_manager.tracks.get_by_id, request.track_id)
         if not track:
-            raise HTTPException(status_code=404, detail=f"Track {request.track_id} not found in library")
+            raise NotFoundError("Track", detail=f"Track {request.track_id} not found in library")
 
         try:
             # Add to queue with track info dict (using validated filepath from database).
@@ -555,7 +557,7 @@ def create_player_router(
             repo = get_queue_history_repo()
             restored = await asyncio.to_thread(repo.undo)
             if restored is None:
-                raise HTTPException(status_code=404, detail="No history available to undo")
+                raise NotFoundError("History", detail="No history available to undo")
 
             restored_dict = restored.to_dict()
 

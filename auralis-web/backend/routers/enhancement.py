@@ -22,6 +22,8 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
+
+from .errors import NotFoundError
 from pydantic import BaseModel, field_validator
 
 from core.chunk_boundaries import (  # single source of truth (#2564)
@@ -406,7 +408,7 @@ def create_enhancement_router(
 
         track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
         if not track:
-            raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
+            raise NotFoundError("Track", track_id)
 
         filepath = track.filepath
         if not filepath:

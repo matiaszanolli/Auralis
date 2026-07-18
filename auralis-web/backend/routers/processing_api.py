@@ -24,6 +24,8 @@ from core.processing_engine import ProcessingEngine, ProcessingStatus
 from pydantic import BaseModel
 from security.path_security import PathValidationError, validate_file_path
 
+from .errors import NotFoundError
+
 logger = logging.getLogger(__name__)
 
 # Upload security constants (#2560). Single source of truth in config.limits (#4033).
@@ -303,7 +305,7 @@ def create_processing_router(
 
         job = await engine.get_job(job_id)
         if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
+            raise NotFoundError("Job")
 
         return JobStatusResponse(
             job_id=job.job_id,
@@ -326,7 +328,7 @@ def create_processing_router(
 
         job = await engine.get_job(job_id)
         if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
+            raise NotFoundError("Job")
 
         if job.status != ProcessingStatus.COMPLETED:
             raise HTTPException(status_code=400, detail=f"Job not completed (status: {job.status.value})")
@@ -342,7 +344,7 @@ def create_processing_router(
             raise HTTPException(status_code=500, detail="Output path configuration error")
 
         if not output_path.exists():
-            raise HTTPException(status_code=404, detail="Output file not found")
+            raise NotFoundError("Output file")
 
         # Determine media type based on file extension
         media_types = {
@@ -371,7 +373,7 @@ def create_processing_router(
             # Check if job exists to provide correct error
             job = await engine.get_job(job_id)
             if not job:
-                raise HTTPException(status_code=404, detail="Job not found")
+                raise NotFoundError("Job")
             raise HTTPException(status_code=400, detail="Job cannot be cancelled (already completed)")
 
         return {"message": "Job cancelled successfully", "job_id": job_id}

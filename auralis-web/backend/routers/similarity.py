@@ -16,6 +16,8 @@ from typing import Any, ParamSpec, TypeVar
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
+
+from .errors import NotFoundError
 from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import (
@@ -170,7 +172,7 @@ def create_similarity_router(
         # Check if track exists
         track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
         if not track:
-            raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
+            raise NotFoundError("Track", track_id)
 
         # Check if track has fingerprint
         if not await asyncio.to_thread(repos.fingerprints.exists, track_id):
@@ -265,15 +267,15 @@ def create_similarity_router(
         track2 = await asyncio.to_thread(repos.tracks.get_by_id, track_id2)
 
         if not track1:
-            raise HTTPException(status_code=404, detail=f"Track {track_id1} not found")
+            raise NotFoundError("Track", track_id1)
         if not track2:
-            raise HTTPException(status_code=404, detail=f"Track {track_id2} not found")
+            raise NotFoundError("Track", track_id2)
 
         # Check fingerprints
         if not await asyncio.to_thread(repos.fingerprints.exists, track_id1):
-            raise HTTPException(status_code=404, detail=f"Track {track_id1} missing fingerprint")
+            raise NotFoundError("Track", detail=f"Track {track_id1} missing fingerprint")
         if not await asyncio.to_thread(repos.fingerprints.exists, track_id2):
-            raise HTTPException(status_code=404, detail=f"Track {track_id2} missing fingerprint")
+            raise NotFoundError("Track", detail=f"Track {track_id2} missing fingerprint")
 
         # Calculate similarity
         similarity = get_similarity_system()
@@ -321,7 +323,7 @@ def create_similarity_router(
         explanation = await asyncio.to_thread(similarity.get_similarity_explanation, track_id1, track_id2, top_n=top_n)
 
         if not explanation:
-            raise HTTPException(status_code=404, detail="Could not generate explanation")
+            raise NotFoundError("Explanation", detail="Could not generate explanation")
 
         return SimilarityExplanation(**explanation)
 
@@ -511,7 +513,7 @@ def create_similarity_router(
         # Check if track exists
         track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
         if not track:
-            raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
+            raise NotFoundError("Track", track_id)
 
         # Check if already has fingerprint
         if await asyncio.to_thread(repos.fingerprints.exists, track_id):

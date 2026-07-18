@@ -20,7 +20,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException
 
 from .dependencies import require_repository_factory
-from .errors import handle_query_error
+from .errors import NotFoundError, handle_query_error
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ def create_fingerprint_status_router(
             track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
             if not track:
                 logger.warning(f"❌ Track {track_id} not found in database")
-                raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
+                raise NotFoundError("Track", track_id)
 
             logger.info(f"✓ Track found: {track.title} by {track.artists}")
 

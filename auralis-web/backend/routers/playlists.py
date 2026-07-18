@@ -26,6 +26,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from .dependencies import require_repository_factory, with_error_handling
+from .errors import NotFoundError
 
 router = APIRouter(tags=["playlists"])
 
@@ -103,7 +104,7 @@ def create_playlists_router(
         repos = require_repository_factory(get_repository_factory)
         playlist = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
         if not playlist:
-            raise HTTPException(status_code=404, detail="Playlist not found")
+            raise NotFoundError("Playlist")
 
         playlist_dict = playlist.to_dict()
         # Add full track details
@@ -181,7 +182,7 @@ def create_playlists_router(
         success = await asyncio.to_thread(repos.playlists.update, playlist_id, update_data)
 
         if not success:
-            raise HTTPException(status_code=404, detail="Playlist not found or update failed")
+            raise NotFoundError("Playlist", detail="Playlist not found or update failed")
 
         # Broadcast playlist updated event
         await connection_manager.broadcast({
@@ -213,7 +214,7 @@ def create_playlists_router(
         success = await asyncio.to_thread(repos.playlists.delete, playlist_id)
 
         if not success:
-            raise HTTPException(status_code=404, detail="Playlist not found")
+            raise NotFoundError("Playlist")
 
         # Broadcast playlist deleted event
         await connection_manager.broadcast({
@@ -286,7 +287,7 @@ def create_playlists_router(
         success = await asyncio.to_thread(repos.playlists.remove_track, playlist_id, track_id)
 
         if not success:
-            raise HTTPException(status_code=404, detail="Playlist or track not found")
+            raise NotFoundError("Playlist", detail="Playlist or track not found")
 
         # Broadcast playlist updated event
         await connection_manager.broadcast({
@@ -318,7 +319,7 @@ def create_playlists_router(
         success = await asyncio.to_thread(repos.playlists.clear, playlist_id)
 
         if not success:
-            raise HTTPException(status_code=404, detail="Playlist not found")
+            raise NotFoundError("Playlist")
 
         # Broadcast playlist cleared event
         await connection_manager.broadcast({

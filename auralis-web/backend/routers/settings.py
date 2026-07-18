@@ -35,6 +35,7 @@ from security.path_security import (
 )
 
 from .dependencies import with_error_handling
+from .errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +172,7 @@ def create_settings_router(
         """Get current user settings."""
         settings = await asyncio.to_thread(_repo().get_settings)
         if not settings:
-            raise HTTPException(status_code=404, detail="Settings not found")
+            raise NotFoundError("Settings")
         return settings.to_dict()
 
     @router.put("/api/settings", response_model=SettingsUpdateResponse)

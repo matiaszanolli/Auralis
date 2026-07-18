@@ -27,6 +27,7 @@ from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
 from security.path_security import PathValidationError, validate_file_path
 
 from .dependencies import require_repository_factory, with_error_handling
+from .errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 # Note: router is created inside create_metadata_router() for better testability
@@ -111,7 +112,7 @@ def create_metadata_router(
             track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
 
             if not track:
-                raise HTTPException(status_code=404, detail="Track not found")
+                raise NotFoundError("Track")
 
             # Validate DB-retrieved filepath before any file I/O (fixes #2302)
             try:
@@ -133,7 +134,7 @@ def create_metadata_router(
         except HTTPException:
             raise  # Re-raise HTTPException as-is (don't wrap in 500)
         except FileNotFoundError:
-            raise HTTPException(status_code=404, detail=f"Audio file not found for track {track_id}")
+            raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
 
     @router.get("/api/metadata/tracks/{track_id}")
     @with_error_handling("get track metadata")
@@ -156,7 +157,7 @@ def create_metadata_router(
             track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
 
             if not track:
-                raise HTTPException(status_code=404, detail="Track not found")
+                raise NotFoundError("Track")
 
             # Validate DB-retrieved filepath before file I/O (fixes #2302)
             try:
@@ -176,7 +177,7 @@ def create_metadata_router(
         except HTTPException:
             raise  # Re-raise HTTPException as-is
         except FileNotFoundError:
-            raise HTTPException(status_code=404, detail=f"Audio file not found for track {track_id}")
+            raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
 
     @router.put("/api/metadata/tracks/{track_id}")
     @with_error_handling("update track metadata")
@@ -200,7 +201,7 @@ def create_metadata_router(
             track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
 
             if not track:
-                raise HTTPException(status_code=404, detail="Track not found")
+                raise NotFoundError("Track")
 
             # Convert request to dict and filter out None values
             metadata_updates = {
@@ -234,7 +235,7 @@ def create_metadata_router(
                 lambda: repos.tracks.update_metadata(track_id, **metadata_updates)
             )
             if not updated_track:
-                raise HTTPException(status_code=404, detail="Track not found for update")
+                raise NotFoundError("Track", detail="Track not found for update")
 
             # Use the updated track for subsequent operations
             track = updated_track
@@ -266,7 +267,7 @@ def create_metadata_router(
         except HTTPException:
             raise
         except FileNotFoundError:
-            raise HTTPException(status_code=404, detail=f"Audio file not found for track {track_id}")
+            raise NotFoundError("Audio file", detail=f"Audio file not found for track {track_id}")
         except ValueError as e:
             # Invalid metadata error
             raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
