@@ -566,7 +566,7 @@ class ChunkedAudioProcessor:
         # Cache the path (Phase 5.1: Using ChunkCacheManager)
         self._cache_manager.cache_chunk_path(cache_key, chunk_path)
 
-        logger.info(f"Chunk {chunk_index} processed and saved to {chunk_path}")
+        logger.info(f"Chunk {chunk_index} processed and saved to {Path(chunk_path).name}")
         # Return both path (for caching) and audio array (for immediate streaming)
         return (str(chunk_path), extracted_chunk)
 
@@ -675,7 +675,7 @@ class ChunkedAudioProcessor:
         # Save full file
         assert self.sample_rate is not None
         save_audio(str(full_path), full_audio, self.sample_rate, subtype='PCM_16')
-        logger.info(f"Full audio saved to {full_path}")
+        logger.info(f"Full audio saved to {Path(full_path).name}")
 
         return str(full_path)
 

@@ -178,7 +178,7 @@ def create_lifespan(deps: dict[str, Any]):
             try:
                 shutil.rmtree(chunk_dir)
                 chunk_dir.mkdir(exist_ok=True)
-                logger.info(f"🧹 Cleared chunk directory: {chunk_dir}")
+                logger.info(f"🧹 Cleared chunk directory: {chunk_dir.name}")
             except Exception as e:
                 logger.warning(f"Failed to clear chunk directory: {e}")
 

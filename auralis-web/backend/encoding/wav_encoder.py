@@ -21,6 +21,7 @@ Trade-off:
 
 import io
 import logging
+import os
 
 import numpy as np
 
@@ -66,7 +67,10 @@ def encode_to_wav(audio: np.ndarray, sample_rate: int = 44100, output_path: str 
         if output_path:
             with open(output_path, 'wb') as f:
                 f.write(wav_bytes)
-            logger.info(f"WAV encoded: {output_path} ({len(wav_bytes)} bytes, {len(audio)/sample_rate:.1f}s)")
+            logger.info(
+                f"WAV encoded: {os.path.basename(output_path)} "
+                f"({len(wav_bytes)} bytes, {len(audio)/sample_rate:.1f}s)"
+            )
 
         return wav_bytes
 

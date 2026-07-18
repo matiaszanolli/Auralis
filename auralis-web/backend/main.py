@@ -148,17 +148,19 @@ if os.environ.get('ELECTRON_MODE') == '1':
     if not frontend_path.exists():
         # Fallback: resolve relative to this script
         frontend_path = Path(__file__).resolve().parent.parent / "frontend"
-    logger.info(f"Electron mode: looking for frontend at {frontend_path}")
+    logger.info("Electron mode: looking for frontend")
 elif hasattr(sys, 'frozen') and hasattr(sys, '_MEIPASS'):
     # PyInstaller bundle but not Electron - frontend might be bundled
     meipass = getattr(sys, '_MEIPASS')
     frontend_path = Path(meipass) / "frontend"
-    logger.info(f"PyInstaller mode: _MEIPASS={meipass}")
+    logger.info("PyInstaller mode: frontend bundled with _MEIPASS")
 else:
     # Development mode - look in regular location
     frontend_path = Path(__file__).parent.parent / "frontend" / "dist"
 
-logger.info(f"Looking for frontend at: {frontend_path}")
+# Absolute path (embeds OS username + install layout) kept at DEBUG only;
+# INFO stays free of it so it's safe to paste into a public bug report (#4366).
+logger.debug(f"Looking for frontend at: {frontend_path}")
 
 # Only mount static files in production (when not running --dev)
 # In development, Vite serves the frontend and proxies API requests
@@ -166,7 +168,8 @@ logger.info(f"Looking for frontend at: {frontend_path}")
 is_dev_mode = _is_dev_mode()
 
 if not is_dev_mode and frontend_path.exists():
-    logger.info(f"✅ Serving frontend from: {frontend_path} (production mode)")
+    logger.info("✅ Serving frontend (production mode)")
+    logger.debug(f"Serving frontend from: {frontend_path}")
     app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
 elif is_dev_mode:
     logger.info("ℹ️  Development mode: Vite serves frontend, StaticFiles NOT mounted (preserves WebSocket routes)")
@@ -185,7 +188,8 @@ elif is_dev_mode:
         </html>
         """)
 else:
-    logger.warning(f"⚠️  Frontend not found at {frontend_path}")
+    logger.warning("⚠️  Frontend not found — check installation")
+    logger.debug(f"Frontend not found at: {frontend_path}")
 
     @app.get("/")
     async def root() -> HTMLResponse:

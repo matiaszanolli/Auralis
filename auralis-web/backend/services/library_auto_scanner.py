@@ -193,7 +193,8 @@ class LibraryAutoScanner:
         """Run a full scan + cleanup cycle."""
         from auralis.library.scanner import LibraryScanner
 
-        logger.info(f"🔍 Auto-scan starting: {scan_folders}")
+        logger.info(f"🔍 Auto-scan starting ({len(scan_folders)} folder(s))")
+        logger.debug(f"Auto-scan folders: {scan_folders}")
         await connection_manager_safe_broadcast(
             self._connection_manager,
             {"type": "library_scan_started", "data": {"directories": scan_folders}}
@@ -391,7 +392,8 @@ class LibraryAutoScanner:
             for folder in scan_folders:
                 self._observer.schedule(handler, folder, recursive=True)
             self._observer.start()
-            logger.info(f"👁️  Watchdog watching: {scan_folders}")
+            logger.info(f"👁️  Watchdog watching {len(scan_folders)} folder(s)")
+            logger.debug(f"Watchdog folders: {scan_folders}")
         except Exception as exc:
             logger.warning(f"Watchdog setup failed, using polling-only: {exc}")
             self._observer = None
