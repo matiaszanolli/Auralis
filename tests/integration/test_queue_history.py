@@ -2,7 +2,7 @@
 Test Queue History & Undo/Redo Operations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Integration tests for queue history tracking and undo/redo functionality.
+Integration tests for queue history tracking and undo functionality.
 
 Tests verify:
 - History entries record queue state changes
@@ -564,7 +564,7 @@ class TestQueueHistoryIntegration:
     """Test queue history integration with queue operations"""
 
     def test_full_workflow_with_history(self, queue_history_repo, queue_repo):
-        """Complete workflow: set -> add -> undo -> redo simulation"""
+        """Complete workflow: set -> add -> undo"""
         # Initial queue
         initial = [1, 2, 3]
         queue_repo.set_queue_state(track_ids=initial, current_index=0)

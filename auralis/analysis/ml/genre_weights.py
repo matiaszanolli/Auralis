@@ -11,17 +11,15 @@ Model weights and genre-specific adjustments for genre classification
 
 import numpy as np
 
-# #3741: deterministic seed for the placeholder weight initialiser. The
+# #3741: deterministic seed for the rule-based weight initialiser. The
 # previous implementation used the un-seeded module-level `np.random.normal`
 # state, so every `RuleBasedGenreClassifier` instance produced different
 # weights and therefore different genre predictions. That cascaded into
 # `EQProcessor._apply_content_adjustments` where it scaled bass/mid/treble
 # boost by up to 30% — so the same audio mastered twice diverged audibly.
-# A fixed seed makes the placeholder model output bit-identical across
-# instances and processes, restoring the "same file → same fingerprint /
-# same master" determinism invariant. When the placeholder is replaced
-# with a real trained model, the seed will be irrelevant (real weights
-# don't sample at construction time).
+# A fixed seed makes the model output bit-identical across instances and
+# processes, restoring the "same file → same fingerprint / same master"
+# determinism invariant.
 _GENRE_WEIGHTS_SEED = 0x6A52A1E5
 
 
@@ -29,8 +27,12 @@ def initialize_genre_weights(genres: list[str]) -> dict[str, dict[str, float]]:
     """
     Initialize model weights for genre classification
 
-    This is a simplified linear model representation.
-    In production, this would be replaced with actual trained model weights.
+    Rule-based linear model: each feature starts from a small deterministic
+    random baseline (seeded via _GENRE_WEIGHTS_SEED) that
+    `_apply_genre_specific_weights` then overlays with hand-tuned adjustments
+    encoding musical knowledge about each genre. This hand-tuned model is the
+    accepted permanent design for Auralis (project architecture: "ML is
+    rule-based") — it is not a placeholder awaiting a trained model.
 
     Args:
         genres: List of genre names

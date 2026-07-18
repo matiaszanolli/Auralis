@@ -2,17 +2,15 @@
  * useQueueHistory Hook
  * ~~~~~~~~~~~~~~~~~~~~
  *
- * Provides undo/redo functionality for queue operations.
- * Manages history state, undo/redo actions, and integrates with queue management.
+ * Provides undo functionality for queue operations.
+ * Manages history state, the undo action, and integrates with queue management.
  *
  * Usage:
  * ```typescript
  * const {
  *   historyCount,
  *   canUndo,
- *   canRedo,
  *   undo,
- *   redo,
  *   clearHistory,
  *   isLoading,
  *   error
@@ -26,7 +24,7 @@
  * ```
  *
  * Features:
- * - Track queue state changes for undo/redo
+ * - Track queue state changes for undo
  * - Record operation metadata (what changed)
  * - Limit history to 20 entries for memory efficiency
  * - Integrate with queue state management
@@ -109,9 +107,6 @@ export interface QueueHistoryActions {
   /** Whether undo is available */
   canUndo: boolean;
 
-  /** Whether redo is available (future: when redo implemented) */
-  canRedo: boolean;
-
   /** History entries (newest first) */
   history: HistoryEntry[];
 
@@ -124,9 +119,6 @@ export interface QueueHistoryActions {
 
   /** Undo the last queue operation */
   undo: () => Promise<void>;
-
-  /** Redo (not yet implemented) */
-  redo: () => Promise<void>;
 
   /** Clear all history */
   clearHistory: () => Promise<void>;
@@ -142,7 +134,7 @@ export interface QueueHistoryActions {
 }
 
 /**
- * Hook for managing queue undo/redo history
+ * Hook for managing queue undo history
  *
  * @returns Queue history management actions and state
  *
@@ -301,15 +293,6 @@ export function useQueueHistory(): QueueHistoryActions {
   }, [post]);
 
   /**
-   * Redo (not yet implemented)
-   *
-   * @throws Error indicating redo not implemented
-   */
-  const redo = useCallback(async (): Promise<void> => {
-    throw new Error('Redo not yet implemented');
-  }, []);
-
-  /**
    * Clear all history
    *
    * @throws Error if clear fails
@@ -346,11 +329,9 @@ export function useQueueHistory(): QueueHistoryActions {
   return {
     historyCount,
     canUndo: history.length > 0,
-    canRedo: false, // Not yet implemented
     history,
     recordOperation,
     undo,
-    redo,
     clearHistory,
     isLoading,
     error,
