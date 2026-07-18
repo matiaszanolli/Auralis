@@ -63,14 +63,12 @@ class LibraryManager:
     tracks, total = factory.tracks.get_all(limit=50)
     ```
 
-    Migration Timeline:
-    - v1.1.0: LibraryManager marked deprecated (this version)
-    - v1.2.0: Deprecation warnings in all methods
-    - v2.0.0+: Removal or minimal facade only
+    Deprecated since v1.1.0. No removal version is committed; only
+    __init__() emits a DeprecationWarning today (see #4314).
 
     Backward Compatibility:
     - All existing LibraryManager methods continue to work
-    - Deprecation warnings guide users to RepositoryFactory
+    - __init__() emits a DeprecationWarning guiding users to RepositoryFactory
     - See MIGRATION_GUIDE.md for upgrade instructions
 
     Legacy API:
