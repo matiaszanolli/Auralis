@@ -5,7 +5,7 @@
 **Teams:** 3 (Player, Library, Enhancement)
 **Target Release:** 1.2.0 (March 2026)
 
-> **📜 Historical snapshot (Dec 2025 launch plan)**: This was the kickoff command for the Dec-2025 frontend-redesign sprint. Its 1.2.0/March-2026 target has since shipped and been surpassed (current: 1.2.1-beta.2, `auralis/version.py`). The `FRONTEND_REDESIGN_ROADMAP_2_0.md` spec referenced throughout was removed in a 2025-12-27 docs cleanup (`866b7dae`) and is no longer in the repo. Kept for historical reference.
+> **📜 Historical snapshot (Dec 2025 launch plan)**: This was the kickoff command for the Dec-2025 frontend-redesign sprint. Its 1.2.0/March-2026 target has since shipped and been surpassed (current: 1.5.0, `auralis/version.py`). The `FRONTEND_REDESIGN_ROADMAP_2_0.md` spec referenced throughout was removed in a 2025-12-27 docs cleanup (`866b7dae`) and is no longer in the repo. Kept for historical reference.
 
 ---
 

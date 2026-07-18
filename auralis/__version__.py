@@ -11,6 +11,8 @@ __db_schema_version__ = 16  # track_playlist: UNIQUE(track_id, playlist_id) + po
 # v2 (#4136): 7-band frequency analysis now applies a Hann window before the FFT
 #             (was rectangular), matching the windowed STFT spectral features and
 #             removing leakage bias on transient-rich audio.
+# v3 (#13 Stage 3): fingerprinting routed through the in-process Rust engine,
+#             producing different values than the prior Python path.
 FINGERPRINT_ALGORITHM_VERSION = 3
 
 # Version history

@@ -1,8 +1,8 @@
 # Auralis Versioning Strategy & Release Management
 
 **Status**: Living reference
-**Date**: October 24, 2025 (last version-fact review: 2026-07-09)
-**Current Version**: 1.2.1-beta.2 (source of truth: `auralis/version.py`)
+**Date**: October 24, 2025 (last version-fact review: 2026-07-18)
+**Current Version**: 1.5.0 (source of truth: `auralis/version.py`)
 
 ## Executive Summary
 
@@ -61,9 +61,9 @@ Examples:
 
 ### Where We Are Now
 
-**Version**: `1.2.1-beta.2` (see `auralis/version.py`)
+**Version**: `1.5.0` (see `auralis/version.py`)
 
-**Status**: Beta, feature complete with optimizations
+**Status**: Stable — first non-beta release
 
 **Completed Major Features**:
 - ✅ Adaptive mastering (core processing)
@@ -682,8 +682,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Summary
 
 **Versioning System**: Semantic Versioning 2.0.0
-**Current Release**: 1.2.1-beta.2 (see `auralis/version.py`; latest tags in git history)
-**Build Trigger**: Git tags starting with `v` (e.g., `v1.2.1-beta.1`)
+**Current Release**: 1.5.0 (see `auralis/version.py`; latest tags in git history)
+**Build Trigger**: Git tags starting with `v` (e.g., `v1.5.0`)
 **Version Source**: `auralis/version.py` (single source of truth)
 **Release Process**: Tag → CI/CD Build → Test → Publish
 

@@ -1,7 +1,7 @@
 # Auralis Master Roadmap
 
-**Current version:** 1.2.1-beta.2 (source of truth: [`auralis/version.py`](../auralis/version.py))
-**Last updated:** 2026-07-11 — rewritten to reflect the actual state of the code.
+**Current version:** 1.5.0 (source of truth: [`auralis/version.py`](../auralis/version.py))
+**Last updated:** 2026-07-18 — v1.5.0 stable release prep (version-fact refresh).
 
 > **How to read this.** This roadmap was previously a November-2025 planning document built
 > around shipping "v1.0.0-stable" and a set of "future" tracks (similarity graph, continuous
@@ -17,16 +17,16 @@
 
 | Fact | Value | Source |
 |------|-------|--------|
-| Version | 1.2.1-beta.2 | [`auralis/version.py`](../auralis/version.py) |
-| Latest tag | `v1.2.1-beta.1` (→ beta.2 in progress) | `git tag` |
-| Backend tests | ~5,300 functions across 384 files | `tests/` |
-| Frontend tests | ~200 test files | `auralis-web/frontend/src` |
+| Version | 1.5.0 (first stable release) | [`auralis/version.py`](../auralis/version.py) |
+| Latest tagged binary release | `v1.2.0-beta.2` (2025-12-27) — `v1.2.1-beta.1`/`beta.2` were source-only, no binaries; both folded into 1.5.0 | `git tag`, [releases/CHANGELOG.md](releases/CHANGELOG.md) |
+| Backend tests | ~5,445 functions across 391 files | `tests/` |
+| Frontend tests | ~3,476 functions across 215 files | `auralis-web/frontend/src` |
 | DB schema | v16 | [`migration_manager.py`](../auralis/library/migration_manager.py) |
-| Fingerprint algo | v2 | [`auralis/__version__.py`](../auralis/__version__.py) |
+| Fingerprint algo | v3 | [`auralis/__version__.py`](../auralis/__version__.py) |
 | Default mastering engine | Continuous space (`use_continuous_space=True`) | [`unified_config.py:154`](../auralis/core/config/unified_config.py) |
 | Default fingerprint strategy | Sampling (20 s interval) | [`unified_config.py`](../auralis/core/config/unified_config.py) |
 
-Released lines to date: `1.0.0-beta.*` → `1.1.0-beta.*` → `1.2.0-beta.*` → `1.2.1-beta.*`.
+Released lines to date: `1.0.0-beta.*` → `1.1.0-beta.*` → `1.2.0-beta.*` → `1.2.1-beta.*` (source-only) → `1.5.0` (first stable).
 
 ---
 
@@ -71,20 +71,16 @@ the roadmap should stop implying otherwise:
 
 ---
 
-## 4. Active / near-term (the current `[Unreleased]` line)
+## 4. Active / near-term
 
-Current work is a **mastering-quality refinement** pass, not new subsystems. From
-[releases/CHANGELOG.md](releases/CHANGELOG.md) `[Unreleased]`:
+As of v1.5.0 there is no open `[Unreleased]` line — the mastering-quality refinement pass that
+previously lived there (Linkwitz-Riley LR4 crossovers, auto-mastering headroom fix, smooth
+processing curves) shipped as part of 1.5.0; see
+[releases/CHANGELOG.md](releases/CHANGELOG.md#150---2026-07-18) for the full entry.
 
-- **Multiband stereo processing** — Linkwitz-Riley LR4 crossovers (24 dB/oct, phase-coherent),
-  low crossover raised 200→300 Hz, rebalanced per-band expansion ratios to avoid scooped mids.
-- **Auto-mastering pipeline** — fixed headroom calc for −14…−12 LUFS tracks with near-0 dBFS
-  peaks; safety margin −2.0 → −0.5 dB; batch output now FLAC (24-bit).
-- **Smooth processing curves** — cosine-interpolated transitions replacing hard thresholds
-  (intensity, stereo expansion, bass enhancement, normalization peak).
-
-This is consistent with the ongoing mastering-tuning work (loudness maximizer,
-`LOUDNESS_GAP_CLOSURE_FACTOR`) tracked in the engine notes.
+Near-term work going forward is tracked as the open backlog below (§5), plus whatever surfaces
+from post-1.5.0 usage. This is consistent with the ongoing mastering-tuning work (loudness
+maximizer, `LOUDNESS_GAP_CLOSURE_FACTOR`) tracked in the engine notes.
 
 ---
 

@@ -6,54 +6,41 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.2.1--beta.2-green.svg)](https://github.com/matiaszanolli/Auralis/releases)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-~5%2C100-brightgreen.svg)]()
+[![Release](https://img.shields.io/badge/release-v1.5.0-green.svg)](https://github.com/matiaszanolli/Auralis/releases)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-~5%2C400-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-~3%2C500-brightgreen.svg)]()
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)]()
 [![Node](https://img.shields.io/badge/node-24%2B-blue.svg)]()
 
-## 📦 Current Version: 1.2.1-beta.2
+## 📦 Current Version: 1.5.0 — First Stable Release
 
-**🎵 Production-Ready Desktop Release**
-
-This release focuses on **stability and reliability** with critical concurrency fixes:
+**🎵 Auralis is now stable.** v1.5.0 consolidates everything built since the last binary release (v1.2.0-beta.2, Dec 2025) — two source-only pre-release tags plus a mastering-quality refinement pass, all folded into one stable line.
 
 ### Downloads
 
-| Platform | Download | Notes |
+> ⚠️ **No v1.5.0 binaries yet.** The last release with downloadable binaries is **v1.2.0-beta.2** (Dec 2025) — several months behind current `master`. For all the fixes described below, **build from source** (see Option 2 below); a fresh v1.5.0 binary build is planned as a near-term follow-up.
+
+| Platform | Download (v1.2.0-beta.2) | Notes |
 |----------|----------|-------|
-| **Linux** | [AppImage](https://github.com/matiaszanolli/Auralis/releases) | Universal, make executable and run |
-| **Linux** | [.deb](https://github.com/matiaszanolli/Auralis/releases) | Debian/Ubuntu: `sudo dpkg -i <file>` |
-| **Windows** | [.exe](https://github.com/matiaszanolli/Auralis/releases) | Run installer |
-| **macOS** | [.dmg](https://github.com/matiaszanolli/Auralis/releases) | Drag to Applications |
+| **Linux** | [AppImage](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2) | Universal, make executable and run |
+| **Linux** | [.deb](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2) | Debian/Ubuntu: `sudo dpkg -i <file>` |
+| **Windows** | [.exe](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2) | Run installer |
+| **macOS** | [.dmg](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2) | Drag to Applications |
 
-### Highlights
+### Highlights (since v1.2.0-beta.2)
 
-- 🔒 **Database Concurrency Fix (CRITICAL)** - Inter-process locking prevents corruption (#2067)
-  - Multiple processes can now safely start simultaneously
-  - Migration aborts if backup fails (prevents data loss)
-  - Platform-specific file locking (fcntl/msvcrt)
-- ✅ **Seamless Audio Playback** - Equal-power crossfade between mastering chunks
-  - Eliminates audible artifacts at chunk boundaries
-  - 15s chunks with 5s overlap crossfade for smooth transitions
-- ✅ **Parallel DSP Processing** - Prevents spectral loss and phase cancellation
-  - Sub-bass control, EQ, and mastering use parallel processing
-  - Maintains audio quality across processing pipeline
-- ✅ **High-Performance Rust DSP** - 2-5x faster audio analysis via PyO3 bindings
-  - HPSS (Harmonic/Percussive Separation), YIN pitch detection, Chroma analysis
-  - 25D audio fingerprinting in ~500ms per track
-- ✅ **Improved Mastering Algorithm** - Energy-adaptive LUFS targeting
-  - Content-aware processing adapts to source characteristics
-  - 5 enhancement presets: Adaptive, Gentle, Warm, Bright, Punchy
-- ✅ **Comprehensive Test Suite** - ~5,100 backend tests with concurrency coverage
-  - 6 new tests for database migration race conditions
-  - Multiprocessing tests for true parallel execution verification
-- ✅ **Automated CI/CD** - GitHub Actions builds for Linux, Windows, macOS
+- ✅ **First stable release** — no longer beta; production-ready quality bar
+- ✅ **Mastering pipeline refinement** — Linkwitz-Riley LR4 crossovers for phase-coherent stereo band splitting, fixed headroom calculation for quiet/loud-peak tracks, cosine-interpolated smooth processing curves (intensity, stereo expansion, bass enhancement)
+- 🔒 **Concurrency hardening** — resolved a hard deadlock between seek/load/next-track and playback-info reads; fixed resource leaks in the processing engine and cache workers; guarded database-migration races
+- ✅ **Large audit-remediation effort** — dozens of concurrency, data-integrity, API-contract, DSP, and security issues resolved (issues #2299–#2472 and beyond)
+- ✅ **High-Performance Rust DSP** — 2-5x faster audio analysis via PyO3 bindings (HPSS, YIN pitch detection, Chroma analysis); 25D audio fingerprinting in ~500ms per track
+- ✅ **Comprehensive Test Suite** — ~5,400 backend tests, ~3,500 frontend tests
 
-📖 **[Release Notes](docs/releases/CHANGELOG.md)** | 🔗 **[Roadmap](docs/MASTER_ROADMAP.md)**
+📖 **[Full Changelog](docs/releases/CHANGELOG.md)** | 🔗 **[Roadmap](docs/MASTER_ROADMAP.md)**
 
 ### 🎯 Previous Releases
 
+- **[v1.2.0-beta.2](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2)** - Last binary release; AppImage size optimization (Dec 2025)
 - **[v1.1.0-beta.5](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.5)** - Audio mastering refinement (Dec 2025)
 - **[v1.1.0-beta.3](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.3)** - DRY refactoring & code quality (Nov 2025)
 - **[v1.0.0-beta.12](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.12)** - Previous stable release with binaries
@@ -79,45 +66,45 @@ Auralis is a **local music player** with professional audio enhancement built-in
 - 🖥️ **Desktop & Web** - Native Electron app or run in your browser
 - 🔒 **100% Private** - Your music, your computer, no cloud required
 - ⚡ **Blazing Fast** - 36.6x real-time audio processing, 740+ files/second scanning
-- ✅ **Well Tested** - ~5,100 automated backend tests, production-ready quality, comprehensive test suite
+- ✅ **Well Tested** - ~5,400 automated backend tests, ~3,500 frontend tests, production-ready quality
 
 ---
 
 ## 🚀 Quick Start
 
-### Option 1: Download Binary (Recommended)
+### Option 1: Download Binary (last binary release: v1.2.0-beta.2)
 
-Download the latest release from [GitHub Releases](https://github.com/matiaszanolli/Auralis/releases):
+Several months behind `master` — see the note above. Download from [GitHub Releases](https://github.com/matiaszanolli/Auralis/releases):
 
 **Windows:**
 ```bash
-# 1. Download Auralis-Setup-1.2.1-beta.2.exe
+# 1. Download Auralis.Setup.1.2.0-beta.2.exe
 # 2. Run the installer
 # 3. Launch Auralis from Start Menu
 ```
 
 **Linux (AppImage):**
 ```bash
-# 1. Download Auralis-1.2.1-beta.2.AppImage
-chmod +x Auralis-1.2.1-beta.2.AppImage
-./Auralis-1.2.1-beta.2.AppImage
+# 1. Download Auralis-1.2.0-beta.2.AppImage
+chmod +x Auralis-1.2.0-beta.2.AppImage
+./Auralis-1.2.0-beta.2.AppImage
 ```
 
 **Linux (Debian/Ubuntu):**
 ```bash
-# 1. Download auralis_1.2.1-beta.2_amd64.deb
-sudo dpkg -i auralis_1.2.1-beta.2_amd64.deb
+# 1. Download auralis-desktop_1.2.0-beta.2_amd64.deb
+sudo dpkg -i auralis-desktop_1.2.0-beta.2_amd64.deb
 auralis
 ```
 
 **macOS:**
 ```bash
-# 1. Download Auralis-1.2.1-beta.2.dmg
+# 1. Download Auralis-1.2.0-beta.2.dmg (or -arm64.dmg for Apple Silicon)
 # 2. Open the DMG and drag Auralis to Applications
 # 3. First launch: Right-click → Open (to bypass Gatekeeper)
 ```
 
-### Option 2: Run from Source (Development)
+### Option 2: Run from Source (Recommended — current v1.5.0)
 
 **Web Interface:**
 ```bash
@@ -125,10 +112,13 @@ auralis
 uv venv && source .venv/bin/activate
 uv pip install -r requirements.txt
 
-# 2. Launch Auralis
+# 2. Build the Rust DSP module (required)
+cd vendor/auralis-dsp && maturin develop && cd ../..
+
+# 3. Launch Auralis
 python launch-auralis-web.py
 
-# 3. Open browser at http://localhost:8765
+# 4. Open browser at http://localhost:8765
 ```
 
 **Desktop App:**
@@ -136,6 +126,7 @@ python launch-auralis-web.py
 # 1. Install Python + Node.js dependencies
 uv venv && source .venv/bin/activate
 uv pip install -r requirements.txt
+cd vendor/auralis-dsp && maturin develop && cd ../..
 cd desktop && npm install
 
 # 2. Launch desktop app
@@ -236,13 +227,13 @@ WAV (16-bit/24-bit PCM), FLAC (16-bit/24-bit PCM)
 ### Technology Stack
 
 **Backend (Python):**
-- FastAPI for REST API
+- FastAPI for REST API + WebSocket streaming
 - SQLite for library database
-- Professional DSP algorithms
+- Professional DSP algorithms (Rust via PyO3 + NumPy)
 - Real-time audio processing
 
 **Frontend (React):**
-- Material-UI components
+- Material-UI components + a custom design-token system
 - WebSocket for live updates
 - Responsive design
 - Modern UX
@@ -264,7 +255,7 @@ auralis/                    # Core audio processing engine
 auralis-web/               # Web & Desktop UI
 ├── backend/               # FastAPI server (REST + WebSocket, :8765)
 │   ├── main.py           # App entry point
-│   └── routers/          # 19 route handlers
+│   └── routers/          # 18 route handlers
 └── frontend/              # React app
     └── src/
         ├── components/    # UI components (library, player, visualizer)
@@ -282,10 +273,10 @@ desktop/                   # Electron wrapper
 
 ## 🧪 Testing & Quality
 
-**~5,100 automated backend tests** ensure production-ready quality:
+**~5,400 automated backend tests + ~3,500 frontend tests** ensure production-ready quality:
 
-- **Backend (Python):** ~5,100 tests covering audio processing, API, security
-- **Frontend (React):** Component and integration tests with Vitest
+- **Backend (Python):** ~5,400 tests covering audio processing, API, security
+- **Frontend (React):** ~3,500 component and integration tests with Vitest
 - **Security:** OWASP Top 10 coverage (SQL injection, XSS, etc.)
 
 ### Run Tests
@@ -344,7 +335,7 @@ npm run build
 ## 📚 Documentation
 
 ### Essential Docs
-- **[MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md)** - Complete project roadmap
+- **[MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md)** - Complete project roadmap and what's actually shipped
 - **[CLAUDE.md](CLAUDE.md)** - Full technical reference (for developers)
 - **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** - Complete user guide
 
@@ -361,51 +352,32 @@ npm run build
 
 ## 🎯 Roadmap
 
-### ✅ Recently Completed
+This section is a brief summary — **[MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md)** is the detailed, actively-maintained source of truth (current state, open backlog, longer-term vision).
 
-**v1.2.0-beta.3** (February 2026):
-- [x] **CRITICAL FIX**: Database migration concurrency (#2067)
-  - Inter-process file locking prevents race conditions
-  - Fail-fast on backup failure (prevents data loss)
-  - Double-check pattern after lock acquisition
-  - 6 comprehensive concurrency tests
-- [x] Seamless audio playback with equal-power crossfade
-  - Eliminates artifacts at chunk boundaries
-  - 5-second overlap between 15-second chunks
-- [x] Parallel processing for audio DSP
-  - Sub-bass control, EQ, mastering use parallel processing
-  - Prevents spectral loss and phase cancellation
-- [x] 6 audit slash commands for code quality
-  - `/audit-search`, `/audit-security`, `/audit-regression`
-  - `/audit-concurrency`, `/audit-integration`, `/audit-incremental`
+### ✅ Recently Completed (v1.5.0)
 
-**v1.2.0-beta.1** (December 2025):
-- [x] macOS binaries (.dmg) - First macOS release
-- [x] High-performance Rust DSP via PyO3 (2-5x faster)
-- [x] Energy-adaptive LUFS mastering algorithm
-- [x] Enhanced playback mode with real-time streaming
-- [x] Automated CI/CD for all platforms
+- [x] **First stable release** — production-ready, no longer beta
+- [x] Mastering-pipeline refinement (Linkwitz-Riley crossovers, headroom fix, smooth processing curves)
+- [x] Large concurrency/data-integrity/security audit-remediation effort (#2299–#2472 and beyond)
+- [x] Enhancement presets UI (5 presets: Adaptive, Gentle, Warm, Bright, Punchy)
+- [x] Album art downloader (MusicBrainz/iTunes)
+- [x] Dark/light theme toggle
 
-**v1.1.x Series** (Oct-Dec 2025):
-- [x] 25D audio fingerprinting system
-- [x] 850+ automated tests
-- [x] Unified streaming architecture
-- [x] Query caching (136x speedup)
+### 🔄 Open Backlog
 
-### 🔄 In Progress
-
-**v1.2.0 Stable:**
-- [ ] macOS code signing for Gatekeeper
-- [ ] Enhancement presets UI (5 presets ready in backend)
-- [ ] Export enhanced audio to file
+- [ ] macOS code signing for Gatekeeper (binaries currently unsigned)
+- [ ] `response_model=` coverage for ~28 backend endpoints (#3838)
+- [ ] Rust LUFS measurement → full BS.1770 K-weighting (#4123)
+- [ ] Export enhanced audio to file (playback enhancement is real-time only today)
 
 ### 📋 Planned
 
-**v1.3.0:**
-- [ ] Album art downloader
-- [ ] Dark/light theme toggle
-- [ ] Lyrics display
-- [ ] Mini player mode
+- [ ] Lyrics display (storage exists; no viewer UI yet)
+- [ ] Mini player mode (setting exists in Preferences; not yet wired to window behavior)
+- [ ] "Find songs like this" discovery UX (similarity API already shipped)
+- [ ] Intelligent/flow playlist generation (recommendation engine already shipped)
+
+See **[MASTER_ROADMAP.md §5](docs/MASTER_ROADMAP.md#5-open-backlog-real-tracked)** for the full, current backlog.
 
 ---
 
@@ -424,7 +396,7 @@ npm run build
 **A:** No! Enhancement is applied in real-time during playback only. Your files are never changed.
 
 ### Q: Can I export enhanced versions?
-**A:** Not yet, but planned for v1.2.0 stable.
+**A:** Not yet — tracked on the [roadmap](docs/MASTER_ROADMAP.md).
 
 ### Q: Why is it called Auralis?
 **A:** "Aura" (atmosphere/feeling) + "Audio" = Auralis. The magical aura of your music.
@@ -434,25 +406,26 @@ npm run build
 
 ---
 
-## 🐛 Known Issues (v1.2.1-beta.2)
+## 🐛 Known Issues (v1.5.0)
 
 ### ⚠️ Current Limitations
 
 **macOS Code Signing**
-- macOS builds trigger Gatekeeper warnings (not code-signed)
+- macOS builds are unsigned (no Gatekeeper certificate) — triggers a Gatekeeper warning
 - **Workaround:** Right-click → Open on first launch
-- **Status:** Code signing planned for v1.2.0 stable
+- **Status:** Tracked on the roadmap
 
-**Preset Switching Delay**
-- 2-5 second pause when changing presets during playback
-- **Workaround:** Select preset before starting playback
+**No v1.5.0 Binaries Yet**
+- The last binary release is v1.2.0-beta.2 (Dec 2025); see Downloads above
+- **Workaround:** Build from source to run current v1.5.0
 
 ### ✅ Recently Fixed
 
-**v1.2.1-beta.2** (February 2026):
-- **Database migration race condition (CRITICAL)** - Inter-process locking prevents corruption
-- **Chunk boundary artifacts** - Equal-power crossfade for seamless playback
-- **Spectral loss in mastering** - Parallel processing preserves audio quality
+**v1.5.0** (July 2026):
+- **Playback concurrency deadlock** - Fixed a hard deadlock between seek/load/next-track and playback-info reads
+- **Resource leaks** - Processing engine and cache workers no longer leak threads/state after failures
+- **Database migration concurrency (CRITICAL)** - Inter-process locking prevents corruption
+- **Mastering correctness** - Whole-song-peak makeup gain, NaN/Inf guards, smoother processing curves
 
 **v1.2.0-beta.1** (December 2025):
 - **Audio position jumps** - Buffer management improvements

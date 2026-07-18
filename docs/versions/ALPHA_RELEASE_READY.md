@@ -4,7 +4,7 @@
 **Status**: ✅ Ready for Alpha.1 Release
 **Version**: 1.0.0-alpha.1
 
-> **📜 Historical snapshot (v1.0.0-alpha.1, Oct 2025)**: This document is scoped to the first alpha release and is kept for historical reference. Everything below — including the "Node.js 18+ / Python 3.11+" prerequisites — describes that release, **not** the current one. Current requirements are Python 3.14+ and Node 24+ (see [CLAUDE.md](../../CLAUDE.md)); current version is 1.2.1-beta.2 (`auralis/version.py`). Changelog references point to [docs/releases/CHANGELOG.md](../releases/CHANGELOG.md).
+> **📜 Historical snapshot (v1.0.0-alpha.1, Oct 2025)**: This document is scoped to the first alpha release and is kept for historical reference. Everything below — including the "Node.js 18+ / Python 3.11+" prerequisites — describes that release, **not** the current one. Current requirements are Python 3.14+ and Node 24+ (see [CLAUDE.md](../../CLAUDE.md)); current version is 1.5.0 (`auralis/version.py`). Changelog references point to [docs/releases/CHANGELOG.md](../releases/CHANGELOG.md).
 
 ## Executive Summary
 

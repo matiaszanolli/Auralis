@@ -142,6 +142,7 @@ def main():
 
     # Update all package.json files
     package_files = [
+        Path("package.json"),
         Path("auralis-web/frontend/package.json"),
         Path("desktop/package.json"),
     ]

@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 **Project**: Auralis — Music player with real-time audio enhancement
-**Version**: 1.2.1-beta.2 (`auralis/version.py` is source of truth)
+**Version**: 1.5.0 (`auralis/version.py` is source of truth)
 **Python**: 3.14+ | **Node**: 24+ | **Rust**: Required (PyO3 DSP module)
 **License**: AGPL-3.0 (dual-licensed, see COMMERCIAL_LICENSE.md)
 
@@ -101,7 +101,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            ~5,000 test functions (415 files) across 19 subdirs (unit, integration,
+tests/                            ~5,400 test functions (391 files) across 19 subdirs (unit, integration,
                                     boundary, concurrency, security, load, regression...)
 docs/                             21 topic dirs (development, features, frontend...)
 ```

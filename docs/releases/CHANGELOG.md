@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.5.0] - 2026-07-18
+
+### Overview
+**First stable release.** Consolidates everything since the last binary release (v1.2.0-beta.2,
+2025-12-27): two source-only pre-release tags (v1.2.1-beta.1, v1.2.1-beta.2) and the subsequent
+unreleased work were never given a binary build, so this release folds all three together — a
+large batched audit-remediation effort (dozens of concurrency, data-integrity, API-contract, DSP,
+and security issues, `v1.2.0-beta.3..v1.2.1-beta.2` plus issues #2299–#2472) followed by a
+mastering-pipeline quality-refinement pass.
 
 ### Changed
 
@@ -32,35 +40,36 @@ Replaced hard thresholds with cosine-interpolated curves for natural transitions
 - **Bass enhancement**: Cosine fade from full boost (bass < 20%) to none (bass > 50%)
 - **Normalization peak**: Smooth bass-aware adjustment (10% to 40% bass range)
 
----
-
-## [1.2.1-beta.2] - 2026-03-23
-
-### Overview
-Current release. Stability and correctness pass over the mastering pipeline, playback concurrency, and streaming, plus a large documentation/audit remediation effort. Highlights derived from git history (`v1.2.1-beta.1..`); see the commit log for the full list.
-
-### Fixed
-- **Mastering**: QuietBranch makeup-gain now uses the whole-song peak instead of a per-chunk peak; improved loudness targeting and crest reduction; NaN/Inf guard on AdaptiveMode/ContinuousMode final normalization
-- **Concurrency**: resolved hard deadlock between `seek`/`load_file`/`next_track` and `get_playback_info`; guarded against a `LibraryManager()` construction race during migration; a single slow WebSocket client no longer stalls player-state updates
-- **Resource leaks**: HybridProcessor cache eviction no longer leaks fingerprint-analyzer threads; ProcessingEngine/StreamlinedCacheWorker no longer stay truthy after their background task dies
-- **Repositories**: Album/Artist sibling lookups now apply the `DetachedInstanceError` fix; scan endpoint REST/WS payloads reconciled
-
-### Changed
+#### Engine Cleanup
 - Removed the deprecated engine `process()` wrapper and `API_VERSION`/`MIN_COMPATIBLE_VERSION`/`is_compatible()` machinery
 - `version.py` `DB_SCHEMA_VERSION` now mirrors the live schema (16)
 - Extensive documentation accuracy pass (architecture, testing, style guides, versioning docs)
 
-## [1.2.1-beta.1] - 2026-02-20
-
-### Overview
-Large batched audit-remediation release resolving dozens of concurrency, data-integrity, API-contract, DSP, and security issues (`v1.2.0-beta.3..v1.2.1-beta.1`).
-
 ### Fixed
-- **Concurrency**: `RLock` added to QueueManager (fixed `_auto_advancing` bypass); `asyncio.Lock` for PlayerStateManager and streaming-task tracking; stop processing on client disconnect
-- **DSP / correctness**: vectorized EQ gain curve; batch metadata updates made atomic with rollback
-- **Desktop**: resolved DB version mismatch and WebSocket heartbeat rejection
-- **Testing**: fixed test-collection failures from `sys.path` and missing schemas; added AudioStreamController lifecycle tests
-- Multiple batched fixes across issues #2299–#2472
+
+#### Mastering
+- QuietBranch makeup-gain now uses the whole-song peak instead of a per-chunk peak; improved loudness targeting and crest reduction; NaN/Inf guard on AdaptiveMode/ContinuousMode final normalization
+
+#### Concurrency
+- Resolved hard deadlock between `seek`/`load_file`/`next_track` and `get_playback_info`; guarded against a `LibraryManager()` construction race during migration; a single slow WebSocket client no longer stalls player-state updates
+- `RLock` added to QueueManager (fixed `_auto_advancing` bypass); `asyncio.Lock` for PlayerStateManager and streaming-task tracking; stop processing on client disconnect
+
+#### Resource Leaks
+- HybridProcessor cache eviction no longer leaks fingerprint-analyzer threads; ProcessingEngine/StreamlinedCacheWorker no longer stay truthy after their background task dies
+
+#### Repositories
+- Album/Artist sibling lookups now apply the `DetachedInstanceError` fix; scan endpoint REST/WS payloads reconciled
+
+#### DSP / Correctness
+- Vectorized EQ gain curve; batch metadata updates made atomic with rollback
+
+#### Desktop
+- Resolved DB version mismatch and WebSocket heartbeat rejection
+
+#### Testing
+- Fixed test-collection failures from `sys.path` and missing schemas; added AudioStreamController lifecycle tests
+
+- Multiple additional batched fixes across issues #2299–#2472; see commit log (`v1.2.0-beta.2..v1.5.0`) for the full list
 
 ## [1.2.0-beta.3] - 2026-01-03
 

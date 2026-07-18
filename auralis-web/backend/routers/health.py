@@ -45,20 +45,20 @@ def create_health_router(
         except ImportError:
             logger.warning("auralis.version not available, using fallback")
             # Keep in sync with auralis/version.py — the single source of truth
-            # (fixes #2335; values refreshed in #4053). db_schema_version mirrors
+            # (fixes #2335; values refreshed for v1.5.0). db_schema_version mirrors
             # auralis/__version__.__db_schema_version__ (live = 16).
             return VersionInfoResponse(
-                version="1.2.1-beta.2",
+                version="1.5.0",
                 major=1,
-                minor=2,
-                patch=1,
-                prerelease="beta.2",
+                minor=5,
+                patch=0,
+                prerelease="",
                 build="",
-                build_date="2026-03-23",
+                build_date="2026-07-18",
                 git_commit="",
                 api_version="v1",
                 db_schema_version=16,
-                display="Auralis v1.2.1-beta.2",
+                display="Auralis v1.5.0",
             )
 
     return router
