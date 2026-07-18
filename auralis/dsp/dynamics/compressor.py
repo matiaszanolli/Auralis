@@ -8,11 +8,12 @@ Content-aware compressor with multiple detection modes
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
 from ...utils.logging import debug
+from .lookahead_buffer import LookaheadBuffer
 from .settings import CompressorSettings
 
 # Use vectorized envelope follower for 40-70x speedup
@@ -43,11 +44,11 @@ class AdaptiveCompressor:
         self.gain_follower = EnvelopeFollower(sample_rate, settings.attack_ms, settings.release_ms)
 
         # Lookahead buffer (will be initialized on first use to match audio dimensions)
-        self.lookahead_buffer: np.ndarray | None = None
         if settings.enable_lookahead:
             self.lookahead_samples = int(settings.lookahead_ms * sample_rate / 1000)
         else:
             self.lookahead_samples = 0
+        self._lookahead = LookaheadBuffer(self.lookahead_samples)
 
         # State variables
         self.gain_reduction = 0.0
@@ -159,43 +160,12 @@ class AdaptiveCompressor:
 
     def _apply_lookahead(self, audio: np.ndarray) -> np.ndarray:
         """Apply lookahead delay for better transient handling"""
-        if self.lookahead_samples == 0:
-            return audio
+        return self._lookahead.apply(audio)
 
-        # Reset buffer if ndim changed (e.g., mono → stereo across tracks)
-        if self.lookahead_buffer is not None and self.lookahead_buffer.ndim != audio.ndim:
-            self.lookahead_buffer = None
-
-        # Initialize buffer on first use — mirror-pad from the start of the
-        # audio so the gain-computer sees valid signal context instead of
-        # silence, avoiding a zero-sample artifact at track start (#3291).
-        if self.lookahead_buffer is None:
-            if audio.ndim == 1:
-                pad = audio[:self.lookahead_samples]
-                self.lookahead_buffer = np.pad(pad, (self.lookahead_samples - len(pad), 0), mode='reflect')
-            else:
-                pad = audio[:self.lookahead_samples]
-                deficit = self.lookahead_samples - len(pad)
-                self.lookahead_buffer = np.pad(pad, ((deficit, 0), (0, 0)), mode='reflect')
-
-        # Buffer is guaranteed to be non-None after initialization
-        buffer_size = self.lookahead_buffer.shape[0]
-        audio_len = len(audio)
-
-        if audio_len >= buffer_size:
-            # Replace buffer with end of current audio
-            delayed_audio = np.concatenate([self.lookahead_buffer, audio[:-buffer_size]], axis=0)
-            self.lookahead_buffer = audio[-buffer_size:].copy()
-        else:
-            # Partial buffer update
-            delayed_audio = np.concatenate([
-                self.lookahead_buffer[:audio_len],
-                audio
-            ], axis=0)
-            self.lookahead_buffer = np.roll(self.lookahead_buffer, -audio_len, axis=0)
-            self.lookahead_buffer[-audio_len:, ...] = audio.copy()
-
-        return cast(np.ndarray, delayed_audio[:audio_len])
+    @property
+    def lookahead_buffer(self) -> np.ndarray | None:
+        """Current ring-buffer contents, or None before first use."""
+        return self._lookahead.buffer
 
     def get_current_state(self) -> dict[str, float]:
         """Get current compressor state"""
@@ -213,8 +183,7 @@ class AdaptiveCompressor:
         self.gain_follower.reset()
         self.gain_reduction = 0.0
         self.previous_gain = 1.0
-        if self.lookahead_buffer is not None:
-            self.lookahead_buffer.fill(0)
+        self._lookahead.reset()
 
 
 def create_adaptive_compressor(settings: CompressorSettings,

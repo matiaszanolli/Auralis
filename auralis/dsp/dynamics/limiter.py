@@ -8,12 +8,13 @@ Advanced lookahead limiter with ISR and oversampling
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 from scipy.ndimage import maximum_filter1d
 
 from ...utils.logging import debug
+from .lookahead_buffer import LookaheadBuffer
 from .settings import LimiterSettings
 
 # Use vectorized envelope follower for 40-70x speedup
@@ -42,7 +43,7 @@ class AdaptiveLimiter:
 
         # Lookahead buffer (will be initialized on first use)
         self.lookahead_samples = int(settings.lookahead_ms * sample_rate / 1000)
-        self.lookahead_buffer: np.ndarray | None = None
+        self._lookahead = LookaheadBuffer(self.lookahead_samples)
 
         # Gain smoothing — for gain curves the signal drops when limiting
         # (opposite of audio peaks), so swap attack/release: the "release"
@@ -172,39 +173,12 @@ class AdaptiveLimiter:
 
     def _apply_lookahead_delay(self, audio: np.ndarray) -> np.ndarray:
         """Apply lookahead delay"""
-        # Initialize buffer — mirror-pad to avoid zero-sample artifact (#3291)
-        if self.lookahead_buffer is None:
-            if audio.ndim == 1:
-                pad = audio[:self.lookahead_samples]
-                self.lookahead_buffer = np.pad(pad, (self.lookahead_samples - len(pad), 0), mode='reflect')
-            else:
-                pad = audio[:self.lookahead_samples]
-                deficit = self.lookahead_samples - len(pad)
-                self.lookahead_buffer = np.pad(pad, ((deficit, 0), (0, 0)), mode='reflect')
+        return self._lookahead.apply(audio)
 
-        # Buffer is guaranteed to be non-None after initialization
-        buffer_size = self.lookahead_buffer.shape[0]
-        audio_len = len(audio)
-
-        if audio_len >= buffer_size:
-            delayed_audio = np.concatenate([self.lookahead_buffer, audio[:-buffer_size]], axis=0)
-            self.lookahead_buffer = audio[-buffer_size:].copy()
-        else:
-            delayed_audio = np.concatenate([
-                self.lookahead_buffer[:audio_len],
-                audio
-            ], axis=0)
-            self.lookahead_buffer = np.roll(self.lookahead_buffer, -audio_len, axis=0)
-            # #3427: explicit .copy() before the slice assignment.
-            # numpy slice assignment already copies values, so the ring
-            # buffer was never actually aliased to the caller's array —
-            # but a defensive `.copy()` matches the copy-before-modify
-            # discipline used by the >= buffer_size branch above and
-            # everywhere else in the engine. Negligible cost, zero risk
-            # of a future refactor introducing a real alias.
-            self.lookahead_buffer[-audio_len:, ...] = audio.copy()
-
-        return cast(np.ndarray, delayed_audio[:audio_len])
+    @property
+    def lookahead_buffer(self) -> np.ndarray | None:
+        """Current ring-buffer contents, or None before first use."""
+        return self._lookahead.buffer
 
     def _detect_isr_peaks(self, audio: np.ndarray) -> float:
         """Detect inter-sample peaks using simple interpolation"""
@@ -285,8 +259,7 @@ class AdaptiveLimiter:
         self.gain_smoother.reset()
         self.current_gain = 1.0
         self.peak_hold = 0.0
-        if self.lookahead_buffer is not None:
-            self.lookahead_buffer.fill(0)
+        self._lookahead.reset()
 
 
 def create_adaptive_limiter(settings: LimiterSettings,
