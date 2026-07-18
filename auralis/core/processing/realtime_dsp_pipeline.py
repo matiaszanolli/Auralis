@@ -88,6 +88,3 @@ class RealtimeDSPPipeline:
         except Exception as e:
             warning(f"Real-time processing failed, passing through raw audio: {e}")
             return audio_chunk  # Return unprocessed on transient error
-
-    # REMOVED (Phase 5 refactoring): _quick_content_analysis()
-    # Now handled by ContentAnalysisFacade.analyze_quick()

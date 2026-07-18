@@ -111,15 +111,3 @@ async def buffer_presets_for_track(
 
     except Exception as e:
         logger.error(f"Proactive buffering failed for track {track_id}: {e}", exc_info=True)
-
-
-# Removed: get_buffer_status() (#3526 / BE-NEW-68).
-# It globbed for `track_{id}_{preset}_{intensity}_chunk_*.wav` but the
-# actual on-disk filename (WAVEncoder.get_chunk_path at
-# encoding/wav_encoder.py:96-99) is
-# `v{CACHE_VERSION}_track_{id}_{file_signature}_{preset}_{intensity}_chunk_{idx}.wav`,
-# so the glob matched zero files and the function always returned set().
-# A grep across auralis-web/ + tests/ confirmed zero callers — pure dead
-# code. If a buffer-status query is needed, expose it through
-# ChunkCacheManager.get_statistics() which operates on the canonical
-# in-memory cache state.

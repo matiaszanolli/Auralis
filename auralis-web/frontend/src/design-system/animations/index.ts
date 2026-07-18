@@ -190,8 +190,6 @@ export const gentleFloat = keyframes`
     opacity: 0.95;
   }
 `;
-// Removed: deprecated 'bounce' alias (bounce = gentleFloat) — fixes #2233.
-// Use 'gentleFloat' directly.
 
 /**
  * Shimmer - Loading skeleton shimmer effect
