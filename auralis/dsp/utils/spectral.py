@@ -14,6 +14,33 @@ from scipy.signal.windows import hann
 from ...utils.logging import debug
 
 
+def frames_for_seconds(sample_rate: int, seconds: float, *, power_of_two: bool = True) -> int:
+    """
+    Convert a time duration to a sample count, anchoring window/hop sizes in
+    TIME rather than a bare sample-count literal.
+
+    A fixed sample count (e.g. 512) implicitly assumes a specific sample rate:
+    at 96kHz it covers roughly half the time duration it covers at 44.1kHz,
+    silently changing the frequency/time resolution tradeoff of the analysis
+    (#4308, following the same fix pattern as #4030's resonance_notcher.py).
+
+    Args:
+        sample_rate: Sample rate in Hz.
+        seconds: Target window/hop duration in seconds.
+        power_of_two: Round up to the next power of two (default True — FFT
+            efficiency; also what makes the 44.1kHz path reproduce the
+            historical literal exactly, since 512/1024/2048 are all already
+            powers of two).
+
+    Returns:
+        Frame count (>= 1).
+    """
+    target = max(1, round(seconds * sample_rate))
+    if power_of_two:
+        return 1 << (target - 1).bit_length()
+    return target
+
+
 def spectral_centroid(audio: np.ndarray, sample_rate: int = 44100) -> float:
     """
     Calculate spectral centroid (brightness measure)
@@ -227,9 +254,11 @@ def _tempo_estimate_python(audio: np.ndarray, sample_rate: int = 44100) -> float
     if audio.ndim == 2:
         audio = np.mean(audio, axis=1)
 
-    # Simple onset detection using spectral flux
-    window_size = 1024
-    hop_size = 512
+    # Simple onset detection using spectral flux. Window/hop are anchored in
+    # time, not bare sample counts, so resolution doesn't silently drift with
+    # sample rate (#4308) — 1024/512 samples at 44.1kHz.
+    window_size = frames_for_seconds(sample_rate, 1024 / 44100)
+    hop_size = frames_for_seconds(sample_rate, 512 / 44100)
 
     # Calculate spectral flux
     flux_values = []

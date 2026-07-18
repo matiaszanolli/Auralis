@@ -20,6 +20,7 @@ from typing import Any
 
 import numpy as np
 
+from ..dsp.utils.spectral import frames_for_seconds
 from .fingerprint.metrics import SafeOperations
 
 logger = logging.getLogger(__name__)
@@ -336,9 +337,11 @@ class ContentAwareAnalyzer:
 
     def _calculate_spectral_flux(self, audio: np.ndarray, sr: int) -> float:
         """Calculate spectral flux (measure of spectral change/intensity)."""
-        # Simple implementation: windowed FFT difference
-        window_size = 2048
-        hop_size = 512
+        # Simple implementation: windowed FFT difference. Window/hop are
+        # anchored in time, not bare sample counts, so resolution doesn't
+        # silently drift with sample rate (#4308) — 2048/512 samples at 44.1kHz.
+        window_size = frames_for_seconds(sr, 2048 / 44100)
+        hop_size = frames_for_seconds(sr, 512 / 44100)
 
         if len(audio) < window_size * 2:
             return 0.0

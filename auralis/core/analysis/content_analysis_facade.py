@@ -18,6 +18,8 @@ from typing import Any
 
 import numpy as np
 
+from ...dsp.utils.spectral import frames_for_seconds
+
 logger = logging.getLogger(__name__)
 
 
@@ -189,11 +191,15 @@ class ContentAnalysisFacade:
         else:
             energy_level = "low"
         
-        # Quick spectral centroid (simplified FFT)
-        if len(mono_audio) >= 512:
-            spectrum = np.fft.fft(mono_audio[:512])
-            magnitude = np.abs(spectrum[:257])
-            freqs = np.fft.fftfreq(512, 1/self.sample_rate)[:257]
+        # Quick spectral centroid (simplified FFT). Window anchored in time,
+        # not a bare sample count, so it doesn't silently drift with sample
+        # rate (#4308) — 512 samples at 44.1kHz.
+        window_size = frames_for_seconds(self.sample_rate, 512 / 44100)
+        if len(mono_audio) >= window_size:
+            spectrum = np.fft.fft(mono_audio[:window_size])
+            half = window_size // 2 + 1
+            magnitude = np.abs(spectrum[:half])
+            freqs = np.fft.fftfreq(window_size, 1/self.sample_rate)[:half]
             centroid = np.sum(freqs * magnitude) / (np.sum(magnitude) + 1e-10)
         else:
             centroid = 1000.0  # Default

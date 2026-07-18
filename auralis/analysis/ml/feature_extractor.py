@@ -11,7 +11,14 @@ Extract comprehensive audio features for ML genre classification
 
 import numpy as np
 
-from ...dsp.utils.spectral import crest_factor, spectral_centroid, spectral_rolloff, tempo_estimate, zero_crossing_rate
+from ...dsp.utils.spectral import (
+    crest_factor,
+    frames_for_seconds,
+    spectral_centroid,
+    spectral_rolloff,
+    tempo_estimate,
+    zero_crossing_rate,
+)
 from ...dsp.utils import create_mel_triangular_filters
 from ...utils.logging import debug
 from ..fingerprint.metrics import SafeOperations
@@ -188,12 +195,16 @@ class FeatureExtractor:
 
     def _onset_rate(self, audio: np.ndarray) -> float:
         """Estimate onset rate"""
-        hop_size = 512
+        # Window/hop anchored in time, not bare sample counts, so onset
+        # detection resolution doesn't silently drift with sample rate
+        # (#4308) — 1024/512 samples at 44.1kHz.
+        window_size = frames_for_seconds(self.sample_rate, 1024 / 44100)
+        hop_size = frames_for_seconds(self.sample_rate, 512 / 44100)
         onsets = 0
         prev_spectrum = None
 
-        for i in range(0, len(audio) - 1024, hop_size):
-            chunk = audio[i:i + 1024]
+        for i in range(0, len(audio) - window_size, hop_size):
+            chunk = audio[i:i + window_size]
             spectrum = np.abs(np.fft.fft(chunk))
 
             if prev_spectrum is not None:
