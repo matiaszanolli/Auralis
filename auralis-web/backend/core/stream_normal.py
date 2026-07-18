@@ -27,6 +27,7 @@ from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
+from security.path_security import PathValidationError, validate_file_path
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,15 @@ async def stream_normal_audio(
                 await controller._send_error(websocket, track_id, "Track not found")
                 return
 
-            if not Path(track.filepath).exists():
+            # Validate the DB-retrieved filepath before any file I/O — mirrors
+            # metadata.py's guard (fixes #2302), extended here to streaming's
+            # highest-traffic consumer of track.filepath (#4345).
+            try:
+                validated_filepath = str(
+                    await asyncio.to_thread(validate_file_path, str(track.filepath))
+                )
+            except PathValidationError as e:
+                logger.warning(f"Track {track_id} filepath failed validation: {e}")
                 await controller._send_error(
                     websocket, track_id, "Audio file not found"
                 )
@@ -108,16 +117,16 @@ async def stream_normal_audio(
             await controller._send_error(websocket, track_id, "Failed to load track")
             return
 
-        streaming_filepath = str(track.filepath)
+        streaming_filepath = validated_filepath
 
         from auralis.io.unified_loader import FFMPEG_FORMATS
-        file_ext = Path(track.filepath).suffix.lower()
+        file_ext = Path(validated_filepath).suffix.lower()
         if file_ext in FFMPEG_FORMATS:
             import tempfile
             from auralis.io.unified_loader import load_audio
             temp_dir = tempfile.mkdtemp(prefix='auralis_stream_')
             audio_data, sr = await asyncio.to_thread(
-                load_audio, str(track.filepath), "audio", temp_dir
+                load_audio, validated_filepath, "audio", temp_dir
             )
             # Write to temp WAV for chunked streaming
             temp_wav_path = str(Path(temp_dir) / 'stream.wav')

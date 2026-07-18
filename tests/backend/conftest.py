@@ -15,6 +15,36 @@ backend_path = Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'
 sys.path.insert(0, str(backend_path))
 
 
+@pytest.fixture(autouse=True)
+def _bypass_streaming_path_validation(monkeypatch):
+    """Stand in for validate_file_path()'s allowed-directory/is_file/readable
+    checks in streaming tests, while still honoring Path.exists() (#4345).
+
+    stream_normal.py / stream_enhanced.py / stream_seek.py now validate
+    track.filepath via validate_file_path() before any file I/O. Existing
+    tests simulate a present/missing file with fabricated `/tmp/...` paths
+    plus `patch.object(Path, "exists", return_value=True/False)`, which
+    doesn't satisfy validate_file_path's stricter is_file/readable/
+    allowed-directory checks. Those tests exercise message ordering / error
+    handling / lifecycle, not the validation boundary itself, so this stand-in
+    reproduces the pre-#4345 existence-only check — still driven by the same
+    Path.exists() mock each test already sets up. Tests that DO exercise path
+    validation (test_streaming_path_validation.py) restore the real function
+    explicitly.
+    """
+    from security.path_security import PathValidationError
+
+    def _existence_only_check(filepath: str) -> Path:
+        p = Path(filepath)
+        if not p.exists():
+            raise PathValidationError(f"File does not exist: {filepath}")
+        return p
+
+    monkeypatch.setattr("core.stream_normal.validate_file_path", _existence_only_check)
+    monkeypatch.setattr("core.stream_enhanced.validate_file_path", _existence_only_check)
+    monkeypatch.setattr("core.stream_seek.validate_file_path", _existence_only_check)
+
+
 @pytest.fixture(scope="session")
 def event_loop():
     """

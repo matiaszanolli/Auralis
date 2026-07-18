@@ -16,7 +16,7 @@ Extracted from audio_stream_controller.py (#4071).
 
 import asyncio
 import logging
-from pathlib import Path
+from pathlib import Path  # noqa: F401 — kept for module-attribute patching in tests (core.stream_seek.Path)
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
@@ -25,6 +25,7 @@ from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
+from security.path_security import PathValidationError, validate_file_path
 
 if TYPE_CHECKING:
     from .chunked_processor import ChunkedAudioProcessor
@@ -96,7 +97,15 @@ async def stream_enhanced_audio_from_position(
                 await controller._send_error(websocket, track_id, "Track not found")
                 return
 
-            if not Path(track.filepath).exists():
+            # Validate the DB-retrieved filepath before any file I/O — mirrors
+            # metadata.py's guard (fixes #2302), extended here to streaming's
+            # highest-traffic consumer of track.filepath (#4345).
+            try:
+                validated_filepath = str(
+                    await asyncio.to_thread(validate_file_path, str(track.filepath))
+                )
+            except PathValidationError as e:
+                logger.warning(f"Track {track_id} filepath failed validation: {e}")
                 await controller._send_error(
                     websocket, track_id, "Audio file not found"
                 )
@@ -112,7 +121,7 @@ async def stream_enhanced_audio_from_position(
                 asyncio.to_thread(
                     controller.chunked_processor_class,
                     track_id=track_id,
-                    filepath=str(track.filepath),
+                    filepath=validated_filepath,
                     preset=preset,
                     intensity=intensity,
                 ),
