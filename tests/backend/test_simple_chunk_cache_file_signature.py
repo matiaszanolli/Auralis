@@ -91,3 +91,29 @@ def test_default_signature_backward_compatible():
     cache.put(track_id=9, chunk_idx=0, preset="warm", intensity=0.5,
               audio=audio, sample_rate=sr)
     assert cache.get(track_id=9, chunk_idx=0, preset="warm", intensity=0.5) is not None
+
+
+def test_gain_db_round_trips_through_cache():
+    """#4367: the trailing gain baked into cached samples must be persisted
+    alongside them, so a cache hit can restore the true gain_history state."""
+    cache = SimpleChunkCache()
+    audio, sr = _audio(44100)
+    cache.put(track_id=1, chunk_idx=0, preset="warm", intensity=0.5,
+              audio=audio, sample_rate=sr, file_signature="sig", gain_db=-3.5)
+
+    hit = cache.get(track_id=1, chunk_idx=0, preset="warm", intensity=0.5,
+                    file_signature="sig")
+    assert hit is not None
+    _audio_out, _sr_out, gain_db = hit
+    assert gain_db == -3.5
+
+
+def test_gain_db_defaults_to_zero_when_omitted():
+    cache = SimpleChunkCache()
+    audio, sr = _audio(44100)
+    cache.put(track_id=1, chunk_idx=0, preset="warm", intensity=0.5,
+              audio=audio, sample_rate=sr, file_signature="sig")
+    hit = cache.get(track_id=1, chunk_idx=0, preset="warm", intensity=0.5,
+                    file_signature="sig")
+    assert hit is not None
+    assert hit[2] == 0.0

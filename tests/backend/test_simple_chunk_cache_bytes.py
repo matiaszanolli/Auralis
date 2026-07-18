@@ -29,7 +29,7 @@ from core.audio_stream_controller import SimpleChunkCache
 
 def _actual_bytes(cache: SimpleChunkCache) -> int:
     """Sum of nbytes across all entries currently in the cache."""
-    return sum(audio.nbytes for audio, _sr in cache.cache.values())
+    return sum(audio.nbytes for audio, _sr, _gain_db in cache.cache.values())
 
 
 def _audio_of_size(n_samples: int) -> np.ndarray:

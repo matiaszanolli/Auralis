@@ -71,7 +71,7 @@ async def process_chunk_only(
 
     try:
         if isinstance(controller.cache_manager, SimpleChunkCache):
-            cached_result: tuple[np.ndarray, int] | None = controller.cache_manager.get(
+            cached_result: tuple[np.ndarray, int, float] | None = controller.cache_manager.get(
                 track_id=processor.track_id,
                 chunk_idx=chunk_index,
                 preset=processor.preset,
@@ -81,16 +81,18 @@ async def process_chunk_only(
                 file_signature=processor.file_signature,
             )
             if cached_result:
-                pcm_samples, sr = cached_result
+                pcm_samples, sr, cached_gain_db = cached_result
                 logger.info(f"Cache HIT: chunk {chunk_index}, preset {processor.preset}")
                 # #3832: record the cached chunk's level so the LevelManager
                 # history stays chronologically consistent — otherwise a
                 # later cache-MISS chunk smooths against the wrong previous
-                # RMS. Best-effort: state-sync only, never fails the stream.
+                # RMS. cached_gain_db (#4367) restores the true trailing gain
+                # baked into these samples instead of assuming unity.
+                # Best-effort: state-sync only, never fails the stream.
                 note_level = getattr(processor, "note_cached_chunk_level", None)
                 if note_level is not None:
                     try:
-                        await asyncio.to_thread(note_level, pcm_samples, chunk_index)
+                        await asyncio.to_thread(note_level, pcm_samples, chunk_index, cached_gain_db)
                     except Exception as e:
                         logger.debug(f"Cache-hit level recording skipped (not critical): {e}")
     except Exception as e:
@@ -127,6 +129,11 @@ async def process_chunk_only(
         # Store in cache for future use
         try:
             if isinstance(controller.cache_manager, SimpleChunkCache) and sr is not None:
+                # #4367: capture the trailing gain this chunk was smoothed to,
+                # so a later cache hit can restore the true gain_history state
+                # instead of assuming unity (0.0).
+                gain_history = getattr(processor, "chunk_gain_history", None)
+                gain_db = gain_history[-1] if gain_history else 0.0
                 controller.cache_manager.put(
                     track_id=processor.track_id,
                     chunk_idx=chunk_index,
@@ -135,6 +142,7 @@ async def process_chunk_only(
                     audio=pcm_samples,
                     sample_rate=sr,
                     file_signature=processor.file_signature,  # #4358
+                    gain_db=gain_db,
                 )
         except Exception as e:
             logger.debug(f"Failed to cache chunk (not critical): {e}")

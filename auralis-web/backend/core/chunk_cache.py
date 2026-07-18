@@ -37,7 +37,7 @@ class SimpleChunkCache:
             max_chunks: Maximum number of chunks to keep in memory
             max_memory_bytes: Maximum total memory for cached audio (default 512 MB)
         """
-        self.cache: OrderedDict[str, tuple[np.ndarray, int]] = OrderedDict()
+        self.cache: OrderedDict[str, tuple[np.ndarray, int, float]] = OrderedDict()
         self.max_chunks: int = max_chunks
         self._max_memory_bytes: int = max_memory_bytes
         self._current_bytes: int = 0
@@ -67,12 +67,15 @@ class SimpleChunkCache:
         intensity: float,
         *,
         file_signature: str = ""
-    ) -> tuple[np.ndarray, int] | None:
+    ) -> tuple[np.ndarray, int, float] | None:
         """
         Get chunk from cache.
 
         Returns:
-            Tuple of (audio_samples, sample_rate) or None if not cached
+            Tuple of (audio_samples, sample_rate, gain_db) or None if not cached.
+            gain_db (#4367) is the trailing gain LevelManager.smooth_transition
+            baked into these samples when they were first processed, so a
+            cache-hit can restore the true gain_history state instead of 0.0.
         """
         with self._lock:
             key = self._make_key(track_id, chunk_idx, preset, intensity, file_signature)
@@ -92,9 +95,15 @@ class SimpleChunkCache:
         audio: np.ndarray,
         sample_rate: int,
         *,
-        file_signature: str = ""
+        file_signature: str = "",
+        gain_db: float = 0.0,
     ) -> None:
-        """Store chunk in cache."""
+        """Store chunk in cache.
+
+        gain_db (#4367): the trailing gain LevelManager.smooth_transition
+        baked into `audio`, so a later cache hit can restore the true gain
+        state instead of assuming unity.
+        """
         with self._lock:
             key = self._make_key(track_id, chunk_idx, preset, intensity, file_signature)
 
@@ -106,21 +115,21 @@ class SimpleChunkCache:
             # don't over-evict siblings. Re-insertion at the end of the dict
             # below also restores LRU ordering for the touched key.
             if key in self.cache:
-                old_audio, _ = self.cache[key]
+                old_audio, _, _ = self.cache[key]
                 self._current_bytes -= old_audio.nbytes
                 del self.cache[key]
 
             # Evict by count limit
             while len(self.cache) >= self.max_chunks:
-                _removed_key, (removed_audio, _) = self.cache.popitem(last=False)
+                _removed_key, (removed_audio, _, _) = self.cache.popitem(last=False)
                 self._current_bytes -= removed_audio.nbytes
 
             # Evict by memory limit (#2084)
             while self._current_bytes + chunk_bytes > self._max_memory_bytes and self.cache:
-                _removed_key, (removed_audio, _) = self.cache.popitem(last=False)
+                _removed_key, (removed_audio, _, _) = self.cache.popitem(last=False)
                 self._current_bytes -= removed_audio.nbytes
 
-            self.cache[key] = (audio, sample_rate)
+            self.cache[key] = (audio, sample_rate, gain_db)
             self._current_bytes += chunk_bytes
             logger.debug(f"✅ Cached chunk {chunk_idx}, preset {preset}, cache size: {len(self.cache)}")
 
@@ -152,6 +161,6 @@ class SimpleChunkCache:
                 # Sibling of #3192: invalidate_chunk previously dropped the
                 # entry but never subtracted its bytes from the counter,
                 # causing the same drift as the overwrite bug.
-                removed_audio, _ = removed
+                removed_audio, _, _ = removed
                 self._current_bytes -= removed_audio.nbytes
                 logger.debug(f"Invalidated stale cache entry: chunk {chunk_idx} of track {track_id}")

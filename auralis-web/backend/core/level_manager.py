@@ -235,6 +235,24 @@ class LevelManager:
             self.gain_history.append(0.0)
             return chunk, 0.0, False
 
+    def record_cached_level(
+        self, chunk: np.ndarray, chunk_index: int, gain_db: float = 0.0
+    ) -> None:
+        """Record a cache-hit chunk's true RMS and trailing gain (#4367).
+
+        smooth_transition(apply_adjustment=False) always appends 0.0 to
+        gain_history regardless of the gain actually baked into the cached
+        samples, desyncing gain_history from what was really emitted — a
+        subsequent cache-MISS chunk would then ramp from unity even though
+        the cached chunk it followed ended at a non-zero gain. `gain_db` is
+        the trailing gain captured when the chunk was originally processed
+        and cached, so gain_history stays truthful.
+        """
+        current_rms = self.calculate_rms(chunk)
+        is_baseline = chunk_index == 0 or len(self.rms_history) == 0
+        self.rms_history.append(current_rms)
+        self.gain_history.append(0.0 if is_baseline else gain_db)
+
     def apply_gain(self, audio: np.ndarray, gain_db: float) -> np.ndarray:
         """
         Apply gain adjustment to audio.

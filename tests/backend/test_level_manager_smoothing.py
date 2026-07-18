@@ -254,3 +254,60 @@ def test_note_cached_chunk_level_updates_processor_history(tmp_path):
         proc._level_manager.calculate_rms(c1), rel=1e-4
     )
     assert proc.chunk_rms_history == list(proc._level_manager.history)
+
+
+# ---------------------------------------------------------------------------
+# #4367 — cache-hit level recording must restore the TRUE trailing gain,
+# not unconditionally record 0.0
+# ---------------------------------------------------------------------------
+
+def test_record_cached_level_restores_true_gain_not_zero():
+    """The bug: smooth_transition(apply_adjustment=False) always appended 0.0
+    to gain_history regardless of the gain actually baked into the cached
+    samples. record_cached_level must persist the real trailing gain instead."""
+    lm = LevelManager()
+    lm.smooth_transition(_loud(), 0, sample_rate=SR)  # baseline
+
+    chunk = _quiet(amp=0.1)
+    lm.record_cached_level(chunk, 1, gain_db=-3.0)
+
+    assert lm.gain_history[-1] == -3.0, (
+        "cache-hit recording must restore the cached chunk's true trailing "
+        "gain, not silently record 0.0"
+    )
+    assert lm.current_rms == pytest.approx(lm.calculate_rms(chunk), rel=1e-4)
+
+
+def test_record_cached_level_does_not_mutate_chunk():
+    lm = LevelManager()
+    lm.smooth_transition(_loud(), 0, sample_rate=SR)
+    chunk = _quiet(amp=0.1)
+    original = chunk.copy()
+    lm.record_cached_level(chunk, 1, gain_db=-3.0)
+    np.testing.assert_array_equal(chunk, original)
+
+
+def test_record_cached_level_baseline_ignores_gain_db():
+    """Chunk 0 (or empty history) is always a fresh baseline — mirrors
+    smooth_transition, which never applies gain to the first chunk."""
+    lm = LevelManager()
+    lm.record_cached_level(_loud(), 0, gain_db=-5.0)
+    assert lm.gain_history[-1] == 0.0
+
+
+def test_note_cached_chunk_level_passes_through_true_gain(tmp_path):
+    """ChunkedAudioProcessor.note_cached_chunk_level must forward gain_db
+    into gain_history instead of hardcoding 0.0 (#4367)."""
+    import soundfile as sf
+    import core.chunked_processor as cp
+
+    wav = tmp_path / "tiny.wav"
+    sf.write(str(wav), np.zeros((SR // 10, 2), dtype=np.float32), SR, subtype="FLOAT")
+
+    proc = cp.ChunkedAudioProcessor(track_id=1, filepath=str(wav), preset="adaptive")
+
+    proc.note_cached_chunk_level(_loud(), 0)  # baseline
+    proc.note_cached_chunk_level(_quiet(amp=0.1), 1, gain_db=-3.0)
+
+    assert proc._level_manager.gain_history[-1] == -3.0
+    assert proc.chunk_gain_history[-1] == -3.0, "legacy mirror must stay in sync"

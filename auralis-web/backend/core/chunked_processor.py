@@ -398,23 +398,27 @@ class ChunkedAudioProcessor:
 
         return cast(np.ndarray, chunk_adjusted)
 
-    def note_cached_chunk_level(self, chunk: np.ndarray, chunk_index: int) -> None:
+    def note_cached_chunk_level(
+        self, chunk: np.ndarray, chunk_index: int, gain_db: float = 0.0
+    ) -> None:
         """Record a cache-hit chunk's level into the LevelManager (#3832).
 
         A cached chunk is returned without going through _process_chunk_core, so
         the LevelManager would otherwise never see it — leaving rms_history out
         of chronological sync, so a later cache-MISS chunk smooths against the
-        wrong previous RMS. We RECORD the cached chunk's RMS (apply_adjustment=
-        False) without re-adjusting the already-smoothed audio, under the same
+        wrong previous RMS. We RECORD the cached chunk's RMS and its true
+        trailing gain (`gain_db`, captured when the chunk was originally cached)
+        without re-adjusting the already-smoothed audio, under the same
         _processor_lock the processing path uses so the history deque is never
-        touched concurrently.
+        touched concurrently. Using the true gain instead of unconditionally
+        recording 0.0 keeps a subsequent cache-MISS chunk's ramp baseline
+        correct (#4367).
         """
         with self._processor_lock:
-            self._level_manager.smooth_transition(
+            self._level_manager.record_cached_level(
                 chunk=chunk,
                 chunk_index=chunk_index,
-                apply_adjustment=False,
-                sample_rate=self.sample_rate or 44100,
+                gain_db=gain_db,
             )
             # Keep the legacy history mirrors in sync (matches _smooth_level_transition).
             history = self._level_manager.history
