@@ -65,12 +65,24 @@ export function usePlayerStateSync() {
   // track_changed index against the synced queue) without re-subscribing on
   // every state change.
   const store = useStore() as Store<RootState>;
-  const { subscribe } = useWebSocketContext();
+  const { subscribe, connectionStatus } = useWebSocketContext();
   // Highest `seq` applied so far (fixes #3732). The backend broadcasts
   // player_state outside its update lock, so concurrent update_state() calls
   // can deliver snapshots out of order; drop anything older than what we've
   // already applied instead of regressing the UI to stale state.
   const lastSeenSeqRef = useRef(0);
+
+  // A backend restart resets its StateManager seq counter to 0, but this ref
+  // survives across reconnects — every post-restart snapshot would otherwise
+  // be dropped as "older" until the counter climbs back past the pre-restart
+  // max (#4338). Reset on every (re)connection: within one continuous
+  // session connectionStatus never flips back to 'connected', so the #3732
+  // out-of-order guard still holds there.
+  useEffect(() => {
+    if (connectionStatus === 'connected') {
+      lastSeenSeqRef.current = 0;
+    }
+  }, [connectionStatus]);
 
   useEffect(() => {
     if (!subscribe) {

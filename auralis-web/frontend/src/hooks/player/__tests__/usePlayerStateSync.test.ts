@@ -998,3 +998,78 @@ describe('usePlayerStateSync – seq (out-of-order drop, #3732)', () => {
     expect(store.getState().player.volume).toBe(33);
   });
 });
+
+// ============================================================================
+// seq — reset on reconnect after a backend restart (#4338)
+// ============================================================================
+//
+// A backend restart resets its StateManager seq counter to 0, but
+// lastSeenSeqRef persists across reconnects (it's a useRef, not tied to the
+// WS connection). Without a reset, every post-restart snapshot would be
+// dropped as "older" than the pre-restart max until the counter climbed back
+// past it.
+
+describe('usePlayerStateSync – seq reset on reconnect (#4338)', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('applies a low seq after connectionStatus transitions to connected again', () => {
+    const mockContext = makeMockWsContext({
+      connectionStatus: 'connected',
+      subscribe: vi.fn((type: string, handler: (msg: any) => void) => {
+        handlers[type] = handler;
+        if (type === 'player_state') playerStateHandler = handler;
+        return mockUnsubscribe;
+      }) as any,
+    });
+    vi.mocked(WebSocketContextModule.useWebSocketContext).mockImplementation(() => mockContext);
+
+    const { rerender } = renderHook(() => usePlayerStateSync(), {
+      wrapper: makeWrapper(store),
+    });
+
+    // Pre-restart session climbs to a high seq.
+    firePlayerState({ seq: 500, volume: 50 });
+    expect(store.getState().player.volume).toBe(50);
+
+    // Backend restarts: connection drops then re-establishes.
+    mockContext.connectionStatus = 'disconnected';
+    rerender();
+    mockContext.connectionStatus = 'connected';
+    rerender();
+
+    // Post-restart snapshots restart from seq 1 — must be applied, not
+    // dropped as "older than 500".
+    firePlayerState({ seq: 1, volume: 11 });
+    expect(store.getState().player.volume).toBe(11);
+
+    firePlayerState({ seq: 2, volume: 22 });
+    expect(store.getState().player.volume).toBe(22);
+  });
+
+  it('still drops an out-of-order snapshot within one continuous connected session', () => {
+    const mockContext = makeMockWsContext({
+      connectionStatus: 'connected',
+      subscribe: vi.fn((type: string, handler: (msg: any) => void) => {
+        handlers[type] = handler;
+        if (type === 'player_state') playerStateHandler = handler;
+        return mockUnsubscribe;
+      }) as any,
+    });
+    vi.mocked(WebSocketContextModule.useWebSocketContext).mockImplementation(() => mockContext);
+
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+
+    firePlayerState({ seq: 5, volume: 50 });
+    firePlayerState({ seq: 3, volume: 30 }); // late/out-of-order, same session
+    expect(store.getState().player.volume).toBe(50);
+  });
+});
