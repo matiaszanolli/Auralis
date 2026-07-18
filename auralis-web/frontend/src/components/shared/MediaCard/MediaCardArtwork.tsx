@@ -10,7 +10,7 @@
  * 2. Else → Use hash-based gradient (fallback for non-fingerprinted items)
  */
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
 import { MediaCardVariant } from './MediaCard.types';
@@ -82,6 +82,17 @@ export const MediaCardArtwork = ({
   fingerprint,
   children,
 }: MediaCardArtworkProps) => {
+  // Fall back to the gradient placeholder when a set URL fails to load
+  // (403/404/5xx) instead of showing the browser's broken-image glyph (#4437),
+  // mirroring the album path's ProgressiveImage onError handling. Reset when the
+  // URL changes so a new item's artwork gets a fresh attempt.
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => {
+    setImageFailed(false);
+  }, [artworkUrl]);
+
+  const showImage = Boolean(artworkUrl) && !imageFailed;
+
   return (
     <Box
       sx={{
@@ -89,18 +100,19 @@ export const MediaCardArtwork = ({
         paddingTop: '100%', // 1:1 aspect ratio
         borderRadius: `${tokens.borderRadius.lg}px ${tokens.borderRadius.lg}px 0 0`,
         overflow: 'hidden',
-        background: artworkUrl
+        background: showImage
           ? undefined
           : getPlaceholderGradient(fingerprint, fallbackText),
       }}
     >
       {/* Artwork image with native lazy loading (#3036) */}
-      {artworkUrl && (
+      {showImage && (
         <Box
           component="img"
           src={artworkUrl}
           alt={fallbackText}
           loading="lazy"
+          onError={() => setImageFailed(true)}
           sx={{
             position: 'absolute',
             top: 0,
