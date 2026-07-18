@@ -112,6 +112,16 @@ const queueSlice = createSlice({
         action: PayloadAction<{ fromIndex: number; toIndex: number }, string, { timestamp: number }>
       ) {
         const { fromIndex, toIndex } = action.payload;
+        // Validate both indices like every sibling index-taking reducer (#4432);
+        // an out-of-range fromIndex would splice out nothing and insert a literal
+        // undefined into tracks.
+        const len = state.tracks.length;
+        if (
+          fromIndex < 0 || fromIndex >= len ||
+          toIndex < 0 || toIndex >= len
+        ) {
+          return;
+        }
         if (fromIndex === toIndex) return;
 
         const [movedTrack] = state.tracks.splice(fromIndex, 1);

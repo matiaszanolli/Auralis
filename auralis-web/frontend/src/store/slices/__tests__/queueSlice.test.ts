@@ -128,6 +128,27 @@ describe('queueSlice', () => {
     expect(state.lastUpdated).toBe(before);
   });
 
+  it('reorderTrack is a no-op for an out-of-range fromIndex (never inserts undefined) (#4432)', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = reducer(state, reorderTrack({ fromIndex: 99, toIndex: 0 }));
+    expect(state.tracks.map((t) => t.id)).toEqual([1, 2, 3]);
+    expect(state.tracks).not.toContain(undefined);
+  });
+
+  it('reorderTrack is a no-op for an out-of-range toIndex (#4432)', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = reducer(state, reorderTrack({ fromIndex: 0, toIndex: 99 }));
+    expect(state.tracks.map((t) => t.id)).toEqual([1, 2, 3]);
+    expect(state.tracks).not.toContain(undefined);
+  });
+
+  it('reorderTrack is a no-op for negative indices (#4432)', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = reducer(state, reorderTrack({ fromIndex: -1, toIndex: 0 }));
+    expect(state.tracks.map((t) => t.id)).toEqual([1, 2, 3]);
+    expect(state.tracks).not.toContain(undefined);
+  });
+
   // ─── Queue operations ────────────────────────────────────────
 
   it('clearQueue empties tracks and resets index', () => {
