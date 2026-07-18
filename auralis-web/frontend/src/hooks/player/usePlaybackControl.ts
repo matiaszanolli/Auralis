@@ -26,7 +26,7 @@
  * @see auralis-web/frontend/src/store/slices/playerSlice.ts for state selectors
  */
 
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
@@ -244,7 +244,10 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [api]);
+    // Depend on the stable api.post reference (as do next/previous/setVolume),
+    // not the whole api object — the latter's identity churns on every REST
+    // loading/error state change, which would defeat the memoized return (#4438).
+  }, [api.post]);
 
   /**
    * Next - Skip to next track in queue
@@ -265,7 +268,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [api]);
+  }, [api.post]);
 
   /**
    * Previous - Skip to previous track in queue
@@ -286,7 +289,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [api]);
+  }, [api.post]);
 
   /**
    * SetVolume - Set playback volume
@@ -314,7 +317,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [api]);
+  }, [api.post]);
 
   /**
    * Clear error state
@@ -323,16 +326,22 @@ export function usePlaybackControl(): PlaybackControlActions {
     setError(null);
   }, []);
 
-  return {
-    play,
-    pause,
-    stop,
-    seek,
-    next,
-    previous,
-    setVolume,
-    isLoading,
-    error,
-    clearError,
-  };
+  // Memoize the return so consumers (e.g. ComfortableApp's keyboard-shortcut
+  // registration) get a stable object identity across renders when inputs are
+  // unchanged, matching usePlaybackQueue/useReduxState (#4438).
+  return useMemo(
+    () => ({
+      play,
+      pause,
+      stop,
+      seek,
+      next,
+      previous,
+      setVolume,
+      isLoading,
+      error,
+      clearError,
+    }),
+    [play, pause, stop, seek, next, previous, setVolume, isLoading, error, clearError]
+  );
 }

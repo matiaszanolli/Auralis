@@ -460,4 +460,18 @@ describe('usePlaybackControl', () => {
       });
     });
   });
+
+  describe('return identity (#4438)', () => {
+    it('returns a stable object across re-renders when inputs are unchanged', () => {
+      const { result, rerender } = renderHook(() => usePlaybackControl(), {
+        wrapper: createWrapper(),
+      });
+
+      const first = result.current;
+      rerender();
+      // Memoized return: consumers using it in dependency arrays (e.g.
+      // ComfortableApp's keyboard-shortcut registration) do not churn.
+      expect(Object.is(result.current, first)).toBe(true);
+    });
+  });
 });
