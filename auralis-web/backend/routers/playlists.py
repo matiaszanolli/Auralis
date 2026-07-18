@@ -19,7 +19,7 @@ Endpoints:
 """
 
 import asyncio
-from typing import Any, cast
+from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
@@ -27,6 +27,7 @@ from pydantic import BaseModel
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
+from .serializers import serialize_playlist, serialize_playlists
 
 router = APIRouter(tags=["playlists"])
 
@@ -82,7 +83,7 @@ def create_playlists_router(
         repos = require_repository_factory(get_repository_factory)
         playlists = await asyncio.to_thread(repos.playlists.get_all)
         return {
-            "playlists": [p.to_dict() for p in playlists],
+            "playlists": serialize_playlists(playlists),
             "total": len(playlists)
         }
 
@@ -106,11 +107,11 @@ def create_playlists_router(
         if not playlist:
             raise NotFoundError("Playlist")
 
-        playlist_dict = playlist.to_dict()
+        playlist_dict = serialize_playlist(playlist)
         # Add full track details
         playlist_dict['tracks'] = [track.to_dict() for track in playlist.tracks]
 
-        return cast(dict[str, Any], playlist_dict)
+        return playlist_dict
 
     @router.post("/api/playlists")
     @with_error_handling("create playlist")
@@ -149,7 +150,7 @@ def create_playlists_router(
 
         return {
             "message": f"Playlist '{request.name}' created",
-            "playlist": playlist.to_dict()
+            "playlist": serialize_playlist(playlist)
         }
 
     @router.put("/api/playlists/{playlist_id}")

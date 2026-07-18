@@ -1284,7 +1284,13 @@ class TestPlaylistEndpoints:
 
     def test_get_playlist_by_id_success(self, client):
         """Test getting playlist by ID"""
+        # Raw attributes, not to_dict.return_value: serialize_playlist()
+        # (routers/serializers.py) deliberately skips to_dict() for Mock
+        # objects and falls back to getattr() per DEFAULT_PLAYLIST_FIELDS
+        # (fixes #4306 — matches the existing artist/album mock convention).
         mock_playlist = Mock()
+        mock_playlist.id = 1
+        mock_playlist.name = "My Playlist"
         mock_playlist.to_dict.return_value = {"id": 1, "name": "My Playlist"}
         mock_playlist.tracks = []  # Empty tracks list
 

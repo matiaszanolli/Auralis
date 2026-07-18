@@ -266,11 +266,20 @@ def serialize_artist(artist: Any) -> dict[str, Any]:
     """
     artist_dict = serialize_object(artist, DEFAULT_ARTIST_FIELDS)
 
-    # Calculate counts from related objects if available
+    # Calculate counts from related objects if available. try/except TypeError
+    # guards against Mock objects in tests, whose .albums/.tracks are
+    # themselves auto-generated Mocks (truthy, but not sized) — same pattern
+    # as serialize_album's guard above (#4306).
     if hasattr(artist, 'albums') and artist.albums:
-        artist_dict['album_count'] = len(artist.albums)
+        try:
+            artist_dict['album_count'] = len(artist.albums)
+        except TypeError:
+            pass
     if hasattr(artist, 'tracks') and artist.tracks:
-        artist_dict['track_count'] = len(artist.tracks)
+        try:
+            artist_dict['track_count'] = len(artist.tracks)
+        except TypeError:
+            pass
 
     return artist_dict
 
@@ -300,9 +309,15 @@ def serialize_playlist(playlist: Any) -> dict[str, Any]:
     """
     playlist_dict = serialize_object(playlist, DEFAULT_PLAYLIST_FIELDS)
 
-    # Calculate track_count from tracks if available
+    # Calculate track_count from tracks if available. try/except TypeError
+    # guards against Mock objects in tests, whose .tracks is itself an
+    # auto-generated Mock (truthy, but not sized) — same pattern as
+    # serialize_album's guard (#4306).
     if hasattr(playlist, 'tracks') and playlist.tracks:
-        playlist_dict['track_count'] = len(playlist.tracks)
+        try:
+            playlist_dict['track_count'] = len(playlist.tracks)
+        except TypeError:
+            pass
 
     return playlist_dict
 
