@@ -128,16 +128,13 @@ class FingerprintRepository(BaseRepository):
         """
         if not track_ids:
             return []
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             fingerprints = session.execute(
                 select(TrackFingerprint).where(TrackFingerprint.track_id.in_(track_ids))
             ).scalars().all()
             for fp in fingerprints:
                 session.expunge(fp)
             return list(fingerprints)
-        finally:
-            session.close()
 
     def get_by_track_id(self, track_id: int) -> TrackFingerprint | None:
         """
@@ -149,16 +146,13 @@ class FingerprintRepository(BaseRepository):
         Returns:
             TrackFingerprint object if found, None otherwise
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             fingerprint = session.execute(
                 select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
             ).scalars().first()
             if fingerprint:
                 session.expunge(fingerprint)
             return fingerprint
-        finally:
-            session.close()
 
     def update(self, track_id: int, fingerprint_data: dict[str, float]) -> TrackFingerprint | None:
         """
@@ -250,8 +244,7 @@ class FingerprintRepository(BaseRepository):
         Returns:
             List of TrackFingerprint objects
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             stmt = select(TrackFingerprint).order_by(TrackFingerprint.created_at.desc())
 
             # #3683: `if limit is not None` so `limit=0` returns an empty
@@ -267,9 +260,6 @@ class FingerprintRepository(BaseRepository):
                 session.expunge(fp)
             return fingerprints
 
-        finally:
-            session.close()
-
     def get_count(self) -> int:
         """
         Get total count of fingerprints
@@ -277,11 +267,8 @@ class FingerprintRepository(BaseRepository):
         Returns:
             Total number of fingerprints
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             return session.execute(select(func.count()).select_from(TrackFingerprint)).scalar_one()
-        finally:
-            session.close()
 
     def get_reference_cloud(self) -> list[TrackFingerprint]:
         """Return all fingerprints flagged is_reference=True (schema v15).
@@ -290,15 +277,12 @@ class FingerprintRepository(BaseRepository):
         continuous reference manifold. Indexed via ix_fingerprints_is_reference
         so the lookup is fast even on large libraries.
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             stmt = select(TrackFingerprint).where(TrackFingerprint.is_reference == True)  # noqa: E712
             fingerprints = list(session.execute(stmt).scalars().all())
             for fp in fingerprints:
                 session.expunge(fp)
             return fingerprints
-        finally:
-            session.close()
 
     def set_reference_flags(self, track_ids_flagged: dict[int, bool]) -> int:
         """Bulk set is_reference for the given track_ids.
@@ -382,8 +366,7 @@ class FingerprintRepository(BaseRepository):
         Returns:
             List of TrackFingerprint objects within range
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Verify dimension exists
             if not hasattr(TrackFingerprint, dimension):
                 error(f"Invalid dimension: {dimension}")
@@ -405,9 +388,6 @@ class FingerprintRepository(BaseRepository):
                 session.expunge(fp)
             return fingerprints
 
-        finally:
-            session.close()
-
     def get_by_multi_dimension_range(
         self,
         ranges: dict[str, tuple[float, float]],
@@ -426,8 +406,7 @@ class FingerprintRepository(BaseRepository):
         Returns:
             List of TrackFingerprint objects matching all range criteria
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Build filter conditions
             conditions = []
             for dimension, (min_val, max_val) in ranges.items():
@@ -455,9 +434,6 @@ class FingerprintRepository(BaseRepository):
                 session.expunge(fp)
             return fingerprints
 
-        finally:
-            session.close()
-
     def exists(self, track_id: int) -> bool:
         """
         Check if a fingerprint exists for a track
@@ -468,16 +444,13 @@ class FingerprintRepository(BaseRepository):
         Returns:
             True if fingerprint exists, False otherwise
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             count = session.execute(
                 select(func.count()).select_from(TrackFingerprint).where(
                     TrackFingerprint.track_id == track_id
                 )
             ).scalar_one()
             return count > 0
-        finally:
-            session.close()
 
     def get_missing_fingerprints(self, limit: int | None = None) -> list[Track]:
         """
@@ -491,8 +464,7 @@ class FingerprintRepository(BaseRepository):
         Returns:
             List of Track objects without fingerprints
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             stmt = select(Track).outerjoin(
                 TrackFingerprint,
                 Track.id == TrackFingerprint.track_id
@@ -511,12 +483,10 @@ class FingerprintRepository(BaseRepository):
             for track in tracks:
                 session.expunge(track)
 
-            return tracks
-
-        finally:
             # CRITICAL: Clear session to free memory
             session.expunge_all()
-            session.close()
+
+            return tracks
 
     def upsert(self, track_id: int, fingerprint_data: dict[str, float]) -> TrackFingerprint | None:
         """

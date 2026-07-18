@@ -245,8 +245,7 @@ class TrackRepository(BaseRepository):
 
     def get_by_id(self, track_id: int) -> Track | None:
         """Get track by ID with relationships loaded"""
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             track = session.execute(
                 select(Track)
                 .options(*_track_eager_options())
@@ -255,8 +254,6 @@ class TrackRepository(BaseRepository):
             if track:
                 session.expunge(track)
             return track
-        finally:
-            session.close()
 
     def get_by_ids(self, track_ids: list[int]) -> dict[int, Track]:
         """Get multiple tracks by ID in a single query (WHERE IN).
@@ -265,8 +262,7 @@ class TrackRepository(BaseRepository):
         """
         if not track_ids:
             return {}
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             tracks = session.execute(
                 select(Track)
                 .options(*_track_eager_options())
@@ -277,13 +273,10 @@ class TrackRepository(BaseRepository):
                 session.expunge(track)
                 result[track.id] = track
             return result
-        finally:
-            session.close()
 
     def get_by_path(self, filepath: str) -> Track | None:
         """Get track by file path with relationships loaded"""
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             track = session.execute(
                 select(Track)
                 .options(*_track_eager_options())
@@ -292,8 +285,6 @@ class TrackRepository(BaseRepository):
             if track:
                 session.expunge(track)
             return track
-        finally:
-            session.close()
 
     def get_by_filepath(self, filepath: str) -> Track | None:
         """Alias for get_by_path for backward compatibility"""
@@ -305,13 +296,10 @@ class TrackRepository(BaseRepository):
         Lightweight id-only lookup for callers that do not need the full
         Track object or its relationships (e.g. fingerprint cache joins).
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             return session.execute(
                 select(Track.id).where(Track.filepath == filepath)
             ).scalar_one_or_none()
-        finally:
-            session.close()
 
     def update_by_filepath(self, filepath: str, track_info: dict[str, Any]) -> Track | None:
         """
@@ -384,8 +372,7 @@ class TrackRepository(BaseRepository):
         Returns:
             Tuple of (matching tracks, total count)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Escape LIKE metacharacters so a query containing '%' or '_' does
             # not accidentally match all rows (fixes #2405).
             escaped = query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
@@ -421,13 +408,10 @@ class TrackRepository(BaseRepository):
             for track in results:
                 session.expunge(track)
             return results, total
-        finally:
-            session.close()
 
     def get_by_genre(self, genre_name: str, limit: int = 100) -> list[Track]:
         """Get tracks by genre"""
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             tracks = session.execute(
                 select(Track)
                 .join(Track.genres)
@@ -438,13 +422,10 @@ class TrackRepository(BaseRepository):
             for track in tracks:
                 session.expunge(track)
             return tracks
-        finally:
-            session.close()
 
     def get_by_artist(self, artist_name: str, limit: int = 100) -> list[Track]:
         """Get tracks by artist"""
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Use eager loading to load relationships before session closes
             tracks = session.execute(
                 select(Track).join(Track.artists).where(
@@ -459,8 +440,6 @@ class TrackRepository(BaseRepository):
                 session.expunge(track)
 
             return tracks
-        finally:
-            session.close()
 
     def get_recent(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get recently added tracks with relationships loaded
@@ -472,8 +451,7 @@ class TrackRepository(BaseRepository):
         Returns:
             Tuple of (track list, total count)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Get total count
             total = session.execute(
                 select(func.count()).select_from(Track)
@@ -491,8 +469,6 @@ class TrackRepository(BaseRepository):
             for track in results:
                 session.expunge(track)
             return results, total
-        finally:
-            session.close()
 
     def get_popular(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get most played tracks with relationships loaded
@@ -504,8 +480,7 @@ class TrackRepository(BaseRepository):
         Returns:
             Tuple of (track list, total count)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Get total count
             total = session.execute(
                 select(func.count()).select_from(Track)
@@ -523,8 +498,6 @@ class TrackRepository(BaseRepository):
             for track in results:
                 session.expunge(track)
             return results, total
-        finally:
-            session.close()
 
     def get_favorites(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get favorite tracks with relationships loaded
@@ -536,8 +509,7 @@ class TrackRepository(BaseRepository):
         Returns:
             Tuple of (track list, total count)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Get total count
             total = session.execute(
                 select(func.count()).select_from(Track)
@@ -557,8 +529,6 @@ class TrackRepository(BaseRepository):
             for track in results:
                 session.expunge(track)
             return results, total
-        finally:
-            session.close()
 
     def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Track], int]:
         """Get all tracks with pagination and total count
@@ -571,8 +541,7 @@ class TrackRepository(BaseRepository):
         Returns:
             Tuple of (list of Track objects, total count)
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Get total count
             total = session.execute(
                 select(func.count()).select_from(Track)
@@ -594,8 +563,6 @@ class TrackRepository(BaseRepository):
             for track in tracks:
                 session.expunge(track)
             return tracks, total
-        finally:
-            session.close()
 
     def record_play(self, track_id: int) -> None:
         """Record a track play"""
@@ -639,8 +606,7 @@ class TrackRepository(BaseRepository):
         Returns:
             List of similar tracks
         """
-        session = self.get_session()
-        try:
+        with self._session_scope() as session:
             # Simple similarity based on genre and artist
             # In production, would use more sophisticated audio fingerprinting
             similar_tracks: list[Track] = []
@@ -683,8 +649,6 @@ class TrackRepository(BaseRepository):
             for t in set(result):
                 session.expunge(t)
             return result
-        finally:
-            session.close()
 
     def _update_artists(self, session: Session, track: Track, artist_names: list[str]) -> None:
         """Update track artists using normalized name matching"""
