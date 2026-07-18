@@ -11,6 +11,7 @@ Audio loading using FFmpeg for MP3/M4A/AAC/OGG/WMA
 import asyncio
 import functools
 import os
+import re
 import subprocess
 import tempfile
 import threading
@@ -21,6 +22,34 @@ import numpy as np
 
 from ...utils.logging import Code, ModuleError, debug, warning
 from .soundfile_loader import load_with_soundfile
+
+# FFmpeg decodes untrusted media as an ambient, unversioned system binary
+# (#4344) — no minimum-version enforcement previously existed beyond a bare
+# presence probe. 4.0 (2018) predates it by enough years that we warn rather
+# than refuse: a hard refusal on an old-but-present binary would silently
+# break playback for users whose distro ships an older-but-still-patched
+# build, and this heuristic can't distinguish "old" from "old but backported
+# security fixes". Bundling a pinned FFmpeg build was considered (tracked
+# alongside SEC-M2) but deferred: per-platform binary packaging + licensing
+# review is out of scope here, so a version floor + warning is the interim
+# mitigation until (or instead of) bundling.
+MINIMUM_FFMPEG_VERSION = (4, 0, 0)
+
+
+def _parse_ffmpeg_version(version_output: str) -> tuple[int, ...] | None:
+    """Extract the (major, minor, ...) version tuple from `ffmpeg -version` output.
+
+    First line looks like: "ffmpeg version 4.4.2-0ubuntu0.22.04.1 Copyright ..."
+    or "ffmpeg version n6.0 Copyright ...". Returns None if unparseable (e.g.
+    an unusual distro-patched version string) rather than guessing.
+    """
+    match = re.search(r"ffmpeg version n?(\d+(?:\.\d+)+)", version_output)
+    if not match:
+        return None
+    try:
+        return tuple(int(part) for part in match.group(1).split("."))
+    except ValueError:
+        return None
 
 
 def _terminate_process(proc: "subprocess.Popen[str]") -> None:
@@ -93,21 +122,40 @@ _MAX_PLAUSIBLE_BITRATE_BPS = 2_000_000
 
 @functools.lru_cache(maxsize=1)
 def check_ffmpeg() -> bool:
-    """Check if FFmpeg is available.
+    """Check if FFmpeg is available, warning if its version is below the floor.
 
     Memoized for the process lifetime (#4117): FFmpeg availability does not
     change within a run, so probing once avoids forking an `ffmpeg -version`
     subprocess on every FFmpeg-routed file load (one redundant probe per file
     during bulk scans). Call ``check_ffmpeg.cache_clear()`` to force a re-probe
     (e.g. in tests that toggle availability).
+
+    A version below MINIMUM_FFMPEG_VERSION only warns (#4344) — presence is
+    still all that's required to proceed, since a hard refusal on a heuristic
+    version parse would risk breaking playback on a legitimately-patched but
+    unusually-versioned system build.
     """
     try:
         result = subprocess.run(
             ['ffmpeg', '-version'],
             capture_output=True,
+            text=True,
             timeout=10
         )
-        return result.returncode == 0
+        if result.returncode != 0:
+            return False
+
+        version = _parse_ffmpeg_version(result.stdout)
+        if version is None:
+            warning("Could not determine FFmpeg version from `ffmpeg -version` output")
+        elif version < MINIMUM_FFMPEG_VERSION:
+            min_str = ".".join(str(p) for p in MINIMUM_FFMPEG_VERSION)
+            got_str = ".".join(str(p) for p in version)
+            warning(
+                f"FFmpeg {got_str} is older than the recommended minimum {min_str} — "
+                "older builds carry known demuxer/decoder CVEs; consider upgrading."
+            )
+        return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 

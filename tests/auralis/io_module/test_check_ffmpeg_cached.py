@@ -27,10 +27,13 @@ def _clear_cache():
     ffmpeg_loader.check_ffmpeg.cache_clear()
 
 
+_RECENT_VERSION_OUTPUT = "ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers\n"
+
+
 def test_probe_runs_once_across_many_calls():
     """N calls must spawn exactly one `ffmpeg -version` subprocess (#4117)."""
     with patch.object(ffmpeg_loader.subprocess, "run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_run.return_value = MagicMock(returncode=0, stdout=_RECENT_VERSION_OUTPUT)
 
         results = [ffmpeg_loader.check_ffmpeg() for _ in range(50)]
 
@@ -41,7 +44,7 @@ def test_probe_runs_once_across_many_calls():
 def test_cache_clear_forces_reprobe():
     """cache_clear() re-probes (so availability-toggling tests can reset)."""
     with patch.object(ffmpeg_loader.subprocess, "run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_run.return_value = MagicMock(returncode=0, stdout=_RECENT_VERSION_OUTPUT)
         assert ffmpeg_loader.check_ffmpeg() is True
         ffmpeg_loader.check_ffmpeg.cache_clear()
         ffmpeg_loader.check_ffmpeg()
