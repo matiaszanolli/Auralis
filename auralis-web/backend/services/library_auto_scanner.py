@@ -402,7 +402,9 @@ class LibraryAutoScanner:
                 self._observer.stop()
                 self._observer.join(timeout=5)
             except Exception:
-                pass
+                # Best-effort teardown (#4368 — was a bare pass, hiding
+                # genuine watchdog-thread failures from debugging).
+                logger.debug("Watchdog teardown failed", exc_info=True)
             self._observer = None
 
 

@@ -76,7 +76,9 @@ async def setup_connection(
                 }
             }))
         except Exception:
-            pass  # Connection rejected or already closed
+            # Best-effort: don't fail the connection (#4368 — was a bare pass,
+            # hiding genuine send failures from debugging).
+            logger.debug("Initial enhancement-settings push failed", exc_info=True)
 
     # Push full player state on connect so reconnecting clients sync
     # their Redux store immediately (fixes #2606).
@@ -90,7 +92,9 @@ async def setup_connection(
                     "data": _state.model_dump(),
                 }))
         except Exception:
-            pass  # Best-effort: don't fail the connection
+            # Best-effort: don't fail the connection (#4368 — was a bare pass,
+            # hiding genuine send failures from debugging).
+            logger.debug("Initial player-state push failed", exc_info=True)
 
     return connection_id, heartbeat, heartbeat_task
 

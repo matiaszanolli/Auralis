@@ -100,7 +100,9 @@ async def buffer_presets_for_track(
                     try:
                         processor.close()
                     except Exception:
-                        pass
+                        # Best-effort release (#4368 — was a bare pass, hiding
+                        # genuine resource-release failures from debugging).
+                        logger.debug(f"Processor close failed for {preset}", exc_info=True)
 
         logger.info(
             f"🎉 Proactive buffering complete: track={track_id}, "

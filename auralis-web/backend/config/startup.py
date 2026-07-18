@@ -387,7 +387,9 @@ def create_lifespan(deps: dict[str, Any]):
                                 if track and track.filepath:
                                     return str(track.filepath)
                         except Exception:
-                            pass
+                            # Best-effort lookup (#4368 — was a bare pass,
+                            # hiding genuine repository failures from debugging).
+                            logger.debug(f"Track filepath lookup failed for {track_id}", exc_info=True)
                         return None
 
                     # Create and start on-demand fingerprint queue
