@@ -487,14 +487,20 @@ def test_processing_handles_empty_audio():
 
 @pytest.mark.audio
 @pytest.mark.integration
-@pytest.mark.xfail(reason="HPSS algorithm panics on very short audio - requires Rust FFT fixes")
+@pytest.mark.xfail(
+    strict=True,
+    reason="HPSS panics on very short audio (< 1 FFT frame) — tracked in #4520. "
+    "strict=True so an accidental fix XPASSes loudly for marker cleanup (#4274).",
+)
 def test_processing_handles_very_short_audio():
     """
     INVARIANT: Processing very short audio (< 1 frame) should work.
 
-    NOTE: Currently fails due to ndarray shape overflow in Rust HPSS implementation.
-    This is a known limitation that requires updating the ndarray crate version
-    or implementing bounds checking in the Rust FFT wrapper.
+    NOTE: Currently fails due to an ndarray shape overflow in the Rust HPSS
+    implementation (tracked in #4520). Reproduces even after the ndarray 0.16
+    bump, so the fix needs bounds checking in the Rust FFT wrapper, not just a
+    crate version bump. When #4520 is fixed this will XPASS (strict) — remove
+    the xfail marker at that point.
     """
     processor = HybridProcessor(UnifiedConfig())
 
