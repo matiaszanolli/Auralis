@@ -173,8 +173,6 @@ class AudioStreamController:
                 self.fingerprint_init_error = str(e)
                 logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
 
-        self.active_streams: dict[str, Any] = {}  # ws_id(websocket) -> streaming task
-        self._active_streams_lock: asyncio.Lock = asyncio.Lock()  # Protects active_streams (#3182)
         # Use the module-level semaphore shared across all instances (fixes #2469)
         self._stream_semaphore: asyncio.Semaphore = _global_stream_semaphore
 

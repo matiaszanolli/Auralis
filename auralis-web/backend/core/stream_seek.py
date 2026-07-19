@@ -139,9 +139,6 @@ async def stream_enhanced_audio_from_position(
             if getattr(processor, _attr) is None:
                 raise ValueError(f"Processor metadata missing: {_attr} is None")
 
-        # Register active stream so cleanup can always find it (fixes #2076, #3182)
-        async with controller._active_streams_lock:
-            controller.active_streams[_asc.ws_id(websocket)] = asyncio.current_task()
 
         # Calculate which chunk to start from based on position
         # Chunks overlap, so we need to find the chunk that contains this position
@@ -298,6 +295,4 @@ async def stream_enhanced_audio_from_position(
         await controller._drop_chunk_tail(track_id)  # under lock, #3527
         # Drain any in-flight look-ahead (fixes #3493).
         await controller._drain_cancelled_task(lookahead_task)
-        async with controller._active_streams_lock:  # fixes #2076, #3182
-            controller.active_streams.pop(_asc.ws_id(websocket), None)
         controller._stream_semaphore.release()

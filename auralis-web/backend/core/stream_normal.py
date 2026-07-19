@@ -174,9 +174,6 @@ async def stream_normal_audio(
         # reports full total_chunks (see seek_kwargs), not this value.
         remaining_chunks = total_chunks - start_chunk
 
-        # Register active stream so cleanup can always find it (fixes #2076, #3182)
-        async with controller._active_streams_lock:
-            controller.active_streams[_asc.ws_id(websocket)] = asyncio.current_task()
 
         logger.info(
             f"Starting normal audio stream: track={track_id}, "
@@ -332,8 +329,6 @@ async def stream_normal_audio(
     finally:
         # Drain any in-flight look-ahead read task (fixes #3493).
         await controller._drain_cancelled_task(lookahead_read)
-        async with controller._active_streams_lock:  # fixes #2076, #3182
-            controller.active_streams.pop(_asc.ws_id(websocket), None)
         controller._stream_semaphore.release()
         # Clean up temp WAV created for compressed format streaming (#3225).
         # Clean up on temp_dir (created by mkdtemp) not temp_wav_path — a

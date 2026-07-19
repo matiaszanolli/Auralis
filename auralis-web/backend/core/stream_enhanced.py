@@ -137,9 +137,6 @@ async def stream_enhanced_audio(
             if getattr(processor, _attr) is None:
                 raise ValueError(f"Processor metadata missing: {_attr} is None")
 
-        # Register active stream so cleanup can always find it (fixes #2076, #3182)
-        async with controller._active_streams_lock:
-            controller.active_streams[_asc.ws_id(websocket)] = asyncio.current_task()
 
         # Phase 7.5: Non-blocking fingerprint check
         # Check if fingerprint exists in cache - if not, queue for background generation
@@ -305,6 +302,4 @@ async def stream_enhanced_audio(
         # otherwise the orphan keeps running and holds a HybridProcessor
         # reference past stream teardown (fixes #3493).
         await controller._drain_cancelled_task(lookahead_task)
-        async with controller._active_streams_lock:  # fixes #2076, #3182
-            controller.active_streams.pop(_asc.ws_id(websocket), None)
         controller._stream_semaphore.release()
