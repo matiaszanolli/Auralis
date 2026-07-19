@@ -170,10 +170,6 @@ async def stream_normal_audio(
         if start_position > 0:
             start_sample = int(start_position * sample_rate)
             start_chunk = min(start_sample // interval_samples, total_chunks - 1)
-        # #3768: kept only for the logging line below — audio_stream_start
-        # reports full total_chunks (see seek_kwargs), not this value.
-        remaining_chunks = total_chunks - start_chunk
-
 
         logger.info(
             f"Starting normal audio stream: track={track_id}, "
