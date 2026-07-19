@@ -125,7 +125,11 @@ jobs:
         id: flatpak_deps
         run: |
           sudo apt-get install -y flatpak flatpak-builder
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          # --user: the runner account can't do system-wide Flatpak config
+          # (ConfigureRemote requires polkit privileges it doesn't have), and
+          # @malept/flatpak-bundler itself installs the runtime/sdk/base refs
+          # at --user scope too, so this must match.
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
       - name: Build Electron app (Linux, Flatpak)
         if: steps.flatpak_deps.outcome == 'success'
