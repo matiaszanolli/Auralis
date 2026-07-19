@@ -10,6 +10,7 @@ Generates optimal parameters from audio fingerprints.
 """
 
 from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 
@@ -343,92 +344,25 @@ class ContinuousMode:
         stereo width (+phase guard), normalization (+crest guard), side-effect
         report, and quality gate. ``target_audio`` is the unmodified original
         used only by the quality gate comparison.
+
+        Steps 5a–5e are driven by the ordered ``stages`` list below — each entry
+        applies one DSP operation plus its cross-dimensional guard and manages
+        its own journal snapshot, so adding, removing, or reordering a stage is a
+        one-line edit here rather than a rewrite of this method (#4254).
         """
         journal = PipelineJournal(self.config.internal_sample_rate)
         journal.snapshot(processed_audio, STAGE_INPUT)
 
-        # 5a. Apply input gain if needed
-        if hasattr(params, 'input_gain') and abs(params.input_gain or 0) > 0.5:
-            processed_audio = amplify(processed_audio, params.input_gain)
-            debug(f"[Continuous Space] Applied input gain: {params.input_gain:+.2f} dB")
-            journal.snapshot(processed_audio, STAGE_INPUT_GAIN)
-
-        # 5b. Apply psychoacoustic EQ with generated curve
-        pre_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-        processed_audio = self._apply_eq(processed_audio, eq_processor, params)
-        journal.snapshot(processed_audio, STAGE_EQ)
-        # Compensation: EQ should change spectral shape, not overall loudness.
-        if self.config.enable_cross_dimensional_guard and pre_eq_lufs is not None:
-            post_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-            if post_eq_lufs is not None:
-                lufs_drift = post_eq_lufs - pre_eq_lufs
-                if abs(lufs_drift) > 1.5:
-                    correction = max(-3.0, min(3.0, -lufs_drift))  # Cap at ±3 dB
-                    processed_audio = amplify(processed_audio, correction)
-                    debug(f"[Guard] EQ LUFS compensation: {correction:+.1f} dB (drift was {lufs_drift:+.1f})")
-
-        # 5c. Apply dynamics processing (compression or expansion)
-        pre_dyn_snap = journal.get(STAGE_EQ)
-        processed_audio = self._apply_dynamics(processed_audio, params)
-        journal.snapshot(processed_audio, STAGE_DYNAMICS)
-        # Compensation: compression should not shift spectral tilt.
-        if self.config.enable_cross_dimensional_guard and pre_dyn_snap is not None:
-            post_dyn_bass, post_dyn_mid, post_dyn_high = _quick_3band(
-                processed_audio, self.config.internal_sample_rate
-            )
-            bass_shift = post_dyn_bass - pre_dyn_snap.bass_energy_pct
-            high_shift = post_dyn_high - pre_dyn_snap.high_energy_pct
-            if abs(bass_shift) > 0.10 or abs(high_shift) > 0.10:
-                dominant_shift = bass_shift if abs(bass_shift) >= abs(high_shift) else -high_shift
-                tilt_correction = max(-2.0, min(2.0, -dominant_shift * 10.0))
-                if abs(tilt_correction) > 0.3:
-                    processed_audio = _apply_spectral_tilt_correction(
-                        processed_audio, tilt_correction, self.config.internal_sample_rate
-                    )
-                    debug(f"[Guard] Dynamics spectral tilt compensation: {tilt_correction:+.1f} dB")
-
-        # 5d. Apply stereo width adjustment
-        processed_audio = self._apply_stereo_width(processed_audio, params)
-        journal.snapshot(processed_audio, STAGE_STEREO)
-        # Compensation: stereo processing should not degrade phase correlation.
-        if self.config.enable_cross_dimensional_guard:
-            if processed_audio.ndim == 2 and processed_audio.shape[1] == 2:
-                from .stage_snapshot import _compute_phase_correlation
-                post_phase = _compute_phase_correlation(processed_audio, self.config.internal_sample_rate)
-                pre_phase = (journal.get(STAGE_DYNAMICS) or journal.get(STAGE_EQ))
-                pre_phase_val = pre_phase.phase_correlation if pre_phase else None
-                if post_phase is not None and pre_phase_val is not None:
-                    phase_drop = post_phase - pre_phase_val
-                    if phase_drop < -0.2 and post_phase < 0.3:
-                        mid = (processed_audio[:, 0] + processed_audio[:, 1]) / 2
-                        blend = 0.5  # 50% correction
-                        corrected = processed_audio.copy()
-                        corrected[:, 0] = processed_audio[:, 0] * (1 - blend) + mid * blend
-                        corrected[:, 1] = processed_audio[:, 1] * (1 - blend) + mid * blend
-                        processed_audio = corrected
-                        debug(f"[Guard] Phase compensation: blended 50% toward mid (phase was {post_phase:.2f})")
-
-        # 5e. Apply final normalization to target LUFS and peak
-        pre_norm_crest = journal.get(STAGE_STEREO)
-        processed_audio = self._apply_final_normalization(processed_audio, params)
-        # Compensation: normalization + limiter should not crush crest beyond intent.
-        if self.config.enable_cross_dimensional_guard and pre_norm_crest is not None:
-            post_crest = rms(processed_audio)
-            if post_crest > 1e-9:
-                post_peak_db = 20.0 * np.log10(max(np.max(np.abs(processed_audio)), 1e-9))
-                post_rms_db = 20.0 * np.log10(post_crest)
-                post_crest_db = post_peak_db - post_rms_db
-                crest_crush = post_crest_db - pre_norm_crest.crest_db
-                if crest_crush < -4.0:
-                    pullback_db = max(-3.0, crest_crush + 4.0)  # Restore up to 3 dB
-                    processed_audio = amplify(processed_audio, pullback_db)
-                    # Re-clamp peaks to -0.3 dBFS after pullback
-                    peak = np.max(np.abs(processed_audio))
-                    ceiling = 10.0 ** (-0.3 / 20.0)  # ~0.966
-                    if peak > ceiling:
-                        processed_audio = processed_audio * (ceiling / peak)
-                    debug(f"[Guard] Crest preservation: {pullback_db:+.1f} dB pullback (crush was {crest_crush:+.1f})")
-        journal.snapshot(processed_audio, STAGE_NORMALIZATION)
+        # Ordered DSP stages (steps 5a–5e). Single source of truth for order.
+        stages: list[Callable[[np.ndarray], np.ndarray]] = [
+            lambda a: self._stage_input_gain(a, params, journal),
+            lambda a: self._stage_eq(a, eq_processor, params, journal),
+            lambda a: self._stage_dynamics(a, params, journal),
+            lambda a: self._stage_stereo_width(a, params, journal),
+            lambda a: self._stage_normalization(a, params, journal),
+        ]
+        for stage in stages:
+            processed_audio = stage(processed_audio)
 
         # Step 6: Cross-dimensional side-effect detection (final report)
         guard = CrossDimensionalGuard()
@@ -467,6 +401,122 @@ class ContinuousMode:
                 except (ValueError, RuntimeError) as e:
                     debug(f"[Quality Gate] Skipped — {e}")
 
+        return processed_audio
+
+    def _stage_input_gain(
+        self, processed_audio: np.ndarray, params: Any, journal: PipelineJournal
+    ) -> np.ndarray:
+        """5a. Apply input gain if the generated parameters call for it."""
+        if hasattr(params, 'input_gain') and abs(params.input_gain or 0) > 0.5:
+            processed_audio = amplify(processed_audio, params.input_gain)
+            debug(f"[Continuous Space] Applied input gain: {params.input_gain:+.2f} dB")
+            journal.snapshot(processed_audio, STAGE_INPUT_GAIN)
+        return processed_audio
+
+    def _stage_eq(
+        self, processed_audio: np.ndarray, eq_processor: Any, params: Any,
+        journal: PipelineJournal,
+    ) -> np.ndarray:
+        """5b. Apply psychoacoustic EQ, then guard against LUFS drift.
+
+        EQ should change spectral shape, not overall loudness — compensate any
+        drift beyond 1.5 dB (capped at ±3 dB).
+        """
+        pre_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
+        processed_audio = self._apply_eq(processed_audio, eq_processor, params)
+        journal.snapshot(processed_audio, STAGE_EQ)
+        if self.config.enable_cross_dimensional_guard and pre_eq_lufs is not None:
+            post_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
+            if post_eq_lufs is not None:
+                lufs_drift = post_eq_lufs - pre_eq_lufs
+                if abs(lufs_drift) > 1.5:
+                    correction = max(-3.0, min(3.0, -lufs_drift))  # Cap at ±3 dB
+                    processed_audio = amplify(processed_audio, correction)
+                    debug(f"[Guard] EQ LUFS compensation: {correction:+.1f} dB (drift was {lufs_drift:+.1f})")
+        return processed_audio
+
+    def _stage_dynamics(
+        self, processed_audio: np.ndarray, params: Any, journal: PipelineJournal
+    ) -> np.ndarray:
+        """5c. Apply dynamics (compression/expansion), then guard spectral tilt.
+
+        Compression should not shift spectral tilt — correct a dominant bass/high
+        energy shift beyond 10% (capped at ±2 dB).
+        """
+        pre_dyn_snap = journal.get(STAGE_EQ)
+        processed_audio = self._apply_dynamics(processed_audio, params)
+        journal.snapshot(processed_audio, STAGE_DYNAMICS)
+        if self.config.enable_cross_dimensional_guard and pre_dyn_snap is not None:
+            post_dyn_bass, post_dyn_mid, post_dyn_high = _quick_3band(
+                processed_audio, self.config.internal_sample_rate
+            )
+            bass_shift = post_dyn_bass - pre_dyn_snap.bass_energy_pct
+            high_shift = post_dyn_high - pre_dyn_snap.high_energy_pct
+            if abs(bass_shift) > 0.10 or abs(high_shift) > 0.10:
+                dominant_shift = bass_shift if abs(bass_shift) >= abs(high_shift) else -high_shift
+                tilt_correction = max(-2.0, min(2.0, -dominant_shift * 10.0))
+                if abs(tilt_correction) > 0.3:
+                    processed_audio = _apply_spectral_tilt_correction(
+                        processed_audio, tilt_correction, self.config.internal_sample_rate
+                    )
+                    debug(f"[Guard] Dynamics spectral tilt compensation: {tilt_correction:+.1f} dB")
+        return processed_audio
+
+    def _stage_stereo_width(
+        self, processed_audio: np.ndarray, params: Any, journal: PipelineJournal
+    ) -> np.ndarray:
+        """5d. Apply stereo width, then guard against phase-correlation loss.
+
+        Stereo processing should not degrade phase correlation — blend 50% toward
+        mid when correlation drops sharply below 0.3.
+        """
+        processed_audio = self._apply_stereo_width(processed_audio, params)
+        journal.snapshot(processed_audio, STAGE_STEREO)
+        if self.config.enable_cross_dimensional_guard:
+            if processed_audio.ndim == 2 and processed_audio.shape[1] == 2:
+                from .stage_snapshot import _compute_phase_correlation
+                post_phase = _compute_phase_correlation(processed_audio, self.config.internal_sample_rate)
+                pre_phase = (journal.get(STAGE_DYNAMICS) or journal.get(STAGE_EQ))
+                pre_phase_val = pre_phase.phase_correlation if pre_phase else None
+                if post_phase is not None and pre_phase_val is not None:
+                    phase_drop = post_phase - pre_phase_val
+                    if phase_drop < -0.2 and post_phase < 0.3:
+                        mid = (processed_audio[:, 0] + processed_audio[:, 1]) / 2
+                        blend = 0.5  # 50% correction
+                        corrected = processed_audio.copy()
+                        corrected[:, 0] = processed_audio[:, 0] * (1 - blend) + mid * blend
+                        corrected[:, 1] = processed_audio[:, 1] * (1 - blend) + mid * blend
+                        processed_audio = corrected
+                        debug(f"[Guard] Phase compensation: blended 50% toward mid (phase was {post_phase:.2f})")
+        return processed_audio
+
+    def _stage_normalization(
+        self, processed_audio: np.ndarray, params: Any, journal: PipelineJournal
+    ) -> np.ndarray:
+        """5e. Apply final normalization, then guard against crest crush.
+
+        Normalization + limiter should not crush crest beyond intent — restore up
+        to 3 dB, then re-clamp peaks to -0.3 dBFS.
+        """
+        pre_norm_crest = journal.get(STAGE_STEREO)
+        processed_audio = self._apply_final_normalization(processed_audio, params)
+        if self.config.enable_cross_dimensional_guard and pre_norm_crest is not None:
+            post_crest = rms(processed_audio)
+            if post_crest > 1e-9:
+                post_peak_db = 20.0 * np.log10(max(np.max(np.abs(processed_audio)), 1e-9))
+                post_rms_db = 20.0 * np.log10(post_crest)
+                post_crest_db = post_peak_db - post_rms_db
+                crest_crush = post_crest_db - pre_norm_crest.crest_db
+                if crest_crush < -4.0:
+                    pullback_db = max(-3.0, crest_crush + 4.0)  # Restore up to 3 dB
+                    processed_audio = amplify(processed_audio, pullback_db)
+                    # Re-clamp peaks to -0.3 dBFS after pullback
+                    peak = np.max(np.abs(processed_audio))
+                    ceiling = 10.0 ** (-0.3 / 20.0)  # ~0.966
+                    if peak > ceiling:
+                        processed_audio = processed_audio * (ceiling / peak)
+                    debug(f"[Guard] Crest preservation: {pullback_db:+.1f} dB pullback (crush was {crest_crush:+.1f})")
+        journal.snapshot(processed_audio, STAGE_NORMALIZATION)
         return processed_audio
 
     def _apply_eq(self, audio: np.ndarray, eq_processor: Any, params: Any) -> np.ndarray:
