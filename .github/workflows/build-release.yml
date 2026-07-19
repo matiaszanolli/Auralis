@@ -86,6 +86,7 @@ jobs:
 
       - name: Prepare desktop resources (frontend + auralis core)
         run: |
+          mkdir -p desktop/resources/frontend desktop/resources/auralis
           rsync -a --delete auralis-web/frontend/dist/ desktop/resources/frontend/
           rsync -a --delete auralis/ desktop/resources/auralis/ \
             --exclude='__pycache__' --exclude='*.pyc'
@@ -272,6 +273,7 @@ jobs:
 
       - name: Prepare desktop resources (frontend + auralis core)
         run: |
+          mkdir -p desktop/resources/frontend desktop/resources/auralis
           rsync -a --delete auralis-web/frontend/dist/ desktop/resources/frontend/
           rsync -a --delete auralis/ desktop/resources/auralis/ \
             --exclude='__pycache__' --exclude='*.pyc'
