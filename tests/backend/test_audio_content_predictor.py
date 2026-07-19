@@ -378,3 +378,65 @@ class TestEdgeCases:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestEventLoopOffload:
+    """#4379: _load_chunk_fast (blocking soundfile/load_audio) and
+    _extract_features (NumPy FFT/convolution) must run via asyncio.to_thread so
+    they never block the event loop."""
+
+    @pytest.mark.asyncio
+    async def test_load_chunk_fast_offloads_to_thread(self):
+        from unittest.mock import patch
+
+        analyzer = AudioContentAnalyzer()
+        sentinel = np.zeros(4, dtype=np.float32)
+
+        with patch(
+            "services.audio_content_predictor.asyncio.to_thread"
+        ) as mock_to_thread:
+            async def _fake(fn, *args):
+                # Confirm the blocking body is what gets offloaded.
+                assert fn == analyzer._load_chunk_fast_sync
+                return sentinel
+            mock_to_thread.side_effect = _fake
+
+            out = await analyzer._load_chunk_fast("/tmp/x.wav", 0)
+
+            assert mock_to_thread.await_count == 1
+            assert out is sentinel
+
+    @pytest.mark.asyncio
+    async def test_extract_features_offloads_to_thread(self):
+        from unittest.mock import patch
+
+        analyzer = AudioContentAnalyzer()
+        audio = np.random.randn(4096).astype(np.float32) * 0.1
+
+        with patch(
+            "services.audio_content_predictor.asyncio.to_thread"
+        ) as mock_to_thread:
+            async def _fake(fn, *args):
+                assert fn == analyzer._extract_features_sync
+                return analyzer._extract_features_sync(*args)
+            mock_to_thread.side_effect = _fake
+
+            features = await analyzer._extract_features(audio)
+
+            assert mock_to_thread.await_count == 1
+            assert isinstance(features, AudioFeatures)
+
+    @pytest.mark.asyncio
+    async def test_load_chunk_fast_sync_still_reads_audio(self, tmp_path):
+        """The offloaded sync body must still return the chunk unchanged."""
+        import soundfile as sf
+
+        wav = tmp_path / "t.wav"
+        sf.write(str(wav), np.random.randn(44100).astype(np.float32) * 0.1, 44100)
+
+        analyzer = AudioContentAnalyzer()
+        out = await analyzer._load_chunk_fast(str(wav), 0)
+
+        assert out is not None
+        assert out.ndim == 1  # mono
+        assert len(out) > 0

@@ -15,6 +15,7 @@ Enhances the BranchPredictor with audio-informed predictions:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 from dataclasses import dataclass
 
@@ -136,8 +137,15 @@ class AudioContentAnalyzer:
         """
         Fast load of audio chunk (lightweight, no full processing).
 
-        Uses minimal dependencies for speed.
+        Offloads the blocking soundfile read / load_audio fallback to a worker
+        thread so it never stalls the event loop (#4379).
         """
+        return await asyncio.to_thread(self._load_chunk_fast_sync, filepath, chunk_idx)
+
+    def _load_chunk_fast_sync(
+        self, filepath: str, chunk_idx: int
+    ) -> np.ndarray | None:
+        """Blocking body of _load_chunk_fast — call only via to_thread (#4379)."""
         # Chunks start every CHUNK_INTERVAL seconds (#4027) — this is the
         # interval, not the full chunk duration. Source it from chunk_boundaries
         # instead of a fourth hardcoded copy of the constant.
@@ -257,8 +265,13 @@ class AudioContentAnalyzer:
         """
         Extract audio features for prediction.
 
-        Fast analysis using basic signal processing.
+        Offloads the NumPy feature math (RMS, FFT, convolution) to a worker
+        thread so it never blocks the event loop (#4379).
         """
+        return await asyncio.to_thread(self._extract_features_sync, audio)
+
+    def _extract_features_sync(self, audio: np.ndarray) -> AudioFeatures:
+        """Blocking body of _extract_features — call only via to_thread (#4379)."""
         # Ensure mono
         if len(audio.shape) > 1:
             audio = np.mean(audio, axis=1)
