@@ -1,0 +1,57 @@
+name: Rust Security Audit
+
+# Gate added for #4360: the vendored Rust DSP crate (vendor/auralis-dsp) is the
+# PyO3 trust boundary between untrusted audio data and native code, yet had no
+# advisory scan — a future RUSTSEC advisory against a pinned crate would go
+# unnoticed. This runs `cargo audit` against the crate's Cargo.lock on every
+# push/PR that touches it, and weekly, and FAILS the job on any security
+# vulnerability. Unmaintained/yanked warnings are reported but non-blocking.
+#
+# See vendor/auralis-dsp/UPGRADE_PLAN.md for the tracked (currently deferred)
+# pyo3/ndarray/numpy major-version bump plan.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'vendor/auralis-dsp/Cargo.toml'
+      - 'vendor/auralis-dsp/Cargo.lock'
+      - '.github/workflows/rust-audit.yml'
+  pull_request:
+    paths:
+      - 'vendor/auralis-dsp/Cargo.toml'
+      - 'vendor/auralis-dsp/Cargo.lock'
+      - '.github/workflows/rust-audit.yml'
+  schedule:
+    # Weekly (Mon 06:00 UTC) so a newly-published advisory against an unchanged
+    # Cargo.lock is still caught even when nobody touches the crate.
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Audit vendored Rust DSP crate
+        # --file targets the crate's own lockfile (not the repo root). Default
+        # exit is non-zero on any security vulnerability, failing the build.
+        #
+        # Two pyo3 0.23 advisories are --ignore'd because (a) neither vulnerable
+        # API is reachable from our crate (verified: no PyString::from_object,
+        # no PyCFunction::new_closure — we use only prelude/PyModule/PyDict) and
+        # (b) the fixes require pyo3 >=0.24.1 / >=0.29.0, currently blocked by a
+        # rust-numpy ABI runtime bug. Tracked in vendor/auralis-dsp/UPGRADE_PLAN.md;
+        # remove these ignores when the bump lands. Any OTHER advisory still fails.
+        run: >-
+          cargo audit --file vendor/auralis-dsp/Cargo.lock
+          --ignore RUSTSEC-2025-0020
+          --ignore RUSTSEC-2026-0177
