@@ -54,6 +54,13 @@ class StreamlinedCacheWorker:
         # for a given (track_id, preset, intensity) so DSP state (compressor
         # envelope, EQ history) is preserved at chunk boundaries (fixes #2737).
         self._processor_cache: dict[tuple[int, str | None, float], Any] = {}
+        # Per-cache-key build locks (#4369): _process_chunk's cache check-and-set
+        # has an await between the .get() miss and the assignment, so
+        # trigger_immediate_processing and _worker_loop can both miss a cold key
+        # and each build a ChunkedAudioProcessor (redundant SoundFile/DB work),
+        # one silently overwritten. A per-key lock serializes construction for
+        # that key only, preserving cross-key parallelism.
+        self._processor_build_locks: dict[tuple[int, str | None, float], asyncio.Lock] = {}
 
     async def start(self) -> None:
         """Start the background worker."""
@@ -224,6 +231,13 @@ class StreamlinedCacheWorker:
             self._processor_cache = {
                 k: v for k, v in self._processor_cache.items() if k[0] == track_id
             }
+            # Prune build locks for evicted keys too (#4369) so they don't
+            # accumulate. A lock currently held by an in-flight build keeps
+            # working — the holder retains its own reference — and a later miss
+            # for the same key simply creates a fresh lock.
+            self._processor_build_locks = {
+                k: v for k, v in self._processor_build_locks.items() if k[0] == track_id
+            }
             logger.info(f"Building Tier 2 cache for track {track_id} ({status.total_chunks} chunks)")
 
         # Find next uncached chunk
@@ -289,20 +303,37 @@ class StreamlinedCacheWorker:
             cache_key = (track_id, preset, intensity)
             processor = self._processor_cache.get(cache_key)
             if processor is None:
-                # Offload — ChunkedAudioProcessor.__init__ does a sync SoundFile
-                # open for metadata, a sync fingerprint/DB lookup, and sync
-                # HybridProcessor construction (200-500ms CPU-bound); this
-                # worker loop ticks every 1s, so running it inline stalls the
-                # event loop (and any in-flight stream chunk sends) for that
-                # whole duration on every cache miss (fixes #3817 / BE-PF-3).
-                processor = await asyncio.to_thread(
-                    ChunkedAudioProcessor,
-                    track_id=track_id,
-                    filepath=track.filepath,
-                    preset=preset,  # type: ignore[arg-type]  # None for original
-                    intensity=intensity
-                )
-                self._processor_cache[cache_key] = processor
+                # Serialize construction per cache_key so concurrent callers
+                # (trigger_immediate_processing vs _worker_loop) don't each build
+                # a redundant processor and overwrite one another (#4369).
+                # dict.setdefault is atomic on the single-threaded loop, so the
+                # lock lookup itself is race-free.
+                build_lock = self._processor_build_locks.setdefault(cache_key, asyncio.Lock())
+                async with build_lock:
+                    # Re-check under the lock: another task may have built it
+                    # while we awaited the lock.
+                    processor = self._processor_cache.get(cache_key)
+                    if processor is None:
+                        # Offload — ChunkedAudioProcessor.__init__ does a sync
+                        # SoundFile open for metadata, a sync fingerprint/DB
+                        # lookup, and sync HybridProcessor construction (200-500ms
+                        # CPU-bound); this worker loop ticks every 1s, so running
+                        # it inline stalls the event loop (and any in-flight stream
+                        # chunk sends) for that whole duration on every cache miss
+                        # (fixes #3817 / BE-PF-3).
+                        processor = await asyncio.to_thread(
+                            ChunkedAudioProcessor,
+                            track_id=track_id,
+                            filepath=track.filepath,
+                            preset=preset,  # None for original
+                            intensity=intensity
+                        )
+                        self._processor_cache[cache_key] = processor
+
+            # After the block above `processor` is always set (cache hit, or
+            # built under the lock). Assert it so the nested-reassign flow is
+            # visible to type-checkers.
+            assert processor is not None
 
             # Process chunk with timeout (using thread-safe async method)
             timeout_seconds = 20 if tier == "tier1" else 60  # Tier 1 is urgent

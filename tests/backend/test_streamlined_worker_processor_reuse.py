@@ -257,3 +257,70 @@ class TestProcessorConstructionOffload:
             )
 
             assert MockProcessor.call_count == 1
+
+
+class TestConcurrentBuildDedup:
+    """#4369: concurrent _process_chunk calls for the same cache_key must build
+    at most one ChunkedAudioProcessor. trigger_immediate_processing (router task)
+    can race _worker_loop on a cold key; the await between the cache-miss .get()
+    and the assignment previously let both build a redundant processor, one
+    silently overwritten. A per-key build lock deduplicates the construction."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_same_key_builds_once(self, worker):
+        import time
+
+        construction_count = 0
+
+        def slow_constructor(**kwargs):
+            nonlocal construction_count
+            construction_count += 1
+            time.sleep(0.1)  # hold the build (in-thread) so the sibling races in
+            inst = Mock()
+            inst.process_chunk_safe = AsyncMock(return_value=("/tmp/chunk.wav", None))
+            return inst
+
+        with patch("core.streamlined_worker.Path") as mock_path, \
+             patch("core.chunked_processor.ChunkedAudioProcessor") as MockProcessor:
+            mock_path.return_value.exists.return_value = True
+            MockProcessor.side_effect = slow_constructor
+
+            track = Mock()
+            track.filepath = "/tmp/test.wav"
+
+            # Two concurrent calls for the SAME (track_id, preset, intensity).
+            await asyncio.gather(
+                worker._process_chunk(track, track_id=1, chunk_idx=0,
+                                      preset="balanced", intensity=0.5, tier="tier2"),
+                worker._process_chunk(track, track_id=1, chunk_idx=1,
+                                      preset="balanced", intensity=0.5, tier="tier2"),
+            )
+
+            assert construction_count == 1, (
+                f"expected exactly one ChunkedAudioProcessor build for a shared "
+                f"cache_key, got {construction_count} (per-key build lock #4369)"
+            )
+
+    @pytest.mark.asyncio
+    async def test_concurrent_different_keys_build_in_parallel(self, worker):
+        """Different cache_keys must NOT serialize on each other — the per-key
+        lock only guards its own key."""
+        with patch("core.streamlined_worker.Path") as mock_path, \
+             patch("core.chunked_processor.ChunkedAudioProcessor") as MockProcessor:
+            mock_path.return_value.exists.return_value = True
+            MockProcessor.side_effect = lambda **kw: Mock(
+                process_chunk_safe=AsyncMock(return_value=("/tmp/chunk.wav", None))
+            )
+
+            track = Mock()
+            track.filepath = "/tmp/test.wav"
+
+            await asyncio.gather(
+                worker._process_chunk(track, track_id=1, chunk_idx=0,
+                                      preset="balanced", intensity=0.5, tier="tier2"),
+                worker._process_chunk(track, track_id=1, chunk_idx=0,
+                                      preset="warm", intensity=0.5, tier="tier2"),
+            )
+
+            # Two distinct keys → two processors built.
+            assert MockProcessor.call_count == 2
