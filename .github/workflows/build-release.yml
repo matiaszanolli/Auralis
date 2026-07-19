@@ -73,6 +73,10 @@ jobs:
           cd vendor/auralis-dsp
           maturin build --release
           pip install target/wheels/*.whl
+        env:
+          # pyo3 0.23's abi3 feature caps at Python 3.13; this opts into
+          # trusting it against 3.14 (matches the last known-working workflow).
+          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
       - name: Build frontend
         run: |
@@ -80,13 +84,22 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run build
 
-      - name: Prepare desktop resources
+      - name: Prepare desktop resources (frontend + auralis core)
         run: |
           rsync -a --delete auralis-web/frontend/dist/ desktop/resources/frontend/
-          rsync -a --delete auralis-web/backend/ desktop/resources/backend/ \
-            --exclude='__pycache__' --exclude='*.pyc' --exclude='build' --exclude='dist'
           rsync -a --delete auralis/ desktop/resources/auralis/ \
             --exclude='__pycache__' --exclude='*.pyc'
+
+      - name: Build backend with PyInstaller
+        run: |
+          pip install pyinstaller
+          cd auralis-web/backend
+          pyinstaller --clean --noconfirm auralis-backend.spec
+
+      - name: Copy backend executable into desktop resources
+        run: |
+          mkdir -p desktop/resources/backend
+          cp auralis-web/backend/dist/auralis-backend desktop/resources/backend/
 
       - name: Build Electron app (Linux)
         run: |
@@ -103,6 +116,31 @@ jobs:
             dist/*.AppImage
             dist/*.deb
           retention-days: 30
+
+      # Best-effort: Flatpak is a newer, less-battle-tested target here than
+      # AppImage/deb, so a failure must never block those (or the release).
+      - name: Install flatpak-builder
+        continue-on-error: true
+        id: flatpak_deps
+        run: |
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Build Electron app (Linux, Flatpak)
+        if: steps.flatpak_deps.outcome == 'success'
+        continue-on-error: true
+        run: |
+          cd desktop
+          pnpm run build:linux:flatpak
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-flatpak
+          path: dist/*.flatpak
+          retention-days: 30
+          if-no-files-found: warn
 
   build-windows:
     needs: prepare
@@ -136,6 +174,10 @@ jobs:
           maturin build --release
           $wheel = Get-ChildItem target/wheels/*.whl | Select-Object -First 1
           pip install $wheel.FullName
+        env:
+          # pyo3 0.23's abi3 feature caps at Python 3.13; this opts into
+          # trusting it against 3.14 (matches the last known-working workflow).
+          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
       - name: Build frontend
         run: |
@@ -143,22 +185,30 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run build
 
-      - name: Prepare desktop resources
+      - name: Prepare desktop resources (frontend + auralis core)
         shell: pwsh
         run: |
           # Sync frontend
           if (Test-Path desktop/resources/frontend) { Remove-Item -Recurse -Force desktop/resources/frontend }
           Copy-Item -Recurse auralis-web/frontend/dist desktop/resources/frontend
 
-          # Sync backend (exclude pycache)
-          if (Test-Path desktop/resources/backend) { Remove-Item -Recurse -Force desktop/resources/backend }
-          Copy-Item -Recurse auralis-web/backend desktop/resources/backend
-          Get-ChildItem -Recurse desktop/resources/backend -Include __pycache__,*.pyc | Remove-Item -Recurse -Force
-
           # Sync auralis core
           if (Test-Path desktop/resources/auralis) { Remove-Item -Recurse -Force desktop/resources/auralis }
           Copy-Item -Recurse auralis desktop/resources/auralis
           Get-ChildItem -Recurse desktop/resources/auralis -Include __pycache__,*.pyc | Remove-Item -Recurse -Force
+
+      - name: Build backend with PyInstaller
+        shell: pwsh
+        run: |
+          pip install pyinstaller
+          Set-Location auralis-web/backend
+          pyinstaller --clean --noconfirm auralis-backend.spec
+
+      - name: Copy backend executable into desktop resources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path desktop/resources/backend
+          Copy-Item -Force auralis-web/backend/dist/auralis-backend.exe desktop/resources/backend/
 
       - name: Build Electron app (Windows)
         run: |
@@ -209,6 +259,10 @@ jobs:
           cd vendor/auralis-dsp
           maturin build --release
           pip install target/wheels/*.whl
+        env:
+          # pyo3 0.23's abi3 feature caps at Python 3.13; this opts into
+          # trusting it against 3.14 (matches the last known-working workflow).
+          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
       - name: Build frontend
         run: |
@@ -216,13 +270,22 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run build
 
-      - name: Prepare desktop resources
+      - name: Prepare desktop resources (frontend + auralis core)
         run: |
           rsync -a --delete auralis-web/frontend/dist/ desktop/resources/frontend/
-          rsync -a --delete auralis-web/backend/ desktop/resources/backend/ \
-            --exclude='__pycache__' --exclude='*.pyc' --exclude='build' --exclude='dist'
           rsync -a --delete auralis/ desktop/resources/auralis/ \
             --exclude='__pycache__' --exclude='*.pyc'
+
+      - name: Build backend with PyInstaller
+        run: |
+          pip install pyinstaller
+          cd auralis-web/backend
+          pyinstaller --clean --noconfirm auralis-backend.spec
+
+      - name: Copy backend executable into desktop resources
+        run: |
+          mkdir -p desktop/resources/backend
+          cp auralis-web/backend/dist/auralis-backend desktop/resources/backend/
 
       - name: Build Electron app (macOS)
         run: |
@@ -265,5 +328,6 @@ jobs:
           files: |
             artifacts/*.AppImage
             artifacts/*.deb
+            artifacts/*.flatpak
             artifacts/*.exe
             artifacts/*.dmg

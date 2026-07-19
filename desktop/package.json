@@ -19,6 +19,7 @@
     "build:win": "npx electron-builder --win",
     "build:mac": "npx electron-builder --mac",
     "build:linux": "npx electron-builder --linux",
+    "build:linux:flatpak": "npx electron-builder --linux flatpak",
     "pack": "npx electron-builder --dir",
     "dist": "npx electron-builder --publish=never"
   },
@@ -132,6 +133,11 @@
       "title": "Auralis ${version}",
       "icon": "assets/icon.icns",
       "writeUpdateInfo": false
+    },
+    "flatpak": {
+      "runtimeVersion": "24.08",
+      "baseVersion": "24.08",
+      "category": "AudioVideo"
     },
     "publish": {
       "provider": "github",

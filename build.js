@@ -196,21 +196,26 @@ class BuildManager {
   async buildBackend() {
     this.log('BUILD', '🐍 Bundling Python backend with PyInstaller...');
 
-    // Use the root spec file
-    const specPath = path.join(this.rootDir, 'auralis_backend.spec');
+    // Canonical spec lives in auralis-web/backend/ (matches CI). Its relative
+    // datas paths (../../auralis etc.) resolve from the spec's own location
+    // (SPECPATH), so PyInstaller must run with cwd=backendDir; --distpath/
+    // --workpath redirect the output back to the root dist/ this script
+    // expects everywhere else (this.backendDistDir).
+    const specPath = path.join(this.backendDir, 'auralis-backend.spec');
     if (!fs.existsSync(specPath)) {
-      throw new Error('auralis_backend.spec not found in project root');
+      throw new Error('auralis-backend.spec not found in auralis-web/backend/');
     }
 
-    // Run PyInstaller from root directory
     await this.runCommand(
       'pyinstaller',
       [
         '--clean',
         '--noconfirm',
-        'auralis_backend.spec'
+        '--distpath', this.distDir,
+        '--workpath', path.join(this.backendDir, 'build'),
+        'auralis-backend.spec'
       ],
-      this.rootDir,
+      this.backendDir,
       'Bundling backend with PyInstaller'
     );
 
