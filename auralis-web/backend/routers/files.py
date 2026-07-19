@@ -27,6 +27,8 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from auralis.utils.logging import sanitize_log_value
+
 from .dependencies import require_repository_factory
 from core.processing_engine import _safe_error_message
 
@@ -235,7 +237,7 @@ def create_files_router(
                             "duration": float(track.duration),
                             "sample_rate": track.sample_rate
                         })
-                        logger.info(f"Successfully uploaded and processed: {file.filename}")
+                        logger.info(f"Successfully uploaded and processed: {sanitize_log_value(file.filename)}")
                     else:
                         results.append({
                             "filename": file.filename or "",
@@ -244,7 +246,7 @@ def create_files_router(
                         })
 
                 except Exception as e:
-                    logger.error(f"Audio processing error for {file.filename}: {e}", exc_info=True)
+                    logger.error(f"Audio processing error for {sanitize_log_value(file.filename)}: {e}", exc_info=True)
                     results.append({
                         "filename": file.filename or "",
                         "status": "error",
@@ -261,7 +263,7 @@ def create_files_router(
                         logger.debug(f"Failed to clean temp file: {e}")
 
             except Exception as e:
-                logger.error(f"Upload error for {file.filename}: {e}", exc_info=True)
+                logger.error(f"Upload error for {sanitize_log_value(file.filename)}: {e}", exc_info=True)
                 results.append({
                     "filename": file.filename or "",
                     "status": "error",

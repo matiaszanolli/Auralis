@@ -22,6 +22,8 @@ from urllib.parse import urlparse
 
 import aiohttp
 
+from auralis.utils.logging import sanitize_log_value
+
 logger = logging.getLogger(__name__)
 
 
@@ -169,16 +171,16 @@ class ArtworkDownloader:
             # Try MusicBrainz first (best quality, open source)
             artwork_path = await self._try_musicbrainz(artist, album, album_id)
             if artwork_path:
-                logger.info(f"Downloaded artwork from MusicBrainz for '{album}' by '{artist}'")
+                logger.info(f"Downloaded artwork from MusicBrainz for '{sanitize_log_value(album)}' by '{sanitize_log_value(artist)}'")
                 return artwork_path
 
             # Fallback to iTunes
             artwork_path = await self._try_itunes(artist, album, album_id)
             if artwork_path:
-                logger.info(f"Downloaded artwork from iTunes for '{album}' by '{artist}'")
+                logger.info(f"Downloaded artwork from iTunes for '{sanitize_log_value(album)}' by '{sanitize_log_value(artist)}'")
                 return artwork_path
 
-            logger.warning(f"No artwork found for '{album}' by '{artist}'")
+            logger.warning(f"No artwork found for '{sanitize_log_value(album)}' by '{sanitize_log_value(artist)}'")
             return None
 
         except Exception as e:

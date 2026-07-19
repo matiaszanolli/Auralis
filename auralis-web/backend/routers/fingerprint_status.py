@@ -19,6 +19,8 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 
+from auralis.utils.logging import sanitize_log_value
+
 from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
 
@@ -81,7 +83,10 @@ def create_fingerprint_status_router(
                 logger.warning(f"❌ Track {track_id} not found in database")
                 raise NotFoundError("Track", track_id)
 
-            logger.info(f"✓ Track found: {track.title} by {track.artists}")
+            logger.info(
+                f"✓ Track found: {sanitize_log_value(track.title)} "
+                f"by {sanitize_log_value(track.artists)}"
+            )
 
             fp = await asyncio.to_thread(repos.fingerprints.get_by_track_id, track_id)
             logger.info(f"🔍 Fingerprint lookup result: {'FOUND' if fp else 'NOT FOUND'}")

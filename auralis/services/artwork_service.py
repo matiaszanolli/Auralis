@@ -20,6 +20,8 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from auralis.utils.logging import sanitize_log_value
+
 logger = logging.getLogger(__name__)
 
 
@@ -87,7 +89,7 @@ class ArtworkService:
             if result:
                 return result
 
-        logger.warning(f"No artwork found for artist: {artist_name}")
+        logger.warning(f"No artwork found for artist: {sanitize_log_value(artist_name)}")
         return None
 
     def _fetch_from_musicbrainz(self, artist_name: str) -> dict[str, Any] | None:
@@ -157,7 +159,7 @@ class ArtworkService:
             return None
 
         except Exception as e:
-            logger.debug(f"MusicBrainz fetch failed for {artist_name}: {e}")
+            logger.debug(f"MusicBrainz fetch failed for {sanitize_log_value(artist_name)}: {e}")
             return None
 
     def _fetch_from_discogs(self, artist_name: str) -> dict[str, Any] | None:
@@ -209,7 +211,7 @@ class ArtworkService:
             return None
 
         except Exception as e:
-            logger.debug(f"Discogs fetch failed for {artist_name}: {e}")
+            logger.debug(f"Discogs fetch failed for {sanitize_log_value(artist_name)}: {e}")
             return None
 
     def _fetch_from_lastfm(self, artist_name: str) -> dict[str, Any] | None:
@@ -259,7 +261,7 @@ class ArtworkService:
             return None
 
         except Exception as e:
-            logger.debug(f"Last.fm fetch failed for {artist_name}: {e}")
+            logger.debug(f"Last.fm fetch failed for {sanitize_log_value(artist_name)}: {e}")
             return None
 
     def fetch_album_artwork(
@@ -284,7 +286,7 @@ class ArtworkService:
         if result:
             return result
 
-        logger.warning(f"No artwork found for album: {album_title}")
+        logger.warning(f"No artwork found for album: {sanitize_log_value(album_title)}")
         return None
 
     def _fetch_album_from_musicbrainz(
@@ -346,5 +348,5 @@ class ArtworkService:
             }
 
         except Exception as e:
-            logger.debug(f"MusicBrainz/CAA album fetch failed for {album_title}: {e}")
+            logger.debug(f"MusicBrainz/CAA album fetch failed for {sanitize_log_value(album_title)}: {e}")
             return None
