@@ -4,8 +4,8 @@ import { renderHook } from '@testing-library/react';
 // Capture the subscription callback
 let subscriptionCallback: ((message: any) => void) | undefined;
 
-vi.mock('../useWebSocketSubscription', () => ({
-  useWebSocketSubscription: vi.fn((_types: string[], callback: (msg: any) => void) => {
+vi.mock('../useWebSocketMessages', () => ({
+  useWebSocketMessages: vi.fn((_types: string[], callback: (msg: any) => void) => {
     subscriptionCallback = callback;
   }),
 }));
@@ -19,13 +19,13 @@ vi.mock('@/components/shared/Toast', () => ({
 }));
 
 import { useWebSocketErrors } from '../useWebSocketErrors';
-import { useWebSocketSubscription } from '../useWebSocketSubscription';
+import { useWebSocketMessages } from '../useWebSocketMessages';
 
 describe('useWebSocketErrors', () => {
   beforeEach(() => {
     subscriptionCallback = undefined;
     mockWarning.mockClear();
-    vi.mocked(useWebSocketSubscription).mockClear();
+    vi.mocked(useWebSocketMessages).mockClear();
   });
 
   it('renders without error', () => {
@@ -35,7 +35,7 @@ describe('useWebSocketErrors', () => {
 
   it('subscribes to error messages', () => {
     renderHook(() => useWebSocketErrors());
-    expect(useWebSocketSubscription).toHaveBeenCalledWith(
+    expect(useWebSocketMessages).toHaveBeenCalledWith(
       ['error'],
       expect.any(Function),
     );

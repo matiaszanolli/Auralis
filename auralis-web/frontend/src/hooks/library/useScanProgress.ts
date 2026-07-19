@@ -6,7 +6,7 @@
  */
 
 import { useRef, useState } from 'react';
-import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
+import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import type {
   ScanProgressMessage,
   ScanCompleteMessage,
@@ -59,7 +59,7 @@ export function useScanProgress(): ScanStatus {
   // the previous scan (fixes #2868).
   const removedReceivedRef = useRef(false);
 
-  useWebSocketSubscription(
+  useWebSocketMessages(
     ['library_scan_started', 'scan_progress', 'scan_complete', 'library_tracks_removed', 'library_scan_error'],
     (message) => {
       if (message.type === 'library_scan_started') {

@@ -7,23 +7,25 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import {
-  setWebSocketManager,
-} from '../../websocket/useWebSocketSubscription';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useScanProgress } from '../useScanProgress';
 import type { WebSocketMessage } from '@/types/websocket';
 
-// Capture subscription callbacks so we can simulate messages
+vi.mock('@/contexts/WebSocketContext');
+
+// Capture subscription callbacks so we can simulate messages. useScanProgress
+// now subscribes via WebSocketContext (#4380), which registers one handler per
+// message type (useWebSocketMessages loops over the type array).
 type Callback = (message: WebSocketMessage) => void;
 
 function createMockManager() {
-  const subscriptions: { types: string[]; callback: Callback }[] = [];
+  const subscriptions: { type: string; callback: Callback }[] = [];
 
   return {
-    subscribe: vi.fn((types: string[], callback: Callback) => {
-      const entry = { types, callback };
+    subscribe: vi.fn((type: string, callback: Callback) => {
+      const entry = { type, callback };
       subscriptions.push(entry);
       return () => {
         const idx = subscriptions.indexOf(entry);
@@ -33,7 +35,7 @@ function createMockManager() {
     /** Deliver a message to all matching subscribers */
     deliver(message: WebSocketMessage) {
       for (const sub of subscriptions) {
-        if (sub.types.includes(message.type)) {
+        if (sub.type === message.type) {
           sub.callback(message);
         }
       }
@@ -46,11 +48,7 @@ describe('useScanProgress', () => {
 
   beforeEach(() => {
     manager = createMockManager();
-    setWebSocketManager(manager);
-  });
-
-  afterEach(() => {
-    setWebSocketManager(null);
+    vi.mocked(useWebSocketContext).mockReturnValue({ subscribe: manager.subscribe } as any);
   });
 
   describe('initial state', () => {

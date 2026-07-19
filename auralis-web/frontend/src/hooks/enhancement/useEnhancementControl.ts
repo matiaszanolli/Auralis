@@ -37,7 +37,7 @@
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
-import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
+import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { ApiError } from '@/types/api';
 import type { EnhancementPreset } from '@/types/domain';
@@ -173,7 +173,7 @@ export function useEnhancementControl(): EnhancementControlActions {
   /**
    * Subscribe to real-time enhancement setting changes via WebSocket
    */
-  useWebSocketSubscription(
+  useWebSocketMessages(
     ['enhancement_settings_changed'],
     (message) => {
       const enhancementMsg = message as EnhancementSettingsChangedMessage;

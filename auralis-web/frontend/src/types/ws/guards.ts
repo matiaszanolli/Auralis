@@ -162,7 +162,7 @@ export const isScanCompleteMessage          = makeGuard<ScanCompleteMessage>('sc
 
 // Library-scan guards mirror isScanProgressMessage's WebSocketMessage signature
 // (not makeGuard's stricter AnyWebSocketMessage) so they accept the
-// WebSocketMessage handed to useWebSocketSubscription callbacks (#4197).
+// WebSocketMessage handed to useWebSocketMessages callbacks (#4197).
 export function isLibraryScanStartedMessage(msg: WebSocketMessage): msg is LibraryScanStartedMessage {
   return msg.type === 'library_scan_started';
 }

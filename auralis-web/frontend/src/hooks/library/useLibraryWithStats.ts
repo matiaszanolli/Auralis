@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
+import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import { isElectron } from '@/utils/electron';
 import type { LibraryStats, LibraryTrack } from '@/types/domain';
 import { useLibraryPagination } from './useLibraryPagination';
@@ -75,7 +75,7 @@ export const useLibraryWithStats = ({
     if (includeStats) refetchStats();
   }, [fetchTracks, includeStats, refetchStats]);
 
-  useWebSocketSubscription(['library_updated'], handleLibraryUpdated);
+  useWebSocketMessages(['library_updated'], handleLibraryUpdated);
 
   return {
     ...paginationState,

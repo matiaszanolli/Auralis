@@ -23,12 +23,12 @@ import {
   useEnhancementToggle,
 } from '@/hooks/enhancement/useEnhancementControl';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
-import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
+import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import * as WebSocketContextModule from '@/contexts/WebSocketContext';
 
 // Mock hooks
 vi.mock('@/hooks/api/useRestAPI');
-vi.mock('@/hooks/websocket/useWebSocketSubscription');
+vi.mock('@/hooks/websocket/useWebSocketMessages');
 
 describe('useEnhancementControl', () => {
   beforeEach(() => {
@@ -48,7 +48,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -76,7 +76,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -100,7 +100,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -121,11 +121,11 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       renderHook(() => useEnhancementControl());
 
-      expect(vi.mocked(useWebSocketSubscription)).toHaveBeenCalledWith(
+      expect(vi.mocked(useWebSocketMessages)).toHaveBeenCalledWith(
         ['enhancement_settings_changed'],
         expect.any(Function)
       );
@@ -145,7 +145,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -182,7 +182,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -214,7 +214,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -241,7 +241,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -271,7 +271,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -301,7 +301,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -338,7 +338,7 @@ describe('useEnhancementControl', () => {
           delete: vi.fn(),
         } as any);
 
-        vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+        vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
         const { result } = renderHook(() => useEnhancementControl());
 
@@ -362,7 +362,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -391,7 +391,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -421,7 +421,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -448,7 +448,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -475,7 +475,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -521,7 +521,7 @@ describe('useEnhancementControl', () => {
         post: mockPost,
         put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
       } as any);
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -557,7 +557,7 @@ describe('useEnhancementControl', () => {
         post: mockPost,
         put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
       } as any);
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -596,7 +596,7 @@ describe('useEnhancementControl', () => {
         post: vi.fn().mockResolvedValue({ success: true }),
         put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
       } as any);
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
       await waitFor(() => expect(result.current.enabled).toBe(true));
@@ -636,7 +636,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -676,7 +676,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementControl());
 
@@ -714,7 +714,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockImplementation(
+      vi.mocked(useWebSocketMessages).mockImplementation(
         (_types, callback) => {
           wsCallback = callback;
           return (() => {}) as any;
@@ -755,7 +755,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockImplementation(
+      vi.mocked(useWebSocketMessages).mockImplementation(
         (_types, callback) => {
           wsCallback = callback;
           return (() => {}) as any;
@@ -792,7 +792,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => usePresetControl());
 
@@ -817,7 +817,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useIntensityControl());
 
@@ -842,7 +842,7 @@ describe('useEnhancementControl', () => {
         delete: vi.fn(),
       } as any);
 
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
 
       const { result } = renderHook(() => useEnhancementToggle());
 
@@ -883,7 +883,7 @@ describe('useEnhancementControl', () => {
         get: mockGet, post: mockPost,
         put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
       } as any);
-      vi.mocked(useWebSocketSubscription).mockReturnValue(undefined as any);
+      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
       return reissueMock;
     }
 

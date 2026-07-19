@@ -13,7 +13,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { usePlaybackQueue, usePlaybackQueueView } from '../usePlaybackQueue';
 import queueReducer from '@/store/slices/queueSlice';
 import * as useRestAPIModule from '../../api/useRestAPI';
-import * as useWebSocketModule from '../../websocket/useWebSocketSubscription';
+import * as useWebSocketModule from '../../websocket/useWebSocketMessages';
 
 // usePlaybackQueue reads/writes queue state via Redux (queueSlice) — every
 // renderHook call needs a real store wrapped in a Provider, or useDispatch/
@@ -73,8 +73,8 @@ describe('usePlaybackQueue', () => {
       error: null,
     } as any);
 
-    // Mock useWebSocketSubscription
-    vi.spyOn(useWebSocketModule, 'useWebSocketSubscription').mockReturnValue(
+    // Mock useWebSocketMessages
+    vi.spyOn(useWebSocketModule, 'useWebSocketMessages').mockReturnValue(
       undefined as any
     );
   });

@@ -12,20 +12,16 @@
  *     : `/api/albums/${albumId}/artwork`;
  *
  * #3575: Previously each consumer (AlbumCard, AlbumArt) installed its own
- * `useWebSocketSubscription(['artwork_updated'], ...)` instance, so a 500-album
- * grid produced 500 WS callbacks per broadcast, each filtering for its own
- * `album_id` after the O(n) dispatch. The new design installs a single global
- * subscription (refcounted across consumers) that maintains a
- * `Map<albumId, revision>`. Consumers read their slot via
- * `useSyncExternalStore` and only re-render when their album's counter
- * advances.
+ * `artwork_updated` subscription instance, so a 500-album grid produced 500 WS
+ * callbacks per broadcast, each filtering for its own `album_id` after the O(n)
+ * dispatch. The new design installs a single global subscription (refcounted
+ * across consumers) that maintains a `Map<albumId, revision>`. Consumers read
+ * their slot via `useSyncExternalStore` and only re-render when their album's
+ * counter advances. The subscription is backed by WebSocketContext (#4380).
  */
 
 import { useEffect, useRef, useSyncExternalStore } from 'react';
-import {
-  getWebSocketManager,
-  subscribeToManagerReady,
-} from '@/hooks/websocket/useWebSocketSubscription';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { ArtworkUpdatedMessage } from '@/types/websocket';
 
 // ----- Module-level revision store -----
@@ -61,12 +57,16 @@ function subscribeToAlbum(albumId: number, listener: () => void): () => void {
 }
 
 // ----- Single global WS subscription, refcounted across consumers -----
+// The subscription is installed exactly once regardless of how many album cards
+// mount (a 500-album grid must not create 500 WS subscriptions — #3575). It is
+// now backed by WebSocketContext (#4380) instead of the retired singleton;
+// context.subscribe has stable identity and is available immediately, so no
+// manager-ready deferral is needed.
 let globalRefCount = 0;
 let unsubscribeFromManager: (() => void) | null = null;
-let unsubscribeFromManagerReady: (() => void) | null = null;
 
 function handleArtworkMessage(message: unknown): void {
-  // The shared WS manager fans out by message type, so we still match
+  // The shared WS context fans out by message type, so we still match
   // before bumping — defensive against future cross-type dispatches.
   const msg = message as Partial<ArtworkUpdatedMessage>;
   if (msg && msg.type === 'artwork_updated' && msg.data && typeof msg.data.album_id === 'number') {
@@ -74,39 +74,23 @@ function handleArtworkMessage(message: unknown): void {
   }
 }
 
-function attachGlobalSubscription(): void {
-  const manager = getWebSocketManager();
-  if (manager) {
-    unsubscribeFromManager = manager.subscribe(['artwork_updated'], handleArtworkMessage);
-    return;
-  }
-  if (!unsubscribeFromManagerReady) {
-    // Manager not ready yet (startup race). Wait for it.
-    unsubscribeFromManagerReady = subscribeToManagerReady((mgr) => {
-      unsubscribeFromManager = mgr.subscribe(['artwork_updated'], handleArtworkMessage);
-      unsubscribeFromManagerReady?.();
-      unsubscribeFromManagerReady = null;
-    });
-  }
-}
-
 function detachGlobalSubscription(): void {
   unsubscribeFromManager?.();
   unsubscribeFromManager = null;
-  unsubscribeFromManagerReady?.();
-  unsubscribeFromManagerReady = null;
 }
 
 function useGlobalArtworkSubscription(): void {
+  const { subscribe } = useWebSocketContext();
   // Effect runs once per consumer mount; refcount keeps the single global
-  // subscription alive while >=1 consumer is mounted.
+  // subscription alive while >=1 consumer is mounted. `subscribe` is identity-
+  // stable (context useCallback), so this does not resubscribe on re-render.
   const initialized = useRef(false);
   useEffect(() => {
     if (initialized.current) return; // strict-mode double-invoke guard
     initialized.current = true;
     globalRefCount += 1;
     if (globalRefCount === 1) {
-      attachGlobalSubscription();
+      unsubscribeFromManager = subscribe('artwork_updated', handleArtworkMessage);
     }
     return () => {
       globalRefCount = Math.max(0, globalRefCount - 1);
@@ -115,7 +99,7 @@ function useGlobalArtworkSubscription(): void {
       }
       initialized.current = false;
     };
-  }, []);
+  }, [subscribe]);
 }
 
 /**

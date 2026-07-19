@@ -4,5 +4,5 @@
  * - Real-time subscriptions and messaging
  */
 
-export { useWebSocketSubscription } from './useWebSocketSubscription';
+export { useWebSocketMessages } from './useWebSocketMessages';
 export { useWebSocketErrors } from './useWebSocketErrors';

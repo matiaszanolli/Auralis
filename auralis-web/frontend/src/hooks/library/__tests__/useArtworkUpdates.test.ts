@@ -2,57 +2,61 @@
  * useArtworkRevision Hook Tests
  *
  * Tests for WebSocket-driven artwork revision tracking and cache busting.
+ * The subscription is a single module-level, refcounted subscription backed by
+ * WebSocketContext (#4380) — one WS subscription regardless of album count.
  *
  * @module hooks/library/__tests__/useArtworkUpdates.test
  */
 
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useArtworkRevision } from '../useArtworkUpdates';
-import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
+import { useArtworkRevision, _internal } from '../useArtworkUpdates';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
-// Mock the WebSocket subscription hook
-vi.mock('@/hooks/websocket/useWebSocketSubscription');
+vi.mock('@/contexts/WebSocketContext');
 
 describe('useArtworkRevision', () => {
+  // The single module-level handler passed to context.subscribe('artwork_updated', ...).
   let capturedCallback: ((message: any) => void) | null;
+  let subscribe: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    _internal.reset(); // clear module-level revisionMap + refcount between tests
     capturedCallback = null;
 
-    // Capture the callback passed to useWebSocketSubscription
-    vi.mocked(useWebSocketSubscription).mockImplementation(
-      (_types: string[], callback: (message: any) => void) => {
-        capturedCallback = callback;
-        return vi.fn(); // unsubscribe function
-      }
-    );
+    subscribe = vi.fn((_type: string, handler: (message: any) => void) => {
+      capturedCallback = handler;
+      return vi.fn(); // unsubscribe
+    });
+
+    vi.mocked(useWebSocketContext).mockReturnValue({ subscribe } as any);
   });
 
   it('should return initial revision of 0', () => {
     const { result } = renderHook(() => useArtworkRevision(1));
-
     expect(result.current).toBe(0);
   });
 
-  it('should subscribe to artwork_updated messages', () => {
+  it('should subscribe once to the artwork_updated message type', () => {
     renderHook(() => useArtworkRevision(1));
+    expect(subscribe).toHaveBeenCalledWith('artwork_updated', expect.any(Function));
+    expect(subscribe).toHaveBeenCalledTimes(1);
+  });
 
-    expect(useWebSocketSubscription).toHaveBeenCalledWith(
-      ['artwork_updated'],
-      expect.any(Function)
-    );
+  it('should install only ONE subscription across many consumers (perf #3575)', () => {
+    renderHook(() => useArtworkRevision(1));
+    renderHook(() => useArtworkRevision(2));
+    renderHook(() => useArtworkRevision(3));
+    // Refcounted: a single WS subscription regardless of consumer count.
+    expect(subscribe).toHaveBeenCalledTimes(1);
   });
 
   it('should increment revision when matching album message arrives', () => {
     const { result } = renderHook(() => useArtworkRevision(42));
 
     act(() => {
-      capturedCallback!({
-        type: 'artwork_updated',
-        data: { album_id: 42 },
-      });
+      capturedCallback!({ type: 'artwork_updated', data: { album_id: 42 } });
     });
 
     expect(result.current).toBe(1);
@@ -62,10 +66,7 @@ describe('useArtworkRevision', () => {
     const { result } = renderHook(() => useArtworkRevision(42));
 
     act(() => {
-      capturedCallback!({
-        type: 'artwork_updated',
-        data: { album_id: 99 },
-      });
+      capturedCallback!({ type: 'artwork_updated', data: { album_id: 99 } });
     });
 
     expect(result.current).toBe(0);
@@ -109,7 +110,6 @@ describe('useArtworkRevision', () => {
   it('should support cache-busting URL pattern with revision', () => {
     const { result } = renderHook(() => useArtworkRevision(42));
 
-    // Before any update, revision is 0 (no query param needed)
     const urlBefore = result.current > 0
       ? `/api/albums/42/artwork?v=${result.current}`
       : `/api/albums/42/artwork`;
@@ -119,39 +119,26 @@ describe('useArtworkRevision', () => {
       capturedCallback!({ type: 'artwork_updated', data: { album_id: 42 } });
     });
 
-    // After update, revision is 1 (cache-bust)
     const urlAfter = result.current > 0
       ? `/api/albums/42/artwork?v=${result.current}`
       : `/api/albums/42/artwork`;
     expect(urlAfter).toBe('/api/albums/42/artwork?v=1');
   });
 
-  it('should track separate revisions for different album IDs', () => {
-    let cb1: ((msg: any) => void) | null = null;
-    let cb2: ((msg: any) => void) | null = null;
-    let callCount = 0;
-
-    vi.mocked(useWebSocketSubscription).mockImplementation(
-      (_types: string[], callback: (msg: any) => void) => {
-        callCount++;
-        if (callCount % 2 === 1) cb1 = callback;
-        else cb2 = callback;
-        return vi.fn();
-      }
-    );
-
+  it('should track separate revisions for different album IDs via the shared handler', () => {
     const { result: result1 } = renderHook(() => useArtworkRevision(1));
     const { result: result2 } = renderHook(() => useArtworkRevision(2));
 
+    // One shared subscription; the single handler fans out by album_id.
     act(() => {
-      cb1!({ type: 'artwork_updated', data: { album_id: 1 } });
+      capturedCallback!({ type: 'artwork_updated', data: { album_id: 1 } });
     });
 
     expect(result1.current).toBe(1);
     expect(result2.current).toBe(0);
   });
 
-  it('should reset revision when albumId changes via rerender', () => {
+  it('should reset revision tracking per album on albumId change', () => {
     const { result, rerender } = renderHook(
       ({ albumId }) => useArtworkRevision(albumId),
       { initialProps: { albumId: 1 } }
@@ -162,15 +149,11 @@ describe('useArtworkRevision', () => {
     });
     expect(result.current).toBe(1);
 
-    // Re-render with new albumId resets state via useState initializer
+    // Re-render reading a different album's slot.
     rerender({ albumId: 2 });
-    // The revision counter keeps its value since useState doesn't re-init on rerender,
-    // but the callback now filters for album_id: 2
     act(() => {
       capturedCallback!({ type: 'artwork_updated', data: { album_id: 1 } });
     });
-    // Should not increment for old album ID
-    // (current value is still 1 from before rerender)
     const currentRevision = result.current;
     act(() => {
       capturedCallback!({ type: 'artwork_updated', data: { album_id: 2 } });

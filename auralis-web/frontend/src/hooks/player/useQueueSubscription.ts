@@ -10,7 +10,7 @@
  */
 
 import { useDispatch } from 'react-redux';
-import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
+import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import type {
   QueueChangedMessage,
   QueueShuffledMessage,
@@ -38,7 +38,7 @@ type QueueWSMessage =
 export function useQueueSubscription(): void {
   const dispatch = useDispatch<AppDispatch>();
 
-  useWebSocketSubscription(
+  useWebSocketMessages(
     ['queue_changed', 'queue_shuffled', 'repeat_mode_changed'],
     (message) => {
       const msg = message as QueueWSMessage;

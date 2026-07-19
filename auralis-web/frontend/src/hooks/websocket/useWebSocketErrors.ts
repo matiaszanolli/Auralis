@@ -8,7 +8,7 @@
  * Mount once at the app level inside both WebSocketProvider and ToastProvider.
  */
 
-import { useWebSocketSubscription } from './useWebSocketSubscription';
+import { useWebSocketMessages } from './useWebSocketMessages';
 import { useToast } from '@/components/shared/Toast';
 import type { WebSocketMessage } from '@/types/websocket';
 import { isWebSocketErrorMessage } from '@/types/websocket';
@@ -16,7 +16,7 @@ import { isWebSocketErrorMessage } from '@/types/websocket';
 export function useWebSocketErrors(): void {
   const { warning } = useToast();
 
-  useWebSocketSubscription(['error'], (message: WebSocketMessage) => {
+  useWebSocketMessages(['error'], (message: WebSocketMessage) => {
     if (isWebSocketErrorMessage(message)) {
       warning(message.message || 'An error occurred');
     } else {
