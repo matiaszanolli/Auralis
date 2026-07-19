@@ -65,6 +65,12 @@ async def handle_stop(websocket: WebSocket, state: StreamState) -> None:
     ws_id = _ws_id(websocket)
     async with state.active_tasks_lock:
         task = state.active_tasks.pop(ws_id, None)
+        # Also clear the per-ws event/track registries so a stop with no
+        # subsequent play/seek doesn't leave stale entries dangling until
+        # disconnect — matching _cancel_prior_task / teardown_connection (#4364).
+        state.active_track_ids.pop(ws_id, None)
+        state.pause_events.pop(ws_id, None)
+        state.flow_events.pop(ws_id, None)
     if task and not task.done():
         task.cancel()
         try:
