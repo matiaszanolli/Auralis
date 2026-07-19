@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ndarray = "0.15"
+ndarray = "0.16"
 num-complex = "0.4"
 rayon = "1.7"
 rustfft = "6.1"
