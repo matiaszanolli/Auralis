@@ -6,10 +6,8 @@
  * Maintains backwards compatibility while using unified MediaCard internally.
  *
  * Migration: Refactored from 109 lines to 60 lines by delegating to MediaCard.
- * Eliminates duplication with TrackCard.
- *
- * Note: Artwork management features (download/extract) temporarily removed.
- * Will be re-added via MediaCard extension in future iteration.
+ * Eliminates duplication with TrackCard. Artwork management (display plus the
+ * `onArtworkUpdated` cache-bust hook) is owned by MediaCard.
  *
  * Fingerprint Support:
  * - Accepts optional fingerprint prop (median of album tracks)
@@ -50,9 +48,6 @@ export interface AlbumCardProps {
  *
  * Wrapper around MediaCard with album-specific props.
  * Provides backwards compatibility for existing album grid views.
- *
- * TODO: Re-implement artwork management (download/extract/delete) via
- * MediaCard extension or separate overlay component.
  */
 export const AlbumCard = memo(function AlbumCard({
   albumId,
