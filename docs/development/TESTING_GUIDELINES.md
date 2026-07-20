@@ -1021,8 +1021,16 @@ repos:
 
 ### CI Pipeline (GitHub Actions)
 
+> **⚠️ Proposed / target state — NOT yet implemented.** The `test.yml` workflow
+> below does not exist. As of now `.github/workflows/` contains only
+> `build-release.yml`, `frontend-typecheck.yml` (runs `tsc` only), `lockfile-guard.yml`,
+> `requirements-pin-guard.yml`, and `rust-audit.yml` — there is **no** automated
+> pytest / coverage / codecov / e2e gate on push or PR. Treat the pipeline and the
+> Quality Gates below as the intended design to build toward, not a guarantee that
+> these checks run automatically today.
+
 ```yaml
-# .github/workflows/test.yml
+# .github/workflows/test.yml  (PROPOSED — does not exist yet)
 name: Test Suite
 
 on: [push, pull_request]
