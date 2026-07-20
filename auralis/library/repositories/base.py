@@ -7,7 +7,7 @@ Shared session-lifecycle plumbing for all data-access repositories.
 Every repository takes a ``session_factory`` and opens short-lived sessions
 per operation. Centralising that here means a session-lifecycle change
 (pooling instrumentation, retry policy, async migration) is a one-file edit
-instead of a ~13-file sweep.
+instead of a per-repository sweep.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
