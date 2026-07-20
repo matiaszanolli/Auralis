@@ -7,7 +7,7 @@
  * - Error recovery strategies
  * - Timeout management
  *
- * Used by: processingService, RealTimeAnalysisStream, AnalysisExportService
+ * Used by: processingService
  * WebSocket streaming: handled by usePlayEnhanced hook + WebSocketContext
  */
 
