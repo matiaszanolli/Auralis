@@ -246,19 +246,30 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
         except Exception as e:
             logger.warning(f"⚠️  Failed to register streamlined cache router: {e}", exc_info=True)
 
-    # Create and include similarity router (if available)
+    # Create and include the similarity router family (if available). Split
+    # into three domain routers (#4270): similarity search, graph management,
+    # and fingerprint-queue admin. All three keep the /api/similarity prefix so
+    # existing route paths are unchanged.
     if HAS_SIMILARITY:
         try:
             from routers.similarity import create_similarity_router
-            similarity_router: APIRouter = create_similarity_router(
+            from routers.similarity_graph import create_similarity_graph_router
+            from routers.fingerprint_queue import create_fingerprint_queue_router
+
+            app.include_router(create_similarity_router(
                 get_similarity_system=get_component('similarity_system'),
                 get_graph_builder=get_component('graph_builder'),
                 get_repository_factory=get_component('repository_factory')
-            )
-            app.include_router(similarity_router)
-            logger.info("✅ Similarity router registered")
+            ))
+            app.include_router(create_similarity_graph_router(
+                get_graph_builder=get_component('graph_builder')
+            ))
+            app.include_router(create_fingerprint_queue_router(
+                get_repository_factory=get_component('repository_factory')
+            ))
+            logger.info("✅ Similarity router family registered (search, graph, fingerprint-queue)")
         except Exception as e:
-            logger.warning(f"⚠️  Failed to register similarity router: {e}", exc_info=True)
+            logger.warning(f"⚠️  Failed to register similarity router family: {e}", exc_info=True)
 
     # NOTE: the WAV streaming / MSE REST router (routers/wav_streaming.py,
     # /api/stream/*) was retired (#4435). Live playback is entirely

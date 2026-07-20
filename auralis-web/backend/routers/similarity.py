@@ -9,10 +9,8 @@ REST API endpoints for fingerprint-based music similarity
 """
 
 import asyncio
-import functools
 import logging
-import uuid
-from typing import Any, ParamSpec, TypeVar
+from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
@@ -27,45 +25,15 @@ from auralis.analysis.fingerprint import (
 )
 
 from .dependencies import require_repository_factory
+# Shared error helpers live in similarity_common (#4270) so the similarity-graph
+# and fingerprint-queue routers can reuse them. Re-exported here for backward
+# compatibility (e.g. tests importing routers.similarity._internal_error_response).
+from .similarity_common import (  # noqa: F401
+    _internal_error_response,
+    _with_similarity_error_handling,
+)
 
 logger = logging.getLogger(__name__)
-
-P = ParamSpec("P")
-T = TypeVar("T")
-
-
-def _internal_error_response(user_message: str, exc: BaseException) -> HTTPException:
-    """Log the full exception server-side; return a generic HTTPException.
-
-    Generates a short correlation id so a user-reported failure can be
-    matched to its server-side log entry without exposing `str(exc)` —
-    which may contain file paths, SQL fragments, dependency versions, or
-    other internals — back to the API caller (#3331).
-    """
-    ref = uuid.uuid4().hex[:8]
-    logger.exception("[similarity:%s] %s", ref, user_message, exc_info=exc)
-    return HTTPException(status_code=500, detail=f"{user_message} (ref {ref})")
-
-
-def _with_similarity_error_handling(operation: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """Decorator standardizing error handling for this router's endpoints.
-
-    Mirrors `routers.dependencies.with_error_handling`, but routes unexpected
-    exceptions through `_internal_error_response()` instead of
-    `handle_query_error()` so the #3331 correlation-id behavior (no raw
-    exception detail leaked to callers) is preserved for this router.
-    """
-    def decorator(func: Callable[P, T]) -> Callable[P, T]:
-        @functools.wraps(func)
-        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            try:
-                return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
-            except HTTPException:
-                raise
-            except Exception as e:
-                raise _internal_error_response(operation, e) from e
-        return wrapper  # type: ignore[return-value]
-    return decorator
 
 
 # Response models
@@ -113,17 +81,6 @@ class SimilarityExplanation(BaseModel):
     # is the top-N by contribution, all_contributions is every dimension.
     top_differences: list[DimensionContribution]
     all_contributions: list[DimensionContribution]
-
-
-class GraphStatsResponse(BaseModel):
-    """Similarity graph statistics"""
-    total_tracks: int
-    total_edges: int
-    k_neighbors: int
-    avg_distance: float
-    min_distance: float
-    max_distance: float
-    build_time_seconds: float | None = None
 
 
 def create_similarity_router(
@@ -376,259 +333,6 @@ def create_similarity_router(
             "fitted": True,
             "total_fingerprints": fingerprint_count,
             "message": f"Successfully fitted similarity system with {fingerprint_count} tracks"
-        }
-
-    @router.post("/graph/build")
-    @_with_similarity_error_handling("Error building graph")
-    async def build_similarity_graph(
-        k: int = Query(10, ge=1, le=50, description="Number of neighbors per track"),
-        clear_existing: bool = Query(True, description="Clear existing graph before building")
-    ) -> GraphStatsResponse:
-        """
-        Build K-nearest neighbors similarity graph
-
-        Pre-computes similarity relationships for fast queries.
-        This can take several minutes for large libraries.
-
-        Args:
-            k: Number of similar tracks to find for each track
-            clear_existing: Whether to clear existing graph
-
-        Returns:
-            Graph build statistics
-        """
-        graph_builder = get_graph_builder()
-
-        if graph_builder is None:
-            raise HTTPException(
-                status_code=503,
-                detail="Similarity system not fitted. Please fit the system first using POST /api/similarity/fit"
-            )
-
-        # CPU-bound O(N²) K-NN computation; offload to thread so the
-        # event loop stays responsive (fixes #2738).
-        stats = await asyncio.to_thread(
-            graph_builder.build_graph, k=k, clear_existing=clear_existing
-        )
-
-        return GraphStatsResponse(**stats.to_dict())
-
-    @router.get("/graph/stats", response_model=GraphStatsResponse | None)
-    @_with_similarity_error_handling("Error getting graph stats")
-    async def get_graph_stats() -> GraphStatsResponse | None:
-        """
-        Get statistics about current similarity graph
-
-        Returns:
-            Graph statistics or null if graph not built
-        """
-        graph_builder = get_graph_builder()
-
-        if graph_builder is None:
-            return None
-
-        stats = await asyncio.to_thread(graph_builder.get_graph_stats)
-        if stats:
-            return GraphStatsResponse(**stats.to_dict())
-        return None
-
-    @router.delete("/graph")
-    @_with_similarity_error_handling("Error clearing graph")
-    async def clear_similarity_graph() -> dict[str, Any]:
-        """
-        Clear the similarity graph
-
-        Returns:
-            Number of edges deleted
-        """
-        graph_builder = get_graph_builder()
-
-        if graph_builder is None:
-            return {"edges_deleted": 0}
-
-        count = await asyncio.to_thread(graph_builder.clear_graph)
-        return {"edges_deleted": count}
-
-    @router.get("/fingerprint-queue/status")
-    async def get_fingerprint_queue_status() -> dict[str, Any]:
-        """
-        Get status of the on-demand fingerprint generation queue.
-
-        Returns queue statistics including:
-        - queued: Number of tracks waiting in queue
-        - processing: Track ID currently being processed (or null)
-        - completed: Number of fingerprints generated
-        - failed: Number of failed generation attempts
-        - is_running: Whether the background worker is active
-
-        Returns:
-            Queue status dictionary
-
-        Note:
-            Unlike the other endpoints in this router, errors here are reported
-            as a 200-OK body (`available: False`) rather than an HTTPException,
-            so this endpoint intentionally keeps its own try/except rather than
-            using `_with_similarity_error_handling` (which always re-raises).
-        """
-        try:
-            from analysis.fingerprint_queue import get_fingerprint_queue
-            queue = get_fingerprint_queue()
-
-            if queue is None:
-                return {
-                    "available": False,
-                    "message": "On-demand fingerprint queue not initialized"
-                }
-
-            stats = await asyncio.to_thread(queue.get_stats)
-            stats["available"] = True
-            return stats
-
-        except Exception as e:
-            # Same #3331 leak class as the HTTPException paths but via a
-            # 200-OK response body: log the full exception server-side,
-            # return only a correlation id so callers can report it.
-            ref = uuid.uuid4().hex[:8]
-            logger.exception("[similarity:%s] Error getting fingerprint queue status", ref, exc_info=e)
-            return {
-                "available": False,
-                "error": "internal_error",
-                "ref": ref,
-            }
-
-    @router.post("/fingerprint-queue/enqueue/{track_id}")
-    @_with_similarity_error_handling("Error enqueueing track")
-    async def enqueue_fingerprint(track_id: int) -> dict[str, Any]:
-        """
-        Manually enqueue a track for fingerprint generation.
-
-        Args:
-            track_id: ID of the track to fingerprint
-
-        Returns:
-            Status of the enqueue operation
-        """
-        repos = require_repository_factory(get_repository_factory)
-
-        # Check if track exists
-        track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
-        if not track:
-            raise NotFoundError("Track", track_id)
-
-        # Check if already has fingerprint
-        if await asyncio.to_thread(repos.fingerprints.exists, track_id):
-            return {
-                "enqueued": False,
-                "reason": "Track already has fingerprint"
-            }
-
-        # Enqueue
-        from analysis.fingerprint_queue import get_fingerprint_queue
-        queue = get_fingerprint_queue()
-
-        if queue is None:
-            raise HTTPException(
-                status_code=503,
-                detail="On-demand fingerprint queue not available"
-            )
-
-        added = await asyncio.to_thread(queue.enqueue, track_id)
-        return {
-            "enqueued": added,
-            "track_id": track_id,
-            "reason": "Added to queue" if added else "Already queued or processing"
-        }
-
-    @router.post("/fingerprint-queue/enqueue-all")
-    @_with_similarity_error_handling("Error batch enqueueing tracks")
-    async def enqueue_all_missing_fingerprints(
-        limit: int = Query(None, ge=1, le=10000, description="Maximum tracks to enqueue (default: all)")
-    ) -> dict[str, Any]:
-        """
-        Enqueue all tracks that don't have fingerprints for background processing.
-
-        This scans the database for tracks without fingerprints and adds them
-        to the background queue for processing. Fingerprints are generated
-        in a separate process to avoid blocking playback.
-
-        Args:
-            limit: Maximum number of tracks to enqueue (default: all missing)
-
-        Returns:
-            Statistics about the enqueue operation
-        """
-        repos = require_repository_factory(get_repository_factory)
-
-        # Get fingerprint stats
-        stats = await asyncio.to_thread(repos.fingerprints.get_fingerprint_stats)
-        total_tracks = stats['total']
-        already_fingerprinted = stats['fingerprinted']
-        pending = stats['pending']
-
-        if pending == 0:
-            return {
-                "enqueued": 0,
-                "already_fingerprinted": already_fingerprinted,
-                "total_tracks": total_tracks,
-                "message": "All tracks already have fingerprints!"
-            }
-
-        # Get the fingerprint queue
-        from analysis.fingerprint_queue import get_fingerprint_queue
-        queue = get_fingerprint_queue()
-
-        if queue is None:
-            raise HTTPException(
-                status_code=503,
-                detail="On-demand fingerprint queue not available"
-            )
-
-        # Get tracks without fingerprints
-        missing_tracks = await asyncio.to_thread(repos.fingerprints.get_missing_fingerprints, limit=limit)
-
-        # Enqueue each track (offloaded to thread to avoid blocking
-        # the event loop for large libraries — #3335)
-        def _enqueue_batch() -> tuple[int, int]:
-            enqueued = 0
-            skipped = 0
-            for track in missing_tracks:
-                if queue.enqueue(track.id):
-                    enqueued += 1
-                else:
-                    skipped += 1
-            return enqueued, skipped
-
-        enqueued_count, skipped_count = await asyncio.to_thread(_enqueue_batch)
-
-        logger.info(f"📋 Batch enqueued {enqueued_count} tracks for fingerprinting ({skipped_count} skipped)")
-
-        return {
-            "enqueued": enqueued_count,
-            "skipped": skipped_count,
-            "already_fingerprinted": already_fingerprinted,
-            "total_tracks": total_tracks,
-            "pending_after": pending - enqueued_count,
-            "message": f"Enqueued {enqueued_count} tracks for background fingerprinting"
-        }
-
-    @router.get("/fingerprint-stats")
-    @_with_similarity_error_handling("Error getting fingerprint stats")
-    async def get_fingerprint_stats() -> dict[str, Any]:
-        """
-        Get overall fingerprint statistics for the library.
-
-        Returns:
-            Statistics including total tracks, fingerprinted count, and progress
-        """
-        repos = require_repository_factory(get_repository_factory)
-        stats = await asyncio.to_thread(repos.fingerprints.get_fingerprint_stats)
-
-        return {
-            "total_tracks": stats['total'],
-            "fingerprinted": stats['fingerprinted'],
-            "pending": stats['pending'],
-            "progress_percent": stats['progress_percent'],
-            "message": f"{stats['fingerprinted']}/{stats['total']} tracks fingerprinted ({stats['progress_percent']}%)"
         }
 
     return router
