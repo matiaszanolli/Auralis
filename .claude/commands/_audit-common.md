@@ -12,41 +12,54 @@ All code lives in a single repo at `/mnt/data/src/matchering`.
 
 ```
 Audio Engine:        auralis/                                Core Python audio engine
-Core Pipeline:       auralis/core/                           hybrid_processor.py, simple_mastering.py, processing/, config/, recording_type_detector.py
-DSP:                 auralis/dsp/                            stages.py (pipeline main()), basic.py, advanced_dynamics.py, eq/ (psychoacoustic_eq), realtime_adaptive_eq/ (realtime_eq), dynamics/, utils/
-Player:              auralis/player/                         enhanced_audio_player.py, gapless_playback_engine.py, queue_controller.py, realtime_processor.py
-Library:             auralis/library/                        manager.py, scanner/ (package), models/ (ORM package), migration_manager.py
+Core Pipeline:       auralis/core/                           hybrid_processor.py + hybrid/, simple_mastering.py + mastering_*.py, processing/, processors/, stages/, analysis/, dsp/, recording_type_detector.py
+Core Config:         auralis/core/config/                    UnifiedConfig package (unified_config.py, factory.py, settings.py, preset_profiles.py, genre_profiles.py)
+                     auralis/core/config.py                  Legacy dataclass configs (LimiterConfig etc.) — still live, distinct from the package above
+DSP:                 auralis/dsp/                            stages.py (pipeline main()), basic.py, advanced_dynamics.py, eq/ (psychoacoustic_eq.py, parallel_eq_processor/), realtime_adaptive_eq/ (realtime_eq.py), dynamics/, utils/
+Player:              auralis/player/                         enhanced_audio_player.py, gapless_playback_engine.py, queue_controller.py, playback_controller.py, realtime_processor.py + realtime/, components/, audio_file_manager.py
+Library:             auralis/library/                        manager.py, scanner/ (package), models/ (ORM package), migrations/, migration_manager.py, caching/, metadata_editor/, sidecar_manager.py, artwork.py
 Repositories:        auralis/library/repositories/           14 repos + base.py (BaseRepository) + factory.py (RepositoryFactory): track, album, artist, playlist, genre, stats, fingerprint, fingerprint_scheduler, fingerprint_stats, queue, queue_history, queue_template, settings, similarity_graph
 Analysis:            auralis/analysis/                       56 files; fingerprint/ (25D), ml/, quality/, quality_assessors/
-Audio I/O:           auralis/io/                             unified_loader.py, results.py (pcm16/pcm24)
-Parallel:            auralis/optimization/                   parallel_processor.py
-Services:            auralis/services/                       fingerprint, artwork background services
+Audio I/O:           auralis/io/                             unified_loader.py, loader.py, loaders/, formats.py, saver.py, results.py (pcm16/pcm24)
+Parallel:            auralis/optimization/                   parallel_processor.py + parallel/, acceleration/, caching/, memory/, profiling/
+Services:            auralis/services/                       artwork_service.py, fingerprint_extractor.py, fingerprint_queue.py, resizable_semaphore.py
 Learning:            auralis/learning/                       preference engine, reference analysis
+CLI:                 auralis/cli/                            fetch_artwork.py
 Utils:               auralis/utils/                          logging, helpers, preview_creator
 
 Backend:             auralis-web/backend/                    FastAPI :8765
-Backend Routers:     auralis-web/backend/routers/            19 route handlers (24 .py files incl. dependencies/errors/serializers/pagination helpers)
-Backend Streaming:   auralis-web/backend/core/               chunked_processor.py, audio_stream_controller.py, processing_engine.py
+Backend Entry:       auralis-web/backend/main.py             Thin entry — builds the lifespan, then delegates to config/. StaticFiles mount + `--dev` switch live here.
+Backend App Wiring:  auralis-web/backend/config/             app.py (create_app), middleware.py (CORS + RateLimit + SecurityHeaders + NoCache), routes.py (registers all 20 routers), startup.py (lifespan), background_workers.py, globals.py, limits.py
+Backend Routers:     auralis-web/backend/routers/            26 .py files = 20 registered routers + helpers (dependencies.py, errors.py, pagination.py, serializers.py, similarity_common.py)
+Backend Streaming:   auralis-web/backend/core/               30 modules — chunked_processor.py, chunk_boundaries.py (chunk-constant SoT), chunk_cache*.py, chunk_crossfade.py, chunk_mastering.py, audio_stream_controller.py, stream_*.py, processing_engine.py, processor_pool.py, processor_factory.py, job_worker.py, state_manager.py, proactive_buffer.py
+Backend WebSocket:   auralis-web/backend/ws_handlers/        connection.py, context.py, messages.py, playback_commands.py, playback_control.py
+                     auralis-web/backend/websocket/          websocket_protocol.py, websocket_security.py
+Backend Security:    auralis-web/backend/security/           path_security.py (path containment); rate limiting + security headers live in config/middleware.py
 Backend Schemas:     auralis-web/backend/schemas.py
-Backend Services:    auralis-web/backend/services/
-Backend Config:      auralis-web/backend/config/             startup.py (lifespan); LibraryAutoScanner now in services/library_auto_scanner.py
-Backend Core:        auralis-web/backend/core/
+Backend Services:    auralis-web/backend/services/           library_auto_scanner.py, queue_service.py, playback_service.py, navigation_service.py, recommendation_service.py, learning_system.py, artwork_downloader.py, audio_content_predictor.py
+Backend Analysis:    auralis-web/backend/analysis/           analysis_extractor.py, fingerprint_generator.py, fingerprint_queue.py, track_analysis_cache.py
+Backend Encoding:    auralis-web/backend/encoding/           wav_encoder.py
+Backend Monitoring:  auralis-web/backend/monitoring/         memory_monitor.py, metrics_collector.py
 
 Frontend:            auralis-web/frontend/src/               React 18 + TS + Vite + Redux + MUI
 Frontend Components: auralis-web/frontend/src/components/
-Frontend Hooks:      auralis-web/frontend/src/hooks/         player, library, enhancement, websocket, api, app, audio, fingerprint, shared
-Frontend Store:      auralis-web/frontend/src/store/         Redux slices
+Frontend Hooks:      auralis-web/frontend/src/hooks/         api, app, audio, enhancement, fingerprint, library, player, shared, websocket
+Frontend Contexts:   auralis-web/frontend/src/contexts/      ThemeContext.tsx, WebSocketContext.tsx (WebSocketContext is globally auto-mocked by src/test/setup.ts — vi.unmock() to exercise the real one). There is NO EnhancementContext.
+Frontend Store:      auralis-web/frontend/src/store/         slices/, selectors/, middleware/
 Frontend Design:     auralis-web/frontend/src/design-system/ Design tokens (single source of truth)
-Frontend Services:   auralis-web/frontend/src/services/      API clients
-Frontend Test Utils: auralis-web/frontend/src/test/
+Frontend Services:   auralis-web/frontend/src/services/      API clients + api/, audio/, fingerprint/ subdirs; payload mapping in src/api/transformers/
+Frontend Types:      auralis-web/frontend/src/types/         api.ts, domain.ts, websocket.ts, ws/
+Frontend Test Utils: auralis-web/frontend/src/test/          setup.ts, test-utils.tsx, mocks/; specs also live in src/__tests__/ and src/tests/
 
 Rust DSP:            vendor/auralis-dsp/                     PyO3 module (HPSS, YIN, Chroma)
 Desktop:             desktop/                                Electron wrapper
-Tests:               tests/                                  ~5,000 test functions (415 files) across 19 dirs
+Tests:               tests/                                  ~5,100 test functions (446 files) across 18 dirs
 Audit Reports:       docs/audits/                            Generated audit reports
 Local Issue Cache:   .claude/issues/                         Issue snapshots (per audit-publish / fix-issue)
 Specialist Agents:   .claude/agents/                         dsp, backend, frontend, library specialists
 ```
+
+Counts above were re-derived from the live tree when this file was last updated. If a finding depends on an exact number, recompute it rather than quoting this table.
 
 ## Severity Framework
 
@@ -84,6 +97,8 @@ Backticked file/dir paths in any `audit-*.md` skill (or this file) **must resolv
 - Backticks = "this path exists right now". The gate fails the audit if it doesn't.
 - Forward-looking refs (a file that doesn't yet exist) or backward-looking refs (a file that was deleted) **must not** use backticks — write them as plain text or italics.
 - Trailing `:NN` or `:NN-NN` line ranges are stripped before existence check (line numbers may drift; the file must still exist).
+- **Bare basenames are checked too** (e.g. `chunked_processor.py` with no directory). They resolve by basename against the tracked tree. This closed the hole that let long-deleted files (a `wav_streaming` router, a `self_tuner` service) sit in these skills unnoticed — shorthand goes stale exactly like a full path does.
+- Placeholder tokens containing `<` or `>` (per-finding format templates) are skipped.
 - Run `.claude/commands/_audit-validate.sh` before committing edits to any audit skill.
 
 ## Specialist Agents
@@ -97,7 +112,7 @@ For complex investigations, the orchestrator audits (`audit-engine`, `audit-back
 | `frontend-specialist` | `auralis-web/frontend/` — components, hooks, Redux, design tokens |
 | `library-specialist` | `auralis/library/` — 14 repositories (+ `BaseRepository`), migrations, SQLite, scanner |
 
-Invoke via the Task tool with `subagent_type: <name>`.
+Invoke via the **Agent** tool with `subagent_type: <name>` (the tool formerly called Task). Dimension/flow fan-out agents use `subagent_type: general-purpose`.
 
 ## Deduplication (MANDATORY)
 
@@ -118,9 +133,12 @@ When a bug pattern exists, check ALL siblings before declaring scope. Common sib
 
 | Pattern | Where to grep |
 |---------|---------------|
-| DSP stage missing `.copy()` | All files under `auralis/dsp/` and `auralis/core/` |
+| DSP stage missing `.copy()` | All files under `auralis/dsp/` and `auralis/core/` (incl. `auralis/core/hybrid/`, `auralis/core/stages/`, `auralis/core/processors/`) |
 | Repository raw SQL | All 14 repos under `auralis/library/repositories/` (each extends `BaseRepository` in `base.py`; also check `factory.py`) |
-| Router missing input validation | All 19 route handlers under `auralis-web/backend/routers/` |
+| Router missing input validation | All 20 registered route handlers under `auralis-web/backend/routers/` (derive the live list from `auralis-web/backend/config/routes.py`, not from a hardcoded count) |
+| Unvalidated filesystem path | Every call site that should route through `auralis-web/backend/security/path_security.py` |
+| WebSocket message not idempotent | All handlers under `auralis-web/backend/ws_handlers/` |
+| Chunk constant hardcoded | Any literal that bypasses `auralis-web/backend/core/chunk_boundaries.py` |
 | Hook missing cleanup | All files under `auralis-web/frontend/src/hooks/` |
 | Component > 300 lines | All files under `auralis-web/frontend/src/components/` |
 | Service without lifecycle | All files under `auralis/services/` and `auralis-web/backend/services/` |

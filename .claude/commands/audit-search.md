@@ -33,13 +33,14 @@ Categorize changed files by risk domain:
 | Analysis/Fingerprint | `auralis/analysis/*` | `/audit-engine` |
 | Library/Database | `auralis/library/*` | `/audit-engine`, `/audit-concurrency` |
 | Backend Routes | `auralis-web/backend/routers/*` | `/audit-backend` |
-| WebSocket/Streaming | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*` | `/audit-backend`, `/audit-integration` |
-| Backend Services | `auralis-web/backend/services/*`, `auralis-web/backend/core/*` | `/audit-backend` |
+| WebSocket/Streaming | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*`, `auralis-web/backend/core/stream_*`, `auralis-web/backend/core/chunk_*`, `auralis-web/backend/ws_handlers/*`, `auralis-web/backend/websocket/*` | `/audit-backend`, `/audit-integration` |
+| Backend Services | `auralis-web/backend/services/*`, `auralis-web/backend/core/*`, `auralis-web/backend/analysis/*` | `/audit-backend` |
 | Frontend Components | `auralis-web/frontend/src/components/*` | `/audit-frontend` |
 | Frontend Hooks | `auralis-web/frontend/src/hooks/*` | `/audit-frontend`, `/audit-integration` |
 | Frontend Store | `auralis-web/frontend/src/store/*` | `/audit-frontend` |
 | Rust DSP | `vendor/auralis-dsp/*` | `/audit-engine`, `/audit-security` |
-| Config/Security | `main.py`, CORS, middleware | `/audit-security` |
+| Config/Middleware | `auralis-web/backend/config/*` (CORS, rate limit, security headers, routes, lifespan), `auralis-web/backend/main.py` | `/audit-security`, `/audit-backend` |
+| Security modules | `auralis-web/backend/security/*`, `auralis-web/backend/websocket/websocket_security.py` | `/audit-security` |
 
 ## Step 2: Check Audit Coverage History
 

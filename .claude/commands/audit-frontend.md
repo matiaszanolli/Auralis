@@ -7,7 +7,7 @@ argument-hint: "[--focus <dimensions>] [--depth shallow|deep] [--limit <N>]"
 
 Perform a deep audit of the Auralis React frontend — components, Redux, hooks, TypeScript, design system, accessibility.
 
-**Architecture**: This is an orchestrator. Each dimension runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+**Architecture**: This is an orchestrator. Each dimension runs as an Agent-tool subagent (`subagent_type: general-purpose`, `model: sonnet`). Max 3 run concurrently.
 
 See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
 
@@ -22,12 +22,15 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 This audit covers ONLY the frontend code:
 
 - **Components**: `auralis-web/frontend/src/components/`
-- **Hooks**: `auralis-web/frontend/src/hooks/` (player, library, enhancement, websocket, api, app, audio, fingerprint, shared)
-- **Store**: `auralis-web/frontend/src/store/` (Redux slices, selectors, middleware)
-- **Services**: `auralis-web/frontend/src/services/` (API clients)
-- **Design System**: `auralis-web/frontend/src/design-system/` (tokens, theme)
-- **Tests**: `auralis-web/frontend/src/test/` and co-located test files
-- **Config**: `auralis-web/frontend/vite.config.*`, `tsconfig.json`, `package.json`
+- **Hooks**: `auralis-web/frontend/src/hooks/` (api, app, audio, enhancement, fingerprint, library, player, shared, websocket)
+- **Contexts**: `auralis-web/frontend/src/contexts/` — `ThemeContext.tsx`, `WebSocketContext.tsx`. There is **no** EnhancementContext; do not report against one.
+- **Store**: `auralis-web/frontend/src/store/` (`slices/`, `selectors/`, `middleware/`)
+- **Services**: `auralis-web/frontend/src/services/` (API clients + `api/`, `audio/`, `fingerprint/` subdirs); payload mapping in `auralis-web/frontend/src/api/transformers/`
+- **Types**: `auralis-web/frontend/src/types/` (`api.ts`, `domain.ts`, `websocket.ts`, `ws/`)
+- **Design System**: `auralis-web/frontend/src/design-system/` (tokens, theme) and `auralis-web/frontend/src/theme/`
+- **Tests**: `auralis-web/frontend/src/test/` (utils + global setup), plus specs in `auralis-web/frontend/src/__tests__/`, `auralis-web/frontend/src/tests/`, and co-located `*.test.tsx`
+- **Other**: `auralis-web/frontend/src/a11y/`, `auralis-web/frontend/src/performance/`, `auralis-web/frontend/src/utils/`
+- **Config**: `auralis-web/frontend/vite.config.mts`, `auralis-web/frontend/vitest.config.ts`, `auralis-web/frontend/tsconfig.json`, `auralis-web/frontend/package.json` (pnpm is the only supported package manager)
 
 Out of scope: Python backend, audio engine, Rust DSP, database.
 
@@ -72,7 +75,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] `useCallback` / `useMemo` — are expensive computations memoized? Are callback identities stable for child components?
 - [ ] Custom hook return stability — do hooks return the same reference shape on every render?
 - [ ] Race conditions — can an effect fire with outdated closure values after rapid state changes?
-- [ ] WebSocket hooks (`hooks/websocket/`) — reconnection logic, message queue during disconnect, binary frame parsing
+- [ ] WebSocket hooks (`auralis-web/frontend/src/hooks/websocket/`: `useWebSocketConnection.ts`, `useWebSocketMessages.ts`, `useWebSocketErrors.ts`, `websocketConnectionCore.ts`) — reconnection logic, message queue during disconnect, binary frame parsing. Cross-check against `auralis-web/frontend/src/contexts/WebSocketContext.tsx`.
 - [ ] Player hooks (`hooks/player/`) — do they correctly synchronize with backend playback state? Stale position/duration?
 - [ ] API hooks (`hooks/api/`) — cancellation of in-flight requests on unmount? Deduplication of concurrent identical requests?
 
@@ -133,6 +136,9 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 
 **Check**:
 - [ ] Critical path coverage — are player hooks, WebSocket hooks, and Redux slices tested?
+- [ ] Global auto-mocks — `auralis-web/frontend/src/test/setup.ts` mocks `contexts/WebSocketContext` for every spec. Any test claiming to exercise the real implementation must `vi.unmock()` it; flag ones that don't (they are asserting against the mock).
+- [ ] Pre-existing failures — the suite has a known baseline of failing specs. Do NOT report individual baseline failures as new findings; compare against a clean worktree (`git worktree add`, never `git stash`) before claiming a regression.
+- [ ] Memory — the suite needs the 2GB-heap runner (`pnpm run test:memory`); flag any new spec that spins an unbounded mock loop.
 - [ ] Mock correctness — do mocks (`vi.*`) accurately represent real behavior? Over-mocking?
 - [ ] Async testing — are async operations properly awaited? Any floating promises in tests?
 - [ ] User interaction testing — are tests using `@testing-library` user events, not direct DOM manipulation?
@@ -148,7 +154,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 
 ## Phase 2: Launch Dimension Agents
 
-Launch one Task agent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/frontend/dim_<N>.md`.
+Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/frontend/dim_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`

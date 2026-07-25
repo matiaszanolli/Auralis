@@ -7,7 +7,7 @@ argument-hint: "[--focus <dimensions>] [--depth shallow|deep] [--limit <N>]"
 
 Perform a deep audit of the Auralis FastAPI backend — routes, WebSocket streaming, chunked processing, schemas, middleware.
 
-**Architecture**: This is an orchestrator. Each dimension runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+**Architecture**: This is an orchestrator. Each dimension runs as an Agent-tool subagent (`subagent_type: general-purpose`, `model: sonnet`). Max 3 run concurrently. Use `.claude/agents/backend-specialist.md` (`subagent_type: backend-specialist`) for deep dives into a single dimension.
 
 See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
 
@@ -21,14 +21,17 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 This audit covers ONLY the backend code:
 
-- **App Entry**: `auralis-web/backend/main.py` (FastAPI app, CORS, middleware)
-- **Routers**: `auralis-web/backend/routers/` (19 route handlers: player, library, albums, artists, playlists, enhancement, metadata, artwork, system, similarity, wav_streaming, etc.)
-- **WebSocket Streaming**: `auralis-web/backend/core/audio_stream_controller.py`
-- **Chunked Processor**: `auralis-web/backend/core/chunked_processor.py` (15s chunks, 10s interval, 5s overlap crossfade)
-- **Processing Engine**: `auralis-web/backend/core/processing_engine.py`
+- **App Entry**: `auralis-web/backend/main.py` — thin. It builds the lifespan and mounts StaticFiles; the app factory, middleware and router registration were extracted to `config/`.
+- **App Wiring**: `auralis-web/backend/config/app.py` (create_app), `auralis-web/backend/config/middleware.py` (CORS + RateLimit + SecurityHeaders + NoCache), `auralis-web/backend/config/routes.py` (registers all 20 routers), `auralis-web/backend/config/startup.py` (lifespan), `auralis-web/backend/config/background_workers.py`, `auralis-web/backend/config/limits.py`
+- **Routers**: `auralis-web/backend/routers/` — 26 `.py` files: 20 registered routers (albums, artists, artwork, cache_streamlined, enhancement, files, fingerprint_queue, fingerprint_status, health, library, library_scan, metadata, player, playlists, processing_api, settings, similarity, similarity_graph, system, tracks) + shared helpers (`dependencies.py`, `errors.py`, `pagination.py`, `serializers.py`, `similarity_common.py`). Derive the live list from `auralis-web/backend/config/routes.py`.
+- **WebSocket**: `auralis-web/backend/core/audio_stream_controller.py` plus the handler layer in `auralis-web/backend/ws_handlers/` (`connection.py`, `context.py`, `messages.py`, `playback_commands.py`, `playback_control.py`) and `auralis-web/backend/websocket/` (`websocket_protocol.py`, `websocket_security.py`)
+- **Chunked Processor**: `auralis-web/backend/core/chunked_processor.py`; constants come from `auralis-web/backend/core/chunk_boundaries.py` (`CHUNK_DURATION=15.0`, `CHUNK_INTERVAL=10.0`, `OVERLAP_DURATION=5.0`, `CONTEXT_DURATION=5.0`) — never hardcode them. Related: `chunk_cache.py`, `chunk_cache_manager.py`, `chunk_crossfade.py`, `chunk_mastering.py`, `chunk_operations.py`.
+- **Streaming paths**: `auralis-web/backend/core/stream_enhanced.py`, `auralis-web/backend/core/stream_normal.py`, `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/stream_prefetch.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_messages.py`, `auralis-web/backend/core/proactive_buffer.py`
+- **Processing Engine & workers**: `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/processor_pool.py`, `auralis-web/backend/core/processor_factory.py`, `auralis-web/backend/core/job_worker.py`, `auralis-web/backend/core/streamlined_worker.py`, `auralis-web/backend/core/state_manager.py`
 - **Schemas**: `auralis-web/backend/schemas.py`
-- **Services**: `auralis-web/backend/services/`
-- **Core/Config**: `auralis-web/backend/core/`, `auralis-web/backend/config/`
+- **Services**: `auralis-web/backend/services/` (8 services incl. `library_auto_scanner.py`, `queue_service.py`, `playback_service.py`)
+- **Security**: `auralis-web/backend/security/path_security.py`, `auralis-web/backend/websocket/websocket_security.py`
+- **Support modules**: `auralis-web/backend/analysis/`, `auralis-web/backend/encoding/wav_encoder.py`, `auralis-web/backend/monitoring/`
 - **Tests**: Backend-related tests under `tests/`
 
 Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. However, DO verify that the backend correctly calls engine APIs and returns responses matching frontend expectations.
@@ -59,8 +62,10 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 ### Dimension 2: WebSocket Streaming
 
 **Check**:
-- [ ] Connection lifecycle — is accept/close handled correctly? Are resources cleaned up on disconnect?
-- [ ] Binary frame format — is the audio frame encoding consistent with what the frontend expects?
+- [ ] Connection lifecycle — is accept/close handled correctly in `auralis-web/backend/ws_handlers/connection.py`? Are resources cleaned up on disconnect?
+- [ ] Handler split — do `ws_handlers/messages.py`, `playback_commands.py` and `playback_control.py` agree on the message contract in `auralis-web/backend/websocket/websocket_protocol.py`?
+- [ ] Origin/auth checks — is `auralis-web/backend/websocket/websocket_security.py` actually applied on connect, and can it be bypassed?
+- [ ] Binary frame format — is the audio frame encoding (`auralis-web/backend/encoding/wav_encoder.py`) consistent with what the frontend expects?
 - [ ] Backpressure — what happens when the client can't consume frames fast enough? Does the server buffer unboundedly?
 - [ ] Multiple clients — can multiple WebSocket connections coexist? Is state per-connection or shared?
 - [ ] Error during streaming — does a processing error gracefully close the stream or leave it hanging?
@@ -71,8 +76,11 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 ### Dimension 3: Chunked Processing
 
 **Check**:
+- [ ] Chunk constants — does every module read `CHUNK_DURATION`/`CHUNK_INTERVAL`/`OVERLAP_DURATION` from `auralis-web/backend/core/chunk_boundaries.py`, or are there bypassing literals?
+- [ ] Chunk counting — is overlap-aware `content_chunk_count()` used, not a naive `ceil(duration / CHUNK_DURATION)`?
 - [ ] Chunk boundaries — do 15s chunks align to audio frame boundaries (not mid-sample)?
-- [ ] Crossfade correctness — is the 5s overlap crossfade using equal-power curves? Is `len(output) == len(input)` maintained?
+- [ ] Cached chunk format — cached chunk files are 16-bit PCM WAV, not float32. Do size/duration estimates account for that?
+- [ ] Crossfade correctness — is the 5s overlap crossfade in `auralis-web/backend/core/chunk_crossfade.py` using equal-power curves? Is `len(output) == len(input)` maintained?
 - [ ] First/last chunk — are the first and last chunks handled correctly (no crossfade at start/end of track)?
 - [ ] Sample rate consistency — is the sample rate preserved across chunk boundaries?
 - [ ] Processing failure — if one chunk fails, does it corrupt subsequent chunks or gracefully degrade?
@@ -103,11 +111,12 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 ### Dimension 6: Middleware & Configuration
 
 **Check**:
-- [ ] CORS — is `allow_origins` properly restricted? Is `allow_credentials=True` combined with wildcard `["*"]` origins (insecure)?
-- [ ] Router inclusion — are all 19 routers properly registered with correct prefixes and tags?
-- [ ] Middleware ordering — are middleware applied in the correct order (CORS before auth, etc.)?
-- [ ] Static file serving — is there proper path restriction for served files?
-- [ ] Startup/shutdown events — are background tasks, database connections, and engine resources properly initialized and cleaned up?
+- [ ] CORS — in `auralis-web/backend/config/middleware.py`: is the allow-origins builder properly restricted? Is `allow_credentials=True` combined with wildcard `["*"]` origins (insecure)?
+- [ ] Router inclusion — are all 20 routers in `auralis-web/backend/config/routes.py` registered with correct prefixes and tags? Several factories are imported inside `try/except` so a broken dependency degrades instead of crashing startup — does any failure get silently swallowed without a log?
+- [ ] Middleware ordering — `add_middleware` is LIFO; verify the resulting request-inbound order (CORS → SecurityHeaders → NoCache → RateLimit) matches the documented intent in `auralis-web/backend/config/middleware.py`.
+- [ ] Rate limiting — is `RateLimitMiddleware` applied to the routes that need it, and is its window bookkeeping safe under asyncio interleaving?
+- [ ] Static file serving — `main.py` skips the StaticFiles mount in `--dev` mode to preserve WebSocket routes. Is there proper path restriction in the non-dev path?
+- [ ] Startup/shutdown events — does the lifespan in `auralis-web/backend/config/startup.py` (plus `auralis-web/backend/config/background_workers.py`) initialize and tear down background tasks, DB connections, and engine resources symmetrically?
 - [ ] `--dev` flag — what security or performance features does it change?
 - [ ] Logging configuration — appropriate log levels? Sensitive data (file paths, user data) redacted?
 
@@ -136,7 +145,7 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 ### Dimension 9: Test Coverage
 
 **Check**:
-- [ ] Router coverage — is each of the 19 routers tested with happy path and error cases?
+- [ ] Router coverage — is each of the 20 registered routers tested with happy path and error cases?
 - [ ] WebSocket testing — are WebSocket connections tested (connect, send, receive, disconnect)?
 - [ ] Chunked processing tests — are chunk boundaries, crossfades, and edge cases tested?
 - [ ] Schema validation tests — are invalid request payloads tested for proper rejection?
@@ -153,7 +162,7 @@ Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. How
 
 ## Phase 2: Launch Dimension Agents
 
-Launch one Task agent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/backend/dim_<N>.md`.
+Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/backend/dim_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`
@@ -193,7 +202,7 @@ Dimension → Output mapping:
 1. Read all `/tmp/audit/backend/dim_*.md` files
 2. Combine into `docs/audits/AUDIT_BACKEND_<TODAY>.md` with structure:
    - **Executive Summary** — Total findings by severity, key themes, most impactful issues
-   - **Route Coverage Matrix** — Table of all 19 router files with validation status
+   - **Route Coverage Matrix** — Table of all 20 registered routers with validation status
    - **Findings** — Grouped by severity (CRITICAL first), deduplicated across dimensions
    - **Relationships** — How findings interact, shared root causes
    - **Prioritized Fix Order** — What to fix first and why

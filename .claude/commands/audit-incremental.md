@@ -43,15 +43,19 @@ Group changed files by risk domain:
 | **Audio Core** | `auralis/core/*`, `auralis/dsp/*` | HIGH |
 | **Player** | `auralis/player/*` | HIGH |
 | **Audio I/O** | `auralis/io/*` | HIGH |
-| **Backend Streaming** | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*` | HIGH |
+| **Backend Streaming** | `auralis-web/backend/core/audio_stream*`, `auralis-web/backend/core/chunked_processor*`, `auralis-web/backend/core/chunk_*`, `auralis-web/backend/core/stream_*` | HIGH |
+| **Backend WebSocket** | `auralis-web/backend/ws_handlers/*`, `auralis-web/backend/websocket/*` | HIGH |
 | **Backend Routes** | `auralis-web/backend/routers/*` | HIGH |
+| **Backend App Wiring** | `auralis-web/backend/config/*` (middleware, CORS, router registration, lifespan), `auralis-web/backend/main.py` | HIGH |
+| **Backend Security** | `auralis-web/backend/security/*` | HIGH |
 | **Library/Database** | `auralis/library/*` | HIGH |
 | **Analysis** | `auralis/analysis/*` | MEDIUM |
 | **Optimization** | `auralis/optimization/*` | MEDIUM |
-| **Backend Services** | `auralis-web/backend/services/*` | MEDIUM |
+| **Backend Services** | `auralis-web/backend/services/*`, `auralis-web/backend/analysis/*` | MEDIUM |
 | **Rust DSP** | `vendor/auralis-dsp/*` | HIGH |
 | **Frontend Components** | `auralis-web/frontend/src/components/*` | LOW-MEDIUM |
 | **Frontend Hooks** | `auralis-web/frontend/src/hooks/*` | MEDIUM |
+| **Frontend Contexts** | `auralis-web/frontend/src/contexts/*` | MEDIUM |
 | **Frontend Store** | `auralis-web/frontend/src/store/*` | MEDIUM |
 | **Tests** | `tests/*` | LOW |
 | **Config/CI** | `.github/*`, `*.toml`, `*.ini`, `*.cfg` | MEDIUM |

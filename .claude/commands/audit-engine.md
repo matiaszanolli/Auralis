@@ -7,7 +7,7 @@ argument-hint: "[--focus <dimensions>] [--depth shallow|deep] [--limit <N>]"
 
 Perform a deep audit of the Auralis core audio engine — DSP pipeline, player, analysis, library.
 
-**Architecture**: This is an orchestrator. Each dimension runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+**Architecture**: This is an orchestrator. Each dimension runs as an Agent-tool subagent (`subagent_type: general-purpose`, `model: sonnet`). Max 3 run concurrently.
 
 See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
 
@@ -21,14 +21,15 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 | Component | Path | Key Files |
 |-----------|------|-----------|
-| Core Pipeline | `auralis/core/` | `hybrid_processor.py`, `simple_mastering.py`, `processing/`, `config/` |
-| DSP Modules | `auralis/dsp/` | `stages.py`, `basic.py`, `advanced_dynamics.py`, `eq/psychoacoustic_eq.py`, `realtime_adaptive_eq/realtime_eq.py` |
-| Player | `auralis/player/` | `enhanced_audio_player.py`, `gapless_playback_engine.py`, `queue_controller.py`, `realtime_processor.py` |
-| Audio I/O | `auralis/io/` | `unified_loader.py`, `results.py` |
-| Parallel Processing | `auralis/optimization/` | `parallel_processor.py` |
+| Core Pipeline | `auralis/core/` | `hybrid_processor.py` + `hybrid/`, `simple_mastering.py` + `mastering_chunk_loop.py` / `mastering_prepare.py` / `mastering_process_chunk.py` / `mastering_branches/`, `processing/`, `processors/`, `stages/` |
+| Core Config | `auralis/core/config/` | `unified_config.py` (UnifiedConfig), `factory.py`, `settings.py`, `preset_profiles.py`, `genre_profiles.py`. Separate from the legacy dataclasses in `auralis/core/config.py` — check both when tracing a parameter. |
+| DSP Modules | `auralis/dsp/` | `stages.py`, `basic.py`, `advanced_dynamics.py`, `eq/psychoacoustic_eq.py` + `eq/parallel_eq_processor/`, `realtime_adaptive_eq/realtime_eq.py`, `dynamics/` |
+| Player | `auralis/player/` | `enhanced_audio_player.py`, `gapless_playback_engine.py`, `queue_controller.py`, `playback_controller.py`, `realtime_processor.py` + `realtime/`, `components/`, `audio_file_manager.py` |
+| Audio I/O | `auralis/io/` | `unified_loader.py`, `loader.py`, `loaders/`, `formats.py`, `saver.py`, `results.py` |
+| Parallel Processing | `auralis/optimization/` | `parallel_processor.py` + `parallel/`, `acceleration/`, `caching/`, `memory/` |
 | Analysis | `auralis/analysis/` | `fingerprint/` (25D system), `ml/`, `quality/`, `quality_assessors/` |
-| Library | `auralis/library/` | `manager.py`, `repositories/` (14 repos + `base.py` BaseRepository), `scanner/`, `migration_manager.py` |
-| Services | `auralis/services/` | Background services (fingerprint, artwork) |
+| Library | `auralis/library/` | `manager.py`, `repositories/` (14 repos + `base.py` BaseRepository), `scanner/`, `migrations/`, `migration_manager.py`, `caching/`, `sidecar_manager.py` |
+| Services | `auralis/services/` | `artwork_service.py`, `fingerprint_extractor.py`, `fingerprint_queue.py`, `resizable_semaphore.py` |
 | Rust DSP | `vendor/auralis-dsp/` | PyO3 bindings (HPSS, YIN, Chroma) |
 
 Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electron desktop. DO verify engine public API contracts.
@@ -59,7 +60,7 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 
 ### Dimension 2: DSP Pipeline Correctness
 
-**Key files**: `auralis/core/hybrid_processor.py`, `auralis/core/simple_mastering.py`, `auralis/dsp/stages.py`, `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`, `auralis/dsp/realtime_adaptive_eq/realtime_eq.py`
+**Key files**: `auralis/core/hybrid_processor.py` + `auralis/core/hybrid/`, `auralis/core/simple_mastering.py` + `auralis/core/mastering_process_chunk.py` / `auralis/core/mastering_chunk_loop.py` / `auralis/core/mastering_branches/`, `auralis/core/stages/`, `auralis/dsp/stages.py`, `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`, `auralis/dsp/realtime_adaptive_eq/realtime_eq.py`
 
 **Check**:
 - [ ] Processing chain order — is the sequence (EQ → dynamics → mastering) correct and documented?
@@ -69,12 +70,15 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 - [ ] Spectral leakage — are FFT sizes appropriate for the sample rate?
 - [ ] Phase coherence — does multi-band processing maintain phase relationships?
 - [ ] Sub-bass parallel path — correctly mixed back in? (Fix: `8bc5b217`)
+- [ ] EQ band mapping — is the psychoacoustic EQ curve mapped to bands **by frequency**, not by raw index? An out-of-range index used to fall back silently to the simple EQ (fix `2b3c5b35`).
+- [ ] WOLA overlap — the psychoacoustic path uses a fixed 50% hop with a full-Hann synthesis window. Any configurable-overlap change must re-derive COLA; flag if one was introduced without it.
+- [ ] Config duality — a parameter may be defined in `auralis/core/config/unified_config.py` *and* in legacy `auralis/core/config.py`. Do both paths agree, or can one shadow the other?
 - [ ] Rust DSP boundary — do PyO3 calls handle errors and return correct formats?
 - [ ] GIL handling — does Rust code release the GIL during compute? Can concurrent calls corrupt state?
 
 ### Dimension 3: Player State Machine
 
-**Key files**: `auralis/player/enhanced_audio_player.py`, `auralis/player/gapless_playback_engine.py`, `auralis/player/queue_controller.py`, `auralis/player/realtime_processor.py`
+**Key files**: `auralis/player/enhanced_audio_player.py`, `auralis/player/gapless_playback_engine.py`, `auralis/player/queue_controller.py`, `auralis/player/playback_controller.py`, `auralis/player/realtime_processor.py` + `auralis/player/realtime/`, `auralis/player/components/`, `auralis/player/audio_file_manager.py`
 
 **Check**:
 - [ ] State transitions — are play/pause/stop/seek transitions atomic under RLock?
@@ -128,10 +132,11 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 
 ### Dimension 7: Library & Database
 
-**Key files**: `auralis/library/manager.py`, `auralis/library/repositories/`, `auralis/library/scanner/`, `auralis/library/migration_manager.py`
+**Key files**: `auralis/library/manager.py`, `auralis/library/repositories/`, `auralis/library/scanner/`, `auralis/library/migrations/`, `auralis/library/migration_manager.py`, `auralis/library/caching/`, `auralis/library/sidecar_manager.py`
 
 **Check**:
 - [ ] Repository pattern — ALL database access via repository classes? No raw SQL?
+- [ ] `BaseRepository._session_scope()` — the context manager exists in `auralis/library/repositories/base.py`, but most call sites still hand-roll session lifecycle. Flag leaks/missing rollbacks in the hand-rolled ones (the bulk migration itself is tracked debt, not a new finding).
 - [ ] SQLite config — `check_same_thread=False`, `pool_pre_ping=True` set?
 - [ ] N+1 queries — list operations use `selectinload()`?
 - [ ] Scanner robustness — symlinks, permission errors, Unicode filenames handled?
@@ -149,7 +154,7 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 
 ## Phase 2: Launch Dimension Agents
 
-Launch one Task agent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/engine/dim_<N>.md`.
+Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/engine/dim_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`

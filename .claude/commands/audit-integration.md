@@ -7,7 +7,7 @@ argument-hint: "[--focus <flow-names>] [--depth shallow|deep] [--limit <N>]"
 
 Trace the 7 critical data flows between the Auralis audio engine, FastAPI backend, and React frontend.
 
-**Architecture**: This is an orchestrator. Each flow runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+**Architecture**: This is an orchestrator. Each flow runs as an Agent-tool subagent (`subagent_type: general-purpose`, `model: sonnet`). Max 3 run concurrently.
 
 See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
 
@@ -59,21 +59,23 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 | Step | Layer | File |
 |------|-------|------|
-| User adjusts settings | Frontend | Enhancement hooks/components |
+| User adjusts settings | Frontend | `useEnhancementControl()` local state — the live source of truth (`playerSlice.preset`/`intensity` are dead) |
 | Settings API call | Frontend | `src/services/` |
-| Enhancement endpoint | Backend | `routers/enhancement.py` |
-| Processing config | Engine | `auralis/core/config.py` |
+| Enhancement endpoint | Backend | `auralis-web/backend/routers/enhancement.py` |
+| Runtime settings | Backend | shared `enhancement_settings` dict (mutated in place, seeded at startup from UserSettings) |
+| Processing config | Engine | `auralis/core/config/unified_config.py` (UnifiedConfig) and legacy `auralis/core/config.py` |
 | DSP pipeline | Engine | `auralis/core/hybrid_processor.py` → DSP modules |
 | Real-time application | Engine | `auralis/player/realtime_processor.py` |
 
-**Check**: Config format — do frontend slider values map correctly to engine parameters? Range validation — can the frontend send out-of-range values? Real-time vs offline — is the same config used for both paths? Latency — does enhancement cause audible gaps?
+**Check**: Config format — do frontend slider values map correctly to engine parameters? Does the transport actually pass the *current* preset/intensity through to playback, or re-read stale Redux state? Range validation — can the frontend send out-of-range values? Real-time vs offline — is the same config used for both paths? Do the UnifiedConfig package and legacy `config.py` disagree on any parameter? Latency — does enhancement cause audible gaps?
 
 ### Flow 4: Library Scanning
 
 | Step | Layer | File |
 |------|-------|------|
 | User adds folder | Frontend | Library management hooks |
-| Scan request | Backend | `routers/library.py` (or similar) |
+| Scan request | Backend | `auralis-web/backend/routers/library_scan.py` (browse endpoints live in `auralis-web/backend/routers/library.py`) |
+| Auto-scan | Backend | `auralis-web/backend/services/library_auto_scanner.py` (background folder watcher) |
 | Filesystem scan | Engine | `auralis/library/scanner/` |
 | Metadata extraction | Engine | `auralis/io/unified_loader.py` |
 | Database insert | Engine | `auralis/library/manager.py` → repositories |
@@ -86,11 +88,12 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 | Step | Layer | File |
 |------|-------|------|
-| Connection init | Frontend | WebSocket hooks |
-| WS accept | Backend | `audio_stream_controller.py` or `main.py` |
-| Message routing | Backend | WebSocket handler |
-| Binary audio frames | Backend | Chunk encoder |
-| Frame decode | Frontend | WebSocket hook |
+| Connection init | Frontend | `src/hooks/websocket/`, `src/contexts/WebSocketContext.tsx` |
+| WS accept + checks | Backend | `auralis-web/backend/ws_handlers/connection.py`, `auralis-web/backend/websocket/websocket_security.py` |
+| Message routing | Backend | `auralis-web/backend/ws_handlers/messages.py`, `playback_commands.py`, `playback_control.py` |
+| Protocol contract | Backend | `auralis-web/backend/websocket/websocket_protocol.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_messages.py` |
+| Binary audio frames | Backend | `auralis-web/backend/encoding/wav_encoder.py`, `auralis-web/backend/core/audio_stream_controller.py` |
+| Frame decode | Frontend | WebSocket hook → Web Audio API |
 
 **Check**: Connection establishment — handshake protocol? Message types — are all types documented and handled on both sides? Binary vs text frames — consistent usage? Reconnection — does the frontend re-establish state after disconnect? Backpressure — what happens when the frontend can't consume frames fast enough?
 
@@ -99,7 +102,8 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Step | Layer | File |
 |------|-------|------|
 | Similarity request | Frontend | Fingerprint/similarity hooks |
-| Similarity endpoint | Backend | `routers/similarity.py` |
+| Similarity endpoints | Backend | `auralis-web/backend/routers/similarity.py`, `auralis-web/backend/routers/similarity_graph.py` (shared helpers in `auralis-web/backend/routers/similarity_common.py`) |
+| Fingerprint queue/status | Backend | `auralis-web/backend/routers/fingerprint_queue.py`, `auralis-web/backend/routers/fingerprint_status.py`, `auralis-web/backend/analysis/fingerprint_generator.py` |
 | Fingerprint engine | Engine | `auralis/analysis/fingerprint/` |
 | Database lookup | Engine | `auralis/library/repositories/` (fingerprint, similarity repos) |
 | Results format | Backend | `schemas.py` |
@@ -136,7 +140,7 @@ For EVERY flow, systematically check:
 
 ## Phase 2: Launch Flow Agents
 
-Launch one Task agent per flow (max 3 concurrent). Each agent writes its output to `/tmp/audit/integration/flow_<N>.md`.
+Launch one Agent-tool subagent per flow (max 3 concurrent). Each agent writes its output to `/tmp/audit/integration/flow_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`

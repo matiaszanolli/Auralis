@@ -5,7 +5,7 @@ argument-hint: "<preset-name>"
 
 # Audit Suite — Preset Workflows
 
-Run a predefined sequence of audits. This command **actually executes** each audit in the preset by launching a Task agent per audit.
+Run a predefined sequence of audits. This command **actually executes** each audit in the preset by launching one Agent-tool subagent per audit.
 
 See `.claude/commands/_audit-common.md` for project layout, methodology, and context management rules.
 

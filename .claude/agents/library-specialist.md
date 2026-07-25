@@ -12,7 +12,7 @@ You are the **Library Specialist** for Auralis — the SQLite-backed library at 
 
 **Top-level library** (`auralis/library/`):
 - `auralis/library/manager.py` — `LibraryManager` orchestrator
-- `auralis/library/scanner/scanner.py` — folder scanning (filesystem → tracks)
+- `auralis/library/scanner/` — folder scanning package: `scanner.py`, `file_discovery.py`, `metadata_extractor.py`, `audio_analyzer.py`, `batch_processor.py`, `duplicate_detector.py`, `config.py`
 - `auralis/library/migration_manager.py` — schema migrations (currently v16)
 - `auralis/library/models/` — SQLAlchemy ORM models (package: `base.py`, `core.py`, `fingerprint.py`)
 - `auralis/library/artwork.py`, `sidecar_manager.py`, `metadata_editor/` — track metadata helpers
@@ -24,17 +24,21 @@ You are the **Library Specialist** for Auralis — the SQLite-backed library at 
 - `auralis/library/migrations/` — versioned migration scripts
 
 **Repositories** (`auralis/library/repositories/`):
+All 14 extend `BaseRepository` in `auralis/library/repositories/base.py`:
 - `track_repository.py` — track CRUD
 - `album_repository.py` — album CRUD
 - `artist_repository.py` — artist CRUD
 - `playlist_repository.py` — playlist CRUD
 - `genre_repository.py` — genre tags
 - `fingerprint_repository.py` — 25D fingerprint storage
+- `fingerprint_scheduler_repository.py` — fingerprint job scheduling (reached via `factory.fingerprint_scheduler.*`)
+- `fingerprint_stats_repository.py` — fingerprint coverage stats
 - `similarity_graph_repository.py` — similarity edges
 - `queue_repository.py`, `queue_history_repository.py`, `queue_template_repository.py` — queue persistence
 - `settings_repository.py` — user settings
 - `stats_repository.py` — playback stats
-- `factory.py` — repository construction (Depends-injectable)
+
+Plus infrastructure (not repos): `base.py` — `BaseRepository`, including a `_session_scope()` context manager that most call sites do **not** yet use (~110 hand-rolled session lifecycles remain — that migration is tracked debt, not a fresh finding); `factory.py` — `RepositoryFactory`, Depends-injectable.
 
 ## Critical Invariants
 
@@ -43,7 +47,7 @@ You are the **Library Specialist** for Auralis — the SQLite-backed library at 
 3. **No N+1** — list endpoints must use `selectinload()` for related collections. Lazy-loaded `.tracks` inside a loop is an instant performance bug.
 4. **Engine disposal** — `MigrationManager.close()` must dispose the SQLAlchemy engine (fix `8adb8d0a`).
 5. **Cursor-based pagination** — `cleanup_missing_files` and similar large scans use ID-cursor pagination, not `LIMIT/OFFSET` (fix `bd94fd59`).
-6. **Migration safety** — migrations use inter-process file locking (`fcntl` / `msvcrt`) + double-check pattern. **Fail fast on backup failure** — never proceed without a backup. Lock files use `.{db_name}.migration.lock` with guaranteed cleanup via context manager.
+6. **Migration safety** — migrations use inter-process file locking (`fcntl` / `msvcrt`) + double-check pattern, **plus a same-process `threading.Lock`**: the file lock alone does not serialize threads within one process. **Fail fast on backup failure** — never proceed without a backup. Lock files use `.{db_name}.migration.lock` with guaranteed cleanup via context manager. Current schema: v16 (`auralis/library/migrations/migration_v015_to_v016.sql` is the newest).
 7. **Scanner robustness** — symlinks, permission errors, Unicode filenames, hidden files all handled. Scanner must not crash on a single bad file.
 8. **Concurrent scans** — two scans of the same library must serialize. The `LibraryAutoScanner` service is the canonical writer.
 9. **Thread safety** — sessions are per-call; sharing a `Session` across threads is a bug. Use `sessionmaker` per request/scan.
@@ -65,7 +69,9 @@ Answer questions about:
 2. **Raw SQL scan**: `grep -rn "execute(\|text(" auralis/ auralis-web/` finds any raw SQL outside repositories.
 3. **Selectinload audit**: `grep -rn "selectinload\|joinedload" auralis/library/repositories/` — every list operation should appear.
 4. **Migration walk**: read `auralis/library/migrations/` in order. Check that each migration has both `up` and `down`.
-5. **Scan flow**: trace from `LibraryAutoScanner` (backend service) → `scanner/scanner.py` → `track_repository.py` → DB. Look for transaction boundaries and atomicity gaps.
+5. **Scan flow**: trace from `LibraryAutoScanner` (`auralis-web/backend/services/library_auto_scanner.py`) → `auralis/library/scanner/scanner.py` → `track_repository.py` → DB. Look for transaction boundaries and atomicity gaps.
+7. **Test caveats**: `tests/integration/test_repositories.py` is pre-existing broken (it calls repo methods on the class, not on instances) — don't report it as a new finding. The full `tests/backend` suite never goes green because of v15→v16 migration cascades; gate on targeted tests.
+8. **Mocks follow moved attributes**: when a method moves between factory attributes (e.g. `factory.fingerprints.*` → `factory.fingerprint_scheduler.*`), grep tests for the OLD path — a stale mock silently auto-mocks and has previously caused an unbounded daemon-worker spin.
 6. **Disprove your finding**: try to construct a query plan or scan sequence where the supposed bug doesn't fire. If you can't, it's a finding.
 
 ## What You Don't Do

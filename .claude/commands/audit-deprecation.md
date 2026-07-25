@@ -104,7 +104,7 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 - [ ] `node:` protocol — are Node.js built-ins imported with the `node:` prefix where applicable?
 - [ ] Deprecated Node.js APIs (`fs.exists`, `url.parse` → `new URL()`, `querystring` → `URLSearchParams`)
 - [ ] `package.json` deprecated fields (`main` without `exports`, `engines` mismatches)
-- [ ] Deprecated ESLint config format (`.eslintrc.*` → `eslint.config.js` flat config)
+- [ ] Deprecated ESLint config format (`.eslintrc.*` → flat config in *eslint.config.js*)
 - [ ] Deprecated testing library APIs (`cleanup` auto-behavior, `waitFor` patterns)
 - [ ] Deprecated Vitest configuration options
 - [ ] Electron deprecated APIs (if using older Electron patterns in `desktop/`)
@@ -113,12 +113,16 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 
 **Key locations**: `vendor/auralis-dsp/`
 
+**Current pins** (`vendor/auralis-dsp/Cargo.toml`): edition 2021, `pyo3 = 0.23`, `numpy = 0.23`, `ndarray = 0.16`.
+
 **Check**:
 - [ ] Deprecated Rust standard library APIs (check edition 2021 → 2024 migration)
 - [ ] PyO3 deprecated macros or API patterns (`#[pyfunction]`, `#[pymethods]` signature changes)
 - [ ] Deprecated `Cargo.toml` keys or dependency specification syntax
 - [ ] Deprecated crate features or APIs in dependencies
 - [ ] `maturin` deprecated configuration options
+- [ ] **Do NOT recommend bumping `numpy`/`pyo3` to 0.29 as a routine upgrade.** That bump compiles but hits a numpy-rs 0.29 / NumPy 2.3.x ABI runtime failure on both 3.13 and 3.14. The working configuration is staying on 0.23 and building with `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` against Python 3.14. Report it as a known-blocked upgrade with that context, not as a stale pin.
+- [ ] `Cargo.lock` — is it tracked? An untracked lockfile has previously hidden a real dependency conflict (ndarray 0.15/0.16) until a release build broke.
 
 ### Dimension 7: Internal Codebase Deprecations
 
@@ -137,9 +141,13 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 
 **Key locations**: `pyproject.toml`, `pytest.ini`, `.github/`, `Makefile`, `*.cfg`
 
+**Toolchain baseline**: Python tooling is **uv**, not pyenv (`.python-version` holds a plain version string). `pyproject.toml` declares `requires-python = ">=3.14"` while `.python-version` still pins 3.13.9 transitionally — that gap is known, not a new finding. JS package manager is **pnpm** only. Node 24+.
+
 **Check**:
-- [ ] `setup.cfg` / `setup.py` — should these be consolidated into `pyproject.toml`?
+- [ ] Any *setup.cfg* / *setup.py* left over — should they be consolidated into `pyproject.toml`? (Neither exists today; flag only if one reappears.)
 - [ ] `pytest.ini` deprecated options or marker syntax
+- [ ] **pytest version floor**: `tests/conftest.py` still uses the legacy `pytest_ignore_collect(path, config)` hook signature, which `pytest>=9.1.0` removed — a fresh resolve against the `>=7.0.0` floor in `pyproject.toml` picks a version that crashes collection outright. Flag the floor pin; the working version is `==9.0.1`.
+- [ ] Version drift: `auralis/version.py` is the source of truth and `sync_version.py` propagates it. Flag any `package.json`/`pyproject.toml` quoting a different version instead of hand-editing them.
 - [ ] GitHub Actions deprecated action versions (`actions/checkout@v2` → `@v4`, `actions/setup-python@v3` → `@v5`)
 - [ ] Deprecated Docker base images (if applicable)
 - [ ] `mypy` deprecated configuration options

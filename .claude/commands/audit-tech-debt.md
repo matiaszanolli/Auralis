@@ -7,7 +7,7 @@ argument-hint: "[--focus <dimensions>] [--depth shallow|deep] [--limit <N>]"
 
 Audit Auralis for accumulated technical debt: code that runs, passes tests, and ships, but quietly raises the cost of every future change. The goal is **not** to find correctness bugs (`/audit-engine`, `/audit-backend`, `/audit-frontend`, `/audit-concurrency`, `/audit-security` cover those) — it's to surface decay that has crept in since the last cleanup pass, and to enforce the project's own principles (DRY, Modular < 300 lines, No Variants, Repository pattern — see CLAUDE.md).
 
-**Architecture**: This is an orchestrator. Each dimension runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+**Architecture**: This is an orchestrator. Each dimension runs as an Agent-tool subagent (`subagent_type: general-purpose`, `model: sonnet`). Max 3 run concurrently.
 
 See `.claude/commands/_audit-common.md` for project layout, methodology, deduplication, context-management rules, and the base finding format. See `.claude/commands/_audit-severity.md` for the unified severity scale.
 
@@ -86,7 +86,7 @@ Default every tech-debt finding to LOW unless one of the above fires. Do **not**
 
 ## Phase 2: Launch Dimension Agents
 
-Launch one Task agent per selected dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/tech-debt/dim_<N>.md`.
+Launch one Agent-tool subagent per selected dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/tech-debt/dim_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`.
@@ -136,7 +136,7 @@ Every agent prompt MUST include:
 **Output**: `/tmp/audit/tech-debt/dim_2.md`
 
 ### Dimension 3: Logic Duplication
-**Entry points**: any subsystem with N>1 similar files — the Sibling Detection groups in `_audit-common.md` are the prime targets: `auralis/library/repositories/` (14 repos, each extends `BaseRepository`), `auralis-web/backend/routers/` (19 routers), `auralis/dsp/`, `auralis-web/frontend/src/hooks/`.
+**Entry points**: any subsystem with N>1 similar files — the Sibling Detection groups in `_audit-common.md` are the prime targets: `auralis/library/repositories/` (14 repos, each extends `BaseRepository`), `auralis-web/backend/routers/` (20 registered routers), `auralis-web/backend/core/` (the `stream_*.py` / `chunk_*.py` families), `auralis/core/` (the `mastering_*.py` family), `auralis/dsp/`, `auralis-web/frontend/src/hooks/`.
 **Checklist**:
 - Repeated query scaffolding across `auralis/library/repositories/` (session open → query → `selectinload` → map) — should it funnel through a base-repository helper?
 - Repeated request-validation / error-`HTTPException` / response-shaping boilerplate across `auralis-web/backend/routers/` (cross-reference `/sync-contracts` for the schema side).
@@ -148,7 +148,8 @@ Every agent prompt MUST include:
 ### Dimension 4: Magic Numbers & Hardcoded Constants
 **Entry points**: `auralis/core/`, `auralis/dsp/`, `auralis-web/backend/`, `auralis-web/frontend/src/`
 **Checklist**:
-- Bare audio constants inline (sample rates, FFT/window sizes, hop lengths, crossfade durations, chunk sizes/intervals) that should live in `auralis/core/config.py`. Note: chunk boundaries already have a single source of truth in `auralis-web/backend/core/chunk_boundaries.py` (`CHUNK_INTERVAL`) — flag any literal that bypasses it.
+- Bare audio constants inline (sample rates, FFT/window sizes, hop lengths, crossfade durations, chunk sizes/intervals) that should live in the config layer — `auralis/core/config/` (UnifiedConfig) for engine parameters, legacy `auralis/core/config.py` for the older dataclasses. A value defined in *both* is itself a finding.
+- Chunk boundaries already have a single source of truth in `auralis-web/backend/core/chunk_boundaries.py` (`CHUNK_DURATION` 15.0 / `CHUNK_INTERVAL` 10.0 / `OVERLAP_DURATION` 5.0 / `CONTEXT_DURATION` 5.0) — flag any literal that bypasses it, and any chunk count computed as `ceil(duration / CHUNK_DURATION)` instead of the overlap-aware `content_chunk_count()`.
 - Backend timeouts / TTLs / queue sizes / frame-byte budgets hardcoded inline (should be named module constants).
 - Frontend: hardcoded hex/rgb colors that bypass `auralis-web/frontend/src/design-system/` tokens (overlaps `/audit-frontend` Dim 5 — report under whichever you run; dedup at merge).
 - **Don't flag**: protocol/spec magic — WAV/audio-format header bytes, PCM bit depths (16/24), standard sample rates used as documented enum values, HTTP status codes. These are spec, not arbitrary tunables.
@@ -217,7 +218,7 @@ Every agent prompt MUST include:
 ### Dimension 10: Audit-Finding Rot
 **Entry points**: `.claude/commands/audit-*.md`, `docs/audits/`, `.claude/issues/`
 **Checklist**:
-- Run `.claude/commands/_audit-validate.sh` (done in Phase 1) — any STALE refs it reports are auto-eligible Dim 10 findings (effort: trivial). For symbol-anchor refs it can't verify (e.g. `module.py::function_name`), spot-check the symbol still exists.
+- Run `.claude/commands/_audit-validate.sh` (done in Phase 1) — any STALE refs it reports are auto-eligible Dim 10 findings (effort: trivial). For symbol-anchor refs it can't verify (e.g. *some_module.py::function_name*), spot-check the symbol still exists.
 - "Existing: #NNN" callouts in skill files where the issue is now CLOSED — should the prose reference the closed-state baseline differently?
 - Audit reports in `docs/audits/` older than 90 days whose CRITICAL/HIGH findings are not all triaged (open or closed) on GitHub.
 - Skill files that reference dimension counts ("all 9 dimensions") that no longer match the current list — including THIS file (keep "all 10" honest).

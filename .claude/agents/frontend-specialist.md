@@ -12,8 +12,8 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 
 **App shell** (`auralis-web/frontend/src/`):
 - `App.tsx`, `ComfortableApp.tsx` — root components
-- `main.tsx`, `index.tsx` — bootstrap
-- `contexts/` — React contexts (Enhancement, WebSocket — both globally auto-mocked in tests; see Critical Invariants)
+- `index.tsx` — bootstrap (there is no *main.tsx*; that duplicate entry point was removed)
+- `contexts/` — `ThemeContext.tsx` and `WebSocketContext.tsx`. **There is no EnhancementContext** — enhancement state lives in the `useEnhancementControl()` hook. Only `WebSocketContext` is globally auto-mocked in tests (see Critical Invariants).
 
 **Components** (`auralis-web/frontend/src/components/`):
 - Domain-grouped UI (player, library, enhancement, playlist, etc.)
@@ -27,7 +27,7 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 - `app/`, `audio/`, `fingerprint/`, `shared/` — assorted
 
 **State** (`auralis-web/frontend/src/store/`):
-- `slices/playerSlice.ts` — playback state
+- `slices/playerSlice.ts` — playback state. Note: its `preset` / `intensity` fields are **dead** — the live enhancement source is `useEnhancementControl()` local state. Don't read enhancement values from Redux.
 - `slices/queueSlice.ts` — queue management
 - `slices/cacheSlice.ts` — client-side cache
 - `slices/connectionSlice.ts` — WebSocket connection state
@@ -38,10 +38,14 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 - `primitives/`, `animations/`, `index.ts`
 
 **Services** (`auralis-web/frontend/src/services/`):
-- REST API clients matching backend schemas
+- REST API clients matching backend schemas, plus `api/`, `audio/`, `fingerprint/` subdirs
+- `auralis-web/frontend/src/api/transformers/` — payload mapping between wire and domain shapes
+- `auralis-web/frontend/src/types/` — `api.ts`, `domain.ts`, `websocket.ts`, `ws/`
 
 **Test utilities** (`auralis-web/frontend/src/test/`):
-- Test setup auto-mocks `EnhancementContext` and `WebSocketContext` globally (see Critical Invariants).
+- `auralis-web/frontend/src/test/setup.ts` auto-mocks `contexts/WebSocketContext` globally (see Critical Invariants); `test-utils.tsx` provides `render`; `mocks/` holds shared fixtures.
+- Specs live in `src/__tests__/`, `src/tests/`, and co-located `*.test.tsx`.
+- The suite has a **known baseline of pre-existing failures**. Compare against a clean worktree (`git worktree add`) before calling something a regression — never `git stash` in this repo. Run with `pnpm run test:memory` (2 GB heap).
 
 ## Critical Invariants
 
@@ -49,7 +53,7 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 2. **Tokens for color** — every color comes from `import { tokens } from '@/design-system'`. No raw `#fff` / `rgb(...)` literals.
 3. **Component size** — components must stay under 300 lines. Split into subcomponents if needed.
 4. **Vitest, not Jest** — `vi.*` for mocks, `render` from `@/test/test-utils`.
-5. **Auto-mocked contexts** — `EnhancementContext` and `WebSocketContext` are mocked globally in `src/test/setup.ts`. Tests that need the real implementation must call `vi.unmock(...)` explicitly.
+5. **Auto-mocked context** — `WebSocketContext` is mocked globally in `src/test/setup.ts`. Tests that need the real implementation must call `vi.unmock(...)` explicitly, or they are asserting against the mock.
 6. **WebSocket lifetime** — the client must handle reconnect; backend connections survive `--dev` reloads. State derived from WS events must be idempotent.
 7. **Redux state shape contract** — slices match what selectors expect. Adding a field to one without the other is a bug.
 8. **Schema parity** — frontend types must match backend Pydantic models exactly. Mismatches surface as silent runtime drift.

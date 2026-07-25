@@ -7,7 +7,7 @@ argument-hint: "[--focus <categories>] [--depth shallow|deep] [--limit <N>]"
 
 Perform a deep security audit of the Auralis music player aligned with the OWASP Top 10 (2021).
 
-**Architecture**: This is an orchestrator. Each OWASP category runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+**Architecture**: This is an orchestrator. Each OWASP category runs as an Agent-tool subagent (`subagent_type: general-purpose`, `model: sonnet`). Max 3 run concurrently.
 
 See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
 
@@ -22,7 +22,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Severity | Security-Specific Examples |
 |----------|--------------------------|
 | **CRITICAL** | Path traversal to arbitrary files, unvalidated FFmpeg args allowing code execution, exposed debug endpoints |
-| **HIGH** | Missing auth on WebSocket, unvalidated file uploads, CORS `allow_credentials=True` with `["*"]` origins |
+| **HIGH** | WebSocket connect check bypassable, unvalidated file uploads, CORS `allow_credentials=True` with `["*"]` origins, a file route bypassing `path_security.py` |
 | **MEDIUM** | Missing input sanitization, overly broad file access, insufficient rate limiting |
 | **LOW** | Missing security headers, undocumented API surface, verbose error messages leaking internals |
 
@@ -31,9 +31,10 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 For each category, check the specific items listed. Do NOT limit yourself to these — they are starting points.
 
 ### A01: Broken Access Control
-- [ ] WebSocket connections in `audio_stream_controller.py` — is there auth on connect?
-- [ ] All 19 routers in `auralis-web/backend/routers/` — which have NO auth checks?
-- [ ] File serving endpoints — can a user request files outside the music library?
+- [ ] WebSocket connections (`auralis-web/backend/ws_handlers/connection.py`, `auralis-web/backend/core/audio_stream_controller.py`) — is `auralis-web/backend/websocket/websocket_security.py` invoked on connect, and can its check be bypassed (missing/spoofed Origin, subprotocol, query param)?
+- [ ] All 20 registered routers (list them from `auralis-web/backend/config/routes.py`) — which have NO auth checks?
+- [ ] File serving endpoints (`auralis-web/backend/routers/files.py`) — can a user request files outside the music library? Do they route through `auralis-web/backend/security/path_security.py`, or hand-roll containment?
+- [ ] `path_security.py` itself — does containment survive symlinks, `..` after normalization, UNC/drive-relative paths, and case-insensitive filesystems?
 - [ ] Library scanner (`auralis/library/scanner/`) — does it follow symlinks outside allowed directories?
 - [ ] Artwork endpoints — path traversal via metadata manipulation?
 - [ ] Streaming endpoints — can a user stream any file on the filesystem?
@@ -59,11 +60,13 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] Fingerprint system — can a specially crafted file cause excessive resource consumption?
 
 ### A05: Security Misconfiguration
-- [ ] CORS settings in `main.py` — `allow_credentials=True` with `["*"]` origins?
+- [ ] CORS settings in `auralis-web/backend/config/middleware.py` (NOT `main.py` — it moved) — `allow_credentials=True` with `["*"]` origins? Does the allow-origins builder widen the set more than the localhost/dev-port case requires?
+- [ ] `SecurityHeadersMiddleware` — which headers does it actually set, and are any (CSP, X-Frame-Options) missing or permissive?
+- [ ] Middleware ordering — `add_middleware` is LIFO. Does a security middleware end up running *after* something it should gate?
 - [ ] Debug/development endpoints accessible in production?
-- [ ] `--dev` flag behavior — what security features does it disable?
+- [ ] `--dev` flag behavior — what security features does it disable? (It also skips the StaticFiles mount in `main.py`.)
 - [ ] Default configuration values — any that are insecure?
-- [ ] Error responses — do they leak stack traces, file paths, or internal state?
+- [ ] Error responses (`auralis-web/backend/routers/errors.py`) — do they leak stack traces, file paths, or internal state?
 
 ### A06: Vulnerable and Outdated Components
 - [ ] Check `requirements.txt` for known CVEs in dependencies.
@@ -73,11 +76,11 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] Are dependency versions pinned or floating?
 
 ### A07: Identification and Authentication Failures
-- [ ] Is there any authentication at all on the backend API?
-- [ ] WebSocket auth — is it validated on connect AND on each message?
-- [ ] Can any client connect to port 8765 and control playback?
+- [ ] Is there any authentication at all on the backend API? (By design there is none — Auralis is a desktop app bound to `127.0.0.1:8765`. Treat "no auth" as the documented baseline; report only where that baseline is *violated*, e.g. a surface reachable beyond localhost.)
+- [ ] WebSocket auth — `auralis-web/backend/websocket/websocket_security.py` exists: is it validated on connect AND on each message, or only at handshake?
+- [ ] Can any *local* process connect to port 8765 and control playback? Is the bind address actually `127.0.0.1` and never `0.0.0.0`?
 - [ ] Desktop app — does it restrict connections to localhost only?
-- [ ] Rate limiting on any endpoints?
+- [ ] Rate limiting — `RateLimitMiddleware` in `auralis-web/backend/config/middleware.py`: which routes does it cover, what are the limits in `auralis-web/backend/config/limits.py`, and can the window be reset or evaded?
 
 ### A08: Software and Data Integrity Failures
 - [ ] Database migrations (`migration_manager.py`) — are they validated before applying?
@@ -100,8 +103,14 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 
 | File | Purpose |
 |------|---------|
-| `auralis-web/backend/main.py` | FastAPI app, CORS, middleware config |
-| `auralis-web/backend/routers/` | All 19 route handlers |
+| `auralis-web/backend/config/middleware.py` | CORS, rate limiting, security headers, no-cache (moved out of `main.py`) |
+| `auralis-web/backend/config/routes.py` | Router registration — the authoritative list of exposed surfaces |
+| `auralis-web/backend/config/limits.py` | Rate-limit / request-size budgets |
+| `auralis-web/backend/main.py` | Lifespan wiring, StaticFiles mount, `--dev` switch |
+| `auralis-web/backend/security/path_security.py` | Filesystem path containment |
+| `auralis-web/backend/websocket/websocket_security.py` | WebSocket connect-time checks |
+| `auralis-web/backend/ws_handlers/` | WebSocket message handling (connection, messages, playback commands) |
+| `auralis-web/backend/routers/` | All 20 registered route handlers + `errors.py` (error-shape leakage) |
 | `auralis-web/backend/core/audio_stream_controller.py` | WebSocket streaming |
 | `auralis-web/backend/core/chunked_processor.py` | Audio chunk processing |
 | `auralis/io/unified_loader.py` | File loading (FFmpeg, SoundFile) |
@@ -115,10 +124,10 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 
 Trace how user-controlled data flows through the system:
 
-1. **File paths**: Frontend search → Backend router → LibraryManager → unified_loader → FFmpeg — is the path validated at each boundary?
+1. **File paths**: Frontend search → Backend router → `security/path_security.py` → LibraryManager → unified_loader → FFmpeg — is the path validated at each boundary, and does every route actually go through `path_security`?
 2. **Audio metadata**: File on disk → unified_loader → ID3/metadata parser → database → API response → Frontend render — is metadata sanitized?
-3. **WebSocket messages**: Frontend → WebSocket → audio_stream_controller → processing_engine → chunked_processor → audio engine — are messages validated?
-4. **Library scan paths**: User adds folder → `scanner/` → filesystem walk → database insert — can symlinks or special paths escape?
+3. **WebSocket messages**: Frontend → `websocket/websocket_security.py` → `ws_handlers/connection.py` → `ws_handlers/messages.py` → `core/audio_stream_controller.py` → processing_engine → chunked_processor → audio engine — are messages validated at the handler boundary, or trusted after handshake?
+4. **Library scan paths**: User adds folder → `routers/library_scan.py` → `scanner/` → filesystem walk → database insert — can symlinks or special paths escape?
 
 ## Phase 1: Setup
 
@@ -129,7 +138,7 @@ Trace how user-controlled data flows through the system:
 
 ## Phase 2: Launch Category Agents
 
-Launch one Task agent per OWASP category (max 3 concurrent). Each agent writes its output to `/tmp/audit/security/a<NN>.md`.
+Launch one Agent-tool subagent per OWASP category (max 3 concurrent). Each agent writes its output to `/tmp/audit/security/a<NN>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`

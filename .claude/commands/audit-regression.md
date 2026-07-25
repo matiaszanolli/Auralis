@@ -41,18 +41,23 @@ These are known critical invariants that must ALWAYS be verified, regardless of 
 
 | Fix Description | Commit | File(s) to Check | What to Verify |
 |----------------|--------|-------------------|----------------|
-| Equal-power crossfade between mastering chunks | `0a5df7a3` | `auralis-web/backend/core/chunked_processor.py` | Crossfade uses equal-power (sqrt) curve, not linear. Overlap region is 3s. |
+| Equal-power crossfade between mastering chunks | `0a5df7a3` | `auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/chunk_crossfade.py` | Crossfade uses equal-power (sqrt) curve, not linear. Overlap length comes from `OVERLAP_DURATION` in `auralis-web/backend/core/chunk_boundaries.py` (currently 5.0s) — verify against that constant, never a hardcoded number. |
+| Chunk constants have a single source of truth | — | `auralis-web/backend/core/chunk_boundaries.py` | `CHUNK_DURATION=15.0`, `CHUNK_INTERVAL=10.0`, `OVERLAP_DURATION=5.0`, `CONTEXT_DURATION=5.0`; no module redefines them, and chunk counting goes through the overlap-aware `content_chunk_count()`, not `ceil(duration / CHUNK_DURATION)` |
 | Parallel processing for sub-bass control | `8bc5b217` | `auralis/core/simple_mastering.py` | Sub-bass processing uses parallel path to prevent excessive loss |
 | Double-windowing removal in EQ | `cca59d9c` | `auralis/dsp/` | No double-windowing in VectorizedEQProcessor |
+| EQ curve mapped to bands by frequency | `2b3c5b35` | `auralis/dsp/eq/psychoacoustic_eq.py` | Bands are selected by frequency, not raw index. A band-25 IndexError used to silently fall back to the simple EQ — the fallback must not be reachable via index math. |
+| WOLA fixed 50% hop + full-Hann synthesis window | — | `auralis/dsp/eq/` | Overlap/hop is not configurable. If someone made it configurable, COLA must have been re-derived — otherwise this is a regression. |
 | Audio loading thread safety | `53cef6b4` | `auralis/analysis/fingerprint/` | Audio loading doesn't block on KeyboardInterrupt |
 | Cursor-based pagination in cleanup | `bd94fd59` | `auralis/library/` | `cleanup_missing_files` uses ID-cursor, not offset pagination |
 | SQLAlchemy engine disposal | `8adb8d0a` | `auralis/library/migration_manager.py` | Engine is disposed in `MigrationManager.close()` |
+| Migration lock covers threads too | — | `auralis/library/migration_manager.py` | Inter-process file lock (`fcntl`/`msvcrt`) **and** a same-process `threading.Lock` + double-check. The file lock alone does not serialize threads in one process. |
 | Sample count preservation in DSP pipeline | — | `auralis/core/hybrid_processor.py`, `auralis/dsp/stages.py` | `len(output) == len(input)` invariant maintained across all processing stages |
 | Copy-before-modify pattern | — | `auralis/core/simple_mastering.py`, `auralis/dsp/stages.py` | `audio.copy()` called before any in-place operations |
 | Thread-safe player state (RLock) | — | `auralis/player/enhanced_audio_player.py` | All state mutations protected by RLock |
 | SQLite thread-safe pooling | — | `auralis/library/manager.py` | `pool_pre_ping=True` and proper connection pooling configured |
 | Repository pattern (no raw SQL) | — | `auralis/library/repositories/` | All database access goes through repository classes, no raw SQL |
 | Gapless playback engine | — | `auralis/player/gapless_playback_engine.py` | No gap or click at track boundaries |
+| Path containment on file-serving routes | — | `auralis-web/backend/security/path_security.py`, `auralis-web/backend/routers/files.py` | File-serving routes validate through `path_security`, not hand-rolled prefix checks |
 
 **Note**: This registry should be updated when new critical fixes are made. Add entries when closing important bugs.
 
@@ -70,6 +75,8 @@ For each fix (from all sources):
 2. Look for test files named after the fix behavior
 3. Check if the specific invariant is asserted in any test
 4. Verdict: **TESTS PRESENT** (list files) or **NO TESTS**
+
+**If you run tests to confirm**: scope them. Two files hang when run whole — `tests/backend/test_system_api.py` and `tests/concurrency/test_thread_safety.py` — so run specific classes/tests from those. The full `tests/backend` suite never goes green (broken v15→v16 migration cascades); gate on targeted domain tests, not the whole tree. An untargeted `pytest -m "not slow"` over the repo takes ~75 min, not the 1-2 min CLAUDE.md implies.
 
 ### Step 3: Assign Status
 - **PASS**: Fix present + tests exist

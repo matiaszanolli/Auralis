@@ -7,7 +7,7 @@ argument-hint: "[--focus <dimensions>] [--depth shallow|deep] [--limit <N>]"
 
 Perform a deep audit of Auralis for race conditions, missing locks, thread safety violations, state machine bugs, and unsafe concurrent access.
 
-**Architecture**: This is an orchestrator. Each dimension runs as a Task agent (subagent_type: general-purpose, model: sonnet, max_turns: 25). Max 3 agents run concurrently.
+**Architecture**: This is an orchestrator. Each dimension runs as an Agent-tool subagent (`subagent_type: general-purpose`, `model: sonnet`). Max 3 run concurrently.
 
 See `.claude/commands/_audit-common.md` for project layout, severity framework, methodology, context management rules, deduplication, and finding format.
 
@@ -55,13 +55,18 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ### Dimension 3: Backend WebSocket & Streaming
 
-**Key files**: `auralis-web/backend/core/audio_stream_controller.py`, `auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/main.py`
+**Key files**: `auralis-web/backend/core/audio_stream_controller.py`, `auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/processor_pool.py`, `auralis-web/backend/core/job_worker.py`, `auralis-web/backend/core/state_manager.py`, `auralis-web/backend/core/proactive_buffer.py`, `auralis-web/backend/core/chunk_cache_manager.py`, `auralis-web/backend/ws_handlers/`, `auralis-web/backend/config/background_workers.py`
 
 **Check**:
 - [ ] Multiple WebSocket clients — can two clients request different tracks simultaneously?
 - [ ] Chunked processor state — is it per-request or shared? Can concurrent requests corrupt chunk state?
+- [ ] Processor pool — is checkout/return in `auralis-web/backend/core/processor_pool.py` leak-free on every early-exit and exception path?
+- [ ] Job worker lifecycle — can `auralis-web/backend/core/job_worker.py` die silently and leave the queue stalled? Is there a watchdog?
+- [ ] Chunk cache — concurrent writers to the same cache key: torn/partial files, or last-writer-wins?
+- [ ] Streaming semaphores — `stream_enhanced.py` / `stream_normal.py` must release in `finally`; are all early exits accounted for?
 - [ ] Processing engine — shared or per-request instances? Thread safety?
-- [ ] FastAPI async handlers calling sync audio code — are they using `run_in_executor`? Can blocking calls starve the event loop?
+- [ ] FastAPI async handlers calling sync audio code — are they using `run_in_executor` / `asyncio.to_thread`? Can blocking calls starve the event loop?
+- [ ] Background workers started in the lifespan — are they cancelled and awaited on shutdown?
 - [ ] WebSocket disconnect during processing — is cleanup atomic? Resource leaks?
 
 ### Dimension 4: Library & Database
@@ -74,7 +79,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 - [ ] Concurrent scans — can two scan operations run simultaneously and cause conflicts?
 - [ ] Repository pattern — any raw SQL bypassing the ORM?
 - [ ] Library writes during playback reads — can a scan update a track that's currently playing?
-- [ ] Migration execution — safe to run while the app is serving requests?
+- [ ] Migration execution — safe to run while the app is serving requests? Migrations use inter-process file locking (`fcntl`/`msvcrt`) plus a same-process `threading.Lock`; the file lock alone does NOT serialize threads in one process — verify both are still present.
 
 ### Dimension 5: Frontend State Consistency
 
@@ -96,7 +101,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 ## Phase 2: Launch Dimension Agents
 
-Launch one Task agent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/concurrency/dim_<N>.md`.
+Launch one Agent-tool subagent per dimension (max 3 concurrent). Each agent writes its output to `/tmp/audit/concurrency/dim_<N>.md`.
 
 Every agent prompt MUST include:
 - The project root is `/mnt/data/src/matchering`

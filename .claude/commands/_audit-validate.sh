@@ -38,12 +38,11 @@ VERBOSE=0
 
 should_skip() {
     local p="$1"
-    # Bare basenames carry no path info — they can't go stale in the
-    # "wrong dir" sense this gate targets.
-    [[ "$p" != */* ]] && return 0
     [[ "$p" == /tmp/* ]] && return 0
     [[ "$p" == ~/* || "$p" == \~* ]] && return 0
     [[ "$p" == *"://"* ]] && return 0
+    # Placeholder tokens in per-finding format templates, not real refs.
+    [[ "$p" == *"<"* || "$p" == *">"* ]] && return 0
     return 1
 }
 
@@ -89,6 +88,11 @@ trap 'rm -f "$all_paths_file"' EXIT
 git ls-files > "$all_paths_file"
 
 # True iff `p` matches any tracked path or path-suffix.
+#
+# Bare basenames (`chunked_processor.py`) are checked too — they are shorthand
+# for a file the surrounding paragraph already located, and they go stale
+# exactly like full paths do. Historically they were skipped, which is how
+# `wav_streaming.py` and `self_tuner.py` survived long after deletion.
 path_exists() {
     local p="$1"
     [[ -e "$p" ]] && return 0
