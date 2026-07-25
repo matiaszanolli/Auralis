@@ -1,5 +1,6 @@
 import { createTheme, Theme } from '@mui/material/styles';
 import { tokens } from '@/design-system';
+import { getSemanticTheme, type ThemeMode } from './semanticTheme';
 
 // ============================================================================
 // AURORA GRADIENTS — derived from tokens (single source of truth, #2766)
@@ -134,9 +135,10 @@ export const glassEffects = {
 // ============================================================================
 // CREATE THEME FUNCTION
 // ============================================================================
-export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
+export const createAuralisTheme = (mode: ThemeMode): Theme => {
   const isDark = mode === 'dark';
   const colors = isDark ? darkColors : lightColors;
+  const semantic = getSemanticTheme(mode);
 
   // #3597/#3949: MUI light/dark variants derived from the brand accents. MUI
   // uses these for auto-generated hover/focus shades; we pre-compute them to
@@ -148,10 +150,8 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
   const SECONDARY_DARK = tokens.colors.accent.secondaryDark;
 
   return createTheme({
-    // Opt out of MUI v6's CSS-variables-by-default theme. The custom
-    // --bg-* / --text-* / --glass-border variables written from
-    // ThemeContext.tsx live in a separate namespace from MUI's --mui-*,
-    // but the explicit opt-out documents the deliberate split (#3487).
+    // Auralis owns one semantic CSS-variable namespace. Keeping MUI's generated
+    // variables disabled avoids two competing runtime theme contracts.
     cssVariables: false,
     palette: {
       mode,
@@ -166,13 +166,13 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
         dark: SECONDARY_DARK,
       },
       background: {
-        default: colors.background.primary,
-        paper: colors.background.secondary,
+        default: semantic.canvas,
+        paper: semantic.surfacePrimary,
       },
       text: {
-        primary: colors.text.primary,
-        secondary: colors.text.secondary,
-        disabled: colors.text.disabled,
+        primary: semantic.textPrimary,
+        secondary: semantic.textSecondary,
+        disabled: semantic.textDisabled,
       },
       success: {
         main: colors.accent.success,
@@ -229,21 +229,34 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
       borderRadius: parseInt(tokens.borderRadius.sm),
     },
     components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          body: {
+            backgroundColor: semantic.canvas,
+            color: semantic.textPrimary,
+          },
+        },
+      },
       MuiButton: {
         styleOverrides: {
           root: {
             textTransform: 'none',
             borderRadius: tokens.borderRadius.sm,
-            padding: '10px 24px',
+            padding: `${tokens.spacing.cluster} ${tokens.spacing.group}`,
             fontWeight: tokens.typography.fontWeight.semibold,
-            transition: tokens.transitions.state_inOut,
+            transition: tokens.transitions.hover_out,
           },
           contained: {
             boxShadow: 'none',
             '&:hover': {
-              boxShadow: isDark
-                ? '0 4px 12px ' + tokens.colors.opacityScale.dark.strong
-                : `0 4px 12px ${tokens.colors.opacityScale.accent.standard}`,
+              boxShadow: tokens.shadows.sm,
+            },
+          },
+          outlined: {
+            borderColor: semantic.borderDefault,
+            '&:hover': {
+              borderColor: semantic.borderStrong,
+              backgroundColor: semantic.accentSoft,
             },
           },
         },
@@ -251,17 +264,155 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
       MuiCard: {
         styleOverrides: {
           root: {
-            ...glassEffects.panel(isDark),
+            backgroundColor: semantic.surfaceSecondary,
             backgroundImage: 'none',
-            transition: tokens.transitions.state_inOut,
+            border: `1px solid ${semantic.borderSubtle}`,
+            boxShadow: 'none',
+            transition: tokens.transitions.hover_out,
           },
         },
       },
       MuiPaper: {
         styleOverrides: {
           root: {
+            backgroundColor: semantic.surfacePrimary,
             backgroundImage: 'none',
-            ...glassEffects.strong(isDark),
+            color: semantic.textPrimary,
+          },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            backgroundColor: semantic.surfaceRaised,
+            border: `1px solid ${semantic.borderDefault}`,
+            borderRadius: tokens.borderRadius.lg,
+            boxShadow: semantic.shadowOverlay,
+          },
+        },
+      },
+      MuiDialogTitle: {
+        styleOverrides: {
+          root: {
+            padding: `${tokens.spacing.lg} ${tokens.spacing.xl}`,
+            borderBottom: `1px solid ${semantic.borderSubtle}`,
+          },
+        },
+      },
+      MuiDialogActions: {
+        styleOverrides: {
+          root: {
+            padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
+            borderTop: `1px solid ${semantic.borderSubtle}`,
+          },
+        },
+      },
+      MuiBackdrop: {
+        styleOverrides: {
+          root: {
+            backgroundColor: semantic.backdrop,
+          },
+        },
+      },
+      MuiDrawer: {
+        styleOverrides: {
+          paper: {
+            backgroundColor: semantic.surfacePrimary,
+            backgroundImage: 'none',
+            borderColor: semantic.borderSubtle,
+            boxShadow: semantic.shadowRaised,
+          },
+        },
+      },
+      MuiDivider: {
+        styleOverrides: {
+          root: {
+            borderColor: semantic.borderSubtle,
+          },
+        },
+      },
+      MuiListItemButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: tokens.borderRadius.sm,
+            transition: tokens.transitions.hover_out,
+            '&:hover': {
+              backgroundColor: semantic.accentSoft,
+            },
+            '&.Mui-selected': {
+              backgroundColor: semantic.accentSoft,
+              '&:hover': {
+                backgroundColor: semantic.accentSoft,
+              },
+            },
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            backgroundColor: semantic.surfaceSecondary,
+            borderRadius: tokens.borderRadius.sm,
+            transition: tokens.transitions.hover_out,
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: semantic.borderDefault,
+            },
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: semantic.borderStrong,
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: semantic.accent,
+              boxShadow: `0 0 0 3px ${semantic.focusRing}`,
+            },
+          },
+          input: {
+            color: semantic.textPrimary,
+            '&::placeholder': {
+              color: semantic.textMuted,
+              opacity: 1,
+            },
+          },
+        },
+      },
+      MuiTabs: {
+        styleOverrides: {
+          root: {
+            borderBottom: `1px solid ${semantic.borderSubtle}`,
+          },
+          indicator: {
+            height: 2,
+            borderRadius: tokens.borderRadius.full,
+          },
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: {
+            minHeight: 44,
+            color: semantic.textSecondary,
+            textTransform: 'none',
+            '&.Mui-selected': {
+              color: semantic.textPrimary,
+            },
+          },
+        },
+      },
+      MuiToggleButton: {
+        styleOverrides: {
+          root: {
+            color: semantic.textSecondary,
+            borderColor: semantic.borderDefault,
+            '&:hover': {
+              backgroundColor: semantic.accentSoft,
+              color: semantic.textPrimary,
+            },
+            '&.Mui-selected': {
+              backgroundColor: semantic.accentSoft,
+              color: semantic.accent,
+              '&:hover': {
+                backgroundColor: semantic.accentSoft,
+              },
+            },
           },
         },
       },
@@ -287,7 +438,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
           rail: {
             height: 6,
             borderRadius: 3,
-            backgroundColor: colors.background.surface,
+            backgroundColor: semantic.surfaceRaised,
             opacity: 1,
           },
         },
@@ -319,7 +470,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
           },
           track: {
             borderRadius: 16,
-            backgroundColor: colors.background.surface,
+            backgroundColor: semantic.surfaceRaised,
             opacity: 1,
           },
         },
@@ -327,12 +478,11 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
       MuiIconButton: {
         styleOverrides: {
           root: {
-            transition: tokens.transitions.state_inOut,
+            color: semantic.textSecondary,
+            transition: tokens.transitions.hover_out,
             '&:hover': {
-              transform: 'scale(1.1)',
-              background: isDark
-                ? tokens.colors.opacityScale.white.veryLight
-                : tokens.colors.opacityScale.accent.minimal,
+              color: semantic.textPrimary,
+              backgroundColor: semantic.accentSoft,
             },
           },
         },
@@ -340,7 +490,10 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
       MuiTooltip: {
         styleOverrides: {
           tooltip: {
-            ...glassEffects.strong(isDark),
+            backgroundColor: semantic.surfaceOverlay,
+            color: semantic.textPrimary,
+            border: `1px solid ${semantic.borderDefault}`,
+            boxShadow: semantic.shadowRaised,
             fontSize: tokens.typography.fontSize.xs,
           },
         },

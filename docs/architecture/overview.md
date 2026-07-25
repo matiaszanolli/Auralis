@@ -38,13 +38,14 @@ design decisions (no TLS, hardcoded `127.0.0.1:8765`, file-based locking, `file:
 
 | Layer | Path | Language | Responsibility |
 |-------|------|----------|----------------|
-| **Frontend** | [`auralis-web/frontend/`](../../auralis-web/frontend/) | TypeScript / React | UI, Redux state, browser audio playback |
+| **Desktop renderer** | [`auralis-web/frontend/`](../../auralis-web/frontend/) | TypeScript / React | UI, Redux state, Electron Web Audio playback |
 | **Backend** | [`auralis-web/backend/`](../../auralis-web/backend/) | Python / FastAPI | REST + WebSocket, chunk orchestration |
 | **Core engine** | [`auralis/`](../../auralis/) | Python | DSP, analysis, library, player |
 | **Rust DSP** | [`vendor/auralis-dsp/`](../../vendor/auralis-dsp/) | Rust / PyO3 | HPSS, YIN, Chroma, 25D fingerprint |
 
 The **desktop wrapper** ([`desktop/`](../../desktop/)) is an Electron shell that bundles all of
-the above and launches them together.
+the above and launches them together. Standalone browser/PWA execution is deprecated and kept
+only as an unsupported renderer-development preview.
 
 ---
 

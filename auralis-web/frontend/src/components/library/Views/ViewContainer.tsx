@@ -12,6 +12,7 @@
 import { ReactNode } from 'react';
 import { Container, Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ViewContainerProps {
   icon: string;
@@ -36,6 +37,7 @@ export const ViewContainer = ({
     <Box
       sx={{
         display: 'flex',
+        minHeight: '100%',
       }}
     >
       {/* Main content area — no overflow, scrolls within app-main-content-scroll */}
@@ -47,11 +49,12 @@ export const ViewContainer = ({
         <Container
           maxWidth="xl"
           sx={{
-            py: 4,
+            py: tokens.spacing.xl,
+            px: { xs: tokens.spacing.lg, lg: tokens.spacing.section },
           }}
         >
           <Box sx={{
-            mb: 4,
+            mb: tokens.spacing.xl,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
@@ -62,16 +65,17 @@ export const ViewContainer = ({
                 component="h1"
                 gutterBottom
                 sx={{
-                  fontWeight: "bold",
-                  background: `linear-gradient(45deg, ${tokens.colors.accent.primary}, ${tokens.colors.accent.secondary})`,
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent'
+                  fontWeight: tokens.typography.fontWeight.semibold,
+                  color: themeVars.textPrimary,
+                  letterSpacing: '-0.02em',
                 }}>
-                {icon} {title}
+                <Box component="span" aria-hidden="true" sx={{ color: themeVars.accent, mr: tokens.spacing.cluster }}>
+                  {icon}
+                </Box>
+                {title}
               </Typography>
               <Typography variant="subtitle1" sx={{
-                color: "text.secondary"
+                color: themeVars.textSecondary,
               }}>
                 {subtitle}
               </Typography>
@@ -98,6 +102,7 @@ export const ViewContainer = ({
             height: 'fit-content',
             maxHeight: '100vh',
             overflowY: 'auto',
+            borderLeft: `1px solid ${themeVars.borderSubtle}`,
           }}
         >
           {rightPane}

@@ -7,6 +7,7 @@ import { tokens } from '@/design-system';
 import { AuroraLogo } from '@/components/navigation/AuroraLogo';
 import { IconButton } from '@/design-system';
 import { Box, Divider } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface SidebarHeaderProps {
   onToggleCollapse?: () => void;
@@ -30,11 +31,10 @@ export const SidebarHeader = ({ onToggleCollapse }: SidebarHeaderProps) => {
           aria-expanded={true}
           size="small"
           sx={{
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             transition: tokens.transitions.all,
             '&:hover': {
-              color: tokens.colors.text.primary,
-              transform: 'scale(1.1)',
+              color: themeVars.textPrimary,
             },
           }}
         >
@@ -42,7 +42,7 @@ export const SidebarHeader = ({ onToggleCollapse }: SidebarHeaderProps) => {
         </IconButton>
       </Box>
 
-      <Divider sx={{ borderColor: tokens.colors.border.light }} />
+      <Divider sx={{ borderColor: themeVars.borderSubtle }} />
     </>
   );
 };

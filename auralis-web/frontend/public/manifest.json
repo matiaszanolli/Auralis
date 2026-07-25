@@ -1,6 +1,6 @@
 {
-  "short_name": "Auralis",
-  "name": "Auralis - Professional Audio Management",
+  "short_name": "Auralis Preview",
+  "name": "Auralis Browser Preview (Unsupported)",
   "icons": [
     {
       "src": "favicon.ico",
@@ -9,8 +9,8 @@
     }
   ],
   "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#1976d2",
-  "background_color": "#121212",
-  "categories": ["music", "audio", "productivity"]
+  "display": "browser",
+  "theme_color": "#0B1020",
+  "background_color": "#0B1020",
+  "categories": ["music", "audio"]
 }

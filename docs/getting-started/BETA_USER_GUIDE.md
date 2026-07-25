@@ -383,7 +383,9 @@ A: Not in beta. Advanced controls coming in 1.1.0.
 A: Yes. FastAPI backend + React frontend + Electron wrapper.
 
 **Q: Can I run just the backend as a server?**
-A: Yes! `python launch-auralis-web.py` runs the web interface.
+A: The local FastAPI backend can be run for development, but there is no supported standalone
+web product. Electron is the official interface; the Vite browser view is an unsupported
+renderer-development preview.
 
 **Q: Does it support Raspberry Pi?**
 A: Not officially, but users report it works (albeit slowly).

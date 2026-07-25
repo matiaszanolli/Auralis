@@ -19,6 +19,8 @@ import {
 } from './components/core';
 import { ErrorBoundary } from './components/core/ErrorBoundary';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
+import DesktopPlatformNotice from '@/components/platform/DesktopPlatformNotice';
 
 // Custom hooks for business logic
 import { useAppLayout } from '@/hooks/app/useAppLayout';
@@ -249,7 +251,18 @@ function ComfortableApp() {
   }, []);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
+        backgroundColor: themeVars.canvas,
+        color: themeVars.textPrimary,
+      }}
+    >
+      <DesktopPlatformNotice />
       <AppContainer onDragEnd={handleDragEnd}>
         {/* Sidebar (desktop or mobile drawer) */}
         <AppSidebar
@@ -287,10 +300,10 @@ function ComfortableApp() {
                 <Box
                   sx={{
                     p: tokens.spacing.lg,
-                    background: tokens.colors.bg.level1,
-                    border: `1px solid ${tokens.colors.semantic.error}`,
+                    background: themeVars.errorSoft,
+                    border: `1px solid ${themeVars.error}`,
                     borderRadius: tokens.borderRadius.md,
-                    color: tokens.colors.text.secondary,
+                    color: themeVars.textPrimary,
                     fontSize: tokens.typography.fontSize.sm,
                     textAlign: 'center',
                     m: tokens.spacing.lg,
@@ -347,9 +360,9 @@ function ComfortableApp() {
             <Box
               sx={{
                 p: tokens.spacing.md,
-                background: tokens.colors.bg.level1,
-                borderTop: `1px solid ${tokens.colors.semantic.error}`,
-                color: tokens.colors.text.secondary,
+                background: themeVars.errorSoft,
+                borderTop: `1px solid ${themeVars.error}`,
+                color: themeVars.textPrimary,
                 fontSize: tokens.typography.fontSize.sm,
                 textAlign: 'center',
               }}

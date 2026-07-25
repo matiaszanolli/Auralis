@@ -23,6 +23,7 @@ import { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { tokens, withOpacity } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { computeAlbumCharacter } from '@/utils/albumCharacterDescriptors';
 import { EnhancementToggle } from '@/components/shared/EnhancementToggle';
@@ -133,12 +134,11 @@ export const AlbumCharacterPane = ({
     minHeight: 0,
     alignSelf: 'stretch',
     flexShrink: 0,
-    background: tokens.components.rightPanel.background,
-    backdropFilter: tokens.components.rightPanel.backdropFilter,
-    border: 'none',
+    background: themeVars.surfacePrimary,
+    borderLeft: `1px solid ${themeVars.borderSubtle}`,
     boxShadow: glowIntensity > 0.05
-      ? `${tokens.components.rightPanel.shadow}, inset 3px 0 16px -4px ${withOpacity(tokens.colors.audioSemantic.identity, 0.08 + glowIntensity * 0.12)}`
-      : tokens.components.rightPanel.shadow,
+      ? `inset 3px 0 16px -4px ${withOpacity(tokens.colors.audioSemantic.identity, 0.08 + glowIntensity * 0.12)}`
+      : 'none',
     p: tokens.spacing.lg,
     overflowY: 'auto' as const,
     overflowX: 'hidden' as const,
@@ -152,7 +152,7 @@ export const AlbumCharacterPane = ({
       sx={{
         pb: tokens.spacing.lg,
         mb: tokens.spacing.lg,
-        borderBottom: `1px solid ${tokens.colors.border.light}`,
+        borderBottom: `1px solid ${themeVars.borderSubtle}`,
       }}
     >
       <EnhancementToggle
@@ -219,7 +219,7 @@ export const AlbumCharacterPane = ({
           sx={{
             fontSize: tokens.typography.fontSize.lg,
             fontWeight: tokens.typography.fontWeight.semibold,
-            color: tokens.colors.text.primary,
+            color: themeVars.textPrimary,
             mb: tokens.spacing.xs,
             textShadow: glowIntensity > 0.1
               ? `0 0 ${8 + glowIntensity * 8}px ${withOpacity(tokens.colors.audioSemantic.identity, 0.2 + glowIntensity * 0.3)}`
@@ -232,7 +232,7 @@ export const AlbumCharacterPane = ({
         {displayTitle && (
           <Typography
             variant="caption"
-            sx={{ color: tokens.colors.text.tertiary, fontSize: tokens.typography.fontSize.xs }}
+            sx={{ color: themeVars.textMuted, fontSize: tokens.typography.fontSize.xs }}
           >
             {displayTitle}
           </Typography>
@@ -270,7 +270,7 @@ export const AlbumCharacterPane = ({
           pt: tokens.spacing.lg,
           position: 'relative',
           zIndex: tokens.zIndex.content,
-          boxShadow: `inset 0 1px 0 ${tokens.colors.opacityScale.white.veryLight}`,
+          borderTop: `1px solid ${themeVars.borderSubtle}`,
           opacity: 0.7 + intensity * 0.2,
           transition: `opacity ${tokens.transitions.slow}`,
         }}
@@ -278,7 +278,7 @@ export const AlbumCharacterPane = ({
         <Typography
           variant="caption"
           sx={{
-            color: tokens.colors.text.tertiary,
+            color: themeVars.textMuted,
             fontSize: tokens.typography.fontSize.xs,
             display: 'flex',
             alignItems: 'center',

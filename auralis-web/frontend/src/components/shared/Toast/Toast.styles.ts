@@ -1,7 +1,7 @@
 
-import { tokens } from '@/design-system';
+import { tokens } from '@/design-system/tokens';
 import { getToastBackgroundColor, getToastBorderColor } from './toastColors';
-import { Alert } from '@/design-system';
+import { Alert } from '@/design-system/primitives/Alert';
 import { AlertColor, styled, keyframes } from '@mui/material';
 
 /**

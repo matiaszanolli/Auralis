@@ -1,5 +1,6 @@
 import { Box, ListItemButton, Typography, styled } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * Styled components for Sidebar
@@ -17,15 +18,12 @@ export const SidebarContainer = styled(Box)({
   alignSelf: 'stretch',
   flexShrink: 0,
 
-  // Lower contrast glass (calm, muscle memory UI)
-  background: tokens.components.sidebar.background,
-  backdropFilter: tokens.components.sidebar.backdropFilter,
-  borderRight: tokens.components.sidebar.borderRight,  // 'none' from tokens
-  boxShadow: tokens.components.sidebar.shadow,
+  background: themeVars.surfacePrimary,
+  borderRight: `1px solid ${themeVars.borderSubtle}`,
 
   display: 'flex',
   flexDirection: 'column',
-  transition: `width ${tokens.transitions.slow}, backdrop-filter ${tokens.transitions.base}`,
+  transition: `width ${tokens.transitions.slow}`,
 
   // No edge glow - sidebar should fade from conscious awareness (§4.3)
 });
@@ -37,7 +35,7 @@ export const SectionLabel = styled(Typography)({
   // text.disabled (40%) is only calibrated for the 3:1 large-text minimum, and
   // the previous extra `opacity: 0.4` compounded it to ~16% effective alpha —
   // near-invisible and well under AA against the dark glass sidebar (#4451).
-  color: tokens.colors.text.metadata,
+  color: themeVars.textMuted,
   textTransform: 'uppercase',
   letterSpacing: '1px',
   padding: `${tokens.spacing.md} ${tokens.spacing.lg} ${tokens.spacing.sm}`,
@@ -54,13 +52,11 @@ export const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }
   marginBottom: tokens.spacing.cluster,      // 8px - tight clustering within sections
   position: 'relative',
   transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
+  border: '1px solid transparent',
 
   ...(isactive === 'true' && {
-    // Enhanced active state - more visible with stronger glass
-    background: tokens.glass.subtle.background,  // Use glass tokens for consistency
-    backdropFilter: tokens.glass.subtle.backdropFilter, // 20px blur for glossy effect
-    border: tokens.glass.subtle.border,         // Subtle glass border (10% white opacity)
-    boxShadow: tokens.glass.subtle.boxShadow,   // Deeper shadow + inner glow
+    background: themeVars.accentSoft,
+    borderColor: themeVars.borderStrong,
 
     '&::before': {
       content: '""',
@@ -69,22 +65,14 @@ export const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }
       top: 0,
       bottom: 0,
       width: '3px',                            // More visible accent bar
-      background: tokens.colors.accent.primary,
+      background: themeVars.accent,
       borderRadius: '0 2px 2px 0',             // Softer curve
-      boxShadow: `0 0 8px ${tokens.colors.accent.primary}66`, // Subtle glow
     },
   }),
 
   '&:hover': {
-    background: isactive === 'true'
-      ? tokens.glass.medium.background         // Enhanced glass on hover
-      : tokens.glass.subtle.background,        // Glass effect on hover
-    backdropFilter: isactive === 'true'
-      ? tokens.glass.medium.backdropFilter     // 32px blur (intensified from 28px)
-      : tokens.glass.subtle.backdropFilter,    // 24px blur (intensified from 20px)
-    transform: 'scale(1.01)',                  // Subtle scale hover (Design Language §5 - muscle memory UI)
-    boxShadow: tokens.glass.subtle.boxShadow,  // Add depth on hover
-    border: tokens.glass.subtle.border,        // Glass border on hover (15% white opacity)
+    background: themeVars.accentSoft,
+    borderColor: isactive === 'true' ? themeVars.borderStrong : 'transparent',
   },
 }));
 
@@ -92,11 +80,8 @@ export const CollapsedSidebarContainer = styled(Box)({
   width: tokens.spacing.xxxl, // 64px
   alignSelf: 'stretch', // Use flex stretch instead of height: 100%
   flexShrink: 0,
-  // Semi-transparent to let starfield show through
-  background: tokens.glass.starfield.soft, // #3950: unified starfield glass
-  backdropFilter: 'blur(6px) saturate(0.95)',
-  // Glass bevel: right highlight + inner shadow (no hard borders)
-  boxShadow: `2px 0 16px ${tokens.colors.opacityScale.dark.lighter}, inset -1px 0 0 ${tokens.colors.opacityScale.white.faint}`,
+  background: themeVars.surfacePrimary,
+  borderRight: `1px solid ${themeVars.borderSubtle}`,
   display: 'flex',
   flexDirection: 'column',
   transition: `width ${tokens.transitions.slow}`,

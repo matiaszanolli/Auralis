@@ -3,6 +3,7 @@ import { ToggleButtonGroup, ToggleButton, styled } from '@mui/material';
 import ViewModule from '@mui/icons-material/ViewModule';
 import ViewList from '@mui/icons-material/ViewList';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export type ViewMode = 'grid' | 'list';
 
@@ -12,33 +13,32 @@ interface ViewToggleProps {
 }
 
 const StyledToggleButtonGroup = styled(ToggleButtonGroup)({
-  background: tokens.colors.bg.tertiary,
+  background: themeVars.surfaceSecondary,
   borderRadius: tokens.borderRadius.sm,                 // 8px
   padding: tokens.spacing.xs,                           // 4px
   gap: tokens.spacing.xs,                               // 4px
-  border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
+  border: `1px solid ${themeVars.borderDefault}`,
 });
 
 const StyledToggleButton = styled(ToggleButton)({
   border: 'none',
   borderRadius: tokens.borderRadius.sm,                    // 8px (close to 6px)
   padding: `${tokens.spacing.cluster} ${tokens.spacing.md}`,  // 8px 12px
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   transition: tokens.transitions.base,                  // 200ms (close to 300ms)
 
   '&:hover': {
-    background: tokens.colors.opacityScale.accent.veryLight,
-    color: tokens.colors.text.primary,
+    background: themeVars.accentSoft,
+    color: themeVars.textPrimary,
   },
 
   '&.Mui-selected': {
-    background: tokens.gradients.aurora,
-    color: tokens.colors.text.primary,                  // White text
-    boxShadow: `0 2px 8px ${tokens.colors.opacityScale.accent.strong}`,    // Button depth
+    background: themeVars.accentSoft,
+    color: themeVars.accent,
+    boxShadow: 'none',
 
     '&:hover': {
-      background: tokens.gradients.aurora,
-      filter: 'brightness(1.1)',                        // Slight brighten on hover
+      background: themeVars.accentSoft,
     },
   },
 

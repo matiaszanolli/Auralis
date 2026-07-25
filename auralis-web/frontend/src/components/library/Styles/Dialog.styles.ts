@@ -9,6 +9,7 @@
 
 import { Dialog, DialogTitle, DialogActions, Box, styled } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 export { DialogTabs as StyledTabs, DetailViewTabs } from './Tabs.styles';
 export { SaveButton, CancelButtonForDialog } from './Button.styles';
 export { SectionLabel, SectionDescription } from './Typography.styles';
@@ -19,12 +20,10 @@ export { SectionLabel, SectionDescription } from './Typography.styles';
  */
 export const StyledDialog = styled(Dialog)({
   '& .MuiDialog-paper': {
-    // Glass effect for elevated dialog (upgraded to strong for maximum prominence)
-    background: tokens.glass.strong.background,
-    backdropFilter: tokens.glass.strong.backdropFilter,   // 40px blur for dramatic modal presence
-    border: tokens.glass.strong.border,                   // 22% white opacity for light-catching borders
-    boxShadow: tokens.glass.strong.boxShadow,             // Deep shadow + strong inner glow
-    borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
+    background: themeVars.surfaceRaised,
+    border: `1px solid ${themeVars.borderDefault}`,
+    boxShadow: themeVars.shadowOverlay,
+    borderRadius: tokens.borderRadius.lg,
   }
 });
 
@@ -32,8 +31,9 @@ export const StyledDialog = styled(Dialog)({
  * StyledDialogTitle - Dialog header with aurora gradient background
  */
 export const StyledDialogTitle = styled(DialogTitle)({
-  background: tokens.gradients.aurora,
-  color: tokens.colors.text.primary,
+  background: themeVars.surfaceRaised,
+  color: themeVars.textPrimary,
+  borderBottom: `1px solid ${themeVars.borderSubtle}`,
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
@@ -52,7 +52,7 @@ export const SectionContainer = styled(Box)({
  * Features border-top separator and padding
  */
 export const MetadataDialogActions = styled(DialogActions)({
-  borderTop: `1px solid ${tokens.colors.border.light}`,
+  borderTop: `1px solid ${themeVars.borderSubtle}`,
   padding: tokens.spacing.sm,
 });
 
@@ -62,8 +62,8 @@ export const MetadataDialogActions = styled(DialogActions)({
  */
 export const DialogPaperProps = {
   sx: {
-    bgcolor: tokens.colors.bg.level3,
-    backgroundImage: tokens.gradients.darkSubtle,
+    bgcolor: themeVars.surfaceRaised,
+    backgroundImage: 'none',
   },
 };
 

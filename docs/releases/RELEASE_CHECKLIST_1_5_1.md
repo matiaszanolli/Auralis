@@ -45,8 +45,7 @@
   uv pip check
   ```
 
-- [ ] Frontend production type-check (currently blocked by
-  `CacheHealthMonitor.tsx:229`):
+- [x] Frontend production type-check:
 
   ```bash
   cd auralis-web/frontend

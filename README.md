@@ -52,7 +52,8 @@ mono-safe enhancement, and deterministic rapid track selection.
 
 📖 **[v1.5.1 Release Notes](docs/releases/RELEASE_NOTES_1_5_1.md)** |
 ✅ **[Release Checklist](docs/releases/RELEASE_CHECKLIST_1_5_1.md)** |
-🔗 **[Recovery Audit](docs/audits/AUDIT_RECOVERY_2026-07-24.md)**
+🔗 **[Recovery Audit](docs/audits/AUDIT_RECOVERY_2026-07-24.md)** |
+🎨 **[Desktop UI Theme Audit](docs/audits/UI_THEME_UNIFICATION_2026-07-25.md)**
 
 ### 🎯 Previous Releases
 
@@ -79,7 +80,7 @@ Auralis is a **local music player** with professional audio enhancement built-in
 - ✨ **Magical Audio Enhancement** - One-click toggle for professional audio mastering
 - 📁 **Library Management** - Scan folders, organize your collection, search instantly
 - 🎨 **Audio Visualizer** - Watch your music come alive with real-time visualization
-- 🖥️ **Desktop & Web** - Native Electron app or run in your browser
+- 🖥️ **Desktop Application** - Electron releases for Linux, Windows, and macOS Apple Silicon
 - 🔒 **100% Private** - Your music, your computer, no cloud required
 - ⚡ **Blazing Fast** - 36.6x real-time audio processing, 740+ files/second scanning
 - 🧪 **Broadly Tested** - large backend and frontend suites exist; the recovery audit documents
@@ -155,8 +156,9 @@ cd auralis-web/frontend
 pnpm run dev
 ```
 
-Open <http://localhost:3000>. This component workflow is suitable for recovery development;
-it does not clear the full desktop release gate.
+Open <http://localhost:3000> only as an **unsupported browser preview** for renderer
+development. It is not an official Auralis platform and does not clear the desktop release
+gate. Electron remains the supported product surface and embeds this same React bundle.
 
 ---
 
@@ -183,12 +185,6 @@ Beautiful grid layout of your music collection with album artwork and metadata.
 - Native folder picker opens
 - Browse to your music folder
 - Click "Select Folder"
-- Done! ✅
-
-**Web Interface:**
-- Click the **📁 Scan Folder** button
-- Type your music folder path (e.g., `/home/user/Music`)
-- Press OK
 - Done! ✅
 
 ### 2. Play Music
@@ -257,10 +253,10 @@ WAV (16-bit/24-bit PCM), FLAC (16-bit/24-bit PCM)
 - Professional DSP algorithms (Rust via PyO3 + NumPy)
 - Real-time audio processing
 
-**Frontend (React):**
+**Desktop renderer (React):**
 - Material-UI components + a custom design-token system
 - WebSocket for live updates
-- Responsive design
+- Desktop-first adaptive layout
 - Modern UX
 
 **Desktop (Electron):**
@@ -277,7 +273,7 @@ auralis/                    # Core audio processing engine
 ├── player/                 # Audio playback engine
 └── io/                     # Multi-format audio I/O
 
-auralis-web/               # Web & Desktop UI
+auralis-web/               # Shared desktop renderer + local backend
 ├── backend/               # FastAPI server (REST + WebSocket, :8765)
 │   ├── main.py           # App entry point
 │   └── routers/          # 18 route handlers
@@ -339,7 +335,7 @@ pnpm run build:win
 pnpm run build:mac:arm64
 ```
 
-### Frontend Development
+### Desktop Renderer Development
 
 ```bash
 cd auralis-web/frontend
@@ -347,12 +343,16 @@ cd auralis-web/frontend
 # Install dependencies
 pnpm install --frozen-lockfile
 
-# Development server (hot reload)
+# Unsupported browser preview for hot reload
 pnpm run dev
 
 # Build for production
 pnpm run build
 ```
+
+The Vite URL is a developer preview, not a deployable or supported web edition. Product
+validation must run through Electron, where native folder selection, process ownership, and
+desktop lifecycle behavior are available.
 
 ---
 

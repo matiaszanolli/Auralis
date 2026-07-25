@@ -1,219 +1,114 @@
-# 🎵 Auralis Web - Modern Cross-Platform Audio Interface
+# Auralis Desktop Application Stack
 
-A beautiful, responsive web-based interface for Auralis audio processing and library management. This replaces the old Tkinter GUI with a modern, professional, cross-platform solution.
+> **Platform policy:** Auralis is a desktop application. The React renderer can be opened in a
+> browser for development and visual review, but standalone browser/PWA use is deprecated and
+> unsupported. Do not deploy this directory as an official web edition.
 
-## ✨ Features
+This directory contains the two local services embedded by the Electron application:
 
-- **🌐 Cross-Platform**: Works on Windows, Mac, Linux, iOS, Android, and any web browser
-- **🎨 Modern UI**: Beautiful Material Design interface with dark theme
-- **📱 Responsive**: Optimized for desktop, tablet, and mobile devices
-- **⚡ Real-time**: WebSocket connections for live updates and notifications
-- **🔍 Advanced Search**: Powerful search and filtering capabilities
-- **📊 Audio Visualization**: Professional audio meters and waveform displays
-- **🎵 Library Management**: Intuitive file browser with grid and list views
-- **🚀 Progressive Web App**: Can be installed like a native app
+- `frontend/` — React and TypeScript desktop renderer.
+- `backend/` — FastAPI service for the library, playback, enhancement, and WebSocket state.
 
-## 🏗️ Architecture
+Electron owns the supported product lifecycle and supplies native capabilities such as folder
+selection and process management. The browser preview does not reproduce those guarantees.
 
+## Architecture
+
+```text
+┌─────────────────────── Electron desktop application ───────────────────────┐
+│                                                                            │
+│  React renderer          HTTP / WebSocket           FastAPI backend        │
+│  - TypeScript        <──────────────────────>       - Python 3.14+         │
+│  - Material UI                                      - Auralis DSP          │
+│  - Redux / Query                                    - SQLite library       │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
-┌─────────────────────┐    HTTP/WebSocket    ┌──────────────────┐
-│   React Frontend    │ ←──────────────────→ │   FastAPI Backend│
-│   - TypeScript      │                      │   - Python 3.8+  │
-│   - Material-UI     │                      │   - Auralis Core  │
-│   - Audio Components│                      │   - Library DB    │
-└─────────────────────┘                      └──────────────────┘
-```
 
-## 🚀 Quick Start
+Both processes are local. Auralis does not require a hosted service or cloud library.
 
-### Prerequisites
+## Development prerequisites
 
-- **Python 3.8+** (for backend)
-- **Node.js 16+** (for frontend)
-- **Existing Auralis installation**
+- Python 3.14+
+- Node.js 24+
+- pnpm 10
+- Rust stable, including the required `vendor/auralis-dsp` extension
 
-### 1. Backend Setup
+See the root [README](../README.md) for the complete one-time environment setup and the current
+recovery blockers.
+
+## Component development
+
+Until the canonical Electron launcher is repaired, run the backend and renderer separately.
+
+Terminal 1:
 
 ```bash
-# Navigate to backend directory
+source .venv/bin/activate
 cd auralis-web/backend
-
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Start the FastAPI server
-python main.py
+python main.py --dev
 ```
 
-The backend will be available at: `http://localhost:8000`
-
-### 2. Frontend Setup
+Terminal 2:
 
 ```bash
-# Navigate to frontend directory
+cd auralis-web/frontend
+pnpm install --frozen-lockfile
+pnpm run dev
+```
+
+The Vite server listens on <http://localhost:3000>. That URL is an unsupported development
+preview, not a production deployment target. A visible platform notice is intentional.
+
+## Validation
+
+```bash
 cd auralis-web/frontend
 
-# Install Node.js dependencies
-npm install
-
-# Start the React development server
-npm start
+pnpm run type-check:prod
+pnpm run test:run
+pnpm run build
 ```
 
-The frontend will be available at: `http://localhost:3000`
+Desktop packaging and smoke tests must run through `desktop/` and the cross-platform release
+workflow. A successful Vite build proves only that the shared renderer bundles.
 
-### 3. Access the Application
+## Theme architecture
 
-Open your browser and navigate to: **http://localhost:3000**
+The renderer has one runtime semantic theme contract:
 
-## 📖 Usage Guide
+- `frontend/src/theme/semanticTheme.ts` defines application-level surfaces, text, borders,
+  accents, status colors, focus treatment, and shadows for dark and light modes.
+- `frontend/src/contexts/ThemeContext.tsx` publishes those values as `--app-*` properties.
+- `frontend/src/theme/themeConfig.ts` maps MUI defaults to the same contract.
+- Components should use `themeVars` for semantic decisions and design tokens for spacing,
+  typography, motion, and fixed brand values.
 
-### 🔍 Library Management
+Do not introduce a new component-local palette or make glass the default application surface.
+Glass is reserved for overlays where translucency communicates elevation.
 
-1. **Scan Directories**: Click the "📁 Scan Library" button or the floating action button
-2. **Search Tracks**: Use the search bar to find tracks, artists, or albums
-3. **Browse Library**: Navigate through your music collection with the modern interface
-4. **Real-time Updates**: Watch as scans complete and new tracks appear automatically
+## Local API
 
-### 🎵 Audio Playback
+The current local backend uses port `8765`.
 
-- **Play/Pause**: Click the play button on any track or use the main player controls
-- **Volume Control**: Adjust volume with the slider in the audio player
-- **Progress**: Seek through tracks using the progress bar
+- Health: `GET /api/health`
+- API documentation in development: `GET /api/docs`
+- Library endpoints: `/api/library/*`
+- WebSocket transport: `/ws`
 
-### 📱 Mobile Experience
+Endpoint details live in the FastAPI route definitions and generated OpenAPI document; this
+README deliberately avoids duplicating a stale endpoint catalog.
 
-The interface is fully responsive and works great on mobile devices:
-- **Touch-friendly**: Large touch targets and intuitive gestures
-- **Responsive Layout**: Adapts to different screen sizes
-- **Mobile Navigation**: Collapsible sidebar for mobile viewing
+## Platform support
 
-## 🔧 Development
+| Runtime | Status | Purpose |
+|---|---|---|
+| Electron on Linux | Official target | AppImage, Flatpak, and `.deb` packaging |
+| Electron on Windows x64 | Official target | NSIS installer |
+| Electron on macOS Apple Silicon | Official target | ARM64 DMG |
+| Standalone browser / PWA | Deprecated, unsupported | Renderer development and visual review only |
+| Mobile browser | Unsupported | No official mobile platform |
 
-### Backend Development
+## License
 
-```bash
-# Start with auto-reload for development
-cd backend
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
-```
-
-### Frontend Development
-
-```bash
-# Start with hot reloading
-cd frontend
-npm start
-```
-
-### API Documentation
-
-When the backend is running, visit:
-- **Swagger UI**: http://localhost:8000/api/docs
-- **ReDoc**: http://localhost:8000/api/redoc
-
-## 🌐 Production Deployment
-
-### Build Frontend
-
-```bash
-cd frontend
-npm run build
-```
-
-### Start Production Server
-
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
-```
-
-The built frontend will be served from the backend at `http://localhost:8000`
-
-## 📚 API Endpoints
-
-### Library Management
-- `GET /api/library/stats` - Get library statistics
-- `GET /api/library/tracks` - List tracks with search support
-- `POST /api/library/scan` - Scan directory for audio files
-
-### Audio Processing
-- `POST /api/files/upload` - Upload audio files
-- `GET /api/audio/formats` - Get supported formats
-
-### Real-time Updates
-- `WebSocket /ws` - Real-time notifications and updates
-
-## 🎨 Customization
-
-### Themes
-
-The interface uses Material-UI with a professional dark theme optimized for audio work. You can customize colors, typography, and components in:
-
-- `frontend/src/index.tsx` - Main theme configuration
-- `frontend/src/index.css` - Custom CSS styles
-
-### Components
-
-All React components are located in `frontend/src/components/`:
-- `LibraryView.tsx` - Main library browser
-- `AudioPlayer.tsx` - Bottom audio player
-- `StatusBar.tsx` - Status and connection info
-
-## 🔌 Integration
-
-### Existing Auralis Integration
-
-The web interface integrates seamlessly with existing Auralis components:
-
-```python
-# Backend automatically imports existing Auralis modules
-from auralis.library import LibraryManager
-from auralis.library.scanner import LibraryScanner
-```
-
-### WebSocket Events
-
-Real-time events for UI updates:
-- `scan_complete` - Directory scan finished
-- `scan_error` - Scan failed
-- `track_added` - New track added to library
-
-## 🚀 Future Enhancements
-
-- **Audio Visualization**: Real-time spectrum analyzers and waveform displays
-- **Advanced Audio Processing**: Web-based mastering controls
-- **Playlist Management**: Drag-and-drop playlist creation
-- **Cloud Sync**: Sync libraries across devices
-- **Mobile App**: Native mobile app using the same backend
-
-## 🐛 Troubleshooting
-
-### Backend Issues
-- **Import Errors**: Ensure Auralis is properly installed
-- **Port Conflicts**: Change port in `main.py` if 8000 is in use
-- **Database Issues**: Check SQLite database permissions
-
-### Frontend Issues
-- **Build Errors**: Delete `node_modules` and run `npm install`
-- **Connection Issues**: Verify backend is running on port 8000
-- **Proxy Errors**: Check proxy configuration in `package.json`
-
-## 📄 License
-
-GPLv3 - See LICENSE file for details
-
----
-
-## 🎉 Welcome to the Future of Auralis!
-
-This modern web interface represents a significant upgrade from the previous Tkinter implementation, providing:
-
-- **Better User Experience**: Intuitive, responsive design
-- **Cross-Platform Support**: Works everywhere
-- **Professional Appearance**: Suitable for professional audio work
-- **Extensibility**: Easy to add new features and components
-- **Modern Technology Stack**: Built with current web standards
-
-Enjoy your enhanced Auralis experience! 🎵
+Auralis is licensed under AGPL-3.0. See the root [LICENSE](../LICENSE).

@@ -1,5 +1,5 @@
 import { CSSProperties, ReactNode, forwardRef } from 'react';
-import { tokens } from '@/design-system';
+import { tokens } from '@/design-system/tokens';
 
 interface AlertProps {
   children: ReactNode;

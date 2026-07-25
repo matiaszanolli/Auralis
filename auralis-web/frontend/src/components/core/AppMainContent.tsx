@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * Props for the AppMainContent component.
@@ -72,6 +73,7 @@ export const AppMainContent = ({
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        backgroundColor: `color-mix(in srgb, ${themeVars.canvas} 82%, transparent)`,
       }}
     >
       {/* Main scrollable content area */}
@@ -88,10 +90,10 @@ export const AppMainContent = ({
             background: 'transparent',
           },
           '&::-webkit-scrollbar-thumb': {
-            background: tokens.colors.opacityScale.accent.strong,
+            background: themeVars.surfaceRaised,
             borderRadius: tokens.borderRadius.sm,              // 8px - organic curves
             '&:hover': {
-              background: tokens.colors.opacityScale.accent.veryStrong,
+              background: themeVars.accent,
             },
           },
         }}

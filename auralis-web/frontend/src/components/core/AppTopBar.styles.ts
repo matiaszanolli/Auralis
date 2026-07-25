@@ -1,18 +1,16 @@
 import { styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const TopBarContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
-  // Semi-transparent to let starfield show through
-  background: tokens.glass.starfield.strong, // #3950: unified starfield glass
-  backdropFilter: 'blur(8px) saturate(1.05)',
-  // Glass bevel: top highlight + bottom shadow (no hard borders)
-  boxShadow: `inset 0 1px 0 ${tokens.colors.opacityScale.white.subtle}, inset 0 -1px 0 ${tokens.colors.opacityScale.dark.standard}`,
-  height: 70,
+  background: themeVars.surfacePrimary,
+  borderBottom: `1px solid ${themeVars.borderSubtle}`,
+  height: 64,
   gap: tokens.spacing.md,
 });
 
@@ -37,13 +35,13 @@ export const SearchContainer = styled(Box, {
   ({ focused }) => ({
     display: 'flex',
     alignItems: 'center',
-    background: 'transparent',
-    borderRadius: 0,
-    border: 'none',
-    borderBottom: `1px solid ${focused ? tokens.colors.accent.primary : tokens.colors.border.light}`,
-    padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
+    background: themeVars.surfaceSecondary,
+    borderRadius: tokens.borderRadius.sm,
+    border: `1px solid ${focused ? themeVars.accent : themeVars.borderDefault}`,
+    boxShadow: focused ? `0 0 0 3px ${themeVars.focusRing}` : 'none',
+    padding: `${tokens.spacing.cluster} ${tokens.spacing.md}`,
     gap: tokens.spacing.cluster,                        // 8px - tight cluster
-    transition: tokens.transitions.fast,                // 150ms hover (close to 0.15s)
+    transition: tokens.transitions.hover_out,
   })
 );
 
@@ -52,13 +50,13 @@ export const StatusIndicator = styled(Box)<{ color: string }>(({ color }) => ({
   height: tokens.spacing.md,                            // 12px - indicator size
   borderRadius: tokens.borderRadius.full,               // 9999px - perfect circle
   background: color,
-  boxShadow: `0 0 8px ${color}80`,                     // 50% opacity glow
-  minWidth: tokens.spacing.md,                          // 12px - prevent shrink
+  boxShadow: `0 0 0 3px color-mix(in srgb, ${color} 18%, transparent)`,
+  minWidth: tokens.spacing.md,
 }));
 
 export const TitleBox = styled(Box)({
   fontSize: tokens.typography.fontSize.xl,
   fontWeight: tokens.typography.fontWeight.semibold,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textPrimary,
   whiteSpace: 'nowrap',
 });

@@ -1,5 +1,5 @@
 
-import { Alert } from '@/design-system';
+import { Alert } from '@/design-system/primitives/Alert';
 import { AlertContainer } from './EditMetadataDialog.styles';
 
 interface MetadataDialogAlertsProps {

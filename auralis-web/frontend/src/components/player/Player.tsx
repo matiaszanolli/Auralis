@@ -7,8 +7,8 @@ const DEBUG = import.meta.env.DEV;
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
-import { tokens } from '@/design-system';
 import { styles } from './Player.styles';
+import { themeVars } from '@/theme/semanticTheme';
 
 // Phase 4 UI Components
 import TimeDisplay from './TimeDisplay';
@@ -290,41 +290,22 @@ const Player = () => {
           />
 
           {/* Queue Button - Compact with glass effects */}
-          <button
+          <Box
+            component="button"
             onClick={handleQueueToggle}
-            style={{
+            sx={{
               ...styles.queueButton,
-              // Active state: medium glass effect with accent color
-              background: queuePanelOpen ? tokens.glass.medium.background : 'transparent',
-              backdropFilter: queuePanelOpen ? tokens.glass.medium.backdropFilter : 'none',
-              border: queuePanelOpen ? `1px solid ${tokens.colors.accent.primary}` : tokens.glass.subtle.border,
-              boxShadow: queuePanelOpen ? `0 0 12px ${tokens.colors.accent.primary}44` : 'none',
+              background: queuePanelOpen ? themeVars.accentSoft : 'transparent',
+              borderColor: queuePanelOpen ? themeVars.accent : themeVars.borderDefault,
+              color: queuePanelOpen ? themeVars.accent : themeVars.textPrimary,
             }}
             title="Toggle queue (Q)"
             aria-label="Toggle queue"
             aria-expanded={queuePanelOpen}
             aria-controls="queue-panel-region"
-            onMouseEnter={(e) => {
-              if (!queuePanelOpen) {
-                // Hover: subtle glass effect
-                e.currentTarget.style.background = tokens.glass.subtle.background;
-                e.currentTarget.style.backdropFilter = tokens.glass.subtle.backdropFilter;
-                e.currentTarget.style.border = tokens.glass.subtle.border;
-                e.currentTarget.style.boxShadow = tokens.glass.subtle.boxShadow;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!queuePanelOpen) {
-                // Return to idle: transparent
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.backdropFilter = 'none';
-                e.currentTarget.style.border = tokens.glass.subtle.border;
-                e.currentTarget.style.boxShadow = 'none';
-              }
-            }}
           >
             ♪
-          </button>
+          </Box>
         </Box>
       </Box>
 

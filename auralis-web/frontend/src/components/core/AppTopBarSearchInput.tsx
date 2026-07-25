@@ -4,6 +4,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { SearchContainer } from './AppTopBar.styles';
 import { IconButton, tokens } from '@/design-system';
 import { TextField } from '@mui/material';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface AppTopBarSearchInputProps {
   searchQuery: string;
@@ -33,9 +34,8 @@ export const AppTopBarSearchInput = ({
     <SearchContainer focused={isSearchFocused} sx={{ minWidth }}>
       <SearchIcon
         sx={{
-          color: tokens.colors.opacityScale.accent.veryStrong,
+          color: themeVars.textMuted,
           fontSize: tokens.typography.fontSize.lg,
-          opacity: 0.6,
         }}
       />
       <TextField
@@ -52,10 +52,10 @@ export const AppTopBarSearchInput = ({
           },
           '& .MuiOutlinedInput-input': {
             padding: 0,
-            color: tokens.colors.text.secondary,
+            color: themeVars.textPrimary,
             fontSize: tokens.typography.fontSize.base,
             '&::placeholder': {
-              color: tokens.colors.opacityScale.accent.standard,
+              color: themeVars.textMuted,
               opacity: 1,
             },
           },
@@ -70,10 +70,10 @@ export const AppTopBarSearchInput = ({
           size="small"
           aria-label="Clear search"
           sx={{
-            color: tokens.colors.opacityScale.accent.veryStrong,
+            color: themeVars.textMuted,
             padding: '4px',
             '&:hover': {
-              color: tokens.colors.text.secondary,
+              color: themeVars.textPrimary,
             },
           }}
         >

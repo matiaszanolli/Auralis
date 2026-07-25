@@ -28,6 +28,14 @@ The complete evidence and implementation order are in the
 - A release checklist tied to the audit’s definition of “working.”
 - Release packaging hardened for Linux x64 AppImage, Flatpak, and `.deb`, Windows x64, and
   macOS Apple Silicon. Missing or wrong-architecture artifacts now fail the build.
+- The desktop renderer now uses one runtime semantic theme across MUI, Emotion, and native DOM
+  controls. The shell, navigation, library, inspection pane, player, queue, and dialogs share
+  a consistent surface hierarchy in dark and light modes.
+- Standalone browser/PWA use is deprecated. Browser execution remains available as an
+  unsupported renderer-development preview; Electron is the only official application
+  platform.
+- The production TypeScript gate is green after making the cache-health timestamp fallback
+  match the backend's actual optional response field.
 
 No launcher, fingerprint, mono-processing, or rapid-selection product fix is included yet.
 
@@ -57,8 +65,12 @@ full-stack script into a collected, isolated smoke test.
 - Targeted July high-risk Python regressions: 77 pass, 4 skipped.
 
 These results establish a recovery base; they do not supersede the open release blockers.
-The production TypeScript gate still fails at `CacheHealthMonitor.tsx:229`; that existing
-medium-severity gate remains unchecked until it is repaired.
+The production TypeScript gate now passes. The interface migration deliberately leaves
+lower-traffic component-level color debt for follow-up; the current migration boundary is
+documented in the UI theme audit linked from the changelog.
+
+See the [desktop UI theme audit](../audits/UI_THEME_UNIFICATION_2026-07-25.md) for the exact
+migration boundary, platform policy, and ordered follow-up debt.
 
 ## Compatibility
 

@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A desktop-first semantic theme contract shared by MUI, Emotion, and plain DOM controls,
+  plus an explicit unsupported-platform notice when the renderer runs in a browser.
 - Working-state recovery audit with a concrete definition of “working,” four phased recovery
   slices, and evidence-backed release gates.
 - v1.5.1 release notes and an executable release checklist.
@@ -23,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Unified the application shell, sidebar, library header, right inspection pane, player,
+  queue, dialogs, search, view toggle, and theme toggle around a restrained three-level
+  surface hierarchy. Glass is now reserved for overlays instead of every application region.
+- Deprecated standalone browser/PWA use. The React application remains the Electron renderer
+  and a browser-accessible development preview, but it is no longer an official platform.
 - Advanced the source tree to v1.5.1 as an **unreleased recovery milestone**.
 - Reworked the README, documentation hub, roadmap, versioning strategy, and release guide to
   distinguish a prepared source version from a tagged, tested, published release.
@@ -35,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Restored the production TypeScript gate by handling the cache-health endpoint's optional
+  timestamp instead of constructing a `Date` from `undefined`.
+- Theme changes now update the complete runtime semantic palette, including surfaces, borders,
+  status colors, focus treatment, and shadows; light mode no longer inherits dark shell values.
 - The backend compatibility module now reads the product version from `auralis/version.py`
   instead of the stale `auralis/__version__.py` mirror.
 - FastAPI metadata and system endpoint tests now use the canonical product/database versions
@@ -53,7 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See [RELEASE_NOTES_1_5_1.md](RELEASE_NOTES_1_5_1.md),
 [RELEASE_CHECKLIST_1_5_1.md](RELEASE_CHECKLIST_1_5_1.md), and the
-[working-state recovery audit](../audits/AUDIT_RECOVERY_2026-07-24.md).
+[working-state recovery audit](../audits/AUDIT_RECOVERY_2026-07-24.md). The interface migration
+boundary and remaining debt are recorded in the
+[desktop UI theme audit](../audits/UI_THEME_UNIFICATION_2026-07-25.md).
 
 ## [1.5.0] - 2026-07-18
 

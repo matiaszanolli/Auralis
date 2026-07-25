@@ -1,5 +1,8 @@
 import { css } from '@emotion/react';
 import { tokens } from '@/design-system/tokens';
+import { getSemanticTheme, themeVars } from '@/theme/semanticTheme';
+
+const defaultTheme = getSemanticTheme('dark');
 
 /**
  * Global Styles
@@ -9,15 +12,33 @@ import { tokens } from '@/design-system/tokens';
  */
 export const globalStyles = css`
   :root {
-    /* Color variables - mapped from tokens */
-    --bg-primary: ${tokens.colors.bg.level1};
-    --bg-secondary: ${tokens.colors.bg.level2};
-    --bg-surface: ${tokens.colors.bg.level3};
-    --bg-hover: ${tokens.colors.bg.level4};
-
-    --text-primary: ${tokens.colors.text.primary};
-    --text-secondary: ${tokens.colors.text.secondary};
-    --text-disabled: ${tokens.colors.text.disabled};
+    color-scheme: dark;
+    --app-canvas: ${defaultTheme.canvas};
+    --app-surface-primary: ${defaultTheme.surfacePrimary};
+    --app-surface-secondary: ${defaultTheme.surfaceSecondary};
+    --app-surface-raised: ${defaultTheme.surfaceRaised};
+    --app-surface-overlay: ${defaultTheme.surfaceOverlay};
+    --app-surface-translucent: ${defaultTheme.surfaceTranslucent};
+    --app-text-primary: ${defaultTheme.textPrimary};
+    --app-text-strong: ${defaultTheme.textStrong};
+    --app-text-secondary: ${defaultTheme.textSecondary};
+    --app-text-muted: ${defaultTheme.textMuted};
+    --app-text-disabled: ${defaultTheme.textDisabled};
+    --app-border-subtle: ${defaultTheme.borderSubtle};
+    --app-border-default: ${defaultTheme.borderDefault};
+    --app-border-strong: ${defaultTheme.borderStrong};
+    --app-accent: ${defaultTheme.accent};
+    --app-accent-hover: ${defaultTheme.accentHover};
+    --app-accent-soft: ${defaultTheme.accentSoft};
+    --app-focus-ring: ${defaultTheme.focusRing};
+    --app-success: ${defaultTheme.success};
+    --app-warning: ${defaultTheme.warning};
+    --app-error: ${defaultTheme.error};
+    --app-info: ${defaultTheme.info};
+    --app-error-soft: ${defaultTheme.errorSoft};
+    --app-backdrop: ${defaultTheme.backdrop};
+    --app-shadow-raised: ${defaultTheme.shadowRaised};
+    --app-shadow-overlay: ${defaultTheme.shadowOverlay};
 
     /* Gradient variables - from tokens */
     --gradient-aurora: ${tokens.gradients.aurora};
@@ -39,39 +60,50 @@ export const globalStyles = css`
     box-sizing: border-box;
   }
 
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+  }
+
   body {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background: ${tokens.colors.bg.level0};
-    color: ${tokens.colors.text.primary};
+    background: ${themeVars.canvas};
+    color: ${themeVars.textPrimary};
     font-family: ${tokens.typography.fontFamily.primary};
+    text-rendering: optimizeLegibility;
+    transition:
+      background-color ${tokens.transitions.state_inOut},
+      color ${tokens.transitions.state_inOut};
   }
 
   /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
   }
 
   ::-webkit-scrollbar-track {
-    background: ${tokens.colors.bg.level2};
+    background: ${themeVars.surfacePrimary};
   }
 
   ::-webkit-scrollbar-thumb {
-    background: ${tokens.colors.bg.level3};
-    border-radius: 6px;
-    border: 2px solid ${tokens.colors.bg.level2};
+    background: ${themeVars.surfaceRaised};
+    border-radius: ${tokens.borderRadius.full};
+    border: 2px solid ${themeVars.surfacePrimary};
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: ${tokens.colors.bg.level4};
+    background: ${themeVars.accent};
   }
 
   /* Firefox scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: ${tokens.colors.bg.level3} ${tokens.colors.bg.level2};
+    scrollbar-color: ${themeVars.surfaceRaised} ${themeVars.surfacePrimary};
   }
 
   /* Animation keyframes */
@@ -268,9 +300,9 @@ export const globalStyles = css`
   .skeleton {
     background: linear-gradient(
       90deg,
-      ${tokens.colors.bg.level3} 0%,
-      ${tokens.colors.bg.level4} 50%,
-      ${tokens.colors.bg.level3} 100%
+      ${themeVars.surfaceSecondary} 0%,
+      ${themeVars.surfaceRaised} 50%,
+      ${themeVars.surfaceSecondary} 100%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
@@ -279,19 +311,35 @@ export const globalStyles = css`
 
   /* Selection color */
   ::selection {
-    background: ${tokens.colors.opacityScale.accent.strong};
-    color: ${tokens.colors.text.primary};
+    background: ${themeVars.focusRing};
+    color: ${themeVars.textStrong};
   }
 
   /* Focus outline - using accent color */
   :focus-visible {
-    outline: 2px solid ${tokens.colors.accent.primary};
+    outline: 2px solid ${themeVars.accent};
     outline-offset: 2px;
   }
 
-  /* Smooth scrolling */
-  html {
-    scroll-behavior: smooth;
+  .app-ambient-background {
+    opacity: 0.14;
+    filter: saturate(0.75);
+    transition: opacity ${tokens.transitions.slow_inOut};
+  }
+
+  html[data-theme='light'] .app-ambient-background {
+    opacity: 0.035;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 `;
 

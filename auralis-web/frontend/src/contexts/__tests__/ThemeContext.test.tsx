@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@/test/test-utils'
 import { ReactNode } from 'react'
 import { ThemeProvider, useTheme } from '../ThemeContext'
+import { getSemanticTheme } from '@/theme/semanticTheme'
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -263,9 +264,13 @@ describe('ThemeContext', () => {
     renderHook(() => useTheme(), { wrapper })
 
     const root = document.documentElement
+    const darkTheme = getSemanticTheme('dark')
 
-    expect(root.style.getPropertyValue('--bg-primary')).toBe('#0B1020')
-    expect(root.style.getPropertyValue('--text-primary')).toBe('#FFFFFF')
+    expect(root.dataset.theme).toBe('dark')
+    expect(root.style.getPropertyValue('--app-canvas')).toBe(darkTheme.canvas)
+    expect(root.style.getPropertyValue('--app-surface-raised')).toBe(darkTheme.surfaceRaised)
+    expect(root.style.getPropertyValue('--app-text-primary')).toBe(darkTheme.textPrimary)
+    expect(root.style.getPropertyValue('--bg-primary')).toBe(darkTheme.canvas)
   })
 
   it('sets CSS custom properties for light mode', () => {
@@ -280,9 +285,13 @@ describe('ThemeContext', () => {
     })
 
     const root = document.documentElement
+    const lightTheme = getSemanticTheme('light')
 
-    expect(root.style.getPropertyValue('--bg-primary')).toBe('#f8f9fd')
-    expect(root.style.getPropertyValue('--text-primary')).toBe('#1a1f3a')
+    expect(root.dataset.theme).toBe('light')
+    expect(root.style.getPropertyValue('--app-canvas')).toBe(lightTheme.canvas)
+    expect(root.style.getPropertyValue('--app-surface-raised')).toBe(lightTheme.surfaceRaised)
+    expect(root.style.getPropertyValue('--app-text-primary')).toBe(lightTheme.textPrimary)
+    expect(root.style.getPropertyValue('--bg-primary')).toBe(lightTheme.canvas)
   })
 
   it('updates CSS custom properties when theme changes', () => {
@@ -293,23 +302,25 @@ describe('ThemeContext', () => {
     const { result } = renderHook(() => useTheme(), { wrapper })
 
     const root = document.documentElement
+    const darkTheme = getSemanticTheme('dark')
+    const lightTheme = getSemanticTheme('light')
 
     // Dark mode
-    expect(root.style.getPropertyValue('--bg-primary')).toBe('#0B1020')
+    expect(root.style.getPropertyValue('--app-canvas')).toBe(darkTheme.canvas)
 
     // Switch to light
     act(() => {
       result.current.toggleTheme()
     })
 
-    expect(root.style.getPropertyValue('--bg-primary')).toBe('#f8f9fd')
+    expect(root.style.getPropertyValue('--app-canvas')).toBe(lightTheme.canvas)
 
     // Switch back to dark
     act(() => {
       result.current.toggleTheme()
     })
 
-    expect(root.style.getPropertyValue('--bg-primary')).toBe('#0B1020')
+    expect(root.style.getPropertyValue('--app-canvas')).toBe(darkTheme.canvas)
   })
 
   // ============================================================================
@@ -338,8 +349,8 @@ describe('ThemeContext', () => {
       result.current.setTheme('light')
     })
 
-    expect(result.current.colors.background.primary).toBe('#f8f9fd')
-    expect(result.current.colors.text.primary).toBe('#1a1f3a')
+    expect(result.current.colors.background.primary).toBe(getSemanticTheme('light').canvas)
+    expect(result.current.colors.text.primary).toBe(getSemanticTheme('light').textPrimary)
   })
 
   it('updates colors object when theme changes', () => {
@@ -358,7 +369,7 @@ describe('ThemeContext', () => {
     const lightColors = result.current.colors
 
     expect(darkColors).not.toEqual(lightColors)
-    expect(lightColors.background.primary).toBe('#f8f9fd')
+    expect(lightColors.background.primary).toBe(getSemanticTheme('light').canvas)
   })
 
   // ============================================================================

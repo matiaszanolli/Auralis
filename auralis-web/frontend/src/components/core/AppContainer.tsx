@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
-import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * Props for the AppContainer component.
@@ -73,9 +73,8 @@ export const AppContainer = ({
         sx={{
           flex: 1,
           minHeight: 0,     // Critical: allows flex child to shrink below content size
-          // Semi-transparent to let starfield background show through (no blur needed for base layer)
-          background: tokens.glass.starfield.solid,  // #3950: unified starfield glass (deep, 65%)
-          color: tokens.colors.text.primary,
+          background: `color-mix(in srgb, ${themeVars.canvas} 90%, transparent)`,
+          color: themeVars.textPrimary,
           display: 'flex',
           flexDirection: 'row',
           overflow: 'hidden',

@@ -1,12 +1,17 @@
 # Subsystem: React Frontend
 
-[`auralis-web/frontend/`](../../auralis-web/frontend/) is the Auralis UI: **React 18 +
+[`auralis-web/frontend/`](../../auralis-web/frontend/) is the Auralis desktop renderer:
+**React 18 +
 TypeScript 5.9 + Vite 7 + Redux Toolkit + MUI 9 + TanStack Query**, ~805 `.ts`/`.tsx` files.
 It renders the library, drives playback over WebSocket, and plays streamed PCM audio in the
-browser via the Web Audio API. The `@` alias maps to `./src`.
+Electron Chromium process via the Web Audio API. The `@` alias maps to `./src`.
+
+> **Platform boundary.** Electron is the only official interface platform. Vite can render the
+> same bundle in a browser for development, but standalone browser/PWA and mobile use is
+> deprecated and unsupported.
 
 > **Scope.** App shell, state, hooks, API + WebSocket clients, the design system, and the
-> browser audio pipeline. For the server it talks to, see [backend-api.md](backend-api.md).
+> renderer audio pipeline. For the server it talks to, see [backend-api.md](backend-api.md).
 
 > ⚠️ **Two corrections to older docs (verified against code):**
 > 1. **There is no `EnhancementContext`.** Enhancement state lives in hooks
@@ -145,6 +150,12 @@ The palette is a deep blue-black aurora theme (`bg.level0 #0B1020`… accents `p
 The system ships ~20 primitive components (`design-system/primitives/`: Button, Card, Slider,
 Modal, …) re-exported from `design-system/index.ts`.
 
+Application-level color decisions go through
+[`theme/semanticTheme.ts`](../../auralis-web/frontend/src/theme/semanticTheme.ts). It maps the
+dark/light palettes to one `--app-*` runtime contract consumed by MUI, Emotion, and plain DOM
+controls. Components use `themeVars` for surfaces/text/borders/status and `tokens` for spacing,
+typography, motion, radii, and fixed audio-semantic colors.
+
 > **Rule:** no hardcoded hex/rgb — colors and spacing come from `tokens`. **Compliance is
 > imperfect:** ~105 literals remain in `components/**` (mostly gradient/visualization values),
 > and there's an open convention decision (#4203) on `semantics.ts` token composition. Token
@@ -167,7 +178,7 @@ Many components use co-located `.styles.ts` files to keep JSX lean.
 
 ---
 
-## 8. Browser audio pipeline (the real one)
+## 8. Renderer audio pipeline (the real one)
 
 Playback is **Web Audio API**, not MSE. Flow for enhanced playback
 ([`hooks/enhancement/usePlayEnhanced.ts`](../../auralis-web/frontend/src/hooks/enhancement/usePlayEnhanced.ts)):

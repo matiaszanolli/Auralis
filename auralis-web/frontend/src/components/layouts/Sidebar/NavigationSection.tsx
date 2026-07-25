@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import { List, tokens } from '@/design-system';
 import { StyledListItemButton } from './SidebarStyles';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface NavItem {
   id: string;
@@ -36,10 +37,10 @@ export const NavigationSection = ({
           >
             <ListItemIcon
               sx={{
-                color: selectedItem === item.id ? tokens.colors.accent.primary : tokens.colors.text.tertiary, // Changed from secondary to tertiary
+                color: selectedItem === item.id ? themeVars.accent : themeVars.textMuted,
                 minWidth: `calc(${tokens.spacing.lg} + ${tokens.spacing.sm})`, // 36px
                 transition: tokens.transitions.color,
-                opacity: selectedItem === item.id ? 1 : 0.7, // Fade inactive icons by ~30%
+                opacity: selectedItem === item.id ? 1 : 0.85,
               }}
             >
               {item.icon}
@@ -51,8 +52,7 @@ export const NavigationSection = ({
                   sx: {
                     fontSize: tokens.typography.fontSize.base,
                     fontWeight: selectedItem === item.id ? tokens.typography.fontWeight.medium : tokens.typography.fontWeight.normal,
-                    color: selectedItem === item.id ? tokens.colors.text.primary : tokens.colors.text.tertiary,
-                    opacity: selectedItem === item.id ? 1 : 0.75,
+                    color: selectedItem === item.id ? themeVars.textPrimary : themeVars.textSecondary,
                   },
                 },
               }}

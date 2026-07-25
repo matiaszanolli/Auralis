@@ -181,6 +181,9 @@ export function CacheHealthMonitor({
   }
 
   const healthStatus = getHealthStatus(cacheHealth);
+  const lastUpdated = cacheHealth.timestamp
+    ? new Date(cacheHealth.timestamp).toLocaleTimeString()
+    : 'just now';
 
   return (
     <div
@@ -226,7 +229,7 @@ export function CacheHealthMonitor({
               color: tokens.colors.text.secondary,
             }}
           >
-            Last updated: {new Date(cacheHealth.timestamp).toLocaleTimeString()}
+            Last updated: {lastUpdated}
           </div>
         </div>
 

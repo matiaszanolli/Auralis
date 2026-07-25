@@ -1,7 +1,8 @@
 
 import MenuIcon from '@mui/icons-material/Menu';
 import { LeftSection, TitleBox } from './AppTopBar.styles';
-import { IconButton, tokens } from '@/design-system';
+import { IconButton } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface AppTopBarLeftSectionProps {
   showMobileMenu: boolean;
@@ -26,10 +27,10 @@ export const AppTopBarLeftSection = ({
           onClick={onOpenMobileDrawer}
           aria-label="Open navigation menu"
           sx={{
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             padding: '8px',
             '&:hover': {
-              background: tokens.colors.opacityScale.accent.veryLight,
+              background: themeVars.accentSoft,
             },
           }}
         >

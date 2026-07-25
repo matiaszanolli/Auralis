@@ -10,6 +10,7 @@
  */
 
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const styles = {
   player: {
@@ -17,12 +18,10 @@ export const styles = {
     flexDirection: 'column' as const,
     width: '100%',
 
-    // Glass effect for PlayerBar - semi-transparent for starfield visibility
-    background: tokens.glass.starfield.medium,            // #3950: unified starfield glass (50%)
-    backdropFilter: 'blur(10px) saturate(1.08)',          // Moderate blur preserves starfield
+    background: themeVars.surfacePrimary,
     border: 'none',
-    // Glass bevel: top highlight + outer shadow
-    boxShadow: `0 -8px 32px ${tokens.colors.opacityScale.dark.standard}, inset 0 1px 0 ${tokens.colors.opacityScale.white.light}`,
+    borderTop: `1px solid ${themeVars.borderDefault}`,
+    boxShadow: themeVars.shadowRaised,
 
     zIndex: tokens.zIndex.dropdown,
     padding: 0,
@@ -84,34 +83,33 @@ export const styles = {
     height: '40px',
     padding: 0,
 
-    // Glass effect for queue button (idle state)
     background: 'transparent',
-    border: tokens.glass.subtle.border,                   // Subtle glass border
+    border: `1px solid ${themeVars.borderDefault}`,
     borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
 
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.lg,              // 20px for impact
     fontWeight: tokens.typography.fontWeight.medium,
     transition: `${tokens.transitions.base}, backdrop-filter ${tokens.transitions.base}`,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     outline: 'none',
     // WCAG 2.4.7: visible focus ring for keyboard navigation (#2801)
     '&:focus-visible': {
-      outline: `2px solid ${tokens.colors.accent.primary}`,
+      outline: `2px solid ${themeVars.accent}`,
       outlineOffset: '2px',
     },
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    '&:hover': {
+      background: themeVars.accentSoft,
+      borderColor: themeVars.borderStrong,
+    },
   },
 
   queuePanelWrapper: {
-    // Glass effect for expanded queue panel
-    background: tokens.glass.subtle.background,           // Subtle glass background
-    backdropFilter: tokens.glass.subtle.backdropFilter,   // 20px blur for consistency
-    borderTop: tokens.glass.subtle.border,                // Subtle glass border separator
-    boxShadow: tokens.glass.subtle.boxShadow,             // Depth + inner glow
-
+    background: themeVars.surfacePrimary,
+    borderTop: `1px solid ${themeVars.borderSubtle}`,
     padding: tokens.spacing.lg,
     maxHeight: '400px',
     overflowY: 'auto' as const,
@@ -123,17 +121,15 @@ export const styles = {
     padding: tokens.spacing.md,
 
     // Glass effect for error banner (strong presence) — tokenized (#3980)
-    background: tokens.colors.utility.errorBgMedium,      // Error tint with transparency
-    backdropFilter: 'blur(20px) saturate(1.1)',           // Glass blur
-    border: `1px solid ${tokens.colors.utility.errorBorder}`,  // Error border
-    boxShadow: `0 4px 16px ${tokens.colors.utility.errorGlow}, 0 0 0 1px ${tokens.colors.opacityScale.white.veryLight}`,
+    background: themeVars.errorSoft,
+    border: `1px solid ${themeVars.error}`,
 
     borderRadius: tokens.borderRadius.md,                 // 12px - softer curves
     margin: tokens.spacing.sm,
   },
 
   errorText: {
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.bold,
   },

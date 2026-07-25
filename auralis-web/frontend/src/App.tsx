@@ -40,7 +40,7 @@ function AppContent() {
   return (
     <ThemeProvider>
       {/* GPU-accelerated starfield background with audio reactivity */}
-      <AudioReactiveStarfield />
+      <AudioReactiveStarfield className="app-ambient-background" />
       <ToastProvider maxToasts={3}>
         <WebSocketProvider>
           {/* PlayerStateSync hook must be inside WebSocketProvider */}

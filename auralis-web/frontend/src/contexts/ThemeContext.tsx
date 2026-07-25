@@ -2,8 +2,10 @@ import { createContext, useCallback, useContext, useMemo, useState, useEffect, R
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { createAuralisTheme, darkColors, lightColors, glassEffects } from '@/theme/themeConfig';
-
-type ThemeMode = 'light' | 'dark';
+import {
+  getSemanticCssVariables,
+  type ThemeMode,
+} from '@/theme/semanticTheme';
 
 interface ThemeContextType {
   mode: ThemeMode;
@@ -27,33 +29,22 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     return VALID_THEMES.includes(savedTheme as ThemeMode) ? (savedTheme as ThemeMode) : 'dark';
   });
 
-  // Create theme based on current mode
-  const theme = createAuralisTheme(mode);
+  // Theme creation is relatively expensive. Rebuild only when mode changes.
+  const theme = useMemo(() => createAuralisTheme(mode), [mode]);
   const colors = mode === 'dark' ? darkColors : lightColors;
 
   // Save theme preference to localStorage
   useEffect(() => {
     localStorage.setItem('auralis-theme', mode);
 
-    // Update CSS custom properties for components not using MUI
+    // Keep MUI, Emotion, and plain DOM controls on one semantic color contract.
     const root = document.documentElement;
-    if (mode === 'dark') {
-      root.style.setProperty('--bg-primary', darkColors.background.primary);
-      root.style.setProperty('--bg-secondary', darkColors.background.secondary);
-      root.style.setProperty('--bg-surface', darkColors.background.surface);
-      root.style.setProperty('--bg-glass', darkColors.background.glass);
-      root.style.setProperty('--text-primary', darkColors.text.primary);
-      root.style.setProperty('--text-secondary', darkColors.text.secondary);
-      root.style.setProperty('--glass-border', darkColors.glass.border);
-    } else {
-      root.style.setProperty('--bg-primary', lightColors.background.primary);
-      root.style.setProperty('--bg-secondary', lightColors.background.secondary);
-      root.style.setProperty('--bg-surface', lightColors.background.surface);
-      root.style.setProperty('--bg-glass', lightColors.background.glass);
-      root.style.setProperty('--text-primary', lightColors.text.primary);
-      root.style.setProperty('--text-secondary', lightColors.text.secondary);
-      root.style.setProperty('--glass-border', lightColors.glass.border);
-    }
+    root.dataset.theme = mode;
+    root.style.colorScheme = mode;
+
+    Object.entries(getSemanticCssVariables(mode)).forEach(([property, value]) => {
+      root.style.setProperty(property, value);
+    });
   }, [mode]);
 
   const toggleTheme = useCallback(() => {

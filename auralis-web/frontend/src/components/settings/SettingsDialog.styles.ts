@@ -1,6 +1,7 @@
 import { styled } from '@mui/material/styles';
 import { DialogContent, DialogActions, Box } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const SettingsDialogContent = styled(DialogContent)({
   padding: tokens.spacing.lg,
@@ -9,13 +10,13 @@ export const SettingsDialogContent = styled(DialogContent)({
 
 export const SettingsDialogActions = styled(DialogActions)({
   padding: tokens.spacing.md,
-  borderTop: `1px solid ${tokens.colors.opacityScale.accent.ultraLight}`,
+  borderTop: `1px solid ${themeVars.borderSubtle}`,
 });
 
 export const SaveButtonGradient = {
-  background: `linear-gradient(45deg, ${tokens.colors.accent.primary}, ${tokens.colors.accent.secondary})`,
+  background: themeVars.accent,
   '&:hover': {
-    background: `linear-gradient(45deg, ${tokens.colors.accent.primary}, ${tokens.colors.accent.secondary})`,
+    background: themeVars.accentHover,
   },
 };
 

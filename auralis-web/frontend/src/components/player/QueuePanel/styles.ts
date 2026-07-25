@@ -1,4 +1,5 @@
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 export const QUEUE_ITEM_HEIGHT = 60;
 export const DRAG_EDGE_ZONE = 60;
@@ -10,8 +11,8 @@ export const styles = {
     flexDirection: 'column' as const,
     width: '100%',
     height: '100%',
-    backgroundColor: tokens.colors.bg.primary,
-    borderLeft: `1px solid ${tokens.colors.border.light}`,
+    backgroundColor: themeVars.surfacePrimary,
+    borderLeft: `1px solid ${themeVars.borderSubtle}`,
     overflow: 'hidden',
   },
 
@@ -25,20 +26,20 @@ export const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: tokens.spacing.md,
-    borderBottom: `1px solid ${tokens.colors.border.light}`,
+    borderBottom: `1px solid ${themeVars.borderSubtle}`,
   },
 
   title: {
     margin: 0,
     fontSize: tokens.typography.fontSize.lg,
     fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
   },
 
   toggleButton: {
     background: 'none',
     border: 'none',
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.lg,
     padding: tokens.spacing.sm,
@@ -46,7 +47,7 @@ export const styles = {
     transition: tokens.transitions.background,
 
     ':hover': {
-      backgroundColor: tokens.colors.bg.secondary,
+      backgroundColor: themeVars.accentSoft,
     },
   },
 
@@ -54,23 +55,23 @@ export const styles = {
     display: 'flex',
     gap: tokens.spacing.sm,
     padding: tokens.spacing.md,
-    borderBottom: `1px solid ${tokens.colors.border.light}`,
+    borderBottom: `1px solid ${themeVars.borderSubtle}`,
     flexWrap: 'wrap' as const,
   },
 
   modeButton: {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.light}`,
-    backgroundColor: tokens.colors.bg.secondary,
-    color: tokens.colors.text.primary,
+    border: `1px solid ${themeVars.borderDefault}`,
+    backgroundColor: themeVars.surfaceSecondary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.semibold,
     transition: tokens.transitions.hover_out,
 
     ':hover': {
-      backgroundColor: tokens.colors.bg.tertiary,
+      backgroundColor: themeVars.accentSoft,
     },
 
     ':disabled': {
@@ -80,15 +81,15 @@ export const styles = {
   },
 
   modeButtonActive: {
-    backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.primaryFull,
-    borderColor: tokens.colors.accent.primary,
+    backgroundColor: themeVars.accent,
+    color: themeVars.textStrong,
+    borderColor: themeVars.accent,
   },
 
   repeatModeButtons: {
     display: 'flex',
     gap: tokens.spacing.xs,
-    borderLeft: `1px solid ${tokens.colors.border.light}`,
+    borderLeft: `1px solid ${themeVars.borderSubtle}`,
     paddingLeft: tokens.spacing.sm,
     marginLeft: tokens.spacing.sm,
   },
@@ -96,9 +97,9 @@ export const styles = {
   repeatButton: {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.light}`,
-    backgroundColor: tokens.colors.bg.secondary,
-    color: tokens.colors.text.primary,
+    border: `1px solid ${themeVars.borderDefault}`,
+    backgroundColor: themeVars.surfaceSecondary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.bold,
@@ -106,7 +107,7 @@ export const styles = {
     minWidth: '36px',
 
     ':hover': {
-      backgroundColor: tokens.colors.bg.tertiary,
+      backgroundColor: themeVars.accentSoft,
     },
 
     ':disabled': {
@@ -116,25 +117,25 @@ export const styles = {
   },
 
   repeatButtonActive: {
-    backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.primaryFull,
-    borderColor: tokens.colors.accent.primary,
+    backgroundColor: themeVars.accent,
+    color: themeVars.textStrong,
+    borderColor: themeVars.accent,
   },
 
   clearButton: {
     marginLeft: 'auto',
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.light}`,
-    backgroundColor: tokens.colors.bg.secondary,
-    color: tokens.colors.text.primary,
+    border: `1px solid ${themeVars.borderDefault}`,
+    backgroundColor: themeVars.surfaceSecondary,
+    color: themeVars.textPrimary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
     transition: tokens.transitions.hover_out,
 
     ':hover': {
-      backgroundColor: tokens.colors.semantic.error,
-      color: tokens.colors.text.primaryFull,
+      backgroundColor: themeVars.error,
+      color: themeVars.textStrong,
     },
 
     ':disabled': {
@@ -145,8 +146,8 @@ export const styles = {
 
   errorBanner: {
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.semantic.error,
-    color: tokens.colors.text.primaryFull,
+    backgroundColor: themeVars.error,
+    color: themeVars.textStrong,
     fontSize: tokens.typography.fontSize.sm,
   },
 
@@ -168,34 +169,34 @@ export const styles = {
     alignItems: 'center',
     gap: tokens.spacing.md,
     padding: tokens.spacing.md,
-    borderBottom: `1px solid ${tokens.colors.border.light}`,
+    borderBottom: `1px solid ${themeVars.borderSubtle}`,
     cursor: 'move',
     transition: `${tokens.transitions.background}, ${tokens.transitions.opacity}`,
 
     ':hover': {
-      backgroundColor: tokens.colors.bg.secondary,
+      backgroundColor: themeVars.accentSoft,
     },
   },
 
   trackItemCurrent: {
-    backgroundColor: tokens.colors.bg.secondary,
-    borderLeft: `3px solid ${tokens.colors.accent.primary}`,
+    backgroundColor: themeVars.accentSoft,
+    borderLeft: `3px solid ${themeVars.accent}`,
     paddingLeft: `calc(${tokens.spacing.md} - 3px)`,
   },
 
   trackItemDragging: {
     opacity: 0.6,
-    backgroundColor: tokens.colors.bg.tertiary,
+    backgroundColor: themeVars.surfaceRaised,
   },
 
   trackItemHovered: {
-    backgroundColor: tokens.colors.bg.secondary,
+    backgroundColor: themeVars.accentSoft,
   },
 
   trackIndex: {
     width: '32px',
     textAlign: 'center' as const,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontWeight: tokens.typography.fontWeight.semibold,
     fontSize: tokens.typography.fontSize.sm,
     flexShrink: 0,
@@ -210,7 +211,7 @@ export const styles = {
   },
 
   trackTitle: {
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     fontSize: tokens.typography.fontSize.md,
     fontWeight: tokens.typography.fontWeight.semibold,
     whiteSpace: 'nowrap' as const,
@@ -222,13 +223,13 @@ export const styles = {
   },
 
   playingIcon: {
-    color: tokens.colors.accent.primary,
+    color: themeVars.accent,
     fontSize: tokens.typography.fontSize.sm,
     flexShrink: 0,
   },
 
   trackArtist: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontSize: tokens.typography.fontSize.sm,
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
@@ -236,7 +237,7 @@ export const styles = {
   },
 
   trackDuration: {
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     fontSize: tokens.typography.fontSize.sm,
     fontVariantNumeric: 'tabular-nums' as const,
     flexShrink: 0,
@@ -248,8 +249,8 @@ export const styles = {
     padding: tokens.spacing.xs,
     borderRadius: tokens.borderRadius.md,
     border: 'none',
-    backgroundColor: tokens.colors.semantic.error,
-    color: tokens.colors.text.primaryFull,
+    backgroundColor: themeVars.error,
+    color: themeVars.textStrong,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     transition: tokens.transitions.opacity,
@@ -271,13 +272,13 @@ export const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     textAlign: 'center' as const,
   },
 
   emptySubtext: {
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     marginTop: tokens.spacing.sm,
   },
 };
