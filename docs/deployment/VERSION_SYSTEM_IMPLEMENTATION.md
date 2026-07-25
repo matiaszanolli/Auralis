@@ -1,5 +1,11 @@
 # Version Management System - Implementation Complete ✅
 
+> **Historical implementation record (September 2025).** The examples and schema values below
+> describe the original versioning implementation, not the current release. The maintained
+> process is [VERSIONING_STRATEGY.md](../versions/VERSIONING_STRATEGY.md), the current source
+> version is the unreleased v1.5.1 recovery milestone, and
+> [`auralis/version.py`](../../auralis/version.py) is the product-version source of truth.
+
 **Date:** September 30, 2025
 **Status:** 🟢 Phase 1 Complete
 **Time Taken:** ~1.5 hours

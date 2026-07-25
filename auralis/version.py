@@ -5,15 +5,15 @@ Single source of truth for version across the entire project.
 
 from typing import Any
 
-__version__ = "1.5.0"
-__version_info__ = (1, 5, 0, "", "")
-__build_date__ = "2026-07-18"
+__version__ = "1.5.1"
+__version_info__ = (1, 5, 1, "", 0)
+__build_date__ = "2026-07-24"
 __git_commit__ = ""  # Auto-populated during build
 
 # Version components for programmatic access
 VERSION_MAJOR = 1
 VERSION_MINOR = 5
-VERSION_PATCH = 0
+VERSION_PATCH = 1
 VERSION_PRERELEASE = ""  # Empty string for stable releases
 VERSION_BUILD = ""  # Optional build metadata
 
@@ -26,7 +26,7 @@ DISPLAY_VERSION = f"Auralis v{__version__}"
 # Database schema version (independent of app version). The live, authoritative
 # value lives in auralis/__version__.py (used by the migration manager); mirror
 # it here instead of hardcoding so this never drifts again (#4054).
-from auralis.__version__ import __db_schema_version__ as DB_SCHEMA_VERSION  # noqa: E402
+from auralis.__version__ import __db_schema_version__ as DB_SCHEMA_VERSION
 
 
 def get_version() -> str:

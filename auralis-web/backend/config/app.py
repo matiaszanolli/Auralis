@@ -17,6 +17,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from auralis.version import __version__ as AURALIS_VERSION
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,7 +46,7 @@ def create_app(lifespan: Any = None) -> FastAPI:
     app = FastAPI(
         title="Auralis Web API",
         description="Modern web backend for Auralis audio processing",
-        version="1.0.0",
+        version=AURALIS_VERSION,
         docs_url="/api/docs" if is_dev else None,
         redoc_url="/api/redoc" if is_dev else None,
         openapi_url="/api/openapi.json" if is_dev else None,

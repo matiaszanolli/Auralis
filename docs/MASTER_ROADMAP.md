@@ -1,7 +1,9 @@
 # Auralis Master Roadmap
 
-**Current version:** 1.5.0 (source of truth: [`auralis/version.py`](../auralis/version.py))
-**Last updated:** 2026-07-18 — v1.5.0 stable release prep (version-fact refresh).
+**Current version:** 1.5.1, unreleased recovery milestone (source of truth:
+[`auralis/version.py`](../auralis/version.py))
+
+**Last updated:** 2026-07-24 — working-state recovery and release-gate refresh.
 
 > **How to read this.** This roadmap was previously a November-2025 planning document built
 > around shipping "v1.0.0-stable" and a set of "future" tracks (similarity graph, continuous
@@ -17,16 +19,18 @@
 
 | Fact | Value | Source |
 |------|-------|--------|
-| Version | 1.5.0 (first stable release) | [`auralis/version.py`](../auralis/version.py) |
-| Latest tagged binary release | `v1.2.0-beta.2` (2025-12-27) — `v1.2.1-beta.1`/`beta.2` were source-only, no binaries; both folded into 1.5.0 | `git tag`, [releases/CHANGELOG.md](releases/CHANGELOG.md) |
-| Backend tests | ~5,445 functions across 391 files | `tests/` |
-| Frontend tests | ~3,476 functions across 215 files | `auralis-web/frontend/src` |
+| Version | 1.5.1 (unreleased recovery milestone) | [`auralis/version.py`](../auralis/version.py) |
+| Latest tagged source release | `v1.2.1-beta.1` | `git tag` |
+| Latest documented binary release | `v1.2.0-beta.2` (2025-12-27) | [releases/CHANGELOG.md](releases/CHANGELOG.md) |
+| Backend tests | 5,466 collected in the 2026-07-24 audit; complete suite not green | [recovery audit](audits/AUDIT_RECOVERY_2026-07-24.md) |
+| Frontend tests | 3,405 exercised in the audit; 3,174 pass, 208 fail, 23 skip | [recovery audit](audits/AUDIT_RECOVERY_2026-07-24.md) |
 | DB schema | v16 | [`migration_manager.py`](../auralis/library/migration_manager.py) |
 | Fingerprint algo | v3 | [`auralis/__version__.py`](../auralis/__version__.py) |
 | Default mastering engine | Continuous space (`use_continuous_space=True`) | [`unified_config.py:154`](../auralis/core/config/unified_config.py) |
 | Default fingerprint strategy | Sampling (20 s interval) | [`unified_config.py`](../auralis/core/config/unified_config.py) |
 
-Released lines to date: `1.0.0-beta.*` → `1.1.0-beta.*` → `1.2.0-beta.*` → `1.2.1-beta.*` (source-only) → `1.5.0` (first stable).
+Tagged lines to date: `1.0.0-beta.*` → `1.1.0-beta.*` → `1.2.0-beta.*` →
+`v1.2.1-beta.1`. Versions 1.5.0 and 1.5.1 are source milestones only; neither has a local tag.
 
 ---
 
@@ -45,7 +49,7 @@ linked subsystem doc.
 | **Continuous enhancement space** (replace discrete presets with interpolation) | ✅ Shipped, **default** | `ContinuousMode` is the default adaptive path; named presets remain as entry points |
 | **Rust DSP acceleration** (HPSS/YIN/Chroma, native fingerprint) | ✅ Shipped | [`vendor/auralis-dsp/`](../vendor/auralis-dsp/), PyO3 + standalone gRPC server |
 | **Phase 1 testing infrastructure** (boundary/invariant suites) | ✅ Shipped, far exceeded | ~5,300 backend test functions vs the old "850+ / 2,500 target" |
-| **Desktop binaries** (AppImage, DEB, Windows, macOS `.dmg`) | ✅ Shipped | CI/CD across all platforms |
+| **Desktop binaries** (AppImage, Flatpak, DEB, Windows, macOS ARM64 `.dmg`) | 🟡 Prepared | CI builds require release-candidate runtime smoke and signing review |
 
 **Bottom line:** the "revolutionary features enabled by the 25D system" are no longer a plan —
 they are the shipped architecture. See [architecture/overview.md](architecture/overview.md).
@@ -73,14 +77,19 @@ the roadmap should stop implying otherwise:
 
 ## 4. Active / near-term
 
-As of v1.5.0 there is no open `[Unreleased]` line — the mastering-quality refinement pass that
-previously lived there (Linkwitz-Riley LR4 crossovers, auto-mastering headroom fix, smooth
-processing curves) shipped as part of 1.5.0; see
-[releases/CHANGELOG.md](releases/CHANGELOG.md#150---2026-07-18) for the full entry.
+The active target is **v1.5.1: working, not finished**. The
+[2026-07-24 recovery audit](audits/AUDIT_RECOVERY_2026-07-24.md) is the execution plan, and
+the [release checklist](releases/RELEASE_CHECKLIST_1_5_1.md) is the tag gate.
 
-Near-term work going forward is tracked as the open backlog below (§5), plus whatever surfaces
-from post-1.5.0 usage. This is consistent with the ongoing mastering-tuning work (loudness
-maximizer, `LOUDNESS_GAP_CLOSURE_FACTOR`) tracked in the engine notes.
+The first two recovery slices are:
+
+1. Make startup truthful and single-owner: one port, one backend owner, real readiness,
+   owned-child shutdown, and an isolated collected smoke test.
+2. Repair the smallest complete product slice: fresh fingerprint persistence,
+   two-dimensional mono enhancement, and last-intent-wins rapid track selection.
+
+Broad lint cleanup, full-suite archaeology, unfinished cache/similarity surfaces, and visual
+polish are explicitly outside the initial “working” milestone unless they block that slice.
 
 ---
 

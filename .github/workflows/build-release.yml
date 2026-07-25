@@ -7,61 +7,98 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to build (e.g., 1.2.1-beta.2)'
-        required: false
-        default: ''
+        description: 'Version to build (e.g., 1.5.1 or 1.5.1-rc.1)'
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   prepare:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.get_version.outputs.version }}
       is_prerelease: ${{ steps.get_version.outputs.is_prerelease }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Get version
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Validate requested version and repository metadata
         id: get_version
+        env:
+          RELEASE_INPUT: ${{ inputs.version }}
         run: |
-          if [ "${{ github.event.inputs.version }}" != "" ]; then
-            VERSION="${{ github.event.inputs.version }}"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="$RELEASE_INPUT"
           else
-            VERSION=${GITHUB_REF#refs/tags/v}
+            VERSION="${GITHUB_REF_NAME#v}"
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          if [[ "$VERSION" =~ (beta|alpha|rc) ]]; then
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+
+          python scripts/validate_release_metadata.py --expected "$VERSION"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
           else
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
           fi
           echo "Building version: $VERSION"
 
   build-linux:
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            auralis-web/frontend/pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Assert Linux x64 runner
+        run: test "$(uname -m)" = "x86_64"
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsndfile1 libffi-dev libasound2-dev libportaudio2 portaudio19-dev
+          sudo apt-get install -y \
+            flatpak \
+            flatpak-builder \
+            libasound2-dev \
+            libffi-dev \
+            libportaudio2 \
+            libsndfile1 \
+            portaudio19-dev
+          flatpak remote-add --user --if-not-exists \
+            flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive flathub \
+            org.freedesktop.Platform//25.08 \
+            org.freedesktop.Sdk//25.08 \
+            org.electronjs.Electron2.BaseApp//25.08
 
       - name: Install Python dependencies
         run: |
@@ -101,71 +138,83 @@ jobs:
         run: |
           mkdir -p desktop/resources/backend
           cp auralis-web/backend/dist/auralis-backend desktop/resources/backend/
+          file desktop/resources/backend/auralis-backend
+          file desktop/resources/backend/auralis-backend | grep -Eq 'x86-64|x86_64'
 
-      - name: Build Electron app (Linux)
+      - name: Install desktop dependencies
         run: |
           cd desktop
           pnpm install --frozen-lockfile
-          pnpm run build:linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/upload-artifact@v4
+      - name: Build Electron app (Linux AppImage and deb)
+        run: |
+          cd desktop
+          pnpm run build:linux
+
+      - name: Verify Linux AppImage and deb
+        run: |
+          test -f "dist/Auralis-${RELEASE_VERSION}.AppImage"
+          test -f "dist/auralis-desktop_${RELEASE_VERSION}_amd64.deb"
+
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-binaries
           path: |
-            dist/*.AppImage
-            dist/*.deb
+            dist/Auralis-${{ needs.prepare.outputs.version }}.AppImage
+            dist/auralis-desktop_${{ needs.prepare.outputs.version }}_amd64.deb
           retention-days: 30
-
-      # Best-effort: Flatpak is a newer, less-battle-tested target here than
-      # AppImage/deb, so a failure must never block those (or the release).
-      - name: Install flatpak-builder
-        continue-on-error: true
-        id: flatpak_deps
-        run: |
-          sudo apt-get install -y flatpak flatpak-builder
-          # --user: the runner account can't do system-wide Flatpak config
-          # (ConfigureRemote requires polkit privileges it doesn't have), and
-          # @malept/flatpak-bundler itself installs the runtime/sdk/base refs
-          # at --user scope too, so this must match.
-          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          if-no-files-found: error
 
       - name: Build Electron app (Linux, Flatpak)
-        if: steps.flatpak_deps.outcome == 'success'
-        continue-on-error: true
         run: |
           cd desktop
           pnpm run build:linux:flatpak
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/upload-artifact@v4
+      - name: Verify Linux Flatpak
+        run: |
+          shopt -s nullglob
+          flatpaks=(dist/*.flatpak)
+          test "${#flatpaks[@]}" -eq 1
+
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-flatpak
           path: dist/*.flatpak
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: error
 
   build-windows:
     needs: prepare
-    runs-on: windows-latest
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            auralis-web/frontend/pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Assert Windows x64 runner
+        shell: pwsh
+        run: |
+          if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
+            throw "Expected an AMD64 runner, got $env:PROCESSOR_ARCHITECTURE"
+          }
 
       - name: Install Python dependencies
         run: |
@@ -214,42 +263,60 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path desktop/resources/backend
           Copy-Item -Force auralis-web/backend/dist/auralis-backend.exe desktop/resources/backend/
+          if (!(Test-Path desktop/resources/backend/auralis-backend.exe)) {
+            throw "Missing packaged Windows backend"
+          }
 
       - name: Build Electron app (Windows)
         run: |
           cd desktop
           pnpm install --frozen-lockfile
           pnpm run build:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/upload-artifact@v4
+      - name: Verify Windows installer
+        shell: pwsh
+        run: |
+          $installer = "dist/Auralis Setup $env:RELEASE_VERSION.exe"
+          if (!(Test-Path $installer)) {
+            throw "Missing Windows installer: $installer"
+          }
+
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-binaries
           path: |
-            dist/*.exe
-            dist/*.exe.blockmap
+            dist/Auralis Setup ${{ needs.prepare.outputs.version }}.exe
           retention-days: 30
+          if-no-files-found: error
 
   build-macos:
     needs: prepare
-    runs-on: macos-latest
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            auralis-web/frontend/pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Assert Apple Silicon runner
+        run: test "$(uname -m)" = "arm64"
 
       - name: Install system dependencies
         run: brew install protobuf libsndfile portaudio
@@ -292,48 +359,75 @@ jobs:
         run: |
           mkdir -p desktop/resources/backend
           cp auralis-web/backend/dist/auralis-backend desktop/resources/backend/
+          file desktop/resources/backend/auralis-backend
+          file desktop/resources/backend/auralis-backend | grep -q arm64
 
-      - name: Build Electron app (macOS)
+      - name: Build Electron app (macOS Apple Silicon)
         run: |
           cd desktop
           pnpm install --frozen-lockfile
-          pnpm run build:mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          pnpm run build:mac:arm64
 
-      - uses: actions/upload-artifact@v4
+      - name: Verify Apple Silicon application and DMG
+        run: |
+          test -f "dist/Auralis-${RELEASE_VERSION}-arm64.dmg"
+          file "dist/mac-arm64/Auralis.app/Contents/MacOS/Auralis"
+          file "dist/mac-arm64/Auralis.app/Contents/MacOS/Auralis" | grep -q arm64
+          file "dist/mac-arm64/Auralis.app/Contents/Resources/backend/auralis-backend"
+          file "dist/mac-arm64/Auralis.app/Contents/Resources/backend/auralis-backend" | grep -q arm64
+
+      - uses: actions/upload-artifact@v7
         with:
-          name: macos-binaries
-          path: |
-            dist/*.dmg
+          name: macos-arm64-binary
+          path: dist/Auralis-${{ needs.prepare.outputs.version }}-arm64.dmg
           retention-days: 30
+          if-no-files-found: error
 
   create-release:
     needs: [prepare, build-linux, build-windows, build-macos]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: ./artifacts
           merge-multiple: true
 
-      - name: Display artifacts
-        run: find ./artifacts -type f | sort
+      - name: Verify release artifacts and generate checksums
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          test -f "artifacts/Auralis-${RELEASE_VERSION}.AppImage"
+          test -f "artifacts/auralis-desktop_${RELEASE_VERSION}_amd64.deb"
+          test -f "artifacts/Auralis Setup ${RELEASE_VERSION}.exe"
+          test -f "artifacts/Auralis-${RELEASE_VERSION}-arm64.dmg"
+
+          shopt -s nullglob
+          flatpaks=(artifacts/*.flatpak)
+          test "${#flatpaks[@]}" -eq 1
+
+          cd artifacts
+          sha256sum -- *.AppImage *.deb *.flatpak *.exe *.dmg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ needs.prepare.outputs.version }}
           name: Auralis v${{ needs.prepare.outputs.version }}
           draft: true
           prerelease: ${{ needs.prepare.outputs.is_prerelease }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
             artifacts/*.AppImage
             artifacts/*.deb
             artifacts/*.flatpak
             artifacts/*.exe
             artifacts/*.dmg
+            artifacts/SHA256SUMS.txt

@@ -1,5 +1,10 @@
 # GitHub Release Guide - v1.0.0-beta.1
 
+> **Historical artifact record.** The filenames, checksums, and GitHub form values below apply
+> only to v1.0.0-beta.1. For the current process use
+> [RELEASE_GUIDE.md](../versions/RELEASE_GUIDE.md); for the unreleased v1.5.1 recovery milestone
+> use its [release checklist](../releases/RELEASE_CHECKLIST_1_5_1.md).
+
 Complete instructions for creating the GitHub release for Auralis v1.0.0-beta.1.
 
 ---

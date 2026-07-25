@@ -1,6 +1,6 @@
 {
   "name": "auralis-desktop",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Auralis Audio Mastering Desktop Application",
   "main": "main.js",
   "packageManager": "pnpm@10.20.0",
@@ -15,13 +15,14 @@
   "scripts": {
     "electron": "electron .",
     "dev": "NODE_ENV=development electron .",
-    "build": "npx electron-builder",
-    "build:win": "npx electron-builder --win",
-    "build:mac": "npx electron-builder --mac",
-    "build:linux": "npx electron-builder --linux",
-    "build:linux:flatpak": "npx electron-builder --linux flatpak",
-    "pack": "npx electron-builder --dir",
-    "dist": "npx electron-builder --publish=never"
+    "build": "electron-builder --publish never",
+    "build:win": "electron-builder --win --x64 --publish never",
+    "build:mac": "pnpm run build:mac:arm64",
+    "build:mac:arm64": "electron-builder --mac --arm64 --publish never",
+    "build:linux": "electron-builder --linux --x64 --publish never",
+    "build:linux:flatpak": "electron-builder --linux flatpak --x64 --publish never",
+    "pack": "electron-builder --dir --publish never",
+    "dist": "electron-builder --publish never"
   },
   "devDependencies": {
     "electron": "^39.8.5",
@@ -89,7 +90,6 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
             "arm64"
           ]
         }
@@ -135,8 +135,8 @@
       "writeUpdateInfo": false
     },
     "flatpak": {
-      "runtimeVersion": "24.08",
-      "baseVersion": "24.08",
+      "runtimeVersion": "25.08",
+      "baseVersion": "25.08",
       "category": "AudioVideo"
     },
     "publish": {

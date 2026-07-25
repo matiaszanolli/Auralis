@@ -2,19 +2,24 @@
 
 All notable changes to Auralis will be documented in this file.
 
+> **Legacy changelog.** The maintained project history is
+> [`docs/releases/CHANGELOG.md`](../releases/CHANGELOG.md). New entries must be added there;
+> this file is retained for historical links.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 ### Added
-- Features in development
+- See the canonical [v1.5.1 recovery entry](../releases/CHANGELOG.md#unreleased).
 
 ### Changed
-- Changes in development
+- Source metadata now targets v1.5.1; the version is not tagged or release-ready.
 
 ### Fixed
-- Fixes in development
+- See the canonical changelog and
+  [v1.5.1 release notes](../releases/RELEASE_NOTES_1_5_1.md).
 
 ## [1.1.0-beta.2] - 2025-11-23
 

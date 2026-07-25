@@ -13,6 +13,8 @@ in [`archive/`](archive/) and is **not** current reference.
 
 | If you want to… | Read |
 |-----------------|------|
+| Understand current recovery status | [audits/AUDIT_RECOVERY_2026-07-24.md](audits/AUDIT_RECOVERY_2026-07-24.md) |
+| Prepare or assess v1.5.1 | [releases/RELEASE_NOTES_1_5_1.md](releases/RELEASE_NOTES_1_5_1.md) · [release checklist](releases/RELEASE_CHECKLIST_1_5_1.md) |
 | Understand the system at a glance | [architecture/overview.md](architecture/overview.md) |
 | See how a play request flows end to end | [architecture/data-flow.md](architecture/data-flow.md) |
 | Find where code lives on disk | [architecture/module-map.md](architecture/module-map.md) |
@@ -84,6 +86,17 @@ Protocol & feature references:
 - [../CLAUDE.md](../CLAUDE.md) — condensed technical reference and codebase map
 - [../ARCHITECTURE.md](../ARCHITECTURE.md) — processor-hierarchy summary
 - [../FIRST_TIME_SETUP.md](../FIRST_TIME_SETUP.md) — end-user setup
+
+---
+
+## Release status
+
+The source tree identifies as **v1.5.1**, an unreleased recovery milestone. Do not infer
+release readiness from the version number: no v1.5.1 tag or binaries exist, and the
+[release checklist](releases/RELEASE_CHECKLIST_1_5_1.md) remains blocked by the four
+high-severity working-state findings. The latest tagged source version is
+`v1.2.1-beta.1`; the latest tagged version documented here with downloadable binaries is
+`v1.2.0-beta.2`.
 
 ---
 

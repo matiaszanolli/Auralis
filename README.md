@@ -6,21 +6,29 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/next%20release-v1.5.0%20(WIP)-yellow.svg)](https://github.com/matiaszanolli/Auralis/releases)
+[![Release](https://img.shields.io/badge/next%20release-v1.5.1%20(recovery)-orange.svg)](docs/releases/RELEASE_NOTES_1_5_1.md)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-~5%2C400-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-~3%2C500-brightgreen.svg)]()
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)]()
 [![Node](https://img.shields.io/badge/node-24%2B-blue.svg)]()
 
-## 🚧 In Progress: v1.5.0 — First Stable Release
+## 🚧 Recovery in progress: v1.5.1
 
-> **Not yet released.** v1.5.0 is in preparation on `master` — not tagged, not built, no binaries. `auralis/version.py` reflects the in-progress version, ahead of the last actual release.
+> **Not yet release-ready.** v1.5.1 is an unreleased recovery milestone on `master`.
+> It has not been tagged, built, or published. The version number marks the workstream; it is
+> not a claim that the application is currently working end to end.
 
-**🎵 Auralis is preparing its first stable release.** v1.5.0 will consolidate everything built since the last binary release (v1.2.0-beta.2, Dec 2025) — two source-only pre-release tags plus a mastering-quality refinement pass, folded into one stable line.
+The [working-state recovery audit](docs/audits/AUDIT_RECOVERY_2026-07-24.md) found that the
+backend can boot and the frontend can build, but the supported full-app launch path and three
+core product flows still have release-blocking defects. The immediate goal is deliberately
+smaller than “finished”: one truthful launcher, a fresh library that persists fingerprints,
+mono-safe enhancement, and deterministic rapid track selection.
 
 ### Downloads
 
-> ⚠️ **No v1.5.0 binaries yet — it hasn't shipped.** The last release with downloadable binaries is **v1.2.0-beta.2** (Dec 2025) — several months behind current `master`. To try the fixes described below now, **build from source** (see Option 2 below); a v1.5.0 binary build will follow once it's tagged.
+> ⚠️ **No v1.5.1 binaries exist.** The last release with downloadable binaries is
+> **v1.2.0-beta.2** (Dec 2025), several months behind `master`. Do not publish or distribute a
+> v1.5.1 build until the [release checklist](docs/releases/RELEASE_CHECKLIST_1_5_1.md) is green.
 
 | Platform | Download (v1.2.0-beta.2) | Notes |
 |----------|----------|-------|
@@ -29,23 +37,29 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 | **Windows** | [.exe](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2) | Run installer |
 | **macOS** | [.dmg](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2) | Drag to Applications |
 
-### Highlights so far (targeting v1.5.0, since v1.2.0-beta.2)
+### What this recovery start establishes
 
-- ✅ **First stable release** — no longer beta; production-ready quality bar
-- ✅ **Mastering pipeline refinement** — Linkwitz-Riley LR4 crossovers for phase-coherent stereo band splitting, fixed headroom calculation for quiet/loud-peak tracks, cosine-interpolated smooth processing curves (intensity, stereo expansion, bass enhancement)
-- 🔒 **Concurrency hardening** — resolved a hard deadlock between seek/load/next-track and playback-info reads; fixed resource leaks in the processing engine and cache workers; guarded database-migration races
-- ✅ **Large audit-remediation effort** — dozens of concurrency, data-integrity, API-contract, DSP, and security issues resolved (issues #2299–#2472 and beyond)
-- ✅ **High-Performance Rust DSP** — 2-5x faster audio analysis via PyO3 bindings (HPSS, YIN pitch detection, Chroma analysis); 25D audio fingerprinting in ~500ms per track
-- ✅ **Comprehensive Test Suite** — ~5,400 backend tests, ~3,500 frontend tests
+- ✅ **Evidence-based recovery scope** — one deduplicated audit separates launcher, product,
+  verification, and lower-priority debt.
+- ✅ **Usable foundations** — the FastAPI backend boots and serves real API requests, and the
+  React production bundle builds.
+- ✅ **Consistent release identity** — Python, backend, package, frontend, desktop, and
+  packaging metadata now agree on v1.5.1.
+- 🚧 **Explicit release gate** — four high-severity recovery findings must be fixed and
+  smoke-tested before a tag is created.
+- 📜 **Preserved history** — the large v1.5.0 source-preparation entry remains in the
+  changelog, but local git history confirms it was never tagged as a release.
 
-📖 **[Full Changelog](docs/releases/CHANGELOG.md)** | 🔗 **[Roadmap](docs/MASTER_ROADMAP.md)**
+📖 **[v1.5.1 Release Notes](docs/releases/RELEASE_NOTES_1_5_1.md)** |
+✅ **[Release Checklist](docs/releases/RELEASE_CHECKLIST_1_5_1.md)** |
+🔗 **[Recovery Audit](docs/audits/AUDIT_RECOVERY_2026-07-24.md)**
 
 ### 🎯 Previous Releases
 
 - **[v1.2.0-beta.2](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2)** - Last binary release; AppImage size optimization (Dec 2025)
 - **[v1.1.0-beta.5](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.5)** - Audio mastering refinement (Dec 2025)
 - **[v1.1.0-beta.3](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.3)** - DRY refactoring & code quality (Nov 2025)
-- **[v1.0.0-beta.12](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.12)** - Previous stable release with binaries
+- **[v1.0.0-beta.12](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.12)** - Earlier beta release with binaries
 
 ---
 
@@ -68,7 +82,8 @@ Auralis is a **local music player** with professional audio enhancement built-in
 - 🖥️ **Desktop & Web** - Native Electron app or run in your browser
 - 🔒 **100% Private** - Your music, your computer, no cloud required
 - ⚡ **Blazing Fast** - 36.6x real-time audio processing, 740+ files/second scanning
-- ✅ **Well Tested** - ~5,400 automated backend tests, ~3,500 frontend tests, production-ready quality
+- 🧪 **Broadly Tested** - large backend and frontend suites exist; the recovery audit documents
+  the currently trustworthy green slices and the stale/red gates
 
 ---
 
@@ -106,34 +121,42 @@ auralis
 # 3. First launch: Right-click → Open (to bypass Gatekeeper)
 ```
 
-### Option 2: Run from Source (Recommended — latest `master`, pre-v1.5.0)
+### Option 2: Run the verified components from source
 
-**Web Interface:**
+The root launcher and Electron development orchestration are currently blocked by
+[REC-01](docs/audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher).
+For recovery work, run the backend and Vite separately:
+
+**One-time setup:**
+
 ```bash
-# 1. Install dependencies (uv manages the Python interpreter + venv)
-uv venv && source .venv/bin/activate
+uv venv --python 3.14
+source .venv/bin/activate
 uv pip install -r requirements.txt
-
-# 2. Build the Rust DSP module (required)
-cd vendor/auralis-dsp && maturin develop && cd ../..
-
-# 3. Launch Auralis
-python launch-auralis-web.py
-
-# 4. Open browser at http://localhost:8765
+cd vendor/auralis-dsp
+maturin develop
+cd ../..
+cd auralis-web/frontend
+pnpm install --frozen-lockfile
 ```
 
-**Desktop App:**
-```bash
-# 1. Install Python + Node.js dependencies
-uv venv && source .venv/bin/activate
-uv pip install -r requirements.txt
-cd vendor/auralis-dsp && maturin develop && cd ../..
-cd desktop && npm install
+**Terminal 1 — backend:**
 
-# 2. Launch desktop app
-npm run dev
+```bash
+source .venv/bin/activate
+cd auralis-web/backend
+python main.py --dev
 ```
+
+**Terminal 2 — frontend:**
+
+```bash
+cd auralis-web/frontend
+pnpm run dev
+```
+
+Open <http://localhost:3000>. This component workflow is suitable for recovery development;
+it does not clear the full desktop release gate.
 
 ---
 
@@ -275,7 +298,9 @@ desktop/                   # Electron wrapper
 
 ## 🧪 Testing & Quality
 
-**~5,400 automated backend tests + ~3,500 frontend tests** ensure production-ready quality:
+The repository contains roughly 5,400 backend and 3,500 frontend tests. The complete suites
+are not currently green; use the recovery audit and release checklist to distinguish
+trustworthy gates from known harness drift.
 
 - **Backend (Python):** ~5,400 tests covering audio processing, API, security
 - **Frontend (React):** ~3,500 component and integration tests with Vitest
@@ -292,7 +317,7 @@ python -m pytest -m "not slow" -v
 
 # Frontend tests
 cd auralis-web/frontend
-npm test
+pnpm run test:run
 
 # With coverage
 python -m pytest tests/ --cov=auralis --cov-report=html
@@ -306,15 +331,12 @@ See [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) for testing 
 cd desktop
 
 # Development mode
-npm run dev
+pnpm run dev
 
-# Build for all platforms
-npm run package
-
-# Build for specific platform
-npm run package:linux
-npm run package:win
-npm run package:mac
+# Build for the current target
+pnpm run build:linux
+pnpm run build:win
+pnpm run build:mac:arm64
 ```
 
 ### Frontend Development
@@ -323,13 +345,13 @@ npm run package:mac
 cd auralis-web/frontend
 
 # Install dependencies
-npm install
+pnpm install --frozen-lockfile
 
 # Development server (hot reload)
-npm start
+pnpm run dev
 
 # Build for production
-npm run build
+pnpm run build
 ```
 
 ---
@@ -348,6 +370,8 @@ npm run build
 
 ### Release Notes
 - **[CHANGELOG](docs/releases/CHANGELOG.md)** - Full version history
+- **[v1.5.1 release notes](docs/releases/RELEASE_NOTES_1_5_1.md)** - Recovery scope and known blockers
+- **[v1.5.1 release checklist](docs/releases/RELEASE_CHECKLIST_1_5_1.md)** - Tag/publish gates
 - **[All Release Notes](docs/releases/)** - Per-release notes archive
 
 ---
@@ -356,14 +380,16 @@ npm run build
 
 This section is a brief summary — **[MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md)** is the detailed, actively-maintained source of truth (current state, open backlog, longer-term vision).
 
-### 🚧 Merged to `master`, pending the v1.5.0 release
+### 🚧 v1.5.1 recovery milestone
 
-- [x] Version bumped to 1.5.0 — first stable (non-beta) release, not yet tagged/shipped
-- [x] Mastering-pipeline refinement (Linkwitz-Riley crossovers, headroom fix, smooth processing curves)
-- [x] Large concurrency/data-integrity/security audit-remediation effort (#2299–#2472 and beyond)
-- [x] Enhancement presets UI (5 presets: Adaptive, Gentle, Warm, Bright, Punchy)
-- [x] Album art downloader (MusicBrainz/iTunes)
-- [x] Dark/light theme toggle
+- [x] Deep working-state audit and prioritized recovery plan
+- [x] Version metadata aligned on 1.5.1
+- [x] Release notes and acceptance checklist prepared
+- [ ] Repair the canonical launcher and readiness checks
+- [ ] Repair fresh-database fingerprint persistence
+- [ ] Repair `(samples, 1)` mono enhancement
+- [ ] Prevent stale rapid track selections from winning
+- [ ] Pass the working-state smoke test and platform artifact checks
 
 ### 🔄 Open Backlog
 
@@ -408,7 +434,7 @@ See **[MASTER_ROADMAP.md §5](docs/MASTER_ROADMAP.md#5-open-backlog-real-tracked
 
 ---
 
-## 🐛 Known Issues (current `master`, pre-v1.5.0)
+## 🐛 Known issues (current `master`, v1.5.1 recovery)
 
 ### ⚠️ Current Limitations
 
@@ -417,13 +443,20 @@ See **[MASTER_ROADMAP.md §5](docs/MASTER_ROADMAP.md#5-open-backlog-real-tracked
 - **Workaround:** Right-click → Open on first launch
 - **Status:** Tracked on the roadmap
 
-**No v1.5.0 Binaries Yet**
-- v1.5.0 hasn't been tagged or released — the last binary release is v1.2.0-beta.2 (Dec 2025); see Downloads above
-- **Workaround:** Build from source to run the latest `master`
+**Release blockers**
 
-### ✅ Fixed on `master` (landing in v1.5.0)
+- The root and Electron launch paths do not yet have a safe single backend owner.
+- Fresh databases silently fail their first fingerprint inserts.
+- Adaptive enhancement crashes on two-dimensional mono input.
+- Rapid track selection can allow an older request to play after the newer request.
 
-**Pending release** (merged, targeting v1.5.0):
+See the [recovery audit](docs/audits/AUDIT_RECOVERY_2026-07-24.md) for evidence and required
+fixes. The separate backend + Vite workflow above is the supported recovery-development path,
+not a production workaround.
+
+### ✅ Already verified on `master`
+
+These existing fixes remain part of the source baseline:
 - **Playback concurrency deadlock** - Fixed a hard deadlock between seek/load/next-track and playback-info reads
 - **Resource leaks** - Processing engine and cache workers no longer leak threads/state after failures
 - **Database migration concurrency (CRITICAL)** - Inter-process locking prevents corruption

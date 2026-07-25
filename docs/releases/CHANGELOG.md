@@ -7,15 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+**Target:** 1.5.1
+
+### Added
+
+- Working-state recovery audit with a concrete definition of “working,” four phased recovery
+  slices, and evidence-backed release gates.
+- v1.5.1 release notes and an executable release checklist.
+- Automated consistency coverage for Python, backend fallback, Python packaging, container,
+  root package, frontend, and desktop version metadata.
+- Required cross-platform release packaging for Linux x64 AppImage, Flatpak, and `.deb`,
+  Windows x64, and macOS Apple Silicon, with artifact and architecture assertions.
+
+### Changed
+
+- Advanced the source tree to v1.5.1 as an **unreleased recovery milestone**.
+- Reworked the README, documentation hub, roadmap, versioning strategy, and release guide to
+  distinguish a prepared source version from a tagged, tested, published release.
+- Updated the version synchronizer to work from any current directory and propagate the
+  canonical version to compatibility, packaging, container, JavaScript, and degraded-backend
+  surfaces.
+- Made release tags and manual CI builds validate their requested version against repository
+  metadata, fail on missing artifacts, and generate SHA-256 checksums before drafting a release.
+- Moved the Flatpak target to the 25.08 runtime and made it a required release artifact.
+
+### Fixed
+
+- The backend compatibility module now reads the product version from `auralis/version.py`
+  instead of the stale `auralis/__version__.py` mirror.
+- FastAPI metadata and system endpoint tests now use the canonical product/database versions
+  and respect production OpenAPI-route disabling.
+- Corrected release documentation that used npm commands for pnpm-managed workspaces or
+  described the broken root launcher as a supported path.
+- Removed the invalid Intel macOS package produced on an Apple Silicon runner with an ARM64
+  Python/Rust backend; macOS release builds now target ARM64 end to end.
+
+### Known release blockers
+
+- The full application has no safe, truthful single-owner launcher yet.
+- Fresh databases reject the first fingerprint insert.
+- Adaptive enhancement crashes on `(samples, 1)` mono input.
+- Rapid track selection can allow an older request to win.
+
+See [RELEASE_NOTES_1_5_1.md](RELEASE_NOTES_1_5_1.md),
+[RELEASE_CHECKLIST_1_5_1.md](RELEASE_CHECKLIST_1_5_1.md), and the
+[working-state recovery audit](../audits/AUDIT_RECOVERY_2026-07-24.md).
+
 ## [1.5.0] - 2026-07-18
 
+> **Source-preparation milestone, not a tagged release.** Local git history contains no
+> `v1.5.0` tag. Its changes remain part of the v1.5.1 recovery baseline.
+
 ### Overview
-**First stable release.** Consolidates everything since the last binary release (v1.2.0-beta.2,
-2025-12-27): two source-only pre-release tags (v1.2.1-beta.1, v1.2.1-beta.2) and the subsequent
-unreleased work were never given a binary build, so this release folds all three together — a
-large batched audit-remediation effort (dozens of concurrency, data-integrity, API-contract, DSP,
-and security issues, `v1.2.0-beta.3..v1.2.1-beta.2` plus issues #2299–#2472) followed by a
-mastering-pipeline quality-refinement pass.
+**First stable source milestone (not tagged).** Consolidates everything since the last binary
+release (v1.2.0-beta.2, 2025-12-27): two source-only pre-release versions
+(v1.2.1-beta.1, v1.2.1-beta.2) and the subsequent unreleased work were never given a binary
+build, so this source milestone folds all three together — a large batched audit-remediation
+effort (dozens of concurrency, data-integrity, API-contract, DSP, and security issues,
+`v1.2.0-beta.3..v1.2.1-beta.2` plus issues #2299–#2472) followed by a mastering-pipeline
+quality-refinement pass.
 
 ### Changed
 

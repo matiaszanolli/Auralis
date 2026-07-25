@@ -35,4 +35,4 @@ CMD ["python", "build_auralis.py", "--skip-tests"]
 # Labels for metadata
 LABEL maintainer="Auralis Team"
 LABEL description="Build container for Auralis audio mastering system"
-LABEL version="1.0.0"
+LABEL version="1.5.1"

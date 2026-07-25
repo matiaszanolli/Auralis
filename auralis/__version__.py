@@ -1,7 +1,13 @@
-"""Auralis version information."""
+"""Compatibility version exports and independent data-format versions.
 
-__version__ = "1.0.0"
-__version_info__ = (1, 0, 0)
+The product version is authored in :mod:`auralis.version`.  The two product
+constants below are retained for older importers and are updated by
+``sync_version.py``.  Database schema and fingerprint algorithm versions are
+independent and must only change with their respective formats.
+"""
+
+__version__ = "1.5.1"
+__version_info__ = (1, 5, 1, "", 0)
 __db_schema_version__ = 16  # track_playlist: UNIQUE(track_id, playlist_id) + position column (#3724, #3725)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction

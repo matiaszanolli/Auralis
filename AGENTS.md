@@ -1,18 +1,22 @@
-# CLAUDE.md
+# AGENTS.md
 
 **Project**: Auralis — Music player with real-time audio enhancement
-**Version**: 1.5.1 recovery milestone (`auralis/version.py` is source of truth; not tagged)
+**Version**: 1.5.0 (`auralis/version.py` is source of truth)
 **Python**: 3.14+ | **Node**: 24+ | **Rust**: Required (PyO3 DSP module)
 **License**: AGPL-3.0 (dual-licensed, see COMMERCIAL_LICENSE.md)
 
 ## Commands
 
 ```bash
-# Run verified recovery components (the root/Electron launcher is a known blocker)
+# Run (web)
 uv venv && source .venv/bin/activate    # uv manages the Python interpreter + venv; .python-version pins 3.13.9 transitionally
 uv pip install -r requirements.txt
-cd auralis-web/backend && python main.py --dev             # Backend :8765
+python launch-auralis-web.py --dev      # Backend :8765, Frontend :3000
+
+# Run (components)
+cd auralis-web/backend && python -m uvicorn main:app --reload
 cd auralis-web/frontend && pnpm install && pnpm run dev   # pnpm is the only supported JS package manager (#4357)
+cd desktop && pnpm install && pnpm run dev
 
 # Test
 python -m pytest tests/ -v                         # All (~2-3 min)

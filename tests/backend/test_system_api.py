@@ -25,9 +25,6 @@ import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
-import pytest
-from fastapi.testclient import TestClient
-
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -58,8 +55,13 @@ class TestHealthCheck:
         assert isinstance(data["auralis_available"], bool)
 
     def test_health_check_pydantic_schema_exported(self, client):
-        """HealthResponse model is used — FastAPI exposes it in /openapi.json (#3863)."""
-        schema = client.get("/openapi.json").json()
+        """HealthResponse is registered in the generated OpenAPI schema (#3863)."""
+        import main
+
+        # Production intentionally disables the HTTP OpenAPI route (#4375).
+        # Inspect the generated schema directly so this tests response-model
+        # registration without contradicting that security contract.
+        schema = main.app.openapi()
         schemas = schema.get("components", {}).get("schemas", {})
         assert "HealthResponse" in schemas, (
             "HealthResponse Pydantic model must appear in OpenAPI schema (#3863)"
@@ -116,11 +118,18 @@ class TestVersionEndpoint:
         assert "build_date" in data
         assert "api_version" in data
         assert data["api_version"] == "v1"
-        assert data["db_schema_version"] == 3
+        from auralis.version import DB_SCHEMA_VERSION
+
+        assert data["db_schema_version"] == DB_SCHEMA_VERSION
 
     def test_version_pydantic_schema_exported(self, client):
-        """VersionInfoResponse model is used — FastAPI exposes it in /openapi.json (#3863)."""
-        schema = client.get("/openapi.json").json()
+        """VersionInfoResponse is registered in the generated OpenAPI schema (#3863)."""
+        import main
+
+        from auralis.version import __version__
+
+        schema = main.app.openapi()
+        assert schema["info"]["version"] == __version__
         schemas = schema.get("components", {}).get("schemas", {})
         assert "VersionInfoResponse" in schemas, (
             "VersionInfoResponse Pydantic model must appear in OpenAPI schema (#3863)"

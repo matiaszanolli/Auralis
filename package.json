@@ -1,6 +1,7 @@
 {
   "name": "auralis",
-  "version": "1.5.0",
+  "version": "1.5.1",
+  "packageManager": "pnpm@10.20.0",
   "description": "Auralis Audio Mastering Suite",
   "main": "desktop/main.js",
   "scripts": {

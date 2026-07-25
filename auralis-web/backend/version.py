@@ -2,8 +2,10 @@
 
 from typing import Any
 
-# Import version from main auralis package
-from auralis.__version__ import __db_schema_version__, __version__, __version_info__
+# Product version comes from the project source of truth. Database schema
+# versioning remains independent.
+from auralis.__version__ import __db_schema_version__
+from auralis.version import __version__, __version_info__
 
 # Backend API version
 API_VERSION = __version__
