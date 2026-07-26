@@ -11,5 +11,6 @@ export * from './ws/queue';
 export * from './ws/library';
 export * from './ws/streaming';
 export * from './ws/enhancement';
+export * from './ws/system';
 export * from './ws/registry';
 export * from './ws/guards';

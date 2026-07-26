@@ -56,6 +56,11 @@ import type {
 // AnyWebSocketMessage union / ALL_MESSAGE_TYPES (#4167).
 
 import type {
+  SystemMessageType,
+  CacheClearedMessage,
+} from './system';
+
+import type {
   EnhancementMessageType,
   EnhancementSettingsChangedMessage,
   MasteringRecommendationMessage,
@@ -70,6 +75,7 @@ export type WebSocketMessageType =
   | LibraryMessageType
   | StreamingMessageType
   | EnhancementMessageType
+  | SystemMessageType
   | 'error';
 
 
@@ -111,6 +117,7 @@ export type AnyWebSocketMessage =
   | LibraryScanStartedMessage
   | LibraryScanErrorMessage
   | LibraryTracksRemovedMessage
+  | CacheClearedMessage
   | WebSocketErrorMessage;
 
 
@@ -152,6 +159,7 @@ export const ALL_MESSAGE_TYPES: readonly WebSocketMessageType[] = [
   'library_scan_started',
   'library_scan_error',
   'library_tracks_removed',
+  'cache_cleared',
   'error',
 ] as const satisfies readonly WebSocketMessageType[];
 
