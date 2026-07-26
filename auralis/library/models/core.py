@@ -85,8 +85,19 @@ class Track(Base, TimestampMixin):
     artists: Mapped[list[Artist]] = relationship("Artist", secondary=track_artist, back_populates="tracks")
     genres: Mapped[list[Genre]] = relationship("Genre", secondary=track_genre, back_populates="tracks")
     playlists: Mapped[list[Playlist]] = relationship("Playlist", secondary=track_playlist, back_populates="tracks")
-    fingerprint: Mapped[TrackFingerprint | None] = relationship("TrackFingerprint", back_populates="track", uselist=False)
-    similar_tracks: Mapped[list[SimilarityGraph]] = relationship("SimilarityGraph", foreign_keys="[SimilarityGraph.track_id]", back_populates="track")
+    # passive_deletes=True defers child removal to the DB's ondelete='CASCADE'
+    # (#4598). Both children declare track_id as nullable=False; without this
+    # SQLAlchemy's unit-of-work loads them on delete and issues
+    # `UPDATE ... SET track_id=NULL` first, violating the NOT NULL constraint —
+    # so deleting any fingerprinted track raised IntegrityError, which
+    # TrackRepository.delete()'s blanket except swallowed as a plain False.
+    fingerprint: Mapped[TrackFingerprint | None] = relationship(
+        "TrackFingerprint", back_populates="track", uselist=False, passive_deletes=True
+    )
+    similar_tracks: Mapped[list[SimilarityGraph]] = relationship(
+        "SimilarityGraph", foreign_keys="[SimilarityGraph.track_id]",
+        back_populates="track", passive_deletes=True
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """

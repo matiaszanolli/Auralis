@@ -334,17 +334,34 @@ def load_with_ffmpeg(
         # we passed `-ac {source_channels}` and then `soundfile_loader`
         # truncated to `[:, :2]` — which silently dropped the center channel
         # (vocals/dialogue) for 5.1/7.1 content.
+        #
+        # #4611/#4597: that downmix is now gated on `source_channels > 2`.
+        # Applying it unconditionally also *up*-mixed genuine mono into fake
+        # stereo, which #3672 never intended: `get_audio_info()` reported the
+        # true channel count from ffprobe while `load_audio()` handed back a
+        # 2-D array, so the two disagreed about the same file and the returned
+        # dimensionality depended on file extension rather than audio content.
+        # Gating here matches `soundfile_loader`, which downmixes only when
+        # `shape[1] > 2`.
+        needs_downmix = source_channels > 2
         ffmpeg_cmd = [
             'ffmpeg',
             '-i', file_path_str,
             '-acodec', 'pcm_s16le',            # 16-bit PCM
             '-ar', str(source_sample_rate),    # Preserve native sample rate
-            '-ac', '2',                        # Downmix to stereo (#3672)
+        ]
+        if needs_downmix:
+            ffmpeg_cmd += ['-ac', '2']         # Surround → stereo (#3672)
+        ffmpeg_cmd += [
             '-y',                              # Overwrite output
             str(temp_wav)
         ]
-        debug(f"FFmpeg: converting at {source_sample_rate} Hz, "
-              f"downmixing {source_channels} → 2 ch")
+        if needs_downmix:
+            debug(f"FFmpeg: converting at {source_sample_rate} Hz, "
+                  f"downmixing {source_channels} → 2 ch")
+        else:
+            debug(f"FFmpeg: converting at {source_sample_rate} Hz, "
+                  f"preserving {source_channels} ch")
 
         result = _run_ffmpeg_cancellable(
             ffmpeg_cmd,

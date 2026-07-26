@@ -180,10 +180,18 @@ class FingerprintExtractionQueue:
         exactly once when all workers have drained AND at least one track
         was processed in this wave."""
         fire = False
+        # Threshold on the REAL thread count, not `current_num_workers` (#4596).
+        # `start()` spawns exactly `initial_num_workers` threads and nothing ever
+        # appends to `self.workers` afterwards, but AdaptiveResourceMonitor keeps
+        # ratcheting `current_num_workers` upward as pure bookkeeping. Since
+        # `_drained_workers` can only be incremented by threads that actually
+        # exist, once the recommendation exceeded the real count the condition
+        # became permanently unsatisfiable and on_drained stopped firing forever.
+        real_workers = len(self.workers) or self.initial_num_workers
         with self._drain_state_lock:
             self._drained_workers += 1
             if (
-                self._drained_workers >= max(1, self.current_num_workers)
+                self._drained_workers >= max(1, real_workers)
                 and self._processed_since_drain > 0
             ):
                 fire = True
@@ -201,6 +209,12 @@ class FingerprintExtractionQueue:
 
         Args:
             new_worker_count: New recommended worker count
+
+        NOTE (#4596): `current_num_workers` is ADVISORY BOOKKEEPING ONLY — no
+        thread is spawned or joined here, so it can drift far above the real
+        thread count (`len(self.workers)`, fixed at `start()`). Never use it as
+        a completion threshold or to size anything real; use `len(self.workers)`.
+        Doing so is what permanently stalled the `on_drained` callback.
         """
         with self.stats_lock:
             old_count = self.current_num_workers

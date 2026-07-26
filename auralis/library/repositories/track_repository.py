@@ -666,7 +666,12 @@ class TrackRepository(BaseRepository):
             track_id: Track ID to delete
 
         Returns:
-            True if deleted, False if not found
+            True if deleted, False if not found OR if the delete failed.
+
+        Note: child rows (fingerprint, similarity-graph edges) are removed by
+        the database's ondelete='CASCADE'; the parent-side relationships declare
+        passive_deletes=True so SQLAlchemy does not try to NULL their
+        non-nullable track_id first (#4598).
         """
         session = self.get_session()
         try:
@@ -676,6 +681,18 @@ class TrackRepository(BaseRepository):
                 session.commit()
                 debug(f"Deleted track: {track.title}")
                 return True
+            return False
+        except IntegrityError as e:
+            # Distinguished from the generic case because it means a relationship
+            # is missing passive_deletes=True (or a new child table was added
+            # without ondelete='CASCADE') — a code defect, not a runtime blip.
+            # It previously surfaced as an ordinary False, indistinguishable from
+            # "track not found", which is why #4598 went unnoticed (#4598).
+            session.rollback()
+            error(
+                f"Failed to delete track {track_id} — integrity constraint violated. "
+                f"A child relationship likely lacks passive_deletes=True: {e}"
+            )
             return False
         except Exception as e:
             session.rollback()
