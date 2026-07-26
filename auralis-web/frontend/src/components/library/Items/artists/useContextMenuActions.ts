@@ -48,6 +48,10 @@ export const useContextMenuActions = ({
         artist: artist.name,
         album: track.album,
         duration: track.duration,
+        // #4586: carry the format through; without it the queue's
+        // format-aware recommendations/statistics see only 'unknown'
+        // for every artist-sourced track.
+        format: track.format,
       }));
 
       // Clear existing queue and set new tracks
@@ -77,6 +81,10 @@ export const useContextMenuActions = ({
         artist: artist.name,
         album: track.album,
         duration: track.duration,
+        // #4586: carry the format through; without it the queue's
+        // format-aware recommendations/statistics see only 'unknown'
+        // for every artist-sourced track.
+        format: track.format,
       }));
 
       if (tracks.length === 0) {

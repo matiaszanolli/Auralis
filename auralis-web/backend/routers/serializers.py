@@ -22,7 +22,12 @@ DEFAULT_TRACK_FIELDS = {
     'artist': '',
     'album': '',
     'duration': 0,
-    'filepath': '',
+    # NOTE: `filepath` is deliberately absent. #3205 made the server-side path
+    # server-only (player_state.TrackInfo marks it Field(exclude=True)), and
+    # Track.to_dict() — which serialize_object() prefers whenever the object
+    # provides it — omits it too. Listing it here only affected the getattr
+    # fallback (Mocks and detached objects), so the two paths disagreed about
+    # whether a serialized track carries a path at all (#4586).
     'format': 'Unknown',
     # Optional metadata (fixes #2267 — frontend requires artist/album, others desirable)
     'artwork_url': None,

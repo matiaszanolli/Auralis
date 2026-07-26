@@ -42,6 +42,12 @@ class TrackInfo(BaseModel):
     # Server-only; excluded from API responses (#3205)
     filepath: str = Field(exclude=True)
     artwork_url: str | None = None
+    # Audio container/codec (e.g. "flac", "mp3"). #4586: the frontend queue
+    # utilities want the *format*, and used to derive it by parsing `filepath`
+    # — which #3205 deliberately withholds, so they always fell back to
+    # "unknown" for every queue-sourced track. Shipping the format explicitly
+    # gives them the data without leaking a server path.
+    format: str | None = None
 
 
 class PlayerState(BaseModel):
@@ -117,6 +123,13 @@ def create_track_info(track: Any) -> TrackInfo | None:
         elif isinstance(track.album, str):
             album_name = track.album
 
+    # Audio format (#4586). Coerce anything that isn't a real string to None:
+    # `getattr` on a Mock auto-creates a Mock attribute, and other callers pass
+    # partially-populated rows — neither should fail TrackInfo validation over
+    # a purely informational field.
+    raw_format = getattr(track, 'format', None)
+    track_format = raw_format if isinstance(raw_format, str) else None
+
     # Build artwork URL from album ID
     album_art_url: str | None = None
     album_id = getattr(track, 'album_id', None)
@@ -133,4 +146,5 @@ def create_track_info(track: Any) -> TrackInfo | None:
         duration=track.duration or 0.0,
         filepath=track.filepath,
         artwork_url=album_art_url,
+        format=track_format,
     )

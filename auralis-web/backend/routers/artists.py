@@ -49,6 +49,21 @@ class TrackInArtist(BaseModel):
     duration: float
     track_number: int | None = None
     disc_number: int | None = None
+    # #4586: every other track-returning endpoint ships `format` (it is in
+    # DEFAULT_TRACK_FIELDS and Track.to_dict()); this model was the one that
+    # did not, so artist-sourced queue entries lost format-aware handling.
+    format: str | None = None
+
+
+def _track_format(track: Any) -> str | None:
+    """Read a track's audio format defensively (#4586).
+
+    The attribute is absent on partially-populated rows and on spec'd test
+    doubles, and a bare `Mock` yields a Mock rather than a string — none of
+    which should fail response validation over an informational field.
+    """
+    value = getattr(track, 'format', None)
+    return value if isinstance(value, str) else None
 
 
 class AlbumInArtist(BaseModel):
@@ -222,7 +237,8 @@ def create_artists_router(
                 album_id=track.album.id if track.album else 0,
                 duration=track.duration or 0,
                 track_number=track.track_number,
-                disc_number=track.disc_number
+                disc_number=track.disc_number,
+                format=_track_format(track),
             ))
 
         # Sort tracks by album, disc number, then track number

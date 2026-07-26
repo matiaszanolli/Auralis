@@ -46,8 +46,11 @@ export interface TrackInfo {
   /**
    * #3634: backend's player_state TrackInfo declares filepath as
    * Field(exclude=True), so WS-sourced queue entries don't have it.
-   * REST endpoints (album/track details) do return it. Declared optional
-   * so consumers handle both shapes correctly.
+   *
+   * #4586: REST endpoints don't return it either — `serialize_track()` defers
+   * to `Track.to_dict()`, which omits `filepath` — so this is effectively
+   * never populated. #3205 made that deliberate (no server-path leakage).
+   * Use `format` for format-aware logic rather than parsing this.
    */
   filepath?: string;
   // Additional fields (optional)

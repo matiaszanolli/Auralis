@@ -17,6 +17,7 @@
  */
 
 import type { Track } from '@/types/domain';
+import { extractTrackFormat } from './trackFormat';
 
 /**
  * Statistics for a single track property distribution
@@ -105,7 +106,7 @@ export class QueueStatistics {
     const artists = this.buildDistribution(queue.map((t) => t.artist));
     const albums = this.buildDistribution(queue.map((t) => t.album));
     const formats = this.buildDistribution(
-      queue.map((t) => this.extractFormat(t.filepath))
+      queue.map((t) => extractTrackFormat(t))
     );
 
     return {
@@ -204,15 +205,6 @@ export class QueueStatistics {
       unique: distribution.size,
       distribution,
     };
-  }
-
-  /**
-   * Extract file format from filepath
-   */
-  private static extractFormat(filepath: string | undefined): string {
-    if (!filepath) return 'unknown';
-    const match = filepath.match(/\.([a-z0-9]+)$/i);
-    return match ? match[1].toLowerCase() : 'unknown';
   }
 
   /**

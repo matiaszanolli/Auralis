@@ -24,6 +24,8 @@ export interface TrackInArtist {
   duration: number;
   track_number?: number;
   disc_number?: number;
+  /** Audio container/codec, e.g. "flac" (#4586). */
+  format?: string | null;
 }
 
 export interface ArtistTracksResponse {

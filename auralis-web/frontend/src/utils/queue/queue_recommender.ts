@@ -32,6 +32,7 @@
  */
 
 import type { Track } from '@/types/domain';
+import { extractTrackFormat } from './trackFormat';
 
 /**
  * Recommendation with similarity score
@@ -111,8 +112,8 @@ export class QueueRecommender {
         : 0.0;
 
     // Format similarity (exact match = 1.0)
-    const format1 = this.extractFormat(track1.filepath);
-    const format2 = this.extractFormat(track2.filepath);
+    const format1 = extractTrackFormat(track1);
+    const format2 = extractTrackFormat(track2);
     const formatSimilarity = format1 === format2 ? 1.0 : 0.0;
 
     // Duration similarity (closer = higher, max 120s difference)
@@ -418,15 +419,6 @@ export class QueueRecommender {
     return similarities
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, count);
-  }
-
-  /**
-   * Extract file format from filepath
-   */
-  private static extractFormat(filepath: string | undefined): string {
-    if (!filepath) return 'unknown';
-    const match = filepath.match(/\.([a-z0-9]+)$/i);
-    return match ? match[1].toLowerCase() : 'unknown';
   }
 
   /**

@@ -15,7 +15,14 @@ export interface Track {
   artist: string;
   album: string;
   duration: number; // Seconds
-  filepath: string;
+  /**
+   * Server-side path. #4586: declared required here for a long time, but no
+   * transport ever populates it — `Track.to_dict()` omits it and
+   * `player_state.TrackInfo` marks it `Field(exclude=True)` (#3205, to avoid
+   * leaking server paths). Optional so the type states what the backend
+   * actually guarantees; prefer `format` for format-aware logic.
+   */
+  filepath?: string;
 
   // Optional metadata — backend sends null for missing values (Python None → JSON null)
   artworkUrl?: string | null; // camelCase
