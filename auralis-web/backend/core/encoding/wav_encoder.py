@@ -16,6 +16,8 @@ import numpy as np
 
 from auralis.io.saver import save as save_audio
 
+from .atomic_io import atomic_save_audio, is_partial_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -140,8 +142,15 @@ class WAVEncoder:
         )
 
         try:
-            # Save using auralis I/O
-            save_audio(str(chunk_path), audio, sample_rate, subtype=subtype)
+            # Save via a staged temp file + os.replace (#4576). Writing straight
+            # to the destination left a truncated file at a canonical cache path
+            # on any unclean exit, and the cache-hit path could not tell it from
+            # a good one. The validation above all runs *before* the write, so
+            # it cannot detect a partial write either.
+            atomic_save_audio(
+                chunk_path,
+                lambda staged: save_audio(staged, audio, sample_rate, subtype=subtype),
+            )
             logger.debug(f"WAV saved: {chunk_path}")
 
         except Exception as e:
@@ -195,7 +204,11 @@ class WAVEncoder:
         Returns:
             Dictionary with chunk count, total size, etc.
         """
-        wav_files = list(self.chunk_dir.glob("*.wav"))
+        # Exclude in-progress staged writes (#4576) — `*.wav` matches dotfiles,
+        # and a staged file is not a cache entry.
+        wav_files = [
+            f for f in self.chunk_dir.glob("*.wav") if not is_partial_path(f)
+        ]
         total_size = sum(f.stat().st_size for f in wav_files)
 
         return {

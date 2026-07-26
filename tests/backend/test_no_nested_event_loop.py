@@ -135,7 +135,12 @@ async def test_get_full_processed_audio_path_no_nested_loop():
 
 @pytest.mark.asyncio
 async def test_get_full_processed_audio_path_returns_cached():
-    """If the full file already exists, return immediately without processing any chunk."""
+    """If a *complete* full file already exists, return without processing chunks.
+
+    #4576 tightened this gate: existence alone is no longer a cache hit, since
+    a truncated WAV left by an interrupted write sits at the same canonical
+    path. The completeness check is stubbed here alongside exists().
+    """
     proc = _make_processor()
 
     chunk_calls: list[int] = []
@@ -146,7 +151,8 @@ async def test_get_full_processed_audio_path_returns_cached():
 
     proc.process_chunk_safe = fake_process_chunk_safe  # type: ignore[method-assign]
 
-    with patch.object(Path, "exists", return_value=True):
+    with patch.object(Path, "exists", return_value=True), \
+         patch("core.chunked_processor.is_wav_complete", return_value=True):
         result = await proc.get_full_processed_audio_path()
 
     assert chunk_calls == [], "No chunks should be processed when cached file exists"

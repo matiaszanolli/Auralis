@@ -22,6 +22,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from core.encoding.atomic_io import is_wav_complete
+
 logger = logging.getLogger(__name__)
 
 # On-disk chunk cache (/tmp/auralis_chunks) bound (#3834). Mirrors the 512 MB
@@ -186,10 +188,21 @@ class ChunkCacheManager:
             )
             return None
 
-        # Convert to Path and verify existence
+        # Convert to Path and verify the file is present AND complete.
+        # #4576: an existence-only gate served a WAV truncated by an
+        # interrupted write as a hit forever — cache keys embed CACHE_VERSION,
+        # track id, file signature, preset and intensity, so the poisoned entry
+        # survived restarts and only a manual cache clear recovered.
         path = Path(cached_value)
         if not path.exists():
             logger.debug(f"Cached path {path} no longer exists. Cache miss.")
+            return None
+
+        if not is_wav_complete(path):
+            logger.warning(
+                f"Cached WAV {path} is truncated — evicting and treating as a miss."
+            )
+            self._cache.pop(cache_key, None)
             return None
 
         logger.debug(f"Cache hit: {cache_key} → {path}")
@@ -207,11 +220,23 @@ class ChunkCacheManager:
             >>> manager = ChunkCacheManager({})
             >>> manager.cache_chunk_path("key", Path("/tmp/chunk.wav"))
         """
+        # Both gates must agree on what counts as a valid entry (#4576),
+        # otherwise a truncated file is refused on read but still recorded here.
         if not path.exists():
             logger.warning(
                 f"Attempted to cache non-existent path: {path}. "
                 f"This may indicate a processing error."
             )
+        elif not is_wav_complete(path):
+            logger.warning(
+                f"Refusing to cache truncated WAV: {path}. "
+                f"This may indicate an interrupted write."
+            )
+            # Still run the reaper: the on-disk cap (#3834) bounds the shared
+            # chunk directory and must not become content-dependent — a run of
+            # bad writes would otherwise let the directory grow unbounded.
+            self._maybe_prune(path.parent)
+            return
 
         self._cache[cache_key] = str(path)
         logger.debug(f"Cached: {cache_key} → {path}")

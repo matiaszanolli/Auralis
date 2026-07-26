@@ -49,6 +49,11 @@ from core.chunk_operations import ChunkOperations  # Phase 3: Unified chunk oper
 from core.chunk_crossfade import apply_crossfade_between_chunks
 from core.chunk_mastering import compute_mastering_recommendation
 from core.encoding import WAVEncoder
+from core.encoding.atomic_io import (
+    atomic_save_audio,
+    atomic_write_bytes,
+    is_wav_complete,
+)
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
 from core.level_manager import LevelManager
 from core.mastering_target_service import (
@@ -73,14 +78,25 @@ def _default_get_fingerprints_repository() -> Any | None:
 
     ChunkedAudioProcessor is constructed from many call sites (streaming controller,
     recommendation service, cache warmer, enhancement route). Rather than thread the
-    repository factory through every one, the DB-tier accessor defaults to the global
-    ``repository_factory`` registered in ``config.globals.globals_dict`` at startup.
-    Returns ``None`` (Tier-1 silently skipped, as before) when globals aren't
-    initialised yet — e.g. in unit tests — so this never raises (#3836 / BE-PE-3).
+    repository factory through every one, the DB-tier accessor reads the
+    ``repository_factory`` from the process-wide component registry that startup
+    populates. Returns ``None`` (Tier-1 silently skipped, as before) when the
+    registry isn't set up yet — e.g. in unit tests — so this never raises
+    (#3836 / BE-PE-3).
+
+    #4578: this previously imported ``config.globals.globals_dict``, a *second*
+    dict that startup never touched and that did not even declare the
+    ``repository_factory`` key, so it returned ``None`` unconditionally in
+    production and every construction fell through to the slow fingerprint
+    tiers. It now goes through ``get_component_registry()``, which resolves the
+    single registered dict at call time.
     """
     try:
-        from config.globals import globals_dict
-        factory = globals_dict.get("repository_factory")
+        from config.globals import get_component_registry
+        registry = get_component_registry()
+        if registry is None:
+            return None
+        factory = registry.get("repository_factory")
         if factory is None:
             return None
         return factory.fingerprints
@@ -651,9 +667,14 @@ class ChunkedAudioProcessor:
         assert self.sample_rate is not None and self.total_chunks is not None
         full_path = self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_full.wav"
 
-        # Check if already exists
+        # Check if a complete file already exists (#4576 — a bare exists()
+        # check would serve a truncated concatenation forever).
         if full_path.exists():
-            return str(full_path)
+            if is_wav_complete(full_path):
+                return str(full_path)
+            logger.warning(
+                f"Discarding truncated full-audio WAV {full_path.name}; regenerating"
+            )
 
         # Ensure all chunks are processed sequentially (fixes #2318).
         # Calling process_chunk_safe() directly avoids the nested-event-loop
@@ -676,9 +697,13 @@ class ChunkedAudioProcessor:
         # shortened output by (N-1) × 5s.
         full_audio = np.concatenate(all_chunks, axis=0)
 
-        # Save full file
+        # Save full file atomically (#4576)
         assert self.sample_rate is not None
-        save_audio(str(full_path), full_audio, self.sample_rate, subtype='PCM_16')
+        _sr = self.sample_rate
+        atomic_save_audio(
+            full_path,
+            lambda staged: save_audio(staged, full_audio, _sr, subtype='PCM_16'),
+        )
         logger.info(f"Full audio saved to {Path(full_path).name}")
 
         return str(full_path)
@@ -724,11 +749,19 @@ class ChunkedAudioProcessor:
             # Get WAV output path
             wav_chunk_path = self._get_wav_chunk_path(chunk_index)
 
-            # Check if already exists on disk
+            # Check if a *complete* file already exists on disk. A bare
+            # exists() check served truncated WAVs left by an interrupted
+            # write forever, since the cache key is stable across restarts
+            # (#4576). A short file is discarded and regenerated below.
             if wav_chunk_path.exists():
-                logger.info(f"WAV chunk {chunk_index} already exists on disk")
-                self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
-                return str(wav_chunk_path)
+                if is_wav_complete(wav_chunk_path):
+                    logger.info(f"WAV chunk {chunk_index} already exists on disk")
+                    self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
+                    return str(wav_chunk_path)
+                logger.warning(
+                    f"Discarding truncated WAV chunk {chunk_index} at "
+                    f"{wav_chunk_path.name}; regenerating"
+                )
 
             logger.info(f"Processing chunk {chunk_index} directly to WAV")
 
@@ -753,8 +786,9 @@ class ChunkedAudioProcessor:
 
                 wav_bytes = encode_to_wav(extracted_chunk, self.sample_rate)
 
-                # Write WAV file
-                wav_chunk_path.write_bytes(wav_bytes)
+                # Stage + os.replace so a crash mid-write can never leave a
+                # partial file at the canonical cache path (#4576).
+                atomic_write_bytes(wav_chunk_path, wav_bytes)
                 logger.info(f"Chunk {chunk_index} encoded to WAV: {len(wav_bytes)} bytes")
 
             except WAVEncoderError as e:
