@@ -19,6 +19,9 @@ import {
   clearQueue as reduxClearQueue,
   setIsShuffled as reduxSetIsShuffled,
   setRepeatMode as reduxSetRepeatMode,
+  addTrack as reduxAddTrack,
+  removeTrack as reduxRemoveTrack,
+  reorderTrack as reduxReorderTrack,
   selectQueueTracks,
   selectCurrentIndex,
   selectIsShuffled,
@@ -45,7 +48,13 @@ export interface QueueMutations {
   removeTrack: (index: number) => Promise<void>;
   /** Reorder track from one position to another */
   reorderTrack: (fromIndex: number, toIndex: number) => Promise<void>;
-  /** Reorder entire queue by track IDs */
+  /**
+   * Reorder the entire queue.
+   *
+   * `newOrder` is a permutation of queue *indices*, not track IDs — the
+   * backend validates `set(new_order) == set(range(queue_size))` and builds
+   * the new queue as `[tracks[i] for i in new_order]`.
+   */
   reorderQueue: (newOrder: number[]) => Promise<void>;
   /** Toggle shuffle mode */
   toggleShuffle: () => Promise<void>;
@@ -81,114 +90,135 @@ export function useQueueMutations(): QueueMutations {
   const stateRef = useRef<RollbackState>({ tracks, currentIndex, isShuffled, repeatMode });
   stateRef.current = { tracks, currentIndex, isShuffled, repeatMode };
 
-  const setQueue = useCallback(
-    async (tracks: Track[], startIndex: number = 0): Promise<void> => {
+  /**
+   * Run a queue-array mutation optimistically (#4583).
+   *
+   * `apply` dispatches the change to Redux immediately so the UI reflects it
+   * before the request resolves; if the request rejects, the pre-mutation
+   * snapshot taken from `stateRef` is restored and the parsed `ApiError` is
+   * re-thrown to the caller.
+   *
+   * Every mutation that touches `tracks`/`currentIndex` goes through here, so
+   * the hook's "optimistic updates and rollback-on-error" contract holds for
+   * all of them rather than half. `toggleShuffle`/`setRepeatMode` keep their
+   * own rollbacks — they restore a different field, not the queue array.
+   *
+   * The `queue_changed` broadcast that follows re-sets the whole array from
+   * the server, so the optimistic state is corrected rather than compounded.
+   */
+  const runOptimistic = useCallback(
+    async (
+      apply: () => void,
+      request: () => Promise<unknown>,
+      errorCode: string
+    ): Promise<void> => {
       setIsLoading(true);
       setError(null);
 
       const previousTracks = stateRef.current.tracks;
       const previousIndex = stateRef.current.currentIndex;
 
-      dispatch(reduxSetQueue(tracks));
-      dispatch(reduxSetCurrentIndex(startIndex));
+      apply();
 
       try {
-        await post('/api/player/queue', {
-          tracks: tracks.map((t) => t.id),
-          start_index: startIndex,
-        });
+        await request();
       } catch (err) {
         dispatch(reduxSetQueue(previousTracks));
         dispatch(reduxSetCurrentIndex(previousIndex));
 
-        const apiError = ApiErrorHandler.parseWithCode(err, 'QUEUE_SET_ERROR');
+        const apiError = ApiErrorHandler.parseWithCode(err, errorCode);
         setError(apiError);
         throw apiError;
       } finally {
         setIsLoading(false);
       }
     },
-    [post, dispatch]
+    [dispatch]
+  );
+
+  const setQueue = useCallback(
+    (tracks: Track[], startIndex: number = 0): Promise<void> =>
+      runOptimistic(
+        () => {
+          dispatch(reduxSetQueue(tracks));
+          dispatch(reduxSetCurrentIndex(startIndex));
+        },
+        () =>
+          post('/api/player/queue', {
+            tracks: tracks.map((t) => t.id),
+            start_index: startIndex,
+          }),
+        'QUEUE_SET_ERROR'
+      ),
+    [post, dispatch, runOptimistic]
   );
 
   const addTrack = useCallback(
-    async (track: Track, position?: number): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        await post('/api/player/queue/add-track', {
-          track_id: track.id,
-          position: position !== undefined ? position : undefined,
-        });
-      } catch (err) {
-        const apiError = ApiErrorHandler.parseWithCode(err, 'ADD_TRACK_ERROR');
-        setError(apiError);
-        throw apiError;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [post]
+    (track: Track, position?: number): Promise<void> =>
+      runOptimistic(
+        () => dispatch(reduxAddTrack(track, position)),
+        () =>
+          post('/api/player/queue/add-track', {
+            track_id: track.id,
+            position,
+          }),
+        'ADD_TRACK_ERROR'
+      ),
+    [post, dispatch, runOptimistic]
   );
 
   const removeTrack = useCallback(
-    async (index: number): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        await apiDelete(`/api/player/queue/${index}`);
-      } catch (err) {
-        const apiError = ApiErrorHandler.parseWithCode(err, 'REMOVE_TRACK_ERROR');
-        setError(apiError);
-        throw apiError;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [apiDelete]
+    (index: number): Promise<void> =>
+      runOptimistic(
+        () => dispatch(reduxRemoveTrack(index)),
+        () => apiDelete(`/api/player/queue/${index}`),
+        'REMOVE_TRACK_ERROR'
+      ),
+    [apiDelete, dispatch, runOptimistic]
   );
 
   const reorderTrack = useCallback(
-    async (fromIndex: number, toIndex: number): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        await put('/api/player/queue/reorder', {
-          from_index: fromIndex,
-          to_index: toIndex,
-        });
-      } catch (err) {
-        const apiError = ApiErrorHandler.parseWithCode(err, 'REORDER_ERROR');
-        setError(apiError);
-        throw apiError;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [put]
+    (fromIndex: number, toIndex: number): Promise<void> =>
+      runOptimistic(
+        () => dispatch(reduxReorderTrack({ fromIndex, toIndex })),
+        () =>
+          put('/api/player/queue/reorder', {
+            from_index: fromIndex,
+            to_index: toIndex,
+          }),
+        'REORDER_ERROR'
+      ),
+    [put, dispatch, runOptimistic]
   );
 
   const reorderQueue = useCallback(
-    async (newOrder: number[]): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
+    (newOrder: number[]): Promise<void> =>
+      runOptimistic(
+        () => {
+          const previous = stateRef.current.tracks;
+          // `newOrder` is a permutation of indices; mirror the backend's
+          // `[tracks[i] for i in new_order]`. Anything the backend would
+          // reject is left un-applied so the request produces the error
+          // rather than a bogus optimistic state.
+          if (newOrder.length !== previous.length) return;
+          const reordered = newOrder.map((i) => previous[i]);
+          if (reordered.some((t) => t === undefined)) return;
 
-      try {
-        await put('/api/player/queue/reorder', {
-          new_order: newOrder,
-        });
-      } catch (err) {
-        const apiError = ApiErrorHandler.parseWithCode(err, 'REORDER_QUEUE_ERROR');
-        setError(apiError);
-        throw apiError;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [put]
+          // The backend keeps the current pointer on the same *track*
+          // (queue_manager.reorder_tracks, #2159) rather than the same index.
+          const currentId = previous[stateRef.current.currentIndex]?.id;
+          dispatch(reduxSetQueue(reordered));
+          const nextIndex =
+            currentId === undefined ? 0 : reordered.findIndex((t) => t.id === currentId);
+          dispatch(reduxSetCurrentIndex(nextIndex >= 0 ? nextIndex : 0));
+        },
+        () =>
+          put('/api/player/queue/reorder', {
+            new_order: newOrder,
+          }),
+        'REORDER_QUEUE_ERROR'
+      ),
+    [put, dispatch, runOptimistic]
   );
 
   const toggleShuffle = useCallback(async (): Promise<void> => {
@@ -218,9 +248,9 @@ export function useQueueMutations(): QueueMutations {
 
   const setRepeatMode = useCallback(
     async (mode: 'off' | 'all' | 'one'): Promise<void> => {
-      setIsLoading(true);
-      setError(null);
-
+      // Validate before flipping isLoading: the old order set isLoading true
+      // and then threw on an invalid mode without ever clearing it, wedging
+      // every queue control behind a permanent loading state.
       if (!['off', 'all', 'one'].includes(mode)) {
         const apiError = {
           message: `Invalid repeat mode: ${mode}`,
@@ -230,6 +260,9 @@ export function useQueueMutations(): QueueMutations {
         setError(apiError);
         throw apiError;
       }
+
+      setIsLoading(true);
+      setError(null);
 
       const previousMode = stateRef.current.repeatMode;
       dispatch(reduxSetRepeatMode(mode));
@@ -249,28 +282,15 @@ export function useQueueMutations(): QueueMutations {
     [post, dispatch]
   );
 
-  const clearQueue = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
-    setError(null);
-
-    const previousTracks = stateRef.current.tracks;
-    const previousIndex = stateRef.current.currentIndex;
-
-    dispatch(reduxClearQueue());
-
-    try {
-      await post('/api/player/queue/clear');
-    } catch (err) {
-      dispatch(reduxSetQueue(previousTracks));
-      dispatch(reduxSetCurrentIndex(previousIndex));
-
-      const apiError = ApiErrorHandler.parseWithCode(err, 'CLEAR_QUEUE_ERROR');
-      setError(apiError);
-      throw apiError;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [post, dispatch]);
+  const clearQueue = useCallback(
+    (): Promise<void> =>
+      runOptimistic(
+        () => dispatch(reduxClearQueue()),
+        () => post('/api/player/queue/clear'),
+        'CLEAR_QUEUE_ERROR'
+      ),
+    [post, dispatch, runOptimistic]
+  );
 
   const clearError = useCallback(() => {
     setError(null);
