@@ -26,6 +26,12 @@ from typing import Any
 
 from fastapi import FastAPI
 
+from config.background_workers import (
+    BACKGROUND_WORKER_KEYS,
+    WORKER_STOP_KWARGS,
+    stop_background_workers,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,10 +41,11 @@ logger = logging.getLogger(__name__)
 # already-running fingerprint queue or auto-scanner would otherwise keep
 # calling into a library_manager that's about to be rolled back to None
 # (#3812 / BE-MW-3, regression of #3540 / BE-NEW-82).
-_ROLLBACK_SERVICES_TO_STOP: tuple[tuple[str, dict[str, Any]], ...] = (
-    ('auto_scanner', {}),
-    ('ondemand_fingerprint_queue', {}),
-    ('fingerprint_queue', {'timeout': 30.0}),
+# Derived from the canonical set (#4569) rather than re-listed, so a worker
+# added to BACKGROUND_WORKER_KEYS is automatically covered by rollback and
+# cannot be stopped with different kwargs here than during shutdown.
+_ROLLBACK_SERVICES_TO_STOP: tuple[tuple[str, dict[str, Any]], ...] = tuple(
+    (_key, WORKER_STOP_KWARGS.get(_key, {})) for _key in BACKGROUND_WORKER_KEYS
 )
 
 # Components that only need to be nulled on rollback (never started an async
@@ -74,6 +81,90 @@ async def _rollback_partial_startup(globals_dict: dict[str, Any]) -> None:
                 globals_dict[_svc_key] = None
     for _component in _ROLLBACK_COMPONENTS_TO_NULL:
         globals_dict[_component] = None
+
+
+async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
+    """Tear down every long-lived component, best-effort.
+
+    Extracted from the lifespan body (#4569) for the same reason
+    :py:func:`_rollback_partial_startup` was (#3812): it is otherwise only
+    reachable by running the entire startup sequence.
+
+    **Every step is individually guarded.** The three earliest steps used to sit
+    bare inside one outer ``try``, so a single failing worker — a fingerprint
+    queue that timed out, or a partially-initialised worker after a rolled-back
+    startup — jumped straight to the outer handler and skipped everything after
+    it, including ``LibraryManager.shutdown()`` and its SQLite WAL checkpoint.
+    The outer ``try`` remains only as a last-resort net.
+    """
+    try:
+        # Stop the background workers (auto_scanner, ondemand + batch fingerprint
+        # queues) through the shared helper so this path and the library-reset
+        # endpoint can never diverge on which workers exist (#4111) *or* on how
+        # they are stopped (#4569 — this loop was re-implemented inline without
+        # the helper's per-worker guard). Order matches BACKGROUND_WORKER_KEYS:
+        # auto_scanner first (it may be mid-scan and enqueue into the queues).
+        for worker_key in await stop_background_workers(globals_dict.get):
+            logger.info(f"✅ Background worker stopped: {worker_key}")
+
+        # Stop streamlined cache worker
+        if globals_dict.get('streamlined_worker'):
+            try:
+                await globals_dict['streamlined_worker'].stop()
+                logger.info("✅ Streamlined Cache Worker stopped")
+            except Exception as sw_err:
+                logger.warning(f"⚠️  Streamlined cache worker shutdown error: {sw_err}")
+
+        # Stop processing engine
+        if globals_dict.get('processing_engine'):
+            try:
+                await globals_dict['processing_engine'].stop_worker()
+                logger.info("✅ Processing Engine stopped")
+            except Exception as pe_err:
+                logger.warning(f"⚠️  Processing engine shutdown error: {pe_err}")
+
+        # Stop audio player and release hardware resources (#3210)
+        if globals_dict.get('audio_player'):
+            try:
+                player = globals_dict['audio_player']
+                if hasattr(player, 'stop'):
+                    player.stop()
+                if hasattr(player, 'cleanup'):
+                    player.cleanup()
+                logger.info("✅ Audio Player stopped")
+            except Exception as player_err:
+                logger.warning(f"⚠️  Audio player shutdown error: {player_err}")
+
+        # Release cached HybridProcessor thread pools (fixes #3746 — each
+        # cached processor's fingerprint_analyzer owns a 5-thread executor
+        # that outlives the processor unless explicitly closed).
+        try:
+            from core.processor_factory import get_processor_factory
+            get_processor_factory().clear_cache()
+            logger.info("✅ Processor factory cache cleared")
+        except Exception as factory_err:
+            logger.warning(f"⚠️  Processor factory shutdown error: {factory_err}")
+
+        # Close the artwork downloader's shared aiohttp session, if one
+        # was ever created (fixes #3915).
+        try:
+            from services.artwork_downloader import close_artwork_downloader
+            await close_artwork_downloader()
+            logger.info("✅ Artwork downloader session closed")
+        except Exception as artwork_err:
+            logger.warning(f"⚠️  Artwork downloader shutdown error: {artwork_err}")
+
+        # Shut down LibraryManager last — WAL checkpoint + engine dispose (#3210)
+        if globals_dict.get('library_manager'):
+            try:
+                globals_dict['library_manager'].shutdown()
+                logger.info("✅ Library Manager shut down (WAL checkpointed)")
+            except Exception as lm_err:
+                logger.warning(f"⚠️  Library manager shutdown error: {lm_err}")
+
+        logger.info("✅ Application shutdown complete")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
 
 def _watch_critical_worker_task(
@@ -542,71 +633,6 @@ def create_lifespan(deps: dict[str, Any]):
         yield
 
         # === Shutdown ===
-        try:
-            # Stop the background workers (auto_scanner, ondemand + batch
-            # fingerprint queues) using the shared BACKGROUND_WORKER_KEYS set so
-            # this path and the library-reset endpoint can never diverge on which
-            # workers exist (#4111). Order matches the tuple: auto_scanner first
-            # (it may be mid-scan and enqueue into the queues).
-            from config.background_workers import BACKGROUND_WORKER_KEYS
-            _worker_stop_kwargs = {'fingerprint_queue': {'timeout': 30.0}}
-            for _worker_key in BACKGROUND_WORKER_KEYS:
-                worker = globals_dict.get(_worker_key)
-                if worker:
-                    await worker.stop(**_worker_stop_kwargs.get(_worker_key, {}))
-                    logger.info(f"✅ Background worker stopped: {_worker_key}")
-
-            # Stop streamlined cache worker
-            if 'streamlined_worker' in globals_dict and globals_dict['streamlined_worker']:
-                await globals_dict['streamlined_worker'].stop()
-                logger.info("✅ Streamlined Cache Worker stopped")
-
-            # Stop processing engine
-            if 'processing_engine' in globals_dict and globals_dict['processing_engine']:
-                await globals_dict['processing_engine'].stop_worker()
-                logger.info("✅ Processing Engine stopped")
-
-            # Stop audio player and release hardware resources (#3210)
-            if 'audio_player' in globals_dict and globals_dict['audio_player']:
-                try:
-                    player = globals_dict['audio_player']
-                    if hasattr(player, 'stop'):
-                        player.stop()
-                    if hasattr(player, 'cleanup'):
-                        player.cleanup()
-                    logger.info("✅ Audio Player stopped")
-                except Exception as player_err:
-                    logger.warning(f"⚠️  Audio player shutdown error: {player_err}")
-
-            # Release cached HybridProcessor thread pools (fixes #3746 — each
-            # cached processor's fingerprint_analyzer owns a 5-thread executor
-            # that outlives the processor unless explicitly closed).
-            try:
-                from core.processor_factory import get_processor_factory
-                get_processor_factory().clear_cache()
-                logger.info("✅ Processor factory cache cleared")
-            except Exception as factory_err:
-                logger.warning(f"⚠️  Processor factory shutdown error: {factory_err}")
-
-            # Close the artwork downloader's shared aiohttp session, if one
-            # was ever created (fixes #3915).
-            try:
-                from services.artwork_downloader import close_artwork_downloader
-                await close_artwork_downloader()
-                logger.info("✅ Artwork downloader session closed")
-            except Exception as artwork_err:
-                logger.warning(f"⚠️  Artwork downloader shutdown error: {artwork_err}")
-
-            # Shut down LibraryManager last — WAL checkpoint + engine dispose (#3210)
-            if 'library_manager' in globals_dict and globals_dict['library_manager']:
-                try:
-                    globals_dict['library_manager'].shutdown()
-                    logger.info("✅ Library Manager shut down (WAL checkpointed)")
-                except Exception as lm_err:
-                    logger.warning(f"⚠️  Library manager shutdown error: {lm_err}")
-
-            logger.info("✅ Application shutdown complete")
-        except Exception as e:
-            logger.error(f"Error during shutdown: {e}")
+        await _shutdown_components(globals_dict)
 
     return lifespan

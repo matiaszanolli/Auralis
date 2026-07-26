@@ -29,11 +29,24 @@ BACKGROUND_WORKER_KEYS: tuple[str, ...] = (
     "fingerprint_queue",
 )
 
+# Per-worker keyword arguments for ``stop()``. Lives here rather than at the
+# call sites so the lifespan shutdown, the startup rollback, and the
+# library-reset endpoint cannot disagree about how a worker is stopped (#4569).
+# ``FingerprintExtractionQueue.stop(timeout=30.0)`` already defaults to 30s;
+# passing it explicitly keeps the contract visible.
+WORKER_STOP_KWARGS: dict[str, dict[str, Any]] = {
+    "fingerprint_queue": {"timeout": 30.0},
+}
+
 Resolve = Callable[[str], Any]
 
 
 async def stop_background_workers(resolve: Resolve) -> list[str]:
-    """Stop every registered background worker.
+    """Stop every registered background worker, best-effort.
+
+    Each ``stop()`` is individually guarded: one worker failing must not
+    prevent the rest of the fleet — or the caller's remaining shutdown steps —
+    from running (#4569).
 
     Args:
         resolve: ``resolve(key)`` returns the worker instance or ``None``.
@@ -48,7 +61,7 @@ async def stop_background_workers(resolve: Resolve) -> list[str]:
         if worker is None:
             continue
         try:
-            await _maybe_await(worker.stop())
+            await _maybe_await(worker.stop(**WORKER_STOP_KWARGS.get(key, {})))
             stopped.append(key)
             logger.debug("Background worker stopped: %s", key)
         except Exception as e:  # pragma: no cover - defensive
