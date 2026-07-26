@@ -58,8 +58,11 @@ describe('ThemeContext', () => {
     expect(result.current.mode).toBeDefined()
     expect(result.current.toggleTheme).toBeDefined()
     expect(result.current.setTheme).toBeDefined()
-    expect(result.current.colors).toBeDefined()
-    expect(result.current.glassEffects).toBeDefined()
+    // #4584: `colors` / `glassEffects` were retired from the context — they
+    // were a second colour API competing with themeVars, and `colors` always
+    // resolved against the dark palette regardless of the active mode.
+    expect('colors' in result.current).toBe(false)
+    expect('glassEffects' in result.current).toBe(false)
   })
 
   it('throws error when used outside ThemeProvider', () => {
@@ -272,7 +275,6 @@ describe('ThemeContext', () => {
     expect(root.style.getPropertyValue('--app-text-primary')).toBe(darkTheme.textPrimary)
     expect(root.style.getPropertyValue('--app-on-accent')).toBe(darkTheme.onAccent)
     expect(root.style.getPropertyValue('--app-on-error')).toBe(darkTheme.onError)
-    expect(root.style.getPropertyValue('--bg-primary')).toBe(darkTheme.canvas)
   })
 
   it('sets CSS custom properties for light mode', () => {
@@ -295,7 +297,6 @@ describe('ThemeContext', () => {
     expect(root.style.getPropertyValue('--app-text-primary')).toBe(lightTheme.textPrimary)
     expect(root.style.getPropertyValue('--app-on-accent')).toBe(lightTheme.onAccent)
     expect(root.style.getPropertyValue('--app-on-error')).toBe(lightTheme.onError)
-    expect(root.style.getPropertyValue('--bg-primary')).toBe(lightTheme.canvas)
   })
 
   it('updates CSS custom properties when theme changes', () => {
@@ -328,66 +329,73 @@ describe('ThemeContext', () => {
   })
 
   // ============================================================================
-  // Colors Object Tests
+  // Semantic Colour Contract Tests (#4584)
   // ============================================================================
 
-  it('provides dark colors in dark mode', () => {
+  it('publishes dark semantic CSS variables in dark mode', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <ThemeProvider>{children}</ThemeProvider>
     )
 
-    const { result } = renderHook(() => useTheme(), { wrapper })
+    renderHook(() => useTheme(), { wrapper })
 
-    expect(result.current.colors.background.primary).toBe('#0B1020')
-    expect(result.current.colors.text.primary).toBe('#FFFFFF')
+    const root = document.documentElement
+    expect(root.dataset.theme).toBe('dark')
+    expect(root.style.getPropertyValue('--app-canvas')).toBe(getSemanticTheme('dark').canvas)
+    expect(root.style.getPropertyValue('--app-text-primary')).toBe(
+      getSemanticTheme('dark').textPrimary
+    )
   })
 
-  it('provides light colors in light mode', () => {
+  it('republishes semantic CSS variables when the theme changes', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <ThemeProvider>{children}</ThemeProvider>
     )
 
     const { result } = renderHook(() => useTheme(), { wrapper })
+    const root = document.documentElement
 
     act(() => {
       result.current.setTheme('light')
     })
 
-    expect(result.current.colors.background.primary).toBe(getSemanticTheme('light').canvas)
-    expect(result.current.colors.text.primary).toBe(getSemanticTheme('light').textPrimary)
+    expect(root.dataset.theme).toBe('light')
+    expect(root.style.getPropertyValue('--app-canvas')).toBe(getSemanticTheme('light').canvas)
+    expect(root.style.getPropertyValue('--app-text-primary')).toBe(
+      getSemanticTheme('light').textPrimary
+    )
   })
 
-  it('updates colors object when theme changes', () => {
+  it('changes context value identity on toggle so consumers re-render', () => {
+    // The memo dep array shrank when colors/glassEffects were removed (#4584);
+    // `mode` must still drive a fresh object or consumers would freeze.
     const wrapper = ({ children }: { children: ReactNode }) => (
       <ThemeProvider>{children}</ThemeProvider>
     )
 
     const { result } = renderHook(() => useTheme(), { wrapper })
-
-    const darkColors = result.current.colors
+    const before = result.current
 
     act(() => {
       result.current.toggleTheme()
     })
 
-    const lightColors = result.current.colors
-
-    expect(darkColors).not.toEqual(lightColors)
-    expect(lightColors.background.primary).toBe(getSemanticTheme('light').canvas)
+    expect(result.current).not.toBe(before)
+    expect(result.current.mode).not.toBe(before.mode)
   })
 
-  // ============================================================================
-  // Glass Effects Tests
-  // ============================================================================
-
-  it('provides glassEffects utilities', () => {
+  it('drops the dead compatibility CSS aliases', () => {
+    // The `--bg-*` / `--text-*` / `--glass-border` alias block had zero
+    // consumers and was deleted with the rest of the second API (#4584).
     const wrapper = ({ children }: { children: ReactNode }) => (
       <ThemeProvider>{children}</ThemeProvider>
     )
 
-    const { result } = renderHook(() => useTheme(), { wrapper })
+    renderHook(() => useTheme(), { wrapper })
 
-    expect(result.current.glassEffects).toBeDefined()
-    expect(typeof result.current.glassEffects).toBe('object')
+    const root = document.documentElement
+    for (const dead of ['--bg-primary', '--bg-surface', '--text-primary', '--glass-border']) {
+      expect(root.style.getPropertyValue(dead)).toBe('')
+    }
   })
 })

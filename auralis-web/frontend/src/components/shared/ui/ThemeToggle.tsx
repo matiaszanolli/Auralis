@@ -1,6 +1,7 @@
 
 import { Tooltip } from '@/design-system';
 import { useTheme } from '@/contexts/ThemeContext';
+import { themeVars } from '@/theme/semanticTheme';
 import {
   ThemeToggleContainer,
   ThemeToggleButton,
@@ -29,7 +30,7 @@ interface ThemeToggleProps {
  * <ThemeToggle size="medium" showLabel={false} />
  */
 export const ThemeToggle = ({ size = 'medium', showLabel = false }: ThemeToggleProps) => {
-  const { mode, toggleTheme, colors } = useTheme();
+  const { mode, toggleTheme } = useTheme();
   const isDark = mode === 'dark';
   const { iconSize, buttonSize } = useThemeToggleSize(size);
 
@@ -59,7 +60,7 @@ export const ThemeToggle = ({ size = 'medium', showLabel = false }: ThemeToggleP
         {showLabel && (
           <ThemeToggleLabelComponent
             isDark={isDark}
-            color={colors.text.secondary}
+            color={themeVars.textSecondary}
           />
         )}
       </ThemeToggleContainer>

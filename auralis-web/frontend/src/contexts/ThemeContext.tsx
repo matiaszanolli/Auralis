@@ -1,18 +1,25 @@
 import { createContext, useCallback, useContext, useMemo, useState, useEffect, ReactNode } from 'react';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
-import { createAuralisTheme, darkColors, lightColors, glassEffects } from '@/theme/themeConfig';
+import { createAuralisTheme } from '@/theme/themeConfig';
 import {
   getSemanticCssVariables,
   type ThemeMode,
 } from '@/theme/semanticTheme';
 
+/**
+ * Theme context.
+ *
+ * #4584: `colors` and `glassEffects` used to be surfaced here as a second,
+ * parallel colour API alongside `themeVars`. They are gone — `themeVars` (and
+ * the `--app-*` CSS variables this provider writes) is the only theme-aware
+ * colour source. The raw `tokens.colors.*` primitives remain dark-only build
+ * blocks and are not for direct component use.
+ */
 interface ThemeContextType {
   mode: ThemeMode;
   toggleTheme: () => void;
   setTheme: (mode: ThemeMode) => void;
-  colors: typeof darkColors | typeof lightColors;
-  glassEffects: typeof glassEffects;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -31,7 +38,6 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
 
   // Theme creation is relatively expensive. Rebuild only when mode changes.
   const theme = useMemo(() => createAuralisTheme(mode), [mode]);
-  const colors = mode === 'dark' ? darkColors : lightColors;
 
   // Save theme preference to localStorage
   useEffect(() => {
@@ -59,9 +65,7 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     mode,
     toggleTheme,
     setTheme,
-    colors,
-    glassEffects,
-  }), [mode, toggleTheme, setTheme, colors, glassEffects]);
+  }), [mode, toggleTheme, setTheme]);
 
   return (
     <ThemeContext.Provider value={value}>

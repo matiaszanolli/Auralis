@@ -175,16 +175,5 @@ export const getSemanticCssVariables = (mode: ThemeMode): Record<string, string>
     '--app-backdrop': theme.backdrop,
     '--app-shadow-raised': theme.shadowRaised,
     '--app-shadow-overlay': theme.shadowOverlay,
-
-    // Compatibility aliases for components still moving to the semantic API.
-    '--bg-primary': theme.canvas,
-    '--bg-secondary': theme.surfacePrimary,
-    '--bg-surface': theme.surfaceSecondary,
-    '--bg-hover': theme.surfaceRaised,
-    '--bg-glass': theme.surfaceTranslucent,
-    '--text-primary': theme.textPrimary,
-    '--text-secondary': theme.textSecondary,
-    '--text-disabled': theme.textDisabled,
-    '--glass-border': theme.borderDefault,
   };
 };
