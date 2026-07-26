@@ -15,6 +15,7 @@ controller.fingerprint_generator / controller._get_repository_factory.
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -144,11 +145,17 @@ async def check_or_queue_fingerprint(
         return False
 
     try:
-        # Quick database check - O(1) lookup, no blocking
+        # Quick database check. O(1) by index, but still a full
+        # session_scope() + SELECT COUNT round-trip against SQLite, so it must
+        # be offloaded (#4566): this runs at the start of every enhanced stream,
+        # and running it inline blocked the whole event loop — every other
+        # WebSocket, all in-flight chunk sends, and the heartbeat — for an
+        # unbounded time whenever the DB was locked by a concurrent scan or
+        # fingerprint write. Matches stream_enhanced/stream_normal/stream_seek.
         factory = controller._get_repository_factory()
         fingerprint_repo = factory.fingerprints
 
-        if fingerprint_repo.exists(track_id):
+        if await asyncio.to_thread(fingerprint_repo.exists, track_id):
             # Fingerprint already cached - streaming will use optimized mastering
             logger.info(f"✅ Fingerprint cached for track {track_id} (instant lookup)")
             if websocket:

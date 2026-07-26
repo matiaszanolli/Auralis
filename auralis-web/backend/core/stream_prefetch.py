@@ -51,7 +51,12 @@ async def prefetch_next_track(
 
     try:
         factory = controller._get_repository_factory()
-        queue_state = factory.queue.get_queue_state()
+        # Sync repository call — offload like every other repo access on the
+        # stream paths (#4566). Unreachable in production today (prefetch is
+        # disabled per #3513, tracked dead by #3884) but still exercised by
+        # tests, and leaving it inline reintroduces the defect the moment
+        # prefetch is re-enabled.
+        queue_state = await asyncio.to_thread(factory.queue.get_queue_state)
         if not queue_state or not queue_state.track_ids:
             return
 
