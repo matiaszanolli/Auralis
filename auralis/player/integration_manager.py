@@ -94,6 +94,18 @@ class IntegrationManager:
         # Register to receive playback state changes
         self.playback.add_callback(self._on_playback_state_change)
 
+    def set_current_track(self, track: "Track | None") -> None:
+        """Set ``current_track`` under ``_position_lock`` (#3786, #4574).
+
+        The lock owner lives here rather than at the call site so every writer
+        — the internal ``load_track_from_library`` path and the public
+        ``AudioPlayer.current_track`` setter alike — goes through one guarded
+        entry point, matching the lock that ``_on_playback_state_change`` and
+        ``get_playback_info`` hold when they read it.
+        """
+        with self._position_lock:
+            self.current_track = track
+
     def _get_repos(self) -> Any:
         """Get repository factory for data access."""
         try:
@@ -181,8 +193,7 @@ class IntegrationManager:
             # it. Without this, a concurrent reader could see
             # `current_track` pointing at the new track while
             # `position_seconds` still reflected the previous one.
-            with self._position_lock:
-                self.current_track = track
+            self.set_current_track(track)
 
             # Record play count
             repos.tracks.record_play(track_id)

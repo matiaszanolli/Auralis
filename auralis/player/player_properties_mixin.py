@@ -23,6 +23,25 @@ class PlayerPropertiesMixin:
     ``self.file_manager`` / ``self.integration``, which AudioPlayer.__init__
     sets on the same instance. (``position`` stays on AudioPlayer itself; see
     note below.)
+
+    Lock discipline (#4574) — every data-bearing setter here acquires the same
+    lock its readers hold, so a reader never observes a half-updated composite:
+
+    ==================  ====================================================
+    Property            Guarding lock
+    ==================  ====================================================
+    ``current_track``   ``IntegrationManager._position_lock``, via
+                        :py:meth:`IntegrationManager.set_current_track`
+    ``audio_data``      ``AudioFileManager._audio_lock`` (#3443)
+    ``reference_data``  ``AudioFileManager._audio_lock``
+    ``sample_rate``     ``AudioFileManager._audio_lock``
+    ``current_file``    read-only here; written by ``AudioFileManager``
+                        under ``_audio_lock``
+    ``reference_file``  read-only here; written by ``AudioFileManager``
+                        under ``_audio_lock``
+    ==================  ====================================================
+
+    The raw *read* side of ``AudioFileManager`` is tracked separately by #3785.
     """
 
     file_manager: AudioFileManager
@@ -40,8 +59,8 @@ class PlayerPropertiesMixin:
 
     @current_track.setter
     def current_track(self, value: Any) -> None:
-        """Set current track (for compatibility)"""
-        self.integration.current_track = value
+        """Set current track under _position_lock (#4574)"""
+        self.integration.set_current_track(value)
 
     @property
     def reference_file(self) -> str | None:
@@ -70,8 +89,9 @@ class PlayerPropertiesMixin:
 
     @reference_data.setter
     def reference_data(self, value: Any) -> None:
-        """Set reference data (for compatibility)"""
-        self.file_manager.reference_data = value
+        """Set reference data under _audio_lock (#4574)"""
+        with self.file_manager._audio_lock:
+            self.file_manager.reference_data = value
 
     # `position` stays on AudioPlayer itself, not this mixin — a white-box
     # regression test (test_no_direct_attribute_bypass) inspects
@@ -85,5 +105,6 @@ class PlayerPropertiesMixin:
 
     @sample_rate.setter
     def sample_rate(self, value: int) -> None:
-        """Set sample rate (for compatibility)"""
-        self.file_manager.sample_rate = value
+        """Set sample rate under _audio_lock (#4574)"""
+        with self.file_manager._audio_lock:
+            self.file_manager.sample_rate = value
