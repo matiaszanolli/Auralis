@@ -105,7 +105,20 @@ class ProcessorPool:
             self.processors[key] = processor
 
             # Keep cache size bounded (max N different processor configurations).
+            # Close the evicted instance (#4370): its fingerprint_analyzer owns a
+            # 5-thread executor that the threading module keeps reachable, so
+            # dropping the reference never reclaims it (#3746). ProcessorFactory
+            # closes on every eviction path; this one did not, which also defeats
+            # the #4567 fix — returning a processor here could silently leak a
+            # different one.
             if len(self.processors) > self._max_cached:
                 cache_keys = list(self.processors)
                 if cache_keys:
-                    self.processors.pop(cache_keys[0], None)
+                    evicted = self.processors.pop(cache_keys[0], None)
+                    if evicted is not None:
+                        try:
+                            evicted.close()
+                        except Exception as close_err:  # pragma: no cover - defensive
+                            logger.warning(
+                                "Failed to close evicted processor: %s", close_err
+                            )

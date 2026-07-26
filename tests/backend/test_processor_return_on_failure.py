@@ -1,0 +1,225 @@
+"""
+Every process_job exit path returns the processor it owns (#4567)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+`ProcessorPool.get_or_create()` POPS the instance out of the cache so no
+concurrent job shares it (#3201); whoever takes it must give it back.
+`process_job` honoured that on three of its four exit paths — the catch-all
+`except Exception` neither returned the processor nor closed it, so every failed
+job dropped a warm instance. Its `fingerprint_analyzer` owns a 5-thread executor
+that the threading module keeps reachable, so GC never reclaims it (#3746): N
+failing jobs accumulated 5N idle threads, and the next job with the same config
+paid the full 200-500 ms `HybridProcessor.__init__` again.
+
+The return is now hoisted into `finally` — the failure mode was precisely
+"someone added a branch and forgot", so a fourth copy of the guard would have
+been the wrong fix.
+
+Also covers #4370: `return_to_cache`'s FIFO eviction dropped the evicted
+processor without closing it, which would have leaked a *different* instance
+right back.
+
+:copyright: (C) 2024 Auralis Team
+:license: GPLv3, see LICENSE for more details.
+"""
+
+import asyncio
+import inspect
+import sys
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import numpy as np
+import pytest
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
+
+from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
+from core.processor_pool import ProcessorPool
+
+pytestmark = pytest.mark.asyncio
+
+
+def _make_engine() -> ProcessingEngine:
+    return ProcessingEngine(max_concurrent_jobs=2)
+
+
+def _make_job() -> ProcessingJob:
+    job = ProcessingJob.__new__(ProcessingJob)
+    job.job_id = "job-1"
+    job.input_path = "/fake/in.flac"
+    job.output_path = "/fake/out.wav"
+    job.mode = "adaptive"
+    job.settings = {"output_format": "wav", "bit_depth": 16}
+    job.status = ProcessingStatus.QUEUED
+    job.started_at = None
+    job.completed_at = None
+    job.result_data = None
+    job.error_message = None
+    return job
+
+
+def _make_config() -> MagicMock:
+    """A config stub whose cache_key is stable.
+
+    ProcessorPool.cache_key() hashes `repr()` of several adaptive attributes, and
+    a bare MagicMock's repr embeds its object id — so two stub configs that are
+    semantically identical would hash differently and every job would get its
+    own cache slot. Pin the hashed attributes to plain values.
+    """
+    config = MagicMock()
+    config.internal_sample_rate = 44100
+    config.mastering_profile = ""
+    config.adaptive.mode = "adaptive"
+    for attr in ("eq_gains", "compressor", "target_lufs", "gain", "genre_override"):
+        setattr(config.adaptive, attr, None)
+    return config
+
+
+def _prepared(engine, processor, config=None):
+    """Patch _prepare_job to hand back a known processor + config."""
+    audio = np.zeros(1024, dtype=np.float32)
+    return patch.object(
+        engine,
+        "_prepare_job",
+        AsyncMock(return_value=(audio, 44100, config or _make_config(), processor)),
+    )
+
+
+class TestProcessorIsNeverDropped:
+    async def test_generic_exception_returns_the_processor(self):
+        """The regression: a ValueError used to drop the processor entirely."""
+        engine = _make_engine()
+        job = _make_job()
+        processor = MagicMock()
+
+        with _prepared(engine, processor), patch.object(
+            engine, "_execute_job", AsyncMock(side_effect=ValueError("bad audio"))
+        ):
+            await engine.process_job(job)
+
+        assert job.status == ProcessingStatus.FAILED
+        assert processor in engine._pool.processors.values()
+
+    async def test_timeout_path_still_returns_exactly_once(self):
+        engine = _make_engine()
+        job = _make_job()
+        processor = MagicMock()
+
+        with _prepared(engine, processor), patch.object(
+            engine, "_execute_job", AsyncMock(side_effect=TimeoutError())
+        ):
+            await engine.process_job(job)
+
+        assert job.status == ProcessingStatus.FAILED
+        assert list(engine._pool.processors.values()).count(processor) == 1
+
+    async def test_cancelled_path_still_returns_exactly_once(self):
+        engine = _make_engine()
+        job = _make_job()
+        job.status = ProcessingStatus.PROCESSING
+        processor = MagicMock()
+
+        with _prepared(engine, processor), patch.object(
+            engine, "_execute_job", AsyncMock(side_effect=asyncio.CancelledError())
+        ):
+            with pytest.raises(asyncio.CancelledError):
+                await engine.process_job(job)
+
+        assert job.status == ProcessingStatus.CANCELLED
+        assert list(engine._pool.processors.values()).count(processor) == 1
+
+    async def test_success_path_still_returns_exactly_once(self):
+        engine = _make_engine()
+        job = _make_job()
+        processor = MagicMock()
+
+        with _prepared(engine, processor), patch.object(
+            engine, "_execute_job", AsyncMock(return_value=np.zeros(8, dtype=np.float32))
+        ), patch.object(engine, "_finalize_job", MagicMock()):
+            await engine.process_job(job)
+
+        assert list(engine._pool.processors.values()).count(processor) == 1
+
+    async def test_failure_before_acquisition_is_a_no_op(self):
+        """_prepare_job raising means there is no processor to return."""
+        engine = _make_engine()
+        job = _make_job()
+
+        with patch.object(
+            engine, "_prepare_job", AsyncMock(side_effect=RuntimeError("no file"))
+        ):
+            await engine.process_job(job)
+
+        assert job.status == ProcessingStatus.FAILED
+        assert engine._pool.processors == {}
+
+    async def test_repeated_failures_do_not_accumulate_processors(self):
+        """20 failing jobs must not leave 20 orphaned instances."""
+        engine = _make_engine()
+        processor = MagicMock()
+        config = _make_config()
+
+        for i in range(20):
+            job = _make_job()
+            job.job_id = f"job-{i}"
+            with _prepared(engine, processor, config), patch.object(
+                engine, "_execute_job", AsyncMock(side_effect=ValueError("boom"))
+            ):
+                await engine.process_job(job)
+
+        # Same config every time → exactly one cache entry, not 20 orphans.
+        assert len(engine._pool.processors) == 1
+
+    async def test_a_failing_return_falls_back_to_close(self):
+        """Cleanup must never leave the processor un-reclaimed."""
+        engine = _make_engine()
+        job = _make_job()
+        processor = MagicMock()
+
+        with _prepared(engine, processor), patch.object(
+            engine, "_execute_job", AsyncMock(side_effect=ValueError("boom"))
+        ), patch.object(
+            engine, "_return_processor", AsyncMock(side_effect=RuntimeError("pool down"))
+        ):
+            await engine.process_job(job)
+
+        processor.close.assert_called_once()
+        # And the original failure is still what the job reports.
+        assert job.status == ProcessingStatus.FAILED
+
+
+class TestPoolEvictionClosesTheEvicted:
+    """#4370 — a FIFO eviction that drops without closing leaks the same way."""
+
+    async def test_eviction_closes_the_evicted_processor(self):
+        pool = ProcessorPool(AsyncMock(), max_cached=2)
+        evicted_candidates = []
+
+        for i in range(3):
+            processor = MagicMock()
+            evicted_candidates.append(processor)
+            config = _make_config()
+            config.mastering_profile = f"profile-{i}"
+            await pool.return_to_cache("adaptive", config, processor)
+
+        assert len(pool.processors) <= 2
+        # The first one in is the one evicted, and it must have been closed.
+        evicted_candidates[0].close.assert_called_once()
+        evicted_candidates[-1].close.assert_not_called()
+
+
+class TestSingleReturnSite:
+    """#4567 CONSISTENCY — one call site, so a new branch cannot miss it."""
+
+    def test_process_job_returns_the_processor_from_finally_only(self):
+        src = inspect.getsource(ProcessingEngine.process_job)
+
+        assert src.count("_return_processor(") == 1, (
+            "the processor return must live in exactly one place (the finally "
+            "block) — per-branch copies are how the generic-exception path was "
+            "missed in the first place (#4567)"
+        )
+        finally_body = src.split("finally:", 1)[1]
+        assert "_return_processor(" in finally_body

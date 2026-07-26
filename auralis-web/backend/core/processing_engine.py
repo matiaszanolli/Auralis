@@ -515,9 +515,6 @@ class ProcessingEngine:
             audio_data = await self._execute_job(job, audio, sample_rate, processor)
             self._finalize_job(job, audio_data, sample_rate, processor)
 
-            # Return processor to cache for reuse (#3201)
-            await self._return_processor(job.mode, config, processor)
-
         except TimeoutError:
             # asyncio.wait_for raised TimeoutError — the DSP call hung.
             # Mark FAILED so the semaphore slot is released (fixes #2747).
@@ -526,8 +523,6 @@ class ProcessingEngine:
                 f"Processing timed out after {self.processing_timeout:.0f}s"
             )
             job.completed_at = datetime.now()
-            if processor is not None and config is not None:
-                await self._return_processor(job.mode, config, processor)
 
             await self._notify_progress(
                 job.job_id, 100.0, job.error_message
@@ -539,8 +534,6 @@ class ProcessingEngine:
             if job.status == ProcessingStatus.PROCESSING:
                 job.status = ProcessingStatus.CANCELLED
                 job.completed_at = datetime.now()
-            if processor is not None and config is not None:
-                await self._return_processor(job.mode, config, processor)
             raise
 
         except Exception as e:
@@ -558,6 +551,30 @@ class ProcessingEngine:
                 job.job_id, 100.0, f"Processing failed: {job.error_message}"
             )
         finally:
+            # Return the processor here rather than per-branch (#4567).
+            # get_or_create() POPS it from the pool, so whoever took it owns it
+            # and must give it back (#3201). Three of the four exit paths did;
+            # the catch-all `except Exception` did not, so every failed job
+            # dropped a warm processor without returning or closing it —
+            # permanently leaking its 5-thread fingerprint executor (#3746) and
+            # forcing the next same-config job to pay the full 200-500 ms
+            # HybridProcessor.__init__ again. Hoisting it means a future branch
+            # cannot reintroduce the same omission.
+            if processor is not None and config is not None:
+                try:
+                    await self._return_processor(job.mode, config, processor)
+                except Exception as return_err:
+                    # Never let cleanup mask the original failure — and never
+                    # leave the processor un-reclaimed either.
+                    logger.warning(
+                        "Failed to return processor for job %s: %s",
+                        job.job_id, return_err,
+                    )
+                    try:
+                        processor.close()
+                    except Exception:
+                        logger.debug("Processor close() also failed", exc_info=True)
+
             # Drop the cancellation token now the job is terminal so the
             # registry cannot leak an entry per job (#4496).
             self._cancel_events.pop(job.job_id, None)
