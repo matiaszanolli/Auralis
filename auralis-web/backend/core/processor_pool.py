@@ -105,12 +105,23 @@ class ProcessorPool:
             self.processors[key] = processor
 
             # Keep cache size bounded (max N different processor configurations).
+            #
             # Close the evicted instance (#4370): its fingerprint_analyzer owns a
             # 5-thread executor that the threading module keeps reachable, so
             # dropping the reference never reclaims it (#3746). ProcessorFactory
             # closes on every eviction path; this one did not, which also defeats
             # the #4567 fix — returning a processor here could silently leak a
             # different one.
+            #
+            # Evicting `cache_keys[0]` IS least-recently-used here, despite
+            # looking like plain insertion-order FIFO — #4370 read it as FIFO
+            # from the pre-#4250 inline version, where a cache *hit* left the
+            # entry in place. get_or_create() now POPS on hit (#3201), so the key
+            # is always absent when it comes back through this method and the
+            # assignment above appends it. Insertion order therefore tracks
+            # last-return order, and the oldest key is the least recently used.
+            # Do not "fix" this into an OrderedDict + move_to_end without first
+            # re-checking that invariant — see test_lru_not_fifo_eviction.
             if len(self.processors) > self._max_cached:
                 cache_keys = list(self.processors)
                 if cache_keys:

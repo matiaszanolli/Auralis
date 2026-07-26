@@ -209,6 +209,40 @@ class TestPoolEvictionClosesTheEvicted:
         evicted_candidates[0].close.assert_called_once()
         evicted_candidates[-1].close.assert_not_called()
 
+    async def test_lru_not_fifo_eviction(self):
+        """Eviction is least-recently-*used*, not oldest-inserted (#4370).
+
+        The code looks like insertion-order FIFO, which is how #4370 read it —
+        but that reading came from the pre-#4250 inline version where a cache
+        hit left the entry in place. `get_or_create()` POPS on hit (#3201), so a
+        returned processor is always re-appended and insertion order tracks
+        last-return order. This test pins that invariant: touch the oldest entry
+        mid-way and a *different* one must be evicted.
+        """
+        pool = ProcessorPool(AsyncMock(), max_cached=2)
+        configs, processors = [], []
+        for i in range(3):
+            config = _make_config()
+            config.mastering_profile = f"profile-{i}"
+            configs.append(config)
+            processors.append(MagicMock())
+
+        # Fill to capacity with 0 and 1.
+        await pool.return_to_cache("adaptive", configs[0], processors[0])
+        await pool.return_to_cache("adaptive", configs[1], processors[1])
+
+        # Use 0 again — pop, then return. It becomes the most recent.
+        taken = await pool.get_or_create("adaptive", configs[0])
+        assert taken is processors[0]
+        await pool.return_to_cache("adaptive", configs[0], processors[0])
+
+        # Adding a third must now evict 1 (least recently used), not 0.
+        await pool.return_to_cache("adaptive", configs[2], processors[2])
+
+        processors[1].close.assert_called_once()
+        processors[0].close.assert_not_called()
+        assert processors[0] in pool.processors.values()
+
 
 class TestSingleReturnSite:
     """#4567 CONSISTENCY — one call site, so a new branch cannot miss it."""
