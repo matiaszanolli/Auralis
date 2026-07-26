@@ -23,7 +23,7 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
@@ -48,6 +48,23 @@ class UpdatePlaylistRequest(BaseModel):
 class AddTracksRequest(BaseModel):
     """Request model for adding tracks to playlist"""
     track_ids: list[int]
+
+
+class AddTrackRequest(BaseModel):
+    """Request model for adding a single track at an explicit position (#4658).
+
+    Distinct from :class:`AddTracksRequest`: the batch route assigns positions
+    by appending, which cannot express "drop this track at index N" — the
+    operation drag-and-drop actually performs.
+    """
+    track_id: int
+    position: int | None = Field(default=None, ge=0)
+
+
+class ReorderTrackRequest(BaseModel):
+    """Request model for reordering a track within a playlist (#4658)."""
+    from_index: int = Field(ge=0)
+    to_index: int = Field(ge=0)
 
 
 def create_playlists_router(
@@ -267,6 +284,87 @@ def create_playlists_router(
             "message": f"Added {added_count} track(s) to playlist",
             "added_count": added_count
         }
+
+    @router.post("/api/playlists/{playlist_id}/tracks/add")
+    @with_error_handling("add track to playlist")
+    async def add_track_to_playlist(playlist_id: int, request: AddTrackRequest) -> dict[str, Any]:
+        """
+        Add a single track to a playlist, optionally at an explicit position.
+
+        Complements the batch `POST /api/playlists/{id}/tracks` route, which can
+        only append. Drag-and-drop needs positional insert, so this route wraps
+        `PlaylistRepository.add_track()` (which has supported `position` since
+        #3724/#3725). Previously the frontend called this path and got a 405
+        because it pattern-matched `DELETE .../tracks/{track_id}` (#4658).
+
+        Args:
+            playlist_id: Playlist ID
+            request: Track ID and optional 0-based insert position
+
+        Returns:
+            dict: Success message
+
+        Raises:
+            HTTPException: 400 if the track could not be added (e.g. duplicate)
+        """
+        repos = require_repository_factory(get_repository_factory)
+        added = await asyncio.to_thread(
+            repos.playlists.add_track, playlist_id, request.track_id, request.position
+        )
+
+        if not added:
+            raise HTTPException(status_code=400, detail="Track was not added to playlist")
+
+        await connection_manager.broadcast({
+            "type": "playlist_updated",
+            "data": {
+                "playlist_id": playlist_id,
+                "action": "track_added"
+            }
+        })
+
+        return {"message": "Track added to playlist"}
+
+    @router.put("/api/playlists/{playlist_id}/tracks/reorder")
+    @with_error_handling("reorder playlist track")
+    async def reorder_playlist_track(playlist_id: int, request: ReorderTrackRequest) -> dict[str, Any]:
+        """
+        Move a track within a playlist from one position to another.
+
+        Wraps `PlaylistRepository.reorder_track()`, which has implemented this
+        atomically since #3725 — only the HTTP route was missing, so every
+        playlist reorder drag returned 405 (#4658).
+
+        Args:
+            playlist_id: Playlist ID
+            request: 0-based source and target indices
+
+        Returns:
+            dict: Success message
+
+        Raises:
+            HTTPException: 400 if the indices are out of range for the playlist
+        """
+        repos = require_repository_factory(get_repository_factory)
+        reordered = await asyncio.to_thread(
+            repos.playlists.reorder_track, playlist_id, request.from_index, request.to_index
+        )
+
+        if not reordered:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not reorder track — index out of range for this playlist"
+            )
+
+        await connection_manager.broadcast({
+            "type": "playlist_updated",
+            "data": {
+                "playlist_id": playlist_id,
+                "action": "tracks_reordered"
+            }
+        })
+
+        return {"message": "Playlist reordered"}
 
     @router.delete("/api/playlists/{playlist_id}/tracks/{track_id}")
     @with_error_handling("remove track from playlist")

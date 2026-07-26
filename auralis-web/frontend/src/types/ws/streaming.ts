@@ -53,6 +53,17 @@ export interface AudioStreamEndMessage extends WebSocketMessage {
     total_samples?: number;
     duration?: number;
     stream_type?: 'enhanced' | 'normal';
+    /** Why the stream ended (#4659).
+     *
+     * `'completed'` — the chunk loop delivered the whole track.
+     * `'stopped'`   — it exited early (e.g. enhancement toggled off mid-stream),
+     *                 in which case `total_samples`/`duration` describe what was
+     *                 actually delivered, NOT the full track.
+     *
+     * Optional so pre-#4659 backends (which always sent a success-shaped end
+     * message) still type-check; treat a missing value as `'completed'`.
+     */
+    reason?: 'completed' | 'stopped';
   };
 }
 

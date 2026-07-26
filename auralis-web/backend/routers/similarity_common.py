@@ -41,6 +41,36 @@ def _internal_error_response(user_message: str, exc: BaseException) -> HTTPExcep
     return HTTPException(status_code=500, detail=f"{user_message} (ref {ref})")
 
 
+def require_similarity_system(get_similarity_system: Callable[[], T | None]) -> T:
+    """Validate that the similarity system is available.
+
+    `config/startup.py` sets ``globals_dict['similarity_system'] = None`` when
+    initialisation fails, and the similarity router family is registered on the
+    import-time ``HAS_SIMILARITY`` flag independently of whether that init
+    succeeded — so ``None`` is reachable at request time. Dereferencing it
+    raised ``AttributeError``, which the error decorator turned into an opaque
+    500 that a client cannot distinguish from a genuine fault (#4656).
+
+    Mirrors `routers.dependencies.require_repository_factory`.
+
+    Args:
+        get_similarity_system: Callable returning the similarity system or None
+
+    Returns:
+        The similarity system instance
+
+    Raises:
+        HTTPException: 503 if the similarity system is not available
+    """
+    similarity = get_similarity_system()
+    if similarity is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Similarity system not available. Please wait for initialization."
+        )
+    return similarity
+
+
 def _with_similarity_error_handling(operation: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorator standardizing error handling for the similarity routers.
 

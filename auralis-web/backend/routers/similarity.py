@@ -31,6 +31,7 @@ from .dependencies import require_repository_factory
 from .similarity_common import (  # noqa: F401
     _internal_error_response,
     _with_similarity_error_handling,
+    require_similarity_system,
 )
 
 logger = logging.getLogger(__name__)
@@ -170,7 +171,7 @@ def create_similarity_router(
 
         if graph_builder is None:
             # Real-time calculation (slower but always available)
-            similarity = get_similarity_system()
+            similarity = require_similarity_system(get_similarity_system)
 
             if not await asyncio.to_thread(similarity.is_fitted):
                 raise HTTPException(
@@ -235,7 +236,7 @@ def create_similarity_router(
             raise NotFoundError("Track", detail=f"Track {track_id2} missing fingerprint")
 
         # Calculate similarity
-        similarity = get_similarity_system()
+        similarity = require_similarity_system(get_similarity_system)
 
         if not await asyncio.to_thread(similarity.is_fitted):
             raise HTTPException(status_code=503, detail="Similarity system not initialized")
@@ -272,7 +273,7 @@ def create_similarity_router(
         Returns:
             Detailed explanation of similarity
         """
-        similarity = get_similarity_system()
+        similarity = require_similarity_system(get_similarity_system)
 
         if not await asyncio.to_thread(similarity.is_fitted):
             raise HTTPException(status_code=503, detail="Similarity system not initialized")
@@ -302,10 +303,7 @@ def create_similarity_router(
             Status and fitted track count
         """
         repos = require_repository_factory(get_repository_factory)
-        similarity = get_similarity_system()
-
-        if similarity is None:
-            raise HTTPException(status_code=503, detail="Similarity system not available")
+        similarity = require_similarity_system(get_similarity_system)
 
         # Check if already fitted
         if await asyncio.to_thread(similarity.is_fitted):

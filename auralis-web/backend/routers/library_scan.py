@@ -43,10 +43,13 @@ def create_library_scan_router(
         try:
             from auralis.library.scanner import LibraryScanner
 
-            if not get_library_manager:
+            # Guard the *resolved* manager, not the getter: the getter is always
+            # truthy, so the previous check never fired and a None manager
+            # reached LibraryScanner as an opaque 500 (#4656).
+            library_manager = get_library_manager() if get_library_manager else None
+            if library_manager is None:
                 raise HTTPException(status_code=503, detail="Library manager not available")
 
-            library_manager = get_library_manager()
             scanner = LibraryScanner(library_manager)
 
             # Broadcast scan started so frontend shows status immediately (#2711)

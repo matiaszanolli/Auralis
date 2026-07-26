@@ -263,10 +263,15 @@ export function useEnhancementControl(): EnhancementControlActions {
       }));
 
       // #3759: re-issue the active stream as the appropriate type so the
-      // user keeps hearing audio after the toggle. Without this the
-      // backend's `stream_enhanced_audio` loop sees enabled=false, breaks,
-      // and emits a success-shaped `audio_stream_end` — the frontend
-      // completes streaming and the user is silenced.
+      // user keeps hearing audio after the toggle. The backend's
+      // `stream_enhanced_audio` loop sees enabled=false and breaks, so the
+      // old stream ends here regardless — switching stream type is required
+      // behaviour, not a workaround.
+      //
+      // #4659 re-grounded the signal this compensates for: that terminal
+      // `audio_stream_end` now carries `reason: 'stopped'` and reports the
+      // samples actually delivered, so a consumer can distinguish it from a
+      // finished track instead of seeing a success-shaped completion.
       if (newEnabled) {
         reissueRef.current('play_enhanced', {
           preset: presetRef.current,

@@ -305,13 +305,20 @@ async def stream_normal_audio(
                 # Skip failed chunk and continue with remaining chunks (#3190)
                 continue
 
-        # Stream complete
+        # Stream complete.
+        # #4659: unlike the enhanced/seek paths this loop has no
+        # early-break-with-partial-content case — both of its breaks are
+        # disconnect-driven, where _send_stream_end fails the connectivity check
+        # and never reaches a client. So `reason` is unconditionally "completed"
+        # here; it is passed explicitly rather than defaulted so every call site
+        # states its intent.
         logger.info(f"Normal audio stream complete: track={track_id}")
         await controller._send_stream_end(
             websocket,
             track_id=track_id,
             total_samples=total_frames,
             duration=duration,
+            reason="completed",
         )
 
     except WebSocketDisconnect:

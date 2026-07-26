@@ -18,10 +18,11 @@ import asyncio
 import logging
 import os
 import time
+from collections import OrderedDict
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from .errors import NotFoundError
 from pydantic import BaseModel, field_validator
@@ -40,8 +41,28 @@ router = APIRouter(tags=["enhancement"])
 # (track_id, confidence_threshold) don't re-run the full audio analysis
 # (~1-5 s CPU per call).  Entries expire after 60 s (fixes #3865 / BE-RH-20).
 # Format: key -> (expiry_monotonic, result_dict)
-_recommendation_cache: dict[tuple[int, float], tuple[float, dict[str, Any]]] = {}
+#
+# Bounded and self-purging (#4657): TTL-only expiry was checked on read but
+# entries were never deleted, so the dict grew for the life of the process at
+# a rate of (tracks browsed x distinct thresholds). Expired keys are dropped on
+# insert and the cache is capped in FIFO order, so a long desktop session over
+# a large library cannot grow it without limit.
+_recommendation_cache: OrderedDict[tuple[int, float], tuple[float, dict[str, Any]]] = OrderedDict()
 _RECOMMENDATION_TTL_S: float = 60.0
+_RECOMMENDATION_CACHE_MAX: int = 256
+
+
+def _store_recommendation(key: tuple[int, float], expiry: float, value: dict[str, Any]) -> None:
+    """Insert a recommendation, purging expired entries and enforcing the cap."""
+    now = time.monotonic()
+    for stale_key in [k for k, (exp, _) in _recommendation_cache.items() if exp <= now]:
+        del _recommendation_cache[stale_key]
+
+    _recommendation_cache[key] = (expiry, value)
+    _recommendation_cache.move_to_end(key)
+
+    while len(_recommendation_cache) > _RECOMMENDATION_CACHE_MAX:
+        _recommendation_cache.popitem(last=False)
 
 # EnhancementPresetLiteral is the single source of truth in schemas.py (#4424),
 # imported above. It drives OpenAPI so the preset constraint shows up in the docs,
@@ -377,7 +398,15 @@ def create_enhancement_router(
         "/api/player/mastering/recommendation/{track_id}",
         response_model=MasteringRecommendationResponse,
     )
-    async def get_mastering_recommendation(track_id: int, confidence_threshold: float = 0.4) -> dict[str, Any]:
+    async def get_mastering_recommendation(
+        track_id: int,
+        confidence_threshold: float = Query(
+            0.4,
+            ge=0.0,
+            le=1.0,
+            description="Threshold for switching from single to blended recommendations",
+        ),
+    ) -> dict[str, Any]:
         """
         Get weighted mastering profile recommendation for a track (Priority 4).
 
@@ -422,8 +451,13 @@ def create_enhancement_router(
         if _cached is not None:
             _expiry, _cached_result = _cached
             if _now < _expiry:
+                # Keep hot entries away from the FIFO eviction end (#4657).
+                _recommendation_cache.move_to_end(_cache_key)
                 logger.debug(f"Returning cached mastering recommendation for track {track_id}")
                 return _cached_result
+            # Expired: drop it now rather than leaving it resident until the
+            # next insert happens to purge (#4657).
+            del _recommendation_cache[_cache_key]
 
         try:
             from core.chunked_processor import ChunkedAudioProcessor
@@ -452,7 +486,7 @@ def create_enhancement_router(
                 raise HTTPException(status_code=500, detail="Failed to analyze audio file")
 
             result_dict = result if isinstance(result, dict) else {}
-            _recommendation_cache[_cache_key] = (_now + _RECOMMENDATION_TTL_S, result_dict)
+            _store_recommendation(_cache_key, _now + _RECOMMENDATION_TTL_S, result_dict)
             return result_dict
 
         except HTTPException:

@@ -82,6 +82,11 @@ async def stream_enhanced_audio_from_position(
     # even on early-exit paths (fixes #3493 unbound-var hazard).
     lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
 
+    # Same early-exit accounting as the non-seek path (#4659): a stream stopped
+    # by a mid-stream enhancement toggle must not report the full track length.
+    stopped_early: bool = False
+    delivered_samples: int = 0
+
     # A single try/finally from here guards the semaphore permit acquired above:
     # it is released exactly once in the finally at the end. The track lookup
     # lives INSIDE this try so a task cancellation (CancelledError — a
@@ -192,6 +197,7 @@ async def stream_enhanced_audio_from_position(
                 )
                 await controller._drain_cancelled_task(lookahead_task)
                 lookahead_task = None
+                stopped_early = True
                 break
 
             # Honour pause/resume and flow control events (fixes missing
@@ -208,6 +214,7 @@ async def stream_enhanced_audio_from_position(
                 logger.info(f"WebSocket disconnected, stopping seek stream")
                 await controller._drain_cancelled_task(lookahead_task)
                 lookahead_task = None
+                stopped_early = True
                 break
 
             try:
@@ -216,6 +223,7 @@ async def stream_enhanced_audio_from_position(
                     try:
                         pcm_samples, _sr = await lookahead_task
                     except ConnectionError:
+                        stopped_early = True
                         break
                     lookahead_task = None
                 else:
@@ -238,6 +246,7 @@ async def stream_enhanced_audio_from_position(
 
                 # Stream current chunk (crossfade + send)
                 await controller._stream_processed_chunk(pcm_samples, chunk_idx, processor, websocket)
+                delivered_samples += int(pcm_samples.shape[0])
 
                 # Progress update
                 if on_progress:
@@ -249,6 +258,7 @@ async def stream_enhanced_audio_from_position(
             except ConnectionError:
                 await controller._drain_cancelled_task(lookahead_task)
                 lookahead_task = None
+                stopped_early = True
                 break
 
             except Exception as chunk_error:
@@ -275,14 +285,31 @@ async def stream_enhanced_audio_from_position(
                 # Skip failed chunk and continue (#3190)
                 continue
 
-        # Stream complete
-        logger.info(f"Seek stream complete: track={track_id}")
-        await controller._send_stream_end(
-            websocket,
-            track_id=track_id,
-            total_samples=int(processor.duration * processor.sample_rate),
-            duration=processor.duration,
-        )
+        # Stream finished — distinguish a truncated seek stream from a completed
+        # one and report what was actually delivered (#4659).
+        if stopped_early:
+            _sample_rate = processor.sample_rate or 0
+            _delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
+            logger.info(
+                f"Seek stream stopped early: track={track_id}, "
+                f"delivered={_delivered_duration:.2f}s"
+            )
+            await controller._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=delivered_samples,
+                duration=_delivered_duration,
+                reason="stopped",
+            )
+        else:
+            logger.info(f"Seek stream complete: track={track_id}")
+            await controller._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=int(processor.duration * processor.sample_rate),
+                duration=processor.duration,
+                reason="completed",
+            )
 
     except WebSocketDisconnect:
         # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53).

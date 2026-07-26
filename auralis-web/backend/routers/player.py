@@ -353,7 +353,12 @@ def create_player_router(
             raise HTTPException(status_code=503, detail="Audio player not available")
 
         # Security: Query track from database to validate file path (offloaded — sync DB call)
+        # This deref sits outside the try: below, so a None manager escaped as an
+        # unhandled AttributeError rather than an actionable 503 (#4656).
         library_manager = get_library_manager()
+        if library_manager is None:
+            raise HTTPException(status_code=503, detail="Library manager not available")
+
         track = await asyncio.to_thread(library_manager.tracks.get_by_id, request.track_id)
         if not track:
             raise NotFoundError("Track", detail=f"Track {request.track_id} not found in library")

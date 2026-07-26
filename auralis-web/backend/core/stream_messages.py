@@ -113,8 +113,17 @@ async def send_stream_end(
     track_id: int,
     total_samples: int,
     duration: float,
+    reason: str = "completed",
 ) -> bool:
     """Send audio_stream_end message to client.
+
+    Args:
+        reason: ``"completed"`` when the chunk loop ran to the end, ``"stopped"``
+            when it exited early (e.g. enhancement toggled off mid-stream). Without
+            this a truncated stream was indistinguishable from a finished one, so
+            clients treating ``audio_stream_end`` as "track finished" — auto-advance,
+            scrobbling, progress gauges — were wrong (#4659). ``total_samples`` and
+            ``duration`` describe what was actually delivered, not the whole track.
 
     Returns:
         True if message was sent, False if WebSocket was disconnected.
@@ -126,10 +135,13 @@ async def send_stream_end(
             "total_samples": total_samples,
             "duration": duration,
             "stream_type": _asc._stream_type_var.get(),
+            "reason": reason,
         },
     }
     if await controller._safe_send(websocket, message):
-        logger.debug(f"Sent stream_end: {total_samples} samples, {duration}s duration")
+        logger.debug(
+            f"Sent stream_end ({reason}): {total_samples} samples, {duration}s duration"
+        )
         return True
     return False
 

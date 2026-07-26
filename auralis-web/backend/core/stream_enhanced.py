@@ -80,6 +80,13 @@ async def stream_enhanced_audio(
     # (fixes #3493 unbound-var hazard).
     lookahead_task: asyncio.Task[tuple[np.ndarray, int]] | None = None
 
+    # Whether the chunk loop exited before delivering the whole track, and how
+    # much audio actually reached the client. Without these the terminal message
+    # reported the FULL track length on a truncated stream, so a client could not
+    # tell a stopped stream from a finished one (#4659).
+    stopped_early: bool = False
+    delivered_samples: int = 0
+
     # A single try/finally from here guards the semaphore permit acquired above:
     # it is released exactly once in the finally at the end. The track lookup
     # lives INSIDE this try so a task cancellation (CancelledError — a
@@ -184,6 +191,7 @@ async def stream_enhanced_audio(
                 )
                 await controller._drain_cancelled_task(lookahead_task)
                 lookahead_task = None
+                stopped_early = True
                 break
 
             # Honour pause/resume events from the WebSocket handler (#2106).
@@ -200,6 +208,7 @@ async def stream_enhanced_audio(
                 logger.info(f"WebSocket disconnected, stopping stream")
                 await controller._drain_cancelled_task(lookahead_task)
                 lookahead_task = None
+                stopped_early = True
                 break
 
             try:
@@ -209,6 +218,7 @@ async def stream_enhanced_audio(
                         pcm_samples, _sr = await lookahead_task
                     except ConnectionError:
                         # Client disconnected during look-ahead processing
+                        stopped_early = True
                         break
                     lookahead_task = None
                 else:
@@ -222,6 +232,7 @@ async def stream_enhanced_audio(
 
                 # Stream current chunk (crossfade + send)
                 await controller._stream_processed_chunk(pcm_samples, chunk_idx, processor, websocket)
+                delivered_samples += int(pcm_samples.shape[0])
 
                 # Progress update
                 progress = ((chunk_idx + 1) / processor.total_chunks) * 100
@@ -237,6 +248,7 @@ async def stream_enhanced_audio(
                 # Client disconnected — clean exit
                 await controller._drain_cancelled_task(lookahead_task)
                 lookahead_task = None
+                stopped_early = True
                 break
 
             except Exception as chunk_error:
@@ -275,15 +287,33 @@ async def stream_enhanced_audio(
                 # Skip failed chunk and continue with remaining chunks (#3190)
                 continue
 
-        # Stream complete
-        logger.info(f"Audio stream complete: track={track_id}")
-        # Both are guaranteed non-None due to assertions above
-        await controller._send_stream_end(
-            websocket,
-            track_id=track_id,
-            total_samples=int(processor.duration * processor.sample_rate),
-            duration=processor.duration,
-        )
+        # Stream finished — report whether the loop ran to the end, and how much
+        # audio actually reached the client, so a truncated stream is not
+        # indistinguishable from a completed one (#4659).
+        if stopped_early:
+            _sample_rate = processor.sample_rate or 0
+            _delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
+            logger.info(
+                f"Audio stream stopped early: track={track_id}, "
+                f"delivered={_delivered_duration:.2f}s of {processor.duration}s"
+            )
+            await controller._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=delivered_samples,
+                duration=_delivered_duration,
+                reason="stopped",
+            )
+        else:
+            logger.info(f"Audio stream complete: track={track_id}")
+            # Both are guaranteed non-None due to assertions above
+            await controller._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=int(processor.duration * processor.sample_rate),
+                duration=processor.duration,
+                reason="completed",
+            )
 
     except WebSocketDisconnect:
         # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53;
