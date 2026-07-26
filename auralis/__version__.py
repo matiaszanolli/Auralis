@@ -19,7 +19,14 @@ __db_schema_version__ = 16  # track_playlist: UNIQUE(track_id, playlist_id) + po
 #             removing leakage bias on transient-rich audio.
 # v3 (#13 Stage 3): fingerprinting routed through the in-process Rust engine,
 #             producing different values than the prior Python path.
-FINGERPRINT_ALGORITHM_VERSION = 3
+# v4 (#4595): the batch library-scan path no longer truncates to the first 90 s
+#             from the start. Both the batch and on-demand paths now share one
+#             windowing implementation (body window at 50 % of duration + two
+#             30 s probes at 25 %/75 %, median lufs/crest_db). Rows written by
+#             the old batch path are NOT comparable to rows written by the
+#             unified path — similarity distances across a mixed-vintage library
+#             would be subtly wrong — so this bump exists to force recomputation.
+FINGERPRINT_ALGORITHM_VERSION = 4
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

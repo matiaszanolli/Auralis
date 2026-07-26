@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
+from ..analysis.fingerprint.windowed_compute import compute_windowed_fingerprint
 from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
-from ..io.unified_loader import load_audio
 from ..library.sidecar_manager import SidecarManager
 from ..utils.logging import debug, error, info, warning
 
@@ -144,23 +144,37 @@ class FingerprintExtractor:
                     warning(f"Skipping fingerprint for large file ({file_size_mb:.1f}MB): {filepath}")
                     return False
 
-                debug(f"Loading audio for fingerprint: {filepath}")
-                audio, sr = load_audio(filepath)
-
-                # Cap at 90 s to match FingerprintService and prevent OOM
-                # on long files (podcasts, DJ mixes) (#2896).
-                max_samples = int(90.0 * sr)
-                if len(audio) > max_samples:
-                    audio = audio[:max_samples]
-
+                # #4595: use the SINGLE shared windowing implementation rather
+                # than a local load + first-90s crop + single-window analyze.
+                # This path previously truncated to the first 90 s from the
+                # START, which systematically under-reads LUFS when a track
+                # opens on an ambient intro (validated: RMSE 1.96 dB, max
+                # 9.2 dB vs 1.07 / 3.6 for the body+probe strategy). Because
+                # the background queue almost always wins the race to write the
+                # DB row, essentially every scanned track was stamped with the
+                # less accurate fingerprint and never recomputed.
+                #
+                # compute_windowed_fingerprint() does its own bounded loading
+                # (body window + two 30 s probes at the analysis rate), so it
+                # never materialises the whole decoded file — which also
+                # preserves the #2896 OOM protection this crop provided.
                 try:
                     debug(f"Extracting fingerprint for track {track_id}")
-                    fingerprint = self.analyzer.analyze(audio, sr)
+                    fingerprint = compute_windowed_fingerprint(
+                        self.analyzer, Path(filepath)
+                    )
                 finally:
-                    # Free the audio array immediately; with many concurrent workers these
-                    # (50-150 MB each) accumulate and cause unbounded memory growth.
-                    del audio
+                    # Release any large intermediates promptly; with many
+                    # concurrent workers these accumulate and cause unbounded
+                    # memory growth.
                     gc.collect()
+
+            # compute_windowed_fingerprint() returns None on any failure, where the
+            # previous analyzer.analyze() call always returned a dict (possibly {}).
+            # Guard explicitly so the .items() filter below cannot raise (#4595).
+            if not fingerprint:
+                warning(f"Fingerprint computation returned nothing for track {track_id}")
+                return False
 
             # Filter out metadata keys (like '_harmonic_analysis_method') that shouldn't be stored
             # Keep only the 25 actual fingerprint dimensions
