@@ -13,7 +13,7 @@ Phase B.1: Backend Endpoint Standardization
 
 import datetime
 from enum import Enum
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -31,26 +31,6 @@ EnhancementPresetLiteral = Literal["adaptive", "gentle", "warm", "bright", "punc
 # ============================================================================
 # Generic Response Wrappers
 # ============================================================================
-
-T = TypeVar('T')
-
-
-class SuccessResponse(BaseModel, Generic[T]):
-    """Successful API response wrapper."""
-    status: str = Field(default="success", description="Response status")
-    data: T = Field(description="Response payload")
-    message: str | None = Field(default=None, description="Optional message")
-    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
-
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "status": "success",
-            "data": {},
-            "message": "Operation completed",
-            "timestamp": "2024-11-28T10:00:00Z"
-        }
-    })
-
 
 class ErrorResponse(BaseModel):
     """Error API response wrapper."""
@@ -71,123 +51,11 @@ class ErrorResponse(BaseModel):
     })
 
 
-# ============================================================================
-# Pagination Models
-# ============================================================================
-
-class PaginationMeta(BaseModel):
-    """Pagination metadata for response."""
-    limit: int = Field(description="Items per page")
-    offset: int = Field(description="Items skipped")
-    total: int = Field(description="Total items available")
-    remaining: int = Field(description="Items remaining after this page")
-    has_more: bool = Field(description="Are there more items available")
-
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "limit": 50,
-            "offset": 0,
-            "total": 1000,
-            "remaining": 950,
-            "has_more": True
-        }
-    })
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
-    """Standard paginated response."""
-    status: str = Field(default="success")
-    data: list[T] = Field(description="Page of items")
-    pagination: PaginationMeta = Field(description="Pagination metadata")
-    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
-
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "status": "success",
-            "data": [],
-            "pagination": {
-                "limit": 50,
-                "offset": 0,
-                "total": 1000,
-                "remaining": 950,
-                "has_more": True
-            },
-            "timestamp": "2024-11-28T10:00:00Z"
-        }
-    })
 
 
-# ============================================================================
-# Batch Operation Models
-# ============================================================================
 
-class BatchItem(BaseModel):
-    """Single item in a batch operation."""
-    id: str = Field(description="Item identifier")
-    action: str = Field(description="Operation type (e.g., 'add', 'remove', 'update')")
-    data: dict[str, Any] | None = Field(default=None, description="Item data")
-
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "id": "track_123",
-            "action": "favorite",
-            "data": {"rating": 5}
-        }
-    })
-
-
-class BatchRequest(BaseModel):
-    """Batch operation request."""
-    items: list[BatchItem] = Field(description="Items to operate on")
-    atomic: bool = Field(default=False, description="All-or-nothing execution")
-
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "items": [
-                {"id": "track_1", "action": "favorite"},
-                {"id": "track_2", "action": "favorite"}
-            ],
-            "atomic": True
-        }
-    })
-
-
-class BatchItemResult(BaseModel):
-    """Result of a single batch item operation."""
-    id: str = Field(description="Item identifier")
-    status: str = Field(description="Operation status (success, error)")
-    message: str | None = Field(default=None, description="Result message")
-    error: str | None = Field(default=None, description="Error message if failed")
-
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "id": "track_123",
-            "status": "success",
-            "message": "Track favorited"
-        }
-    })
-
-
-class BatchResponse(BaseModel):
-    """Batch operation response."""
-    status: str = Field(description="Overall batch status")
-    results: list[BatchItemResult] = Field(description="Results for each item")
-    successful: int = Field(description="Number of successful operations")
-    failed: int = Field(description="Number of failed operations")
-    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
-
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "status": "completed",
-            "results": [
-                {"id": "track_1", "status": "success"},
-                {"id": "track_2", "status": "success"}
-            ],
-            "successful": 2,
-            "failed": 0,
-            "timestamp": "2024-11-28T10:00:00Z"
-        }
-    })
 
 
 # ============================================================================
@@ -485,14 +353,6 @@ class CacheHealthResponse(BaseModel):
     overall_hit_rate: float = Field(description="Overall hit rate across all tiers (0–1)")
 
 
-class CacheAwareResponse(BaseModel, Generic[T]):
-    """Response wrapper that includes cache hit/miss metadata."""
-    status: str = Field(default="success", description="Response status")
-    data: T = Field(description="Response payload")
-    cache_source: CacheSource = Field(description="Cache tier that served the response")
-    cache_hit: bool = Field(description="Whether the response was served from cache")
-    processing_time_ms: float = Field(description="Time to generate the response in ms")
-    message: str | None = Field(default=None, description="Optional message")
 
 
 class CacheStatsResponse(BaseModel):

@@ -27,14 +27,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
 from cache.monitoring import CacheAlert, CacheMetrics, CacheMonitor, HealthStatus
-from helpers import (
-    calculate_cache_hit_probability,
-    create_cache_aware_response,
-    estimate_cache_completion_time,
-    format_cache_stats,
-)
 from schemas import (
-    CacheAwareResponse,
     CacheHealthResponse,
     CacheSource,
     CacheStatsResponse,
@@ -130,146 +123,12 @@ class TestCacheSchemas:
         assert health.healthy is True
         assert health.memory_healthy is True
 
-    def test_cache_aware_response(self):
-        """Test cache-aware response wrapper."""
-        response = CacheAwareResponse(
-            status="success",
-            data={"test": "data"},
-            cache_source=CacheSource.TIER1,
-            cache_hit=True,
-            processing_time_ms=2.5
-        )
-        assert response.cache_hit is True
-        assert response.cache_source == CacheSource.TIER1
-        assert response.processing_time_ms == 2.5
 
 
 # ============================================================================
 # Helper Function Tests
 # ============================================================================
 
-class TestCacheHelpers:
-    """Test cache integration helper functions."""
-
-    def test_calculate_cache_hit_probability_sufficient_requests(self):
-        """Test hit rate calculation with sufficient requests."""
-        hit_rate = calculate_cache_hit_probability(
-            total_hits=150,
-            total_misses=10,
-            minimum_requests=10
-        )
-        assert hit_rate == pytest.approx(0.938, rel=0.01)
-
-    def test_calculate_cache_hit_probability_insufficient_requests(self):
-        """Test hit rate with insufficient data."""
-        hit_rate = calculate_cache_hit_probability(
-            total_hits=5,
-            total_misses=2,
-            minimum_requests=10
-        )
-        assert hit_rate == 0.0
-
-    def test_calculate_cache_hit_probability_no_hits(self):
-        """Test hit rate with all misses."""
-        hit_rate = calculate_cache_hit_probability(
-            total_hits=0,
-            total_misses=100,
-            minimum_requests=10
-        )
-        assert hit_rate == 0.0
-
-    def test_calculate_cache_hit_probability_all_hits(self):
-        """Test hit rate with perfect hits."""
-        hit_rate = calculate_cache_hit_probability(
-            total_hits=100,
-            total_misses=0,
-            minimum_requests=10
-        )
-        assert hit_rate == 1.0
-
-    def test_format_cache_stats(self):
-        """Test cache stats formatting."""
-        stats = {
-            "tier1": {
-                "chunks": 4,
-                "size_mb": 6.0,
-                "hits": 150,
-                "misses": 10,
-                "hit_rate": 0.938
-            },
-            "tier2": {
-                "chunks": 146,
-                "size_mb": 219.0,
-                "hits": 1350,
-                "misses": 90,
-                "hit_rate": 0.937,
-                "tracks_cached": 5
-            },
-            "overall": {
-                "total_chunks": 150,
-                "total_size_mb": 225.0,
-                "total_hits": 1500,
-                "total_misses": 100,
-                "overall_hit_rate": 0.938
-            },
-            "tracks": {}
-        }
-
-        formatted = format_cache_stats(stats)
-
-        assert formatted["tier1"]["chunks"] == 4
-        assert formatted["tier1"]["hit_rate"] == 0.938
-        assert formatted["overall"]["tracks_cached"] == 5
-        assert formatted["overall"]["total_chunks"] == 150
-
-    def test_estimate_cache_completion_time_partially_cached(self):
-        """Test cache completion time estimation."""
-        time_estimate = estimate_cache_completion_time(
-            cached_chunks=35,
-            total_chunks=50,
-            avg_processing_time_per_chunk=0.3
-        )
-        assert time_estimate == pytest.approx(4.5, rel=0.01)  # 15 remaining * 0.3s
-
-    def test_estimate_cache_completion_time_fully_cached(self):
-        """Test completion time when fully cached."""
-        time_estimate = estimate_cache_completion_time(
-            cached_chunks=50,
-            total_chunks=50
-        )
-        assert time_estimate is None
-
-    def test_estimate_cache_completion_time_over_cached(self):
-        """Test completion time with more cached than total."""
-        time_estimate = estimate_cache_completion_time(
-            cached_chunks=60,
-            total_chunks=50
-        )
-        assert time_estimate is None
-
-    def test_create_cache_aware_response_cache_hit(self):
-        """Test creating cache-aware response with hit."""
-        response = create_cache_aware_response(
-            data={"key": "value"},
-            cache_source="tier1",
-            processing_time_ms=2.5,
-            message="Retrieved from cache"
-        )
-        assert response["status"] == "success"
-        assert response["cache_hit"] is True
-        assert response["cache_source"] == "tier1"
-        assert response["processing_time_ms"] == 2.5
-
-    def test_create_cache_aware_response_cache_miss(self):
-        """Test creating cache-aware response with miss."""
-        response = create_cache_aware_response(
-            data={"key": "value"},
-            cache_source="miss",
-            processing_time_ms=50.0
-        )
-        assert response["cache_hit"] is False
-        assert response["cache_source"] == "miss"
-        assert response["processing_time_ms"] == 50.0
 
 
 # ============================================================================
@@ -467,6 +326,7 @@ class TestCacheIntegration:
 
         stats = {
             "tier1": {
+                "tier_name": "tier1",
                 "chunks": 4,
                 "size_mb": 6.0,
                 "hits": 150,
@@ -474,6 +334,7 @@ class TestCacheIntegration:
                 "hit_rate": 0.938
             },
             "tier2": {
+                "tier_name": "tier2",
                 "chunks": 146,
                 "size_mb": 219.0,
                 "hits": 1350,
@@ -486,30 +347,18 @@ class TestCacheIntegration:
                 "total_size_mb": 225.0,
                 "total_hits": 1500,
                 "total_misses": 100,
-                "overall_hit_rate": 0.938
+                "overall_hit_rate": 0.938,
+                "tracks_cached": 5
             },
             "tracks": {}
         }
 
         # Should validate successfully
-        response = CacheStatsResponse(**format_cache_stats(stats))
+        response = CacheStatsResponse(**stats)
         assert response.tier1.hit_rate == 0.938
         assert response.tier2.chunks == 146
         assert response.overall.total_hits == 1500
 
-    def test_cache_aware_response_with_data(self):
-        """Test cache-aware response with typed data."""
-        response = CacheAwareResponse[Dict[str, Any]](
-            status="success",
-            data={"track_id": 123, "title": "Test Track"},
-            cache_source=CacheSource.TIER2,
-            cache_hit=True,
-            processing_time_ms=5.2,
-            message="Retrieved from warm cache"
-        )
-
-        assert response.data["track_id"] == 123
-        assert response.cache_hit is True
 
     def test_cache_health_response_all_good(self):
         """Test health response when all metrics are healthy."""
