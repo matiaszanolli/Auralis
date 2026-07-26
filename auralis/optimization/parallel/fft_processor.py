@@ -33,12 +33,28 @@ class ParallelFFTProcessor:
 
         debug(f"Parallel FFT processor initialized: max_workers={self.config.max_workers}")
 
+    @staticmethod
+    def _readonly_window(size: int) -> np.ndarray:
+        """Compute a Hanning window and freeze it (#4573).
+
+        Cache entries are shared across every FFT worker thread, so they are
+        marked read-only *at the source* rather than at one call site. Any
+        in-place write then raises immediately instead of silently corrupting
+        every subsequent FFT process-wide — which is what #3761 set out to make
+        impossible, but it hardened only `parallel_windowed_fft`'s multi-frame
+        branch, leaving the sub-FFT-size early return and every external caller
+        of the public `get_window()` with a writable reference.
+        """
+        window: np.ndarray = hann(size)
+        window.setflags(write=False)
+        return window
+
     def _init_window_cache(self) -> None:
         """Pre-compute common window functions"""
         common_sizes: list[int] = [512, 1024, 2048, 4096, 8192]
 
         for size in common_sizes:
-            self.window_cache[size] = hann(size)
+            self.window_cache[size] = self._readonly_window(size)
             debug(f"Cached Hanning window for size {size}")
 
     def get_window(self, size: int) -> np.ndarray:
@@ -54,6 +70,9 @@ class ParallelFFTProcessor:
         evict the slot between the `in` check and the bracket access,
         raising `KeyError`. `dict.get(...)` is atomic in CPython, so the
         fast path never sees a half-deleted entry.
+
+        #4573: every window returned from here is read-only. Callers that need
+        a mutable window must copy it.
         """
         # Fast path: common sizes are pre-warmed in __init__, no lock needed.
         cached = self.window_cache.get(size)
@@ -61,7 +80,7 @@ class ParallelFFTProcessor:
             return cached
 
         # Slow path: compute outside the lock to avoid blocking other threads.
-        window = hann(size)
+        window = self._readonly_window(size)
 
         with self.lock:
             # Another thread may have inserted this size while we computed.
@@ -111,13 +130,12 @@ class ParallelFFTProcessor:
             padded[:len(audio)] = audio
             return [self._process_fft_chunk(padded, window, fft_size)]
 
-        # #3761: mark the shared window read-only so a future
-        # `_process_fft_chunk` regression that mutates it raises
-        # immediately instead of silently corrupting all other
-        # workers. The chunk per call is already per-worker copied
-        # via `audio[i:i+fft_size].copy()` below.
-        window = window.view()
-        window.setflags(write=False)
+        # #3761's read-only marking now happens at the source, in
+        # `_readonly_window` (#4573), so cached windows arrive frozen and the
+        # per-call `view()`/`setflags()` here would be redundant — leaving both
+        # is how the next reader concludes the source guard is optional. A
+        # caller-supplied `window=` bypasses the cache entirely and stays
+        # writable: it is the caller's own array.
 
         # Create chunks
         chunks = []

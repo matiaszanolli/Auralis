@@ -99,8 +99,10 @@ class ParallelBandProcessor:
                 # (return filtered + gain-corrected signal instead of silence —
                 # fixes #3430 and #3675: previously omitted the gain multiply
                 # so an EQ cut became a pass-through and a boost became neutral).
+                # #4572: copy per band — an in-place filter would otherwise
+                # corrupt `audio` for the remaining fallback entries.
                 band_fallbacks: list[np.ndarray] = [
-                    band_filters[i](audio) * (10 ** (band_gains[i] / 20))
+                    band_filters[i](audio.copy()) * (10 ** (band_gains[i] / 20))
                     for i in range(num_bands)
                 ]
                 band_results: list[np.ndarray] = list(band_fallbacks)
@@ -119,8 +121,9 @@ class ParallelBandProcessor:
                 # race with concurrent workers (#3355).
                 # #3675: include the gain multiply so a failed band contributes
                 # at its configured level (not 0 dB).
+                # #4572: copy per band, as above.
                 band_fallbacks = [
-                    band_filters[i](audio) * (10 ** (band_gains[i] / 20))
+                    band_filters[i](audio.copy()) * (10 ** (band_gains[i] / 20))
                     for i in range(num_bands)
                 ]
 
@@ -231,7 +234,13 @@ class ParallelBandProcessor:
         group_result = np.zeros_like(audio)
 
         for band_idx in band_indices:
-            filtered = band_filters[band_idx](audio)
+            # Per-band copy (#4572): the group worker receives one array and
+            # reuses it for every band, so an in-place band filter would corrupt
+            # `audio` for the remaining bands in this group. Cross-*worker*
+            # copying was already handled by #3355; this is the intra-group gap
+            # the #4229 fallback-path fix referred to as "like the worker path"
+            # while the worker path itself did not copy.
+            filtered = band_filters[band_idx](audio.copy())
             group_result += filtered * (10 ** (band_gains[band_idx] / 20))
 
         return group_result
@@ -246,7 +255,8 @@ class ParallelBandProcessor:
         result = np.zeros_like(audio)
 
         for band_filter, gain in zip(band_filters, band_gains):
-            filtered = band_filter(audio)
+            # Copy per band (#4572) — same reason as the group worker above.
+            filtered = band_filter(audio.copy())
             result += filtered * (10 ** (gain / 20))
 
         return result
