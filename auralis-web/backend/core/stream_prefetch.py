@@ -108,9 +108,6 @@ async def prefetch_next_track(
                 logger.info(f"Next track {next_track_id} chunk 0 already cached")
                 return
 
-        # Clear any stale tail from a previous play of this track (#3527)
-        await controller._drop_chunk_tail(next_track_id)
-
         # Create processor and process chunk 0 (populates cache)
         processor = await asyncio.to_thread(
             controller.chunked_processor_class,

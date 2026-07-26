@@ -31,7 +31,6 @@ vi.mock('@/utils/audio/pcmDecoding', () => ({
       chunkIndex: message.data.chunk_index ?? 0,
       frameIndex: message.data.frame_index ?? 0,
       frameCount: message.data.frame_count ?? 1,
-      crossfadeSamples: 0,
       sampleCount: message.data.sample_count ?? 0,
     },
   }),

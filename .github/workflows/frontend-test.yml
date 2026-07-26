@@ -1,0 +1,73 @@
+name: Frontend Tests
+
+# Gate added for #4640. Nothing in CI ever invoked vitest — the only frontend
+# job was `frontend-typecheck.yml` — so the 214-file suite ran only when a
+# developer remembered to, and a large pre-existing failure baseline
+# accumulated unnoticed. This is the second half of the #4143 fix, applied to
+# tests instead of types.
+#
+# Ratchet, not a green-suite demand: `scripts/check-test-baseline.mjs` compares
+# the run against the checked-in `test-baseline.json` and fails only on
+# failures that are NOT already known. The baseline can shrink but never grow.
+# Once it reaches zero, replace the baseline step with a plain
+# `pnpm run test:run` and re-enable the coverage thresholds that were removed
+# from `vitest.config.ts` in the same change.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'auralis-web/frontend/**'
+      - '.github/workflows/frontend-test.yml'
+  pull_request:
+    paths:
+      - 'auralis-web/frontend/**'
+      - '.github/workflows/frontend-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  vitest:
+    runs-on: ubuntu-latest
+    # The suite takes a few minutes locally; the cap exists so a spec that
+    # hangs the runner fails the job instead of burning the whole allowance.
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: auralis-web/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          cache-dependency-path: auralis-web/frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Runs under the documented 2GB heap (the suite OOMs at Node's default)
+      # and always exits 0 — a failing suite is expected while the baseline is
+      # non-empty. The baseline check below is what decides the job.
+      - name: Run vitest
+        run: pnpm run test:ci || true
+
+      # Fails the job on any failure not present in test-baseline.json, and
+      # also fails if the JSON report is missing or reports 0 collected tests,
+      # so a crashed runner cannot pass as green.
+      - name: Compare against known-failure baseline
+        run: pnpm run test:baseline
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-results
+          path: auralis-web/frontend/test-results/
+          retention-days: 7

@@ -283,7 +283,6 @@ describe('PCM Decoding Utilities', () => {
           frame_count: 1,
           samples: base64,
           sample_count: 4,
-          crossfade_samples: 0,
         },
       };
 
@@ -293,7 +292,6 @@ describe('PCM Decoding Utilities', () => {
       expect(metadata.sampleRate).toBe(48000);
       expect(metadata.channels).toBe(2);
       expect(metadata.chunkIndex).toBe(0);
-      expect(metadata.crossfadeSamples).toBe(0);
     });
 
     it('should handle missing optional fields with defaults', () => {
@@ -313,7 +311,6 @@ describe('PCM Decoding Utilities', () => {
 
       expect(metadata.chunkIndex).toBe(0);
       expect(metadata.chunkCount).toBe(1);
-      expect(metadata.crossfadeSamples).toBe(0);
     });
 
     it('should throw on invalid message format', () => {

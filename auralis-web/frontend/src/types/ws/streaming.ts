@@ -92,7 +92,6 @@ export interface AudioChunkMessage extends WebSocketMessage {
      *  binary transport path (pcm_binary) does not include this field (#3944). */
     samples?: string;
     sample_count: number;
-    crossfade_samples: number;
     stream_type?: 'enhanced' | 'normal';
     /** Raw float32 PCM ArrayBuffer (binary transport, preferred over base64). Injected
      *  at runtime by WebSocketContext when a binary frame follows audio_chunk_meta (fixes #2764). */
@@ -126,7 +125,6 @@ export interface AudioChunkMetaMessage {
     frame_index: number;
     frame_count: number;
     sample_count: number;
-    crossfade_samples: number;
     stream_type?: 'enhanced' | 'normal';
   };
 }

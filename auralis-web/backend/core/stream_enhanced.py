@@ -230,7 +230,7 @@ async def stream_enhanced_audio(
                         controller._process_chunk_only(chunk_idx + 1, processor, websocket)
                     )
 
-                # Stream current chunk (crossfade + send)
+                # Stream current chunk
                 await controller._stream_processed_chunk(pcm_samples, chunk_idx, processor, websocket)
                 delivered_samples += int(pcm_samples.shape[0])
 
@@ -275,9 +275,6 @@ async def stream_enhanced_audio(
                         intensity=intensity,
                         file_signature=processor.file_signature,  # #4358
                     )
-                # Proactively remove crossfade tail so the next chunk
-                # starts clean (lock-protected per #3527).
-                await controller._drop_chunk_tail(track_id)
                 await controller._send_error(
                     websocket,
                     track_id,
@@ -326,8 +323,6 @@ async def stream_enhanced_audio(
         if controller._is_websocket_connected(websocket):
             await controller._send_error(websocket, track_id, "Audio streaming failed")
     finally:
-        # Clean up chunk tail storage for this track (under lock, #3527)
-        await controller._drop_chunk_tail(track_id)
         # Drain any in-flight look-ahead task that survived the loop —
         # otherwise the orphan keeps running and holds a HybridProcessor
         # reference past stream teardown (fixes #3493).

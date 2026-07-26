@@ -261,7 +261,6 @@ export interface PCMChunkMetadata {
   frameIndex: number;
   frameCount: number;
   sampleCount: number;
-  crossfadeSamples: number;
 }
 
 /**
@@ -327,7 +326,6 @@ export function decodeAudioChunkMessage(
     frameIndex: data.frame_index ?? 0,
     frameCount: data.frame_count ?? 1,
     sampleCount: samples.length,
-    crossfadeSamples: data.crossfade_samples ?? 0,
   };
 
   return { samples, metadata };

@@ -5,7 +5,7 @@ Verifies that:
 - Processing stops within one chunk when the WebSocket disconnects mid-stream
 - process_chunk_safe is NOT called after disconnect is detected
 - active_streams is populated during streaming and empty after it ends
-- _chunk_tails is cleaned up on all exit paths (including seek/error)
+- active_streams is cleaned up on all exit paths (including seek/error)
 """
 
 import asyncio
@@ -270,20 +270,21 @@ class TestActiveStreamsLifecycle:
 
 
 # ---------------------------------------------------------------------------
-# Tests: _chunk_tails cleaned up in seek (stream_enhanced_audio_from_position)
+# Tests: per-stream state cleaned up in seek (stream_enhanced_audio_from_position)
+#
+# These used to also assert on controller._chunk_tails, the crossfade tail
+# storage removed in #4642 — its only reader was a no-op, so there is no
+# longer any per-track state here to orphan. active_streams remains.
 # ---------------------------------------------------------------------------
 
 class TestSeekFinallyCleanup:
-    """Verify _chunk_tails is cleaned up in seek's finally (orphaned state fix)."""
+    """Verify per-stream state is cleaned up in seek's finally (orphaned state fix)."""
 
     @pytest.mark.asyncio
-    async def test_chunk_tails_cleared_after_seek_stream(self):
-        """seek stream cleans _chunk_tails in finally even on error exit."""
+    async def test_active_stream_cleared_after_seek_stream(self):
+        """seek stream cleans active_streams in finally even on error exit."""
         controller = _make_controller()
         track_id = 99
-
-        # Plant a tail as if a previous chunk had been processed
-        controller._chunk_tails[track_id] = np.zeros((100, 2), dtype=np.float32)
 
         with (
             patch.object(controller, "_get_repository_factory") as mock_factory,
@@ -316,16 +317,13 @@ class TestSeekFinallyCleanup:
                     start_position=0.0,
                 )
 
-        assert track_id not in controller._chunk_tails
         assert track_id not in controller.active_streams
 
     @pytest.mark.asyncio
-    async def test_chunk_tails_cleared_after_seek_exception(self):
-        """_chunk_tails is still cleaned when seek stream raises an exception."""
+    async def test_active_stream_cleared_after_seek_exception(self):
+        """active_streams is still cleaned when seek stream raises an exception."""
         controller = _make_controller()
         track_id = 100
-
-        controller._chunk_tails[track_id] = np.zeros((100, 2), dtype=np.float32)
 
         with (
             patch.object(controller, "_get_repository_factory") as mock_factory,
@@ -358,7 +356,6 @@ class TestSeekFinallyCleanup:
                     start_position=0.0,
                 )
 
-        assert track_id not in controller._chunk_tails
         assert track_id not in controller.active_streams
 
 

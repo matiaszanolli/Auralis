@@ -10,6 +10,7 @@ Core models for tracks, albums, artists, genres, and playlists
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -29,6 +30,54 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, track_artist, track_genre, track_playlist
+
+logger = logging.getLogger(__name__)
+
+
+def _safe_collection(instance: Any, attr: str) -> list[Any]:
+    """
+    Read a relationship collection, degrading to `[]` instead of raising.
+
+    Every `to_dict()` in this module runs on instances the repositories have
+    `expunge()`d from their session, so a relationship that was not
+    eager-loaded raises `DetachedInstanceError` on first access. The
+    repositories' `selectinload()` options are the *primary* guarantee that
+    these values are correct; this helper is the backstop that turns a missed
+    eager-load into a degraded field rather than an unhandled 500 far from
+    its cause (#4500, #4641).
+
+    A miss is logged at WARNING so it is diagnosable — a silently-empty
+    collection is exactly how #4500 hid for as long as it did. Callers that
+    need to distinguish "empty" from "unavailable" must not rely on the
+    returned length alone.
+    """
+    try:
+        return list(getattr(instance, attr))
+    except Exception:
+        logger.warning(
+            "%s.%s could not be loaded (detached instance?); "
+            "reporting it as empty. The owning repository is missing a "
+            "selectinload(%s.%s).",
+            type(instance).__name__, attr, type(instance).__name__, attr,
+        )
+        return []
+
+
+def _safe_scalar(instance: Any, attr: str) -> Any | None:
+    """
+    Read a scalar (many-to-one) relationship, degrading to `None`.
+
+    Same rationale as :func:`_safe_collection` — see #4641.
+    """
+    try:
+        return getattr(instance, attr)
+    except Exception:
+        logger.warning(
+            "%s.%s could not be loaded (detached instance?); reporting None. "
+            "The owning repository is missing a joinedload/selectinload(%s.%s).",
+            type(instance).__name__, attr, type(instance).__name__, attr,
+        )
+        return None
 
 
 class Track(Base, TimestampMixin):
@@ -216,6 +265,11 @@ class Album(Base, TimestampMixin):
         if self.artwork_path:
             artwork_url = f"/api/albums/{self.id}/artwork"
 
+        # Guarded relationship reads (#4641) — AlbumRepository eager-loads both,
+        # so these are the backstop, not the mechanism.
+        artist = _safe_scalar(self, 'artist')
+        tracks = _safe_collection(self, 'tracks')
+
         return {
             'id': self.id,
             'title': self.title,
@@ -227,9 +281,9 @@ class Album(Base, TimestampMixin):
             'avg_dr_rating': self.avg_dr_rating,
             'avg_lufs': self.avg_lufs,
             'mastering_consistency': self.mastering_consistency,
-            'artist': self.artist.name if self.artist else None,
-            'track_count': len(self.tracks),
-            'total_duration': sum(t.duration for t in self.tracks if t.duration),
+            'artist': artist.name if artist else None,
+            'track_count': len(tracks),
+            'total_duration': sum(t.duration for t in tracks if t.duration),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -258,14 +312,15 @@ class Artist(Base, TimestampMixin):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert artist to dictionary"""
+        # Guarded relationship reads (#4641) — see Album.to_dict.
         return {
             'id': self.id,
             'name': self.name,
             'normalized_name': self.normalized_name,
             'total_plays': self.total_plays,
             'avg_mastering_quality': self.avg_mastering_quality,
-            'album_count': len(self.albums),
-            'track_count': len(self.tracks),
+            'album_count': len(_safe_collection(self, 'albums')),
+            'track_count': len(_safe_collection(self, 'tracks')),
             'artwork_url': self.artwork_url,  # Include artwork URL
             'artwork_source': self.artwork_source,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -296,7 +351,8 @@ class Genre(Base, TimestampMixin):
             'preferred_profile': self.preferred_profile,
             'typical_dr_range': self.typical_dr_range,
             'typical_lufs_range': self.typical_lufs_range,
-            'track_count': len(self.tracks),
+            # Guarded relationship read (#4641) — see Album.to_dict.
+            'track_count': len(_safe_collection(self, 'tracks')),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -331,6 +387,8 @@ class Playlist(Base, TimestampMixin):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert playlist to dictionary"""
+        # Guarded relationship read (#4641) — see Album.to_dict.
+        tracks = _safe_collection(self, 'tracks')
         return {
             'id': self.id,
             'name': self.name,
@@ -340,8 +398,8 @@ class Playlist(Base, TimestampMixin):
             'auto_master_enabled': self.auto_master_enabled,
             'mastering_profile': self.mastering_profile,
             'normalize_levels': self.normalize_levels,
-            'track_count': len(self.tracks),
-            'total_duration': sum(track.duration for track in self.tracks if track.duration),
+            'track_count': len(tracks),
+            'total_duration': sum(track.duration for track in tracks if track.duration),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             # Alias for frontend compatibility — frontend Playlist type uses modified_at (fixes #2269)

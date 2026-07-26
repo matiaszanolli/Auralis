@@ -47,7 +47,6 @@ async def _send_and_capture(samples: np.ndarray) -> bytes:
         pcm_samples=samples,
         chunk_index=0,
         total_chunks=1,
-        crossfade_samples=0,
     )
     return b"".join(captured)
 

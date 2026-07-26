@@ -280,7 +280,6 @@ async def stream_normal_audio(
                     pcm_samples=chunk_audio,
                     chunk_index=chunk_idx,
                     total_chunks=total_chunks,
-                    crossfade_samples=0,  # No overlap in normal path (no crossfade applied)
                 )
 
                 # Progress update

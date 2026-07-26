@@ -12,12 +12,19 @@ import logging
 from typing import Any
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from ..models import Genre, Track
 from .base import BaseRepository
 
 logger = logging.getLogger(__name__)
+
+# Every method below expunges the Genre it returns, and Genre.to_dict()
+# reports `track_count: len(self.tracks)`. Without this option the lazy
+# `tracks` relationship raises DetachedInstanceError on the caller's side
+# (#4641). Centralised so a new read path cannot silently omit it — the same
+# shape used by album_repository/artist_repository.
+_GENRE_LOAD_OPTIONS = (selectinload(Genre.tracks),)
 
 
 class GenreRepository(BaseRepository):
@@ -36,7 +43,7 @@ class GenreRepository(BaseRepository):
         session = self.get_session()
         try:
             genre = session.execute(
-                select(Genre).where(Genre.id == genre_id)
+                select(Genre).where(Genre.id == genre_id).options(*_GENRE_LOAD_OPTIONS)
             ).scalars().first()
             if genre:
                 session.expunge(genre)
@@ -57,7 +64,7 @@ class GenreRepository(BaseRepository):
         session = self.get_session()
         try:
             genre = session.execute(
-                select(Genre).where(Genre.name == name)
+                select(Genre).where(Genre.name == name).options(*_GENRE_LOAD_OPTIONS)
             ).scalars().first()
             if genre:
                 session.expunge(genre)
@@ -91,6 +98,7 @@ class GenreRepository(BaseRepository):
             order_column = getattr(Genre, order_by, Genre.name)
             genres = session.execute(
                 select(Genre)
+                .options(*_GENRE_LOAD_OPTIONS)
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
@@ -181,6 +189,10 @@ class GenreRepository(BaseRepository):
             session.add(genre)
             session.commit()
             session.refresh(genre)
+            # refresh() expires the instance but does not re-apply the
+            # query-level load options, so force the relationship in while
+            # still attached (#4641).
+            _ = genre.tracks
             session.expunge(genre)
             return genre
         except Exception as e:
@@ -219,6 +231,7 @@ class GenreRepository(BaseRepository):
 
             session.commit()
             session.refresh(genre)
+            _ = genre.tracks  # force-load before detaching (#4641)
             session.expunge(genre)
             return genre
         except Exception as e:
@@ -284,6 +297,7 @@ class GenreRepository(BaseRepository):
             genres = session.execute(
                 select(Genre)
                 .where(search_filter)
+                .options(*_GENRE_LOAD_OPTIONS)
                 .order_by(Genre.name)
                 .limit(limit)
                 .offset(offset)

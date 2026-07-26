@@ -111,7 +111,6 @@ class TestSendQueueBounds:
             pcm_samples=samples,
             chunk_index=0,
             total_chunks=1,
-            crossfade_samples=0,
         )
 
         # Should have stopped reasonably close to disconnect point

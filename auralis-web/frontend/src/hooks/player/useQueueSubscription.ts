@@ -45,7 +45,10 @@ export function useQueueSubscription(): void {
 
       switch (msg.type) {
         case 'queue_changed': {
-          const { data } = msg;
+          // `data` is required by the type but arrives off the wire — a frame
+          // without it must not throw out of the shared WS dispatch loop
+          // (#4639).
+          const data = msg.data ?? ({} as QueueChangedMessage['data']);
           if (data.tracks) dispatch(reduxSetQueue(data.tracks));
           if (data.current_index != null) dispatch(reduxSetCurrentIndex(data.current_index));
           else if (data.currentIndex != null) dispatch(reduxSetCurrentIndex(data.currentIndex));
@@ -53,7 +56,7 @@ export function useQueueSubscription(): void {
         }
 
         case 'queue_shuffled': {
-          const { data } = msg;
+          const data = msg.data ?? ({} as QueueShuffledMessage['data']);
           if (data.is_shuffled != null) dispatch(reduxSetIsShuffled(data.is_shuffled));
           else if (data.isShuffled != null) dispatch(reduxSetIsShuffled(data.isShuffled));
           if (data.tracks) dispatch(reduxSetQueue(data.tracks));
@@ -61,7 +64,7 @@ export function useQueueSubscription(): void {
         }
 
         case 'repeat_mode_changed': {
-          const { data } = msg;
+          const data = msg.data ?? ({} as RepeatModeChangedMessage['data']);
           if (isRepeatMode(data.repeat_mode)) dispatch(reduxSetRepeatMode(data.repeat_mode));
           else if (isRepeatMode(data.repeatMode)) dispatch(reduxSetRepeatMode(data.repeatMode));
           break;

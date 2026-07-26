@@ -244,7 +244,7 @@ async def stream_enhanced_audio_from_position(
                         controller._process_chunk_only(chunk_idx + 1, processor, websocket)
                     )
 
-                # Stream current chunk (crossfade + send)
+                # Stream current chunk
                 await controller._stream_processed_chunk(pcm_samples, chunk_idx, processor, websocket)
                 delivered_samples += int(pcm_samples.shape[0])
 
@@ -319,7 +319,6 @@ async def stream_enhanced_audio_from_position(
         if controller._is_websocket_connected(websocket):
             await controller._send_error(websocket, track_id, "Audio streaming failed")
     finally:
-        await controller._drop_chunk_tail(track_id)  # under lock, #3527
         # Drain any in-flight look-ahead (fixes #3493).
         await controller._drain_cancelled_task(lookahead_task)
         controller._stream_semaphore.release()

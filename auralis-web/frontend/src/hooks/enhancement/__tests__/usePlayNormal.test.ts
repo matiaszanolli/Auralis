@@ -93,7 +93,6 @@ function makeChunkMsg(overrides: Record<string, any> = {}) {
       frame_count: 1,
       samples: 'AAAAAAAAAA==',
       sample_count: 44100,
-      crossfade_samples: 0,
       stream_type: 'normal' as const,
       ...overrides,
     },
@@ -228,7 +227,6 @@ function setupMocks() {
       frameIndex: 0,
       frameCount: 1,
       sampleCount: 44100,
-      crossfadeSamples: 0,
     },
   } as any);
 

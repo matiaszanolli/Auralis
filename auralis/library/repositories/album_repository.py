@@ -292,6 +292,11 @@ class AlbumRepository(BaseRepository):
             album.artwork_path = artwork_path
             session.commit()
             session.refresh(album)
+            # Every other read path here eager-loads artist + tracks because
+            # Album.to_dict() reads both; refresh() does not re-apply query
+            # options, so force them in before detaching (#4641). The artwork
+            # router hands this album straight to to_dict().
+            _ = album.artist, album.tracks
             session.expunge(album)
             return album
         except Exception:

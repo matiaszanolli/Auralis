@@ -3,7 +3,7 @@ Tests for WebSocket error recovery on mid-stream chunk failure (issue #2085)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Acceptance criteria:
- - Processor state (_chunk_tails) is cleaned up on chunk failure
+ - Cached entries for the failed chunk are evicted
  - Client receives an audio_stream_error with a recovery_position field
  - No stale cache entry remains for the failed chunk
 
@@ -141,39 +141,6 @@ class TestChunkFailureRecovery:
             "error payload must contain recovery_position (issue #2085)"
         assert err["recovery_position"] == pytest.approx(expected_position), \
             f"expected recovery_position={expected_position}, got {err['recovery_position']}"
-
-    @pytest.mark.asyncio
-    async def test_chunk_tails_cleaned_up_after_failure(self):
-        """_chunk_tails must be empty after a mid-stream chunk failure."""
-        sent: list[dict] = []
-        ws = _make_websocket(sent)
-        processor = _make_processor(fail_at=FAIL_AT_CHUNK)
-
-        controller = AudioStreamController(
-            chunked_processor_class=MagicMock(return_value=processor),
-        )
-        controller._send_stream_start = AsyncMock(return_value=True)
-        controller.chunked_processor_class = MagicMock(return_value=processor)
-
-        mock_track = MagicMock()
-        mock_track.filepath = "/tmp/fake.wav"
-        factory = MagicMock()
-        factory.tracks.get_by_id.return_value = mock_track
-        factory.fingerprints.exists.return_value = False
-        controller._get_repository_factory = MagicMock(return_value=factory)
-
-        with patch("core.stream_enhanced.Path.exists", return_value=True), \
-             patch.object(controller, "_check_or_queue_fingerprint",
-                          new=AsyncMock(return_value=False)):
-            await controller.stream_enhanced_audio(
-                track_id=TRACK_ID,
-                preset=PRESET,
-                intensity=INTENSITY,
-                websocket=ws,
-            )
-
-        assert TRACK_ID not in controller._chunk_tails, \
-            "_chunk_tails must not contain stale data for the track after failure (issue #2085)"
 
     @pytest.mark.asyncio
     async def test_stale_cache_entry_evicted_after_failure(self):

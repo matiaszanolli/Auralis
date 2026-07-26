@@ -454,7 +454,6 @@ Sent as a **text JSON frame** immediately before each binary PCM frame. The clie
     "frame_index": number,      // Frame index within the current chunk (0-based)
     "frame_count": number,      // Total frames in the current chunk
     "sample_count": number,     // Number of float32 samples in the following binary frame
-    "crossfade_samples": number,// Overlap samples at the chunk boundary (used for gapless blending)
     "stream_type"?: "enhanced" | "normal"
   }
 }

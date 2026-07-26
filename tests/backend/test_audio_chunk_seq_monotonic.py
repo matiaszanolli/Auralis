@@ -82,7 +82,6 @@ async def _send_chunk(controller, chunk_index, total_chunks=2):
         pcm_samples=samples,
         chunk_index=chunk_index,
         total_chunks=total_chunks,
-        crossfade_samples=0,
     )
 
 

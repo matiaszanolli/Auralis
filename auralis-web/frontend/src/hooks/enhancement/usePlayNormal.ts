@@ -255,12 +255,12 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
 
         for (const queuedMessage of queuedChunks) {
           try {
-            const { samples, metadata } = decodeAudioChunkMessage(
+            const { samples } = decodeAudioChunkMessage(
               queuedMessage,
               message.data.sample_rate,
               message.data.channels
             );
-            buffer.append(samples, metadata.crossfadeSamples);
+            buffer.append(samples);
             core.streamingMetadataRef.current!.processedChunks++;
           } catch (queuedError) {
             console.error('[usePlayNormal] Error processing queued chunk:', queuedError);

@@ -4,7 +4,6 @@
  * Provides efficient real-time PCM sample buffering with:
  * - Circular buffer design for memory efficiency
  * - Automatic wrap-around handling
- * - Crossfade blending at chunk boundaries
  * - Buffer overflow/underflow detection
  *
  * @copyright (C) 2024 Auralis Team
@@ -28,8 +27,15 @@ export interface BufferMetadata {
  * Design:
  * - Default 5MB capacity (~6 seconds at 48kHz stereo)
  * - Circular write/read pointers with wrap-around
- * - Automatic crossfading when appending chunks
  * - Thread-safe (single-threaded via event loop)
+ *
+ * No boundary crossfade (#4642): ChunkOperations.extract_chunk_segment trims
+ * every processed chunk to its non-overlapping CHUNK_INTERVAL segment before
+ * it reaches the streaming layer, so adjacent chunks share no samples and
+ * there is nothing to blend. The server's apply_boundary_crossfade was made a
+ * no-op for the same reason in #3514; the client-side linear-fade
+ * implementation that used to live here was permanently unreachable and has
+ * been removed along with the crossfade_samples wire field.
  */
 export class PCMStreamBuffer {
   private buffer: Float32Array | null = null;
@@ -39,9 +45,6 @@ export class PCMStreamBuffer {
   private channels: number = 2;
   private capacity: number = 0;
   private isInitialized: boolean = false;
-
-  // Crossfade state
-  private lastChunkEnd: Float32Array | null = null;
 
   // Statistics
   private totalAppended: number = 0;
@@ -82,28 +85,25 @@ export class PCMStreamBuffer {
     this.writePos = 0;
     this.readPos = 0;
     this.isInitialized = true;
-    this.lastChunkEnd = null;
 
     this.totalAppended = 0;
     this.totalRead = 0;
   }
 
   /**
-   * Append PCM samples to buffer with optional crossfading
+   * Append PCM samples to buffer
    * @param pcm - Float32Array of PCM samples
-   * @param crossfadeSamples - Number of samples to crossfade (0 = no crossfade)
    */
-  append(pcm: Float32Array, crossfadeSamples: number = 0): void {
+  append(pcm: Float32Array): void {
     if (!this.isInitialized || !this.buffer) {
       throw new Error('PCMStreamBuffer not initialized. Call initialize() first.');
     }
 
-    const sampleCount = pcm.length;
+    const requiredSpace = pcm.length;
 
     // Check for overflow
     const availableCapacity = this.capacity / 4;
     const usedSamples = this.getAvailableSamples();
-    const requiredSpace = sampleCount + crossfadeSamples;
 
     if (usedSamples + requiredSpace > availableCapacity) {
       // Log overflow warning - writeToBuffer will drop new data to preserve playback position
@@ -113,20 +113,8 @@ export class PCMStreamBuffer {
       );
     }
 
-    // Apply crossfading if specified
-    let dataToWrite = pcm;
-    if (crossfadeSamples > 0 && this.lastChunkEnd !== null) {
-      dataToWrite = this.applyCrossfade(pcm, crossfadeSamples);
-    }
-
     // Write to circular buffer with wrap-around
-    this.writeToBuffer(dataToWrite);
-
-    // Save end of chunk for next crossfade
-    if (crossfadeSamples > 0) {
-      const endStart = Math.max(0, pcm.length - crossfadeSamples);
-      this.lastChunkEnd = new Float32Array(pcm.slice(endStart));
-    }
+    this.writeToBuffer(pcm);
   }
 
   /**
@@ -222,7 +210,6 @@ export class PCMStreamBuffer {
   reset(): void {
     this.writePos = 0;
     this.readPos = 0;
-    this.lastChunkEnd = null;
 
     this.totalAppended = 0;
     this.totalRead = 0;
@@ -238,38 +225,6 @@ export class PCMStreamBuffer {
   dispose(): void {
     this.buffer = null;
     this.isInitialized = false;
-    this.lastChunkEnd = null;
-  }
-
-  /**
-   * Apply crossfade between chunks
-   * Blends the overlap region with linear fade
-   */
-  private applyCrossfade(currentChunk: Float32Array, crossfadeSamples: number): Float32Array {
-    if (!this.lastChunkEnd || this.lastChunkEnd.length === 0) {
-      return currentChunk;
-    }
-
-    const overlap = Math.min(crossfadeSamples, this.lastChunkEnd.length, currentChunk.length);
-    if (overlap === 0) {
-      return currentChunk;
-    }
-
-    // Create a copy to avoid modifying input
-    const blended = new Float32Array(currentChunk);
-
-    // Linear fade: fade in current chunk, fade out previous chunk
-    for (let i = 0; i < overlap; i++) {
-      const fadeProgress = i / overlap;
-      const prevWeight = 1.0 - fadeProgress;
-      const currWeight = fadeProgress;
-
-      // Blend first `overlap` samples of current chunk with last `overlap` samples of previous chunk
-      const prevSample = this.lastChunkEnd[this.lastChunkEnd.length - overlap + i] || 0;
-      blended[i] = prevSample * prevWeight + blended[i] * currWeight;
-    }
-
-    return blended;
   }
 
   /**

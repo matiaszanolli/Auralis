@@ -109,14 +109,18 @@ class TestNormalStreamingChunkCalculation:
         assert normal_interval_samples == normal_chunk_samples, \
             "Normal streaming should have NO overlap (interval = duration)"
 
-    def test_crossfade_samples_zero_for_normal_path(self):
-        """Test that crossfade_samples is 0 for normal streaming"""
-        # Normal streaming should send crossfade_samples=0
-        # because chunks don't overlap and no crossfade is applied
-        crossfade_samples = 0
+    def test_no_crossfade_parameter_on_the_send_path(self):
+        """
+        Normal streaming applies no crossfade, and neither does any other path
+        — so `crossfade_samples` no longer exists on the send API at all
+        (#4642). Previously this test asserted `0 == 0` against a local
+        variable, which proved nothing about the code under test.
+        """
+        import inspect
+        from core import stream_protocol
 
-        assert crossfade_samples == 0, \
-            "Normal streaming should have crossfade_samples=0 (no overlap, no crossfade)"
+        params = inspect.signature(stream_protocol.send_pcm_chunk).parameters
+        assert 'crossfade_samples' not in params
 
 
 class TestNormalStreamingAudioDuplication:

@@ -176,13 +176,6 @@ class AudioStreamController:
         # Use the module-level semaphore shared across all instances (fixes #2469)
         self._stream_semaphore: asyncio.Semaphore = _global_stream_semaphore
 
-        # Store previous chunk tails for crossfading (track_id -> tail samples).
-        # _chunk_tails_lock serialises the check-then-set sequence so that if the
-        # architecture ever reuses a controller across concurrent seek tasks the
-        # crossfade state cannot be torn (fixes #2326).
-        self._chunk_tails: dict[int, np.ndarray] = {}
-        self._chunk_tails_lock: asyncio.Lock = asyncio.Lock()
-
     def _is_websocket_connected(self, websocket: WebSocket) -> bool:
         from . import stream_protocol
         return stream_protocol.is_websocket_connected(websocket)
@@ -201,11 +194,10 @@ class AudioStreamController:
         pcm_samples: np.ndarray,
         chunk_index: int,
         total_chunks: int,
-        crossfade_samples: int,
     ) -> None:
         from . import stream_protocol
         await stream_protocol.send_pcm_chunk(
-            self, websocket, pcm_samples, chunk_index, total_chunks, crossfade_samples
+            self, websocket, pcm_samples, chunk_index, total_chunks
         )
 
     async def _send_stream_start(self, websocket: WebSocket, **kwargs: Any) -> bool:
@@ -240,10 +232,6 @@ class AudioStreamController:
         return await stream_fingerprint.check_or_queue_fingerprint(self, track_id, filepath, websocket)
 
 
-    async def _drop_chunk_tail(self, track_id: int) -> None:
-        from . import stream_chunk_ops
-        await stream_chunk_ops.drop_chunk_tail(self, track_id)
-
     @staticmethod
     async def _drain_cancelled_task(task: 'asyncio.Task[Any] | None') -> None:
         from . import stream_chunk_ops
@@ -270,12 +258,6 @@ class AudioStreamController:
     ) -> None:
         from . import stream_chunk_ops
         await stream_chunk_ops.process_and_stream_chunk(self, chunk_index, processor, websocket, on_progress)
-
-    def _apply_boundary_crossfade(
-        self, prev_tail: np.ndarray, current_chunk: np.ndarray, crossfade_samples: int
-    ) -> np.ndarray:
-        from . import stream_chunk_ops
-        return stream_chunk_ops.apply_boundary_crossfade(prev_tail, current_chunk, crossfade_samples)
 
     async def _prefetch_next_track(self, current_track_id: int, preset: str, intensity: float) -> None:
         from . import stream_prefetch

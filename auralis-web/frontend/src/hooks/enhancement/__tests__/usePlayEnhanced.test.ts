@@ -99,7 +99,6 @@ function makeChunkMsg(overrides: Record<string, any> = {}) {
       frame_count: 1,
       samples: 'AAAAAAAAAA==',
       sample_count: 44100,
-      crossfade_samples: 0,
       stream_type: 'enhanced' as const,
       ...overrides,
     },
@@ -217,7 +216,6 @@ function setupMocks() {
       frameIndex: 0,
       frameCount: 1,
       sampleCount: 3,
-      crossfadeSamples: 0,
       sampleRate: 44100,
       channels: 2,
     },
@@ -478,9 +476,10 @@ describe('usePlayEnhanced – audio_chunk', () => {
 
     expect(pcmDecoding.decodeAudioChunkMessage).toHaveBeenCalledOnce();
     expect(mockBufferInstance.append).toHaveBeenCalledOnce();
-    const [samples, crossfade] = mockBufferInstance.append.mock.calls[0];
+    const [samples, ...extraArgs] = mockBufferInstance.append.mock.calls[0];
     expect(samples).toBeInstanceOf(Float32Array);
-    expect(crossfade).toBe(0);
+    // #4642: append() takes samples only — no crossfadeSamples argument.
+    expect(extraArgs).toEqual([]);
   });
 
   it('dispatches updateStreamingProgress with correct counts', () => {

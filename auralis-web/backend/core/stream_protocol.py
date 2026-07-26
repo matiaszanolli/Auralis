@@ -120,7 +120,6 @@ async def send_pcm_chunk(
     pcm_samples: np.ndarray,
     chunk_index: int,
     total_chunks: int,
-    crossfade_samples: int,
 ) -> None:
     """
     Send PCM samples to client as binary WebSocket frames.
@@ -138,7 +137,6 @@ async def send_pcm_chunk(
         pcm_samples: NumPy array of PCM samples (mono or stereo)
         chunk_index: Index of this chunk
         total_chunks: Total number of chunks
-        crossfade_samples: Number of overlap samples at chunk boundary
     """
     # Ensure native float32 for the wire format. astype(copy=False) returns
     # the array untouched when it is already native float32 — the case for
@@ -209,7 +207,6 @@ async def send_pcm_chunk(
                         "frame_index": frame_idx,
                         "frame_count": num_frames,
                         "sample_count": frame_samples.size,
-                        "crossfade_samples": crossfade_samples,
                         "stream_type": stream_type,
                     },
                 }

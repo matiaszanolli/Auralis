@@ -251,7 +251,7 @@ export function useAudioStreamingCore(
       );
 
       // Append to circular buffer
-      pcmBufferRef.current.append(samples, metadata.crossfadeSamples);
+      pcmBufferRef.current.append(samples);
 
       // Flow control: tell backend to pause/resume sending based on buffer fill level.
       // 75% full → pause, 50% full → resume (25% hysteresis prevents rapid toggling).

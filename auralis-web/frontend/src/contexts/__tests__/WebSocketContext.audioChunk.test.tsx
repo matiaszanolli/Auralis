@@ -90,7 +90,6 @@ function metaFrame(seq: number) {
       frame_index: 0,
       frame_count: 1,
       sample_count: 4,
-      crossfade_samples: 0,
       stream_type: 'enhanced' as const,
     },
   };

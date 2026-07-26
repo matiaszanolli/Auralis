@@ -93,14 +93,18 @@ export default defineConfig({
         'dist/',
       ],
 
-      // Minimum coverage thresholds (Vitest 4: moved under `thresholds`,
-      // and `coverage.all` was removed — #3488).
-      thresholds: {
-        lines: 85,
-        functions: 85,
-        branches: 80,
-        statements: 85,
-      },
+      // No `thresholds` block on purpose (#4640).
+      //
+      // It previously declared lines/functions/statements 85 and branches 80,
+      // which read as an enforced gate — but nothing in CI ran vitest at all,
+      // so the numbers were never evaluated by anything. A config that implies
+      // a gate it does not have is worse than no numbers, so the block was
+      // removed rather than left decorative.
+      //
+      // `.github/workflows/frontend-test.yml` now runs the suite on every PR,
+      // ratcheted against `test-baseline.json`. Restore thresholds here (and
+      // switch that workflow to `test:coverage`) once the known-failure
+      // baseline reaches zero and real coverage is measured.
       skipFull: false, // Report all files, even with 100% coverage
     },
 

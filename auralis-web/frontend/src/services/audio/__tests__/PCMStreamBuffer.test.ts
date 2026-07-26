@@ -45,14 +45,14 @@ describe('PCMStreamBuffer', () => {
 
     it('should append samples correctly', () => {
       const samples = new Float32Array([0.1, 0.2, 0.3, 0.4]);
-      buffer.append(samples, 0);
+      buffer.append(samples);
 
       expect(buffer.getAvailableSamples()).toBe(4);
     });
 
     it('should read samples in order', () => {
       const samples = new Float32Array([0.1, 0.2, 0.3, 0.4]);
-      buffer.append(samples, 0);
+      buffer.append(samples);
 
       const readSamples = buffer.read(4);
 
@@ -71,7 +71,7 @@ describe('PCMStreamBuffer', () => {
       // Fill to near capacity
       const part1 = new Float32Array(512);
       for (let i = 0; i < 512; i++) part1[i] = 0.1 + i * 0.0001;
-      smallBuffer.append(part1, 0);
+      smallBuffer.append(part1);
 
       // Read some to move read pointer
       smallBuffer.read(256);
@@ -79,7 +79,7 @@ describe('PCMStreamBuffer', () => {
       // Append more (will wrap around the circular buffer)
       const part2 = new Float32Array(512);
       for (let i = 0; i < 512; i++) part2[i] = 0.2 + i * 0.0001;
-      smallBuffer.append(part2, 0);
+      smallBuffer.append(part2);
 
       // Should have 768 samples (512 + 512 - 256 read)
       expect(smallBuffer.getAvailableSamples()).toBe(768);
@@ -87,7 +87,7 @@ describe('PCMStreamBuffer', () => {
 
     it('should return fewer samples than requested if buffer insufficient', () => {
       const samples = new Float32Array([0.1, 0.2]);
-      buffer.append(samples, 0);
+      buffer.append(samples);
 
       const readSamples = buffer.read(10);
 
@@ -101,71 +101,18 @@ describe('PCMStreamBuffer', () => {
     });
   });
 
-  describe('crossfading', () => {
+  describe('chunk concatenation', () => {
+    // #4642: the buffer no longer crossfades. Chunks arrive already trimmed to
+    // non-overlapping segments by the server, so appended chunks are simply
+    // concatenated — the linear-fade path (and its crossfadeSamples argument)
+    // was permanently unreachable and has been removed.
     beforeEach(() => {
       buffer.initialize(48000, 2);
     });
 
-    it('should blend overlapping samples at boundaries', () => {
-      // First chunk: [0.0, 0.1, 0.2]
-      const chunk1 = new Float32Array([0.0, 0.1, 0.2]);
-      buffer.append(chunk1, 0);
-
-      // Second chunk: [0.5, 0.6, 0.7] with 1-sample crossfade
-      // The last sample of chunk1 (0.2) and first of chunk2 (0.5) should blend
-      const chunk2 = new Float32Array([0.5, 0.6, 0.7]);
-      buffer.append(chunk2, 1);
-
-      // Read and verify crossfade
-      const result = buffer.read(4);
-
-      // First two samples should be from chunk1
-      expect(result[0]).toBeCloseTo(0.0, 5);
-      expect(result[1]).toBeCloseTo(0.1, 5);
-
-      // The overlapped sample should be blended
-      // Original: 0.2 (chunk1) -> 0.5 (chunk2)
-      // Blended at 50%: 0.2*0.5 + 0.5*0.5 = 0.1 + 0.25 = 0.35
-      expect(result[2]).toBeCloseTo(0.35, 5);
-
-      // Next sample from chunk2
-      expect(result[3]).toBeCloseTo(0.6, 5);
-    });
-
-    it('should handle multi-sample crossfades', () => {
-      const chunk1 = new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5]);
-      buffer.append(chunk1, 0);
-
-      // Append with 2-sample crossfade
-      const chunk2 = new Float32Array([0.8, 0.9, 1.0]);
-      buffer.append(chunk2, 2);
-
-      const result = buffer.read(7);
-
-      // First 3 from chunk1 unchanged
-      expect(result[0]).toBeCloseTo(0.1, 5);
-      expect(result[1]).toBeCloseTo(0.2, 5);
-      expect(result[2]).toBeCloseTo(0.3, 5);
-
-      // Sample at index 3: blend chunk1[3]=0.4 and chunk2[0]=0.8
-      // At position 0 of 2: weight = 0/2 = 0, so: 0.4*1.0 + 0.8*0.0 = 0.4
-      expect(result[3]).toBeCloseTo(0.4, 5);
-
-      // Sample at index 4: blend chunk1[4]=0.5 and chunk2[1]=0.9
-      // At position 1 of 2: weight = 1/2 = 0.5, so: 0.5*0.5 + 0.9*0.5 = 0.7
-      expect(result[4]).toBeCloseTo(0.7, 5);
-
-      // Remaining from chunk2
-      expect(result[5]).toBeCloseTo(0.9, 5);
-      expect(result[6]).toBeCloseTo(1.0, 5);
-    });
-
-    it('should handle zero crossfade (no blending)', () => {
-      const chunk1 = new Float32Array([0.1, 0.2]);
-      buffer.append(chunk1, 0);
-
-      const chunk2 = new Float32Array([0.5, 0.6]);
-      buffer.append(chunk2, 0); // 0 crossfade samples
+    it('should concatenate consecutive chunks without blending', () => {
+      buffer.append(new Float32Array([0.1, 0.2]));
+      buffer.append(new Float32Array([0.5, 0.6]));
 
       const result = buffer.read(4);
 
@@ -173,6 +120,30 @@ describe('PCMStreamBuffer', () => {
       expect(result[1]).toBeCloseTo(0.2, 5);
       expect(result[2]).toBeCloseTo(0.5, 5);
       expect(result[3]).toBeCloseTo(0.6, 5);
+    });
+
+    it('should leave every sample of every chunk bit-identical', () => {
+      const chunks = [
+        new Float32Array([0.1, 0.2, 0.3, 0.4, 0.5]),
+        new Float32Array([0.8, 0.9, 1.0]),
+        new Float32Array([-0.5, -0.25]),
+      ];
+      for (const chunk of chunks) buffer.append(chunk);
+
+      const expected = Float32Array.from(chunks.flatMap((c) => [...c]));
+      const result = buffer.read(expected.length);
+
+      expect(Array.from(result)).toEqual(Array.from(expected));
+    });
+
+    it('should not modify the caller\'s input array', () => {
+      const chunk = new Float32Array([0.1, 0.2, 0.3]);
+      const copy = new Float32Array(chunk);
+
+      buffer.append(chunk);
+      buffer.append(new Float32Array([0.4, 0.5, 0.6]));
+
+      expect(Array.from(chunk)).toEqual(Array.from(copy));
     });
   });
 
@@ -184,11 +155,11 @@ describe('PCMStreamBuffer', () => {
     it('should handle buffer overflow gracefully', () => {
       const chunk1 = new Float32Array(512);
       for (let i = 0; i < 512; i++) chunk1[i] = i * 0.001;
-      buffer.append(chunk1, 0);
+      buffer.append(chunk1);
 
       const chunk2 = new Float32Array(512);
       for (let i = 0; i < 512; i++) chunk2[i] = i * 0.002;
-      buffer.append(chunk2, 0);
+      buffer.append(chunk2);
 
       // Should not exceed capacity
       const fill = buffer.getFillPercentage();
@@ -199,14 +170,14 @@ describe('PCMStreamBuffer', () => {
       // Fill buffer to capacity (256 samples = 1024 bytes / 4 bytes per sample)
       const chunk1 = new Float32Array(256);
       for (let i = 0; i < 256; i++) chunk1[i] = 0.1;
-      buffer.append(chunk1, 0);
+      buffer.append(chunk1);
 
       expect(buffer.getFillPercentage()).toBe(100);
 
       // Try to add more - should drop new data to preserve playback position
       const chunk2 = new Float32Array(128);
       for (let i = 0; i < 128; i++) chunk2[i] = 0.9;
-      buffer.append(chunk2, 0);
+      buffer.append(chunk2);
 
       // Should still be full with original data (new data was dropped)
       expect(buffer.getFillPercentage()).toBe(100);
@@ -225,7 +196,7 @@ describe('PCMStreamBuffer', () => {
       buffer.initialize(48000, 2);
 
       const chunk1 = new Float32Array(1000);
-      buffer.append(chunk1, 0);
+      buffer.append(chunk1);
 
       const metadata = buffer.getMetadata();
 
@@ -239,7 +210,7 @@ describe('PCMStreamBuffer', () => {
       buffer.initialize(48000, 2);
 
       const chunk = new Float32Array(1000);
-      buffer.append(chunk, 0);
+      buffer.append(chunk);
 
       buffer.read(250);
       buffer.read(250);
@@ -256,7 +227,7 @@ describe('PCMStreamBuffer', () => {
 
     it('should calculate fill percentage correctly', () => {
       const samples = new Float32Array(1000);
-      buffer.append(samples, 0);
+      buffer.append(samples);
 
       const fill = buffer.getFillPercentage();
       const metadata = buffer.getMetadata();
@@ -275,7 +246,7 @@ describe('PCMStreamBuffer', () => {
       buffer.initialize(48000, 1); // Mono
 
       const monoSamples = new Float32Array([0.1, 0.2, 0.3]);
-      buffer.append(monoSamples, 0);
+      buffer.append(monoSamples);
 
       const result = buffer.read(3);
 
@@ -292,7 +263,7 @@ describe('PCMStreamBuffer', () => {
 
       // Interleaved: [L1, R1, L2, R2]
       const stereoSamples = new Float32Array([0.1, 0.2, 0.3, 0.4]);
-      buffer.append(stereoSamples, 0);
+      buffer.append(stereoSamples);
 
       const result = buffer.read(4);
 
@@ -315,7 +286,7 @@ describe('PCMStreamBuffer', () => {
 
       const invalidSamples = new Float32Array([0.1, NaN, 0.3]);
       // Should not throw
-      expect(() => buffer.append(invalidSamples, 0)).not.toThrow();
+      expect(() => buffer.append(invalidSamples)).not.toThrow();
     });
 
     it('should handle Infinity samples', () => {
@@ -323,7 +294,7 @@ describe('PCMStreamBuffer', () => {
 
       const invalidSamples = new Float32Array([0.1, Infinity, -Infinity]);
       // Should not throw
-      expect(() => buffer.append(invalidSamples, 0)).not.toThrow();
+      expect(() => buffer.append(invalidSamples)).not.toThrow();
     });
   });
 
@@ -339,7 +310,7 @@ describe('PCMStreamBuffer', () => {
           chunk[i] = cycle * 0.1 + i * 0.001;
         }
 
-        buffer.append(chunk, 0);
+        buffer.append(chunk);
         const result = buffer.read(50);
 
         expect(result.length).toBeLessThanOrEqual(100);
@@ -358,7 +329,7 @@ describe('PCMStreamBuffer', () => {
           chunk[j] = i + j * 0.01;
         }
 
-        buffer.append(chunk, 0);
+        buffer.append(chunk);
         const read = buffer.read(5);
 
         for (let j = 0; j < read.length; j++) {
