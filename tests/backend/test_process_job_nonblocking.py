@@ -20,15 +20,24 @@ from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingSt
 
 
 def _make_engine() -> ProcessingEngine:
-    engine = ProcessingEngine.__new__(ProcessingEngine)
-    engine.job_queue = asyncio.Queue()
-    engine.active_jobs = 0
-    engine.max_concurrent_jobs = 2
-    engine.jobs = {}                  # dict[job_id, ProcessingJob]
-    engine.progress_callbacks = {}    # dict[job_id, Callable]
-    engine._processor_cache = {}
-    engine._processor_cache_lock = asyncio.Lock()
-    return engine
+    """Build a real engine.
+
+    This used to be a hand-built ``__new__`` stub listing the attributes the
+    tests happened to need, which silently rotted every time ``__init__``
+    gained state (``_jobs_lock``, then ``_cancel_events``) — the whole module
+    failed with ``AttributeError`` well before reaching its assertions. The
+    constructor does no I/O beyond creating a temp dir, so just call it.
+    """
+    return ProcessingEngine(max_concurrent_jobs=2)
+
+
+def _make_config() -> MagicMock:
+    """A config stub whose fields survive ProcessorPool.cache_key()'s join()."""
+    config = MagicMock()
+    config.internal_sample_rate = 44100
+    config.mastering_profile = ""
+    config.adaptive.mode = "adaptive"
+    return config
 
 
 def _make_job(mode: str = "adaptive", reference_path: str | None = None) -> ProcessingJob:
@@ -55,8 +64,9 @@ async def test_load_audio_offloaded_to_thread():
     job = _make_job()
 
     fake_audio = np.zeros(44100, dtype=np.float32)
-    fake_result = MagicMock()
-    fake_result.audio = fake_audio
+    # HybridProcessor.process() returns a bare ndarray, and _execute_job now
+    # rejects anything else outright (#3489).
+    fake_result = fake_audio
 
     thread_funcs: list[object] = []
     real_to_thread = asyncio.to_thread
@@ -68,7 +78,7 @@ async def test_load_audio_offloaded_to_thread():
     with (
         patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)) as mock_load,
         patch("core.processing_engine.save"),
-        patch.object(engine, "_create_processor_config", return_value=MagicMock()),
+        patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(
             process=MagicMock(return_value=fake_result)
         )),
@@ -88,8 +98,9 @@ async def test_processor_process_offloaded_to_thread():
     job = _make_job()
 
     fake_audio = np.zeros(44100, dtype=np.float32)
-    fake_result = MagicMock()
-    fake_result.audio = fake_audio
+    # HybridProcessor.process() returns a bare ndarray, and _execute_job now
+    # rejects anything else outright (#3489).
+    fake_result = fake_audio
 
     mock_processor = MagicMock()
     mock_processor.process = MagicMock(return_value=fake_result)
@@ -104,7 +115,7 @@ async def test_processor_process_offloaded_to_thread():
     with (
         patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)),
         patch("core.processing_engine.save"),
-        patch.object(engine, "_create_processor_config", return_value=MagicMock()),
+        patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=mock_processor),
         patch("asyncio.to_thread", side_effect=spy_to_thread),
     ):
@@ -122,8 +133,9 @@ async def test_save_offloaded_to_thread():
     job = _make_job()
 
     fake_audio = np.zeros(44100, dtype=np.float32)
-    fake_result = MagicMock()
-    fake_result.audio = fake_audio
+    # HybridProcessor.process() returns a bare ndarray, and _execute_job now
+    # rejects anything else outright (#3489).
+    fake_result = fake_audio
 
     thread_funcs: list[object] = []
     real_to_thread = asyncio.to_thread
@@ -135,7 +147,7 @@ async def test_save_offloaded_to_thread():
     with (
         patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)),
         patch("core.processing_engine.save") as mock_save,
-        patch.object(engine, "_create_processor_config", return_value=MagicMock()),
+        patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(
             process=MagicMock(return_value=fake_result)
         )),
@@ -160,8 +172,9 @@ async def test_event_loop_responsive_during_processing():
     job = _make_job()
 
     fake_audio = np.zeros(44100, dtype=np.float32)
-    fake_result = MagicMock()
-    fake_result.audio = fake_audio
+    # HybridProcessor.process() returns a bare ndarray, and _execute_job now
+    # rejects anything else outright (#3489).
+    fake_result = fake_audio
 
     counter: list[int] = [0]
 
@@ -171,7 +184,7 @@ async def test_event_loop_responsive_during_processing():
             await asyncio.sleep(0)
             counter[0] += 1
 
-    def slow_load(path):
+    def slow_load(path, **kwargs):  # kwargs absorbs cancel_event (#4496)
         import time
         time.sleep(0.05)  # 50 ms blocking — simulates disk I/O
         return (fake_audio, 44100)
@@ -184,7 +197,7 @@ async def test_event_loop_responsive_during_processing():
     with (
         patch("core.processing_engine.load_audio", side_effect=slow_load),
         patch("core.processing_engine.save"),
-        patch.object(engine, "_create_processor_config", return_value=MagicMock()),
+        patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(
             process=MagicMock(side_effect=slow_process)
         )),
@@ -208,8 +221,9 @@ async def test_progress_callbacks_fire_correctly():
     job = _make_job()
 
     fake_audio = np.zeros(44100, dtype=np.float32)
-    fake_result = MagicMock()
-    fake_result.audio = fake_audio
+    # HybridProcessor.process() returns a bare ndarray, and _execute_job now
+    # rejects anything else outright (#3489).
+    fake_result = fake_audio
 
     progress_log: list[float] = []
 
@@ -222,7 +236,7 @@ async def test_progress_callbacks_fire_correctly():
     with (
         patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)),
         patch("core.processing_engine.save"),
-        patch.object(engine, "_create_processor_config", return_value=MagicMock()),
+        patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(
             process=MagicMock(return_value=fake_result)
         )),
@@ -243,8 +257,9 @@ async def test_reference_load_also_offloaded():
     job = _make_job(mode="reference", reference_path="/fake/reference.flac")
 
     fake_audio = np.zeros(44100, dtype=np.float32)
-    fake_result = MagicMock()
-    fake_result.audio = fake_audio
+    # HybridProcessor.process() returns a bare ndarray, and _execute_job now
+    # rejects anything else outright (#3489).
+    fake_result = fake_audio
 
     thread_funcs: list[object] = []
     real_to_thread = asyncio.to_thread
@@ -257,7 +272,7 @@ async def test_reference_load_also_offloaded():
         patch("core.processing_engine.load_audio", return_value=(fake_audio, 44100)) as mock_load,
         patch("core.processing_engine.save"),
         patch("pathlib.Path.exists", return_value=True),
-        patch.object(engine, "_create_processor_config", return_value=MagicMock()),
+        patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=MagicMock(
             process=MagicMock(return_value=fake_result)
         )),
