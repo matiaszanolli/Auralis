@@ -53,7 +53,7 @@ else:
 
 # Import configuration modules
 from config.app import create_app, is_dev_mode as _is_dev_mode
-from config.globals import ConnectionManager
+from config.globals import ConnectionManager, set_component_registry
 from config.middleware import setup_middleware
 from config.routes import setup_routers
 from config.startup import create_lifespan
@@ -113,6 +113,13 @@ globals_dict = {
         "intensity": 1.0
     },
 }
+
+# Register this dict as THE process-wide component registry (#4578). Modules
+# that cannot be passed dependencies explicitly — notably
+# ChunkedAudioProcessor's Tier-1 fingerprint accessor — resolve components
+# through config.globals.get_component_registry(). Startup mutates this same
+# object in place, so those readers observe components as they are populated.
+set_component_registry(globals_dict)
 
 # Prepare dependencies dictionary for startup and routers
 deps = {

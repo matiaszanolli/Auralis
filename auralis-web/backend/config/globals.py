@@ -152,40 +152,39 @@ class ConnectionManager:
             logger.info(f"Removed {len(stale_connections)} stale connection(s). Active: {len(self.active_connections)}")
 
 
-def create_globals_dict() -> dict[str, Any]:
+# ---------------------------------------------------------------------------
+# Component registry
+# ---------------------------------------------------------------------------
+#
+# #4578: this module used to define its own `globals_dict = create_globals_dict()`
+# alongside the one `main.py` builds. Only main.py's was ever populated by
+# startup, so anything reading this module's copy saw a permanently-empty
+# registry. `_default_get_fingerprints_repository()` did exactly that, which is
+# why the #3836 Tier-1 fingerprint fix shipped but never took effect: the key it
+# looked up ('repository_factory') was not even declared here.
+#
+# There is now exactly one registry object in the process. main.py builds it and
+# registers it here; readers go through get_component_registry(), which resolves
+# at call time — a module-level `globals_dict` would be import-bound and would
+# silently re-create the same class of bug for anyone using `from ... import`.
+
+_component_registry: dict[str, Any] | None = None
+
+
+def set_component_registry(registry: dict[str, Any]) -> None:
+    """Register the process-wide component registry (called once, from main.py).
+
+    Startup mutates this same object in place, so readers registered before
+    startup completes still observe components as they are populated.
     """
-    Create and initialize the global state dictionary.
+    global _component_registry
+    _component_registry = registry
 
-    Returns:
-        Dictionary with initialized global variables
+
+def get_component_registry() -> dict[str, Any] | None:
+    """Return the process-wide component registry, or None if unregistered.
+
+    None is the legitimate state in unit tests that never build the app, so
+    callers treat it as "component unavailable" rather than an error.
     """
-    return {
-        # Core components (initialized during startup)
-        'library_manager': None,
-        'settings_repository': None,
-        'audio_player': None,
-        'player_state_manager': None,
-
-        # Processing and caching
-        'processing_engine': None,
-        'streamlined_cache': None,
-        'streamlined_worker': None,
-
-        # Analysis and similarity
-        'similarity_system': None,
-        'graph_builder': None,
-
-        # Configuration
-        'enhancement_settings': {
-            "enabled": True,
-            "preset": "adaptive",
-            "intensity": 1.0
-        },
-
-        # WebSocket management
-        'manager': ConnectionManager(),
-    }
-
-
-# Default global state (will be populated during startup)
-globals_dict = create_globals_dict()
+    return _component_registry
