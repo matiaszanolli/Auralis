@@ -13,7 +13,8 @@
  */
 
 import { useMemo } from 'react';
-import { tokens } from '@/design-system';
+import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface TrackDisplayProps {
   /**
@@ -89,7 +90,7 @@ export const TrackDisplay = ({
         <div
           style={{
             height: '20px',
-            backgroundColor: tokens.colors.bg.tertiary,
+            backgroundColor: themeVars.surfaceRaised,
             borderRadius: '4px',
             animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
           }}
@@ -99,7 +100,7 @@ export const TrackDisplay = ({
           <div
             style={{
               height: '16px',
-              backgroundColor: tokens.colors.bg.tertiary,
+              backgroundColor: themeVars.surfaceRaised,
               borderRadius: '4px',
               width: '70%',
               animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -136,7 +137,7 @@ export const TrackDisplay = ({
         style={{
           fontSize: tokens.typography.fontSize.md,
           fontWeight: tokens.typography.fontWeight.bold,
-          color: tokens.colors.text.primary,
+          color: themeVars.textPrimary,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -153,7 +154,7 @@ export const TrackDisplay = ({
         <div
           style={{
             fontSize: tokens.typography.fontSize.sm,
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',

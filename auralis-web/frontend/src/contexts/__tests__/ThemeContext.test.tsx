@@ -270,6 +270,8 @@ describe('ThemeContext', () => {
     expect(root.style.getPropertyValue('--app-canvas')).toBe(darkTheme.canvas)
     expect(root.style.getPropertyValue('--app-surface-raised')).toBe(darkTheme.surfaceRaised)
     expect(root.style.getPropertyValue('--app-text-primary')).toBe(darkTheme.textPrimary)
+    expect(root.style.getPropertyValue('--app-on-accent')).toBe(darkTheme.onAccent)
+    expect(root.style.getPropertyValue('--app-on-error')).toBe(darkTheme.onError)
     expect(root.style.getPropertyValue('--bg-primary')).toBe(darkTheme.canvas)
   })
 
@@ -291,6 +293,8 @@ describe('ThemeContext', () => {
     expect(root.style.getPropertyValue('--app-canvas')).toBe(lightTheme.canvas)
     expect(root.style.getPropertyValue('--app-surface-raised')).toBe(lightTheme.surfaceRaised)
     expect(root.style.getPropertyValue('--app-text-primary')).toBe(lightTheme.textPrimary)
+    expect(root.style.getPropertyValue('--app-on-accent')).toBe(lightTheme.onAccent)
+    expect(root.style.getPropertyValue('--app-on-error')).toBe(lightTheme.onError)
     expect(root.style.getPropertyValue('--bg-primary')).toBe(lightTheme.canvas)
   })
 

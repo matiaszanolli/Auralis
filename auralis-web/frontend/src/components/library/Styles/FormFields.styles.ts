@@ -2,7 +2,7 @@
  * Form Field Styles - Reusable TextField styling for forms
  *
  * Consolidates TextField styling patterns across metadata forms, search bars,
- * and other input components. Provides consistent dark-themed input field styling
+ * and other input components. Provides consistent theme-aware input field styling
  * with multiple variants for different contexts.
  *
  * Variants:
@@ -12,21 +12,22 @@
  */
 
 import { TextField, styled } from '@mui/material';
-import { tokens } from '@/design-system';
+import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
- * StyledTextField - Base styled TextField for dark theme
+ * StyledTextField - Base styled TextField
  * Used in metadata forms, dialog inputs, and general form fields
  * Features: simple border styling, aurora focus color
  */
 export const StyledTextField = styled(TextField)({
   '& .MuiOutlinedInput-root': {
-    color: tokens.colors.text.primary,
-    '& fieldset': { borderColor: tokens.colors.opacityScale.accent.light },
-    '&:hover fieldset': { borderColor: tokens.colors.opacityScale.accent.standard },
-    '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.primary }
+    color: themeVars.textPrimary,
+    '& fieldset': { borderColor: themeVars.borderDefault },
+    '&:hover fieldset': { borderColor: themeVars.borderStrong },
+    '&.Mui-focused fieldset': { borderColor: themeVars.accent },
   },
-  '& .MuiInputLabel-root': { color: tokens.colors.opacityScale.accent.standard }
+  '& .MuiInputLabel-root': { color: themeVars.textSecondary },
 });
 
 /**
@@ -40,7 +41,7 @@ export const SearchTextField = styled(TextField)(({ theme: _theme }) => ({
     borderRadius: 0,
     background: 'transparent',
     border: 'none',
-    borderBottom: `1px solid ${tokens.colors.border.light}`,
+    borderBottom: `1px solid ${themeVars.borderSubtle}`,
     transition: `border-color ${tokens.transitions.hover_out}`,
     paddingRight: tokens.spacing.sm,
 
@@ -50,30 +51,30 @@ export const SearchTextField = styled(TextField)(({ theme: _theme }) => ({
 
     '&:hover': {
       background: 'transparent',
-      borderBottom: `1px solid ${tokens.colors.border.medium}`,
+      borderBottom: `1px solid ${themeVars.borderDefault}`,
     },
 
     '&.Mui-focused': {
       background: 'transparent',
-      borderBottom: `1px solid ${tokens.colors.accent.primary}`,
+      borderBottom: `1px solid ${themeVars.accent}`,
       boxShadow: 'none',
     },
   },
 
   '& .MuiOutlinedInput-input': {
     fontSize: tokens.typography.fontSize.md,
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
     padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
 
     '&::placeholder': {
-      color: tokens.colors.text.tertiary,
+      color: themeVars.textMuted,
       opacity: 0.7,
     },
   },
 
   '& .MuiInputAdornment-root': {
     marginRight: tokens.spacing.sm,
-    color: tokens.colors.text.tertiary,
+    color: themeVars.textMuted,
     opacity: 0.6,
   },
 }));
@@ -86,18 +87,18 @@ export const SearchTextField = styled(TextField)(({ theme: _theme }) => ({
 export const CompactTextField = styled(TextField)(({ theme: _theme }) => ({
   '& .MuiOutlinedInput-root': {
     fontSize: tokens.typography.fontSize.sm,
-    color: tokens.colors.text.primary,
-    '& fieldset': { borderColor: tokens.colors.opacityScale.accent.ultraLight },
-    '&:hover fieldset': { borderColor: tokens.colors.opacityScale.accent.lighter },
-    '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.primary }
+    color: themeVars.textPrimary,
+    '& fieldset': { borderColor: themeVars.borderSubtle },
+    '&:hover fieldset': { borderColor: themeVars.borderDefault },
+    '&.Mui-focused fieldset': { borderColor: themeVars.accent },
   },
   '& .MuiOutlinedInput-input': {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
   },
   '& .MuiInputLabel-root': {
-    color: tokens.colors.opacityScale.accent.lighter,
-    fontSize: tokens.typography.fontSize.sm
-  }
+    color: themeVars.textSecondary,
+    fontSize: tokens.typography.fontSize.sm,
+  },
 }));
 
 export default StyledTextField;

@@ -15,7 +15,8 @@
 
 import { useMemo } from 'react';
 import { formatSecondToTime } from '@/hooks/player/usePlayerDisplay';
-import { tokens } from '@/design-system';
+import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface TimeDisplayProps {
   /**
@@ -119,7 +120,7 @@ export const TimeDisplay = ({
       style={{
         fontFamily: tokens.typography.fontFamily.mono,
         fontSize: tokens.typography.fontSize.sm,
-        color: tokens.colors.text.secondary,
+        color: themeVars.textSecondary,
         userSelect: 'none',
       }}
       data-testid="time-display"

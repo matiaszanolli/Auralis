@@ -13,7 +13,7 @@
  */
 
 import { Box, styled } from '@mui/material';
-import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { shimmer, pulse } from './Animation.styles';
 import { radiusMedium } from './BorderRadius.styles';
 
@@ -25,9 +25,9 @@ import { radiusMedium } from './BorderRadius.styles';
 export const SkeletonBox = styled(Box)({
   background: `linear-gradient(
     90deg,
-    ${tokens.colors.bg.level2} 0%,
-    ${tokens.colors.bg.level3} 50%,
-    ${tokens.colors.bg.level2} 100%
+    ${themeVars.surfaceSecondary} 0%,
+    ${themeVars.surfaceRaised} 50%,
+    ${themeVars.surfaceSecondary} 100%
   )`,
   backgroundSize: '1000px 100%',
   animation: `${shimmer} 2s infinite linear`,

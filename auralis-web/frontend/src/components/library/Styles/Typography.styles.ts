@@ -15,7 +15,8 @@
  */
 
 import { Typography, styled } from '@mui/material';
-import { tokens } from '@/design-system';
+import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * SectionLabel - Section header typography
@@ -25,7 +26,7 @@ import { tokens } from '@/design-system';
 export const SectionLabel = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.semibold,
-  color: tokens.colors.text.primary,
+  color: themeVars.textPrimary,
   marginBottom: tokens.spacing.xs,
 });
 
@@ -36,7 +37,7 @@ export const SectionLabel = styled(Typography)({
  */
 export const SectionDescription = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   marginTop: '2px',
 });
 
@@ -49,7 +50,7 @@ export const CategoryHeader = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
   fontWeight: tokens.typography.fontWeight.bold,
   textTransform: 'uppercase',
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   padding: `${tokens.spacing.sm} ${tokens.spacing.sm} ${tokens.spacing.xs} ${tokens.spacing.sm}`,
   letterSpacing: tokens.typography.letterSpacing.loose,
 });
@@ -72,7 +73,7 @@ export const ResultTitle = styled(Typography)({
  */
 export const ResultSubtitle = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
 });
 
 /**
@@ -82,7 +83,7 @@ export const ResultSubtitle = styled(Typography)({
  */
 export const SmallText = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   fontWeight: tokens.typography.fontWeight.normal,
 });
 
@@ -92,7 +93,7 @@ export const SmallText = styled(Typography)({
  * Features: disabled color, normal weight
  */
 export const SecondaryText = styled(Typography)({
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.normal,
 });
@@ -104,6 +105,6 @@ export const SecondaryText = styled(Typography)({
  */
 export const HelperText = styled(Typography)({
   fontSize: tokens.typography.fontSize.xs,
-  color: tokens.colors.text.muted,
+  color: themeVars.textMuted,
   lineHeight: tokens.typography.lineHeight.tight,
 });

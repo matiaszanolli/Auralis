@@ -8,7 +8,8 @@ import { InputAdornment, Box } from '@mui/material';
 import Search from '@mui/icons-material/Search';
 import Close from '@mui/icons-material/Close';
 import { ClearButton, ResultCount } from './SearchBar.styles';
-import { tokens, CircularProgress } from '@/design-system';
+import { CircularProgress } from '@/design-system/primitives/CircularProgress';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface SearchInputAdornmentsEndProps {
   value: string;
@@ -40,7 +41,7 @@ export const SearchInputAdornmentsEnd = ({
   <InputAdornment position="end">
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       {/* Searching indicator */}
-      {isSearching && <CircularProgress size={16} sx={{ color: tokens.colors.text.secondary }} />}
+      {isSearching && <CircularProgress size={16} sx={{ color: themeVars.textSecondary }} />}
 
       {/* Result count */}
       {showResultCount && !isSearching && value && resultCount !== undefined && (

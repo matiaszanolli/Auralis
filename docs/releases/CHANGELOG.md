@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unified the application shell, sidebar, library header, right inspection pane, player,
   queue, dialogs, search, view toggle, and theme toggle around a restrained three-level
   surface hierarchy. Glass is now reserved for overlays instead of every application region.
+- Migrated shared typography, form fields, skeletons, recovery UI, compact settings/search
+  surfaces, and tested player leaf controls to the runtime semantic palette.
 - Deprecated standalone browser/PWA use. The React application remains the Electron renderer
   and a browser-accessible development preview, but it is no longer an official platform.
 - Advanced the source tree to v1.5.1 as an **unreleased recovery milestone**.
@@ -45,7 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restored the production TypeScript gate by handling the cache-health endpoint's optional
   timestamp instead of constructing a `Date` from `undefined`.
 - Theme changes now update the complete runtime semantic palette, including surfaces, borders,
-  status colors, focus treatment, and shadows; light mode no longer inherits dark shell values.
+  status colors, focus treatment, shadows, and explicit foregrounds for accent/destructive
+  actions; light mode no longer inherits dark shell values.
 - The backend compatibility module now reads the product version from `auralis/version.py`
   instead of the stale `auralis/__version__.py` mirror.
 - FastAPI metadata and system endpoint tests now use the canonical product/database versions

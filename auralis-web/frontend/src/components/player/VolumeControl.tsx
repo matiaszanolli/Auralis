@@ -15,7 +15,8 @@
  */
 
 import { CSSProperties, useMemo, useState } from 'react';
-import { tokens } from '@/design-system';
+import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface VolumeControlProps {
   /**
@@ -119,7 +120,7 @@ export const VolumeControl = ({
         maxWidth: '160px',
       }}
     >
-      {/* Mute button - Design Language v1.2.0 with glass effects */}
+      {/* Mute button */}
       <button
         onClick={onMuteToggle}
         disabled={disabled}
@@ -136,35 +137,32 @@ export const VolumeControl = ({
           height: '40px',
           padding: 0,
           backgroundColor: 'transparent',
-          border: tokens.glass.subtle.border,              // Glass border (10% white opacity)
-          borderRadius: tokens.borderRadius.md,            // 12px - softer, more organic
+          border: `1px solid ${themeVars.borderDefault}`,
+          borderRadius: tokens.borderRadius.md,
           cursor: disabled ? 'not-allowed' : 'pointer',
-          transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
-          color: disabled ? tokens.colors.text.disabled : tokens.colors.text.primary,
+          transition: tokens.transitions.all,
+          color: disabled ? themeVars.textDisabled : themeVars.textPrimary,
           fontSize: tokens.typography.fontSize.base,
           opacity: disabled ? 0.7 : 1,
           outline: 'none',
           ...(isMuteButtonFocused && !disabled && {
-            outline: `3px solid ${tokens.colors.accent.primary}`,
+            outline: `3px solid ${themeVars.focusRing}`,
             outlineOffset: '2px',
-            background: tokens.glass.subtle.background,    // Glass effect on focus
-            backdropFilter: tokens.glass.subtle.backdropFilter,
+            background: themeVars.surfaceSecondary,
           }),
         }}
         onMouseEnter={(e) => {
           if (!disabled) {
-            e.currentTarget.style.background = tokens.glass.subtle.background;
-            e.currentTarget.style.backdropFilter = tokens.glass.subtle.backdropFilter;
-            e.currentTarget.style.borderColor = tokens.colors.accent.primary;
+            e.currentTarget.style.background = themeVars.surfaceSecondary;
+            e.currentTarget.style.borderColor = themeVars.accent;
             e.currentTarget.style.transform = 'scale(1.05)';
           }
         }}
         onMouseLeave={(e) => {
           if (!isMuteButtonFocused) {
             e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.backdropFilter = 'none';
           }
-          e.currentTarget.style.borderColor = tokens.colors.opacityScale.white.light;
+          e.currentTarget.style.borderColor = themeVars.borderDefault;
           e.currentTarget.style.transform = 'scale(1)';
         }}
       >
@@ -210,9 +208,9 @@ export const VolumeControl = ({
             WebkitAppearance: 'none',
             borderRadius: tokens.borderRadius.full,
             border: 'none',
-            outline: isSliderFocused && !disabled ? `3px solid ${tokens.colors.accent.primary}` : 'none',
+            outline: isSliderFocused && !disabled ? `3px solid ${themeVars.focusRing}` : 'none',
             outlineOffset: isSliderFocused && !disabled ? '2px' : '0',
-            background: `linear-gradient(to right, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.primary} ${clampedVolume * 100}%, ${tokens.colors.bg.level3} ${clampedVolume * 100}%, ${tokens.colors.bg.level3} 100%)`,
+            background: `linear-gradient(to right, ${themeVars.accent} 0%, ${themeVars.accent} ${clampedVolume * 100}%, ${themeVars.surfaceRaised} ${clampedVolume * 100}%, ${themeVars.surfaceRaised} 100%)`,
             opacity: disabled ? 0.5 : 1,
             transition: `height ${tokens.transitions.hover_out}, outline ${tokens.transitions.hover_out}`,
           } as CSSProperties}
@@ -227,7 +225,7 @@ export const VolumeControl = ({
           justifyContent: 'center',
           minWidth: '45px',
           fontSize: tokens.typography.fontSize.sm,
-          color: tokens.colors.text.secondary,
+          color: themeVars.textSecondary,
           fontFamily: tokens.typography.fontFamily.mono,
           fontWeight: tokens.typography.fontWeight.bold,
         }}

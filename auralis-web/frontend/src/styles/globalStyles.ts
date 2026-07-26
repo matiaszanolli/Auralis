@@ -30,12 +30,14 @@ export const globalStyles = css`
     --app-accent: ${defaultTheme.accent};
     --app-accent-hover: ${defaultTheme.accentHover};
     --app-accent-soft: ${defaultTheme.accentSoft};
+    --app-on-accent: ${defaultTheme.onAccent};
     --app-focus-ring: ${defaultTheme.focusRing};
     --app-success: ${defaultTheme.success};
     --app-warning: ${defaultTheme.warning};
     --app-error: ${defaultTheme.error};
     --app-info: ${defaultTheme.info};
     --app-error-soft: ${defaultTheme.errorSoft};
+    --app-on-error: ${defaultTheme.onError};
     --app-backdrop: ${defaultTheme.backdrop};
     --app-shadow-raised: ${defaultTheme.shadowRaised};
     --app-shadow-overlay: ${defaultTheme.shadowOverlay};

@@ -1,7 +1,8 @@
 
 import CloseIcon from '@mui/icons-material/Close';
 import { StyledDialogTitle } from '@/components/library/Styles/Dialog.styles';
-import { IconButton, tokens } from '@/design-system';
+import { IconButton } from '@/design-system/primitives/IconButton';
+import { themeVars } from '@/theme/semanticTheme';
 import { Typography } from '@mui/material';
 
 interface SettingsDialogHeaderProps {
@@ -19,7 +20,7 @@ export const SettingsDialogHeader = ({ onClose }: SettingsDialogHeaderProps) => 
       <Typography variant="h6" component="span">
         Settings
       </Typography>
-      <IconButton onClick={onClose} aria-label="Close settings" sx={{ color: tokens.colors.text.primaryFull }}>
+      <IconButton onClick={onClose} aria-label="Close settings" sx={{ color: themeVars.textPrimary }}>
         <CloseIcon />
       </IconButton>
     </StyledDialogTitle>

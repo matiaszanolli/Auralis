@@ -14,7 +14,8 @@
  */
 
 import { useMemo } from 'react';
-import { tokens } from '@/design-system';
+import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface BufferingIndicatorProps {
   /**
@@ -132,7 +133,7 @@ export const BufferingIndicator = ({
           style={{
             flex: 1,
             height: '4px',
-            backgroundColor: tokens.colors.bg.tertiary,
+            backgroundColor: themeVars.surfaceRaised,
             borderRadius: '2px',
             overflow: 'hidden',
             position: 'relative',
@@ -142,7 +143,7 @@ export const BufferingIndicator = ({
             style={{
               height: '100%',
               width: `${clampedPercentage}%`,
-              backgroundColor: tokens.colors.accent.secondary,
+              backgroundColor: themeVars.accent,
               transition: `width ${tokens.transitions.hover}`,
             }}
             data-testid="buffered-bar"
@@ -155,7 +156,7 @@ export const BufferingIndicator = ({
             minWidth: '35px',
             textAlign: 'right',
             fontSize: tokens.typography.fontSize.xs,
-            color: tokens.colors.text.tertiary,
+            color: themeVars.textMuted,
             fontFamily: tokens.typography.fontFamily.mono,
           }}
           data-testid="buffered-percentage"
@@ -172,7 +173,7 @@ export const BufferingIndicator = ({
             alignItems: 'center',
             gap: tokens.spacing.xs,
             fontSize: tokens.typography.fontSize.xs,
-            color: isError ? tokens.colors.semantic.error : tokens.colors.text.secondary,
+            color: isError ? themeVars.error : themeVars.textSecondary,
           }}
           data-testid="buffering-status"
         >
@@ -182,8 +183,8 @@ export const BufferingIndicator = ({
                 width: '12px',
                 height: '12px',
                 borderRadius: '50%',
-                border: `2px solid ${tokens.colors.accent.primary}`,
-                borderTopColor: tokens.colors.accent.secondary,
+                border: `2px solid ${themeVars.accent}`,
+                borderTopColor: themeVars.accentHover,
                 animation: 'spin 1s linear infinite',
               }}
               data-testid="buffering-spinner"

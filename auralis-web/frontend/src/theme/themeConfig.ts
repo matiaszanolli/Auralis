@@ -159,11 +159,13 @@ export const createAuralisTheme = (mode: ThemeMode): Theme => {
         main: tokens.colors.accent.primary,
         light: PRIMARY_LIGHT,
         dark: PRIMARY_DARK,
+        contrastText: semantic.onAccent,
       },
       secondary: {
         main: tokens.colors.accent.secondary,
         light: SECONDARY_LIGHT,
         dark: SECONDARY_DARK,
+        contrastText: semantic.onAccent,
       },
       background: {
         default: semantic.canvas,
@@ -179,6 +181,7 @@ export const createAuralisTheme = (mode: ThemeMode): Theme => {
       },
       error: {
         main: colors.accent.error,
+        contrastText: semantic.onError,
       },
       warning: {
         main: colors.accent.warning,

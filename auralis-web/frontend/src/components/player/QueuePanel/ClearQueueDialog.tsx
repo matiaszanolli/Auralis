@@ -1,6 +1,7 @@
 import { KeyboardEvent, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { tokens } from '@/design-system';
+import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ClearQueueDialogProps {
   onConfirm: () => void;
@@ -44,7 +45,7 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
       style={{
         position: 'fixed',
         inset: 0,
-        background: tokens.colors.opacityScale.dark.intense,
+        background: themeVars.backdrop,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -59,12 +60,12 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
         aria-labelledby="clear-queue-dialog-title"
         onKeyDown={handleKeyDown}
         style={{
-          background: tokens.colors.bg.secondary,
+          background: themeVars.surfaceRaised,
           borderRadius: tokens.borderRadius.md,
-          border: `1px solid ${tokens.colors.border.medium}`,
+          border: `1px solid ${themeVars.borderDefault}`,
           padding: tokens.spacing.lg,
           maxWidth: '360px',
-          boxShadow: `0 10px 40px ${tokens.colors.opacityScale.dark.strong}`,
+          boxShadow: themeVars.shadowOverlay,
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -72,7 +73,7 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
           id="clear-queue-dialog-title"
           style={{
             margin: `0 0 ${tokens.spacing.lg} 0`,
-            color: tokens.colors.text.primary,
+            color: themeVars.textPrimary,
             fontSize: tokens.typography.fontSize.base,
             fontWeight: tokens.typography.fontWeight.semibold,
           }}
@@ -86,9 +87,9 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
             style={{
               padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
               background: 'transparent',
-              border: `1px solid ${tokens.colors.border.medium}`,
+              border: `1px solid ${themeVars.borderDefault}`,
               borderRadius: tokens.borderRadius.sm,
-              color: tokens.colors.text.secondary,
+              color: themeVars.textSecondary,
               cursor: 'pointer',
             }}
           >
@@ -98,10 +99,10 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
             onClick={onConfirm}
             style={{
               padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
-              background: tokens.colors.semantic.error,
+              background: themeVars.error,
               border: 'none',
               borderRadius: tokens.borderRadius.sm,
-              color: tokens.colors.text.primaryFull,
+              color: themeVars.onError,
               cursor: 'pointer',
               fontWeight: tokens.typography.fontWeight.semibold,
             }}

@@ -28,12 +28,14 @@ export interface SemanticTheme {
   accent: string;
   accentHover: string;
   accentSoft: string;
+  onAccent: string;
   focusRing: string;
   success: string;
   warning: string;
   error: string;
   info: string;
   errorSoft: string;
+  onError: string;
   backdrop: string;
   shadowRaised: string;
   shadowOverlay: string;
@@ -58,12 +60,14 @@ const darkSemanticTheme: SemanticTheme = {
   accent: tokens.colors.accent.primary,
   accentHover: tokens.colors.accent.primaryLight,
   accentSoft: tokens.colors.opacityScale.accent.light,
+  onAccent: tokens.colors.text.primaryFull,
   focusRing: tokens.colors.opacityScale.accent.strong,
   success: tokens.colors.semantic.success,
   warning: tokens.colors.semantic.warning,
   error: tokens.colors.semantic.error,
   info: tokens.colors.semantic.info,
   errorSoft: tokens.colors.utility.errorBg,
+  onError: tokens.colors.text.primaryFull,
   backdrop: tokens.colors.opacityScale.dark.nearOpaque,
   shadowRaised: tokens.shadows.lg,
   shadowOverlay: tokens.shadows['2xl'],
@@ -88,12 +92,14 @@ const lightSemanticTheme: SemanticTheme = {
   accent: tokens.colors.accent.primary,
   accentHover: tokens.colors.accent.primaryDark,
   accentSoft: tokens.colors.opacityScale.accent.veryLight,
+  onAccent: tokens.colors.text.primaryFull,
   focusRing: tokens.colors.opacityScale.accent.strong,
   success: tokens.colors.lightMode.accent.success,
   warning: tokens.colors.lightMode.accent.warning,
   error: tokens.colors.lightMode.accent.error,
   info: tokens.colors.lightMode.accent.info,
   errorSoft: tokens.colors.utility.errorBg,
+  onError: tokens.colors.text.primaryFull,
   backdrop: tokens.colors.opacityScale.dark.veryStrong,
   shadowRaised: tokens.shadows.md,
   shadowOverlay: tokens.shadows.xl,
@@ -124,12 +130,14 @@ export const themeVars = {
   accent: 'var(--app-accent)',
   accentHover: 'var(--app-accent-hover)',
   accentSoft: 'var(--app-accent-soft)',
+  onAccent: 'var(--app-on-accent)',
   focusRing: 'var(--app-focus-ring)',
   success: 'var(--app-success)',
   warning: 'var(--app-warning)',
   error: 'var(--app-error)',
   info: 'var(--app-info)',
   errorSoft: 'var(--app-error-soft)',
+  onError: 'var(--app-on-error)',
   backdrop: 'var(--app-backdrop)',
   shadowRaised: 'var(--app-shadow-raised)',
   shadowOverlay: 'var(--app-shadow-overlay)',
@@ -156,12 +164,14 @@ export const getSemanticCssVariables = (mode: ThemeMode): Record<string, string>
     '--app-accent': theme.accent,
     '--app-accent-hover': theme.accentHover,
     '--app-accent-soft': theme.accentSoft,
+    '--app-on-accent': theme.onAccent,
     '--app-focus-ring': theme.focusRing,
     '--app-success': theme.success,
     '--app-warning': theme.warning,
     '--app-error': theme.error,
     '--app-info': theme.info,
     '--app-error-soft': theme.errorSoft,
+    '--app-on-error': theme.onError,
     '--app-backdrop': theme.backdrop,
     '--app-shadow-raised': theme.shadowRaised,
     '--app-shadow-overlay': theme.shadowOverlay,

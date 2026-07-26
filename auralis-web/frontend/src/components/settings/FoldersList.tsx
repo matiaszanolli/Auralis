@@ -7,8 +7,11 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
-import { tokens } from '@/design-system';
-import { List, IconButton, Button } from '@/design-system';
+import { Button } from '@/design-system/primitives/Button';
+import { IconButton } from '@/design-system/primitives/IconButton';
+import { List } from '@/design-system/primitives/List';
+import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 import { Box, ListItem, ListItemText, ListItemSecondaryAction, Typography } from '@mui/material';
 
 interface FoldersListProps {
@@ -31,12 +34,12 @@ export const FoldersList = ({
       <List>
         {scanFolders.length === 0 && (
           <ListItem sx={{ px: 0, py: 2, flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-            <FolderOpenIcon sx={{ fontSize: 36, color: tokens.colors.text.disabled }} />
+            <FolderOpenIcon sx={{ fontSize: 36, color: themeVars.textDisabled }} />
             <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontWeight: tokens.typography.fontWeight.medium }}>
+              <Typography variant="body2" sx={{ color: themeVars.textSecondary, fontWeight: tokens.typography.fontWeight.medium }}>
                 No music folders added
               </Typography>
-              <Typography variant="caption" sx={{ color: tokens.colors.text.metadata }}>
+              <Typography variant="caption" sx={{ color: themeVars.textMuted }}>
                 Add a folder below to start building your library
               </Typography>
             </Box>
@@ -46,7 +49,7 @@ export const FoldersList = ({
           const basename = folder.split('/').filter(Boolean).pop() ?? folder;
           return (
             <ListItem key={folder} sx={{ px: 0, py: 1 }}>
-              <FolderIcon sx={{ mr: 2, flexShrink: 0, color: tokens.colors.accent.primary }} />
+              <FolderIcon sx={{ mr: 2, flexShrink: 0, color: themeVars.accent }} />
               <ListItemText
                 primary={basename}
                 secondary={folder}
@@ -55,7 +58,7 @@ export const FoldersList = ({
                   secondary: {
                     noWrap: true,
                     title: folder,
-                    sx: { fontSize: '0.75rem', color: tokens.colors.text.metadata },
+                    sx: { fontSize: '0.75rem', color: themeVars.textMuted },
                   },
                 }}
               />
@@ -64,7 +67,7 @@ export const FoldersList = ({
                   onClick={() => onRemoveFolder(folder)}
                   size="sm"
                   tooltip="Remove this folder"
-                  sx={{ color: tokens.colors.semantic.error }}
+                  sx={{ color: themeVars.error }}
                 >
                   <DeleteIcon fontSize="small" />
                 </IconButton>
@@ -78,11 +81,11 @@ export const FoldersList = ({
         onClick={onAddFolder}
         variant="secondary"
         sx={{
-          borderColor: tokens.colors.accent.primary,
-          color: tokens.colors.accent.primary,
+          borderColor: themeVars.accent,
+          color: themeVars.accent,
           '&:hover': {
-            borderColor: tokens.colors.accent.primary,
-            backgroundColor: tokens.colors.opacityScale.accent.standard,
+            borderColor: themeVars.accentHover,
+            backgroundColor: themeVars.accentSoft,
           },
         }}
       >

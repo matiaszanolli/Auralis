@@ -8,7 +8,8 @@
  */
 
 import { Component, ErrorInfo, ReactNode } from 'react';
-import { tokens } from '@/design-system';
+import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -57,16 +58,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           alignItems: 'center',
           justifyContent: 'center',
           height: '100vh',
-          background: tokens.colors.bg.level0,
-          color: tokens.colors.text.primary,
+          background: themeVars.canvas,
+          color: themeVars.textPrimary,
           fontFamily: tokens.typography.fontFamily.primary,
         }}
       >
         <div style={{ textAlign: 'center', maxWidth: 500, padding: 40 }}>
-          <h1 style={{ color: tokens.colors.semantic.error, fontSize: tokens.typography.fontSize.xl, marginBottom: 16 }}>
+          <h1 style={{ color: themeVars.error, fontSize: tokens.typography.fontSize.xl, marginBottom: 16 }}>
             Something went wrong
           </h1>
-          <p style={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.base, marginBottom: 24 }}>
+          <p style={{ color: themeVars.textSecondary, fontSize: tokens.typography.fontSize.base, marginBottom: 24 }}>
             {msg}
           </p>
           <button
@@ -75,8 +76,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               padding: '10px 24px',
               borderRadius: tokens.borderRadius.md,
               border: 'none',
-              background: tokens.colors.accent.primary,
-              color: tokens.colors.text.primaryFull,
+              background: themeVars.accent,
+              color: themeVars.onAccent,
               fontSize: tokens.typography.fontSize.base,
               cursor: 'pointer',
             }}
