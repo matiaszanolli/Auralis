@@ -47,6 +47,26 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
    * aborts first wins. Pass `0` to disable the internal timeout.
    */
   timeoutMs?: number;
+
+  /**
+   * Optional runtime shape guard for the parsed response body (#4607).
+   *
+   * `Response.json()` is `Promise<any>`, so TypeScript silently narrows it to
+   * the caller's `T` with no runtime check — every interface in `types/api.ts`
+   * is a compile-time-only contract. Backend field drift therefore surfaced as
+   * a downstream `undefined`/NaN far from its cause (#3593, #3976, #4440,
+   * #4441), never at the boundary.
+   *
+   * When supplied and the body fails the guard, {@link apiRequest} throws an
+   * {@link APIRequestError} naming the endpoint. Endpoints without a guard
+   * behave exactly as before, so adoption is incremental.
+   *
+   * Not invoked for 204 No Content, which resolves to `undefined` by contract.
+   *
+   * @example
+   * get('/api/library/tracks', { validate: isTracksListShape });
+   */
+  validate?: (value: unknown) => boolean;
 }
 
 /**
@@ -114,7 +134,7 @@ export async function apiRequest<T = unknown>(
   options: RequestOptions = {}
 ): Promise<T> {
   const url = getApiUrl(endpoint);
-  const { body, headers = {}, signal, timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
+  const { body, headers = {}, signal, timeoutMs = DEFAULT_TIMEOUT_MS, validate, ...fetchOptions } = options;
 
   // Prepare request headers
   const requestHeaders: HeadersInit = {
@@ -141,9 +161,24 @@ export async function apiRequest<T = unknown>(
     if (response.ok) {
       // Some endpoints return 204 No Content
       if (response.status === 204) {
+        // No body to check — the guard must not run here (#4607).
         return undefined as T;
       }
-      return response.json();
+
+      const parsed = await response.json();
+
+      // Runtime shape check at the boundary, when the caller supplied one.
+      // Turns silent field drift into a loud, located failure (#4607).
+      if (validate && !validate(parsed)) {
+        throw new APIRequestError(
+          `Unexpected response shape from ${endpoint}`,
+          response.status,
+          'The server response did not match the expected shape. This usually ' +
+            'means the backend contract changed and the frontend types are stale.'
+        );
+      }
+
+      return parsed as T;
     }
 
     // Handle error responses

@@ -1087,6 +1087,128 @@ describe('useLibraryQuery', () => {
       expect(artist).not.toHaveProperty('artwork_url');
       expect(artist).not.toHaveProperty('album_count');
     });
+
+    /**
+     * #4611: 'tracks' was the one branch of extractItemsFromResponse left on a
+     * raw cast when #4418 added the canonical transformers. The fixture below
+     * deliberately uses snake_case-ONLY fields — the pre-existing track fixture
+     * used only same-spelled fields, which is exactly why the gap was invisible.
+     */
+    it('maps track snake_case fields → camelCase and drops snake keys', async () => {
+      mockRest({
+        tracks: [{
+          id: 3, title: 'T', artist: 'Artist', album: 'Album', duration: 210,
+          filepath: '/a.wav',
+          artwork_url: '/api/tracks/3/artwork',
+          sample_rate: 44100,
+          bit_depth: 24,
+          date_added: '2026-01-01',
+          date_modified: '2026-02-02',
+          crest_factor: 8.5,
+        }],
+        total: 1, offset: 0, limit: 50, hasMore: false,
+      });
+
+      const { result } = renderHook(() => useLibraryQuery('tracks'));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      const track = result.current.data[0] as unknown as Track;
+      expect(track.artworkUrl).toBe('/api/tracks/3/artwork');
+      expect(track.sampleRate).toBe(44100);
+      expect(track.bitDepth).toBe(24);
+      expect(track.dateAdded).toBe('2026-01-01');
+      expect(track.dateModified).toBe('2026-02-02');
+      expect(track.crestFactor).toBe(8.5);
+      expect(track).not.toHaveProperty('artwork_url');
+      expect(track).not.toHaveProperty('sample_rate');
+      expect(track).not.toHaveProperty('date_added');
+    });
+
+    it('maps tracks arriving under the generic items key too', async () => {
+      mockRest({
+        items: [{ id: 4, title: 'T2', artist: 'A', album: 'B', duration: 10, filepath: '/b.wav', sample_rate: 48000 }],
+        total: 1, offset: 0, limit: 50, hasMore: false,
+      });
+
+      const { result } = renderHook(() => useLibraryQuery('tracks'));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect((result.current.data[0] as unknown as Track).sampleRate).toBe(48000);
+    });
+  });
+
+  /**
+   * #4609: the in-flight dedup keys on the endpoint URL, which differs for every
+   * search term, so it never fired across a fast sequence of different searches.
+   * Without a generation guard a slow earlier response overwrote a newer one.
+   */
+  describe('stale-response guard (#4609)', () => {
+    it('does not let a slow earlier search overwrite a newer one', async () => {
+      let resolveFirst: ((v: unknown) => void) | undefined;
+      const first = new Promise((res) => { resolveFirst = res; });
+
+      const mockGet = vi.fn()
+        .mockReturnValueOnce(first)
+        .mockResolvedValueOnce({
+          tracks: [{ id: 2, title: 'bea result', artist: 'A', album: 'B', duration: 1, filepath: '/b' }],
+          total: 1, offset: 0, limit: 50, hasMore: false,
+        });
+
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+
+      const { result, rerender } = renderHook(
+        ({ search }) => useLibraryQuery('tracks', { search }),
+        { initialProps: { search: 'be' } }
+      );
+
+      // Supersede the first request with a second before the first resolves.
+      rerender({ search: 'bea' });
+      await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      expect((result.current.data[0] as unknown as Track).title).toBe('bea result');
+
+      // Now let the stale first request land — it must be discarded.
+      await act(async () => {
+        resolveFirst?.({
+          tracks: [{ id: 1, title: 'be result', artist: 'A', album: 'B', duration: 1, filepath: '/a' }],
+          total: 1, offset: 0, limit: 50, hasMore: false,
+        });
+        await first;
+      });
+
+      expect((result.current.data[0] as unknown as Track).title).toBe('bea result');
+    });
+
+    it('leaves isLoading false after an abandoned response settles', async () => {
+      let resolveFirst: ((v: unknown) => void) | undefined;
+      const first = new Promise((res) => { resolveFirst = res; });
+
+      const mockGet = vi.fn()
+        .mockReturnValueOnce(first)
+        .mockResolvedValueOnce({ tracks: [], total: 0, offset: 0, limit: 50, hasMore: false });
+
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+
+      const { result, rerender } = renderHook(
+        ({ search }) => useLibraryQuery('tracks', { search }),
+        { initialProps: { search: 'be' } }
+      );
+
+      rerender({ search: 'bea' });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        resolveFirst?.({ tracks: [], total: 0, offset: 0, limit: 50, hasMore: false });
+        await first;
+      });
+
+      // The superseded request must not wedge the hook in a loading state.
+      expect(result.current.isLoading).toBe(false);
+    });
   });
 
   // #4422 / F2-01: hasMore must follow the backend has_more contract (as

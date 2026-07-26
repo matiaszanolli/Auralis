@@ -37,8 +37,8 @@ import { useRestAPI } from '@/hooks/api/useRestAPI';
 import type { ApiError } from '@/types/api';
 import type { Track, Album, Artist } from '@/types/domain';
 import { ApiErrorHandler } from '@/types/api';
-import { transformAlbums, transformArtists } from '@/api/transformers';
-import type { AlbumApiResponse, ArtistApiResponse } from '@/api/transformers';
+import { transformAlbums, transformArtists, transformTracks } from '@/api/transformers';
+import type { AlbumApiResponse, ArtistApiResponse, TrackApiResponse } from '@/api/transformers';
 
 /**
  * Query type for library queries
@@ -193,6 +193,19 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   const queryKeyRef = useRef<string>('');
   const isFetchingRef = useRef<boolean>(false);
   const isFetchingMoreRef = useRef<boolean>(false);
+  /**
+   * Monotonic request id guarding against out-of-order responses (#4609).
+   *
+   * The in-flight dedup above keys on the endpoint URL, which differs for every
+   * distinct search term, so it never fires across a fast sequence of different
+   * searches. Without this, request A ("be") resolving after request B ("bea")
+   * overwrote B's results while the input still read "bea".
+   *
+   * A ref rather than an effect-scoped `isActive` flag (the #3925 pattern used
+   * in useQueueFetch) because executeQuery is also driven directly by
+   * fetchMore/refetch, which an effect cleanup would not cover.
+   */
+  const requestIdRef = useRef<number>(0);
 
   // Constants
   const limit = options.limit || 50;
@@ -215,7 +228,14 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       response = r;
       switch (qType) {
         case 'tracks':
-          return ((response.tracks ?? response.items) as T[]) || [];
+          // Canonical transformer, matching albums/artists below. Previously a
+          // raw cast with zero field conversion, so every camelCase-only field
+          // (artworkUrl/sampleRate/bitDepth/dateAdded/...) came back undefined
+          // against the backend's snake_case payload — silently, with a passing
+          // type-check. #4418 added transformers here but skipped 'tracks' (#4611).
+          return transformTracks(
+            (response.tracks ?? response.items ?? []) as TrackApiResponse[]
+          ) as T[];
         case 'albums':
           // Canonical transformer is the single source of truth for snake→camel
           // album mapping (incl. artworkUrl/artistId); no inline variant (#4418).
@@ -279,11 +299,22 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       queryKeyRef.current = queryKey;
       isFetchingRef.current = true;
 
+      // Claim this request. Any later call supersedes it, and every state
+      // setter below is gated on still being the newest (#4609).
+      const myRequestId = ++requestIdRef.current;
+      const isStale = () => requestIdRef.current !== myRequestId;
+
       setIsLoading(true);
       setError(null);
 
       try {
         const response = await get<LibraryQueryResponse<T>>(url);
+
+        if (isStale()) {
+          // A newer query has taken over — abandon this response entirely
+          // rather than rendering results for a term the user has moved past.
+          return;
+        }
 
         if (!response) {
           throw new Error('No response from server');
@@ -308,12 +339,23 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
           return;
         }
 
+        if (isStale()) {
+          // Superseded request failed — surfacing its error would replace a
+          // newer successful render with a stale failure.
+          return;
+        }
+
         const apiError = ApiErrorHandler.parseWithCode(err, 'QUERY_ERROR');
 
         setError(apiError);
       } finally {
-        isFetchingRef.current = false;
-        setIsLoading(false);
+        // Only the newest request owns the shared in-flight/loading state.
+        // Clearing it from a superseded request would drop the spinner while
+        // the current query is still running (#4609 RETURN VALUE check).
+        if (!isStale()) {
+          isFetchingRef.current = false;
+          setIsLoading(false);
+        }
       }
     },
     [get, buildEndpoint, queryType]
@@ -385,9 +427,11 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
     executeQuery(0, false);
 
-    return () => {
-      // Cleanup handled by useRestAPI's own unmount abort
-    };
+    // No cleanup needed here. useRestAPI aborts in-flight requests on UNMOUNT;
+    // supersession while still mounted (a newer search term superseding an
+    // older one) is handled by requestIdRef inside executeQuery. The previous
+    // comment claimed the unmount abort covered both, which is what made this
+    // gap look deliberate (#4609).
   }, [queryType, skip, options.search, options.orderBy, options.limit, options.endpoint, executeQuery]);
 
   return {

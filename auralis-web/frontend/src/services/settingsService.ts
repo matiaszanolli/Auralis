@@ -10,6 +10,7 @@
 import { ENDPOINTS } from '@/config/api';
 import { post } from '@/utils/apiRequest';
 import { createCrudService } from '@/utils/serviceFactory';
+import { isUserSettingsShape } from '@/api/responseGuards';
 
 export interface UserSettings {
   id: number;
@@ -82,6 +83,8 @@ export interface SettingsUpdate {
 // Create base CRUD service using factory
 const crudService = createCrudService<UserSettings, SettingsUpdate>({
   list: ENDPOINTS.SETTINGS,
+  // Runtime shape check at the boundary (#4607).
+  guards: { list: isUserSettingsShape },
   update: ENDPOINTS.SETTINGS,
   custom: {
     reset: `${ENDPOINTS.SETTINGS}/reset`,

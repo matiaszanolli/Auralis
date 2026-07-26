@@ -45,7 +45,10 @@ describe('PlaylistService', () => {
 
       const result = await playlistService.getPlaylists()
 
-      expect(apiRequest.get).toHaveBeenCalledWith('/api/playlists')
+      // #4607: list/get now carry runtime shape guards.
+      expect(apiRequest.get).toHaveBeenCalledWith('/api/playlists', {
+        validate: expect.any(Function),
+      })
       // The implementation wraps the response and calculates total as array length
       expect(result).toEqual({
         playlists: [mockPlaylist],
@@ -72,7 +75,7 @@ describe('PlaylistService', () => {
 
       const result = await playlistService.getPlaylist(1)
 
-      expect(apiRequest.get).toHaveBeenCalledWith('/api/playlists/1')
+      expect(apiRequest.get).toHaveBeenCalledWith('/api/playlists/1', { validate: expect.any(Function) })
       expect(result).toEqual(mockPlaylist)
     })
 

@@ -12,6 +12,7 @@
 import { post, del } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
 import { createCrudService } from '@/utils/serviceFactory';
+import { isPlaylistShape, isPlaylistsListShape } from '@/api/responseGuards';
 
 export interface Playlist {
   id: number;
@@ -51,6 +52,8 @@ export interface UpdatePlaylistRequest {
 const crudService = createCrudService<Playlist, CreatePlaylistRequest>({
   list: ENDPOINTS.PLAYLISTS,
   get: (id) => ENDPOINTS.PLAYLIST(id),
+  // Runtime shape checks at the boundary (#4607).
+  guards: { list: isPlaylistsListShape, get: isPlaylistShape },
   create: ENDPOINTS.PLAYLISTS,
   update: (id) => ENDPOINTS.PLAYLIST(id),
   delete: (id) => ENDPOINTS.PLAYLIST(id),

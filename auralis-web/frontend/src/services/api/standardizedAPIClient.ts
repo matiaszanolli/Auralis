@@ -135,6 +135,19 @@ export function isErrorResponse(response: any): response is ErrorResponse {
 }
 
 /**
+ * NOTE (#4607 SIBLING check): this client does NOT route through
+ * `apiRequest`'s `validate` option, and deliberately so. It covers only the two
+ * cache endpoints below, and both already get a full payload shape check via
+ * `unwrapCachePayload(..., isCacheStatsShape | isCacheHealthShape, ...)` — which
+ * is strictly stronger than the envelope-only `isSuccessResponse` predicate and
+ * equivalent in effect to the boundary guard added for #4607. Adding a second
+ * validation layer here would duplicate the check, not extend coverage.
+ *
+ * If this client ever grows a third endpoint, guard it the same way (or migrate
+ * it to `apiRequest` with a `validate` from `@/api/responseGuards`).
+ */
+
+/**
  * Runtime shape check for a bare CacheStats payload (#4440). The
  * /api/cache/stats endpoint returns this object directly, NOT wrapped in a
  * SuccessResponse envelope.

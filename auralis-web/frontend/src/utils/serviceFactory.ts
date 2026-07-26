@@ -34,6 +34,22 @@ export interface CrudEndpoints<ID = number, P extends Record<string, unknown> = 
   update?: string | ((id: ID, params?: P) => string);
   delete?: string | ((id: ID) => string);
   custom?: Record<string, string | ((params?: P) => string)>;
+
+  /**
+   * Optional runtime shape guards for the read endpoints (#4607).
+   *
+   * Without one, `Response.json()`'s `any` is silently narrowed to `T` and
+   * backend field drift only surfaces downstream as `undefined` — the failure
+   * mode behind #3593/#3976/#4440/#4441. Supplying a guard turns that into an
+   * `APIRequestError` naming the endpoint.
+   *
+   * Services without guards behave exactly as before, so adoption is incremental.
+   * See `@/api/responseGuards` for the available guards.
+   */
+  guards?: {
+    list?: (value: unknown) => boolean;
+    get?: (value: unknown) => boolean;
+  };
 }
 
 /**
@@ -59,7 +75,10 @@ export function createCrudService<
       const endpoint = typeof endpoints.list === 'function'
         ? endpoints.list(params)
         : endpoints.list;
-      return get(endpoint);
+      // Only pass options when a guard is configured, so services without one
+      // keep the exact previous call signature (#4607).
+      const guard = endpoints.guards?.list;
+      return guard ? get(endpoint, { validate: guard }) : get(endpoint);
     },
 
     /**
@@ -72,7 +91,8 @@ export function createCrudService<
       const endpoint = typeof endpoints.get === 'function'
         ? endpoints.get(id)
         : endpoints.get;
-      return get(endpoint);
+      const guard = endpoints.guards?.get;
+      return guard ? get(endpoint, { validate: guard }) : get(endpoint);
     },
 
     /**

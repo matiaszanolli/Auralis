@@ -68,7 +68,10 @@ describe('SettingsService', () => {
 
       const result = await settingsService.getSettings();
 
-      expect(mockGet).toHaveBeenCalledWith('/api/settings');
+      // #4607: the settings list endpoint now carries a runtime shape guard.
+      expect(mockGet).toHaveBeenCalledWith('/api/settings', {
+        validate: expect.any(Function),
+      });
       expect(result).toEqual(mockSettings);
     });
 

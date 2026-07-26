@@ -141,6 +141,31 @@ export function useEnhancedPlayCommand({
         dispatch(setStreamingError({ streamType: 'enhanced', error: errorMsg }));
       }
     },
-    [wsContext, dispatch, core, currentTrackInfoRef, resetFingerprint]
+    // Depend on the individual core fields actually used, not the whole `core`
+    // object — useAudioStreamingCore returns a bare literal, so `core` has a new
+    // identity every render and `playEnhanced` never stabilized. That churn
+    // cascaded into Player.tsx's handleNext/handlePrevious/handlePlayPause and
+    // the auto-advance effect keyed on them (#4608).
+    //
+    // Every field listed here is stable by construction: the `*Ref` objects are
+    // useRef containers and armStreamStartWatchdog is useCallback'd. Memoizing
+    // useAudioStreamingCore's return object instead would NOT fix this — that
+    // object also carries `currentTime`, which changes ~10x/second during
+    // playback, so the memo would invalidate just as often.
+    //
+    // Matches the established convention in useEnhancedSeek.ts / useEnhancedStreamStart.ts.
+    [
+      wsContext,
+      dispatch,
+      currentTrackInfoRef,
+      resetFingerprint,
+      core.playbackEngineRef,
+      core.pcmBufferRef,
+      core.streamingMetadataRef,
+      core.pendingChunksRef,
+      core.lastReceivedChunkIndexRef,
+      core.abortRef,
+      core.armStreamStartWatchdog,
+    ]
   );
 }

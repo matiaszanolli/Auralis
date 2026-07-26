@@ -12,6 +12,7 @@
 
 import { ENDPOINTS } from '@/config/api';
 import { createCrudService } from '@/utils/serviceFactory';
+import { isQueueResponseShape } from '@/api/responseGuards';
 
 export interface QueueTrack {
   id: number;
@@ -36,6 +37,9 @@ export interface SetQueueRequest {
 // Create base CRUD service using factory
 const crudService = createCrudService<QueueResponse, SetQueueRequest>({
   list: ENDPOINTS.QUEUE,
+  // Guard the exact drift that caused #4441 — a response-shape mismatch here
+  // silently produced an empty queue instead of an error (#4607).
+  guards: { list: isQueueResponseShape },
   delete: (index) => ENDPOINTS.QUEUE_TRACK(index),
   custom: {
     reorder: ENDPOINTS.QUEUE_REORDER,

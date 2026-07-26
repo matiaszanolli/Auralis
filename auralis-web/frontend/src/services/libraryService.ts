@@ -14,6 +14,7 @@
 
 import { get } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
+import { isArtistTracksResponseShape } from '@/api/responseGuards';
 
 export interface TrackInArtist {
   id: number;
@@ -53,7 +54,12 @@ export async function getArtistTracks(
   artistId: number,
   signal?: AbortSignal,
 ): Promise<ArtistTracksResponse> {
-  return get<ArtistTracksResponse>(ENDPOINTS.ARTIST_TRACKS(artistId), { signal });
+  return get<ArtistTracksResponse>(ENDPOINTS.ARTIST_TRACKS(artistId), {
+    signal,
+    // Runtime shape check at the boundary so a renamed/dropped field fails here
+    // rather than as an undefined in the artist page (#4607).
+    validate: isArtistTracksResponseShape,
+  });
 }
 
 export default {

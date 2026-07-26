@@ -64,7 +64,11 @@ describe('QueueService', () => {
 
       const result = await getQueue();
 
-      expect(mockGet).toHaveBeenCalledWith('/api/player/queue');
+      // #4607: the queue endpoint now carries a runtime shape guard — the exact
+      // drift class that made #4441 silently return an empty queue.
+      expect(mockGet).toHaveBeenCalledWith('/api/player/queue', {
+        validate: expect.any(Function),
+      });
       expect(result).toEqual(mockQueueResponse);
       expect(result.tracks).toHaveLength(3);
     });
