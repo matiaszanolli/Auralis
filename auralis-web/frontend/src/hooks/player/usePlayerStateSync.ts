@@ -33,13 +33,13 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch, useStore } from 'react-redux';
 import type { Store } from '@reduxjs/toolkit';
-import type { RootState } from '@/store';
+import type { AppDispatch, RootState } from '@/store';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import {
   setCurrentTrack,
   setIsPlaying,
   setCurrentTime,
-  setDuration,
+  setDurationAndSyncQueue,
   setVolume,
   setMuted,
   setPreset,
@@ -60,7 +60,9 @@ const VALID_PRESETS: readonly string[] = ['adaptive', 'gentle', 'warm', 'bright'
  * Hook to sync WebSocket player_state messages to Redux (player + queue)
  */
 export function usePlayerStateSync() {
-  const dispatch = useDispatch();
+  // Typed dispatch so the #4580 thunk is accepted, matching how the
+  // sibling setCurrentTrackAndSyncQueue thunk (#3587) is dispatched.
+  const dispatch = useDispatch<AppDispatch>();
   // Read-only access to current state inside WS callbacks (e.g. to resolve a
   // track_changed index against the synced queue) without re-subscribing on
   // every state change.
@@ -132,7 +134,11 @@ export function usePlayerStateSync() {
         // NaN duration permanently NaNs all progress/time UI until reload.
         // Matches the position_changed guard (#4158).
         if ('duration' in state && typeof state.duration === 'number' && Number.isFinite(state.duration)) {
-          dispatch(setDuration(state.duration));
+          // #4580: the thunk patches the queue's copy of the same track too.
+          // setDuration alone reaches only player.currentTrack, so a duration
+          // correction that arrives without a fresh queue array left the two
+          // records disagreeing.
+          dispatch(setDurationAndSyncQueue(state.duration));
         }
 
         if ('current_time' in state && typeof state.current_time === 'number' && Number.isFinite(state.current_time)) {

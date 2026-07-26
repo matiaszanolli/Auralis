@@ -21,11 +21,12 @@ import { ReactNode, createElement } from 'react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { usePlayerStateSync } from '../usePlayerStateSync';
-import playerReducer from '@/store/slices/playerSlice';
-import queueReducer from '@/store/slices/queueSlice';
+import playerReducer, { setCurrentTrack } from '@/store/slices/playerSlice';
+import queueReducer, { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
 import cacheReducer from '@/store/slices/cacheSlice';
 import connectionReducer from '@/store/slices/connectionSlice';
 import * as WebSocketContextModule from '@/contexts/WebSocketContext';
+import { selectTotalQueueTime } from '@/store/selectors/queue';
 
 // ============================================================================
 // Mock WebSocket context
@@ -1071,5 +1072,80 @@ describe('usePlayerStateSync – seq reset on reconnect (#4338)', () => {
     firePlayerState({ seq: 5, volume: 50 });
     firePlayerState({ seq: 3, volume: 30 }); // late/out-of-order, same session
     expect(store.getState().player.volume).toBe(50);
+  });
+});
+
+describe('usePlayerStateSync - duration/queue divergence (#4580)', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const seedQueue = () => {
+    const tracks = [
+      { id: 1, title: 'A', artist: 'X', album: 'Al', duration: 200, artworkUrl: null },
+      { id: 2, title: 'B', artist: 'X', album: 'Al', duration: 300, artworkUrl: null },
+    ];
+    store.dispatch(setQueue(tracks));
+    store.dispatch(setCurrentIndex(0));
+    store.dispatch(setCurrentTrack(tracks[0]));
+  };
+
+  it('applies a duration correction to BOTH records when no queue array is sent', () => {
+    seedQueue();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+
+    // A player_state carrying only a duration correction — no `queue` field,
+    // which is the shape that used to leave the two copies divergent.
+    firePlayerState({ duration: 180 });
+
+    const state = store.getState();
+    expect(state.player.duration).toBe(180);
+    expect(state.player.currentTrack?.duration).toBe(180);
+    expect(state.queue.tracks[0].duration).toBe(180);
+  });
+
+  it('makes the queue selectors agree with the progress bar', () => {
+    seedQueue();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+
+    firePlayerState({ duration: 180 });
+
+    // 180 + 300, not the pre-correction 200 + 300.
+    expect(selectTotalQueueTime(store.getState())).toBe(480);
+  });
+
+  it('leaves the queue alone when the correction is not finite', () => {
+    seedQueue();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+
+    firePlayerState({ duration: Number.NaN });
+
+    expect(store.getState().queue.tracks[0].duration).toBe(200);
+    // setCurrentTrack seeded duration from the track; the NaN is skipped by
+    // the Number.isFinite guard (#4158), so it stays put.
+    expect(store.getState().player.duration).toBe(200);
+  });
+
+  it('still lets an explicit queue array win', () => {
+    seedQueue();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+
+    firePlayerState({
+      duration: 180,
+      queue: [
+        { id: 1, title: 'A', artist: 'X', album: 'Al', duration: 175, artwork_url: null },
+      ],
+    });
+
+    // setQueue runs after setDuration in the hook, so the server-supplied
+    // array is authoritative — the sync must not fight it.
+    expect(store.getState().queue.tracks[0].duration).toBe(175);
   });
 });

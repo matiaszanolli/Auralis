@@ -172,6 +172,45 @@ const queueSlice = createSlice({
     },
 
     /**
+     * Patch the stored record(s) for a track, by track id (#4580).
+     *
+     * The app keeps two copies of the current track — `player.currentTrack`
+     * and `queue.tracks[currentIndex]` — with structurally identical types.
+     * Corrections that arrive for one (a re-analysed duration) used to reach
+     * only the player copy, so queue-derived selectors kept showing the
+     * pre-correction value indefinitely.
+     *
+     * Patches every entry with a matching id, not just `currentIndex`: the
+     * same track can legitimately sit in the queue more than once, and a
+     * corrected duration is a property of the track, not of the slot.
+     */
+    updateTrackById: {
+      reducer(
+        state,
+        action: PayloadAction<
+          { id: number; changes: Partial<Track> },
+          string,
+          { timestamp: number }
+        >
+      ) {
+        const { id, changes } = action.payload;
+        let patched = false;
+        for (const track of state.tracks) {
+          if (track.id === id) {
+            Object.assign(track, changes);
+            patched = true;
+          }
+        }
+        if (patched) {
+          state.lastUpdated = action.meta.timestamp;
+        }
+      },
+      prepare(payload: { id: number; changes: Partial<Track> }) {
+        return { payload, meta: { timestamp: Date.now() } };
+      },
+    },
+
+    /**
      * Set current queue index
      */
     setCurrentIndex: {
@@ -304,6 +343,7 @@ export const {
   reorderTrack,
   clearQueue,
   setQueue,
+  updateTrackById,
   setCurrentIndex,
   nextTrack,
   previousTrack,

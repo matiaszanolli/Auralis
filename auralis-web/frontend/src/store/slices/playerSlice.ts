@@ -16,7 +16,7 @@
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { PlayerTrack } from '@/types/domain';
-import { setCurrentIndex } from '@/store/slices/queueSlice';
+import { setCurrentIndex, updateTrackById } from '@/store/slices/queueSlice';
 
 export type PresetName = 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
 
@@ -500,6 +500,39 @@ export const setCurrentTrackAndSyncQueue =
     if (idx >= 0) {
       dispatch(setCurrentIndex(idx));
     }
+  };
+
+/**
+ * #4580: dispatch `setDuration(duration)` AND patch the queue's copy of the
+ * same track.
+ *
+ * `player.currentTrack` and `queue.tracks[currentIndex]` are two independent
+ * records of the same fact. `setDuration` can only reach the player copy, so a
+ * `player_state` snapshot carrying a re-analysed duration without a fresh
+ * queue array left `selectRemainingTime` / `selectTotalQueueTime` / the queue
+ * rows showing the pre-correction value indefinitely.
+ *
+ * Same shape as `setCurrentTrackAndSyncQueue` (#3587), which exists for the
+ * same reason: the two slices must be moved together by the caller, because
+ * neither reducer can see the other's state.
+ *
+ * Note this is a *duration* sync specifically. `artworkUrl` is the other field
+ * that could in principle drift, but nothing patches it post-hoc today —
+ * artwork refreshes go through a per-album version counter
+ * (`useArtworkUpdates`), not through these track records — so there is no
+ * one-sided write to mirror. `updateTrackById` takes a generic `changes` patch
+ * so covering it later needs no new plumbing.
+ */
+export const setDurationAndSyncQueue =
+  (duration: number) =>
+  (
+    dispatch: (action: unknown) => unknown,
+    getState: () => { player?: { currentTrack?: { id: number } | null } },
+  ) => {
+    dispatch(setDuration(duration));
+    const trackId = getState().player?.currentTrack?.id;
+    if (trackId == null) return;
+    dispatch(updateTrackById({ id: trackId, changes: { duration } }));
   };
 
 // Selectors
