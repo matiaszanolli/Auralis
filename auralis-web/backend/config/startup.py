@@ -522,7 +522,7 @@ def create_lifespan(deps: dict[str, Any]):
                 # populator the cache never fills, so routers should treat it
                 # as unavailable (503) rather than serve permanent misses
                 # silently (fixes #4318).
-                worker_task = globals_dict['streamlined_worker']._worker_task
+                worker_task = globals_dict['streamlined_worker'].worker_task
                 if worker_task is not None:
                     _watch_critical_worker_task(
                         worker_task,

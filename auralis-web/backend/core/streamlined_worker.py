@@ -78,7 +78,35 @@ class StreamlinedCacheWorker:
                 await self._worker_task
             except asyncio.CancelledError:
                 pass
+            # Drop the finished task (#4577) — leaving it in place lets a
+            # health probe landing between stop() and the next start() read a
+            # done task, or a plain truthiness check report a stopped worker
+            # as running.
+            self._worker_task = None
         logger.info("🛑 Streamlined cache worker stopped")
+
+    @property
+    def worker_task(self) -> asyncio.Task[None] | None:
+        """The live background task, or None when not running (#4577).
+
+        Public accessor so lifecycle watchers (``config/startup.py``) don't
+        reach into the private attribute.
+        """
+        return self._worker_task
+
+    @property
+    def is_running(self) -> bool:
+        """True only while the background loop is actually alive (#4577).
+
+        False in all three dead states: never started, stopped, and crashed
+        (task done with an exception) — the last being the stale-truthiness
+        case #3898 is about.
+        """
+        return (
+            self.running
+            and self._worker_task is not None
+            and not self._worker_task.done()
+        )
 
     async def _worker_loop(self) -> None:
         """

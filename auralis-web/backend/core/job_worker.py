@@ -129,6 +129,10 @@ class JobWorker:
             except asyncio.CancelledError:
                 pass
 
+        # Drop the finished task so a later `if worker._worker_task:` check
+        # can't read a stopped worker as running (#4577).
+        self._worker_task = None
+
         logger.info("Processing engine worker stopped")
 
     async def start(self) -> None:
@@ -158,7 +162,19 @@ class JobWorker:
                 await asyncio.sleep(1)
 
     def cancel_task(self, job_id: str) -> None:
-        """Cancel the in-flight task for a job, if any (thread-safe)."""
+        """Cancel the in-flight task for a job, if any.
+
+        **Must be called from the event-loop thread** (#4575). Both the
+        ``self._tasks`` lookup and ``Task.cancel()`` are loop-affine: the dict
+        is mutated from ``_run_job`` without synchronisation, and ``cancel()``
+        is only safe on the loop that owns the task. From a worker thread
+        (``asyncio.to_thread``, ``threading.Thread``) schedule the whole call
+        via ``loop.call_soon_threadsafe`` instead. Every current caller —
+        ``ProcessingEngine.cancel_job()`` — already runs on the loop.
+
+        Silently does nothing when ``job_id`` is unknown or its task already
+        finished.
+        """
         task = self._tasks.get(job_id)
         if task and not task.done():
             task.cancel()
