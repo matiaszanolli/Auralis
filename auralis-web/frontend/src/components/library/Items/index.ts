@@ -2,7 +2,7 @@
  * Library Items Module
  *
  * Organized by functionality into subdirectories:
- * - tracks/ - Track row components (TrackRow, DraggableTrackRow, SelectableTrackRow)
+ * - tracks/ - Track row components (TrackRow, SelectableTrackRow)
  * - artists/ - Artist list components (CozyArtistList, ArtistListContent, etc.)
  * - albums/ - Album grid components (CozyAlbumGrid, AlbumGridContent, etc.)
  * - tables/ - Album track table components (AlbumTrackTable, TrackTableHeader, etc.)
@@ -12,7 +12,6 @@
 // Track row components
 export {
   TrackRow,
-  DraggableTrackRow,
   SelectableTrackRow,
   TrackRowPlayButton,
   TrackRowAlbumArt,

@@ -5,11 +5,9 @@
  * Supports multiple interaction patterns:
  * - Standard playback (TrackRow)
  * - Multi-selection (SelectableTrackRow)
- * - Drag-and-drop (DraggableTrackRow)
  */
 
 export { default as TrackRow } from './TrackRow';
-export { default as DraggableTrackRow } from './DraggableTrackRow';
 export { default as SelectableTrackRow } from './SelectableTrackRow';
 
 // Sub-components (internal use, re-exported for flexibility)

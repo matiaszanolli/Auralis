@@ -57,7 +57,7 @@ export interface AppContainerProps {
  *         <AppTopBar {...props} />
  *         <AppMainContent {...props} />
  *       </Box>
- *       <AppEnhancementPane {...props} />
+ *       <AlbumCharacterPane {...props} />
  *     </AppContainer>
  *   );
  * }

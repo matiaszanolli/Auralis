@@ -10,6 +10,7 @@ import { tokens } from '@/design-system';
 import { SettingsUpdate, resetLibrary } from '@/services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 import { ConfirmationDialog } from '@/components/shared/ui/ConfirmationDialog';
+import { CacheStatsDashboard } from '@/components/shared/CacheStatsDashboard';
 
 interface AdvancedSettingsPanelProps {
   cacheSize: number;
@@ -24,6 +25,8 @@ interface AdvancedSettingsPanelProps {
  *
  * Manages:
  * - Cache size configuration
+ * - Live cache statistics (#4579 — CacheStatsDashboard had no render site, so
+ *   the cache telemetry endpoints and their WS invalidation were unreachable)
  * - Max concurrent scans
  * - Analytics toggle
  * - Debug mode toggle
@@ -64,6 +67,17 @@ export const AdvancedSettingsPanel = ({
         />
         <SectionDescription>
           Amount of disk space for processed audio cache
+        </SectionDescription>
+      </SectionContainer>
+
+      <Divider sx={{ my: 3 }} />
+
+      <SectionContainer>
+        <SectionLabel>Cache Statistics</SectionLabel>
+        <CacheStatsDashboard />
+        <SectionDescription>
+          Live hit rates and cache sizes. Refreshes automatically, and
+          immediately when a cache is cleared.
         </SectionDescription>
       </SectionContainer>
 

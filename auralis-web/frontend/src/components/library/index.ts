@@ -39,7 +39,6 @@ export {
 // Items submodule
 export {
   TrackRow,
-  DraggableTrackRow,
   SelectableTrackRow,
   ArtistListItem,
   CozyAlbumGrid,

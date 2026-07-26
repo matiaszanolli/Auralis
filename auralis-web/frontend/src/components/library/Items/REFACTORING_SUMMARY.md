@@ -16,7 +16,6 @@ Items/
 ├── TrackRow.tsx
 ├── TrackRow.styles.ts
 ├── SelectableTrackRow.tsx
-├── DraggableTrackRow.tsx
 ├── TrackRowPlayButton.tsx
 ├── TrackRowAlbumArt.tsx
 ├── TrackRowMetadata.tsx
@@ -59,7 +58,6 @@ Items/
 │   ├── TrackRow.styles.ts
 │   ├── SelectableTrackRow.tsx
 │   ├── SelectableTrackRow.styles.ts
-│   ├── DraggableTrackRow.tsx
 │   ├── TrackRowPlayButton.tsx
 │   ├── TrackRowAlbumArt.tsx
 │   ├── TrackRowMetadata.tsx
@@ -129,7 +127,6 @@ Items/
 #### Tracks (14 files)
 - `TrackRow.tsx` + `TrackRow.styles.ts`
 - `SelectableTrackRow.tsx` + `SelectableTrackRow.styles.ts`
-- `DraggableTrackRow.tsx`
 - `TrackRowPlayButton.tsx`
 - `TrackRowAlbumArt.tsx`
 - `TrackRowMetadata.tsx`
@@ -183,7 +180,6 @@ Each subdirectory has an `index.ts` that:
 Example from `tracks/index.ts`:
 ```typescript
 export { default as TrackRow } from './TrackRow';
-export { default as DraggableTrackRow } from './DraggableTrackRow';
 export { default as SelectableTrackRow } from './SelectableTrackRow';
 export { useTrackFormatting } from './useTrackFormatting';
 // ... more exports
@@ -195,7 +191,6 @@ The main `Items/index.ts` now re-exports from all subdirectories:
 ```typescript
 export {
   TrackRow,
-  DraggableTrackRow,
   SelectableTrackRow,
   // ... other exports
 } from './tracks';
@@ -366,7 +361,6 @@ Consider nested subdirectories for large categories:
 Items/
 ├── tracks/
 │   ├── TrackRow/
-│   ├── DraggableTrackRow/
 │   └── SelectableTrackRow/
 ```
 
@@ -396,3 +390,7 @@ Items/
 ## Summary
 
 The Items directory refactoring successfully reorganizes 32 components into 5 functional subdirectories while maintaining backward compatibility and passing all tests. This improves code discoverability, maintainability, and follows the project's modular design principles.
+
+> **Note (#4579):** `DraggableTrackRow` was deleted as dead code — it had no
+> live callers, only barrel re-exports and its own test. Drag-and-drop in the
+> queue is handled by `QueueTrackItem`.
