@@ -56,6 +56,11 @@ ALLOWED_WS_ORIGINS = build_ws_origins()
 # cannot bypass the origin check (fixes #3845).
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
+# Per-client ceiling on a single broadcast send (#4581). Generous for a
+# loopback socket a healthy client is draining, short enough that a wedged
+# client cannot hold up transport commands for a user-visible interval.
+BROADCAST_SEND_TIMEOUT = 2.0
+
 
 class ConnectionManager:
     """
@@ -125,7 +130,8 @@ class ConnectionManager:
         """
         Broadcast message to all connected clients.
 
-        Automatically removes stale connections that fail to receive messages.
+        Automatically removes stale connections that fail to receive messages,
+        including ones that are merely *stuck* rather than errored.
 
         Args:
             message: Dictionary message to broadcast (will be JSON encoded)
@@ -139,7 +145,25 @@ class ConnectionManager:
 
         for connection in connections_snapshot:
             try:
-                await connection.send_text(message_json)
+                # #4581: bound the per-client send. Starlette applies
+                # backpressure, so a client that stops draining its socket
+                # makes send_text block until the OS buffer clears — which
+                # could be forever for a suspended Electron renderer or a
+                # half-open TCP connection. Every caller awaiting broadcast()
+                # inherited that stall, and PlaybackService held
+                # _playback_lock across it, freezing all transport controls.
+                # A client that cannot accept a frame within the timeout is
+                # treated exactly like one that raised: evicted.
+                await asyncio.wait_for(
+                    connection.send_text(message_json),
+                    timeout=BROADCAST_SEND_TIMEOUT,
+                )
+            except TimeoutError:
+                stale_connections.append(connection)
+                logger.warning(
+                    f"WebSocket send exceeded {BROADCAST_SEND_TIMEOUT}s — "
+                    f"marking connection stale for removal"
+                )
             except Exception as e:
                 stale_connections.append(connection)
                 logger.debug(f"Marking stale connection for removal: {e}")

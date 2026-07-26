@@ -99,6 +99,19 @@ class PlaybackService:
         # stale transport state. Matches the QueueService.set_queue
         # pattern from #3721. set_volume is broadcast-only and stays
         # outside the lock.
+        #
+        # #4581: the explicit `connection_manager.broadcast()` calls now run
+        # OUTSIDE this lock — the transition is committed before them, so the
+        # lock guarded nothing they read.
+        #
+        # `player_state_manager.set_playing()` deliberately stays INSIDE it,
+        # even though update_state() broadcasts. Moving it out would let two
+        # concurrent transitions assign their monotonic `seq` in an order that
+        # disagrees with the order the engine actually changed state, so the
+        # last snapshot the frontend applies could contradict the engine (the
+        # exact staleness #3734 added this lock to prevent). Its broadcast is
+        # instead bounded by ConnectionManager.BROADCAST_SEND_TIMEOUT, so the
+        # worst-case hold is a short timeout rather than unbounded.
         self._playback_lock: asyncio.Lock = asyncio.Lock()
 
     async def get_status(self) -> dict[str, Any]:
@@ -147,11 +160,14 @@ class PlaybackService:
                 # Update state (broadcasts automatically)
                 await self.player_state_manager.set_playing(True)
 
-                # Broadcast playback_started event
-                await self.connection_manager.broadcast({
-                    "type": "playback_started",
-                    "data": {"state": "playing"}
-                })
+            # #4581: broadcast OUTSIDE the lock. The transition is already
+            # committed by this point, so the lock protects nothing the
+            # broadcast reads — but holding it across a per-client send meant
+            # one stalled WebSocket client froze play/pause/stop for everyone.
+            await self.connection_manager.broadcast({
+                "type": "playback_started",
+                "data": {"state": "playing"}
+            })
 
             logger.info("▶️  Playback started")
             return {"message": "Playback started", "state": "playing"}
@@ -183,11 +199,11 @@ class PlaybackService:
                 # Update state (broadcasts automatically)
                 await self.player_state_manager.set_playing(False)
 
-                # Broadcast playback_paused event
-                await self.connection_manager.broadcast({
-                    "type": "playback_paused",
-                    "data": {"state": "paused"}
-                })
+            # Broadcast outside the lock (#4581) — see play().
+            await self.connection_manager.broadcast({
+                "type": "playback_paused",
+                "data": {"state": "paused"}
+            })
 
             logger.info("⏸️  Playback paused")
             return {"message": "Playback paused", "state": "paused"}
@@ -218,11 +234,11 @@ class PlaybackService:
                 if self.player_state_manager:
                     await self.player_state_manager.set_playing(False)
 
-                # Broadcast playback_stopped event
-                await self.connection_manager.broadcast({
-                    "type": "playback_stopped",
-                    "data": {"state": "stopped"}
-                })
+            # Broadcast outside the lock (#4581) — see play().
+            await self.connection_manager.broadcast({
+                "type": "playback_stopped",
+                "data": {"state": "stopped"}
+            })
 
             logger.info("⏹️  Playback stopped")
             return {"message": "Playback stopped", "state": "stopped"}
