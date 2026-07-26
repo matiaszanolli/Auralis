@@ -9,6 +9,8 @@
  */
 
 import { useState, useEffect } from 'react';
+import { transformTracks } from '@/api/transformers/trackTransformer';
+import type { TrackApiResponse } from '@/api/transformers/types';
 import type { DetailTrack } from '@/types/domain';
 
 export interface Album {
@@ -48,6 +50,20 @@ export const useAlbumDetails = (albumId: number) => {
         const data = await response.json();
         if (controller.signal.aborted) return;
 
+        // `/api/albums/{id}/tracks` serialises per-track fields in snake_case
+        // (serialize_tracks → Track.to_dict()), so the previous inline mapper —
+        // which read t.artworkUrl / t.trackNumber / t.discNumber / t.albumId —
+        // produced null for every one of them, and blank artists (the wire key
+        // is `artists: string[]`). The `(t: DetailTrack)` annotation asserted the
+        // camelCase shape onto raw JSON, so TypeScript endorsed the wrong keys.
+        // Routed through the canonical transformer instead (#4568, #4571).
+        //
+        // NOTE: the album-level fields below are genuinely snake_case on this
+        // endpoint and are correct as-is — do not "normalise" them.
+        const tracks = transformTracks(
+          (data.tracks ?? []) as TrackApiResponse[]
+        ) as DetailTrack[];
+
         const albumData: Album = {
           id: data.album_id,
           title: data.album_title,
@@ -55,26 +71,8 @@ export const useAlbumDetails = (albumId: number) => {
           artist_name: data.artist,
           year: data.year,
           track_count: data.total_tracks,
-          total_duration:
-            data.tracks?.reduce(
-              (sum: number, t: DetailTrack) => sum + (t.duration || 0),
-              0
-            ) || 0,
-          tracks: (data.tracks || []).map((t: DetailTrack) => ({
-            id: t.id,
-            title: t.title ?? '',
-            artist: t.artist ?? '',
-            album: t.album ?? '',
-            duration: t.duration ?? 0,
-            filepath: t.filepath ?? '',
-            artworkUrl: t.artworkUrl ?? null,
-            genre: t.genre ?? null,
-            year: t.year ?? null,
-            trackNumber: t.trackNumber ?? null,
-            discNumber: t.discNumber ?? null,
-            albumId: t.albumId ?? null,
-            favorite: t.favorite ?? undefined,
-          })),
+          total_duration: tracks.reduce((sum, t) => sum + (t.duration || 0), 0),
+          tracks,
         };
         setAlbum(albumData);
       } catch (err) {

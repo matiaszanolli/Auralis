@@ -1105,6 +1105,12 @@ describe('useLibraryQuery', () => {
           date_added: '2026-01-01',
           date_modified: '2026-02-02',
           crest_factor: 8.5,
+          // #4568: navigation/favourite keys the transformer used to drop
+          album_id: 7,
+          track_number: 3,
+          disc_number: 2,
+          favorite: true,
+          filesize: 4096,
         }],
         total: 1, offset: 0, limit: 50, hasMore: false,
       });
@@ -1119,9 +1125,15 @@ describe('useLibraryQuery', () => {
       expect(track.dateAdded).toBe('2026-01-01');
       expect(track.dateModified).toBe('2026-02-02');
       expect(track.crestFactor).toBe(8.5);
+      expect(track.albumId).toBe(7);
+      expect(track.trackNumber).toBe(3);
+      expect(track.discNumber).toBe(2);
+      expect(track.favorite).toBe(true);
+      expect(track.fileSize).toBe(4096);
       expect(track).not.toHaveProperty('artwork_url');
       expect(track).not.toHaveProperty('sample_rate');
       expect(track).not.toHaveProperty('date_added');
+      expect(track).not.toHaveProperty('track_number');
     });
 
     it('maps tracks arriving under the generic items key too', async () => {

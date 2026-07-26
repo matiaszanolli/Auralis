@@ -35,20 +35,32 @@ export function transformTrack(apiTrack: TrackApiResponse): Track {
     genre: genre ?? undefined,
     year: apiTrack.year ?? undefined,
 
+    // Navigation and favourites. Dropped until #4568 — every consumer reading
+    // track.trackNumber / .albumId got undefined, so album-detail rows rendered
+    // without track numbers and "go to album" from a row had nothing to go on.
+    albumId: apiTrack.album_id ?? undefined,
+    trackNumber: apiTrack.track_number ?? undefined,
+    discNumber: apiTrack.disc_number ?? undefined,
+    favorite: apiTrack.favorite ?? undefined,
+
     // Audio properties (snake → camel, null → undefined)
     bitrate: apiTrack.bitrate ?? undefined,
     sampleRate: apiTrack.sample_rate ?? undefined,
     bitDepth: apiTrack.bit_depth ?? undefined,
+    channels: apiTrack.channels ?? undefined,
     format: apiTrack.format ?? undefined,
+    fileSize: apiTrack.filesize ?? undefined,
 
     // Analysis properties (null → undefined)
     loudness: apiTrack.loudness ?? undefined,
     crestFactor: apiTrack.crest_factor ?? undefined,
     centroid: apiTrack.centroid ?? undefined,
 
-    // Timestamps (snake → camel, null → undefined)
-    dateAdded: apiTrack.date_added ?? undefined,
-    dateModified: apiTrack.date_modified ?? undefined
+    // Timestamps (snake → camel, null → undefined). Track.to_dict() — the real
+    // ORM path — emits created_at/updated_at; date_added/date_modified come from
+    // the DEFAULT_TRACK_FIELDS getattr fallback. Accept either (#4568).
+    dateAdded: apiTrack.date_added ?? apiTrack.created_at ?? undefined,
+    dateModified: apiTrack.date_modified ?? apiTrack.updated_at ?? undefined
   };
 }
 

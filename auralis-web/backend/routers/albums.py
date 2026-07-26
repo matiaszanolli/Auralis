@@ -108,8 +108,11 @@ def create_albums_router(
             raise NotFoundError("Album", album_id)
 
         # camelCase domain shape — see serialize_album_detail (#4423). The
-        # sibling {id}/tracks endpoint intentionally stays snake_case for its
-        # existing consumer (useAlbumDetails.ts).
+        # sibling {id}/tracks endpoint stays snake_case: its consumer
+        # (useAlbumDetails.ts) reads the album-level keys snake_case directly and
+        # runs the per-track payload through the frontend's canonical
+        # transformTracks(). It previously read those per-track fields as
+        # camelCase, so artist and track number rendered blank (#4568).
         return serialize_album_detail(album)
 
     @router.get("/api/albums/{album_id}/tracks")

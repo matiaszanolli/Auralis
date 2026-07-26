@@ -188,6 +188,81 @@ describe('trackTransformer', () => {
     });
   });
 
+  /**
+   * #4568: album_id / track_number / disc_number / favorite are emitted by
+   * Track.to_dict() and DEFAULT_TRACK_FIELDS alike, but the transformer dropped
+   * them — so every consumer reading track.trackNumber or track.albumId got
+   * undefined, and album-detail rows rendered with no track number and no way
+   * to navigate back to the album.
+   */
+  describe('navigation and favourite fields (#4568)', () => {
+    const base = {
+      id: 9,
+      title: 'T',
+      album: 'A',
+      duration: 100,
+    };
+
+    it('maps album_id / track_number / disc_number / favorite', () => {
+      const result = transformTrack({
+        ...base,
+        artists: ['Artist X'],
+        album_id: 7,
+        track_number: 3,
+        disc_number: 2,
+        favorite: true,
+      } as TrackApiResponse);
+
+      expect(result.albumId).toBe(7);
+      expect(result.trackNumber).toBe(3);
+      expect(result.discNumber).toBe(2);
+      expect(result.favorite).toBe(true);
+      expect(result.artist).toBe('Artist X');
+    });
+
+    it('maps channels and filesize → fileSize', () => {
+      const result = transformTrack({
+        ...base,
+        channels: 2,
+        filesize: 12345,
+      } as TrackApiResponse);
+
+      expect(result.channels).toBe(2);
+      expect(result.fileSize).toBe(12345);
+    });
+
+    it('falls back to created_at/updated_at, which Track.to_dict() actually emits', () => {
+      const result = transformTrack({
+        ...base,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-02-02T00:00:00Z',
+      } as TrackApiResponse);
+
+      expect(result.dateAdded).toBe('2026-01-01T00:00:00Z');
+      expect(result.dateModified).toBe('2026-02-02T00:00:00Z');
+    });
+
+    it('prefers date_added/date_modified when the fallback serializer supplies them', () => {
+      const result = transformTrack({
+        ...base,
+        date_added: '2020-01-01T00:00:00Z',
+        created_at: '2026-01-01T00:00:00Z',
+      } as TrackApiResponse);
+
+      expect(result.dateAdded).toBe('2020-01-01T00:00:00Z');
+    });
+
+    it('leaves the new fields undefined when the payload omits them', () => {
+      const result = transformTrack(base as TrackApiResponse);
+
+      expect(result.albumId).toBeUndefined();
+      expect(result.trackNumber).toBeUndefined();
+      expect(result.discNumber).toBeUndefined();
+      expect(result.favorite).toBeUndefined();
+      expect(result.fileSize).toBeUndefined();
+    });
+  });
+
   describe('transformTracks', () => {
     it('should transform array of tracks', () => {
       const apiTracks: TrackApiResponse[] = [

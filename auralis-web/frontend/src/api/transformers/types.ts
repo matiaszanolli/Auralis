@@ -65,27 +65,46 @@ export interface TrackApiResponse {
   artist?: string;      // singular fallback (some serializer paths)
   album: string;
   duration: number; // seconds
-  filepath: string;
+  /**
+   * Optional: no transport populates it. Track.to_dict() omits it and
+   * player_state.TrackInfo marks it Field(exclude=True) (#3205, #4586).
+   */
+  filepath?: string;
 
   // Optional metadata — backend sends null for missing values (Python None → JSON null)
   artwork_url?: string | null;
   genre?: string | null;       // singular fallback
   year?: number | null;
 
+  // Navigation and favourites — present in both Track.to_dict() and
+  // DEFAULT_TRACK_FIELDS since #2851; the transformer dropped them until #4568.
+  album_id?: number | null;
+  track_number?: number | null;
+  disc_number?: number | null;
+  favorite?: boolean;
+
   // Audio properties
   bitrate?: number | null;
   sample_rate?: number | null; // snake_case
   bit_depth?: number | null; // snake_case
+  channels?: number | null;
   format?: string | null;
+  filesize?: number | null; // → fileSize
 
   // Analysis properties
   loudness?: number | null;
   crest_factor?: number | null; // snake_case
   centroid?: number | null;
 
-  // Timestamps
+  /**
+   * Timestamps. `Track.to_dict()` (the real ORM path) emits created_at /
+   * updated_at; date_added / date_modified only appear on the
+   * DEFAULT_TRACK_FIELDS getattr fallback. Both are accepted (#4568).
+   */
   date_added?: string | null; // snake_case
   date_modified?: string | null; // snake_case
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface TracksApiResponse {
