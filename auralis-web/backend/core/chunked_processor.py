@@ -823,6 +823,13 @@ def get_last_content_profile(preset: str) -> dict[str, Any] | None:
 
     Returns:
         Last content profile dict or None if not available
+
+    Known limitation (#4601): the map is keyed by preset name ONLY — no ws_id or
+    track dimension — so two concurrent streams on the same preset overwrite each
+    other's profile. Harmless for the desktop single-client app this ships as,
+    but it is why the caller must pass the preset the STREAM is running, not a
+    stale global; `handle_play_enhanced` now writes the accepted preset back into
+    `enhancement_settings` so the two cannot diverge.
     """
     with _last_content_profiles_lock:
         value = _last_content_profiles.get(preset.lower())

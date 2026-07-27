@@ -117,18 +117,31 @@ class TestSetEnhancementIntensity:
         assert response.status_code == 200
 
     def test_set_intensity_below_minimum(self, client):
-        """Test intensity below 0.0 is clamped to 0.0"""
+        """Intensity below 0.0 is rejected, not silently clamped (#4600).
+
+        This endpoint used to clamp and return 200 carrying a value the caller
+        never sent, while PUT /api/settings 422'd the identical input. Both now
+        share EnhancementIntensity.
+        """
         response = client.post("/api/player/enhancement/intensity", json={"intensity": -0.1})
 
-        assert response.status_code == 200
-        assert response.json()["settings"]["intensity"] == 0.0
+        assert response.status_code == 422
 
     def test_set_intensity_above_maximum(self, client):
-        """Test intensity above 1.0 is clamped to 1.0"""
+        """Intensity above 1.0 is rejected, not silently clamped (#4600)."""
         response = client.post("/api/player/enhancement/intensity", json={"intensity": 1.1})
 
-        assert response.status_code == 200
-        assert response.json()["settings"]["intensity"] == 1.0
+        assert response.status_code == 422
+
+    def test_set_intensity_rejects_non_finite(self, client):
+        """NaN was the sharp case: the old clamp turned it into 1.0 (#4600)."""
+        for body in ('{"intensity": NaN}', '{"intensity": Infinity}'):
+            response = client.post(
+                "/api/player/enhancement/intensity",
+                content=body,
+                headers={"Content-Type": "application/json"},
+            )
+            assert response.status_code == 422, body
 
     def test_set_intensity_missing_parameter(self, client):
         """Test intensity change without body"""

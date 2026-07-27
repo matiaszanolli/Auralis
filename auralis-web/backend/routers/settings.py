@@ -24,7 +24,10 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from schemas import EnhancementPresetLiteral  # shared preset enum (#4424)
+from schemas import (  # shared preset enum (#4424) / intensity constraint (#4600)
+    EnhancementIntensity,
+    EnhancementPresetLiteral,
+)
 
 from security.path_security import (
     validate_user_chosen_directory,
@@ -81,7 +84,9 @@ class SettingsUpdateRequest(BaseModel):
     # boundary instead of silently falling back to adaptive downstream (#4424).
     default_preset: EnhancementPresetLiteral | None = None
     auto_enhance: bool | None = None
-    enhancement_intensity: float | None = Field(default=None, ge=0.0, le=1.0)
+    # Shared constraint (#4600) — same definition the enhancement router uses,
+    # so the two cannot drift back apart.
+    enhancement_intensity: EnhancementIntensity | None = None
     # Advanced
     cache_size: int | None = Field(default=None, ge=0)
     max_concurrent_scans: int | None = Field(default=None, ge=1)

@@ -375,7 +375,21 @@ export function useEnhancementControl(): EnhancementControlActions {
     setIsLoading(true);
     setError(null);
 
-    // Clamp intensity to valid range
+    // Clamp intensity to valid range. Reject non-finite input outright (#4600):
+    // Math.max/Math.min propagate NaN rather than clamping it, so a NaN would
+    // survive to JSON.stringify — which serialises it as `null` — and come back
+    // as an opaque 422. The server rejects out-of-range values now instead of
+    // silently clamping, so the client must not send something it cannot mean.
+    if (!Number.isFinite(intensity)) {
+      const apiError: ApiError = {
+        status: 422,
+        message: 'Intensity must be a finite number between 0.0 and 1.0',
+        code: 'INVALID_INTENSITY',
+      };
+      setError(apiError);
+      setIsLoading(false);
+      throw apiError;
+    }
     const validIntensity = Math.max(0.0, Math.min(1.0, intensity));
 
     // #4339: capture this call's id before awaiting so a later, overlapping

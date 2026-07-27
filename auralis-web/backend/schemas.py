@@ -13,7 +13,7 @@ Phase B.1: Backend Endpoint Standardization
 
 import datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -26,6 +26,38 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # than re-declaring an inline copy, so the definitions cannot drift apart.
 VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
 EnhancementPresetLiteral = Literal["adaptive", "gentle", "warm", "bright", "punchy"]
+
+# Canonical constraint for enhancement intensity (#4600). The same quantity used
+# to be validated three different ways: the enhancement router silently CLAMPED
+# and returned 200 with a value the caller never sent, the settings route
+# rejected with 422, and the WS path silently discarded and fell back to the
+# stored value. The clamp was the dangerous one — `max(0.0, min(1.0, nan))` is
+# `1.0`, not `nan` (because `nan < 1.0` is False), so a NaN intensity became
+# MAXIMUM enhancement and was written into the runtime settings dict.
+#
+# `ge`/`le` reject NaN and ±inf for free: every comparison against NaN is False,
+# and inf fails the bound. Both REST surfaces now import this, matching how
+# `preset` was unified in #4424.
+EnhancementIntensity = Annotated[float, Field(ge=0.0, le=1.0)]
+
+# Bounds as plain numbers, for the non-Pydantic surfaces (the WS command handler)
+# that need the same range check without a model.
+INTENSITY_MIN = 0.0
+INTENSITY_MAX = 1.0
+
+
+def is_valid_intensity(value: Any) -> bool:
+    """True when ``value`` is a real number inside the canonical range.
+
+    Shared by the WebSocket path so its bounds cannot drift from the REST
+    models'. Rejects NaN and ±inf: the comparison chain is False for NaN, and
+    inf fails the upper bound.
+    """
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and INTENSITY_MIN <= value <= INTENSITY_MAX
+    )
 
 
 # ============================================================================

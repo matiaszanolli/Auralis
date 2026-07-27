@@ -19,7 +19,10 @@ from typing import Any
 from fastapi import WebSocket
 
 from core.audio_stream_controller import ws_id as _ws_id
-from schemas import VALID_PRESETS  # single source of truth (#4424)
+from schemas import (  # single source of truth (#4424, #4600)
+    VALID_PRESETS,
+    is_valid_intensity,
+)
 from websocket.websocket_security import send_error_response
 
 from .context import StreamState, WSDeps
@@ -69,7 +72,15 @@ async def handle_play_enhanced(
     raw_preset = data.get("preset", "")
     raw_intensity = data.get("intensity")
     preset = raw_preset.lower() if (raw_preset and isinstance(raw_preset, str) and raw_preset.lower() in VALID_PRESETS) else None
-    intensity = float(raw_intensity) if (isinstance(raw_intensity, (int, float)) and 0.0 <= raw_intensity <= 1.0) else None
+    # Third contract for the same quantity, deliberately kept (#4600): an
+    # out-of-range/NaN intensity on a *streaming command* falls back to the
+    # stored setting rather than 422-ing, because refusing to start playback
+    # over a bad slider value is worse than playing at the stored intensity.
+    # The REST surfaces reject instead — see EnhancementIntensity in schemas.py.
+    # What is NOT acceptable, and was the actual bug, is silent coercion to
+    # maximum: `is_valid_intensity` rejects NaN and ±inf, so neither can reach
+    # the runtime settings dict from here.
+    intensity = float(raw_intensity) if is_valid_intensity(raw_intensity) else None
 
     enhancement_enabled = True
     if deps.get_enhancement_settings is not None:
@@ -79,6 +90,21 @@ async def handle_play_enhanced(
             preset = settings.get("preset", "adaptive")
         if intensity is None:
             intensity = settings.get("intensity", 1.0)
+        # Write the accepted values back (#4601). The payload is authoritative
+        # here, but nothing ever recorded that, so the REST global kept the OLD
+        # preset while the stream ran on the new one. Two readers key off the
+        # global and silently went wrong when they diverged:
+        #   * GET /api/processing/parameters looks up _last_content_profiles by
+        #     preset, a map the running ChunkedAudioProcessor writes under the
+        #     STREAM's preset — so it missed and returned hardcoded
+        #     `is_default: True` placeholders as though no processing were
+        #     happening, which reads as "engine idle" while it is in fact busy;
+        #   * _preprocess_upcoming_chunks pre-warmed cache entries for the
+        #     global preset/intensity, so every pre-warmed chunk missed.
+        # Mutated in place: the dict is shared by reference with the routers
+        # (#4409), so rebinding here would be invisible to them.
+        settings["preset"] = preset
+        settings["intensity"] = intensity
         logger.info(f"Using enhancement settings (frontend+stored): enabled={enhancement_enabled}, preset={preset}, intensity={intensity}")
     else:
         if preset is None:

@@ -32,7 +32,11 @@ from core.chunk_boundaries import (  # single source of truth (#2564)
     content_chunk_count,
 )
 from helpers import spawn_background_task
-from schemas import EnhancementPresetLiteral, MasteringRecommendationResponse
+from schemas import (
+    EnhancementIntensity,
+    EnhancementPresetLiteral,
+    MasteringRecommendationResponse,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
@@ -86,12 +90,12 @@ class SetPresetRequest(BaseModel):
 
 
 class SetIntensityRequest(BaseModel):
-    intensity: float
-
-    @field_validator('intensity')
-    @classmethod
-    def clamp_intensity(cls, v: float) -> float:
-        return max(0.0, min(1.0, v))
+    # Shared constraint (#4600). This used to silently clamp and return 200 with
+    # a value the caller never sent, while PUT /api/settings 422'd the same
+    # input. Worse, `max(0.0, min(1.0, nan))` is `1.0` — a NaN intensity became
+    # MAXIMUM enhancement in the runtime settings dict rather than an error.
+    # Both REST surfaces now share one definition, as `preset` already does.
+    intensity: EnhancementIntensity
 
 
 class EnhancementSettings(BaseModel):
