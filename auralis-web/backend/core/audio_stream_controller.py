@@ -27,6 +27,7 @@ the public/test-facing surface (`controller._send_error(...)`,
 
 import asyncio
 import contextvars
+import itertools
 import logging
 import uuid
 from typing import Any
@@ -77,6 +78,36 @@ _frame_seq_var: contextvars.ContextVar[list[int] | None] = contextvars.ContextVa
 _track_id_var: contextvars.ContextVar[int | None] = contextvars.ContextVar(
     '_track_id', default=None
 )
+
+# Per-stream epoch (#4563). Cancelling a stream task is asynchronous with
+# respect to the frames it has ALREADY handed to the send queue and the socket:
+# on seek, the client resets its PCM buffer before sending the `seek` frame, but
+# the backend only cancels the old task when the receive loop dispatches it. Up
+# to _SEND_QUEUE_MAXSIZE encoded frames plus whatever sits in the socket buffers
+# — roughly 0.9-3.5 s of pre-seek audio — therefore land in the FRESH buffer,
+# and the follow-up audio_stream_start carries is_seek=true, which by design
+# tells the client to PRESERVE its buffer. Nothing else on the wire discriminates
+# them: track_id is unchanged, chunk_index is >= the last seen so the client's
+# out-of-sequence guard never trips, and seq restarts at 0 each stream.
+#
+# The epoch is that discriminator. It is stamped on audio_stream_start and on
+# every audio_chunk_meta; the client records the epoch from the former and drops
+# any chunk that does not match. Monotonic process-wide (not per-connection) so
+# an epoch is never reused across streams, whichever task emits it.
+_stream_epoch_counter = itertools.count(1)
+
+_stream_epoch_var: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    '_stream_epoch', default=None
+)
+
+
+def next_stream_epoch() -> int:
+    """Allocate the next stream epoch.
+
+    ``itertools.count`` is atomic under the GIL and every caller is on the event
+    loop, so no extra locking is needed.
+    """
+    return next(_stream_epoch_counter)
 
 # Maximum number of concurrent audio streams (enhanced, normal, seek).
 # Each stream holds a ChunkedProcessor in memory; unbounded concurrency

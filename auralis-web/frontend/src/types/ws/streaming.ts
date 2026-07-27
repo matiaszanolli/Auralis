@@ -38,9 +38,25 @@ export interface AudioStreamStartMessage extends WebSocketMessage {
     chunk_duration: number;
     total_duration: number;
     stream_type?: 'enhanced' | 'normal';
+    /**
+     * Monotonic id for this stream (#4563). Record it on stream start and drop
+     * any `audio_chunk` whose `stream_epoch` differs: cancelling a superseded
+     * stream is asynchronous with respect to frames already in the send queue
+     * and socket buffers, and `is_seek: true` tells the client to preserve its
+     * buffer, so without this those stale frames play at the head of the seek.
+     */
+    stream_epoch?: number;
     is_seek?: boolean;
     start_chunk?: number;
     seek_position?: number;
+    /**
+     * Within-chunk offset of `seek_position`, in seconds.
+     *
+     * INFORMATIONAL ONLY — the server trims the first chunk itself on both the
+     * enhanced (`stream_seek.py`) and normal (`stream_normal.py`) paths, so the
+     * first delivered sample already corresponds to `seek_position` (#4560). Do
+     * NOT trim by this value client-side; that would double-skip.
+     */
     seek_offset?: number;
   };
 }
@@ -84,6 +100,10 @@ export interface AudioChunkMessage extends WebSocketMessage {
     /** Owning track id, carried over from audio_chunk_meta so consumers can drop
      *  late chunk-progress from a superseded track after a rapid skip (#4434). */
     track_id?: number;
+    /** Owning stream epoch, carried over from audio_chunk_meta. Frames whose
+     *  epoch differs from the one on the current audio_stream_start belong to a
+     *  stream that a seek/stop already superseded and must be dropped (#4563). */
+    stream_epoch?: number;
     chunk_index: number;
     chunk_count: number;
     frame_index: number;
@@ -120,6 +140,8 @@ export interface AudioChunkMetaMessage {
     /** Owning track id so the client can drop late chunk-progress from a
      *  superseded track after a rapid skip (#4434). */
     track_id?: number;
+    /** Owning stream epoch (#4563) — see AudioChunkMessage.stream_epoch. */
+    stream_epoch?: number;
     chunk_index: number;
     chunk_count: number;
     frame_index: number;

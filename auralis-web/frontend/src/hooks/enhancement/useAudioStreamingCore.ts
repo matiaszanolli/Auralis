@@ -155,6 +155,8 @@ export function useAudioStreamingCore(
   const streamingMetadataRef = useRef<StreamingMetadata | null>(null);
   const flowPausedRef = useRef<boolean>(false);
   const lastReceivedChunkIndexRef = useRef<number>(-1);
+  /** Epoch of the stream the current audio_stream_start opened (#4563). */
+  const streamEpochRef = useRef<number | null>(null);
   const lastDispatchedProgressRef = useRef<number>(-1);
 
   const [currentTime, setCurrentTime] = useState(0);
@@ -179,6 +181,7 @@ export function useAudioStreamingCore(
     streamingMetadataRef.current = null;
     pendingChunksRef.current = [];
     lastReceivedChunkIndexRef.current = -1;
+    streamEpochRef.current = null;
 
     if (closeContextOnCleanup) {
       audioContextRef.current?.close();
@@ -212,6 +215,28 @@ export function useAudioStreamingCore(
     try {
       // Only process messages intended for this stream (#2104)
       if (message.data.stream_type && message.data.stream_type !== streamType) return;
+
+      // Drop frames from a stream that has already been superseded (#4563).
+      // On seek the client resets its PCM buffer before sending the `seek`
+      // frame, but the backend only cancels the old task once its receive loop
+      // dispatches that frame — so frames already in the send queue and socket
+      // buffers (~0.9-3.5 s of pre-seek audio) arrive afterwards and land in the
+      // fresh buffer. Nothing else distinguishes them: the track_id is the same,
+      // chunk_index is >= the last seen so the out-of-sequence guard below never
+      // trips, and `is_seek: true` deliberately preserves the buffer. Only the
+      // epoch does. Both sides must be present, so an older backend (no epoch on
+      // the wire) degrades to the previous behaviour rather than dropping
+      // everything.
+      const incomingEpoch = message.data.stream_epoch;
+      const currentEpoch = streamEpochRef.current;
+      if (incomingEpoch != null && currentEpoch != null && incomingEpoch !== currentEpoch) {
+        DEBUG && console.warn(`${logPrefix} Dropping chunk from superseded stream:`, {
+          chunkEpoch: incomingEpoch,
+          currentEpoch,
+          chunkIndex: message.data?.chunk_index,
+        });
+        return;
+      }
 
       const incomingChunkIndex = message.data?.chunk_index ?? 0;
 
@@ -375,7 +400,25 @@ export function useAudioStreamingCore(
     // the first-stream watchdog (#4433).
     const unsubscribeStart = wsContext.subscribe(
       'audio_stream_start',
-      (m) => { clearStreamStartWatchdog(); handleStreamStartRef.current?.(m as AudioStreamStartMessage); }
+      (m) => {
+        clearStreamStartWatchdog();
+        const start = m as AudioStreamStartMessage;
+        // Record the epoch here rather than in the callers' handleStreamStart
+        // (#4563): this wrapper is the one choke point every stream type passes
+        // through, so enhanced, normal, seek and reconnect-resume are all
+        // covered without each having to remember. Must happen BEFORE the
+        // caller's handler runs — that handler may synchronously flush queued
+        // chunks through handleChunk, which reads this ref. Gate on stream_type
+        // the same way the callers' handlers do, so a concurrently-mounted core
+        // of the other type does not adopt this stream's epoch; dispatch itself
+        // is left unfiltered, exactly as before.
+        const forThisStream =
+          !start.data?.stream_type || start.data.stream_type === streamType;
+        if (forThisStream) {
+          streamEpochRef.current = start.data?.stream_epoch ?? null;
+        }
+        handleStreamStartRef.current?.(start);
+      }
     );
     const unsubscribeChunk = wsContext.subscribe(
       'audio_chunk',
@@ -397,7 +440,9 @@ export function useAudioStreamingCore(
       unsubscribeEnd();
       unsubscribeError();
     };
-  }, [wsContext, clearStreamStartWatchdog]);
+    // streamType is a per-instance constant, so listing it cannot cause the
+    // resubscribe the comment above warns against.
+  }, [wsContext, clearStreamStartWatchdog, streamType]);
 
   const stopPlayback = useCallback(() => {
     playbackEngineRef.current?.stopPlayback();

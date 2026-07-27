@@ -202,6 +202,11 @@ async def send_pcm_chunk(
                         # chunk-progress from a superseded track after a rapid
                         # skip (#4434). Seeded per-stream in send_stream_start.
                         "track_id": _asc._track_id_var.get(),
+                        # Stream epoch (#4563): lets the client drop frames
+                        # from a stream that a seek already superseded — the
+                        # cancel is asynchronous with respect to frames already
+                        # queued here. Seeded per-stream in send_stream_start.
+                        "stream_epoch": _asc._stream_epoch_var.get(),
                         "chunk_index": chunk_index,
                         "chunk_count": total_chunks,
                         "frame_index": frame_idx,
