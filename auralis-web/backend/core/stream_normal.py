@@ -183,12 +183,28 @@ async def stream_normal_audio(
         # mirrors the enhanced path since #3185). chunk_interval ==
         # chunk_duration here (no overlap), so seek_offset is the
         # within-chunk offset of start_position.
+        #
+        # #4560: seek_offset is INFORMATIONAL. This path used to locate the
+        # containing chunk correctly and then stream it from its start,
+        # delegating the trim to the client by advertising seek_offset — but no
+        # client ever consumed that field, so up to CHUNK_DURATION (15 s) of
+        # already-heard audio was replayed on every normal-mode seek and every
+        # WS reconnect-resume, while the UI jumped to the requested position.
+        # The server is now authoritative and trims the first chunk itself,
+        # matching the enhanced path (stream_seek.py). Only one side may trim:
+        # adding a client-side trim on top of this would double-skip.
+        seek_offset = start_position - (start_chunk * chunk_duration)
+        first_chunk_trim_samples = (
+            int(start_position * sample_rate) - (start_chunk * interval_samples)
+            if start_position > 0
+            else 0
+        )
         seek_kwargs: dict[str, Any] = {}
         if start_position > 0:
             seek_kwargs = {
                 "start_chunk": start_chunk,
                 "seek_position": start_position,
-                "seek_offset": start_position - (start_chunk * chunk_duration),
+                "seek_offset": seek_offset,
             }
         if not await controller._send_stream_start(
             websocket,
@@ -260,9 +276,19 @@ async def stream_normal_audio(
                         break
                     lookahead_read = None
                 else:
-                    start_sample = chunk_idx * interval_samples
+                    # #4560: on the first chunk of a seek, start the read at the
+                    # requested position rather than at the chunk boundary, and
+                    # shorten it to match so the NEXT chunk still begins on its
+                    # boundary. Only this branch needs it — the look-ahead below
+                    # always reads a full chunk at a boundary, and it is only
+                    # ever primed after this first read.
+                    trim = first_chunk_trim_samples if chunk_idx == start_chunk else 0
+                    start_sample = chunk_idx * interval_samples + trim
                     chunk_audio = await asyncio.to_thread(
-                        _read_audio_chunk, streaming_filepath, start_sample, chunk_samples
+                        _read_audio_chunk,
+                        streaming_filepath,
+                        start_sample,
+                        chunk_samples - trim,
                     )
 
                 # Start look-ahead: read next chunk while we stream current one
