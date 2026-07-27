@@ -177,14 +177,116 @@ class TestAudioContentAnalyzer:
         # First call - should compute and cache
         features1 = await analyzer.analyze_chunk_fast(audio_data=audio)
 
-        # Second call with same audio - should hit cache
-        cache_key = f"mem_{id(audio)}"
+        # #4550: the in-memory key is content-addressed, not id()-based.
+        cache_key = analyzer._memory_cache_key(audio)
         assert cache_key in analyzer.analysis_cache
 
         features2 = await analyzer.analyze_chunk_fast(audio_data=audio)
 
         # Should be same object from cache
         assert features1.energy == features2.energy
+
+
+class TestAnalysisCacheKeying:
+    """#4550 — the in-memory cache key must be content-addressed, and the
+    cache must evict rather than refuse writes once full."""
+
+    @pytest.mark.asyncio
+    async def test_distinct_content_never_shares_an_entry(self):
+        """Two arrays with different content must not collide, even if the
+        first has been collected and the second reuses its address."""
+        import gc
+
+        analyzer = AudioContentAnalyzer()
+
+        # Real-ish signals: constant/DC buffers produce degenerate features
+        # that fail _validate_features and fall back to defaults, which would
+        # make the two results indistinguishable regardless of caching.
+        rng = np.random.default_rng(1234)
+        quiet = rng.standard_normal(4096) * 0.01
+        first = await analyzer.analyze_chunk_fast(audio_data=quiet)
+        recycled_id = id(quiet)
+        del quiet
+        gc.collect()
+
+        # Whether or not the allocator actually reuses the address, seed the
+        # cache under the *old* id-style key to prove it can no longer be hit.
+        analyzer.analysis_cache[f"mem_{recycled_id}"] = first
+
+        loud = rng.standard_normal(4096) * 0.9
+        second = await analyzer.analyze_chunk_fast(audio_data=loud)
+
+        assert second.energy != first.energy, (
+            "loud audio received the quiet chunk's cached features — the cache "
+            "key is still identity-based (#4550)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_identical_content_hits_cache(self):
+        """Same bytes in a different array object must hit the cache."""
+        analyzer = AudioContentAnalyzer()
+
+        a = np.linspace(-0.5, 0.5, 2048)
+        b = a.copy()
+        assert id(a) != id(b)
+
+        await analyzer.analyze_chunk_fast(audio_data=a)
+        assert len(analyzer.analysis_cache) == 1
+
+        await analyzer.analyze_chunk_fast(audio_data=b)
+        assert len(analyzer.analysis_cache) == 1, (
+            "identical content should reuse the entry, not add a second"
+        )
+
+    @pytest.mark.asyncio
+    async def test_same_bytes_different_shape_do_not_collide(self):
+        analyzer = AudioContentAnalyzer()
+
+        flat = np.zeros(4096)
+        stereo = flat.reshape(2048, 2)
+
+        assert analyzer._memory_cache_key(flat) != analyzer._memory_cache_key(stereo)
+
+    @pytest.mark.asyncio
+    async def test_cache_evicts_lru_instead_of_refusing_writes(self):
+        """Past max_size the cache must keep admitting, evicting the oldest."""
+        analyzer = AudioContentAnalyzer()
+        analyzer._cache_max_size = 10
+
+        for i in range(25):
+            await analyzer.analyze_chunk_fast(
+                audio_data=np.full(256, i / 100.0), filepath=f"/track-{i}.flac", chunk_idx=i
+            )
+
+        assert len(analyzer.analysis_cache) == 10, "cache must stay bounded"
+        assert "/track-24.flac_24" in analyzer.analysis_cache, (
+            "most recent entry must be admitted — the old guard refused all "
+            "writes once full (#4550)"
+        )
+        assert "/track-0.flac_0" not in analyzer.analysis_cache, (
+            "oldest entry should have been evicted"
+        )
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_refreshes_recency(self):
+        analyzer = AudioContentAnalyzer()
+        analyzer._cache_max_size = 3
+
+        for i in range(3):
+            await analyzer.analyze_chunk_fast(
+                audio_data=np.full(128, i), filepath=f"/t{i}.flac", chunk_idx=i
+            )
+
+        # Touch the oldest so it is no longer the eviction candidate.
+        await analyzer.analyze_chunk_fast(
+            audio_data=np.full(128, 0), filepath="/t0.flac", chunk_idx=0
+        )
+        await analyzer.analyze_chunk_fast(
+            audio_data=np.full(128, 9), filepath="/t9.flac", chunk_idx=9
+        )
+
+        assert "/t0.flac_0" in analyzer.analysis_cache, "recently used entry was evicted"
+        assert "/t1.flac_1" not in analyzer.analysis_cache
 
 
 class TestAudioContentPredictor:

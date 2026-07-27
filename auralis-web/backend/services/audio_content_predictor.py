@@ -16,7 +16,9 @@ Enhances the BranchPredictor with audio-informed predictions:
 """
 
 import asyncio
+import hashlib
 import logging
+from collections import OrderedDict
 from dataclasses import dataclass
 
 import numpy as np
@@ -72,8 +74,51 @@ class AudioContentAnalyzer:
 
     def __init__(self) -> None:
         """Initialize analyzer."""
-        self.analysis_cache: dict[str, AudioFeatures] = {}  # Cache results
+        # OrderedDict so the cache can evict least-recently-used entries once
+        # full (#4550). The previous plain dict had a `< max_size` admission
+        # guard and no eviction, so it froze on the first 100 keys for the
+        # process lifetime — including any poisoned ones.
+        self.analysis_cache: OrderedDict[str, AudioFeatures] = OrderedDict()
         self._cache_max_size: int = 100
+
+    @staticmethod
+    def _memory_cache_key(audio_data: np.ndarray) -> str:
+        """Build a content-addressed cache key for an in-memory array (#4550).
+
+        Previously this was ``f"mem_{id(audio_data)}"``. In CPython ``id()`` is
+        the object's memory address, which is reused after garbage collection —
+        and the cached ``AudioFeatures`` is a plain dataclass of floats that
+        holds no reference to the array, so nothing keeps the original alive.
+        A transient chunk buffer is therefore collected right after the call
+        and the very next same-sized allocation can land on that address and
+        collide with the cached entry, receiving another chunk's features.
+
+        (Contrast ``auralis/core/hybrid_processor.py``'s ``id(config)`` key,
+        which is safe: the cached ``HybridProcessor`` stores ``self.config``,
+        pinning the object so its address cannot be recycled while the entry
+        lives. That one is deliberately left alone.)
+
+        Hashing the full buffer costs far less than ``_extract_features``'s
+        FFT work, so it is not sampled — a strided digest would reintroduce
+        collisions between near-identical audio. ``shape`` and ``dtype`` are
+        folded in so buffers with identical bytes but different
+        interpretations never share a key.
+        """
+        digest = hashlib.blake2b(audio_data.tobytes(), digest_size=16).hexdigest()
+        return f"mem_{audio_data.dtype}_{audio_data.shape}_{digest}"
+
+    def _cache_store(self, cache_key: str, features: AudioFeatures) -> None:
+        """Insert into the LRU cache, evicting the oldest entries if over cap.
+
+        Mirrors the evict-while-over-size loop in
+        ``auralis/core/hybrid_processor.py`` rather than introducing a third
+        eviction style.
+        """
+        self.analysis_cache[cache_key] = features
+        self.analysis_cache.move_to_end(cache_key)
+        while len(self.analysis_cache) > self._cache_max_size:
+            evicted_key, _ = self.analysis_cache.popitem(last=False)
+            logger.debug(f"Evicted audio analysis cache entry: {evicted_key}")
 
     async def analyze_chunk_fast(
         self,
@@ -93,10 +138,14 @@ class AudioContentAnalyzer:
             AudioFeatures with 0.0-1.0 normalized values
         """
         try:
-            # Check cache first
-            cache_key = f"{filepath}_{chunk_idx}" if filepath else f"mem_{id(audio_data)}"
-            if cache_key in self.analysis_cache:
+            # Check cache first. The in-memory key is content-addressed
+            # (#4550); it can only be built once the array is in hand, so the
+            # filepath path is checked here and the in-memory path just below,
+            # after any lazy load.
+            cache_key = f"{filepath}_{chunk_idx}" if filepath else None
+            if cache_key is not None and cache_key in self.analysis_cache:
                 logger.debug(f"Audio analysis cache hit: {cache_key}")
+                self.analysis_cache.move_to_end(cache_key)
                 return self.analysis_cache[cache_key]
 
             # Load audio if needed
@@ -113,6 +162,15 @@ class AudioContentAnalyzer:
                 logger.warning(f"Invalid audio data (NaN/Inf) in {filepath}:{chunk_idx}")
                 return self._get_default_features()
 
+            # In-memory path: the key is derived from the array's content, so
+            # it can only be computed now that the array is loaded (#4550).
+            if cache_key is None:
+                cache_key = self._memory_cache_key(audio_data)
+                if cache_key in self.analysis_cache:
+                    logger.debug(f"Audio analysis cache hit: {cache_key}")
+                    self.analysis_cache.move_to_end(cache_key)
+                    return self.analysis_cache[cache_key]
+
             # Extract features
             features = await self._extract_features(audio_data)
 
@@ -121,9 +179,12 @@ class AudioContentAnalyzer:
                 logger.warning(f"Invalid features extracted from {filepath}:{chunk_idx}")
                 return self._get_default_features()
 
-            # Cache result
-            if len(self.analysis_cache) < self._cache_max_size:
-                self.analysis_cache[cache_key] = features
+            # Cache result. Note this does NOT dedupe concurrent work: two
+            # callers with the same key can both miss and both compute, since
+            # `_load_chunk_fast` and `_extract_features` are await points
+            # (#4379). Dedup is not a goal here — the duplicate is wasted work,
+            # not a wrong answer.
+            self._cache_store(cache_key, features)
 
             return features
 
