@@ -54,9 +54,19 @@ class MetadataUpdateRequest(BaseModel):
 
 
 class BatchMetadataUpdateRequest(BaseModel):
-    """Request model for batch metadata updates"""
+    """Request model for batch metadata updates
+
+    ``metadata`` is typed as :class:`MetadataUpdateRequest` rather than a
+    free-form ``dict[str, Any]`` (#4555).  The loose dict flowed unfiltered into
+    a ``setattr`` loop over the Track ORM object, so any column name that
+    happened to appear in the payload — ``id``, ``filepath``, ``album_id``,
+    ``play_count``, ``favorite`` — was written and committed without error.
+    Reusing the single-track model (which declares an explicit tag-field list
+    and ``extra="forbid"``) makes the two routes accept exactly the same shape
+    and rejects unknown keys with a 422.
+    """
     track_id: int = Field(..., description="Track ID")
-    metadata: dict[str, Any] = Field(..., description="Metadata fields to update")
+    metadata: MetadataUpdateRequest = Field(..., description="Metadata fields to update")
 
 
 class BatchMetadataRequest(BaseModel):
@@ -306,6 +316,20 @@ def create_metadata_router(
                 logger.warning(f"Track {update_req.track_id} not found, skipping")
                 continue
 
+            # Drop unset fields, mirroring the single-track route (#4555).
+            # model_dump() emits field names (track/disc), not the
+            # track_number/disc_number aliases, so both routes hand the
+            # metadata editor an identically-shaped tag dict.
+            metadata_fields = {
+                k: v for k, v in update_req.metadata.model_dump().items()
+                if v is not None
+            }
+            if not metadata_fields:
+                logger.warning(
+                    f"No metadata fields for track {update_req.track_id}, skipping"
+                )
+                continue
+
             # Validate DB-retrieved filepath before file I/O (fixes #2302)
             try:
                 validated_filepath = str(validate_file_path(str(track.filepath)))
@@ -316,7 +340,7 @@ def create_metadata_router(
             batch_updates.append(MetadataUpdate(
                 track_id=update_req.track_id,
                 filepath=validated_filepath,
-                updates=update_req.metadata,
+                updates=metadata_fields,
                 backup=True  # always enforced server-side (fixes #2407)
             ))
 

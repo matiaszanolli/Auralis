@@ -37,6 +37,45 @@ def _track_eager_options(*, collections_via_selectin: bool = False) -> tuple:
     return (loader(Track.artists), loader(Track.album), selectinload(Track.genres))
 
 
+# Track columns a *metadata* code path is allowed to write (#4555).
+#
+# The metadata routes forward tag dictionaries that originate in a request body
+# straight into a ``setattr`` loop.  Gating that loop on ``hasattr(track, key)``
+# alone let any Track attribute through — including the primary key ``id``,
+# ``filepath``, ``album_id``, ``play_count``, ``favorite`` and ``duration`` — so
+# a single POST /api/metadata/batch could rewrite a track's identity or falsify
+# playback statistics.  Only editable tag columns belong here; ``album``,
+# ``artists`` and ``genres`` are relationships that are maintained through their
+# own code paths and must never be assigned a raw tag string.
+_METADATA_WRITABLE_COLUMNS: frozenset[str] = frozenset({
+    'title',
+    'year',
+    'track_number',
+    'disc_number',
+    'comments',
+    'lyrics',
+})
+
+
+def _filter_metadata_fields(track_id: int, fields: dict[str, Any]) -> dict[str, Any]:
+    """Drop any field that is not a metadata-writable Track column (#4555).
+
+    Rejected keys are logged rather than raising: the batch route is
+    best-effort per track, and a caller that sends an unknown tag should not
+    abort the whole transaction.  The router-level model rejects them with a
+    422 first — this is the second line of defence, for the other callers of
+    ``update_metadata`` / ``update_metadata_batch``.
+    """
+    allowed = {k: v for k, v in fields.items() if k in _METADATA_WRITABLE_COLUMNS}
+    rejected = set(fields) - set(allowed)
+    if rejected:
+        error(
+            f"Refusing to write non-metadata field(s) {sorted(rejected)} to track "
+            f"{track_id} through a metadata path (#4555)"
+        )
+    return allowed
+
+
 class TrackRepository(BaseRepository):
     """Repository for track database operations"""
 
@@ -782,8 +821,9 @@ class TrackRepository(BaseRepository):
             if not track:
                 return None
 
-            # Update only provided fields
-            for key, value in fields.items():
+            # Update only provided fields, and only ones that are actually
+            # editable metadata — never structural columns (#4555).
+            for key, value in _filter_metadata_fields(track_id, fields).items():
                 if hasattr(track, key) and value is not None:
                     setattr(track, key, value)
 
@@ -829,7 +869,9 @@ class TrackRepository(BaseRepository):
                 ).scalars().first()
                 if not track:
                     continue
-                for key, value in fields.items():
+                # Same allowlist as update_metadata — structural columns are
+                # not writable through a metadata path (#4555).
+                for key, value in _filter_metadata_fields(track_id, fields).items():
                     if hasattr(track, key) and value is not None:
                         setattr(track, key, value)
                 successful.append(track_id)
