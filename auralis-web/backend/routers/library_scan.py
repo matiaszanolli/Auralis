@@ -52,12 +52,15 @@ def create_library_scan_router(
 
             scanner = LibraryScanner(library_manager)
 
-            # Broadcast scan started so frontend shows status immediately (#2711)
-            if connection_manager:
-                await connection_manager.broadcast({
-                    "type": "library_scan_started",
-                    "data": {"directories": request.directories},
-                })
+            # NOTE: `library_scan_started` is NOT broadcast here (#4602). It used
+            # to be sent unconditionally on entry — before scan_directories() ran
+            # and long before `result.rejected` could be known — so a second scan
+            # request that ended up 409'd had already told the UI a scan began,
+            # and its handler resets every counter, destroying the live progress
+            # of the scan actually running. The scanner now emits a
+            # `stage: 'started'` progress event once it owns the scan slot, and
+            # the callback below translates that into the frame (#2711's intent,
+            # correctly ordered).
 
             # Set up progress callback that bridges sync scanner → async broadcast.
             # asyncio.to_thread runs the scanner in a worker thread, so we use
@@ -70,12 +73,27 @@ def create_library_scan_router(
                     # by a scanner bug) so a future exception is logged rather than
                     # silently swallowed by run_coroutine_threadsafe (fixes #3864).
                     try:
+                        stage = progress_data.get('stage', 'processing')
+                        # The scanner emits this only once both rejection guards
+                        # have passed, so it is the earliest point at which a
+                        # start frame is truthful (#4602).
+                        if stage == 'started':
+                            asyncio.run_coroutine_threadsafe(
+                                connection_manager.broadcast({
+                                    "type": "library_scan_started",
+                                    "data": {
+                                        "directories": progress_data.get('directories')
+                                        or request.directories,
+                                    },
+                                }),
+                                loop,
+                            )
+                            return
                         total = progress_data.get('total_found', 0) or progress_data.get('processed', 0)
                         processed = progress_data.get('processed', 0)
                         # Indeterminate unless the scanner supplies a real fraction
                         # (streaming scan makes processed/total meaningless) — #4411.
                         percentage = scan_progress_percentage(progress_data)
-                        stage = progress_data.get('stage', 'processing')
                         asyncio.run_coroutine_threadsafe(
                             connection_manager.broadcast({
                                 "type": "scan_progress",
@@ -184,6 +202,29 @@ def create_library_scan_router(
                     "data": {"error": f"library scan timed out after {int(scan_timeout)}s"},
                 })
             raise HTTPException(status_code=504, detail=f"Library scan timed out after {scan_timeout}s")
+        except asyncio.CancelledError:
+            # The one exit #4413 missed. Since Python 3.8 CancelledError derives
+            # from BaseException, so `except Exception` below never caught it and
+            # there was no `finally` — the handler simply left, with no terminal
+            # frame. `useScanProgress` clears `isScanning` only on scan_complete
+            # or library_scan_error, so the panel stayed on "Scanning…" for the
+            # rest of the session with tracks half-imported, recoverable only by
+            # a page reload. The frontend has two triggers that cancel this
+            # request (unmount and supersede), plus server shutdown.
+            #
+            # Must be ordered before `except Exception` (which cannot catch it
+            # anyway) and kept separate from the `except (TimeoutError,
+            # CancelledError)` at the wait_for above, which re-raises
+            # deliberately after stop_scan(). TimeoutError still reaches its own
+            # handler above: it is an Exception subclass, not this one.
+            if connection_manager:
+                await connection_manager.broadcast({
+                    "type": "library_scan_error",
+                    "data": {"error": "library scan cancelled"},
+                })
+            # Re-raise: swallowing CancelledError breaks structured cancellation
+            # and uvicorn's shutdown semantics.
+            raise
         except HTTPException:
             # Includes the 409 "already in progress" path: another scan owns the
             # UI state and will emit its own terminal frame, so we must NOT clear

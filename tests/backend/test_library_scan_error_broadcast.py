@@ -1,11 +1,17 @@
 """Regression tests for manual-scan terminal error broadcast (#4413).
 
-The manual scan endpoint broadcasts `library_scan_started` up front (frontend
-sets isScanning=true) but, on timeout or an unexpected exception, previously
-raised 504/500 WITHOUT a terminal WS frame. useScanProgress clears isScanning
-only on `scan_complete`/`library_scan_error`, so the scan card stayed stuck
+The manual scan endpoint emits `library_scan_started` (frontend sets
+isScanning=true) but, on timeout or an unexpected exception, previously raised
+504/500 WITHOUT a terminal WS frame. useScanProgress clears isScanning only on
+`scan_complete`/`library_scan_error`, so the scan card stayed stuck
 "Scanning...". The endpoint now broadcasts `library_scan_error` in both branches
 before raising -- mirroring the auto-scanner (class-name-only redaction, #3543).
+
+#4602 moved the start frame: the router no longer broadcasts it on entry, since
+at that point a rejected scan is indistinguishable from an accepted one. The
+scanner now reports a `stage: 'started'` progress event once it owns the scan
+slot, and the router translates that into the frame. The fakes below emulate
+that, so these tests still assert the full started → error sequence.
 """
 
 import sys
@@ -36,16 +42,32 @@ class _CapturingManager:
         return [f.get("type") for f in self.frames]
 
 
-class _TimeoutScanner:
+class _StartReportingScanner:
+    """Base fake that emits the real scanner's post-guard `started` event (#4602)."""
+
+    def __init__(self, _manager) -> None:
+        self._cb = None
+
+    def set_progress_callback(self, cb) -> None:
+        self._cb = cb
+
+    def _report_started(self, directories) -> None:
+        if self._cb:
+            self._cb({'stage': 'started', 'directories': list(directories)})
+
+    def stop_scan(self) -> None:  # pragma: no cover - overridden where needed
+        pass
+
+
+class _TimeoutScanner(_StartReportingScanner):
     """Blocks until stop_scan(), so asyncio.wait_for hits the scan timeout."""
 
     def __init__(self, _manager) -> None:
+        super().__init__(_manager)
         self._stop = threading.Event()
 
-    def set_progress_callback(self, _cb) -> None:
-        pass
-
-    def scan_directories(self, **_kwargs):
+    def scan_directories(self, directories=(), **_kwargs):
+        self._report_started(directories)
         # Return promptly once stop_scan fires so the 5s grace wait completes;
         # the result is discarded because the timeout is re-raised.
         self._stop.wait(timeout=10)
@@ -55,20 +77,12 @@ class _TimeoutScanner:
         self._stop.set()
 
 
-class _ExplodingScanner:
+class _ExplodingScanner(_StartReportingScanner):
     """Raises immediately to exercise the generic-exception branch."""
 
-    def __init__(self, _manager) -> None:
-        pass
-
-    def set_progress_callback(self, _cb) -> None:
-        pass
-
-    def scan_directories(self, **_kwargs):
+    def scan_directories(self, directories=(), **_kwargs):
+        self._report_started(directories)
         raise ValueError("/secret/path/that/must/not/leak")
-
-    def stop_scan(self) -> None:  # pragma: no cover - not reached
-        pass
 
 
 def _client(scanner_cls, monkeypatch) -> tuple[TestClient, _CapturingManager]:

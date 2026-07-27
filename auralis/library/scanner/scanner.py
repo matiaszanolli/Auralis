@@ -164,6 +164,20 @@ class LibraryScanner:
 
         info(f"Starting library scan of {len(directories)} directories")
 
+        # Announce the start from HERE — after both rejection guards have passed
+        # (#4602). Callers used to broadcast `library_scan_started` on entry,
+        # before `rejected` could possibly be known, so a second scan request
+        # that ended up 409'd had already told the UI a scan had begun; its
+        # handler resets every counter, wiping the live progress of the scan that
+        # was actually running. Routing it through the progress callback means
+        # the frame can only be emitted once the slot is genuinely owned, and
+        # fixes both emitters (manual route + auto-scanner) at once, since both
+        # bridge this callback to the WebSocket.
+        self._report_progress({
+            'stage': 'started',
+            'directories': normalized,
+        })
+
         try:
             # Discover and process audio files in streaming batches to
             # bound memory usage regardless of library size (#2160).

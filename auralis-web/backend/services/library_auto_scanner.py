@@ -195,10 +195,14 @@ class LibraryAutoScanner:
 
         logger.info(f"🔍 Auto-scan starting ({len(scan_folders)} folder(s))")
         logger.debug(f"Auto-scan folders: {scan_folders}")
-        await connection_manager_safe_broadcast(
-            self._connection_manager,
-            {"type": "library_scan_started", "data": {"directories": scan_folders}}
-        )
+
+        # NOTE: `library_scan_started` is NOT broadcast here (#4602). This
+        # emitter had the identical ordering bug as the manual route — it fired
+        # before LibraryScanner was even constructed, so an auto-scan that the
+        # concurrency guard then rejected still reset the UI counters of a
+        # manual scan already in flight. The scanner emits a `stage: 'started'`
+        # progress event once it owns the scan slot; _async_progress below turns
+        # that into the frame.
 
         scanner = LibraryScanner(
             self._library_manager,
@@ -209,6 +213,17 @@ class LibraryAutoScanner:
         loop = asyncio.get_running_loop()
 
         async def _async_progress(data: dict[str, Any]) -> None:
+            # Emitted only once the scanner owns the scan slot, so this is the
+            # earliest truthful start frame (#4602).
+            if data.get('stage') == 'started':
+                await connection_manager_safe_broadcast(
+                    self._connection_manager,
+                    {
+                        "type": "library_scan_started",
+                        "data": {"directories": data.get('directories') or scan_folders},
+                    }
+                )
+                return
             total = data.get('total_found', 0) or data.get('processed', 0)
             processed = data.get('processed', 0)
             # Shared with the manual scan emitter: indeterminate unless a real
