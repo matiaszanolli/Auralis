@@ -13,6 +13,7 @@ and provides a single entry point for all content analysis operations.
 """
 
 import logging
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -84,10 +85,14 @@ class ContentAnalysisFacade:
         self.use_tempo_detection = use_tempo_detection
         self.realtime_mode = realtime_mode
         
-        # Lazy initialization (only create when needed)
+        # Lazy initialization (only create when needed). `_analyzer_lock`
+        # guards the two lazy builds and reset() so a concurrent first-touch
+        # cannot construct two analyzers, and a reset() cannot interleave with
+        # a build and leave two divergent stateful instances live (#4549).
+        self._analyzer_lock = threading.Lock()
         self._content_analyzer: Any | None = None
         self._target_generator: Any | None = None
-        
+
         logger.debug(
             f"ContentAnalysisFacade initialized: "
             f"sample_rate={sample_rate}, realtime={realtime_mode}"
@@ -95,33 +100,46 @@ class ContentAnalysisFacade:
 
     @property
     def content_analyzer(self) -> Any:
-        """Lazy-load ContentAnalyzer (full analysis)."""
-        if self._content_analyzer is None:
-            from .content_analyzer import ContentAnalyzer
-            self._content_analyzer = ContentAnalyzer(
-                sample_rate=self.sample_rate,
-                use_ml_classification=self.use_ml_classification,
-                use_tempo_detection=self.use_tempo_detection
-            )
-            logger.debug("ContentAnalyzer initialized (lazy)")
-        return self._content_analyzer
+        """Lazy-load ContentAnalyzer (full analysis).
+
+        Double-checked: a fast unlocked read keeps the hot path free of lock
+        overhead, then the lock + re-check closes the TOCTOU window on first
+        touch (#4549). Same shape as ``get_parallel_processor`` (#2314).
+        """
+        analyzer = self._content_analyzer
+        if analyzer is not None:
+            return analyzer
+        with self._analyzer_lock:
+            if self._content_analyzer is None:
+                from .content_analyzer import ContentAnalyzer
+                self._content_analyzer = ContentAnalyzer(
+                    sample_rate=self.sample_rate,
+                    use_ml_classification=self.use_ml_classification,
+                    use_tempo_detection=self.use_tempo_detection
+                )
+                logger.debug("ContentAnalyzer initialized (lazy)")
+            return self._content_analyzer
 
     @property
     def target_generator(self) -> Any:
-        """Lazy-load AdaptiveTargetGenerator."""
-        if self._target_generator is None:
-            from ..analysis.target_generator import AdaptiveTargetGenerator
+        """Lazy-load AdaptiveTargetGenerator (double-checked, see #4549)."""
+        generator = self._target_generator
+        if generator is not None:
+            return generator
+        with self._analyzer_lock:
+            if self._target_generator is None:
+                from ..analysis.target_generator import AdaptiveTargetGenerator
 
-            # Create config if not provided
-            if self.config is None:
-                from ..config import UnifiedConfig
-                config = UnifiedConfig(internal_sample_rate=self.sample_rate)
-            else:
-                config = self.config
-            
-            self._target_generator = AdaptiveTargetGenerator(config, processor=None)
-            logger.debug("AdaptiveTargetGenerator initialized (lazy)")
-        return self._target_generator
+                # Create config if not provided
+                if self.config is None:
+                    from ..config import UnifiedConfig
+                    config = UnifiedConfig(internal_sample_rate=self.sample_rate)
+                else:
+                    config = self.config
+
+                self._target_generator = AdaptiveTargetGenerator(config, processor=None)
+                logger.debug("AdaptiveTargetGenerator initialized (lazy)")
+            return self._target_generator
 
     def analyze_full(
         self,
@@ -244,14 +262,26 @@ class ContentAnalysisFacade:
             return self.analyze_full(audio, **kwargs)
 
     def reset(self) -> None:
-        """Reset all analyzers (clear cached state)."""
-        self._content_analyzer = None
-        self._target_generator = None
+        """Reset all analyzers (clear cached state).
+
+        Takes ``_analyzer_lock`` so a reset cannot interleave with a lazy
+        build (#4549). Unlocked, one thread could hold a reference to an
+        analyzer the facade no longer owns while another built a replacement,
+        leaving two divergent stateful instances producing inconsistent
+        content classification.
+        """
+        with self._analyzer_lock:
+            self._content_analyzer = None
+            self._target_generator = None
         logger.debug("ContentAnalysisFacade reset (analyzers cleared)")
 
 
-# Global facade instance (singleton pattern)
+# Global facade instance and its creation lock (singleton pattern, #4549).
+# Matches get_parallel_processor (#2314), get_processor_factory and
+# get_mastering_target_service — this accessor was the only unlocked member
+# of that family.
 _global_content_analysis_facade: ContentAnalysisFacade | None = None
+_global_content_analysis_facade_lock: threading.Lock = threading.Lock()
 
 
 def get_content_analysis_facade(
@@ -269,15 +299,19 @@ def get_content_analysis_facade(
         Global ContentAnalysisFacade instance
     """
     global _global_content_analysis_facade
-    
-    if _global_content_analysis_facade is None:
-        _global_content_analysis_facade = ContentAnalysisFacade(
-            sample_rate=sample_rate,
-            realtime_mode=realtime_mode
-        )
-        logger.info("Global ContentAnalysisFacade instance created")
-    
-    return _global_content_analysis_facade
+
+    # Double-check pattern: fast unlocked read on the hot path, lock plus
+    # inner re-check to close the TOCTOU window on first call (#4549).
+    if _global_content_analysis_facade is not None:
+        return _global_content_analysis_facade
+    with _global_content_analysis_facade_lock:
+        if _global_content_analysis_facade is None:
+            _global_content_analysis_facade = ContentAnalysisFacade(
+                sample_rate=sample_rate,
+                realtime_mode=realtime_mode
+            )
+            logger.info("Global ContentAnalysisFacade instance created")
+        return _global_content_analysis_facade
 
 
 def create_content_analysis_facade(
