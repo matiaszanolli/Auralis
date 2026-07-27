@@ -27,7 +27,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, query_expression, relationship
 
 from .base import Base, TimestampMixin, track_artist, track_genre, track_playlist
 
@@ -385,10 +385,26 @@ class Playlist(Base, TimestampMixin):
         order_by=track_playlist.c.position,
     )
 
+    # Populated by PlaylistRepository.get_all() via with_expression() so a list
+    # view can report these aggregates without materialising every playlist's
+    # whole `tracks` collection (#4554). Left as None on any query that does not
+    # ask for them, in which case to_dict() falls back to walking `tracks`.
+    track_count_expr: Mapped[int | None] = query_expression()
+    total_duration_expr: Mapped[float | None] = query_expression()
+
     def to_dict(self) -> dict[str, Any]:
         """Convert playlist to dictionary"""
-        # Guarded relationship read (#4641) — see Album.to_dict.
-        tracks = _safe_collection(self, 'tracks')
+        # Prefer SQL-computed aggregates when the query supplied them (#4554),
+        # so a paginated list view never has to load the tracks collection.
+        # Guarded relationship read (#4641) — see Album.to_dict — otherwise.
+        if self.track_count_expr is not None:
+            track_count = self.track_count_expr
+            total_duration = self.total_duration_expr or 0
+        else:
+            tracks = _safe_collection(self, 'tracks')
+            track_count = len(tracks)
+            total_duration = sum(track.duration for track in tracks if track.duration)
+
         return {
             'id': self.id,
             'name': self.name,
@@ -398,8 +414,8 @@ class Playlist(Base, TimestampMixin):
             'auto_master_enabled': self.auto_master_enabled,
             'mastering_profile': self.mastering_profile,
             'normalize_levels': self.normalize_levels,
-            'track_count': len(tracks),
-            'total_duration': sum(track.duration for track in tracks if track.duration),
+            'track_count': track_count,
+            'total_duration': total_duration,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             # Alias for frontend compatibility — frontend Playlist type uses modified_at (fixes #2269)

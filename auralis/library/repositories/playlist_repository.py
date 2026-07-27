@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import and_, delete, func, insert, select, text, update
 from sqlalchemy.exc import IntegrityError
 from ..models.base import track_playlist
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, selectinload, with_expression
 
 from ...utils.logging import debug, error, info
 from ..models import Playlist, Track
@@ -139,23 +139,73 @@ class PlaylistRepository(BaseRepository):
         finally:
             session.close()
 
-    def get_all(self) -> list[Playlist]:
-        """Get all playlists with eager loading"""
+    def get_all(self, limit: int = 50, offset: int = 0) -> tuple[list[Playlist], int]:
+        """Get a page of playlists, with each playlist's track count.
+
+        Args:
+            limit: Maximum number of playlists to return
+            offset: Number of playlists to skip
+
+        Returns:
+            Tuple of (playlists list, total count of playlists)
+
+        Note:
+            #4554: this used to take no arguments and unconditionally
+            ``selectinload`` every playlist's full ``tracks`` collection, so
+            "list playlists" was an unbounded read of the entire
+            playlist-to-track association table whose cost scaled in both
+            playlist count *and* tracks-per-playlist. It is now paginated like
+            the peer album/artist/track endpoints, and the per-playlist track
+            count comes from a correlated ``COUNT`` over the association table
+            instead of loading full Track rows just to call ``len()`` on them.
+        """
         session = self.get_session()
         try:
+            total = session.execute(
+                select(func.count()).select_from(Playlist)
+            ).scalar_one()
+
+            # Correlated subquery: evaluated per row by the DB engine, no JOIN
+            # and no row multiplication. Playlists with no tracks yield 0
+            # (not NULL), so no COALESCE is needed. Mirrors the pattern already
+            # used in ArtistRepository.get_all().
+            track_count = (
+                select(func.count())
+                .select_from(track_playlist)
+                .where(track_playlist.c.playlist_id == Playlist.id)
+                .correlate(Playlist)
+                .scalar_subquery()
+            )
+
+            # COALESCE because SUM over zero rows is NULL, unlike COUNT.
+            total_duration = (
+                select(func.coalesce(func.sum(Track.duration), 0.0))
+                .select_from(track_playlist)
+                .join(Track, Track.id == track_playlist.c.track_id)
+                .where(track_playlist.c.playlist_id == Playlist.id)
+                .correlate(Playlist)
+                .scalar_subquery()
+            )
+
             playlists = session.execute(
                 select(Playlist)
-                .options(selectinload(Playlist.tracks))
+                .options(
+                    with_expression(Playlist.track_count_expr, track_count),
+                    with_expression(Playlist.total_duration_expr, total_duration),
+                )
                 .order_by(Playlist.name)
+                .limit(limit)
+                .offset(offset)
             ).scalars().all()
-            # #3709: expunge_all() detaches the playlists AND their nested
-            # Track objects from the session. The previous per-playlist
+
+            # #3709: expunge_all() detaches the playlists AND any nested Track
+            # objects from the session. The previous per-playlist
             # `session.expunge(playlist)` only detached the parent; nested
             # tracks remained tied to the about-to-close session, so any
             # downstream access to `track.artists` / `track.album` (not
             # pre-loaded here) raised DetachedInstanceError.
             session.expunge_all()
-            return list(playlists)
+            return list(playlists), total
         finally:
             session.close()
 

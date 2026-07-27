@@ -472,9 +472,18 @@ class LibraryManager:
         """Get playlist by ID"""
         return self.playlists.get_by_id(playlist_id)
 
-    def get_all_playlists(self) -> list[Playlist]:
-        """Get all playlists"""
-        return self.playlists.get_all()
+    def get_all_playlists(self, limit: int = 200, offset: int = 0) -> list[Playlist]:
+        """Get a page of playlists
+
+        Note:
+            #4554: ``PlaylistRepository.get_all`` is paginated and now returns
+            ``(playlists, total)``. This convenience wrapper keeps its
+            list-returning shape and defaults to the API's maximum page size;
+            callers that need to walk a very large collection should page
+            through the repository directly.
+        """
+        playlists, _total = self.playlists.get_all(limit=limit, offset=offset)
+        return playlists
 
     def update_playlist(self, playlist_id: int, update_data: dict[str, Any]) -> bool:
         """Update playlist"""

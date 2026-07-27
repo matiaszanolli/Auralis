@@ -22,7 +22,7 @@ import asyncio
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from .dependencies import require_repository_factory, with_error_handling
@@ -87,21 +87,43 @@ def create_playlists_router(
 
     @router.get("/api/playlists")
     @with_error_handling("get playlists")
-    async def get_playlists() -> dict[str, Any]:
+    async def get_playlists(
+        limit: int = Query(50, ge=1, le=200, description="Number of playlists to return"),
+        offset: int = Query(0, ge=0, description="Number of playlists to skip"),
+    ) -> dict[str, Any]:
         """
-        Get all playlists.
+        Get a paginated list of playlists.
+
+        Args:
+            limit: Maximum number of playlists to return (1-200)
+            offset: Number of playlists to skip
 
         Returns:
-            dict: List of playlists and total count
+            dict: Page of playlists plus total/offset/limit/has_more
 
         Raises:
             HTTPException: If library manager/factory not available or query fails
+
+        Note:
+            #4554: this endpoint previously accepted no query parameters and
+            returned every playlist with every one of its tracks eagerly
+            loaded, so it was an unbounded read of the whole playlist-to-track
+            association table. It now matches the limit/offset convention (and
+            the 200 cap) used by /api/albums, /api/artists and
+            /api/library/tracks, and `total` is a real COUNT rather than the
+            length of the page.
         """
         repos = require_repository_factory(get_repository_factory)
-        playlists = await asyncio.to_thread(repos.playlists.get_all)
+        playlists, total = await asyncio.to_thread(
+            repos.playlists.get_all, limit=limit, offset=offset
+        )
+        serialized = serialize_playlists(playlists)
         return {
-            "playlists": serialize_playlists(playlists),
-            "total": len(playlists)
+            "playlists": serialized,
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + len(serialized)) < total,
         }
 
     @router.get("/api/playlists/{playlist_id}")

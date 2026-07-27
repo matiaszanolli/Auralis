@@ -308,33 +308,50 @@ class TestArtistRepositoryDetachedAccess:
             # Must not raise DetachedInstanceError
             assert len(album.tracks) >= 0
 
+    # #4553 narrowed the eager-load contract of the two *paginated* methods.
+    #
+    # get_all()/search() back GET /api/artists, whose serializer reads only
+    # `artist.tracks -> track.genres` plus len() on tracks and albums. They used
+    # to also load `Artist.tracks -> Track.album` and
+    # `Artist.albums -> Album.tracks` — which #4236 pinned here — but that made
+    # every page pull the full Track+Album row set for all artists on the page
+    # twice over, so cost scaled with tracks-per-artist rather than page size.
+    #
+    # What the list path guarantees is therefore now: artist.tracks,
+    # artist.albums, and track.genres are detached-safe; nested album.tracks is
+    # NOT. The single-row lookups keep the full guarantee (see
+    # test_get_by_id_relationships_accessible / test_get_by_name_...), because
+    # the artist-detail route genuinely reads album.tracks.
+
     def test_get_all_relationships_accessible(
         self, artist_repository, track_repository, session_factory
     ):
-        """get_all() must return artists with accessible relationships,
-        including nested artist.albums[i].tracks (#4236 sibling fix)."""
+        """get_all() must return artists whose list-path relationships are
+        accessible after the session closes (#4236, narrowed by #4553)."""
         self._setup_artist(track_repository, session_factory)
 
         artists, total = artist_repository.get_all(limit=10)
         assert total >= 1
         for artist in artists:
-            _ = artist.tracks
-            for album in artist.albums:
-                assert len(album.tracks) >= 0  # must not raise DetachedInstanceError
+            # must not raise DetachedInstanceError
+            assert len(artist.albums) >= 0
+            for track in artist.tracks:
+                assert len(track.genres) >= 0
 
     def test_search_relationships_accessible(
         self, artist_repository, track_repository, session_factory
     ):
-        """search() must return artists with accessible relationships,
-        including nested artist.albums[i].tracks (#4236 sibling fix)."""
+        """search() must return artists whose list-path relationships are
+        accessible after the session closes (#4236, narrowed by #4553)."""
         self._setup_artist(track_repository, session_factory)
 
         artists, total = artist_repository.search('Detached Test')
         assert total >= 1
         for artist in artists:
-            _ = artist.tracks
-            for album in artist.albums:
-                assert len(album.tracks) >= 0  # must not raise DetachedInstanceError
+            # must not raise DetachedInstanceError
+            assert len(artist.albums) >= 0
+            for track in artist.tracks:
+                assert len(track.genres) >= 0
 
 
 class TestSettingsRepositoryDetachedAccess:

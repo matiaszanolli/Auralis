@@ -1272,7 +1272,8 @@ class TestPlaylistEndpoints:
         mock_playlist2.to_dict.return_value = {"id": 2, "name": "Playlist 2"}
 
         mock_repos = Mock()
-        mock_repos.playlists.get_all.return_value = [mock_playlist1, mock_playlist2]
+        # #4554: get_all() is paginated and returns (playlists, total).
+        mock_repos.playlists.get_all.return_value = ([mock_playlist1, mock_playlist2], 2)
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repos}):
             response = client.get("/api/playlists")
@@ -1281,6 +1282,9 @@ class TestPlaylistEndpoints:
             data = response.json()
             assert "playlists" in data
             assert len(data["playlists"]) == 2
+            # total is the server-side COUNT, not the page length (#4554)
+            assert data["total"] == 2
+            assert data["has_more"] is False
 
     def test_get_playlist_by_id_success(self, client):
         """Test getting playlist by ID"""

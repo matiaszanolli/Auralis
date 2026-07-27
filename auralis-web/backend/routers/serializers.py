@@ -11,6 +11,8 @@ dictionaries for JSON serialization, with fallback handling and validation.
 import logging
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 logger = logging.getLogger(__name__)
 
 
@@ -314,15 +316,24 @@ def serialize_playlist(playlist: Any) -> dict[str, Any]:
     """
     playlist_dict = serialize_object(playlist, DEFAULT_PLAYLIST_FIELDS)
 
-    # Calculate track_count from tracks if available. try/except TypeError
-    # guards against Mock objects in tests, whose .tracks is itself an
-    # auto-generated Mock (truthy, but not sized) — same pattern as
-    # serialize_album's guard (#4306).
-    if hasattr(playlist, 'tracks') and playlist.tracks:
-        try:
+    # Prefer the SQL-computed count when the query asked for it (#4554).
+    # PlaylistRepository.get_all() populates track_count_expr with a correlated
+    # COUNT so a list view never has to materialise the tracks collection.
+    sql_count = getattr(playlist, 'track_count_expr', None)
+    if isinstance(sql_count, int):
+        playlist_dict['track_count'] = sql_count
+        return playlist_dict
+
+    # Otherwise fall back to counting the loaded tracks. try/except guards
+    # against Mock objects in tests, whose .tracks is itself an auto-generated
+    # Mock (truthy, but not sized) — same pattern as serialize_album's guard
+    # (#4306) — and against a detached playlist whose tracks were never loaded,
+    # where the lazy load raises rather than returning empty.
+    try:
+        if getattr(playlist, 'tracks', None):
             playlist_dict['track_count'] = len(playlist.tracks)
-        except TypeError:
-            pass
+    except (TypeError, SQLAlchemyError):
+        pass
 
     return playlist_dict
 

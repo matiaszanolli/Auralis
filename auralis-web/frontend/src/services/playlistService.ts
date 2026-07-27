@@ -34,7 +34,27 @@ import type { Track } from '@/types/domain';
 
 export interface PlaylistsResponse {
   playlists: Playlist[];
+  /** Total number of playlists on the server, not the length of this page. */
   total: number;
+  offset?: number;
+  limit?: number;
+  has_more?: boolean;
+}
+
+/**
+ * Maximum page size accepted by `GET /api/playlists` (#4554).
+ *
+ * The endpoint is paginated and defaults to 50 server-side. Every current
+ * caller — the add-to-playlist menus and the playlist view — wants the whole
+ * collection, so the service asks for the cap rather than inheriting a default
+ * that would silently truncate the list for anyone with more than 50
+ * playlists. `has_more` on the response says whether that was enough.
+ */
+export const PLAYLISTS_PAGE_LIMIT = 200;
+
+export interface PlaylistListParams extends Record<string, unknown> {
+  limit?: number;
+  offset?: number;
 }
 
 export interface CreatePlaylistRequest {
@@ -49,8 +69,14 @@ export interface UpdatePlaylistRequest {
 }
 
 // Create base CRUD service using factory
-const crudService = createCrudService<Playlist, CreatePlaylistRequest>({
-  list: ENDPOINTS.PLAYLISTS,
+const crudService = createCrudService<Playlist, CreatePlaylistRequest, number, PlaylistListParams>({
+  list: (params) => {
+    const search = new URLSearchParams({
+      limit: String(params?.limit ?? PLAYLISTS_PAGE_LIMIT),
+      offset: String(params?.offset ?? 0),
+    });
+    return `${ENDPOINTS.PLAYLISTS}?${search.toString()}`;
+  },
   get: (id) => ENDPOINTS.PLAYLIST(id),
   // Runtime shape checks at the boundary (#4607).
   guards: { list: isPlaylistsListShape, get: isPlaylistShape },
@@ -60,17 +86,33 @@ const crudService = createCrudService<Playlist, CreatePlaylistRequest>({
 });
 
 /**
- * Get all playlists
+ * Get a page of playlists (defaults to the maximum page size, see
+ * PLAYLISTS_PAGE_LIMIT).
  */
-export async function getPlaylists(): Promise<PlaylistsResponse> {
-  const response = await crudService.list();
+export async function getPlaylists(params?: PlaylistListParams): Promise<PlaylistsResponse> {
+  const response = await crudService.list(params);
   // Runtime shape validation — response may be a bare array or {playlists: [...]}
+  const envelope = (!Array.isArray(response) && response && typeof response === 'object')
+    ? response as unknown as PlaylistsResponse
+    : null;
   const playlistsArray = Array.isArray(response)
     ? response
-    : (response && typeof response === 'object' && 'playlists' in response && Array.isArray((response as PlaylistsResponse).playlists))
-      ? (response as PlaylistsResponse).playlists
+    : (envelope && Array.isArray(envelope.playlists))
+      ? envelope.playlists
       : [];
-  return { playlists: playlistsArray, total: playlistsArray.length };
+
+  // Prefer the server's COUNT — with pagination the page length is no longer
+  // the collection size (#4554). Fall back to the page length only when the
+  // response is a bare array (older backend) or omits `total`.
+  const total = typeof envelope?.total === 'number' ? envelope.total : playlistsArray.length;
+
+  return {
+    playlists: playlistsArray,
+    total,
+    offset: envelope?.offset,
+    limit: envelope?.limit,
+    has_more: envelope?.has_more,
+  };
 }
 
 /**

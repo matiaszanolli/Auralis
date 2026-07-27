@@ -38,7 +38,11 @@ describe('PlaylistService', () => {
     it('fetches all playlists successfully', async () => {
       const mockResponse = {
         playlists: [mockPlaylist],
-        total: 1,
+        // #4554: total is the server-side COUNT, which may exceed the page.
+        total: 7,
+        offset: 0,
+        limit: 200,
+        has_more: true,
       }
 
       vi.mocked(apiRequest.get).mockResolvedValue(mockResponse)
@@ -46,14 +50,38 @@ describe('PlaylistService', () => {
       const result = await playlistService.getPlaylists()
 
       // #4607: list/get now carry runtime shape guards.
-      expect(apiRequest.get).toHaveBeenCalledWith('/api/playlists', {
+      // #4554: the endpoint is paginated, so the service asks for the maximum
+      // page size rather than inheriting the server's default of 50.
+      expect(apiRequest.get).toHaveBeenCalledWith('/api/playlists?limit=200&offset=0', {
         validate: expect.any(Function),
       })
-      // The implementation wraps the response and calculates total as array length
+      // The server's total is preserved, NOT recomputed as the page length.
       expect(result).toEqual({
         playlists: [mockPlaylist],
-        total: 1, // Length of the playlists array
+        total: 7,
+        offset: 0,
+        limit: 200,
+        has_more: true,
       })
+    })
+
+    it('passes explicit pagination params through (#4554)', async () => {
+      vi.mocked(apiRequest.get).mockResolvedValue({ playlists: [], total: 0 })
+
+      await playlistService.getPlaylists({ limit: 25, offset: 50 })
+
+      expect(apiRequest.get).toHaveBeenCalledWith('/api/playlists?limit=25&offset=50', {
+        validate: expect.any(Function),
+      })
+    })
+
+    it('falls back to the page length when the response is a bare array', async () => {
+      vi.mocked(apiRequest.get).mockResolvedValue([mockPlaylist])
+
+      const result = await playlistService.getPlaylists()
+
+      expect(result.playlists).toEqual([mockPlaylist])
+      expect(result.total).toBe(1)
     })
 
     it('throws error on fetch failure', async () => {
