@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ShortcutDefinition } from '@/services/keyboardShortcutsService';
+import { isMacPlatform, ShortcutDefinition } from '@/services/keyboardShortcutsService';
 
 export interface GroupedShortcuts {
   [category: string]: ShortcutDefinition[];
@@ -20,8 +20,7 @@ interface ShortcutFormatConfig {
  */
 function defaultFormatShortcut(shortcut: ShortcutDefinition): string {
   const parts: string[] = [];
-  const isMac = typeof navigator !== 'undefined' &&
-                navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const isMac = isMacPlatform();
 
   if (shortcut.ctrl || shortcut.meta) {
     parts.push(isMac ? '⌘' : 'Ctrl');

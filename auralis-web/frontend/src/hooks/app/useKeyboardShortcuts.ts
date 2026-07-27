@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useLayoutEffect, useCallback, useState, useRef } from 'react';
-import { keyboardShortcuts, ShortcutDefinition, ShortcutHandler } from '@/services/keyboardShortcutsService';
+import { keyboardShortcuts, isMacPlatform, ShortcutDefinition, ShortcutHandler } from '@/services/keyboardShortcutsService';
 import {
   SHORTCUT_CONFIG_MAP,
   PRESET_SHORTCUTS,
@@ -127,8 +127,7 @@ export const formatShortcut = (shortcut: ShortcutDefinition): string => {
 export const getShortcutString = (shortcut: string): string => {
   // Handle string-based shortcut formatting for tests
   // This converts shortcut strings like 'Cmd+K' to display format
-  const isMac = typeof navigator !== 'undefined' &&
-                navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const isMac = isMacPlatform();
 
   if (shortcut.includes('Cmd')) {
     return shortcut.replace('Cmd', isMac ? '⌘' : 'Ctrl');

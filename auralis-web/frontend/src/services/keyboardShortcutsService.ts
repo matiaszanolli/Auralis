@@ -26,6 +26,47 @@ interface RegisteredShortcut extends ShortcutDefinition {
   handler: ShortcutHandler;
 }
 
+/**
+ * Minimal shape of the User-Agent Client Hints API, which TypeScript's DOM lib
+ * does not yet declare. Only the low-entropy `platform` hint is used, so no
+ * permission prompt or async `getHighEntropyValues()` call is involved.
+ */
+interface NavigatorUAData {
+  platform?: string;
+}
+
+/**
+ * Whether we are running on macOS, which decides ⌘/⇧/⌥ vs Ctrl/Shift/Alt in
+ * every shortcut label.
+ *
+ * Single source of truth (#4556). The expression
+ * `navigator.platform.toUpperCase().indexOf('MAC') >= 0` was previously
+ * duplicated across this service, `useKeyboardShortcuts` and
+ * `useShortcutFormatting`, so any correction would have left the other copies
+ * disagreeing — inconsistent glyphs within one session, which is worse than
+ * being uniformly wrong.
+ *
+ * `Navigator.platform` is deprecated in the HTML Living Standard and is already
+ * frozen (and eventually reduced) by Chromium's user-agent reduction, so the
+ * modern `navigator.userAgentData.platform` hint is preferred where present.
+ * Chromium is the only engine this Electron app runs on, so the remaining
+ * fallbacks are belt-and-braces rather than load-bearing.
+ */
+export function isMacPlatform(): boolean {
+  if (typeof navigator === 'undefined') return false;
+
+  const uaData = (navigator as Navigator & { userAgentData?: NavigatorUAData }).userAgentData;
+  if (uaData?.platform) {
+    return uaData.platform.toUpperCase().includes('MAC');
+  }
+
+  if (typeof navigator.platform === 'string' && navigator.platform) {
+    return navigator.platform.toUpperCase().includes('MAC');
+  }
+
+  return /Mac/i.test(navigator.userAgent ?? '');
+}
+
 class KeyboardShortcutsService {
   private shortcuts: Map<string, RegisteredShortcut> = new Map();
   private enabled: boolean = true;
@@ -169,8 +210,7 @@ class KeyboardShortcutsService {
    */
   formatShortcut(definition: ShortcutDefinition): string {
     const parts: string[] = [];
-    const isMac = typeof navigator !== 'undefined' &&
-                  navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const isMac = isMacPlatform();
 
     if (definition.ctrl || definition.meta) {
       parts.push(isMac ? '⌘' : 'Ctrl');
