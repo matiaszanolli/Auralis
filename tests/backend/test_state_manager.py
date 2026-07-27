@@ -491,5 +491,183 @@ class TestSlowBroadcastDoesNotBlockConcurrentUpdates:
         assert call_args["data"]["seq"] == state_manager.state.seq
 
 
+def _track(idx: int, duration: float = 300.0) -> TrackInfo:
+    return TrackInfo(
+        id=idx, title=f"T{idx}", artist="A", album="B",
+        duration=duration, filepath=f"/tmp/t{idx}.mp3"
+    )
+
+
+class _FastSleep:
+    """Replacement for asyncio.sleep that yields without real delay.
+
+    _position_update_loop sleeps 1.0s per tick; tests drive it by counting
+    ticks and cancelling once enough have elapsed. The real sleep is kept for
+    the zero-delay yield so the event loop still schedules other tasks.
+    """
+
+    def __init__(self, max_ticks: int):
+        self._real_sleep = asyncio.sleep
+        self.max_ticks = max_ticks
+        self.ticks = 0
+
+    async def __call__(self, delay: float) -> None:
+        if delay == 0:
+            await self._real_sleep(0)
+            return
+        self.ticks += 1
+        if self.ticks > self.max_ticks:
+            raise asyncio.CancelledError()
+        await self._real_sleep(0)
+
+
+class TestPositionTickSeq:
+    """#4544 — position_changed must carry the current seq without bumping it."""
+
+    @pytest.mark.asyncio
+    async def test_tick_payload_includes_current_seq(self, state_manager, mock_ws_manager):
+        state_manager.state.state = PlaybackState.PLAYING
+        state_manager.state.is_playing = True
+        state_manager.state.current_time = 0.0
+        state_manager.state.duration = 300.0
+        state_manager.state.current_track = _track(1)
+        state_manager._update_seq = 7
+
+        fake = _FastSleep(max_ticks=1)
+        with patch("core.state_manager.asyncio.sleep", fake):
+            await state_manager._position_update_loop()
+
+        ticks = [
+            c[0][0] for c in mock_ws_manager.broadcast.call_args_list
+            if c[0][0].get("type") == "position_changed"
+        ]
+        assert ticks, "no position_changed broadcast emitted"
+        assert ticks[0]["data"]["seq"] == 7, (
+            "tick must carry the current generation so the frontend can drop "
+            "stale ticks (#4544)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_tick_does_not_bump_seq(self, state_manager):
+        """A tick refines the last generation; it must not start a new one."""
+        state_manager.state.state = PlaybackState.PLAYING
+        state_manager.state.is_playing = True
+        state_manager.state.current_time = 0.0
+        state_manager.state.duration = 300.0
+        state_manager.state.current_track = _track(1)
+        state_manager._update_seq = 7
+
+        fake = _FastSleep(max_ticks=3)
+        with patch("core.state_manager.asyncio.sleep", fake):
+            await state_manager._position_update_loop()
+
+        assert state_manager._update_seq == 7, (
+            "position ticks must not advance _update_seq — only update_state does"
+        )
+
+
+class TestPositionLoopSurvivesAutoAdvance:
+    """#4545 — the 1 Hz loop must keep running across a queue auto-advance."""
+
+    @pytest.mark.asyncio
+    async def test_loop_continues_after_auto_advance(self, state_manager, mock_ws_manager):
+        """Previously the loop `return`ed on track end, killing position
+        broadcasts for the rest of the session."""
+        tracks = [_track(1), _track(2)]
+        state_manager.state.queue = tracks
+        state_manager.state.queue_size = 2
+        state_manager.state.queue_index = 0
+        state_manager.state.state = PlaybackState.PLAYING
+        state_manager.state.is_playing = True
+        state_manager.state.current_track = tracks[0]
+        # Already at the end of track 1 — the first tick triggers the advance.
+        state_manager.state.current_time = 300.0
+        state_manager.state.duration = 300.0
+
+        fake = _FastSleep(max_ticks=4)
+        with patch("core.state_manager.asyncio.sleep", fake):
+            await state_manager._position_update_loop()
+
+        # The advance happened...
+        assert state_manager.state.queue_index == 1
+        assert state_manager.state.current_track.id == 2
+        # ...and the loop kept ticking for the new track rather than exiting.
+        assert fake.ticks > 1, "loop exited at the auto-advance (#4545)"
+
+        ticks = [
+            c[0][0] for c in mock_ws_manager.broadcast.call_args_list
+            if c[0][0].get("type") == "position_changed"
+        ]
+        assert ticks, "no position_changed emitted after the auto-advance (#4545)"
+
+    @pytest.mark.asyncio
+    async def test_loop_exits_when_queue_exhausted(self, state_manager):
+        """Last track ending must stop the loop, not spin forever."""
+        tracks = [_track(1)]
+        state_manager.state.queue = tracks
+        state_manager.state.queue_size = 1
+        state_manager.state.queue_index = 0
+        state_manager.state.state = PlaybackState.PLAYING
+        state_manager.state.is_playing = True
+        state_manager.state.current_track = tracks[0]
+        state_manager.state.current_time = 300.0
+        state_manager.state.duration = 300.0
+
+        fake = _FastSleep(max_ticks=50)
+        with patch("core.state_manager.asyncio.sleep", fake):
+            # Must return on its own, not by exhausting max_ticks.
+            await asyncio.wait_for(state_manager._position_update_loop(), timeout=5.0)
+
+        assert state_manager.state.state == PlaybackState.STOPPED
+        assert fake.ticks < 50, "loop kept spinning after the queue was exhausted"
+
+    @pytest.mark.asyncio
+    async def test_repeat_all_wraps_and_keeps_ticking(self, state_manager):
+        """repeat_mode='all' wraps to index 0 and playback continues."""
+        tracks = [_track(1), _track(2)]
+        state_manager.state.queue = tracks
+        state_manager.state.queue_size = 2
+        state_manager.state.queue_index = 1
+        state_manager.state.repeat_mode = "all"
+        state_manager.state.state = PlaybackState.PLAYING
+        state_manager.state.is_playing = True
+        state_manager.state.current_track = tracks[1]
+        state_manager.state.current_time = 300.0
+        state_manager.state.duration = 300.0
+
+        fake = _FastSleep(max_ticks=4)
+        with patch("core.state_manager.asyncio.sleep", fake):
+            await state_manager._position_update_loop()
+
+        assert state_manager.state.queue_index == 0
+        assert fake.ticks > 1, "loop exited at the repeat-all wrap (#4545)"
+
+    @pytest.mark.asyncio
+    async def test_single_live_task_after_advance(self, state_manager):
+        """No duplicate loop task is ever spawned by the restart path."""
+        tracks = [_track(1), _track(2)]
+        state_manager.state.queue = tracks
+        state_manager.state.queue_size = 2
+        state_manager.state.queue_index = 0
+        state_manager.state.state = PlaybackState.PLAYING
+        state_manager.state.is_playing = True
+        state_manager.state.current_track = tracks[0]
+        state_manager.state.current_time = 300.0
+        state_manager.state.duration = 300.0
+
+        state_manager._start_position_updates()
+        first_task = state_manager._position_update_task
+
+        # A second start while one is live must be a no-op.
+        state_manager._start_position_updates()
+        assert state_manager._position_update_task is first_task
+
+        state_manager._stop_position_updates()
+        try:
+            await first_task
+        except asyncio.CancelledError:
+            pass
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

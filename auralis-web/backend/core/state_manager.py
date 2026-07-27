@@ -242,6 +242,7 @@ class PlayerStateManager:
 
                 new_time: float | None = None
                 track_ended: bool = False
+                tick_seq: int = 0
 
                 async with self._lock:
                     if self.state.is_playing and self.state.current_track:
@@ -252,26 +253,55 @@ class PlayerStateManager:
                         )
                         self.state.current_time = new_time
 
+                        # Read the CURRENT generation without bumping it (#4544).
+                        # This tick is a refinement of the last state, not a new
+                        # generation, so it must not advance _update_seq — but it
+                        # must carry a stamp so the frontend can drop it if a
+                        # newer player_state has already been applied. Read here,
+                        # inside the same lock that computed new_time, so the
+                        # stamp always describes the value it travels with.
+                        tick_seq = self._update_seq
+
                         # Check if track ended
                         if new_time >= self.state.duration:
                             track_ended = True
 
                 if track_ended:
-                    # spawn_background_task ensures next_track() failures are
-                    # logged instead of silently stopping queue advancement
-                    # (fixes #3512 / BE-NEW-54).
-                    from helpers import spawn_background_task
-                    spawn_background_task(
-                        self.next_track(), name="StateManager.next_track"
-                    )
-                    return
+                    # #4545: previously this spawned next_track() and returned,
+                    # killing the 1 Hz broadcast for the rest of the session —
+                    # next_track() never calls set_playing(), and
+                    # _start_position_updates() is reachable only from there. The
+                    # advance is now awaited so the loop can inspect the
+                    # resulting state and keep ticking for the new track.
+                    #
+                    # next_track() returns None when the queue is exhausted, and
+                    # sets STOPPED on that path; treat that as "do not restart".
+                    try:
+                        await self.next_track()
+                    except Exception:
+                        # Matches the old spawn_background_task behaviour of
+                        # logging rather than silently stopping the queue
+                        # (#3512 / BE-NEW-54) — but keeps the loop alive.
+                        logger.exception("next_track() failed during auto-advance")
+                        return
+
+                    async with self._lock:
+                        still_playing = (
+                            self.state.is_playing and self.state.current_track is not None
+                        )
+                    if not still_playing:
+                        return
+
+                    # Don't bill the advance's latency to the new track.
+                    last_tick = loop.time()
+                    continue
 
                 # Broadcast lightweight position update (fixes #2570) — avoids
                 # serialising the full queue + track info every second.
                 if new_time is not None:
                     await self.ws_manager.broadcast({
                         "type": "position_changed",
-                        "data": {"position": new_time},
+                        "data": {"position": new_time, "seq": tick_seq},
                     })
         except asyncio.CancelledError:
             pass  # Normal cancellation

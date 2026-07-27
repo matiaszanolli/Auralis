@@ -821,6 +821,71 @@ describe('usePlayerStateSync – position_changed (#3937)', () => {
 });
 
 // ============================================================================
+// position_changed seq guard (#4544)
+// ============================================================================
+//
+// position_changed mutates the same current_time field player_state does, and
+// the backend computes it under a lock but broadcasts outside it — the exact
+// producer shape the player_state seq guard exists for (#3732). Unguarded, a
+// stale pre-seek tick landing after the post-seek snapshot rewinds the bar.
+
+describe('usePlayerStateSync – position_changed seq guard (#4544)', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('drops a tick whose seq is older than the last applied snapshot', () => {
+    // Seek: snapshot at seq 5 moves playback to 100.
+    firePlayerState({ seq: 5, duration: 300, current_time: 100 });
+    expect(store.getState().player.currentTime).toBe(100);
+
+    // Pre-seek tick (seq 4) arrives late — must not rewind the bar.
+    firePositionChanged({ seq: 4, position: 30 });
+    expect(store.getState().player.currentTime).toBe(100);
+  });
+
+  it('applies a tick whose seq equals the current generation', () => {
+    // The backend stamps ticks with the CURRENT seq without bumping it, so an
+    // equal seq is a legitimate refinement of the latest state, not a stale one.
+    firePlayerState({ seq: 5, duration: 300, current_time: 100 });
+    firePositionChanged({ seq: 5, position: 101 });
+    expect(store.getState().player.currentTime).toBe(101);
+  });
+
+  it('does not advance the seq watermark, so later snapshots still apply', () => {
+    firePlayerState({ seq: 5, duration: 300, current_time: 100 });
+    firePositionChanged({ seq: 5, position: 101 });
+
+    // A tick must not raise the watermark — a subsequent snapshot at the same
+    // generation boundary must still be accepted.
+    firePlayerState({ seq: 5, volume: 42 });
+    expect(store.getState().player.volume).toBe(42);
+  });
+
+  it('applies ticks with no seq field (backward compatible)', () => {
+    firePlayerState({ seq: 5, duration: 300, current_time: 100 });
+    firePositionChanged({ position: 55 });
+    expect(store.getState().player.currentTime).toBe(55);
+  });
+
+  it('skips the dispatch entirely rather than clamping a stale value', () => {
+    firePlayerState({ seq: 9, duration: 300, current_time: 200 });
+    firePositionChanged({ seq: 1, position: 0 });
+    // 0 is finite and in range — it must be dropped because it is stale, not
+    // coerced or clamped.
+    expect(store.getState().player.currentTime).toBe(200);
+  });
+});
+
+// ============================================================================
 // Discrete playback events (#4144)
 // ============================================================================
 

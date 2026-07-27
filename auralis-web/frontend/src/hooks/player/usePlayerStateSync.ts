@@ -196,10 +196,31 @@ export function usePlayerStateSync() {
     // re-broadcasting the full player_state; without this subscriber
     // redux.player.currentTime was frozen between state-change events.
     const unsubscribePosition = subscribe('position_changed', (message) => {
-      const data = (message as { data?: { position?: number } }).data;
-      if (data && typeof data.position === 'number' && Number.isFinite(data.position)) {
-        dispatch(setCurrentTime(data.position));
+      const data = (message as { data?: { position?: number; seq?: number } }).data;
+      if (!data || typeof data.position !== 'number' || !Number.isFinite(data.position)) {
+        return;
       }
+
+      // #4544: position_changed mutates the same current_time field that
+      // player_state does, and the backend computes it under a lock but
+      // broadcasts outside it — the exact shape the player_state seq guard
+      // exists for (#3732). Without this check a stale pre-seek tick could land
+      // after the post-seek snapshot and rewind the progress bar.
+      //
+      // The tick carries the CURRENT generation rather than a new one, so
+      // `seq === lastSeenSeqRef.current` is a legitimate refinement and must be
+      // applied; only strictly older ticks are dropped. The dispatch is skipped
+      // entirely rather than clamped — a stale-but-finite position is wrong,
+      // not merely out of range.
+      //
+      // lastSeenSeqRef is deliberately NOT advanced here: a tick is not a new
+      // state generation, and only player_state should move the watermark. The
+      // reconnect reset (#4338) is shared automatically via the same ref.
+      if (typeof data.seq === 'number' && data.seq < lastSeenSeqRef.current) {
+        return;
+      }
+
+      dispatch(setCurrentTime(data.position));
     });
 
     // Discrete player events (#4144). The periodic player_state snapshot is the
