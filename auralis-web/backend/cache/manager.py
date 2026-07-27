@@ -18,7 +18,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 # Chunk geometry comes from chunk_boundaries — the single source of truth (#4025)
 # — instead of a third local copy that would drift and cause cache-index errors.
@@ -79,6 +79,21 @@ class CachedChunk:
         """Update access statistics."""
         self.access_count += 1
         self.last_access = time.time()
+
+
+class PlaybackSnapshot(NamedTuple):
+    """One internally-consistent read of the cache manager's playback state.
+
+    All five values come from a single ``_lock`` acquisition (#4546), so
+    consumers can rely on ``chunk_idx`` genuinely belonging to ``track_id``
+    rather than being derived from a position that has since moved to a
+    different track.
+    """
+    track_id: int
+    position: float
+    chunk_idx: int
+    preset: str
+    intensity: float
 
 
 @dataclass
@@ -171,6 +186,31 @@ class StreamlinedCacheManager:
         overlap = CHUNK_DURATION - CHUNK_INTERVAL
         return max(1, math.ceil((duration - overlap) / CHUNK_INTERVAL))
 
+    async def get_playback_snapshot(self) -> "PlaybackSnapshot | None":
+        """Read the four playback fields in one critical section (#4546).
+
+        ``update_position`` writes ``current_track_id``, ``current_position``,
+        ``current_preset`` and ``intensity`` together under ``_lock``. Readers
+        that fetch them as four separate awaited/unsynchronised reads can
+        observe a mix of generations — e.g. track A's id paired with track B's
+        position, yielding a chunk index past A's end. Mirrors
+        ``AudioFileManager.get_state_snapshot()`` (#3474), which exists for
+        exactly this hazard on the player side.
+
+        Returns ``None`` when no track is playing, preserving the
+        ``if not current_track_id: return`` guard callers had before.
+        """
+        async with self._lock:
+            if not self.current_track_id:
+                return None
+            return PlaybackSnapshot(
+                track_id=self.current_track_id,
+                position=self.current_position,
+                chunk_idx=self._get_current_chunk(self.current_position),
+                preset=self.current_preset,
+                intensity=self.intensity,
+            )
+
     async def update_position(
         self,
         track_id: int,
@@ -192,6 +232,11 @@ class StreamlinedCacheManager:
         async with self._lock:
             track_changed = track_id != self.current_track_id
             preset_changed = preset != self.current_preset
+            # Captured before the write so the change log below reports the
+            # real transition; it previously read the already-updated fields
+            # and always printed "X -> X".
+            previous_track_id = self.current_track_id
+            previous_preset = self.current_preset
 
             # Update state
             self.current_track_id = track_id
@@ -211,12 +256,12 @@ class StreamlinedCacheManager:
             # Clear old Tier 1 cache on track change
             if track_changed:
                 await self._clear_tier1_cache()
-                logger.info(f"Track changed: {self.current_track_id} -> {track_id}, cleared Tier 1")
+                logger.info(f"Track changed: {previous_track_id} -> {track_id}, cleared Tier 1")
 
             # Clear old Tier 2 cache on preset change (need to recache processed chunks)
             if preset_changed and track_id in self.track_status:
                 await self._clear_tier2_processed_chunks(track_id)
-                logger.info(f"Preset changed: {self.current_preset} -> {preset}, cleared processed chunks")
+                logger.info(f"Preset changed: {previous_preset} -> {preset}, cleared processed chunks")
 
     async def get_chunk(
         self,

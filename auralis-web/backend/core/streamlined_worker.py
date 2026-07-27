@@ -134,20 +134,35 @@ class StreamlinedCacheWorker:
         2. Full track cache (Tier 2 - background)
         3. Previous track (Tier 2 - nice to have)
         """
-        if not self.cache_manager.current_track_id:
+        # #4546: one snapshot under the cache manager's lock instead of four
+        # separate unsynchronised reads. Previously a track or preset change
+        # landing between any two of them produced a mismatched tuple — e.g.
+        # track A's id with track B's position, giving a chunk index past A's
+        # end — and the `to_thread` DB round-trip below widened that window
+        # from "between two attribute reads" to a full query.
+        snapshot = await self.cache_manager.get_playback_snapshot()
+        if snapshot is None:
             return  # No track playing
 
-        track_id = self.cache_manager.current_track_id
-        current_chunk = self.cache_manager._get_current_chunk(
-            self.cache_manager.current_position
-        )
-        preset = self.cache_manager.current_preset
-        intensity = self.cache_manager.intensity
+        track_id = snapshot.track_id
+        current_chunk = snapshot.chunk_idx
+        preset = snapshot.preset
+        intensity = snapshot.intensity
 
         # Get track from library (sync DB call — offload to thread)
         track = await asyncio.to_thread(self.library_manager.tracks.get_by_id, track_id)
         if not track:
             logger.warning(f"Track {track_id} not found in library")
+            return
+
+        # Re-validate after the await: if playback moved to another track while
+        # the query was in flight, abandon this tick rather than caching chunks
+        # under the previous track's key. The next tick picks up the new track.
+        if self.cache_manager.current_track_id != track_id:
+            logger.debug(
+                f"Track changed during priority processing "
+                f"({track_id} -> {self.cache_manager.current_track_id}); skipping tick"
+            )
             return
 
         # Priority 1: Ensure next chunk is cached (Tier 1)

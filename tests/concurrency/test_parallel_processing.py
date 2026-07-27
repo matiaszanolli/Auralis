@@ -677,7 +677,11 @@ class TestResourceContention:
         lines = content.strip().split("\n")
         assert len(lines) == 11  # initial + 10 writes
 
-    @pytest.mark.xfail(reason="Database fixture setup required (see #4269)", strict=True)
+    # xfail removed under #4548: the blocker this marker named ("Database
+    # fixture setup required") was the shared `temp_db` fixture handing each
+    # thread its own empty in-memory database. With the fixture now
+    # file-backed, this test passes — and strict=True turned the unexpected
+    # pass into a suite failure, so the marker had to go.
     def test_database_lock_contention(self, temp_db):
         """Test database locking behavior."""
         from auralis.library.models import Track

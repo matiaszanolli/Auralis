@@ -365,7 +365,7 @@ def test_intensity_exactly_zero_point_five():
     reason="Predates current AudioPlayer API: needs get_repository_factory + "
     "load_track_from_library(track_id)/seek() (the old load_track(path)/"
     "seek_to_position() were removed). Import path fixed under #4044; full "
-    "rewrite to the library-backed player API is separate work."
+    "rewrite to the library-backed player API is tracked by #4548."
 )
 def test_position_exactly_duration(tmp_path):
     """

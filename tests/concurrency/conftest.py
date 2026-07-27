@@ -193,15 +193,32 @@ def shared_list():
 
 
 @pytest.fixture
-def temp_db():
-    """In-memory SQLite database for concurrent testing."""
+def temp_db(tmp_path):
+    """File-backed SQLite database usable from many threads at once (#4548).
+
+    This fixture used to be ``create_engine('sqlite:///:memory:')``, which
+    defaults to ``SingletonThreadPool``: every thread gets its **own**
+    connection, and for in-memory SQLite a separate connection is a separate,
+    empty database. Writes from one pool thread were invisible to the next, and
+    teardown raised ``SQLite objects created in a thread can only be used in
+    that same thread``. That — not a product bug — is what the five "Database
+    setup requires complex fixtures" xfails in test_thread_safety.py were
+    tripping on.
+
+    Forcing ``StaticPool`` would share one database but also share one
+    connection, and a single sqlite3 connection driven concurrently raises
+    ``bad parameter or other API misuse``. A file-backed database is what a
+    concurrency test actually wants: one database, one connection per thread,
+    real locking between them — the same shape as the production
+    ``~/.auralis/library.db``.
+    """
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
     from auralis.library.models import Base
 
-    # Create in-memory database
-    engine = create_engine('sqlite:///:memory:', echo=False)
+    db_path = tmp_path / "concurrency_test.db"
+    engine = create_engine(f'sqlite:///{db_path}', echo=False)
     Base.metadata.create_all(engine)
 
     # Create session factory

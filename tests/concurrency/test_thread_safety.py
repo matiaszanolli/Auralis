@@ -81,7 +81,6 @@ class TestSharedResourceAccess:
             value = cache.get(f"concurrent_key_{i}")
             assert value == f"concurrent_value_{i}", f"Cache corruption detected for key {i}"
 
-    @pytest.mark.xfail(reason="API compatibility - needs updates", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_cache_invalidation_race_condition(self, thread_pool):
@@ -111,7 +110,10 @@ class TestSharedResourceAccess:
 
         def invalidator():
             time.sleep(0.01)  # Let readers start
-            cache.clear()
+            # #4548: QueryCache exposes invalidate() (no args = full flush),
+            # not clear(). The stale call was the whole "API compatibility"
+            # blocker for this test.
+            cache.invalidate()
 
         # Start readers
         reader_futures = [thread_pool.submit(reader) for _ in range(5)]
@@ -127,7 +129,6 @@ class TestSharedResourceAccess:
         assert len(errors) == 0, f"Errors during concurrent access: {errors}"
 
 
-    @pytest.mark.xfail(reason="Database setup requires complex fixtures", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_database_connection_pool(self, temp_db, thread_pool):
@@ -163,7 +164,6 @@ class TestSharedResourceAccess:
         all_tracks, total = track_repo.get_all(limit=100)
         assert len(all_tracks) == 20
 
-    @pytest.mark.xfail(reason="Database setup requires complex fixtures", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_concurrent_database_writes(self, temp_db, thread_pool):
@@ -209,7 +209,7 @@ class TestSharedResourceAccess:
         results = [f.result() for f in futures]
         assert all(r for r in results)
 
-    @pytest.mark.xfail(reason="Database setup requires complex fixtures", strict=True)
+    @pytest.mark.xfail(reason="Asserts no lost updates across concurrent read-modify-write increments, which neither this test's hand-rolled increment nor TrackRepository.record_play provides — both do SELECT then play_count+1 in Python. Needs an atomic UPDATE (see #4548)", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_concurrent_database_transactions(self, temp_db, thread_pool):
@@ -259,7 +259,6 @@ class TestSharedResourceAccess:
         # Count should be close to 50 (allowing for some race conditions in SQLite)
         assert final_count >= 45, f"Play count {final_count} too low, transaction isolation may be broken"
 
-    @pytest.mark.xfail(reason="Database setup requires complex fixtures", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_library_manager_concurrent_access(self, tmp_path, thread_pool):
@@ -268,15 +267,29 @@ class TestSharedResourceAccess:
 
         Validates that LibraryManager can be safely accessed from multiple threads.
         """
+        import numpy as np
+        import soundfile as sf
+
         from auralis.library.manager import LibraryManager
 
         db_path = str(tmp_path / "concurrent_test.db")
         manager = LibraryManager(database_path=db_path)
 
+        # #4548: LibraryManager.add_track validates that the file exists, so
+        # the previous hardcoded '/tmp/lib_concurrent_{i}.flac' paths made
+        # every addition raise FileNotFoundError. Write real (tiny) audio
+        # files instead — the fixture gap this test was xfailed for.
+        audio = np.zeros(1024, dtype=np.float32)
+        paths = []
+        for i in range(30):
+            path = tmp_path / f"lib_concurrent_{i}.flac"
+            sf.write(str(path), audio, 44100)
+            paths.append(str(path))
+
         # Concurrent track additions
         def add_track_to_library(i):
             track_info = {
-                'filepath': f'/tmp/lib_concurrent_{i}.flac',
+                'filepath': paths[i],
                 'title': f'Library Track {i}',
                 'artists': ['Concurrent Artist'],
                 'format': 'FLAC',
@@ -296,7 +309,7 @@ class TestSharedResourceAccess:
         all_tracks, total = manager.get_all_tracks(limit=100)
         assert len(all_tracks) == 30
 
-    @pytest.mark.xfail(reason="Database setup requires complex fixtures", strict=True)
+    @pytest.mark.xfail(reason="Asserts no lost updates across concurrent read-modify-write increments, which neither this test's hand-rolled increment nor TrackRepository.record_play provides — both do SELECT then play_count+1 in Python. Needs an atomic UPDATE (see #4548)", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_concurrent_metadata_updates(self, temp_db, thread_pool):
@@ -466,7 +479,7 @@ class TestAudioProcessingThreadSafety:
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     @pytest.mark.audio
-    @pytest.mark.xfail(reason="API compatibility issue", strict=True)
+    @pytest.mark.xfail(reason="UnifiedConfig has no set_intensity(); test needs re-pointing at the current config API (see #4548)", strict=True)
     def test_processor_instance_isolation(self, test_audio_files, thread_pool):
         """
         Test that processor instances don't interfere with each other.
@@ -529,7 +542,7 @@ class TestAudioProcessingThreadSafety:
         assert all(r > 0 for r in results)
 
     @pytest.mark.concurrency
-    @pytest.mark.xfail(reason="API compatibility - needs updates", strict=True)
+    @pytest.mark.xfail(reason="AdaptiveCompressor.__init__ now requires a 'settings' argument; test still calls the old no-arg form (see #4548)", strict=True)
     @pytest.mark.thread_safety
     @pytest.mark.audio
     def test_concurrent_dynamics_processing(self, test_audio_files, thread_pool):
@@ -579,7 +592,7 @@ class TestAudioProcessingThreadSafety:
         assert all(isinstance(r, (int, float)) for r in results)
 
     @pytest.mark.concurrency
-    @pytest.mark.xfail(reason="API compatibility - needs updates", strict=True)
+    @pytest.mark.xfail(reason="BaseSpectrumAnalyzer.__init__ no longer accepts a 'sample_rate' kwarg; test needs re-pointing at the current constructor (see #4548)", strict=True)
     @pytest.mark.thread_safety
     @pytest.mark.audio
     def test_concurrent_spectrum_analysis(self, test_audio_files, thread_pool):
@@ -603,7 +616,7 @@ class TestAudioProcessingThreadSafety:
         assert all(results)
 
     @pytest.mark.concurrency
-    @pytest.mark.xfail(reason="API compatibility - needs updates", strict=True)
+    @pytest.mark.xfail(reason="ContentAnalyzer.analyze_content() takes 1 argument, test passes 2; signature changed (see #4548)", strict=True)
     @pytest.mark.thread_safety
     @pytest.mark.audio
     def test_concurrent_content_analysis(self, test_audio_files, thread_pool):
@@ -632,7 +645,7 @@ class TestAudioProcessingThreadSafety:
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     @pytest.mark.audio
-    @pytest.mark.xfail(reason="API compatibility issue", strict=True)
+    @pytest.mark.xfail(reason="AdaptiveTargetGenerator.__init__ now requires a 'config' argument; test still calls the old no-arg form (see #4548)", strict=True)
     def test_concurrent_target_generation(self, test_audio_files, thread_pool):
         """
         Test TargetGenerator thread-safety.
@@ -814,7 +827,6 @@ class TestThreadPoolManagement:
         final_thread_count = threading.active_count()
         assert final_thread_count <= initial_thread_count + 1  # Allow for minor variation
 
-    @pytest.mark.xfail(reason="API compatibility - needs fixture updates", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_thread_pool_exception_handling(self, thread_pool):
@@ -848,7 +860,6 @@ class TestThreadPoolManagement:
         assert successes == 5
         assert failures == 5
 
-    @pytest.mark.xfail(reason="API compatibility - needs fixture updates", strict=True)
     @pytest.mark.concurrency
     @pytest.mark.thread_safety
     def test_thread_local_storage(self, thread_pool):
