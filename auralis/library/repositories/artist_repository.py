@@ -99,7 +99,20 @@ class ArtistRepository(BaseRepository):
             else:  # Default to name
                 order_column = Artist.name.asc()
 
-            # Get paginated artists with all relationships eagerly loaded.
+            # Eager-load exactly what the serializer reads, and nothing more
+            # (#4553).  routers/artists.py walks `artist.tracks -> track.genres`
+            # to build the genre set and calls len() on `artist.tracks` and
+            # `artist.albums`; it never touches `track.album` or `album.tracks`.
+            # Those two chains used to be loaded here and discarded, which meant
+            # every page pulled the full Track+Album row set for all artists on
+            # the page twice over — once via Artist.tracks -> Track.album, once
+            # via Artist.albums -> Album.tracks.  Cost therefore scaled with
+            # tracks-per-artist rather than with page size.
+            #
+            # The counts stay as len(): Artist.tracks must be loaded anyway for
+            # the genre set, so track_count is free, and Artist.albums is now a
+            # shallow load (one bounded IN query, no nested track rows).
+            #
             # Use selectinload (separate IN queries) instead of nested joinedload
             # to avoid the N×M Cartesian-product row explosion (fixes #2516).
             artists = (
@@ -107,8 +120,7 @@ class ArtistRepository(BaseRepository):
                     select(Artist)
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.genres),
-                        selectinload(Artist.tracks).selectinload(Track.album),
-                        selectinload(Artist.albums).selectinload(Album.tracks)
+                        selectinload(Artist.albums)
                     )
                     .order_by(order_column)
                     .limit(limit)
@@ -147,6 +159,7 @@ class ArtistRepository(BaseRepository):
             ).scalar_one()
 
             # Get paginated results.
+            # Load only what routers/artists.py reads — see get_all() (#4553).
             # Use selectinload (separate IN queries) instead of nested joinedload
             # to avoid the N×M Cartesian-product row explosion (mirrors get_all() fix #2516).
             artists = (
@@ -154,8 +167,7 @@ class ArtistRepository(BaseRepository):
                     select(Artist)
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.genres),
-                        selectinload(Artist.tracks).selectinload(Track.album),
-                        selectinload(Artist.albums).selectinload(Album.tracks)
+                        selectinload(Artist.albums)
                     )
                     .where(Artist.name.ilike(search_term, escape='\\'))
                     .order_by(Artist.name)
