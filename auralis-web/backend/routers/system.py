@@ -322,6 +322,9 @@ def create_system_router(
             stream_audio=stream_audio,
             stream_normal=stream_normal,
             stream_from_position=stream_from_position,
+            # #4542: the play handlers broadcast mastering_recommendation, which
+            # goes to every client rather than just this socket.
+            broadcast_manager=manager,
         )
         # Track job IDs this WS subscribed to, for cleanup on disconnect (#3325)
         subscribed_job_ids: set[str] = set()

@@ -47,3 +47,7 @@ class WSDeps:
     stream_audio: Callable[..., Any]
     stream_normal: Callable[..., Any]
     stream_from_position: Callable[..., Any]
+    # Broadcast manager, so handlers can emit connection-independent events
+    # (mastering_recommendation, #4542). Optional/defaulted so existing
+    # constructions — including those in tests — keep working.
+    broadcast_manager: Any = None

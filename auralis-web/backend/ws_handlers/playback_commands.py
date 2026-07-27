@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import WebSocket
 
 from core.audio_stream_controller import ws_id as _ws_id
+from helpers import spawn_background_task
 from schemas import (  # single source of truth (#4424, #4600)
     VALID_PRESETS,
     is_valid_intensity,
@@ -52,6 +53,53 @@ async def _cancel_prior_task(ws_id: str, state: StreamState) -> None:
             await old_task
         except (asyncio.CancelledError, Exception):
             pass
+
+
+async def _generate_mastering_recommendation(track_id: int, deps: WSDeps) -> None:
+    """Resolve the track path and broadcast its mastering recommendation.
+
+    #4542: RecommendationService.generate_and_broadcast_recommendation was only
+    ever scheduled from POST /api/player/load, which the frontend never calls —
+    its real playback path is the WS play_enhanced/play_normal commands. The
+    recommendation panel therefore showed a loading state for 10s and timed out
+    for every track in every session. This is the trigger on the live path.
+
+    Spawned via spawn_background_task by the callers, not FastAPI
+    BackgroundTasks: #3553 flagged that running the full audio analysis through
+    BackgroundTasks puts it on the event loop. The service already offloads its
+    blocking body to a worker thread.
+
+    Never raises into the play path — a failed recommendation must not stop
+    playback.
+    """
+    if deps.get_repository_factory is None or deps.broadcast_manager is None:
+        logger.debug(
+            "Skipping mastering recommendation: repository factory or broadcast "
+            "manager unavailable"
+        )
+        return
+
+    try:
+        repos = deps.get_repository_factory()
+        # Sync DB read — keep it off the event loop.
+        track = await asyncio.to_thread(repos.tracks.get_by_id, track_id)
+        if track is None or not getattr(track, "filepath", None):
+            logger.debug(f"No filepath for track {track_id}; skipping recommendation")
+            return
+
+        # Imported lazily: services.recommendation_service pulls in the
+        # processing stack, and this module is imported during router setup.
+        from services.recommendation_service import RecommendationService
+
+        service = RecommendationService(connection_manager=deps.broadcast_manager)
+        await service.generate_and_broadcast_recommendation(
+            track_id=track_id,
+            track_path=track.filepath,
+        )
+    except Exception:
+        logger.exception(
+            f"Mastering recommendation failed for track {track_id} (playback unaffected)"
+        )
 
 
 async def handle_play_enhanced(
@@ -176,6 +224,12 @@ async def handle_play_enhanced(
         state.active_track_ids[ws_id] = track_id
     logger.info(f"Started background streaming task for track {track_id}")
 
+    # #4542: trigger the mastering recommendation on the live play path.
+    spawn_background_task(
+        _generate_mastering_recommendation(track_id, deps),
+        name=f"mastering_recommendation:{track_id}",
+    )
+
 
 async def handle_play_normal(
     websocket: WebSocket, message: dict[str, Any], state: StreamState, deps: WSDeps
@@ -224,6 +278,13 @@ async def handle_play_normal(
         # dedup checks see the truth (#3509 / BE-NEW-51).
         state.active_track_ids[ws_id] = track_id
     logger.info(f"Started background normal streaming task for track {track_id}")
+
+    # #4542 SIBLING: normal playback needs the trigger too — wiring only the
+    # enhanced path would leave the feature dead for unenhanced playback.
+    spawn_background_task(
+        _generate_mastering_recommendation(track_id, deps),
+        name=f"mastering_recommendation:{track_id}",
+    )
 
 
 async def handle_seek(
