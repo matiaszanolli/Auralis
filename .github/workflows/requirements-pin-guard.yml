@@ -5,8 +5,14 @@ name: Requirements Pin Guard
 # untrusted-audio parsing stack (numpy, scipy, soundfile, mutagen) in that
 # file ever drifts back to unpinned, the shipped build resolves whatever is
 # on PyPI at build time instead of the vetted, reproducible pins in the root
-# requirements.txt. This job fails if any sensitive package there is missing
-# an `==` pin.
+# requirements.txt.
+#
+# #4561: the sensitive-package loop below only ever inspected four packages, so
+# it passed green while `uvicorn` vs `uvicorn[standard]` diverged between the two
+# manifests — meaning dev/CI ran the pure-Python asyncio loop and users got
+# uvloop + httptools. Both files' headers already claim they must mirror each
+# other; the mirror job below turns that documentation promise into a gate that
+# catches ANY divergence, not just drift in four hand-picked packages.
 
 on:
   push:
@@ -17,6 +23,46 @@ permissions:
   contents: read
 
 jobs:
+  manifests-mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify the shipped manifest mirrors the root manifest
+        run: |
+          set -euo pipefail
+          root=requirements.txt
+          shipped=auralis-web/backend/requirements.txt
+
+          for f in "$root" "$shipped"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing manifest: $f"
+              exit 1
+            fi
+          done
+
+          # Compare requirement lines only: strip comments, blank lines and
+          # leading/trailing whitespace, then sort so ordering and section
+          # grouping may differ between the two files.
+          extract() {
+            sed -e 's/[[:space:]]*#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$1" \
+              | grep -E '^[a-zA-Z]' \
+              | sort
+          }
+
+          if ! diff -u <(extract "$root") <(extract "$shipped") \
+                 --label "$root" --label "$shipped" > /tmp/manifest.diff; then
+            echo "::error file=$shipped::Requirement lines diverge from $root (#4561)"
+            echo "The two manifests must be identical — $shipped is rsync'd into"
+            echo "the shipped desktop app, so any divergence means users run"
+            echo "different dependencies from dev and CI (#4343)."
+            echo "To update: change $root first, then copy its pins across."
+            echo
+            cat /tmp/manifest.diff
+            exit 1
+          fi
+          echo "OK: $shipped mirrors $root."
+
   pinned-parser-dependencies:
     runs-on: ubuntu-latest
     steps:
@@ -26,7 +72,9 @@ jobs:
         run: |
           set -euo pipefail
           pin_status=0
-          # Sensitive: parses untrusted audio/metadata files directly.
+          # Sensitive: parses untrusted audio/metadata files directly. Kept as a
+          # separate job from the mirror check above: the two manifests being
+          # identical does not by itself mean they are ==-pinned (#4343).
           for pkg in numpy scipy soundfile mutagen; do
             line=$(grep -iE "^${pkg}([<>=~!\[ ]|$)" auralis-web/backend/requirements.txt || true)
             if [ -z "$line" ]; then

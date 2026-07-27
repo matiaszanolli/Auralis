@@ -10,7 +10,14 @@ mutagen==1.47.0
 
 # FastAPI Backend
 fastapi==0.122.0
-uvicorn==0.38.0
+# [standard] is load-bearing, not cosmetic: it pulls uvloop + httptools, so the
+# WebSocket audio stream runs on a different event-loop implementation with it
+# than without. The shipped desktop manifest
+# (auralis-web/backend/requirements.txt) has always carried the extra, so dev
+# and CI were exercising the pure-Python asyncio loop while users got uvloop —
+# exactly the split that lets a buffer underrun or a crossfade seam reproduce
+# only in the packaged build (#4561). Also pulls watchfiles, websockets, PyYAML.
+uvicorn[standard]==0.38.0
 pydantic==2.12.4
 pydantic-settings==2.12.0
 python-multipart==0.0.27

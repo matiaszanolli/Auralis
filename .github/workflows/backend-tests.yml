@@ -1,0 +1,90 @@
+name: Backend Tests
+
+# Gate added for #4562. No workflow had ever run pytest: five tracked files sat
+# in `.github/workflows.backup/` whose README described them in the present
+# tense as the active pipeline (backend tests, linting, Codecov), but GitHub
+# only executes `.github/workflows/`, so none of them ran. This is the pytest
+# counterpart of `frontend-test.yml` (#4640).
+#
+# Ratchet, not a green-suite demand: `scripts/check_pytest_baseline.py` compares
+# the run against the checked-in `pytest-baseline.json` and fails only on
+# failures that are NOT already known. The baseline can shrink but never grow.
+# Once it reaches zero, replace the baseline step with a plain pytest invocation.
+#
+# Two files are excluded because they HANG when run as whole files rather than
+# as scoped classes — they would burn the runner's whole allowance instead of
+# failing. Removing an exclusion requires fixing the hang first:
+#   tests/backend/test_system_api.py
+#   tests/concurrency/test_thread_safety.py
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'auralis/**'
+      - 'auralis-web/backend/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'pytest.ini'
+      - 'pytest-baseline.json'
+      - 'scripts/check_pytest_baseline.py'
+      - '.github/workflows/backend-tests.yml'
+  pull_request:
+    paths:
+      - 'auralis/**'
+      - 'auralis-web/backend/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'pytest.ini'
+      - 'pytest-baseline.json'
+      - 'scripts/check_pytest_baseline.py'
+      - '.github/workflows/backend-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    # The suite takes ~7 minutes locally; the cap exists so a spec that hangs
+    # the runner fails the job instead of burning the whole allowance.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # pytest MUST stay at 9.0.x: 9.1 removed the legacy
+          # pytest_ignore_collect(path, config) hook signature that
+          # tests/conftest.py still uses, which crashes collection entirely.
+          pip install 'pytest==9.0.1' pytest-asyncio
+
+      # Always exits 0 — a failing suite is expected while the baseline is
+      # non-empty. The baseline check below is what decides the job.
+      - name: Run pytest
+        run: |
+          python -m pytest -q -m "not slow" -p no:randomly \
+            --ignore=tests/backend/test_system_api.py \
+            --ignore=tests/concurrency/test_thread_safety.py \
+            --junitxml=pytest-results.xml || true
+
+      # Fails the job on any failure not present in pytest-baseline.json, and
+      # also fails if the report is missing or reports 0 collected tests, so a
+      # crashed runner cannot pass as green.
+      - name: Compare against known-failure baseline
+        run: python scripts/check_pytest_baseline.py pytest-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: pytest-results.xml
+          retention-days: 7

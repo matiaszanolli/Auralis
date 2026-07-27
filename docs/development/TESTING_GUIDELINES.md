@@ -1022,12 +1022,19 @@ repos:
 ### CI Pipeline (GitHub Actions)
 
 > **⚠️ Proposed / target state — NOT yet implemented.** The `test.yml` workflow
-> below does not exist. As of now `.github/workflows/` contains only
-> `build-release.yml`, `frontend-typecheck.yml` (runs `tsc` only), `lockfile-guard.yml`,
+> below does not exist. As of now `.github/workflows/` contains
+> `build-release.yml`, `frontend-test.yml` (runs vitest against a known-failure
+> baseline, #4640), `frontend-typecheck.yml` (runs `tsc` only), `lockfile-guard.yml`,
 > `requirements-pin-guard.yml`, and `rust-audit.yml` — there is **no** automated
 > pytest / coverage / codecov / e2e gate on push or PR. Treat the pipeline and the
 > Quality Gates below as the intended design to build toward, not a guarantee that
 > these checks run automatically today.
+>
+> Verify against the Actions tab rather than against files in the repo: until
+> #4562, `.github/workflows.backup/` held five tracked workflows whose README
+> described them in the present tense as the active pipeline. None of them ran —
+> GitHub only executes `.github/workflows/` — and that false confidence is a
+> large part of why the pytest gap went unnoticed for so long.
 
 ```yaml
 # .github/workflows/test.yml  (PROPOSED — does not exist yet)

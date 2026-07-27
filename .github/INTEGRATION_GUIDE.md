@@ -2,11 +2,20 @@
 
 This guide shows how to add auto-issue creation to your **existing** GitHub Actions workflows.
 
+> **⚠️ The workflows referenced below do not exist.** `ci.yml` and
+> `backend-tests.yml` were deleted long ago; copies lingered in
+> `.github/workflows.backup/` (which GitHub never executed) until #4562 removed
+> them. The live set is `build-release.yml`, `frontend-test.yml`,
+> `frontend-typecheck.yml`, `lockfile-guard.yml`, `requirements-pin-guard.yml`,
+> and `rust-audit.yml` — **none of which runs pytest**. Treat the snippets here
+> as a template to paste into a workflow you create, not as edits to files that
+> are already in the repo.
+
 ## Quick Integration (Minimal Changes)
 
 ### Option 1: Add to Existing CI Workflow
 
-Add these steps to [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+Add these steps to a pytest-running workflow (e.g. a new `.github/workflows/backend-tests.yml`):
 
 ```yaml
 # Add to permissions at the top

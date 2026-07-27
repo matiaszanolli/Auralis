@@ -29,7 +29,10 @@ dependencies = [
     "librosa>=0.9.0",
     "websockets>=10.0",
     "fastapi>=0.68.0",
-    "uvicorn>=0.15.0",
+    # Extras must match both requirements manifests (#4561) — see the note
+    # there on uvloop/httptools. The floor-vs-exact pinning divergence between
+    # this file and requirements.txt is tracked separately by #4355.
+    "uvicorn[standard]>=0.15.0",
     "pydantic>=2.0.0",
     "PyQt6>=6.2.0",  # For development UI
 ]
