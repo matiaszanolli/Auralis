@@ -61,9 +61,8 @@ def _identity_process(audio: np.ndarray, *args, **kwargs):
     return audio.copy(), {'stages': [], 'effective_intensity': 0.5}
 
 
-def _master_mono(mono_data: np.ndarray) -> np.ndarray:
-    """Write *mono_data* (1-D) as a true 1-channel WAV, master it, and return
-    the output audio read back from the written file."""
+def _master_mono(mono_data: np.ndarray) -> tuple[np.ndarray, dict]:
+    """Master a true mono WAV and return its decoded output and result report."""
     pipeline = _make_pipeline()
     with (
         tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as fin,
@@ -77,10 +76,10 @@ def _master_mono(mono_data: np.ndarray) -> np.ndarray:
         assert sf.info(input_path).channels == 1
 
         with patch.object(pipeline, '_process', side_effect=_identity_process):
-            pipeline.master_file(input_path, output_path, verbose=False)
+            result = pipeline.master_file(input_path, output_path, verbose=False)
 
         output, _ = sf.read(output_path, dtype='float32')
-        return output
+        return output, result
     finally:
         Path(input_path).unlink(missing_ok=True)
         Path(output_path).unlink(missing_ok=True)
@@ -90,13 +89,13 @@ class TestMasterFileMonoInput:
     def test_mono_input_masters_without_exception(self):
         """A true mono file must master without raising (was ValueError)."""
         mono = (0.2 * np.sin(2 * np.pi * 220 * np.arange(SR) / SR)).astype(np.float32)
-        output = _master_mono(mono)  # must not raise
+        output, _ = _master_mono(mono)  # must not raise
         assert output.size > 0
 
     def test_mono_output_is_stereo(self):
         """Output opens as a 2-channel file (mono is expanded to stereo)."""
         mono = (0.2 * np.sin(2 * np.pi * 220 * np.arange(SR) / SR)).astype(np.float32)
-        output = _master_mono(mono)
+        output, _ = _master_mono(mono)
         assert output.ndim == 2 and output.shape[1] == 2, (
             f"Expected stereo output, got shape {output.shape}"
         )
@@ -105,7 +104,34 @@ class TestMasterFileMonoInput:
         """Output frame count equals input frame count."""
         n = SR + 1234  # spans more than one chunk boundary
         mono = (0.2 * np.sin(2 * np.pi * 220 * np.arange(n) / SR)).astype(np.float32)
-        output = _master_mono(mono)
+        output, _ = _master_mono(mono)
         assert output.shape[0] == n, (
             f"Sample count changed: input {n} -> output {output.shape[0]}"
         )
+
+    def test_master_result_includes_closed_loop_evaluation(self):
+        """Offline mastering exposes a usable before/after decision report."""
+        mono = (0.2 * np.sin(2 * np.pi * 220 * np.arange(SR) / SR)).astype(np.float32)
+        _, result = _master_mono(mono)
+
+        evaluation = result['evaluation']
+        assert evaluation['verdict'] == 'rejected'
+        assert evaluation['needs_processing'] is True
+        assert evaluation['accepted'] is False
+        assert evaluation['dimensions']['frequency_response']
+
+    def test_quality_evaluation_failure_does_not_discard_output(self):
+        """A post-export analyzer failure reports unavailable, without raising."""
+        mono = (0.2 * np.sin(2 * np.pi * 220 * np.arange(SR) / SR)).astype(np.float32)
+        with patch(
+            'auralis.analysis.quality.mastering_file_evaluation.'
+            'evaluate_mastering_files',
+            side_effect=TypeError("metrics backend failed"),
+        ):
+            output, result = _master_mono(mono)
+
+        assert output.size > 0
+        assert result['evaluation'] == {
+            'verdict': 'unavailable',
+            'reason': 'metrics backend failed',
+        }

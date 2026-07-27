@@ -12,15 +12,27 @@ from .distortion_assessment import DistortionAssessor
 from .dynamic_assessment import DynamicRangeAssessor
 from .frequency_assessment import FrequencyResponseAssessor
 from .loudness_assessment import LoudnessAssessor
+from .mastering_evaluation import MasteringEvaluator
+from .mastering_evaluation_models import (
+    DimensionEvaluation,
+    EvaluationPolicy,
+    MasteringEvaluationReport,
+)
+from .mastering_file_evaluation import evaluate_mastering_files
 from .quality_metrics import QualityMetrics, QualityScores
 from .stereo_assessment import StereoImagingAssessor
 
 __all__ = [
+    'DimensionEvaluation',
+    'DistortionAssessor',
+    'DynamicRangeAssessor',
+    'EvaluationPolicy',
+    'FrequencyResponseAssessor',
+    'LoudnessAssessor',
+    'MasteringEvaluationReport',
+    'MasteringEvaluator',
     'QualityMetrics',
     'QualityScores',
-    'FrequencyResponseAssessor',
-    'DynamicRangeAssessor',
     'StereoImagingAssessor',
-    'DistortionAssessor',
-    'LoudnessAssessor',
+    'evaluate_mastering_files',
 ]

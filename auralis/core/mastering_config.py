@@ -46,6 +46,24 @@ class SimpleMasteringConfig:
     CROSSFADE_DURATION_SEC: float = 3.0
     """Duration of crossfade between chunks in seconds"""
 
+    QUALITY_EVALUATION_ENABLED: bool = True
+    """Attach a closed-loop before/after quality report to file-master results."""
+
+    QUALITY_EVALUATION_WINDOW_SEC: float = 8.0
+    """Duration of each evenly distributed quality-evaluation window."""
+
+    QUALITY_EVALUATION_WINDOW_COUNT: int = 5
+    """Number of source/output windows used for sustained-issue detection."""
+
+    QUALITY_EVALUATION_MIN_EFFECT: float = 2.0
+    """Minimum sub-score improvement that counts as a meaningful adjustment."""
+
+    QUALITY_EVALUATION_MAX_REGRESSION: float = 5.0
+    """Largest tolerated drop in an independently scored quality dimension."""
+
+    QUALITY_EVALUATION_TRUE_PEAK_DBFS: float = -0.5
+    """Output True Peak ceiling used by the closed-loop artifact gate."""
+
     # =========================================================================
     # Material Classification Thresholds
     # =========================================================================

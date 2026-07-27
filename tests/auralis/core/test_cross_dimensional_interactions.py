@@ -370,7 +370,27 @@ class TestQualityGateInterval:
 
         with patch(
             'auralis.analysis.quality.quality_metrics.QualityMetrics.compare_quality',
-            return_value={'difference': 0, 'audio1_score': 50, 'audio2_score': 50},
+            return_value={
+                'difference': 0,
+                'audio1_score': 50,
+                'audio2_score': 50,
+                'sub_scores': {
+                    'audio1': {
+                        'frequency_response': 50,
+                        'dynamic_range': 50,
+                        'stereo_imaging': 50,
+                        'distortion': 50,
+                        'loudness': 50,
+                    },
+                    'audio2': {
+                        'frequency_response': 50,
+                        'dynamic_range': 50,
+                        'stereo_imaging': 50,
+                        'distortion': 50,
+                        'loudness': 50,
+                    },
+                },
+            },
         ) as mock_cmp:
             for _ in range(n):
                 mode.process(audio.copy(), self._identity_eq())
@@ -393,6 +413,43 @@ class TestQualityGateInterval:
     def test_interval_zero_runs_first_call_only(self, stereo_noise: np.ndarray):
         mode = self._mode_with_interval(0)
         assert self._run(mode, stereo_noise, 5) == 1
+
+    def test_gate_records_closed_loop_evaluation(
+        self, stereo_noise: np.ndarray
+    ):
+        from unittest.mock import patch
+
+        comparison = {
+            'difference': 8.0,
+            'audio1_score': 72.0,
+            'audio2_score': 80.0,
+            'sub_scores': {
+                'audio1': {
+                    'frequency_response': 40.0,
+                    'dynamic_range': 80.0,
+                    'stereo_imaging': 80.0,
+                    'distortion': 80.0,
+                    'loudness': 80.0,
+                },
+                'audio2': {
+                    'frequency_response': 70.0,
+                    'dynamic_range': 80.0,
+                    'stereo_imaging': 80.0,
+                    'distortion': 80.0,
+                    'loudness': 80.0,
+                },
+            },
+        }
+        mode = self._mode_with_interval(1)
+        with patch(
+            'auralis.analysis.quality.quality_metrics.QualityMetrics.compare_quality',
+            return_value=comparison,
+        ):
+            mode.process(stereo_noise.copy(), self._identity_eq())
+
+        assert mode.last_mastering_evaluation is not None
+        assert mode.last_mastering_evaluation['verdict'] == 'improved'
+        assert mode.last_mastering_evaluation['accepted'] is True
 
 
 # ---------------------------------------------------------------------------

@@ -185,7 +185,7 @@ class ScoringOperations:
                     return float(s)
 
                 # Interpolate between previous and current
-                p_prev, v_prev, s_prev = sorted_percentiles[i - 1]
+                _p_prev, v_prev, s_prev = sorted_percentiles[i - 1]
                 if v == v_prev:
                     return float((s + s_prev) / 2)
 
@@ -295,6 +295,9 @@ class ScoringOperations:
 
         # Linear penalty above threshold
         excess = value - threshold
-        # Assume 2x threshold excess = 0 score
-        penalty = min(max_penalty, excess * max_penalty / threshold)
+        # Scale by threshold magnitude. Loudness ceilings are negative dBFS
+        # values, so dividing by the signed threshold inverted the penalty and
+        # produced impossible scores above 100 for overshooting True Peak.
+        scale = max(abs(threshold), 1e-12)
+        penalty = min(max_penalty, excess * max_penalty / scale)
         return float(max(0, 100 - penalty))

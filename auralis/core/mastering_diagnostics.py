@@ -15,7 +15,7 @@ or state involved.
 
 def print_fingerprint(fp: dict) -> None:
     """Print key fingerprint metrics organized by category."""
-    print(f"\n📊 Fingerprint (25D):")
+    print("\n📊 Fingerprint (25D):")
 
     # Dynamics (3D) - Critical for loudness/compression decisions
     lufs = fp.get('lufs', -14.0)
@@ -45,7 +45,7 @@ def print_fingerprint(fp: dict) -> None:
     presence_pct = fp.get('presence_pct', 0.15)
     air_pct = fp.get('air_pct', 0.10)
 
-    print(f"   🎚️  Frequency Balance:")
+    print("   🎚️  Frequency Balance:")
     print(f"      Sub: {sub_bass_pct:.0%}  │  Bass: {bass_pct:.0%}  │  Lo-Mid: {low_mid_pct:.0%}  │  Mid: {mid_pct:.0%}")
     print(f"      Up-Mid: {upper_mid_pct:.0%}  │  Presence: {presence_pct:.0%}  │  Air: {air_pct:.0%}")
 
@@ -55,7 +55,7 @@ def print_fingerprint(fp: dict) -> None:
     transient_density = fp.get('transient_density', 0.5)
     silence_ratio = fp.get('silence_ratio', 0.0)
 
-    print(f"   🥁 Temporal:")
+    print("   🥁 Temporal:")
     print(f"      Tempo: {tempo_bpm:.0f} BPM  │  Rhythm: {rhythm_stability:.0%}  │  Transients: {transient_density:.0%}  │  Silence: {silence_ratio:.0%}")
 
     # Spectral (3D) - Brightness and noise characteristics
@@ -113,7 +113,7 @@ def print_fingerprint(fp: dict) -> None:
     loudness_variation_std = fp.get('loudness_variation_std', 0.0)
     peak_consistency = fp.get('peak_consistency', 0.5)
 
-    print(f"   📊 Variation:")
+    print("   📊 Variation:")
     print(f"      DR Var: {dynamic_range_variation:.0%}  │  Loudness σ: {loudness_variation_std:.1f}  │  Peak Cons: {peak_consistency:.0%}")
 
 
@@ -136,3 +136,30 @@ def print_time_metrics(timings: dict[str, float], duration_sec: float) -> None:
     realtime_ratio = duration_sec / timings['total']
     print(f"\n   Audio duration: {duration_sec:.1f}s")
     print(f"   Real-time ratio: {realtime_ratio:.1f}x")
+
+
+def print_quality_evaluation(evaluation: dict) -> None:
+    """Print the closed-loop mastering verdict and effect size."""
+    verdict = evaluation.get('verdict', 'unavailable')
+    if verdict == 'unavailable':
+        print(f"\n⚠️  Quality evaluation unavailable: {evaluation.get('reason', 'unknown')}")
+        return
+
+    icons = {
+        'improved': '✅',
+        'bypass': '⏭️',
+        'rejected': '⚠️',
+    }
+    before = evaluation.get('overall_score_before', 0.0)
+    after = evaluation.get('overall_score_after', 0.0)
+    print(f"\n{icons.get(verdict, 'ℹ️')} Quality evaluation: {verdict.upper()}")
+    print(f"   Overall score: {before:.1f} → {after:.1f} ({after - before:+.1f})")
+
+    improved = evaluation.get('improved_dimensions', ())
+    regressed = evaluation.get('regressed_dimensions', ())
+    if improved:
+        print(f"   Meaningfully improved: {', '.join(improved)}")
+    if regressed:
+        print(f"   Regressed: {', '.join(regressed)}")
+    if evaluation.get('needs_processing') and not improved:
+        print("   Input issues were detected, but no dimension improved enough.")

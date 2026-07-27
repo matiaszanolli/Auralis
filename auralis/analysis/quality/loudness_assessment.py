@@ -20,6 +20,21 @@ from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOper
 class LoudnessAssessor(BaseAssessor):
     """Assess loudness quality and standards compliance"""
 
+    def __init__(
+        self,
+        optimal_lufs_range: tuple[float, float] = (-16.0, -14.0),
+        acceptable_lufs_range: tuple[float, float] = (-20.0, -10.0),
+        max_true_peak_dbfs: float = AssessmentConstants.SPOTIFY_MAX_TRUE_PEAK,
+    ) -> None:
+        super().__init__()
+        if optimal_lufs_range[0] > optimal_lufs_range[1]:
+            raise ValueError("optimal_lufs_range must be ordered")
+        if acceptable_lufs_range[0] > acceptable_lufs_range[1]:
+            raise ValueError("acceptable_lufs_range must be ordered")
+        self.optimal_lufs_range = optimal_lufs_range
+        self.acceptable_lufs_range = acceptable_lufs_range
+        self.max_true_peak_dbfs = max_true_peak_dbfs
+
     def assess(self, loudness_result: Any) -> float:  # type: ignore[override]
         """
         Assess loudness quality (0-100)
@@ -39,8 +54,8 @@ class LoudnessAssessor(BaseAssessor):
         # Score individual components using standard ranges
         lufs_score = ScoringOperations.range_based_score(
             integrated_lufs,
-            optimal_range=(-16, -14),
-            acceptable_range=(-20, -10)
+            optimal_range=self.optimal_lufs_range,
+            acceptable_range=self.acceptable_lufs_range,
         )
 
         lra_score = ScoringOperations.range_based_score(
@@ -51,7 +66,7 @@ class LoudnessAssessor(BaseAssessor):
 
         peak_score = ScoringOperations.threshold_score(
             true_peak,
-            threshold=AssessmentConstants.SPOTIFY_MAX_TRUE_PEAK,
+            threshold=self.max_true_peak_dbfs,
             max_penalty=100.0
         )
 
@@ -84,8 +99,8 @@ class LoudnessAssessor(BaseAssessor):
             'true_peak_dbfs': float(true_peak),
             'lufs_score': ScoringOperations.range_based_score(
                 integrated_lufs,
-                optimal_range=(-16, -14),
-                acceptable_range=(-20, -10)
+                optimal_range=self.optimal_lufs_range,
+                acceptable_range=self.acceptable_lufs_range,
             ),
             'lra_score': ScoringOperations.range_based_score(
                 loudness_range,
@@ -94,7 +109,7 @@ class LoudnessAssessor(BaseAssessor):
             ),
             'peak_score': ScoringOperations.threshold_score(
                 true_peak,
-                threshold=AssessmentConstants.SPOTIFY_MAX_TRUE_PEAK,
+                threshold=self.max_true_peak_dbfs,
                 max_penalty=100.0
             )
         }

@@ -187,16 +187,12 @@ class SimpleMasteringPipeline:
                 fingerprint, intensity, self.config, verbose,
             )
             timings['processing'] = time.perf_counter() - step_start
-            timings['total'] = time.perf_counter() - total_start
 
             if verbose:
                 size_mb = Path(output_path).stat().st_size / (1024 * 1024)
                 print(f"   ✅ Exported: {size_mb:.1f} MB")
                 print(f"   📦 Processed {chunks_processed} chunks")
                 print(f"\n🎉 Complete! Output: {output_path}")
-
-            if time_metrics:
-                mastering_diagnostics.print_time_metrics(timings, duration)
 
             result = {
                 'input': str(orig_path),
@@ -206,7 +202,52 @@ class SimpleMasteringPipeline:
                 'chunks_processed': chunks_processed
             }
 
+            if self.config.QUALITY_EVALUATION_ENABLED:
+                step_start = time.perf_counter()
+                try:
+                    from ..analysis.quality.mastering_evaluation_models import (
+                        EvaluationPolicy,
+                    )
+                    from ..analysis.quality.mastering_file_evaluation import (
+                        evaluate_mastering_files,
+                    )
+
+                    policy = EvaluationPolicy(
+                        minimum_effect=self.config.QUALITY_EVALUATION_MIN_EFFECT,
+                        minimum_total_distance_reduction=(
+                            self.config.QUALITY_EVALUATION_MIN_EFFECT
+                        ),
+                        maximum_dimension_regression=(
+                            self.config.QUALITY_EVALUATION_MAX_REGRESSION
+                        ),
+                        true_peak_ceiling_dbfs=(
+                            self.config.QUALITY_EVALUATION_TRUE_PEAK_DBFS
+                        ),
+                    )
+                    report = evaluate_mastering_files(
+                        resolved_input_path,
+                        output_path,
+                        policy=policy,
+                        window_seconds=self.config.QUALITY_EVALUATION_WINDOW_SEC,
+                        window_count=self.config.QUALITY_EVALUATION_WINDOW_COUNT,
+                        target_lufs=self.config.TARGET_LUFS,
+                    )
+                    result['evaluation'] = report.to_dict()
+                except Exception as exc:  # noqa: BLE001
+                    # Evaluation is an advisory, post-export gate. A metrics
+                    # backend failure must not discard an otherwise valid
+                    # mastered file.
+                    result['evaluation'] = {
+                        'verdict': 'unavailable',
+                        'reason': str(exc),
+                    }
+                timings['evaluation'] = time.perf_counter() - step_start
+
+            timings['total'] = time.perf_counter() - total_start
+            if verbose and 'evaluation' in result:
+                mastering_diagnostics.print_quality_evaluation(result['evaluation'])
             if time_metrics:
+                mastering_diagnostics.print_time_metrics(timings, duration)
                 result['timings'] = timings
 
             return result

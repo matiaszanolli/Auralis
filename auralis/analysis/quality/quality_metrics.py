@@ -13,10 +13,10 @@ from typing import Any
 
 import numpy as np
 
+from ..base_spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
 from ..dynamic_range import DynamicRangeAnalyzer
 from ..loudness_meter import LoudnessMeter
 from ..phase_correlation import PhaseCorrelationAnalyzer
-from ..base_spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
 from .distortion_assessment import DistortionAssessor
 from .dynamic_assessment import DynamicRangeAssessor
 from .frequency_assessment import FrequencyResponseAssessor
@@ -46,7 +46,14 @@ class QualityScores:
 class QualityMetrics:
     """Comprehensive audio quality assessment"""
 
-    def __init__(self, sample_rate: int = 44100):
+    def __init__(
+        self,
+        sample_rate: int = 44100,
+        *,
+        loudness_optimal_range: tuple[float, float] = (-16.0, -14.0),
+        loudness_acceptable_range: tuple[float, float] = (-20.0, -10.0),
+        max_true_peak_dbfs: float = -1.0,
+    ):
         """
         Initialize quality metrics system
 
@@ -74,7 +81,11 @@ class QualityMetrics:
         self.dynamic_assessor = DynamicRangeAssessor()
         self.stereo_assessor = StereoImagingAssessor()
         self.distortion_assessor = DistortionAssessor()
-        self.loudness_assessor = LoudnessAssessor()
+        self.loudness_assessor = LoudnessAssessor(
+            optimal_lufs_range=loudness_optimal_range,
+            acceptable_lufs_range=loudness_acceptable_range,
+            max_true_peak_dbfs=max_true_peak_dbfs,
+        )
 
     def assess_quality(self, audio_data: np.ndarray) -> QualityScores:
         """
@@ -89,6 +100,8 @@ class QualityMetrics:
         # Ensure stereo for full analysis
         if audio_data.ndim == 1:
             stereo_audio = np.column_stack([audio_data, audio_data])
+        elif audio_data.ndim == 2 and audio_data.shape[1] == 1:
+            stereo_audio = np.repeat(audio_data, 2, axis=1)
         else:
             stereo_audio = audio_data
 
@@ -240,6 +253,22 @@ class QualityMetrics:
                 'stereo_imaging': scores2.stereo_imaging_score - scores1.stereo_imaging_score,
                 'distortion': scores2.distortion_score - scores1.distortion_score,
                 'loudness': scores2.loudness_score - scores1.loudness_score
+            },
+            'sub_scores': {
+                'audio1': {
+                    'frequency_response': scores1.frequency_response_score,
+                    'dynamic_range': scores1.dynamic_range_score,
+                    'stereo_imaging': scores1.stereo_imaging_score,
+                    'distortion': scores1.distortion_score,
+                    'loudness': scores1.loudness_score,
+                },
+                'audio2': {
+                    'frequency_response': scores2.frequency_response_score,
+                    'dynamic_range': scores2.dynamic_range_score,
+                    'stereo_imaging': scores2.stereo_imaging_score,
+                    'distortion': scores2.distortion_score,
+                    'loudness': scores2.loudness_score,
+                },
             },
             'quality_categories': {
                 'audio1': scores1.quality_category,

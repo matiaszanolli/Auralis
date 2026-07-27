@@ -144,6 +144,7 @@ class ContinuousMode:
         self.last_journal: PipelineJournal | None = None
         self.last_side_effects: list[Any] = []
         self.last_quality_comparison: dict[str, Any] | None = None
+        self.last_mastering_evaluation: dict[str, Any] | None = None
 
         # Quality-gate sampling counter (#3460): only run the gate on selected
         # process() calls per config.quality_gate_interval.
@@ -388,8 +389,26 @@ class ContinuousMode:
                         self._quality_metrics = QualityMetrics(self.config.internal_sample_rate)
                     comparison = self._quality_metrics.compare_quality(target_audio, processed_audio)
                     self.last_quality_comparison = comparison
+                    from ...analysis.quality.mastering_evaluation import (
+                        MasteringEvaluator,
+                    )
+                    if not hasattr(self, '_mastering_evaluator'):
+                        self._mastering_evaluator = MasteringEvaluator(
+                            sample_rate=self.config.internal_sample_rate
+                        )
+                    evaluation = self._mastering_evaluator.evaluate_comparison(
+                        comparison
+                    )
+                    self.last_mastering_evaluation = evaluation.to_dict()
                     score_delta = comparison.get('difference', 0)
-                    if score_delta < -10:
+                    if not evaluation.accepted:
+                        warning(
+                            "[Quality Gate] Closed-loop evaluation rejected output "
+                            f"(verdict={evaluation.verdict}, "
+                            f"improved={evaluation.improved_dimensions}, "
+                            f"regressed={evaluation.regressed_dimensions})"
+                        )
+                    elif score_delta < -10:
                         warning(f"[Quality Gate] Output scored {score_delta:.1f} points below input "
                                 f"(input={comparison.get('audio1_score', 0):.0f}, "
                                 f"output={comparison.get('audio2_score', 0):.0f})")
