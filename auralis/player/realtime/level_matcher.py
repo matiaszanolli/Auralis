@@ -120,11 +120,27 @@ class RealtimeLevelMatcher:
         return processed
 
     def get_stats(self) -> dict[str, Any]:
-        """Get level matching statistics"""
-        return {
-            'enabled': self.enabled,
-            'reference_loaded': self.reference_rms is not None,
-            'reference_rms': self.reference_rms or 0.0,
-            'current_gain': self.gain_smoother.current_gain,
-            'target_gain': self.gain_smoother.target_gain,
-        }
+        """Get level matching statistics under `_lock` (#4551).
+
+        The reader half of #4340, which locked this class's writers but left
+        this method unguarded. `reset()` rebinds `gain_smoother` while holding
+        `_lock`, so an unlocked read of `current_gain` and `target_gain` could
+        straddle the swap and pair values from two different smoother
+        instances; `enabled` and `reference_rms` could likewise be read from
+        either side of a `reset()` / `set_reference_audio()` update.
+
+        The critical section is four attribute reads with no I/O and no nested
+        acquisition — strictly shorter than `process()`'s. Callers already
+        establish the RealtimeProcessor.lock -> RealtimeLevelMatcher._lock
+        ordering (`get_processing_info`, `reset_all_effects`), which is the
+        same order `AutoMasterProcessor.get_stats` is called under, so this
+        adds no new deadlock edge.
+        """
+        with self._lock:
+            return {
+                'enabled': self.enabled,
+                'reference_loaded': self.reference_rms is not None,
+                'reference_rms': self.reference_rms or 0.0,
+                'current_gain': self.gain_smoother.current_gain,
+                'target_gain': self.gain_smoother.target_gain,
+            }

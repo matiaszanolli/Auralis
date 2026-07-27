@@ -11,10 +11,15 @@ matcher's own lock, mirroring AutoMasterProcessor's already-safe pattern.
 
 import sys
 import threading
+from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, "/mnt/data/src/matchering")
+# Repo-relative, not an absolute developer path: hardcoding
+# "/mnt/data/src/matchering" made this file import `auralis` from that checkout
+# no matter where the tests ran, so a git-worktree baseline comparison silently
+# exercised the *working* tree and reported green for an unfixed HEAD.
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from auralis.player.config import PlayerConfig
 from auralis.player.realtime.level_matcher import RealtimeLevelMatcher
@@ -73,6 +78,99 @@ class TestProcessorRoutesThroughLockedAPI:
         assert processor.level_matcher.reference_rms is None
         assert processor.level_matcher.enabled is False
         assert processor.effects_enabled['level_matching'] is False
+
+
+class TestGetStatsTakesTheLock:
+    """#4551 — the reader half of #4340.
+
+    get_stats() read four pieces of mutable state with no lock while every
+    writer mutated them under _lock. reset() rebinds gain_smoother while
+    holding the lock, so the two gain reads could straddle the swap.
+    """
+
+    def test_get_stats_acquires_lock_exactly_once(self):
+        matcher = RealtimeLevelMatcher(_config())
+        acquisitions = []
+        real_lock = matcher._lock
+
+        class CountingLock:
+            def __enter__(self):
+                acquisitions.append(1)
+                return real_lock.__enter__()
+
+            def __exit__(self, *exc):
+                return real_lock.__exit__(*exc)
+
+        matcher._lock = CountingLock()
+        matcher.get_stats()
+
+        assert sum(acquisitions) == 1, "get_stats must take _lock exactly once"
+
+    def test_gain_values_come_from_one_smoother_instance(self):
+        """current_gain/target_gain must never be paired across a reset()."""
+        matcher = RealtimeLevelMatcher(_config())
+        reference = np.random.uniform(-0.5, 0.5, (44100, 2)).astype(np.float32)
+        matcher.set_reference_audio(reference)
+
+        stop = threading.Event()
+        errors: list[BaseException] = []
+        observations: list[dict] = []
+
+        def _reset_thread():
+            while not stop.is_set():
+                try:
+                    matcher.reset()
+                    matcher.set_reference_audio(reference)
+                except BaseException as exc:  # noqa: BLE001
+                    errors.append(exc)
+                    return
+
+        def _stats_thread():
+            for _ in range(500):
+                try:
+                    observations.append(matcher.get_stats())
+                except BaseException as exc:  # noqa: BLE001
+                    errors.append(exc)
+                    return
+
+        reset_t = threading.Thread(target=_reset_thread)
+        stats_t = threading.Thread(target=_stats_thread)
+        reset_t.start()
+        stats_t.start()
+        stats_t.join(timeout=10)
+        stop.set()
+        reset_t.join(timeout=10)
+
+        assert not errors, f"concurrent get_stats raised: {errors}"
+        assert observations
+
+        # A freshly-reset smoother has both gains at their initial value. Any
+        # dict pairing a post-reset current_gain with a pre-reset target_gain
+        # (or vice versa) would show up as a self-inconsistent snapshot: when
+        # the matcher reports itself disabled with no reference, the gains must
+        # be those of the new smoother, not leftovers from the old one.
+        for stats in observations:
+            if stats['enabled'] is False and stats['reference_loaded'] is False:
+                assert stats['current_gain'] == stats['target_gain'], (
+                    f"torn read across reset(): {stats}"
+                )
+
+    def test_sibling_get_stats_implementations_both_lock(self):
+        """Keeps RealtimeLevelMatcher and AutoMasterProcessor from drifting.
+
+        A white-box guard: both classes' get_stats must reference their lock,
+        so a future edit that drops one is caught here rather than in
+        production telemetry.
+        """
+        import inspect
+
+        from auralis.player.realtime.auto_master import AutoMasterProcessor
+
+        for cls in (RealtimeLevelMatcher, AutoMasterProcessor):
+            source = inspect.getsource(cls.get_stats)
+            assert 'self._lock' in source, (
+                f"{cls.__name__}.get_stats must acquire self._lock (#4551)"
+            )
 
 
 class TestConcurrentMutationDuringProcessing:
