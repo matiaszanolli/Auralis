@@ -37,6 +37,10 @@ logger = logging.getLogger(__name__)
 class JobWorker:
     """Dispatches queued jobs as concurrent tasks bounded by a semaphore."""
 
+    # Upper bound on how long stop() waits for cancelled job tasks to unwind
+    # before logging and proceeding (#4543).
+    STOP_DRAIN_TIMEOUT_SECONDS: float = 5.0
+
     def __init__(
         self,
         engine: "ProcessingEngine",
@@ -92,7 +96,23 @@ class JobWorker:
             if acquired:
                 self.active_job_count = max(0, self.active_job_count - 1)
                 self._concurrency_semaphore.release()
-            await self._engine.cleanup_old_jobs(self._engine.completed_job_ttl_hours)
+
+            # #4543: an `await` in a finally on an already-cancelled task
+            # re-raises CancelledError at the await point, so this TTL sweep
+            # never ran for any cancelled job. asyncio.shield keeps the inner
+            # coroutine running when that happens; the CancelledError raised
+            # *here* is swallowed so it does not mask the original cancellation,
+            # which resumes propagating once this finally completes.
+            #
+            # stop() additionally runs one final sweep after gathering, so the
+            # shutdown path is covered even if the shielded task is still in
+            # flight when the loop tears down.
+            try:
+                await asyncio.shield(
+                    self._engine.cleanup_old_jobs(self._engine.completed_job_ttl_hours)
+                )
+            except asyncio.CancelledError:
+                pass
 
     async def stop(self) -> None:
         """Stop the worker loop and cancel all in-progress jobs.
@@ -104,13 +124,42 @@ class JobWorker:
         logger.info("Stopping processing engine worker...")
 
         # Cancel all in-progress tasks
+        cancelled: list[asyncio.Task[None]] = []
         for job_id, task in list(self._tasks.items()):
             if not task.done():
                 task.cancel()
+                cancelled.append(task)
                 job = self._engine.jobs.get(job_id)
                 if job and job.status == ProcessingStatus.PROCESSING:
                     job.status = ProcessingStatus.CANCELLED
                     job.completed_at = datetime.now()
+
+        # #4543: wait for the cancelled tasks to actually unwind. Previously
+        # stop() cancelled and returned immediately, logging "worker stopped"
+        # while jobs were still mid-unwind — a job parked in
+        # asyncio.to_thread(processor.process, ...) kept a worker thread and a
+        # HybridProcessor alive past the point the lifespan tore down the
+        # library manager. The worker-task cancel below already did this
+        # correctly; only the per-job tasks were fire-and-forget.
+        #
+        # Bounded so a task that refuses to unwind cannot hang shutdown. On
+        # timeout we log and proceed: blocking teardown forever is worse than
+        # a noisy exit, and silently swallowing it would recreate the bug.
+        #
+        # asyncio.wait — NOT wait_for(gather(...)). On timeout wait_for cancels
+        # the inner future and then *awaits* it, so a task that swallows
+        # CancelledError (a bare `except CancelledError: pass` around its work)
+        # would hang stop() forever — the very failure this fix exists to
+        # prevent. asyncio.wait leaves stragglers pending and returns.
+        if cancelled:
+            _, still_pending = await asyncio.wait(
+                cancelled, timeout=self.STOP_DRAIN_TIMEOUT_SECONDS
+            )
+            if still_pending:
+                logger.warning(
+                    f"{len(still_pending)} job task(s) did not unwind within "
+                    f"{self.STOP_DRAIN_TIMEOUT_SECONDS}s; proceeding with shutdown"
+                )
 
         # Drain the queue
         while not self.job_queue.empty():
@@ -132,6 +181,14 @@ class JobWorker:
         # Drop the finished task so a later `if worker._worker_task:` check
         # can't read a stopped worker as running (#4577).
         self._worker_task = None
+
+        # #4543: one awaited sweep after everything has unwound, so the TTL
+        # cleanup is guaranteed to have run for jobs cancelled during shutdown
+        # rather than depending on a shielded task that may still be in flight.
+        try:
+            await self._engine.cleanup_old_jobs(self._engine.completed_job_ttl_hours)
+        except Exception:
+            logger.exception("Final cleanup_old_jobs sweep failed during stop()")
 
         logger.info("Processing engine worker stopped")
 

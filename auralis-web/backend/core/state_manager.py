@@ -122,7 +122,7 @@ class PlayerStateManager:
         if playing:
             self._start_position_updates()
         else:
-            self._stop_position_updates()
+            await self._stop_position_updates()
 
     async def set_position(self, position: float) -> None:
         """Set playback position"""
@@ -217,11 +217,23 @@ class PlayerStateManager:
         if self._position_update_task is None or self._position_update_task.done():
             self._position_update_task = spawn_background_task(self._position_update_loop(), name="state_manager._position_update_loop")
 
-    def _stop_position_updates(self) -> None:
-        """Stop position updates (called when playback pauses)"""
-        if self._position_update_task and not self._position_update_task.done():
-            self._position_update_task.cancel()
-            self._position_update_task = None
+    async def _stop_position_updates(self) -> None:
+        """Stop position updates (called when playback pauses).
+
+        Awaits the cancelled task rather than firing and forgetting (#4543
+        SIBLING). Without the await, set_playing(False) could return while the
+        loop was still unwinding, letting one more position_changed tick land
+        after the pause — and leaving a task in flight at teardown. The loop
+        catches CancelledError and returns immediately, so this is prompt.
+        """
+        task = self._position_update_task
+        self._position_update_task = None
+        if task and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     async def _position_update_loop(self) -> None:
         """Update position every second while playing, corrected for event-loop drift.

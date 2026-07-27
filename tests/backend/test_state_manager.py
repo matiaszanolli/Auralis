@@ -93,7 +93,10 @@ class TestStateUpdates:
     @pytest.mark.asyncio
     async def test_set_playing_false(self, state_manager, mock_ws_manager):
         """Test setting playing to false"""
-        with patch.object(state_manager, '_stop_position_updates') as mock_stop:
+        # #4543: _stop_position_updates is now async (it awaits the cancelled
+        # task), so the patch must be an AsyncMock or set_playing would await
+        # a plain Mock's return value.
+        with patch.object(state_manager, '_stop_position_updates', new_callable=AsyncMock) as mock_stop:
             await state_manager.set_playing(False)
 
             state = state_manager.get_state()
@@ -662,11 +665,11 @@ class TestPositionLoopSurvivesAutoAdvance:
         state_manager._start_position_updates()
         assert state_manager._position_update_task is first_task
 
-        state_manager._stop_position_updates()
-        try:
-            await first_task
-        except asyncio.CancelledError:
-            pass
+        # #4543: awaits the cancelled task internally, so the loop is fully
+        # unwound by the time this returns.
+        await state_manager._stop_position_updates()
+        assert first_task.done()
+        assert state_manager._position_update_task is None
 
 
 if __name__ == "__main__":
