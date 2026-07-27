@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any, cast
 from collections.abc import Callable
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from ..library.models import Track
 from ..utils.logging import debug, error, info, warning
 from .audio_file_manager import AudioFileManager
@@ -71,8 +73,15 @@ class IntegrationManager:
         self.processor = processor
         self.get_repository_factory = get_repository_factory
 
-        # Library integration
-        self.current_track: Track | None = None
+        # Library integration. Backing fields for the `current_track` property;
+        # assigned directly here because `_position_lock` is not built until
+        # further down this constructor.
+        self._current_track: Track | None = None
+        # Pre-materialised `current_track.to_dict()` (#4552). Readers use this
+        # instead of touching the ORM object, so no lazy-load SQL can be
+        # emitted while `_position_lock` is held. Swapped atomically with
+        # `_current_track` by `set_current_track`.
+        self._current_track_dict: dict[str, Any] | None = None
         self.auto_reference_selection = True
 
         # External callbacks (application-level)
@@ -102,9 +111,63 @@ class IntegrationManager:
         ``AudioPlayer.current_track`` setter alike — goes through one guarded
         entry point, matching the lock that ``_on_playback_state_change`` and
         ``get_playback_info`` hold when they read it.
+
+        #4552: the ``to_dict()`` snapshot is materialised **here, before the
+        lock is taken**, rather than by the readers inside their critical
+        sections. ``Track.to_dict()`` walks ``artists`` / ``album``, which lazy
+        loads and therefore emits SQL; doing that under ``_position_lock`` put
+        a library round-trip inside a player lock (inverting the documented
+        Player-lock -> Library-session ordering) and could raise
+        ``DetachedInstanceError`` while the lock was held, out of the playback
+        state-change callback. Both values are then swapped together under the
+        lock, so #4102's "playback and library.current_track describe one
+        track" invariant is preserved.
         """
+        snapshot = self._materialise_track(track)
         with self._position_lock:
-            self.current_track = track
+            self._current_track = track
+            self._current_track_dict = snapshot
+
+    @property
+    def current_track(self) -> "Track | None":
+        """The live ORM track object (unchanged shape for existing readers)."""
+        return self._current_track
+
+    @current_track.setter
+    def current_track(self, track: "Track | None") -> None:
+        """Route raw assignment through :py:meth:`set_current_track` (#4552).
+
+        Production code already went through ``set_current_track``, but the
+        attribute stayed publicly writable — and a direct write would now set
+        the ORM reference while leaving ``_current_track_dict`` stale, which is
+        precisely the drift the fix has to prevent. Making it a property means
+        there is exactly one way to write this state.
+        """
+        self.set_current_track(track)
+
+    @staticmethod
+    def _materialise_track(track: "Track | None") -> dict[str, Any] | None:
+        """Build a plain-dict snapshot of ``track`` outside any player lock.
+
+        Returns ``None`` for a ``None`` track, preserving the shape every
+        consumer already handles. A detached/expired ORM instance degrades to
+        ``None`` with a warning rather than propagating — the alternative is an
+        exception escaping a playback callback, which is exactly what #4552
+        set out to remove.
+
+        ``AttributeError`` is caught alongside the SQLAlchemy errors because
+        ``current_track`` is a public attribute that accepts any object; test
+        stand-ins and duck-typed tracks without ``to_dict`` must not break
+        assignment. Before #4552 such an object raised at *read* time instead
+        (inside ``_position_lock``), so degrading here is strictly safer.
+        """
+        if track is None:
+            return None
+        try:
+            return track.to_dict()
+        except (SQLAlchemyError, AttributeError) as e:
+            warning(f"Could not snapshot current track metadata (#4552): {e}")
+            return None
 
     def _get_repos(self) -> Any:
         """Get repository factory for data access."""
@@ -163,7 +226,9 @@ class IntegrationManager:
                 'position_seconds': self._get_position_seconds(),
                 'duration_seconds': self.file_manager.get_duration(),
                 'current_file': self.file_manager.current_file,
-                'current_track': self.current_track.to_dict() if self.current_track else None,
+                # Pre-materialised at assignment time (#4552) — no ORM access,
+                # and therefore no SQL, under _position_lock.
+                'current_track': self._current_track_dict,
             })
         self._notify_callbacks(state_info)
 
@@ -280,15 +345,26 @@ class IntegrationManager:
                 'current_file': self.file_manager.current_file,
                 'is_playing': is_playing,
             }
-            # #4102: snapshot current_track inside the SAME _position_lock block
+            # #4102: read current_track inside the SAME _position_lock block
             # that took position/current_file, so the returned `playback` and
             # `library.current_track` always describe one track. The write side
             # is locked under _position_lock (#3786); reading it after the lock
             # released could pair the new track's position with the old track's
             # metadata for one WebSocket poll during a gapless/seek transition.
-            current_track_snapshot = (
-                self.current_track.to_dict() if self.current_track else None
-            )
+            # #4552: this is the dict materialised at assignment time, so the
+            # invariant is kept without any ORM access inside the lock.
+            current_track_snapshot = self._current_track_dict
+
+        # #4552: read the session counters under _stats_lock, matching the
+        # write side in record_track_completion (#2472). Unlocked, a poll could
+        # observe a torn tracks_played / total_play_time pair mid-update.
+        # Taken after _position_lock is released, so the two never nest.
+        with self._stats_lock:
+            session_info = {
+                'tracks_played': self.tracks_played,
+                'session_duration': time.time() - self.session_start_time,
+                'total_play_time': self.total_play_time,
+            }
 
         return {
             'playback': playback_info,
@@ -298,11 +374,7 @@ class IntegrationManager:
                 'auto_reference_selection': self.auto_reference_selection,
             },
             'processing': self.processor.get_processing_info(),
-            'session': {
-                'tracks_played': self.tracks_played,
-                'session_duration': time.time() - self.session_start_time,
-                'total_play_time': self.total_play_time,
-            },
+            'session': session_info,
         }
 
     def record_track_completion(self) -> None:
