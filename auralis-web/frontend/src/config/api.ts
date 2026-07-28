@@ -7,11 +7,18 @@
  */
 
 // Use relative URL in development (Vite proxy handles forwarding)
-// Use absolute URL in production build
-export const API_BASE_URL = import.meta.env.DEV ? '' : 'http://localhost:8765';
+// Use absolute URL in production build.
+//
+// VITE_API_URL / VITE_WS_URL override both (#4468). Without an escape hatch
+// there was no way to move off port 8765 when it is already taken, and this
+// module disagreed with services/api/standardizedAPIClient.ts, which has always
+// read `import.meta.env.VITE_API_URL ?? API_BASE_URL`. Same `??` semantics as
+// that client: only an undefined override falls through to the default, so an
+// explicit empty string still selects the dev-style relative URL.
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? '' : 'http://localhost:8765');
 
 // WebSocket URL - always absolute since WebSocket doesn't use proxy
-export const WS_BASE_URL = 'ws://localhost:8765';
+export const WS_BASE_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8765';
 
 /**
  * Get full API URL for an endpoint
