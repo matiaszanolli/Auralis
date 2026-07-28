@@ -7,7 +7,8 @@
  * - Error recovery strategies
  * - Timeout management
  *
- * Used by: processingService
+ * Used by: (no current consumers — processingService, the sole importer, was
+ * deleted as dead code in #4470)
  * WebSocket streaming: handled by usePlayEnhanced hook + WebSocketContext
  */
 
