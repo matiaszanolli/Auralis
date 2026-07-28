@@ -32,7 +32,7 @@ python-multipart==0.0.27
 SQLAlchemy==2.0.44
 
 # Image Processing
-pillow==12.0.0
+pillow==12.3.0
 
 # Async HTTP & Utilities
 aiohttp==3.14.1
