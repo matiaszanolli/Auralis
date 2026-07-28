@@ -63,6 +63,43 @@ jobs:
           fi
           echo "OK: $shipped mirrors $root."
 
+  desktop-manifest-derives-from-root:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify requirements-desktop.txt only references the root manifest
+        run: |
+          set -euo pipefail
+          desktop=requirements-desktop.txt
+
+          if [ ! -f "$desktop" ]; then
+            echo "::error::Missing manifest: $desktop"
+            exit 1
+          fi
+
+          # #4355: this file used to restate its own floating floors
+          # (numpy>=1.23.4 against a root numpy==2.3.5) plus a statsmodels entry
+          # the root manifest records as unused, so which manifest governed an
+          # install decided which versions you got. It is now a `-r` reference,
+          # and the mirror job above cannot catch a regression here because
+          # this file is not one of the two it compares.
+          direct=$(sed -e 's/[[:space:]]*#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$desktop" \
+            | grep -E '^[a-zA-Z]' || true)
+
+          if [ -n "$direct" ]; then
+            echo "::error file=$desktop::Direct requirement lines are not allowed here (#4355)"
+            echo "This manifest must derive from requirements.txt via '-r', not restate pins:"
+            echo "$direct"
+            exit 1
+          fi
+
+          if ! grep -qE '^\s*-r\s+requirements\.txt\s*$' "$desktop"; then
+            echo "::error file=$desktop::Must contain '-r requirements.txt' (#4355)"
+            exit 1
+          fi
+          echo "OK: $desktop derives from requirements.txt."
+
   pinned-parser-dependencies:
     runs-on: ubuntu-latest
     steps:

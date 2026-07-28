@@ -1,22 +1,24 @@
 # Auralis Desktop Application Dependencies
-# Core audio processing
-numpy>=1.23.4
-scipy>=1.9.2
-soundfile>=0.11.0
-resampy>=0.4.2
-statsmodels>=0.13.2
+#
+# Derives from the root requirements.txt rather than restating pins (#4355).
+#
+# This file used to carry its own floating floors (numpy>=1.23.4,
+# scipy>=1.9.2, SQLAlchemy>=2.0.22, ...) alongside a root manifest that pins
+# numpy==2.3.5 — so which file governed an install decided which numpy you got,
+# and patching one left the other stale. It also listed statsmodels>=0.13.2,
+# which the root manifest explicitly records as unused, and a
+# `pathlib2; python_version < "3.4"` marker that can never fire in a project
+# requiring Python 3.14.
+#
+# Every package it named is already in the root manifest, and it named nothing
+# the root manifest lacks, so there was no subset to preserve — a `-r` reference
+# is the whole file. requirements-pin-guard.yml fails the build if a direct
+# requirement line reappears here.
+#
+# The other Python manifests in the tree:
+#   - auralis-web/backend/requirements.txt — rsync'd verbatim into the shipped
+#     desktop app; the pin guard already asserts it mirrors the root file.
+#   - desktop/resources/backend/requirements.txt — not in the repo; CI generates
+#     it from the file above during the release build.
 
-# Database and library management
-SQLAlchemy>=2.0.22
-
-# GUI framework (now web-based)
-# Legacy desktop GUI dependencies removed
-
-# Audio metadata
-mutagen>=1.47.0
-
-# System monitoring
-psutil>=5.9.0
-
-# File handling
-pathlib2>=2.3.7; python_version < "3.4"
+-r requirements.txt
