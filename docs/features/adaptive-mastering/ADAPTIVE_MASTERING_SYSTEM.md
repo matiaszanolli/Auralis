@@ -8,6 +8,19 @@ A complete **25D adaptive mastering library** for Auralis that learns from succe
 
 > **ℹ️ Two mastering pipelines (read this first).** This document covers the **adaptive classification/recommendation framework**, which feeds the real-time `HybridProcessor` (`auralis/core/hybrid_processor.py`). Auralis also has a second, **offline `SimpleMastering` pipeline** (`auralis/core/simple_mastering.py` + `auralis/core/mastering_branches.py`) that handles the batch/offline mastering path and has been the primary target of audio-quality tuning since mid-2026 (loudness targeting, crest handling, quiet-branch makeup gain, multiband stereo/bass — see the `docs/sessions/MASTERING_QUALITY_*.md` notes). The two are complementary: the adaptive layer here selects strategy/parameters; `SimpleMastering`/`mastering_branches.py` is where much of the offline signal-path work now lives. Neither replaces the other.
 
+
+> **⚠️ Implementation status (#4259).** Components **1–3** below
+> (`mastering_fingerprint.py`, `mastering_profile.py`,
+> `adaptive_mastering_engine.py`) are implemented and used in production.
+> Components **4–6** — batch analysis, profile versioning and the Auralis
+> integration bridge — plus `profile_matcher.py` and
+> `continuous_target_generator.py` were **built but never wired to anything**:
+> 1,660 lines with zero call sites anywhere in the repo. They were removed in
+> #4259. The sections below are retained deliberately as the design record, so
+> the intent survives the code; treat every code sample in a section marked
+> *(removed)* as a design sketch, not a working API. The "Status" line above
+> describes the framework's core (1–3), not these.
+
 ---
 
 ## Architecture
@@ -121,7 +134,7 @@ MasteringRecommendation(
 
 ---
 
-#### 4. **Batch Analysis Framework** (`batch_analyzer.py`)
+#### 4. **Batch Analysis Framework** (`batch_analyzer.py`) — *(removed, #4259)*
 Converts raw audio analysis results into structured mastering profiles:
 
 ```python
@@ -159,7 +172,7 @@ analyzer.export_analyses_json("analyses.json")
 
 ---
 
-#### 5. **Profile Versioning System** (`profile_versioning.py`)
+#### 5. **Profile Versioning System** (`profile_versioning.py`) — *(removed, #4259)*
 Tracks profile evolution as new training data arrives:
 
 ```python
@@ -198,7 +211,7 @@ version_mgr.export_history("profile_history.json")
 
 ---
 
-#### 6. **Auralis Integration** (`auralis_integration.py`)
+#### 6. **Auralis Integration** (`auralis_integration.py`) — *(removed, #4259)*
 Bridges adaptive engine with Auralis audio processing pipeline:
 
 ```python
@@ -249,7 +262,7 @@ The system learned these distinct patterns from comparative album analysis:
 
 ## Usage Workflow
 
-### Scenario 1: Analyze New Album
+### Scenario 1: Analyze New Album — *(design sketch; uses modules removed in #4259)*
 
 ```python
 from auralis.analysis.batch_analyzer import BatchAnalyzer
@@ -313,7 +326,7 @@ print(rec.summary())
 # Strategy: Professional reference master with excellent dynamics...
 ```
 
-### Scenario 3: Integrate with HybridProcessor
+### Scenario 3: Integrate with HybridProcessor — *(design sketch; uses modules removed in #4259)*
 
 ```python
 from auralis.analysis.auralis_integration import create_adaptive_mastering_pipeline
