@@ -195,12 +195,23 @@ def cors_allowed_origins() -> list[str]:
     dev; a packaged build never serves the frontend from them, so they are
     included only when is_dev_mode() (#4350). Port 8765 (the backend itself) is
     always allowed. Shares the dev-gating contract with globals.ALLOWED_WS_ORIGINS.
+
+    Both http and https are emitted (#3897). A dev running Vite behind a TLS
+    cert — needed for secure-context features like service workers — has a page
+    origin of `https://localhost:3000`, which this list would otherwise reject
+    at CORS preflight. globals.build_ws_origins() already covers the https/wss
+    schemes; this list was the remaining half of that gap.
+
+    Only http/https appear here, not ws/wss: an Origin header for an HTTP
+    request always carries the *page* scheme, so a `ws://` entry could never
+    match a CORS preflight.
     """
     from .app import is_dev_mode
     dev_ports = list(range(3000, 3007)) if is_dev_mode() else []
     all_ports = dev_ports + [8765]
     return [
-        f"http://{host}:{port}"
+        f"{scheme}://{host}:{port}"
+        for scheme in ("http", "https")
         for host in ("localhost", "127.0.0.1")
         for port in all_ports
     ]
