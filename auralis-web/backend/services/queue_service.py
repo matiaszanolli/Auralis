@@ -10,74 +10,20 @@ Coordinates with AudioPlayer and PlayerStateManager to keep queue state synchron
 
 import asyncio
 import logging
-from typing import Any, Protocol
+from typing import Any
 from collections.abc import Callable
 
 from player_state import TrackInfo
 
+from .queue_enrichment import QueueEnricher
+from .queue_protocols import AudioPlayerWithQueue, QueueManager
+
 logger = logging.getLogger(__name__)
 
-
-class QueueManager(Protocol):
-    """Protocol for queue manager interface."""
-
-    def get_queue(self) -> list[Any]:
-        """Get current queue."""
-        ...
-
-    def get_queue_size(self) -> int:
-        """Get queue size."""
-        ...
-
-    def set_queue(self, queue: list[Any], index: int) -> None:
-        """Set queue with start index."""
-        ...
-
-    def add_to_queue(self, item: Any) -> None:
-        """Add item to queue."""
-        ...
-
-    def remove_track(self, index: int) -> bool:
-        """Remove track at index."""
-        ...
-
-    def reorder_tracks(self, new_order: list[int]) -> bool:
-        """Reorder tracks."""
-        ...
-
-    def shuffle(self) -> None:
-        """Shuffle queue."""
-        ...
-
-    def clear(self) -> None:
-        """Clear queue."""
-        ...
-
-    @property
-    def current_index(self) -> int:
-        """Get current index."""
-        ...
-
-
-class AudioPlayerWithQueue(Protocol):
-    """Protocol for audio player with queue support."""
-
-    @property
-    def queue(self) -> QueueManager:
-        """Get queue manager."""
-        ...
-
-    def load_file(self, path: str) -> None:
-        """Load audio file."""
-        ...
-
-    def play(self) -> None:
-        """Start playback."""
-        ...
-
-    def stop(self) -> None:
-        """Stop playback."""
-        ...
+# Re-exported for backwards compatibility: these were defined here before
+# #4260 split them out, and `QueueManager` is referenced by the Protocol's own
+# consumers via this module.
+__all__ = ['AudioPlayerWithQueue', 'QueueManager', 'QueueService']
 
 
 class QueueService:
@@ -114,6 +60,11 @@ class QueueService:
         self.library_manager: Any = library_manager
         self.connection_manager: Any = connection_manager
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
+        # Read-model derivation lives in QueueEnricher (#4260); it needs the
+        # same three collaborators and no queue state of its own.
+        self._enricher = QueueEnricher(
+            player_state_manager, library_manager, create_track_info_fn
+        )
         # #3721: serialise concurrent set_queue() calls. set_queue runs
         # 7 awaitable steps with WS broadcasts and engine I/O; without
         # a service-level lock two near-simultaneous POSTs (double-click
@@ -224,120 +175,16 @@ class QueueService:
             # stores only filepaths; enrich those into full TrackInfo so the
             # response matches its schema instead of leaking bare dicts (#4374).
             raw_current = info.get("current_track")
-            tracks = await self._enrich_queue_tracks(info.get("tracks", []))
+            tracks = await self._enricher.enrich_tracks(info.get("tracks", []))
             info["tracks"] = tracks
-            info["current_track"] = self._resolve_current_track(
+            info["current_track"] = self._enricher.resolve_current_track(
                 tracks, raw_current, info.get("current_index", 0)
             )
-            info["repeat_mode"] = self._resolve_repeat_mode(info)
+            info["repeat_mode"] = self._enricher.resolve_repeat_mode(info)
             return info
         except Exception as e:
             logger.error(f"Failed to get queue info: {e}")
             raise
-
-    async def _enrich_queue_tracks(self, entries: list[Any]) -> list[TrackInfo]:
-        """Resolve engine queue entries (filepath dicts) to full TrackInfo.
-
-        Uses the player state manager's TrackInfo queue as an in-memory
-        filepath map (it covers the whole queue right after set_queue), and
-        falls back to a single batched library lookup for any filepath it does
-        not cover (e.g. a track appended via add-track since the last
-        set_queue). Entries that resolve to neither are dropped rather than
-        emitted as schema-invalid partial dicts (#4374).
-        """
-        if not entries:
-            return []
-
-        # 1) Build filepath -> TrackInfo from the state manager snapshot.
-        by_fp: dict[str, TrackInfo] = {}
-        if self.player_state_manager is not None:
-            try:
-                state = self.player_state_manager.get_state()
-            except Exception:
-                state = None
-            for ti in getattr(state, "queue", None) or []:
-                fp = getattr(ti, "filepath", None)
-                if fp:
-                    by_fp[fp] = ti
-
-        filepaths = [self._entry_filepath(e) for e in entries]
-
-        # 2) Resolve filepaths missing from the state map via the library.
-        missing = {fp for fp in filepaths if fp and fp not in by_fp}
-        if missing and self.library_manager is not None:
-            def _lookup() -> dict[str, TrackInfo]:
-                found: dict[str, TrackInfo] = {}
-                for fp in missing:
-                    track = self.library_manager.tracks.get_by_path(fp)
-                    ti = self.create_track_info_fn(track) if track else None
-                    if ti is not None:
-                        found[fp] = ti
-                return found
-            by_fp.update(await asyncio.to_thread(_lookup))
-
-        # 3) Emit resolved TrackInfo in engine order; drop unresolvable ones.
-        resolved: list[TrackInfo] = []
-        for entry, fp in zip(entries, filepaths):
-            if isinstance(entry, TrackInfo):
-                resolved.append(entry)
-            elif fp is not None and fp in by_fp:
-                resolved.append(by_fp[fp])
-        return resolved
-
-    @staticmethod
-    def _entry_filepath(entry: Any) -> str | None:
-        """Extract a filepath from an engine queue entry (dict or TrackInfo)."""
-        if isinstance(entry, TrackInfo):
-            return entry.filepath
-        if isinstance(entry, dict):
-            fp = entry.get("filepath") or entry.get("file_path")
-            return fp if isinstance(fp, str) else None
-        fp = getattr(entry, "filepath", None)
-        return fp if isinstance(fp, str) else None
-
-    def _resolve_repeat_mode(self, info: dict[str, Any]) -> str:
-        """Resolve the three-valued repeat mode for the queue response (#3896).
-
-        Mirrors the #4374 enrichment split: the engine queue is authoritative
-        for order and contents, but it only tracks a boolean `repeat_enabled`
-        and cannot distinguish "all" from "one". The three-valued
-        `PlayerState.repeat_mode` lives on the state manager, so prefer that and
-        fall back to widening the engine bool when no state manager is attached
-        (the bool means "repeat the queue", i.e. "all").
-
-        `repeat_enabled` is popped rather than left in place: QueueInfoResponse
-        sets `extra='allow'`, so a stale key would otherwise still be emitted
-        alongside the new one and the rename would not actually land.
-        """
-        engine_repeat = bool(info.pop("repeat_enabled", False))
-
-        if self.player_state_manager is not None:
-            try:
-                state = self.player_state_manager.get_state()
-            except Exception:
-                state = None
-            mode = getattr(state, "repeat_mode", None)
-            if mode in ("off", "all", "one"):
-                return str(mode)
-
-        return "all" if engine_repeat else "off"
-
-    def _resolve_current_track(
-        self, tracks: list[TrackInfo], raw_current: Any, current_index: int
-    ) -> TrackInfo | None:
-        """Pick the current track from the enriched list.
-
-        Matches on the engine's reported current filepath so it stays correct
-        even if an unresolvable entry was dropped; falls back to current_index.
-        """
-        cur_fp = self._entry_filepath(raw_current) if raw_current is not None else None
-        if cur_fp is not None:
-            match = next((t for t in tracks if t.filepath == cur_fp), None)
-            if match is not None:
-                return match
-        if 0 <= current_index < len(tracks):
-            return tracks[current_index]
-        return None
 
     async def set_queue(self, track_ids: list[int], start_index: int = 0) -> dict[str, Any]:
         """
