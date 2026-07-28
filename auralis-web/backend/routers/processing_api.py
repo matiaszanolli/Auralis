@@ -429,7 +429,7 @@ def create_processing_router(
                 "settings": {
                     "eq": {"enabled": True},
                     "dynamics": {"enabled": True},
-                    "level_matching": {"enabled": True, "targetLufs": -16}
+                    "level_matching": {"enabled": True, "target_lufs": -16}
                 }
             },
             "gentle": {
@@ -440,9 +440,9 @@ def create_processing_router(
                     "eq": {
                         "enabled": True,
                         "low": 1,
-                        "lowMid": 0.5,
+                        "low_mid": 0.5,
                         "mid": 0,
-                        "highMid": 1,
+                        "high_mid": 1,
                         "high": 2
                     },
                     "dynamics": {
@@ -464,9 +464,9 @@ def create_processing_router(
                     "eq": {
                         "enabled": True,
                         "low": 2,
-                        "lowMid": 1,
+                        "low_mid": 1,
                         "mid": -0.5,
-                        "highMid": 0,
+                        "high_mid": 0,
                         "high": 1
                     },
                     "dynamics": {
@@ -488,9 +488,9 @@ def create_processing_router(
                     "eq": {
                         "enabled": True,
                         "low": -1,
-                        "lowMid": 0,
+                        "low_mid": 0,
                         "mid": 1,
-                        "highMid": 2,
+                        "high_mid": 2,
                         "high": 3
                     },
                     "dynamics": {
@@ -512,9 +512,9 @@ def create_processing_router(
                     "eq": {
                         "enabled": True,
                         "low": 3,
-                        "lowMid": 1,
+                        "low_mid": 1,
                         "mid": 0,
-                        "highMid": 1,
+                        "high_mid": 1,
                         "high": 2
                     },
                     "dynamics": {

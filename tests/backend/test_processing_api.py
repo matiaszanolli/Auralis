@@ -93,8 +93,55 @@ class TestProcessingPresets:
         assert "description" in adaptive
         assert "mode" in adaptive
         assert "settings" in adaptive
-
         assert adaptive["mode"] == "adaptive"
+
+    def test_preset_keys_are_all_snake_case(self, client, mock_engine):
+        """Every key in the presets payload is snake_case (#3895).
+
+        The dict literals mixed `targetLufs`, `lowMid` and `highMid` into a
+        payload that is otherwise snake_case (`level_matching`, `attack`,
+        `release`, `threshold`, `ratio`). Nothing caught it because the response
+        model is `presets: dict[str, Any]` and the settings sub-dicts are
+        `dict[str, Any]` all the way to the engine, so the keys are opaque
+        end to end -- no consumer would have failed on the mismatch either.
+
+        Asserted over the whole tree rather than the three known names so a new
+        camelCase key in a future preset fails here too.
+        """
+        response = client.get("/api/processing/presets")
+        assert response.status_code == 200
+
+        offenders: list[str] = []
+
+        def walk(node: object, path: str) -> None:
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    # Preset ids and display names are values, not field names;
+                    # only dict KEYS are part of the wire contract.
+                    if any(ch.isupper() for ch in key):
+                        offenders.append(f"{path}.{key}")
+                    walk(value, f"{path}.{key}")
+            elif isinstance(node, list):
+                for i, item in enumerate(node):
+                    walk(item, f"{path}[{i}]")
+
+        walk(response.json()["presets"], "presets")
+        assert offenders == [], f"camelCase keys in presets payload: {offenders}"
+
+    def test_preset_eq_bands_use_snake_case_names(self, client, mock_engine):
+        """The specific renames, pinned by name (#3895)."""
+        response = client.get("/api/processing/presets")
+        presets = response.json()["presets"]
+
+        gentle_eq = presets["gentle"]["settings"]["eq"]
+        assert "low_mid" in gentle_eq
+        assert "high_mid" in gentle_eq
+        assert "lowMid" not in gentle_eq
+        assert "highMid" not in gentle_eq
+
+        level_matching = presets["adaptive"]["settings"]["level_matching"]
+        assert "target_lufs" in level_matching
+        assert "targetLufs" not in level_matching
 
 
 class TestJobSubmission:
