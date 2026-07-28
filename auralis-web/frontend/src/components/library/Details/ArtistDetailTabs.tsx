@@ -70,6 +70,7 @@ export const ArtistDetailTabsSection = ({
         <Box id="albums-panel" role="tabpanel" aria-labelledby="albums-tab">
           <AlbumsTab
             albums={artist.albums || []}
+            artistName={artist.name}
             onAlbumClick={onAlbumClick}
           />
         </Box>

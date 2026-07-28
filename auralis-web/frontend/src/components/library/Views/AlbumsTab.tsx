@@ -6,12 +6,7 @@ import {
 } from '@mui/material';
 import Grid2 from '@mui/material/Grid';
 import { tokens } from '@/design-system';
-import AlbumArt from '@/components/album/AlbumArt';
-import {
-  AlbumCard,
-  AlbumTitle,
-  AlbumInfo
-} from '@/components/library/Styles/ArtistDetail.styles';
+import AlbumCard from '@/components/album/AlbumCard/AlbumCard';
 
 interface Album {
   id: number;
@@ -23,6 +18,8 @@ interface Album {
 
 interface AlbumsTabProps {
   albums: Album[];
+  /** Artist name, used for each card's accessible name ("<title> by <artist>"). */
+  artistName?: string;
   onAlbumClick: (albumId: number) => void;
 }
 
@@ -34,9 +31,18 @@ interface AlbumsTabProps {
  * - Album title and metadata (year, track count)
  * - Click handler for navigation
  * - Empty state message
+ *
+ * Renders the unified `album/AlbumCard` (which delegates to `MediaCard`) rather
+ * than a local `styled(Paper)` card (#4537). The local one had `onClick` and
+ * `cursor: pointer` but no `role`, `tabIndex` or `onKeyDown`, so artist -> album
+ * navigation was unreachable by keyboard even though the identical flow from the
+ * main library grid worked. MediaCard supplies role/tabIndex/Enter/Space and the
+ * accessible name, so this deletes a duplicate rather than reimplementing
+ * accessibility on the copy.
  */
 export const AlbumsTab = ({
   albums,
+  artistName,
   onAlbumClick
 }: AlbumsTabProps) => {
   if (!albums || albums.length === 0) {
@@ -87,22 +93,21 @@ export const AlbumsTab = ({
               lg: 3,
               xl: 2
             }}>
-            <AlbumCard onClick={() => onAlbumClick(album.id)}>
-              <AlbumArt
-                albumId={album.id}
-                size="100%"
-                borderRadius={0}
-              />
-              <Box sx={{ p: 2 }}>
-                <AlbumTitle className="album-title">
-                  {album.title}
-                </AlbumTitle>
-                <AlbumInfo>
-                  {album.year && `${album.year} • `}
-                  {album.track_count} {album.track_count === 1 ? 'track' : 'tracks'}
-                </AlbumInfo>
-              </Box>
-            </AlbumCard>
+            <AlbumCard
+              albumId={album.id}
+              title={album.title}
+              artist={artistName ?? ''}
+              // `AlbumInArtist` (backend) carries no artwork flag, and the
+              // AlbumArt this replaced always requested the URL and fell back to
+              // a gradient on error. MediaCardArtwork does the same via onError,
+              // so requesting unconditionally preserves artwork here instead of
+              // forcing every album to the placeholder.
+              hasArtwork
+              trackCount={album.track_count}
+              duration={album.total_duration}
+              year={album.year}
+              onClick={onAlbumClick}
+            />
           </Grid2>
         ))}
       </Grid2>
