@@ -43,6 +43,28 @@ should_skip() {
     [[ "$p" == *"://"* ]] && return 0
     # Placeholder tokens in per-finding format templates, not real refs.
     [[ "$p" == *"<"* || "$p" == *">"* ]] && return 0
+
+    # --- Precision guards (#4547) ---------------------------------------
+    # Added when the scan widened to docs/: prose uses these shapes far more
+    # than the skill files did, and each was a false STALE that would have
+    # made the widened gate unusable.
+
+    # A bare extension or suffix convention, not a path: `.styles.ts`,
+    # `.html/.js/.css`, `.test.tsx`. No path segment precedes the dot.
+    [[ "$p" == .* ]] && return 0
+
+    # A method call mis-parsed as a path: `LibraryManager.shutdown()` yields
+    # the token `LibraryManager.sh`. Real refs to shell scripts have a path
+    # separator or a lowercase/underscore basename; a CapWordsClass.sh does
+    # not exist in this repo.
+    [[ "$p" == *.sh && "$p" != */* && "$p" =~ ^[A-Z] ]] && return 0
+
+    # Runtime-served asset URLs (`/audio-worklet-processor.js`): rooted at the
+    # web server, not the repo. Resolve against the frontend public/ dir.
+    if [[ "$p" == /* ]]; then
+        [[ -e "auralis-web/frontend/public${p}" ]] && return 0
+    fi
+
     return 1
 }
 
@@ -76,6 +98,16 @@ skill_files=(
     .claude/commands/verify-*.md
     .claude/commands/gen-test.md
     .claude/agents/*.md
+    # #4547: the authoritative docs tree, which rotted unchecked while the
+    # gate reported PASS over the skill files alone. Deliberately NOT
+    # including docs/development/ or docs/guides/: those are historical
+    # plan/audit snapshots whose purpose is to record what was deleted, so
+    # naming a removed file is correct there, not drift.
+    docs/architecture/*.md
+    docs/subsystems/*.md
+    CLAUDE.md
+    README.md
+    auralis-web/backend/WEBSOCKET_API.md
 )
 shopt -u nullglob
 

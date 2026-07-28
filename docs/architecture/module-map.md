@@ -123,9 +123,7 @@ frontend/src/
 ```
 auralis-dsp/src/
 ├── py_bindings.rs             PyO3 module: hpss, yin, chroma_cqt, compute_fingerprint, …
-├── fingerprint_compute.rs     Native 25D fingerprint
-└── bin/
-    └── grpc_fingerprint_server.rs   Standalone gRPC server (primary fingerprint path, :8766)
+└── fingerprint_compute.rs     Native 25D fingerprint (the ONLY fingerprint path)
 ```
 
 Built with `cd vendor/auralis-dsp && maturin develop`. See

@@ -102,7 +102,7 @@ an `APIRouter(prefix=...)`.
 | **Player / playback** | `player.py` (`/api/player/*` — the exemplar, 19 routes all typed), `enhancement.py` (`/api/player/enhancement/*`) |
 | **Library browse** | `library.py`, `tracks.py`, `albums.py`, `artists.py`, `playlists.py`, `library_scan.py`, `fingerprint_status.py` |
 | **Metadata / artwork** | `metadata.py`, `artwork.py` |
-| **Streaming / processing** | `wav_streaming.py` (REST chunk delivery), `processing_api.py`, `cache_streamlined.py` |
+| **Streaming / processing** | `processing_api.py`, `cache_streamlined.py`. (The REST chunk-delivery router was removed; chunk delivery is WebSocket-only — see below.) |
 | **System / infra** | `system.py` (**WebSocket `/ws` only**, no HTTP), `health.py` (`/api/health`, `/api/version`), `similarity.py`, `files.py`, `settings.py` |
 
 Shared router infra (not routers): `dependencies.py`, `errors.py`, `pagination.py`,
@@ -182,7 +182,7 @@ and `ProcessorFactory` lifecycle.
 |------|-------|-----|
 | **WS streaming** | `ChunkedAudioProcessor` ([`core/chunked_processor.py`](../../auralis-web/backend/core/chunked_processor.py)) | Live playback. DSP offloaded via `asyncio.to_thread`, serialized by a `threading.Lock`, keeping the event loop free for heartbeats/pause/seek (#2388) |
 | **REST batch job** | `ProcessingEngine` ([`core/processing_engine.py`](../../auralis-web/backend/core/processing_engine.py)) | Full-file jobs. State machine QUEUED→PROCESSING→COMPLETED/FAILED/CANCELLED; `processor.process()` wrapped in `asyncio.wait_for(asyncio.to_thread(...), timeout)` so a hung Rust DSP can't hold a slot (#2747). `max_concurrent_jobs=2` |
-| **REST WAV chunk** | [`routers/wav_streaming.py`](../../auralis-web/backend/routers/wav_streaming.py) | `GET /api/stream/{id}/chunk/{idx}`. Response headers (`X-Sample-Rate`, `X-Total-Samples`, `X-Playable-Samples`, `X-Overlap-Samples`, `X-Start-Sample-Offset`) let the client place each chunk by absolute sample offset. Serves from streamlined cache when available |
+| **REST WAV chunk** | *(removed)* | There is no longer a REST chunk endpoint: the router and its `GET /api/stream/{id}/chunk/{idx}` route were deleted, along with the `X-Sample-Rate` / `X-Total-Samples` / `X-Playable-Samples` / `X-Overlap-Samples` / `X-Start-Sample-Offset` placement headers. Chunk delivery is WebSocket-only |
 
 > **Default overlap is 5 s, everywhere.** Both the WS and REST WAV paths default to
 > `duration=15 / interval=10`. No-overlap happens only when a caller explicitly passes equal

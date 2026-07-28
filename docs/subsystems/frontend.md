@@ -26,8 +26,9 @@ Electron Chromium process via the Web Audio API. The `@` alias maps to `./src`.
 
 ## 1. App shell & entry
 
-- **Entry is `src/index.tsx`** (referenced by `index.html`). `src/main.tsx` is a **stale
-  duplicate** not referenced anywhere — don't edit it expecting an effect.
+- **Entry is `src/index.tsx`** (referenced by `index.html`). A stale duplicate
+  entry point used to sit alongside it; it was deleted in streamlining Wave 1,
+  so `index.tsx` is now the only entry.
 - Boot uses an **async IIFE** that pre-imports MUI/emotion via `Promise.all` before importing
   components that use `styled(...)` — a deliberate ordering fix to avoid emotion init crashes.
   Renders under `StrictMode`.
@@ -173,7 +174,7 @@ shell: `AppContainer`/`AppSidebar`/`AppTopBar`/`AppMainContent`/`ErrorBoundary`)
 Many components use co-located `.styles.ts` files to keep JSX lean.
 
 > **The `<300` line rule is a target, not enforced:** ~10 components exceed it (e.g.
-> `Items/albums/CozyAlbumGrid.tsx` at 390, `library/TrackList.tsx` at 388). When you touch an
+> `Items/albums/CozyAlbumGrid.tsx` at 390). When you touch an
 > oversized component, splitting it into subcomponents + `.styles.ts` is a welcome cleanup.
 
 ---
@@ -239,7 +240,6 @@ backend replies:
   state (`usePlaybackState` #3126, `usePlayerStreaming` #3776 were deleted).
 - **StrictMode double-mount safety** — singletons (like the WS manager) must be module-level and
   ref-counted; WS-derived Redux writes must be idempotent.
-- **`main.tsx` is stale drift** — only `index.tsx` is live.
 - **Version drift** — `window.__AURALIS_DEBUG__.version` hardcodes an old string; the source of
   truth is [`auralis/version.py`](../../auralis/version.py).
 - **Dev WS bypasses the Vite proxy** and hits `ws://localhost:8765/ws` directly; dev REST uses

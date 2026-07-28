@@ -103,18 +103,18 @@ chunks for memory efficiency. Each chunk flows through
 4. **Stage 3** — unified output normalize (only when `needs_output_normalize`).
 5. `sanitize_audio`.
 
-### Material branches (`mastering_branches.py`)
+### Material branches (`mastering_branches/`)
 
 | Branch | Trigger | `needs_output_normalize` |
 |--------|---------|--------------------------|
-| `CompressedLoudBranch` ([`:216`](../../auralis/core/mastering_branches.py)) | LUFS > −12, crest < 13 | `True` |
-| `DynamicLoudBranch` ([`:345`](../../auralis/core/mastering_branches.py)) | LUFS > −12, crest ≥ 13 | `True` |
-| `QuietBranch` ([`:451`](../../auralis/core/mastering_branches.py)) | LUFS ≤ −12 | **`False` — self-normalizes** |
+| `CompressedLoudBranch` ([`compressed_loud.py:20`](../../auralis/core/mastering_branches/compressed_loud.py)) | LUFS > −12, crest < 13 | `True` |
+| `DynamicLoudBranch` ([`dynamic_loud.py:19`](../../auralis/core/mastering_branches/dynamic_loud.py)) | LUFS > −12, crest ≥ 13 | `True` |
+| `QuietBranch` ([`quiet.py:22`](../../auralis/core/mastering_branches/quiet.py)) | LUFS ≤ −12 | **`False` — self-normalizes** |
 
 > **Gotcha.** `QuietBranch` self-normalizes (it is the mirror-opposite gain-staging chain
 > ending in a branch-local `normalize`), while the loud branches defer to Stage 3. Mixing
 > these up **double-normalizes**. This is an explicit contract documented at
-> [`mastering_branches.py:136`](../../auralis/core/mastering_branches.py).
+> [`mastering_branches/base.py:55`](../../auralis/core/mastering_branches/base.py).
 
 ### Presets belong to HybridProcessor, not SimpleMastering
 
@@ -174,10 +174,11 @@ Rust surfaces exist:
 1. **In-process PyO3 module** `auralis_dsp` (the live one) — HPSS, YIN pitch, Chroma, tempo,
    envelope follower, compress/limit, and the full 25D `compute_fingerprint`. Registered in
    [`src/py_bindings.rs`](../../vendor/auralis-dsp/src/py_bindings.rs).
-2. **Standalone gRPC fingerprint server** —
-   [`src/bin/grpc_fingerprint_server.rs`](../../vendor/auralis-dsp/src/bin/grpc_fingerprint_server.rs).
-   **Abandoned/non-functional** (stub compute, gRPC-vs-HTTP client mismatch, never launched);
-   slated for removal. See [fingerprinting.md §7](fingerprinting.md#7-performance).
+2. **Standalone gRPC fingerprint server** — **removed** (2026-07-11, streamlining
+   #12). It was abandoned and non-functional (stub compute, gRPC-vs-HTTP client
+   mismatch, never launched); `vendor/auralis-dsp/src/bin/` no longer exists.
+   The PyO3 bindings above are the only fingerprint path. See
+   [fingerprinting.md §7](fingerprinting.md#7-performance).
 
 ### The PyO3 boundary contract
 
@@ -191,9 +192,10 @@ Rust surfaces exist:
 
 ### No Python fallback
 
-`DSPBackend`
-([`auralis/analysis/fingerprint/utilities/dsp_backend.py:24`](../../auralis/analysis/fingerprint/utilities/dsp_backend.py))
-is **Rust-only**. `initialize()` raises `RuntimeError` at import if `auralis_dsp` can't be
+The Rust FFI entry point
+([`auralis/analysis/fingerprint/rust_fingerprint.py`](../../auralis/analysis/fingerprint/rust_fingerprint.py))
+is **Rust-only**. (It replaced the `DSPBackend` wrapper that lived in the fingerprint
+utilities package, removed in streamlining #13 along with that whole package.) `initialize()` raises `RuntimeError` at import if `auralis_dsp` can't be
 imported — the old librosa fallback was removed. `_validate_ffi_inputs` rejects empty arrays /
 `sr <= 0` and coerces to float64 before every FFI call (#2521) to prevent Rust panics.
 
@@ -309,8 +311,9 @@ There are **two separate processor caches**: the module-level convenience cache 
    adaptive algorithm.
 3. [`chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py) — chunk
    geometry (small, foundational).
-4. [`mastering_branches.py`](../../auralis/core/mastering_branches.py) — the offline
-   branch logic and tuning constants.
+4. [`mastering_branches/`](../../auralis/core/mastering_branches/) — the offline
+   branch logic and tuning constants (a package since the split: `base.py`,
+   `classifier.py`, and one module per branch).
 
 **Related:** [fingerprinting.md](fingerprinting.md) ·
 [backend-api.md](backend-api.md) · [../architecture/data-flow.md](../architecture/data-flow.md)
