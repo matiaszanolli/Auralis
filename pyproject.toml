@@ -39,7 +39,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
+    # Upper bound is load-bearing (#4559): pytest 9.1 removed the legacy
+    # pytest_ignore_collect(path, config) hook signature that
+    # tests/conftest.py uses, so a fresh resolve off the old ">=7.0.0"
+    # floor picked a version that crashed collection entirely. Mirrors
+    # minversion in pytest.ini.
+    "pytest>=9.0.1,<9.1",
     "pytest-asyncio>=0.17.0",
     "pytest-cov>=3.0.0",
     "black>=22.0.0",
