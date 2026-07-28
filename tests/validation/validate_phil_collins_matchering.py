@@ -16,6 +16,29 @@ Dataset:
   Professional mastering: No (algorithmic Matchering)
   Genre: Live rock/pop compilation
   Issue: Blanket matching may not respect song-specific characteristics
+
+NOT A PYTEST TEST (#4251)
+-------------------------
+This is a manual analysis script, not a regression test. It reports on a
+specific artist's albums in a personal music library rooted at /mnt/Musica and
+/mnt/audio, and it makes ZERO assertions -- it prints a report and returns.
+
+It used to be collected as `test_*.py` under tests/backend/, which meant:
+  - on any machine without those paths it reported PASS having verified nothing
+  - on the machine that HAS them it spent minutes decoding audio, still
+    verifying nothing, and pytest warned that its test functions `return` a
+    value instead of asserting (an error in a future pytest)
+
+It now lives in tests/validation/, which pytest.ini excludes via
+`norecursedirs`, and its entry points are named `run_*` rather than `test_*`
+so nothing collects them. Run it directly:
+
+    python tests/validation/validate_phil_collins_matchering.py
+
+This follows the precedent set by #4047, which resolved the identical problem
+in the sibling phase7b remaster-comparison script the same way: an analysis
+script that needs the developer's library is kept runnable, but taken out of
+the suite rather than given synthetic assertions.
 """
 
 import json
@@ -46,7 +69,7 @@ def load_and_analyze_pair(original_path: str, remaster_path: str) -> dict:
         return None
 
 
-def test_phil_collins_album_matching():
+def run_phil_collins_album_matching():
     """
     Test weighted recommendations on Phil Collins album.
 
@@ -154,7 +177,7 @@ def test_phil_collins_album_matching():
     return results
 
 
-def test_matchering_aggression_detection():
+def run_matchering_aggression_detection():
     """
     Analyze whether Matchering applied aggressive blanket mastering.
 
@@ -234,8 +257,8 @@ if __name__ == "__main__":
     print("PRIORITY 4 VALIDATION: PHIL COLLINS MATCHERING TEST")
     print("=" * 80)
 
-    results = test_phil_collins_album_matching()
-    test_matchering_aggression_detection()
+    results = run_phil_collins_album_matching()
+    run_matchering_aggression_detection()
 
     print("\n✅ Phil Collins validation complete")
     print("   This real-world test demonstrates Priority 4's ability to handle")

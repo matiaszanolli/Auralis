@@ -88,6 +88,16 @@ ALBUM_PAIRS = [
 
 BASE_PATH = Path('/mnt/Musica/Musica/Blind Guardian')
 
+# Adjacent to #4251, and caught by its SIBLING sweep. This file does not report
+# a false PASS the way the two relocated scripts did -- it asserts
+# `len(all_results) > 0`, so with the library absent it HARD FAILS instead. That
+# is a different wrong answer to the same question: a machine without the
+# developer's personal library should skip this, not fail it.
+pytestmark = pytest.mark.skipif(
+    not BASE_PATH.exists(),
+    reason=f"requires the personal music library at {BASE_PATH}",
+)
+
 
 def _get_matching_tracks(original_dir: Path, remastered_dir: Path) -> List[Tuple[Path, Path]]:
     """Find matching tracks between original and remastered versions"""

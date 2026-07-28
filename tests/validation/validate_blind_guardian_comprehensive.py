@@ -19,6 +19,29 @@ Purpose:
   2. Detect when multiple profiles match equally
   3. Recommend appropriate blends for hybrid characteristics
   4. Maintain consistency across large datasets
+
+NOT A PYTEST TEST (#4251)
+-------------------------
+This is a manual analysis script, not a regression test. It reports on a
+specific artist's albums in a personal music library rooted at /mnt/Musica and
+/mnt/audio, and it makes ZERO assertions -- it prints a report and returns.
+
+It used to be collected as `test_*.py` under tests/backend/, which meant:
+  - on any machine without those paths it reported PASS having verified nothing
+  - on the machine that HAS them it spent minutes decoding audio, still
+    verifying nothing, and pytest warned that its test functions `return` a
+    value instead of asserting (an error in a future pytest)
+
+It now lives in tests/validation/, which pytest.ini excludes via
+`norecursedirs`, and its entry points are named `run_*` rather than `test_*`
+so nothing collects them. Run it directly:
+
+    python tests/validation/validate_blind_guardian_comprehensive.py
+
+This follows the precedent set by #4047, which resolved the identical problem
+in the sibling phase7b remaster-comparison script the same way: an analysis
+script that needs the developer's library is kept runnable, but taken out of
+the suite rather than given synthetic assertions.
 """
 
 import json
@@ -125,7 +148,7 @@ def analyze_album_pair(album_name: str, original_dir: Path, remaster_dir: Path) 
     return results if results['songs_analyzed'] > 0 else None
 
 
-def test_blind_guardian_comprehensive_analysis():
+def run_blind_guardian_comprehensive_analysis():
     """
     Main test: Analyze all Blind Guardian albums with Priority 4.
     """
@@ -244,7 +267,7 @@ def test_blind_guardian_comprehensive_analysis():
     return all_results
 
 
-def test_blind_guardian_mastering_philosophy():
+def run_blind_guardian_mastering_philosophy():
     """
     Analyze mastering philosophies across Blind Guardian's discography.
 
@@ -257,7 +280,7 @@ def test_blind_guardian_mastering_philosophy():
     print("BLIND GUARDIAN MASTERING PHILOSOPHY ANALYSIS")
     print("=" * 90)
 
-    results = test_blind_guardian_comprehensive_analysis()
+    results = run_blind_guardian_comprehensive_analysis()
 
     if not results:
         print("⚠️  No results to analyze")
@@ -298,7 +321,7 @@ if __name__ == "__main__":
     print("BLIND GUARDIAN DATASET - PRIORITY 4 COMPREHENSIVE VALIDATION")
     print("=" * 90)
 
-    test_blind_guardian_mastering_philosophy()
+    run_blind_guardian_mastering_philosophy()
 
     print("\n✅ Blind Guardian validation complete")
     print("   This comprehensive analysis demonstrates Priority 4's ability to handle")
