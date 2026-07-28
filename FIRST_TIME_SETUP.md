@@ -13,7 +13,7 @@ Before you begin, ensure your system has:
 - [ ] **[uv](https://docs.astral.sh/uv/)** - Manages the Python interpreter + virtual environment (replaces pyenv/venv/pip). Check with `uv --version`
 - [ ] **Node.js 24+ LTS** - Check with `node --version`
 - [ ] **Git** - Check with `git --version`
-- [ ] **npm** - Check with `npm --version` (comes with Node)
+- [ ] **pnpm** - Check with `pnpm --version` (the ONLY supported package manager, #4357; install with `corepack enable`)
 - [ ] **Audio libraries** (platform-dependent, see section below)
 - [ ] **~5GB free disk space** for dependencies, database, and build artifacts
 
@@ -91,7 +91,7 @@ node --version  # Should be 24+ LTS
 
 # Install frontend dependencies
 cd auralis-web/frontend
-npm install
+pnpm install
 cd ../..
 ```
 
@@ -127,7 +127,7 @@ python -c "import numpy, scipy, fastapi, pytest; print('✅ Core Python packages
 
 echo "=== Node ==="
 node --version
-npm --version
+pnpm --version
 
 echo "=== Database ==="
 ls -lh ~/.auralis/library.db
@@ -136,7 +136,7 @@ echo "=== Audio Libraries ==="
 python -c "import soundfile; print('✅ Audio I/O OK')"
 
 echo "=== Frontend ==="
-cd auralis-web/frontend && npm list react react-dom 2>/dev/null | head -5
+cd auralis-web/frontend && pnpm list react react-dom 2>/dev/null | head -5
 ```
 
 ---
@@ -164,7 +164,7 @@ python -m uvicorn main:app --reload
 ### Option C: Frontend Only
 ```bash
 cd auralis-web/frontend
-npm run dev
+pnpm run dev
 # Visit http://localhost:3000
 ```
 
@@ -181,7 +181,7 @@ python -m pytest tests/ -m "not slow" -v --tb=short
 ### Frontend Tests (Watch mode)
 ```bash
 cd auralis-web/frontend
-npm test
+pnpm test
 # Press 'q' to quit, 'a' to run all tests
 ```
 
@@ -233,8 +233,8 @@ npm test
 | `libsndfile not found` | Install audio libraries (see section above) |
 | `Port 8765 already in use` | Kill existing process: `lsof -ti:8765 \| xargs kill -9` |
 | `SQLite database locked` | Delete database: `rm ~/.auralis/library.db` (will rescan) |
-| `npm: command not found` | Install Node 24+ LTS from https://nodejs.org/ |
-| `Module not found (TypeScript)` | Run `cd auralis-web/frontend && npm install` |
+| `pnpm: command not found` | Install Node 24+ LTS from https://nodejs.org/, then `corepack enable` |
+| `Module not found (TypeScript)` | Run `cd auralis-web/frontend && pnpm install` |
 | `Audio file won't play` | Install ffmpeg: `brew install ffmpeg` (macOS) or apt-get (Linux) |
 
 ---

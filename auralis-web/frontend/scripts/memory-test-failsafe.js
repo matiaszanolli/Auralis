@@ -14,9 +14,9 @@
  * - Windows/Linux compatibility
  *
  * Usage:
- *   npm run test:memory:failsafe
- *   npm run test:memory:failsafe -- --category library
- *   npm run test:memory:failsafe -- --max-heap 1024
+ *   pnpm run test:memory:failsafe
+ *   pnpm run test:memory:failsafe -- --category library
+ *   pnpm run test:memory:failsafe -- --max-heap 1024
  */
 
 const { spawn } = require('child_process');

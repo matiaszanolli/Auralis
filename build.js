@@ -317,9 +317,9 @@ class BuildManager {
       this.log('BUILD', '✅ Build complete!');
       this.log('BUILD', '');
       this.log('BUILD', 'Next steps:');
-      this.log('BUILD', '  cd desktop && npm run build:linux    # AppImage');
-      this.log('BUILD', '  cd desktop && npm run build:mac      # DMG');
-      this.log('BUILD', '  cd desktop && npm run build:win      # NSIS installer');
+      this.log('BUILD', '  cd desktop && pnpm run build:linux    # AppImage');
+      this.log('BUILD', '  cd desktop && pnpm run build:mac      # DMG');
+      this.log('BUILD', '  cd desktop && pnpm run build:win      # NSIS installer');
       console.log('');
 
     } catch (error) {
