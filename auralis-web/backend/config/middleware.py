@@ -10,6 +10,7 @@ and security headers.
 
 import asyncio
 import logging
+import sys
 import time
 from typing import Any, cast
 from collections.abc import Callable
@@ -17,6 +18,7 @@ from collections.abc import Callable
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
@@ -217,6 +219,46 @@ def cors_allowed_origins() -> list[str]:
     ]
 
 
+# Hosts a browser can legitimately put in the Host header for this backend.
+#
+# Starlette's TrustedHostMiddleware strips the port before matching
+# (`headers.get("host", "").split(":")[0]`), so these are bare hostnames. The
+# issue proposed entries like "localhost:8765" — those could never match, since
+# the port is gone by the time the comparison happens.
+#
+# No "[::1]": the same split(":") leaves "[" for an IPv6 literal, so a bracketed
+# address cannot be matched at all. It does not need to be — main.py binds
+# 127.0.0.1, so the v6 loopback never reaches this process.
+_TRUSTED_HOSTS: tuple[str, ...] = ("localhost", "127.0.0.1")
+
+# Starlette's TestClient sends `Host: testserver` by default, and several
+# suites drive the ASGI app through httpx with base_url="http://test". Neither
+# is resolvable as a public domain (both are single-label, so a browser cannot
+# be induced to send them for a rebound address), but they are still test
+# scaffolding and are kept out of the shipped allowlist.
+_TEST_HOSTS: tuple[str, ...] = ("testserver", "test")
+
+
+def trusted_hosts(include_test_hosts: bool | None = None) -> list[str]:
+    """Build the allowed Host header values (#4353).
+
+    DNS-rebinding defence in depth: a page on attacker.com rebound to 127.0.0.1
+    reaches this backend with `Host: attacker.com`. Validating the header
+    rejects it before any handler runs.
+
+    Args:
+        include_test_hosts: Force the test hosts in or out. Defaults to
+            autodetecting pytest, so production never carries them; passing
+            False is how the test suite asserts that.
+    """
+    if include_test_hosts is None:
+        include_test_hosts = "pytest" in sys.modules
+    hosts = list(_TRUSTED_HOSTS)
+    if include_test_hosts:
+        hosts.extend(_TEST_HOSTS)
+    return hosts
+
+
 def setup_middleware(app: FastAPI) -> None:
     """
     Add middleware to FastAPI application.
@@ -234,10 +276,20 @@ def setup_middleware(app: FastAPI) -> None:
     # run and is returned without the documented security headers (#3843).
     #
     # Resulting request-inbound order: CORS → SecurityHeaders → NoCache →
-    # RateLimit → app; a 429 bubbles back up through SecurityHeaders/NoCache.
+    # TrustedHost → RateLimit → app; a 429 or an invalid-host 400 bubbles back
+    # up through SecurityHeaders/NoCache.
 
     # Rate limiting for expensive endpoints (#2575) — innermost
     app.add_middleware(RateLimitMiddleware)
+
+    # Host-header validation (#4353) — wraps RateLimit, wrapped by
+    # SecurityHeaders. Placed here rather than outermost for the same reason
+    # #3843 reordered RateLimit: an "Invalid host header" 400 is a response
+    # like any other and should carry the documented security headers, which it
+    # would not if it short-circuited outside SecurityHeadersMiddleware. It
+    # still runs before RateLimit, so a rebinding probe cannot consume the rate
+    # budget, and before any route handler.
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts())
 
     # No-cache middleware for frontend assets
     app.add_middleware(NoCacheMiddleware)
@@ -262,4 +314,7 @@ def setup_middleware(app: FastAPI) -> None:
         allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "X-Session-Id"],
     )
 
-    logger.debug("✅ Middleware configured: NoCacheMiddleware, SecurityHeadersMiddleware, CORSMiddleware")
+    logger.debug(
+        "✅ Middleware configured: TrustedHostMiddleware, RateLimitMiddleware, "
+        "NoCacheMiddleware, SecurityHeadersMiddleware, CORSMiddleware"
+    )
