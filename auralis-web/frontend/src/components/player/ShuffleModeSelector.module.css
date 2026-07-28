@@ -1,43 +1,59 @@
 /* ShuffleModeSelector Styles
- * Style Guide compliant - Dark theme canonical
- * Uses CSS variables with dark theme fallbacks
+ *
+ * Consumes the semantic theme contract (#4535). Every custom property used
+ * here has a real producer:
+ *   --app-*      -> getSemanticCssVariables() in src/theme/semanticTheme.ts,
+ *                   written onto document.documentElement by ThemeContext and
+ *                   re-resolved on every mode change.
+ *   --space-*,
+ *   --radius-*,
+ *   --transition-* -> the :root block in src/index.css.
+ *
+ * Previously this file referenced --bg-secondary / --bg-tertiary /
+ * --text-primary / --text-primary-full / --text-secondary / --accent-primary /
+ * --accent-dark / --spacing-* / --border-radius-* / --font-size-*, none of
+ * which are defined anywhere in the repo. Every one silently fell through to a
+ * hardcoded dark-theme fallback, so the component rendered as a fixed dark
+ * island that never reacted to the light/dark toggle. Do not reintroduce a
+ * `var(--name, <fallback>)` pair without first confirming --name has a
+ * producer — the fallback hides the omission instead of surfacing it.
  */
 
 .container {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md, 12px);
+  gap: var(--space-md);
 }
 
 .modesGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-  gap: var(--spacing-sm, 6px);
+  gap: var(--space-sm);
 }
 
 .modeButton {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-xs, 4px);
-  padding: var(--spacing-md, 12px);
-  border-radius: var(--border-radius-md, 12px);
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
   /* Style Guide §2.1: Borders almost never visible (<10% opacity) */
-  border: 1px solid rgba(115, 102, 240, 0.12);
-  /* Dark theme fallbacks */
-  background-color: var(--bg-secondary, #101729);
-  color: var(--text-primary, rgba(255, 255, 255, 0.95));
+  border: 1px solid var(--app-border-subtle);
+  background-color: var(--app-surface-secondary);
+  color: var(--app-text-primary);
   cursor: pointer;
-  font-size: var(--font-size-sm, 11px);
+  /* tokens.typography.fontSize.sm — no --font-size-* producer exists. */
+  font-size: 11px;
   font-weight: 600;
-  /* Style Guide §6.2: Hover 120-180ms — references CSS var from index.css (fixes #3985) */
+  /* Style Guide §6.2: Hover 120-180ms — CSS var from index.css (fixes #3985) */
   transition: all var(--transition-hover-out);
   min-height: 80px;
 }
 
 .modeButton:hover:not(:disabled) {
-  background-color: var(--bg-tertiary, #151D2F);
-  border-color: var(--accent-primary, #7366F0);
+  background-color: var(--app-surface-overlay);
+  border-color: var(--app-accent);
   transform: translateY(-2px);
   /* Deep blue-black shadow (not pure black) */
   box-shadow: 0 2px 8px rgba(11, 16, 32, 0.3);
@@ -49,7 +65,7 @@
 }
 
 .modeButton:focus {
-  outline: 2px solid var(--accent-primary, #7366F0);
+  outline: 2px solid var(--app-accent);
   outline-offset: 2px;
 }
 
@@ -58,14 +74,14 @@
 }
 
 .modeButtonActive {
-  background-color: var(--accent-primary, #7366F0);
+  background-color: var(--app-accent);
   /* White text on accent background */
-  color: var(--text-primary-full, #ffffff);
-  border-color: var(--accent-primary, #7366F0);
+  color: var(--app-on-accent);
+  border-color: var(--app-accent);
 }
 
 .modeButtonActive:hover:not(:disabled) {
-  background-color: var(--accent-dark, #5A5CC4);
+  background-color: var(--app-accent-hover);
   /* Accent color shadow */
   box-shadow: 0 4px 12px rgba(115, 102, 240, 0.3);
 }
@@ -84,13 +100,14 @@
 }
 
 .tooltip {
-  padding: var(--spacing-sm, 6px) var(--spacing-md, 12px);
-  background-color: var(--bg-tertiary, #151D2F);
-  border-radius: var(--border-radius-sm, 8px);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--app-surface-raised);
+  border-radius: var(--radius-sm);
   /* Style Guide §2.1: Borders almost never visible */
-  border: 1px solid rgba(115, 102, 240, 0.12);
-  font-size: var(--font-size-xs, 10px);
-  color: var(--text-secondary, rgba(255, 255, 255, 0.68));
+  border: 1px solid var(--app-border-subtle);
+  /* tokens.typography.fontSize.xs — no --font-size-* producer exists. */
+  font-size: 10px;
+  color: var(--app-text-secondary);
   text-align: center;
   /* Style Guide §6.2: Hover 120-180ms */
   animation: slideIn 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -112,20 +129,17 @@
 @media (max-width: 600px) {
   .modesGrid {
     grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-    gap: var(--spacing-xs, 4px);
+    gap: var(--space-xs);
   }
 
   .modeButton {
     min-height: 70px;
-    padding: var(--spacing-sm, 6px);
-    gap: var(--spacing-xs, 4px);
-  }
-
-  .modeIcon {
-    font-size: 20px;
+    padding: var(--space-sm);
+    gap: var(--space-xs);
   }
 
   .modeName {
-    font-size: var(--font-size-xs, 10px);
+    /* tokens.typography.fontSize.xs */
+    font-size: 10px;
   }
 }
