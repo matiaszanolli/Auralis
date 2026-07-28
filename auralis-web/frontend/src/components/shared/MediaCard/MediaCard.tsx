@@ -24,6 +24,7 @@ import { KeyboardEvent, MouseEvent, memo } from 'react';
 import { Card } from '@/design-system';
 import { tokens } from '@/design-system';
 import { formatDuration } from '@/utils/timeFormat';
+import { themeVars } from '@/theme/semanticTheme';
 import { MediaCardArtwork } from './MediaCardArtwork';
 import { MediaCardOverlay } from './MediaCardOverlay';
 import { MediaCardInfo } from './MediaCardInfo';
@@ -130,7 +131,11 @@ export const MediaCard = memo(function MediaCard(props: MediaCardProps) {
         transition: `${tokens.transitions.slow_inOut}, backdrop-filter ${tokens.transitions.base}`,
 
         // Continuous surface (calm by default - Design Language §1.3, §4.1)
-        background: tokens.glass.subtle.background,  // Subtle glass for calm idle state
+        // #4534: glass.subtle.background is rgba(21,29,47,0.25) — a dark tint
+        // with no light-mode variant. Over the light canvas it composited to a
+        // pale ~#BFC2CA card, and MediaCardInfo's near-white text sat on it at
+        // 1.74:1. surfaceTranslucent resolves per mode.
+        background: themeVars.surfaceTranslucent,
         backdropFilter: tokens.glass.subtle.backdropFilter,
         border: tokens.glass.subtle.border,          // Subtle glass border (10% white opacity)
         boxShadow: tokens.glass.subtle.boxShadow,    // Minimal depth via shadow
@@ -157,7 +162,10 @@ export const MediaCard = memo(function MediaCard(props: MediaCardProps) {
         // Expressive by state - alive when hovered (Design Language §1.3, §5)
         '&:hover': {
           transform: 'scale(1.03)',                  // Scale-based float (Design Language §5 - no translateY)
-          background: tokens.glass.medium.background, // Upgrade to medium glass
+          // surfaceRaised rather than a heavier glass tint: the hover lift has
+          // to read as *lighter* in light mode and *lighter* in dark mode, and
+          // a fixed dark tint can only ever darken (#4534).
+          background: themeVars.surfaceRaised,
           backdropFilter: tokens.glass.medium.backdropFilter,
           boxShadow: `0 12px 32px ${tokens.colors.opacityScale.dark.strong}, 0 0 0 1px ${tokens.colors.opacityScale.white.lighter}`, // Enhanced elevation shadow
 

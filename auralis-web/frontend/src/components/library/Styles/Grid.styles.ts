@@ -8,13 +8,14 @@
 import { Box, Paper, Typography, styled } from '@mui/material';
 import { spin } from './Animation.styles';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * ListLoadingContainer - Paper container for list view loading state
  * Used when displaying track row skeletons
  */
 export const ListLoadingContainer = styled(Paper)({
-  background: tokens.colors.bg.level2,
+  background: themeVars.surfaceSecondary,
   borderRadius: tokens.spacing.md,
   overflow: 'hidden',
   padding: tokens.spacing.sm,
@@ -75,7 +76,7 @@ export const LoadingSpinner = styled(Box)({
  */
 export const LoadingText = styled(Typography)({
   marginLeft: tokens.spacing.sm,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
 });
 
 /**
@@ -92,5 +93,5 @@ export const EndOfListIndicator = styled(Box)({
  * Shows total count of items loaded
  */
 export const EndOfListText = styled(Typography)({
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
 });

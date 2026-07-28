@@ -9,6 +9,7 @@
 
 import { buttonShadows } from './Shadow.styles';
 import { Button } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { styled } from '@mui/material';
 import { tokens } from '@/design-system';
 
@@ -19,7 +20,10 @@ import { tokens } from '@/design-system';
  */
 export const GradientButton = styled(Button)({
   background: tokens.gradients.aurora,
-  color: tokens.colors.text.primary,
+  // onAccent, not textPrimary: the aurora gradient is a fixed vibrant fill in
+  // both modes, so the label must stay light. textPrimary resolves to dark
+  // navy in light mode (#4534).
+  color: themeVars.onAccent,
   textTransform: 'none',
   fontWeight: tokens.typography.fontWeight.semibold,
   padding: `${tokens.spacing.xs} ${tokens.spacing.lg}`,  // 4px vertical, 20px horizontal
@@ -49,15 +53,15 @@ export const GradientButton = styled(Button)({
  * Used in dialog action bars
  */
 export const CancelButton = styled(Button)(({ theme: _theme }) => ({
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   textTransform: 'none',
   borderRadius: tokens.borderRadius.md,                   // 12px - softer, more organic
   padding: `${tokens.spacing.xs} ${tokens.spacing.lg}`,  // 4px vertical, 20px horizontal
 
   '&:hover': {
-    backgroundColor: tokens.glass.subtle.background,      // Glass effect on hover
+    backgroundColor: themeVars.surfaceTranslucent,      // Glass effect on hover
     backdropFilter: tokens.glass.subtle.backdropFilter,   // 20px blur for glossy feel
-    color: tokens.colors.text.primary,
+    color: themeVars.textPrimary,
   },
 
   transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
@@ -70,7 +74,8 @@ export const CancelButton = styled(Button)(({ theme: _theme }) => ({
  */
 export const SaveButton = styled(Button)(({ theme: _theme }) => ({
   background: tokens.gradients.aurora,
-  color: tokens.colors.text.primary,
+  // See GradientButton: fixed gradient fill, so onAccent rather than textPrimary.
+  color: themeVars.onAccent,
   textTransform: 'none',
   fontWeight: tokens.typography.fontWeight.semibold,
   padding: `${tokens.spacing.xs} ${tokens.spacing.lg}`,  // 4px vertical, 20px horizontal

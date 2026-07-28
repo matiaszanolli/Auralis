@@ -13,6 +13,7 @@
 
 import { Tabs, styled } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * DialogTabs - Tab navigation for dialog interfaces
@@ -26,7 +27,7 @@ export const DialogTabs = styled(Tabs)({
     textTransform: 'none',
     fontSize: tokens.typography.fontSize.base,
     minHeight: 48,
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
     '&.Mui-selected': {
       color: tokens.colors.accent.primary
     }

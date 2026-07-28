@@ -8,6 +8,7 @@
 
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface MediaCardInfoProps {
   /** Primary title */
@@ -53,7 +54,7 @@ export const MediaCardInfo = ({
           fontFamily: tokens.typography.fontFamily.header,  // Manrope for track/album titles
           fontWeight: tokens.typography.fontWeight.semibold,
           fontSize: tokens.typography.fontSize.sm,
-          color: isPlaying ? tokens.colors.accent.primary : tokens.colors.text.primary,
+          color: isPlaying ? tokens.colors.accent.primary : themeVars.textPrimary,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -67,7 +68,7 @@ export const MediaCardInfo = ({
         variant="body2"
         sx={{
           fontSize: tokens.typography.fontSize.xs,
-          color: tokens.colors.text.secondary,
+          color: themeVars.textSecondary,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -84,7 +85,7 @@ export const MediaCardInfo = ({
           // text.metadata (60% white, ~6.98:1 on the card bg) instead of
           // text.disabled (40% white, ~3.68:1) which failed WCAG AA for this
           // 11px content caption (#4182).
-          color: tokens.colors.text.metadata,
+          color: themeVars.textMuted,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',

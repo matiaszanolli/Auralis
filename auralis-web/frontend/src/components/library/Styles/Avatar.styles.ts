@@ -14,6 +14,7 @@
 import { Avatar, Box, styled } from '@mui/material';
 import { radiusCircle } from './BorderRadius.styles';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 /**
  * ArtistAvatarCircle - Circular artist avatar for detail views
@@ -24,13 +25,13 @@ export const ArtistAvatarCircle = styled(Box)(({ theme: _theme }) => ({
   width: 120,
   height: 120,
   borderRadius: radiusCircle,
-  background: `linear-gradient(135deg, ${tokens.colors.bg.level3} 0%, ${tokens.colors.bg.level4} 100%)`, // Subtle gradient, not aurora
+  background: `linear-gradient(135deg, ${themeVars.surfaceRaised} 0%, ${themeVars.surfaceOverlay} 100%)`, // Subtle gradient, not aurora
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   fontSize: tokens.typography.fontSize.display,
   fontWeight: tokens.typography.fontWeight.semibold, // Less bold
-  color: tokens.colors.text.tertiary, // More subdued
+  color: themeVars.textMuted, // More subdued
   boxShadow: 'none', // No glow effect
   border: `1px solid ${tokens.colors.border.light}`, // Subtle border
   opacity: 0.6, // Reduce visual weight

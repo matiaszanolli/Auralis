@@ -10,6 +10,7 @@
 
 import { containerShadows } from './Shadow.styles';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { Chip } from '@/design-system';
 import { TextField, Paper, ListItemButton, styled, Box } from '@mui/material';
 export { ArtistSearchAvatar, DefaultSearchAvatar } from './Avatar.styles';
@@ -64,7 +65,7 @@ export const ResultsContainer = styled(Paper)({
   marginTop: tokens.spacing.xs,
   maxHeight: 500,
   overflowY: 'auto',
-  background: tokens.colors.bg.secondary,
+  background: themeVars.surfacePrimary,
   backdropFilter: 'blur(20px)',
   border: `1px solid ${tokens.colors.opacityScale.accent.lighter}`,
   borderRadius: tokens.spacing.sm,

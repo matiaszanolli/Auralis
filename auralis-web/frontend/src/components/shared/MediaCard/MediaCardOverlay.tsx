@@ -10,6 +10,7 @@ import { MouseEvent, ReactNode } from 'react';
 import { Box, IconButton } from '@mui/material';
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 interface MediaCardOverlayProps {
   /** Whether card is hovered */
@@ -74,7 +75,9 @@ export const MediaCardOverlay = ({
           aria-label={title ? `Play ${title}` : 'Play'}
           sx={{
             background: tokens.colors.accent.primary,
-            color: tokens.colors.text.primary,
+            // Sits on the accent fill, so this is onAccent -- textPrimary
+            // would resolve to dark navy on violet in light mode (#4534).
+            color: themeVars.onAccent,
             width: 56,
             height: 56,
             '&:hover': {
