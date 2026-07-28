@@ -109,19 +109,19 @@ class TestMasterFileMonoInput:
             f"Sample count changed: input {n} -> output {output.shape[0]}"
         )
 
-    def test_master_result_includes_closed_loop_evaluation(self):
-        """Offline mastering exposes a usable before/after decision report."""
+    def test_master_result_includes_continuous_measurements(self):
+        """Offline mastering exposes measurements without a verdict."""
         mono = (0.2 * np.sin(2 * np.pi * 220 * np.arange(SR) / SR)).astype(np.float32)
         _, result = _master_mono(mono)
 
         evaluation = result['evaluation']
-        assert evaluation['verdict'] == 'rejected'
-        assert evaluation['needs_processing'] is True
-        assert evaluation['accepted'] is False
+        assert 'verdict' not in evaluation
+        assert 'accepted' not in evaluation
+        assert evaluation['sample_count_change'] == 0
         assert evaluation['dimensions']['frequency_response']
 
     def test_quality_evaluation_failure_does_not_discard_output(self):
-        """A post-export analyzer failure reports unavailable, without raising."""
+        """A post-export analyzer failure remains advisory."""
         mono = (0.2 * np.sin(2 * np.pi * 220 * np.arange(SR) / SR)).astype(np.float32)
         with patch(
             'auralis.analysis.quality.mastering_file_evaluation.'
@@ -131,7 +131,5 @@ class TestMasterFileMonoInput:
             output, result = _master_mono(mono)
 
         assert output.size > 0
-        assert result['evaluation'] == {
-            'verdict': 'unavailable',
-            'reason': 'metrics backend failed',
-        }
+        assert result['evaluation_error'] == 'metrics backend failed'
+        assert 'evaluation' not in result

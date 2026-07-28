@@ -14,16 +14,17 @@ import pytest
 
 from auralis.core.config.unified_config import UnifiedConfig
 from auralis.core.processing.cross_dimensional_guard import (
+    STAGE_DYNAMICS,
+    STAGE_EQ,
+    STAGE_INPUT,
+    STAGE_NORMALIZATION,
+    STAGE_STEREO,
     CrossDimensionalGuard,
-    STAGE_INPUT, STAGE_EQ, STAGE_DYNAMICS, STAGE_STEREO, STAGE_NORMALIZATION,
 )
 from auralis.core.processing.stage_snapshot import (
     PipelineJournal,
     StageSnapshot,
-    _compute_3band_energy,
-    _compute_phase_correlation,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -254,7 +255,9 @@ class TestCompensationBounds:
 
     def test_spectral_tilt_correction_capped_at_2db(self):
         """Spectral tilt correction should not exceed ±2 dB."""
-        from auralis.core.processing.continuous_mode import _apply_spectral_tilt_correction
+        from auralis.core.processing.continuous_mode import (
+            _apply_spectral_tilt_correction,
+        )
         audio = np.random.default_rng(42).standard_normal((44100, 2)).astype(np.float32) * 0.1
 
         # Request 10 dB correction — should be capped internally to 2 dB
@@ -414,7 +417,7 @@ class TestQualityGateInterval:
         mode = self._mode_with_interval(0)
         assert self._run(mode, stereo_noise, 5) == 1
 
-    def test_gate_records_closed_loop_evaluation(
+    def test_monitor_records_continuous_measurements(
         self, stereo_noise: np.ndarray
     ):
         from unittest.mock import patch
@@ -447,9 +450,15 @@ class TestQualityGateInterval:
         ):
             mode.process(stereo_noise.copy(), self._identity_eq())
 
-        assert mode.last_mastering_evaluation is not None
-        assert mode.last_mastering_evaluation['verdict'] == 'improved'
-        assert mode.last_mastering_evaluation['accepted'] is True
+        measurements = mode.last_mastering_measurements
+        assert measurements is not None
+        assert measurements['overall_score_change'] == 8.0
+        assert (
+            measurements['dimensions']['frequency_response']['score_change']
+            == 30.0
+        )
+        assert 'verdict' not in measurements
+        assert 'accepted' not in measurements
 
 
 # ---------------------------------------------------------------------------

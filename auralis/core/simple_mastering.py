@@ -29,11 +29,13 @@ from .stages import (
     loudness_maximizer,
     mid_warmth,
     presence_enhancement,
-    resonance_notches as resonance_notches_stage,
     safety_limiter,
     stereo_expansion,
     sub_bass_control,
     transient_shaper,
+)
+from .stages import (
+    resonance_notches as resonance_notches_stage,
 )
 
 
@@ -205,47 +207,32 @@ class SimpleMasteringPipeline:
             if self.config.QUALITY_EVALUATION_ENABLED:
                 step_start = time.perf_counter()
                 try:
-                    from ..analysis.quality.mastering_evaluation_models import (
-                        EvaluationPolicy,
-                    )
                     from ..analysis.quality.mastering_file_evaluation import (
                         evaluate_mastering_files,
                     )
 
-                    policy = EvaluationPolicy(
-                        minimum_effect=self.config.QUALITY_EVALUATION_MIN_EFFECT,
-                        minimum_total_distance_reduction=(
-                            self.config.QUALITY_EVALUATION_MIN_EFFECT
-                        ),
-                        maximum_dimension_regression=(
-                            self.config.QUALITY_EVALUATION_MAX_REGRESSION
-                        ),
-                        true_peak_ceiling_dbfs=(
-                            self.config.QUALITY_EVALUATION_TRUE_PEAK_DBFS
-                        ),
-                    )
                     report = evaluate_mastering_files(
                         resolved_input_path,
                         output_path,
-                        policy=policy,
                         window_seconds=self.config.QUALITY_EVALUATION_WINDOW_SEC,
                         window_count=self.config.QUALITY_EVALUATION_WINDOW_COUNT,
                         target_lufs=self.config.TARGET_LUFS,
                     )
                     result['evaluation'] = report.to_dict()
                 except Exception as exc:  # noqa: BLE001
-                    # Evaluation is an advisory, post-export gate. A metrics
-                    # backend failure must not discard an otherwise valid
-                    # mastered file.
-                    result['evaluation'] = {
-                        'verdict': 'unavailable',
-                        'reason': str(exc),
-                    }
+                    # Measurements are advisory. A metrics backend failure must
+                    # not discard or reclassify an otherwise valid master.
+                    result['evaluation_error'] = str(exc)
                 timings['evaluation'] = time.perf_counter() - step_start
 
             timings['total'] = time.perf_counter() - total_start
             if verbose and 'evaluation' in result:
                 mastering_diagnostics.print_quality_evaluation(result['evaluation'])
+            elif verbose and 'evaluation_error' in result:
+                print(
+                    "\n⚠️  Before/after measurement unavailable: "
+                    f"{result['evaluation_error']}"
+                )
             if time_metrics:
                 mastering_diagnostics.print_time_metrics(timings, duration)
                 result['timings'] = timings

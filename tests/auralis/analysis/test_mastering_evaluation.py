@@ -1,12 +1,12 @@
-"""Closed-loop mastering diagnosis and acceptance tests."""
+"""Continuous mastering measurements without categorical decisions."""
 
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 from auralis.analysis.quality.mastering_evaluation import MasteringEvaluator
-from auralis.analysis.quality.mastering_evaluation_models import EvaluationPolicy
 from auralis.analysis.quality.mastering_file_evaluation import (
     evaluate_mastering_files,
 )
@@ -40,114 +40,65 @@ def _scores(
     )
 
 
-def test_detects_sustained_issue_and_accepts_meaningful_correction():
-    evaluator = MasteringEvaluator(policy=EvaluationPolicy())
-    before = [
-        _scores(frequency=45.0),
-        _scores(frequency=50.0),
-        _scores(frequency=70.0),
-    ]
-    after = [
-        _scores(frequency=69.0),
-        _scores(frequency=71.0),
-        _scores(frequency=72.0),
-    ]
-
-    report = evaluator.evaluate_scores(before, after)
-
-    assert report.needs_processing is True
-    assert report.should_bypass is False
-    assert report.accepted is True
-    assert report.verdict == "improved"
-    assert report.improved_dimensions == ("frequency_response",)
-    assert report.dimensions["frequency_response"].issue_window_fraction == 2 / 3
-
-
-def test_localized_issue_is_not_hidden_by_track_median():
-    evaluator = MasteringEvaluator()
-    before = [_scores() for _ in range(5)]
-    after = [_scores() for _ in range(5)]
-    before[2] = _scores(frequency=45.0)
-    after[2] = _scores(frequency=70.0)
-
-    report = evaluator.evaluate_scores(before, after)
-
-    assert report.dimensions["frequency_response"].issue_window_fraction == 0.2
-    assert report.improved_dimensions == ("frequency_response",)
-    assert report.accepted is True
-
-
-def test_rejects_underwhelming_change_below_minimum_effect():
-    evaluator = MasteringEvaluator(
-        policy=EvaluationPolicy(minimum_effect=2.0)
-    )
-
-    report = evaluator.evaluate_scores(
+def test_reports_numeric_changes_without_a_verdict():
+    report = MasteringEvaluator().evaluate_scores(
         [_scores(frequency=45.0)],
-        [_scores(frequency=46.0)],
+        [_scores(frequency=69.0)],
     )
 
-    assert report.needs_processing is True
-    assert report.meaningful_improvement is False
-    assert report.accepted is False
-    assert report.verdict == "rejected"
+    assert report.overall_score_change == pytest.approx(4.8)
+    assert report.dimensions["frequency_response"].score_change == 24.0
+    serialized = report.to_dict()
+    assert "verdict" not in serialized
+    assert "accepted" not in serialized
+    assert "should_bypass" not in serialized
 
 
-def test_rejects_cross_dimensional_regression():
-    evaluator = MasteringEvaluator(
-        policy=EvaluationPolicy(maximum_dimension_regression=5.0)
+def test_aggregates_all_windows_without_threshold_selection():
+    report = MasteringEvaluator().evaluate_scores(
+        [
+            _scores(frequency=45.0),
+            _scores(frequency=80.0),
+            _scores(frequency=70.0),
+        ],
+        [
+            _scores(frequency=69.0),
+            _scores(frequency=78.0),
+            _scores(frequency=72.0),
+        ],
     )
 
-    report = evaluator.evaluate_scores(
-        [_scores(frequency=40.0, dynamics=80.0)],
-        [_scores(frequency=72.0, dynamics=70.0)],
+    frequency = report.dimensions["frequency_response"]
+    assert frequency.before_score == 70.0
+    assert frequency.after_score == 72.0
+    assert frequency.score_change == 2.0
+    assert frequency.mean_window_change == 8.0
+    assert frequency.minimum_window_change == -2.0
+    assert frequency.maximum_window_change == 24.0
+
+
+def test_reports_sample_count_change_as_a_number():
+    class _Metrics:
+        @staticmethod
+        def assess_quality(_audio):
+            return _scores()
+
+    report = MasteringEvaluator(quality_metrics=_Metrics()).evaluate_windows(
+        [np.zeros(8, dtype=np.float32)],
+        [np.zeros(6, dtype=np.float32)],
     )
 
-    assert report.meaningful_improvement is True
-    assert report.regressed_dimensions == ("dynamic_range",)
-    assert report.accepted is False
+    assert report.sample_count_change == -2
 
 
-def test_already_good_track_recommends_bypass_when_preserved():
-    evaluator = MasteringEvaluator()
-
-    report = evaluator.evaluate_scores(
-        [_scores()],
-        [_scores(frequency=80.5, loudness=79.5)],
-    )
-
-    assert report.needs_processing is False
-    assert report.should_bypass is True
-    assert report.accepted is True
-    assert report.verdict == "bypass"
-
-
-def test_already_good_track_rejects_needless_material_change():
-    evaluator = MasteringEvaluator(
-        policy=EvaluationPolicy(bypass_score_tolerance=2.0)
-    )
-
-    report = evaluator.evaluate_scores(
-        [_scores()],
-        [_scores(frequency=84.0)],
-    )
-
-    assert report.should_bypass is True
-    assert report.accepted is False
-
-
-def test_true_peak_violation_rejects_otherwise_improved_output():
-    evaluator = MasteringEvaluator(
-        policy=EvaluationPolicy(true_peak_ceiling_dbfs=-0.5)
-    )
-
-    report = evaluator.evaluate_scores(
+def test_true_peak_is_reported_without_acceptance_decision():
+    report = MasteringEvaluator().evaluate_scores(
         [_scores(frequency=40.0)],
         [_scores(frequency=70.0, true_peak=0.1)],
     )
 
-    assert "true_peak_ceiling_exceeded" in report.artifact_violations
-    assert report.accepted is False
+    assert report.max_true_peak_after_dbfs == 0.1
+    assert "artifact_violations" not in report.to_dict()
 
 
 def test_negative_true_peak_threshold_penalizes_overshoot():
@@ -156,8 +107,7 @@ def test_negative_true_peak_threshold_penalizes_overshoot():
     assert ScoringOperations.threshold_score(0.0, -1.0) == 0.0
 
 
-def test_evaluates_enriched_quality_comparison():
-    evaluator = MasteringEvaluator()
+def test_evaluates_enriched_quality_comparison_as_measurements():
     comparison = {
         "audio1_score": 72.0,
         "audio2_score": 80.0,
@@ -179,10 +129,10 @@ def test_evaluates_enriched_quality_comparison():
         },
     }
 
-    report = evaluator.evaluate_comparison(comparison)
+    report = MasteringEvaluator().evaluate_comparison(comparison)
 
-    assert report.accepted is True
-    assert report.improved_dimensions == ("frequency_response",)
+    assert report.overall_score_change == 8.0
+    assert report.dimensions["frequency_response"].score_change == 30.0
 
 
 def test_quality_comparison_exposes_absolute_sub_scores(monkeypatch):
@@ -234,5 +184,5 @@ def test_file_adapter_uses_distributed_aligned_windows(tmp_path, monkeypatch):
     )
 
     assert report.windows_evaluated == 3
-    assert report.accepted is True
-    assert report.improved_dimensions == ("frequency_response",)
+    assert report.sample_count_change == 0
+    assert report.dimensions["frequency_response"].score_change == 30.0

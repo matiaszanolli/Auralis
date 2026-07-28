@@ -9,8 +9,8 @@ Generates optimal parameters from audio fingerprints.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -21,13 +21,7 @@ from ...dsp.basic import amplify, rms
 from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.stereo import adjust_stereo_width, stereo_width_analysis
 from ...utils.audio_validation import validate_audio_finite
-from ...utils.logging import debug, warning
-from .cross_dimensional_guard import (
-    CrossDimensionalGuard,
-    STAGE_INPUT, STAGE_INPUT_GAIN, STAGE_EQ, STAGE_DYNAMICS,
-    STAGE_STEREO, STAGE_NORMALIZATION,
-)
-from .stage_snapshot import PipelineJournal
+from ...utils.logging import debug
 from ..recording_type_detector import RecordingTypeDetector
 from .base import (
     CompressionStrategies,
@@ -40,7 +34,17 @@ from .continuous_space import (
     ProcessingParameters,
     ProcessingSpaceMapper,
 )
+from .cross_dimensional_guard import (
+    STAGE_DYNAMICS,
+    STAGE_EQ,
+    STAGE_INPUT,
+    STAGE_INPUT_GAIN,
+    STAGE_NORMALIZATION,
+    STAGE_STEREO,
+    CrossDimensionalGuard,
+)
 from .parameter_generator import ContinuousParameterGenerator
+from .stage_snapshot import PipelineJournal
 
 
 def _quick_3band(audio: np.ndarray, sample_rate: int) -> tuple[float, float, float]:
@@ -144,7 +148,7 @@ class ContinuousMode:
         self.last_journal: PipelineJournal | None = None
         self.last_side_effects: list[Any] = []
         self.last_quality_comparison: dict[str, Any] | None = None
-        self.last_mastering_evaluation: dict[str, Any] | None = None
+        self.last_mastering_measurements: dict[str, Any] | None = None
 
         # Quality-gate sampling counter (#3460): only run the gate on selected
         # process() calls per config.quality_gate_interval.
@@ -343,8 +347,8 @@ class ContinuousMode:
 
         Runs steps 5a–7: input gain, EQ (+LUFS guard), dynamics (+tilt guard),
         stereo width (+phase guard), normalization (+crest guard), side-effect
-        report, and quality gate. ``target_audio`` is the unmodified original
-        used only by the quality gate comparison.
+        report, and sampled quality measurements. ``target_audio`` is the
+        unmodified original used only by the before/after comparison.
 
         Steps 5a–5e are driven by the ordered ``stages`` list below — each entry
         applies one DSP operation plus its cross-dimensional guard and manages
@@ -371,9 +375,9 @@ class ContinuousMode:
         self.last_journal = journal
         self.last_side_effects = side_effects
 
-        # Step 7: Quality gate — verify output does not regress vs input.
-        # Sampled per config.quality_gate_interval (#3460): runs on call 0
-        # and every Nth call thereafter. interval <= 0 means call 0 only.
+        # Step 7: Advisory before/after measurements. They never select a
+        # processing path, reject output, or change the return value.
+        # Sampling still uses the legacy config names for compatibility.
         if self.config.quality_gate_enabled:
             interval = self.config.quality_gate_interval
             should_gate = (
@@ -399,26 +403,16 @@ class ContinuousMode:
                     evaluation = self._mastering_evaluator.evaluate_comparison(
                         comparison
                     )
-                    self.last_mastering_evaluation = evaluation.to_dict()
+                    self.last_mastering_measurements = evaluation.to_dict()
                     score_delta = comparison.get('difference', 0)
-                    if not evaluation.accepted:
-                        warning(
-                            "[Quality Gate] Closed-loop evaluation rejected output "
-                            f"(verdict={evaluation.verdict}, "
-                            f"improved={evaluation.improved_dimensions}, "
-                            f"regressed={evaluation.regressed_dimensions})"
-                        )
-                    elif score_delta < -10:
-                        warning(f"[Quality Gate] Output scored {score_delta:.1f} points below input "
-                                f"(input={comparison.get('audio1_score', 0):.0f}, "
-                                f"output={comparison.get('audio2_score', 0):.0f})")
-                    else:
-                        debug(f"[Quality Gate] OK — delta={score_delta:+.1f} "
-                              f"(input={comparison.get('audio1_score', 0):.0f}, "
-                              f"output={comparison.get('audio2_score', 0):.0f})")
+                    debug(
+                        f"[Quality Measurements] delta={score_delta:+.1f} "
+                        f"(input={comparison.get('audio1_score', 0):.0f}, "
+                        f"output={comparison.get('audio2_score', 0):.0f})"
+                    )
                 # Narrow catch (#3462): let ImportError / AttributeError surface real bugs.
                 except (ValueError, RuntimeError) as e:
-                    debug(f"[Quality Gate] Skipped — {e}")
+                    debug(f"[Quality Measurements] Skipped — {e}")
 
         return processed_audio
 

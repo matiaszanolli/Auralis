@@ -12,8 +12,10 @@ or state involved.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any
 
-def print_fingerprint(fp: dict) -> None:
+
+def print_fingerprint(fp: dict[str, Any]) -> None:
     """Print key fingerprint metrics organized by category."""
     print("\n📊 Fingerprint (25D):")
 
@@ -138,28 +140,24 @@ def print_time_metrics(timings: dict[str, float], duration_sec: float) -> None:
     print(f"   Real-time ratio: {realtime_ratio:.1f}x")
 
 
-def print_quality_evaluation(evaluation: dict) -> None:
-    """Print the closed-loop mastering verdict and effect size."""
-    verdict = evaluation.get('verdict', 'unavailable')
-    if verdict == 'unavailable':
-        print(f"\n⚠️  Quality evaluation unavailable: {evaluation.get('reason', 'unknown')}")
-        return
-
-    icons = {
-        'improved': '✅',
-        'bypass': '⏭️',
-        'rejected': '⚠️',
-    }
+def print_quality_evaluation(evaluation: dict[str, Any]) -> None:
+    """Print continuous before/after measurements without a verdict."""
     before = evaluation.get('overall_score_before', 0.0)
     after = evaluation.get('overall_score_after', 0.0)
-    print(f"\n{icons.get(verdict, 'ℹ️')} Quality evaluation: {verdict.upper()}")
+    print("\n📈 Before/after measurements (advisory only)")
     print(f"   Overall score: {before:.1f} → {after:.1f} ({after - before:+.1f})")
 
-    improved = evaluation.get('improved_dimensions', ())
-    regressed = evaluation.get('regressed_dimensions', ())
-    if improved:
-        print(f"   Meaningfully improved: {', '.join(improved)}")
-    if regressed:
-        print(f"   Regressed: {', '.join(regressed)}")
-    if evaluation.get('needs_processing') and not improved:
-        print("   Input issues were detected, but no dimension improved enough.")
+    for name, dimension in evaluation.get('dimensions', {}).items():
+        print(
+            f"   {name}: {dimension.get('before_score', 0.0):.1f} → "
+            f"{dimension.get('after_score', 0.0):.1f} "
+            f"({dimension.get('score_change', 0.0):+.1f})"
+        )
+
+    true_peak = evaluation.get('max_true_peak_after_dbfs')
+    if true_peak is not None:
+        print(f"   Maximum measured output True Peak: {true_peak:.2f} dBFS")
+    print(
+        "   Sample-count change: "
+        f"{int(evaluation.get('sample_count_change', 0)):+d}"
+    )

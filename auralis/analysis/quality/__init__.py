@@ -15,7 +15,6 @@ from .loudness_assessment import LoudnessAssessor
 from .mastering_evaluation import MasteringEvaluator
 from .mastering_evaluation_models import (
     DimensionEvaluation,
-    EvaluationPolicy,
     MasteringEvaluationReport,
 )
 from .mastering_file_evaluation import evaluate_mastering_files
@@ -26,7 +25,6 @@ __all__ = [
     'DimensionEvaluation',
     'DistortionAssessor',
     'DynamicRangeAssessor',
-    'EvaluationPolicy',
     'FrequencyResponseAssessor',
     'LoudnessAssessor',
     'MasteringEvaluationReport',
