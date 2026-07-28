@@ -16,6 +16,7 @@
 import { tokens } from '@/design-system';
 import { CACHE_STATS_REFRESH_INTERVAL_MS, useCacheStats } from '@/hooks/shared/useStandardizedAPI';
 import { PercentageDisplay, FileSizeDisplay, TierCard } from './CacheStatsDashboard/StatCards';
+import { TrackCacheList } from './CacheStatsDashboard/TrackCacheList';
 
 interface CacheStatsDashboardProps {
   /**
@@ -191,64 +192,7 @@ export function CacheStatsDashboard({
             Per-Track Cache Status
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: tokens.spacing.sm,
-              maxHeight: '300px',
-              overflowY: 'auto',
-            }}
-          >
-            {Object.entries(cacheStats.tracks).map(([trackId, trackInfo]) => (
-              <div
-                key={trackId}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: tokens.spacing.sm,
-                  background: tokens.colors.bg.elevated,
-                  borderRadius: '4px',
-                }}
-              >
-                <span style={{ fontSize: tokens.typography.fontSize.sm, color: tokens.colors.text.secondary }}>
-                  Track {trackInfo.track_id}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.md }}>
-                  <div
-                    style={{
-                      width: '100px',
-                      height: '4px',
-                      background: tokens.colors.border.light,
-                      borderRadius: '2px',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: '100%',
-                        width: `${trackInfo.completion_percent}%`,
-                        background: trackInfo.fully_cached
-                          ? tokens.colors.semantic.success
-                          : tokens.colors.semantic.warning,
-                      }}
-                    />
-                  </div>
-                  <span
-                    style={{
-                      fontSize: tokens.typography.fontSize.xs,
-                      color: tokens.colors.text.tertiary,
-                      minWidth: '40px',
-                      textAlign: 'right',
-                    }}
-                  >
-                    {Math.round(trackInfo.completion_percent)}%
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <TrackCacheList tracks={cacheStats.tracks} />
         </div>
       )}
 
