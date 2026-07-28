@@ -139,7 +139,10 @@ export interface Queue {
 export interface PlayerState {
   currentTrack: Track | null;
   isPlaying: boolean;
-  volume: number; // 0.0 - 1.0
+  // 0-100 integer scale (#3894). Was documented as "0.0 - 1.0", which never
+  // matched anything: the backend clamps to 0-100 and defaults to 80, the
+  // Redux slice clamps to 0-100, and ws/player.PlayerStateData says 0-100 too.
+  volume: number;
   position: number; // Seconds
   duration: number; // Seconds
   queue: Track[];

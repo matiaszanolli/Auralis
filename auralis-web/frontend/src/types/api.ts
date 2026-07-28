@@ -60,7 +60,19 @@ export interface PlayerSeekRequest {
 }
 
 export interface PlayerVolumeRequest {
-  volume: number; // 0.0 - 1.0
+  /**
+   * 0-100 scale, matching the backend's SetVolumeRequest (#3894).
+   *
+   * This said "0.0 - 1.0", which was never the wire format: the backend clamps
+   * to 0-100 and PlayerState.volume defaults to 80. The production call site
+   * (usePlaybackControl.setVolume) already sends `Math.round(v * 100)`, so the
+   * runtime was correct and only the type comment lied.
+   *
+   * Note this is the *player* endpoint's scale. It is deliberately not claimed
+   * as project-wide: settings.py's SettingsUpdateRequest.volume really is
+   * 0.0-1.0, a genuine backend-to-backend disagreement tracked by #4711.
+   */
+  volume: number;
 }
 
 export interface PlayerQueueAddRequest {
@@ -76,19 +88,18 @@ export interface PlayerQueueReorderRequest {
   to_index: number;
 }
 
-export interface PlayerState {
-  currentTrack: TrackInfo | null;
-  isPlaying: boolean;
-  volume: number;
-  position: number;
-  duration: number;
-  queue: TrackInfo[];
-  queueIndex: number;
-  // camelCase to match the rest of the frontend PlayerState model (#3946)
-  gaplessEnabled: boolean;
-  crossfadeEnabled: boolean;
-  crossfadeDuration: number;
-}
+/*
+ * The `PlayerState` interface that lived here was removed in #3894.
+ *
+ * It was a third declaration of the same shape, alongside `domain.PlayerState`
+ * and `ws/player.PlayerStateData`, with nothing importing it. Three same-named
+ * types meant an IDE would autocomplete whichever it found first, and the
+ * duplicate had no volume-unit annotation at all.
+ *
+ * The authoritative wire-facing shape is `PlayerStateData` in `types/ws/player`,
+ * produced by `transformPlayerState()` from the backend's snake_case payload.
+ * Import that instead of redeclaring it here.
+ */
 
 export interface MasteringRecommendationResponse {
   track_id: number;

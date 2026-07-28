@@ -272,7 +272,9 @@ describe('usePlaybackControl', () => {
   });
 
   describe('setVolume()', () => {
-    it('should call POST /api/player/volume with volume as query param (0-100 scale)', async () => {
+    // Name said "query param" while the assertion below checks a JSON body —
+    // a leftover from the #2498 query-param-to-body migration (#3894).
+    it('should call POST /api/player/volume with volume in the JSON body (0-100 scale)', async () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
