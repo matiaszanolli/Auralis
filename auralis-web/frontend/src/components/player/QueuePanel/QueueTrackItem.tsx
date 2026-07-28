@@ -13,6 +13,13 @@ export interface QueueTrackItemProps {
   // (defined once) instead of per-item closures, which is what lets React.memo
   // skip re-rendering unaffected rows on hover/drag (#4177).
   onRemove: (index: number) => void;
+  /**
+   * Keyboard reorder (#4536). The item does not know the queue length, so it
+   * may request an out-of-range target; the parent validates and no-ops. Keeping
+   * the bounds check there avoids passing queueLength down, which would change
+   * on every add/remove and defeat this component's memo.
+   */
+  onReorder: (fromIndex: number, toIndex: number) => void;
   onDragStart: (index: number) => void;
   onDragEnd: () => void;
   onDragOver: (toIndex: number) => void;
@@ -28,6 +35,7 @@ const QueueTrackItemImpl = ({
   isDragging,
   isHovered,
   onRemove,
+  onReorder,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -51,6 +59,9 @@ const QueueTrackItemImpl = ({
       tabIndex={0}
       aria-current={isCurrentTrack ? 'true' : undefined}
       aria-label={`${track.title} by ${track.artist}, ${formatDuration(track.duration)}`}
+      // Without this the reorder gesture is undiscoverable: there is no visible
+      // affordance for it, and drag-and-drop is not exposed to assistive tech.
+      aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
       onMouseEnter={() => onHover(index, true)}
       onMouseLeave={() => onHover(index, false)}
       onFocus={() => setIsFocused(true)}
@@ -63,8 +74,18 @@ const QueueTrackItemImpl = ({
         if (e.key === 'Delete' || e.key === 'Backspace') {
           e.preventDefault();
           if (!disabled) onRemove(index);
+          return;
+        }
+        // Alt-modified arrows reorder (#4536). Alt keeps this off plain
+        // ArrowUp/ArrowDown, which the browser uses to move between rows, so
+        // navigating the queue and rearranging it stay distinct gestures.
+        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          e.preventDefault();
+          if (disabled) return;
+          onReorder(index, e.key === 'ArrowUp' ? index - 1 : index + 1);
         }
       }}
+      data-queue-index={index}
       draggable
       onDragStart={() => onDragStart(index)}
       onDragEnd={onDragEnd}
@@ -129,6 +150,7 @@ export const QueueTrackItem = memo(QueueTrackItemImpl, (prev, next) =>
   prev.isHovered === next.isHovered &&
   prev.disabled === next.disabled &&
   prev.onRemove === next.onRemove &&
+  prev.onReorder === next.onReorder &&
   prev.onDragStart === next.onDragStart &&
   prev.onDragEnd === next.onDragEnd &&
   prev.onDragOver === next.onDragOver &&

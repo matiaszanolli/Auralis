@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { CSSProperties } from 'react';
 
 vi.mock('@/utils/timeFormat', () => ({
@@ -26,6 +26,7 @@ const track = { id: 1, title: 'Song', artist: 'Artist', album: 'A', duration: 20
 // Stable handler identities, defined once (mirrors the parent's useCallbacks).
 const handlers = {
   onRemove: vi.fn(),
+  onReorder: vi.fn(),
   onDragStart: vi.fn(),
   onDragEnd: vi.fn(),
   onDragOver: vi.fn(),
@@ -84,5 +85,79 @@ describe('QueueTrackItem memoization (#4177)', () => {
     const other = { ...track, id: 2, title: 'Other', duration: 123 };
     rerender(<ul><QueueTrackItem {...props({ track: other })} /></ul>);
     expect(vi.mocked(formatDuration).mock.calls.length).toBeGreaterThan(initial);
+  });
+});
+
+/**
+ * Keyboard reorder (#4536)
+ *
+ * The row's only reorder path used to be native drag-and-drop; onKeyDown
+ * handled Delete/Backspace and nothing else, so reorderTrack was unreachable
+ * without a pointer. #2350 specified this half and only the remove half landed.
+ */
+describe('QueueTrackItem keyboard reorder (#4536)', () => {
+  const row = (container: HTMLElement) =>
+    container.querySelector('li') as HTMLElement;
+
+  beforeEach(() => {
+    handlers.onReorder.mockClear();
+    handlers.onRemove.mockClear();
+  });
+
+  it('moves up on Alt+ArrowUp', () => {
+    const { container } = render(<ul><QueueTrackItem {...props({ index: 3 })} /></ul>);
+
+    fireEvent.keyDown(row(container), { key: 'ArrowUp', altKey: true });
+
+    expect(handlers.onReorder).toHaveBeenCalledWith(3, 2);
+  });
+
+  it('moves down on Alt+ArrowDown', () => {
+    const { container } = render(<ul><QueueTrackItem {...props({ index: 3 })} /></ul>);
+
+    fireEvent.keyDown(row(container), { key: 'ArrowDown', altKey: true });
+
+    expect(handlers.onReorder).toHaveBeenCalledWith(3, 4);
+  });
+
+  it('ignores unmodified arrows, which belong to list navigation', () => {
+    const { container } = render(<ul><QueueTrackItem {...props({ index: 3 })} /></ul>);
+
+    fireEvent.keyDown(row(container), { key: 'ArrowUp' });
+    fireEvent.keyDown(row(container), { key: 'ArrowDown' });
+
+    expect(handlers.onReorder).not.toHaveBeenCalled();
+  });
+
+  it('does not reorder while disabled', () => {
+    const { container } = render(
+      <ul><QueueTrackItem {...props({ index: 3, disabled: true })} /></ul>,
+    );
+
+    fireEvent.keyDown(row(container), { key: 'ArrowDown', altKey: true });
+
+    expect(handlers.onReorder).not.toHaveBeenCalled();
+  });
+
+  it('leaves Delete/Backspace removal unchanged', () => {
+    const { container } = render(<ul><QueueTrackItem {...props({ index: 3 })} /></ul>);
+
+    fireEvent.keyDown(row(container), { key: 'Delete' });
+    expect(handlers.onRemove).toHaveBeenCalledWith(3);
+    expect(handlers.onReorder).not.toHaveBeenCalled();
+
+    handlers.onRemove.mockClear();
+    fireEvent.keyDown(row(container), { key: 'Backspace' });
+    expect(handlers.onRemove).toHaveBeenCalledWith(3);
+  });
+
+  it('advertises the shortcut and exposes its index for focus restoration', () => {
+    const { container } = render(<ul><QueueTrackItem {...props({ index: 3 })} /></ul>);
+
+    expect(row(container).getAttribute('aria-keyshortcuts')).toBe(
+      'Alt+ArrowUp Alt+ArrowDown',
+    );
+    // QueuePanel locates the moved row by this attribute after the remount.
+    expect(row(container).getAttribute('data-queue-index')).toBe('3');
   });
 });

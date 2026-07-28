@@ -1,5 +1,6 @@
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
+import { progressBarStyles } from '@/components/player/ProgressBar.styles';
 
 export const QUEUE_ITEM_HEIGHT = 60;
 export const DRAG_EDGE_ZONE = 60;
@@ -281,4 +282,12 @@ export const styles = {
     color: themeVars.textMuted,
     marginTop: tokens.spacing.sm,
   },
+
+  /**
+   * Screen-reader-only, for the reorder live region (#4536). Reuses the single
+   * definition in ProgressBar.styles rather than restating the clip-path recipe
+   * — the #3651 `clip` -> `clip-path` fix had to be applied there once already,
+   * and a second copy is a second thing to miss next time.
+   */
+  visuallyHidden: progressBarStyles.srOnly,
 };

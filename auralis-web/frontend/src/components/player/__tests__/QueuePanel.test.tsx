@@ -6,7 +6,7 @@
  */
 
 import { ReactElement, ReactNode } from 'react';
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi, afterEach, afterAll } from 'vitest';
 import { render, screen, within, fireEvent, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
@@ -87,6 +87,35 @@ function MinimalWrapper({ children }: { children: ReactNode }) {
 function renderWithWrapper(ui: ReactElement) {
   return render(ui, { wrapper: MinimalWrapper });
 }
+
+/**
+ * Give the queue list a real size in jsdom.
+ *
+ * QueuePanel virtualizes with @tanstack/react-virtual, whose measurement path
+ * (virtual-core's `getRect`) reads `offsetWidth`/`offsetHeight`. jsdom performs
+ * no layout and reports 0 for both, so the virtual window computed to zero rows
+ * and QueuePanel rendered an empty list -- every assertion that looked for a
+ * track failed, and any assertion merely expecting rows to be ABSENT passed
+ * vacuously. Stubbing getBoundingClientRect alone does not help; the virtualizer
+ * does not consult it.
+ */
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    get: () => 600,
+  });
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+    configurable: true,
+    get: () => 400,
+  });
+});
+
+afterAll(() => {
+  // Prototype patches are global; leaving them set would leak into any suite
+  // sharing this worker.
+  delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetHeight;
+  delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetWidth;
+});
 
 describe('QueuePanel', () => {
   beforeEach(() => {
@@ -293,29 +322,37 @@ describe('QueuePanel', () => {
   // CLEAR QUEUE
   // =========================================================================
 
-  it('should clear entire queue with confirmation', async () => {
-    // Mock confirm dialog
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+  // These two asserted against window.confirm, which QueuePanel stopped using
+  // when confirmation moved to the in-app ClearQueueDialog. The first failed
+  // outright; the second passed vacuously, since clicking "Clear queue" only
+  // opens the dialog and clearQueue is legitimately not called at that point --
+  // it would have passed even with cancellation completely broken.
 
+  it('should clear entire queue with confirmation', async () => {
     renderWithWrapper(<QueuePanel />);
 
-    const clearButton = screen.getByTitle('Clear queue');
-    await userEvent.click(clearButton);
+    await userEvent.click(screen.getByTitle('Clear queue'));
 
-    expect(window.confirm).toHaveBeenCalledWith('Clear the entire queue?');
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Clear the entire queue?')).toBeInTheDocument();
+    // Opening the dialog must not clear anything on its own.
+    expect(mockClearQueue).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Clear' }));
+
     expect(mockClearQueue).toHaveBeenCalled();
   });
 
   it('should not clear queue if user cancels', async () => {
-    // Mock confirm dialog to return false
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-
     renderWithWrapper(<QueuePanel />);
 
-    const clearButton = screen.getByTitle('Clear queue');
-    await userEvent.click(clearButton);
+    await userEvent.click(screen.getByTitle('Clear queue'));
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }),
+    );
 
     expect(mockClearQueue).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   // =========================================================================
@@ -360,5 +397,138 @@ describe('QueuePanel', () => {
     await userEvent.click(toggleButton);
 
     expect(mockToggleCollapse).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Keyboard reorder (#4536)
+ *
+ * reorderTrack existed and was wired only to handleDragEnd, i.e. only to the
+ * native drag events, so queue reordering was pointer-only. #2350 specified
+ * both halves of this and only the remove half landed.
+ */
+describe('QueuePanel keyboard reorder (#4536)', () => {
+  const mockReorderTrack = vi.fn().mockResolvedValue(undefined);
+
+  const setup = (overrides: Record<string, unknown> = {}) => {
+    vi.mocked(usePlaybackQueueModule.usePlaybackQueue).mockReturnValue({
+      queue: mockTracks,
+      currentIndex: 0,
+      currentTrack: mockTracks[0],
+      isShuffled: false,
+      repeatMode: 'off',
+      setQueue: vi.fn().mockResolvedValue(undefined),
+      addTrack: vi.fn().mockResolvedValue(undefined),
+      removeTrack: mockRemoveTrack,
+      reorderTrack: mockReorderTrack,
+      reorderQueue: vi.fn().mockResolvedValue(undefined),
+      toggleShuffle: mockToggleShuffle,
+      setRepeatMode: mockSetRepeatMode,
+      clearQueue: mockClearQueue,
+      isLoading: false,
+      error: null,
+      clearError: vi.fn(),
+      ...overrides,
+    } as any);
+    return renderWithWrapper(<QueuePanel />);
+  };
+
+  const rowAt = (index: number) =>
+    document.querySelector(`[data-queue-index="${index}"]`) as HTMLElement;
+
+  beforeEach(() => {
+    mockReorderTrack.mockClear();
+    mockReorderTrack.mockResolvedValue(undefined);
+  });
+
+  it('reorders down via Alt+ArrowDown', async () => {
+    setup();
+
+    fireEvent.keyDown(rowAt(0), { key: 'ArrowDown', altKey: true });
+
+    expect(mockReorderTrack).toHaveBeenCalledWith(0, 1);
+  });
+
+  it('reorders up via Alt+ArrowUp', async () => {
+    setup();
+
+    fireEvent.keyDown(rowAt(2), { key: 'ArrowUp', altKey: true });
+
+    expect(mockReorderTrack).toHaveBeenCalledWith(2, 1);
+  });
+
+  it('does not reorder past the start of the queue', () => {
+    setup();
+
+    fireEvent.keyDown(rowAt(0), { key: 'ArrowUp', altKey: true });
+
+    expect(mockReorderTrack).not.toHaveBeenCalled();
+  });
+
+  it('does not reorder past the end of the queue', () => {
+    setup();
+
+    fireEvent.keyDown(rowAt(mockTracks.length - 1), { key: 'ArrowDown', altKey: true });
+
+    expect(mockReorderTrack).not.toHaveBeenCalled();
+  });
+
+  it('keeps focus on the moved row so repeated presses move the same track', async () => {
+    setup();
+
+    rowAt(0).focus();
+    fireEvent.keyDown(rowAt(0), { key: 'ArrowDown', altKey: true });
+
+    // The regression risk called out in the issue: the row key embeds the
+    // index, so the moved row remounts and focus would otherwise be lost --
+    // a second Alt+ArrowDown would then move a different track.
+    await vi.waitFor(() => expect(rowAt(1)).toHaveFocus());
+  });
+
+  it('announces the new position', async () => {
+    setup();
+
+    fireEvent.keyDown(rowAt(0), { key: 'ArrowDown', altKey: true });
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Track 1 moved to position 2 of 3',
+      ),
+    );
+  });
+
+  it('announces when the track is already at an end', async () => {
+    setup();
+
+    fireEvent.keyDown(rowAt(0), { key: 'ArrowUp', altKey: true });
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Track 1 is already first in the queue',
+      ),
+    );
+  });
+
+  it('reports a rejected reorder instead of failing silently', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockReorderTrack.mockRejectedValueOnce(new Error('boom'));
+    setup();
+
+    fireEvent.keyDown(rowAt(0), { key: 'ArrowDown', altKey: true });
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Could not move Track 1'),
+    );
+    // Rolled back optimistically, so focus belongs back on the original row.
+    await vi.waitFor(() => expect(rowAt(0)).toHaveFocus());
+    consoleError.mockRestore();
+  });
+
+  it('does not reorder while a queue command is in flight', () => {
+    setup({ isLoading: true });
+
+    fireEvent.keyDown(rowAt(0), { key: 'ArrowDown', altKey: true });
+
+    expect(mockReorderTrack).not.toHaveBeenCalled();
   });
 });
