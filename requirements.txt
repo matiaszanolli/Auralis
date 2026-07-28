@@ -27,7 +27,7 @@ SQLAlchemy==2.0.44
 
 # Image Processing
 # Used by the artwork endpoint to serve downscaled thumbnail variants (#4447).
-pillow==12.0.0
+pillow==12.3.0
 
 # Async HTTP & Utilities
 aiohttp==3.13.4
