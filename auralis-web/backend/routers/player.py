@@ -36,7 +36,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
 from .errors import NotFoundError
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from player_state import PlayerState, TrackInfo
 from services import (
     NavigationService,
@@ -93,7 +93,16 @@ class SeekRequest(BaseModel):
 
 class SetVolumeRequest(BaseModel):
     """Request model for volume control (0–100)."""
-    volume: float
+    # #3896 proposed replacing the validator with Field(ge=0, le=100) so the
+    # bounds appear in OpenAPI. Deliberately not done: that converts a forgiving
+    # clamp into a 422, and tests/integration/test_phase4_player_workflow.py::
+    # test_volume_out_of_range sends 150 and -50 and asserts a SUCCESSFUL
+    # response with a clamped value. Clamping is the intended contract, so the
+    # range is documented instead of enforced.
+    volume: float = Field(
+        description="Playback volume on a 0-100 scale. Values outside the "
+                    "range are clamped, not rejected.",
+    )
 
     @field_validator('volume')
     @classmethod
@@ -165,7 +174,14 @@ class QueueInfoResponse(BaseModel):
     has_next: bool | None = None
     has_previous: bool | None = None
     shuffle_enabled: bool | None = None
-    repeat_enabled: bool | None = None
+    # repeat_mode, not the engine's repeat_enabled bool (#3896). The engine
+    # queue only knows "repeat the queue: yes/no", but the canonical
+    # PlayerState.repeat_mode is three-valued, so a bool here silently collapsed
+    # "all" and "one" into the same response. That made this endpoint unable to
+    # populate the frontend's Queue.repeatMode, forcing callers to
+    # GET /api/player/status instead and defeating the queue endpoint.
+    # Matches PlayerState.repeat_mode above.
+    repeat_mode: Literal["off", "all", "one"] | None = None
 
     model_config = ConfigDict(extra='allow')
 

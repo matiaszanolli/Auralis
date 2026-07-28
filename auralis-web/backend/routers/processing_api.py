@@ -86,14 +86,17 @@ class ProcessRequest(BaseModel):
 class ProcessResponse(BaseModel):
     """Response after submitting processing job"""
     job_id: str
-    status: str
+    # ProcessingStatus, not bare str (#3896): the enum is the authority on the
+    # value set and, being a str Enum, serialises to the same JSON while making
+    # OpenAPI publish the five valid values instead of an opaque "string".
+    status: ProcessingStatus
     message: str
 
 
 class JobStatusResponse(BaseModel):
     """Job status response"""
     job_id: str
-    status: str
+    status: ProcessingStatus
     progress: float
     error_message: str | None = None
     result_data: dict[str, Any] | None = None
@@ -200,7 +203,7 @@ def create_processing_router(
 
             return ProcessResponse(
                 job_id=job_id,
-                status="queued",
+                status=ProcessingStatus.QUEUED,
                 message="Processing job submitted successfully"
             )
 
@@ -281,7 +284,7 @@ def create_processing_router(
 
                 return ProcessResponse(
                     job_id=job_id,
-                    status="queued",
+                    status=ProcessingStatus.QUEUED,
                     message=f"File {file.filename} uploaded and queued for processing"
                 )
             except Exception:
@@ -309,7 +312,7 @@ def create_processing_router(
 
         return JobStatusResponse(
             job_id=job.job_id,
-            status=job.status.value,
+            status=job.status,
             progress=job.progress,
             error_message=job.error_message,
             result_data=job.result_data
@@ -380,24 +383,26 @@ def create_processing_router(
 
 
     @router.get("/jobs", response_model=JobListResponse)
-    async def list_jobs(status: str | None = None, limit: int = Query(50, ge=1, le=1000)) -> dict[str, Any]:
-        """List all processing jobs, optionally filtered by status"""
+    async def list_jobs(
+        status: ProcessingStatus | None = None,
+        limit: int = Query(50, ge=1, le=1000),
+    ) -> dict[str, Any]:
+        """List all processing jobs, optionally filtered by status.
+
+        `status` is the enum rather than `str` + a hand-rolled check (#3896):
+        FastAPI now rejects an unknown value at the boundary with 422, matching
+        how `limit` already behaves, and OpenAPI documents the valid values.
+        """
         engine = get_processing_engine()
         if not engine:
             raise HTTPException(status_code=503, detail="Processing engine not available")
 
         jobs = engine.get_all_jobs()
 
-        # Filter by status if provided
+        # Filter by status if provided. FastAPI has already coerced and
+        # validated the value, so no manual membership check is needed.
         if status:
-            valid_statuses = [s.value for s in ProcessingStatus]
-            if status not in valid_statuses:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
-                )
-            status_enum = ProcessingStatus(status)
-            jobs = [j for j in jobs if j.status == status_enum]
+            jobs = [j for j in jobs if j.status == status]
 
         # Limit results
         jobs = jobs[:limit]

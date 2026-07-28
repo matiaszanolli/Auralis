@@ -229,6 +229,7 @@ class QueueService:
             info["current_track"] = self._resolve_current_track(
                 tracks, raw_current, info.get("current_index", 0)
             )
+            info["repeat_mode"] = self._resolve_repeat_mode(info)
             return info
         except Exception as e:
             logger.error(f"Failed to get queue info: {e}")
@@ -293,6 +294,33 @@ class QueueService:
             return fp if isinstance(fp, str) else None
         fp = getattr(entry, "filepath", None)
         return fp if isinstance(fp, str) else None
+
+    def _resolve_repeat_mode(self, info: dict[str, Any]) -> str:
+        """Resolve the three-valued repeat mode for the queue response (#3896).
+
+        Mirrors the #4374 enrichment split: the engine queue is authoritative
+        for order and contents, but it only tracks a boolean `repeat_enabled`
+        and cannot distinguish "all" from "one". The three-valued
+        `PlayerState.repeat_mode` lives on the state manager, so prefer that and
+        fall back to widening the engine bool when no state manager is attached
+        (the bool means "repeat the queue", i.e. "all").
+
+        `repeat_enabled` is popped rather than left in place: QueueInfoResponse
+        sets `extra='allow'`, so a stale key would otherwise still be emitted
+        alongside the new one and the rename would not actually land.
+        """
+        engine_repeat = bool(info.pop("repeat_enabled", False))
+
+        if self.player_state_manager is not None:
+            try:
+                state = self.player_state_manager.get_state()
+            except Exception:
+                state = None
+            mode = getattr(state, "repeat_mode", None)
+            if mode in ("off", "all", "one"):
+                return str(mode)
+
+        return "all" if engine_repeat else "off"
 
     def _resolve_current_track(
         self, tracks: list[TrackInfo], raw_current: Any, current_index: int
