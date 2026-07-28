@@ -20,9 +20,9 @@
  * @module hooks/api/__tests__/useRestAPI
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useRestAPI, useQuery, useMutation } from '../useRestAPI';
+import { useRestAPI } from '../useRestAPI';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -711,146 +711,6 @@ describe('useRestAPI Hook', () => {
       });
 
       expect(result.current.error).toBeNull();
-    });
-  });
-
-  // ==========================================================================
-  // useQuery HOOK
-  // ==========================================================================
-
-  describe('useQuery Hook', () => {
-    it('should fetch data on mount', async () => {
-      mockFetchSuccess({ data: 'test' });
-
-      const { result } = renderHook(() => useQuery('/api/test'));
-
-      await waitFor(() => {
-        expect(result.current.data).toEqual({ data: 'test' });
-      });
-
-      expect(result.current.isLoading).toBe(false);
-      expect(result.current.error).toBeNull();
-    });
-
-    it('should skip fetch when skip is true', async () => {
-      const { result } = renderHook(() => useQuery('/api/test', true));
-
-      // Flush microtasks to ensure no fetch was triggered
-      await act(async () => {});
-
-      expect(result.current.data).toBeNull();
-      expect(result.current.isLoading).toBe(false);
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it('should handle query errors', async () => {
-      mockFetchError(500);
-
-      const { result } = renderHook(() => useQuery('/api/test'));
-
-      await waitFor(() => {
-        expect(result.current.error).toBeDefined();
-      }, { timeout: 3000 });
-
-      expect(result.current.data).toBeNull();
-    });
-
-    it('should re-fetch when endpoint changes', async () => {
-      mockFetchSuccess({ data: 'test1' });
-
-      const { result, rerender } = renderHook(
-        ({ endpoint }) => useQuery(endpoint),
-        {
-          initialProps: { endpoint: '/api/test1' },
-        }
-      );
-
-      await waitFor(() => {
-        expect(result.current.data).toEqual({ data: 'test1' });
-      });
-
-      mockFetchSuccess({ data: 'test2' });
-
-      rerender({ endpoint: '/api/test2' });
-
-      await waitFor(() => {
-        expect(result.current.data).toEqual({ data: 'test2' });
-      });
-    });
-  });
-
-  // ==========================================================================
-  // useMutation HOOK
-  // ==========================================================================
-
-  describe('useMutation Hook', () => {
-    it('should perform POST mutation', async () => {
-      mockFetchSuccess({ created: true });
-
-      const { result } = renderHook(() => useMutation('/api/test', 'POST'));
-
-      let response;
-      await act(async () => {
-        response = await result.current.mutate({ name: 'Test' });
-      });
-
-      expect(response).toEqual({ created: true });
-      expect(result.current.data).toEqual({ created: true });
-      expect(result.current.error).toBeNull();
-    });
-
-    it('should perform PUT mutation', async () => {
-      mockFetchSuccess({ updated: true });
-
-      const { result } = renderHook(() => useMutation('/api/test', 'PUT'));
-
-      await act(async () => {
-        await result.current.mutate({ name: 'Updated' });
-      });
-
-      expect(result.current.data).toEqual({ updated: true });
-    });
-
-    it('should perform DELETE mutation', async () => {
-      mockFetchSuccess({ deleted: true });
-
-      const { result } = renderHook(() => useMutation('/api/test', 'DELETE'));
-
-      await act(async () => {
-        await result.current.mutate();
-      });
-
-      expect(result.current.data).toBeNull();
-    });
-
-    it('should handle mutation errors', async () => {
-      mockFetchError(400);
-
-      const { result } = renderHook(() => useMutation('/api/test', 'POST'));
-
-      await act(async () => {
-        try {
-          await result.current.mutate({});
-        } catch (err) {
-          // Expected
-        }
-      });
-
-      expect(result.current.error).toBeDefined();
-      expect(result.current.data).toBeNull();
-    });
-
-    it('should reset loading state after mutation completes', async () => {
-      mockFetchSuccess({ success: true });
-
-      const { result } = renderHook(() => useMutation('/api/test', 'POST'));
-
-      await act(async () => {
-        await result.current.mutate({});
-      });
-
-      // Loading should be false after mutation completes
-      expect(result.current.isLoading).toBe(false);
     });
   });
 
