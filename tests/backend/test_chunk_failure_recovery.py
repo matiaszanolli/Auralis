@@ -33,7 +33,8 @@ from core.audio_stream_controller import AudioStreamController, SimpleChunkCache
 # ============================================================================
 
 CHUNK_DURATION = 30.0  # seconds per chunk (mock value; loop only uses total_chunks)
-CHUNK_INTERVAL = 10.0  # interval between chunk starts; recovery_position = chunk_idx * interval
+CHUNK_INTERVAL = 10.0  # interval between chunk starts
+OVERLAP_DURATION = 5.0  # skipped from the head of every chunk >= 1 (#4557)
 TOTAL_CHUNKS = 10
 FAIL_AT_CHUNK = 3      # Zero-based index of the chunk that will fail
 TRACK_ID = 42
@@ -94,8 +95,18 @@ class TestChunkFailureRecovery:
     async def test_error_payload_contains_recovery_position(self):
         """Client must receive recovery_position in the error message.
 
-        Recovery position must equal chunk_idx * chunk_duration so the
-        client knows where to seek / retry from.
+        #4557 corrected the value. Recovery position is where the client should
+        resume, which is the failed chunk's EMITTED start — not its core start
+        (chunk_idx * CHUNK_INTERVAL). ChunkOperations.extract_chunk_segment
+        skips OVERLAP_DURATION from the head of every chunk >= 1, so by the time
+        chunk N fails the client has already heard up to
+        N * CHUNK_INTERVAL + OVERLAP_DURATION; resuming at the core start would
+        replay OVERLAP_DURATION of already-delivered audio.
+
+        Note the old value was not *observably* broken: the seek path consumed
+        it with the same core-timeline error, so the two bugs cancelled. Both
+        now sit on the emitted timeline, so the round trip still lands in the
+        right place AND the reported number is truthful.
         """
         sent: list[dict] = []
         ws = _make_websocket(sent)
@@ -136,7 +147,8 @@ class TestChunkFailureRecovery:
         assert error_msgs, "Expected at least one audio_stream_error message"
         err = error_msgs[0]["data"]
 
-        expected_position = FAIL_AT_CHUNK * CHUNK_INTERVAL
+        # Emitted start of the failed chunk (#4557).
+        expected_position = FAIL_AT_CHUNK * CHUNK_INTERVAL + OVERLAP_DURATION
         assert "recovery_position" in err, \
             "error payload must contain recovery_position (issue #2085)"
         assert err["recovery_position"] == pytest.approx(expected_position), \

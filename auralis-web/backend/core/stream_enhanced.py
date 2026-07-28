@@ -25,6 +25,7 @@ from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
+from .chunk_boundaries import emitted_chunk_start
 from .chunk_cache import SimpleChunkCache
 from security.path_security import PathValidationError, validate_file_path
 
@@ -263,8 +264,12 @@ async def stream_enhanced_audio(
                     f"Failed to process chunk {chunk_idx}: {chunk_error}",
                     exc_info=True
                 )
-                # Compute recovery position: start of the failed chunk (issue #2085)
-                recovery_position: float = chunk_idx * processor.chunk_interval
+                # Compute recovery position: start of the failed chunk (issue #2085).
+                # #4557: the EMITTED start, not chunk_idx * chunk_interval — for
+                # chunk >= 1 the core start is OVERLAP_DURATION earlier than the
+                # first sample this chunk actually delivers, so recovering there
+                # replayed 5s of already-heard audio.
+                recovery_position: float = emitted_chunk_start(chunk_idx)
                 # Evict any stale cache entry for the failed chunk so a retry
                 # processes it fresh rather than replaying corrupt data (issue #2085)
                 if isinstance(controller.cache_manager, SimpleChunkCache):

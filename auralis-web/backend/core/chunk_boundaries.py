@@ -37,6 +37,90 @@ def content_chunk_count(total_duration: float) -> int:
     return max(1, int(np.ceil((total_duration - OVERLAP_DURATION) / CHUNK_INTERVAL)))
 
 
+# Minimum amount of new audio the first chunk of a seek must still carry.
+# Below this, the seek advances to the next chunk instead: an immediate
+# buffer underrun is worse than starting a fraction of a second late.
+SEEK_MIN_CHUNK_REMAINDER = 0.5
+
+
+def emitted_chunk_start(chunk_index: int) -> float:
+    """Source time of the FIRST sample chunk ``chunk_index`` actually emits.
+
+    Not the same as the chunk's *core* start (``chunk_index * CHUNK_INTERVAL``),
+    which is what ``get_chunk_boundaries`` returns. ``ChunkOperations.
+    extract_chunk_segment`` skips ``OVERLAP_DURATION`` from the head of every
+    chunk ``>= 1`` because the previous chunk already emitted that audio, so:
+
+        chunk 0 emits [0, 15)      — CHUNK_DURATION, nothing skipped
+        chunk 1 emits [15, 25)     — 1*10 + 5
+        chunk 2 emits [25, 35)     — 2*10 + 5
+
+    Contiguous with no gaps, but offset by OVERLAP_DURATION from the core
+    timeline for every chunk after the first. Confusing the two is #4557.
+    """
+    if chunk_index <= 0:
+        return 0.0
+    return chunk_index * CHUNK_INTERVAL + OVERLAP_DURATION
+
+
+def emitted_chunk_length(chunk_index: int) -> float:
+    """Seconds of NEW audio chunk ``chunk_index`` emits (ignoring the last-chunk
+    short case, which is bounded by total duration)."""
+    return CHUNK_DURATION if chunk_index <= 0 else CHUNK_INTERVAL
+
+
+def chunk_for_position(
+    position: float,
+    total_chunks: int,
+    min_remainder: float = SEEK_MIN_CHUNK_REMAINDER,
+) -> tuple[int, float, float]:
+    """Map a source-time position onto the chunk that actually emits it (#4557).
+
+    Returns ``(chunk_index, offset_into_emitted_audio, effective_position)``.
+
+    The seek path used to compute ``int(position / CHUNK_INTERVAL)`` and trim
+    ``position - index * CHUNK_INTERVAL`` off the front of the delivered
+    buffer. That maps onto the *core* timeline while the buffer it trims has
+    already had ``OVERLAP_DURATION`` removed, so every seek to >= 10s landed
+    exactly OVERLAP_DURATION past the requested point.
+
+    ``effective_position`` is normally ``position``, but differs when the
+    requested point falls within ``min_remainder`` of the end of its chunk:
+    trimming that chunk down to a sliver produces an immediate underrun, so the
+    seek advances to the start of the next chunk instead. Callers must report
+    ``effective_position`` as the stream's seek position, not the request, or
+    the client's counter drifts by exactly the amount skipped.
+
+    Args:
+        position: Requested source time in seconds.
+        total_chunks: Number of chunks the processor will emit.
+        min_remainder: Minimum seconds of audio the first chunk must retain.
+    """
+    pos = max(0.0, float(position))
+    total_chunks = max(1, int(total_chunks))
+
+    # Chunk 0 emits a full CHUNK_DURATION, so anything inside it maps there;
+    # after that the emitted timeline is offset by OVERLAP_DURATION.
+    if pos < CHUNK_DURATION:
+        index = 0
+    else:
+        index = int((pos - OVERLAP_DURATION) // CHUNK_INTERVAL)
+    index = max(0, min(index, total_chunks - 1))
+
+    offset = max(0.0, pos - emitted_chunk_start(index))
+
+    # Avoid delivering a sliver as the first chunk of the stream.
+    if (
+        index < total_chunks - 1
+        and emitted_chunk_length(index) - offset < min_remainder
+    ):
+        index += 1
+        offset = 0.0
+        pos = emitted_chunk_start(index)
+
+    return index, offset, pos
+
+
 class ChunkBoundaryManager:
     """
     Manages chunk boundaries and context windows.

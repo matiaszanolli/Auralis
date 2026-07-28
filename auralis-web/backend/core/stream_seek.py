@@ -25,6 +25,11 @@ from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
+from .chunk_boundaries import (
+    SEEK_MIN_CHUNK_REMAINDER,
+    chunk_for_position,
+    emitted_chunk_start,
+)
 from security.path_security import PathValidationError, validate_file_path
 
 if TYPE_CHECKING:
@@ -145,18 +150,32 @@ async def stream_enhanced_audio_from_position(
                 raise ValueError(f"Processor metadata missing: {_attr} is None")
 
 
-        # Calculate which chunk to start from based on position
-        # Chunks overlap, so we need to find the chunk that contains this position
-        chunk_interval = processor.chunk_interval
-        start_chunk_idx = int(start_position / chunk_interval)
-        start_chunk_idx = max(0, min(start_chunk_idx, processor.total_chunks - 1))
+        # Map the requested position onto the chunk that actually EMITS it
+        # (#4557). This used to be `int(start_position / chunk_interval)` with
+        # `seek_offset = start_position - idx * chunk_interval`, which maps onto
+        # the chunk *core* timeline — but the buffer the offset is trimmed from
+        # has already had OVERLAP_DURATION skipped by
+        # ChunkOperations.extract_chunk_segment, so every seek to >= 10s landed
+        # exactly 5s past the requested point and the transport read 5s ahead of
+        # the audio for the rest of the stream.
+        #
+        # chunk_for_position derives both values from the same constants the
+        # extraction uses, and may advance to the next chunk when the requested
+        # point falls within a sliver of its chunk's end — hence
+        # effective_position, which is what the client must be told.
+        start_chunk_idx, seek_offset, effective_position = chunk_for_position(
+            start_position, processor.total_chunks
+        )
 
-        # Calculate the offset within the chunk (for precise seeking)
-        chunk_start_time = start_chunk_idx * chunk_interval
-        seek_offset = start_position - chunk_start_time
+        if effective_position != start_position:
+            logger.info(
+                f"Seek: requested {start_position:.2f}s falls within "
+                f"{SEEK_MIN_CHUNK_REMAINDER}s of chunk {start_chunk_idx - 1}'s end; "
+                f"advancing to chunk {start_chunk_idx} at {effective_position:.2f}s"
+            )
 
         logger.info(
-            f"Seek: position={start_position}s → chunk {start_chunk_idx}/{processor.total_chunks}, "
+            f"Seek: position={effective_position}s → chunk {start_chunk_idx}/{processor.total_chunks}, "
             f"offset={seek_offset:.2f}s"
         )
 
@@ -177,7 +196,11 @@ async def stream_enhanced_audio_from_position(
             chunk_duration=processor.chunk_duration,
             total_duration=processor.duration,
             start_chunk=start_chunk_idx,
-            seek_position=start_position,
+            # #4557: the source time of the first sample we will actually
+            # deliver, which is what the client sets its position counter from
+            # (useEnhancedStreamStart.ts). Reporting the raw request here is
+            # what let the readout drift away from the audio.
+            seek_position=effective_position,
             seek_offset=seek_offset,
         ):
             logger.info(f"WebSocket disconnected, cannot start seek stream")
@@ -272,10 +295,13 @@ async def stream_enhanced_audio_from_position(
                 )
                 # Seek-path recovery preserves the user's exact target
                 # for the first chunk; chunk-start otherwise (#3493 / BE-NEW-67).
+                # #4557: "chunk start" is the EMITTED start, not
+                # chunk_idx * chunk_interval — resuming at the core start would
+                # replay OVERLAP_DURATION of already-delivered audio.
                 if chunk_idx == start_chunk_idx:
-                    recovery_position = start_position
+                    recovery_position = effective_position
                 else:
-                    recovery_position = chunk_idx * chunk_interval
+                    recovery_position = emitted_chunk_start(chunk_idx)
                 await controller._send_error(
                     websocket,
                     track_id,
