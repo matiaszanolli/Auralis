@@ -218,6 +218,14 @@ python -m pytest tests/ -v
 
 > **Update (2026-07-16)**: The project migrated its Python tooling from pyenv to `uv` (see [CLAUDE.md](../../CLAUDE.md)). Attempting Phase 1 surfaced a concrete blocker beyond anything analyzed above: **`vendor/auralis-dsp/Cargo.toml` pins `pyo3 = "0.23"`, which only supports up to Python 3.13** — building against 3.14 fails immediately with "the configured Python interpreter version (3.14) is newer than PyO3's maximum supported version (3.13)". Bumping `pyo3`/`numpy` (the Rust crate) to 0.29 fixes the compile (mainly a mechanical `Python::allow_threads` → `Python::detach` rename, plus 3 return-type tweaks to resolve an `IntoPyObject` ambiguity), but the resulting extension throws `TypeError: 'ndarray' object is not an instance of 'ndarray'` on every array-accepting call. This reproduces identically on Python 3.13.9 with the same crate bump, so it is **not a 3.14 issue** — it's a `numpy`-rs 0.29 / NumPy 2.3.5 C-API incompatibility (numpy-rs 0.29 moved to target NumPy's "ABI v2"; see its [CHANGELOG](https://github.com/PyO3/rust-numpy/blob/main/CHANGELOG.md)) that blocks the pyo3 bump on its own, independent of which CPython version is targeted. The 3.14 migration (and any pyo3 bump) stays blocked until that's resolved upstream or an intermediate pyo3/numpy-rs version is found that's compatible with NumPy 2.3.x.
 
+> **Update (2026-07-28): the 3.14 migration is DONE — the pyo3 bump was never actually required.** The two problems above are separable. The pyo3 0.23 version cap is only a *build-time assertion*, and PyO3 ships an escape hatch for exactly this case: `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` tells it to build against a newer CPython anyway. Staying on `pyo3`/`numpy` **0.23** and setting that flag produces a working `cp314` wheel — so the numpy-rs 0.29 ABI-v2 breakage described above is sidestepped entirely rather than solved, because 0.29 is never used.
+>
+> The flag now lives in [`vendor/auralis-dsp/.cargo/config.toml`](../../vendor/auralis-dsp/.cargo/config.toml) under `[env]`, so `maturin develop` and `cargo build` both pick it up with no shell ritual.
+>
+> Verified on 3.14.0: every array-accepting entry point (`limit`, `compress`, `envelope_follow`, …) returns normally with no `'ndarray' object is not an instance of 'ndarray'`; `tests/security` + `tests/audio` give a byte-identical 9 failed / 163 passed on 3.13.9 and 3.14 (those 9 are pre-existing); and `auto_master.py` produces the same quality-gate verdict and the same regressed metrics on both. `.python-version` now pins 3.14, matching `requires-python`.
+>
+> The 0.29 bump remains blocked for the reasons above, but it is no longer on the critical path for anything. Phase 2 (free-threading) is still untried.
+
 ### Phase 2: Enable Free-Threading (Week 1-2)
 
 ```bash

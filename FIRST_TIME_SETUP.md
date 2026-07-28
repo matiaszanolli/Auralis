@@ -58,8 +58,8 @@ cd Auralis
 ### 2️⃣ Set Up Python Environment
 
 ```bash
-# uv creates the venv using the interpreter pinned in .python-version
-# (currently 3.13.9, transitional — see docs/development/PYTHON_3_13_vs_3_14_COMPATIBILITY.md)
+# uv creates the venv using the interpreter pinned in .python-version (3.14),
+# downloading a uv-managed CPython if you do not already have one.
 uv venv
 source .venv/bin/activate
 ```

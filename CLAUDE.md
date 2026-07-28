@@ -9,7 +9,7 @@
 
 ```bash
 # Run verified recovery components (the root/Electron launcher is a known blocker)
-uv venv && source .venv/bin/activate    # uv manages the Python interpreter + venv; .python-version pins 3.13.9 transitionally
+uv venv && source .venv/bin/activate    # uv manages the Python interpreter + venv; .python-version pins 3.14
 uv pip install -r requirements.txt
 cd auralis-web/backend && python main.py --dev             # Backend :8765
 cd auralis-web/frontend && pnpm install && pnpm run dev   # pnpm is the only supported JS package manager (#4357)

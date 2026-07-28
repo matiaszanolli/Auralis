@@ -1,0 +1,21 @@
+# Build config for the auralis_dsp PyO3 extension.
+#
+# PYO3_USE_ABI3_FORWARD_COMPATIBILITY is required to build against Python 3.14.
+# Cargo.toml pins pyo3 0.23, whose build script hard-caps at CPython 3.13 and
+# aborts with "the configured Python interpreter version (3.14) is newer than
+# PyO3's maximum supported version (3.13)". This flag tells it to proceed.
+#
+# Bumping pyo3/numpy to 0.29 to lift the cap properly is NOT the fix: it
+# compiles, but every array-accepting call then throws
+#   TypeError: 'ndarray' object is not an instance of 'ndarray'
+# because numpy-rs 0.29 targets NumPy's "ABI v2" and is incompatible with the
+# NumPy 2.3.x pinned in requirements.txt. That reproduces on 3.13 too, so it is
+# a numpy-rs problem, not a Python-version one. Staying on 0.23 + this flag
+# builds a working cp314 wheel today; verified by running the array-accepting
+# entry points and the DSP suites on 3.14.
+#
+# Setting it here rather than in the shell means `maturin develop` and
+# `cargo build` both pick it up with no env-var ritual.
+
+[env]
+PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"

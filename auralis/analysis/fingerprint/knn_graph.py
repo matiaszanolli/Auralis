@@ -9,12 +9,12 @@ Builds and maintains pre-computed similarity graph for fast queries
 """
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, cast
+from time import perf_counter
+from typing import Any
 
-import numpy as np
-
-from ...library.repositories.similarity_graph_repository import SimilarityGraphRepository
+from ...library.repositories.similarity_graph_repository import (
+    SimilarityGraphRepository,
+)
 from ...utils.logging import debug, error, info, warning
 from .similarity import FingerprintSimilarity
 
@@ -99,7 +99,7 @@ class KNNGraphBuilder:
             GraphStats with build statistics
         """
         info(f"Building K-NN similarity graph (k={k})...")
-        start_time = datetime.now()
+        start_time = perf_counter()
 
         try:
             # Clear existing graph if requested
@@ -111,23 +111,22 @@ class KNNGraphBuilder:
             # loading the entire fingerprint matrix into RAM (#3454).
             repo = self.similarity.fingerprint_repo
 
-            # Peek to get total count (lightweight query)
-            first_batch = repo.get_all(limit=1)
-            if not first_batch:
+            # Fetch the first processing batch directly. The previous
+            # single-row "peek" repeated the first database query.
+            batch = repo.get_all(limit=batch_size, offset=0)
+            if not batch:
                 warning("No fingerprints found, cannot build graph")
                 return GraphStats(0, 0, k, 0, 0, 0, 0)
 
             total_edges = 0
-            all_distances: list[float] = []
+            distance_count = 0
+            distance_sum = 0.0
+            min_distance = float('inf')
+            max_distance = float('-inf')
             processed = 0
             offset = 0
 
-            while True:
-                batch = repo.get_all(limit=batch_size, offset=offset)
-                if not batch:
-                    break
-                offset += len(batch)
-
+            while batch:
                 batch_edges_data = []
                 for fp in batch:
                     # Find k nearest neighbors
@@ -147,7 +146,11 @@ class KNNGraphBuilder:
                             'rank': rank
                         }
                         batch_edges_data.append(edge_data)
-                        all_distances.append(result.distance)
+                        distance = float(result.distance)
+                        distance_count += 1
+                        distance_sum += distance
+                        min_distance = min(min_distance, distance)
+                        max_distance = max(max_distance, distance)
 
                 # Add batch of edges to database
                 if batch_edges_data:
@@ -155,20 +158,24 @@ class KNNGraphBuilder:
                     total_edges += batch_edges
 
                 processed += len(batch)
-                debug(f"Progress: {processed} tracks processed, {len(batch_edges_data)} edges in batch")
+                debug(
+                    f"Progress: {processed} tracks processed, "
+                    f"{len(batch_edges_data)} edges in batch"
+                )
+                offset += len(batch)
+                batch = repo.get_all(limit=batch_size, offset=offset)
 
             total_tracks = processed
             info(f"Processed {total_tracks} tracks in batches of {batch_size}")
 
-            # Calculate statistics
-            if all_distances:
-                avg_distance = float(np.mean(all_distances))
-                min_distance = float(np.min(all_distances))
-                max_distance = float(np.max(all_distances))
+            # Calculate statistics without retaining O(tracks * k) Python
+            # float objects for the duration of the build.
+            if distance_count:
+                avg_distance = distance_sum / distance_count
             else:
                 avg_distance = min_distance = max_distance = 0.0
 
-            build_time = (datetime.now() - start_time).total_seconds()
+            build_time = perf_counter() - start_time
 
             stats = GraphStats(
                 total_tracks=total_tracks,
@@ -297,7 +304,7 @@ class KNNGraphBuilder:
         try:
             count = self.graph_repo.clear_all()
             info(f"Cleared {count} edges from similarity graph")
-            return cast(int, count)
+            return count
 
         except Exception as e:
             error(f"Failed to clear graph: {e}")

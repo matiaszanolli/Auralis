@@ -12,10 +12,10 @@ import hashlib
 import json
 import logging
 import threading
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any
-from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ class QueryCache:
                 self._misses += 1
                 return None
 
-            value, expiry, metadata = self._cache[key]
+            value, expiry, _metadata = self._cache[key]
 
             # Check if expired
             if expiry and datetime.now() > expiry:
@@ -148,11 +148,12 @@ class QueryCache:
                 logger.info("🗑️  Cache cleared (full flush)")
             else:
                 # Match exact function names
-                keys_to_remove = []
-                for key, (value, expiry, metadata) in self._cache.items():
-                    func_name = metadata.get('func', '')
-                    if func_name in patterns:
-                        keys_to_remove.append(key)
+                pattern_set = set(patterns)
+                keys_to_remove = [
+                    key
+                    for key, (_, _, metadata) in self._cache.items()
+                    if metadata.get('func', '') in pattern_set
+                ]
 
                 for key in keys_to_remove:
                     del self._cache[key]

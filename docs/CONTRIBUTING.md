@@ -10,7 +10,7 @@ how to test and ship a change. For architecture, start at
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| **Python** | 3.14+ | The requirement; the test env still runs 3.13.9 transitionally |
+| **Python** | 3.14+ | `.python-version` pins 3.14; `uv venv` fetches it if needed |
 | **[uv](https://docs.astral.sh/uv/)** | latest | Manages the Python interpreter + venv (replaces pyenv/venv/pip) |
 | **Node** | 24+ | Frontend + Electron |
 | **Rust** | stable + `maturin` | Required — the DSP module has no Python fallback |

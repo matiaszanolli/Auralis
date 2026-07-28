@@ -189,6 +189,15 @@ class TestSimilaritySystem:
         assert stats.k_neighbors == 3
         assert stats.build_time_seconds >= 0.0
         assert stats.avg_distance >= 0.0
+        assert stats.min_distance <= stats.avg_distance <= stats.max_distance
+
+        persisted_stats = builder.get_graph_stats()
+        assert persisted_stats is not None
+        assert stats.total_tracks == persisted_stats.total_tracks
+        assert stats.total_edges == persisted_stats.total_edges
+        assert stats.avg_distance == pytest.approx(persisted_stats.avg_distance)
+        assert stats.min_distance == pytest.approx(persisted_stats.min_distance)
+        assert stats.max_distance == pytest.approx(persisted_stats.max_distance)
 
     def test_knn_graph_query(self, similarity, library, fingerprint_count):
         """Test querying K-NN graph"""

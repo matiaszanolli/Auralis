@@ -9,7 +9,7 @@
 
 ```bash
 # Run (web)
-uv venv && source .venv/bin/activate    # uv manages the Python interpreter + venv; .python-version pins 3.13.9 transitionally
+uv venv && source .venv/bin/activate    # uv manages the Python interpreter + venv; .python-version pins 3.14
 uv pip install -r requirements.txt
 python launch-auralis-web.py --dev      # Backend :8765, Frontend :3000
 

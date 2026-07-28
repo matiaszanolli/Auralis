@@ -141,7 +141,7 @@ Audit the entire Auralis codebase for deprecated APIs, libraries, patterns, and 
 
 **Key locations**: `pyproject.toml`, `pytest.ini`, `.github/`, `Makefile`, `*.cfg`
 
-**Toolchain baseline**: Python tooling is **uv**, not pyenv (`.python-version` holds a plain version string). `pyproject.toml` declares `requires-python = ">=3.14"` while `.python-version` still pins 3.13.9 transitionally — that gap is known, not a new finding. JS package manager is **pnpm** only. Node 24+.
+**Toolchain baseline**: Python tooling is **uv**, not pyenv (`.python-version` holds a plain version string). `pyproject.toml` declares `requires-python = ">=3.14"` and `.python-version` now pins 3.14 to match — the old 3.13.9 gap is closed, so re-reporting it is a stale finding. JS package manager is **pnpm** only. Node 24+.
 
 **Check**:
 - [ ] Any *setup.cfg* / *setup.py* left over — should they be consolidated into `pyproject.toml`? (Neither exists today; flag only if one reappears.)

@@ -85,8 +85,19 @@ export class QueueStatistics {
     }
 
     const trackCount = queue.length;
-    const durations = queue.map((t) => t.duration);
-    const totalDuration = durations.reduce((sum, d) => sum + d, 0);
+    const durations = new Array<number>(trackCount);
+    const artistNames = new Set<string>();
+    const albumNames = new Set<string>();
+    let totalDuration = 0;
+
+    for (let i = 0; i < trackCount; i++) {
+      const track = queue[i];
+      durations[i] = track.duration;
+      totalDuration += track.duration;
+      artistNames.add(track.artist);
+      albumNames.add(track.album);
+    }
+
     const averageDuration = totalDuration / trackCount;
     const sortedDurations = [...durations].sort((a, b) => a - b);
     const minDuration = sortedDurations[0];
@@ -96,17 +107,19 @@ export class QueueStatistics {
         ? (sortedDurations[trackCount / 2 - 1] + sortedDurations[trackCount / 2]) / 2
         : sortedDurations[Math.floor(trackCount / 2)];
 
-    const uniqueArtists = new Set(queue.map((t) => t.artist)).size;
-    const uniqueAlbums = new Set(queue.map((t) => t.album)).size;
+    const uniqueArtists = artistNames.size;
+    const uniqueAlbums = albumNames.size;
 
     // Build distributions
     const genres = this.buildDistribution(
-      queue.map((t) => this.extractGenre(t))
+      queue,
+      (track) => this.extractGenre(track)
     );
-    const artists = this.buildDistribution(queue.map((t) => t.artist));
-    const albums = this.buildDistribution(queue.map((t) => t.album));
+    const artists = this.buildDistribution(queue, (track) => track.artist);
+    const albums = this.buildDistribution(queue, (track) => track.album);
     const formats = this.buildDistribution(
-      queue.map((t) => extractTrackFormat(t))
+      queue,
+      (track) => extractTrackFormat(track)
     );
 
     return {
@@ -159,11 +172,15 @@ export class QueueStatistics {
   /**
    * Build distribution statistics from array of values
    */
-  private static buildDistribution(values: (string | number)[]): PropertyDistribution {
+  private static buildDistribution<T>(
+    values: readonly T[],
+    selectValue: (value: T) => string | number
+  ): PropertyDistribution {
     const distribution = new Map<string | number, number>();
 
     // Count occurrences
-    for (const value of values) {
+    for (const item of values) {
+      const value = selectValue(item);
       if (value === null || value === undefined || value === '') {
         continue;
       }
@@ -182,17 +199,14 @@ export class QueueStatistics {
     // Find mode (most common)
     let mode: string | number | null = null;
     let maxCount = 0;
+    let least: string | number | null = null;
+    let minCount = Infinity;
+
     for (const [value, count] of distribution.entries()) {
       if (count > maxCount) {
         maxCount = count;
         mode = value;
       }
-    }
-
-    // Find least common
-    let least: string | number | null = null;
-    let minCount = Infinity;
-    for (const [value, count] of distribution.entries()) {
       if (count < minCount) {
         minCount = count;
         least = value;
@@ -329,8 +343,26 @@ export class QueueStatistics {
     movedTracks: Track[];
     similarity: number; // 0-1
   } {
-    const ids1 = new Set(queue1.map((t) => t.id));
-    const ids2 = new Set(queue2.map((t) => t.id));
+    const ids1 = new Set<Track['id']>();
+    const ids2 = new Set<Track['id']>();
+    const queue1FirstIndex = new Map<Track, number>();
+    const queue2FirstIndexById = new Map<Track['id'], number>();
+
+    for (let i = 0; i < queue1.length; i++) {
+      const track = queue1[i];
+      ids1.add(track.id);
+      if (!queue1FirstIndex.has(track)) {
+        queue1FirstIndex.set(track, i);
+      }
+    }
+
+    for (let i = 0; i < queue2.length; i++) {
+      const track = queue2[i];
+      ids2.add(track.id);
+      if (!queue2FirstIndexById.has(track.id)) {
+        queue2FirstIndexById.set(track.id, i);
+      }
+    }
 
     const addedTracks = queue2.filter((t) => !ids1.has(t.id));
     const removedTracks = queue1.filter((t) => !ids2.has(t.id));
@@ -344,8 +376,8 @@ export class QueueStatistics {
     const movedTracks: Track[] = [];
     for (const track of queue1) {
       if (ids2.has(track.id)) {
-        const oldIndex = queue1.indexOf(track);
-        const newIndex = queue2.findIndex((t) => t.id === track.id);
+        const oldIndex = queue1FirstIndex.get(track);
+        const newIndex = queue2FirstIndexById.get(track.id);
         if (oldIndex !== newIndex) {
           movedTracks.push(track);
         }

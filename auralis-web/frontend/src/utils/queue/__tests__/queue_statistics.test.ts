@@ -375,7 +375,11 @@ describe('QueueStatistics', () => {
     ];
 
     const comparison = QueueStatistics.compareQueues(queue1, queue2);
-    expect(comparison.movedTracks.length).toBeGreaterThan(0);
+    expect(comparison.movedTracks).toEqual([
+      mockTracks[0],
+      mockTracks[1],
+      mockTracks[2],
+    ]);
   });
 
   it('should calculate similarity correctly', () => {
