@@ -154,8 +154,49 @@ for skill in "${skill_files[@]}"; do
     done < <(grep -noE '`[A-Za-z0-9_./{},-]+\.(py|ts|tsx|js|jsx|rs|toml|md|json|yaml|yml|sh|sql|css)' "$skill" || true)
 done
 
+# --- Markdown link targets (#4258) -----------------------------------------
+#
+# The backticked-token pass above cannot see `[text](target)` links, so a docs
+# hub could rot its whole navigation table while the gate reported PASS. That is
+# exactly what happened to docs/README.md three times (#4052, #4063, #4258): the
+# recurring defect there is dead LINKS, not dead backticked paths.
+#
+# Markdown links resolve relative to the file that contains them, not the repo
+# root, so these cannot go through path_exists().
+shopt -s nullglob
+link_files=(
+    docs/README.md
+    docs/architecture/*.md
+    docs/subsystems/*.md
+    README.md
+    CLAUDE.md
+    auralis-web/backend/WEBSOCKET_API.md
+)
+shopt -u nullglob
+
+link_count=0
+for doc in "${link_files[@]}"; do
+    [[ -f "$doc" ]] || continue
+    doc_dir="$(dirname "$doc")"
+    while IFS=: read -r line_num target; do
+        # External and pure-anchor links are not ours to resolve.
+        [[ "$target" == *"://"* || "$target" == mailto:* || "$target" == \#* ]] && continue
+        # Drop any #fragment; the file must exist, the anchor is not checked.
+        target="${target%%#*}"
+        [[ -z "$target" ]] && continue
+        link_count=$((link_count + 1))
+        if [[ ! -e "$doc_dir/$target" ]]; then
+            echo "DEAD LINK: $doc:$line_num — ($target)"
+            stale_count=$((stale_count + 1))
+        elif [[ "$VERBOSE" == "1" ]]; then
+            echo "ok: $doc:$line_num — ($target)"
+        fi
+    done < <(grep -noE '\]\([^)]+\)' "$doc" | sed -E 's/^([0-9]+):\]\((.*)\)$/\1:\2/' || true)
+done
+
 echo
 echo "Checked $checked_count refs across ${#skill_files[@]} skill files."
+echo "Checked $link_count markdown links across ${#link_files[@]} doc files."
 if (( stale_count > 0 )); then
     echo "FAIL: $stale_count stale path reference(s)."
     echo "Fix: update the audit skill files, OR delete the stale ref if the target moved."
