@@ -10,7 +10,6 @@ Replaces the Tkinter GUI with a professional web interface.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import html as html_module
 import logging
 import os
 import sys
@@ -169,6 +168,33 @@ else:
 # INFO stays free of it so it's safe to paste into a public bug report (#4366).
 logger.debug(f"Looking for frontend at: {frontend_path}")
 
+# Body for the `/` fallback when the built frontend is missing.
+#
+# Deliberately free of `frontend_path` (#4351). The old version interpolated it
+# — HTML-escaped, so never an XSS vector, but it handed any client that can
+# reach `/` the install layout: the PyInstaller _MEIPASS temp dir, or
+# /home/<user>/... which also discloses the OS username. A stray browser tab or
+# a DNS-rebound page could read it.
+#
+# The path is still available for diagnostics from the logger.debug calls, which
+# is where #4366 put absolute paths so INFO-level output stays safe to paste
+# into a public bug report. Kept a module-level constant rather than inlined so
+# the branch is reachable from a test: which `/` handler gets registered is
+# decided at import time by conditions a test cannot easily force.
+FRONTEND_MISSING_HTML = """
+        <html>
+            <head><title>Auralis Web</title></head>
+            <body>
+                <h1>🎵 Auralis Web Backend</h1>
+                <p>FastAPI backend is running!</p>
+                <p>Frontend assets not found — the installation looks incomplete.
+                   Reinstall Auralis, or run the backend with --dev and serve the
+                   frontend with Vite.</p>
+                <p><a href="/api/docs">View API Documentation</a></p>
+            </body>
+        </html>
+        """
+
 # Only mount static files in production (when not running --dev)
 # In development, Vite serves the frontend and proxies API requests
 # StaticFiles mount at "/" interferes with WebSocket routes, so we must avoid it in dev mode
@@ -200,17 +226,7 @@ else:
 
     @app.get("/")
     async def root() -> HTMLResponse:
-        return HTMLResponse(f"""
-        <html>
-            <head><title>Auralis Web</title></head>
-            <body>
-                <h1>🎵 Auralis Web Backend</h1>
-                <p>FastAPI backend is running!</p>
-                <p>Frontend not found at: {html_module.escape(str(frontend_path))}</p>
-                <p><a href="/api/docs">View API Documentation</a></p>
-            </body>
-        </html>
-        """)
+        return HTMLResponse(FRONTEND_MISSING_HTML)
 
 
 if __name__ == "__main__":
