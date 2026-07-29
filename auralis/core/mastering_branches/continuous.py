@@ -8,11 +8,14 @@ One measurement-driven processing path for every source.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any
+
 import numpy as np
 
 from ...dsp.basic import amplify, normalize
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ..mastering_config import SimpleMasteringConfig
+from ..processing.continuous_space import ProcessingSpaceMapper
 from ..stages.hf_budget import hf_lift_factor
 from ..utils import FingerprintUnpacker, StageRecorder
 from .base import ProcessingBranch
@@ -47,7 +50,7 @@ class ContinuousMasteringBranch(ProcessingBranch):
         sample_rate: int,
         config: SimpleMasteringConfig,
         verbose: bool
-    ) -> tuple[np.ndarray, dict]:
+    ) -> tuple[np.ndarray, dict[str, Any]]:
         """Apply the continuous mastering path."""
 
         from ...dsp.dynamics.soft_clipper import soft_clip
@@ -82,7 +85,7 @@ class ContinuousMasteringBranch(ProcessingBranch):
         # bass when the voice is buried (paired with the clarity-boost lift).
         processed, bass_info = self.pipeline._apply_bass_enhancement(
             processed, unpacker.bass_pct, effective_intensity, sample_rate, verbose,
-            unpacker.mid_pct, unpacker.upper_mid_pct
+            unpacker.mid_pct, unpacker.upper_mid_pct, unpacker.presence_pct
         )
         recorder.add(bass_info)
 
@@ -111,15 +114,18 @@ class ContinuousMasteringBranch(ProcessingBranch):
 
         processed = self._assert_finite(processed, "continuous path after low-end/warmth")
 
-        # Shared HF lift budget — restrains exciter + clarity + presence + air
-        # from stacking into fizz on HF-dead sources (was +6 dB relative presence
-        # lift when measured HF energy is sparse.
-        hf_lift = hf_lift_factor(unpacker.presence_pct, unpacker.air_pct)
+        # Shared HF response from the corpus-calibrated spectral coordinate.
+        # This prevents a source with high upper-mid/presence energy from being
+        # treated as "dark" merely because a normalized rolloff is far below 1.
+        spectral_balance = ProcessingSpaceMapper().map_fingerprint_to_space(
+            unpacker.as_dict()
+        ).spectral_balance
+        hf_lift = hf_lift_factor(spectral_balance)
 
-        # Harmonic exciter — generate new HF content for bandwidth-limited or
-        # dark sources. Runs after mid-warmth (donor band is now shaped) and
-        # before presence/air (so those shelves can lift the new harmonics).
-        # Engages only when air/presence/rolloff indicate genuinely dark material.
+        # Harmonic exciter — generate new HF content for bandwidth-limited
+        # sources. Runs after mid-warmth (donor band is now shaped) and before
+        # presence/air (so those shelves can lift the new harmonics). Its wet
+        # amplitude follows the same continuous corpus-calibrated response.
         #
         # Crest factor attenuates excitation smoothly. The asymptotic floor
         # preserves a small response without a bypass boundary.
@@ -204,23 +210,22 @@ class ContinuousMasteringBranch(ProcessingBranch):
         )
         recorder.add(loudness_info)
 
-        # Final normalization — competitive loudness, dynamics protected.
+        # Final normalization — useful level with inter-sample headroom.
         #
         # A pure peak-normalize is gain only, so crest factor (transient punch)
-        # is preserved exactly: we can push the ceiling up for a competitive
-        # ~ -14 LUFS master WITHOUT crushing dynamics. The previous target
-        # (~0.84 peak, pulled down further for bass) left the "master" QUIETER
-        # than the source — backwards. We now normalize quiet material close to
-        # full scale and let the write-stage hard clip + soft clipper above
-        # handle the few remaining peaks. The earlier bass-aware peak reduction
-        # is dropped: the bass is now kept clean by the soft-clip threshold
-        # raise, so there's no reason to throw away level for it.
+        # is preserved exactly. Keep about 1.0-1.5 dB of sample-peak headroom so
+        # reconstructed true peaks do not cross the -0.5 dBTP safety ceiling.
+        # Loudness is established by the maximizer above, not by forcing every
+        # source close to full scale.
         target_peak, _ = AdaptiveLoudnessControl.calculate_adaptive_peak_target(unpacker.lufs)
-        # target_peak is 0.85 (loud) … 0.90 (quiet); lift it toward the ceiling.
-        adapted_peak = float(np.clip(target_peak + 0.07, 0.90, 0.97))
+        # target_peak is 0.85 (loud) … 0.90 (quiet).
+        adapted_peak = float(np.clip(target_peak - 0.01, 0.84, 0.89))
 
         if verbose:
-            print(f"   Normalize: {adapted_peak*100:.0f}% peak (competitive, crest-preserving)")
+            print(
+                f"   Normalize: {adapted_peak*100:.0f}% peak "
+                "(true-peak headroom, crest-preserving)"
+            )
 
         processed = normalize(processed, adapted_peak)
         recorder.add({'stage': 'normalize', 'target_peak': adapted_peak})

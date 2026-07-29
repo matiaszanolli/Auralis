@@ -10,6 +10,8 @@ Eliminates repetitive null-check patterns when accumulating stage information.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any
+
 
 class StageRecorder:
     """
@@ -32,11 +34,11 @@ class StageRecorder:
     - Could add timing/validation in future
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize empty stage recorder."""
-        self.stages: list[dict] = []
+        self.stages: list[dict[str, Any]] = []
 
-    def add(self, stage_info: dict | None) -> None:
+    def add(self, stage_info: dict[str, Any] | None) -> None:
         """
         Append stage info if not None.
 
@@ -53,7 +55,7 @@ class StageRecorder:
         if stage_info is not None:
             self.stages.append(stage_info)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """
         Return stages as dict.
 
@@ -68,7 +70,7 @@ class StageRecorder:
         """
         return {'stages': self.stages}
 
-    def merge(self, other: 'StageRecorder') -> None:
+    def merge(self, other: StageRecorder) -> None:
         """
         Merge another recorder's stages into this one.
 

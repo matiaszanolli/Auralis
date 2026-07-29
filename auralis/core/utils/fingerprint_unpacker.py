@@ -48,7 +48,37 @@ class FingerprintUnpacker:
     - Better IDE autocomplete and type checking
     """
 
-    _fp: dict
+    _fp: dict[str, float]
+
+    def as_dict(self) -> dict[str, float]:
+        """Return the complete defaulted 25D numeric fingerprint."""
+        return {
+            'lufs': self.lufs,
+            'crest_db': self.crest_db,
+            'bass_mid_ratio': self.bass_mid_ratio,
+            'sub_bass_pct': self.sub_bass_pct,
+            'bass_pct': self.bass_pct,
+            'low_mid_pct': self.low_mid_pct,
+            'mid_pct': self.mid_pct,
+            'upper_mid_pct': self.upper_mid_pct,
+            'presence_pct': self.presence_pct,
+            'air_pct': self.air_pct,
+            'tempo_bpm': self.tempo_bpm,
+            'rhythm_stability': self.rhythm_stability,
+            'transient_density': self.transient_density,
+            'silence_ratio': self.silence_ratio,
+            'spectral_centroid': self.spectral_centroid,
+            'spectral_rolloff': self.spectral_rolloff,
+            'spectral_flatness': self.spectral_flatness,
+            'harmonic_ratio': self.harmonic_ratio,
+            'pitch_stability': self.pitch_stability,
+            'chroma_energy': self.chroma_energy,
+            'dynamic_range_variation': self.dynamic_range_variation,
+            'loudness_variation_std': self.loudness_variation_std,
+            'peak_consistency': self.peak_consistency,
+            'stereo_width': self.stereo_width,
+            'phase_correlation': self.phase_correlation,
+        }
 
     # =========================================================================
     # Dynamics (3D)
@@ -208,7 +238,7 @@ class FingerprintUnpacker:
     # =========================================================================
 
     @classmethod
-    def from_dict(cls, fp: dict) -> 'FingerprintUnpacker':
+    def from_dict(cls, fp: dict[str, float]) -> FingerprintUnpacker:
         """
         Create unpacker from raw fingerprint dict.
 

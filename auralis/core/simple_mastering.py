@@ -304,8 +304,19 @@ class SimpleMasteringPipeline:
         self, audio: np.ndarray, bass_pct: float, intensity: float,
         sample_rate: int, verbose: bool,
         mid_pct: float = 0.0, upper_mid_pct: float = 0.0,
+        presence_pct: float = 0.0,
     ) -> tuple[np.ndarray, dict | None]:
-        return bass_enhancement.apply(audio, bass_pct, intensity, sample_rate, verbose, self.config, mid_pct, upper_mid_pct)
+        return bass_enhancement.apply(
+            audio,
+            bass_pct,
+            intensity,
+            sample_rate,
+            verbose,
+            self.config,
+            mid_pct,
+            upper_mid_pct,
+            presence_pct,
+        )
 
     def _apply_sub_bass_control(
         self, audio: np.ndarray, sub_bass_pct: float, bass_pct: float,

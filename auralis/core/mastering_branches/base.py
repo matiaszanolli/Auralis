@@ -8,8 +8,10 @@ Abstract base class for the mastering processing path.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -30,7 +32,7 @@ class ProcessingBranch(ABC):
     modulate individual DSP controls; no content label selects an implementation.
     """
 
-    def __init__(self, pipeline: 'SimpleMasteringPipeline'):
+    def __init__(self, pipeline: SimpleMasteringPipeline):
         """
         Initialize processing branch.
 
@@ -66,7 +68,7 @@ class ProcessingBranch(ABC):
         sample_rate: int,
         config: SimpleMasteringConfig,
         verbose: bool
-    ) -> tuple[np.ndarray, dict]:
+    ) -> tuple[np.ndarray, dict[str, Any]]:
         """
         Apply branch-specific processing.
 
@@ -86,4 +88,3 @@ class ProcessingBranch(ABC):
         Returns:
             Tuple of (processed_audio, info_dict)
         """
-        pass

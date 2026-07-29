@@ -66,8 +66,8 @@ class SimpleMasteringConfig:
     # Enhancement Frequencies (Hz)
     # =========================================================================
 
-    BASS_SHELF_HZ: float = 100.0
-    """Low-shelf frequency for bass enhancement"""
+    BASS_SHELF_HZ: float = 120.0
+    """Low-shelf corner for continuous bass balance and counterweight."""
 
     SUB_BASS_CUTOFF_HZ: float = 60.0
     """Cutoff frequency for sub-bass control"""
@@ -137,51 +137,32 @@ class SimpleMasteringConfig:
     # Enhancement Boost Limits
     # =========================================================================
 
-    MAX_BASS_BOOST_DB: float = 2.0
-    """Maximum bass enhancement boost (when bass content is well below target)"""
+    MAX_BASS_BALANCE_DB: float = 1.0
+    """Asymptotic signed low-shelf correction around the corpus bass median."""
 
-    MAX_BASS_CUT_DB: float = 2.0
-    """Maximum bass de-mud cut (bell @ 150 Hz, when bass is well above target).
-    Applied as a bell — not a shelf — so the kick fundamental and sub-bass are
-    preserved while the muddy bass body (100-220 Hz) is tamed. Reduced from
-    -3 dB because live folk/world recordings can legitimately have 50-60%
-    bass; we want to gently tame mud, not fight the source's character."""
+    BASS_BALANCE_SCALE_PCT: float = 0.1609933274688325
+    """Robust IQR-derived bass-share scale measured over 508 sources."""
 
-    # === EVIDENCE-BASED TOLERANCE BANDS (derived from n=27 reference set across 8 genres) ===
-    # Philosophy: do nothing while the source sits inside a *natural variance band*
-    # (p25-p75 across well-mastered records). Only correct when outside. This
-    # respects per-genre character — a jazz record's natural Bass at 30% and a
-    # reggae record's at 58% should both pass through untouched.
+    MAX_BASS_COUNTERWEIGHT_DB: float = 0.8
+    """Maximum extra low-shelf weight for strongly bright-leaning sources."""
 
-    BASS_TARGET_PCT: float = 0.46
-    """Median bass share across the 27-track reference set (was 0.22 — the old
-    value was a 'pop-master' fiction; real records, even bright ones, sit much
-    higher). Used as the natural-fit center for diagnostics; tolerance band is
-    BASS_TOL_LOW / BASS_TOL_HIGH."""
+    BASS_TILT_LOG_MEDIAN: float = -1.370043455149401
+    """Median log((upper-mid + presence) / bass), measured over 508 sources."""
 
-    BASS_TOL_LOW: float = 0.35
-    """Lower edge of the bass tolerance band (p25 across reference). Below this
-    the boost path engages."""
+    BASS_TILT_LOG_SCALE: float = 0.8176371745003234
+    """Robust IQR-derived scale of the 508-source high-to-bass log ratio."""
 
-    BASS_TOL_HIGH: float = 0.55
-    """Upper edge of the bass tolerance band (p75 across reference). Above this
-    the de-mud cut engages."""
+    BASS_TILT_EPSILON: float = 1e-6
+    """Numerical stabilizer for the high-to-bass log ratio."""
 
-    BASS_BOOST_RANGE_PCT: float = 0.20
-    """How far BELOW the tolerance band counts as 'maximum deficit'. At
-    bass_pct = (BASS_TOL_LOW - this), we hit max boost."""
+    BASS_COUNTERWEIGHT_CENTER_Z: float = 0.75
+    """Smooth-response center in robust corpus deviations above the median."""
 
-    BASS_CUT_RANGE_PCT: float = 0.20
-    """How far ABOVE the tolerance band counts as 'maximum excess'. At
-    bass_pct = (BASS_TOL_HIGH + this), we hit max cut. Live folk/world
-    tracks at 55-60% bass now fall *inside* the band → no action."""
+    BASS_COUNTERWEIGHT_WIDTH_Z: float = 0.75
+    """Width of the continuous counterweight response in robust deviations."""
 
-    BASS_DEMUD_LOW_HZ: float = 100.0
-    """Lower bound of the de-mud bell"""
-
-    BASS_DEMUD_HIGH_HZ: float = 220.0
-    """Upper bound of the de-mud bell. 100-220 Hz brackets the live-recording
-    'boxiness' zone without touching kick fundamental (50-80 Hz) or sub-bass."""
+    BASS_TARGET_PCT: float = 0.4560661315917969
+    """Median bass share measured over the deterministic 508-source corpus."""
 
     MAX_SUB_BASS_CUT_DB: float = -1.0
     """Maximum sub-bass cut (negative boost)"""
@@ -198,10 +179,10 @@ class SimpleMasteringConfig:
     # =========================================================================
     # Harmonic Exciter
     # =========================================================================
-    # Generates upper-octave harmonics from midrange for bandwidth-limited /
-    # dark sources where shelf EQ has nothing to lift (e.g. low-bitrate audio
-    # that has been brick-walled below 8 kHz). Disabled for material that
-    # already has natural high-frequency content.
+    # Generates upper-octave harmonics from midrange for bandwidth-limited
+    # sources where shelf EQ has nothing to lift (e.g. low-bitrate audio that
+    # has been brick-walled below 8 kHz). The wet level follows the continuous,
+    # corpus-calibrated spectral response; no source threshold activates it.
 
     EXCITER_DONOR_LOW_HZ: float = 1000.0
     """Lower bound of donor bandpass for harmonic generation"""
@@ -221,19 +202,11 @@ class SimpleMasteringConfig:
     EXCITER_ASYMMETRY: float = 0.3
     """Saturator bias (0 = odd harmonics only; 0.3 adds tube-like even harmonics)"""
 
-    EXCITER_MAX_WET_DB: float = -9.0
-    """Wet ceiling (parallel mix). -9 dB ≈ 35% wet for fully-dark material at
-    intensity 1.0. Reduced from -6 dB after A/B analysis showed the previous
-    setting produced a +7 dB peak at 5 kHz on dark sources, contributing to
-    a +9 dB spectral tilt that listeners perceived as 'high-passed'. -9 dB
-    still delivers obvious 'crispness' lift without the over-correction."""
+    EXCITER_MAX_WET_DB: float = -12.0
+    """Wet ceiling before continuous intensity/spectral-need attenuation."""
 
-    EXCITER_MIN_WET_DB: float = -18.0
-    """Wet floor at the activation threshold (just-barely-dark material)."""
-
-    EXCITER_DARKNESS_ACTIVATE: float = 0.55
-    """Darkness threshold below which exciter is bypassed. Computed from
-    presence_pct + air_pct + spectral_rolloff. 0 = fully dark, 1 = fully bright"""
+    EXCITER_MIN_WET_DB: float = -21.0
+    """Wet base at the smallest spectral-need values."""
 
     EXCITER_CASCADE_ENABLED: bool = True
     """Run a second-pass exciter on Stage 1's output. Stage 1 generates
@@ -287,21 +260,28 @@ class SimpleMasteringConfig:
     Q=6 cumulatively scoops the band when 3 notches cluster; -4 dB stays
     audible-as-de-emphasis without over-cutting the broad band."""
 
-    NOTCH_MIN_BAND_HEALTH: float = 0.6
-    """Skip notches whose target band is below this health (band_pct/target).
-    Below this threshold the band is already severely deficient — adding a
-    notch makes it worse. A/B data on Cerca de la revolución showed -2.2 pp
-    Mid scoop on a source where Mid was at 12.8% vs 24% target (health 0.53),
-    even with proportional depth scaling. Skipping entirely below 0.6 is
-    safer than gouging an already-thin band."""
+    NOTCH_HEALTH_RESPONSE_CENTER: float = 0.65
+    """Center of the smooth band-health attenuation response."""
 
-    NOTCH_CAPPED_HEALTH: float = 0.7
-    """Below this band health (but above NOTCH_MIN_BAND_HEALTH), the notch
-    is allowed but its depth is hard-capped to NOTCH_LOW_HEALTH_CAP_DB.
-    We acknowledge the resonance exists but tread lightly."""
+    NOTCH_HEALTH_RESPONSE_WIDTH: float = 0.08
+    """Width of the smooth band-health response."""
 
-    NOTCH_LOW_HEALTH_CAP_DB: float = -1.0
-    """Hard cap on notch depth in the cautious health zone (0.6-0.7)."""
+    NOTCH_SOFT_MAX_DEPTH_DB: float = 2.5
+    """Scale of the tanh per-notch depth compressor."""
+
+    NOTCH_SOFT_BAND_BUDGET_DB: float = 4.0
+    """Scale of the tanh cumulative-depth compressor for clustered notches."""
+
+    NOTCH_LOW_PROTECTION_CENTER_HZ: float = 300.0
+    """Center of the smooth transition from protected bass fundamentals to
+    ordinary midrange resonance treatment."""
+
+    NOTCH_LOW_PROTECTION_WIDTH_HZ: float = 100.0
+    """Width of the low-frequency notch-protection transition."""
+
+    NOTCH_LOW_PROTECTION_FLOOR: float = 0.15
+    """Smallest fraction of a detected notch depth retained near the bottom of
+    the search range. The Q increases by the complementary amount."""
 
     # =========================================================================
     # Transient Shaper (kick / bass attack restoration)

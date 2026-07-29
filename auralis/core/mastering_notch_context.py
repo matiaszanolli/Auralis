@@ -13,6 +13,9 @@ mastering_prepare.prepare_file.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from __future__ import annotations
+
+import math
 from typing import TYPE_CHECKING
 
 from .dsp import Notch
@@ -22,27 +25,17 @@ if TYPE_CHECKING:
 
 
 def contextualize_notches(
-    notches: list[Notch], fingerprint: dict, config: 'SimpleMasteringConfig'
+    notches: list[Notch],
+    fingerprint: dict[str, float],
+    config: SimpleMasteringConfig,
 ) -> list[Notch]:
     """
-    Filter and scale each notch's depth based on the target band's health.
+    Scale notch depth continuously from band health and frequency context.
 
-    Three regimes (driven by `band_pct / band_target` ratio):
-
-    - **health ≥ NOTCH_CAPPED_HEALTH (≥0.7)**: full notch — band is well-
-      energized, scaling depth proportionally is safe.
-    - **NOTCH_MIN_BAND_HEALTH ≤ health < NOTCH_CAPPED_HEALTH (0.6-0.7)**:
-      allow the notch but hard-cap its depth to NOTCH_LOW_HEALTH_CAP_DB
-      (e.g. -1 dB). The resonance is real but we tread lightly because
-      the band is borderline thin.
-    - **health < NOTCH_MIN_BAND_HEALTH (<0.6)**: skip entirely. Notching
-      an already-deficient band makes the perceived scoop worse than
-      leaving the resonance alone.
-
-    These thresholds were tuned from A/B analysis on a source where Mid
-    was at 53% of target — proportional scaling alone still produced
-    -2.2 pp of additional Mid scoop, contributing to the perceived
-    'high-passed' sound.
+    A smooth health response makes notches asymptotically disappear in an
+    already-thin band without a skip threshold. Low-frequency musical peaks
+    receive additional protection. Finally, tanh compression limits both each
+    notch and the cumulative depth of clustered notches without a hard cap.
     """
     if not notches:
         return notches
@@ -65,38 +58,85 @@ def contextualize_notches(
     ]
 
     out: list[Notch] = []
+    band_groups: list[int] = []
     for n in notches:
         # Find which band this notch lands in
         band_pct = None
         band_target = None
-        for (lo, hi), key, tgt in BAND_LOOKUP:
+        band_group = -1
+        for index, ((lo, hi), key, tgt) in enumerate(BAND_LOOKUP):
             if lo <= n.freq_hz < hi:
                 band_pct = fingerprint.get(key, tgt)
                 band_target = tgt
+                band_group = index
                 break
 
         if band_pct is None or band_target is None:
             out.append(n)
+            band_groups.append(band_group)
             continue
 
         # Health metric: ratio of actual to target energy share, capped at 1.0.
         # 1.0 = well-energized band, 0.5 = half-energized, etc.
         health = min(1.0, band_pct / band_target) if band_target > 0 else 1.0
+        health_response = 0.5 + 0.5 * math.tanh(
+            (health - config.NOTCH_HEALTH_RESPONSE_CENTER)
+            / config.NOTCH_HEALTH_RESPONSE_WIDTH
+        )
+        scaled_depth = n.depth_db * health * health_response
 
-        if health < config.NOTCH_MIN_BAND_HEALTH:
-            # Band is severely deficient — leave the resonance alone.
+        # Smooth per-notch depth compression. Small cuts stay close to their
+        # measured depth, while large PSD peaks cannot dominate the tonal curve.
+        depth_sign = -1.0 if scaled_depth < 0.0 else 1.0
+        depth_magnitude = config.NOTCH_SOFT_MAX_DEPTH_DB * math.tanh(
+            abs(scaled_depth) / config.NOTCH_SOFT_MAX_DEPTH_DB
+        )
+        scaled_depth = depth_sign * depth_magnitude
+
+        # Low-frequency PSD peaks are often sustained notes or harmonics rather
+        # than room/honk resonances. Protect that musical region continuously:
+        # below the transition center cuts become both shallower and narrower,
+        # while midrange detections retain their measured depth.
+        transition = 0.5 + 0.5 * math.tanh(
+            (n.freq_hz - config.NOTCH_LOW_PROTECTION_CENTER_HZ)
+            / config.NOTCH_LOW_PROTECTION_WIDTH_HZ
+        )
+        depth_scale = (
+            config.NOTCH_LOW_PROTECTION_FLOOR
+            + (1.0 - config.NOTCH_LOW_PROTECTION_FLOOR) * transition
+        )
+        protected_depth = scaled_depth * depth_scale
+        protected_q = n.q * (2.0 - depth_scale)
+
+        out.append(
+            Notch(
+                freq_hz=n.freq_hz,
+                depth_db=protected_depth,
+                q=protected_q,
+            )
+        )
+        band_groups.append(band_group)
+
+    # Smooth cumulative-depth budget for clustered notches in the same broad
+    # fingerprint band. This prevents three individually plausible detections
+    # from combining into a broad 3-4 dB scoop.
+    for band_group in set(band_groups):
+        indices = [
+            index
+            for index, group in enumerate(band_groups)
+            if group == band_group
+        ]
+        total_depth = sum(abs(out[index].depth_db) for index in indices)
+        if total_depth <= 0.0:
             continue
-
-        # Proportional scaling for moderately-deficient bands. The 0.7+
-        # zone gets full proportional depth; the 0.6-0.7 zone is capped
-        # to a hard floor regardless of the configured max depth.
-        scaled_depth = n.depth_db * health
-
-        if health < config.NOTCH_CAPPED_HEALTH:
-            # Cap to the low-health cap (compare absolute values; both negative)
-            if abs(scaled_depth) > abs(config.NOTCH_LOW_HEALTH_CAP_DB):
-                scaled_depth = config.NOTCH_LOW_HEALTH_CAP_DB
-
-        out.append(Notch(freq_hz=n.freq_hz, depth_db=scaled_depth, q=n.q))
+        ratio = total_depth / config.NOTCH_SOFT_BAND_BUDGET_DB
+        budget_scale = math.tanh(ratio) / ratio
+        for index in indices:
+            notch = out[index]
+            out[index] = Notch(
+                freq_hz=notch.freq_hz,
+                depth_db=notch.depth_db * budget_scale,
+                q=notch.q,
+            )
 
     return out

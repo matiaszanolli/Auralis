@@ -174,7 +174,7 @@ def prepare_file(
     # notching gouges an already-deficient band — so we shrink the cut
     # proportionally. Notch on a well-energized band → full depth;
     # notch on a deficient band → reduced depth (or skipped entirely
-    # below NOTCH_MIN_BAND_HEALTH).
+    # in bands whose measured energy is already weak).
     pipeline._notches = contextualize_notches(detected, fingerprint, config)
     timings['detect_notches'] = time.perf_counter() - step_start
     if verbose:

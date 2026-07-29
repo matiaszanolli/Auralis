@@ -1,13 +1,13 @@
-"""Harmonic Exciter Stage — generate upper-octave harmonics for dark sources."""
+"""Harmonic Exciter Stage — generate upper-octave harmonics when HF is sparse."""
 
-from typing import TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from . import no_op
-
 from ..dsp import HarmonicExciter
-from ..utils import SmoothCurveUtilities
+from . import no_op
 
 if TYPE_CHECKING:
     from ..mastering_config import SimpleMasteringConfig
@@ -21,24 +21,27 @@ def apply(
     intensity: float,
     sample_rate: int,
     verbose: bool,
-    config: 'SimpleMasteringConfig',
+    config: SimpleMasteringConfig,
     hf_lift: float = 1.0,
-) -> tuple[np.ndarray, dict | None]:
-    """Generate upper-octave harmonics for dark / bandwidth-limited sources.
+) -> tuple[np.ndarray, dict[str, Any] | None]:
+    """Generate upper-octave harmonics with a continuous corpus-calibrated mix.
 
     Shelf EQ can only amplify what already exists. For lo-fi captures or
     low-bitrate audio where everything above ~6 kHz has been brick-walled,
     this stage saturates a midrange donor band and high-passes the result,
     mixing the newly generated harmonics in parallel.
 
-    Activates only when the spectrum is genuinely dark — bright material is
-    untouched. Optionally cascades a second exciter pass for very dark sources.
+    ``hf_lift`` is the shared continuous spectral-need coordinate. It scales the
+    wet signal in linear amplitude, so a value approaching zero really does
+    approach the dry signal. Scaling a negative dB value by intensity would do
+    the opposite: lower intensity would make the wet level *less* negative and
+    therefore louder.
 
     Args:
         audio: Audio array [channels, samples]
-        presence_pct: Fingerprint presence percentage (4-6 kHz, 0-1)
-        air_pct: Fingerprint air percentage (6-20 kHz, 0-1)
-        spectral_rolloff: Frequency below which most energy lies (0-1, normalized)
+        presence_pct: Retained for the stable stage-call interface.
+        air_pct: Retained for the stable stage-call interface.
+        spectral_rolloff: Retained for the stable stage-call interface.
         intensity: Processing intensity 0.0-1.0
         sample_rate: Audio sample rate in Hz
         verbose: Print progress
@@ -47,36 +50,21 @@ def apply(
     Returns:
         (processed_audio, stage_info) or (audio, None) if exciter did not engage
     """
-    # Brightness metric: weighted blend of HF energy and spectrum rolloff.
-    # presence/air most diagnostic; rolloff only contributes above 60% Nyquist.
-    rolloff_brightness = max(0.0, (spectral_rolloff - 0.60) / 0.40)
-    brightness = float(np.clip(
-        presence_pct * 2.0 + air_pct * 3.0 + rolloff_brightness * 0.4,
-        0.0, 1.0,
-    ))
-    darkness = 1.0 - brightness
+    del presence_pct, air_pct, spectral_rolloff
 
-    intensity = min(intensity, 1.0)
-
-    activate_threshold = 1.0 - config.EXCITER_DARKNESS_ACTIVATE
-    if darkness < activate_threshold:
+    intensity = float(np.clip(intensity, 0.0, 1.0))
+    spectral_need = float(np.clip(hf_lift, 0.0, 1.0))
+    wet_mix = intensity * spectral_need
+    if wet_mix <= np.finfo(np.float64).eps:
         return no_op(audio)
 
-    excite_factor = SmoothCurveUtilities.ramp_to_s_curve(darkness, activate_threshold, 1.0)
-
-    min_wet_db = config.EXCITER_MIN_WET_DB
-    max_wet_db = config.EXCITER_MAX_WET_DB * intensity
-    if max_wet_db < min_wet_db:
-        max_wet_db = min_wet_db
-    wet_db = min_wet_db + (max_wet_db - min_wet_db) * excite_factor
-
-    # Shared HF budget: trim the generated-harmonic level on HF-dead sources so
-    # the exciter + presence/air shelves don't stack into fizz. Tempered (floor
-    # 0.6) because the exciter is the intended tool for genuinely dark material.
-    exciter_blend = 0.45 + 0.55 * hf_lift
-    wet_db += 20.0 * np.log10(exciter_blend)
-
-    drive_db = config.EXCITER_DRIVE_DB * (0.7 + 0.3 * excite_factor)
+    base_wet_db = (
+        config.EXCITER_MIN_WET_DB
+        + (config.EXCITER_MAX_WET_DB - config.EXCITER_MIN_WET_DB)
+        * spectral_need
+    )
+    wet_db = base_wet_db + 20.0 * np.log10(wet_mix)
+    drive_db = config.EXCITER_DRIVE_DB * (0.7 + 0.3 * spectral_need)
 
     processed = HarmonicExciter.apply(
         audio,
@@ -110,12 +98,13 @@ def apply(
                        if cascade_wet_db is not None else "")
         print(
             f"   Harmonic exciter: {wet_db:+.1f} dB wet, "
-            f"{drive_db:.1f} dB drive (darkness {darkness:.2f}){cascade_msg}"
+            f"{drive_db:.1f} dB drive (spectral need {spectral_need:.2f})"
+            f"{cascade_msg}"
         )
 
     return processed, {
         'stage': 'harmonic_exciter',
         'wet_db': wet_db,
         'drive_db': drive_db,
-        'darkness': darkness,
+        'spectral_need': spectral_need,
     }
