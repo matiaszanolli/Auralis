@@ -58,7 +58,9 @@ describe('useScanProgress', () => {
       expect(result.current.isScanning).toBe(false);
       expect(result.current.current).toBe(0);
       expect(result.current.total).toBe(0);
-      expect(result.current.percentage).toBe(0);
+      // #4616: null, not 0 — nothing is known before the first frame, and
+      // seeding 0 made the value flip 0 → null on every scan's first frame.
+      expect(result.current.percentage).toBeNull();
       expect(result.current.currentFile).toBeNull();
       expect(result.current.lastResult).toBeNull();
     });
@@ -75,7 +77,8 @@ describe('useScanProgress', () => {
       expect(result.current.isScanning).toBe(true);
       expect(result.current.current).toBe(0);
       expect(result.current.total).toBe(0);
-      expect(result.current.percentage).toBe(0);
+      // Indeterminate until the scanner's counting pass yields a total (#4616).
+      expect(result.current.percentage).toBeNull();
     });
 
     it('preserves lastResult from a previous scan', () => {
@@ -136,6 +139,34 @@ describe('useScanProgress', () => {
       });
 
       expect(result.current.currentFile).toBeNull();
+    });
+
+    it('keeps a 0 percentage distinct from indeterminate (#4616)', () => {
+      const { result } = renderHook(() => useScanProgress());
+
+      act(() => {
+        manager.deliver({
+          type: 'scan_progress',
+          data: { current: 0, total: 200, percentage: 0 },
+        } as unknown as WebSocketMessage);
+      });
+
+      // The scanner's first post-count frame is a truthful 0%, not "unknown".
+      expect(result.current.percentage).toBe(0);
+      expect(result.current.total).toBe(200);
+    });
+
+    it('propagates an indeterminate frame as null (#4616)', () => {
+      const { result } = renderHook(() => useScanProgress());
+
+      act(() => {
+        manager.deliver({
+          type: 'scan_progress',
+          data: { current: 3, total: 0, percentage: null },
+        } as unknown as WebSocketMessage);
+      });
+
+      expect(result.current.percentage).toBeNull();
     });
   });
 
@@ -311,7 +342,7 @@ describe('useScanProgress', () => {
       });
 
       expect(result.current.isScanning).toBe(false);
-      expect(result.current.percentage).toBe(0);
+      expect(result.current.percentage).toBeNull();
     });
 
     it('preserves lastResult from previous scan on error', () => {

@@ -97,8 +97,10 @@ export interface ScanProgressMessage extends WebSocketMessage {
   type: 'scan_progress';
   data: {
     current: number; // Files processed
-    total: number; // Total files
-    percentage: number | null; // 0-100, null during discovery phase
+    total: number; // Total files (pre-counted by the scanner, #4616)
+    // 0-100 once the scanner's counting pass has established a total (#4616);
+    // null while that pass is still running. 0 means 0% processed, not unknown.
+    percentage: number | null;
     current_file?: string;
     phase?: 'discovering' | 'processing' | 'fingerprinting';
   };

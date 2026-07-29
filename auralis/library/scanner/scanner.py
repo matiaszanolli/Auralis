@@ -179,6 +179,49 @@ class LibraryScanner:
         })
 
         try:
+            # #4616: establish the progress denominator BEFORE the streaming
+            # pass. `files_found` climbs in lockstep with `files_processed`
+            # (a file is counted as found at most `batch_size` frames before
+            # it is processed), so `processed / files_found` is pinned at
+            # ~100% — that was #4411, and it must not come back. A dedicated
+            # counting pass walks the tree once with an O(1) counter, giving
+            # a fixed total that makes `processed / total_expected` a real,
+            # monotonically increasing fraction. No paths are retained, so
+            # the streaming memory bound from #2160 is untouched.
+            total_expected: int = 0
+            for directory in directories:
+                if self.should_stop.is_set():
+                    break
+                total_expected += self.file_discovery.count_audio_files(directory, recursive)
+
+            if self.should_stop.is_set():
+                return result
+
+            def _progress_fraction() -> float | None:
+                """Completed fraction, or ``None`` while indeterminate.
+
+                Clamped to 1.0: the count pass and the scan pass are separate
+                traversals, so files added between them can push `processed`
+                past `total_expected`. A zero total stays indeterminate rather
+                than dividing by zero.
+                """
+                if total_expected <= 0:
+                    return None
+                return min(result.files_processed / total_expected, 1.0)
+
+            # The counting pass emits no frames, so the UI stays on the
+            # indeterminate state seeded by `stage: 'started'` for its
+            # duration. Every frame from here on carries a real fraction —
+            # including the leading 0.0, which is a truthful "nothing
+            # processed yet", not an unknown.
+            self._report_progress({
+                'stage': 'discovering',
+                'total_expected': total_expected,
+                'total_found': result.files_found,
+                'processed': result.files_processed,
+                'progress': _progress_fraction(),
+            })
+
             # Discover and process audio files in streaming batches to
             # bound memory usage regardless of library size (#2160).
             # Instead of collecting all paths first, we fill batches as files
@@ -207,6 +250,8 @@ class LibraryScanner:
                     'added': result.files_added,
                     'failed': result.files_failed,
                     'total_found': result.files_found,
+                    'total_expected': total_expected,
+                    'progress': _progress_fraction(),
                     'current_file': batch[0] if batch else None,
                 })
 
@@ -229,6 +274,9 @@ class LibraryScanner:
                     'stage': 'discovering',
                     'directory': directory,
                     'total_found': result.files_found,
+                    'total_expected': total_expected,
+                    'processed': result.files_processed,
+                    'progress': _progress_fraction(),
                 })
 
             info(f"Discovered {result.files_found} audio files")

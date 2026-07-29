@@ -67,7 +67,7 @@ def spawn_background_task(coro: Any, *, name: str | None = None) -> asyncio.Task
 
 
 # ============================================================================
-# Library-scan helpers (#4409, #4411)
+# Library-scan helpers (#4409, #4411, #4616)
 # ============================================================================
 
 def scan_progress_percentage(progress_data: dict[str, Any]) -> int | None:
@@ -78,11 +78,18 @@ def scan_progress_percentage(progress_data: dict[str, Any]) -> int | None:
     checkpoint) and ``processed / total`` is always ~100% — a meaningless
     determinate bar. Return a real percentage only when the scanner supplies a
     ``progress`` fraction; otherwise ``None`` so the UI shows an indeterminate
-    bar plus the climbing count (#4411 / F4-04). Shared by the manual-scan and
+    bar plus the climbing count (#4411 / F4-04). The scanner establishes that
+    fraction against a pre-counted total (#4616). Shared by the manual-scan and
     auto-scan progress emitters.
+
+    ``0.0`` is a real fraction, not a missing one: the guard tests for ``None``
+    rather than truthiness, so the first frame of a scan renders as 0%, not as
+    indeterminate (#4616).
     """
-    frac = progress_data.get('progress', 0)
-    return round(frac * 100) if frac else None
+    frac = progress_data.get('progress')
+    if not isinstance(frac, (int, float)) or isinstance(frac, bool):
+        return None
+    return round(max(0.0, min(float(frac), 1.0)) * 100)
 
 
 def seed_enhancement_settings(

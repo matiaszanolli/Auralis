@@ -17,7 +17,9 @@ export interface ScanProgress {
   isScanning: boolean;
   current: number;
   total: number;
-  /** 0-100 during processing; null during discovery (show indeterminate indicator) */
+  /** 0-100 once the scanner has a pre-counted total (#4616); null while the
+   *  count pass is still running or no scan has started (show indeterminate
+   *  indicator). A `0` here means 0% processed, not "unknown". */
   percentage: number | null;
   currentFile: string | null;
   phase: 'discovering' | 'processing' | 'fingerprinting';
@@ -41,7 +43,10 @@ const INITIAL_STATE: ScanStatus = {
   isScanning: false,
   current: 0,
   total: 0,
-  percentage: 0,
+  // #4616: null, not 0 — before the first frame the percentage is genuinely
+  // unknown, and seeding 0 made the UI flip 0 → null on the first frame of
+  // every scan (and read as "0% done" while nothing was known).
+  percentage: null,
   currentFile: null,
   phase: 'processing',
   lastResult: null,

@@ -224,7 +224,12 @@ class LibraryAutoScanner:
                     }
                 )
                 return
-            total = data.get('total_found', 0) or data.get('processed', 0)
+            # Prefer the pre-counted total (#4616), same as the manual emitter.
+            total = (
+                data.get('total_expected')
+                or data.get('total_found', 0)
+                or data.get('processed', 0)
+            )
             processed = data.get('processed', 0)
             # Shared with the manual scan emitter: indeterminate unless a real
             # `progress` fraction is supplied (#4411 / F4-04).

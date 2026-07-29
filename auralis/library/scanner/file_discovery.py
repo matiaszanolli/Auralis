@@ -83,6 +83,30 @@ class FileDiscovery:
         except Exception as e:
             error(f"Error scanning directory {directory}: {e}")
 
+    def count_audio_files(self, directory: str, recursive: bool = True) -> int:
+        """
+        Count audio files in a directory without materialising their paths.
+
+        Used by the scanner to establish a real denominator for progress
+        reporting (#4616). The streaming scan interleaves discovery and
+        processing, so its running `files_found` tracks `processed` in lockstep
+        and can never serve as a denominator (that was #4411). Consuming the
+        same generator with an O(1) counter gives a stable total up front at the
+        cost of one extra `scandir` pass — no audio is decoded and no path is
+        retained, so the memory bound from #2160 is preserved.
+
+        Honours `stop()`: a cancelled count returns the partial tally, and the
+        caller is expected to abandon the scan rather than use it.
+
+        Args:
+            directory: Directory path to count
+            recursive: Whether to descend into subdirectories
+
+        Returns:
+            Number of audio files that ``discover_audio_files`` would yield
+        """
+        return sum(1 for _ in self.discover_audio_files(directory, recursive))
+
     def _walk_directory(
         self,
         directory: Path,

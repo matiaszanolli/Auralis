@@ -89,7 +89,14 @@ def create_library_scan_router(
                                 loop,
                             )
                             return
-                        total = progress_data.get('total_found', 0) or progress_data.get('processed', 0)
+                        # Prefer the pre-counted total (#4616) — `total_found`
+                        # is the running discovery tally, which tracks
+                        # `processed` in lockstep under the streaming scan.
+                        total = (
+                            progress_data.get('total_expected')
+                            or progress_data.get('total_found', 0)
+                            or progress_data.get('processed', 0)
+                        )
                         processed = progress_data.get('processed', 0)
                         # Indeterminate unless the scanner supplies a real fraction
                         # (streaming scan makes processed/total meaningless) — #4411.

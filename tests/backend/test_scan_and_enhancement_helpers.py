@@ -34,6 +34,26 @@ class TestScanProgressPercentage:
         assert scan_progress_percentage({"progress": 0.42}) == 42
         assert scan_progress_percentage({"progress": 1.0}) == 100
 
+    def test_zero_fraction_is_zero_percent_not_indeterminate(self):
+        """#4616: 0.0 is a real fraction. The old `if frac` guard treated it as
+        missing, so the opening frame of every scan rendered indeterminate."""
+        assert scan_progress_percentage({"progress": 0.0}) == 0
+        assert scan_progress_percentage({"progress": 0}) == 0
+
+    def test_explicit_none_fraction_is_indeterminate(self):
+        """The scanner emits `progress: None` when it has no denominator."""
+        assert scan_progress_percentage({"progress": None, "processed": 3}) is None
+
+    def test_out_of_range_fraction_is_clamped(self):
+        # The count pass and the scan pass are separate traversals, so a file
+        # added in between can push the fraction past 1.0.
+        assert scan_progress_percentage({"progress": 1.2}) == 100
+        assert scan_progress_percentage({"progress": -0.5}) == 0
+
+    def test_non_numeric_fraction_is_indeterminate(self):
+        assert scan_progress_percentage({"progress": "0.5"}) is None
+        assert scan_progress_percentage({"progress": True}) is None
+
 
 class TestSeedEnhancementSettings:
     def _base(self):
