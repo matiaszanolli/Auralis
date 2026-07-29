@@ -2,12 +2,23 @@
 
 ## Overview
 
-As of **Auralis v1.1.0**, `LibraryManager` is marked **DEPRECATED** in favor of the `RepositoryFactory` pattern. This guide helps you migrate your code to the new pattern.
+As of **Auralis v1.1.0**, `LibraryManager` is marked **DEPRECATED** in favor of `LibraryDatabase` + the `RepositoryFactory` pattern. This guide helps you migrate your code to the new pattern.
+
+`LibraryDatabase` (`auralis/library/database.py`) owns everything that is not a
+query — schema migration, the SQLAlchemy engine and its SQLite pragmas, the
+session factory, scan-slot accounting and WAL-checkpointing shutdown — and
+exposes a ready-made `RepositoryFactory` as `.repositories`. That split is what
+makes this migration possible: `RepositoryFactory` alone takes a session factory
+you have to build yourself, so before #4619 there was no complete replacement to
+migrate *to* and the deprecated class stayed on the startup path for four minor
+versions.
 
 **Timeline:**
-- **v1.1.0** (current): LibraryManager deprecated, all methods still work
-- **v1.2.0**: Deprecation warnings in all methods
-- **v2.0.0+**: LibraryManager removed or converted to minimal facade only
+- **v1.1.0**: LibraryManager deprecated, all methods still work
+- **v1.5.1** (current, #4619): no production code constructs LibraryManager —
+  the backend and the artwork CLI use `LibraryDatabase`. The class survives as a
+  legacy query facade for the remaining test call sites.
+- **v2.0.0+**: LibraryManager removed once those call sites are migrated
 
 ---
 
@@ -23,10 +34,19 @@ tracks, total = manager.get_all_tracks(limit=50)
 
 ### New Pattern (Recommended)
 ```python
-from auralis.library.repositories import RepositoryFactory
-from sqlalchemy.orm import sessionmaker
+from auralis.library import LibraryDatabase
 
-factory = RepositoryFactory(SessionLocal)  # ✅ No warning
+db = LibraryDatabase()  # ✅ No warning — migrates + opens the DB
+tracks, total = db.repositories.tracks.get_all(limit=50)
+```
+
+If you already have a session factory (e.g. inside a component that was handed
+one), build the repositories directly:
+
+```python
+from auralis.library.repositories import RepositoryFactory
+
+factory = RepositoryFactory(session_factory)
 tracks, total = factory.tracks.get_all(limit=50)
 ```
 
@@ -244,26 +264,21 @@ from auralis.library.manager import LibraryManager
 manager = LibraryManager(database_path="/path/to/database.db")
 ```
 
-### After (RepositoryFactory)
+### After (LibraryDatabase)
 ```python
-from auralis.library.repositories import RepositoryFactory
-from auralis.library.models import Base
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from auralis.library import LibraryDatabase
 
-# Explicit database setup
-database_url = "sqlite:////path/to/database.db"
-engine = create_engine(database_url)
-
-# Create tables if needed
-Base.metadata.create_all(engine)
-
-# Create session factory
-SessionLocal = sessionmaker(bind=engine)
-
-# Create repository factory
-factory = RepositoryFactory(SessionLocal)
+# Runs pending migrations, creates the engine with the WAL/pragma
+# configuration the fingerprint writers depend on, hardens file permissions,
+# and exposes the repositories.
+db = LibraryDatabase(database_path="/path/to/database.db")
+factory = db.repositories
 ```
+
+Do **not** hand-roll `create_engine` + `sessionmaker` for the library database:
+that path skips the migration check, the SQLite pragmas (WAL, `foreign_keys`,
+busy timeout) and the `0o600` permission hardening on the DB file and its WAL
+sidecars.
 
 ---
 
@@ -277,22 +292,23 @@ manager = LibraryManager()
 manager.add_track(track_info)  # Invalidates caches automatically
 ```
 
-### After (RepositoryFactory)
+### After (LibraryDatabase)
 ```python
-from auralis.library.cache import invalidate_cache
+db = LibraryDatabase()
 
-factory = RepositoryFactory(SessionLocal)
-
-# Manual cache invalidation when needed
-factory.tracks.add(track_info)
-invalidate_cache('get_all_tracks', 'search_tracks', ...)
+# Nothing to invalidate — repository reads go straight to SQLite.
+db.repositories.tracks.add(track_info)
 ```
+
+`auralis.library.cache` (`@cached_query` / `invalidate_cache`) is used *only* by
+the deprecated `LibraryManager` methods. Repository reads are uncached, so a
+write needs no invalidation step — and no read can return pre-write data.
 
 ---
 
 ## Backward Compatibility
 
-**LibraryManager will continue to work** through v1.2.0 with deprecation warnings. This gives you time to migrate. However, to avoid warnings in your logs and prepare for v2.0.0, we recommend migrating as soon as possible.
+**LibraryManager will continue to work** with deprecation warnings until it is removed in v2.0.0. It subclasses `LibraryDatabase`, so every bootstrap capability is identical and only the legacy query methods are extra. To avoid warnings in your logs and prepare for v2.0.0, migrate as soon as possible.
 
 ### Suppressing Deprecation Warnings (Temporary)
 

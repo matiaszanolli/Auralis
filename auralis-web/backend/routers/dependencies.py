@@ -10,14 +10,12 @@ reducing boilerplate and improving consistency.
 
 import functools
 import logging
-import warnings
 from typing import Any, ParamSpec, TypeVar, cast
 from collections.abc import Callable
 
 from fastapi import HTTPException
 
 from auralis import AudioPlayer
-from auralis.library import LibraryManager
 
 from .errors import handle_query_error
 
@@ -26,36 +24,6 @@ logger = logging.getLogger(__name__)
 # Type variables for generic decorator support
 P = ParamSpec('P')
 T = TypeVar('T')
-
-
-def require_library_manager(get_library_manager: Callable[[], Any]) -> LibraryManager:
-    """
-    Validate that library manager is available.
-
-    .. deprecated:: 1.1.0
-        Use :func:`require_repository_factory` instead. LibraryManager will be
-        removed in version 2.0.0. See MIGRATION_GUIDE.md for migration instructions.
-
-    Args:
-        get_library_manager: Callable that returns LibraryManager instance
-
-    Returns:
-        LibraryManager: The library manager instance
-
-    Raises:
-        HTTPException: 503 if library manager is not available
-    """
-    warnings.warn(
-        "require_library_manager is deprecated and will be removed in v2.0.0. "
-        "Use require_repository_factory instead. "
-        "See MIGRATION_GUIDE.md for migration instructions.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    library_manager = get_library_manager()
-    if not library_manager:
-        raise HTTPException(status_code=503, detail="Library manager not available")
-    return cast(LibraryManager, library_manager)
 
 
 def require_audio_player(get_audio_player: Callable[[], Any]) -> AudioPlayer:
@@ -119,7 +87,8 @@ def require_repository_factory(get_repository_factory: Callable[[], Any]) -> Any
     Validate that repository factory is available.
 
     This is the Phase 2 dependency injection mechanism that enables
-    gradual migration from LibraryManager to direct repository usage.
+    gradual migration from the deprecated LibraryManager facade to
+    direct repository usage.
 
     Args:
         get_repository_factory: Callable that returns RepositoryFactory instance

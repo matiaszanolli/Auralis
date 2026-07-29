@@ -105,7 +105,11 @@ class BatchProcessor:
         """
         try:
             # Check if file already exists in library (query once, reuse below)
-            existing_track = self.library_manager.get_track_by_filepath(file_path) if skip_existing else None
+            # #4619: repository access, not the deprecated LibraryManager
+            # facade — the scanner is handed a LibraryDatabase now, which has
+            # `.tracks` but none of the facade's convenience wrappers.
+            tracks_repo = self.library_manager.tracks
+            existing_track = tracks_repo.get_by_filepath(file_path) if skip_existing else None
             if existing_track:
                 if check_modifications:
                     # Check if file was modified since last scan
@@ -133,11 +137,11 @@ class BatchProcessor:
             # Add or update track in library
             if existing_track:
                 # Update existing track (reuses query from above)
-                track = self.library_manager.update_track_by_filepath(file_path, track_info)
+                track = tracks_repo.update_by_filepath(file_path, track_info)
                 return ('updated', None) if track else ('failed', None)
             else:
                 # Add new track
-                track = self.library_manager.add_track(track_info)
+                track = tracks_repo.add(track_info)
                 return ('added', track) if track else ('failed', None)
 
         except Exception as e:

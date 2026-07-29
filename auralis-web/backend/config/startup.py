@@ -2,7 +2,7 @@
 Application Lifespan Manager
 
 Manages component initialization and cleanup via FastAPI lifespan context manager:
-- LibraryManager setup
+- Library database setup
 - Settings repository initialization
 - Audio player creation
 - State manager initialization
@@ -94,7 +94,7 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
     bare inside one outer ``try``, so a single failing worker — a fingerprint
     queue that timed out, or a partially-initialised worker after a rolled-back
     startup — jumped straight to the outer handler and skipped everything after
-    it, including ``LibraryManager.shutdown()`` and its SQLite WAL checkpoint.
+    it, including ``LibraryDatabase.shutdown()`` and its SQLite WAL checkpoint.
     The outer ``try`` remains only as a last-resort net.
     """
     try:
@@ -154,13 +154,13 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
         except Exception as artwork_err:
             logger.warning(f"⚠️  Artwork downloader shutdown error: {artwork_err}")
 
-        # Shut down LibraryManager last — WAL checkpoint + engine dispose (#3210)
+        # Shut down the library database last — WAL checkpoint + engine dispose (#3210)
         if globals_dict.get('library_manager'):
             try:
                 globals_dict['library_manager'].shutdown()
-                logger.info("✅ Library Manager shut down (WAL checkpointed)")
+                logger.info("✅ Library database shut down (WAL checkpointed)")
             except Exception as lm_err:
-                logger.warning(f"⚠️  Library manager shutdown error: {lm_err}")
+                logger.warning(f"⚠️  Library database shutdown error: {lm_err}")
 
         logger.info("✅ Application shutdown complete")
     except Exception as e:
@@ -281,7 +281,7 @@ def create_lifespan(deps: dict[str, Any]):
                 # Import Auralis components here to support optional dependency
                 from core.state_manager import PlayerStateManager
 
-                from auralis.library import LibraryManager
+                from auralis.library import LibraryDatabase
                 from auralis.library.repositories.settings_repository import (
                     SettingsRepository,
                 )
@@ -289,7 +289,7 @@ def create_lifespan(deps: dict[str, Any]):
                 from auralis.player.config import PlayerConfig
                 from auralis.player import AudioPlayer
 
-                # Ensure database directory exists before initializing LibraryManager
+                # Ensure database directory exists before opening the library DB
                 music_dir = Path.home() / "Music" / "Auralis"
                 music_dir.mkdir(parents=True, exist_ok=True)
                 # Absolute home/database paths are sensitive and persist to the
@@ -297,17 +297,22 @@ def create_lifespan(deps: dict[str, Any]):
                 # #3844 demotion of the sibling path-validation logs (#4376).
                 logger.debug(f"📁 Database directory ready: {music_dir}")
 
-                # Initialize LibraryManager
-                globals_dict['library_manager'] = LibraryManager()
-                logger.info("✅ Auralis LibraryManager initialized")
+                # Open the library database. #4619: this used to construct the
+                # deprecated LibraryManager, so every boot fired the
+                # DeprecationWarning that its own message says precedes removal
+                # in v2.0.0 — a promise that could not be kept while the class
+                # was load-bearing. LibraryDatabase owns the migration, engine,
+                # session factory, scan slots and shutdown; LibraryManager is
+                # now only the legacy query facade over it.
+                globals_dict['library_manager'] = LibraryDatabase()
+                logger.info("✅ Auralis library database initialized")
                 logger.debug(f"📊 Database location: {globals_dict['library_manager'].database_path}")
 
-                # Initialize RepositoryFactory for dependency injection
-                # This enables gradual migration from LibraryManager to repositories
-                from auralis.library.repositories import RepositoryFactory
-                globals_dict['repository_factory'] = RepositoryFactory(
-                    globals_dict['library_manager'].SessionLocal,
-                )
+                # Repository factory for dependency injection. It is owned by
+                # LibraryDatabase so every consumer — routers via this key and
+                # components handed the database object — shares one instance
+                # instead of building a second factory over the same sessions.
+                globals_dict['repository_factory'] = globals_dict['library_manager'].repositories
                 logger.info("✅ Repository Factory initialized (Phase 2 support)")
 
                 # Initialize CPU-based fingerprinting system (36x speedup via parallel workers)
@@ -348,10 +353,9 @@ def create_lifespan(deps: dict[str, Any]):
                     logger.warning(f"⚠️  Failed to initialize fingerprinting system: {fp_e}")
                     fingerprint_queue = None
 
-                # Initialize settings repository
-                globals_dict['settings_repository'] = SettingsRepository(
-                    globals_dict['library_manager'].SessionLocal
-                )
+                # Settings repository — taken from the shared factory rather
+                # than constructed again over the same session factory (#4619).
+                globals_dict['settings_repository'] = globals_dict['repository_factory'].settings
                 logger.info("✅ Settings Repository initialized")
 
                 # Seed the runtime enhancement settings from persisted user

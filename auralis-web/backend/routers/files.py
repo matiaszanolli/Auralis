@@ -83,7 +83,6 @@ router = APIRouter(tags=["files"])
 
 
 def create_files_router(
-    get_library_manager: Callable[[], Any] | None = None,
     connection_manager: Any = None,
     get_repository_factory: Callable[[], Any] | None = None
 ) -> APIRouter:
@@ -91,7 +90,6 @@ def create_files_router(
     Factory function to create files router with dependencies.
 
     Args:
-        get_library_manager: Deprecated, unused. Kept for backward compatibility.
         connection_manager: WebSocket connection manager for broadcasts
         get_repository_factory: Callable that returns RepositoryFactory instance
 

@@ -48,7 +48,8 @@ class QueueService:
         Args:
             audio_player: AudioPlayer instance with queue support
             player_state_manager: PlayerStateManager instance
-            library_manager: LibraryManager instance
+            library_manager: LibraryDatabase (or any object exposing the
+                repository accessors) used to resolve track rows
             connection_manager: WebSocket connection manager for broadcasts
             create_track_info_fn: Function to convert DB track to TrackInfo
 

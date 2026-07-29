@@ -129,13 +129,13 @@ class MigrationManager:
         self.engine = create_engine(
             f'sqlite:///{self.db_path}',
             connect_args={
-                'timeout': 15,          # 15s busy timeout matches LibraryManager
+                'timeout': 15,          # 15s busy timeout matches LibraryDatabase
                 'check_same_thread': False,
             },
             # #3702: verify connection before use to avoid stale-connection
             # OperationalError when another process has checkpointed the
             # WAL between MigrationManager init and first use. Matches
-            # LibraryManager's create_engine() contract.
+            # LibraryDatabase's create_engine() contract.
             pool_pre_ping=True,
         )
 
@@ -146,7 +146,7 @@ class MigrationManager:
             cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.execute("PRAGMA foreign_keys=ON")
             # Explicit busy timeout at PRAGMA level for consistent behavior
-            # under concurrent migration access (#3312, matches LibraryManager #2091).
+            # under concurrent migration access (#3312, matches LibraryDatabase #2091).
             cursor.execute("PRAGMA busy_timeout=60000")  # 60s
             cursor.close()
 

@@ -260,7 +260,7 @@ def create_player_router(
     Factory function to create player router with dependencies.
 
     Args:
-        get_library_manager: Callable that returns LibraryManager instance
+        get_library_manager: Callable that returns the LibraryDatabase
         get_audio_player: Callable that returns AudioPlayer instance
         get_player_state_manager: Callable that returns PlayerStateManager instance
         connection_manager: WebSocket connection manager for broadcasts

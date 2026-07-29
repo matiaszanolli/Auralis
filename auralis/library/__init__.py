@@ -8,11 +8,16 @@ Music library database integration for Auralis
 :license: GPLv3, see LICENSE for more details.
 """
 
+from .database import LibraryDatabase
 from .manager import LibraryManager
 from .models import Album, Artist, Genre, Playlist, Track
 from .scanner import AudioFileInfo, LibraryScanner, ScanResult
 
 __all__ = [
+    # LibraryDatabase is the supported entry point; LibraryManager is the
+    # deprecated legacy facade over it and is no longer constructed in
+    # production (#4619).
+    "LibraryDatabase",
     "LibraryManager",
     "Track", "Album", "Artist", "Genre", "Playlist",
     "LibraryScanner", "ScanResult", "AudioFileInfo"

@@ -45,7 +45,7 @@ _FP_KEYS: tuple[str, ...] = (
 
 
 def _make_engine(db_path: Path):
-    """Create a minimal SQLAlchemy engine matching LibraryManager's configuration."""
+    """Create a minimal SQLAlchemy engine matching LibraryDatabase's configuration."""
     engine = create_engine(
         f"sqlite:///{db_path}",
         echo=False,

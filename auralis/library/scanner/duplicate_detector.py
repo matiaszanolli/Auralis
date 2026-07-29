@@ -35,7 +35,7 @@ class DuplicateDetector:
         Args:
             file_discovery: FileDiscovery instance
             audio_analyzer: AudioAnalyzer instance
-            library_manager: Optional LibraryManager, required for
+            library_manager: Optional LibraryDatabase, required for
                 find_duplicates(directories=None) (whole-library dedup, #4241).
         """
         self.file_discovery = file_discovery
@@ -104,7 +104,9 @@ class DuplicateDetector:
 
         offset = 0
         while True:
-            tracks, total = self.library_manager.get_all_tracks(
+            # #4619: repository access — the deprecated LibraryManager facade
+            # is no longer what the scanner is constructed with.
+            tracks, total = self.library_manager.tracks.get_all(
                 limit=_LIBRARY_SCAN_BATCH_SIZE, offset=offset
             )
             if not tracks:

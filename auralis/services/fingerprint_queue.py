@@ -467,12 +467,23 @@ class FingerprintQueueManager:
 
     def __init__(self,
                  fingerprint_extractor: Any,
-                 library_manager: Any,
+                 library_database: Any,
                  num_workers: int = 4) -> None:
-        """Initialize queue manager"""
+        """Initialize queue manager.
+
+        Args:
+            fingerprint_extractor: Extractor used by the worker pool
+            library_database: A ``LibraryDatabase`` (or the deprecated
+                ``LibraryManager``, which subclasses it) whose ``repositories``
+                factory the workers query through
+            num_workers: Worker pool size
+        """
+        # #4619: was `library_manager.repository_factory` — an attribute that
+        # exists on neither class, so a real object here raised AttributeError
+        # on the first worker tick. Only mocks ever survived it.
         self.queue: FingerprintExtractionQueue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
-            get_repository_factory=lambda: library_manager.repository_factory,
+            get_repository_factory=lambda: library_database.repositories,
             num_workers=num_workers
         )
         self.is_running: bool = False

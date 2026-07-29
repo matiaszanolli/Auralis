@@ -465,10 +465,10 @@ class TestFingerprintQueueManager:
     def _make_manager(self) -> FingerprintQueueManager:
         mock_extractor = MagicMock()
         mock_lib = MagicMock()
-        mock_lib.repository_factory.fingerprint_scheduler.claim_next_unfingerprinted_track.return_value = None
+        mock_lib.repositories.fingerprint_scheduler.claim_next_unfingerprinted_track.return_value = None
         return FingerprintQueueManager(
             fingerprint_extractor=mock_extractor,
-            library_manager=mock_lib,
+            library_database=mock_lib,
             num_workers=1,
         )
 

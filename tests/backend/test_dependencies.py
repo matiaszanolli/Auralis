@@ -1,13 +1,12 @@
 """
 Tests for shared dependency injection utilities.
 
-Covers require_* guards (503 on None), require_library_manager deprecation
-warning, and the with_error_handling decorator for both sync and async endpoints.
+Covers require_* guards (503 on None) and the with_error_handling decorator for
+both sync and async endpoints.
 """
 
 import sys
 import types
-import warnings
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -31,7 +30,6 @@ from fastapi import HTTPException
 from routers.dependencies import (
     require_audio_player,
     require_connection_manager,
-    require_library_manager,
     require_player_state_manager,
     require_repository_factory,
     with_error_handling,
@@ -39,39 +37,18 @@ from routers.dependencies import (
 
 
 # ---------------------------------------------------------------------------
-# require_library_manager (deprecated)
+# require_library_manager — DELETED (#4619)
+#
+# The deprecated shim had zero production callers once both LibraryManager
+# construction sites were migrated, so it was removed along with the class's
+# load-bearing role. Its guard behaviour lives on in require_repository_factory
+# below; this asserts the symbol is gone rather than re-testing it.
 # ---------------------------------------------------------------------------
 
-class TestRequireLibraryManager:
-    def test_returns_manager_when_available(self):
-        manager = Mock()
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            result = require_library_manager(lambda: manager)
-        assert result is manager
+def test_require_library_manager_is_gone():
+    from routers import dependencies
 
-    def test_raises_503_when_none(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            with pytest.raises(HTTPException) as exc_info:
-                require_library_manager(lambda: None)
-        assert exc_info.value.status_code == 503
-
-    def test_emits_deprecation_warning(self):
-        manager = Mock()
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            require_library_manager(lambda: manager)
-        deprecation_warnings = [w for w in caught if issubclass(w.category, DeprecationWarning)]
-        assert len(deprecation_warnings) == 1
-        assert "require_repository_factory" in str(deprecation_warnings[0].message)
-
-    def test_503_detail_mentions_library_manager(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            with pytest.raises(HTTPException) as exc_info:
-                require_library_manager(lambda: None)
-        assert "library manager" in exc_info.value.detail.lower()
+    assert not hasattr(dependencies, "require_library_manager")
 
 
 # ---------------------------------------------------------------------------

@@ -39,7 +39,7 @@ class StreamlinedCacheWorker:
 
         Args:
             cache_manager: StreamlinedCacheManager instance
-            library_manager: LibraryManager to get track information
+            library_manager: LibraryDatabase used to get track information
         """
         self.cache_manager = cache_manager
         self.library_manager = library_manager

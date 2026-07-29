@@ -20,8 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from auralis.library.manager import LibraryManager
-from auralis.library.repositories import RepositoryFactory
+from auralis.library.database import LibraryDatabase
 from auralis.services.artwork_service import ArtworkService
 
 logging.basicConfig(
@@ -143,13 +142,14 @@ def main():
             from auralis.library.constants import DEFAULT_DB_PATH
             library_path = DEFAULT_DB_PATH
 
-        # Initialize library manager (needed for DB bootstrapping/migration)
+        # Open the library database (handles migration + engine bootstrap).
+        # #4619: this used to construct the deprecated LibraryManager purely to
+        # reach its .SessionLocal and hand it to a RepositoryFactory — the
+        # deprecated facade was never used. LibraryDatabase owns that bootstrap
+        # and exposes the factory directly.
         logger.info(f"Loading library from: {library_path}")
-        library_manager = LibraryManager(database_path=str(library_path))
-
-        # Initialize repository factory and get artist repository
-        repos = RepositoryFactory(library_manager.SessionLocal)
-        artist_repository = repos.artists
+        library_db = LibraryDatabase(database_path=str(library_path))
+        artist_repository = library_db.repositories.artists
 
         # Initialize artwork service
         artwork_service = ArtworkService(

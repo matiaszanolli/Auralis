@@ -58,7 +58,8 @@ auralis/                          Core Python audio engine
 │   ├── queue_controller.py         Queue management
 │   └── realtime_processor.py       Real-time processing
 ├── library/                      SQLite library (~/.auralis/library.db)
-│   ├── manager.py                  LibraryManager
+│   ├── database.py                 LibraryDatabase (engine, migration, sessions, scan slots)
+│   ├── manager.py                  LibraryManager (DEPRECATED facade over LibraryDatabase)
 │   ├── repositories/               14 repos + base.py (BaseRepository) + factory.py
 │   │                                 (track, album, artist, playlist, genre, stats,
 │   │                                 fingerprint, fingerprint_scheduler, fingerprint_stats,
@@ -106,7 +107,7 @@ docs/                             21 topic dirs (development, features, frontend
 
 ```
 User → FastAPI (REST + WebSocket :8765) → Backend Services
-         → LibraryManager (SQLite) → HybridProcessor (DSP pipeline)
+         → LibraryDatabase (SQLite) → HybridProcessor (DSP pipeline)
          → ChunkedProcessor (15s chunks, 5s overlap) → WebSocket stream → React (Redux)
 ```
 

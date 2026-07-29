@@ -41,7 +41,6 @@ router = APIRouter(tags=["library"])
 def create_library_router(
     get_repository_factory: Callable[[], Any],
     resolve_worker: Callable[[str], Any] | None = None,
-    get_library_manager: Callable[[], Any] | None = None,
 ) -> APIRouter:
     """Factory: general library routes (stats, browse, reset).
 
@@ -51,8 +50,6 @@ def create_library_router(
             instance (or ``None``) by component-registry key. Used by the
             destructive reset endpoint to pause/restart all background workers
             so nothing inserts rows mid-reset (#4111).
-        get_library_manager: Returns the LibraryManager (for query-cache
-            invalidation after a reset, #3770).
 
     Note:
         Phase 6B: Fully migrated to RepositoryFactory pattern.
@@ -132,13 +129,11 @@ def create_library_router(
             # router) and off the event loop.
             await asyncio.to_thread(repos.reset_library)
 
-            # Drop the LibraryManager query cache so reads don't return
-            # pre-reset data (#3770).
-            if get_library_manager is not None:
-                library_manager = get_library_manager()
-                if library_manager is not None and hasattr(library_manager, "clear_cache"):
-                    library_manager.clear_cache()
-
+            # #4619 / #3770: no query cache to drop any more. The
+            # `@cached_query` decorators live only on the deprecated
+            # LibraryManager facade, which the backend no longer constructs —
+            # every read here goes through the repositories, straight to
+            # SQLite, so a reset cannot leave stale rows behind a cache.
             logger.info(
                 "Library reset: all tracks, albums, artists, genres, "
                 "fingerprints, and playlists deleted"

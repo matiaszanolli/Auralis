@@ -29,7 +29,6 @@ from routers.library import create_library_router
 # must only be called once per process).
 _factory_box: list = [None]
 _workers_box: dict = {}
-_library_manager_box: list = [None]
 
 
 def _get_factory():
@@ -40,15 +39,10 @@ def _resolve_worker(key):
     return _workers_box.get(key)
 
 
-def _get_library_manager():
-    return _library_manager_box[0]
-
-
 _app = FastAPI()
 _router = create_library_router(
     get_repository_factory=_get_factory,
     resolve_worker=_resolve_worker,
-    get_library_manager=_get_library_manager,
 )
 _app.include_router(_router)
 _client = TestClient(_app)
@@ -60,11 +54,9 @@ CONFIRM_HEADERS = {"X-Confirm-Reset": "RESET"}
 def _reset_boxes():
     _factory_box[0] = None
     _workers_box.clear()
-    _library_manager_box[0] = None
     yield
     _factory_box[0] = None
     _workers_box.clear()
-    _library_manager_box[0] = None
 
 
 def _mock_repos():
@@ -161,16 +153,21 @@ class TestLibraryReset:
             _workers_box[key].stop.assert_awaited_once()
             _workers_box[key].start.assert_awaited_once()
 
-    def test_cache_invalidated_after_reset(self):
-        """LibraryManager query cache is cleared after the reset (#3770)."""
+    def test_reset_needs_no_cache_invalidation(self):
+        """#4619 / #3770: there is no query cache left to invalidate.
+
+        The `@cached_query` decorators live only on the deprecated
+        LibraryManager facade, which the backend no longer constructs, so the
+        reset endpoint no longer takes a `get_library_manager` at all — every
+        read goes straight through the repositories to SQLite."""
+        import inspect
+
         _factory_box[0] = _mock_repos()
-        lm = MagicMock()
-        _library_manager_box[0] = lm
 
         response = _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
 
         assert response.status_code == 200
-        lm.clear_cache.assert_called_once()
+        assert "get_library_manager" not in inspect.signature(create_library_router).parameters
 
     def test_workers_restarted_even_if_reset_fails(self):
         """A failing reset still restarts the paused workers (finally) and returns 500."""
@@ -192,7 +189,7 @@ class TestLibraryReset:
     def test_reset_succeeds_with_no_workers_registered(self):
         """Reset works even when no background workers are present."""
         _factory_box[0] = _mock_repos()
-        # _workers_box empty, _library_manager_box None
+        # _workers_box empty
 
         response = _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
 

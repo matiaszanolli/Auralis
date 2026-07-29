@@ -262,7 +262,7 @@ class TestFingerprintQueueManager:
 
         manager = FingerprintQueueManager(
             fingerprint_extractor=fingerprint_extractor_mock,
-            library_manager=library_manager_mock,
+            library_database=library_manager_mock,
             num_workers=4
         )
 
@@ -276,7 +276,7 @@ class TestFingerprintQueueManager:
 
         manager = FingerprintQueueManager(
             fingerprint_extractor=fingerprint_extractor_mock,
-            library_manager=library_manager_mock,
+            library_database=library_manager_mock,
             num_workers=2
         )
 
