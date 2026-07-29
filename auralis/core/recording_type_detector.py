@@ -20,7 +20,36 @@ from enum import Enum
 import numpy as np
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
+from ..analysis.fingerprint.schema import centroid_to_hz
 from ..utils.logging import debug
+
+
+def _centroid_hz(
+    fingerprint: dict[str, float],
+    default_normalized: float | None = None,
+) -> float | None:
+    """Spectral centroid in Hz from the normalized 25D dimension.
+
+    The single denormalization point for this class (#4538). ``_classify()``
+    was fixed in 7f937cca to use ``centroid_to_hz`` (8 kHz), but the three
+    parameter generators kept a hand-rolled ``* 20000`` and so drove every
+    per-recording-type EQ decision from a value 2.5x too large. Re-deriving Hz
+    at four call sites inside one class is the mechanism of that bug, so the
+    derivation now lives here and nowhere else.
+
+    Args:
+        fingerprint: 25D fingerprint dict, ``spectral_centroid`` normalized 0-1.
+        default_normalized: Fallback in *normalized* units (not Hz), so a
+            missing key still round-trips through ``centroid_to_hz``.
+
+    Returns:
+        Centroid in Hz, or ``None`` when the key is absent and no default was
+        supplied — callers gate their fine-tuning on that.
+    """
+    value = fingerprint.get('spectral_centroid', default_normalized)
+    if value is None:
+        return None
+    return centroid_to_hz(value)
 
 
 class RecordingType(Enum):
@@ -147,8 +176,8 @@ class RecordingTypeDetector:
         # Denormalize spectral centroid to Hz via the schema's canonical
         # constant (8 kHz, NOT 20 kHz — the fingerprint clips at 8 kHz so
         # 0-1 was previously stretched 2.5× too far and every source landed
-        # past the "metal" centroid threshold).
-        from auralis.analysis.fingerprint.schema import centroid_to_hz
+        # past the "metal" centroid threshold). Shared with the parameter
+        # generators via _centroid_hz so the two cannot desynchronize (#4538).
         spectral_centroid_hz = centroid_to_hz(spectral_centroid)
 
         # Classification logic - now with HD Bright profile support
@@ -308,12 +337,12 @@ class RecordingTypeDetector:
 
         # Fine-tune based on actual spectral content (25D guidance)
         # Only apply fine-tuning if fingerprint data is provided
-        if 'spectral_centroid' in fingerprint:
-            spectral_centroid = fingerprint['spectral_centroid'] * 20000
-            if spectral_centroid < 600:
+        spectral_centroid_hz = _centroid_hz(fingerprint)
+        if spectral_centroid_hz is not None:
+            if spectral_centroid_hz < 600:
                 # Already dark, reduce bass boost
                 bass_adjustment = 1.0
-            elif spectral_centroid > 800:
+            elif spectral_centroid_hz > 800:
                 # Bright, might need less treble boost
                 treble_adjustment = 1.5
 
@@ -345,11 +374,12 @@ class RecordingTypeDetector:
         treble_adjustment = 4.0
 
         # Fine-tune based on actual darkness (25D guidance)
-        spectral_centroid = fingerprint.get('spectral_centroid', 0.3) * 20000
+        spectral_centroid_hz = _centroid_hz(fingerprint, default_normalized=0.3)
         bass_to_mid = fingerprint.get('bass_mid_ratio', 15.0)
 
         # More aggressive correction if darker than reference
-        if spectral_centroid < 450:
+        assert spectral_centroid_hz is not None  # a default was supplied
+        if spectral_centroid_hz < 450:
             treble_adjustment = 4.5
         if bass_to_mid > 15:
             bass_adjustment = -4.5
@@ -384,13 +414,12 @@ class RecordingTypeDetector:
 
         # Fine-tune based on actual brightness (25D guidance)
         # Only apply fine-tuning if fingerprint data is provided
-        if 'spectral_centroid' in fingerprint:
-            spectral_centroid = fingerprint['spectral_centroid'] * 20000
-
+        spectral_centroid_hz = _centroid_hz(fingerprint)
+        if spectral_centroid_hz is not None:
             # More aggressive if brighter than reference (1340 Hz)
-            if spectral_centroid > 1340:
+            if spectral_centroid_hz > 1340:
                 treble_adjustment = -1.5
-            elif spectral_centroid < 1200:
+            elif spectral_centroid_hz < 1200:
                 # Less reduction needed if not as bright
                 treble_adjustment = -0.95
 

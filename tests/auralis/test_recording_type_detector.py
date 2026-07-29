@@ -159,7 +159,7 @@ class TestRecordingTypeDetector:
     def test_studio_fine_tuning_darker_input(self, detector):
         """Studio fine-tuning should reduce bass boost for darker input."""
         # Input darker than studio reference (664 Hz)
-        dark_fingerprint = {'spectral_centroid': 0.025}  # ~500 Hz
+        dark_fingerprint = {'spectral_centroid': 500 / 8000}  # 500 Hz (#4538: Hz / CENTROID_NORMALIZATION_HZ)
         params_dark = detector._parameters_studio(dark_fingerprint, confidence=0.85)
 
         # Should have reduced bass boost
@@ -168,7 +168,7 @@ class TestRecordingTypeDetector:
     def test_studio_fine_tuning_brighter_input(self, detector):
         """Studio fine-tuning should reduce treble boost for brighter input."""
         # Input brighter than studio reference (664 Hz)
-        bright_fingerprint = {'spectral_centroid': 0.055}  # ~1100 Hz
+        bright_fingerprint = {'spectral_centroid': 1100 / 8000}  # 1100 Hz (#4538)
         params_bright = detector._parameters_studio(bright_fingerprint, confidence=0.85)
 
         # Should have reduced treble boost
@@ -178,7 +178,7 @@ class TestRecordingTypeDetector:
         """Bootleg fine-tuning should increase treble for darker bootleg."""
         # Input darker than bootleg reference
         very_dark_fingerprint = {
-            'spectral_centroid': 0.015,  # ~300 Hz (very dark)
+            'spectral_centroid': 300 / 8000,  # 300 Hz, very dark (#4538)
             'bass_mid_ratio': 16.0,      # Higher than reference
             'stereo_width': 0.18
         }
@@ -191,7 +191,7 @@ class TestRecordingTypeDetector:
         """Bootleg fine-tuning should increase bass reduction for heavier bass."""
         # Input with heavier bass than reference
         heavy_bass_fingerprint = {
-            'spectral_centroid': 0.035,
+            'spectral_centroid': 700 / 8000,  # 700 Hz (#4538)
             'bass_mid_ratio': 16.5,  # > reference 13.6-16.8
             'stereo_width': 0.20
         }
@@ -203,7 +203,7 @@ class TestRecordingTypeDetector:
     def test_metal_fine_tuning_brightness_variation(self, detector):
         """Metal fine-tuning should adjust treble reduction based on brightness."""
         # Very bright metal (brighter than reference 1340 Hz)
-        very_bright_fingerprint = {'spectral_centroid': 0.0685}  # ~1370 Hz (> 1340)
+        very_bright_fingerprint = {'spectral_centroid': 1370 / 8000}  # 1370 Hz, > the 1340 threshold (#4538)
         params_bright = detector._parameters_metal(very_bright_fingerprint, confidence=0.85)
 
         # Should have more treble reduction
@@ -211,7 +211,7 @@ class TestRecordingTypeDetector:
         assert params_bright.treble_adjustment_db == pytest.approx(-1.5, abs=0.01)
 
         # Less bright metal
-        less_bright_fingerprint = {'spectral_centroid': 0.059}  # ~1180 Hz (< 1200)
+        less_bright_fingerprint = {'spectral_centroid': 1180 / 8000}  # 1180 Hz, < the 1200 threshold (#4538)
         params_less = detector._parameters_metal(less_bright_fingerprint, confidence=0.85)
 
         # Should have less treble reduction (closer to 0)
@@ -233,7 +233,7 @@ class TestRecordingTypeDetector:
         """Studio parameters should match Deep Purple reference."""
         # Deep Purple characteristics (normalized to 0-1 range where applicable)
         params = detector._parameters_studio({
-            'spectral_centroid': 0.0332,  # 664 Hz
+            'spectral_centroid': 664 / 8000,  # 664 Hz (#4538)
         }, confidence=0.85)
 
         # Should closely match Steven Wilson reference
@@ -245,7 +245,7 @@ class TestRecordingTypeDetector:
         """Bootleg parameters should match Porcupine Tree reference."""
         # Porcupine Tree characteristics
         params = detector._parameters_bootleg({
-            'spectral_centroid': 0.0225,  # ~450 Hz (middle of bootleg range)
+            'spectral_centroid': 450 / 8000,  # 450 Hz, middle of bootleg range (#4538)
         }, confidence=0.85)
 
         # Should closely match Matchering remaster
@@ -257,12 +257,17 @@ class TestRecordingTypeDetector:
         """Metal parameters should match Iron Maiden reference."""
         # Iron Maiden characteristics
         params = detector._parameters_metal({
-            'spectral_centroid': 0.067,  # ~1344 Hz
+            'spectral_centroid': 1344 / 8000,  # 1344 Hz, the measured Iron Maiden value (#4538)
         }, confidence=0.85)
 
-        # Should closely match Matchering remaster
+        # Should closely match Matchering remaster.
+        # #4538: 1344 Hz is 4 Hz above the generator's own 1340 Hz "brighter
+        # than reference" threshold, so the aggressive branch fires and treble
+        # is -1.5, not the -1.22 base. The old fixture encoded 0.067 * 20000 =
+        # 1340.0 exactly and the comparison is a strict `>`, so it took the
+        # base branch only by landing on the boundary.
         assert params.bass_adjustment_db == pytest.approx(3.85, abs=0.2)
-        assert params.treble_adjustment_db == pytest.approx(-1.22, abs=0.1)
+        assert params.treble_adjustment_db == pytest.approx(-1.5, abs=0.01)
         assert params.mid_adjustment_db == pytest.approx(-5.70, abs=0.2)
 
     # ========== Edge Cases ==========
