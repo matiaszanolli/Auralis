@@ -42,6 +42,12 @@ export type DispatchMessage = (message: AnyWebSocketMessage | WebSocketMessage) 
  * — which live in this module — share the state with the hook.
  *
  * - `manager` / `refCount`: the connection and how many providers hold it.
+ * - `url`: the URL `manager` was built for, so a URL change can be detected and
+ *   the old socket torn down instead of silently orphaned (#4522).
+ * - `connectPromise`: the in-flight `manager.connect()` handshake. Concurrent
+ *   callers await this one promise rather than each building their own manager
+ *   (#4522) — the window is the whole handshake plus every reconnect backoff,
+ *   up to 30 s per attempt.
  * - `pendingMeta`: an audio_chunk_meta text frame awaiting its binary PCM frame.
  * - `lastStreamCommand`: last play_enhanced/play_normal, re-issued on reconnect
  *   (#2385); cleared on explicit stop/pause.
@@ -49,6 +55,8 @@ export type DispatchMessage = (message: AnyWebSocketMessage | WebSocketMessage) 
  */
 export interface ConnectionState {
   manager: WebSocketManager | null;
+  url: string | null;
+  connectPromise: Promise<void> | null;
   refCount: number;
   pendingMeta: AudioChunkMetaMessage | null;
   lastStreamCommand: OutgoingWebSocketMessage | null;
@@ -57,6 +65,8 @@ export interface ConnectionState {
 
 export const connState: ConnectionState = {
   manager: null,
+  url: null,
+  connectPromise: null,
   refCount: 0,
   pendingMeta: null,
   lastStreamCommand: null,
@@ -64,19 +74,37 @@ export const connState: ConnectionState = {
 };
 
 /**
+ * Tear down the current singleton manager, if any, before it is replaced or
+ * dropped (#4522).
+ *
+ * Every path that clears or overwrites `connState.manager` must go through
+ * here. Dropping the reference alone leaves the old socket, its handlers and
+ * its running reconnect timer alive and unreachable — nothing else holds a
+ * reference to close them, so it keeps dispatching inbound frames into Redux
+ * for the lifetime of the renderer.
+ */
+export function closeCurrentManager(): void {
+  if (connState.manager) {
+    try {
+      connState.manager.close();
+    } catch {
+      // Ignore errors during teardown
+    }
+  }
+  connState.manager = null;
+  connState.url = null;
+  connState.connectPromise = null;
+}
+
+/**
  * Reset the connection singletons — ONLY FOR TESTING. Called by the provider's
  * resetWebSocketSingletons() (which also clears the subscription maps) between
  * tests to prevent memory leaks from accumulated connections.
  */
 export function resetConnectionSingletons(): void {
-  if (connState.manager) {
-    try {
-      connState.manager.close();
-    } catch {
-      // Ignore errors during cleanup
-    }
-    connState.manager = null;
-  }
+  // Also clears `url` and `connectPromise` (#4522) — a leaked connectPromise
+  // would make the next test's first connect() await a dead handshake.
+  closeCurrentManager();
   connState.refCount = 0;
   connState.lastStreamCommand = null;
   for (const key of Object.keys(connState.resumeGetters)) {

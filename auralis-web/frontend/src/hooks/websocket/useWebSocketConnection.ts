@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WebSocketManager } from '@/utils/errorHandling';
 import {
+  closeCurrentManager,
   connState,
   handleSocketFrame,
   replayQueueAndResume,
@@ -82,6 +83,51 @@ export function useWebSocketConnection({
   dispatchRef.current = dispatchMessage;
 
   /**
+   * Wire this hook instance's state and dispatch onto a manager.
+   *
+   * Applied on the reuse path too (#4522), not just at construction.
+   * `WebSocketManager.on()` assigns a single handler slot per event rather than
+   * appending, so re-attaching replaces — it cannot duplicate dispatches. A
+   * consumer that took the reuse path without this kept its `mountedRef` and
+   * `dispatchRef` unwired: it would never see inbound frames and its
+   * `isConnected` / `connectionStatus` would never move.
+   */
+  const attachHandlers = useCallback((manager: WebSocketManager) => {
+    // Inbound frames (text JSON + binary PCM) — parsing/pairing/ping lives in
+    // the core helper; it dispatches via the latest provider callback.
+    manager.on('message', ((event: MessageEvent) => {
+      handleSocketFrame(event, manager, dispatchRef.current);
+    }) as (event: MessageEvent | Event) => void);
+
+    manager.on('open', () => {
+      console.log('✅ WebSocket connected (singleton)');
+      if (mountedRef.current) {
+        setIsConnected(true);
+        setConnectionStatus('connected');
+      }
+      // Flush the offline queue and re-issue the active stream (#2385/#3185/#3345).
+      replayQueueAndResume(manager, messageQueueRef.current);
+    });
+
+    manager.on('error', (event: Event) => {
+      console.error('❌ WebSocket error:', event);
+      // Only update state if component is still mounted
+      if (mountedRef.current) {
+        setConnectionStatus('error');
+      }
+    });
+
+    manager.on('close', () => {
+      console.log('🔌 WebSocket disconnected (will auto-reconnect)');
+      // Only update state if component is still mounted
+      if (mountedRef.current) {
+        setIsConnected(false);
+        setConnectionStatus('disconnected');
+      }
+    });
+  }, []);
+
+  /**
    * Connect to WebSocket (Uses WebSocketManager with singleton pattern).
    */
   const connect = useCallback(async () => {
@@ -89,12 +135,45 @@ export function useWebSocketConnection({
     connState.refCount++;
     console.log(`🔌 WebSocket provider mounted (ref count: ${connState.refCount})`);
 
-    // Reuse existing singleton connection if available
-    if (connState.manager?.isConnected()) {
-      console.log('✅ Reusing existing WebSocket connection (singleton)');
-      wsManagerRef.current = connState.manager;
-      setIsConnected(true);
-      setConnectionStatus('connected');
+    // A manager built for a DIFFERENT url is the one case where replacement is
+    // genuinely intended — tear the old one down rather than overwrite it
+    // (#4522). Every other path below reuses.
+    if (connState.manager && connState.url !== url) {
+      console.log('🔌 WebSocket URL changed - closing previous connection');
+      closeCurrentManager();
+    }
+
+    // Reuse the existing singleton whenever one EXISTS — not only when it is
+    // fully connected (#4522). The old `isConnected()` guard let any connect()
+    // landing during the handshake or during reconnect backoff (up to 30 s per
+    // attempt) build a second manager and overwrite the singleton reference,
+    // orphaning the first with its live socket, its handlers and its reconnect
+    // timer. Nothing could reach the orphan to close it, and its message
+    // handler kept dispatching a duplicate copy of every inbound frame.
+    if (connState.manager) {
+      const manager = connState.manager;
+      wsManagerRef.current = manager;
+      attachHandlers(manager);
+
+      if (manager.isConnected()) {
+        console.log('✅ Reusing existing WebSocket connection (singleton)');
+        setIsConnected(true);
+        setConnectionStatus('connected');
+        return;
+      }
+
+      // Handshaking or backing off: await the SAME handshake instead of
+      // starting a competing one.
+      console.log('⏳ Joining in-flight WebSocket connection (singleton)');
+      setConnectionStatus('connecting');
+      if (connState.connectPromise) {
+        try {
+          await connState.connectPromise;
+        } catch {
+          // The owning caller already reported it; our state comes from the
+          // handlers attached above.
+        }
+      }
       return;
     }
 
@@ -114,54 +193,45 @@ export function useWebSocketConnection({
         onReconnectAttempt: (attempt, delay) => {
           console.log(`🔄 Reconnection attempt ${attempt}/${maxAttempts} (waiting ${delay}ms)`);
         },
+        onMaxAttemptsExceeded: () => {
+          // Retire the exhausted manager (#4522). Widening the reuse guard to
+          // "a manager exists" would otherwise strand the app on one that has
+          // permanently given up — it never reconnects and, because it is still
+          // the singleton, no later connect() would ever replace it.
+          console.warn('🔌 WebSocket gave up reconnecting - retiring the singleton');
+          if (connState.manager === manager) {
+            closeCurrentManager();
+          }
+          if (mountedRef.current) {
+            setIsConnected(false);
+            setConnectionStatus('error');
+          }
+        },
       });
 
       // Store as singleton
       connState.manager = manager;
+      connState.url = url;
       wsManagerRef.current = manager;
 
-      // Inbound frames (text JSON + binary PCM) — parsing/pairing/ping lives in
-      // the core helper; it dispatches via the latest provider callback.
-      manager.on('message', ((event: MessageEvent) => {
-        handleSocketFrame(event, manager, dispatchRef.current);
-      }) as (event: MessageEvent | Event) => void);
+      attachHandlers(manager);
 
-      // Setup open handler
-      manager.on('open', () => {
-        console.log('✅ WebSocket connected (singleton)');
-        if (mountedRef.current) {
-          setIsConnected(true);
-          setConnectionStatus('connected');
+      const pending = manager.connect();
+      connState.connectPromise = pending;
+      try {
+        await pending;
+      } finally {
+        // Only clear if we still own the slot — a URL change or a retirement
+        // may have replaced it while we awaited.
+        if (connState.connectPromise === pending) {
+          connState.connectPromise = null;
         }
-        // Flush the offline queue and re-issue the active stream (#2385/#3185/#3345).
-        replayQueueAndResume(manager, messageQueueRef.current);
-      });
-
-      // Setup error handler
-      manager.on('error', (event: Event) => {
-        console.error('❌ WebSocket error:', event);
-        // Only update state if component is still mounted
-        if (mountedRef.current) {
-          setConnectionStatus('error');
-        }
-      });
-
-      // Setup close handler
-      manager.on('close', () => {
-        console.log('🔌 WebSocket disconnected (will auto-reconnect)');
-        // Only update state if component is still mounted
-        if (mountedRef.current) {
-          setIsConnected(false);
-          setConnectionStatus('disconnected');
-        }
-      });
-
-      await manager.connect();
+      }
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
       setConnectionStatus('error');
     }
-  }, [url]);
+  }, [url, attachHandlers]);
 
   /**
    * Disconnect from WebSocket (with reference counting for singleton).
@@ -174,8 +244,10 @@ export function useWebSocketConnection({
     // Only close singleton when last provider unmounts
     if (connState.refCount === 0 && connState.manager) {
       console.log('🔌 Last provider unmounted - closing singleton WebSocket connection');
-      connState.manager.close();
-      connState.manager = null;
+      // Routed through the shared teardown so `url` and `connectPromise` are
+      // cleared with the manager (#4522) — a stale connectPromise would make
+      // the next connect() await a handshake for a socket that no longer exists.
+      closeCurrentManager();
     }
 
     // Clear local ref
