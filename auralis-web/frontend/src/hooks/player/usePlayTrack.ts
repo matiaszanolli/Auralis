@@ -43,6 +43,12 @@ export const usePlayTrack = () => {
 
   const playTrack = useCallback(
     async (track: PlayableTrack): Promise<void> => {
+      // #4426: abort the previous invocation before replacing the ref. Without
+      // this, two rapid clicks both ran to completion and whichever queue POST
+      // *resolved* last sent its play_enhanced last — reverting playback to the
+      // older track, with the losing track's title in the success toast. Same
+      // ordering as useEnhancedPlayCommand / usePlayNormal / useSimilarTracks.
+      abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
       try {
