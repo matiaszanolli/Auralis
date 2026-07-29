@@ -86,11 +86,8 @@ def library_manager_mock():
         def __init__(self):
             self.tracks = {}
 
-        def get_track_by_filepath(self, filepath: str):
-            """Get track by filepath"""
-            if filepath in self.tracks:
-                return self.tracks[filepath]
-            return None
+        # #4621: get_track_by_filepath() dropped — never invoked by any test
+        # here, and the real facade no longer carries it.
 
         def add_track(self, track_info):
             """Add track to library"""

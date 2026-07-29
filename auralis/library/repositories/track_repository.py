@@ -325,9 +325,9 @@ class TrackRepository(BaseRepository):
                 session.expunge(track)
             return track
 
-    def get_by_filepath(self, filepath: str) -> Track | None:
-        """Alias for get_by_path for backward compatibility"""
-        return self.get_by_path(filepath)
+    # #4621: get_by_filepath() removed — it was a pure alias for get_by_path()
+    # kept "for backward compatibility" with callers that no longer exist.
+    # get_by_path() is the single way to look up a track by path.
 
     def get_id_by_filepath(self, filepath: str) -> int | None:
         """Return the track id for a filepath, or None if not present.

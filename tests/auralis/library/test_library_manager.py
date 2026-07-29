@@ -122,10 +122,14 @@ class TestLibraryManagerComprehensive:
         assert retrieved_track is not None
         assert retrieved_track.title == "Test Track 1"
 
-        # Test getting track by path
-        path_track = self.manager.get_track_by_path("/test/track1.mp3")
+        # Test getting track by path (#4621: the canonical repository method —
+        # the get_track_by_path/get_by_filepath aliases are gone)
+        path_track = self.manager.tracks.get_by_path("/test/track1.mp3")
         assert path_track is not None
         assert path_track.id == added_track.id
+
+        # The None branch the removed aliases also forwarded
+        assert self.manager.tracks.get_by_path("/test/does-not-exist.mp3") is None
 
         self.tearDown()
 

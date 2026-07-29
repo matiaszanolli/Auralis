@@ -115,13 +115,10 @@ class LibraryManager(LibraryDatabase):
         """Get track by ID"""
         return self.tracks.get_by_id(track_id)
 
-    def get_track_by_path(self, filepath: str) -> Track | None:
-        """Get track by file path"""
-        return self.tracks.get_by_path(filepath)
-
-    def get_track_by_filepath(self, filepath: str) -> Track | None:
-        """Get track by file path (alias)"""
-        return self.tracks.get_by_filepath(filepath)
+    # #4621: get_track_by_path()/get_track_by_filepath() removed — three names
+    # for one lookup, none of them used by production code. Call
+    # ``self.tracks.get_by_path(filepath)`` (the canonical repository method)
+    # directly, as queue_service.py already does.
 
     def update_track_by_filepath(self, filepath: str, track_info: dict[str, Any]) -> Track | None:
         """Update track by filepath"""

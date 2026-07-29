@@ -109,7 +109,7 @@ class BatchProcessor:
             # facade — the scanner is handed a LibraryDatabase now, which has
             # `.tracks` but none of the facade's convenience wrappers.
             tracks_repo = self.library_manager.tracks
-            existing_track = tracks_repo.get_by_filepath(file_path) if skip_existing else None
+            existing_track = tracks_repo.get_by_path(file_path) if skip_existing else None
             if existing_track:
                 if check_modifications:
                     # Check if file was modified since last scan
