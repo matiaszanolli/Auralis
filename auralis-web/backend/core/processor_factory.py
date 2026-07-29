@@ -351,48 +351,14 @@ class ProcessorFactory:
 
             logger.info(f"Cleaned up {len(keys_to_remove)} processor(s) for track {track_id}")
 
-    def set_mastering_targets(
-        self,
-        track_id: int,
-        preset: str,
-        intensity: float,
-        mastering_targets: dict[str, Any],
-        config: Any | None = None
-    ) -> None:
-        """
-        Set mastering targets for an existing processor.
-
-        DEPRECATED (#3720): the cache key now includes a hash of
-        `mastering_targets`, so different targets land in different
-        cache entries automatically. Callers should pass
-        `mastering_targets` to `get_or_create(...)` instead — this
-        method mutates a cached processor in place, which races with
-        any concurrent `process_chunk()` call on the same instance.
-
-        Kept for backward compatibility; no in-tree callers as of #3720.
-
-        Args:
-            track_id: Track ID
-            preset: Processing preset
-            intensity: Processing intensity
-            mastering_targets: Mastering targets dictionary
-            config: Optional config for cache key
-        """
-        # Build the OLD-shape key (targets_hash="none") because callers of
-        # this deprecated method aren't passing targets through to the
-        # cache key construction. This effectively finds the processor
-        # that was created without targets and mutates it — racy on
-        # purpose; the deprecation note above is the only fix.
-        config_hash = self._get_config_hash(config)
-        cache_key = self._get_cache_key(
-            track_id, preset, intensity, config_hash, "none"
-        )
-
-        with self._lock:
-            if cache_key in self._processor_cache:
-                processor = self._processor_cache[cache_key]
-                processor.set_fixed_mastering_targets(mastering_targets)
-                logger.debug(f"Updated mastering targets for processor (track {track_id}, preset {preset})")
+    # #4618: `set_mastering_targets()` was deleted here. It was a deprecated,
+    # caller-less public method that looked up the OLD-shape cache key
+    # (targets_hash="none") and mutated that processor in place — a documented
+    # race against any concurrent `process_chunk()` on the same instance,
+    # waiting for its first caller. `get_or_create(..., mastering_targets=...)`
+    # has been the whole replacement since #3720: the targets are hashed into
+    # the cache key, so distinct targets land in distinct cache entries and no
+    # in-place mutation of a shared processor is ever needed.
 
     def get_statistics(self) -> dict[str, Any]:
         """

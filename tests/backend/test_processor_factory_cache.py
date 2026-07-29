@@ -55,6 +55,34 @@ def test_get_or_create_reuses_processor_for_equal_configs():
 
 
 # ---------------------------------------------------------------------------
+# mastering_targets in the cache key (#3720) — the whole replacement for the
+# deleted set_mastering_targets() setter (#4618)
+# ---------------------------------------------------------------------------
+
+def test_different_mastering_targets_get_distinct_processors():
+    """#4618: distinct targets land in distinct cache entries, so no caller ever
+    needs to mutate a cached processor in place (which raced with an in-flight
+    process_chunk on the same instance)."""
+    factory = ProcessorFactory()
+
+    processor_a = factory.get_or_create(track_id=1, mastering_targets={"lufs": -14.0})
+    processor_b = factory.get_or_create(track_id=1, mastering_targets={"lufs": -9.0})
+
+    assert processor_a is not processor_b
+    assert len(factory._processor_cache) == 2
+
+    # Identical targets still hit the same entry.
+    assert factory.get_or_create(track_id=1, mastering_targets={"lufs": -14.0}) is processor_a
+    assert len(factory._processor_cache) == 2
+
+
+def test_racy_set_mastering_targets_setter_is_gone():
+    """#4618: the deprecated in-place setter must not come back. It looked up the
+    OLD-shape key (targets_hash="none") and mutated that shared processor."""
+    assert not hasattr(ProcessorFactory, "set_mastering_targets")
+
+
+# ---------------------------------------------------------------------------
 # close() on eviction / cleanup (#3746 — thread-pool leak)
 # ---------------------------------------------------------------------------
 #
