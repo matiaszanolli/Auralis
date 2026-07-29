@@ -36,7 +36,9 @@ declare global {
     __A11Y__?: AuralisA11yInfo;
 
     // Vendor prefixed APIs
-    webkitAudioContext?: typeof AudioContext;
+    // #4623: webkitAudioContext removed — nothing reads it, and declaring it
+    // is what let the dead `window.AudioContext || window.webkitAudioContext`
+    // fallbacks keep compiling.
     msCrypto?: Crypto;
   }
 }

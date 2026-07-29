@@ -238,7 +238,8 @@ function setupMocks() {
   };
   // `function` (not arrow) so `new AudioContext()` works in the engine (#3933).
   vi.stubGlobal('AudioContext', vi.fn().mockImplementation(function () { return mockAudioContextInstance; }));
-  vi.stubGlobal('webkitAudioContext', undefined);
+  // #4623: no webkitAudioContext stub — the prefixed fallback is gone, so the
+  // absence of that global here mirrors production (Electron's Chromium).
 
   // fetch mock (used by playNormal to load track data)
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({

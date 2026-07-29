@@ -26,6 +26,7 @@ import connectionReducer, { setError as connectionSetError } from '@/store/slice
 import {
   createErrorTrackingMiddleware,
   ErrorCategory,
+  generateErrorId,
   getErrorStats,
   retryAction,
   type TrackedError,
@@ -499,5 +500,39 @@ describe('retryAction (#3241)', () => {
 
     expect(result).toBe('recovered');
     expect(executor).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('generateErrorId (#4623)', () => {
+  // The `.substr(2, 9)` → `.slice(2, 11)` migration is the one place a
+  // mechanical find/replace introduces a bug: substr takes (start, length),
+  // slice takes (start, end). These tests pin the resulting ID shape.
+
+  it('matches the err_<timestamp>_<9 chars> shape', () => {
+    expect(generateErrorId()).toMatch(/^err_\d+_[a-z0-9]{9}$/);
+  });
+
+  it('keeps the random suffix at exactly 9 characters', () => {
+    for (let i = 0; i < 200; i++) {
+      const suffix = generateErrorId().split('_')[2];
+      expect(suffix).toHaveLength(9);
+    }
+  });
+
+  it('takes the suffix from index 2, skipping the "0." of the random string', () => {
+    // Math.random().toString(36) is "0.xxxxxxxx…"; starting at 2 drops "0."
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    try {
+      const expected = (0.5).toString(36).slice(2, 11);
+      expect(generateErrorId().split('_')[2]).toBe(expected);
+      expect(generateErrorId()).not.toContain('.');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('produces distinct ids across successive calls', () => {
+    const ids = new Set(Array.from({ length: 200 }, () => generateErrorId()));
+    expect(ids.size).toBeGreaterThan(190);
   });
 });

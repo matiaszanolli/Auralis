@@ -125,7 +125,10 @@ function categorizeError(message: string): ErrorCategory {
  * Generate unique error ID
  */
 function generateErrorId(): string {
-  return `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  // #4623: slice(2, 11), not substr(2, 9) — substr is ES Annex B legacy and
+  // takes (start, length) where slice takes (start, end), so the end index is
+  // 2 + 9. The 9-character suffix is load-bearing for ID shape.
+  return `err_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
 // ============================================================================

@@ -249,6 +249,23 @@ export class BufferScheduler {
   /**
    * Create ScriptProcessorNode for sample pulling (legacy fallback)
    * Used when AudioWorklet is not available.
+   *
+   * #4623 — DELIBERATELY KEPT, do not re-report as dead deprecated API.
+   * ScriptProcessorNode was deprecated in 2014 and Electron's Chromium always
+   * provides AudioWorklet, so the *capability* check at `initWorklet()` can
+   * never fail here. The branch is still reachable for two reasons that have
+   * nothing to do with browser support:
+   *
+   *   1. `audioWorklet.addModule('/audio-worklet-processor.js')` fetches a
+   *      static asset. In a packaged build a bad base path or a missing file
+   *      makes that reject — a deployment failure, not a capability one.
+   *   2. `new AudioWorkletNode(...)` throws if the processor name was never
+   *      registered (e.g. the module loaded but errored during evaluation).
+   *
+   * Both degrade audio to main-thread processing rather than failing loudly,
+   * which is the correct trade against silence. Its tests
+   * (`__tests__/BufferScheduler.test.ts`, `__tests__/AudioPlaybackEngine.test.ts`)
+   * therefore cover a live path and must be kept.
    */
   private createScriptProcessor(): void {
     if (this.scriptNode) {
