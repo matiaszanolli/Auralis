@@ -23,6 +23,28 @@ MAX_LEVEL_CHANGE_DB = 1.5  # Maximum allowed level change between chunks in dB
 # chunk's gain, so the boundary stays continuous instead of stepping (#3831).
 GAIN_RAMP_SECONDS = 0.05  # 50 ms
 
+# A chunk's RMS at or below this floor carries no real level information —
+# it's effectively digital silence (or calculate_rms's log(0)-avoiding floor
+# for a truly empty/zero chunk). Treating a floored RMS as a real level to
+# smooth against produces a runaway correction (#4729): a silent chunk next
+# to a normal one computes a ~180 dB adjustment, which then gets stored and
+# ramped into the following real chunk as a full-scale burst followed by
+# near-total silence. Below this floor, level differences are ignored.
+SILENCE_FLOOR_DB = -60.0
+
+# Hard ceiling on any single gain correction, applied as a last-resort safety
+# net (#4729) in case a runaway value reaches this point despite the
+# SILENCE_FLOOR_DB guard above. Set far below the ~180 dB a floored-RMS
+# pairing can otherwise produce, but well above any legitimate adjustment —
+# real adjacent-chunk level swings (loud verse to quiet bridge, etc.) stay
+# under ~30 dB in practice, so this should not clip real corrections.
+MAX_GAIN_CORRECTION_DB = 40.0
+
+
+def _clamp_gain_db(db: float) -> float:
+    """Bound a gain correction to +/-MAX_GAIN_CORRECTION_DB (#4729)."""
+    return max(-MAX_GAIN_CORRECTION_DB, min(MAX_GAIN_CORRECTION_DB, db))
+
 
 class LevelManager:
     """
@@ -144,6 +166,20 @@ class LevelManager:
         current_rms = self.calculate_rms(chunk)
         previous_rms = self.rms_history[-1]
 
+        # A silent (or floored) chunk on either side carries no real level
+        # information worth smoothing against — treating it as one produces a
+        # runaway correction that bursts the following chunk (#4729). Record
+        # the true RMS so history stays accurate, but apply no gain.
+        if current_rms <= SILENCE_FLOOR_DB or previous_rms <= SILENCE_FLOOR_DB:
+            self.rms_history.append(current_rms)
+            self.gain_history.append(0.0)
+            logger.debug(
+                f"Chunk {chunk_index}: below silence floor "
+                f"(current: {current_rms:.1f} dB, previous: {previous_rms:.1f} dB) "
+                f"- skipping level adjustment"
+            )
+            return chunk, 0.0, False
+
         # Calculate level difference
         level_diff_db = current_rms - previous_rms
 
@@ -165,14 +201,16 @@ class LevelManager:
                 if level_diff_db > 0
                 else -self.max_level_change_db
             )
-            required_adjustment_db = target_diff - level_diff_db
+            # Clamped as a last-resort safety net (#4729) — see MAX_GAIN_CORRECTION_DB.
+            required_adjustment_db = _clamp_gain_db(target_diff - level_diff_db)
 
             # Convert dB to linear gain, typed to the chunk so float32 stays
             # float32 (#3831 — avoids the float64 promotion of `chunk * pyfloat`).
             new_gain = float(10 ** (required_adjustment_db / 20))
             # Ramp from the gain the previous chunk ended at, so the boundary is
             # continuous instead of stepping by the full adjustment (#3831).
-            prev_gain_db = self.gain_history[-1] if self.gain_history else 0.0
+            # Clamped (#4729) in case history already holds an unclamped legacy value.
+            prev_gain_db = _clamp_gain_db(self.gain_history[-1] if self.gain_history else 0.0)
             prev_gain = float(10 ** (prev_gain_db / 20))
 
             env = self._gain_envelope(
@@ -218,7 +256,8 @@ class LevelManager:
             # only for the live path (apply_adjustment=True); a cache-hit
             # recording call (apply_adjustment=False) must leave the
             # already-emitted chunk untouched (#3832).
-            prev_gain_db = self.gain_history[-1] if self.gain_history else 0.0
+            # Clamped (#4729) in case history already holds an unclamped legacy value.
+            prev_gain_db = _clamp_gain_db(self.gain_history[-1] if self.gain_history else 0.0)
             if apply_adjustment and prev_gain_db != 0.0:
                 prev_gain = float(10 ** (prev_gain_db / 20))
                 env = self._gain_envelope(
@@ -251,7 +290,8 @@ class LevelManager:
         current_rms = self.calculate_rms(chunk)
         is_baseline = chunk_index == 0 or len(self.rms_history) == 0
         self.rms_history.append(current_rms)
-        self.gain_history.append(0.0 if is_baseline else gain_db)
+        # Clamped (#4729) so a stale/unclamped legacy gain can't poison history.
+        self.gain_history.append(0.0 if is_baseline else _clamp_gain_db(gain_db))
 
     def apply_gain(self, audio: np.ndarray, gain_db: float) -> np.ndarray:
         """

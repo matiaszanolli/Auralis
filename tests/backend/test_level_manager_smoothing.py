@@ -20,7 +20,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.level_manager import LevelManager, GAIN_RAMP_SECONDS
+from core.level_manager import (
+    LevelManager,
+    GAIN_RAMP_SECONDS,
+    SILENCE_FLOOR_DB,
+    MAX_GAIN_CORRECTION_DB,
+)
 
 
 SR = 44100
@@ -293,6 +298,90 @@ def test_record_cached_level_baseline_ignores_gain_db():
     lm = LevelManager()
     lm.record_cached_level(_loud(), 0, gain_db=-5.0)
     assert lm.gain_history[-1] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# #4729 — a floored (silent) chunk must not produce a runaway correction that
+# bursts the following real chunk
+# ---------------------------------------------------------------------------
+
+def _silence(n=SR, ch=2):
+    return np.zeros((n, ch), dtype=np.float32)
+
+
+def test_silent_chunk_is_not_adjusted_and_recorded_at_zero_gain():
+    """A digitally-silent chunk carries no real level information — it must
+    not trigger (or be subject to) a gain adjustment."""
+    lm = LevelManager()
+    lm.smooth_transition(_loud(), 0, sample_rate=SR)  # baseline
+
+    out, gain_db, adjusted = lm.smooth_transition(_silence(), 1, sample_rate=SR)
+    assert not adjusted
+    assert gain_db == 0.0
+    np.testing.assert_array_equal(out, _silence())
+    assert lm.gain_history[-1] == 0.0
+
+
+def test_silence_then_normal_chunk_does_not_burst():
+    """The core #4729 bug: a silent chunk (RMS floored near -inf) followed by
+    a normal chunk used to compute a ~180 dB correction from the previous
+    call, then ramp INTO the normal chunk from that poisoned stored gain —
+    producing a full-scale burst. The normal chunk following silence must
+    play at a bounded level, not thousands of times full scale."""
+    lm = LevelManager()
+    lm.smooth_transition(_loud(amp=0.5), 0, sample_rate=SR)     # baseline, normal level
+    lm.smooth_transition(_silence(), 1, sample_rate=SR)         # silent chunk
+
+    normal = _loud(amp=0.5)
+    out, gain_db, adjusted = lm.smooth_transition(normal, 2, sample_rate=SR)
+
+    # No adjustment should trigger off a floored previous RMS.
+    assert not adjusted
+    assert gain_db == 0.0
+    # The defining regression check: output must stay within a sane bound of
+    # the input, not the ~2.6e9x peak the unpatched bug produced.
+    peak_in = float(np.max(np.abs(normal)))
+    peak_out = float(np.max(np.abs(out)))
+    assert peak_out <= peak_in * 2, (
+        f"chunk after silence must not burst: peak_in={peak_in} peak_out={peak_out}"
+    )
+    np.testing.assert_array_equal(out, normal)  # unadjusted: passed through untouched
+
+
+def test_silence_does_not_poison_history_for_chunk_after_next():
+    """Even the chunk *after* the one immediately following silence must see
+    a sane gain_history — the bug corrupted rms_history/gain_history for the
+    remainder of the track, not just the immediately-following chunk."""
+    lm = LevelManager()
+    lm.smooth_transition(_loud(amp=0.5), 0, sample_rate=SR)
+    lm.smooth_transition(_silence(), 1, sample_rate=SR)
+    lm.smooth_transition(_loud(amp=0.5), 2, sample_rate=SR)
+
+    _out, gain_db, adjusted = lm.smooth_transition(_loud(amp=0.5), 3, sample_rate=SR)
+    assert not adjusted
+    assert gain_db == 0.0
+    assert all(abs(g) <= MAX_GAIN_CORRECTION_DB for g in lm.gain_history)
+
+
+def test_silent_chunk_rms_is_below_floor_constant():
+    """Sanity check that digital silence actually trips SILENCE_FLOOR_DB, so
+    the guard above is exercising the intended branch and not passing
+    vacuously."""
+    lm = LevelManager()
+    assert lm.calculate_rms(_silence()) <= SILENCE_FLOOR_DB
+
+
+def test_record_cached_level_clamps_extreme_gain():
+    """A cached gain value outside the sane band must be clamped, not stored
+    verbatim — defense in depth against a stale/unclamped legacy value."""
+    lm = LevelManager()
+    lm.smooth_transition(_loud(), 0, sample_rate=SR)  # baseline
+
+    lm.record_cached_level(_quiet(), 1, gain_db=500.0)
+    assert lm.gain_history[-1] == MAX_GAIN_CORRECTION_DB
+
+    lm.record_cached_level(_quiet(), 2, gain_db=-500.0)
+    assert lm.gain_history[-1] == -MAX_GAIN_CORRECTION_DB
 
 
 def test_note_cached_chunk_level_passes_through_true_gain(tmp_path):
