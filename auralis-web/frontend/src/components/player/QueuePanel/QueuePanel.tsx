@@ -1,4 +1,4 @@
-import { DragEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { DragEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { QueueTrackItem } from './QueueTrackItem';
@@ -47,6 +47,29 @@ export const QueuePanel = ({
   // defeat QueueTrackItem's memo (#4177).
   const queueRef = useRef(queue);
   queueRef.current = queue;
+
+  // Stable per-row React keys (#4428).
+  //
+  // The key used to be `${track.id}-${index}`, which made position part of a
+  // row's identity: any reorder or mid-queue removal changed the key of every
+  // shifted row, so React unmounted and remounted them — precisely what
+  // QueueTrackItem's React.memo was added to avoid (#4177) — and each remount
+  // dropped the row's internal isFocused/hover state.
+  //
+  // Keying on `track.id` alone is not safe: the backend queue does not dedupe
+  // (QueueController.add_track appends unconditionally), so the same track can
+  // legitimately appear twice and would collide. Disambiguate duplicates by
+  // occurrence ordinal instead of array index — a queue of unique tracks then
+  // gets a fully position-independent key, and in a queue with duplicates only
+  // the duplicates' own relative order can change a key.
+  const rowKeys = useMemo(() => {
+    const seen = new Map<number, number>();
+    return queue.map((track) => {
+      const occurrence = seen.get(track.id) ?? 0;
+      seen.set(track.id, occurrence + 1);
+      return occurrence === 0 ? `qt-${track.id}` : `qt-${track.id}#${occurrence}`;
+    });
+  }, [queue]);
 
   const queueScrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -321,7 +344,7 @@ export const QueuePanel = ({
               const index = virtualRow.index;
               return (
                 <QueueTrackItem
-                  key={`${track.id}-${index}`}
+                  key={rowKeys[index]}
                   track={track}
                   index={index}
                   isCurrentTrack={index === currentIndex}

@@ -532,3 +532,99 @@ describe('QueuePanel keyboard reorder (#4536)', () => {
     expect(mockReorderTrack).not.toHaveBeenCalled();
   });
 });
+
+describe('QueuePanel row keys (#4428)', () => {
+  // The key was `${track.id}-${index}`, so position was part of a row's
+  // identity: any reorder or mid-queue removal changed the key of every shifted
+  // row and React unmounted/remounted them — the opposite of what
+  // QueueTrackItem's React.memo comparator was added for (#4177) — dropping
+  // each row's transient isFocused/hover state along the way.
+
+  const baseQueueState = {
+    currentIndex: 0,
+    currentTrack: null,
+    isShuffled: false,
+    repeatMode: 'off' as const,
+    setQueue: vi.fn().mockResolvedValue(undefined),
+    addTrack: vi.fn().mockResolvedValue(undefined),
+    removeTrack: mockRemoveTrack,
+    reorderTrack: vi.fn().mockResolvedValue(undefined),
+    reorderQueue: vi.fn().mockResolvedValue(undefined),
+    toggleShuffle: mockToggleShuffle,
+    setRepeatMode: mockSetRepeatMode,
+    clearQueue: mockClearQueue,
+    isLoading: false,
+    error: null,
+    clearError: vi.fn(),
+  };
+
+  const renderQueue = (queue: typeof mockTracks) => {
+    vi.mocked(usePlaybackQueueModule.usePlaybackQueue).mockReturnValue({
+      ...baseQueueState,
+      queue,
+      currentTrack: queue[0] ?? null,
+    } as never);
+    return renderWithWrapper(<QueuePanel />);
+  };
+
+  const rowFor = (title: string): HTMLElement =>
+    screen.getByText(title).closest('li') as HTMLElement;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('reuses the same DOM node for a track after a reorder', () => {
+    const { rerender } = renderQueue(mockTracks);
+    const nodeBefore = rowFor('Track 3');
+
+    // Move Track 1 to the end: [1,2,3] -> [2,3,1]. Track 3 shifts position, so
+    // an index-bearing key would change and force a remount.
+    const reordered = [mockTracks[1], mockTracks[2], mockTracks[0]];
+    vi.mocked(usePlaybackQueueModule.usePlaybackQueue).mockReturnValue({
+      ...baseQueueState,
+      queue: reordered,
+      currentTrack: reordered[0],
+    } as never);
+    rerender(<QueuePanel />);
+
+    // Same element instance === React reconciled rather than remounted.
+    expect(rowFor('Track 3')).toBe(nodeBefore);
+  });
+
+  it('reuses the same DOM node for tracks after a mid-queue removal', () => {
+    const { rerender } = renderQueue(mockTracks);
+    const nodeBefore = rowFor('Track 3');
+
+    const removed = [mockTracks[0], mockTracks[2]]; // drop Track 2
+    vi.mocked(usePlaybackQueueModule.usePlaybackQueue).mockReturnValue({
+      ...baseQueueState,
+      queue: removed,
+      currentTrack: removed[0],
+    } as never);
+    rerender(<QueuePanel />);
+
+    expect(rowFor('Track 3')).toBe(nodeBefore);
+  });
+
+  it('renders duplicate tracks without a duplicate-key warning', () => {
+    // The backend queue does not dedupe (QueueController.add_track appends
+    // unconditionally), so keying on track.id alone would collide. Occurrence
+    // ordinals keep the keys unique.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const withDupes = [mockTracks[0], mockTracks[1], mockTracks[0]];
+
+    renderQueue(withDupes);
+
+    expect(screen.getAllByText('Track 1')).toHaveLength(2);
+    const duplicateKeyWarning = consoleError.mock.calls.some(([msg]) =>
+      typeof msg === 'string' && msg.includes('same key'),
+    );
+    expect(duplicateKeyWarning).toBe(false);
+    consoleError.mockRestore();
+  });
+});
