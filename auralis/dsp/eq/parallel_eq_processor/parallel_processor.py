@@ -115,6 +115,20 @@ class ParallelEQProcessor:
         Returns:
             Processed mono audio
         """
+        # #3742/#4507: same implicit `len(audio) <= fft_size` contract as
+        # filters.apply_eq_mono and _apply_eq_mono_vectorized, and the same
+        # fail-loud guard. Past fft_size the `fft(audio_mono[:fft_size])`
+        # below silently drops the tail, and neither the
+        # `processed_audio[:len(audio_mono)]` return nor the caller's
+        # `result[:original_length]` can restore it — both slice to the
+        # smaller of the two, so the truncation surfaces only as a short
+        # buffer. That is a sample-count violation; refuse it instead.
+        if len(audio_mono) > fft_size:
+            raise ValueError(
+                f"_apply_eq_mono_parallel: audio length {len(audio_mono)} "
+                f"exceeds fft_size {fft_size}; caller must chunk at fft_size."
+            )
+
         num_bands = len(gains)
 
         if not self.config.enable_parallel or num_bands < self.config.min_bands_for_parallel:
@@ -166,6 +180,15 @@ class ParallelEQProcessor:
         Returns:
             Processed mono audio
         """
+        # #3742/#4507: SIBLING of the guard in _apply_eq_mono_parallel. Needed
+        # here too — this path is reachable directly (enable_parallel=False,
+        # or a sub-min_bands_for_parallel gain set), not only via delegation.
+        if len(audio_mono) > fft_size:
+            raise ValueError(
+                f"_apply_eq_mono_sequential: audio length {len(audio_mono)} "
+                f"exceeds fft_size {fft_size}; caller must chunk at fft_size."
+            )
+
         # No windowing for direct frequency-domain EQ — see VectorizedEQProcessor
         spectrum = fft(audio_mono[:fft_size])
 
