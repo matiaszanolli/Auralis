@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
+from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
+from ..analysis.fingerprint.schema import DIMENSION_SCHEMA
 from ..utils.logging import debug, error, info, warning
 from ..version import __version__
 
@@ -38,7 +40,7 @@ class SidecarManager:
     """
 
     SIDECAR_EXTENSION = ".25d"
-    FORMAT_VERSION = "1.0"
+    FORMAT_VERSION = "2.0"
     AURALIS_VERSION = __version__
 
     def __init__(self) -> None:
@@ -110,6 +112,14 @@ class SidecarManager:
                 warning(f"Sidecar format version mismatch: {format_version} != {self.FORMAT_VERSION}")
                 return False
 
+            algorithm_version = data.get('fingerprint_algorithm_version')
+            if algorithm_version != FINGERPRINT_ALGORITHM_VERSION:
+                warning(
+                    "Sidecar fingerprint algorithm version mismatch: "
+                    f"{algorithm_version} != {FINGERPRINT_ALGORITHM_VERSION}"
+                )
+                return False
+
             # Check audio file metadata
             audio_meta = data.get('audio_file', {})
 
@@ -131,8 +141,29 @@ class SidecarManager:
             # For now, size + mtime is sufficient for validation
 
             # Check required fields
-            if 'fingerprint' not in data:
-                warning(f"Sidecar missing fingerprint data")
+            fingerprint = data.get('fingerprint')
+            if not isinstance(fingerprint, dict):
+                warning("Sidecar missing fingerprint data")
+                return False
+
+            fingerprint_keys: set[str] = set()
+            if 'frequency' in fingerprint:
+                for category in (
+                    'frequency', 'dynamics', 'temporal', 'spectral',
+                    'harmonic', 'variation', 'stereo',
+                ):
+                    category_data = fingerprint.get(category)
+                    if isinstance(category_data, dict):
+                        fingerprint_keys.update(category_data)
+            else:
+                fingerprint_keys.update(fingerprint)
+
+            missing_dimensions = set(DIMENSION_SCHEMA) - fingerprint_keys
+            if missing_dimensions:
+                warning(
+                    "Sidecar fingerprint is incomplete; missing "
+                    f"{len(missing_dimensions)} dimensions"
+                )
                 return False
 
             return True
@@ -191,6 +222,7 @@ class SidecarManager:
             # Build sidecar data structure
             sidecar_data = {
                 'format_version': self.FORMAT_VERSION,
+                'fingerprint_algorithm_version': FINGERPRINT_ALGORITHM_VERSION,
                 'auralis_version': self.AURALIS_VERSION,
                 'generated_at': datetime.now(timezone.utc).isoformat(),
                 'audio_file': audio_meta,

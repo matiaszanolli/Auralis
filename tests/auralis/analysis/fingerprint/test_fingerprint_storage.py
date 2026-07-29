@@ -98,6 +98,34 @@ def test_load_rejects_missing_fingerprint(cache_dir, audio_file):
     assert FingerprintStorage.load(audio_file) is None
 
 
+def test_load_rejects_incomplete_fingerprint(cache_dir, audio_file):
+    cache_key = FingerprintStorage._get_cache_key(audio_file)
+    cache_path = cache_dir / f"{cache_key}.25d"
+    cache_path.write_text(json.dumps({
+        "version": FingerprintStorage.VERSION,
+        "cache_key": cache_key,
+        "fingerprint": {"lufs": -14.0},
+        "mastering_targets": {},
+    }))
+
+    assert FingerprintStorage.load(audio_file) is None
+
+
+def test_load_rejects_legacy_cache_version(
+    cache_dir, audio_file, sample_fingerprint
+):
+    cache_key = FingerprintStorage._get_cache_key(audio_file)
+    cache_path = cache_dir / f"{cache_key}.25d"
+    cache_path.write_text(json.dumps({
+        "version": "1.0",
+        "cache_key": cache_key,
+        "fingerprint": sample_fingerprint,
+        "mastering_targets": {},
+    }))
+
+    assert FingerprintStorage.load(audio_file) is None
+
+
 def test_load_normalizes_missing_targets_to_empty_dict(
     cache_dir, audio_file, sample_fingerprint
 ):

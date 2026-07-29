@@ -26,7 +26,10 @@ __db_schema_version__ = 16  # track_playlist: UNIQUE(track_id, playlist_id) + po
 #             the old batch path are NOT comparable to rows written by the
 #             unified path — similarity distances across a mixed-vintage library
 #             would be subtly wrong — so this bump exists to force recomputation.
-FINGERPRINT_ALGORITHM_VERSION = 4
+# v5: dynamic-range variation now measures per-frame crest-factor variation
+#             instead of peak/minimum-sample ratios, and maps it continuously
+#             without a hard saturation threshold.
+FINGERPRINT_ALGORITHM_VERSION = 5
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

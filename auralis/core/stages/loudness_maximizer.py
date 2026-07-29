@@ -1,24 +1,14 @@
-"""Loudness Maximizer Stage — competitive loudness for under-mastered material.
+"""Continuous loudness-and-crest stage.
 
-Genuinely quiet, high-dynamic-range sources (vintage / lo-fi / raw rock
-recordings such as Patricio Rey's *Oktubre*, ~-22 LUFS at ~18 dB crest) used to
-pass through the QuietBranch almost untreated on the loudness axis: the makeup
-gain was capped then zeroed for high-crest material, and the final peak-normalize
-mathematically pins loudness to ``peak - crest``. The fix is to REDUCE the crest
-factor — the only lever that moves loudness once peaks sit at the ceiling — via a
-transparent pre-gain into a look-ahead brick-wall limiter.
-
-Discrimination is by absolute loudness, NOT crest: crest alone cannot tell a
-finished dynamic master (already loud) from a raw under-mastered one (quiet).
-Material at/above ``LOUDNESS_COMPETITIVE_LUFS`` is a strict no-op, so the
-well-mastered 'good' tier is byte-identical to before.
+File-level loudness and crest measurements set a continuous pre-gain into a
+look-ahead limiter. There are no recording labels, activation thresholds, or
+content-dependent bypasses: higher source loudness simply makes the gain
+asymptotically approach zero.
 """
 
 from typing import TYPE_CHECKING
 
 import numpy as np
-
-from . import no_op
 
 from ...dsp.dynamics.brick_wall_limiter import create_brick_wall_limiter
 
@@ -33,8 +23,8 @@ def apply(
     sample_rate: int,
     verbose: bool,
     config: 'SimpleMasteringConfig',
-) -> tuple[np.ndarray, dict | None]:
-    """Restore competitive loudness to under-mastered material via push + limit.
+) -> tuple[np.ndarray, dict[str, float | str]]:
+    """Apply a continuous loudness response via pre-gain and limiting.
 
     The push gain is derived from FILE-LEVEL fingerprint values (source LUFS &
     crest), not the per-chunk signal, so every chunk receives the same gain and
@@ -49,54 +39,37 @@ def apply(
         source_crest_db: File-level crest factor in dB (fingerprint).
         sample_rate: Audio sample rate in Hz.
         verbose: Print progress.
-        config: SimpleMasteringConfig instance for thresholds.
+        config: SimpleMasteringConfig instance.
 
     Returns:
-        (processed_audio, stage_info) or (audio.copy(), None) if the stage did
-        not fire (already-competitive source, or push below the audible floor).
+        Processed audio and continuous stage measurements.
     """
-    # Under-mastered ramp: 0.0 at/above COMPETITIVE_LUFS, 1.0 at
-    # (COMPETITIVE - RANGE). Keys on absolute loudness — the only signal that
-    # separates "quiet & needs work" from "dynamic & already competitive".
-    undermastered = float(np.clip(
-        (config.LOUDNESS_COMPETITIVE_LUFS - source_lufs)
-        / config.LOUDNESS_UNDERMASTER_RANGE_DB,
-        0.0,
-        1.0,
-    ))
-    if undermastered <= 0.0:
-        return no_op(audio)
-
-    # Push toward the loudness target, scaled by how under-mastered the source
-    # is so borderline-quiet dynamic tracks get only a gentle lift. Also scaled
-    # by LOUDNESS_GAP_CLOSURE_FACTOR (< 1.0) so the maximizer only closes part
-    # of the gap to the target instead of converging every quiet source to the
-    # same anchor — preserves the natural loudness spread between recordings
-    # (e.g. a genuinely quiet vintage record should end up noticeably quieter
-    # than a moderately quiet one, not the same).
-    loudness_push = (
-        (config.LOUDNESS_TARGET_LUFS - source_lufs)
-        * undermastered
-        * config.LOUDNESS_GAP_CLOSURE_FACTOR
+    # Softplus keeps the response positive and monotonic without a point where
+    # processing switches on or off. At levels above the anchor it rapidly
+    # approaches zero; below the anchor it approaches the measured gap.
+    softness = config.LOUDNESS_RESPONSE_SOFTNESS_DB
+    loudness_gap = config.LOUDNESS_TARGET_LUFS - source_lufs
+    positive_gap = softness * float(
+        np.logaddexp(0.0, loudness_gap / softness)
     )
+    loudness_push = positive_gap * config.LOUDNESS_GAP_CLOSURE_FACTOR
 
-    # Crest-floor clamp: never push so hard that output crest drops below the
-    # dynamic floor. output_crest ≈ source_crest - push, so cap the push at
-    # (source_crest - MIN_CREST). Guarantees the result stays clearly dynamic.
-    crest_headroom = source_crest_db - config.LOUDNESS_MIN_CREST_DB
-    # Transient-preservation cap: the push IS crest reduction, so bound it to a
-    # musical amount ('preserve punch') even when the source is very quiet —
-    # trading a little loudness to keep the kick/snare dynamics intact.
-    push_db = float(np.clip(
-        loudness_push,
-        0.0,
-        min(crest_headroom, config.LOUDNESS_MAX_PUSH_DB,
-            config.LOUDNESS_MAX_CREST_REDUCTION_DB),
-    ))
-
-    # Below ~0.5 dB the push is inaudible and not worth the limiter pass.
-    if push_db < 0.5:
-        return no_op(audio)
+    # Crest and gain limits are safety bounds, not content classifiers. A
+    # second softplus makes available crest reduction continuous even around
+    # the minimum-crest safety point. Tanh approaches the resulting cap
+    # smoothly instead of clipping the requested gain.
+    crest_margin = source_crest_db - config.LOUDNESS_MIN_CREST_DB
+    crest_capacity = softness * float(
+        np.logaddexp(0.0, crest_margin / softness)
+    )
+    push_cap = min(
+        crest_capacity,
+        config.LOUDNESS_MAX_PUSH_DB,
+        config.LOUDNESS_MAX_CREST_REDUCTION_DB,
+    )
+    push_db = push_cap * float(
+        np.tanh(loudness_push / max(push_cap, np.finfo(float).eps))
+    )
 
     gained = audio * (10.0 ** (push_db / 20.0))
 
@@ -114,13 +87,13 @@ def apply(
     if verbose:
         print(
             f"   Loudness maximizer: +{push_db:.1f} dB push → limit "
-            f"(source {source_lufs:.1f} LUFS / {source_crest_db:.1f} dB crest, "
-            f"undermastered {undermastered:.2f})"
+            f"(source {source_lufs:.1f} LUFS / {source_crest_db:.1f} dB crest)"
         )
 
     return limited, {
         'stage': 'loudness_maximizer',
         'push_db': push_db,
-        'undermastered': undermastered,
+        'level_gap_db': loudness_gap,
+        'push_cap_db': push_cap,
         'source_lufs': source_lufs,
     }

@@ -22,7 +22,6 @@ from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.stereo import adjust_stereo_width, stereo_width_analysis
 from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug
-from ..recording_type_detector import RecordingTypeDetector
 from .base import (
     CompressionStrategies,
     DBConversion,
@@ -82,7 +81,7 @@ def _apply_spectral_tilt_correction(
         result = low / gain + high * gain
 
     # Preserve input dtype — sosfiltfilt upcasts float32 to float64
-    return result.astype(audio.dtype, copy=False)
+    return np.asarray(result, dtype=audio.dtype)
 
 
 class ContinuousMode:
@@ -99,7 +98,6 @@ class ContinuousMode:
         config: Any,
         content_analyzer: Any,
         fingerprint_analyzer: Any,
-        recording_type_detector: Any | None = None,
         fingerprint_repository: Any | None = None,
     ) -> None:
         """
@@ -109,7 +107,6 @@ class ContinuousMode:
             config: UnifiedConfig instance
             content_analyzer: ContentAnalyzer for audio analysis
             fingerprint_analyzer: AudioFingerprintAnalyzer for 25D fingerprints
-            recording_type_detector: Optional RecordingTypeDetector instance (shared from parent)
             fingerprint_repository: Optional FingerprintRepository used to fetch
                 the reference cloud (is_reference=True fingerprints). When
                 provided AND the cloud is non-empty, the EQ stage uses the
@@ -130,19 +127,10 @@ class ContinuousMode:
         self.space_mapper = ProcessingSpaceMapper()
         self.param_generator = ContinuousParameterGenerator()
 
-        # Use provided detector or create a new one (for backwards compatibility)
-        if recording_type_detector is not None:
-            self.recording_type_detector = recording_type_detector
-        else:
-            # Fallback for backwards compatibility (when called without detector)
-            self.recording_type_detector = RecordingTypeDetector()
-
         # Store last fingerprint and parameters for debugging/learning
         self.last_fingerprint: dict[str, Any] | None = None
         self.last_coordinates: Any | None = None  # ProcessingCoordinates
         self.last_parameters: ProcessingParameters | None = None
-        self.last_recording_type: Any | None = None
-        self.last_adaptive_params: Any | None = None
 
         # Cross-dimensional analysis (populated after each process() call)
         self.last_journal: PipelineJournal | None = None
@@ -299,18 +287,6 @@ class ContinuousMode:
             return None
 
         debug(f"[Continuous Space] Fingerprint extracted: Bass: {fingerprint['bass_pct']:.1f}%, Crest: {fingerprint['crest_db']:.1f} dB, LUFS: {fingerprint['lufs']:.1f}")
-
-        # Step 1b: Detect recording type from fingerprint (Phase 5)
-        recording_type, adaptive_params = self.recording_type_detector.detect(
-            processed_audio,
-            self.config.internal_sample_rate
-        )
-        self.last_recording_type = recording_type
-        self.last_adaptive_params = adaptive_params
-
-        debug(f"[Recording Type Detector] Detected: {recording_type.value} (confidence: {adaptive_params.confidence:.1%})")
-        debug(f"[Recording Type Detector] Philosophy: {adaptive_params.mastering_philosophy}")
-        debug(f"[Recording Type Detector] Bass: {adaptive_params.bass_adjustment_db:+.2f} dB, Treble: {adaptive_params.treble_adjustment_db:+.2f} dB")
 
         # Step 2: Map to 3D processing space
         coords = self.space_mapper.map_fingerprint_to_space(fingerprint)
@@ -533,40 +509,9 @@ class ContinuousMode:
         return processed_audio
 
     def _apply_eq(self, audio: np.ndarray, eq_processor: Any, params: Any) -> np.ndarray:
-        """Apply EQ using generated parameters with adaptive guidance"""
+        """Apply EQ using the continuously generated parameters."""
 
         eq_curve = dict(params.eq_curve)
-
-        # Apply adaptive guidance if recording type was detected
-        if self.last_adaptive_params is not None:
-            adaptive_params = self.last_adaptive_params
-
-            # Blend adaptive guidance with continuous space curve
-            # Higher confidence = more aggressive adaptive guidance
-            adaptive_blend = min(adaptive_params.confidence, 0.7)  # Cap at 70% influence
-
-            # Apply adaptive bass adjustment
-            eq_curve['low_shelf_gain'] = (
-                eq_curve['low_shelf_gain'] * (1 - adaptive_blend) +
-                adaptive_params.bass_adjustment_db * adaptive_blend
-            )
-
-            # Apply adaptive mid adjustment
-            eq_curve['low_mid_gain'] = (
-                eq_curve['low_mid_gain'] * (1 - adaptive_blend) +
-                adaptive_params.mid_adjustment_db * adaptive_blend
-            )
-
-            # Apply adaptive treble adjustment
-            eq_curve['high_shelf_gain'] = (
-                eq_curve['high_shelf_gain'] * (1 - adaptive_blend) +
-                adaptive_params.treble_adjustment_db * adaptive_blend
-            )
-
-            debug(f"[EQ] Applied adaptive guidance (blend={adaptive_blend:.1%}): "
-                  f"Bass {adaptive_params.bass_adjustment_db:+.2f} dB, "
-                  f"Mid {adaptive_params.mid_adjustment_db:+.2f} dB, "
-                  f"Treble {adaptive_params.treble_adjustment_db:+.2f} dB")
 
         # Create targets dict using EQProcessor._targets_to_eq_curve() key names
         targets = {
@@ -592,12 +537,12 @@ class ContinuousMode:
         return audio
 
     def _apply_dynamics(self, audio: np.ndarray, params: Any) -> np.ndarray:
-        """Apply offline dynamics (compression/expansion) with adaptive guidance.
+        """Apply offline dynamics from continuous fingerprint measurements.
 
         The offline path deliberately uses its OWN dynamics here
         (``CompressionStrategies.apply_clip_blend_compression`` /
         ``ExpansionStrategies.apply_rms_reduction_expansion``, tuned by the
-        detected recording-type mastering philosophy) rather than
+        continuous-space coordinates) rather than
         ``HybridProcessor.dynamics_processor``. That ``DynamicsProcessor`` is the
         *realtime* streaming engine; this stage is instead integrated with the
         continuous-space ``PipelineJournal`` / ``CrossDimensionalGuard`` and the
@@ -606,61 +551,11 @@ class ContinuousMode:
         divergence is intentional, not an oversight (#2897).
         """
 
-        # Adjust compression parameters based on adaptive guidance
         compression_params = params.compression_params.copy()
         expansion_params = params.expansion_params.copy()
 
-        if self.last_adaptive_params is not None:
-            adaptive_params = self.last_adaptive_params
-
-            # Use adaptive confidence to scale compression amount
-            # Higher confidence in recording type = more aggressive compression tuning
-            adaptive_strength = adaptive_params.confidence
-
-            # Adjust compression ratio and amount based on recording type philosophy
-            if adaptive_params.mastering_philosophy == "correct":
-                # Bootleg: More aggressive compression to tame dynamics
-                compression_params['ratio'] = min(
-                    compression_params['ratio'] * (1 + adaptive_strength * 0.3),
-                    4.0  # Cap at 4:1
-                )
-                compression_params['amount'] = min(
-                    compression_params['amount'] * (1 + adaptive_strength * 0.2),
-                    0.9  # Cap at 90%
-                )
-                debug(f"[Dynamics] Bootleg correction: ratio {compression_params['ratio']:.2f}:1, "
-                      f"amount {compression_params['amount']:.0%}")
-
-            elif adaptive_params.mastering_philosophy == "punch":
-                # Metal: Controlled compression for punch (not over-compressed)
-                compression_params['ratio'] = max(
-                    compression_params['ratio'] * (1 - adaptive_strength * 0.1),
-                    1.5  # Minimum 1.5:1
-                )
-                # Keep amount moderate for metal
-                debug(f"[Dynamics] Metal punch: ratio {compression_params['ratio']:.2f}:1, "
-                      f"amount {compression_params['amount']:.0%}")
-
-            elif adaptive_params.mastering_philosophy == "enhance":
-                # Studio: Subtle compression, preserve dynamics
-                compression_params['ratio'] = max(
-                    compression_params['ratio'] * (1 - adaptive_strength * 0.2),
-                    1.2  # Minimum 1.2:1
-                )
-                compression_params['amount'] = max(
-                    compression_params['amount'] * (1 - adaptive_strength * 0.3),
-                    0.1  # Minimum 10%
-                )
-                debug(f"[Dynamics] Studio enhancement: ratio {compression_params['ratio']:.2f}:1, "
-                      f"amount {compression_params['amount']:.0%}")
-
-        # Apply Compression
-        if compression_params['amount'] > 0.1:
-            audio = self._apply_compression(audio, compression_params)
-
-        # Apply Expansion (de-mastering) if needed
-        if expansion_params['amount'] > 0.1:
-            audio = self._apply_expansion(audio, expansion_params)
+        audio = self._apply_compression(audio, compression_params)
+        audio = self._apply_expansion(audio, expansion_params)
 
         return audio
 
@@ -678,7 +573,7 @@ class ContinuousMode:
         return ExpansionStrategies.apply_rms_reduction_expansion(audio, exp_params)
 
     def _apply_stereo_width(self, audio: np.ndarray, params: Any) -> np.ndarray:
-        """Apply stereo width adjustment with adaptive guidance"""
+        """Apply the continuously generated stereo-width target."""
 
         # Only process stereo audio
         if not StereoWidthProcessor.validate_stereo(audio):
@@ -688,46 +583,17 @@ class ContinuousMode:
         current_width = stereo_width_analysis(audio)
         target_width = params.stereo_width_target
 
-        # Apply adaptive guidance if recording type was detected
-        if self.last_adaptive_params is not None:
-            adaptive_params = self.last_adaptive_params
+        # Check peak levels before expansion (safety)
+        pre_peak_db = StereoWidthProcessor.get_peak_db(audio)
 
-            # Use adaptive stereo strategy to modulate target
-            # Each philosophy has different stereo treatment approach
-            if adaptive_params.stereo_strategy == "narrow":
-                # Narrow: Reduce stereo width (metal recordings, mono sources)
-                target_width = current_width * (
-                    1 - adaptive_params.confidence * (1 - adaptive_params.stereo_width_target)
-                )
-                debug(f"[Stereo Width] Narrowing strategy: {current_width:.2f} → "
-                      f"{target_width:.2f} (confidence {adaptive_params.confidence:.0%})")
+        # Skip expansion if already close to clipping
+        if pre_peak_db > -2.0 and target_width > current_width:
+            debug(f"[Stereo Width] SKIPPED expansion due to high peak ({pre_peak_db:.2f} dB)")
+            return audio
 
-            elif adaptive_params.stereo_strategy == "expand":
-                # Expand: Increase stereo width (bootleg concert recordings)
-                target_width = current_width + (
-                    (adaptive_params.stereo_width_target - current_width) *
-                    adaptive_params.confidence
-                )
-                debug(f"[Stereo Width] Expansion strategy: {current_width:.2f} → "
-                      f"{target_width:.2f} (confidence {adaptive_params.confidence:.0%})")
-
-            elif adaptive_params.stereo_strategy == "maintain":
-                # Maintain: Keep current width close to reference
-                target_width = adaptive_params.stereo_width_target
-
-        # Only adjust if significant difference
-        if abs(target_width - current_width) > 0.05:
-            # Check peak levels before expansion (safety)
-            pre_peak_db = StereoWidthProcessor.get_peak_db(audio)
-
-            # Skip expansion if already close to clipping
-            if pre_peak_db > -2.0 and target_width > current_width:
-                debug(f"[Stereo Width] SKIPPED expansion due to high peak ({pre_peak_db:.2f} dB)")
-                return audio
-
-            audio = adjust_stereo_width(audio, target_width)
-            post_width = stereo_width_analysis(audio)
-            debug(f"[Stereo Width] {current_width:.2f} → {post_width:.2f} (target: {target_width:.2f})")
+        audio = adjust_stereo_width(audio, target_width)
+        post_width = stereo_width_analysis(audio)
+        debug(f"[Stereo Width] {current_width:.2f} → {post_width:.2f} (target: {target_width:.2f})")
 
         return audio
 

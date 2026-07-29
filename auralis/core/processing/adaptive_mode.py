@@ -14,8 +14,8 @@ import numpy as np
 
 from ...dsp.basic import amplify, rms
 from ...dsp.utils.adaptive import calculate_loudness_units
-from ...dsp.utils.stereo import stereo_width_analysis
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
+from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug
 from .base import (
@@ -57,7 +57,7 @@ class AdaptiveMode:
         self.content_analyzer = content_analyzer
         self.target_generator = target_generator
         self.spectrum_mapper = spectrum_mapper
-        self.last_content_profile = None
+        self.last_content_profile: dict[str, Any] | None = None
 
     def process(self, target_audio: np.ndarray, eq_processor: Any) -> np.ndarray:
         """
@@ -146,10 +146,8 @@ class AdaptiveMode:
 
     def _apply_dynamics_processing(self, audio: np.ndarray,
                                    spectrum_params: Any, spectrum_position: Any) -> np.ndarray:
-        """Apply compression and expansion based on spectrum parameters and 2D LWRP"""
+        """Apply continuously weighted compression and expansion."""
 
-        # CRITICAL: 2D Loudness-War Restraint Principle check
-        # Determine if we need expansion for compressed loud material
         source_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
         current_peak = np.max(np.abs(audio))
         current_peak_db = DBConversion.to_db(current_peak)
@@ -157,49 +155,32 @@ class AdaptiveMode:
         current_rms_db = DBConversion.to_db(current_rms)
         crest_factor_db = current_peak_db - current_rms_db
 
-        # Check if this is compressed loud material that needs special handling
-        is_compressed_loud = (
-            source_lufs > AdaptiveLoudnessControl.VERY_LOUD_THRESHOLD and
-            crest_factor_db < 13.0
+        loudness_coordinate = 0.5 + 0.5 * np.tanh(
+            (source_lufs + 14.3887) / (2.0 * 2.7732)
+        )
+        crest_coordinate = 0.5 + 0.5 * np.tanh(
+            (crest_factor_db - 13.4207) / (2.0 * 1.7884)
+        )
+        expansion_response = loudness_coordinate * (1.0 - crest_coordinate)
+
+        base_compression = float(np.clip(spectrum_params.compression_amount, 0.0, 1.0))
+        base_expansion = float(np.clip(spectrum_params.expansion_amount, 0.0, 1.0))
+        spectrum_params.compression_amount = (
+            base_compression * (1.0 - expansion_response)
+        )
+        spectrum_params.expansion_amount = (
+            1.0 - (1.0 - base_expansion) * (1.0 - expansion_response)
         )
 
-        if is_compressed_loud:
-            # Compressed loud material: Apply expansion to restore dynamics
-            expansion_factor = max(0.1, (13.0 - crest_factor_db) / 10.0)
-            debug(f"[2D LWRP] Compressed loud (LUFS {source_lufs:.1f}, crest {crest_factor_db:.1f}) → expansion {expansion_factor:.2f}")
-            print(f"[2D LWRP] Compressed loud material (LUFS {source_lufs:.1f} dB, crest {crest_factor_db:.1f} dB)")
-            print(f"[2D LWRP] → Applying expansion factor {expansion_factor:.2f} to restore dynamics")
+        debug(
+            f"[2D dynamics] LUFS {source_lufs:.1f}, crest {crest_factor_db:.1f}, "
+            f"compression {spectrum_params.compression_amount:.2f}, "
+            f"expansion {spectrum_params.expansion_amount:.2f}"
+        )
 
-            # Override spectrum_params expansion with LWRP-driven expansion
-            spectrum_params.expansion_amount = expansion_factor
-            spectrum_params.compression_amount = 0.0  # Don't compress compressed material further
-
-            # Apply expansion
-            audio = self._apply_expansion(audio, spectrum_params)
-
-            # Apply gentle gain reduction to prevent over-loudness after expansion
-            gentle_reduction = -0.5
-            audio = amplify(audio, gentle_reduction)
-            debug(f"[2D LWRP] Applied {gentle_reduction:.1f} dB gentle reduction after expansion")
-            print(f"[2D LWRP] → Applied {gentle_reduction:.1f} dB gentle gain reduction")
-
-        elif source_lufs > AdaptiveLoudnessControl.VERY_LOUD_THRESHOLD:
-            # Dynamic loud material: Pass-through (LWRP principle)
-            debug(f"[2D LWRP] Dynamic loud (LUFS {source_lufs:.1f}, crest {crest_factor_db:.1f}) → pass-through")
-            print(f"[2D LWRP] Dynamic loud material (LUFS {source_lufs:.1f} dB, crest {crest_factor_db:.1f} dB)")
-            print(f"[2D LWRP] → Respecting original mastering (minimal processing)")
-            spectrum_params.compression_amount = 0.0
-            spectrum_params.expansion_amount = 0.0
-
-        else:
-            # Quiet/moderate material: Use spectrum-based parameters
-            # SIMPLE DIY COMPRESSOR - Direct crest factor reduction
-            if spectrum_params.compression_amount > 0.1:
-                audio = self._apply_compression(audio, spectrum_params)
-
-            # SIMPLE DIY EXPANDER - Direct crest factor expansion (de-mastering)
-            if spectrum_params.expansion_amount > 0.1:
-                audio = self._apply_expansion(audio, spectrum_params)
+        audio = self._apply_compression(audio, spectrum_params)
+        audio = self._apply_expansion(audio, spectrum_params)
+        audio = amplify(audio, -0.5 * expansion_response)
 
         return audio
 
@@ -276,15 +257,24 @@ class AdaptiveMode:
 
         # Extract bass and transient info from content profile for bass-aware gain reduction
         # This prevents kick/bass harmonic overlap in bass-heavy material
-        bass_pct = self.last_content_profile.get('bass_energy_pct', None) if self.last_content_profile else None
-        transient_density = self.last_content_profile.get('transient_density', None) if self.last_content_profile else None
+        bass_pct = float(
+            self.last_content_profile.get('bass_energy_pct', 0.0)
+            if self.last_content_profile else 0.0
+        )
+        transient_density = float(
+            self.last_content_profile.get('transient_density', 0.0)
+            if self.last_content_profile else 0.0
+        )
 
         makeup_gain, gain_reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
             source_lufs, intensity, crest_factor_db, bass_pct, transient_density
         )
 
-        if bass_pct is not None:
-            debug(f"[Bass-Aware Gain] Bass: {bass_pct:.1%}, Transients: {transient_density:.2f if transient_density else 0} - {gain_reasoning}")
+        if self.last_content_profile:
+            debug(
+                f"[Bass-Aware Gain] Bass: {bass_pct:.1%}, "
+                f"Transients: {transient_density:.2f} - {gain_reasoning}"
+            )
 
         # Only apply makeup gain if not in expansion mode AND gain is > 0.5 dB
         should_apply_gain = (

@@ -18,9 +18,9 @@ from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
 from auralis.core.analysis.content_analyzer import ContentAnalyzer
-from auralis.core.processing.continuous_mode import ContinuousMode
 from auralis.core.config import UnifiedConfig
-
+from auralis.core.hybrid_processor import HybridProcessor
+from auralis.core.processing.continuous_mode import ContinuousMode
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -99,6 +99,17 @@ def test_no_repository_uses_legacy_eq_path(config, audio_5s):
     assert delta_path.call_count == 0
 
 
+def test_mastering_path_has_no_recording_type_classifier(config):
+    """Mastering parameters must come from measurements, never a music tag."""
+    mode = ContinuousMode(config, ContentAnalyzer(), AudioFingerprintAnalyzer())
+    processor = HybridProcessor(config)
+
+    for instance in (mode, processor):
+        assert not hasattr(instance, 'recording_type_detector')
+        assert not hasattr(instance, 'last_recording_type')
+        assert not hasattr(instance, 'last_adaptive_params')
+
+
 def test_empty_cloud_uses_legacy_eq_path(config, audio_5s):
     """Repo present but cloud empty → still falls back to legacy curve."""
     mode = ContinuousMode(
@@ -166,7 +177,7 @@ def test_cloud_changes_eq_curve_versus_legacy(config, audio_5s):
     noise = rng.standard_normal(sr * 5).astype(np.float64) * 0.05
     stereo = np.column_stack([bass_signal + noise, bass_signal + noise])
 
-    # Run 1: no cloud → legacy curve
+    # Run 1: no cloud → corpus-centered continuous fallback
     mode_legacy = ContinuousMode(config, ContentAnalyzer(), AudioFingerprintAnalyzer())
     mode_legacy.process(stereo.copy(), _IdentityEQ())
     legacy_eq = dict(mode_legacy.last_parameters.eq_curve)
@@ -180,8 +191,7 @@ def test_cloud_changes_eq_curve_versus_legacy(config, audio_5s):
     mode_delta.process(stereo.copy(), _IdentityEQ())
     delta_eq = dict(mode_delta.last_parameters.eq_curve)
 
-    # The two paths should differ on at least one gain (the low_shelf is the
-    # most direct evidence — legacy produces unconditional lift on bass).
+    # The two continuous target sources should differ on at least one gain.
     differences = {
         k: delta_eq[k] - legacy_eq[k]
         for k in ('low_shelf_gain', 'low_mid_gain', 'mid_gain',
@@ -190,9 +200,9 @@ def test_cloud_changes_eq_curve_versus_legacy(config, audio_5s):
     assert any(abs(d) > 0.1 for d in differences.values()), (
         f"Delta path produced same curve as legacy: {differences}"
     )
-    # And specifically: on bass-heavy source, delta path's low_shelf must be
-    # LOWER than legacy's (cut vs lift).
-    assert delta_eq['low_shelf_gain'] < legacy_eq['low_shelf_gain'], (
+    # Both paths respond with a signed cut on this bass-heavy source.
+    assert delta_eq['low_shelf_gain'] < 0.0
+    assert legacy_eq['low_shelf_gain'] < 0.0, (
         f"Bass-heavy source: legacy low_shelf={legacy_eq['low_shelf_gain']:+.2f}, "
-        f"delta low_shelf={delta_eq['low_shelf_gain']:+.2f} — delta should be lower."
+        f"delta low_shelf={delta_eq['low_shelf_gain']:+.2f}"
     )

@@ -64,14 +64,14 @@ class SimpleMasteringPipeline:
         self._process_lock = threading.RLock()
         # Per-file accurate ITU-R BS.1770 loudness, measured once in
         # master_file (mastering_prepare.prepare_file) and consumed by the
-        # QuietBranch loudness maximizer — the fingerprint's `lufs` is a
+        # Continuous-path loudness maximizer — the fingerprint's `lufs` is a
         # non-K-weighted RMS proxy that under-reads high-DR material by
         # 3-5 dB. None on the direct _process() test path, where the
         # branch falls back to the fingerprint value.
         self._source_lufs: float | None = None
         self._source_crest_db: float | None = None
         # Per-file whole-song peak (dB), measured once in master_file, used
-        # ONLY as the headroom reference for the QuietBranch makeup-gain
+        # ONLY as the headroom reference for the continuous-path makeup-gain
         # clamp — NOT for Stage 1's per-chunk clip prevention, which
         # correctly keeps using each chunk's own peak. None on the direct
         # _process() test path, where the per-chunk peak is the fallback.

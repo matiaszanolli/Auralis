@@ -12,8 +12,7 @@ Tests the .25d sidecar file management system
 
 import json
 import time
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import datetime
 
 import pytest
 
@@ -207,6 +206,22 @@ def test_is_valid_with_wrong_format_version(sidecar_manager, temp_audio_file, sa
     assert not sidecar_manager.is_valid(temp_audio_file)
 
 
+def test_is_valid_rejects_legacy_format_version(
+    sidecar_manager, temp_audio_file, sample_sidecar_data
+):
+    """Version 1 sidecars contain measurements from the superseded extractor."""
+    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
+
+    sidecar_path = sidecar_manager.get_sidecar_path(temp_audio_file)
+    with open(sidecar_path, 'r') as f:
+        data = json.load(f)
+    data["format_version"] = "1.0"
+    with open(sidecar_path, 'w') as f:
+        json.dump(data, f)
+
+    assert not sidecar_manager.is_valid(temp_audio_file)
+
+
 def test_is_valid_with_missing_required_fields(sidecar_manager, temp_audio_file, sample_sidecar_data):
     """Test is_valid() returns False when required fields are missing"""
     # Write valid file
@@ -237,9 +252,7 @@ def test_is_valid_with_incomplete_fingerprint(sidecar_manager, temp_audio_file, 
     with open(sidecar_path, 'w') as f:
         json.dump(data, f)
 
-    # Current implementation doesn't validate dimension count, so this should still be valid
-    # TODO: Add dimension count validation to SidecarManager.is_valid()
-    assert sidecar_manager.is_valid(temp_audio_file)  # Currently passes validation
+    assert not sidecar_manager.is_valid(temp_audio_file)
 
 
 # ===== Fingerprint Extraction Tests =====
@@ -329,9 +342,7 @@ def test_write_with_empty_fingerprint(sidecar_manager, temp_audio_file):
     success = sidecar_manager.write(temp_audio_file, data)
     assert success  # Should write successfully
 
-    # Validation will pass since fingerprint field exists (even if empty)
-    # TODO: Add dimension count validation to fail on empty fingerprints
-    assert sidecar_manager.is_valid(temp_audio_file)
+    assert not sidecar_manager.is_valid(temp_audio_file)
 
 
 def test_read_with_permission_error(sidecar_manager, temp_audio_file, sample_sidecar_data, monkeypatch):

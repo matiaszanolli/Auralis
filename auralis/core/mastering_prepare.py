@@ -148,7 +148,7 @@ def prepare_file(
         notch_sample = audio_file.read(notch_window).astype(np.float32)
 
     # Accurate ITU-R BS.1770 integrated loudness + crest on the same
-    # representative window. Drives the QuietBranch loudness maximizer's
+    # representative window. Drives the continuous-path loudness maximizer's
     # makeup decision (the fingerprint's RMS-proxy LUFS under-reads
     # high-DR material by 3-5 dB). Best-effort: leaves None on failure and
     # the branch falls back to the fingerprint value.
@@ -184,14 +184,14 @@ def prepare_file(
                 print(f"   {n.freq_hz:6.0f} Hz   {n.depth_db:+5.1f} dB (Q={n.q:.1f})")
         elif detected:
             # Resonances exist but all skipped by band-context filter
-            print(f"\n🎯 Resonances detected but skipped — target bands too deficient")
+            print("\n🎯 Resonances detected but skipped — target bands too deficient")
             print(f"   ({len(detected)} candidates: " +
                   ", ".join(f"{n.freq_hz:.0f}Hz" for n in detected) + ")")
         else:
             print("\n🎯 No prominent resonances detected — skipping notch stage")
 
     # Step 2c: Whole-song peak, scanned once up front.
-    # 2026-07-08: the QuietBranch makeup-gain headroom clamp (see
+    # 2026-07-08: the continuous-path makeup-gain headroom clamp (see
     # AdaptiveLoudnessControl.calculate_adaptive_gain) used to receive
     # each chunk's OWN peak_db, computed fresh per 30s chunk in the
     # loop below. That's correct for Stage 1's per-chunk clip

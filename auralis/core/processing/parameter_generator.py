@@ -19,6 +19,20 @@ from .continuous_space import (
 )
 
 
+def _signed_band_gain(
+    source_fraction: float,
+    center_fraction: float,
+    limit_db: float,
+    transition_db: float = 6.0,
+) -> float:
+    """Return a smooth signed gain from a source/center energy ratio."""
+    epsilon = 1e-8
+    delta_db = 10.0 * np.log10(
+        (center_fraction + epsilon) / (source_fraction + epsilon)
+    )
+    return float(limit_db * np.tanh(delta_db / transition_db))
+
+
 class ContinuousParameterGenerator:
     """
     Generates DSP parameters from processing space coordinates.
@@ -121,12 +135,9 @@ class ContinuousParameterGenerator:
         """
         Calculate target LUFS based on input energy and dynamic range.
 
-        Strategy:
-        - Preserve input loudness for already-loud material (energy > 0.7)
-        - Boost quiet material conservatively (energy < 0.4)
-        - Moderate boost for medium material
-        - Dynamic material: More conservative targets to preserve headroom
-        - Compressed material: Can push slightly louder
+        The lift approaches a dynamics-aware maximum smoothly as the source
+        moves below the reference loudness. No source category or coordinate
+        boundary selects a different formula.
 
         Args:
             coords: Processing space coordinates
@@ -135,41 +146,19 @@ class ContinuousParameterGenerator:
         Returns:
             Target LUFS value
         """
-        energy = coords.energy_level
         dynamics = coords.dynamic_range
         fp = coords.fingerprint
 
-        # Use actual input LUFS as reference point
         input_lufs = fp.get('lufs', -14.0)
-
-        # Strategy: Normalize material to -14 to -12 LUFS range based on input level
-        # This ensures all material gets adequate loudness while respecting dynamics
-        #
-        # Test cases validate:
-        # 1. Quiet dynamic (-25 LUFS, energy=0.2): Target -18 to -14 (+7 to +11 dB boost)
-        # 2. Loud compressed (-10 LUFS, energy=0.9): Target -12 to -9 (no boost, preserve)
-        # 3. Medium track (-15 LUFS, energy=0.75): Target -15 to -12 (+0 to +3 dB boost)
-
-        if energy > 0.8:
-            # Very loud material: preserve loudness (minimal boost)
-            # -10 LUFS input → -12 to -9 output
-            target_lufs = np.clip(input_lufs, -12.0, -9.0)
-        elif energy > 0.65:
-            # Loud material: small boost to reach -12 dB area
-            # Target: -15 to -12 LUFS
-            target_lufs = input_lufs + 2.0
-        elif energy > 0.4:
-            # Medium material: moderate boost to -14 to -12 range
-            # Target: -14 to -12 LUFS
-            target_lufs = input_lufs + 3.0
-        else:
-            # Quiet material: aggressive boost while preserving clarity
-            # -25 LUFS input → -18 to -14 output (+7 to +11 dB boost)
-            # For very dynamic material (dynamics=0.8): smaller boost to preserve headroom
-            # For compressed material (dynamics=0.0): larger boost
-            # Base boost: +8 dB, reduced by (dynamics * 1.0) to allow dynamic preservation
-            target_lufs = input_lufs + 8.0 - (dynamics * 1.0)
-            # Test case: -25 + 8.0 - 0.8 = -17.8 (within -18 to -14 range) ✓
+        reference_lufs = -12.0
+        softness_db = 0.75
+        loudness_gap = reference_lufs - input_lufs
+        desired_lift = softness_db * np.logaddexp(
+            0.0, loudness_gap / softness_db
+        )
+        maximum_lift = 8.25 - dynamics
+        gain_db = maximum_lift * np.tanh(desired_lift / maximum_lift)
+        target_lufs = input_lufs + gain_db
 
         # Apply user loudness preference if provided
         # This is applied AFTER automatic boost calculation
@@ -243,28 +232,18 @@ class ContinuousParameterGenerator:
         """
         fp = coords.fingerprint
 
-        # Analyze deficits (what's missing compared to ideal).
-        # Fingerprint band fractions are stored as 0.0–1.0 — see
-        # auralis/analysis/fingerprint/schema.py. Previously these were
-        # written as percentages (28.0, 12.0, 35.0) which collapsed every
-        # deficit to ≈ 0.98 and made the EQ output identical for every
-        # source (bug surfaced when comparing bright/dull/squashed inputs).
-        IDEAL_BASS = 0.28   # ~28% energy in 60-250 Hz
-        IDEAL_AIR = 0.12    # ~12% energy in 6-20 kHz
-        IDEAL_MID = 0.35    # ~35% energy in 500-2000 Hz
-
-        # Calculate deficit ratios (how far from ideal)
-        bass_deficit = max(0.0, IDEAL_BASS - fp['bass_pct']) / IDEAL_BASS    # 0-1
-        air_deficit = max(0.0, IDEAL_AIR - fp['air_pct']) / IDEAL_AIR        # 0-1
-        mid_deficit = max(0.0, IDEAL_MID - fp['mid_pct']) / IDEAL_MID        # 0-1
-
-        # Base EQ gains (boost what's missing)
-        # Use polynomial scaling for more aggressive boosts at higher deficits
-        low_shelf_gain = (bass_deficit ** 0.7) * 4.0    # Up to +4 dB bass boost (more aggressive)
-        high_shelf_gain = (air_deficit ** 0.7) * 3.0    # Up to +3 dB air boost
-        high_mid_gain = (air_deficit ** 0.7) * 2.5      # Up to +2.5 dB presence
-        low_mid_gain = 0.5                              # Always slight body enhancement
-        mid_gain = (mid_deficit ** 0.8) * 1.5           # Up to +1.5 dB mid boost
+        # Robust centers from the deterministic 512-track corpus sample. They
+        # define the origin of a signed continuous correction, not an ideal
+        # profile or a pass/fail range. ``tanh`` approaches the DSP envelope
+        # smoothly instead of clipping bands into deficit/excess classes.
+        low_shelf_gain = _signed_band_gain(fp['bass_pct'], 0.4561, 4.0)
+        low_mid_gain = _signed_band_gain(
+            fp.get('low_mid_pct', 0.1009), 0.1009, 2.0
+        )
+        mid_gain = _signed_band_gain(fp['mid_pct'], 0.1983, 2.0)
+        high_mid_source = fp.get('upper_mid_pct', 0.0733) + fp['presence_pct']
+        high_mid_gain = _signed_band_gain(high_mid_source, 0.1030, 3.0)
+        high_shelf_gain = _signed_band_gain(fp['air_pct'], 0.0063, 3.0)
 
         # Apply user preference adjustments
         if preference:
@@ -285,11 +264,11 @@ class ContinuousParameterGenerator:
 
         return {
             # Gains (dB)
-            'low_shelf_gain': np.clip(low_shelf_gain, 0.0, 5.0),
-            'low_mid_gain': np.clip(low_mid_gain, 0.0, 3.0),
-            'mid_gain': np.clip(mid_gain, 0.0, 2.0),
-            'high_mid_gain': np.clip(high_mid_gain, 0.0, 4.0),
-            'high_shelf_gain': np.clip(high_shelf_gain, 0.0, 4.0),
+            'low_shelf_gain': float(5.0 * np.tanh(low_shelf_gain / 5.0)),
+            'low_mid_gain': float(3.0 * np.tanh(low_mid_gain / 3.0)),
+            'mid_gain': float(2.0 * np.tanh(mid_gain / 2.0)),
+            'high_mid_gain': float(4.0 * np.tanh(high_mid_gain / 4.0)),
+            'high_shelf_gain': float(4.0 * np.tanh(high_shelf_gain / 4.0)),
 
             # Frequencies (Hz)
             'low_shelf_freq': 200,
@@ -360,20 +339,14 @@ class ContinuousParameterGenerator:
         """
         fp = coords.fingerprint
 
-        # Measure spectral imbalance
-        IDEAL_BASS = 30.0
-        IDEAL_AIR = 12.0
-        IDEAL_MID = 35.0
-
-        bass_imbalance = abs(fp['bass_pct'] - IDEAL_BASS) / IDEAL_BASS
-        air_imbalance = abs(fp['air_pct'] - IDEAL_AIR) / IDEAL_AIR
-        mid_imbalance = abs(fp['mid_pct'] - IDEAL_MID) / IDEAL_MID
-
-        # Average imbalance
-        imbalance = (bass_imbalance + air_imbalance + mid_imbalance) / 3.0
-
-        # More imbalance = more EQ (0.5 to 1.0 range)
-        eq_blend = 0.5 + (np.clip(imbalance, 0, 1) * 0.5)
+        epsilon = 1e-8
+        deviations = (
+            abs(np.log((fp['bass_pct'] + epsilon) / 0.4561)),
+            abs(np.log((fp['air_pct'] + epsilon) / 0.0063)),
+            abs(np.log((fp['mid_pct'] + epsilon) / 0.1983)),
+        )
+        mean_deviation = float(np.mean(deviations))
+        eq_blend = 0.35 + 0.55 * (1.0 - np.exp(-mean_deviation))
 
         return float(eq_blend)
 
@@ -385,10 +358,8 @@ class ContinuousParameterGenerator:
         """
         Generate compression parameters.
 
-        Strategy:
-        - Dynamic material (high dynamic_range): Very light or no compression
-        - Moderately dynamic: Light compression to control peaks
-        - Already compressed: No compression (expansion handled separately)
+        Compression strength follows a smooth bell over the dynamics axis:
+        minimal near either extreme and strongest around the corpus center.
 
         Args:
             coords: Processing space coordinates
@@ -408,33 +379,16 @@ class ContinuousParameterGenerator:
             effective_dynamics += preference.dynamic_bias * 0.3
             effective_dynamics = np.clip(effective_dynamics, 0.0, 1.0)
 
-        # Very dynamic (>0.7): Minimal compression
-        if effective_dynamics > 0.7:
-            return {
-                'ratio': 1.5,
-                'threshold': -26.0,
-                'attack': 25.0,
-                'release': 250.0,
-                'amount': 0.3,  # Apply very lightly
-            }
-        # Moderately dynamic (0.4-0.7): Light compression
-        elif effective_dynamics > 0.4:
-            return {
-                'ratio': 1.8,
-                'threshold': -22.0,
-                'attack': 20.0,
-                'release': 200.0,
-                'amount': 0.5,
-            }
-        # Already compressed (<0.4): No compression
-        else:
-            return {
-                'ratio': 1.0,
-                'threshold': 0.0,
-                'attack': 0.0,
-                'release': 0.0,
-                'amount': 0.0,  # Skip compression
-            }
+        compression_response = np.exp(
+            -0.5 * ((effective_dynamics - 0.55) / 0.18) ** 2
+        )
+        return {
+            'ratio': float(1.0 + 0.8 * compression_response),
+            'threshold': float(-18.0 - 8.0 * effective_dynamics),
+            'attack': float(12.0 + 18.0 * effective_dynamics),
+            'release': float(120.0 + 130.0 * effective_dynamics),
+            'amount': float(0.55 * compression_response),
+        }
 
     def _generate_expansion(
         self,
@@ -444,9 +398,7 @@ class ContinuousParameterGenerator:
         """
         Generate expansion parameters (de-mastering).
 
-        Strategy:
-        - Brick-walled material (low dynamics): Expand to restore dynamics
-        - Already dynamic: No expansion
+        Expansion strength decays continuously as measured dynamics increase.
 
         Args:
             coords: Processing space coordinates
@@ -464,24 +416,11 @@ class ContinuousParameterGenerator:
             effective_dynamics += preference.dynamic_bias * 0.3
             effective_dynamics = np.clip(effective_dynamics, 0.0, 1.0)
 
-        # Brick-walled (<0.3): Strong expansion
-        if effective_dynamics < 0.3:
-            return {
-                'target_crest_increase': 4.0,  # +4 dB crest increase
-                'amount': 1.0,
-            }
-        # Moderately compressed (0.3-0.5): Light expansion
-        elif effective_dynamics < 0.5:
-            return {
-                'target_crest_increase': 2.0,  # +2 dB crest increase
-                'amount': 0.6,
-            }
-        # Already dynamic (>0.5): No expansion
-        else:
-            return {
-                'target_crest_increase': 0.0,
-                'amount': 0.0,
-            }
+        inverse_dynamics = 1.0 - effective_dynamics
+        return {
+            'target_crest_increase': float(3.0 * inverse_dynamics),
+            'amount': float(0.85 * inverse_dynamics ** 2),
+        }
 
     def _calculate_dynamics_blend(
         self,
@@ -543,10 +482,8 @@ class ContinuousParameterGenerator:
         """
         Calculate target stereo width.
 
-        Strategy:
-        - Narrow material (<0.5): Expand width to 0.7-0.8
-        - Already wide (>0.85): Reduce slightly to avoid phase issues
-        - Good width (0.5-0.85): Preserve or enhance slightly
+        Move continuously toward a conservative center while retaining most of
+        the source width.
 
         Args:
             coords: Processing space coordinates
@@ -558,20 +495,15 @@ class ContinuousParameterGenerator:
         fp = coords.fingerprint
         current_width = fp.get('stereo_width', 0.7)
 
-        # Determine target based on current width
-        if current_width < 0.5:
-            # Narrow: expand to 0.7-0.8
-            target_width = 0.7 + (coords.spectral_balance * 0.1)
-        elif current_width > 0.85:
-            # Too wide: reduce to safer level
-            target_width = 0.75
-        else:
-            # Good width: preserve with slight enhancement
-            target_width = current_width + 0.05
+        target_width = (
+            current_width
+            + 0.45 * (0.72 - current_width)
+            + 0.04 * (coords.spectral_balance - 0.5)
+        )
 
         # Apply user stereo preference
         if preference:
             # Stereo bias shifts target (-1 = narrower, +1 = wider)
             target_width += preference.stereo_bias * 0.2
 
-        return float(np.clip(target_width, 0.5, 0.9))
+        return float(0.5 + 0.45 * np.tanh((target_width - 0.5) / 0.45))

@@ -16,7 +16,7 @@ from typing import Any
 
 
 def print_fingerprint(fp: dict[str, Any]) -> None:
-    """Print key fingerprint metrics organized by category."""
+    """Print key fingerprint metrics organized by measurement group."""
     print("\n📊 Fingerprint (25D):")
 
     # Dynamics (3D) - Critical for loudness/compression decisions
@@ -24,18 +24,7 @@ def print_fingerprint(fp: dict[str, Any]) -> None:
     crest_db = fp.get('crest_db', 12.0)
     bass_mid_ratio = fp.get('bass_mid_ratio', 0.0)
 
-    # Classify material type based on LUFS + Crest
-    if lufs > -12.0 and crest_db < 13.0:
-        if crest_db < 8.0:
-            material_type = "Hyper-compressed loud"
-        else:
-            material_type = "Compressed loud"
-    elif lufs > -12.0:
-        material_type = "Dynamic loud"
-    else:
-        material_type = "Quiet"
-
-    print(f"   🔊 Dynamics: {material_type}")
+    print("   🔊 Dynamics:")
     print(f"      LUFS: {lufs:.1f} dB  │  Crest: {crest_db:.1f} dB  │  Bass/Mid: {bass_mid_ratio:.2f}")
 
     # Frequency (7D) - Spectral balance
@@ -65,15 +54,7 @@ def print_fingerprint(fp: dict[str, Any]) -> None:
     spectral_rolloff = fp.get('spectral_rolloff', 0.5)
     spectral_flatness = fp.get('spectral_flatness', 0.5)
 
-    # Interpret brightness
-    if spectral_centroid > 0.6 and spectral_rolloff > 0.6:
-        brightness = "Bright"
-    elif spectral_centroid < 0.4 and spectral_rolloff < 0.4:
-        brightness = "Dark"
-    else:
-        brightness = "Neutral"
-
-    print(f"   ✨ Spectral: {brightness}")
+    print("   ✨ Spectral:")
     print(f"      Centroid: {spectral_centroid:.0%}  │  Rolloff: {spectral_rolloff:.0%}  │  Flatness: {spectral_flatness:.0%}")
 
     # Harmonic (3D) - Tonality
@@ -81,33 +62,14 @@ def print_fingerprint(fp: dict[str, Any]) -> None:
     pitch_stability = fp.get('pitch_stability', 0.5)
     chroma_energy = fp.get('chroma_energy', 0.5)
 
-    # Classify harmonic content
-    avg_harmonic = (harmonic_ratio + pitch_stability) / 2
-    if avg_harmonic > 0.7:
-        tonality = "Highly tonal"
-    elif avg_harmonic > 0.5:
-        tonality = "Tonal"
-    elif avg_harmonic > 0.3:
-        tonality = "Mixed"
-    else:
-        tonality = "Percussive/Noisy"
-
-    print(f"   🎼 Harmonic: {tonality}")
+    print("   🎼 Harmonic:")
     print(f"      Harmonic: {harmonic_ratio:.0%}  │  Pitch: {pitch_stability:.0%}  │  Chroma: {chroma_energy:.0%}")
 
     # Stereo (2D)
     stereo_width = fp.get('stereo_width', 0.5)
     phase_correlation = fp.get('phase_correlation', 1.0)
 
-    # Classify stereo field
-    if stereo_width < 0.3:
-        stereo_type = "Narrow"
-    elif stereo_width < 0.6:
-        stereo_type = "Normal"
-    else:
-        stereo_type = "Wide"
-
-    print(f"   🎧 Stereo: {stereo_type}")
+    print("   🎧 Stereo:")
     print(f"      Width: {stereo_width:.0%}  │  Phase Corr: {phase_correlation:.2f}")
 
     # Variation (3D) - Consistency metrics

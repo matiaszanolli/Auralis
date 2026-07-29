@@ -11,9 +11,13 @@ Replaces discrete presets with intelligent parameter generation.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
-import numpy as np
+
+def _smooth_unit(value: float, center: float, scale: float) -> float:
+    """Map an unbounded measurement smoothly into the open interval ``(0, 1)``."""
+    return 0.5 + 0.5 * math.tanh((float(value) - center) / (2.0 * scale))
 
 
 @dataclass
@@ -22,13 +26,13 @@ class ProcessingCoordinates:
     Position in 3D processing space.
 
     The processing space has three primary axes derived from the 25D fingerprint:
-    - Spectral Balance: Dark (bass-heavy) to Bright (treble-heavy)
-    - Dynamic Range: Compressed (brick-walled) to Dynamic (high crest factor)
-    - Energy Level: Quiet (low LUFS) to Loud (high LUFS)
+    - Spectral Balance: relative high-band to low-band energy
+    - Dynamic Range: short-term peak/RMS and loudness variation
+    - Energy Level: measured integrated loudness
     """
-    spectral_balance: float  # 0.0 (dark/bass-heavy) to 1.0 (bright/treble-heavy)
-    dynamic_range: float     # 0.0 (compressed/brick-walled) to 1.0 (dynamic/high crest)
-    energy_level: float      # 0.0 (quiet/low LUFS) to 1.0 (loud/high LUFS)
+    spectral_balance: float  # Increasing high-band energy relative to low-band energy
+    dynamic_range: float     # Increasing crest and within-track loudness variation
+    energy_level: float      # Increasing integrated loudness
     fingerprint: dict[str, float]  # Full 25D fingerprint for secondary parameters
 
     def __str__(self) -> str:
@@ -161,10 +165,27 @@ class ProcessingSpaceMapper:
     The mapper transforms the high-dimensional fingerprint into a compact
     3-dimensional representation that captures the essential characteristics
     for processing decisions:
-    - Spectral Balance (dark to bright)
-    - Dynamic Range (compressed to dynamic)
-    - Energy Level (quiet to loud)
+    - Relative spectral balance
+    - Dynamic variation
+    - Integrated energy
+
+    All mappings are smooth and strictly monotonic. The calibration constants
+    are robust centers and scales from a deterministic 512-track corpus sample
+    (July 2026); they center the coordinate system without creating content
+    classes, branch boundaries, or clipped acceptance ranges.
     """
+
+    _SPECTRAL_LOG_RATIO_CENTER = -1.6901
+    _SPECTRAL_LOG_RATIO_SCALE = 0.5045
+    _CENTROID_CENTER = 0.0986
+    _CENTROID_SCALE = 0.0240
+    _CREST_CENTER_DB = 13.4207
+    _CREST_SCALE_DB = 1.7884
+    _LOUDNESS_VARIATION_LOG_CENTER = 0.9680
+    _LOUDNESS_VARIATION_LOG_SCALE = 0.3855
+    _LUFS_CENTER = -14.3887
+    _LUFS_SCALE = 2.7732
+    _ENERGY_EPSILON = 1e-8
 
     def map_fingerprint_to_space(self, fingerprint: dict[str, float]) -> ProcessingCoordinates:
         """
@@ -176,33 +197,20 @@ class ProcessingSpaceMapper:
         Returns:
             ProcessingCoordinates with position in 3D space
         """
-        # X-Axis: Spectral Balance (0 = dark/bass-heavy, 1 = bright/treble-heavy)
-        # Weighted combination of frequency distribution
         spectral_balance = self._calculate_spectral_balance(fingerprint)
-
-        # Y-Axis: Dynamic Range (0 = compressed/brick-walled, 1 = dynamic/high crest)
-        # Based on crest factor and variation
         dynamic_range = self._calculate_dynamic_range(fingerprint)
-
-        # Z-Axis: Energy Level (0 = quiet, 1 = loud)
-        # Based on LUFS loudness
         energy_level = self._calculate_energy_level(fingerprint)
 
         return ProcessingCoordinates(
-            spectral_balance=np.clip(spectral_balance, 0.0, 1.0),
-            dynamic_range=np.clip(dynamic_range, 0.0, 1.0),
-            energy_level=np.clip(energy_level, 0.0, 1.0),
+            spectral_balance=spectral_balance,
+            dynamic_range=dynamic_range,
+            energy_level=energy_level,
             fingerprint=fingerprint
         )
 
     def _calculate_spectral_balance(self, fp: dict[str, float]) -> float:
         """
-        Calculate spectral balance from bass/mid/treble distribution.
-
-        Strategy:
-        - More bass, less treble → Lower score (darker)
-        - Less bass, more treble → Higher score (brighter)
-        - Uses actual frequency percentages, not just spectral centroid
+        Calculate a continuous spectral coordinate from band energy and centroid.
 
         Args:
             fp: Fingerprint dictionary
@@ -210,45 +218,37 @@ class ProcessingSpaceMapper:
         Returns:
             Spectral balance score (0.0 to 1.0)
         """
-        # Band pct fields are 0.0–1.0 fractions (see fingerprint/schema.py),
-        # NOT percentages. Spectral centroid is normalized 0.0–1.0 where
-        # 1.0 corresponds to CENTROID_NORMALIZATION_HZ (8 kHz). Earlier
-        # code treated these as percentages / raw Hz, which clipped every
-        # term to 0 or 1 and collapsed the spectral axis to a constant.
-        from auralis.analysis.fingerprint.schema import centroid_to_hz
-
-        # Bass: typical range 15-40% of energy → fraction 0.15-0.40
-        # 40% → 0.0 (very dark), 15% → 1.0 (very bright)
-        bass_normalized = 1.0 - np.clip((fp['bass_pct'] - 0.15) / 0.25, 0.0, 1.0)
-
-        # Air: typical range 5-20% of energy → fraction 0.05-0.20
-        air_normalized = np.clip((fp['air_pct'] - 0.05) / 0.15, 0.0, 1.0)
-
-        # Spectral centroid: typical perceptually 1000-6000 Hz
-        centroid_hz = centroid_to_hz(fp['spectral_centroid'])
-        centroid_normalized = np.clip((centroid_hz - 1000.0) / 5000.0, 0.0, 1.0)
-
-        # Presence: typical range 8-25% → fraction 0.08-0.25
-        presence_normalized = np.clip((fp['presence_pct'] - 0.08) / 0.17, 0.0, 1.0)
-
-        # Weighted combination emphasizing actual frequency distribution
-        spectral_balance = (
-            0.35 * bass_normalized +        # Primary: bass content
-            0.35 * air_normalized +         # Primary: air content
-            0.15 * centroid_normalized +    # Secondary: centroid
-            0.15 * presence_normalized      # Secondary: presence
+        low_energy = (
+            fp.get('sub_bass_pct', 0.0)
+            + fp['bass_pct']
+            + fp.get('low_mid_pct', 0.0)
+        )
+        high_energy = (
+            fp.get('upper_mid_pct', 0.0)
+            + fp['presence_pct']
+            + fp['air_pct']
+        )
+        log_high_low = math.log(
+            (high_energy + self._ENERGY_EPSILON)
+            / (low_energy + self._ENERGY_EPSILON)
         )
 
-        return float(spectral_balance)
+        band_coordinate = _smooth_unit(
+            log_high_low,
+            self._SPECTRAL_LOG_RATIO_CENTER,
+            self._SPECTRAL_LOG_RATIO_SCALE,
+        )
+        centroid_coordinate = _smooth_unit(
+            fp['spectral_centroid'],
+            self._CENTROID_CENTER,
+            self._CENTROID_SCALE,
+        )
+
+        return float(0.7 * band_coordinate + 0.3 * centroid_coordinate)
 
     def _calculate_dynamic_range(self, fp: dict[str, float]) -> float:
         """
-        Calculate dynamic range position from crest factor and variation.
-
-        Strategy:
-        - Low crest (8-10 dB) → Brick-walled, score near 0
-        - High crest (16-20 dB) → Dynamic, score near 1
-        - Consider variation and consistency
+        Calculate a continuous dynamics coordinate.
 
         Args:
             fp: Fingerprint dictionary
@@ -256,33 +256,26 @@ class ProcessingSpaceMapper:
         Returns:
             Dynamic range score (0.0 to 1.0)
         """
-        # Map crest factor to 0-1 range (8-20 dB typical range)
-        crest_normalized = np.clip((fp['crest_db'] - 8.0) / 12.0, 0.0, 1.0)
-
-        # Consider dynamic range variation (how much DR changes)
-        # High variation might indicate intentional dynamics
-        variation_factor = fp.get('dynamic_range_variation', 0.0)
-
-        # Loudness variation (quiet/loud sections)
-        loudness_var = np.clip(fp.get('loudness_variation_std', 0.0) / 5.0, 0.0, 1.0)
-
-        # Weighted combination
-        dynamic_range = (
-            0.5 * crest_normalized +      # Primary: crest factor
-            0.3 * variation_factor +      # Secondary: variation
-            0.2 * loudness_var            # Tertiary: loudness variation
+        crest_coordinate = _smooth_unit(
+            fp['crest_db'],
+            self._CREST_CENTER_DB,
+            self._CREST_SCALE_DB,
+        )
+        loudness_variation = max(0.0, fp.get('loudness_variation_std', 0.0))
+        variation_coordinate = _smooth_unit(
+            math.log1p(loudness_variation),
+            self._LOUDNESS_VARIATION_LOG_CENTER,
+            self._LOUDNESS_VARIATION_LOG_SCALE,
         )
 
-        return float(dynamic_range)
+        # ``dynamic_range_variation`` is intentionally excluded here. The
+        # July-2026 corpus pass found the existing metric saturated at 1.0 for
+        # every one of 508 successful tracks, so it carries no mastering signal.
+        return float(0.75 * crest_coordinate + 0.25 * variation_coordinate)
 
     def _calculate_energy_level(self, fp: dict[str, float]) -> float:
         """
-        Calculate energy level from LUFS loudness.
-
-        Strategy:
-        - Very quiet (-30 LUFS) → Score near 0
-        - Very loud (-10 LUFS) → Score near 1
-        - Typical range: -30 to -10 LUFS
+        Calculate a continuous energy coordinate from integrated loudness.
 
         Args:
             fp: Fingerprint dictionary
@@ -290,8 +283,4 @@ class ProcessingSpaceMapper:
         Returns:
             Energy level score (0.0 to 1.0)
         """
-        # Map LUFS to 0-1 range (-30 to -10 LUFS typical range)
-        # Quieter material has lower energy score
-        energy_level = np.clip((fp['lufs'] + 30.0) / 20.0, 0.0, 1.0)
-
-        return float(energy_level)
+        return _smooth_unit(fp['lufs'], self._LUFS_CENTER, self._LUFS_SCALE)

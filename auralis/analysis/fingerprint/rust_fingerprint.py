@@ -21,8 +21,9 @@ Rust → schema differences handled here:
 - ``spectral_rolloff`` raw Hz → 0-1 via ``/ ROLLOFF_NORMALIZATION_HZ`` (10 kHz — matches
   the Python analyzer's historical convention; note ``schema.rolloff_to_hz`` uses 8 kHz,
   a pre-existing inconsistency in that helper).
-- ``dynamic_range_variation`` raw dB-std → 0-1 via ``/ DRV_NORMALIZATION_DB`` (6 dB),
-  matching ``VariationMetrics.calculate_from_crest_factors``.
+- ``dynamic_range_variation`` raw crest-factor dB-std → 0-1 through a smooth
+  half-response curve (6 dB maps to 0.5; larger values approach 1 without
+  reaching a hard ceiling).
 - ``bass_mid_ratio`` Rust fraction ``bass/(bass+mid)`` → schema dB via
   ``10·log10(f/(1-f))``.
 
@@ -42,9 +43,8 @@ from .schema import CENTROID_NORMALIZATION_HZ
 # Rolloff historically normalized against 10 kHz in the Python analyzer
 # (utilities/spectral_ops.py). Kept explicit here so the convention is auditable.
 ROLLOFF_NORMALIZATION_HZ: float = 10_000.0
-# Dynamic-range variation normalized against a 6 dB std window
-# (matches metrics.VariationMetrics.calculate_from_crest_factors).
-DRV_NORMALIZATION_DB: float = 6.0
+# Dynamic-range variation reaches half response at a 6 dB standard deviation.
+DRV_HALF_RESPONSE_DB: float = 6.0
 
 # Rust band key -> schema band key.
 _BAND_KEY_MAP = {
@@ -66,7 +66,7 @@ _PASSTHROUGH = (
 
 
 def _clip01(x: float) -> float:
-    return 0.0 if x < 0.0 else 1.0 if x > 1.0 else x
+    return 0.0 if x < 0.0 else min(x, 1.0)
 
 
 def rust_fingerprint_to_schema(raw: dict[str, Any]) -> dict[str, float]:
@@ -97,8 +97,13 @@ def rust_fingerprint_to_schema(raw: dict[str, Any]) -> dict[str, float]:
     out["spectral_centroid"] = _clip01(float(raw["spectral_centroid"]) / CENTROID_NORMALIZATION_HZ)
     out["spectral_rolloff"] = _clip01(float(raw["spectral_rolloff"]) / ROLLOFF_NORMALIZATION_HZ)
 
-    # Dynamic-range variation: raw dB-std -> normalized 0-1.
-    out["dynamic_range_variation"] = _clip01(float(raw["dynamic_range_variation"]) / DRV_NORMALIZATION_DB)
+    # Dynamic-range variation: raw crest-factor dB-std -> smooth 0-1 response.
+    # This preserves ordering in unusually variable material instead of
+    # collapsing everything above a fixed cutoff to exactly 1.0.
+    variation_db = max(0.0, float(raw["dynamic_range_variation"]))
+    out["dynamic_range_variation"] = variation_db / (
+        variation_db + DRV_HALF_RESPONSE_DB
+    )
 
     # Loudness variation: rename only (already dB in 0-10).
     out["loudness_variation_std"] = float(raw["loudness_variation"])

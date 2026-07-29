@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .schema import DIMENSION_SCHEMA
+
 
 class FingerprintStorage:
     """
@@ -28,7 +30,7 @@ class FingerprintStorage:
     Cache Key: MD5 hash of (file_path + file_signature)
     """
 
-    VERSION = "1.0"
+    VERSION = "2.0"
     SIGNATURE_READ_SIZE = 1024 * 1024  # Read first 1MB for signature
 
     @staticmethod
@@ -173,12 +175,15 @@ class FingerprintStorage:
             # derivation runs (fingerprint_service.py writes `{}` here, and
             # mastering targets get computed lazily by callers). Only reject
             # when the fingerprint itself is missing/empty (#3464, #3451).
-            if not fingerprint:
+            if (
+                not isinstance(fingerprint, dict)
+                or not set(DIMENSION_SCHEMA).issubset(fingerprint)
+            ):
                 return None
 
             return (fingerprint, targets or {})
 
-        except (json.JSONDecodeError, OSError, KeyError) as e:
+        except (json.JSONDecodeError, OSError, KeyError):
             # Corrupted or invalid cache file
             return None
 

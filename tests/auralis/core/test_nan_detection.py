@@ -12,10 +12,10 @@ in HybridProcessor and SimpleMasteringPipeline
 import numpy as np
 import pytest
 
+from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.simple_mastering import SimpleMasteringPipeline
-from auralis.core.config import UnifiedConfig
-from auralis.utils.logging import ModuleError, set_log_handler
+from auralis.utils.logging import ModuleError
 
 
 class TestHybridProcessorNaNDetection:
@@ -211,8 +211,7 @@ class TestSimpleMasteringNaNDetection:
         assert np.isfinite(result).all()
 
 
-_QUIET_FP = {
-    # lufs <= -12 routes to QuietBranch (the longest stage chain).
+_CONTINUOUS_FP = {
     'lufs': -14.0, 'crest_db': 12.0, 'bass_pct': 0.2, 'sub_bass_pct': 0.05,
     'low_mid_pct': 0.15, 'mid_pct': 0.2, 'upper_mid_pct': 0.2, 'presence_pct': 0.15,
     'air_pct': 0.1, 'spectral_centroid': 0.5, 'spectral_rolloff': 0.5,
@@ -237,7 +236,7 @@ class TestSimpleMasteringInterStageGuard:
 
     def _run(self, pipeline):
         audio = np.random.randn(2, 44100).astype(np.float32) * 0.5
-        return pipeline._process(audio, _QUIET_FP, peak_db=-6.0, intensity=1.0,
+        return pipeline._process(audio, _CONTINUOUS_FP, peak_db=-6.0, intensity=1.0,
                                  sample_rate=44100, verbose=False)
 
     def test_nan_from_mid_chain_stage_raises_localized_error(self, pipeline, monkeypatch):
@@ -269,7 +268,7 @@ class TestSimpleMasteringInterStageGuard:
         with pytest.raises(ModuleError) as exc_info:
             self._run(pipeline)
 
-        assert 'Quiet after spectral' in str(exc_info.value)
+        assert 'continuous path after spectral' in str(exc_info.value)
 
     def test_guard_is_pass_through_on_finite_audio(self, pipeline):
         """Happy path is unchanged: guards return finite audio untouched."""
@@ -279,8 +278,8 @@ class TestSimpleMasteringInterStageGuard:
 
     def test_assert_finite_helper_passes_finite_and_raises_nonfinite(self):
         """Direct unit test of the shared guard helper on ProcessingBranch."""
-        from auralis.core.mastering_branches import QuietBranch
-        branch = QuietBranch(SimpleMasteringPipeline())
+        from auralis.core.mastering_branches import ContinuousMasteringBranch
+        branch = ContinuousMasteringBranch(SimpleMasteringPipeline())
 
         finite = np.random.randn(2, 100).astype(np.float32)
         # Returns the same array unchanged when finite.

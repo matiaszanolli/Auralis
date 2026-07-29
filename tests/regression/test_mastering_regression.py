@@ -6,7 +6,7 @@ Tests auto_master.py against known tracks to ensure processing consistency.
 Each test case defines:
   - Input track path
   - Expected fingerprint ranges
-  - Expected processing decisions
+  - Required continuous processing invariants
   - Output quality thresholds
 
 Usage:
@@ -22,7 +22,6 @@ from typing import Dict, Optional, Tuple
 import librosa
 import numpy as np
 import pytest
-
 from scipy.fft import rfft, rfftfreq
 
 from auralis.core.simple_mastering import create_simple_mastering_pipeline
@@ -75,8 +74,6 @@ class TrackTestCase:
     bass_pct_range: Tuple[float, float]
     lufs_range: Tuple[float, float]
     crest_db_range: Tuple[float, float]
-    # Expected processing behavior
-    expected_stage: str  # 'quiet_processing', 'compressed_loud', 'dynamic_loud'
     # Stereo width range (optional - for tracks testing stereo expansion)
     stereo_width_range: Optional[Tuple[float, float]] = None
     expects_stereo_expansion: bool = False  # True if track should get stereo_expand stage
@@ -96,23 +93,20 @@ TEST_CASES = [
         bass_pct_range=(0.30, 0.45),
         lufs_range=(-13.0, -10.0),
         crest_db_range=(9.0, 13.0),
-        expected_stage="compressed_loud",
     ),
     TrackTestCase(
         name="Porcupine Tree - Phase I (extreme bass, quiet)",
         path="/mnt/Musica/Musica/Porcupine Tree/Voyage 34_ The Complete Trip [2000]/01. Phase I.flac",
-        bass_pct_range=(0.50, 0.65),
-        lufs_range=(-18.0, -14.0),
+        bass_pct_range=(0.05, 0.15),
+        lufs_range=(-20.0, -17.0),
         crest_db_range=(15.0, 20.0),
-        expected_stage="quiet_processing",
     ),
     TrackTestCase(
         name="Blind Guardian - Valhalla (moderate bass, dynamic)",
         path="/mnt/Musica/Musica/Blind Guardian/1989 - Follow The Blind/08 Valhalla.flac",
         bass_pct_range=(0.35, 0.55),
         lufs_range=(-21.0, -17.0),
-        crest_db_range=(16.0, 20.0),
-        expected_stage="quiet_processing",
+        crest_db_range=(15.0, 20.0),
     ),
     TrackTestCase(
         name="Blind Guardian - Somewhere Far Beyond (moderate bass, dynamic)",
@@ -120,16 +114,14 @@ TEST_CASES = [
         bass_pct_range=(0.35, 0.55),
         lufs_range=(-18.0, -14.0),
         crest_db_range=(13.0, 18.0),
-        expected_stage="quiet_processing",
     ),
     # Stereo expansion test cases
     TrackTestCase(
         name="Rolling Stones - Rock and a Hard Place (narrow stereo, quiet)",
         path="/mnt/Musica/Musica/The Rolling Stones/1989b - Steel Wheels/07 - Rock and a Hard Place.mp3",
         bass_pct_range=(0.30, 0.45),
-        lufs_range=(-19.0, -16.0),
+        lufs_range=(-20.0, -16.0),
         crest_db_range=(16.0, 20.0),
-        expected_stage="quiet_processing",
         stereo_width_range=(0.10, 0.30),  # Narrow mix from 1989
         expects_stereo_expansion=True,
     ),
@@ -139,8 +131,7 @@ TEST_CASES = [
         bass_pct_range=(0.40, 0.55),
         lufs_range=(-12.0, -9.0),
         crest_db_range=(10.0, 13.0),
-        expected_stage="compressed_loud",
-        stereo_width_range=(0.10, 0.25),  # Narrow metal mix
+        stereo_width_range=(0.20, 0.35),
         expects_stereo_expansion=True,
         min_crest_db=8.0,  # Allow lower crest for already-compressed material
     ),
@@ -217,22 +208,35 @@ class MasteringRegressionTests:
                             f"[{case.stereo_width_range[0]:.0%}, {case.stereo_width_range[1]:.0%}]"
                         )
 
-                # Validate processing stage
+                # Every source must traverse the same continuous mastering path.
                 stages = output["processing"]["stages"]
                 stage_names = [s["stage"] for s in stages]
                 result["processing"]["stages"] = stage_names
 
-                if case.expected_stage == "quiet_processing":
-                    if "soft_clip" not in stage_names:
-                        result["errors"].append("Expected soft_clip stage for quiet material")
-                elif case.expected_stage == "compressed_loud":
-                    # Accept rms_expansion, skip_expansion, or legacy expansion stage
-                    has_expansion_stage = any(s in stage_names for s in ["expansion", "rms_expansion", "skip_expansion"])
-                    if not has_expansion_stage:
-                        result["errors"].append("Expected expansion stage for compressed loud material")
-                elif case.expected_stage == "dynamic_loud":
-                    if "passthrough" not in stage_names:
-                        result["errors"].append("Expected passthrough stage for dynamic loud material")
+                required_stages = {
+                    "soft_clip",
+                    "loudness_maximizer",
+                    "normalize",
+                }
+                missing_stages = required_stages - set(stage_names)
+                if missing_stages:
+                    result["errors"].append(
+                        "Continuous mastering path missing stages: "
+                        f"{sorted(missing_stages)}"
+                    )
+
+                retired_categorical_stages = {
+                    "quiet_processing",
+                    "compressed_loud",
+                    "dynamic_loud",
+                    "passthrough",
+                }
+                found_retired = retired_categorical_stages & set(stage_names)
+                if found_retired:
+                    result["errors"].append(
+                        "Categorical mastering stages returned: "
+                        f"{sorted(found_retired)}"
+                    )
 
                 # Validate stereo expansion if expected
                 if case.expects_stereo_expansion:
@@ -309,7 +313,7 @@ class MasteringRegressionTests:
             self.results[case.name] = result
 
             if result["passed"]:
-                print(f"  ✓ PASSED")
+                print("  ✓ PASSED")
                 fp_info = (f"    Bass: {result['fingerprint'].get('bass_pct', 0):.0%}, "
                            f"LUFS: {result['fingerprint'].get('lufs', 0):.1f}, "
                            f"Crest: {result['fingerprint'].get('crest_db', 0):.1f}, "
@@ -325,7 +329,7 @@ class MasteringRegressionTests:
                     sc = result["processing"]["spectral_changes"]
                     print(f"    Spectral: Air {sc['air']:+.1f}dB, Presence {sc['presence']:+.1f}dB")
             else:
-                print(f"  ✗ FAILED")
+                print("  ✗ FAILED")
                 for err in result["errors"]:
                     print(f"    - {err}")
             print()

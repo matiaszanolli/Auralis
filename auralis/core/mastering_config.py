@@ -56,19 +56,6 @@ class SimpleMasteringConfig:
     """Number of source/output windows included in the measurement."""
 
     # =========================================================================
-    # Material Classification Thresholds
-    # =========================================================================
-
-    COMPRESSED_LOUD_THRESHOLD_LUFS: float = -12.0
-    """LUFS threshold for loud material classification"""
-
-    HYPER_COMPRESSED_THRESHOLD_CREST: float = 8.0
-    """Crest factor threshold for hyper-compressed material (skip expansion)"""
-
-    MODERATE_COMPRESSED_MIN_CREST: float = 13.0
-    """Crest factor threshold for moderate compression (apply gentle expansion)"""
-
-    # =========================================================================
     # Pre-EQ Headroom
     # =========================================================================
 
@@ -125,19 +112,6 @@ class SimpleMasteringConfig:
 
     PEAK_CLIP_SEVERITY_RANGE_DB: float = 2.5
     """Range for calculating clip severity (from threshold to max severity)"""
-
-    # =========================================================================
-    # Intensity Multipliers (per branch)
-    # =========================================================================
-
-    COMPRESSED_LOUD_INTENSITY_FACTOR: float = 0.7
-    """Intensity multiplier for presence/air in compressed loud branch"""
-
-    DYNAMIC_LOUD_INTENSITY_FACTOR: float = 0.5
-    """Intensity multiplier for presence/air in dynamic loud branch"""
-
-    QUIET_INTENSITY_FACTOR: float = 1.0
-    """Intensity multiplier for presence/air in quiet branch"""
 
     # =========================================================================
     # RMS Expansion Parameters
@@ -481,12 +455,13 @@ class SimpleMasteringConfig:
     is much shallower."""
 
     # =========================================================================
-    # Loudness Maximizer (quiet / under-mastered material)
+    # Continuous loudness / crest response
     # =========================================================================
-    # Restores competitive loudness to genuinely under-mastered sources by
-    # trading some crest factor for level via a transparent push-then-limit.
+    # Trades some crest factor for level via a transparent push-then-limit.
+    # Source LUFS and crest remain continuous measurements throughout; no
+    # recording category or activation cutoff is used.
     #
-    # WHY THIS EXISTS: the QuietBranch's makeup gain is capped (crest > 15 dB)
+    # WHY THIS EXISTS: the continuous path's makeup gain is capped (crest > 15 dB)
     # and then zeroed (peaks already near 0 dBFS) for high-crest material, and
     # the final stage is a pure peak-normalize — which pins output loudness to
     # ``peak - crest``. A vintage rock record at -22 LUFS / 18 dB crest with
@@ -495,60 +470,17 @@ class SimpleMasteringConfig:
     # (the only lever that moves loudness once peaks are at the ceiling), which
     # is exactly what a brick-wall limiter fed with pre-gain does.
     #
-    # CREST CANNOT DISCRIMINATE alone: a finished dynamic master (Gilmour Live,
-    # -17 LUFS) and a raw under-mastered recording (Oktubre, -22.5 LUFS) BOTH
-    # have high crest. Absolute LUFS is the discriminator — hence the ramp below
-    # keys on source loudness, not crest. Already-competitive sources
-    # (>= LOUDNESS_COMPETITIVE_LUFS) are a strict no-op.
-
-    LOUDNESS_COMPETITIVE_LUFS: float = -14.0
-    """At or above this (accurate BS.1770) source LUFS the material is already
-    competitively loud; the maximizer is a strict no-op. Set from the measured
-    'good'/competitive cluster — Gilmour Live -12.9, Dio -12.3, Polyphia -7.7,
-    Motörhead 1977 -12.0, SW Routine -14.2 — which all sit at/above -14 and must
-    pass through untouched."""
-
-    LOUDNESS_UNDERMASTER_RANGE_DB: float = 6.0
-    """LUFS span below LOUDNESS_COMPETITIVE_LUFS over which treatment ramps from
-    none to full. Source at (COMPETITIVE - this) = -20 LUFS is 'fully
-    under-mastered' and gets the maximum push. Oktubre's tracks (-15.8 to
-    -19.8 LUFS) span this ramp, so the quietest get the most lift and the
-    near-competitive ones only a touch."""
-
     LOUDNESS_TARGET_LUFS: float = -14.5
-    """Loudness anchor for the maximizer's push, NOT the final output LUFS:
-    push = (TARGET - source_lufs) * undermastered * LOUDNESS_GAP_CLOSURE_FACTOR.
-    The downstream EQ + final-normalize add ~3 dB on top.
+    """Loudness anchor for the smooth positive-gap response, not a category
+    boundary and not the final output LUFS."""
 
-    2026-07-08 recalibration raised this -15.5→-12.5 to fix a near-permanent
-    no-op (see docs/sessions/MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md).
-    That overshot: measured on the same Gulp+Oktubre corpus, -12.5 combined with
-    the final peak-normalize routinely landed masters at -10 to -11 LUFS (source
-    -17 to -22), 3-4 dB louder than the project's own competitive/'good' cluster
-    and audibly overdriven/pumping (2026-07-10 user report).
-
-    2026-07-10 recalibration: -12.5→-14.5, set just below
-    LOUDNESS_COMPETITIVE_LUFS (-14) so the push anchors toward, but does not
-    routinely exceed, what this file already defines as 'competitively loud' —
-    avoiding both the old no-op (anchor too close to typical source LUFS) and
-    the loudness-war overshoot (anchor above the competitive line). Lower this
-    for a gentler lift, raise for a hotter master."""
+    LOUDNESS_RESPONSE_SOFTNESS_DB: float = 0.75
+    """Width of the softplus transition around the loudness anchor. The response
+    has no zero-gain side and no clipped full-strength side."""
 
     LOUDNESS_GAP_CLOSURE_FACTOR: float = 0.5
-    """2026-07-10: fraction of the (TARGET - source_lufs) gap the push actually
-    closes, on top of the existing `undermastered` ramp. Without this (i.e. at
-    1.0), the maximizer converges ALL under-mastered sources toward the same
-    anchor once `undermastered` saturates at 1.0 (roughly source <= -20 LUFS) —
-    a genuinely quiet vintage record (-22 LUFS) and a moderately quiet one
-    (-17 LUFS) ended up within ~0.5 dB of each other post-master, erasing the
-    natural loudness difference between eras/recordings (user report: "older
-    records tend to be way more quiet, we should take that into account").
-
-    At 0.5, output loudness gaps shrink to ~50% of the source gap instead of
-    being erased (e.g. a 5 dB source gap becomes a ~2.5 dB master gap) — still
-    a real, audible lift for genuinely quiet material, but the relative
-    loudness character between recordings survives instead of everything
-    converging to one target."""
+    """Fraction of the smooth positive loudness gap that is closed. At 0.5,
+    relative loudness differences between recordings are reduced, not erased."""
 
     LOUDNESS_MIN_CREST_DB: float = 11.0
     """Crest-factor floor. The push is clamped so output crest never falls below
@@ -557,23 +489,10 @@ class SimpleMasteringConfig:
     (~6-8 dB) while permitting a real loudness lift."""
 
     LOUDNESS_MAX_PUSH_DB: float = 10.0
-    """Absolute ceiling on the push gain, regardless of how quiet the source is.
-    Backstop against pathological inputs (e.g. a -40 LUFS field recording)."""
+    """Signal-safety ceiling on the push gain."""
 
     LOUDNESS_MAX_CREST_REDUCTION_DB: float = 4.0
-    """Transient-preservation cap: the push is also crest reduction (RMS rises
-    ~1:1 while peaks stay at the ceiling), so this bounds how much drum punch the
-    loudness stage may trade for level.
-
-    2026-07-08 recalibration doubled this 3.0→6.0 for one track's worth of
-    headroom, but combined with the same day's LOUDNESS_TARGET_LUFS raise it
-    let the highest-crest sources give up 3-4+ dB of dynamics on top of an
-    already-hot push, reported as overdriven/pumping (2026-07-10).
-
-    2026-07-10 recalibration: 6.0→4.0 — still 1 dB more headroom than the
-    original 3.0 (which was validated as safe-sounding, just under-loud), but
-    well short of doubling it. LOUDNESS_MIN_CREST_DB (11 dB) remains the hard
-    floor against crushing."""
+    """Signal-safety cap on how much crest reduction the stage can approach."""
 
     LOUDNESS_LIMITER_CEILING_DB: float = -1.0
     """Brick-wall limiter ceiling. The downstream final normalize lifts the peak

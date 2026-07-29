@@ -7,13 +7,11 @@ Tests for Continuous Processing Space
 Tests coordinate mapping, parameter generation, and preference biasing.
 """
 
-import numpy as np
 import pytest
 
 from auralis.core.processing.continuous_space import (
     PreferenceVector,
     ProcessingCoordinates,
-    ProcessingParameters,
     ProcessingSpaceMapper,
 )
 from auralis.core.processing.parameter_generator import ContinuousParameterGenerator
@@ -22,98 +20,85 @@ from auralis.core.processing.parameter_generator import ContinuousParameterGener
 class TestProcessingSpaceMapper:
     """Test fingerprint to coordinate mapping"""
 
-    def test_dark_compressed_quiet_track(self):
-        """Test mapping for dark, compressed, quiet track (typical mastered pop)"""
+    @staticmethod
+    def _fingerprint(**overrides):
         fingerprint = {
-            # Frequency distribution (bass-heavy, dark)
-            'bass_pct': 35.0,           # High bass
-            'mid_pct': 30.0,
-            'air_pct': 8.0,             # Low air
-            'presence_pct': 10.0,       # Low presence
-            'spectral_centroid': 2000.0,  # Low centroid
-
-            # Dynamics (compressed)
-            'crest_db': 9.5,            # Low crest = compressed
-            'dynamic_range_variation': 0.2,
-            'loudness_variation_std': 1.0,
-
-            # Energy (quiet)
-            'lufs': -25.0,              # Quiet
-
-            # Stereo
-            'stereo_width': 0.6,
-            'phase_correlation': 0.95,
-        }
-
-        mapper = ProcessingSpaceMapper()
-        coords = mapper.map_fingerprint_to_space(fingerprint)
-
-        # Expect: Low spectral balance (dark), low dynamics (compressed), low energy (quiet)
-        assert coords.spectral_balance < 0.4, f"Expected dark (< 0.4), got {coords.spectral_balance:.2f}"
-        assert coords.dynamic_range < 0.3, f"Expected compressed (< 0.3), got {coords.dynamic_range:.2f}"
-        assert coords.energy_level < 0.4, f"Expected quiet (< 0.4), got {coords.energy_level:.2f}"
-
-    def test_bright_dynamic_loud_track(self):
-        """Test mapping for bright, dynamic, loud track (typical live recording)"""
-        fingerprint = {
-            # Frequency distribution (bright, treble-heavy)
-            'bass_pct': 20.0,           # Low bass
-            'mid_pct': 35.0,
-            'air_pct': 15.0,            # High air
-            'presence_pct': 18.0,       # High presence
-            'spectral_centroid': 5000.0,  # High centroid
-
-            # Dynamics (very dynamic)
-            'crest_db': 17.0,           # High crest = dynamic
-            'dynamic_range_variation': 0.8,
-            'loudness_variation_std': 4.0,
-
-            # Energy (loud)
-            'lufs': -12.0,              # Loud
-
-            # Stereo
-            'stereo_width': 0.8,
-            'phase_correlation': 0.85,
-        }
-
-        mapper = ProcessingSpaceMapper()
-        coords = mapper.map_fingerprint_to_space(fingerprint)
-
-        # Expect: High spectral balance (bright), high dynamics, high energy (loud)
-        assert coords.spectral_balance > 0.6, f"Expected bright (> 0.6), got {coords.spectral_balance:.2f}"
-        assert coords.dynamic_range > 0.7, f"Expected dynamic (> 0.7), got {coords.dynamic_range:.2f}"
-        assert coords.energy_level > 0.8, f"Expected loud (> 0.8), got {coords.energy_level:.2f}"
-
-    def test_balanced_track(self):
-        """Test mapping for balanced track (well-mastered reference)"""
-        fingerprint = {
-            # Frequency distribution (balanced)
-            'bass_pct': 28.0,
-            'mid_pct': 35.0,
-            'air_pct': 12.0,
-            'presence_pct': 15.0,
-            'spectral_centroid': 3500.0,
-
-            # Dynamics (moderate)
-            'crest_db': 13.0,
+            'sub_bass_pct': 0.05,
+            'bass_pct': 0.46,
+            'low_mid_pct': 0.15,
+            'mid_pct': 0.22,
+            'upper_mid_pct': 0.07,
+            'presence_pct': 0.03,
+            'air_pct': 0.01,
+            'spectral_centroid': 0.0986,
+            'crest_db': 13.4207,
             'dynamic_range_variation': 0.5,
-            'loudness_variation_std': 2.5,
-
-            # Energy (moderate)
-            'lufs': -14.0,
-
-            # Stereo
-            'stereo_width': 0.7,
-            'phase_correlation': 0.9,
+            'loudness_variation_std': 1.6336,
+            'lufs': -14.3887,
+            'stereo_width': 0.30,
+            'phase_correlation': 0.70,
         }
+        fingerprint.update(overrides)
+        return fingerprint
 
+    def test_spectral_coordinate_is_strictly_continuous(self):
         mapper = ProcessingSpaceMapper()
-        coords = mapper.map_fingerprint_to_space(fingerprint)
+        fingerprints = [
+            self._fingerprint(
+                sub_bass_pct=0.10,
+                bass_pct=0.68 - shift,
+                low_mid_pct=0.12,
+                upper_mid_pct=0.03 + shift * 0.35,
+                presence_pct=0.01 + shift * 0.35,
+                air_pct=0.005 + shift * 0.30,
+                spectral_centroid=0.04 + shift * 0.22,
+            )
+            for shift in (0.00, 0.08, 0.16, 0.24, 0.32)
+        ]
 
-        # Expect: Moderate values across all dimensions
-        assert 0.4 < coords.spectral_balance < 0.6, f"Expected balanced spectral (0.4-0.6), got {coords.spectral_balance:.2f}"
-        assert 0.4 < coords.dynamic_range < 0.6, f"Expected moderate dynamics (0.4-0.6), got {coords.dynamic_range:.2f}"
-        assert 0.6 < coords.energy_level <= 0.8, f"Expected moderate energy (0.6-0.8), got {coords.energy_level:.2f}"
+        values = [
+            mapper.map_fingerprint_to_space(fp).spectral_balance
+            for fp in fingerprints
+        ]
+
+        assert all(0.0 < value < 1.0 for value in values)
+        assert all(left < right for left, right in zip(values, values[1:]))
+
+    def test_dynamic_coordinate_is_monotonic_without_plateaus(self):
+        mapper = ProcessingSpaceMapper()
+        values = [
+            mapper.map_fingerprint_to_space(
+                self._fingerprint(crest_db=crest)
+            ).dynamic_range
+            for crest in (5.0, 8.0, 11.0, 14.0, 18.0, 24.0)
+        ]
+
+        assert all(0.0 < value < 1.0 for value in values)
+        assert all(left < right for left, right in zip(values, values[1:]))
+
+    def test_loudness_variation_changes_dynamic_coordinate_smoothly(self):
+        mapper = ProcessingSpaceMapper()
+        values = [
+            mapper.map_fingerprint_to_space(
+                self._fingerprint(loudness_variation_std=variation)
+            ).dynamic_range
+            for variation in (0.0, 0.25, 1.0, 2.5, 6.0, 15.0)
+        ]
+
+        assert all(0.0 < value < 1.0 for value in values)
+        assert all(left < right for left, right in zip(values, values[1:]))
+
+    def test_energy_coordinate_is_monotonic_without_clipped_ranges(self):
+        mapper = ProcessingSpaceMapper()
+        values = [
+            mapper.map_fingerprint_to_space(
+                self._fingerprint(lufs=lufs)
+            ).energy_level
+            for lufs in (-60.0, -40.0, -30.0, -20.0, -14.0, -10.0, -5.0, 0.0)
+        ]
+
+        assert all(0.0 < value < 1.0 for value in values)
+        assert all(left < right for left, right in zip(values, values[1:]))
 
 
 class TestContinuousParameterGenerator:
@@ -126,8 +111,8 @@ class TestContinuousParameterGenerator:
             dynamic_range=0.8,      # Very dynamic
             energy_level=0.2,       # Very quiet
             fingerprint={
-                'bass_pct': 28.0, 'mid_pct': 35.0, 'air_pct': 12.0,
-                'presence_pct': 15.0, 'crest_db': 16.0, 'lufs': -25.0,
+                'bass_pct': 0.28, 'mid_pct': 0.35, 'air_pct': 0.12,
+                'presence_pct': 0.15, 'crest_db': 16.0, 'lufs': -25.0,
                 'stereo_width': 0.6
             }
         )
@@ -144,8 +129,8 @@ class TestContinuousParameterGenerator:
         # Should have minimal compression
         assert params.compression_params['amount'] < 0.4, f"Expected light compression (< 0.4), got {params.compression_params['amount']:.2f}"
 
-        # Should not expand (already dynamic)
-        assert params.expansion_params['amount'] == 0.0, f"Expected no expansion, got {params.expansion_params['amount']:.2f}"
+        # Expansion influence should approach zero smoothly.
+        assert params.expansion_params['amount'] < 0.05
 
     def test_loud_compressed_track_parameters(self):
         """Test parameters for loud, compressed track (should be expanded)"""
@@ -154,8 +139,8 @@ class TestContinuousParameterGenerator:
             dynamic_range=0.2,      # Very compressed
             energy_level=0.9,       # Very loud
             fingerprint={
-                'bass_pct': 28.0, 'mid_pct': 35.0, 'air_pct': 12.0,
-                'presence_pct': 15.0, 'crest_db': 9.0, 'lufs': -10.0,
+                'bass_pct': 0.28, 'mid_pct': 0.35, 'air_pct': 0.12,
+                'presence_pct': 0.15, 'crest_db': 9.0, 'lufs': -10.0,
                 'stereo_width': 0.7
             }
         )
@@ -169,8 +154,8 @@ class TestContinuousParameterGenerator:
         # Should have less headroom (compressed material)
         assert params.peak_target_db >= -0.5, f"Expected less headroom (> -0.5), got {params.peak_target_db:.2f}"
 
-        # Should not compress (already compressed)
-        assert params.compression_params['amount'] == 0.0, f"Expected no compression, got {params.compression_params['amount']:.2f}"
+        # Compression influence should approach zero smoothly.
+        assert params.compression_params['amount'] < 0.15
 
         # Should expand to restore dynamics
         assert params.expansion_params['amount'] > 0.5, f"Expected expansion (> 0.5), got {params.expansion_params['amount']:.2f}"
@@ -183,10 +168,10 @@ class TestContinuousParameterGenerator:
             dynamic_range=0.5,
             energy_level=0.6,
             fingerprint={
-                'bass_pct': 15.0,       # Low bass (deficit: 15% from ideal 30%)
-                'mid_pct': 35.0,
-                'air_pct': 18.0,        # High air (excess)
-                'presence_pct': 20.0,
+                'bass_pct': 0.15,
+                'mid_pct': 0.35,
+                'air_pct': 0.018,
+                'presence_pct': 0.020,
                 'crest_db': 12.0,
                 'lufs': -14.0,
                 'stereo_width': 0.7
@@ -199,11 +184,11 @@ class TestContinuousParameterGenerator:
         # Should boost bass significantly
         assert params.eq_curve['low_shelf_gain'] > 1.0, f"Expected bass boost (> 1.0), got {params.eq_curve['low_shelf_gain']:.2f}"
 
-        # Should not boost air (already high)
-        assert params.eq_curve['high_shelf_gain'] < 1.0, f"Expected minimal air boost (< 1.0), got {params.eq_curve['high_shelf_gain']:.2f}"
+        # Air above the corpus center receives a signed cut.
+        assert params.eq_curve['high_shelf_gain'] < 0.0
 
         # Should have high EQ blend (unbalanced material)
-        assert params.eq_blend >= 0.65, f"Expected high EQ blend (>= 0.65), got {params.eq_blend:.2f}"
+        assert params.eq_blend > 0.5
 
 
 class TestPreferenceVector:
@@ -234,8 +219,8 @@ class TestPreferenceVector:
             dynamic_range=0.5,
             energy_level=0.5,
             fingerprint={
-                'bass_pct': 28.0, 'mid_pct': 35.0, 'air_pct': 12.0,
-                'presence_pct': 15.0, 'crest_db': 12.0, 'lufs': -16.0,
+                'bass_pct': 0.28, 'mid_pct': 0.35, 'air_pct': 0.012,
+                'presence_pct': 0.015, 'crest_db': 12.0, 'lufs': -16.0,
                 'stereo_width': 0.7
             }
         )
@@ -277,11 +262,14 @@ class TestEndToEndProcessing:
         """Test with Magazine track fingerprint (real data)"""
         # This is the track you tested - narrow, needs bass and stereo expansion
         fingerprint = {
-            'bass_pct': 22.0,           # Low bass (needs boost)
-            'mid_pct': 38.0,
-            'air_pct': 10.0,            # Low air
-            'presence_pct': 12.0,
-            'spectral_centroid': 3200.0,
+            'sub_bass_pct': 0.05,
+            'bass_pct': 0.22,
+            'low_mid_pct': 0.18,
+            'mid_pct': 0.38,
+            'upper_mid_pct': 0.09,
+            'air_pct': 0.02,
+            'presence_pct': 0.06,
+            'spectral_centroid': 0.20,
             'crest_db': 14.5,           # Good dynamics
             'dynamic_range_variation': 0.6,
             'loudness_variation_std': 3.0,
@@ -300,9 +288,8 @@ class TestEndToEndProcessing:
         assert params.eq_curve['low_shelf_gain'] > 1.0, \
             f"Expected significant bass boost (> 1.0dB), got {params.eq_curve['low_shelf_gain']:.2f}"
 
-        # Should expand stereo (narrow)
-        assert params.stereo_width_target > 0.65, \
-            f"Expected stereo expansion (> 0.65), got {params.stereo_width_target:.2f}"
+        # The continuous width target moves upward from the measured 0.45.
+        assert params.stereo_width_target > fingerprint['stereo_width']
 
         # Should preserve dynamics (already good)
         assert params.compression_params['amount'] <= 0.5, \

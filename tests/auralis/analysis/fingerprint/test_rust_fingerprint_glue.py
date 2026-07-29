@@ -75,6 +75,23 @@ def test_loudness_variation_renamed_not_rescaled():
     assert fp["loudness_variation_std"] == pytest.approx(4.2)
 
 
+def test_dynamic_range_variation_uses_smooth_half_response():
+    assert rust_fingerprint_to_schema(
+        _make_raw(dynamic_range_variation=0.0)
+    )["dynamic_range_variation"] == 0.0
+    assert rust_fingerprint_to_schema(
+        _make_raw(dynamic_range_variation=6.0)
+    )["dynamic_range_variation"] == pytest.approx(0.5)
+
+    high = rust_fingerprint_to_schema(
+        _make_raw(dynamic_range_variation=60.0)
+    )["dynamic_range_variation"]
+    higher = rust_fingerprint_to_schema(
+        _make_raw(dynamic_range_variation=600.0)
+    )["dynamic_range_variation"]
+    assert 0.5 < high < higher < 1.0
+
+
 def test_missing_rust_key_raises():
     raw = _make_raw()
     del raw["spectral_centroid"]

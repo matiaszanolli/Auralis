@@ -1,8 +1,8 @@
 """
-Quiet Branch
-~~~~~~~~~~~~
+Continuous Mastering Path
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Processing strategy for quiet material needing makeup gain (#4252).
+One measurement-driven processing path for every source.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -19,12 +19,9 @@ from .base import ProcessingBranch
 from .soft_clip_params import compute_soft_clip_threshold
 
 
-class QuietBranch(ProcessingBranch):
+class ContinuousMasteringBranch(ProcessingBranch):
     """
-    Handle quiet material (LUFS <= -12).
-
-    Needs full processing with makeup gain, comprehensive frequency shaping,
-    and adaptive soft clipping.
+    Apply one continuous signal path without classifying the source.
 
     Processing steps:
     1. Calculate adaptive makeup gain
@@ -37,11 +34,8 @@ class QuietBranch(ProcessingBranch):
     8. Stereo width expansion
     9. Peak normalize to target LUFS
 
-    Self-normalizes (soft-clip then branch-local ``normalize``) and opts OUT of
-    the unified pipeline normalization (``needs_output_normalize=False``) to
-    avoid double-normalizing — the mirror-opposite of the loud branches. See
-    ``ProcessingBranch`` for the full canonical stage order and the gain-staging
-    contract (#4103).
+    The strength of each stage is derived from numeric fingerprint measurements.
+    No whole-track label chooses a branch or prevents processing.
     """
 
     def apply(
@@ -54,25 +48,12 @@ class QuietBranch(ProcessingBranch):
         config: SimpleMasteringConfig,
         verbose: bool
     ) -> tuple[np.ndarray, dict]:
-        """Apply quiet material processing."""
+        """Apply the continuous mastering path."""
 
         from ...dsp.dynamics.soft_clipper import soft_clip
 
         processed = audio.copy()
         recorder = StageRecorder()
-
-        # Crest-factor thresholds shared between exciter attenuation and the
-        # soft-clip bypass/relax logic further below.
-        #
-        # 2026-07-08 calibration note: widening these to 20/26 (from 18/22) was
-        # tried and measured to have negligible effect (<0.15 dB on both LUFS
-        # and crest across the Gulp 1985 + Oktubre 1986 albums) — the
-        # soft-clipper's knee is gentle enough that where it starts relaxing
-        # barely changes its output. Reverted; see mastering_config.py's
-        # LOUDNESS_* constants for the change that actually moved these
-        # numbers (docs/sessions/MASTERING_ALGORITHM_DULLING_RESEARCH_2026-07-08.md).
-        CLIP_BYPASS_CREST = 22.0   # ≥ this → skip soft_clip, minimal exciter
-        CLIP_RELAX_CREST  = 18.0   # ≥ this → relax soft_clip knee, reduce exciter
 
         # Resonance notches first — surgical narrow cuts in 150-1200 Hz so all
         # subsequent EQ stages see the post-notch energy balance. No-op if no
@@ -128,11 +109,11 @@ class QuietBranch(ProcessingBranch):
         )
         recorder.add(warmth_info)
 
-        processed = self._assert_finite(processed, "Quiet after low-end/warmth")
+        processed = self._assert_finite(processed, "continuous path after low-end/warmth")
 
         # Shared HF lift budget — restrains exciter + clarity + presence + air
         # from stacking into fizz on HF-dead sources (was +6 dB relative presence
-        # lift on dark material). See DynamicLoudBranch for rationale.
+        # lift when measured HF energy is sparse.
         hf_lift = hf_lift_factor(unpacker.presence_pct, unpacker.air_pct)
 
         # Harmonic exciter — generate new HF content for bandwidth-limited or
@@ -140,27 +121,13 @@ class QuietBranch(ProcessingBranch):
         # before presence/air (so those shelves can lift the new harmonics).
         # Engages only when air/presence/rolloff indicate genuinely dark material.
         #
-        # High-DR attenuation: tracks with large crest factors have wide dynamic
-        # swing — they are naturally expressive, not crushed. Adding heavy
-        # harmonic generation raises RMS while peaks are controlled by normalize,
-        # reducing the crest factor and making the track sound compressed.
-        # Scale exciter intensity down for high-DR sources proportionally.
-        # Thresholds are shared with the soft-clip bypass block below so that
-        # both decisions track the same measurement:
-        #   crest < 12 dB               → full exciter (compressed sources benefit most)
-        #   crest 12 dB–CLIP_RELAX_CREST  → blend 1.0 → 0.5 (gentle ramp)
-        #   crest CLIP_RELAX_CREST–CLIP_BYPASS_CREST → blend 0.5 → 0.15 (conservative; avoid RMS inflation)
-        #   crest ≥ CLIP_BYPASS_CREST   → 0.15x cap (near-bypass; truly wide-dynamic sources)
-        if unpacker.crest_db >= CLIP_BYPASS_CREST:
-            exciter_intensity = effective_intensity * 0.15
-        elif unpacker.crest_db >= CLIP_RELAX_CREST:
-            blend = (unpacker.crest_db - CLIP_RELAX_CREST) / (CLIP_BYPASS_CREST - CLIP_RELAX_CREST)
-            exciter_intensity = effective_intensity * (0.5 - blend * (0.5 - 0.15))
-        elif unpacker.crest_db >= 12.0:
-            blend = (unpacker.crest_db - 12.0) / (CLIP_RELAX_CREST - 12.0)
-            exciter_intensity = effective_intensity * (1.0 - blend * 0.5)
-        else:
-            exciter_intensity = effective_intensity       # < 12 dB: full intensity
+        # Crest factor attenuates excitation smoothly. The asymptotic floor
+        # preserves a small response without a bypass boundary.
+        crest_preservation = 0.5 + 0.5 * np.tanh(
+            (unpacker.crest_db - 16.0) / 4.0
+        )
+        exciter_factor = 1.0 - 0.85 * crest_preservation
+        exciter_intensity = effective_intensity * exciter_factor
 
         processed, exciter_info = self.pipeline._apply_harmonic_exciter(
             processed, unpacker.presence_pct, unpacker.air_pct, unpacker.spectral_rolloff,
@@ -195,37 +162,23 @@ class QuietBranch(ProcessingBranch):
         )
         recorder.add(air_info)
 
-        processed = self._assert_finite(processed, "Quiet after spectral")
+        processed = self._assert_finite(processed, "continuous path after spectral")
 
-        # Soft clipping with multi-dimensional awareness. The loudness-scaled
-        # base plus the harmonic/variation/flatness/bass preservation
-        # adjustments are computed in compute_soft_clip_threshold (#4252); the
-        # high-DR bypass/relax decision and the soft_clip call stay here.
+        # Soft clipping with multi-dimensional awareness.
         threshold_db, ceiling = compute_soft_clip_threshold(unpacker, config, verbose)
 
-        # High-DR bypass: when the source has large dynamic range (high crest
-        # factor), the soft clipper acts as a heavy limiter and crushes the
-        # transients that define the recording's character (orchestral swells,
-        # live acoustic events, expressive dynamics). For these sources the gain
-        # normalisation alone is sufficient — no saturation needed.
-        # CLIP_BYPASS_CREST / CLIP_RELAX_CREST are defined at the top of this
-        # method (shared with the exciter attenuation block).
-        if unpacker.crest_db >= CLIP_BYPASS_CREST:
-            if verbose:
-                print(f"   Soft clip bypassed (crest {unpacker.crest_db:.1f} dB — high-DR source)")
-            recorder.add({'stage': 'soft_clip', 'threshold_db': 'bypassed (high-DR)', 'crest_db': unpacker.crest_db})
-        else:
-            if unpacker.crest_db >= CLIP_RELAX_CREST:
-                # Blend from current threshold toward 0 dB as crest → BYPASS
-                dr_blend = (unpacker.crest_db - CLIP_RELAX_CREST) / (CLIP_BYPASS_CREST - CLIP_RELAX_CREST)
-                threshold_db  = threshold_db  + dr_blend * (0.0 - threshold_db)
-                ceiling       = ceiling       + dr_blend * (0.97 - ceiling)
-
-            threshold_linear = 10 ** (threshold_db / 20.0)
-            if verbose:
-                print(f"   Soft clip: {threshold_db:.1f} dB, ceiling {ceiling*100:.0f}%")
-            processed = soft_clip(processed, threshold=threshold_linear, ceiling=ceiling)
-            recorder.add({'stage': 'soft_clip', 'threshold_db': threshold_db})
+        # Larger crest factors move the knee continuously toward 0 dB, so the
+        # stage becomes asymptotically transparent without a hard bypass.
+        clip_transparency = 0.5 + 0.5 * np.tanh(
+            (unpacker.crest_db - 18.0) / 3.0
+        )
+        threshold_db *= 1.0 - clip_transparency
+        ceiling += clip_transparency * (0.97 - ceiling)
+        threshold_linear = 10 ** (threshold_db / 20.0)
+        if verbose:
+            print(f"   Soft clip: {threshold_db:.1f} dB, ceiling {ceiling*100:.0f}%")
+        processed = soft_clip(processed, threshold=threshold_linear, ceiling=ceiling)
+        recorder.add({'stage': 'soft_clip', 'threshold_db': threshold_db})
 
         # Stereo expansion for narrow mixes (brightness-aware)
         processed, width_info = self.pipeline._apply_stereo_expansion(
@@ -234,17 +187,10 @@ class QuietBranch(ProcessingBranch):
         )
         recorder.add(width_info)
 
-        # Loudness maximizer — competitive loudness for genuinely UNDER-MASTERED
-        # sources (quiet AND high-crest, e.g. vintage/lo-fi rock at -22 LUFS).
-        # The makeup gain above is capped/zeroed for high-crest material and the
-        # final peak-normalize pins loudness to (peak - crest), so without this
-        # such tracks came out only ~1-3 dB louder than source. Reducing the
-        # crest factor (push-then-limit) is the only lever that raises loudness
-        # once peaks are at the ceiling. Strict no-op for already-competitive
-        # sources (LUFS >= LOUDNESS_COMPETITIVE_LUFS), so the well-mastered
-        # 'good' tier is untouched. Runs AFTER stereo expansion so the limiter
-        # also catches any mid/side peaks the widening introduced, and BEFORE
-        # the final normalize which lifts the limited peak back to the ceiling.
+        # Continuous file-level loudness/crest response. Runs after stereo
+        # expansion so the limiter catches any mid/side peaks the widening
+        # introduced, and before the final normalization. Its pre-gain
+        # approaches transparency smoothly as source loudness rises.
         # Prefer the accurate ITU-R BS.1770 loudness measured per-file in
         # master_file; fall back to the fingerprint values on the direct
         # _process() path (e.g. unit tests) where it was not measured.
@@ -279,9 +225,11 @@ class QuietBranch(ProcessingBranch):
         processed = normalize(processed, adapted_peak)
         recorder.add({'stage': 'normalize', 'target_peak': adapted_peak})
 
-        processed = self._assert_finite(processed, "Quiet after soft-clip/stereo/normalize")
+        processed = self._assert_finite(
+            processed, "continuous path after soft-clip/stereo/normalize"
+        )
 
-        # Return without normalization flag (quiet branch does its own)
+        # This path performs its own final normalization.
         info = recorder.to_dict()
         info['needs_output_normalize'] = False
         return processed, info

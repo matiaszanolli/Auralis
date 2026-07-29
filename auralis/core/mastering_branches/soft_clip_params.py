@@ -2,10 +2,8 @@
 Adaptive Soft-Clip Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Multi-dimensional-aware threshold/ceiling computation for the QuietBranch soft
-clipper. Extracted from ``QuietBranch.apply`` (#4252) as a pure function so the
-branch module stays under the 300-line convention and the parameter logic is
-independently testable.
+Multi-dimensional-aware threshold/ceiling computation for the continuous-path
+soft clipper.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -19,7 +17,7 @@ from ..utils import SmoothCurveUtilities
 def compute_soft_clip_threshold(
     unpacker: Any, config: Any, verbose: bool
 ) -> tuple[float, float]:
-    """Compute the adaptive soft-clip ``(threshold_db, ceiling)`` for quiet material.
+    """Compute the adaptive soft-clip ``(threshold_db, ceiling)``.
 
     Starts from a loudness-scaled base and relaxes (raises threshold / lifts
     ceiling) for content that soft clipping would harm: tonal/harmonic material,

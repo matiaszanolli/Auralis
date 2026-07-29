@@ -1,30 +1,34 @@
 /// Temporal variation analysis
 /// Measures how audio characteristics vary over time
+use crate::dsp_math::{compute_rms, estimate_lufs};
 
-use crate::dsp_math::estimate_lufs;
-
-/// Compute dynamic range in decibels
+/// Compute crest factor in decibels.
+///
+/// Crest factor compares the frame peak with its RMS energy. Unlike the
+/// previous peak/minimum-sample ratio, it is stable in the presence of
+/// zero-crossings and numerical noise.
 fn compute_dynamic_range_db(signal: &[f32]) -> f32 {
     if signal.is_empty() {
         return 0.0;
     }
 
-    let max_abs = signal.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-    let min_nonzero = signal
-        .iter()
-        .map(|s| s.abs())
-        .filter(|&s| s > 1e-10)
-        .fold(f32::INFINITY, f32::min);
+    let peak = signal.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+    let rms = compute_rms(signal);
 
-    if max_abs < 1e-10 || min_nonzero == f32::INFINITY {
+    if peak < 1e-10 || rms < 1e-10 {
         return 0.0;
     }
 
-    20.0 * (max_abs / min_nonzero).log10()
+    20.0 * (peak / rms).log10()
 }
 
 /// Divide signal into frames and compute metric for each
-fn frame_analysis<F>(signal: &[f32], sample_rate: u32, frame_duration: f32, mut metric_fn: F) -> Vec<f32>
+fn frame_analysis<F>(
+    signal: &[f32],
+    sample_rate: u32,
+    frame_duration: f32,
+    mut metric_fn: F,
+) -> Vec<f32>
 where
     F: FnMut(&[f32]) -> f32,
 {
@@ -45,11 +49,8 @@ fn compute_std_dev(values: &[f32]) -> f32 {
     }
 
     let mean: f32 = values.iter().sum::<f32>() / values.len() as f32;
-    let variance: f32 = values
-        .iter()
-        .map(|&v| (v - mean).powi(2))
-        .sum::<f32>()
-        / values.len() as f32;
+    let variance: f32 =
+        values.iter().map(|&v| (v - mean).powi(2)).sum::<f32>() / values.len() as f32;
 
     variance.sqrt()
 }
@@ -166,11 +167,9 @@ mod tests {
 
     #[test]
     fn test_compute_dynamic_range_sine() {
-        let audio: Vec<f32> = (0..48000)
-            .map(|i| ((i as f32 * 0.01).sin() * 0.5).abs())
-            .collect();
+        let audio: Vec<f32> = (0..48000).map(|i| (i as f32 * 0.01).sin() * 0.5).collect();
         let dr = compute_dynamic_range_db(&audio);
-        assert!(dr > 0.0 && dr < 20.0);
+        assert!((dr - 3.01).abs() < 0.1);
     }
 
     #[test]
@@ -190,14 +189,14 @@ mod tests {
 
     #[test]
     fn test_dynamic_range_variation_varied() {
-        // Varying amplitude
-        let mut audio = Vec::new();
-        for i in 0..96000 {
-            let amplitude = if (i / 48000) % 2 == 0 { 0.9 } else { 0.1 };
-            audio.push(amplitude);
+        // One dense frame followed by a sparse, transient frame. Changing
+        // amplitude alone would not change crest factor.
+        let mut audio = vec![0.5; 48000];
+        for i in 0..48000 {
+            audio.push(if i % 100 == 0 { 0.9 } else { 0.0 });
         }
         let variation = compute_dynamic_range_variation(&audio, 48000);
-        assert!(variation > 1.0); // Should be higher
+        assert!(variation > 5.0);
     }
 
     #[test]

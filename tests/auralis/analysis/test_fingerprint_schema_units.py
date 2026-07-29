@@ -123,17 +123,10 @@ def test_eq_curve_varies_with_source_brightness():
     dark_params = generator.generate_parameters(dark_coords)
     bright_params = generator.generate_parameters(bright_coords)
 
-    # Dark source (bass-heavy, missing air) should get:
-    #   - Zero bass boost (already saturated)
-    #   - Large air/high-mid boost (deficit ≈ (0.12 - 0.02) / 0.12 = 0.83)
-    assert dark_params.eq_curve['low_shelf_gain'] == 0.0
-    assert dark_params.eq_curve['high_shelf_gain'] > 2.0
-
-    # Bright source (already air-rich) should get:
-    #   - Some bass boost (deficit ≈ (0.28 - 0.10) / 0.28 = 0.64)
-    #   - Zero air boost (already over the ideal)
+    # Signed corrections vary continuously around corpus centers.
+    assert abs(dark_params.eq_curve['low_shelf_gain']) < 0.1
     assert bright_params.eq_curve['low_shelf_gain'] > 1.5
-    assert bright_params.eq_curve['high_shelf_gain'] == 0.0
+    assert dark_params.eq_curve['high_shelf_gain'] > bright_params.eq_curve['high_shelf_gain']
 
     # And the gains must differ
     assert dark_params.eq_curve['high_shelf_gain'] != bright_params.eq_curve['high_shelf_gain']

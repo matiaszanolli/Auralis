@@ -28,6 +28,7 @@ from ..utils.audio_validation import sanitize_audio, validate_audio_finite
 from ..utils.logging import debug, info
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
 from .analysis.spectrum_mapper import SpectrumMapper
+from .config import UnifiedConfig
 from .hybrid import DynamicsManager, PreferenceManager, RealtimeEQManager
 from .processing import (
     AdaptiveMode,
@@ -37,8 +38,6 @@ from .processing import (
     RealtimeDSPPipeline,
 )
 from .processors import apply_reference_matching
-from .recording_type_detector import RecordingTypeDetector
-from .config import UnifiedConfig
 
 
 class HybridProcessor:
@@ -59,10 +58,6 @@ class HybridProcessor:
         self.target_generator = AdaptiveTargetGenerator(config, self)
         self.spectrum_mapper = SpectrumMapper()
         self.fingerprint_analyzer = AudioFingerprintAnalyzer()
-
-        # Initialize 25D-guided recording type detector
-        self.recording_type_detector = RecordingTypeDetector()
-        debug("✅ Recording type detector initialized")
 
         # Initialize psychoacoustic EQ
         eq_settings = EQSettings(
@@ -126,8 +121,7 @@ class HybridProcessor:
             self.spectrum_mapper
         )
         self.continuous_mode = ContinuousMode(
-            config, self.content_analyzer, self.fingerprint_analyzer,
-            self.recording_type_detector
+            config, self.content_analyzer, self.fingerprint_analyzer
         )
         self.hybrid_mode = HybridMode(
             config, self.content_analyzer, self.target_generator,
