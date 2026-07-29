@@ -15,7 +15,7 @@ import numpy as np
 from ...dsp.basic import amplify, rms
 from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
-from ...dsp.utils.stereo import stereo_width_analysis
+from ...dsp.utils.stereo import WIDTH_FACTOR_UNITY, stereo_width_analysis
 from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug
 from .base import (
@@ -206,19 +206,25 @@ class AdaptiveMode:
             return audio
 
         peak_before_stereo_db = StereoWidthProcessor.get_peak_db(audio)
-        current_width = stereo_width_analysis(audio)
+        # Measurement (decorrelation, 0 = mono) vs instruction (width factor,
+        # 0.5 = unchanged) — different axes, never compare them (#4503).
+        current_decorrelation = stereo_width_analysis(audio)
         target_width = targets["stereo_width"]
 
         # CRITICAL: Prevent stereo width expansion from creating excessive peaks
-        # Limit expansion for already-loud material
-        if spectrum_position.input_level > 0.8 and target_width > current_width:
+        # Limit expansion for already-loud material. Clamped against unity, not
+        # against the decorrelation reading: untouched audio is at unity side
+        # gain by definition, so that is the only valid reference for "how much
+        # wider than the input is this asking for?".
+        if spectrum_position.input_level > 0.8 and target_width > WIDTH_FACTOR_UNITY:
             max_width_increase = 0.6
-            target_width = min(target_width, current_width + max_width_increase)
+            target_width = min(target_width, WIDTH_FACTOR_UNITY + max_width_increase)
             print(f"[Stereo Width] Limited expansion for loud material: target reduced to {target_width:.2f}")
 
         # Apply stereo width with safety checks
         audio = StereoWidthProcessor.apply_stereo_width_safe(
-            audio, current_width, target_width, peak_before_stereo_db, safety_mode="adaptive"
+            audio, current_decorrelation, target_width, peak_before_stereo_db,
+            safety_mode="adaptive", sample_rate=self.config.internal_sample_rate,
         )
 
         return audio

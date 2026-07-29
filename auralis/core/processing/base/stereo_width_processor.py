@@ -11,7 +11,7 @@ Consolidates 70% duplicate logic between adaptive and continuous modes.
 
 import numpy as np
 
-from ....dsp.utils.stereo import adjust_stereo_width
+from ....dsp.utils.stereo import WIDTH_FACTOR_UNITY, adjust_stereo_width_multiband
 from ....utils.logging import debug
 from .db_conversion import DBConversion
 
@@ -55,41 +55,55 @@ class StereoWidthProcessor:
         current_width: float,
         target_width: float,
         peak_db: float,
-        safety_mode: str = "adaptive"
+        safety_mode: str = "adaptive",
+        sample_rate: int = 44100,
     ) -> np.ndarray:
         """
         Apply stereo width adjustment with safety checks to prevent peak clipping.
 
         Args:
             audio: Input audio array (must be stereo)
-            current_width: Current stereo width (0-1)
-            target_width: Target stereo width (0-1)
+            current_width: Measured DECORRELATION of the input (0 = mono). Kept
+                for logging/diagnostics only — see the scale note below.
+            target_width: Target WIDTH FACTOR (side-gain axis, 0.5 = unchanged)
             peak_db: Current peak in dB
             safety_mode: Safety strategy ("adaptive" = limit expansion for loud material,
                                         "conservative" = skip expansion if peak > threshold)
+            sample_rate: Sample rate, for the multiband crossovers
 
         Returns:
             Audio with adjusted stereo width
+
+        Scales (#4503): ``current_width`` and ``target_width`` are NOT on the
+        same axis — the first is a measurement (decorrelation), the second an
+        instruction (side gain). Both sit in 0..1 with 0.5 near the middle,
+        which is why the old ``target_width > current_width`` and
+        ``abs(current_width - target_width)`` tests looked plausible and were
+        meaningless. Every decision below is made against
+        :data:`WIDTH_FACTOR_UNITY`, the point at which a width factor leaves the
+        signal untouched.
         """
         # Strategy 1: Limit expansion for already-loud material (adaptive mode)
         if safety_mode == "adaptive":
             # For loud material with positive peaks, limit expansion
-            if peak_db > 3.0 and target_width > current_width:
+            if peak_db > 3.0 and target_width > WIDTH_FACTOR_UNITY:
                 max_width_increase = 0.6
-                target_width = min(target_width, current_width + max_width_increase)
+                target_width = min(target_width, WIDTH_FACTOR_UNITY + max_width_increase)
                 debug(f"[Stereo Width] Limited expansion for loud material: target reduced to {target_width:.2f}")
 
         # Strategy 2: Skip expansion if peak is critically high (conservative mode)
         elif safety_mode == "conservative":
-            if peak_db > 3.0 and target_width > current_width:
+            if peak_db > 3.0 and target_width > WIDTH_FACTOR_UNITY:
                 debug(f"[Stereo Width] SKIPPED expansion due to high peak ({peak_db:.2f} dB)")
                 return audio  # Return unmodified
 
-        # Apply stereo width only if change is meaningful
-        if abs(current_width - target_width) > 0.1:
-            audio = adjust_stereo_width(audio, target_width)
+        # Apply stereo width only if the requested change is meaningful, i.e.
+        # the width factor is far enough from unity to be worth the filtering.
+        if abs(target_width - WIDTH_FACTOR_UNITY) > 0.1:
+            # Multiband so sub-300 Hz stays (near-)mono (#4504).
+            audio = adjust_stereo_width_multiband(audio, target_width, sample_rate)
             new_peak_db = StereoWidthProcessor.get_peak_db(audio)
             debug(f"[Stereo Width] Peak: {peak_db:.2f} → {new_peak_db:.2f} dB "
-                  f"(width: {current_width:.2f} → {target_width:.2f})")
+                  f"(width factor: {target_width:.2f}, decorrelation was {current_width:.2f})")
 
         return audio

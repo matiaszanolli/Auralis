@@ -19,7 +19,11 @@ from auralis.core.config import UnifiedConfig
 
 from ...dsp.basic import amplify, rms
 from ...dsp.utils.adaptive import calculate_loudness_units
-from ...dsp.utils.stereo import adjust_stereo_width, stereo_width_analysis
+from ...dsp.utils.stereo import (
+    WIDTH_FACTOR_UNITY,
+    adjust_stereo_width_multiband,
+    stereo_width_analysis,
+)
 from ...utils.audio_validation import validate_audio_finite
 from ...utils.logging import debug
 from .base import (
@@ -579,21 +583,40 @@ class ContinuousMode:
         if not StereoWidthProcessor.validate_stereo(audio):
             return audio
 
-        # Get current and target width
-        current_width = stereo_width_analysis(audio)
+        # `target_width` is a WIDTH FACTOR (side-gain axis, 0.5 = unchanged);
+        # `stereo_width_analysis` returns DECORRELATION (0 = mono). Different
+        # axes — see the module docstring in dsp/utils/stereo.py (#4503). The
+        # decorrelation reading is for logging only; it must never be compared
+        # with or subtracted from a width factor.
         target_width = params.stereo_width_target
+        pre_decorrelation = stereo_width_analysis(audio)
 
         # Check peak levels before expansion (safety)
         pre_peak_db = StereoWidthProcessor.get_peak_db(audio)
 
-        # Skip expansion if already close to clipping
-        if pre_peak_db > -2.0 and target_width > current_width:
+        # Skip expansion if already close to clipping. "Does this widen?" is
+        # answered against unity, not against a measurement: untouched audio is
+        # at unity side gain by definition. The old test compared the width
+        # factor against the decorrelation reading, so a narrowing request on a
+        # near-mono source (e.g. factor 0.4 vs decorrelation 0.1) read as
+        # "widening" and was skipped, while a genuine widening request on a
+        # decorrelated source (factor 0.7 vs decorrelation 0.9) slipped past
+        # the clipping guard.
+        if pre_peak_db > -2.0 and target_width > WIDTH_FACTOR_UNITY:
             debug(f"[Stereo Width] SKIPPED expansion due to high peak ({pre_peak_db:.2f} dB)")
             return audio
 
-        audio = adjust_stereo_width(audio, target_width)
-        post_width = stereo_width_analysis(audio)
-        debug(f"[Stereo Width] {current_width:.2f} → {post_width:.2f} (target: {target_width:.2f})")
+        # Multiband so sub-300 Hz stays (near-)mono — protects kick/bass punch
+        # and mono compatibility, matching the SimpleMastering path (#4504).
+        audio = adjust_stereo_width_multiband(
+            audio, target_width, self.config.internal_sample_rate
+        )
+        post_decorrelation = stereo_width_analysis(audio)
+        debug(
+            f"[Stereo Width] decorrelation {pre_decorrelation:.2f} → "
+            f"{post_decorrelation:.2f} (width factor: {target_width:.2f}, "
+            f"unity={WIDTH_FACTOR_UNITY})"
+        )
 
         return audio
 

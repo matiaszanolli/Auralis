@@ -4,6 +4,26 @@ Stereo Processing Utilities
 
 Utilities for stereo width analysis and manipulation
 
+THREE DIFFERENT "WIDTH" SCALES EXIST IN THIS CODEBASE (#4503). They are not
+interchangeable, and mixing them silently produces a plausible-looking number
+that means the wrong thing:
+
+1. **Decorrelation width** — :func:`stereo_width_analysis` here.
+   ``1 - |corr(L, R)|``. 0.0 = mono, 1.0 = fully decorrelated. A *measurement*
+   of the signal; there is no "unity" value.
+2. **Width factor / side gain** — the ``width_factor`` argument to
+   :func:`adjust_stereo_width` and :func:`adjust_stereo_width_multiband`.
+   ``side_gain = 2 * width_factor``, so :data:`WIDTH_FACTOR_UNITY` (0.5) means
+   "leave unchanged". An *instruction*, not a measurement.
+3. **Side-energy ratio** — the ``stereo_width`` fingerprint dimension
+   (``vendor/auralis-dsp/src/stereo_analysis.rs::compute_stereo_width``).
+   ``side_energy / (mid_energy + side_energy)``. 0.0 = mono.
+
+Scale 1 and scale 2 both live in the 0..1 interval and both have 0.5 near the
+middle, which is exactly why comparing them looks reasonable and is wrong. To
+ask "does this instruction widen the signal?", compare the width factor against
+:data:`WIDTH_FACTOR_UNITY` — never against a measurement on scale 1 or 3.
+
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """
@@ -12,6 +32,12 @@ import numpy as np
 from scipy.signal import butter, sosfiltfilt
 
 from ..basic import mid_side_decode, mid_side_encode
+
+#: Width factor that leaves the signal unchanged (side gain of exactly 1.0).
+#: Audio that has not been width-adjusted sits here *by definition*, which is
+#: what makes it the correct reference point for "would this widen or narrow?"
+#: — no measurement of the input is needed or valid for that question (#4503).
+WIDTH_FACTOR_UNITY: float = 0.5
 
 
 def stereo_width_analysis(stereo_audio: np.ndarray) -> float:
@@ -104,6 +130,13 @@ def adjust_stereo_width_multiband(
     - High-mids (2k-8kHz): Moderate expansion - presence, guitars
     - Highs (>8kHz): Full expansion - air, cymbals
 
+    On the low band: "no expansion below 300 Hz" is the *intent*, not a brick
+    wall. The order-2 extraction bandpass has a gentle skirt, so measured side
+    gain at max widening tapers off gradually — ~1.19x at 250-300 Hz, ~1.09x at
+    200-250 Hz, ~1.04x at 160-200 Hz, and effectively 1.00x below ~120 Hz.
+    Kick and bass fundamentals are genuinely protected; the upper bass is
+    partially widened. Measured, not assumed (#4504).
+
     Args:
         stereo_audio: Stereo audio signal [samples, 2]
         width_factor: Base width factor (0.5 = no change, 1.0 = max width)
@@ -124,7 +157,18 @@ def adjust_stereo_width_multiband(
     nyquist = sample_rate / 2
 
     # Band extraction frequencies (using simple Butterworth, not LR4)
-    # We only need to extract bands, not split perfectly
+    # We only need to extract bands, not split perfectly.
+    #
+    # The SHARED 2 kHz edge between low-mid and high-mid is correct and
+    # load-bearing — do not "fix" it into non-overlapping edges (#4505).
+    # An order-2 Butterworth run through `sosfiltfilt` (zero-phase, so the
+    # magnitude response is squared) sits at exactly 0.5 amplitude at its
+    # cutoff, so at 2 kHz the two bandpasses sum to ~1.0: the region is
+    # amplitude-complementary and each frequency is widened exactly ONCE.
+    # Splitting the edge apart would open a genuine hole at the seam.
+    # Verified by measurement, not inspection — see
+    # tests/auralis/dsp/test_stereo_width_scales_4503.py, which pins the width
+    # response as monotonic across 1.5-2.5 kHz.
     freq_lowmid_lo = min(0.99, max(0.01, 300.0 / nyquist))
     freq_lowmid_hi = min(0.99, max(0.01, 2000.0 / nyquist))
     freq_highmid_lo = min(0.99, max(0.01, 2000.0 / nyquist))
