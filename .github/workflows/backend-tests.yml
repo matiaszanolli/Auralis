@@ -52,9 +52,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Must match `.python-version` (3.14) and pyproject's
+      # `requires-python = ">=3.14"`. On 3.13 the whole suite fails to
+      # collect: the codebase relies on PEP 649 deferred annotations, so a
+      # self-referential return type evaluated at class-definition time —
+      # e.g. `FingerprintUnpacker.from_dict(...) -> FingerprintUnpacker` —
+      # raises `NameError: name 'FingerprintUnpacker' is not defined` on
+      # 3.13 without `from __future__ import annotations`. Pinning 3.13 here
+      # produced 13 collection errors and 0 tests run on every push.
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.14'
           cache: 'pip'
 
       - name: Install dependencies
