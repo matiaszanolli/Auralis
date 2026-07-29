@@ -148,6 +148,8 @@ def create_tracks_router(
 
             # Try to extract from file
             try:
+                from security.path_security import PathValidationError, validate_file_path
+                validate_file_path(str(track.filepath))
                 import mutagen
                 audio_file = await asyncio.to_thread(mutagen.File, track.filepath)  # type: ignore[attr-defined]
                 lyrics_text = None
