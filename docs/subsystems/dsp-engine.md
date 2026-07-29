@@ -99,22 +99,38 @@ chunks for memory efficiency. Each chunk flows through
 1. Unpack 25D fingerprint → `calculate_intensity` (2D crest × LUFS interpolation, clamped
    0.5–1.2).
 2. **Stage 1** — gentle clip-prevention peak reduction.
-3. **Stage 2** — `MaterialClassifier.classify` → dispatch to one of three branches.
+3. **Stage 2** — `ContinuousMasteringBranch.apply` — one measurement-driven path, no
+   classification step.
 4. **Stage 3** — unified output normalize (only when `needs_output_normalize`).
 5. `sanitize_audio`.
 
-### Material branches (`mastering_branches/`)
+### The continuous path (`mastering_branches/`)
 
-| Branch | Trigger | `needs_output_normalize` |
-|--------|---------|--------------------------|
-| `CompressedLoudBranch` ([`compressed_loud.py:20`](../../auralis/core/mastering_branches/compressed_loud.py)) | LUFS > −12, crest < 13 | `True` |
-| `DynamicLoudBranch` ([`dynamic_loud.py:19`](../../auralis/core/mastering_branches/dynamic_loud.py)) | LUFS > −12, crest ≥ 13 | `True` |
-| `QuietBranch` ([`quiet.py:22`](../../auralis/core/mastering_branches/quiet.py)) | LUFS ≤ −12 | **`False` — self-normalizes** |
+There is **one** branch. The former `MaterialClassifier` and its three categorical branches
+(*compressed_loud*, *dynamic_loud*, *quiet*, selected by LUFS/crest thresholds) were
+deleted — a whole-track label no longer chooses a path or gates processing. Every source
+runs the same chain; per-stage strength is derived numerically from the fingerprint.
 
-> **Gotcha.** `QuietBranch` self-normalizes (it is the mirror-opposite gain-staging chain
-> ending in a branch-local `normalize`), while the loud branches defer to Stage 3. Mixing
-> these up **double-normalizes**. This is an explicit contract documented at
-> [`mastering_branches/base.py:55`](../../auralis/core/mastering_branches/base.py).
+[`ContinuousMasteringBranch`](../../auralis/core/mastering_branches/continuous.py) applies,
+in order:
+
+1. Adaptive makeup gain → 2. bass enhancement → 3. sub-bass control → 4. mid warmth →
+5. presence + air → 6. adaptive soft clipping (multi-dimensional) → 7. stereo width
+expansion → 8. peak normalize to target LUFS.
+
+Stage strengths come from `ProcessingSpaceMapper`
+([`continuous_space.py`](../../auralis/core/processing/continuous_space.py)), which maps
+the 25D fingerprint onto three continuous axes — spectral balance, dynamic range, energy
+level. Each axis is mapped through a bounded `tanh` so no measurement can produce a step
+change or an unbounded parameter.
+
+> **Gotcha.** The continuous path **self-normalizes**: it ends in a branch-local
+> `normalize` and therefore sets `needs_output_normalize = False`
+> ([`continuous.py:239`](../../auralis/core/mastering_branches/continuous.py)). Stage 3 is
+> consequently dormant for the only branch that exists. The Stage-3 mechanism in
+> [`mastering_process_chunk.py:138`](../../auralis/core/mastering_process_chunk.py) is
+> retained for future paths — a new branch that does *not* self-normalize must set the flag
+> `True`, and one that does must not, or the output **double-normalizes**.
 
 ### Presets belong to HybridProcessor, not SimpleMastering
 
@@ -312,8 +328,8 @@ There are **two separate processor caches**: the module-level convenience cache 
 3. [`chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py) — chunk
    geometry (small, foundational).
 4. [`mastering_branches/`](../../auralis/core/mastering_branches/) — the offline
-   branch logic and tuning constants (a package since the split: `base.py`,
-   `classifier.py`, and one module per branch).
+   signal path and tuning constants: `base.py` (abstract contract), `continuous.py` (the
+   single path), `soft_clip_params.py`.
 
 **Related:** [fingerprinting.md](fingerprinting.md) ·
 [backend-api.md](backend-api.md) · [../architecture/data-flow.md](../architecture/data-flow.md)

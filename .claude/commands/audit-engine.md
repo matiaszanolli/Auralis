@@ -21,16 +21,17 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 
 | Component | Path | Key Files |
 |-----------|------|-----------|
-| Core Pipeline | `auralis/core/` | `hybrid_processor.py` + `hybrid/`, `simple_mastering.py` + `mastering_chunk_loop.py` / `mastering_prepare.py` / `mastering_process_chunk.py` / `mastering_branches/`, `processing/`, `processors/`, `stages/` |
+| Core Pipeline | `auralis/core/` | `hybrid_processor.py` + `hybrid/`, `simple_mastering.py` + `mastering_chunk_loop.py` / `mastering_prepare.py` / `mastering_process_chunk.py` / `mastering_notch_context.py` / `mastering_branches/` (continuous path only), `processing/`, `processors/`, `stages/` (13 named stages), `analysis/`, `dsp/`, `utils/` |
+| Continuous Processing | `auralis/core/processing/` | `continuous_space.py` (`ProcessingCoordinates` — the 3D space replacing discrete presets), `continuous_mode.py`, `adaptive_mode.py`, `hybrid_mode.py`, `parameter_generator.py`, `target_derivation.py`, `delta_eq.py`, `cross_dimensional_guard.py`, `hf_aware_limiter.py`, `realtime_dsp_pipeline.py`, `base/`. See the Retired Architecture table in `_audit-common.md` — categorical branch classification is gone; do not report its absence. |
 | Core Config | `auralis/core/config/` | `unified_config.py` (UnifiedConfig), `factory.py`, `settings.py`, `preset_profiles.py`, `genre_profiles.py`. Separate from the legacy dataclasses in `auralis/core/config.py` — check both when tracing a parameter. |
 | DSP Modules | `auralis/dsp/` | `stages.py`, `basic.py`, `advanced_dynamics.py`, `eq/psychoacoustic_eq.py` + `eq/parallel_eq_processor/`, `realtime_adaptive_eq/realtime_eq.py`, `dynamics/` |
 | Player | `auralis/player/` | `enhanced_audio_player.py`, `gapless_playback_engine.py`, `queue_controller.py`, `playback_controller.py`, `realtime_processor.py` + `realtime/`, `components/`, `audio_file_manager.py` |
 | Audio I/O | `auralis/io/` | `unified_loader.py`, `loader.py`, `loaders/`, `formats.py`, `saver.py`, `results.py` |
 | Parallel Processing | `auralis/optimization/` | `parallel_processor.py` + `parallel/`, `acceleration/`, `caching/`, `memory/` |
 | Analysis | `auralis/analysis/` | `fingerprint/` (25D system), `ml/`, `quality/`, `quality_assessors/` |
-| Library | `auralis/library/` | `manager.py`, `repositories/` (14 repos + `base.py` BaseRepository), `scanner/`, `migrations/`, `migration_manager.py`, `caching/`, `sidecar_manager.py` |
+| Library | `auralis/library/` | `database.py` (`LibraryDatabase` — composition root: engine, pragmas, migration, sessions, scan slots, shutdown), `manager.py` (`LibraryManager` — DEPRECATED facade, off the startup path since #4619; new code must not construct it), `repositories/` (14 repos + `base.py` BaseRepository), `scanner/`, `migrations/`, `migration_manager.py`, `caching/`, `sidecar_manager.py` |
 | Services | `auralis/services/` | `artwork_service.py`, `fingerprint_extractor.py`, `fingerprint_queue.py`, `resizable_semaphore.py` |
-| Rust DSP | `vendor/auralis-dsp/` | PyO3 bindings (HPSS, YIN, Chroma) |
+| Rust DSP | `vendor/auralis-dsp/` | PyO3 bindings in `vendor/auralis-dsp/src/py_bindings.rs` — 11 exposed functions: hpss, yin, chroma_cqt, detect_tempo, envelope_follow, compress, limit, compute_fingerprint, apply_multiband_eq, detect_onsets, process_chunks. Rhythm/tempo/onset were ported in from the deleted standalone fingerprint server (#4533). |
 
 Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electron desktop. DO verify engine public API contracts.
 
@@ -60,7 +61,7 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 
 ### Dimension 2: DSP Pipeline Correctness
 
-**Key files**: `auralis/core/hybrid_processor.py` + `auralis/core/hybrid/`, `auralis/core/simple_mastering.py` + `auralis/core/mastering_process_chunk.py` / `auralis/core/mastering_chunk_loop.py` / `auralis/core/mastering_branches/`, `auralis/core/stages/`, `auralis/dsp/stages.py`, `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`, `auralis/dsp/realtime_adaptive_eq/realtime_eq.py`
+**Key files**: `auralis/core/hybrid_processor.py` + `auralis/core/hybrid/`, `auralis/core/simple_mastering.py` + `auralis/core/mastering_process_chunk.py` / `auralis/core/mastering_chunk_loop.py` / `auralis/core/mastering_branches/`, `auralis/core/processing/continuous_space.py`, `auralis/core/processing/continuous_mode.py`, `auralis/core/stages/`, `auralis/core/dsp/`, `auralis/dsp/stages.py`, `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/advanced_dynamics.py`, `auralis/dsp/realtime_adaptive_eq/realtime_eq.py`
 
 **Check**:
 - [ ] Processing chain order — is the sequence (EQ → dynamics → mastering) correct and documented?
@@ -72,6 +73,9 @@ Out of scope: React frontend, FastAPI backend (routing, WebSocket layer), Electr
 - [ ] Sub-bass parallel path — correctly mixed back in? (Fix: `8bc5b217`)
 - [ ] EQ band mapping — is the psychoacoustic EQ curve mapped to bands **by frequency**, not by raw index? An out-of-range index used to fall back silently to the simple EQ (fix `2b3c5b35`).
 - [ ] WOLA overlap — the psychoacoustic path uses a fixed 50% hop with a full-Hann synthesis window. Any configurable-overlap change must re-derive COLA; flag if one was introduced without it.
+- [ ] Parameter-space continuity — mastering is driven by continuous `ProcessingCoordinates` (spectral_balance, dynamic_range, energy_level) from `auralis/core/processing/continuous_space.py`. Does any consumer reintroduce a categorical step — a hard `if coord > X` threshold, a clamp that flattens the range, or a lookup table with discrete buckets? Two fingerprints that differ slightly must not produce audibly different mastering.
+- [ ] Monotonicity — as one coordinate increases with the others fixed, do the derived parameters move monotonically, without plateaus or clipped ranges? Non-monotonic parameter generation makes mastering unpredictable across a catalog.
+- [ ] Coordinate derivation — are the 3 axes computed from the 25D fingerprint with bounded, finite math? `_smooth_unit()` uses `tanh` to map unbounded measurements into (0, 1) — check every axis actually routes through a bounded mapping and cannot emit NaN/Inf from a degenerate fingerprint.
 - [ ] Config duality — a parameter may be defined in `auralis/core/config/unified_config.py` *and* in legacy `auralis/core/config.py`. Do both paths agree, or can one shadow the other?
 - [ ] Rust DSP boundary — do PyO3 calls handle errors and return correct formats?
 - [ ] GIL handling — does Rust code release the GIL during compute? Can concurrent calls corrupt state?

@@ -12,14 +12,14 @@ All code lives in a single repo at `/mnt/data/src/matchering`.
 
 ```
 Audio Engine:        auralis/                                Core Python audio engine
-Core Pipeline:       auralis/core/                           hybrid_processor.py + hybrid/, simple_mastering.py + mastering_*.py, processing/, processors/, stages/, analysis/, dsp/, recording_type_detector.py
+Core Pipeline:       auralis/core/                           hybrid_processor.py + hybrid/, simple_mastering.py + mastering_*.py, mastering_branches/ (continuous only — see note below), processing/ (continuous_space.py, continuous_mode.py, adaptive_mode.py, hybrid_mode.py, base/), processors/, stages/ (13 named DSP stages), analysis/, dsp/, utils/, personal_preferences.py, recording_type_detector.py
 Core Config:         auralis/core/config/                    UnifiedConfig package (unified_config.py, factory.py, settings.py, preset_profiles.py, genre_profiles.py)
                      auralis/core/config.py                  Legacy dataclass configs (LimiterConfig etc.) — still live, distinct from the package above
 DSP:                 auralis/dsp/                            stages.py (pipeline main()), basic.py, advanced_dynamics.py, eq/ (psychoacoustic_eq.py, parallel_eq_processor/), realtime_adaptive_eq/ (realtime_eq.py), dynamics/, utils/
 Player:              auralis/player/                         enhanced_audio_player.py, gapless_playback_engine.py, queue_controller.py, playback_controller.py, realtime_processor.py + realtime/, components/, audio_file_manager.py
-Library:             auralis/library/                        manager.py, scanner/ (package), models/ (ORM package), migrations/, migration_manager.py, caching/, metadata_editor/, sidecar_manager.py, artwork.py
+Library:             auralis/library/                        database.py (LibraryDatabase — the composition root: engine, pragmas, migration, session factory, scan slots, shutdown), manager.py (LibraryManager — DEPRECATED legacy query facade, no longer constructed on the startup path, #4619), scanner/ (package), models/ (ORM package), migrations/, migration_manager.py, caching/, metadata_editor/, sidecar_manager.py, artwork.py
 Repositories:        auralis/library/repositories/           14 repos + base.py (BaseRepository) + factory.py (RepositoryFactory): track, album, artist, playlist, genre, stats, fingerprint, fingerprint_scheduler, fingerprint_stats, queue, queue_history, queue_template, settings, similarity_graph
-Analysis:            auralis/analysis/                       56 files; fingerprint/ (25D), ml/, quality/, quality_assessors/
+Analysis:            auralis/analysis/                       45 files; fingerprint/ (25D), ml/, quality/, quality_assessors/
 Audio I/O:           auralis/io/                             unified_loader.py, loader.py, loaders/, formats.py, saver.py, results.py (pcm16/pcm24)
 Parallel:            auralis/optimization/                   parallel_processor.py + parallel/, acceleration/, caching/, memory/, profiling/
 Services:            auralis/services/                       artwork_service.py, fingerprint_extractor.py, fingerprint_queue.py, resizable_semaphore.py
@@ -36,9 +36,10 @@ Backend WebSocket:   auralis-web/backend/ws_handlers/        connection.py, cont
                      auralis-web/backend/websocket/          websocket_protocol.py, websocket_security.py
 Backend Security:    auralis-web/backend/security/           path_security.py (path containment); rate limiting + security headers live in config/middleware.py
 Backend Schemas:     auralis-web/backend/schemas.py
-Backend Services:    auralis-web/backend/services/           library_auto_scanner.py, queue_service.py, playback_service.py, navigation_service.py, recommendation_service.py, learning_system.py, artwork_downloader.py, audio_content_predictor.py
+Backend Services:    auralis-web/backend/services/           library_auto_scanner.py, queue_service.py, queue_enrichment.py, queue_protocols.py, playback_service.py, navigation_service.py, recommendation_service.py, learning_system.py, artwork_downloader.py, audio_content_predictor.py
 Backend Analysis:    auralis-web/backend/analysis/           analysis_extractor.py, fingerprint_generator.py, fingerprint_queue.py, track_analysis_cache.py
-Backend Encoding:    auralis-web/backend/encoding/           wav_encoder.py
+Backend Encoding:    auralis-web/backend/encoding/           wav_encoder.py  — LEGACY copy, still imported by processing_engine.py and one path in chunked_processor.py
+                     auralis-web/backend/core/encoding/      wav_encoder.py (DIFFERENT content from the copy above) + atomic_io.py. Two live `WAVEncoderError` classes exist; an `except` on one will not catch the other. Treat as a known duplication hotspot.
 Backend Monitoring:  auralis-web/backend/monitoring/         memory_monitor.py, metrics_collector.py
 
 Frontend:            auralis-web/frontend/src/               React 18 + TS + Vite + Redux + MUI
@@ -51,15 +52,44 @@ Frontend Services:   auralis-web/frontend/src/services/      API clients + api/,
 Frontend Types:      auralis-web/frontend/src/types/         api.ts, domain.ts, websocket.ts, ws/
 Frontend Test Utils: auralis-web/frontend/src/test/          setup.ts, test-utils.tsx, mocks/; specs also live in src/__tests__/ and src/tests/
 
-Rust DSP:            vendor/auralis-dsp/                     PyO3 module (HPSS, YIN, Chroma)
+Rust DSP:            vendor/auralis-dsp/                     PyO3 module, 19 src/*.rs. Exposes 11 functions via py_bindings.rs: hpss, yin, chroma_cqt, detect_tempo, envelope_follow, compress, limit, compute_fingerprint, apply_multiband_eq, detect_onsets, process_chunks. rhythm.rs/tempo.rs/onset_detector.rs were ported in when the standalone fingerprint-server was deleted (#4533).
 Desktop:             desktop/                                Electron wrapper
-Tests:               tests/                                  ~5,100 test functions (446 files) across 18 dirs
+Scripts:             scripts/                                Dev/release tooling — check_pytest_baseline.py, validate_release_metadata.py, run_all_tests.py, development/
+Tests:               tests/                                  ~5,600 test functions (501 files) across 18 dirs
 Audit Reports:       docs/audits/                            Generated audit reports
 Local Issue Cache:   .claude/issues/                         Issue snapshots (per audit-publish / fix-issue)
 Specialist Agents:   .claude/agents/                         dsp, backend, frontend, library specialists
 ```
 
 Counts above were re-derived from the live tree when this file was last updated. If a finding depends on an exact number, recompute it rather than quoting this table.
+
+## Retired Architecture — Do Not Report Against
+
+Findings that assume any of the following describe code that no longer exists. Verify against the live tree before reporting; a "missing" piece here is intentional, not a bug.
+
+| Retired | Replaced by | Notes |
+|---------|-------------|-------|
+| Categorical mastering branches — a classifier selecting a *quiet* / *dynamic_loud* / *compressed_loud* branch | A single continuous path: `auralis/core/mastering_branches/continuous.py` (`ContinuousMasteringBranch`), driven by `auralis/core/processing/continuous_space.py` | The branch classifier and its three per-category modules were deleted. Mastering parameters are now generated continuously from 3D `ProcessingCoordinates` (spectral_balance, dynamic_range, energy_level) derived from the 25D fingerprint. Do **not** report "missing branch classification", "no category dispatch", or a stage that fails to special-case a category. Discrete presets were deliberately replaced by continuous parameter generation. |
+| Standalone `fingerprint-server` service | `vendor/auralis-dsp/` (in-process Rust) | Deleted in #4533; rhythm/tempo/onset code was ported into the PyO3 module. There is no separate server process, port, or HTTP hop to audit. |
+| `EnhancementContext` (frontend) | `useEnhancementControl()` local state | Never existed as a context. See the Frontend Contexts row above. |
+
+Corollary for the DSP/engine audits: regression tests now assert **continuous** invariants (monotonicity across the parameter space, no plateaus, smooth transitions) rather than per-category expected behavior. A test that no longer checks a category is up to date, not a coverage gap.
+
+## Test Baselines — Use the Tracked Files, Not a Worktree Diff
+
+Both suites carry a large pre-existing failure baseline, so a raw failure is **not** evidence of a regression. As of #4562 / #4640 the baselines are checked in and CI-enforced, which replaces the old "compare against a clean worktree" advice for most cases.
+
+| Suite | Baseline | Check | CI |
+|-------|----------|-------|-----|
+| Frontend (vitest) | `auralis-web/frontend/test-baseline.json` — an explicit list of known-failing specs (~165 of ~3,446 at last regen) | `pnpm run test:ci` then `pnpm run test:baseline` | `.github/workflows/frontend-test.yml` |
+| Backend (pytest) | *pytest-baseline.json* at the repo root — generate it with `scripts/check_pytest_baseline.py` if absent (it is not tracked yet) | `python scripts/check_pytest_baseline.py pytest-results.xml` | `.github/workflows/backend-tests.yml` |
+
+Rules:
+- **Read the baseline file before reporting any failing test.** If the spec is listed, it is known — do not file it.
+- Both gates are *ratchets*: the baseline may shrink, never grow. A newly-failing test not in the baseline is a genuine regression and worth a finding.
+- Regenerate rather than hand-edit: `pnpm run test:baseline:update`.
+- CI **does** now run vitest and pytest. Any audit note claiming "no CI runs the tests" is out of date.
+- A worktree comparison (`git worktree add`, **never** `git stash`) is still the fallback when a baseline file is missing or you need to attribute a failure to a specific commit.
 
 ## Severity Framework
 
@@ -133,7 +163,9 @@ When a bug pattern exists, check ALL siblings before declaring scope. Common sib
 
 | Pattern | Where to grep |
 |---------|---------------|
-| DSP stage missing `.copy()` | All files under `auralis/dsp/` and `auralis/core/` (incl. `auralis/core/hybrid/`, `auralis/core/stages/`, `auralis/core/processors/`) |
+| DSP stage missing `.copy()` | All files under `auralis/dsp/` and `auralis/core/` (incl. `auralis/core/hybrid/`, `auralis/core/stages/`, `auralis/core/processors/`, `auralis/core/dsp/`, `auralis/core/processing/`) |
+| Named mastering stage inconsistency | All 13 stages under `auralis/core/stages/` (air_enhancement, bass_enhancement, clarity_boost, harmonic_exciter, hf_budget, loudness_maximizer, mid_warmth, presence_enhancement, resonance_notches, safety_limiter, stereo_expansion, sub_bass_control, transient_shaper) — each must honor the same copy/sample-count/dtype contract |
+| Discontinuity in continuous parameter space | `auralis/core/processing/continuous_space.py` and every consumer of `ProcessingCoordinates` — any clamp, plateau, or `if` threshold that reintroduces a categorical step |
 | Repository raw SQL | All 14 repos under `auralis/library/repositories/` (each extends `BaseRepository` in `base.py`; also check `factory.py`) |
 | Router missing input validation | All 20 registered route handlers under `auralis-web/backend/routers/` (derive the live list from `auralis-web/backend/config/routes.py`, not from a hardcoded count) |
 | Unvalidated filesystem path | Every call site that should route through `auralis-web/backend/security/path_security.py` |

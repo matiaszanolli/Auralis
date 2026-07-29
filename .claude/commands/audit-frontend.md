@@ -137,7 +137,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 **Check**:
 - [ ] Critical path coverage — are player hooks, WebSocket hooks, and Redux slices tested?
 - [ ] Global auto-mocks — `auralis-web/frontend/src/test/setup.ts` mocks `contexts/WebSocketContext` for every spec. Any test claiming to exercise the real implementation must `vi.unmock()` it; flag ones that don't (they are asserting against the mock).
-- [ ] Pre-existing failures — the suite has a known baseline of failing specs. Do NOT report individual baseline failures as new findings; compare against a clean worktree (`git worktree add`, never `git stash`) before claiming a regression.
+- [ ] Pre-existing failures — the known-failing specs are listed explicitly in `auralis-web/frontend/test-baseline.json` (#4640). **Read that file before reporting any failing spec**; if it is listed, do not file it. Verify with `pnpm run test:ci && pnpm run test:baseline`. The gate is a ratchet (baseline may shrink, never grow), so a failure *not* in the list is a real regression. Regenerate with `pnpm run test:baseline:update`, never by hand.
 - [ ] Memory — the suite needs the 2GB-heap runner (`pnpm run test:memory`); flag any new spec that spins an unbounded mock loop.
 - [ ] Mock correctness — do mocks (`vi.*`) accurately represent real behavior? Over-mocking?
 - [ ] Async testing — are async operations properly awaited? Any floating promises in tests?

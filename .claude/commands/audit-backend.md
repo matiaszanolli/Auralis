@@ -29,9 +29,9 @@ This audit covers ONLY the backend code:
 - **Streaming paths**: `auralis-web/backend/core/stream_enhanced.py`, `auralis-web/backend/core/stream_normal.py`, `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/stream_prefetch.py`, `auralis-web/backend/core/stream_protocol.py`, `auralis-web/backend/core/stream_messages.py`, `auralis-web/backend/core/proactive_buffer.py`
 - **Processing Engine & workers**: `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/processor_pool.py`, `auralis-web/backend/core/processor_factory.py`, `auralis-web/backend/core/job_worker.py`, `auralis-web/backend/core/streamlined_worker.py`, `auralis-web/backend/core/state_manager.py`
 - **Schemas**: `auralis-web/backend/schemas.py`
-- **Services**: `auralis-web/backend/services/` (8 services incl. `library_auto_scanner.py`, `queue_service.py`, `playback_service.py`)
+- **Services**: `auralis-web/backend/services/` (10 modules incl. `library_auto_scanner.py`, `queue_service.py`, `queue_enrichment.py`, `queue_protocols.py`, `playback_service.py`)
 - **Security**: `auralis-web/backend/security/path_security.py`, `auralis-web/backend/websocket/websocket_security.py`
-- **Support modules**: `auralis-web/backend/analysis/`, `auralis-web/backend/encoding/wav_encoder.py`, `auralis-web/backend/monitoring/`
+- **Support modules**: `auralis-web/backend/analysis/`, `auralis-web/backend/monitoring/`, and **two** encoding packages — `auralis-web/backend/encoding/wav_encoder.py` (legacy) and `auralis-web/backend/core/encoding/` (`wav_encoder.py` with different content, plus `atomic_io.py`). Both are live: `auralis-web/backend/core/processing_engine.py` imports the legacy one, `auralis-web/backend/core/chunked_processor.py` imports both. Two distinct `WAVEncoderError` classes result — check every `except WAVEncoderError` resolves to the class the raising path actually uses.
 - **Tests**: Backend-related tests under `tests/`
 
 Out of scope: React frontend, audio engine internals (`auralis/`), Rust DSP. However, DO verify that the backend correctly calls engine APIs and returns responses matching frontend expectations.
