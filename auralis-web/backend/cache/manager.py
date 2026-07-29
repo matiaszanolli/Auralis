@@ -23,7 +23,11 @@ from typing import Any, NamedTuple
 # Chunk geometry comes from chunk_boundaries — the single source of truth (#4025)
 # — instead of a third local copy that would drift and cause cache-index errors.
 # Re-exported (cache/__init__.py forwards these) so callers keep resolving them.
-from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL  # noqa: F401
+from core.chunk_boundaries import (  # noqa: F401
+    CHUNK_DURATION,
+    CHUNK_INTERVAL,
+    content_chunk_count,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -175,16 +179,16 @@ class StreamlinedCacheManager:
         return int(position // CHUNK_INTERVAL)
 
     def _calculate_total_chunks(self, duration: float) -> int:
-        """Calculate total chunks needed for track.
+        """Content-carrying chunk count — delegates to the chunk-model SoT.
 
-        Counts only content-carrying chunks under the overlap model so the
-        cache-completion target matches ChunkedAudioProcessor.total_chunks.
+        The cache-completion target must equal ``ChunkedAudioProcessor.
+        total_chunks``, which is itself set from ``content_chunk_count()``, so
+        this delegates rather than re-deriving the formula (#4620). The naive
         ``ceil(duration / CHUNK_INTERVAL)`` over-counted a 0-content trailing
-        chunk for durations in ``(n*INTERVAL, n*INTERVAL + OVERLAP)`` (#4124).
+        chunk for durations in ``(n*INTERVAL, n*INTERVAL + OVERLAP)`` (#4124);
+        that fix now lives in exactly one place.
         """
-        import math
-        overlap = CHUNK_DURATION - CHUNK_INTERVAL
-        return max(1, math.ceil((duration - overlap) / CHUNK_INTERVAL))
+        return content_chunk_count(duration)
 
     async def get_playback_snapshot(self) -> "PlaybackSnapshot | None":
         """Read the four playback fields in one critical section (#4546).
