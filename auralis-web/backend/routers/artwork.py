@@ -17,9 +17,13 @@ import asyncio
 import hashlib
 import logging
 import mimetypes
+import os
+import tempfile
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
@@ -42,6 +46,87 @@ def _bucket_size(size: int) -> int:
         if size <= bucket:
             return bucket
     return _THUMB_BUCKETS[-1]
+
+
+# Prefix for in-progress thumbnail renders (#4527). Stable and distinctive so a
+# cache sweeper can recognise an orphan left by a crashed render — the cache
+# keys themselves are hex digests and never start with a dot.
+_THUMB_TMP_PREFIX = ".tmp-"
+
+# Per-cache-key render locks (#4527). Two requests for the same album at the
+# same bucket used to render concurrently; now the second waits and takes the
+# first's result, which also caps the peak memory of a grid scroll. Keyed on the
+# full cache key, NOT the album id — a per-album lock would serialise unrelated
+# buckets against each other.
+_THUMB_LOCKS: dict[str, threading.Lock] = {}
+_THUMB_WAITERS: dict[str, int] = {}
+_THUMB_GUARD = threading.Lock()
+
+
+@contextmanager
+def _thumb_render_lock(key: str) -> Iterator[None]:
+    """Hold the render lock for one cache key, and retire it when idle.
+
+    The waiter count is what makes retiring safe: dropping a lock another
+    thread is still blocked on would let a third thread create a second lock
+    for the same key and render concurrently again. Without retiring, the dict
+    would instead grow one entry per (album, bucket, artwork generation) for the
+    life of the process.
+    """
+    with _THUMB_GUARD:
+        lock = _THUMB_LOCKS.setdefault(key, threading.Lock())
+        _THUMB_WAITERS[key] = _THUMB_WAITERS.get(key, 0) + 1
+    try:
+        with lock:
+            yield
+    finally:
+        with _THUMB_GUARD:
+            remaining = _THUMB_WAITERS[key] - 1
+            if remaining:
+                _THUMB_WAITERS[key] = remaining
+            else:
+                del _THUMB_WAITERS[key]
+                _THUMB_LOCKS.pop(key, None)
+
+
+def _render_thumbnail(
+    src: Path, dst: Path, bucket: int, pil_fmt: str, ext: str, thumb_dir: Path
+) -> None:
+    """Render ``src`` into ``dst`` via a temp file unique to this writer (#4527).
+
+    The previous temp name was derived only from the cache key
+    (``dst.suffix + ".tmp"``), so N threads rendering the same album at the same
+    bucket interleaved their bytes into one file and each then promoted whatever
+    it happened to contain. ``Path.replace()`` is atomic within a filesystem, so
+    a per-writer temp is all that is needed for correctness — the lock above is
+    an efficiency measure, not the fix.
+
+    Raises on failure, having removed its own temp file; the caller converts
+    that to ``None``.
+    """
+    # Imported here rather than at module scope to preserve the original lazy
+    # import: this router is constructed at startup and PIL is not cheap.
+    from PIL import Image
+
+    fd, tmp_name = tempfile.mkstemp(
+        dir=thumb_dir, prefix=_THUMB_TMP_PREFIX, suffix=ext
+    )
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            with Image.open(src) as image:
+                # thumbnail() preserves aspect ratio and only ever downsizes, so
+                # a small source is served as-is rather than upscaled.
+                image.thumbnail((bucket, bucket))
+                if pil_fmt == "JPEG" and image.mode not in ("RGB", "L"):
+                    image = image.convert("RGB")
+                image.save(handle, format=pil_fmt)
+        tmp.replace(dst)
+    except BaseException:
+        # Leave no orphan behind — a generation-based cache purge keys on the
+        # source path hash and would never match a stray temp file.
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def _thumb_target(media_type: str) -> tuple[str, str, str]:
@@ -68,8 +153,6 @@ def _get_or_create_thumbnail(
     Returns ``None`` on any failure so the caller can fall back to the original.
     """
     try:
-        from PIL import Image
-
         bucket = _bucket_size(requested_size)
         pil_fmt, ext, resp_type = _thumb_target(media_type)
 
@@ -80,17 +163,11 @@ def _get_or_create_thumbnail(
 
         if not dst.exists():
             thumb_dir.mkdir(parents=True, exist_ok=True)
-            with Image.open(src) as image:
-                # thumbnail() preserves aspect ratio and only ever downsizes, so
-                # a small source is served as-is rather than upscaled.
-                image.thumbnail((bucket, bucket))
-                if pil_fmt == "JPEG" and image.mode not in ("RGB", "L"):
-                    image = image.convert("RGB")
-                # Write atomically-ish: render to a temp then rename so a
-                # concurrent request never reads a half-written file.
-                tmp = dst.with_suffix(dst.suffix + ".tmp")
-                image.save(tmp, format=pil_fmt)
-                tmp.replace(dst)
+            with _thumb_render_lock(key):
+                # Re-check under the lock: whoever held it before us may have
+                # rendered this exact key already.
+                if not dst.exists():
+                    _render_thumbnail(src, dst, bucket, pil_fmt, ext, thumb_dir)
 
         return dst, resp_type
     except Exception:
