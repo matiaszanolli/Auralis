@@ -13,6 +13,13 @@ name: Requirements Pin Guard
 # uvloop + httptools. Both files' headers already claim they must mirror each
 # other; the mirror job below turns that documentation promise into a gate that
 # catches ANY divergence, not just drift in four hand-picked packages.
+#
+# #4528: neither of the jobs above looked at pyproject.toml, which had drifted
+# so far off requirements.txt that `pip install -e .` produced an environment
+# that could not import `auralis.library` — SQLAlchemy was simply absent, along
+# with 8 other runtime deps — while declaring four packages (PyQt6 among them)
+# with zero importers repo-wide. The pyproject-matches-requirements job below
+# closes that third gap.
 
 on:
   push:
@@ -99,6 +106,18 @@ jobs:
             exit 1
           fi
           echo "OK: $desktop derives from requirements.txt."
+
+  pyproject-matches-requirements:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Verify pyproject.toml declares the same runtime dependency set
+        run: python .github/scripts/check_pyproject_deps.py
 
   pinned-parser-dependencies:
     runs-on: ubuntu-latest

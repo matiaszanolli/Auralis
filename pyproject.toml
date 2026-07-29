@@ -20,21 +20,53 @@ classifiers = [
     "License :: OSI Approved :: GNU Affero General Public License v3",
     "Programming Language :: Python :: 3.14",
 ]
+# Regenerated from requirements.txt in #4528, which is the de-facto source of
+# truth (it carries a pip-compile header and vetted `==` pins). This list had
+# drifted so far that `pip install -e .` produced an environment that could not
+# import `auralis.library` at all — SQLAlchemy was simply absent.
+#
+# Floors are the pinned major/minor, NOT 2021-era values. Too-low floors are the
+# inverse of a stale pin and just as harmful: a resolver could legally pick
+# NumPy 1.x, where the removed `np.float`/`np.bool` aliases still exist and
+# dtype promotion differs from the NumPy 2.x this DSP code was written against,
+# or a pre-0.100 FastAPI with no Pydantic V2 and no `lifespan` — which
+# auralis-web/backend/main.py requires.
+#
+# `requirements-pin-guard.yml` now diffs the name set here against
+# requirements.txt on every PR, so this cannot silently re-diverge.
 dependencies = [
-    "numpy>=1.20.0",
-    "scipy>=1.7.0",
-    "sounddevice>=0.4.5",
-    "soundfile>=0.10.0",
-    "audioread>=3.0.0",
-    "librosa>=0.9.0",
-    "websockets>=10.0",
-    "fastapi>=0.68.0",
+    # Audio processing
+    #
+    # The `<2.5` CEILING is load-bearing, not tidiness. librosa and resampy both
+    # pull numba, and numba 0.66 (the newest with cp314 wheels) requires
+    # `numpy<2.5`. With an open-ended `numpy>=2.0` the resolver picks numpy
+    # 2.5.1, then backtracks numba all the way to 0.53.1 — a 2021 release with
+    # no numpy cap in its metadata and no wheel for Python 3.14 — and the
+    # install dies building llvmlite 0.36 from source. Verified against a clean
+    # 3.14 venv. requirements.txt's `numpy==2.3.5` sits inside this range.
+    # Revisit when numba supports numpy 2.5.
+    "numpy>=2.0,<2.5",
+    "scipy>=1.16",
+    "soundfile>=0.13",
+    "librosa>=0.11",
+    "resampy>=0.4",          # auralis/io/processing.py resampling path
+    "mutagen>=1.47",         # tag reading/writing across the scanner + metadata router
+    # Backend
+    "fastapi>=0.115",
     # Extras must match both requirements manifests (#4561) — see the note
     # there on uvloop/httptools. The floor-vs-exact pinning divergence between
     # this file and requirements.txt is tracked separately by #4355.
-    "uvicorn[standard]>=0.15.0",
-    "pydantic>=2.0.0",
-    "PyQt6>=6.2.0",  # For development UI
+    "uvicorn[standard]>=0.38",
+    "pydantic>=2.12",
+    # No import anywhere, but load-bearing: FastAPI raises at request time on
+    # the `UploadFile`/`File(...)` endpoints in routers/files.py without it.
+    "python-multipart>=0.0.31",
+    # Database
+    "SQLAlchemy>=2.0",       # auralis/library/** — models, 14 repositories, migrations
+    # Supporting
+    "pillow>=12.3",          # artwork thumbnail endpoint (#4447)
+    "aiohttp>=3.14",         # artwork fetching
+    "psutil>=7.1",           # system router
 ]
 
 [project.optional-dependencies]
@@ -49,6 +81,14 @@ dev = [
     "pytest>=9.0.1",
     "pytest-asyncio>=0.17.0",
     "pytest-cov>=3.0.0",
+    # Moved out of [project.dependencies] in #4528 — each of these has zero
+    # importers in auralis/ or auralis-web/ and is reached only from tests:
+    #   sounddevice -> tests/conftest.py::_ensure_portaudio
+    #   websockets  -> tests/integration/test_phase4_player_workflow.py
+    #   httpx       -> 5 files, via fastapi.testclient.TestClient
+    "sounddevice>=0.4.5",
+    "websockets>=10.0",
+    "httpx>=0.28",
     "black>=22.0.0",
     "isort>=5.10.0",
     "mypy>=0.950",
