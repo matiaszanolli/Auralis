@@ -15,12 +15,36 @@ Replaces complex multi-tier worker (373 lines) with simple predictive logic (~15
 
 import asyncio
 import logging
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 from helpers import spawn_background_task
 
 
 logger = logging.getLogger(__name__)
+
+
+# LRU cap for `_processor_cache` (#4521). Sized against the worker's actual
+# working set: the live track needs two entries (original + processed) and the
+# previous track — kept warm for the back button — needs two more, so 4 is the
+# steady-state floor. 8 leaves room for a preset switch on both tracks without
+# thrashing, and is deliberately smaller than ProcessorFactory's cap of 32
+# because these are wrappers over factory-owned processors, not the processors
+# themselves.
+_PROCESSOR_CACHE_MAX = 8
+
+# Intensity is quantised into the cache key at one decimal (#4521), matching
+# `cache.manager.CachedChunk.key()`'s `{self.intensity:.1f}`. The chunk cache
+# already treats every intensity inside a 0.1 bucket as the same cached chunk,
+# so building one processor per bucket is the consistent choice — without this,
+# a UI slider drag mints a distinct processor per intermediate float while the
+# chunks they produce all collapse onto the same cache entry.
+_INTENSITY_KEY_DECIMALS = 1
+
+
+def _intensity_key(intensity: float) -> float:
+    """Bucket an intensity to the chunk cache's own 0.1 granularity (#4521)."""
+    return round(float(intensity), _INTENSITY_KEY_DECIMALS)
 
 
 class StreamlinedCacheWorker:
@@ -53,7 +77,12 @@ class StreamlinedCacheWorker:
         # Processor cache: reuse the same ChunkedAudioProcessor across chunks
         # for a given (track_id, preset, intensity) so DSP state (compressor
         # envelope, EQ history) is preserved at chunk boundaries (fixes #2737).
-        self._processor_cache: dict[tuple[int, str | None, float], Any] = {}
+        # LRU-ordered (#4521): the only eviction used to live in
+        # _build_tier2_cache, which _process_priorities stops calling once the
+        # track is fully cached — so a long listening session grew one entry per
+        # (track_id, preset, intensity) forever. Insertion order is maintained
+        # as recency by _remember_processor().
+        self._processor_cache: OrderedDict[tuple[int, str | None, float], Any] = OrderedDict()
         # Per-cache-key build locks (#4369): _process_chunk's cache check-and-set
         # has an await between the .get() miss and the assignment, so
         # trigger_immediate_processing and _worker_loop can both miss a cold key
@@ -61,6 +90,40 @@ class StreamlinedCacheWorker:
         # one silently overwritten. A per-key lock serializes construction for
         # that key only, preserving cross-key parallelism.
         self._processor_build_locks: dict[tuple[int, str | None, float], asyncio.Lock] = {}
+        # Live count of tasks inside or queued on each build lock (#4521). A lock
+        # is safe to drop only when this hits zero — see _process_chunk.
+        self._build_waiters: dict[tuple[int, str | None, float], int] = {}
+
+    def _remember_processor(
+        self,
+        cache_key: tuple[int, str | None, float],
+        processor: Any,
+    ) -> None:
+        """Insert a processor as most-recently-used and evict past the cap (#4521).
+
+        This is the single bounded-insert point, reached from ``_process_chunk``
+        — which is on *both* routes into the cache (``_build_tier2_cache`` and
+        ``trigger_immediate_processing``), so no insertion escapes the bound.
+
+        Evicted entries are dropped, not closed. ``ChunkedAudioProcessor`` has no
+        ``close()``: it holds no file handle of its own (``_load_metadata`` probes
+        via ``get_audio_info`` and closes), and its ``self.processor`` is a
+        *shared* ``HybridProcessor`` owned by the ``ProcessorFactory`` singleton,
+        which runs its own LRU with ``close()`` (``processor_factory.py:250-264``).
+        Closing it from here would tear down a processor that another live
+        ``ChunkedAudioProcessor`` — or the factory's own cache — is still using.
+        """
+        self._processor_cache[cache_key] = processor
+        self._processor_cache.move_to_end(cache_key)
+
+        while len(self._processor_cache) > _PROCESSOR_CACHE_MAX:
+            evicted_key, _evicted = self._processor_cache.popitem(last=False)
+            # Drop the matching build lock in lockstep (#4369 inherits the same
+            # unbounded growth). A lock held by an in-flight build keeps working
+            # — the holder retains its own reference — and a later miss for the
+            # same key simply creates a fresh one.
+            self._processor_build_locks.pop(evicted_key, None)
+            logger.debug(f"LRU-evicted cached processor for {evicted_key}")
 
     async def start(self) -> None:
         """Start the background worker."""
@@ -270,16 +333,20 @@ class StreamlinedCacheWorker:
         if self._building_track_id != track_id:
             self._building_track_id = track_id
             self._building_chunk_idx = 0
-            # Evict processors for the old track so they can be GC'd
-            self._processor_cache = {
-                k: v for k, v in self._processor_cache.items() if k[0] == track_id
-            }
+            # Evict processors for the old track so they can be GC'd. This is an
+            # *early* release on top of the LRU cap (#4521), not the bound itself
+            # — it is unreachable once the track is fully cached.
+            self._processor_cache = OrderedDict(
+                (k, v) for k, v in self._processor_cache.items() if k[0] == track_id
+            )
             # Prune build locks for evicted keys too (#4369) so they don't
-            # accumulate. A lock currently held by an in-flight build keeps
-            # working — the holder retains its own reference — and a later miss
-            # for the same key simply creates a fresh lock.
+            # accumulate. Keys with an in-flight build are kept (#4521): dropping
+            # a lock someone is still queued on lets a later caller mint a second
+            # one for the same key and build concurrently.
             self._processor_build_locks = {
-                k: v for k, v in self._processor_build_locks.items() if k[0] == track_id
+                k: v
+                for k, v in self._processor_build_locks.items()
+                if k[0] == track_id or k in self._build_waiters
             }
             logger.info(f"Building Tier 2 cache for track {track_id} ({status.total_chunks} chunks)")
 
@@ -343,8 +410,12 @@ class StreamlinedCacheWorker:
 
             # Reuse processor across chunks so DSP state (compressor envelope,
             # EQ history) carries over at chunk boundaries (fixes #2737).
-            cache_key = (track_id, preset, intensity)
+            cache_key = (track_id, preset, _intensity_key(intensity))
             processor = self._processor_cache.get(cache_key)
+            if processor is not None:
+                # Refresh recency so the LRU cap evicts genuinely cold entries
+                # rather than the actively-used one (#4521).
+                self._processor_cache.move_to_end(cache_key)
             if processor is None:
                 # Serialize construction per cache_key so concurrent callers
                 # (trigger_immediate_processing vs _worker_loop) don't each build
@@ -352,26 +423,51 @@ class StreamlinedCacheWorker:
                 # dict.setdefault is atomic on the single-threaded loop, so the
                 # lock lookup itself is race-free.
                 build_lock = self._processor_build_locks.setdefault(cache_key, asyncio.Lock())
-                async with build_lock:
-                    # Re-check under the lock: another task may have built it
-                    # while we awaited the lock.
-                    processor = self._processor_cache.get(cache_key)
-                    if processor is None:
-                        # Offload — ChunkedAudioProcessor.__init__ does a sync
-                        # SoundFile open for metadata, a sync fingerprint/DB
-                        # lookup, and sync HybridProcessor construction (200-500ms
-                        # CPU-bound); this worker loop ticks every 1s, so running
-                        # it inline stalls the event loop (and any in-flight stream
-                        # chunk sends) for that whole duration on every cache miss
-                        # (fixes #3817 / BE-PF-3).
-                        processor = await asyncio.to_thread(
-                            ChunkedAudioProcessor,
-                            track_id=track_id,
-                            filepath=track.filepath,
-                            preset=preset,  # None for original
-                            intensity=intensity
-                        )
-                        self._processor_cache[cache_key] = processor
+                # Count ourselves in before awaiting (#4521) so the cleanup below
+                # can tell "nobody is using this lock" from "a waiter is queued
+                # on it". Dropping a lock that still has waiters would let a
+                # later caller mint a second lock for the same key and rebuild
+                # concurrently — reopening #4369 on the build-failure path.
+                self._build_waiters[cache_key] = self._build_waiters.get(cache_key, 0) + 1
+                try:
+                    async with build_lock:
+                        # Re-check under the lock: another task may have built it
+                        # while we awaited the lock.
+                        processor = self._processor_cache.get(cache_key)
+                        if processor is None:
+                            # Offload — ChunkedAudioProcessor.__init__ does a sync
+                            # SoundFile open for metadata, a sync fingerprint/DB
+                            # lookup, and sync HybridProcessor construction (200-500ms
+                            # CPU-bound); this worker loop ticks every 1s, so running
+                            # it inline stalls the event loop (and any in-flight stream
+                            # chunk sends) for that whole duration on every cache miss
+                            # (fixes #3817 / BE-PF-3).
+                            processor = await asyncio.to_thread(
+                                ChunkedAudioProcessor,
+                                track_id=track_id,
+                                filepath=track.filepath,
+                                preset=preset,  # None for original
+                                # Build at the bucketed intensity, not the raw one
+                                # (#4521), so the processor genuinely matches the
+                                # key it is stored under — and so its chunk
+                                # filenames (which embed self.intensity) are
+                                # deterministic per bucket instead of depending on
+                                # which slider value happened to miss first.
+                                intensity=cache_key[2]
+                            )
+                            self._remember_processor(cache_key, processor)
+                finally:
+                    # Last one out drops an orphaned lock (#4521). If the build
+                    # succeeded the key is in the cache and the lock stays,
+                    # evicted later in lockstep by _remember_processor; if it
+                    # raised, nothing would ever have removed it.
+                    remaining = self._build_waiters[cache_key] - 1
+                    if remaining:
+                        self._build_waiters[cache_key] = remaining
+                    else:
+                        del self._build_waiters[cache_key]
+                        if cache_key not in self._processor_cache:
+                            self._processor_build_locks.pop(cache_key, None)
 
             # After the block above `processor` is always set (cache hit, or
             # built under the lock). Assert it so the nested-reassign flow is
