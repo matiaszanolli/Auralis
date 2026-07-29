@@ -286,6 +286,14 @@ class SpectrumAnalyzer(BaseSpectrumAnalyzer):
         if sample_rate:
             self.settings.sample_rate = sample_rate
 
+        # "Analyze a whole file" must not inherit smoothing state from the
+        # previous file under any caller (#4539). QualityMetrics resets this
+        # explicitly too, but doing it here makes the guarantee a property of
+        # the analyzer rather than something every caller has to remember —
+        # `smoothing_buffer` has leaked across boundaries three times already
+        # (#3448, #3433, #2890).
+        self.reset_smoothing()
+
         hop_size = int(self.settings.fft_size * (1 - self.settings.overlap))
         num_chunks = (len(audio_data) - self.settings.fft_size) // hop_size + 1
         chunk_results = []

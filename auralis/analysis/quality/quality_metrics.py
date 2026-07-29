@@ -87,6 +87,27 @@ class QualityMetrics:
             max_true_peak_dbfs=max_true_peak_dbfs,
         )
 
+    def _reset_analyzers(self) -> None:
+        """Clear every stateful analyzer this instance owns.
+
+        One method rather than an open-coded list at the call site, because the
+        open-coded list is what caused #4539: #4221 added resets for the phase
+        and dynamic-range analyzers and silently left ``spectrum_analyzer``
+        out, so its ``smoothing_buffer`` kept bleeding the previous track's
+        trailing spectrum into the next assessment's first chunk. Adding a new
+        stateful member now means adding it here, in the same place the reset
+        is read from — not remembering to mirror ``__init__`` by hand.
+
+        Covers all four: spectrum (#4539), loudness, phase and dynamic range
+        (the latter two from #4221). The assessors built alongside them
+        (frequency/dynamic/stereo/distortion/loudness) hold only construction-
+        time configuration and no per-call state, so they need no reset.
+        """
+        self.spectrum_analyzer.reset_smoothing()
+        self.loudness_meter.reset()
+        self.phase_analyzer.reset_history()
+        self.dynamic_range_analyzer.reset_history()
+
     def assess_quality(self, audio_data: np.ndarray) -> QualityScores:
         """
         Comprehensive quality assessment of audio
@@ -105,17 +126,13 @@ class QualityMetrics:
         else:
             stereo_audio = audio_data
 
-        # Reset per-track analyzer history so history-dependent metrics
-        # (crest-factor variance, correlation variance) don't bleed across
-        # tracks when this QualityMetrics instance is reused (#4221).
-        self.phase_analyzer.reset_history()
-        self.dynamic_range_analyzer.reset_history()
+        self._reset_analyzers()
 
         # Perform all analyses
         spectrum_result = self.spectrum_analyzer.analyze_file(stereo_audio[:, 0])
 
-        # Reset loudness meter for fresh measurement
-        self.loudness_meter.reset()
+        # (the loudness meter was reset in _reset_analyzers above, alongside
+        # every other stateful analyzer — #4539)
 
         # Analyze in chunks for loudness.
         # #3677: feed any partial trailing block ≥ half-block_size to the
