@@ -109,8 +109,10 @@ function analyzeDynamics(fp: AudioFingerprint): CharacterTag[] {
     tags.push({ label: 'Compressed', category: 'dynamics' });
   }
 
-  // Loudness variation
-  const loudnessVar = fp.loudness_variation ?? 1.5;
+  // Loudness variation (#4429: the backend key is loudness_variation_std; the
+  // old `loudness_variation` never matched, so this always fell back to 1.5 —
+  // which is between both thresholds, so neither tag could ever be emitted).
+  const loudnessVar = fp.loudness_variation_std ?? 1.5;
   if (loudnessVar > 2.5) {
     tags.push({ label: 'Variable', category: 'dynamics' });
   } else if (loudnessVar < 1.0) {

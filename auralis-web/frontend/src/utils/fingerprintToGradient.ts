@@ -48,7 +48,16 @@ export interface AudioFingerprint {
 
   // Variation (3D) - not used for gradients
   dynamic_range_variation?: number;
-  loudness_variation?: number;
+  /**
+   * #4429: `loudness_variation_std`, not `loudness_variation`. The backend key
+   * is `loudness_variation_std` on both emitters (routers/fingerprint_status.py
+   * and routers/albums.py), matching the DB column and every Python consumer.
+   * The old FE name never matched, so the field was always `undefined` — which
+   * silently disabled the Variable/Consistent dynamics tags in
+   * albumCharacterDescriptors, since their `?? 1.5` fallback sits between both
+   * thresholds and therefore matched neither branch.
+   */
+  loudness_variation_std?: number;
   peak_consistency?: number;
 }
 
