@@ -25,6 +25,24 @@ from auralis.library.migration_manager import (
 from auralis.library.models import Base, SchemaVersion, Track
 
 
+def _attempt_migration(db_path: str, result_queue, delay: float = 0) -> None:
+    """Run a migration in a separate process and report the outcome.
+
+    Module scope is required: Python 3.14 defaults to the forkserver start
+    method on Linux, which pickles `target`, and a nested function cannot be
+    pickled.
+    """
+    try:
+        if delay > 0:
+            time.sleep(delay)
+        success = check_and_migrate_database(db_path, auto_backup=False)
+        result_queue.put(("success", success))
+    except TimeoutError as e:
+        result_queue.put(("timeout", str(e)))
+    except Exception as e:
+        result_queue.put(("error", str(e)))
+
+
 class TestMigrationManager:
     """Test cases for MigrationManager"""
 
@@ -371,8 +389,12 @@ class TestMigrationConcurrency:
             lock_file = Path(temp_db).parent / f".{Path(temp_db).name}.migration.lock"
             assert lock_file.exists()
 
-        # Lock should be released and cleaned up
-        assert not lock_file.exists()
+        # #4523: the lock file must SURVIVE release. flock/msvcrt locks are
+        # bound to an inode, not a path — unlinking it lets a queued waiter and
+        # a fresh arrival hold two different inodes and both believe they own
+        # the lock. This assertion was inverted before #4523 and is what let the
+        # defect ship.
+        assert lock_file.exists()
 
     def test_migration_lock_blocks_concurrent_access(self, temp_db):
         """Test that migration lock prevents concurrent access"""
@@ -387,32 +409,23 @@ class TestMigrationConcurrency:
                 with migration_lock(temp_db, timeout=0.5):
                     pass  # Should never reach here
 
-        # Lock should be released after first context exits
-        assert not lock_file.exists()
+        # Released, but the sentinel file stays (#4523).
+        assert lock_file.exists()
 
     def test_concurrent_migration_attempts(self, temp_db):
         """Test that only one process can migrate at a time"""
-
-        def attempt_migration(db_path: str, result_queue: multiprocessing.Queue, delay: float = 0):
-            """Helper function to run migration in separate process"""
-            try:
-                if delay > 0:
-                    time.sleep(delay)
-                success = check_and_migrate_database(db_path, auto_backup=False)
-                result_queue.put(("success", success))
-            except TimeoutError as e:
-                result_queue.put(("timeout", str(e)))
-            except Exception as e:
-                result_queue.put(("error", str(e)))
-
-        # Use multiprocessing to simulate concurrent processes
-        result_queue = multiprocessing.Queue()
+        # The worker lives at module scope (`_attempt_migration`): Python 3.14
+        # defaults to the forkserver start method on Linux, which pickles the
+        # target — a nested function raises PicklingError before any process
+        # starts, so this test could not run at all.
+        ctx = multiprocessing.get_context("spawn")
+        result_queue = ctx.Queue()
         processes = []
 
         # Start two processes simultaneously
         for i in range(2):
-            p = multiprocessing.Process(
-                target=attempt_migration,
+            p = ctx.Process(
+                target=_attempt_migration,
                 args=(temp_db, result_queue, 0.1 * i)  # Slight delay to ensure overlap
             )
             processes.append(p)
@@ -467,8 +480,8 @@ class TestMigrationConcurrency:
         assert current_version == 1, f"Database should still be at v1, got v{current_version}"
         manager.close()
 
-    def test_migration_lock_cleanup_on_exception(self, temp_db):
-        """Test that lock file is cleaned up even if exception occurs"""
+    def test_migration_lock_released_on_exception(self, temp_db):
+        """Test that the lock is released (not leaked) when the body raises"""
         lock_file = Path(temp_db).parent / f".{Path(temp_db).name}.migration.lock"
 
         try:
@@ -478,8 +491,11 @@ class TestMigrationConcurrency:
         except ValueError:
             pass
 
-        # Lock should still be cleaned up
-        assert not lock_file.exists(), "Lock file should be cleaned up after exception"
+        # #4523: the file persists by design; what must be released is the LOCK.
+        # Re-acquiring immediately proves it was.
+        assert lock_file.exists()
+        with migration_lock(temp_db, timeout=1.0):
+            pass
 
     def test_recheck_version_after_lock_acquisition(self, temp_db):
         """Test that version is rechecked after acquiring lock"""

@@ -47,12 +47,12 @@ from .repositories import (
 )
 from .repositories.settings_repository import SettingsRepository
 
-# Serializes the migration step across concurrent constructions IN THE SAME
-# PROCESS (fixes #4232). migration_manager.migration_lock is an inter-process
-# file lock (fcntl/msvcrt) — it does not serialize same-process threads, so two
-# threads opening the same DB at once could both attempt to migrate
-# concurrently.
-_migration_lock = threading.Lock()
+# #4523: the same-process thread lock that used to live here (#4232) moved into
+# `migration_manager.migration_lock`, which now acquires thread *and* process
+# exclusion together. Holding a second lock here would deadlock against it, and
+# keeping it here only ever covered one of the two migration entry points —
+# `migrations.normalize_existing_artists` takes `migration_lock` directly and
+# never passed through this constructor.
 
 
 class LibraryDatabase:
@@ -103,15 +103,13 @@ class LibraryDatabase:
 
         self.database_path = database_path
 
-        # Check and migrate database before initializing engine.
-        # migration_lock (in migration_manager) only serializes across
-        # PROCESSES; _migration_lock additionally serializes same-process
-        # threads racing to open the same database concurrently (#4232).
+        # Check and migrate database before initializing engine. `migration_lock`
+        # (in migration_manager) now serializes both same-process threads and
+        # other processes (#4232, #4523), so no additional lock is needed here.
         info("Checking database version...")
-        with _migration_lock:
-            if not check_and_migrate_database(database_path, auto_backup=True):
-                error("Database migration failed!")
-                raise Exception("Failed to migrate database to current version")
+        if not check_and_migrate_database(database_path, auto_backup=True):
+            error("Database migration failed!")
+            raise Exception("Failed to migrate database to current version")
 
         # Configure SQLite for safe, frequent fingerprint writes
         # WAL mode + synchronous=NORMAL enables fast writes with durability guarantees
