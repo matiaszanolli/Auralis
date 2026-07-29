@@ -1,8 +1,13 @@
 /**
  * Test Template
  *
- * Copy this template to create new tests.
+ * Copy this template to create new tests, saving the copy as
+ * `<ComponentName>.test.tsx` next to the component under test.
  * Replace ComponentName with your component name.
+ *
+ * The `.example.tsx` suffix keeps this file outside vitest's
+ * `src/**\/*.{test,spec}.{ts,tsx}` include glob, so its empty
+ * `it(...)` bodies are not collected as passing tests (#4261).
  */
 
 import { describe, it, beforeEach, afterEach } from 'vitest'
