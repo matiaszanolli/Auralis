@@ -173,17 +173,10 @@ fn hz_to_bin(hz: f32, sample_rate: u32, fft_size: usize) -> usize {
         .min(fft_size - 1)
 }
 
-/// Estimate silence ratio (percentage of signal below -40 dB threshold)
-fn compute_silence_ratio(audio: &[f32]) -> f32 {
-    if audio.is_empty() {
-        return 1.0;
-    }
-
-    let threshold = 10f32.powf(-40.0 / 20.0); // -40 dB in linear
-    let silent_samples = audio.iter().filter(|&&s| s.abs() < threshold).count();
-
-    (silent_samples as f32 / audio.len() as f32).clamp(0.0, 1.0)
-}
+// #4533: compute_silence_ratio() removed. It counted individual samples below
+// an ABSOLUTE -40 dB, which is neither what the Python reference computes
+// (per-frame RMS below -40 dB RELATIVE to the loudest frame) nor what any
+// caller wanted. See rhythm::silence_ratio.
 
 /// Compute complete 25D fingerprint
 ///
@@ -237,9 +230,16 @@ pub fn compute_complete_fingerprint(
     let bass_mid_ratio = compute_bass_mid_ratio(&mono_audio, sample_rate);
 
     // 3. Temporal (4D)
-    let silence_ratio = compute_silence_ratio(&mono_audio);
+    // #4533: rhythm_stability and silence_ratio come from the librosa-parity
+    // implementation ported out of the deleted fingerprint-server crate (#4113).
+    // The previous local versions measured different quantities than the Python
+    // reference: an energy-envelope onset CV (a loudness metric) rather than
+    // inter-beat-interval CV, and a per-SAMPLE absolute -40 dB count rather than
+    // a per-FRAME RMS count relative to the loudest frame.
+    let mono_f64: Vec<f64> = mono_audio.iter().map(|&s| s as f64).collect();
+    let silence_ratio = crate::rhythm::silence_ratio(&mono_f64) as f32;
     let tempo_bpm = estimate_tempo(&mono_audio, sample_rate);
-    let rhythm_stability = estimate_rhythm_stability(&mono_audio, sample_rate);
+    let rhythm_stability = crate::rhythm::rhythm_stability(&mono_f64, sample_rate) as f32;
     let transient_density = estimate_transient_density(&mono_audio, sample_rate);
 
     // 4. Spectral (3D)
@@ -391,64 +391,10 @@ fn estimate_tempo(audio: &[f32], sample_rate: u32) -> f32 {
     bpm.clamp(60.0, 200.0)
 }
 
-/// Estimate rhythm stability from inter-onset-interval (IOI) variance.
-///
-/// Low variance = stable, repetitive rhythm → value near 1.0.
-/// High variance = free-time / rubato → value near 0.0.
-fn estimate_rhythm_stability(audio: &[f32], sample_rate: u32) -> f32 {
-    let hop = 512usize;
-    let frame_size = 1024usize;
-
-    if audio.len() < frame_size * 4 {
-        return 0.5; // Not enough data
-    }
-
-    // Compute simple energy envelope
-    let n_frames = (audio.len().saturating_sub(frame_size)) / hop + 1;
-    let mut energies = Vec::with_capacity(n_frames);
-    for i in 0..n_frames {
-        let start = i * hop;
-        let end = (start + frame_size).min(audio.len());
-        let e: f32 = audio[start..end].iter().map(|s| s * s).sum::<f32>() / (end - start) as f32;
-        energies.push(e);
-    }
-
-    // Find onsets via energy peaks (simple threshold-based)
-    let mean_energy: f32 = energies.iter().sum::<f32>() / energies.len() as f32;
-    let threshold = mean_energy * 1.5;
-
-    let mut onset_frames = Vec::new();
-    let mut in_onset = false;
-    for (i, &e) in energies.iter().enumerate() {
-        if e > threshold && !in_onset {
-            onset_frames.push(i);
-            in_onset = true;
-        } else if e <= mean_energy {
-            in_onset = false;
-        }
-    }
-
-    if onset_frames.len() < 3 {
-        return 0.5; // Not enough onsets to assess stability
-    }
-
-    // Compute IOIs (inter-onset intervals)
-    let iois: Vec<f32> = onset_frames.windows(2)
-        .map(|w| (w[1] - w[0]) as f32)
-        .collect();
-
-    let mean_ioi: f32 = iois.iter().sum::<f32>() / iois.len() as f32;
-    if mean_ioi < 1e-6 {
-        return 0.5;
-    }
-
-    // Coefficient of variation (std / mean) — lower = more stable
-    let variance: f32 = iois.iter().map(|&ioi| (ioi - mean_ioi).powi(2)).sum::<f32>() / iois.len() as f32;
-    let cv = variance.sqrt() / mean_ioi;
-
-    // Map CV to 0-1 stability: CV=0 → 1.0, CV=1 → 0.0
-    (1.0 - cv).clamp(0.0, 1.0)
-}
+// #4533: estimate_rhythm_stability() removed. It derived stability from an
+// energy-envelope onset CV, which measures loudness regularity rather than
+// rhythmic regularity and diverged from the Python reference's
+// inter-beat-interval CV. See rhythm::rhythm_stability.
 
 /// Estimate pitch stability via zero-crossing rate variance across frames.
 ///

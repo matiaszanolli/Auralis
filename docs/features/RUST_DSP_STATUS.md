@@ -25,7 +25,7 @@ Those three docs describe the crate as it stood on 2025-11-24, when only HPSS wa
 | `stereo_analysis.rs` | 256 | 9 | Stereo width / phase correlation |
 | `fingerprint_compute.rs` | 632 | 3 | Orchestrates the full 25D fingerprint from the modules above |
 | `py_bindings.rs` | 784 | 0 | Active `#[pymodule]` — 11 `#[pyfunction]` entries exposing the above to Python |
-| `bin/grpc_fingerprint_server.rs` | 230 | — | Standalone gRPC server: Python streams audio in, Rust returns a computed 25D fingerprint over gRPC |
+| `rhythm.rs` | 689 | 6 | librosa-parity beat tracking + silence ratio; feeds `rhythm_stability` / `silence_ratio` (ported from the deleted `fingerprint-server` crate, #4533) |
 
 PyO3 is **not** disabled — `Cargo.toml` has `pyo3 = { version = "0.23", features = ["extension-module"] }` and `numpy = "0.23"` as active (non-commented) dependencies, and the crate builds as `crate-type = ["cdylib", "rlib"]` (Python extension + Rust library).
 
@@ -48,7 +48,7 @@ PyO3 is **not** disabled — `Cargo.toml` has `pyo3 = { version = "0.23", featur
 
 ```bash
 cd vendor/auralis-dsp
-cargo build --release       # library + grpc-fingerprint-server binary
+cargo build --release       # library (the gRPC server binary was removed in streamlining #12)
 cargo test --release        # unit tests
 maturin develop              # build + install as Python extension (see root CLAUDE.md)
 ```

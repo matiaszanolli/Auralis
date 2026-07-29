@@ -29,7 +29,16 @@ __db_schema_version__ = 16  # track_playlist: UNIQUE(track_id, playlist_id) + po
 # v5: dynamic-range variation now measures per-frame crest-factor variation
 #             instead of peak/minimum-sample ratios, and maps it continuously
 #             without a hard saturation threshold.
-FINGERPRINT_ALGORITHM_VERSION = 5
+# v6 (#4533): rhythm_stability and silence_ratio now come from the librosa-parity
+#             implementation ported out of the deleted fingerprint-server crate
+#             (originally #4113). rhythm_stability was an energy-envelope onset
+#             CV — a loudness metric, not a rhythmic one — and is now the
+#             inter-beat-interval CV from a tempogram + Ellis-2007 beat tracker.
+#             silence_ratio counted individual samples below an ABSOLUTE -40 dB
+#             and is now the fraction of RMS frames more than 40 dB below the
+#             loudest frame. Two of 25 dimensions therefore change value, so
+#             v5 rows are not comparable to v6 rows and must be recomputed.
+FINGERPRINT_ALGORITHM_VERSION = 6
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

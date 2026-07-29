@@ -19,6 +19,7 @@ pub mod compressor;
 pub mod limiter;
 pub mod biquad_filter;
 pub mod onset_detector;
+pub mod rhythm;
 pub mod chunk_processor;
 
 // Shared DSP math primitives (compute_rms, estimate_lufs) — #4022

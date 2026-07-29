@@ -156,11 +156,11 @@ race. Outdated claims use a `version = 0` sentinel and a rowcount check.
 tries, in order:
 
 1. Valid `.25d` sidecar → instant.
-2. **Rust server (port 8766)** — attempted first in code, but **currently dead** (see §7):
-   nothing launches the server, the client speaks HTTP while the server is gRPC, and its
-   compute is a stub. `_is_rust_server_available()` is effectively always False, so this branch
-   never runs in practice.
-3. **Python analyzer** — the *actual* primary path (≤ 300 MB OOM guard).
+2. **Python analyzer** — the primary path (≤ 300 MB OOM guard), which calls the
+   in-process Rust engine. There is no out-of-process fingerprint server: the gRPC
+   binary and its client went in streamlining #12, and the orphaned root-level
+   `fingerprint-server/` HTTP crate was deleted in #4533 after its one unique piece
+   (librosa-parity beat tracking) was ported into `vendor/auralis-dsp/src/rhythm.rs`.
 
 It stamps `fingerprint_version`, filters to exactly the 25 keys, rejects incomplete
 fingerprints, and deletes corrupted files via `TrackRepository`.

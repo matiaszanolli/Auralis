@@ -18,6 +18,17 @@
 //! parameters (n_fft=2048, hop=512, n_mels=128, Slaney mel, tempogram
 //! win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320, tightness=100).
 
+//! ## Provenance (#4533)
+//!
+//! Ported from the now-deleted root-level `fingerprint-server` crate, where it
+//! landed as #4113. That crate was orphaned — no workspace membership, no CI
+//! build, no client — so this librosa-parity implementation existed only on a
+//! path that never ran, while the canonical fingerprint here kept a simple
+//! energy-envelope `rhythm_stability` and a per-sample `silence_ratio` that
+//! both diverged from the Python reference. Moved here so the canonical 25D
+//! compute agrees with `TemporalOperations`.
+//!
+
 use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;
 use std::f64::consts::PI;
