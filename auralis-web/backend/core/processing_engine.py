@@ -262,6 +262,10 @@ class ProcessingEngine:
     async def _return_processor(self, mode: str, config: UnifiedConfig, processor: HybridProcessor) -> None:
         await self._pool.return_to_cache(mode, config, processor)
 
+    async def _discard_processor(self, processor: HybridProcessor) -> None:
+        """Close and drop a processor without returning it to the pool (#4727)."""
+        await self._pool.discard(processor)
+
     def _create_processor_config(self, job: ProcessingJob) -> UnifiedConfig:
         """
         Create UnifiedConfig from job settings.
@@ -510,6 +514,11 @@ class ProcessingEngine:
 
         processor = None
         config = None
+        # Set when the DSP call is abandoned mid-flight (a wait_for timeout) —
+        # the underlying OS thread may still be running inside
+        # processor.process() and mutating its internals, so the instance
+        # must never be handed to another job (#4727).
+        processor_poisoned = False
         try:
             audio, sample_rate, config, processor = await self._prepare_job(job)
             audio_data = await self._execute_job(job, audio, sample_rate, processor)
@@ -518,6 +527,11 @@ class ProcessingEngine:
         except TimeoutError:
             # asyncio.wait_for raised TimeoutError — the DSP call hung.
             # Mark FAILED so the semaphore slot is released (fixes #2747).
+            # wait_for only cancels the asyncio-side wrapper future; the OS
+            # thread running processor.process() keeps running, so the
+            # instance must be discarded rather than returned to the pool for
+            # the next same-config job to reuse (#4727).
+            processor_poisoned = True
             job.status = ProcessingStatus.FAILED
             job.error_message = (
                 f"Processing timed out after {self.processing_timeout:.0f}s"
@@ -560,20 +574,33 @@ class ProcessingEngine:
             # forcing the next same-config job to pay the full 200-500 ms
             # HybridProcessor.__init__ again. Hoisting it means a future branch
             # cannot reintroduce the same omission.
+            #
+            # A poisoned (timed-out) processor is the one exception: it must
+            # be closed and discarded, never cached, since an orphaned thread
+            # may still be running inside it (#4727).
             if processor is not None and config is not None:
-                try:
-                    await self._return_processor(job.mode, config, processor)
-                except Exception as return_err:
-                    # Never let cleanup mask the original failure — and never
-                    # leave the processor un-reclaimed either.
-                    logger.warning(
-                        "Failed to return processor for job %s: %s",
-                        job.job_id, return_err,
-                    )
+                if processor_poisoned:
                     try:
-                        processor.close()
+                        await self._discard_processor(processor)
                     except Exception:
-                        logger.debug("Processor close() also failed", exc_info=True)
+                        logger.warning(
+                            "Failed to discard poisoned processor for job %s",
+                            job.job_id, exc_info=True,
+                        )
+                else:
+                    try:
+                        await self._return_processor(job.mode, config, processor)
+                    except Exception as return_err:
+                        # Never let cleanup mask the original failure — and never
+                        # leave the processor un-reclaimed either.
+                        logger.warning(
+                            "Failed to return processor for job %s: %s",
+                            job.job_id, return_err,
+                        )
+                        try:
+                            processor.close()
+                        except Exception:
+                            logger.debug("Processor close() also failed", exc_info=True)
 
             # Drop the cancellation token now the job is terminal so the
             # registry cannot leak an entry per job (#4496).

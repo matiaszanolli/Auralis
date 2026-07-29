@@ -599,6 +599,85 @@ class TestProcessingTimeout:
             assert "timed out" in job.error_message
             assert job.completed_at is not None
 
+    @pytest.mark.asyncio
+    async def test_timed_out_processor_is_not_cached_for_reuse(self, temp_audio_file):
+        """#4727: wait_for only cancels the asyncio-side wrapper future — the
+        underlying thread running processor.process() keeps running. The
+        timed-out instance must never be returned to the pool for a later
+        job with the same config to pop and reuse concurrently."""
+        engine = ProcessingEngine(max_concurrent_jobs=1, processing_timeout=0.1)
+
+        with patch('core.processing_engine.load_audio') as mock_load, \
+             patch('core.processing_engine.HybridProcessor') as mock_processor_cls:
+
+            mock_load.return_value = (np.zeros((1000, 2)), 44100)
+
+            mock_proc = Mock()
+            import time
+            mock_proc.process.side_effect = lambda *a, **kw: time.sleep(10)
+            mock_processor_cls.return_value = mock_proc
+
+            job = await engine.create_job(
+                input_path=str(temp_audio_file),
+                settings={"mode": "adaptive", "output_format": "wav", "bit_depth": 16},
+            )
+
+            await engine.process_job(job)
+
+            assert job.status == ProcessingStatus.FAILED
+            # The poisoned instance must not be sitting in the pool.
+            assert engine._pool.processors == {}
+            # It must have been closed rather than silently dropped.
+            mock_proc.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_job_after_timeout_gets_a_fresh_processor(self, temp_audio_file):
+        """#4727 acceptance criterion: a subsequent job with the same
+        (mode, config) cache key after a timeout must get a newly-constructed
+        processor, not the orphaned one from the timed-out job."""
+        engine = ProcessingEngine(max_concurrent_jobs=1, processing_timeout=0.1)
+
+        with patch('core.processing_engine.load_audio') as mock_load, \
+             patch('core.processing_engine.HybridProcessor') as mock_processor_cls:
+
+            mock_load.return_value = (np.zeros((1000, 2)), 44100)
+
+            import time
+            instances = []
+
+            def _make_processor(*a, **kw):
+                inst = Mock()
+                if len(instances) == 0:
+                    # First job's processor: hangs forever (simulates the
+                    # orphaned thread still running after wait_for times out).
+                    inst.process.side_effect = lambda *a, **kw: time.sleep(10)
+                else:
+                    inst.process.return_value = np.zeros((1000, 2))
+                instances.append(inst)
+                return inst
+
+            mock_processor_cls.side_effect = _make_processor
+
+            job1 = await engine.create_job(
+                input_path=str(temp_audio_file),
+                settings={"mode": "adaptive", "output_format": "wav", "bit_depth": 16},
+            )
+            await engine.process_job(job1)
+            assert job1.status == ProcessingStatus.FAILED
+
+            job2 = await engine.create_job(
+                input_path=str(temp_audio_file),
+                settings={"mode": "adaptive", "output_format": "wav", "bit_depth": 16},
+            )
+            await engine.process_job(job2)
+
+            # Two distinct HybridProcessor instances were constructed — the
+            # second job never reused the first (poisoned) one.
+            assert len(instances) == 2
+            assert instances[0] is not instances[1]
+            # The first (orphaned) instance was closed, never cached.
+            instances[0].close.assert_called_once()
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

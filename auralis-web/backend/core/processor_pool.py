@@ -133,3 +133,20 @@ class ProcessorPool:
                             logger.warning(
                                 "Failed to close evicted processor: %s", close_err
                             )
+
+    async def discard(self, processor: HybridProcessor) -> None:
+        """Close a processor without caching it (#4727).
+
+        Used when a processor may still be in use by an orphaned thread — a
+        DSP call that `asyncio.wait_for` timed out on only cancels the
+        asyncio-side wrapper future, not the underlying OS thread, so the
+        instance's internal state may still be mutated after the timeout
+        fires. Caching it would let the next job with the same `(mode,
+        config)` pop and reuse an instance the orphaned thread is still
+        touching. Reuses the same close-and-log pattern as LRU eviction
+        above rather than a second cleanup path.
+        """
+        try:
+            processor.close()
+        except Exception as close_err:  # pragma: no cover - defensive
+            logger.warning("Failed to close discarded processor: %s", close_err)
