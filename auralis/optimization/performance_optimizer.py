@@ -25,7 +25,7 @@ import numpy as np
 
 from ..utils.logging import info
 from .acceleration import SIMDAccelerator
-from .caching import SmartCache
+from .caching import UNCACHEABLE, SmartCache
 
 # Import from modular components
 from .config import PerformanceConfig
@@ -68,6 +68,13 @@ class PerformanceOptimizer:
 
                 # Generate cache key
                 cache_key: str = self.cache._generate_key(actual_name, args, kwargs)
+
+                # An argument that cannot be identified faithfully means the
+                # call bypasses the cache entirely (#4524) — no lookup, and
+                # crucially no put(), which would key an entry on an identity
+                # we already know is wrong.
+                if cache_key is UNCACHEABLE:
+                    return func(*args, **kwargs)
 
                 # Try to get from cache
                 cached_result: Any = self.cache.get(cache_key)

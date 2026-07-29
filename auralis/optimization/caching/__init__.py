@@ -8,6 +8,6 @@ Intelligent caching system with LRU and TTL support.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .smart_cache import SmartCache
+from .smart_cache import UNCACHEABLE, SmartCache
 
-__all__ = ['SmartCache']
+__all__ = ['SmartCache', 'UNCACHEABLE']

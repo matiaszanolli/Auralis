@@ -584,9 +584,19 @@ def _apply_module_optimizations() -> None:
     try:
         perf_opt = get_performance_optimizer()
 
-        # Optimize AdaptiveMode.process at the class level
+        # Wrap AdaptiveMode.process with PROFILING ONLY — never memoization
+        # (#4524). `optimize_real_time_processing` also layers a SmartCache on
+        # top, and `AdaptiveMode.process` is not a pure function: it mutates
+        # `self.last_content_profile`, which `adaptive_mode.py` reads later to
+        # derive bass_pct / transient_density. On a cache hit the body never
+        # runs, so that field keeps a *previous track's* profile. A generic
+        # memoizing decorator is the wrong tool for this method regardless of
+        # how good the key is, and mastering is not a hot inner loop — the
+        # memoization bought little while risking wrong-audio output.
         original_process = AdaptiveMode.process
-        AdaptiveMode.process = perf_opt.optimize_real_time_processing(original_process)  # type: ignore[method-assign]
+        AdaptiveMode.process = perf_opt.profiler.time_function(  # type: ignore[method-assign]
+            original_process.__name__
+        )(original_process)
         AdaptiveMode._optimized = True  # type: ignore[attr-defined]
 
         # Note: We don't optimize HybridProcessor.process_realtime_chunk at module level

@@ -13,9 +13,21 @@ import sys
 import threading
 import time
 from collections import OrderedDict
-from typing import Any
+from typing import Any, Final
+
+import numpy as np
 
 from auralis.utils.logging import debug
+
+#: Returned by :meth:`SmartCache._generate_key` when an argument cannot be
+#: identified faithfully, meaning the call MUST NOT be cached (#4524). It is a
+#: distinct sentinel rather than ``None`` because ``None`` already means "cache
+#: miss" to ``PerformanceOptimizer.cached_function``, and a miss still writes
+#: the result back — which is exactly what must not happen here.
+UNCACHEABLE: Final[str] = "\x00uncacheable\x00"
+
+# Types whose repr() is a faithful, complete identity.
+_FAITHFUL_SCALARS: Final[tuple[type, ...]] = (str, bytes, bool, int, float, type(None))
 
 
 class SmartCache:
@@ -36,12 +48,63 @@ class SmartCache:
 
         debug(f"Smart cache initialized: {max_size_mb}MB, TTL: {ttl_seconds}s")
 
+    @staticmethod
+    def _identify(value: Any) -> str:
+        """Render one argument as a *faithful* identity, or raise (#4524).
+
+        ``repr()`` is never trustworthy for this job. NumPy truncates the repr
+        of any array over 1000 elements to the first and last three samples per
+        axis, so two tracks that merely share a shape and their lead-in/tail
+        digital silence — the norm for mastered audio — render identically and
+        collide. Arbitrary objects are just as bad: the default ``repr``
+        embeds ``id(self)``, which CPython reuses after garbage collection.
+
+        Arrays are therefore keyed on their actual bytes, and anything whose
+        identity cannot be established is refused outright.
+        """
+        if isinstance(value, np.ndarray):
+            digest = hashlib.blake2b(
+                np.ascontiguousarray(value).tobytes(), digest_size=16
+            ).hexdigest()
+            return f"ndarray({value.shape},{value.dtype.str},{digest})"
+
+        # bool is a subclass of int; both are in _FAITHFUL_SCALARS, and repr
+        # distinguishes them (`True` vs `1`), so no special-casing is needed.
+        if isinstance(value, _FAITHFUL_SCALARS):
+            return f"{type(value).__name__}({value!r})"
+
+        if isinstance(value, (tuple, list)):
+            inner = ",".join(SmartCache._identify(v) for v in value)
+            return f"{type(value).__name__}([{inner}])"
+
+        if isinstance(value, dict):
+            inner = ",".join(
+                f"{SmartCache._identify(k)}:{SmartCache._identify(v)}"
+                for k, v in sorted(value.items(), key=lambda kv: repr(kv[0]))
+            )
+            return f"dict({{{inner}}})"
+
+        raise TypeError(f"cannot faithfully identify {type(value).__name__}")
+
     def _generate_key(self, func_name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
-        """Generate cache key from function arguments"""
-        # Create a stable hash from arguments
-        key_data = (func_name, args, sorted(kwargs.items()))
-        key_str = str(key_data).encode('utf-8')
-        return hashlib.md5(key_str).hexdigest()
+        """Generate a content-faithful cache key, or :data:`UNCACHEABLE`.
+
+        Returning :data:`UNCACHEABLE` means "this call must bypass the cache
+        entirely" — never "miss, then store". A cache that can return the wrong
+        audio is strictly worse than no cache, so the failure mode is a bypass,
+        never a false hit (#4524).
+        """
+        try:
+            parts = [f"func({func_name!r})"]
+            parts.extend(self._identify(a) for a in args)
+            parts.extend(
+                f"{k}={self._identify(v)}" for k, v in sorted(kwargs.items())
+            )
+        except TypeError as exc:
+            debug(f"SmartCache: bypassing cache for {func_name}: {exc}")
+            return UNCACHEABLE
+
+        return hashlib.md5("|".join(parts).encode('utf-8')).hexdigest()
 
     def get(self, key: str) -> Any | None:
         """Get item from cache"""
