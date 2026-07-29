@@ -39,9 +39,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No `version:` key on purpose. Every package.json in the repo carries
+      # `packageManager: pnpm@10.20.0`, and action-setup hard-errors with
+      # "Multiple versions of pnpm specified" when a `version:` input is given
+      # as well — which is what made every run of this workflow fail in ~13 s,
+      # before it ever installed anything or ran a test. Letting the action read
+      # `packageManager` keeps CI and local pnpm on one pinned version.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
