@@ -1,13 +1,10 @@
 {
   "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update",
   "generatedFrom": {
-    "totalTests": 3338,
-    "failedTests": 180
+    "totalTests": 3446,
+    "failedTests": 165
   },
   "failures": [
-    "src/components/__tests__/Integration.test.tsx::Component Integration Tests should initialize store with correct initial state",
-    "src/components/__tests__/Integration.test.tsx::Component Integration Tests should maintain lastUpdated timestamps across slices",
-    "src/components/__tests__/Integration.test.tsx::Component Integration Tests should reset player state",
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
     "src/components/__tests__/SimilarityVisualization.test.tsx::SimilarityVisualization Top Differences should display dimension names formatted correctly",
     "src/components/features/discovery/__tests__/useSimilarTracksFormatting.test.ts::<suite failed to run>",
@@ -92,11 +89,6 @@
     "src/components/library/__tests__/TrackRow.test.tsx::TrackRow Selection should toggle selection on checkbox click",
     "src/components/library/__tests__/TrackRow.test.tsx::TrackRow Selection should uncheck checkbox when not selected",
     "src/components/player/__tests__/ProgressBar.test.tsx::ProgressBar Click to Seek should call onSeek when clicked at midpoint",
-    "src/components/player/__tests__/QueuePanel.test.tsx::QueuePanel should clear entire queue with confirmation",
-    "src/components/player/__tests__/QueuePanel.test.tsx::QueuePanel should display tracks with correct information",
-    "src/components/player/__tests__/QueuePanel.test.tsx::QueuePanel should highlight current playing track",
-    "src/components/player/__tests__/QueuePanel.test.tsx::QueuePanel should remove track from queue",
-    "src/components/player/__tests__/QueuePanel.test.tsx::QueuePanel should render queue panel with all tracks",
     "src/components/player/__tests__/QueueStatisticsPanel.test.tsx::QueueStatisticsPanel should display track count in summary",
     "src/components/player/__tests__/TimeDisplay.test.tsx::TimeDisplay CSS Classes and Styling should have title attribute for tooltip",
     "src/components/player/__tests__/TimeDisplay.test.tsx::TimeDisplay Long Duration Formatting should display hours even at 0 for long tracks",
@@ -159,13 +151,6 @@
     "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render default error fallback",
     "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render default loading fallback",
     "src/performance/__tests__/lazyLoader.test.tsx::Lazy Loader Fallback Components should render error fallback without error message",
-    "src/services/__tests__/processingService.test.ts::ProcessingService downloadResult should download result blob with retry",
-    "src/services/__tests__/processingService.test.ts::ProcessingService getJobStatus should return job status with retry",
-    "src/services/__tests__/processingService.test.ts::ProcessingService waitForCompletion should call onProgress callback",
-    "src/services/__tests__/processingService.test.ts::ProcessingService waitForCompletion should reject when job fails",
-    "src/services/__tests__/processingService.test.ts::ProcessingService waitForCompletion should reject when signal is aborted during polling",
-    "src/services/__tests__/processingService.test.ts::ProcessingService waitForCompletion should reject with default message for failed job without error_message",
-    "src/services/__tests__/processingService.test.ts::ProcessingService waitForCompletion should resolve when job completes",
     "src/services/__tests__/similarityService.test.ts::SimilarityService buildGraph should build K-NN graph with custom k",
     "src/services/__tests__/similarityService.test.ts::SimilarityService buildGraph should build K-NN graph with default k",
     "src/services/__tests__/similarityService.test.ts::SimilarityService compareTracks should compare two tracks",
