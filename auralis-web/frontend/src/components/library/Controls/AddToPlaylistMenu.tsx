@@ -27,20 +27,25 @@ export const AddToPlaylistMenu = ({
 
   useEffect(() => {
     if (!anchorEl) return;
-    let cancelled = false;
+    // #4614: abort the in-flight request on close/reopen, not just discard its
+    // result. The menu can be reopened faster than the fetch completes, and
+    // before the factory could forward a signal the superseded request ran to
+    // completion with no consumer.
+    const controller = new AbortController();
     setLoading(true);
-    getPlaylists()
+    getPlaylists(undefined, controller.signal)
       .then((response) => {
-        if (!cancelled) setPlaylists(response.playlists);
+        if (!controller.signal.aborted) setPlaylists(response.playlists);
       })
       .catch(() => {
-        if (!cancelled) setPlaylists([]);
+        // An abort is expected on close/reopen — not a user-facing failure.
+        if (!controller.signal.aborted) setPlaylists([]);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [anchorEl]);
 

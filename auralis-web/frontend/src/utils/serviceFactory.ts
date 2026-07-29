@@ -18,7 +18,37 @@
  * - Maintainability: Changes to common operations affect all services
  */
 
-import { get, post, put, del } from './apiRequest';
+import { get, post, put, del, type RequestOptions } from './apiRequest';
+
+/**
+ * Per-call options accepted by every generated CRUD method (#4614).
+ *
+ * Narrowed to `signal` on purpose. Widening this to the full `RequestOptions`
+ * would let a caller pass `validate` and silently override the endpoint's
+ * configured `guards`, defeating the runtime shape checks added in #4607.
+ * Cancellation is the capability the factory was missing; nothing else.
+ */
+export type CrudRequestOptions = Pick<RequestOptions, 'signal'>;
+
+/**
+ * Build the options object handed to `get`/`post`/`put`/`del`.
+ *
+ * Returns `undefined` when there is nothing to pass. Callers below then omit
+ * the argument entirely rather than passing an explicit `undefined`, so
+ * services with neither a guard nor a signal keep the exact previous call
+ * *arity* — the property #4607 established, which the existing
+ * `playlistService` tests assert via `toHaveBeenCalledWith(url)`.
+ */
+function requestOptions(
+  guard?: (value: unknown) => boolean,
+  options?: CrudRequestOptions,
+): RequestOptions | undefined {
+  if (!guard && !options?.signal) return undefined;
+  return {
+    ...(options?.signal ? { signal: options.signal } : {}),
+    ...(guard ? { validate: guard } : {}),
+  };
+}
 
 /**
  * Generic CRUD endpoint configuration.
@@ -68,77 +98,85 @@ export function createCrudService<
     /**
      * GET list of items
      */
-    async list(params?: P): Promise<T[]> {
+    async list(params?: P, options?: CrudRequestOptions): Promise<T[]> {
       if (!endpoints.list) {
         throw new Error('list endpoint not configured');
       }
       const endpoint = typeof endpoints.list === 'function'
         ? endpoints.list(params)
         : endpoints.list;
-      // Only pass options when a guard is configured, so services without one
-      // keep the exact previous call signature (#4607).
-      const guard = endpoints.guards?.list;
-      return guard ? get(endpoint, { validate: guard }) : get(endpoint);
+      const opts = requestOptions(endpoints.guards?.list, options);
+      return opts ? get(endpoint, opts) : get(endpoint);
     },
 
     /**
      * GET single item by ID
      */
-    async getOne(id: ID): Promise<T> {
+    async getOne(id: ID, options?: CrudRequestOptions): Promise<T> {
       if (!endpoints.get) {
         throw new Error('get endpoint not configured');
       }
       const endpoint = typeof endpoints.get === 'function'
         ? endpoints.get(id)
         : endpoints.get;
-      const guard = endpoints.guards?.get;
-      return guard ? get(endpoint, { validate: guard }) : get(endpoint);
+      const opts = requestOptions(endpoints.guards?.get, options);
+      return opts ? get(endpoint, opts) : get(endpoint);
     },
 
     /**
      * POST create new item
      */
-    async create(data: U): Promise<T> {
+    async create(data: U, options?: CrudRequestOptions): Promise<T> {
       if (!endpoints.create) {
         throw new Error('create endpoint not configured');
       }
       const endpoint = typeof endpoints.create === 'function'
         ? endpoints.create(data as unknown as P)
         : endpoints.create;
-      return post(endpoint, data as Record<string, unknown>);
+      const opts = requestOptions(undefined, options);
+      const body = data as Record<string, unknown>;
+      return opts ? post(endpoint, body, opts) : post(endpoint, body);
     },
 
     /**
      * PUT update existing item
      */
-    async update(id: ID, data: Partial<U>): Promise<T> {
+    async update(id: ID, data: Partial<U>, options?: CrudRequestOptions): Promise<T> {
       if (!endpoints.update) {
         throw new Error('update endpoint not configured');
       }
       const endpoint = typeof endpoints.update === 'function'
         ? endpoints.update(id, data as unknown as P)
         : endpoints.update;
-      return put(endpoint, data as Record<string, unknown>);
+      const opts = requestOptions(undefined, options);
+      const body = data as Record<string, unknown>;
+      return opts ? put(endpoint, body, opts) : put(endpoint, body);
     },
 
     /**
      * DELETE item by ID
      */
-    async delete(id: ID): Promise<void> {
+    async delete(id: ID, options?: CrudRequestOptions): Promise<void> {
       if (!endpoints.delete) {
         throw new Error('delete endpoint not configured');
       }
       const endpoint = typeof endpoints.delete === 'function'
         ? endpoints.delete(id)
         : endpoints.delete;
-      return del(endpoint);
+      const opts = requestOptions(undefined, options);
+      return opts ? del(endpoint, opts) : del(endpoint);
     },
 
     /**
      * Custom endpoint call
      * Useful for actions that don't fit standard CRUD
      */
-    async custom<R = unknown>(name: string, method: 'get' | 'post' | 'put' | 'delete', data?: P): Promise<R> {
+    async custom<R = unknown>(
+      name: string,
+      method: 'get' | 'post' | 'put' | 'delete',
+      data?: P,
+      options?: CrudRequestOptions,
+    ): Promise<R> {
       if (!endpoints.custom || !endpoints.custom[name]) {
         throw new Error(`custom endpoint "${name}" not configured`);
       }
@@ -146,16 +184,19 @@ export function createCrudService<
       const endpoint = typeof endpointDef === 'function'
         ? endpointDef(data)
         : endpointDef;
+      const opts = requestOptions(undefined, options);
+
+      const body = (data ?? {}) as Record<string, unknown>;
 
       switch (method) {
         case 'get':
-          return get<R>(endpoint);
+          return opts ? get<R>(endpoint, opts) : get<R>(endpoint);
         case 'post':
-          return post<R>(endpoint, (data ?? {}) as Record<string, unknown>);
+          return opts ? post<R>(endpoint, body, opts) : post<R>(endpoint, body);
         case 'put':
-          return put<R>(endpoint, (data ?? {}) as Record<string, unknown>);
+          return opts ? put<R>(endpoint, body, opts) : put<R>(endpoint, body);
         case 'delete':
-          return del<R>(endpoint);
+          return opts ? del<R>(endpoint, opts) : del<R>(endpoint);
         default:
           throw new Error(`Unknown HTTP method: ${method}`);
       }
@@ -163,13 +204,16 @@ export function createCrudService<
 
     /**
      * Batch operations
+     *
+     * One signal cancels the whole batch — `Promise.all` rejects on the first
+     * abort, which is the intended unmount/supersession behaviour.
      */
-    async batchCreate(items: U[]): Promise<T[]> {
-      return Promise.all(items.map(item => this.create(item)));
+    async batchCreate(items: U[], options?: CrudRequestOptions): Promise<T[]> {
+      return Promise.all(items.map(item => this.create(item, options)));
     },
 
-    async batchDelete(ids: ID[]): Promise<void> {
-      return Promise.all(ids.map(id => this.delete(id))).then(() => undefined);
+    async batchDelete(ids: ID[], options?: CrudRequestOptions): Promise<void> {
+      return Promise.all(ids.map(id => this.delete(id, options))).then(() => undefined);
     }
   };
 }

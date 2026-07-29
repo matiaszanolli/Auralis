@@ -88,9 +88,17 @@ const crudService = createCrudService<Playlist, CreatePlaylistRequest, number, P
 /**
  * Get a page of playlists (defaults to the maximum page size, see
  * PLAYLISTS_PAGE_LIMIT).
+ *
+ * @param signal - Optional AbortSignal for cancelling the request (#4614),
+ *   e.g. from a `useEffect` cleanup. An aborted request rejects with
+ *   `AbortError`, which `apiRequest` re-throws without surfacing it as a
+ *   user-facing error — callers should ignore it rather than render it.
  */
-export async function getPlaylists(params?: PlaylistListParams): Promise<PlaylistsResponse> {
-  const response = await crudService.list(params);
+export async function getPlaylists(
+  params?: PlaylistListParams,
+  signal?: AbortSignal,
+): Promise<PlaylistsResponse> {
+  const response = await crudService.list(params, { signal });
   // Runtime shape validation — response may be a bare array or {playlists: [...]}
   const envelope = (!Array.isArray(response) && response && typeof response === 'object')
     ? response as unknown as PlaylistsResponse
@@ -117,9 +125,14 @@ export async function getPlaylists(params?: PlaylistListParams): Promise<Playlis
 
 /**
  * Get playlist by ID with all tracks
+ *
+ * @param signal - Optional AbortSignal for cancelling the request (#4614).
  */
-export async function getPlaylist(playlistId: number): Promise<Playlist> {
-  return crudService.getOne(playlistId);
+export async function getPlaylist(
+  playlistId: number,
+  signal?: AbortSignal,
+): Promise<Playlist> {
+  return crudService.getOne(playlistId, { signal });
 }
 
 /**

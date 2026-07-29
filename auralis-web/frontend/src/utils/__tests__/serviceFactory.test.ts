@@ -127,3 +127,179 @@ describe('serviceFactory', () => {
     });
   });
 });
+
+describe('createCrudService — request cancellation (#4614)', () => {
+  // The factory generated methods that called get/post/put/del with no
+  // options object, so all five factory-built services (playlistService,
+  // queueService, settingsService, similarityService, artworkService) were
+  // structurally unable to abort an in-flight request — the only HTTP layer
+  // in the codebase excluded from the cancellation discipline.
+
+  const mocked = async () => await import('../apiRequest');
+
+  it('list() forwards the signal', async () => {
+    const { get } = await mocked();
+    vi.mocked(get).mockClear();
+    const controller = new AbortController();
+    const service = createCrudService({ list: '/api/items' });
+
+    await service.list(undefined, { signal: controller.signal });
+
+    expect(get).toHaveBeenCalledWith('/api/items', { signal: controller.signal });
+  });
+
+  it('getOne() forwards the signal', async () => {
+    const { get } = await mocked();
+    vi.mocked(get).mockClear();
+    const controller = new AbortController();
+    const service = createCrudService({ get: '/api/items/1' });
+
+    await service.getOne(1, { signal: controller.signal });
+
+    expect(get).toHaveBeenCalledWith('/api/items/1', { signal: controller.signal });
+  });
+
+  it('create() forwards the signal', async () => {
+    const { post } = await mocked();
+    vi.mocked(post).mockClear();
+    const controller = new AbortController();
+    const service = createCrudService({ create: '/api/items' });
+
+    await service.create({ a: 1 }, { signal: controller.signal });
+
+    expect(post).toHaveBeenCalledWith('/api/items', { a: 1 }, { signal: controller.signal });
+  });
+
+  it('update() forwards the signal', async () => {
+    const { put } = await mocked();
+    vi.mocked(put).mockClear();
+    const controller = new AbortController();
+    const service = createCrudService({ update: (id: number) => `/api/items/${id}` });
+
+    await service.update(7, { a: 1 }, { signal: controller.signal });
+
+    expect(put).toHaveBeenCalledWith('/api/items/7', { a: 1 }, { signal: controller.signal });
+  });
+
+  it('delete() forwards the signal', async () => {
+    const { del } = await mocked();
+    vi.mocked(del).mockClear();
+    const controller = new AbortController();
+    const service = createCrudService({ delete: (id: number) => `/api/items/${id}` });
+
+    await service.delete(7, { signal: controller.signal });
+
+    expect(del).toHaveBeenCalledWith('/api/items/7', { signal: controller.signal });
+  });
+
+  it('custom() forwards the signal for every method', async () => {
+    const { get, post, put, del } = await mocked();
+    const controller = new AbortController();
+    const service = createCrudService({ custom: { act: '/api/items/act' } });
+
+    for (const fn of [get, post, put, del]) vi.mocked(fn).mockClear();
+
+    await service.custom('act', 'get', undefined, { signal: controller.signal });
+    await service.custom('act', 'post', undefined, { signal: controller.signal });
+    await service.custom('act', 'put', undefined, { signal: controller.signal });
+    await service.custom('act', 'delete', undefined, { signal: controller.signal });
+
+    expect(get).toHaveBeenCalledWith('/api/items/act', { signal: controller.signal });
+    expect(post).toHaveBeenCalledWith('/api/items/act', {}, { signal: controller.signal });
+    expect(put).toHaveBeenCalledWith('/api/items/act', {}, { signal: controller.signal });
+    expect(del).toHaveBeenCalledWith('/api/items/act', { signal: controller.signal });
+  });
+
+  it('batch operations forward the signal to every request', async () => {
+    const { post, del } = await mocked();
+    const controller = new AbortController();
+    const service = createCrudService({
+      create: '/api/items',
+      delete: (id: number) => `/api/items/${id}`,
+    });
+
+    vi.mocked(post).mockClear();
+    vi.mocked(del).mockClear();
+
+    await service.batchCreate([{ a: 1 }, { a: 2 }], { signal: controller.signal });
+    await service.batchDelete([1, 2], { signal: controller.signal });
+
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(del).toHaveBeenCalledTimes(2);
+    for (const call of vi.mocked(post).mock.calls) {
+      expect(call[2]).toEqual({ signal: controller.signal });
+    }
+    for (const call of vi.mocked(del).mock.calls) {
+      expect(call[1]).toEqual({ signal: controller.signal });
+    }
+  });
+
+  it('passes no options object when neither a guard nor a signal is given', async () => {
+    // #4607 established that services without a guard keep the exact previous
+    // call signature. #4614 must not disturb that.
+    const { get, post, put, del } = await mocked();
+    for (const fn of [get, post, put, del]) vi.mocked(fn).mockClear();
+
+    const service = createCrudService({
+      list: '/api/items',
+      get: '/api/items/1',
+      create: '/api/items',
+      update: '/api/items/1',
+      delete: '/api/items/1',
+    });
+
+    await service.list();
+    await service.getOne(1);
+    await service.create({ a: 1 });
+    await service.update(1, { a: 1 });
+    await service.delete(1);
+
+    // Exact arity, not a trailing `undefined` — playlistService's existing
+    // tests assert `toHaveBeenCalledWith(url)` and must keep passing.
+    expect(get).toHaveBeenNthCalledWith(1, '/api/items');
+    expect(get).toHaveBeenNthCalledWith(2, '/api/items/1');
+    expect(post).toHaveBeenCalledWith('/api/items', { a: 1 });
+    expect(put).toHaveBeenCalledWith('/api/items/1', { a: 1 });
+    expect(del).toHaveBeenCalledWith('/api/items/1');
+  });
+
+  it('omits the options argument entirely when there is nothing to pass', () => {
+    // Pins the arity itself: an explicit trailing `undefined` would satisfy
+    // toHaveBeenCalledWith(url, undefined) but break existing service tests.
+    const service = createCrudService({ list: '/api/items' });
+    return (async () => {
+      const { get } = await mocked();
+      vi.mocked(get).mockClear();
+      await service.list();
+      expect(vi.mocked(get).mock.calls[0]).toHaveLength(1);
+    })();
+  });
+
+  it('merges a configured guard with a caller signal rather than dropping either', async () => {
+    const { get } = await mocked();
+    vi.mocked(get).mockClear();
+    const controller = new AbortController();
+    const guard = (v: unknown) => Array.isArray(v);
+    const service = createCrudService({ list: '/api/items', guards: { list: guard } });
+
+    await service.list(undefined, { signal: controller.signal });
+
+    expect(get).toHaveBeenCalledWith('/api/items', {
+      signal: controller.signal,
+      validate: guard,
+    });
+  });
+
+  it('cannot be used to override a configured guard', async () => {
+    // CrudRequestOptions is narrowed to `signal` precisely so a caller cannot
+    // pass `validate` and defeat the #4607 shape checks.
+    const { get } = await mocked();
+    vi.mocked(get).mockClear();
+    const guard = (v: unknown) => Array.isArray(v);
+    const service = createCrudService({ list: '/api/items', guards: { list: guard } });
+
+    await service.list(undefined, { validate: () => true } as never);
+
+    expect(vi.mocked(get).mock.calls[0][1]).toEqual({ validate: guard });
+  });
+});
