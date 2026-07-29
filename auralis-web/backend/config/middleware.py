@@ -63,6 +63,45 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
             return _middleware_error_response(exc, "NoCacheMiddleware")
 
 
+# Image hosts that artist artwork is served from (#4526).
+#
+# Unlike album and track artwork — which `to_dict()` rewrites to a same-origin
+# `/api/.../artwork` path — `Artist.artwork_url` deliberately stores the raw
+# external CDN URL and the frontend renders it directly as an `<img src>`. Under
+# `img-src 'self' data: blob:` the browser blocked every one of them, so the
+# artist detail page showed the no-artwork fallback for every artist that
+# actually had artwork. This is invisible in `--dev` (Vite serves the document
+# from :3000, so this middleware's CSP does not apply to it) and always broken
+# in the shipped Electron build, where the backend serves the SPA itself.
+#
+# These are the hosts the three fetchers in `auralis/services/artwork_service.py`
+# actually produce:
+#   - Last.fm  (`_fetch_from_lastfm`)     -> lastfm.freetls.fastly.net, and the
+#                                            older akamaized.net CDN
+#   - Discogs  (`_fetch_from_discogs`)    -> i/img.discogs.com
+#   - MusicBrainz (`_fetch_from_musicbrainz`) -> whatever host an editor put in
+#                                            the artist's `image` URL relation,
+#                                            in practice Wikimedia Commons
+#
+# KNOWN LIMITATION: the MusicBrainz case is open-ended by construction — the
+# relation resource is arbitrary editor-supplied data, so an artist whose image
+# relation points somewhere not listed here will still be blocked and fall back
+# to the placeholder. Enumerating hosts trades a total outage for a partial one;
+# it is not a complete fix. Closing that gap properly means serving artist
+# artwork from our own origin like albums do (see #4526 for the alternatives).
+# Do NOT "fix" a missing image by relaxing this to `https:` — that would allow
+# every HTTPS image on the internet and give up the directive entirely.
+_ARTIST_ARTWORK_IMG_HOSTS = (
+    "https://lastfm.freetls.fastly.net",
+    "https://*.lastfm.freetls.fastly.net",
+    "https://lastfm-img2.akamaized.net",
+    "https://i.discogs.com",
+    "https://img.discogs.com",
+    "https://upload.wikimedia.org",
+    "https://commons.wikimedia.org",
+)
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
     Middleware to add browser security headers to all responses.
@@ -79,12 +118,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["X-Frame-Options"] = "DENY"
             response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
             response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+            img_src = " ".join(("'self'", "data:", "blob:", *_ARTIST_ARTWORK_IMG_HOSTS))
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
                 "script-src 'self' 'unsafe-inline'; "
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                 "font-src 'self' https://fonts.gstatic.com; "
-                "img-src 'self' data: blob:; "
+                f"img-src {img_src}; "
                 "connect-src 'self' ws://localhost:* http://localhost:*; "
                 "media-src 'self' blob:;"
             )

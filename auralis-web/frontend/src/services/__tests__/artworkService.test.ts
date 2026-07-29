@@ -314,4 +314,29 @@ describe('withArtworkSize (#4447)', () => {
     expect(withArtworkSize(undefined, 80)).toBeUndefined();
     expect(withArtworkSize('/api/albums/9/artwork', 0)).toBe('/api/albums/9/artwork');
   });
+
+  // #4526: artist artwork is an ABSOLUTE external CDN URL — the one artwork
+  // field deliberately not rewritten to an /api path. The old guard was a bare
+  // `url.includes('/artwork')`, so any external URL happening to contain that
+  // substring got `?size=N` appended and sent to a third-party host that has no
+  // idea what it means. Same-origin is now the actual condition.
+  it('never appends a size to an absolute external URL', () => {
+    const external = [
+      'https://lastfm.freetls.fastly.net/i/u/770x0/abc.jpg',
+      'https://i.discogs.com/artwork/xyz.jpeg',
+      'https://upload.wikimedia.org/wikipedia/commons/artwork/pic.png',
+      'https://example.com/api/albums/9/artwork',
+      'http://localhost:8765/api/albums/9/artwork',
+      '//cdn.example.com/artwork/pic.jpg',
+    ];
+    for (const url of external) {
+      expect(withArtworkSize(url, 256)).toBe(url);
+    }
+  });
+
+  it('still appends to same-origin artwork paths', () => {
+    expect(withArtworkSize('/api/artists/3/artwork', 256)).toBe(
+      '/api/artists/3/artwork?size=256'
+    );
+  });
 });

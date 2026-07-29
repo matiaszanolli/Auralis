@@ -302,6 +302,22 @@ class Artist(Base, TimestampMixin):
     avg_mastering_quality: Mapped[float | None] = mapped_column(Float)
 
     # Artwork metadata (Phase 2: Real artist imagery)
+    #
+    # DELIBERATE EXCEPTION (#4526): `artwork_url` here holds an ABSOLUTE EXTERNAL
+    # URL and is passed through to clients unmodified — unlike Album.to_dict()
+    # and Track.to_dict(), which both rewrite their artwork to a same-origin
+    # `/api/.../artwork` path. Artists have no local artwork file to serve: the
+    # fetchers in auralis/services/artwork_service.py resolve a third-party CDN
+    # URL and store only that, so there is nothing behind an /api path to serve.
+    #
+    # The consequence is that `artwork_url` carries two incompatible kinds of
+    # value across the API depending on which entity it came from. Anything
+    # consuming it must not assume a same-origin path — see `withArtworkSize()`
+    # in the frontend, which now requires an `/api/` prefix for exactly this
+    # reason. The browser is allowed to load these hosts by the `img-src`
+    # allowlist in auralis-web/backend/config/middleware.py; adding a new
+    # artwork source means adding its CDN host there too, or the image is
+    # silently blocked and the UI falls back to a placeholder.
     artwork_url: Mapped[str | None] = mapped_column(Text)  # External URL to artist image
     artwork_source: Mapped[str | None] = mapped_column(String)  # 'musicbrainz', 'discogs', 'lastfm', etc.
     artwork_fetched_at: Mapped[datetime | None] = mapped_column(DateTime)  # Last fetch timestamp

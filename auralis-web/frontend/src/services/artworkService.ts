@@ -82,9 +82,18 @@ export function getArtworkUrl(albumId: number, options: ArtworkUrlOptions = {}):
  * backend-provided `track.artworkUrl`). No-op for empty/undefined URLs (#4447).
  */
 export function withArtworkSize(url: string | undefined, size: number): string | undefined {
-  // Only append to the album-artwork endpoint (which understands `size`); leave
-  // data URIs / external URLs / already-sized URLs untouched.
+  // Only append to OUR artwork endpoints, which understand `size`. Leave data
+  // URIs, already-sized URLs, and any absolute URL untouched.
+  //
+  // The guard used to be a bare `url.includes('/artwork')` (#4526). That held
+  // only by luck: artist artwork is an external CDN URL rendered directly (the
+  // one artwork field that is deliberately NOT rewritten to an /api path), and
+  // any such URL containing the substring `/artwork` — a Discogs or Wikimedia
+  // path segment is enough — would have had `?size=N` appended and been sent to
+  // a third-party host that does not understand it. Requiring the `/api/`
+  // prefix makes same-origin the actual condition rather than a coincidence.
   if (!url || !size || size <= 0) return url;
+  if (!url.startsWith('/api/')) return url;
   if (!url.includes('/artwork') || /[?&]size=/.test(url)) return url;
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}size=${Math.round(size)}`;
