@@ -96,6 +96,38 @@ class RealtimeAdaptiveEQ:
         """
         Process audio chunk in real-time with adaptive EQ
 
+        .. warning::
+
+            **RESERVED / UNWIRED — NOT WOLA-SAFE (#4615).**
+
+            This entry point and everything below it (:meth:`_process_fixed_chunk`,
+            :meth:`_handle_variable_chunk_size`) apply block FFT gain with **no
+            analysis window and no overlap-add**. ``PsychoacousticEQ.apply_eq``
+            is un-windowed by contract — ``dsp/eq/filters.py:apply_eq_mono``
+            documents that the caller owns overlap-add — and this caller never
+            supplies that layer. Consecutive blocks receive independently
+            adapted gains with nothing to smooth the seam, so any non-flat gain
+            vector produces audible clicking and spectral smearing at every
+            block boundary (~20 ms). That is #3294 (~6 dB COLA ripple), which
+            has already shipped once from this same class of defect.
+
+            It is latent, not live: this chain has **zero production callers**.
+            The only route in is
+            ``HybridProcessor.process_realtime_chunk()`` →
+            ``RealtimeDSPPipeline.process_chunk()`` → here, and
+            ``process_realtime_chunk`` is called from tests only. Real playback
+            goes ``HybridProcessor.process()`` → ``ContinuousMode``/
+            ``AdaptiveMode`` → ``EQProcessor``, which wraps the same EQ in a
+            COLA-correct 50 %-hop WOLA loop with a full-Hann synthesis window
+            (``core/processing/eq_processor.py``, the #4217 fix).
+
+            **Do not wire this into a playback path as-is.** Route it through
+            ``EQProcessor``'s existing WOLA loop first — extract that loop into
+            a shared helper rather than writing a second one, because a second,
+            subtly-different WOLA is exactly how #3294 happened.
+            ``tests/regression/test_realtime_eq_unwired_4615.py`` fails if a
+            production caller appears, so this cannot be wired up silently.
+
         Args:
             audio_chunk: Input audio chunk
             content_info: Optional content analysis information
@@ -131,7 +163,13 @@ class RealtimeAdaptiveEQ:
 
     def _process_fixed_chunk(self, audio_chunk: np.ndarray,
                            content_info: dict[str, Any] | None) -> np.ndarray:
-        """Process fixed-size audio chunk"""
+        """Process fixed-size audio chunk.
+
+        ⚠️ NOT WOLA-SAFE — see :meth:`process_realtime` (#4615). ``apply_eq``
+        below is called with no analysis window and no overlap-add
+        reconstruction, so block boundaries are discontinuous whenever
+        ``adaptive_gains`` is non-flat.
+        """
 
         # Analyze spectrum
         spectrum_analysis = self.psychoacoustic_eq.analyze_spectrum(audio_chunk)
@@ -149,7 +187,12 @@ class RealtimeAdaptiveEQ:
 
     def _handle_variable_chunk_size(self, audio_chunk: np.ndarray,
                                    content_info: dict[str, Any] | None) -> np.ndarray:
-        """Handle variable chunk sizes by buffering"""
+        """Handle variable chunk sizes by buffering.
+
+        ⚠️ NOT WOLA-SAFE — see :meth:`process_realtime` (#4615). Buffering to a
+        fixed size does not add a window or overlap-add; it feeds the same
+        un-windowed :meth:`_process_fixed_chunk` path.
+        """
 
         # #3689: warn if the deque was already at capacity — append() will
         # silently drop the oldest chunk. With the bumped maxlen this

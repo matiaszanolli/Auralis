@@ -402,6 +402,25 @@ class HybridProcessor:
         """
         Process audio chunk in real-time for streaming applications
 
+        .. warning::
+
+            **RESERVED / UNWIRED — NOT WOLA-SAFE (#4615).**
+
+            This method has no production callers; it is exercised by tests
+            only. It delegates to ``RealtimeDSPPipeline.process_chunk()`` →
+            ``RealtimeAdaptiveEQ.process_realtime()``, which applies block FFT
+            gain with no analysis window and no overlap-add. Wiring it into a
+            playback path as-is reintroduces #3294 (~6 dB COLA ripple, audible
+            clicking at every block boundary).
+
+            Real playback uses :meth:`process` → ``ContinuousMode``/
+            ``AdaptiveMode`` → ``EQProcessor``, whose COLA-correct 50 %-hop
+            WOLA loop is the #4217 fix. See
+            ``RealtimeAdaptiveEQ.process_realtime`` for the full rationale and
+            what a correct wiring would require.
+            ``tests/regression/test_realtime_eq_unwired_4615.py`` fails if a
+            production caller appears.
+
         Args:
             audio_chunk: Small audio chunk for real-time processing
             content_info: Optional pre-analyzed content information
