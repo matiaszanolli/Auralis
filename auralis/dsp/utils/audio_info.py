@@ -82,21 +82,6 @@ def mono_to_stereo(audio: np.ndarray) -> np.ndarray:
     return audio.copy()
 
 
-def count_max_peaks(audio: np.ndarray) -> tuple[float, int]:
-    """
-    Count maximum peaks in audio signal
-
-    Args:
-        audio: Audio array
-
-    Returns:
-        Tuple of (max_value, peak_count)
-    """
-    max_value = np.abs(audio).max()
-    peak_count = np.sum(np.abs(audio) >= max_value * 0.99)
-    return max_value, peak_count
-
-
 def clip(audio: np.ndarray, ceiling: float = 1.0) -> np.ndarray:
     """
     Clip audio signal to prevent clipping

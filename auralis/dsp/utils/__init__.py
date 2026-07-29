@@ -11,20 +11,17 @@ Organized DSP utilities for audio processing
 from .adaptive import (
     adaptive_gain_calculation,
     calculate_loudness_units,
-    psychoacoustic_weighting,
     smooth_parameter_transition,
 )
 from .audio_info import (
     channel_count,
     clip,
-    count_max_peaks,
     is_mono,
     is_stereo,
     mono_to_stereo,
     size,
 )
 from .conversion import (
-    from_db,
     to_db,
 )
 from .interpolation_helpers import (
@@ -52,11 +49,9 @@ __all__ = [
     'is_mono',
     'is_stereo',
     'mono_to_stereo',
-    'count_max_peaks',
     'clip',
     # Conversion
     'to_db',
-    'from_db',
     # Spectral analysis
     'spectral_centroid',
     'spectral_rolloff',
@@ -66,7 +61,6 @@ __all__ = [
     'tempo_estimate',
     # Adaptive processing
     'adaptive_gain_calculation',
-    'psychoacoustic_weighting',
     'smooth_parameter_transition',
     'calculate_loudness_units',
     # Stereo processing

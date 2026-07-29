@@ -22,16 +22,3 @@ def to_db(linear_value: float) -> float:
         Value in decibels (dB)
     """
     return float(20 * np.log10(max(linear_value, 1e-10)))
-
-
-def from_db(db_value: float) -> float:
-    """
-    Convert decibels to linear amplitude value
-
-    Args:
-        db_value: Value in decibels (dB)
-
-    Returns:
-        Linear amplitude value
-    """
-    return 10 ** (db_value / 20)

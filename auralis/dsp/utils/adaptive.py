@@ -49,41 +49,6 @@ def adaptive_gain_calculation(target_rms: float,
     return 1.0
 
 
-def psychoacoustic_weighting(frequencies: np.ndarray) -> np.ndarray:
-    """
-    Apply psychoacoustic weighting to frequency spectrum
-
-    Creates a weighting curve based on human hearing sensitivity,
-    similar to A-weighting but simplified.
-
-    Args:
-        frequencies: Array of frequency values in Hz
-
-    Returns:
-        Weighting factors for each frequency (0-1)
-    """
-    # Simplified A-weighting-like curve
-    weights = np.ones_like(frequencies)
-
-    for i, freq in enumerate(frequencies):
-        if freq < 20:
-            weights[i] = 0.1  # Very low frequencies (barely audible)
-        elif freq < 100:
-            weights[i] = 0.5  # Low frequencies (bass)
-        elif freq < 1000:
-            weights[i] = 0.8  # Mid-low frequencies
-        elif freq < 4000:
-            weights[i] = 1.0  # Most important range (speech/presence)
-        elif freq < 8000:
-            weights[i] = 0.9  # High frequencies
-        elif freq < 16000:
-            weights[i] = 0.7  # Very high frequencies
-        else:
-            weights[i] = 0.3  # Ultrasonic (limited perception)
-
-    return weights
-
-
 def smooth_parameter_transition(current_value: float,
                                target_value: float,
                                smoothing_factor: float = 0.1) -> float:
