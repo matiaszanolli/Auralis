@@ -171,7 +171,7 @@ describe('Component Integration Tests', () => {
     const state = store.getState();
 
     expect(state.player.isPlaying).toBe(false);
-    expect(state.player.volume).toBe(70);
+    expect(state.player.volume).toBe(80);
     expect(state.queue.tracks).toEqual([]);
     expect(state.cache.stats).toBeNull();
     expect(state.connection.wsConnected).toBe(false);
@@ -242,25 +242,32 @@ describe('Component Integration Tests', () => {
   // ============================================================================
 
   describe('Component Rendering', () => {
-    // SKIPPED: This test has complex WebSocket dependencies that conflict with the
-    // simpler mocks used for Redux-only tests in this suite. The useWebSocketProtocol
-    // hook requires extensive mocking setup that causes "Should not already be working"
-    // errors and breaks all subsequent tests.
-    //
-    // Component rendering with WebSocket integration should be tested in dedicated
-    // component-specific test files where proper isolation can be maintained.
-    it.skip('should render multiple components with shared Redux store', () => {
-      // Use render from test-utils which already provides all necessary providers
-      // (Redux, WebSocket mocks, Theme, etc.) - no need for custom wrapper
+    // Re-enabled (#4264). This was previously skipped for "Should not already be
+    // working" errors from the drag-drop context, which test-utils no longer
+    // installs. Two things it needs to be a real integration test:
+    //   1. the suite's own `store` must be handed to `render` — otherwise
+    //      test-utils builds a second store and the components read state the
+    //      test never dispatched to;
+    //   2. ConnectionStatusIndicator renders its status as an `aria-label` on a
+    //      dot button, never as visible text, so assert on the accessible name.
+    it('should render multiple components with shared Redux store', () => {
+      store.dispatch(connectionActions.setWSConnected(true));
+      store.dispatch(connectionActions.setAPIConnected(true));
+
       render(
         <>
           <PlayerControls />
           <ConnectionStatusIndicator />
-        </>
+        </>,
+        { store }
       );
 
       expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
-      expect(screen.getByText(/Connected/i)).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: /connected/i })).toBeInTheDocument();
+      expect(screen.getByTestId('connection-indicator')).toHaveAttribute(
+        'data-status',
+        'connected'
+      );
     });
   });
 
@@ -418,7 +425,7 @@ describe('Component Integration Tests', () => {
     state = store.getState();
     expect(state.player.isPlaying).toBe(false);
     expect(state.player.currentTrack).toBeNull();
-    expect(state.player.volume).toBe(70); // Default volume
+    expect(state.player.volume).toBe(80); // Default volume (playerSlice initialState, #2251)
   });
 
   // ============================================================================
@@ -551,7 +558,21 @@ describe('Component Integration Tests', () => {
       artist: 'Artist',
       duration: 180,
     }));
-    store.dispatch(cacheActions.setIsLoading(true));
+    // `setIsLoading` is a UI flag and deliberately does not stamp `lastUpdated`
+    // — only data-bearing cache actions do, so dispatch one of those here.
+    store.dispatch(cacheActions.setCacheStats({
+      tier1: { chunks: 1, size_mb: 1, hits: 1, misses: 0, hit_rate: 1 },
+      tier2: { chunks: 1, size_mb: 1, hits: 1, misses: 0, hit_rate: 1 },
+      overall: {
+        total_chunks: 2,
+        total_size_mb: 2,
+        total_hits: 2,
+        total_misses: 0,
+        overall_hit_rate: 1,
+        tracks_cached: 1,
+      },
+      tracks: {},
+    }));
 
     const after = Date.now();
     const state = store.getState();
