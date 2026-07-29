@@ -64,6 +64,39 @@ export interface ErrorTrackingConfig {
 // ============================================================================
 
 /**
+ * Action types whose NETWORK-categorized errors genuinely describe the
+ * client↔server transport, and therefore belong in `connection.lastError`
+ * (#4430).
+ *
+ * `categorizeError` inspects the message text alone, so a queue, cache or
+ * player failure whose message merely *contains* "timeout"/"connection" was
+ * previously forwarded here and surfaced through `useAppErrors` /
+ * `useConnectionHealth` as though the socket were down. Origin decides, not
+ * wording.
+ *
+ * `connection/*` is deliberately absent: those actions already write connection
+ * state directly, so forwarding them would be redundant and re-entrant. That
+ * exclusion used to be the *only* gate.
+ */
+const TRANSPORT_ERROR_ACTIONS: ReadonlySet<string> = new Set([
+  // The WebSocket audio stream — the one non-connection slice that reports real
+  // transport failures (useAudioStreamingCore / useEnhancedStreamStart /
+  // useEnhancedPlayCommand dispatch this when the socket drops or the stream
+  // aborts mid-playback).
+  'player/setStreamingError',
+]);
+
+/**
+ * Connection actions that synchronously clear `connection.lastError`.
+ * Used to invalidate a deferred forward that would otherwise land after a
+ * reconnect and resurrect a stale error (#4430).
+ */
+const CONNECTION_RESET_ACTIONS: ReadonlySet<string> = new Set([
+  'connection/setWSConnected',
+  'connection/setAPIConnected',
+]);
+
+/**
  * Detect error type from message
  */
 function categorizeError(message: string): ErrorCategory {
@@ -202,6 +235,13 @@ export function createErrorTrackingMiddleware(
   const errorStore = new ErrorStore(finalConfig.maxErrors);
 
   return (store) => {
+    // #4430: bumped every time the connection is (re)established. A deferred
+    // forward captures this at schedule time and bails if it changed, so a
+    // setError queued before a reconnect cannot land after it. Per-store
+    // (inside this closure) rather than module-level, so parallel test stores
+    // don't invalidate each other's forwards.
+    let connectionGeneration = 0;
+
     return (next) => (action: unknown): unknown => {
       // Error tracking disabled — pass the action straight through so nothing
       // is tracked, logged, reported, or recovered (#4453). Previously the
@@ -221,6 +261,14 @@ export function createErrorTrackingMiddleware(
 
       try {
         const result = next(action);
+
+        // #4430: setWSConnected(true)/setAPIConnected(true) clear
+        // connection.lastError synchronously in the reducer. Bump the
+        // generation so any forward already queued for a microtask is
+        // discarded rather than landing after the reset.
+        if (CONNECTION_RESET_ACTIONS.has(actionType ?? '') && actionPayload === true) {
+          connectionGeneration++;
+        }
 
         // Check if action contains error
         let shouldTrackError = false;
@@ -285,14 +333,23 @@ export function createErrorTrackingMiddleware(
             captureErrorToServer(trackedError);
           }
 
-          // Attempt recovery based on category
+          // Attempt recovery based on category.
           // Defer dispatch to avoid re-entrant dispatch mid-action-processing (#3023).
+          //
+          // #4430: gated on the originating action, not just the message
+          // keywords — a queue/cache/player failure whose text happens to say
+          // "timeout" is not a connection problem.
           if (
             trackedError.category === ErrorCategory.NETWORK &&
-            !actionType?.startsWith('connection/')
+            TRANSPORT_ERROR_ACTIONS.has(actionType ?? '')
           ) {
-            // Network errors - trigger reconnection attempt (deferred)
+            // Network errors - trigger reconnection attempt (deferred).
+            // #4430: capture the connection generation so a reconnect that
+            // happens between scheduling and flushing discards this forward
+            // instead of having a stale error overwrite the cleared state.
+            const scheduledGeneration = connectionGeneration;
             Promise.resolve().then(() => {
+              if (connectionGeneration !== scheduledGeneration) return;
               store.dispatch(connectionActions.setError(trackedError.message));
             });
           }

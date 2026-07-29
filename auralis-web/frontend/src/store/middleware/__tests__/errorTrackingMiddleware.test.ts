@@ -19,10 +19,18 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import playerReducer, { setError as playerSetError, setVolume } from '@/store/slices/playerSlice';
+import playerReducer, {
+  setError as playerSetError,
+  setVolume,
+  setStreamingError,
+} from '@/store/slices/playerSlice';
 import queueReducer, { setError as queueSetError } from '@/store/slices/queueSlice';
 import cacheReducer, { setError as cacheSetError } from '@/store/slices/cacheSlice';
-import connectionReducer, { setError as connectionSetError } from '@/store/slices/connectionSlice';
+import connectionReducer, {
+  setError as connectionSetError,
+  setWSConnected,
+  setAPIConnected,
+} from '@/store/slices/connectionSlice';
 import {
   createErrorTrackingMiddleware,
   ErrorCategory,
@@ -286,7 +294,15 @@ describe('Error Tracking Middleware', () => {
     // (A `connection/setError` action is excluded by the guard, so it would
     // NOT exercise this path — the pre-#4455 test used exactly that and passed
     // only via the connection reducer, never the recovery dispatch.)
-    store.dispatch(playerSetError('Network connection lost'));
+    //
+    // #4430 narrowed the forward from "any non-connection action" to actions
+    // that genuinely describe the transport, so the vehicle here changed from
+    // `player/setError` (a domain error that merely *reads* as network-ish) to
+    // `player/setStreamingError` (the WebSocket audio stream). #4455's point —
+    // that the deferred recovery dispatch really fires — is unchanged.
+    store.dispatch(
+      setStreamingError({ streamType: 'enhanced', error: 'Network connection lost' })
+    );
 
     // The recovery dispatch is deferred to a microtask (#3023) — before it runs,
     // connection state is untouched by the player action.
@@ -534,5 +550,130 @@ describe('generateErrorId (#4623)', () => {
   it('produces distinct ids across successive calls', () => {
     const ids = new Set(Array.from({ length: 200 }, () => generateErrorId()));
     expect(ids.size).toBeGreaterThan(190);
+  });
+});
+
+describe('connection error forwarding (#4430)', () => {
+  // Two defects lived in the deferred forward at the bottom of the middleware:
+  //
+  // 1. categorizeError() works on message TEXT alone, and the forward was gated
+  //    only on `!actionType.startsWith('connection/')`. So any slice's error
+  //    whose wording happened to contain network/connection/offline/timeout was
+  //    written into connection.lastError and surfaced through useAppErrors /
+  //    useConnectionHealth as though the socket were down.
+  //
+  // 2. The forward is deferred to a microtask, so it could land AFTER a
+  //    setWSConnected(true) that synchronously cleared lastError — resurrecting
+  //    a stale error onto a freshly reconnected connection.
+
+  const makeStore = () =>
+    configureStore({
+      reducer: {
+        player: playerReducer,
+        queue: queueReducer,
+        cache: cacheReducer,
+        connection: connectionReducer,
+      },
+      middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware().concat(createErrorTrackingMiddleware({ logToConsole: false })),
+    });
+
+  const lastError = (s: ReturnType<typeof makeStore>) => s.getState().connection.lastError;
+
+  it('does not forward a queue error whose message merely says "timeout"', async () => {
+    const store = makeStore();
+
+    store.dispatch(queueSetError('Request timeout while loading queue'));
+    await Promise.resolve();
+
+    expect(lastError(store)).toBeNull();
+  });
+
+  it('does not forward cache or player errors with network-flavoured wording', async () => {
+    const store = makeStore();
+
+    store.dispatch(cacheSetError('connection reset while warming cache'));
+    store.dispatch(playerSetError('offline: could not load artwork'));
+    await Promise.resolve();
+
+    expect(lastError(store)).toBeNull();
+  });
+
+  it('still forwards a genuine streaming transport failure', async () => {
+    const store = makeStore();
+
+    store.dispatch(
+      setStreamingError({ streamType: 'enhanced', error: 'WebSocket connection lost' })
+    );
+    await Promise.resolve();
+
+    expect(lastError(store)).toBe('WebSocket connection lost');
+  });
+
+  it('does not forward a streaming failure that is not network-categorized', async () => {
+    const store = makeStore();
+
+    store.dispatch(
+      setStreamingError({ streamType: 'enhanced', error: 'Unsupported sample format' })
+    );
+    await Promise.resolve();
+
+    expect(lastError(store)).toBeNull();
+  });
+
+  it('a reconnect cannot be overwritten by a late deferred setError', async () => {
+    const store = makeStore();
+
+    // Queue the forward, then reconnect before the microtask flushes.
+    store.dispatch(
+      setStreamingError({ streamType: 'enhanced', error: 'WebSocket connection lost' })
+    );
+    store.dispatch(setWSConnected(true));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(lastError(store)).toBeNull();
+    expect(store.getState().connection.wsConnected).toBe(true);
+  });
+
+  it('setAPIConnected(true) also invalidates a pending forward', async () => {
+    const store = makeStore();
+
+    store.dispatch(
+      setStreamingError({ streamType: 'enhanced', error: 'network unreachable' })
+    );
+    store.dispatch(setAPIConnected(true));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(lastError(store)).toBeNull();
+  });
+
+  it('forwards again after a reconnect once a new failure occurs', async () => {
+    const store = makeStore();
+
+    store.dispatch(setWSConnected(true));
+    await Promise.resolve();
+
+    store.dispatch(
+      setStreamingError({ streamType: 'enhanced', error: 'connection dropped' })
+    );
+    await Promise.resolve();
+
+    // The generation guard must not latch — a failure after the reconnect is
+    // real and still belongs in connection.lastError.
+    expect(lastError(store)).toBe('connection dropped');
+  });
+
+  it('does not forward connection-slice errors back into itself', async () => {
+    const store = makeStore();
+
+    store.dispatch(connectionSetError('network down'));
+    await Promise.resolve();
+
+    // Written directly by the reducer, not re-forwarded by the middleware.
+    expect(lastError(store)).toBe('network down');
   });
 });
