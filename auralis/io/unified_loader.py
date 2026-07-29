@@ -10,6 +10,7 @@ Enhanced audio file loading supporting multiple formats and processing modes
 Unified audio loading system combining Matchering and Auralis capabilities
 """
 
+import json
 import subprocess
 import threading
 from pathlib import Path
@@ -20,7 +21,7 @@ import soundfile as sf
 
 from ..utils.logging import Code, ModuleError, debug, info, warning
 from .formats import FFMPEG_FORMATS, SUPPORTED_FORMATS
-from .loaders import check_ffmpeg, load_with_ffmpeg, load_with_soundfile
+from .loaders import check_ffmpeg, check_ffprobe, load_with_ffmpeg, load_with_soundfile
 from .processing import resample_audio, validate_audio
 
 # SUPPORTED_FORMATS / FFMPEG_FORMATS live in auralis.io.formats (the single
@@ -198,7 +199,10 @@ def _get_info_with_soundfile(file_path: Path) -> dict[str, Any]:
 
 def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
     """Get audio info using FFprobe"""
-    if not check_ffmpeg():
+    # #4540: guard on ffprobe, not ffmpeg. They are separate binaries and an
+    # environment can have one without the other — the exact gap #4119 closed
+    # in ffmpeg_loader._probe_audio, which never reached this second copy.
+    if not check_ffprobe():
         raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFprobe required")
 
     try:
@@ -221,7 +225,6 @@ def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
         if result.returncode != 0:
             raise ModuleError(f"FFprobe failed: {result.stderr}")
 
-        import json
         probe_data = json.loads(result.stdout)
 
         # Find audio stream
@@ -253,6 +256,11 @@ def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
 
     except subprocess.TimeoutExpired:
         raise ModuleError("FFprobe timed out")
+    except FileNotFoundError:
+        # #4540: check_ffprobe() above is memoized, so the binary can still
+        # vanish between the check and the call. Without this the error escaped
+        # as a bare FileNotFoundError.
+        raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFprobe not found")
     except json.JSONDecodeError:
         raise ModuleError("Invalid FFprobe output")
 
