@@ -14,13 +14,15 @@ on:
   push:
     branches: [master]
     paths:
-      # Cargo.lock is gitignored (vendor/**/Cargo.lock) and can never appear
-      # in a diff, so it is deliberately not listed here (#4882).
+      # Cargo.lock is tracked as of #4531 — a lockfile-only bump (dependency
+      # update with no Cargo.toml change) must still trigger the audit.
       - 'vendor/auralis-dsp/Cargo.toml'
+      - 'vendor/auralis-dsp/Cargo.lock'
       - '.github/workflows/rust-audit.yml'
   pull_request:
     paths:
       - 'vendor/auralis-dsp/Cargo.toml'
+      - 'vendor/auralis-dsp/Cargo.lock'
       - '.github/workflows/rust-audit.yml'
   schedule:
     # Weekly (Mon 06:00 UTC) so a newly-published advisory against an unchanged
@@ -36,18 +38,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Read pinned Rust toolchain
+        id: rust-toolchain
+        # #4531: dtolnay/rust-toolchain@stable ignores rust-toolchain.toml and
+        # floats on whatever "stable" resolves to that day. Read the pin here
+        # so the action installs the exact version the lockfile was built
+        # against, instead of drifting independently of it.
+        run: |
+          version=$(grep -m1 '^channel' vendor/auralis-dsp/rust-toolchain.toml | cut -d '"' -f2)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-toolchain.outputs.version }}
 
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
 
-      - name: Generate lockfile
-        # Cargo.lock is gitignored (cdylib, not a binary release artifact
-        # from this job) so it never exists on a fresh checkout — resolve
-        # it here so cargo audit has something to scan (#4882).
-        run: cargo generate-lockfile --manifest-path vendor/auralis-dsp/Cargo.toml
+      - name: Verify Cargo.lock is up to date (#4531)
+        # Cargo.lock is now tracked (git add -f'd — it ships in the desktop
+        # installer, so the resolved graph must be reproducible from a git
+        # checkout). --locked fails the build instead of silently
+        # re-resolving if Cargo.toml and the committed lockfile diverge.
+        run: cargo metadata --locked --manifest-path vendor/auralis-dsp/Cargo.toml --format-version 1 > /dev/null
 
       - name: Audit vendored Rust DSP crate
         # --file targets the crate's own lockfile (not the repo root). Default

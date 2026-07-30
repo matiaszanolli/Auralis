@@ -179,10 +179,13 @@ ehthumbs.db
 Desktop.ini
 
 # Rust build artifacts
+# auralis-dsp is a cdylib shipped inside the desktop installer (#4531) — its
+# Cargo.lock is tracked (git add -f'd) so release builds are reproducible;
+# only the build output and any OTHER vendored crate's lockfile are ignored.
 vendor/auralis-dsp/target/
-vendor/auralis-dsp/Cargo.lock
 vendor/**/target/
 vendor/**/Cargo.lock
+!vendor/auralis-dsp/Cargo.lock
 fingerprint-server/**/target/
 *.rlib
 *.rmeta

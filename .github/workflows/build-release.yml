@@ -77,7 +77,19 @@ jobs:
             auralis-web/frontend/pnpm-lock.yaml
             desktop/pnpm-lock.yaml
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Read pinned Rust toolchain
+        id: rust-toolchain
+        # #4531: dtolnay/rust-toolchain@stable ignores rust-toolchain.toml and
+        # floats on whatever "stable" resolves to that day. Read the pin here
+        # so the action installs the exact version the lockfile was built
+        # against, instead of drifting independently of it.
+        run: |
+          version=$(grep -m1 '^channel' vendor/auralis-dsp/rust-toolchain.toml | cut -d '"' -f2)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-toolchain.outputs.version }}
 
       - name: Assert Linux x64 runner
         run: test "$(uname -m)" = "x86_64"
@@ -108,7 +120,7 @@ jobs:
       - name: Build Rust DSP module
         run: |
           cd vendor/auralis-dsp
-          maturin build --release
+          maturin build --release --locked
           pip install target/wheels/*.whl
         env:
           # pyo3 0.23's abi3 feature caps at Python 3.13; this opts into
@@ -207,7 +219,19 @@ jobs:
             auralis-web/frontend/pnpm-lock.yaml
             desktop/pnpm-lock.yaml
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Read pinned Rust toolchain
+        id: rust-toolchain
+        # #4531: dtolnay/rust-toolchain@stable ignores rust-toolchain.toml and
+        # floats on whatever "stable" resolves to that day. Read the pin here
+        # so the action installs the exact version the lockfile was built
+        # against, instead of drifting independently of it.
+        run: |
+          version=$(grep -m1 '^channel' vendor/auralis-dsp/rust-toolchain.toml | cut -d '"' -f2)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-toolchain.outputs.version }}
 
       - name: Assert Windows x64 runner
         shell: pwsh
@@ -225,7 +249,7 @@ jobs:
         shell: pwsh
         run: |
           cd vendor/auralis-dsp
-          maturin build --release
+          maturin build --release --locked
           $wheel = Get-ChildItem target/wheels/*.whl | Select-Object -First 1
           pip install $wheel.FullName
         env:
@@ -313,7 +337,19 @@ jobs:
             auralis-web/frontend/pnpm-lock.yaml
             desktop/pnpm-lock.yaml
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Read pinned Rust toolchain
+        id: rust-toolchain
+        # #4531: dtolnay/rust-toolchain@stable ignores rust-toolchain.toml and
+        # floats on whatever "stable" resolves to that day. Read the pin here
+        # so the action installs the exact version the lockfile was built
+        # against, instead of drifting independently of it.
+        run: |
+          version=$(grep -m1 '^channel' vendor/auralis-dsp/rust-toolchain.toml | cut -d '"' -f2)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust-toolchain.outputs.version }}
 
       - name: Assert Apple Silicon runner
         run: test "$(uname -m)" = "arm64"
@@ -329,7 +365,7 @@ jobs:
       - name: Build Rust DSP module
         run: |
           cd vendor/auralis-dsp
-          maturin build --release
+          maturin build --release --locked
           pip install target/wheels/*.whl
         env:
           # pyo3 0.23's abi3 feature caps at Python 3.13; this opts into
