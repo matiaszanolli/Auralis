@@ -218,11 +218,20 @@ class ContinuousMode:
         }
 
         # Build expansion parameters (de-mastering)
+        #
+        # `target_crest_increase` is read unconditionally by
+        # ExpansionStrategies.apply_rms_reduction_expansion — before it looks at
+        # `amount` — so omitting it was a hard KeyError on every fixed-targets
+        # (`.25d` sidecar) chunk, which is the primary chunked-streaming path
+        # (#4856). 0.0 is behaviour-preserving: the applied reduction is
+        # `target_crest_increase * amount`, and `amount` is already 0.0 here.
+        # See EXPANSION_REQUIRED_KEYS in base/compression_expansion.py.
         expansion_params = {
             'threshold_db': -30.0,
             'ratio': 1.5,
             'attack_ms': 5.0,
             'release_ms': 50.0,
+            'target_crest_increase': 0.0,
             'amount': 0.0  # Disabled by default
         }
 
