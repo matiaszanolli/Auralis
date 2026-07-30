@@ -205,8 +205,15 @@ class ProcessingEngine:
             mode=mode
         )
 
-        # Store reference path if hybrid mode
-        if mode == "hybrid" and reference_path:
+        # Store the reference path for BOTH reference-consuming modes. This
+        # read is served by the single `job.settings.get("reference_path")` in
+        # _execute_job, whose branch already covers `reference` and `hybrid` —
+        # so gating the *write* on hybrid alone silently discarded the
+        # reference for every mode="reference" job, which then fell through to
+        # `processor.process(audio)` with reference=None while the config was
+        # already in reference mode, and HybridProcessor._process_impl matched
+        # none of its three dispatch arms: ValueError, 100% of the time (#4735).
+        if mode in ("reference", "hybrid") and reference_path:
             job.settings["reference_path"] = reference_path
 
         async with self._jobs_lock:
@@ -431,7 +438,23 @@ class ProcessingEngine:
                     timeout=timeout,
                 )
             else:
-                # Fall back to adaptive mode if no reference
+                # Fall back to adaptive if the reference is unavailable. The
+                # config was already switched to reference/hybrid mode in
+                # _build_config, and `is_reference_mode() and reference is not
+                # None` is the only arm that accepts reference mode — so
+                # calling process(audio) without ALSO moving the config back
+                # raised ValueError instead of falling back at all (#4735).
+                #
+                # The router now rejects mode="reference" with no reference at
+                # submit time, so this is the narrow race where the file
+                # vanished between request and execution; make it degrade
+                # rather than crash, and say so in the log.
+                logger.warning(
+                    "Job %s: mode=%s but reference %r is unavailable; "
+                    "falling back to adaptive processing.",
+                    job.job_id, job.mode, reference_path,
+                )
+                processor.config.set_processing_mode("adaptive")
                 result = await asyncio.wait_for(
                     asyncio.to_thread(processor.process, audio),
                     timeout=timeout,

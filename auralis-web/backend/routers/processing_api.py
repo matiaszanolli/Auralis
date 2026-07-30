@@ -16,7 +16,7 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
@@ -58,7 +58,11 @@ def _is_valid_audio_magic(data: bytes) -> bool:
 # Pydantic models for request/response
 class ProcessingSettings(BaseModel):
     """Processing settings from UI"""
-    mode: str = "adaptive"  # "adaptive", "reference", "hybrid"
+    # Literal, not a bare str (#4735): _build_config dispatches on this with an
+    # if/elif chain that has no else, so an unrecognised value silently skipped
+    # set_processing_mode() entirely and ran adaptive under whatever mode the
+    # config defaulted to. Now a 422 at the route boundary.
+    mode: Literal["adaptive", "reference", "hybrid"] = "adaptive"
     output_format: str = "wav"  # "wav", "flac", "mp3"
     bit_depth: int = 16  # 16, 24, 32
     sample_rate: int | None = None  # None = keep original
@@ -172,6 +176,16 @@ def create_processing_router(
             except PathValidationError as e:
                 logger.warning(f"Invalid input path rejected: {e}")
                 raise HTTPException(status_code=400, detail="Invalid or inaccessible input path")
+
+            # A "reference" job with no reference is not a meaningful adaptive
+            # fallback — the caller asked for their reference to be matched.
+            # Fail fast and say so, rather than silently returning
+            # adaptive-mastered audio labelled as a reference job (#4735).
+            if request.settings.mode == "reference" and not request.reference_path:
+                raise HTTPException(
+                    status_code=422,
+                    detail="mode='reference' requires a reference_path",
+                )
 
             validated_reference: Path | None = None
             if request.reference_path:
