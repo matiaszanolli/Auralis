@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { Box } from '@mui/material';
 import { useSelector } from 'react-redux';
+import { usePlaybackSession } from '@/contexts/PlaybackSessionContext';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
 import Player from './components/player/Player';
@@ -29,8 +30,7 @@ import { useAppDragDrop } from '@/hooks/app/useAppDragDrop';
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/app/useKeyboardShortcuts';
-import { selectIsPlaying, selectVolume } from './store/slices/playerSlice';
-import { usePlaybackControl } from '@/hooks/player/usePlaybackControl';
+import { selectVolume } from './store/slices/playerSlice';
 import type { ViewMode } from '@/components/navigation/ViewToggle';
 
 function ComfortableApp() {
@@ -55,32 +55,24 @@ function ComfortableApp() {
   // Toast notifications
   const { success, info } = useToast();
 
-  // Redux selectors for player state (read-only)
-  const isPlaying = useSelector(selectIsPlaying);
+  // Redux selector for the volume shortcuts' +/-10 stepping (read-only).
   const volume = useSelector(selectVolume);
 
-  // #3642: previously this block held four fire-and-forget fetch()
-  // handlers. PLAYER_PLAY / PLAYER_PAUSE endpoints no longer exist on the
-  // backend and the others swallowed errors silently. Delegate everything
-  // to usePlaybackControl which uses the canonical WS + REST paths and
-  // surfaces errors via Redux state.
-  const playback = usePlaybackControl();
-  const togglePlayPause = useCallback(async () => {
-    if (isPlaying) {
-      await playback.pause();
-    } else {
-      await playback.play();
-    }
-  }, [isPlaying, playback]);
-
-  const nextTrack = useCallback(() => playback.next(), [playback]);
-  const previousTrack = useCallback(() => playback.previous(), [playback]);
+  // #4541: global shortcuts must operate on the SAME enhanced-audio session
+  // Player.tsx drives, not a disconnected legacy control plane — sending
+  // 'play_normal' (the old usePlaybackControl.play()) cancelled the user's
+  // own in-flight enhanced stream server-side with no visible error.
+  const session = usePlaybackSession();
+  const isPlaying = session.isStreaming && !session.isPaused;
+  const togglePlayPause = session.handlePlayPause;
+  const nextTrack = session.handleNext;
+  const previousTrack = session.handlePrevious;
   const setVolume = useCallback(
-    // usePlaybackControl.setVolume expects 0.0-1.0 — clamp + scale the 0-100
-    // value used by the keyboard-shortcut UI.
+    // handleVolumeChange expects 0.0-1.0 — clamp + scale the 0-100 value
+    // used by the keyboard-shortcut UI.
     (newVolume: number) =>
-      playback.setVolume(Math.max(0, Math.min(100, newVolume)) / 100),
-    [playback]
+      session.handleVolumeChange(Math.max(0, Math.min(100, newVolume)) / 100),
+    [session]
   );
 
   // Drag-drop handler (useAppDragDrop handles all queue/playlist operations)
@@ -142,9 +134,11 @@ function ComfortableApp() {
       description: 'Mute/Unmute',
       category: 'Playback',
       handler: () => {
-        const newVolume = volume > 0 ? 0 : 80;
-        setVolume(newVolume);
-        info(newVolume === 0 ? 'Muted' : 'Unmuted');
+        // Shares Player.tsx's mute/unmute semantics (restore pre-mute volume
+        // rather than a hardcoded 80%) so both surfaces agree (#4541).
+        session.handleMuteToggle().then((nowMuted) => {
+          info(nowMuted ? 'Muted' : 'Unmuted');
+        });
       }
     },
     // Navigation shortcuts
@@ -227,7 +221,7 @@ function ComfortableApp() {
         setSettingsOpen(true);
       }
     }
-  ], [togglePlayPause, isPlaying, nextTrack, previousTrack, volume, setVolume,
+  ], [togglePlayPause, isPlaying, nextTrack, previousTrack, volume, setVolume, session,
       searchQuery, setSearchQuery, settingsOpen, setSettingsOpen, setCurrentView, info]);
 
   // Ref to break circular dependency: array references openHelp, but

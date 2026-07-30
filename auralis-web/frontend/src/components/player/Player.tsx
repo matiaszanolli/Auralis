@@ -1,11 +1,10 @@
 /**
  * Player - Orchestration component integrating UI components with streaming hooks.
- * Audio streaming handled via WebSocket (usePlayEnhanced hook).
+ * Audio streaming handled via the shared PlaybackSessionContext (#4541), which
+ * wraps usePlayEnhanced.
  */
 
-const DEBUG = import.meta.env.DEV;
-
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { styles } from './Player.styles';
 import { themeVars } from '@/theme/semanticTheme';
@@ -21,45 +20,25 @@ import TrackDisplay from './TrackDisplay';
 // Phase 6 Queue Component
 import QueuePanel from './QueuePanel';
 
-// WebSocket Audio Streaming Hook (replaces REST API playback)
-import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
-import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
+// Shared playback session (#4541) — the same instance the global keyboard
+// shortcuts (ComfortableApp) consume, so transport actions here and Space/
+// arrow-key shortcuts operate on one enhanced-audio session, not two.
+import { usePlaybackSession } from '@/contexts/PlaybackSessionContext';
 
 // Redux hooks and actions
-import { useSelector, useDispatch } from 'react-redux';
-import type { AppDispatch } from '@/store';
-import {
-  selectQueueTracks,
-  selectCurrentIndex,
-} from '@/store/slices/queueSlice';
-import { setCurrentTrackAndSyncQueue, setVolume } from '@/store/slices/playerSlice';
+import { useSelector } from 'react-redux';
 import { playerSelectors } from '@/store/selectors';
 
 const Player = () => {
-  const dispatch = useDispatch<AppDispatch>();
-
   // Queue panel visibility state
   const [queuePanelOpen, setQueuePanelOpen] = useState(false);
-
-  // Store pre-mute volume so unmute restores the user's prior level
-  const preMuteVolumeRef = useRef<number>(0.5);
 
   // Redux state for current playback info (typed selectors fix #2463)
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
   const playerVolume = useSelector(playerSelectors.selectVolume);
   const playerIsMuted = useSelector(playerSelectors.selectIsMuted);
 
-  // Queue state for next/previous functionality
-  const queueTracks = useSelector(selectQueueTracks);
-  const currentQueueIndex = useSelector(selectCurrentIndex);
-
   const {
-    playEnhanced,
-    seekTo,
-    pausePlayback,
-    resumePlayback,
-    stopPlayback,
-    setVolume: setStreamingVolume,
     isStreaming,
     streamingState,
     processedChunks,
@@ -68,13 +47,13 @@ const Player = () => {
     isPaused,
     isSeeking,
     error: streamingError,
-  } = usePlayEnhanced();
-
-  // Current enhancement selection (preset/intensity) — the transport paths must
-  // preserve it across track changes instead of resetting to adaptive/1.0
-  // (#4410). Seeded from persisted settings at startup (#4409) and kept live via
-  // the enhancement_settings_changed WS event.
-  const { preset: enhancementPreset, intensity: enhancementIntensity } = useEnhancementControl();
+    handleSeek,
+    handlePlayPause,
+    handleNext,
+    handlePrevious,
+    handleVolumeChange,
+    handleMuteToggle,
+  } = usePlaybackSession();
 
   // Derived buffering state for UI
   const isBuffering = streamingState === 'buffering';
@@ -83,144 +62,10 @@ const Player = () => {
   // Use streaming progress as buffered percentage (chunks received / total chunks)
   const wsBufferedPercentage = totalChunks > 0 ? (processedChunks / totalChunks) * 100 : 0;
 
-  const handleSeek = useCallback((position: number) => {
-    if (!isStreaming && !currentTrack?.id) {
-      DEBUG && console.warn('[Player] Cannot seek: no track playing');
-      return;
-    }
-    DEBUG && console.log('[Player] Seeking to position:', position);
-    seekTo(position);
-  }, [isStreaming, currentTrack?.id, seekTo]);
-
-  const handleNext = useCallback(async () => {
-    try {
-      const nextIndex = currentQueueIndex + 1;
-      if (nextIndex >= queueTracks.length) {
-        DEBUG && console.log('[Player] Already at last track in queue');
-        return;
-      }
-
-      const nextTrackData = queueTracks[nextIndex];
-      if (!nextTrackData) return;
-
-      // Stop current playback, then sync queue index + player.currentTrack
-      // atomically (#3587 — the previous nextTrack() + setCurrentTrack()
-      // pair could observe an intermediate state between dispatches).
-      stopPlayback();
-      dispatch(setCurrentTrackAndSyncQueue(nextTrackData));
-
-      // Play using the locally-computed track (not re-read from Redux)
-      DEBUG && console.log('[Player] Playing next track:', nextTrackData.title);
-      await playEnhanced(nextTrackData.id, enhancementPreset, enhancementIntensity);
-    } catch (err) {
-      console.error('[Player] Next command error:', err);
-    }
-  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced, enhancementPreset, enhancementIntensity]);
-
-  const handlePrevious = useCallback(async () => {
-    try {
-      const prevIndex = currentQueueIndex - 1;
-      if (prevIndex < 0) {
-        DEBUG && console.log('[Player] Already at first track in queue');
-        return;
-      }
-
-      const prevTrackData = queueTracks[prevIndex];
-      if (!prevTrackData) return;
-
-      // Stop current playback, then sync queue index + player.currentTrack
-      // atomically (#3587).
-      stopPlayback();
-      dispatch(setCurrentTrackAndSyncQueue(prevTrackData));
-
-      // Play using the locally-computed track (not re-read from Redux)
-      DEBUG && console.log('[Player] Playing previous track:', prevTrackData.title);
-      await playEnhanced(prevTrackData.id, enhancementPreset, enhancementIntensity);
-    } catch (err) {
-      console.error('[Player] Previous command error:', err);
-    }
-  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced, enhancementPreset, enhancementIntensity]);
-
-  const handlePlayPause = useCallback(async () => {
-    if (!currentTrack?.id) {
-      DEBUG && console.warn('[Player] No track loaded, cannot play');
-      return;
-    }
-
-    try {
-      // If already streaming, toggle pause/resume
-      if (isStreaming) {
-        if (isPaused) {
-          DEBUG && console.log('[Player] Resuming playback');
-          resumePlayback();
-        } else {
-          DEBUG && console.log('[Player] Pausing playback');
-          pausePlayback();
-        }
-      } else {
-        // Not streaming - start new stream
-        DEBUG && console.log('[Player] Starting WebSocket audio streaming for track:', currentTrack.id);
-        await playEnhanced(currentTrack.id, enhancementPreset, enhancementIntensity);
-      }
-    } catch (err) {
-      console.error('[Player] Play/Pause command error:', err);
-    }
-  }, [currentTrack?.id, isStreaming, isPaused, resumePlayback, pausePlayback, playEnhanced, enhancementPreset, enhancementIntensity]);
-
-  const handleVolumeChange = useCallback(async (vol: number) => {
-    try {
-      // Volume is 0-1 range in WebSocket/AudioEngine, 0-100 in Redux/Backend
-      setStreamingVolume(vol);
-
-      // Persist volume to Redux (convert 0-1 to 0-100)
-      const volumeForRedux = Math.round(vol * 100);
-      dispatch(setVolume(volumeForRedux));
-
-      DEBUG && console.log('[Player] Volume changed:', vol, '(Redux:', volumeForRedux, ')');
-    } catch (err) {
-      console.error('[Player] Volume command error:', err);
-    }
-  }, [setStreamingVolume, dispatch]);
-
-  const hasAutoAdvancedRef = useRef(false);
-  const trackDuration = currentTrack?.duration ?? 0;
-
-  useEffect(() => {
-    // Reset auto-advance flag when track changes
-    hasAutoAdvancedRef.current = false;
-  }, [currentTrack?.id]);
-
-  useEffect(() => {
-    // Conditions for auto-advance:
-    // 1. All chunks received (streamingState === 'complete')
-    // 2. Playback has reached near the end (within 0.5s of duration)
-    // 3. Track has meaningful duration (> 0)
-    // 4. Haven't already auto-advanced for this track
-    const isComplete = streamingState === 'complete';
-    const nearEnd = trackDuration > 0 && wsCurrentTime >= trackDuration - 0.5;
-    const hasMoreTracks = currentQueueIndex < queueTracks.length - 1;
-
-    if (isComplete && nearEnd && hasMoreTracks && !hasAutoAdvancedRef.current) {
-      hasAutoAdvancedRef.current = true;
-      DEBUG && console.log('[Player] Track ended, auto-advancing to next track');
-      handleNext();
-    }
-  }, [streamingState, wsCurrentTime, trackDuration, currentQueueIndex, queueTracks.length, handleNext]);
-
   const volume = playerVolume ?? 50;
 
   // Muted state - check if volume is 0 or explicitly muted
   const isMuted = volume === 0 || playerIsMuted === true;
-
-  // Stable mute toggle handler (fixes #3163 — last inline handler)
-  const handleMuteToggle = useCallback(async () => {
-    if (isMuted) {
-      await handleVolumeChange(preMuteVolumeRef.current);
-    } else {
-      preMuteVolumeRef.current = volume / 100;
-      await handleVolumeChange(0);
-    }
-  }, [isMuted, volume, handleVolumeChange]);
 
   // Stable queue toggle handler
   const handleQueueToggle = useCallback(() => {
@@ -285,7 +130,7 @@ const Player = () => {
             volume={volume / 100}
             onVolumeChange={handleVolumeChange}
             isMuted={isMuted}
-            onMuteToggle={handleMuteToggle}
+            onMuteToggle={() => { void handleMuteToggle(); }}
             disabled={hasError}
           />
 

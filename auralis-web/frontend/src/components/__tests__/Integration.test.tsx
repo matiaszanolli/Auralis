@@ -30,7 +30,6 @@ import * as playerActions from '@/store/slices/playerSlice';
 import * as queueActions from '@/store/slices/queueSlice';
 import * as cacheActions from '@/store/slices/cacheSlice';
 import * as connectionActions from '@/store/slices/connectionSlice';
-import { PlayerControls } from '../shared/PlayerControls';
 import { ConnectionStatusIndicator } from '../shared/ConnectionStatusIndicator';
 
 // Mock WebSocketContext
@@ -250,19 +249,17 @@ describe('Component Integration Tests', () => {
     //      test never dispatched to;
     //   2. ConnectionStatusIndicator renders its status as an `aria-label` on a
     //      dot button, never as visible text, so assert on the accessible name.
-    it('should render multiple components with shared Redux store', () => {
+    // components/shared/PlayerControls was removed (#4541) — it was a dead,
+    // unmounted component that mixed the legacy usePlaybackControl +
+    // useReduxState control planes, reproducing the exact playback-session
+    // desync bug #4541 fixed. This test now covers ConnectionStatusIndicator
+    // alone.
+    it('should render with shared Redux store', () => {
       store.dispatch(connectionActions.setWSConnected(true));
       store.dispatch(connectionActions.setAPIConnected(true));
 
-      render(
-        <>
-          <PlayerControls />
-          <ConnectionStatusIndicator />
-        </>,
-        { store }
-      );
+      render(<ConnectionStatusIndicator />, { store });
 
-      expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
       expect(screen.getByRole('status', { name: /connected/i })).toBeInTheDocument();
       expect(screen.getByTestId('connection-indicator')).toHaveAttribute(
         'data-status',

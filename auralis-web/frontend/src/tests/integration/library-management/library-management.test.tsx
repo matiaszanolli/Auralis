@@ -18,7 +18,7 @@
  * - CozyLibraryView main orchestrator
  * - useLibraryData hook integration
  * - useTrackSelection hook integration
- * - usePlaybackControl hook integration
+ * - Playback control integration (context-menu & queue actions via useReduxState/PlaybackSessionContext)
  * - MSW API mocking for library endpoints
  */
 
@@ -400,7 +400,7 @@ describe('Library Management Integration Tests', () => {
 
       // Assert - Track playback infrastructure exists
       // handlePlayTrack method in CozyLibraryView
-      // usePlaybackControl hook for actual playback
+      // Playback is driven via PlaybackSessionContext (#4541), not this view
       expect(screen.getByText(/All tracks in your library/i)).toBeInTheDocument();
     });
 

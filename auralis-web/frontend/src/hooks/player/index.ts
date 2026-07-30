@@ -7,7 +7,6 @@
  */
 
 // Existing organized hooks
-export { usePlaybackControl } from './usePlaybackControl';
 export { usePlaybackQueue } from './usePlaybackQueue';
 export { usePlayTrack } from './usePlayTrack';
 export type { PlayableTrack } from './usePlayTrack';
@@ -21,8 +20,13 @@ export { useQueueStatistics } from './useQueueStatistics';
 
 // New hooks moved from root
 // usePlayerControls removed (#4387) — orphaned hook with zero production
-// consumers; togglePlayPause was a permanent {success:false} stub. Use
-// usePlaybackControl / play() / pause() directly.
+// consumers; togglePlayPause was a permanent {success:false} stub.
+// usePlaybackControl removed (#4541) — it drove a REST/WS control plane
+// (play_normal, /api/player/next|previous|volume) disconnected from the
+// live enhanced-audio session usePlayEnhanced actually streams. Transport
+// control now goes through PlaybackSessionContext (contexts/
+// PlaybackSessionContext.tsx), which wraps usePlayEnhanced once and is
+// shared by Player.tsx and the global keyboard shortcuts.
 // #3776: usePlayerStreaming removed — was 475 lines of dead code with
 // zero production importers. Six prior fix PRs (#3261 / #2816 / #3185
 // reconnect resume / etc.) churned the file with no observable user

@@ -10,8 +10,10 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import type { ReactNode } from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
+import { PlaybackSessionProvider } from '@/contexts/PlaybackSessionContext';
 import Player from '../Player';
 
 // Captured across renders so tests can assert on the exact playEnhanced args.
@@ -21,6 +23,10 @@ const { mockPlayEnhanced } = vi.hoisted(() => ({ mockPlayEnhanced: vi.fn() }));
 // machinery that has no analog in jsdom. The Redux integration tests
 // can still verify state-driven render branches because Player reads
 // playback state from Redux, not from these hooks.
+//
+// #4541: usePlayEnhanced is now called by PlaybackSessionProvider, not by
+// Player.tsx directly — Player wraps its render in the provider below so
+// this mock still takes effect the same way it did before the refactor.
 vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
   usePlayEnhanced: () => ({
     playEnhanced: mockPlayEnhanced,
@@ -29,8 +35,13 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
     resumePlayback: vi.fn(),
     stopPlayback: vi.fn(),
     isStreaming: false,
-    streamingProgress: 0,
-    setStreamingVolume: vi.fn(),
+    streamingState: 'idle',
+    processedChunks: 0,
+    totalChunks: 0,
+    currentTime: 0,
+    isPaused: false,
+    isSeeking: false,
+    setVolume: vi.fn(),
     error: null,
   }),
 }));
@@ -40,6 +51,14 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
 vi.mock('@/hooks/enhancement/useEnhancementControl', () => ({
   useEnhancementControl: () => ({ preset: 'warm', intensity: 0.5 }),
 }));
+
+function renderPlayer(...args: Parameters<typeof render>) {
+  const [ui, options] = args;
+  return render(
+    <PlaybackSessionProvider>{ui as ReactNode}</PlaybackSessionProvider>,
+    options
+  );
+}
 
 const mockTrack = {
   id: 1,
@@ -51,12 +70,12 @@ const mockTrack = {
 
 describe('Player', () => {
   it('should render the play button when no track is loaded', () => {
-    render(<Player />);
+    renderPlayer(<Player />);
     expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
   });
 
   it('should render the current track title when one is loaded', () => {
-    render(<Player />, {
+    renderPlayer(<Player />, {
       preloadedState: {
         player: { currentTrack: mockTrack } as never,
       },
@@ -65,7 +84,7 @@ describe('Player', () => {
   });
 
   it('should render the previous and next track buttons', () => {
-    render(<Player />, {
+    renderPlayer(<Player />, {
       preloadedState: {
         player: { currentTrack: mockTrack } as never,
         queue: {
@@ -81,7 +100,7 @@ describe('Player', () => {
 
   it('Next passes the current preset/intensity, not hardcoded adaptive/1.0 (#4410)', async () => {
     mockPlayEnhanced.mockClear();
-    render(<Player />, {
+    renderPlayer(<Player />, {
       preloadedState: {
         player: { currentTrack: mockTrack } as never,
         queue: {
@@ -98,7 +117,7 @@ describe('Player', () => {
   });
 
   it('should render the queue panel toggle', () => {
-    render(<Player />);
+    renderPlayer(<Player />);
     // QueuePanel toggle is rendered as part of the right-side action group.
     // Looser query because the exact aria label can drift; the absence of
     // the queue toggle would be a structural regression worth catching.

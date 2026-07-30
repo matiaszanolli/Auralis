@@ -3,9 +3,11 @@
  * ~~~~~~~~~~~~~~~~~~~
  *
  * Manages WebSocket-based PCM audio streaming for enhanced audio playback.
- * Integrates PCMStreamBuffer, AudioPlaybackEngine, and Redux state management.
- * Same architecture as usePlayNormal — both compose the shared
- * `useAudioStreamingCore` (fixes #4019).
+ * Integrates PCMStreamBuffer, AudioPlaybackEngine, and Redux state management,
+ * composing the shared `useAudioStreamingCore` (fixes #4019). Called exactly
+ * once, by PlaybackSessionContext (#4541) — calling it more than once creates
+ * independent sessions with their own AudioContext/buffer/engine that don't
+ * share state.
  *
  * This hook is a thin composition (#4077) over four focused sub-hooks:
  * - useAudioStreamingCore     — shared buffer/engine/chunk plumbing

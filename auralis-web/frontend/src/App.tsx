@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './components/shared/Toast';
 import { WebSocketProvider } from './contexts/WebSocketContext';
+import { PlaybackSessionProvider } from './contexts/PlaybackSessionContext';
 
 import { AudioReactiveStarfield } from './components/background';
 import ComfortableApp from './ComfortableApp';
@@ -45,8 +46,12 @@ function AppContent() {
         <WebSocketProvider>
           {/* PlayerStateSync hook must be inside WebSocketProvider */}
           <PlayerStateSync />
-          {/* Audio streaming handled exclusively via WebSocket using usePlayEnhanced hook */}
-          <ComfortableApp />
+          {/* Single shared enhanced-audio session (#4541) — both Player.tsx's
+              transport bar and ComfortableApp's global keyboard shortcuts
+              consume the same PlaybackSessionProvider instance. */}
+          <PlaybackSessionProvider>
+            <ComfortableApp />
+          </PlaybackSessionProvider>
         </WebSocketProvider>
       </ToastProvider>
     </ThemeProvider>

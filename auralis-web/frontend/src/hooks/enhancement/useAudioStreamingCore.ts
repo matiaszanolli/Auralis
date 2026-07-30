@@ -2,9 +2,11 @@
  * useAudioStreamingCore Hook
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Shared WebSocket PCM streaming machinery for usePlayNormal and usePlayEnhanced
- * (fixes #4019 — the two hooks had drifted into ~500 lines of duplicated
- * buffer/flow-control/subscription logic with no shared implementation).
+ * Shared WebSocket PCM streaming machinery, originally factored out for
+ * usePlayNormal and usePlayEnhanced (fixes #4019 — the two hooks had drifted
+ * into ~500 lines of duplicated buffer/flow-control/subscription logic with
+ * no shared implementation). usePlayNormal was removed (#4541 — zero
+ * production importers); usePlayEnhanced is the sole current consumer.
  *
  * Owns: PCM buffer/engine/context refs, the buffer-fill flow-control handshake,
  * chunk decoding + append, stream-end/error handling, playback transport
@@ -480,8 +482,8 @@ export function useAudioStreamingCore(
   }, [isPlaying]);
 
   // Watch Redux isPlaying state and control AudioPlaybackEngine accordingly,
-  // so usePlaybackControl.pause()/stop() stops the engine immediately without
-  // waiting for buffered audio to drain (#2252).
+  // so a pause/stop command stops the engine immediately without waiting for
+  // buffered audio to drain (#2252).
   //
   // #3624: isPaused is read via a ref so it doesn't drive a re-run of this
   // effect; including it in deps caused two pausePlayback() calls per

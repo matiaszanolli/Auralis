@@ -16,8 +16,23 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import Player from '../Player';
+import { PlaybackSessionProvider } from '@/contexts/PlaybackSessionContext';
 import playerReducer from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
+
+// #4541: Player.tsx now reads playback state/handlers from
+// PlaybackSessionContext instead of calling usePlayEnhanced directly, so
+// every render needs the provider in the tree (it composes the mocked
+// usePlayEnhanced/useEnhancementControl below, same as before the refactor).
+function renderPlayer(store: ReturnType<typeof configureStore>) {
+  return render(
+    <Provider store={store}>
+      <PlaybackSessionProvider>
+        <Player />
+      </PlaybackSessionProvider>
+    </Provider>
+  );
+}
 
 // Mock WebSocket context
 vi.mock('@/contexts/WebSocketContext', () => ({
@@ -46,6 +61,14 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
     isSeeking: false,
     error: null,
   }),
+}));
+
+// PlaybackSessionProvider also calls useEnhancementControl (for the
+// preset/intensity passed to playEnhanced) — stub it out like Player.test.tsx
+// does, since this file's minimal WebSocketContext mock lacks the shape the
+// real hook needs (reissueActiveStreamAs, subscribeAll, etc.).
+vi.mock('@/hooks/enhancement/useEnhancementControl', () => ({
+  useEnhancementControl: () => ({ preset: 'adaptive', intensity: 1.0 }),
 }));
 
 describe('Player - Volume Scale Consistency (#2116)', () => {
@@ -94,11 +117,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
   });
 
   it('should convert volume to 0-1 for VolumeControl component', () => {
-    render(
-      <Provider store={store}>
-        <Player />
-      </Provider>
-    );
+    renderPlayer(store);
 
     const volumeSlider = screen.getByTestId('volume-control-slider') as HTMLInputElement;
 
@@ -107,11 +126,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
   });
 
   it('should display volume percentage correctly', () => {
-    render(
-      <Provider store={store}>
-        <Player />
-      </Provider>
-    );
+    renderPlayer(store);
 
     const volumePercentage = screen.getByTestId('volume-control-percentage');
 
@@ -120,11 +135,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
   });
 
   it('should persist volume changes to Redux when slider changes', () => {
-    render(
-      <Provider store={store}>
-        <Player />
-      </Provider>
-    );
+    renderPlayer(store);
 
     const volumeSlider = screen.getByTestId('volume-control-slider') as HTMLInputElement;
 
@@ -139,11 +150,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
   });
 
   it('should call AudioPlaybackEngine.setVolume with 0-1 scale', () => {
-    render(
-      <Provider store={store}>
-        <Player />
-      </Provider>
-    );
+    renderPlayer(store);
 
     const volumeSlider = screen.getByTestId('volume-control-slider') as HTMLInputElement;
 
@@ -155,11 +162,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
   });
 
   it('should handle volume changes at boundary values', () => {
-    render(
-      <Provider store={store}>
-        <Player />
-      </Provider>
-    );
+    renderPlayer(store);
 
     const volumeSlider = screen.getByTestId('volume-control-slider') as HTMLInputElement;
 
@@ -175,11 +178,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
   });
 
   it('should round volume correctly when converting 0-1 to 0-100', () => {
-    render(
-      <Provider store={store}>
-        <Player />
-      </Provider>
-    );
+    renderPlayer(store);
 
     const volumeSlider = screen.getByTestId('volume-control-slider') as HTMLInputElement;
 
@@ -197,11 +196,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
     // This test verifies that when backend sends player_state with volume=80,
     // Redux is updated correctly and VolumeControl displays the right value
 
-    const { rerender } = render(
-      <Provider store={store}>
-        <Player />
-      </Provider>
-    );
+    const { rerender } = renderPlayer(store);
 
     // Simulate WebSocket update (backend sends volume as 0-100)
     store.dispatch({ type: 'player/setVolume', payload: 85 });
@@ -212,7 +207,9 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
     // Force re-render to pick up Redux state change
     rerender(
       <Provider store={store}>
-        <Player />
+        <PlaybackSessionProvider>
+          <Player />
+        </PlaybackSessionProvider>
       </Provider>
     );
 
