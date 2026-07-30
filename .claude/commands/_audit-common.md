@@ -19,7 +19,7 @@ DSP:                 auralis/dsp/                            stages.py (pipeline
 Player:              auralis/player/                         enhanced_audio_player.py, gapless_playback_engine.py, queue_controller.py, playback_controller.py, realtime_processor.py + realtime/, components/, audio_file_manager.py
 Library:             auralis/library/                        database.py (LibraryDatabase — the composition root: engine, pragmas, migration, session factory, scan slots, shutdown), manager.py (LibraryManager — DEPRECATED legacy query facade, no longer constructed on the startup path, #4619), scanner/ (package), models/ (ORM package), migrations/, migration_manager.py, caching/, metadata_editor/, sidecar_manager.py, artwork.py
 Repositories:        auralis/library/repositories/           13 repos + base.py (BaseRepository) + factory.py (RepositoryFactory): track, album, artist, playlist, genre, stats, fingerprint, fingerprint_scheduler, fingerprint_stats, queue, queue_history, settings, similarity_graph
-Analysis:            auralis/analysis/                       45 files; fingerprint/ (25D), ml/, quality/, quality_assessors/
+Analysis:            auralis/analysis/                       56 files; fingerprint/ (25D), ml/, quality/, quality_assessors/
 Audio I/O:           auralis/io/                             unified_loader.py, loader.py, loaders/, formats.py, saver.py, results.py (pcm16/pcm24)
 Parallel:            auralis/optimization/                   parallel_processor.py + parallel/, acceleration/, caching/, memory/, profiling/
 Services:            auralis/services/                       artwork_service.py, fingerprint_extractor.py, fingerprint_queue.py, resizable_semaphore.py
@@ -39,7 +39,7 @@ Backend Schemas:     auralis-web/backend/schemas.py
 Backend Services:    auralis-web/backend/services/           library_auto_scanner.py, queue_service.py, queue_enrichment.py, queue_protocols.py, playback_service.py, navigation_service.py, recommendation_service.py, learning_system.py, artwork_downloader.py, audio_content_predictor.py
 Backend Analysis:    auralis-web/backend/analysis/           analysis_extractor.py, fingerprint_generator.py, fingerprint_queue.py, track_analysis_cache.py
 Backend Encoding:    auralis-web/backend/encoding/           wav_encoder.py  — LEGACY copy, still imported by processing_engine.py and one path in chunked_processor.py
-                     auralis-web/backend/core/encoding/      wav_encoder.py (DIFFERENT content from the copy above) + atomic_io.py. Two live `WAVEncoderError` classes exist; an `except` on one will not catch the other. Treat as a known duplication hotspot.
+                     auralis-web/backend/core/encoding/      wav_encoder.py (DIFFERENT content from the copy above) + atomic_io.py. One `WAVEncoderError` class exists, defined in encoding/wav_encoder.py and used correctly everywhere; the real duplication is two different `WAVEncoder` *implementations* — legacy functional style in encoding/, class-based in core/encoding/ (the latter raises bare OSError/ValueError instead of WAVEncoderError). Treat as a known duplication hotspot.
 Backend Monitoring:  auralis-web/backend/monitoring/         memory_monitor.py, metrics_collector.py
 
 Frontend:            auralis-web/frontend/src/               React 18 + TS + Vite + Redux + MUI
@@ -55,13 +55,19 @@ Frontend Test Utils: auralis-web/frontend/src/test/          setup.ts, test-util
 Rust DSP:            vendor/auralis-dsp/                     PyO3 module, 19 src/*.rs. Exposes 11 functions via py_bindings.rs: hpss, yin, chroma_cqt, detect_tempo, envelope_follow, compress, limit, compute_fingerprint, apply_multiband_eq, detect_onsets, process_chunks. rhythm.rs/tempo.rs/onset_detector.rs were ported in when the standalone fingerprint-server was deleted (#4533).
 Desktop:             desktop/                                Electron wrapper
 Scripts:             scripts/                                Dev/release tooling — check_pytest_baseline.py, validate_release_metadata.py, run_all_tests.py, development/
-Tests:               tests/                                  ~5,600 test functions (501 files) across 18 dirs
+Tests:               tests/                                  ~5,700 test functions (462 files) across 19 dirs
 Audit Reports:       docs/audits/                            Generated audit reports
 Local Issue Cache:   .claude/issues/                         Issue snapshots (per audit-publish / fix-issue)
 Specialist Agents:   .claude/agents/                         dsp, backend, frontend, library specialists
 ```
 
 Counts above were re-derived from the live tree when this file was last updated. If a finding depends on an exact number, recompute it rather than quoting this table.
+
+`CLAUDE.md`'s Codebase Map keeps its own independent copy of the analysis
+file count, router count, test file/function counts, and docs topic-dir
+count — the two are hand-maintained and drift apart if only one is edited.
+Run `python scripts/check_doc_counts.py` to recompute both from the live
+tree and update both files together (#4982).
 
 ## Retired Architecture — Do Not Report Against
 
