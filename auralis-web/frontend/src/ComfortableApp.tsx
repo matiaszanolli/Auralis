@@ -323,27 +323,73 @@ function ComfortableApp() {
         {/* Rendered via ViewContainer in CozyLibraryView/LibraryViewRouter for all views */}
       </AppContainer>
 
-      {/* Settings Dialog */}
-      <Suspense fallback={null}>
-        <SettingsDialog
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          onSettingsChange={(settings) => {
-            console.log('Settings changed:', settings);
-            success('Settings saved successfully');
-          }}
-        />
-      </Suspense>
+      {/* Settings Dialog.
+          Wrapped in a dedicated ErrorBoundary (#4880) so a render crash in any
+          settings-tab panel doesn't propagate past this boundary and unmount
+          the whole app — library/player remain usable. Suspense alone does
+          not catch render errors. */}
+      <ErrorBoundary
+        fallback={
+          <Box
+            sx={{
+              p: tokens.spacing.lg,
+              background: themeVars.errorSoft,
+              border: `1px solid ${themeVars.error}`,
+              borderRadius: tokens.borderRadius.md,
+              color: themeVars.textPrimary,
+              fontSize: tokens.typography.fontSize.sm,
+              textAlign: 'center',
+              m: tokens.spacing.lg,
+            }}
+          >
+            Settings failed to render. The rest of the app (library, player,
+            sidebar) is still available. Refresh the page to retry.
+          </Box>
+        }
+      >
+        <Suspense fallback={null}>
+          <SettingsDialog
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            onSettingsChange={(settings) => {
+              console.log('Settings changed:', settings);
+              success('Settings saved successfully');
+            }}
+          />
+        </Suspense>
+      </ErrorBoundary>
 
-      {/* Keyboard Shortcuts Help Dialog */}
-      <Suspense fallback={null}>
-        <KeyboardShortcutsHelp
-          open={isHelpOpen}
-          shortcuts={shortcuts}
-          onClose={closeHelp}
-          formatShortcut={formatShortcut}
-        />
-      </Suspense>
+      {/* Keyboard Shortcuts Help Dialog.
+          Wrapped in a dedicated ErrorBoundary (#4880) for the same reason as
+          SettingsDialog above. */}
+      <ErrorBoundary
+        fallback={
+          <Box
+            sx={{
+              p: tokens.spacing.lg,
+              background: themeVars.errorSoft,
+              border: `1px solid ${themeVars.error}`,
+              borderRadius: tokens.borderRadius.md,
+              color: themeVars.textPrimary,
+              fontSize: tokens.typography.fontSize.sm,
+              textAlign: 'center',
+              m: tokens.spacing.lg,
+            }}
+          >
+            Keyboard shortcuts help failed to render. The rest of the app is
+            still available. Refresh the page to retry.
+          </Box>
+        }
+      >
+        <Suspense fallback={null}>
+          <KeyboardShortcutsHelp
+            open={isHelpOpen}
+            shortcuts={shortcuts}
+            onClose={closeHelp}
+            formatShortcut={formatShortcut}
+          />
+        </Suspense>
+      </ErrorBoundary>
 
       {/* Bottom Player Bar - Fixed at bottom of viewport, not inside flex layout.
           Wrapped in a dedicated ErrorBoundary (#3115) so a Player render crash
