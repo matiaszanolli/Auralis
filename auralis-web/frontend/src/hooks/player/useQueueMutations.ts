@@ -231,10 +231,11 @@ export function useQueueMutations(): QueueMutations {
     dispatch(reduxSetIsShuffled(newShuffle));
 
     try {
-      // Send enabled as query param — backend reads it as ?enabled=true/false
-      await post('/api/player/queue/shuffle', undefined, {
-        enabled: newShuffle,
-      });
+      // `enabled` is a JSON body field (ShuffleRequest), not a query param —
+      // ac3f693a moved it body-side when closing #3174. Passing it as the 3rd
+      // argument sent no body at all and the endpoint 422'd every time (#4859).
+      // Mirrors queueService.shuffleQueue, which has always been correct.
+      await post('/api/player/queue/shuffle', { enabled: newShuffle });
     } catch (err) {
       dispatch(reduxSetIsShuffled(previousShuffle));
 

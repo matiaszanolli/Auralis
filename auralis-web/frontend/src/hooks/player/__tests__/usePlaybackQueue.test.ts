@@ -534,7 +534,10 @@ describe('usePlaybackQueue', () => {
       await result.current.toggleShuffle();
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/player/queue/shuffle', undefined, {
+    // Body, not query params: the endpoint takes a ShuffleRequest.
+    // This assertion previously pinned the broken query-param shape, which is
+    // how the 422 survived unnoticed (#4859).
+    expect(mockPost).toHaveBeenCalledWith('/api/player/queue/shuffle', {
       enabled: true,
     });
 
@@ -571,7 +574,10 @@ describe('usePlaybackQueue', () => {
       await result.current.toggleShuffle();
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/api/player/queue/shuffle', undefined, {
+    // Body, not query params: the endpoint takes a ShuffleRequest.
+    // This assertion previously pinned the broken query-param shape, which is
+    // how the 422 survived unnoticed (#4859).
+    expect(mockPost).toHaveBeenCalledWith('/api/player/queue/shuffle', {
       enabled: false,
     });
 

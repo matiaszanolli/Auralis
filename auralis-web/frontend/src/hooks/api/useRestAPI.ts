@@ -134,14 +134,20 @@ export function useRestAPI() {
 
   /**
    * POST request.
-   * Supports both JSON body (for GET-like data) and query parameters (for Auralis backend).
+   *
+   * `payload` (2nd arg) is the JSON body; `queryParams` (3rd arg) appends to the
+   * URL. They are NOT interchangeable — a body is only sent when `payload` is
+   * truthy, so passing data as the 3rd argument silently sends no body.
+   *
+   * Every POST/PUT endpoint on the Auralis backend takes a Pydantic body model
+   * (verified across all routers: the only non-body params are path params and
+   * file uploads), so `payload` is effectively always what you want. This
+   * docblock previously advertised the opposite as "the Auralis backend
+   * convention" and cited `/api/player/seek` — which in fact takes a
+   * `SeekRequest` body — and that example is what produced #4859.
    *
    * Usage:
-   *   // JSON body (legacy)
-   *   await api.post('/api/queue', { tracks: [1, 2, 3] });
-   *
-   *   // Query parameters (Auralis backend)
-   *   await api.post('/api/player/seek', undefined, { position: 120 });
+   *   await api.post('/api/player/queue/shuffle', { enabled: true });
    */
   const post = useCallback(
     async <T = unknown>(endpoint: string, payload?: Record<string, unknown>, queryParams?: Record<string, string | number | boolean>): Promise<T> => {
