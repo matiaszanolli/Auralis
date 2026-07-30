@@ -375,10 +375,25 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
     isFetchingMoreRef.current = true;
     setIsLoadingMore(true);
 
+    // Claim a request id the same way executeQuery does (#4885). The
+    // in-flight/has-more checks above only cover the moment this call
+    // *starts* — they don't stop a newer executeQuery() (e.g. the user
+    // changing the search term) from completing and replacing `data` while
+    // this fetchMore's request is still in flight. Sharing requestIdRef with
+    // executeQuery means that supersession is detected here too.
+    const myRequestId = ++requestIdRef.current;
+    const isStale = () => requestIdRef.current !== myRequestId;
+
     const nextOffset = offset + limit;
 
     try {
       const response = await get<LibraryQueryResponse<T>>(buildEndpoint(nextOffset));
+
+      if (isStale()) {
+        // A newer query has taken over — discard this page rather than
+        // appending it onto data that already belongs to a different query.
+        return;
+      }
 
       if (response) {
         const items = extractItemsFromResponse(response, queryType);
@@ -393,15 +408,29 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         setHasMore(deriveHasMore(response as unknown as Record<string, unknown>, nextOffset, items.length));
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+
+      if (isStale()) {
+        // Superseded request failed — surfacing its error would replace a
+        // newer successful render with a stale failure.
+        return;
+      }
+
       const apiError = ApiErrorHandler.parseWithCode(err, 'FETCH_MORE_ERROR');
 
       setError(apiError);
     } finally {
-      // Always clear the fetching flags
+      // Always clear this call's own fetching flags, regardless of
+      // staleness — unlike executeQuery's isFetchingRef/isLoading (shared
+      // across every call), isFetchingMoreRef/isLoadingMore belong solely to
+      // fetchMore, so leaving them set on a superseded call would lock out
+      // every future fetchMore() for the rest of the component's lifetime.
       isFetchingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [get, offset, limit, hasMore, buildEndpoint, extractItemsFromResponse]);
+  }, [get, offset, limit, hasMore, buildEndpoint, extractItemsFromResponse, queryType]);
 
   /**
    * Refetch - Reset and fetch from beginning

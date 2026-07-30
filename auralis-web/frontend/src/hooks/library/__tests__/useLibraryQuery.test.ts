@@ -406,6 +406,114 @@ describe('useLibraryQuery', () => {
       expect(result.current.hasMore).toBe(false);
     });
 
+    it('discards a superseded fetchMore response when a newer search wins the race (#4885)', async () => {
+      // Sibling of #4609's executeQuery guard: fetchMore had no requestIdRef
+      // check, so a fetchMore in flight when the user changes the search term
+      // could resolve AFTER the new search and append the old search's page 2
+      // onto the new search's already-rendered page 1.
+      const oldSearchPage1 = [{ ...mockTrack, id: 1, title: 'Old Search Track 1' }];
+      const oldSearchPage2 = [{ ...mockTrack, id: 2, title: 'Old Search Track 2 (stale)' }];
+      const newSearchPage1 = [{ ...mockTrack, id: 3, title: 'New Search Track 1' }];
+
+      let resolveFetchMore!: (value: unknown) => void;
+      const fetchMoreResponse = new Promise((resolve) => {
+        resolveFetchMore = resolve;
+      });
+
+      const mockGet = vi
+        .fn()
+        // Initial load, old search term.
+        .mockResolvedValueOnce({
+          items: oldSearchPage1,
+          total: 200,
+          offset: 0,
+          limit: 50,
+          hasMore: true,
+        })
+        // fetchMore() for the old search — deliberately left pending so the
+        // new search below can resolve first.
+        .mockImplementationOnce(() => fetchMoreResponse)
+        // executeQuery() fired by the new search term — resolves immediately.
+        .mockResolvedValueOnce({
+          items: newSearchPage1,
+          total: 1,
+          offset: 0,
+          limit: 50,
+          hasMore: false,
+        });
+
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet,
+        post: vi.fn(),
+        put: vi.fn(),
+        patch: vi.fn(),
+        delete: vi.fn(),
+      } as any);
+
+      const { result, rerender } = renderHook(
+        ({ search }: { search?: string }) => useLibraryQuery('tracks', { limit: 50, search }),
+        { initialProps: { search: undefined as string | undefined } }
+      );
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(result.current.data).toEqual(oldSearchPage1);
+
+      // Start fetchMore for the old search — its response won't resolve yet.
+      let fetchMorePromise!: Promise<void>;
+      act(() => {
+        fetchMorePromise = result.current.fetchMore();
+      });
+
+      // The user changes the search term before fetchMore resolves.
+      rerender({ search: 'new term' });
+      await waitFor(() => expect(result.current.data).toEqual(newSearchPage1));
+
+      // Now let the superseded fetchMore response resolve.
+      act(() => {
+        resolveFetchMore({
+          items: oldSearchPage2,
+          total: 200,
+          offset: 50,
+          limit: 50,
+          hasMore: true,
+        });
+      });
+      await act(async () => {
+        await fetchMorePromise;
+      });
+
+      // The stale page must not have been appended onto the new search's data.
+      expect(result.current.data).toEqual(newSearchPage1);
+    });
+
+    it('still appends correctly for a normal (non-superseded) fetchMore call', async () => {
+      const firstPage = [{ ...mockTrack, id: 1 }];
+      const secondPage = [{ ...mockTrack, id: 2 }];
+
+      const mockGet = vi
+        .fn()
+        .mockResolvedValueOnce({ items: firstPage, total: 200, offset: 0, limit: 50, hasMore: true })
+        .mockResolvedValueOnce({ items: secondPage, total: 200, offset: 50, limit: 50, hasMore: true });
+
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet,
+        post: vi.fn(),
+        put: vi.fn(),
+        patch: vi.fn(),
+        delete: vi.fn(),
+      } as any);
+
+      const { result } = renderHook(() => useLibraryQuery('tracks', { limit: 50 }));
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.fetchMore();
+      });
+
+      expect(result.current.data).toEqual([...firstPage, ...secondPage]);
+    });
+
     it('should handle errors in fetchMore', async () => {
       const mockGet = vi
         .fn()
