@@ -22,6 +22,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   version: process.env.npm_package_version || '1.0.0',
 
   // Utility functions
+  // NOTE: no `ipcMain.handle('open-external', ...)` is registered in
+  // main.js yet — this channel is currently dead. If it's ever wired up,
+  // route it through main.js's openExternalSafely() (backed by
+  // url-safety.js's isSafeExternalUrl), not a raw shell.openExternal(url)
+  // call — see #4844.
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
   // Event listeners for app state

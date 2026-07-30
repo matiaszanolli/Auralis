@@ -13,6 +13,7 @@
     "url": "https://github.com/matiaszanolli/Auralis.git"
   },
   "scripts": {
+    "test": "node --test",
     "electron": "electron .",
     "dev": "NODE_ENV=development electron .",
     "build": "electron-builder --publish never",

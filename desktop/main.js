@@ -1,13 +1,27 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log/main');
 const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { isSafeExternalUrl } = require('./url-safety');
 
 // Configure logging for auto-updater
 log.transports.file.level = 'info';
 autoUpdater.logger = log;
+
+/**
+ * Single validated path to the OS shell for any navigation the renderer
+ * tries to open externally — both setWindowOpenHandler call sites below
+ * route through this instead of calling shell.openExternal directly (#4844).
+ */
+function openExternalSafely(url) {
+  if (!isSafeExternalUrl(url)) {
+    console.warn(`Blocked shell.openExternal for disallowed URL: ${url}`);
+    return;
+  }
+  shell.openExternal(url);
+}
 
 class AuralisApp {
   constructor() {
@@ -329,7 +343,7 @@ class AuralisApp {
 
     // Handle navigation
     this.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-      require('electron').shell.openExternal(url);
+      openExternalSafely(url);
       return { action: 'deny' };
     });
 
@@ -638,7 +652,7 @@ app.setAsDefaultProtocolClient('auralis');
 // Security: Prevent new window creation (Electron 12+ API)
 app.on('web-contents-created', (_event, contents) => {
   contents.setWindowOpenHandler(({ url }) => {
-    require('electron').shell.openExternal(url);
+    openExternalSafely(url);
     return { action: 'deny' };
   });
 });
