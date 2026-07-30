@@ -69,13 +69,21 @@ def load_with_soundfile(file_path: Path) -> tuple[np.ndarray, int]:
         # is rejected without first decoding the whole buffer into RAM. This
         # mirrors the player loader.py sibling path. The post-decode guard in
         # unified_loader stays as a backstop for any direct callers.
-        from ..loader import MAX_DURATION_SECONDS
+        from ..loader import MAX_DURATION_SECONDS, oversize_decode_detail
         file_info = sf.info(str(file_path))
         if file_info.duration > MAX_DURATION_SECONDS:
             raise ModuleError(
                 f"{Code.ERROR_CORRUPTED}: Audio file exceeds maximum duration "
                 f"({file_info.duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
             )
+        # Duration alone does not bound memory (#4875): sf.info already carries
+        # samplerate and channels, so use them rather than assuming the
+        # 96 kHz/stereo profile the duration cap was tuned for.
+        detail = oversize_decode_detail(
+            file_info.duration, file_info.samplerate, file_info.channels
+        )
+        if detail:
+            raise ModuleError(f"{Code.ERROR_CORRUPTED}: {detail}: {file_path}")
 
         # #3748: explicit float32 to match `loader.py`'s sibling sf.read
         # call. Without the dtype hint, soundfile returns float64 for

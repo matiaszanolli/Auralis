@@ -37,7 +37,68 @@ try:
     ))
 except ValueError:
     MAX_DURATION_SECONDS = 7200
+
+# Ceiling on the ESTIMATED decoded size, in bytes.
+#
+# The duration cap above is justified in its own comment as "2 hours of stereo
+# float32 at 96 kHz ≈ 5.3 GB" — but nothing ever checked sample rate or channel
+# count, so that arithmetic was an assumption about the input, not a property of
+# it (#4875). The same 7200 s at 192 kHz stereo decodes to ~10.3 GiB, and at
+# 192 kHz 5.1 to ~31 GiB. Duration alone cannot bound memory.
+#
+# 6 GiB is chosen to sit just above the profile the duration cap was tuned for
+# (2 h / 96 kHz / stereo ≈ 5.15 GiB), so nothing that was previously accepted
+# and genuinely safe starts failing, while the high-rate/multichannel cases the
+# duration cap silently admitted are rejected before the decode.
+#
+# Overridable via AURALIS_MAX_DECODED_BYTES, mirroring
+# AURALIS_MAX_DURATION_SECONDS (#3758) — an operator who raises one and not the
+# other would otherwise hit a new hardcoded wall with no way past it.
+try:
+    MAX_DECODED_BYTES = int(_os.environ.get(
+        "AURALIS_MAX_DECODED_BYTES", str(6 * 1024 ** 3)
+    ))
+except ValueError:
+    MAX_DECODED_BYTES = 6 * 1024 ** 3
 del _os
+
+# float32 — soundfile_loader reads with an explicit float32 dtype (#3748) and
+# the FFmpeg path lands in the same representation.
+_BYTES_PER_SAMPLE = 4
+
+
+def estimated_decoded_bytes(
+    duration_seconds: float, sample_rate: int, channels: int
+) -> int:
+    """Peak bytes a decode of this shape will occupy, before downstream copies."""
+    return int(
+        max(duration_seconds, 0.0)
+        * max(sample_rate, 0)
+        * max(channels, 1)
+        * _BYTES_PER_SAMPLE
+    )
+
+
+def oversize_decode_detail(
+    duration_seconds: float, sample_rate: int, channels: int
+) -> str | None:
+    """Message describing the overrun, or None when the decode is within budget.
+
+    Returns the detail rather than raising so each call site can keep its own
+    ``Code.*`` prefix — the soundfile and FFmpeg paths report different error
+    codes for the same condition, and collapsing them would change the error
+    taxonomy callers already match on.
+    """
+    estimated = estimated_decoded_bytes(duration_seconds, sample_rate, channels)
+    if estimated <= MAX_DECODED_BYTES:
+        return None
+    gib = 1024 ** 3
+    return (
+        f"Audio file exceeds maximum decoded size "
+        f"({estimated / gib:.1f} GiB > {MAX_DECODED_BYTES / gib:.1f} GiB; "
+        f"{duration_seconds:.0f}s x {sample_rate} Hz x {channels}ch x "
+        f"{_BYTES_PER_SAMPLE}B)"
+    )
 
 
 def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:

@@ -95,13 +95,22 @@ def load_audio(
     # (#3671 again, in ffmpeg_loader.py), but this post-decode guard also
     # covers the soundfile path (long WAV/FLAC) and any future caller of
     # load_audio() that bypasses the FFmpeg pipeline.
-    from auralis.io.loader import MAX_DURATION_SECONDS
+    from auralis.io.loader import MAX_DURATION_SECONDS, oversize_decode_detail
     duration = len(audio_data) / max(sample_rate, 1)
     if duration > MAX_DURATION_SECONDS:
         raise ModuleError(
             f"{Code.ERROR_CORRUPTED}: Audio file exceeds maximum duration "
             f"({duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
         )
+    # Backstop for the same blind spot (#4875). The buffer is already resident
+    # here, so this cannot prevent that allocation — but it still stops the
+    # downstream validate/sanitize/resample copies, each of which multiplies
+    # an already-oversized buffer, and it covers any caller reaching
+    # load_audio() without passing one of the pre-decode guards.
+    channels = audio_data.shape[1] if audio_data.ndim > 1 else 1
+    detail = oversize_decode_detail(duration, sample_rate, channels)
+    if detail:
+        raise ModuleError(f"{Code.ERROR_CORRUPTED}: {detail}: {file_path}")
 
     # Validate audio data
     audio_data, sample_rate = validate_audio(audio_data, sample_rate, file_type)

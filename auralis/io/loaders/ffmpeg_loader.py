@@ -293,12 +293,21 @@ def load_with_ffmpeg(
     # /tmp (RAM-backed on Linux) before any check ran, peaking RSS at ~2.7 GB
     # for a 90-minute MP3. Importing here avoids a circular import with
     # auralis.io.loader.
-    from auralis.io.loader import MAX_DURATION_SECONDS
+    from auralis.io.loader import MAX_DURATION_SECONDS, oversize_decode_detail
     if expected_duration is not None:
         if expected_duration > MAX_DURATION_SECONDS:
             raise ModuleError(
                 f"{Code.ERROR_FFMPEG_CONVERSION}: Audio file exceeds maximum duration "
                 f"({expected_duration:.0f}s > {MAX_DURATION_SECONDS}s): {file_path}"
+            )
+        # ffprobe already gave us sample_rate and channels above, so bound the
+        # actual decoded size rather than trusting duration as a proxy (#4875).
+        detail = oversize_decode_detail(
+            expected_duration, source_sample_rate, source_channels
+        )
+        if detail:
+            raise ModuleError(
+                f"{Code.ERROR_FFMPEG_CONVERSION}: {detail}: {file_path}"
             )
     else:
         # #4128: ffprobe returned no duration (true-VBR MP3 without Xing/VBRI).
