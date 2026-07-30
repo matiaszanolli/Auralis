@@ -211,7 +211,6 @@ and cached by `RepositoryFactory` (`auralis/library/repositories/factory.py`), w
 - **SimilarityGraphRepository** - Track-similarity graph persistence
 - **QueueRepository** - Playback queue state management
 - **QueueHistoryRepository** - Undo/redo history
-- **QueueTemplateRepository** - Saved queue templates
 - **SettingsRepository** - Application settings
 - **StatsRepository** - Library analytics and statistics
 

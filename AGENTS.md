@@ -63,10 +63,10 @@ auralis/                          Core Python audio engine
 │   └── realtime_processor.py       Real-time processing
 ├── library/                      SQLite library (~/.auralis/library.db)
 │   ├── manager.py                  LibraryManager
-│   ├── repositories/               14 repos + base.py (BaseRepository) + factory.py
+│   ├── repositories/               13 repos + base.py (BaseRepository) + factory.py
 │   │                                 (track, album, artist, playlist, genre, stats,
 │   │                                 fingerprint, fingerprint_scheduler, fingerprint_stats,
-│   │                                 queue, queue_history, queue_template, settings, similarity_graph)
+│   │                                 queue, queue_history, settings, similarity_graph)
 │   ├── scanner.py                  Folder scanning
 │   └── migration_manager.py        DB migrations (schema v16)
 ├── io/                           Audio I/O

@@ -23,7 +23,7 @@ Core Pipeline:       auralis/core/                           hybrid_processor.py
 DSP:                 auralis/dsp/                            stages.py (pipeline main()), basic.py, advanced_dynamics.py, eq/ (psychoacoustic_eq), realtime_adaptive_eq/ (realtime_eq), dynamics/, utils/
 Player:              auralis/player/                         enhanced_audio_player.py, gapless_playback_engine.py, queue_controller.py, realtime_processor.py
 Library:             auralis/library/                        manager.py, scanner/ (package), models/ (ORM package), migration_manager.py
-Repositories:        auralis/library/repositories/           14 repos + base.py (BaseRepository) + factory.py (RepositoryFactory): track, album, artist, playlist, genre, stats, fingerprint, fingerprint_scheduler, fingerprint_stats, queue, queue_history, queue_template, settings, similarity_graph
+Repositories:        auralis/library/repositories/           13 repos + base.py (BaseRepository) + factory.py (RepositoryFactory): track, album, artist, playlist, genre, stats, fingerprint, fingerprint_scheduler, fingerprint_stats, queue, queue_history, settings, similarity_graph
 Analysis:            auralis/analysis/                       56 files; fingerprint/ (25D), ml/, quality/, quality_assessors/
 Audio I/O:           auralis/io/                             unified_loader.py, results.py (pcm16/pcm24)
 Parallel:            auralis/optimization/                   parallel_processor.py

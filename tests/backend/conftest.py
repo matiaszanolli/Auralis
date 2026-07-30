@@ -273,7 +273,6 @@ def mock_repository_factory():
     factory.settings = Mock()
     factory.queue = Mock()
     factory.queue_history = Mock()
-    factory.queue_templates = Mock()
 
     # Mock get_all returns (list, total)
     factory.tracks.get_all = Mock(return_value=([], 0))

@@ -19,7 +19,6 @@ from .genre_repository import GenreRepository
 from .playlist_repository import PlaylistRepository
 from .queue_history_repository import QueueHistoryRepository
 from .queue_repository import QueueRepository
-from .queue_template_repository import QueueTemplateRepository
 from .settings_repository import SettingsRepository
 from .similarity_graph_repository import SimilarityGraphRepository
 from .stats_repository import StatsRepository
@@ -39,7 +38,6 @@ __all__ = [
     'SettingsRepository',
     'QueueRepository',
     'QueueHistoryRepository',
-    'QueueTemplateRepository',
     'SimilarityGraphRepository',
     'RepositoryFactory',
 ]

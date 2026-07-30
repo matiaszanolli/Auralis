@@ -34,7 +34,7 @@ All 14 extend `BaseRepository` in `auralis/library/repositories/base.py`:
 - `fingerprint_scheduler_repository.py` — fingerprint job scheduling (reached via `factory.fingerprint_scheduler.*`)
 - `fingerprint_stats_repository.py` — fingerprint coverage stats
 - `similarity_graph_repository.py` — similarity edges
-- `queue_repository.py`, `queue_history_repository.py`, `queue_template_repository.py` — queue persistence
+- `queue_repository.py`, `queue_history_repository.py` — queue persistence
 - `settings_repository.py` — user settings
 - `stats_repository.py` — playback stats
 

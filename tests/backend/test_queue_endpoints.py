@@ -328,7 +328,7 @@ class TestQueueAPIDualModeParametrized:
 
     These tests automatically run with both LibraryManager and RepositoryFactory
     via the parametrized mock_data_source fixture. Queue-specific repositories
-    (queue, queue_history, queue_templates) are validated with both patterns.
+    (queue, queue_history) are validated with both patterns.
     """
 
     def test_queue_repository_interface(self, mock_data_source):

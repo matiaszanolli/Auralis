@@ -22,7 +22,6 @@ from .genre_repository import GenreRepository
 from .playlist_repository import PlaylistRepository
 from .queue_history_repository import QueueHistoryRepository
 from .queue_repository import QueueRepository
-from .queue_template_repository import QueueTemplateRepository
 from .settings_repository import SettingsRepository
 from .stats_repository import StatsRepository
 from .track_repository import TrackRepository
@@ -79,7 +78,6 @@ class RepositoryFactory:
         self._settings_repo: SettingsRepository | None = None
         self._queue_repo: QueueRepository | None = None
         self._queue_history_repo: QueueHistoryRepository | None = None
-        self._queue_template_repo: QueueTemplateRepository | None = None
 
     @property
     def tracks(self) -> TrackRepository:
@@ -167,13 +165,6 @@ class RepositoryFactory:
         if not self._queue_history_repo:
             self._queue_history_repo = QueueHistoryRepository(self.session_factory)
         return self._queue_history_repo
-
-    @property
-    def queue_templates(self) -> QueueTemplateRepository:
-        """Get or create QueueTemplateRepository instance (lazy initialization)."""
-        if not self._queue_template_repo:
-            self._queue_template_repo = QueueTemplateRepository(self.session_factory)
-        return self._queue_template_repo
 
     def reset_library(self) -> None:
         """Atomically delete the entire library in a single transaction.

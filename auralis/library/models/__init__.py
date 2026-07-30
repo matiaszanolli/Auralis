@@ -19,7 +19,6 @@ from .core import (
     Playlist,
     QueueHistory,
     QueueState,
-    QueueTemplate,
     Track,
 )
 
@@ -51,7 +50,6 @@ __all__ = [
     'Playlist',
     'QueueState',
     'QueueHistory',
-    'QueueTemplate',
     # Statistics
     'LibraryStats',
     # Settings
