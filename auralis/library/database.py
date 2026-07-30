@@ -287,6 +287,18 @@ class LibraryDatabase:
         with self._scan_slots_lock:
             self._active_scans = max(0, self._active_scans - 1)
 
+    def is_scanning(self) -> bool:
+        """True if at least one scan currently holds a slot.
+
+        Live read of the same counter try_acquire_scan_slot()/
+        release_scan_slot() maintain — used by GET /api/library/scan/status
+        so a client that reconnects mid-scan (or after one finished while it
+        was offline) can resync `isScanning` instead of relying solely on a
+        WebSocket broadcast it may have missed (#4821).
+        """
+        with self._scan_slots_lock:
+            return self._active_scans > 0
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------

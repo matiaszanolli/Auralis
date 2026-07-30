@@ -34,6 +34,23 @@ def create_library_scan_router(
     """Factory: library scan route."""
     router = APIRouter(tags=["library"])
 
+    @router.get("/api/library/scan/status")
+    async def get_scan_status() -> dict[str, Any]:
+        """Resync point for a client that (re)connects mid-scan or after one
+        finished while its WebSocket was disconnected (#4821).
+
+        Scan lifecycle (`library_scan_started`/`scan_progress`/`scan_complete`/
+        `library_scan_error`) is otherwise broadcast-only — a client offline
+        when the terminal frame goes out never learns the scan ended, and
+        `isScanning` gets stuck. This is a live read of the same scan-slot
+        counter try_acquire_scan_slot()/release_scan_slot() maintain, so it
+        self-heals even after a scan crashed without emitting a terminal frame.
+        """
+        library_manager = get_library_manager() if get_library_manager else None
+        if library_manager is None:
+            raise HTTPException(status_code=503, detail="Library manager not available")
+        return {"is_scanning": library_manager.is_scanning()}
+
     @router.post("/api/library/scan", response_model=ScanResultResponse)
     async def scan_library(request: LibraryScanRequest) -> ScanResultResponse:
         """Scan directories for audio files and add them to the library.

@@ -7,8 +7,8 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useScanProgress } from '../useScanProgress';
 import type { WebSocketMessage } from '@/types/websocket';
@@ -402,6 +402,102 @@ describe('useScanProgress', () => {
       });
       expect(result.current.isScanning).toBe(false);
       expect(result.current.lastResult?.filesAdded).toBe(100);
+    });
+  });
+
+  describe('reconnect resync (#4821)', () => {
+    const originalFetch = global.fetch;
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    function mockConnected(fetchImpl: typeof fetch) {
+      global.fetch = vi.fn(fetchImpl) as unknown as typeof fetch;
+      vi.mocked(useWebSocketContext).mockReturnValue({
+        subscribe: manager.subscribe,
+        connectionStatus: 'connected',
+      } as any);
+    }
+
+    function jsonResponse(body: unknown): Response {
+      return { ok: true, json: async () => body } as Response;
+    }
+
+    it('clears a stuck isScanning when the server reports no active scan', async () => {
+      mockConnected(async () => jsonResponse({ is_scanning: false }));
+      const { result } = renderHook(() => useScanProgress());
+
+      // Simulate having missed the terminal frame while disconnected: the
+      // last thing this client heard was library_scan_started.
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      expect(result.current.isScanning).toBe(true);
+
+      await waitFor(() => expect(result.current.isScanning).toBe(false));
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/library/scan/status',
+        expect.objectContaining({ signal: expect.anything() })
+      );
+    });
+
+    it('preserves lastResult when clearing a stuck isScanning', async () => {
+      mockConnected(async () => jsonResponse({ is_scanning: false }));
+      const { result } = renderHook(() => useScanProgress());
+
+      act(() => {
+        manager.deliver({
+          type: 'scan_complete',
+          data: { files_added: 9, duration: 1 },
+        } as unknown as WebSocketMessage);
+      });
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      expect(result.current.isScanning).toBe(true);
+
+      await waitFor(() => expect(result.current.isScanning).toBe(false));
+      // The resync endpoint has no knowledge of file counts — it must not
+      // clobber the real result from the scan before the missed one.
+      expect(result.current.lastResult?.filesAdded).toBe(9);
+    });
+
+    it('sets isScanning when the server reports an active scan this client missed', async () => {
+      mockConnected(async () => jsonResponse({ is_scanning: true }));
+      const { result } = renderHook(() => useScanProgress());
+
+      expect(result.current.isScanning).toBe(false);
+      await waitFor(() => expect(result.current.isScanning).toBe(true));
+    });
+
+    it('leaves state untouched when no scan is active and none was stuck', async () => {
+      mockConnected(async () => jsonResponse({ is_scanning: false }));
+      const { result } = renderHook(() => useScanProgress());
+
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+      expect(result.current.isScanning).toBe(false);
+      expect(result.current.lastResult).toBeNull();
+    });
+
+    it('does not fetch when not connected', () => {
+      global.fetch = vi.fn() as unknown as typeof fetch;
+      vi.mocked(useWebSocketContext).mockReturnValue({
+        subscribe: manager.subscribe,
+        connectionStatus: 'disconnected',
+      } as any);
+
+      renderHook(() => useScanProgress());
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('tolerates a fetch failure without throwing', async () => {
+      mockConnected(async () => {
+        throw new Error('network down');
+      });
+
+      expect(() => renderHook(() => useScanProgress())).not.toThrow();
     });
   });
 });

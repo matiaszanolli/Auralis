@@ -5,7 +5,8 @@
  * live scanning status and last scan results.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import type {
   ScanProgressMessage,
@@ -63,6 +64,45 @@ export function useScanProgress(): ScanStatus {
   // Without this, scan_complete would carry over stale filesRemoved from
   // the previous scan (fixes #2868).
   const removedReceivedRef = useRef(false);
+
+  // #4821: scan lifecycle is otherwise broadcast-only, so a WebSocket drop
+  // that spans the scan's terminal frame (scan_complete/library_scan_error)
+  // leaves isScanning stuck true forever — the only fix is a page reload.
+  // On every (re)connect, resync against a live server-side check instead of
+  // trusting whatever frame happened to arrive last. Mirrors the reconnect
+  // resync pattern in usePlayerStateSync (lastSeenSeqRef reset on
+  // connectionStatus === 'connected').
+  const { connectionStatus } = useWebSocketContext();
+  useEffect(() => {
+    if (connectionStatus !== 'connected') return;
+
+    const controller = new AbortController();
+    fetch('/api/library/scan/status', { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { is_scanning?: boolean } | null) => {
+        if (!data) return;
+        setState((prev) => {
+          if (data.is_scanning) {
+            // A scan is active that this client may not know about yet
+            // (reconnected mid-scan, or this is the first load while
+            // another client's scan is still running).
+            return prev.isScanning ? prev : { ...prev, isScanning: true };
+          }
+          // No scan is active. If we were still showing "Scanning…" the
+          // terminal WS frame was missed while disconnected — clear it.
+          // lastResult is deliberately left untouched: this endpoint only
+          // knows the current is_scanning state, not final counts, so
+          // overwriting it here would discard real data with nothing.
+          return prev.isScanning ? { ...INITIAL_STATE, lastResult: prev.lastResult } : prev;
+        });
+      })
+      .catch(() => {
+        // Best-effort resync — a transient fetch failure just leaves local
+        // state as-is until the next (re)connect retries.
+      });
+
+    return () => controller.abort();
+  }, [connectionStatus]);
 
   useWebSocketMessages(
     ['library_scan_started', 'scan_progress', 'scan_complete', 'library_tracks_removed', 'library_scan_error'],
