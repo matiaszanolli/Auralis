@@ -171,7 +171,7 @@ class EQProcessor:
         original_length = len(audio)
 
         # WOLA (Weighted Overlap-Add) with a single full-Hann SYNTHESIS window
-        # and NO analysis pre-window. At 50% overlap a full Hann sums to 1, so
+        # and NO analysis pre-window. At 50% overlap a full Hann sums to ~1, so
         # this satisfies COLA with the same reconstruction quality as the old
         # sqrt-Hann×sqrt-Hann scheme — but only sqrt-Hann *synthesis-only* gave
         # the ~6 dB ripple that #3294 saw, not full Hann (verified COLA ≈ 1).
@@ -194,6 +194,16 @@ class EQProcessor:
         # to float64, which the in-place += into the float32 buffer then
         # truncates on every overlap step (#4107).
         wola_window = hann(chunk_size).astype(audio.dtype, copy=False)
+        # Accumulated window weight per output sample, used to normalize the
+        # OLA sum below. Frame 0 is the first frame at every position — there
+        # is no frame at i = -hop to supply the other half of the COLA sum —
+        # so samples in [0, hop) only ever get frame 0's ramp-from-zero
+        # window weight (0.0 -> ~1.0) with nothing else contributed. Dividing
+        # by the actual accumulated weight (instead of assuming it's always 1)
+        # recovers the true signal there instead of a fade-in from silence
+        # (#4852), and as a side effect also cancels the ~0.0004 residual COLA
+        # ripple from using a symmetric (not periodic) Hann everywhere else.
+        window_norm = np.zeros(original_length + chunk_size, dtype=audio.dtype)
 
         for i in range(0, original_length, hop_size):
             end_idx = min(i + chunk_size, original_length)
@@ -218,6 +228,17 @@ class EQProcessor:
                 processed_audio[i:i + chunk_size] += processed_chunk[:chunk_size] * wola_window[:, np.newaxis]
             else:
                 processed_audio[i:i + chunk_size] += processed_chunk[:chunk_size] * wola_window
+            window_norm[i:i + chunk_size] += wola_window
+
+        # Normalize by the accumulated window weight (guarded against the
+        # near-zero coverage right at output index 0, where only the very
+        # first window sample — exactly 0.0 for a Hann window — has landed).
+        eps = np.finfo(audio.dtype).eps
+        safe_norm = np.maximum(window_norm, eps)
+        if audio.ndim == 2:
+            processed_audio /= safe_norm[:, np.newaxis]
+        else:
+            processed_audio /= safe_norm
 
         return processed_audio[:original_length]
 

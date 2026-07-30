@@ -121,6 +121,115 @@ class TestEQOverlapAdd:
 
 
 @pytest.mark.regression
+class TestEQWolaHeadNormalization:
+    """Regression tests for #4852: the WOLA head fade-in.
+
+    Before the fix, output[0:hop] ramped from 0.0 up to ~1.0 because only
+    frame 0's synthesis window contributed there and nothing normalized it
+    out — there is no frame at i = -hop to supply the other half of the
+    COLA sum. Dividing by the actual accumulated window weight recovers the
+    true signal for every sample except the single global first sample,
+    where the Hann window is exactly 0.0 by construction (a well-known,
+    inaudible one-sample edge property of any Hann-windowed OLA scheme —
+    not something a normalization scheme can recover, since 0 information
+    survives multiplying by an exact-zero window coefficient).
+    """
+
+    def _make_processor(self, sample_rate=44100):
+        settings = EQSettings(sample_rate=sample_rate, fft_size=4096)
+        eq = PsychoacousticEQ(settings)
+        return EQProcessor(eq)
+
+    def _patches(self):
+        return (
+            patch.object(PsychoacousticEQ, 'process_realtime_chunk', _identity_chunk),
+            patch.object(EQProcessor, '_eq_curve_to_array', _zero_curve),
+        )
+
+    def test_head_region_no_longer_fades_in_from_silence_mono(self):
+        processor = self._make_processor()
+        fft_size = processor.psychoacoustic_eq.fft_size
+        hop = fft_size // 2
+        audio = np.ones(fft_size * 4, dtype=np.float64)
+
+        p1, p2 = self._patches()
+        with p1, p2:
+            result = processor._process_with_psychoacoustic_eq(audio, {})
+
+        # Sample 0 is the one irreducible Hann-window zero (see class docstring).
+        assert result[0] == pytest.approx(0.0, abs=1e-9)
+        # Every other sample in the old fade-in region must now be exact —
+        # before the fix this ramped linearly from 0.0 to ~1.0 across [0, hop).
+        np.testing.assert_allclose(
+            result[1:hop], np.ones(hop - 1),
+            atol=1e-6,
+            err_msg="Head region still fades in from silence — WOLA normalization missing or wrong",
+        )
+
+    def test_head_region_no_longer_fades_in_from_silence_stereo(self):
+        processor = self._make_processor()
+        fft_size = processor.psychoacoustic_eq.fft_size
+        hop = fft_size // 2
+        audio = np.ones((fft_size * 4, 2), dtype=np.float64)
+
+        p1, p2 = self._patches()
+        with p1, p2:
+            result = processor._process_with_psychoacoustic_eq(audio, {})
+
+        assert result[0, 0] == pytest.approx(0.0, abs=1e-9)
+        assert result[0, 1] == pytest.approx(0.0, abs=1e-9)
+        np.testing.assert_allclose(
+            result[1:hop], np.ones((hop - 1, 2)),
+            atol=1e-6,
+            err_msg="Stereo head region still fades in from silence",
+        )
+
+    def test_interior_cola_is_now_numerically_exact(self):
+        """The norm-buffer fix also cancels the residual ~1e-4 ripple from
+        using a symmetric (not periodic) Hann window at 50% overlap — the
+        interior sum should now be exact to floating-point precision, not
+        just within the old ~2e-3 tolerance."""
+        processor = self._make_processor()
+        fft_size = processor.psychoacoustic_eq.fft_size
+        hop = fft_size // 2
+        num_samples = fft_size * 4
+        audio = np.random.RandomState(42).randn(num_samples).astype(np.float64)
+
+        p1, p2 = self._patches()
+        with p1, p2:
+            result = processor._process_with_psychoacoustic_eq(audio, {})
+
+        interior = slice(hop, num_samples - hop)
+        np.testing.assert_allclose(
+            result[interior], audio[interior],
+            atol=1e-9,
+            err_msg="Interior COLA sum is no longer exact after normalization",
+        )
+
+    def test_short_buffer_entirely_inside_old_ramp_is_no_longer_corrupted(self):
+        """Worst case from the issue: a buffer as short as MIN_SAMPLES lands
+        entirely inside the old [0, hop) ramp and used to come out as a
+        0 -> ~0.5 fade instead of the true constant signal."""
+        processor = self._make_processor()
+        fft_size = processor.psychoacoustic_eq.fft_size
+        short_len = 1024
+        assert short_len < fft_size // 2
+        audio = np.full(short_len, 0.7, dtype=np.float64)
+
+        p1, p2 = self._patches()
+        with p1, p2:
+            result = processor._process_with_psychoacoustic_eq(audio, {})
+
+        assert len(result) == short_len
+        assert result[0] == pytest.approx(0.0, abs=1e-9)
+        np.testing.assert_allclose(
+            result[1:], np.full(short_len - 1, 0.7),
+            atol=1e-6,
+            err_msg="Short buffer entirely inside the old ramp region is still corrupted",
+        )
+
+
+@pytest.mark.regression
 class TestEQWolaDtypePreservation:
     """The WOLA path must keep the buffer dtype (#4107).
 
