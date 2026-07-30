@@ -45,6 +45,13 @@ class EstimationOperations:
         mid_end = 3 * len(audio_mono) // 4
         audio_segment = audio_mono[mid_start:mid_end]
 
+        # #4996: len(audio_mono) in {0, 1} yields an empty middle section,
+        # and np.fft.rfft raises ValueError on a 0-length array. THD is
+        # undefined for degenerate input — same sentinel as the "no valid
+        # harmonics in range" case below.
+        if len(audio_segment) == 0:
+            return 0.0
+
         # Compute spectrum
         fft_result = np.fft.rfft(audio_segment)
         magnitude = np.abs(fft_result)
@@ -358,6 +365,12 @@ class EstimationOperations:
         mid_start = len(audio_mono) // 4
         mid_end = 3 * len(audio_mono) // 4
         audio_segment = audio_mono[mid_start:mid_end]
+
+        # #4996: len(audio_mono) in {0, 1} yields an empty middle section,
+        # and np.fft.rfft raises ValueError on a 0-length array. Fundamental
+        # frequency is undefined for degenerate input.
+        if len(audio_segment) == 0:
+            return 0.0, 0
 
         # Compute FFT
         fft_result = np.fft.rfft(audio_segment)

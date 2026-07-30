@@ -106,6 +106,12 @@ class PhaseCorrelationAnalyzer:
 
     def _calculate_phase_correlation(self, left: np.ndarray, right: np.ndarray) -> float:
         """Calculate phase correlation using analytic signals"""
+        # #4996: scipy.signal.hilbert raises ValueError on a 0-length array.
+        # Matches the sentinel _calculate_correlation already returns for the
+        # same degenerate-input case.
+        if len(left) == 0 or len(right) == 0:
+            return 0.0
+
         # Cap to avoid multi-GB allocation on long tracks; phase stats converge in seconds
         _cap = int(self.sample_rate * _HILBERT_MAX_SECONDS)
         left_analytic = signal.hilbert(left[:_cap])
