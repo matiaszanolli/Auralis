@@ -17,6 +17,7 @@ import { styled } from '@mui/material/styles';
 import MuiButton, { ButtonProps as MuiButtonProps } from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface ButtonProps extends Omit<MuiButtonProps, 'variant' | 'size' | 'color'> {
   /**
@@ -114,7 +115,7 @@ const StyledButton = styled(MuiButton as ComponentType<Omit<MuiButtonProps, 'var
   const variantStyles = {
     primary: {
       background: tokens.gradients.aurora,
-      color: tokens.colors.text.primary,
+      color: themeVars.textPrimary,
       boxShadow: tokens.shadows.md,
 
       '&:hover': {
@@ -128,46 +129,46 @@ const StyledButton = styled(MuiButton as ComponentType<Omit<MuiButtonProps, 'var
     },
 
     secondary: {
-      background: tokens.colors.bg.tertiary,
-      color: tokens.colors.text.primary,
-      border: `1px solid ${tokens.colors.border.medium}`,
+      background: themeVars.surfaceSecondary,
+      color: themeVars.textPrimary,
+      border: `1px solid ${themeVars.borderStrong}`,
 
       '&:hover': {
-        background: tokens.colors.bg.elevated,
+        background: themeVars.surfaceRaised,
         borderColor: tokens.colors.border.heavy,
       },
 
       '&:active': {
-        background: tokens.colors.bg.tertiary,
+        background: themeVars.surfaceSecondary,
       },
     },
 
     ghost: {
       background: 'transparent',
-      color: tokens.colors.text.secondary,
+      color: themeVars.textSecondary,
 
       '&:hover': {
-        background: tokens.colors.bg.tertiary,
-        color: tokens.colors.text.primary,
+        background: themeVars.surfaceSecondary,
+        color: themeVars.textPrimary,
       },
 
       '&:active': {
-        background: tokens.colors.bg.secondary,
+        background: themeVars.surfacePrimary,
       },
     },
 
     danger: {
-      background: tokens.colors.semantic.error,
-      color: tokens.colors.text.primary,
+      background: themeVars.error,
+      color: themeVars.textPrimary,
 
       '&:hover': {
-        background: tokens.colors.semantic.error,
+        background: themeVars.error,
         opacity: 0.9,
         boxShadow: tokens.shadows.md,
       },
 
       '&:active': {
-        background: tokens.colors.semantic.error,
+        background: themeVars.error,
         opacity: 0.8,
       },
     },
@@ -186,7 +187,7 @@ const LoadingSpinner = styled(CircularProgress)({
   top: '50%',
   marginLeft: '-10px',
   marginTop: '-10px',
-  color: tokens.colors.text.primary,
+  color: themeVars.textPrimary,
 });
 
 export const Button = ({

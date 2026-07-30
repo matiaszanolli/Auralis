@@ -6,6 +6,7 @@ import { KeyboardEvent } from 'react';
 import { TableCell, Typography, IconButton } from '@mui/material';
 import MoreVert from '@mui/icons-material/MoreVert';
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { StyledTableRow } from '@/components/library/Styles/Table.styles';
 import { TrackPlayIndicator } from '@/components/library/Items/tracks/TrackPlayIndicator';
 import { ContextMenu } from '@/components/shared/ContextMenu';
@@ -76,7 +77,7 @@ export const TrackTableRowItem = ({
           sx={{
             fontSize: tokens.typography.fontSize.md,
             fontWeight: isCurrentTrack ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.normal,
-            color: isCurrentTrack ? tokens.colors.accent.primary : tokens.colors.text.primary,
+            color: isCurrentTrack ? themeVars.accent : themeVars.textPrimary,
           }}
         >
           {track.title}
@@ -85,7 +86,7 @@ export const TrackTableRowItem = ({
       <TableCell>
         <Typography sx={{
           fontSize: tokens.typography.fontSize.sm,
-          color: tokens.colors.text.secondary,
+          color: themeVars.textSecondary,
         }}>
           {track.artist}
         </Typography>
@@ -93,7 +94,7 @@ export const TrackTableRowItem = ({
       <TableCell align="right">
         <Typography sx={{
           fontSize: tokens.typography.fontSize.sm,
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           fontFamily: tokens.typography.fontFamily.mono,
         }}>
           {formatDuration(track.duration)}
@@ -110,10 +111,10 @@ export const TrackTableRowItem = ({
             '.MuiTableRow-root:hover &, &:focus-visible': {
               opacity: 1,
             },
-            color: tokens.colors.text.secondary,
+            color: themeVars.textSecondary,
             '&:hover': {
-              backgroundColor: tokens.colors.bg.tertiary,
-              color: tokens.colors.accent.primary,
+              backgroundColor: themeVars.surfaceSecondary,
+              color: themeVars.accent,
             },
           }}
         >

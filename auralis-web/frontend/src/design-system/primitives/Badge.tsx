@@ -14,6 +14,7 @@
 import { styled } from '@mui/material/styles';
 import MuiBadge, { BadgeProps as MuiBadgeProps } from '@mui/material/Badge';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface BadgeProps extends Omit<MuiBadgeProps, 'variant' | 'color'> {
   /**
@@ -42,32 +43,32 @@ const StyledBadge = styled(MuiBadge as React.ComponentType<Omit<MuiBadgeProps, '
   const variantStyles = {
     default: {
       '& .MuiBadge-badge': {
-        background: tokens.colors.text.secondary,
-        color: tokens.colors.text.primary,
+        background: themeVars.textSecondary,
+        color: themeVars.textPrimary,
       },
     },
     primary: {
       '& .MuiBadge-badge': {
         background: tokens.gradients.aurora,
-        color: tokens.colors.text.primary,
+        color: themeVars.textPrimary,
       },
     },
     success: {
       '& .MuiBadge-badge': {
-        background: tokens.colors.semantic.success,
-        color: tokens.colors.text.primary,
+        background: themeVars.success,
+        color: themeVars.textPrimary,
       },
     },
     warning: {
       '& .MuiBadge-badge': {
-        background: tokens.colors.semantic.warning,
-        color: tokens.colors.text.primary,
+        background: themeVars.warning,
+        color: themeVars.textPrimary,
       },
     },
     error: {
       '& .MuiBadge-badge': {
-        background: tokens.colors.semantic.error,
-        color: tokens.colors.text.primary,
+        background: themeVars.error,
+        color: themeVars.textPrimary,
       },
     },
   };

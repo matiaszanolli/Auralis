@@ -14,6 +14,7 @@
 import { styled } from '@mui/material/styles';
 import MuiSlider, { SliderProps as MuiSliderProps } from '@mui/material/Slider';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface SliderProps extends Omit<MuiSliderProps, 'size' | 'color'> {
   /**
@@ -69,15 +70,15 @@ const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps
   // Variant styles
   const variantStyles = {
     default: {
-      color: tokens.colors.text.secondary,
+      color: themeVars.textSecondary,
 
       '& .MuiSlider-track': {
-        background: tokens.colors.text.secondary,
+        background: themeVars.textSecondary,
         border: 'none',
       },
 
       '& .MuiSlider-thumb': {
-        background: tokens.colors.text.primary,
+        background: themeVars.textPrimary,
         boxShadow: tokens.shadows.md,
 
         '&:hover, &.Mui-focusVisible': {
@@ -86,7 +87,7 @@ const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps
       },
 
       '& .MuiSlider-rail': {
-        background: tokens.colors.bg.elevated,
+        background: themeVars.surfaceRaised,
         opacity: 1,
       },
     },
@@ -98,7 +99,7 @@ const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps
       },
 
       '& .MuiSlider-thumb': {
-        background: tokens.colors.text.primary,
+        background: themeVars.textPrimary,
         boxShadow: tokens.shadows.glowSoft,
 
         '&:hover, &.Mui-focusVisible': {
@@ -107,21 +108,21 @@ const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps
       },
 
       '& .MuiSlider-rail': {
-        background: tokens.colors.bg.elevated,
+        background: themeVars.surfaceRaised,
         opacity: 1,
       },
     },
 
     accent: {
-      color: tokens.colors.accent.primary,
+      color: themeVars.accent,
 
       '& .MuiSlider-track': {
-        background: tokens.colors.accent.primary,
+        background: themeVars.accent,
         border: 'none',
       },
 
       '& .MuiSlider-thumb': {
-        background: tokens.colors.accent.primary,
+        background: themeVars.accent,
         boxShadow: tokens.shadows.md,
 
         '&:hover, &.Mui-focusVisible': {
@@ -130,7 +131,7 @@ const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps
       },
 
       '& .MuiSlider-rail': {
-        background: tokens.colors.bg.elevated,
+        background: themeVars.surfaceRaised,
         opacity: 1,
       },
     },
@@ -154,11 +155,11 @@ const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps
     },
 
     '& .MuiSlider-valueLabel': {
-      background: tokens.colors.bg.elevated,
+      background: themeVars.surfaceRaised,
       borderRadius: tokens.borderRadius.sm,
       fontSize: tokens.typography.fontSize.xs,
       padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-      color: tokens.colors.text.primary,
+      color: themeVars.textPrimary,
     },
   };
 });

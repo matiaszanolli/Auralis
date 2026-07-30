@@ -1,5 +1,6 @@
 
 import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 import { IconButton } from '@/design-system';
 import { Box, Typography, styled } from '@mui/material';
 
@@ -67,7 +68,7 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
       },
 
       '& .track-title': {
-        color: tokens.colors.accent.primary,
+        color: themeVars.accent,
       },
 
       '& .album-art': {
@@ -82,7 +83,7 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
 
     // Keyboard focus ring (fixes #2805: WCAG 2.1.1 keyboard accessibility)
     '&:focus-visible': {
-      outline: `2px solid ${tokens.colors.accent.primary}`,
+      outline: `2px solid ${themeVars.accent}`,
       outlineOffset: '2px',
     },
   })
@@ -109,7 +110,7 @@ export const TrackNumberBox = styled(Box)({
 export const TrackNumber = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) => ({
   fontSize: tokens.typography.fontSize.base,
   fontWeight: tokens.typography.fontWeight.medium,
-  color: iscurrent === 'true' ? tokens.colors.accent.primary : tokens.colors.text.secondary,
+  color: iscurrent === 'true' ? themeVars.accent : themeVars.textSecondary,
   transition: tokens.transitions.hover_out,
 }));
 
@@ -128,7 +129,7 @@ export const PlayButton = styled(IconButton)({
   opacity: 0,
   transform: 'scale(0.8)',
   transition: tokens.transitions.hover_out,
-  color: tokens.colors.accent.primary,
+  color: themeVars.accent,
 
   '& .MuiSvgIcon-root': {
     fontSize: tokens.typography.fontSize.lg,
@@ -172,7 +173,7 @@ export const TrackInfo = styled(Box)({
 export const TrackTitle = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) => ({
   fontSize: tokens.typography.fontSize.base,
   fontWeight: iscurrent === 'true' ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.medium,
-  color: tokens.colors.text.primary,
+  color: themeVars.textPrimary,
   opacity: iscurrent === 'true' ? 1 : 0.9,           // Phase 2: Subtle reduction for non-current (sheet music, not stage)
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -184,7 +185,7 @@ export const TrackTitle = styled(Typography)<{ iscurrent?: string }>(({ iscurren
 export const TrackArtist = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.normal,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
   opacity: 0.7,                                      // Phase 2: Muted metadata (second-level hierarchy)
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -196,7 +197,7 @@ export const TrackAlbum = styled(Typography)(
   {
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.normal,
-    color: tokens.colors.text.secondary,
+    color: themeVars.textSecondary,
     opacity: 0.7,                                    // Phase 2: Muted metadata (second-level hierarchy)
     minWidth: '200px',
     maxWidth: '300px',
@@ -215,7 +216,7 @@ export const TrackAlbum = styled(Typography)(
 export const TrackDuration = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.normal,
-  color: tokens.colors.text.disabled,
+  color: themeVars.textDisabled,
   opacity: 0.5,                                      // Phase 2: Ghosted duration (third-level hierarchy)
   minWidth: '50px',
   textAlign: 'right',
@@ -235,7 +236,7 @@ export const MoreButton = styled(IconButton)({
   flexShrink: 0,
   opacity: 0,
   transition: `opacity ${tokens.transitions.fast}`,
-  color: tokens.colors.text.secondary,
+  color: themeVars.textSecondary,
 
   '& .MuiSvgIcon-root': {
     fontSize: tokens.typography.fontSize.lg,
@@ -243,6 +244,6 @@ export const MoreButton = styled(IconButton)({
 
   '&:hover': {
     background: tokens.colors.opacityScale.accent.light,
-    color: tokens.colors.accent.primary,
+    color: themeVars.accent,
   },
 });

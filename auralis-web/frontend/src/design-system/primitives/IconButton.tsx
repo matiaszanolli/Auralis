@@ -17,6 +17,7 @@ import { styled } from '@mui/material/styles';
 import MuiIconButton, { IconButtonProps as MuiIconButtonProps } from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface IconButtonProps extends Omit<MuiIconButtonProps, 'size' | 'color'> {
   /**
@@ -82,26 +83,26 @@ const StyledIconButton = styled(MuiIconButton as ComponentType<Omit<MuiIconButto
   // Variant styles
   const variantStyles = {
     default: {
-      color: tokens.colors.text.secondary,
+      color: themeVars.textSecondary,
       background: 'transparent',
 
       '&:hover': {
-        background: tokens.colors.bg.tertiary,
-        color: tokens.colors.text.primary,
+        background: themeVars.surfaceSecondary,
+        color: themeVars.textPrimary,
       },
 
       '&:active': {
-        background: tokens.colors.bg.elevated,
+        background: themeVars.surfaceRaised,
       },
 
       ...(active && {
-        color: tokens.colors.accent.primary,
-        background: tokens.colors.bg.tertiary,
+        color: themeVars.accent,
+        background: themeVars.surfaceSecondary,
       }),
     },
 
     primary: {
-      color: tokens.colors.text.primary,
+      color: themeVars.textPrimary,
       background: tokens.gradients.aurora,
       boxShadow: tokens.shadows.md,
 
@@ -116,36 +117,36 @@ const StyledIconButton = styled(MuiIconButton as ComponentType<Omit<MuiIconButto
     },
 
     secondary: {
-      color: tokens.colors.text.primary,
-      background: tokens.colors.bg.tertiary,
-      border: `1px solid ${tokens.colors.border.medium}`,
+      color: themeVars.textPrimary,
+      background: themeVars.surfaceSecondary,
+      border: `1px solid ${themeVars.borderStrong}`,
 
       '&:hover': {
-        background: tokens.colors.bg.elevated,
+        background: themeVars.surfaceRaised,
         borderColor: tokens.colors.border.heavy,
       },
 
       '&:active': {
-        background: tokens.colors.bg.tertiary,
+        background: themeVars.surfaceSecondary,
       },
 
       ...(active && {
-        borderColor: tokens.colors.accent.primary,
-        background: tokens.colors.bg.elevated,
+        borderColor: themeVars.accent,
+        background: themeVars.surfaceRaised,
       }),
     },
 
     ghost: {
-      color: tokens.colors.text.secondary,
+      color: themeVars.textSecondary,
       background: 'transparent',
 
       '&:hover': {
-        color: tokens.colors.text.primary,
-        background: tokens.colors.bg.tertiary,
+        color: themeVars.textPrimary,
+        background: themeVars.surfaceSecondary,
       },
 
       ...(active && {
-        color: tokens.colors.accent.primary,
+        color: themeVars.accent,
       }),
     },
   };

@@ -15,6 +15,7 @@ import { styled } from '@mui/material/styles';
 import MuiTextField, { TextFieldProps as MuiTextFieldProps } from '@mui/material/TextField';
 import { InputAdornment } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
+import { themeVars } from '@/theme/semanticTheme';
 
 export interface InputProps extends Omit<MuiTextFieldProps, 'variant' | 'size' | 'color'> {
   /**
@@ -78,30 +79,30 @@ const StyledTextField = styled(MuiTextField as React.ComponentType<Omit<MuiTextF
   const variantStyles = {
     default: {
       '& .MuiInputBase-root': {
-        background: tokens.colors.bg.level3,
+        background: themeVars.surfaceRaised,
         borderRadius: tokens.borderRadius.md,
-        border: `1px solid ${error ? tokens.colors.semantic.error : tokens.colors.border.medium}`,
-        color: tokens.colors.text.primary,
+        border: `1px solid ${error ? themeVars.error : themeVars.borderStrong}`,
+        color: themeVars.textPrimary,
         transition: tokens.transitions.all,
 
         '&:hover': {
-          borderColor: error ? tokens.colors.semantic.error : tokens.colors.border.heavy,
+          borderColor: error ? themeVars.error : tokens.colors.border.heavy,
         },
 
         '&.Mui-focused': {
-          borderColor: error ? tokens.colors.semantic.error : tokens.colors.accent.primary,
+          borderColor: error ? themeVars.error : themeVars.accent,
           boxShadow: error
-            ? `0 0 12px ${tokens.colors.semantic.error}20`
+            ? `0 0 12px ${themeVars.error}20`
             : tokens.shadows.glowSoft,
         },
       },
 
       '& .MuiInputBase-input': {
         padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-        color: tokens.colors.text.primary,
+        color: themeVars.textPrimary,
 
         '&::placeholder': {
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           opacity: 1,
         },
       },
@@ -116,28 +117,28 @@ const StyledTextField = styled(MuiTextField as React.ComponentType<Omit<MuiTextF
         background: tokens.components.inputSurface.base,
         borderRadius: tokens.borderRadius.full, // Pill shape
         border: `1px solid ${tokens.colors.border.light}`,
-        color: tokens.colors.text.primary,
+        color: themeVars.textPrimary,
         transition: tokens.transitions.all,
         backdropFilter: 'blur(10px)',
 
         '&:hover': {
           background: tokens.components.inputSurface.hover,
-          borderColor: tokens.colors.border.medium,
+          borderColor: themeVars.borderStrong,
         },
 
         '&.Mui-focused': {
           background: tokens.components.inputSurface.focus,
-          borderColor: tokens.colors.accent.primary,
+          borderColor: themeVars.accent,
           boxShadow: tokens.shadows.glowSoft,
         },
       },
 
       '& .MuiInputBase-input': {
         padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-        color: tokens.colors.text.primary,
+        color: themeVars.textPrimary,
 
         '&::placeholder': {
-          color: tokens.colors.text.tertiary,
+          color: themeVars.textMuted,
           opacity: 1,
         },
       },
@@ -156,7 +157,7 @@ const StyledTextField = styled(MuiTextField as React.ComponentType<Omit<MuiTextF
       marginLeft: tokens.spacing.sm,
       marginTop: tokens.spacing.xs,
       fontSize: tokens.typography.fontSize.xs,
-      color: error ? tokens.colors.semantic.error : tokens.colors.text.tertiary,
+      color: error ? themeVars.error : themeVars.textMuted,
     },
   };
 });
@@ -179,12 +180,12 @@ export const Input = ({
       slotProps={{
         input: {
           startAdornment: startIcon ? (
-            <InputAdornment position="start" sx={{ color: tokens.colors.text.tertiary }}>
+            <InputAdornment position="start" sx={{ color: themeVars.textMuted }}>
               {startIcon}
             </InputAdornment>
           ) : undefined,
           endAdornment: endIcon ? (
-            <InputAdornment position="end" sx={{ color: tokens.colors.text.tertiary }}>
+            <InputAdornment position="end" sx={{ color: themeVars.textMuted }}>
               {endIcon}
             </InputAdornment>
           ) : undefined,
