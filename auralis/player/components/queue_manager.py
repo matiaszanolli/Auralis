@@ -37,15 +37,29 @@ class QueueManager:
         self._pre_shuffle_tracks: list[dict[str, Any]] | None = None
         self._pre_shuffle_index: int = -1
 
+    def _invalidate_shuffle_snapshot_unlocked(self) -> None:
+        """
+        Drop the pre-shuffle snapshot (caller must hold self._lock).
+
+        #4525: any mutation of self.tracks while shuffled makes the snapshot
+        stale — restoring it in unshuffle() would silently discard the
+        mutation. Declining to restore (unshuffle() returns False once the
+        snapshot is None) is safer than resurrecting/dropping tracks.
+        """
+        self._pre_shuffle_tracks = None
+        self._pre_shuffle_index = -1
+
     def add_track(self, track_info: dict[str, Any]) -> None:
         """Add a track to the queue"""
         with self._lock:
             self.tracks.append(track_info)
+            self._invalidate_shuffle_snapshot_unlocked()
 
     def add_tracks(self, track_list: list[dict[str, Any]]) -> None:
         """Add multiple tracks to the queue"""
         with self._lock:
             self.tracks.extend(track_list)
+            self._invalidate_shuffle_snapshot_unlocked()
 
     def _get_current_track_unlocked(self) -> dict[str, Any] | None:
         """Get current track info (caller must hold self._lock)."""
@@ -185,6 +199,7 @@ class QueueManager:
         with self._lock:
             self.tracks.clear()
             self.current_index = -1
+            self._invalidate_shuffle_snapshot_unlocked()
 
     def _remove_track_unlocked(self, index: int) -> bool:
         """
@@ -198,6 +213,7 @@ class QueueManager:
         """
         if 0 <= index < len(self.tracks):
             self.tracks.pop(index)
+            self._invalidate_shuffle_snapshot_unlocked()
 
             # Adjust current_index if necessary
             if index < self.current_index:
@@ -270,6 +286,7 @@ class QueueManager:
 
             # Reorder tracks
             self.tracks = [self.tracks[i] for i in new_order]
+            self._invalidate_shuffle_snapshot_unlocked()
 
             # Update current_index to point to the same track (#2159)
             if current_track_id is not None:
