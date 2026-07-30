@@ -4,7 +4,7 @@ const log = require('electron-log/main');
 const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const { isSafeExternalUrl } = require('./url-safety');
+const { isSafeExternalUrl, isAllowedAppNavigation } = require('./url-safety');
 
 // Configure logging for auto-updater
 log.transports.file.level = 'info';
@@ -655,4 +655,32 @@ app.on('web-contents-created', (_event, contents) => {
     openExternalSafely(url);
     return { action: 'deny' };
   });
+
+  // setWindowOpenHandler only governs *new* windows. In-place top-level
+  // navigation of an existing window has no default restriction: with no
+  // will-navigate listener Electron just goes wherever it is pointed, and
+  // because preload.js is attached to the BrowserWindow rather than to a URL
+  // it re-runs there, handing the whole electronAPI IPC surface to that
+  // origin (#4858). Registered on web-contents-created so every webContents
+  // is covered, not only mainWindow.
+  //
+  // will-redirect is needed as well: a 3xx to an off-origin destination does
+  // not re-emit will-navigate, so checking only the latter would let a
+  // redirect chain walk straight out of localhost.
+  const blockOffOrigin = (event, url) => {
+    // `!app.isPackaged` is how the rest of main.js decides dev mode (line 32);
+    // NODE_ENV is not set in a packaged build, so reusing it here would keep
+    // the :3000 dev origin allowed in production.
+    if (isAllowedAppNavigation(url, { isDevelopment: !app.isPackaged })) {
+      return;
+    }
+    event.preventDefault();
+    console.warn(`Blocked in-window navigation to non-app origin: ${url}`);
+    // Treat it the way a clicked external link is treated — the user's
+    // browser, not this window, subject to the same scheme allowlist.
+    openExternalSafely(url);
+  };
+
+  contents.on('will-navigate', blockOffOrigin);
+  contents.on('will-redirect', blockOffOrigin);
 });
