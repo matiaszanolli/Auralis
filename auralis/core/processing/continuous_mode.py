@@ -45,9 +45,36 @@ from .cross_dimensional_guard import (
     STAGE_NORMALIZATION,
     STAGE_STEREO,
     CrossDimensionalGuard,
+    smooth_gate,
 )
 from .parameter_generator import ContinuousParameterGenerator
 from .stage_snapshot import PipelineJournal
+
+# Cross-dimensional guard knees (#4860).
+#
+# Each pair brackets the hard threshold this guard used to switch on at, so
+# behaviour well inside and well outside the old trigger is unchanged and only
+# the transition is a ramp. Knees are deliberately centred on the old values:
+#   EQ drift      1.5 dB  -> [1.0, 2.0]
+#   spectral tilt 0.10    -> [0.05, 0.15]
+#   phase drop    -0.2    -> [0.1, 0.3] (on the drop magnitude)
+#   phase level   0.3     -> [0.4, 0.2] (descending: lower correlation = worse)
+EQ_DRIFT_KNEE_START = 1.0
+EQ_DRIFT_KNEE_END = 2.0
+TILT_SHIFT_KNEE_START = 0.05
+TILT_SHIFT_KNEE_END = 0.15
+PHASE_DROP_KNEE_START = 0.1
+PHASE_DROP_KNEE_END = 0.3
+PHASE_LEVEL_KNEE_START = 0.4
+PHASE_LEVEL_KNEE_END = 0.2
+MAX_PHASE_BLEND = 0.5
+
+# Below these a correction is numerically pointless, not merely small. These
+# are no-op cutoffs that exist to skip needless filter/copy work — NOT
+# behavioural gates, so they must stay far below audibility (~0.01 dB is
+# roughly three orders of magnitude under a just-noticeable level difference).
+GUARD_EPSILON_DB = 0.01
+GUARD_EPSILON_BLEND = 0.001
 
 
 def _quick_3band(audio: np.ndarray, sample_rate: int) -> tuple[float, float, float]:
@@ -421,8 +448,10 @@ class ContinuousMode:
     ) -> np.ndarray:
         """5b. Apply psychoacoustic EQ, then guard against LUFS drift.
 
-        EQ should change spectral shape, not overall loudness — compensate any
-        drift beyond 1.5 dB (capped at ±3 dB).
+        EQ should change spectral shape, not overall loudness — compensate
+        drift (capped at ±3 dB), eased in across a 1.0-2.0 dB knee centred on
+        the old 1.5 dB threshold so the correction ramps instead of snapping
+        on (#4860).
         """
         pre_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
         processed_audio = self._apply_eq(processed_audio, eq_processor, params)
@@ -431,10 +460,13 @@ class ContinuousMode:
             post_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
             if post_eq_lufs is not None:
                 lufs_drift = post_eq_lufs - pre_eq_lufs
-                if abs(lufs_drift) > 1.5:
-                    correction = max(-3.0, min(3.0, -lufs_drift))  # Cap at ±3 dB
+                # Ramp 0 -> full compensation across |drift| in [1.0, 2.0] dB
+                # instead of jumping to -1.5 dB the instant 1.5 is crossed.
+                gate = smooth_gate(abs(lufs_drift), EQ_DRIFT_KNEE_START, EQ_DRIFT_KNEE_END)
+                correction = max(-3.0, min(3.0, -lufs_drift)) * gate
+                if abs(correction) > GUARD_EPSILON_DB:
                     processed_audio = amplify(processed_audio, correction)
-                    debug(f"[Guard] EQ LUFS compensation: {correction:+.1f} dB (drift was {lufs_drift:+.1f})")
+                    debug(f"[Guard] EQ LUFS compensation: {correction:+.2f} dB (drift was {lufs_drift:+.2f}, gate {gate:.2f})")
         return processed_audio
 
     def _stage_dynamics(
@@ -454,14 +486,23 @@ class ContinuousMode:
             )
             bass_shift = post_dyn_bass - pre_dyn_snap.bass_energy_pct
             high_shift = post_dyn_high - pre_dyn_snap.high_energy_pct
-            if abs(bass_shift) > 0.10 or abs(high_shift) > 0.10:
-                dominant_shift = bass_shift if abs(bass_shift) >= abs(high_shift) else -high_shift
-                tilt_correction = max(-2.0, min(2.0, -dominant_shift * 10.0))
-                if abs(tilt_correction) > 0.3:
-                    processed_audio = _apply_spectral_tilt_correction(
-                        processed_audio, tilt_correction, self.config.internal_sample_rate
-                    )
-                    debug(f"[Guard] Dynamics spectral tilt compensation: {tilt_correction:+.1f} dB")
+            dominant_shift = bass_shift if abs(bass_shift) >= abs(high_shift) else -high_shift
+            # Two hard gates lived here: the 0.10 shift trigger and a second
+            # `abs(tilt) > 0.3` cutoff, each its own discontinuity. The first
+            # becomes a knee centred on 0.10; the second is replaced by
+            # GUARD_EPSILON_DB, which only skips corrections small enough to be
+            # numerically pointless rather than gating an audible one (#4860).
+            gate = smooth_gate(
+                max(abs(bass_shift), abs(high_shift)),
+                TILT_SHIFT_KNEE_START,
+                TILT_SHIFT_KNEE_END,
+            )
+            tilt_correction = max(-2.0, min(2.0, -dominant_shift * 10.0)) * gate
+            if abs(tilt_correction) > GUARD_EPSILON_DB:
+                processed_audio = _apply_spectral_tilt_correction(
+                    processed_audio, tilt_correction, self.config.internal_sample_rate
+                )
+                debug(f"[Guard] Dynamics spectral tilt compensation: {tilt_correction:+.2f} dB (gate {gate:.2f})")
         return processed_audio
 
     def _stage_stereo_width(
@@ -482,14 +523,21 @@ class ContinuousMode:
                 pre_phase_val = pre_phase.phase_correlation if pre_phase else None
                 if post_phase is not None and pre_phase_val is not None:
                     phase_drop = post_phase - pre_phase_val
-                    if phase_drop < -0.2 and post_phase < 0.3:
+                    # Both conditions were hard AND-ed gates onto a FIXED 50%
+                    # blend, so a 0.002 phase difference decided between "no
+                    # change" and "half-collapsed to mono". Each becomes its own
+                    # knee centred on its old threshold, and the blend is now
+                    # their product — continuous in both inputs (#4860).
+                    drop_gate = smooth_gate(-phase_drop, PHASE_DROP_KNEE_START, PHASE_DROP_KNEE_END)
+                    level_gate = smooth_gate(-post_phase, -PHASE_LEVEL_KNEE_START, -PHASE_LEVEL_KNEE_END)
+                    blend = MAX_PHASE_BLEND * drop_gate * level_gate
+                    if blend > GUARD_EPSILON_BLEND:
                         mid = (processed_audio[:, 0] + processed_audio[:, 1]) / 2
-                        blend = 0.5  # 50% correction
                         corrected = processed_audio.copy()
                         corrected[:, 0] = processed_audio[:, 0] * (1 - blend) + mid * blend
                         corrected[:, 1] = processed_audio[:, 1] * (1 - blend) + mid * blend
                         processed_audio = corrected
-                        debug(f"[Guard] Phase compensation: blended 50% toward mid (phase was {post_phase:.2f})")
+                        debug(f"[Guard] Phase compensation: blended {blend:.1%} toward mid (phase was {post_phase:.3f}, drop {phase_drop:+.3f})")
         return processed_audio
 
     def _stage_normalization(

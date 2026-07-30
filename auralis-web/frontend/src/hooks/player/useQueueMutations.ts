@@ -182,7 +182,11 @@ export function useQueueMutations(): QueueMutations {
       runOptimistic(
         () => dispatch(reduxReorderTrack({ fromIndex, toIndex })),
         () =>
-          put('/api/player/queue/reorder', {
+          // /queue/move takes MoveQueueTrackRequest {from_index, to_index} —
+          // a single-item move. /queue/reorder takes ReorderQueueRequest
+          // {new_order: int[]} and is used by reorderQueue below; sending this
+          // payload there 422'd before the handler ever ran (#4854).
+          put('/api/player/queue/move', {
             from_index: fromIndex,
             to_index: toIndex,
           }),

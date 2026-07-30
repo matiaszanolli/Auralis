@@ -25,6 +25,47 @@ STAGE_STEREO = "stereo"
 STAGE_NORMALIZATION = "normalization"
 
 
+def smooth_gate(value: float, knee_start: float, knee_end: float) -> float:
+    """
+    Smoothstep weight in [0, 1] — the continuous replacement for `if x > t`.
+
+    Returns 0 at or below `knee_start`, 1 at or above `knee_end`, and a
+    Hermite (3t² - 2t³) ramp between them. That polynomial is C¹: the weight
+    *and* its first derivative are continuous at both knees, so a correction
+    scaled by it eases in rather than cornering.
+
+    The guard corrections in ``ContinuousMode._apply_dsp_stages`` used hard
+    `if measured > threshold` tests that jumped straight to a substantial,
+    audible value the instant the threshold was crossed — reintroducing
+    exactly the categorical on/off step the continuous-space architecture
+    replaced (#4860). Two near-identical tracks landing either side of a
+    boundary got a ~1.5 dB loudness step or a 50% stereo collapse between
+    them.
+
+    Used as `correction = full_correction * smooth_gate(measured, lo, hi)`,
+    with the knee centred on the old threshold, so the far-field behaviour is
+    unchanged (0 well below, full correction well above) and only the
+    transition becomes a ramp.
+
+    Args:
+        value: The measured quantity (use its magnitude for symmetric gates).
+        knee_start: Below this the gate is fully closed.
+        knee_end: At or above this the gate is fully open.
+
+    Returns:
+        Weight in [0.0, 1.0].
+    """
+    if knee_end <= knee_start:
+        # Degenerate knee — fall back to a step so callers cannot divide by 0.
+        return 1.0 if value >= knee_end else 0.0
+    t = (value - knee_start) / (knee_end - knee_start)
+    if t <= 0.0:
+        return 0.0
+    if t >= 1.0:
+        return 1.0
+    return float(t * t * (3.0 - 2.0 * t))
+
+
 @dataclass(frozen=True)
 class SideEffect:
     """A detected cross-dimensional interaction."""

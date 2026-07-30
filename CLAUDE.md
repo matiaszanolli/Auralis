@@ -1,5 +1,12 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+> `AGENTS.md` is a near-duplicate of this file and is already drifting (it still
+> says 1.5.0, and still describes `LibraryManager` as current). Update both or
+> collapse one into the other — per the No-variants principle below, two copies
+> of the same brief is exactly the shape that rots.
+
 **Project**: Auralis — Music player with real-time audio enhancement
 **Version**: 1.5.1 recovery milestone (`auralis/version.py` is source of truth; not tagged)
 **Python**: 3.14+ | **Node**: 24+ | **Rust**: Required (PyO3 DSP module)
@@ -9,16 +16,23 @@
 
 ```bash
 # Run verified recovery components (the root/Electron launcher is a known blocker)
-uv venv && source .venv/bin/activate    # uv manages the Python interpreter + venv; .python-version pins 3.14
+# `--python-preference only-managed` or uv silently picks a stale pyenv shim
+uv venv --python-preference only-managed && source .venv/bin/activate
 uv pip install -r requirements.txt
 cd auralis-web/backend && python main.py --dev             # Backend :8765
 cd auralis-web/frontend && pnpm install && pnpm run dev   # pnpm is the only supported JS package manager (#4357)
 
-# Test
-python -m pytest tests/ -v                         # All (~2-3 min)
-python -m pytest -m "not slow" -v                   # Fast subset
-python -m pytest tests/path.py::test_name -vv -s    # Single test
-cd auralis-web/frontend && pnpm run test:memory       # Frontend (2GB heap)
+# Test — scope first, widen once. `-q` keeps passes as dots; `-v` dumps every
+# test name into context for ~5,600 tests.
+python -m pytest -q -m "not slow" tests/auralis/dsp     # A domain (the normal inner loop)
+python -m pytest tests/path.py::test_name -vv -s        # Single test
+cd auralis-web/frontend && pnpm run test:memory         # Frontend (2GB heap; OOMs without it)
+
+# Whole backend suite. NOT "~2-3 min" — it is tens of minutes, and these two
+# files HANG when run as whole files, so exclude them exactly like CI does:
+python -m pytest -q -m "not slow" \
+  --ignore=tests/backend/test_system_api.py \
+  --ignore=tests/concurrency/test_thread_safety.py
 
 # Type check
 mypy auralis/ auralis-web/backend/ --ignore-missing-imports
@@ -27,6 +41,40 @@ cd auralis-web/frontend && pnpm run type-check
 # Build Rust DSP (required before first run)
 cd vendor/auralis-dsp && maturin develop
 ```
+
+## CI gates and the failure baselines
+
+Neither test suite is green, so both CI gates are **ratchets**: a run is judged
+against a checked-in list of known failures and fails only on failures *not* in
+that list. The list may shrink, never grow.
+
+| Workflow | Runs | Baseline | Gate script |
+|---|---|---|---|
+| `frontend-test.yml` | `pnpm run test:ci` | `auralis-web/frontend/test-baseline.json` | `scripts/check-test-baseline.mjs` |
+| `backend-tests.yml` | `pytest --junitxml` | `pytest-baseline.json` | `scripts/check_pytest_baseline.py` |
+| `frontend-typecheck.yml` | `pnpm run type-check:prod` | — (must be clean) | — |
+
+The test step itself always exits 0; **the baseline step is what decides the
+job**. Both gates also fail on a missing report or 0 collected tests, so a
+crashed runner cannot pass as green.
+
+**When you fix a failing test, regenerate the baseline** — otherwise the entry
+lingers and silently re-permits that exact failure:
+
+```bash
+cd auralis-web/frontend && pnpm run test:ci && pnpm run test:baseline:update
+```
+
+Generate a baseline from a **CI artifact**, not a local run — a baseline built
+against a different interpreter or dependency set reports spurious new failures.
+`pytest-baseline.json` does not exist yet, so `backend-tests.yml` cannot pass
+until one is generated from a real run.
+
+Do not add a `version:` input to `pnpm/action-setup`: every `package.json` here
+declares `packageManager`, and supplying both makes the action hard-error before
+it installs anything. Backend CI must stay on Python 3.14 — on 3.13 the
+codebase's PEP 649 deferred annotations fail at import and the suite collects
+zero tests.
 
 ## Codebase Map
 
@@ -70,7 +118,8 @@ auralis/                          Core Python audio engine
 │   ├── unified_loader.py           Unified loading (FFmpeg, SoundFile)
 │   └── results.py                  Output formats (pcm16, pcm24)
 ├── optimization/                 Performance
-│   └── parallel_processor.py       Parallel audio processing
+│   ├── parallel/                   Parallel audio processing (impl lives here)
+│   └── parallel_processor.py       Compatibility barrel re-exporting parallel/ (#4276)
 ├── services/                     Background services (fingerprint, artwork)
 ├── learning/                     Preference engine, reference analysis
 └── utils/                        Logging, helpers, preview creator
@@ -78,11 +127,12 @@ auralis/                          Core Python audio engine
 auralis-web/
 ├── backend/                      FastAPI REST + WebSocket (:8765)
 │   ├── main.py                     App entry point
-│   ├── routers/                    19 route handlers (player, library, albums,
+│   ├── routers/                    25 route handlers (player, library, albums,
 │   │                                 artists, playlists, enhancement, metadata,
 │   │                                 artwork, system, similarity, streaming...)
 │   ├── processing_engine.py        Audio processing orchestration
-│   ├── chunked_processor.py        15s chunks, 10s interval, 5s overlap crossfade
+│   ├── chunked_processor.py        15s chunks rendered w/ context, emitted as
+│   │                                 10s NON-overlapping segments (no crossfade)
 │   ├── audio_stream_controller.py  WebSocket audio streaming
 │   ├── schemas.py                  Request/response schemas
 │   └── services/, core/, config/   Service layer, encoding, config
@@ -98,9 +148,9 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            ~5,400 test functions (391 files) across 19 subdirs (unit, integration,
+tests/                            ~5,600 test functions (454 files) across 19 subdirs (unit, integration,
                                     boundary, concurrency, security, load, regression...)
-docs/                             21 topic dirs (development, features, frontend...)
+docs/                             19 topic dirs (development, features, frontend...)
 ```
 
 ## Architecture Flow
@@ -108,7 +158,7 @@ docs/                             21 topic dirs (development, features, frontend
 ```
 User → FastAPI (REST + WebSocket :8765) → Backend Services
          → LibraryDatabase (SQLite) → HybridProcessor (DSP pipeline)
-         → ChunkedProcessor (15s chunks, 5s overlap) → WebSocket stream → React (Redux)
+         → ChunkedProcessor (15s w/ context → 10s non-overlapping) → WS → React (Redux)
 ```
 
 ## Critical Invariants
@@ -123,6 +173,23 @@ output = audio.copy()                         # Never modify in-place
 
 **Player state**: position ≤ duration, queue index valid, state changes atomic (RLock).
 **Database**: thread-safe pooling (`pool_pre_ping=True`), no N+1 (`selectinload()`), all access via repositories.
+
+**Detached ORM instances** — repositories `expunge()` everything they return, so
+any relationship a query did not eager-load raises `DetachedInstanceError` when
+`to_dict()` touches it. Two rules, both required:
+- the repository's read paths carry `selectinload(Model.rel)` (define the option
+  tuple once at module scope so a new read path cannot silently omit it);
+- `to_dict()` reads relationships through `_safe_collection()` / `_safe_scalar()`
+  in `library/models/core.py`, which degrade to `[]` / `None` and log a WARNING
+  naming the missing eager-load.
+
+`refresh()` expires an instance without re-applying query options, so
+post-commit paths must touch the relationship while still attached.
+
+**Chunk geometry**: `CHUNK_DURATION` / `INTERVAL` / `OVERLAP` / `CONTEXT` come
+only from `backend/core/chunk_boundaries.py`; `content_chunk_count()` is the sole
+chunk-counting authority (overlap-aware — not `ceil(duration / CHUNK_DURATION)`).
+Cached chunk files are 16-bit PCM WAV, not float32.
 
 ## Patterns
 
@@ -141,7 +208,13 @@ output = audio.copy()                         # Never modify in-place
 
 ## Git
 
-Branch from `master`. Prefixes: `feature/`, `fix/`, `refactor/`, `docs/`. Commit: `type: description`. Before PR: `pytest -m "not slow" -v` + type checks.
+Branch from `master`. Prefixes: `feature/`, `fix/`, `refactor/`, `docs/`. Commit:
+`type: description`. Before PR, run the **scoped** tests for what you touched plus
+`mypy` / `type-check` — the full suite is a CI job, not an inner loop.
+
+Commits to `master` do not auto-push. `git log` / `git status` can shift mid-session:
+work is done in this repo from parallel terminals, so re-check rather than assuming
+staleness. Commit each logical unit as soon as its scoped tests pass.
 
 ## Troubleshooting
 
@@ -151,6 +224,8 @@ Branch from `master`. Prefixes: `feature/`, `fix/`, `refactor/`, `docs/`. Commit
 | Frontend tests OOM | `pnpm run test:memory` (2GB heap) |
 | Database locked | Kill python, delete `~/.auralis/library.db` |
 | Rust module missing | `cd vendor/auralis-dsp && maturin develop` |
+| pytest run never finishes | You included `test_system_api.py` / `test_thread_safety.py` — scope or `--ignore` them |
+| CI red in <20s | Setup failure, not tests — check `pnpm/action-setup` / Python version before reading test output |
 
 ## Reference Docs
 

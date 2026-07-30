@@ -459,7 +459,10 @@ describe('usePlaybackQueue', () => {
       await result.current.reorderTrack(0, 2);
     });
 
-    expect(mockPut).toHaveBeenCalledWith('/api/player/queue/reorder', {
+    // A single-item move goes to /queue/move, not /queue/reorder — this
+    // assertion previously pinned the wrong route, which is how a
+    // permanently-422ing reorder looked covered (#4854).
+    expect(mockPut).toHaveBeenCalledWith('/api/player/queue/move', {
       from_index: 0,
       to_index: 2,
     });
