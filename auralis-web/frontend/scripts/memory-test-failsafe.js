@@ -109,7 +109,7 @@ async function runTestCategory(category) {
       testPattern
     ];
 
-    const process = spawn('npm', viteArgs, {
+    const process = spawn('pnpm', viteArgs, {
       cwd: process.cwd(),
       env: {
         ...process.env,

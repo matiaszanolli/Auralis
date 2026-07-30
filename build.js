@@ -145,11 +145,11 @@ class BuildManager {
 
     // Install dependencies if needed
     if (!fs.existsSync(path.join(this.frontendDir, 'node_modules'))) {
-      await this.runCommand('npm', ['install'], this.frontendDir, 'Installing frontend dependencies');
+      await this.runCommand('pnpm', ['install'], this.frontendDir, 'Installing frontend dependencies');
     }
 
     // Build frontend
-    await this.runCommand('npm', ['run', 'build'], this.frontendDir, 'Building frontend');
+    await this.runCommand('pnpm', ['run', 'build'], this.frontendDir, 'Building frontend');
 
     // Verify build
     if (!fs.existsSync(this.frontendBuildDir)) {

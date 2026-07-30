@@ -75,7 +75,7 @@ class PackageManager {
 
     const nodeModules = path.join(this.desktopDir, 'node_modules');
     if (!fs.existsSync(nodeModules)) {
-      await this.runCommand('npm', ['install'], this.desktopDir, 'Installing Electron dependencies');
+      await this.runCommand('pnpm', ['install'], this.desktopDir, 'Installing Electron dependencies');
     } else {
       this.log('PACKAGE', '✓ Dependencies already installed');
     }
@@ -94,7 +94,7 @@ class PackageManager {
     const command = commands[this.platform] || commands['all'];
 
     await this.runCommand(
-      'npm',
+      'pnpm',
       command,
       this.desktopDir,
       `Creating ${this.platform} package`

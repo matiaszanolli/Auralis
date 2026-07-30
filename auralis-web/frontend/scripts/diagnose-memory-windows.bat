@@ -38,13 +38,13 @@ echo.
 echo [Recommendations]
 if !FREE_GB! GEQ 2048 (
     echo ✓ Plenty of memory - can run full suite with 2GB heap
-    echo   npm run test:memory:failsafe
+    echo   pnpm run test:memory:failsafe
 ) else if !FREE_GB! GEQ 1024 (
     echo ✓ Good memory - recommend 1GB heap
-    echo   npm run test:memory:failsafe -- --max-heap 1024
+    echo   pnpm run test:memory:failsafe -- --max-heap 1024
 ) else if !FREE_GB! GEQ 512 (
     echo ⚠ Limited memory - use 512MB heap, test by category
-    echo   npm run test:memory:failsafe -- --category components --max-heap 512
+    echo   pnpm run test:memory:failsafe -- --category components --max-heap 512
 ) else (
     echo ✗ Very low memory - close other apps or add RAM
     echo   Current free: !FREE_GB!GB (Need 512MB minimum)
@@ -63,7 +63,7 @@ echo.
 echo [Next Steps]
 echo 1. Review recommendations above
 echo 2. Close unnecessary applications
-echo 3. Run: npm run test:memory:failsafe [options]
+echo 3. Run: pnpm run test:memory:failsafe [options]
 echo.
 
 REM Open docs if requested
@@ -74,10 +74,10 @@ if "%1"=="--help" (
     echo   --category components   Run only components tests
     echo.
     echo Example combinations:
-    echo   npm run test:memory:failsafe
-    echo   npm run test:memory:failsafe -- --max-heap 1024
-    echo   npm run test:memory:failsafe -- --category components
-    echo   npm run test:memory:failsafe -- --category integration --max-heap 1024
+    echo   pnpm run test:memory:failsafe
+    echo   pnpm run test:memory:failsafe -- --max-heap 1024
+    echo   pnpm run test:memory:failsafe -- --category components
+    echo   pnpm run test:memory:failsafe -- --category integration --max-heap 1024
 )
 
 echo ============================================================

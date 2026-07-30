@@ -31,18 +31,18 @@ cd ../frontend
 # Check if node_modules exists
 if [ ! -d "node_modules" ]; then
     echo "📦 Installing frontend dependencies..."
-    npm install
+    pnpm install
 fi
 
-npm start &
+pnpm run dev &
 FRONTEND_PID=$!
 
 echo ""
 echo "✅ Development environment started!"
 echo ""
 echo "🌐 Frontend: http://localhost:3000"
-echo "📡 Backend:  http://localhost:8000"
-echo "📖 API Docs: http://localhost:8000/api/docs"
+echo "📡 Backend:  http://localhost:8765"
+echo "📖 API Docs: http://localhost:8765/api/docs"
 echo ""
 echo "Press Ctrl+C to stop all servers"
 

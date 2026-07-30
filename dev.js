@@ -41,7 +41,7 @@ class DevEnvironment {
 
     if (!fs.existsSync(desktopNodeModules)) {
       this.log('SETUP', 'Installing Electron dependencies...');
-      await this.runCommand('npm', ['install'], '../desktop');
+      await this.runCommand('pnpm', ['install'], '../desktop');
     }
 
     // Check backend dependencies
@@ -158,7 +158,7 @@ class DevEnvironment {
         this.log('FRONTEND', '⚠ Frontend dependencies not installed - skipping for now');
       }
 
-      const frontendProcess = spawn('npm', ['run', 'dev'], {
+      const frontendProcess = spawn('pnpm', ['run', 'dev'], {
         cwd: frontendPath,
         stdio: ['pipe', 'pipe', 'pipe']
       });
@@ -213,7 +213,7 @@ class DevEnvironment {
   async startElectron() {
     this.log('ELECTRON', 'Starting Electron...');
 
-    const electronProcess = spawn('npm', ['run', 'electron'], {
+    const electronProcess = spawn('pnpm', ['run', 'electron'], {
       cwd: path.join(__dirname, '..', 'desktop'),
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, NODE_ENV: 'development' }

@@ -55,18 +55,18 @@ echo "[Recommendations]"
 if [ $FREE_INT -ge 2 ]; then
     cat << 'EOF'
 ✓ Plenty of memory - can run full suite with 2GB heap
-  npm run test:memory:failsafe
+  pnpm run test:memory:failsafe
 EOF
 elif [ $FREE_INT -ge 1 ]; then
     cat << 'EOF'
 ✓ Good memory - recommend 1GB heap
-  npm run test:memory:failsafe -- --max-heap 1024
+  pnpm run test:memory:failsafe -- --max-heap 1024
 EOF
 elif [ $FREE_INT -ge 0 ]; then
     cat << 'EOF'
 ⚠ Limited memory - use 512MB heap, test by category
-  npm run test:memory:failsafe -- --category components --max-heap 512
-  npm run test:memory:failsafe -- --category services --max-heap 512
+  pnpm run test:memory:failsafe -- --category components --max-heap 512
+  pnpm run test:memory:failsafe -- --category services --max-heap 512
 EOF
 else
     cat << 'EOF'
@@ -96,7 +96,7 @@ echo ""
 echo "[Next Steps]"
 echo "1. Review recommendations above"
 echo "2. Close unnecessary applications if needed"
-echo "3. Run: npm run test:memory:failsafe [options]"
+echo "3. Run: pnpm run test:memory:failsafe [options]"
 echo ""
 
 # Show help if requested
@@ -113,28 +113,28 @@ if [ "$1" == "--help" ]; then
 
 [Example Commands]
   # Full suite with default heap
-  npm run test:memory:failsafe
+  pnpm run test:memory:failsafe
 
   # Full suite with 1GB heap
-  npm run test:memory:failsafe -- --max-heap 1024
+  pnpm run test:memory:failsafe -- --max-heap 1024
 
   # Single category
-  npm run test:memory:failsafe -- --category components
+  pnpm run test:memory:failsafe -- --category components
 
   # Single category with custom heap
-  npm run test:memory:failsafe -- --category components --max-heap 1024
+  pnpm run test:memory:failsafe -- --category components --max-heap 1024
 
   # Tight constraint testing (512MB)
-  npm run test:memory:failsafe -- --max-heap 512
+  pnpm run test:memory:failsafe -- --max-heap 512
 
 [Memory Leak Investigation]
   # 1. Start with fastest category
-  npm run test:memory:failsafe -- --category services
+  pnpm run test:memory:failsafe -- --category services
 
   # 2. Progressively test larger categories
-  npm run test:memory:failsafe -- --category hooks
-  npm run test:memory:failsafe -- --category contexts
-  npm run test:memory:failsafe -- --category components
+  pnpm run test:memory:failsafe -- --category hooks
+  pnpm run test:memory:failsafe -- --category contexts
+  pnpm run test:memory:failsafe -- --category components
 
   # 3. If one category fails, investigate those tests
   # Look for missing cleanup in afterEach() or useEffect() cleanup

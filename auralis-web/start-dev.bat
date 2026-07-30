@@ -18,17 +18,17 @@ cd frontend
 REM Check if node_modules exists
 if not exist "node_modules" (
     echo 📦 Installing frontend dependencies...
-    npm install
+    pnpm install
 )
 
-start "Auralis Frontend" cmd /k "npm start"
+start "Auralis Frontend" cmd /k "pnpm run dev"
 
 echo.
 echo ✅ Development environment started!
 echo.
 echo 🌐 Frontend: http://localhost:3000
-echo 📡 Backend:  http://localhost:8000
-echo 📖 API Docs: http://localhost:8000/api/docs
+echo 📡 Backend:  http://localhost:8765
+echo 📖 API Docs: http://localhost:8765/api/docs
 echo.
 echo Press any key to exit...
 pause >nul
