@@ -92,6 +92,18 @@ class DynamicsProcessor:
             'current_lra': 7.0
         }
 
+        # #5000: _adapt_to_content() mutates self.compressor.settings.{threshold_db,
+        # ratio, makeup_gain_db} in place on every chunk in ADAPTIVE mode, and
+        # AdaptiveCompressor.reset() only clears envelope state (gain_follower,
+        # previous_gain, lookahead) — never self.settings. Without a snapshot,
+        # reset() has nothing to restore these to, so a pooled/cached processor's
+        # compressor settings (and the adaptation_state driving them) carry over
+        # from whatever content the previous job converged to.
+        self._initial_compressor_threshold_db = threshold_db
+        self._initial_compressor_ratio = ratio
+        self._initial_compressor_makeup_gain_db = settings.compressor.makeup_gain_db if settings.compressor else 0.0
+        self._initial_adaptation_state = self.adaptation_state.copy()
+
         debug(f"Dynamics processor initialized in {settings.mode.value} mode")
 
     def process(self, audio: np.ndarray,
@@ -323,16 +335,29 @@ class DynamicsProcessor:
         """Reset all dynamics processing state (#3789: locked).
 
         Touches `gate_gain` and `content_history` which are also written
-        by `process()` / `_adapt_to_content()` / `_update_adaptation_state`."""
+        by `process()` / `_adapt_to_content()` / `_update_adaptation_state`.
+
+        #5000: also restores the compressor's threshold/ratio/makeup_gain and
+        `adaptation_state` to their __init__ values. `compressor.reset()` only
+        clears envelope state (gain_follower/previous_gain/lookahead) — it
+        never touches `compressor.settings`, which `_adapt_to_content()`
+        mutates in place every chunk in ADAPTIVE mode. Without this, a
+        pooled/cached processor's content adaptation for the next job starts
+        from wherever the previous job's content converged it to, instead of
+        from the configured defaults."""
         with self._lock:
             if self.compressor:
                 self.compressor.reset()
+                self.compressor.settings.threshold_db = self._initial_compressor_threshold_db
+                self.compressor.settings.ratio = self._initial_compressor_ratio
+                self.compressor.settings.makeup_gain_db = self._initial_compressor_makeup_gain_db
 
             if self.limiter:
                 self.limiter.reset()
 
             self.gate_gain = 1.0
             self.content_history.clear()
+            self.adaptation_state = self._initial_adaptation_state.copy()
 
         debug("Dynamics processor reset")
 
