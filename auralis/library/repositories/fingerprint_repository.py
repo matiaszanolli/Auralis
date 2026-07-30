@@ -30,6 +30,47 @@ _FINGERPRINT_WRITABLE_COLS: frozenset[str] = (
 )
 
 
+# Sentinel `lufs` value written by
+# FingerprintSchedulerRepository.claim_next_unfingerprinted_track() for its
+# placeholder row (all dimensions zeroed) the instant a track is claimed for
+# processing — never a real measurement (real LUFS values are always > -100).
+PLACEHOLDER_LUFS_SENTINEL = -100.0
+
+
+def _current_fingerprint_clause() -> Any:
+    """SQLAlchemy WHERE-clause condition matching only complete, current-
+    algorithm-version fingerprint rows.
+
+    Excludes the in-progress claim placeholder (``lufs`` sentinel) and rows
+    left behind by an older fingerprinting algorithm version — the same two
+    conditions ``is_current_fingerprint()`` checks on an already-fetched row.
+    Without this, every unguarded read (exists/get_by_track_id/get_all/
+    get_by_track_ids/get_by_multi_dimension_range) would hand mid-fingerprint
+    or stale-version rows to callers (similarity search, the K-NN graph
+    builder, the normalizer's percentile fit, fingerprint-display endpoints)
+    as if they were valid (#4822).
+    """
+    return and_(
+        TrackFingerprint.lufs != PLACEHOLDER_LUFS_SENTINEL,
+        TrackFingerprint.fingerprint_version >= FINGERPRINT_ALGORITHM_VERSION,
+    )
+
+
+def is_current_fingerprint(fp: TrackFingerprint | None) -> bool:
+    """Python-level mirror of ``_current_fingerprint_clause()`` for callers
+    that already hold a fetched row rather than building a query — e.g.
+    ``FingerprintService._load_from_database()``'s single-row mastering-path
+    cache lookup (#4822). Keep both in sync: same two conditions, same
+    constants.
+    """
+    if fp is None:
+        return False
+    if getattr(fp, 'lufs', PLACEHOLDER_LUFS_SENTINEL) == PLACEHOLDER_LUFS_SENTINEL:
+        return False
+    row_version = int(getattr(fp, 'fingerprint_version', 1) or 1)
+    return row_version >= FINGERPRINT_ALGORITHM_VERSION
+
+
 def _validate_fingerprint_columns(cols: list[str]) -> None:
     """Raise ValueError if any column name is not in the allowed whitelist.
 
@@ -130,7 +171,10 @@ class FingerprintRepository(BaseRepository):
             return []
         with self._session_scope() as session:
             fingerprints = session.execute(
-                select(TrackFingerprint).where(TrackFingerprint.track_id.in_(track_ids))
+                select(TrackFingerprint).where(
+                    TrackFingerprint.track_id.in_(track_ids),
+                    _current_fingerprint_clause(),
+                )
             ).scalars().all()
             for fp in fingerprints:
                 session.expunge(fp)
@@ -140,15 +184,21 @@ class FingerprintRepository(BaseRepository):
         """
         Get fingerprint by track ID
 
+        Excludes an in-progress claim placeholder or stale-algorithm-version
+        row (#4822) — same as "no fingerprint yet" to every caller.
+
         Args:
             track_id: ID of the track
 
         Returns:
-            TrackFingerprint object if found, None otherwise
+            TrackFingerprint object if found and current, None otherwise
         """
         with self._session_scope() as session:
             fingerprint = session.execute(
-                select(TrackFingerprint).where(TrackFingerprint.track_id == track_id)
+                select(TrackFingerprint).where(
+                    TrackFingerprint.track_id == track_id,
+                    _current_fingerprint_clause(),
+                )
             ).scalars().first()
             if fingerprint:
                 session.expunge(fingerprint)
@@ -233,19 +283,27 @@ class FingerprintRepository(BaseRepository):
 
     def get_all(self, limit: int | None = None, offset: int = 0) -> list[TrackFingerprint]:
         """
-        Get all fingerprints with pagination.
+        Get all current, complete fingerprints with pagination.
+
+        Excludes in-progress claim placeholders and stale-algorithm-version
+        rows (#4822) — callers (similarity candidates, K-NN graph builds,
+        the normalizer's percentile fit) never see them.
 
         Args:
             limit: Maximum number of fingerprints to return. `None` returns
-                ALL rows (intentional unbounded read — use carefully on
-                large libraries). `0` returns an empty list.
+                ALL matching rows (intentional unbounded read — use carefully
+                on large libraries). `0` returns an empty list.
             offset: Number of fingerprints to skip.
 
         Returns:
             List of TrackFingerprint objects
         """
         with self._session_scope() as session:
-            stmt = select(TrackFingerprint).order_by(TrackFingerprint.created_at.desc())
+            stmt = (
+                select(TrackFingerprint)
+                .where(_current_fingerprint_clause())
+                .order_by(TrackFingerprint.created_at.desc())
+            )
 
             # #3683: `if limit is not None` so `limit=0` returns an empty
             # list (not unbounded). Previously `if limit:` collapsed both
@@ -396,7 +454,9 @@ class FingerprintRepository(BaseRepository):
         """
         Get fingerprints within multiple dimension ranges
 
-        More efficient pre-filtering for similarity search
+        More efficient pre-filtering for similarity search. Excludes
+        in-progress claim placeholders and stale-algorithm-version rows
+        (#4822), same as every other read on this repository.
 
         Args:
             ranges: Dictionary mapping dimension names to (min, max) tuples
@@ -408,7 +468,7 @@ class FingerprintRepository(BaseRepository):
         """
         with self._session_scope() as session:
             # Build filter conditions
-            conditions = []
+            conditions = [_current_fingerprint_clause()]
             for dimension, (min_val, max_val) in ranges.items():
                 if not hasattr(TrackFingerprint, dimension):
                     warning(f"Invalid dimension: {dimension}, skipping")
@@ -420,7 +480,7 @@ class FingerprintRepository(BaseRepository):
                     dim_attr <= max_val
                 ))
 
-            if not conditions:
+            if len(conditions) == 1:
                 warning("No valid dimension ranges provided")
                 return []
 
@@ -436,18 +496,23 @@ class FingerprintRepository(BaseRepository):
 
     def exists(self, track_id: int) -> bool:
         """
-        Check if a fingerprint exists for a track
+        Check if a current, complete fingerprint exists for a track.
+
+        False for an in-progress claim placeholder or a stale-algorithm-
+        version row (#4822) — callers already treat False as "not ready,
+        enqueue for (re-)fingerprinting" rather than an error.
 
         Args:
             track_id: ID of the track
 
         Returns:
-            True if fingerprint exists, False otherwise
+            True if a current fingerprint exists, False otherwise
         """
         with self._session_scope() as session:
             count = session.execute(
                 select(func.count()).select_from(TrackFingerprint).where(
-                    TrackFingerprint.track_id == track_id
+                    TrackFingerprint.track_id == track_id,
+                    _current_fingerprint_clause(),
                 )
             ).scalar_one()
             return count > 0

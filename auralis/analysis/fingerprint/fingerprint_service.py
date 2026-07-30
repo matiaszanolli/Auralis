@@ -24,7 +24,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
-from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
 from auralis.analysis.fingerprint.windowed_compute import compute_windowed_fingerprint
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
@@ -185,23 +184,17 @@ class FingerprintService:
             if track_id is None:
                 return None
 
+            # get_by_track_id() already excludes the claim placeholder (lufs
+            # sentinel) and stale-algorithm-version rows at the query level
+            # (#4822) — this used to be re-checked here too, duplicating the
+            # same two conditions FingerprintRepository now enforces for
+            # every caller, not just this one. Returning None (rather than a
+            # stale/incomplete row) makes the on-demand path self-healing: it
+            # recomputes and rewrites (#4595 — background queue re-
+            # fingerprints outdated rows separately in its Phase 2 pass, but
+            # until it reaches this track the cached row must not be served).
             fp = self._fingerprint_repo.get_by_track_id(track_id)
-            # lufs == -100.0 is the placeholder sentinel written by claim_next_unfingerprinted_track
-            if fp is None or getattr(fp, 'lufs', -100.0) == -100.0:
-                return None
-
-            # Ignore rows produced by an older algorithm version (#4595). The
-            # background queue re-fingerprints outdated rows in its Phase 2 pass,
-            # but until it reaches this track the cached row is not comparable to
-            # freshly computed ones — serving it would feed a mixed-vintage
-            # fingerprint into similarity/mastering. Returning None here makes
-            # the on-demand path self-healing: it recomputes and rewrites.
-            row_version = int(getattr(fp, 'fingerprint_version', 1) or 1)
-            if row_version < FINGERPRINT_ALGORITHM_VERSION:
-                logger.info(
-                    f"Discarding v{row_version} DB fingerprint "
-                    f"(current v{FINGERPRINT_ALGORITHM_VERSION}): {filepath}"
-                )
+            if fp is None:
                 return None
 
             result = {key: getattr(fp, key) for key in _FP_KEYS}
