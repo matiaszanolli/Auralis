@@ -906,6 +906,27 @@ class TestLyricsEndpoint:
             assert data["lyrics"] is None
             assert data["format"] is None
 
+    def test_get_lyrics_invalid_filepath(self, client):
+        """Test lyrics endpoint gracefully handles PathValidationError for stale/unregistered track paths"""
+        from security.path_security import PathValidationError
+        mock_track = Mock()
+        mock_track.lyrics = None
+        mock_track.filepath = "/unregistered/disallowed/path.mp3"
+
+        mock_repos = Mock()
+        mock_repos.tracks.get_by_id.return_value = mock_track
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repos}):
+            with patch('security.path_security.validate_file_path', side_effect=PathValidationError("Path outside allowed directory")):
+                with patch('mutagen.File') as mock_mutagen:
+                    response = client.get("/api/library/tracks/1/lyrics")
+
+                    assert response.status_code == 200
+                    data = response.json()
+                    assert data["lyrics"] is None
+                    assert data["format"] is None
+                    mock_mutagen.assert_not_called()
+
 
 class TestFavoritesEndpoints:
     """Test favorites management endpoints"""
