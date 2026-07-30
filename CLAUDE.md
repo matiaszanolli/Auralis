@@ -127,7 +127,7 @@ auralis/                          Core Python audio engine
 auralis-web/
 ├── backend/                      FastAPI REST + WebSocket (:8765)
 │   ├── main.py                     App entry point
-│   ├── routers/                    25 route handlers (player, library, albums,
+│   ├── routers/                    20 registered routers (player, library, albums,
 │   │                                 artists, playlists, enhancement, metadata,
 │   │                                 artwork, system, similarity, streaming...)
 │   ├── processing_engine.py        Audio processing orchestration
@@ -148,10 +148,17 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
 desktop/                          Electron wrapper
-tests/                            ~5,600 test functions (454 files) across 19 subdirs (unit, integration,
+tests/                            ~5,700 test functions (462 files) across 19 subdirs (unit, integration,
                                     boundary, concurrency, security, load, regression...)
 docs/                             19 topic dirs (development, features, frontend...)
 ```
+
+Structural counts above (analysis file count, router count, test file/function
+counts, docs topic-dir count) and the matching table in
+`.claude/commands/_audit-common.md` are two hand-maintained copies of the same
+numbers and will drift apart again if only one is edited. Run
+`python scripts/check_doc_counts.py` to recompute both from the live tree
+before updating either file, and update both together (#4982).
 
 ## Architecture Flow
 
