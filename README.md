@@ -37,6 +37,24 @@ mono-safe enhancement, and deterministic rapid track selection.
 | **Windows** | [.exe](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2) | Run installer |
 | **macOS** | [.dmg](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.2) | Drag to Applications |
 
+### Release Verification
+
+> ⚠️ **Release binaries are not code-signed yet** (#4905) — no Windows Authenticode or macOS
+> Developer ID certificate is wired into the build. `electron-updater`'s own Windows
+> publisher-match check (`verifyUpdateCodeSignature`) is explicitly disabled, and macOS
+> `hardenedRuntime`/Gatekeeper assessment are off. Until real certificates are obtained, treat
+> auto-update and downloaded binaries as verified only by the checksum/signature below — not by
+> platform code-signing.
+>
+> Each release's `SHA256SUMS.txt` is GPG-signed (`SHA256SUMS.txt.asc`) once the repository's
+> release signing key is provisioned. **Key fingerprint: TBD** — not yet published, since the
+> key has not been generated/rotated into CI secrets. Verify with:
+> ```
+> gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt
+> sha256sum -c SHA256SUMS.txt
+> ```
+> A release published without a valid `SHA256SUMS.txt.asc` should be treated as unverified.
+
 ### What this recovery start establishes
 
 - ✅ **Evidence-based recovery scope** — one deduplicated audit separates launcher, product,

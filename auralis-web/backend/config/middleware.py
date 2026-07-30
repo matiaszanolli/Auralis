@@ -227,6 +227,57 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return _middleware_error_response(exc, "RateLimitMiddleware")
 
 
+class OriginCheckMiddleware(BaseHTTPMiddleware):
+    """
+    Rejects cross-origin state-changing requests lacking a trusted Origin.
+
+    CORS blocks a hostile page's JavaScript from *reading* a cross-origin
+    response, but per the Fetch spec a "simple request" (POST/PUT/DELETE with
+    no body, or a CORS-safelisted Content-Type) never triggers a preflight —
+    it still executes on the server. Any state-changing REST route whose
+    input comes entirely from the URL path/query is exploitable blind via a
+    hidden auto-submitting form or `navigator.sendBeacon()` from any page the
+    user's browser happens to have open (#4893). This is the REST equivalent
+    of the check `config.globals.ConnectionManager.connect` already does for
+    WebSocket upgrades, which CORS does not cover at all.
+
+    Applied to every state-changing method rather than only the currently
+    known-vulnerable routes, so a future endpoint doesn't silently reopen
+    this gap. GET/HEAD/OPTIONS pass through untouched — OPTIONS must reach
+    CORSMiddleware unmodified to answer preflight requests.
+    """
+
+    _STATE_CHANGING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
+
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
+        try:
+            if request.method in self._STATE_CHANGING_METHODS and request.url.path.startswith("/api"):
+                from .globals import LOOPBACK_HOSTS
+
+                origin = request.headers.get("origin", "").lower()
+                if origin:
+                    # Non-empty Origin: must be in the same allowlist CORS uses.
+                    if origin not in cors_allowed_origins():
+                        logger.warning(
+                            f"Rejected {request.method} {request.url.path}: untrusted origin {origin!r}"
+                        )
+                        return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
+                else:
+                    # Empty Origin: allow only from loopback so non-browser local
+                    # processes on non-loopback interfaces can't bypass the check.
+                    client_host = (request.client.host if request.client else "").lower()
+                    if client_host not in LOOPBACK_HOSTS:
+                        logger.warning(
+                            f"Rejected {request.method} {request.url.path}: "
+                            f"empty Origin from non-loopback host {client_host!r}"
+                        )
+                        return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
+
+            return await call_next(request)
+        except Exception as exc:
+            return _middleware_error_response(exc, "OriginCheckMiddleware")
+
+
 def cors_allowed_origins() -> list[str]:
     """Build the CORS allow-origins list.
 
@@ -316,7 +367,7 @@ def setup_middleware(app: FastAPI) -> None:
     # run and is returned without the documented security headers (#3843).
     #
     # Resulting request-inbound order: CORS → SecurityHeaders → NoCache →
-    # TrustedHost → RateLimit → app; a 429 or an invalid-host 400 bubbles back
+    # OriginCheck → TrustedHost → RateLimit → app; a 403/429/400 bubbles back
     # up through SecurityHeaders/NoCache.
 
     # Rate limiting for expensive endpoints (#2575) — innermost
@@ -330,6 +381,12 @@ def setup_middleware(app: FastAPI) -> None:
     # still runs before RateLimit, so a rebinding probe cannot consume the rate
     # budget, and before any route handler.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts())
+
+    # Origin validation for state-changing REST requests (#4893) — wraps
+    # TrustedHost (so the Host header is already known-good) and RateLimit
+    # (so a rejected CSRF-shaped request never consumes rate budget), wrapped
+    # by SecurityHeaders so its 403 still carries the documented headers.
+    app.add_middleware(OriginCheckMiddleware)
 
     # No-cache middleware for frontend assets
     app.add_middleware(NoCacheMiddleware)
@@ -356,5 +413,5 @@ def setup_middleware(app: FastAPI) -> None:
 
     logger.debug(
         "✅ Middleware configured: TrustedHostMiddleware, RateLimitMiddleware, "
-        "NoCacheMiddleware, SecurityHeadersMiddleware, CORSMiddleware"
+        "OriginCheckMiddleware, NoCacheMiddleware, SecurityHeadersMiddleware, CORSMiddleware"
     )

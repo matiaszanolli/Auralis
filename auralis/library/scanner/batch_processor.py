@@ -8,7 +8,7 @@ Batch processing of audio files for library scanning
 :license: GPLv3, see LICENSE for more details.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -114,9 +114,15 @@ class BatchProcessor:
                 if check_modifications:
                     # Check if file was modified since last scan
                     file_stat = Path(file_path).stat()
-                    file_mtime = datetime.fromtimestamp(file_stat.st_mtime)
+                    file_mtime = datetime.fromtimestamp(file_stat.st_mtime, tz=timezone.utc)
 
-                    if existing_track.updated_at and existing_track.updated_at >= file_mtime:
+                    # `updated_at` round-trips through SQLite as a naive datetime
+                    # holding UTC wall-clock numbers (#4881) — reattach tzinfo
+                    # so both sides compare on the same clock basis.
+                    updated_at = existing_track.updated_at
+                    if updated_at and updated_at.tzinfo is None:
+                        updated_at = updated_at.replace(tzinfo=timezone.utc)
+                    if updated_at and updated_at >= file_mtime:
                         return 'skipped', None  # File hasn't been modified
                 else:
                     return 'skipped', None  # Skip existing files

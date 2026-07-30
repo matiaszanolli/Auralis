@@ -53,8 +53,10 @@ ALLOWED_WS_ORIGINS = build_ws_origins()
 
 # Hosts considered loopback — empty-Origin connections are allowed only from
 # these addresses so non-browser local processes on non-loopback interfaces
-# cannot bypass the origin check (fixes #3845).
-_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+# cannot bypass the origin check (fixes #3845). Public (not module-private)
+# because config.middleware.OriginCheckMiddleware reuses it for the REST
+# equivalent of this same check (#4893).
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
 # Per-client ceiling on a single broadcast send (#4581). Generous for a
 # loopback socket a healthy client is draining, short enough that a wedged
@@ -96,7 +98,7 @@ class ConnectionManager:
             # Empty Origin: allow only from loopback so non-browser processes
             # on non-loopback interfaces cannot bypass the check (fixes #3845).
             client_host = (websocket.client.host if websocket.client else "").lower()
-            if client_host not in _LOOPBACK_HOSTS:
+            if client_host not in LOOPBACK_HOSTS:
                 logger.warning(
                     f"WebSocket connection rejected: empty Origin from non-loopback host {client_host!r}"
                 )
