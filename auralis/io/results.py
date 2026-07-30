@@ -4,6 +4,13 @@ Auralis Results and Output Handling
 
 Result types and output format specifications
 
+No stage of the float->PCM quantisation path (this module, saver.py,
+wav_encoder.py) applies dither or noise shaping before libsndfile truncates
+to the target bit depth. This is a deliberate simplicity trade-off, not an
+oversight: at typical program material levels the resulting truncation
+distortion is inaudible, and it's only theoretically relevant for very quiet
+passages or long fades in the 16-bit streaming path (#4981).
+
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 

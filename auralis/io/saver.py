@@ -29,7 +29,10 @@ def save(file_path: str, audio_data: np.ndarray, sample_rate: int, subtype: str 
     debug(f"Saving audio to: {file_path} ({subtype}, {sample_rate} Hz)")
 
     try:
-        # Ensure audio is in the correct format
+        # Ensure audio is in the correct format. This cast also applies ahead
+        # of a PCM_24 write: float32's 24-bit mantissa is exactly adequate for
+        # a 24-bit integer target, so the implicit narrowing here is correct,
+        # not a truncation bug (#4981).
         if audio_data.dtype != np.float32:
             audio_data = audio_data.astype(np.float32)
 
