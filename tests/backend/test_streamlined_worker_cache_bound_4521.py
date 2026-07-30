@@ -271,12 +271,38 @@ class TestIntensityBucketing:
         assert stub_processor.instances[0].intensity == 0.5
 
 
-class TestNoCloseOnEviction:
-    """Evicted wrappers own no closable resource — see _remember_processor."""
+class TestCloseOnEviction:
+    """Evicted wrappers DO own a closable resource, as of #4737.
 
-    def test_chunked_processor_has_no_close_method(self):
+    This class previously asserted the opposite and carried the note "if this
+    ever gains a close(), _remember_processor must be revisited". It did, and
+    it was: ChunkedAudioProcessor now holds a SeekableSource, which for
+    .m4a/.aac/.wma owns a temp WAV, so dropping an evicted entry without
+    closing it leaks that file for the process lifetime. The tripwire fired
+    exactly as intended; this is its updated form.
+    """
+
+    def test_chunked_processor_exposes_close(self):
         from core.chunked_processor import ChunkedAudioProcessor
 
-        # If this ever gains a close(), _remember_processor must be revisited:
-        # the acceptance criteria for #4521 assumed one existed.
-        assert not hasattr(ChunkedAudioProcessor, "close")
+        assert callable(getattr(ChunkedAudioProcessor, "close", None))
+
+    def test_eviction_closes_the_evicted_processor(self, worker):
+        """The #4521 bound and the #4737 cleanup have to hold together."""
+        import core.streamlined_worker as sw
+
+        closed = []
+
+        class FakeProcessor:
+            def __init__(self, tag: int) -> None:
+                self.tag = tag
+
+            def close(self) -> None:
+                closed.append(self.tag)
+
+        with patch.object(sw, "_PROCESSOR_CACHE_MAX", 2):
+            for i in range(3):
+                worker._remember_processor((i, None, 1.0), FakeProcessor(i))
+
+        assert len(worker._processor_cache) == 2, "the #4521 bound must still hold"
+        assert closed == [0], "the LRU-evicted processor must be closed"

@@ -74,15 +74,21 @@ async def stream_normal_audio(
     # even on early-exit paths (fixes #3493 unbound-var hazard).
     lookahead_read: asyncio.Task[np.ndarray] | None = None
 
-    # temp_dir / temp_wav_path are declared before the guard so the finally
-    # cleanup can see them regardless of where control leaves the try below.
-    # temp_dir is what we remove: it is created by mkdtemp BEFORE temp_wav_path
-    # is assigned, so if load_audio / sf.write raises, temp_wav_path stays None
-    # but the dir still exists — clean up on temp_dir, not temp_wav_path (#4365).
+    # temp_dir is declared before the guard so the finally cleanup can see it
+    # regardless of where control leaves the try below. It is the *directory*
+    # we remove, never the WAV path — the #4365 rule.
+    #
+    # That rule now holds in two places. convert_to_temp_wav() (#4737) creates
+    # its directory before decoding and rmtree's it itself if the decode or the
+    # write raises, so a failed conversion leaves temp_dir None here and there
+    # is nothing left to clean. On success it hands the directory back and this
+    # finally owns it for the rest of the stream. The separate temp_wav_path
+    # variable that used to exist alongside this one is gone: it was only ever
+    # written, never read.
+    #
     # For compressed formats (MP3, M4A, etc.), convert to temp WAV first
     # since sf.SoundFile only supports PCM formats (#3225).
     temp_dir: str | None = None
-    temp_wav_path: str | None = None
 
     # A single try/finally from here guards the semaphore permit acquired above:
     # it is released exactly once in the finally at the end. The track lookup
@@ -122,19 +128,21 @@ async def stream_normal_audio(
         from auralis.io.unified_loader import FFMPEG_FORMATS
         file_ext = Path(validated_filepath).suffix.lower()
         if file_ext in FFMPEG_FORMATS:
-            import tempfile
-            from auralis.io.unified_loader import load_audio
-            temp_dir = tempfile.mkdtemp(prefix='auralis_stream_')
-            audio_data, sr = await asyncio.to_thread(
-                load_audio, validated_filepath, "audio", temp_dir
+            # Shares the decode-once-to-temp-WAV mechanics with the enhanced
+            # chunk path (#4737) instead of a second inline copy. The *trigger*
+            # stays extension-based here on purpose: the enhanced path converts
+            # only when libsndfile genuinely cannot open the file, but this path
+            # has always converted every FFMPEG_FORMATS entry — including .mp3
+            # and .ogg, which libsndfile can in fact seek — and narrowing that
+            # would change normal-streaming seek behaviour for the most common
+            # library format. Left alone deliberately; see the issue notes.
+            from core.seekable_source import convert_to_temp_wav
+
+            converted_dir, converted_wav = await asyncio.to_thread(
+                convert_to_temp_wav, validated_filepath, prefix='auralis_stream_'
             )
-            # Write to temp WAV for chunked streaming
-            temp_wav_path = str(Path(temp_dir) / 'stream.wav')
-            import soundfile as _sf
-            await asyncio.to_thread(
-                _sf.write, temp_wav_path, audio_data, sr, format='WAV', subtype='FLOAT'
-            )
-            streaming_filepath = temp_wav_path
+            temp_dir = converted_dir
+            streaming_filepath = converted_wav
             logger.info(f"Converted {file_ext} to temp WAV for normal streaming")
 
         # Read file metadata only — do NOT load audio data yet (#2121).
@@ -359,9 +367,10 @@ async def stream_normal_audio(
         await controller._drain_cancelled_task(lookahead_read)
         controller._stream_semaphore.release()
         # Clean up temp WAV created for compressed format streaming (#3225).
-        # Clean up on temp_dir (created by mkdtemp) not temp_wav_path — a
-        # load_audio/WAV-write failure leaves temp_dir present but temp_wav_path
-        # None, and that orphan must still be removed (#4365).
+        # Clean up the directory, not the WAV path (#4365). convert_to_temp_wav
+        # removes its own directory if the decode/write fails, so reaching here
+        # with temp_dir set means the conversion succeeded and this is the only
+        # owner left (#4737).
         # Log on failure instead of swallowing it (#3877): an EBUSY/EACCES
         # holdout is swept and counted at next startup (config/startup.py).
         if temp_dir:

@@ -48,6 +48,7 @@ from core.chunk_operations import ChunkOperations  # Phase 3: Unified chunk oper
 # apply_crossfade_between_chunks is re-exported so existing imports keep working.
 from core.chunk_crossfade import apply_crossfade_between_chunks
 from core.chunk_mastering import compute_mastering_recommendation
+from core.seekable_source import SeekableSource
 from core.encoding import WAVEncoder
 from core.encoding.atomic_io import (
     atomic_save_audio,
@@ -153,6 +154,14 @@ class ChunkedAudioProcessor:
         self.preset = preset
         self.intensity = intensity
         self.chunk_cache = chunk_cache if chunk_cache is not None else {}
+
+        # Resolves `filepath` to a seekable path on first chunk load, at most
+        # once per track (#4737). Constructed lazily-evaluating on purpose:
+        # callers that only want get_mastering_recommendation() (which works
+        # off the fingerprint, never loading chunks) never trigger a decode,
+        # so they need no cleanup. Owns a temp dir only after a conversion —
+        # see close().
+        self._source = SeekableSource(filepath)
 
         # Generate file signature for cache integrity (Phase 5.1: Using FileSignatureService)
         self.file_signature = FileSignatureService.generate(filepath)
@@ -343,9 +352,17 @@ class ChunkedAudioProcessor:
         """
         assert self.sample_rate is not None
 
+        # Resolve to a libsndfile-seekable path ONCE per track. For .m4a/.aac/
+        # .wma libsndfile cannot open the source at all, so without this every
+        # chunk fell through load_chunk_from_file's except branch into a
+        # whole-file FFmpeg decode — ~60 full decodes for a 10-minute track
+        # (#4737). Native formats (mp3/ogg/flac/wav) resolve to the original
+        # path and pay only a header open, so nothing regresses for them.
+        seekable_path = self._source.resolve()
+
         # DELEGATE TO CHUNK OPERATIONS (Phase 3 refactoring)
         return ChunkOperations.load_chunk_from_file(
-            filepath=self.filepath,
+            filepath=seekable_path,
             chunk_index=chunk_index,
             sample_rate=self.sample_rate,
             chunk_duration=CHUNK_DURATION,
@@ -615,6 +632,20 @@ class ChunkedAudioProcessor:
 
 
 
+
+    def close(self) -> None:
+        """Release the temp WAV this processor may own (#4737).
+
+        Only the seekable-source temp dir. Deliberately does NOT touch
+        ``self.processor``: that is a *shared* HybridProcessor owned by the
+        ProcessorFactory singleton, which runs its own LRU with its own
+        ``close()``, so tearing it down here would break another live
+        ChunkedAudioProcessor still using it.
+
+        Idempotent, and a no-op for tracks that never needed conversion (the
+        native mp3/flac/wav/ogg case), so callers can invoke it unconditionally.
+        """
+        self._source.close()
 
     def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Any | None:
         """Get a weighted mastering profile recommendation for this track.

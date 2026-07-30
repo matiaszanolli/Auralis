@@ -105,19 +105,33 @@ class StreamlinedCacheWorker:
         — which is on *both* routes into the cache (``_build_tier2_cache`` and
         ``trigger_immediate_processing``), so no insertion escapes the bound.
 
-        Evicted entries are dropped, not closed. ``ChunkedAudioProcessor`` has no
-        ``close()``: it holds no file handle of its own (``_load_metadata`` probes
-        via ``get_audio_info`` and closes), and its ``self.processor`` is a
-        *shared* ``HybridProcessor`` owned by the ``ProcessorFactory`` singleton,
-        which runs its own LRU with ``close()`` (``processor_factory.py:250-264``).
-        Closing it from here would tear down a processor that another live
-        ``ChunkedAudioProcessor`` — or the factory's own cache — is still using.
+        Evicted entries ARE now closed (#4737). This docstring previously said
+        the opposite, and the reasoning was sound at the time: a
+        ``ChunkedAudioProcessor`` held no resource of its own. That changed when
+        it gained a ``SeekableSource``, which for ``.m4a``/``.aac``/``.wma``
+        owns a temp WAV — dropping such an entry without closing it leaks that
+        file for the process lifetime.
+
+        ``ChunkedAudioProcessor.close()`` releases *only* that temp dir. The
+        original caution still holds and is honoured there: ``self.processor``
+        is a *shared* ``HybridProcessor`` owned by the ``ProcessorFactory``
+        singleton, which runs its own LRU with ``close()``
+        (``processor_factory.py:250-264``). Closing that from here would tear
+        down a processor another live ``ChunkedAudioProcessor`` — or the
+        factory's own cache — is still using.
         """
         self._processor_cache[cache_key] = processor
         self._processor_cache.move_to_end(cache_key)
 
         while len(self._processor_cache) > _PROCESSOR_CACHE_MAX:
-            evicted_key, _evicted = self._processor_cache.popitem(last=False)
+            evicted_key, evicted = self._processor_cache.popitem(last=False)
+            # Release the evicted processor's temp WAV, if it made one (#4737).
+            # Never allowed to break eviction: a cleanup failure here would
+            # otherwise leave the cache over its bound.
+            try:
+                evicted.close()
+            except Exception as exc:
+                logger.warning(f"Failed to close evicted processor {evicted_key}: {exc}")
             # Drop the matching build lock in lockstep (#4369 inherits the same
             # unbounded growth). A lock held by an in-flight build keeps working
             # — the holder retains its own reference — and a later miss for the
