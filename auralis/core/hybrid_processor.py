@@ -503,6 +503,17 @@ class HybridProcessor:
         with self._process_lock:
             self.psychoacoustic_eq.reset()
 
+    def reset_limiter(self) -> None:
+        """Reset the brick-wall limiter's cross-call gain-reduction state (#3787: locked).
+
+        ``current_gain`` persists across ``process()`` calls for intra-track
+        continuity (#2390); left unreset between pooled/cached jobs, a loud
+        track leaves the limiter deep into gain reduction and the next track
+        starts already attenuated by that leftover gain (fixes #4811).
+        """
+        with self._process_lock:
+            self.brick_wall_limiter.reset()
+
     def set_user(self, user_id: str) -> None:
         """Set the current user for preference learning (#3787: locked).
 

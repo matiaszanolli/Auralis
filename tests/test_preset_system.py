@@ -330,6 +330,7 @@ class TestPresetProcessing:
         processor.reset_realtime_eq()
         processor.reset_dynamics()
         processor.reset_psychoacoustic_eq()
+        processor.reset_limiter()
 
         result2 = processor.process(audio.copy())
 

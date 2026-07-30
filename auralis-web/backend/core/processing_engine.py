@@ -81,6 +81,19 @@ def _safe_error_message(exc: Exception) -> str:
     return "An unexpected error occurred during processing"
 
 
+def _reset_processor_state(processor: HybridProcessor) -> None:
+    """Reset the per-job cross-call state on a pooled/cached processor.
+
+    Run via a single `asyncio.to_thread` call (fixes #4797) rather than as
+    three bare synchronous calls on the event loop, since each acquires
+    `_process_lock` (#3787).
+    """
+    processor.reset_realtime_eq()
+    processor.reset_dynamics()
+    processor.reset_psychoacoustic_eq()
+    processor.reset_limiter()
+
+
 class ProcessingEngine:
     """
     Audio processing engine that manages the job queue and executes
@@ -381,9 +394,17 @@ class ProcessingEngine:
         # reset_realtime_eq() only clears the real-time EQ path's own EQ; the
         # adaptive/continuous path uses a separate main psychoacoustic EQ whose
         # gain-smoothing state also has to be reset here (completes #2400).
-        processor.reset_realtime_eq()
-        processor.reset_dynamics()
-        processor.reset_psychoacoustic_eq()
+        # reset_limiter() clears the brick-wall limiter's cross-call gain-reduction
+        # state so a loud track doesn't leave the next one starting pre-attenuated
+        # (fixes #4811).
+        #
+        # Each reset acquires `_process_lock` (#3787), a plain threading.RLock.
+        # #4727 guarantees a timed-out job's processor is discarded rather than
+        # reused, so this lock is never held by an orphaned thread by the time we
+        # get here — but the acquire is still offloaded to a thread (fixes #4797)
+        # so the event loop is never the thing that blocks if that guarantee is
+        # ever broken by some other path in the future.
+        await asyncio.to_thread(_reset_processor_state, processor)
 
         # Process audio — CPU-bound; offload to thread (fixes #2319)
         # Wrap with wait_for so a hung DSP/Rust call cannot hold the

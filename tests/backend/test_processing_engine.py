@@ -679,5 +679,79 @@ class TestProcessingTimeout:
             instances[0].close.assert_called_once()
 
 
+class TestResetProcessorState:
+    """Tests for the inter-job reset step in _execute_job (#4797, #4811)."""
+
+    @pytest.mark.asyncio
+    async def test_process_job_resets_all_four_stateful_components(self, temp_audio_file):
+        """Every job resets EQ, dynamics AND the brick-wall limiter before
+        processing — reset_limiter() must be wired in alongside the three
+        pre-existing resets (fixes #4811), not just some of them."""
+        engine = ProcessingEngine(max_concurrent_jobs=1)
+
+        with patch('core.processing_engine.load_audio') as mock_load, \
+             patch('core.processing_engine.HybridProcessor') as mock_processor_cls:
+
+            mock_load.return_value = (np.zeros((1000, 2)), 44100)
+            mock_proc = Mock()
+            mock_proc.process.return_value = np.zeros((1000, 2))
+            mock_processor_cls.return_value = mock_proc
+
+            job = await engine.create_job(
+                input_path=str(temp_audio_file),
+                settings={"mode": "adaptive", "output_format": "wav", "bit_depth": 16},
+            )
+            await engine.process_job(job)
+
+            assert job.status == ProcessingStatus.COMPLETED
+            mock_proc.reset_realtime_eq.assert_called_once()
+            mock_proc.reset_dynamics.assert_called_once()
+            mock_proc.reset_psychoacoustic_eq.assert_called_once()
+            mock_proc.reset_limiter.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_slow_reset_does_not_block_the_event_loop(self, temp_audio_file):
+        """The reset step must run off the event loop (fixes #4797): even if
+        a reset call blocks for a while (e.g. acquiring `_process_lock`),
+        other coroutines scheduled on the loop keep making progress instead
+        of the whole process stalling until the reset returns."""
+        import threading
+        import time
+
+        engine = ProcessingEngine(max_concurrent_jobs=1)
+
+        with patch('core.processing_engine.load_audio') as mock_load, \
+             patch('core.processing_engine.HybridProcessor') as mock_processor_cls:
+
+            mock_load.return_value = (np.zeros((1000, 2)), 44100)
+            mock_proc = Mock()
+            mock_proc.process.return_value = np.zeros((1000, 2))
+            # Simulate a slow (blocking) acquire of `_process_lock`.
+            mock_proc.reset_realtime_eq.side_effect = lambda: time.sleep(0.3)
+            mock_processor_cls.return_value = mock_proc
+
+            job = await engine.create_job(
+                input_path=str(temp_audio_file),
+                settings={"mode": "adaptive", "output_format": "wav", "bit_depth": 16},
+            )
+
+            ticks = 0
+
+            async def _tick_counter():
+                nonlocal ticks
+                for _ in range(20):
+                    await asyncio.sleep(0.01)
+                    ticks += 1
+
+            ticker_task = asyncio.create_task(_tick_counter())
+            await engine.process_job(job)
+            await ticker_task
+
+            # If the reset call blocked the event loop directly, the ticker
+            # would have starved while the 0.3s sleep ran on the loop thread.
+            assert ticks == 20
+            assert job.status == ProcessingStatus.COMPLETED
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -102,10 +102,16 @@ def load_baseline() -> set[str]:
     try:
         payload = json.loads(BASELINE_PATH.read_text())
     except FileNotFoundError:
-        _die(
-            f"No baseline at {BASELINE_PATH}.\n"
-            "  Generate one with: python scripts/check_pytest_baseline.py <junit.xml> --update"
+        # Degrade to an empty baseline rather than hard-failing every run
+        # unconditionally (#4739): a missing file should fail on any actual
+        # test failure, not fail regardless of the suite's real outcome.
+        print(
+            f"⚠ No baseline at {BASELINE_PATH} — treating as empty (fail on "
+            "any failure).\n"
+            "  Generate one with: python scripts/check_pytest_baseline.py <junit.xml> --update",
+            file=sys.stderr,
         )
+        return set()
     except json.JSONDecodeError as err:
         _die(f"Baseline at {BASELINE_PATH} is not valid JSON: {err}")
     return set(payload.get("failures", []))

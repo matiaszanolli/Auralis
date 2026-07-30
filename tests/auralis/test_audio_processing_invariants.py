@@ -353,6 +353,7 @@ def test_processing_is_deterministic(processor, test_audio_stereo):
     processor.reset_realtime_eq()
     processor.reset_dynamics()
     processor.reset_psychoacoustic_eq()
+    processor.reset_limiter()
     result2 = processor.process(audio.copy())
 
     # Results should be identical (or very close due to floating point)

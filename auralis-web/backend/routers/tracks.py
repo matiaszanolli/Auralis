@@ -52,7 +52,9 @@ def create_tracks_router(
         try:
             repos = require_repository_factory(get_repository_factory)
             if search:
-                tracks, total = await asyncio.to_thread(repos.tracks.search, search, limit=limit, offset=offset)
+                tracks, total = await asyncio.to_thread(
+                    repos.tracks.search, search, limit=limit, offset=offset, order_by=order_by
+                )
             else:
                 tracks, total = await asyncio.to_thread(repos.tracks.get_all, limit=limit, offset=offset, order_by=order_by)
             has_more = (offset + len(tracks)) < total

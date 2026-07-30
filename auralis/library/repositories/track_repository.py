@@ -56,6 +56,12 @@ _METADATA_WRITABLE_COLUMNS: frozenset[str] = frozenset({
     'lyrics',
 })
 
+# Whitelist to prevent arbitrary attribute access via order_by (shared by
+# get_all() and search() so both pagination paths order consistently).
+_VALID_TRACK_ORDER_COLUMNS: frozenset[str] = frozenset({
+    'title', 'created_at', 'play_count', 'duration', 'year', 'last_played'
+})
+
 
 def _filter_metadata_fields(track_id: int, fields: dict[str, Any]) -> dict[str, Any]:
     """Drop any field that is not a metadata-writable Track column (#4555).
@@ -399,7 +405,7 @@ class TrackRepository(BaseRepository):
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
+    def search(self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Track], int]:
         """
         Search tracks by title, artist, album, or genre
 
@@ -407,6 +413,7 @@ class TrackRepository(BaseRepository):
             query: Search query string
             limit: Maximum number of results
             offset: Number of results to skip (for pagination)
+            order_by: Column name to order by ('title', 'created_at', 'play_count', etc.)
 
         Returns:
             Tuple of (matching tracks, total count)
@@ -432,7 +439,16 @@ class TrackRepository(BaseRepository):
                 .where(search_filter)
             ).scalar_one()
 
-            # Get paginated results
+            # Whitelist to prevent arbitrary attribute access
+            if order_by not in _VALID_TRACK_ORDER_COLUMNS:
+                order_by = 'title'
+            order_column = getattr(Track, order_by, Track.title)
+
+            # Get paginated results. LIMIT/OFFSET has implementation-defined row
+            # order without ORDER BY — especially with .distinct() after an
+            # outer join — so two calls with the same query/offset can return
+            # duplicate or skipped rows across pages (fixes #4796). Track.id is
+            # a stable tiebreaker since order_column alone may not be unique.
             results = session.execute(
                 select(Track)
                 .join(Track.artists, isouter=True)
@@ -440,6 +456,7 @@ class TrackRepository(BaseRepository):
                 .options(*_track_eager_options(collections_via_selectin=True))
                 .where(search_filter)
                 .distinct()
+                .order_by(order_column.asc(), Track.id.asc())
                 .limit(limit)
                 .offset(offset)
             ).scalars().unique().all()
@@ -587,8 +604,7 @@ class TrackRepository(BaseRepository):
             ).scalar_one()
 
             # Get tracks for current page (whitelist to prevent arbitrary attribute access)
-            VALID_ORDER_COLUMNS = {'title', 'created_at', 'play_count', 'duration', 'year', 'last_played'}
-            if order_by not in VALID_ORDER_COLUMNS:
+            if order_by not in _VALID_TRACK_ORDER_COLUMNS:
                 order_by = 'title'
             order_column = getattr(Track, order_by, Track.title)
             tracks = session.execute(

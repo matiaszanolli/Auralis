@@ -544,6 +544,33 @@ def test_search_pagination_returns_relevant_items_only(populated_db):
         offset += page_size
 
 
+@pytest.mark.integration
+def test_search_respects_order_by(populated_db):
+    """
+    INVARIANT: TrackRepository.search() must forward order_by and actually
+    order its results by it, mirroring get_all() and AlbumRepository.search()
+    (fixes #4796: search() previously had no ORDER BY at all, making
+    LIMIT/OFFSET pagination non-deterministic).
+    """
+    track_repo = populated_db
+    query = "Track"
+
+    by_title, total = track_repo.search(query, limit=1000, offset=0, order_by='title')
+    if total == 0:
+        pytest.skip("No search results to test")
+    titles = [t.title for t in by_title]
+    assert titles == sorted(titles)
+
+    by_year, _ = track_repo.search(query, limit=1000, offset=0, order_by='year')
+    years = [t.year for t in by_year]
+    assert years == sorted(years)
+
+    # An unknown column falls back to 'title' rather than raising or being
+    # silently ignored (matches the get_all()/AlbumRepository.search() whitelist).
+    fallback, _ = track_repo.search(query, limit=1000, offset=0, order_by='not_a_real_column')
+    assert [t.title for t in fallback] == titles
+
+
 # ============================================================================
 # Filtered List Invariants (P1 Priority)
 # ============================================================================
