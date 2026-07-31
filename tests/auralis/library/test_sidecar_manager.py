@@ -255,6 +255,77 @@ def test_is_valid_with_incomplete_fingerprint(sidecar_manager, temp_audio_file, 
     assert not sidecar_manager.is_valid(temp_audio_file)
 
 
+# ===== Value Validation Tests (#4910) =====
+#
+# A sidecar with correct size/mtime is trusted as authoritative and skips
+# real analysis entirely. json.load() accepts NaN/Infinity literals by
+# default, so is_valid() must reject them (and non-numeric values) rather
+# than let a crafted sidecar feed bogus fingerprint data into content-aware
+# processing.
+
+@pytest.mark.parametrize("bad_value", [float("nan"), float("inf"), float("-inf")])
+def test_is_valid_rejects_non_finite_dimension(
+    sidecar_manager, temp_audio_file, sample_sidecar_data, bad_value
+):
+    """A NaN/Infinity dimension value must invalidate the sidecar."""
+    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
+
+    sidecar_path = sidecar_manager.get_sidecar_path(temp_audio_file)
+    with open(sidecar_path, 'r') as f:
+        data = json.load(f)
+    data["fingerprint"]["lufs"] = bad_value
+    with open(sidecar_path, 'w') as f:
+        # json.dump writes NaN/Infinity as bare (non-standard) literals,
+        # matching what a crafted third-party sidecar could contain.
+        json.dump(data, f)
+
+    assert not sidecar_manager.is_valid(temp_audio_file)
+
+
+def test_is_valid_rejects_non_numeric_dimension(
+    sidecar_manager, temp_audio_file, sample_sidecar_data
+):
+    """A string (or other non-numeric) dimension value must invalidate the sidecar."""
+    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
+
+    sidecar_path = sidecar_manager.get_sidecar_path(temp_audio_file)
+    with open(sidecar_path, 'r') as f:
+        data = json.load(f)
+    data["fingerprint"]["lufs"] = "not a number"
+    with open(sidecar_path, 'w') as f:
+        json.dump(data, f)
+
+    assert not sidecar_manager.is_valid(temp_audio_file)
+
+
+def test_is_valid_rejects_null_dimension(
+    sidecar_manager, temp_audio_file, sample_sidecar_data
+):
+    """A null dimension value must invalidate the sidecar (not silently pass through)."""
+    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
+
+    sidecar_path = sidecar_manager.get_sidecar_path(temp_audio_file)
+    with open(sidecar_path, 'r') as f:
+        data = json.load(f)
+    data["fingerprint"]["tempo_bpm"] = None
+    with open(sidecar_path, 'w') as f:
+        json.dump(data, f)
+
+    assert not sidecar_manager.is_valid(temp_audio_file)
+
+
+def test_is_valid_still_accepts_genuine_fingerprint_after_hardening(
+    sidecar_manager, temp_audio_file, sample_sidecar_data
+):
+    """No regression: a normal, genuinely-generated sidecar is still valid
+    and skips re-analysis."""
+    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
+
+    assert sidecar_manager.is_valid(temp_audio_file)
+    fingerprint = sidecar_manager.get_fingerprint(temp_audio_file)
+    assert fingerprint == sample_sidecar_data["fingerprint"]
+
+
 # ===== Fingerprint Extraction Tests =====
 
 def test_get_fingerprint_from_valid_file(sidecar_manager, temp_audio_file, sample_sidecar_data):

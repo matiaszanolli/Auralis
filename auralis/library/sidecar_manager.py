@@ -16,6 +16,7 @@ Sidecar files provide:
 
 import hashlib
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -146,7 +147,7 @@ class SidecarManager:
                 warning("Sidecar missing fingerprint data")
                 return False
 
-            fingerprint_keys: set[str] = set()
+            fingerprint_values: dict[str, Any] = {}
             if 'frequency' in fingerprint:
                 for category in (
                     'frequency', 'dynamics', 'temporal', 'spectral',
@@ -154,17 +155,36 @@ class SidecarManager:
                 ):
                     category_data = fingerprint.get(category)
                     if isinstance(category_data, dict):
-                        fingerprint_keys.update(category_data)
+                        fingerprint_values.update(category_data)
             else:
-                fingerprint_keys.update(fingerprint)
+                fingerprint_values.update(fingerprint)
 
-            missing_dimensions = set(DIMENSION_SCHEMA) - fingerprint_keys
+            missing_dimensions = set(DIMENSION_SCHEMA) - fingerprint_values.keys()
             if missing_dimensions:
                 warning(
                     "Sidecar fingerprint is incomplete; missing "
                     f"{len(missing_dimensions)} dimensions"
                 )
                 return False
+
+            # #4910: a sidecar is trusted as authoritative and skips real
+            # analysis entirely — reject non-numeric or non-finite (NaN/
+            # Infinity) dimension values before that happens. Python's json
+            # module accepts NaN/Infinity literals by default, and nothing
+            # downstream range-checks these 25 values before they drive
+            # content-aware processing decisions.
+            for dimension in DIMENSION_SCHEMA:
+                value = fingerprint_values[dimension]
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    warning(
+                        f"Sidecar dimension '{dimension}' is non-numeric: {value!r}"
+                    )
+                    return False
+                if not math.isfinite(value):
+                    warning(
+                        f"Sidecar dimension '{dimension}' is non-finite: {value!r}"
+                    )
+                    return False
 
             return True
 
