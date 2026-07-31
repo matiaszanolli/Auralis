@@ -611,10 +611,9 @@ npm outdated
 
 **Recommended Extensions:**
 1. ES7+ React/Redux/React-Native snippets
-2. ESLint
-3. Prettier - Code formatter
-4. TypeScript Vue Plugin (Volar)
-5. Thunder Client (or similar REST client)
+2. Prettier - Code formatter
+3. TypeScript Vue Plugin (Volar)
+4. Thunder Client (or similar REST client)
 
 **Setup:**
 
@@ -623,9 +622,6 @@ npm outdated
 {
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.formatOnSave": true,
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
-  },
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
