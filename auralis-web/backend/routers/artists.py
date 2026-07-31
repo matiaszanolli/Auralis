@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from .dependencies import require_repository_factory, with_error_handling
 from .errors import NotFoundError
+from .serializers import serialize_artist
 
 
 # Response models
@@ -153,11 +154,17 @@ def create_artists_router(
 
             genres_list = list(genres) if genres else None
 
+            # #4909: route counts through serialize_artist() instead of
+            # re-deriving len(artist.albums)/len(artist.tracks) inline — this
+            # picks up its Mock-safety try/except TypeError guard (#4306),
+            # which the inline version never received.
+            artist_data = serialize_artist(artist)
+
             artist_responses.append(ArtistResponse(
                 id=cast(int, artist.id),
                 name=cast(str, artist.name),
-                album_count=len(artist.albums) if artist.albums else 0,
-                track_count=len(artist.tracks) if artist.tracks else 0,
+                album_count=artist_data.get('album_count', 0),
+                track_count=artist_data.get('track_count', 0),
                 genres=genres_list,
                 artwork_url=artist.artwork_url,
                 artwork_source=artist.artwork_source,

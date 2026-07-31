@@ -236,6 +236,35 @@ class TestGetArtists:
                 # Genres may be None or a list
                 assert "genres" in artist
 
+    def test_get_artists_unconfigured_mock_relationships_does_not_crash(self, client):
+        """Regression test for #4909: album_count/track_count derivation must
+        not raise TypeError when .albums/.tracks are unconfigured Mock
+        attributes (truthy but not len()-able) — matches the guard
+        serialize_artist() already has for this exact case (#4306). Before
+        the fix, artists.py re-derived these counts inline without that
+        guard and would 500 on this input."""
+        artist = Mock(spec=['id', 'name', 'albums', 'tracks', 'artwork_url', 'artwork_source'])
+        artist.id = 1
+        artist.name = "Unconfigured Artist"
+        # Real empty list so the (separate, out-of-scope) genre-derivation
+        # loop over artist.tracks doesn't itself raise on iteration.
+        artist.tracks = []
+        artist.artwork_url = None
+        artist.artwork_source = None
+        # artist.albums is intentionally left unconfigured: accessing it
+        # yields an auto-generated Mock — truthy, but len() raises TypeError.
+
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_all.return_value = ([artist], 1)
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
+            response = client.get("/api/artists")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["artists"][0]["album_count"] == 0
+            assert data["artists"][0]["track_count"] == 0
+
     def test_get_artists_pagination_has_more(self, client, mock_artist):
         """Test has_more flag in pagination"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
