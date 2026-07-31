@@ -195,55 +195,34 @@ class AdaptiveLimiter:
         return max(sample_peaks, interp_peaks)
 
     def _oversample(self, audio: np.ndarray) -> np.ndarray:
-        """Simple oversampling using zero-padding and filtering.
+        """Oversample by an integer factor using a polyphase anti-imaging filter.
 
-        #3752: pass `dtype=audio.dtype` to every `np.zeros` so float32
-        input stays float32 through the limiter (the previous
-        un-typed zeros defaulted to float64, doubling per-chunk memory
-        and propagating mixed dtypes downstream — same drift class as
-        #3658 / #3659 / #2450 / #3744 / #3748).
+        #4907: the previous zero-stuff + fixed-width moving-average kernel
+        algebraically reduces, at the decimation phase `_downsample` samples,
+        to a 3-tap FIR with the wrong passband shape: +2.5 dB at DC and
+        -7.0 dB at Nyquist — altering level and frequency response even when
+        the limiter's gain curve is identically 1.0. `scipy.signal.resample_poly`
+        designs a proper unity-passband-gain anti-imaging filter instead, and
+        handles mono/multi-channel arrays uniformly via `axis=0`.
         """
         factor = self.settings.oversampling
         input_dtype = audio.dtype
 
-        if audio.ndim == 1:
-            # Mono audio
-            oversampled = np.zeros(len(audio) * factor, dtype=input_dtype)
-            oversampled[::factor] = audio
+        from scipy.signal import resample_poly
+        oversampled: np.ndarray = resample_poly(audio, factor, 1, axis=0)
 
-            # Simple anti-aliasing filter (moving average)
-            kernel_size = factor * 2 + 1
-            kernel = np.ones(kernel_size, dtype=input_dtype) / kernel_size
-            filtered = np.convolve(oversampled, kernel, mode='same') * factor
-        else:
-            # Stereo/multi-channel audio
-            oversampled = np.zeros((len(audio) * factor, audio.shape[1]), dtype=input_dtype)
-            oversampled[::factor] = audio
-
-            # Apply filtering to each channel using vectorized operation
-            kernel_size = factor * 2 + 1
-            kernel = np.ones(kernel_size, dtype=input_dtype) / kernel_size
-
-            # Vectorized approach: convolve all channels at once via scipy
-            try:
-                from scipy import signal
-
-                # Use scipy's efficient multi-channel convolve
-                filtered = np.zeros_like(oversampled)
-                for ch in range(audio.shape[1]):
-                    filtered[:, ch] = signal.convolve(oversampled[:, ch], kernel, mode='same') * factor
-            except ImportError:
-                # Fallback to numpy if scipy unavailable
-                filtered = np.zeros_like(oversampled)
-                for ch in range(audio.shape[1]):
-                    filtered[:, ch] = np.convolve(oversampled[:, ch], kernel, mode='same') * factor
-
-        return filtered.astype(input_dtype, copy=False)
+        return oversampled.astype(input_dtype, copy=False)
 
     def _downsample(self, audio_os: np.ndarray) -> np.ndarray:
-        """Downsample back to original rate"""
+        """Downsample back to the original rate using a polyphase anti-aliasing
+        filter — the inverse of `_oversample` (#4907)."""
         factor = self.settings.oversampling
-        return audio_os[::factor]
+        input_dtype = audio_os.dtype
+
+        from scipy.signal import resample_poly
+        downsampled: np.ndarray = resample_poly(audio_os, 1, factor, axis=0)
+
+        return downsampled.astype(input_dtype, copy=False)
 
     def get_current_state(self) -> dict[str, float]:
         """Get current limiter state"""
