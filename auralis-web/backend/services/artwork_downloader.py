@@ -18,10 +18,13 @@ import asyncio
 import hashlib
 import logging
 from pathlib import Path
-from urllib.parse import urlparse
 
 import aiohttp
 
+from auralis.utils.artwork_security import (
+    MAX_ARTWORK_PAYLOAD_BYTES as _MAX_ARTWORK_BYTES,
+)
+from auralis.utils.artwork_security import validate_artwork_url as _validate_artwork_url
 from auralis.utils.logging import sanitize_log_value
 
 logger = logging.getLogger(__name__)
@@ -45,52 +48,6 @@ def _detect_image_extension(data: bytes, default: str = "jpg") -> str:
     if data[:6] in (b"GIF87a", b"GIF89a"):
         return "gif"
     return default
-
-# Trusted domains for artwork downloads (fixes #2416: SSRF via unvalidated URL).
-_TRUSTED_ARTWORK_DOMAINS = frozenset({
-    "is1-ssl.mzstatic.com",
-    "is2-ssl.mzstatic.com",
-    "is3-ssl.mzstatic.com",
-    "is4-ssl.mzstatic.com",
-    "is5-ssl.mzstatic.com",
-    "mzstatic.com",
-    "coverartarchive.org",
-    "archive.org",
-    "ia800.us.archive.org",  # CAA image CDN hosts
-    "ia801.us.archive.org",
-    "ia802.us.archive.org",
-    "ia803.us.archive.org",
-    "ia804.us.archive.org",
-})
-
-# Maximum artwork download size (5 MB) to prevent memory exhaustion.
-_MAX_ARTWORK_BYTES = 5 * 1024 * 1024
-
-
-def _validate_artwork_url(url: str) -> bool:
-    """
-    Validate artwork URL against trusted domains.
-
-    Prevents SSRF attacks by only allowing downloads from known Apple/iTunes servers.
-
-    Args:
-        url: URL to validate
-
-    Returns:
-        bool: True if URL is from a trusted domain, False otherwise
-    """
-    try:
-        parsed = urlparse(url)
-        if parsed.scheme not in ("https", "http") or not parsed.hostname:
-            return False
-        # Allow exact matches or subdomains of trusted domains
-        hostname = parsed.hostname
-        return any(
-            hostname == domain or hostname.endswith(f".{domain}")
-            for domain in _TRUSTED_ARTWORK_DOMAINS
-        )
-    except Exception:
-        return False
 
 
 class ArtworkDownloader:
@@ -309,6 +266,11 @@ class ArtworkDownloader:
             # Download artwork (size-limited, #2576)
             async with session.get(artwork_url) as resp:
                 if resp.status != 200:
+                    return None
+
+                # Re-check the final URL after aiohttp follows redirects.
+                if not _validate_artwork_url(str(resp.url)):
+                    logger.warning(f"Rejecting untrusted iTunes redirect: {resp.url!r}")
                     return None
 
                 content_length = resp.content_length or 0

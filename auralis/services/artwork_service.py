@@ -20,9 +20,34 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from auralis.utils.artwork_security import (
+    MAX_ARTWORK_PAYLOAD_BYTES,
+    validate_artwork_url,
+)
 from auralis.utils.logging import sanitize_log_value
 
 logger = logging.getLogger(__name__)
+
+
+def _read_json_response(response: Any) -> Any:
+    """Decode a bounded JSON response from an artwork metadata provider."""
+    payload = response.read(MAX_ARTWORK_PAYLOAD_BYTES + 1)
+    if len(payload) > MAX_ARTWORK_PAYLOAD_BYTES:
+        raise ValueError(
+            f"Artwork metadata response exceeded {MAX_ARTWORK_PAYLOAD_BYTES} bytes"
+        )
+    return json.loads(payload.decode("utf-8"))
+
+
+def _validated_artwork_result(
+    artwork_url: str,
+    source: str,
+) -> dict[str, str] | None:
+    """Build an artwork result only when its external URL is trusted."""
+    if not validate_artwork_url(artwork_url):
+        logger.warning("Rejecting untrusted %s artwork URL: %r", source, artwork_url)
+        return None
+    return {"artwork_url": artwork_url, "source": source}
 
 
 class ArtworkService:
@@ -121,7 +146,7 @@ class ArtworkService:
             req.add_header('User-Agent', self.user_agent)
 
             with urllib.request.urlopen(req, timeout=self.timeout) as response:
-                data = json.loads(response.read().decode('utf-8'))
+                data = _read_json_response(response)
 
             if not data.get('artists') or len(data['artists']) == 0:
                 return None
@@ -142,7 +167,7 @@ class ArtworkService:
             req.add_header('User-Agent', self.user_agent)
 
             with urllib.request.urlopen(req, timeout=self.timeout) as response:
-                relations_data = json.loads(response.read().decode('utf-8'))
+                relations_data = _read_json_response(response)
 
             # Look for image URLs in relations
             relations = relations_data.get('relations', [])
@@ -151,10 +176,9 @@ class ArtworkService:
                     url_data = relation.get('url', {})
                     image_url = url_data.get('resource')
                     if image_url:
-                        return {
-                            'artwork_url': image_url,
-                            'source': 'musicbrainz'
-                        }
+                        result = _validated_artwork_result(image_url, "musicbrainz")
+                        if result:
+                            return result
 
             return None
 
@@ -192,7 +216,7 @@ class ArtworkService:
             req.add_header('User-Agent', self.user_agent)
 
             with urllib.request.urlopen(req, timeout=self.timeout) as response:
-                data = json.loads(response.read().decode('utf-8'))
+                data = _read_json_response(response)
 
             results = data.get('results', [])
             if not results:
@@ -203,10 +227,7 @@ class ArtworkService:
             image_url = artist.get('cover_image') or artist.get('thumb')
 
             if image_url:
-                return {
-                    'artwork_url': image_url,
-                    'source': 'discogs'
-                }
+                return _validated_artwork_result(image_url, "discogs")
 
             return None
 
@@ -244,7 +265,7 @@ class ArtworkService:
             req.add_header('User-Agent', self.user_agent)
 
             with urllib.request.urlopen(req, timeout=self.timeout) as response:
-                data = json.loads(response.read().decode('utf-8'))
+                data = _read_json_response(response)
 
             artist = data.get('artist', {})
             images = artist.get('image', [])
@@ -253,10 +274,9 @@ class ArtworkService:
             for img in reversed(images):  # Reverse to get largest first
                 url = img.get('#text')
                 if url:
-                    return {
-                        'artwork_url': url,
-                        'source': 'lastfm'
-                    }
+                    result = _validated_artwork_result(url, "lastfm")
+                    if result:
+                        return result
 
             return None
 
@@ -319,7 +339,7 @@ class ArtworkService:
             req.add_header('User-Agent', self.user_agent)
 
             with urllib.request.urlopen(req, timeout=self.timeout) as response:
-                data = json.loads(response.read().decode('utf-8'))
+                data = _read_json_response(response)
 
             groups = data.get('release-groups', [])
             if not groups:
@@ -342,10 +362,7 @@ class ArtworkService:
                     return None  # release-group has no front cover
                 raise
 
-            return {
-                'artwork_url': resolved_url,
-                'source': 'coverartarchive',
-            }
+            return _validated_artwork_result(resolved_url, "coverartarchive")
 
         except Exception as e:
             logger.debug(f"MusicBrainz/CAA album fetch failed for {sanitize_log_value(album_title)}: {e}")

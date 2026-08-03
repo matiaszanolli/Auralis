@@ -14,6 +14,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from auralis.services.artwork_service import ArtworkService
+from auralis.utils.artwork_security import (
+    MAX_ARTWORK_PAYLOAD_BYTES,
+    validate_artwork_url,
+)
 
 
 class TestArtworkServiceInit:
@@ -132,6 +136,143 @@ class TestReturnShape:
         assert "artwork_url" in result
         assert "source" in result
         assert result["artwork_url"].startswith("http")
+
+
+class TestArtworkURLSafety:
+    """Regression coverage for trusted external artwork sources (#4936)."""
+
+    @staticmethod
+    def _response(payload=None, *, resolved_url=None):
+        response = MagicMock()
+        if payload is not None:
+            response.read.return_value = json.dumps(payload).encode()
+        if resolved_url is not None:
+            response.geturl.return_value = resolved_url
+
+        cm = MagicMock()
+        cm.__enter__.return_value = response
+        cm.__exit__.return_value = False
+        return response, cm
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://127.0.0.1:8765/api/library",
+            "http://192.168.1.10/art.jpg",
+            "file:///etc/passwd",
+            "https://upload.wikimedia.org.evil.example/art.jpg",
+        ],
+    )
+    def test_validator_rejects_local_and_untrusted_urls(self, url):
+        assert not validate_artwork_url(url)
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://upload.wikimedia.org/example/art.jpg",
+            "https://i.discogs.com/example/art.jpg",
+            "https://lastfm.freetls.fastly.net/example/art.jpg",
+            "https://coverartarchive.org/release/example/front.jpg",
+            "https://ia801.us.archive.org/example/art.jpg",
+            "https://is1-ssl.mzstatic.com/example/art.jpg",
+        ],
+    )
+    def test_validator_accepts_supported_artwork_hosts(self, url):
+        assert validate_artwork_url(url)
+
+    def test_musicbrainz_rejects_poisoned_relation_url(self):
+        svc = ArtworkService()
+        _, search_cm = self._response({"artists": [{"id": "artist-id"}]})
+        _, relations_cm = self._response(
+            {
+                "relations": [
+                    {
+                        "type": "image",
+                        "url": {"resource": "http://127.0.0.1:8765/api/library"},
+                    }
+                ]
+            }
+        )
+
+        with patch(
+            "auralis.services.artwork_service.urllib.request.urlopen",
+            side_effect=[search_cm, relations_cm],
+        ):
+            assert svc._fetch_from_musicbrainz("Poisoned Artist") is None
+
+    def test_musicbrainz_accepts_wikimedia_relation_url(self):
+        svc = ArtworkService()
+        image_url = "https://upload.wikimedia.org/example/artist.jpg"
+        _, search_cm = self._response({"artists": [{"id": "artist-id"}]})
+        _, relations_cm = self._response(
+            {
+                "relations": [
+                    {"type": "image", "url": {"resource": image_url}}
+                ]
+            }
+        )
+
+        with patch(
+            "auralis.services.artwork_service.urllib.request.urlopen",
+            side_effect=[search_cm, relations_cm],
+        ):
+            assert svc._fetch_from_musicbrainz("Trusted Artist") == {
+                "artwork_url": image_url,
+                "source": "musicbrainz",
+            }
+
+    def test_discogs_rejects_untrusted_result_url(self):
+        svc = ArtworkService(discogs_token="token")
+        _, response_cm = self._response(
+            {"results": [{"cover_image": "http://192.168.1.10/cover.jpg"}]}
+        )
+
+        with patch(
+            "auralis.services.artwork_service.urllib.request.urlopen",
+            return_value=response_cm,
+        ):
+            assert svc._fetch_from_discogs("Artist") is None
+
+    def test_lastfm_rejects_untrusted_result_url(self):
+        svc = ArtworkService(lastfm_api_key="key")
+        _, response_cm = self._response(
+            {"artist": {"image": [{"#text": "http://localhost/cover.jpg"}]}}
+        )
+
+        with patch(
+            "auralis.services.artwork_service.urllib.request.urlopen",
+            return_value=response_cm,
+        ):
+            assert svc._fetch_from_lastfm("Artist") is None
+
+    def test_cover_art_archive_rejects_untrusted_redirect(self):
+        svc = ArtworkService()
+        _, search_cm = self._response({"release-groups": [{"id": "mbid-1"}]})
+        _, cover_cm = self._response(
+            resolved_url="http://127.0.0.1:8765/api/library"
+        )
+
+        with patch(
+            "auralis.services.artwork_service.urllib.request.urlopen",
+            side_effect=[search_cm, cover_cm],
+        ):
+            assert svc._fetch_album_from_musicbrainz("Album") is None
+
+    def test_metadata_response_read_is_size_limited(self):
+        svc = ArtworkService(discogs_token="token")
+        response = MagicMock()
+        response.read.return_value = b"x" * (MAX_ARTWORK_PAYLOAD_BYTES + 1)
+        cm = MagicMock()
+        cm.__enter__.return_value = response
+        cm.__exit__.return_value = False
+
+        with patch(
+            "auralis.services.artwork_service.urllib.request.urlopen",
+            return_value=cm,
+        ):
+            assert svc._fetch_from_discogs("Artist") is None
+
+        response.read.assert_called_once_with(MAX_ARTWORK_PAYLOAD_BYTES + 1)
 
 
 class TestFetchAlbumArtwork:
