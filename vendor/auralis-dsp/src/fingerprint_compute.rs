@@ -1,6 +1,7 @@
 /// Unified 25D audio fingerprinting
 /// Orchestrates all fingerprint dimensions from specialized modules
 
+use crate::chroma;
 use crate::dsp_math::{compute_rms, estimate_lufs};
 use crate::frequency_analysis;
 use crate::spectral_features;
@@ -473,14 +474,33 @@ fn estimate_harmonic_ratio(audio: &[f32], sample_rate: u32) -> f32 {
     (1.0 - flatness).clamp(0.0, 1.0)
 }
 
-/// Estimate chroma energy (harmonic richness)
+/// Estimate chroma energy (harmonic richness) via constant-Q chroma
+/// concentration. (#3690: previously an RMS-based loudness proxy that
+/// duplicated the `lufs` dimension.)
+///
+/// Each frame's 12 chroma bins are L1-normalized (sum to 1 — see
+/// `chroma::normalize_chroma_inplace`), so the sum of squared bin values
+/// measures how concentrated the pitch-class energy is: ~1/12 for
+/// noise-like/atonal audio spread evenly across all 12 semitones, up to 1.0
+/// for audio dominated by a single pitch class. Averaged across frames.
 fn estimate_chroma_energy(audio: &[f32], sample_rate: u32) -> f32 {
-    // Simplified: RMS energy normalized
-    let rms = compute_rms(audio);
+    if audio.is_empty() {
+        return 0.0;
+    }
 
-    // Normalize to 0-1 (assuming max -20 dB)
-    let db = 20.0 * rms.log10() + 20.0; // Shift so 0 dB = 1.0
-    (db / 40.0).clamp(0.0, 1.0)
+    let audio_f64: Vec<f64> = audio.iter().map(|&s| s as f64).collect();
+    let chromagram = chroma::chroma_cqt(&audio_f64, sample_rate as usize);
+
+    if chromagram.ncols() == 0 {
+        return 0.0;
+    }
+
+    let n_frames = chromagram.ncols() as f64;
+    let total_concentration: f64 = (0..chromagram.ncols())
+        .map(|frame| chromagram.column(frame).iter().map(|&v| v * v).sum::<f64>())
+        .sum();
+
+    (total_concentration / n_frames).clamp(0.0, 1.0) as f32
 }
 
 #[cfg(test)]
@@ -552,5 +572,56 @@ mod tests {
         assert_eq!(dict.get("sub_bass"), Some(&0.1));
         assert_eq!(dict.get("lufs"), Some(&-20.0));
         assert_eq!(dict.get("stereo_width"), Some(&0.5));
+    }
+
+    /// #3690: chroma_energy must be decorrelated from loudness — the same
+    /// pitch content at very different amplitudes should score similarly,
+    /// even though `lufs` differs sharply.
+    #[test]
+    fn test_chroma_energy_decorrelated_from_loudness() {
+        let sample_rate = 44100u32;
+        let n_samples = sample_rate as usize * 2; // 2 seconds
+        let freq = 440.0f32; // A4 — concentrated in one pitch class
+
+        let make_tone = |amplitude: f32| -> Vec<f32> {
+            (0..n_samples)
+                .map(|i| {
+                    amplitude
+                        * (2.0 * std::f32::consts::PI * freq * i as f32 / sample_rate as f32).sin()
+                })
+                .collect()
+        };
+
+        let loud = make_tone(0.9);
+        let quiet = make_tone(0.05);
+
+        let loud_chroma = estimate_chroma_energy(&loud, sample_rate);
+        let quiet_chroma = estimate_chroma_energy(&quiet, sample_rate);
+        let loud_lufs = estimate_lufs(&loud);
+        let quiet_lufs = estimate_lufs(&quiet);
+
+        // Loudness differs sharply between the two signals...
+        assert!(
+            (loud_lufs - quiet_lufs).abs() > 20.0,
+            "test setup should produce very different loudness: {loud_lufs} vs {quiet_lufs}"
+        );
+        // ...but chroma_energy (same single pitch class in both) should not.
+        assert!(
+            (loud_chroma - quiet_chroma).abs() < 0.1,
+            "chroma_energy should track pitch concentration, not loudness: {loud_chroma} vs {quiet_chroma}"
+        );
+        // Both must land within the valid [1/12, 1.0] sum-of-squares range
+        // for a 12-bin, per-frame-L1-normalized chromagram.
+        for value in [loud_chroma, quiet_chroma] {
+            assert!(
+                (1.0 / 12.0 - 1e-6..=1.0 + 1e-6).contains(&value),
+                "chroma_energy {value} out of the valid [1/12, 1.0] range"
+            );
+        }
+    }
+
+    #[test]
+    fn test_chroma_energy_empty_audio() {
+        assert_eq!(estimate_chroma_energy(&[], 44100), 0.0);
     }
 }

@@ -38,7 +38,12 @@ __db_schema_version__ = 16  # track_playlist: UNIQUE(track_id, playlist_id) + po
 #             and is now the fraction of RMS frames more than 40 dB below the
 #             loudest frame. Two of 25 dimensions therefore change value, so
 #             v5 rows are not comparable to v6 rows and must be recomputed.
-FINGERPRINT_ALGORITHM_VERSION = 6
+# v7 (#3690): chroma_energy now measures constant-Q chroma concentration
+#             (sum of squared, per-frame-normalized chroma bins) instead of
+#             a normalized RMS/loudness proxy. It previously duplicated the
+#             `lufs` dimension; it is now decorrelated from loudness. v6 rows
+#             are not comparable to v7 rows and must be recomputed.
+FINGERPRINT_ALGORITHM_VERSION = 7
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app
