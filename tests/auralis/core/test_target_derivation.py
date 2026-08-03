@@ -203,4 +203,68 @@ def test_softmax_does_not_overflow_on_large_distances():
     result = derive_target(_fp(tempo_bpm=0.0), refs, stats, k=5)
     assert result is not None
     assert all(math.isfinite(w) for w in result.weights)
-    assert sum(result.weights) == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# #3480 Layer 1 — listening-behavior reference weighting
+# ---------------------------------------------------------------------------
+
+def test_reference_weight_zero_falls_back_to_pure_softmax():
+    """Every ref at reference_weight=0.0 (unseeded/legacy rows) must behave
+    identically to the pre-#3480 unweighted path, not collapse to zero."""
+    refs = [_fp(track_id=i, tempo_bpm=80.0 + 20 * i, reference_weight=0.0) for i in range(5)]
+    stats = DistanceStats.from_references(refs)
+
+    weighted = derive_target(_fp(), refs, stats, k=5, use_reference_weights=True)
+    unweighted = derive_target(_fp(), refs, stats, k=5, use_reference_weights=False)
+
+    assert weighted is not None and unweighted is not None
+    assert weighted.weights == pytest.approx(unweighted.weights)
+    assert sum(weighted.weights) == pytest.approx(1.0)
+
+
+def test_reference_weight_pulls_target_toward_heavily_weighted_reference():
+    """A reference with a much higher reference_weight should pull the
+    target further toward itself than pure distance-based softmax would."""
+    # Two references, source equidistant between them (mirrors
+    # test_target_interpolates_between_two_clusters), but ref B is far
+    # more heavily weighted than ref A.
+    ref_a = _fp(track_id=1, tempo_bpm=80.0, air_pct=0.20, reference_weight=0.1)
+    ref_b = _fp(track_id=2, tempo_bpm=160.0, air_pct=0.05, reference_weight=5.0)
+    refs = [ref_a, ref_b]
+    stats = DistanceStats.from_references(refs)
+    source = _fp(tempo_bpm=120.0)
+
+    result = derive_target(source, refs, stats, k=2, use_reference_weights=True)
+    assert result is not None
+    # Pure distance-only midpoint would be 0.125; the heavy weight on ref_b
+    # (air_pct=0.05) must pull the target below the unweighted midpoint.
+    assert result.target['air_pct'] < 0.125
+
+
+def test_two_libraries_same_tracks_different_play_counts_produce_different_targets():
+    """Acceptance criterion (#3480 Layer 1): two synthetic libraries with the
+    same tracks but different listening behavior must derive different EQ
+    targets for the same source."""
+    def _library(weight_track_2: float) -> list[dict[str, Any]]:
+        return [
+            _fp(track_id=1, tempo_bpm=80.0,  air_pct=0.20, reference_weight=1.0),
+            _fp(track_id=2, tempo_bpm=160.0, air_pct=0.05, reference_weight=weight_track_2),
+        ]
+
+    source = _fp(tempo_bpm=120.0)
+
+    library_unplayed = _library(weight_track_2=1.0)   # both refs equally weighted
+    library_heavily_played = _library(weight_track_2=10.0)  # track 2 played constantly
+
+    stats_a = DistanceStats.from_references(library_unplayed)
+    stats_b = DistanceStats.from_references(library_heavily_played)
+
+    result_a = derive_target(source, library_unplayed, stats_a, k=2)
+    result_b = derive_target(source, library_heavily_played, stats_b, k=2)
+
+    assert result_a is not None and result_b is not None
+    assert result_a.target['air_pct'] != pytest.approx(result_b.target['air_pct'])
+    # The heavily-played-track-2 library must be pulled further toward
+    # track 2's air_pct (0.05) than the equally-weighted library.
+    assert result_b.target['air_pct'] < result_a.target['air_pct']

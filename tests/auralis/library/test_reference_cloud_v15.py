@@ -7,6 +7,13 @@ reference cloud:
   - FingerprintRepository.get_reference_cloud() filters correctly
   - clear_all_reference_flags() and set_reference_flags() do bulk updates
   - migrate_to_latest() on a fresh DB lands at v15 (no errors)
+
+Also pins the v017 addition (#3480 Layer 1 — listening-behavior reference
+weighting), which lives in the same repository/subsystem:
+  - track_fingerprints.reference_weight column exists, defaults to 0.0
+  - set_reference_weights() bulk-updates weight
+  - clear_all_reference_flags() also resets weight to 0.0
+  - get_all_with_track_stats() attaches play_count/favorite from Track
 """
 
 from __future__ import annotations
@@ -18,7 +25,7 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from auralis.__version__ import __db_schema_version__
+from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION, __db_schema_version__
 from auralis.library.migration_manager import MigrationManager
 from auralis.library.models import Track, TrackFingerprint
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
@@ -62,7 +69,7 @@ def _seed_track_and_fp(session, track_id: int, *, is_reference: bool = False, **
         harmonic_ratio=0.7, pitch_stability=0.7, chroma_energy=0.6,
         dynamic_range_variation=0.3, loudness_variation_std=1.5, peak_consistency=0.7,
         stereo_width=0.4, phase_correlation=0.8,
-        fingerprint_version=1,
+        fingerprint_version=FINGERPRINT_ALGORITHM_VERSION,
         is_reference=is_reference,
     )
     fp_data.update(fp_overrides)
@@ -177,3 +184,86 @@ def test_set_reference_flags_ignores_missing_track_ids(fresh_db_with_session):
     assert updated == 1  # only track 1 actually exists
     cloud = repo.get_reference_cloud()
     assert [fp.track_id for fp in cloud] == [1]
+
+
+# ---------------------------------------------------------------------------
+# Schema v017 — reference_weight (#3480 Layer 1)
+# ---------------------------------------------------------------------------
+
+def test_fresh_db_lands_at_v17_or_later(fresh_db_with_session):
+    _db_path, session_factory = fresh_db_with_session
+    assert __db_schema_version__ >= 17
+    with session_factory() as session:
+        result = session.execute(
+            text("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1")
+        ).scalar_one()
+    assert result >= 17
+
+
+def test_reference_weight_column_exists_with_default_zero(fresh_db_with_session):
+    _db_path, session_factory = fresh_db_with_session
+    with session_factory() as session:
+        _seed_track_and_fp(session, track_id=1)
+        weight = session.execute(
+            text("SELECT reference_weight FROM track_fingerprints WHERE track_id = 1")
+        ).scalar_one()
+    assert weight == 0.0
+
+
+def test_set_reference_weights_updates_existing_rows(fresh_db_with_session):
+    _db_path, session_factory = fresh_db_with_session
+    with session_factory() as session:
+        _seed_track_and_fp(session, 1, is_reference=True)
+        _seed_track_and_fp(session, 2, is_reference=True)
+
+    repo = FingerprintRepository(session_factory)
+    updated = repo.set_reference_weights({1: 0.9, 2: 1.35})
+    assert updated == 2
+
+    cloud = {fp.track_id: fp.reference_weight for fp in repo.get_reference_cloud()}
+    assert cloud[1] == pytest.approx(0.9)
+    assert cloud[2] == pytest.approx(1.35)
+
+
+def test_set_reference_weights_empty_dict_is_noop(fresh_db_with_session):
+    _db_path, session_factory = fresh_db_with_session
+    repo = FingerprintRepository(session_factory)
+    assert repo.set_reference_weights({}) == 0
+
+
+def test_clear_all_reference_flags_also_resets_weight(fresh_db_with_session):
+    _db_path, session_factory = fresh_db_with_session
+    with session_factory() as session:
+        _seed_track_and_fp(session, 1, is_reference=True, reference_weight=0.8)
+        _seed_track_and_fp(session, 2, is_reference=True, reference_weight=1.2)
+
+    repo = FingerprintRepository(session_factory)
+    repo.clear_all_reference_flags()
+
+    with session_factory() as session:
+        weights = session.execute(
+            text("SELECT reference_weight FROM track_fingerprints ORDER BY track_id")
+        ).scalars().all()
+    assert list(weights) == [0.0, 0.0]
+
+
+def test_get_all_with_track_stats_attaches_play_count_and_favorite(fresh_db_with_session):
+    _db_path, session_factory = fresh_db_with_session
+    with session_factory() as session:
+        _seed_track_and_fp(session, 1)
+        _seed_track_and_fp(session, 2)
+        session.execute(
+            text("UPDATE tracks SET play_count = 42, favorite = 1 WHERE id = 1")
+        )
+        session.execute(
+            text("UPDATE tracks SET play_count = 0, favorite = 0 WHERE id = 2")
+        )
+        session.commit()
+
+    repo = FingerprintRepository(session_factory)
+    by_id = {fp.track_id: fp for fp in repo.get_all_with_track_stats()}
+
+    assert by_id[1].play_count == 42
+    assert by_id[1].favorite is True
+    assert by_id[2].play_count == 0
+    assert by_id[2].favorite is False

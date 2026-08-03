@@ -13,6 +13,7 @@ import pytest
 from auralis.learning.reference_seeder import (
     BAND_FIELDS,
     SeederConfig,
+    compute_reference_weight,
     refresh_cloud,
     score_fingerprint,
     select_references,
@@ -181,14 +182,16 @@ class _FakeRepo:
         self._fps = fingerprints
         self.cleared = 0
         self.flags_set: dict[int, bool] = {}
+        self.weights_set: dict[int, float] = {}
 
-    def get_all(self, limit=None, offset=0):
+    def get_all_with_track_stats(self, limit=None, offset=0):
         return list(self._fps)
 
     def clear_all_reference_flags(self):
         n = sum(1 for fp in self._fps if getattr(fp, 'is_reference', False))
         for fp in self._fps:
             fp.is_reference = False
+            fp.reference_weight = 0.0
         self.cleared = n
         return n
 
@@ -199,10 +202,18 @@ class _FakeRepo:
                 fp.is_reference = track_ids_flagged[fp.track_id]
         return len(track_ids_flagged)
 
+    def set_reference_weights(self, weights):
+        self.weights_set = dict(weights)
+        for fp in self._fps:
+            if fp.track_id in weights:
+                fp.reference_weight = weights[fp.track_id]
+        return len(weights)
+
 
 def _orm_fp(track_id, **overrides):
     base = dict(
         track_id=track_id, lufs=-14.0, crest_db=12.0, is_reference=False,
+        reference_weight=0.0, play_count=0, favorite=False,
         sub_bass_pct=0.05, bass_pct=0.20, low_mid_pct=0.15, mid_pct=0.25,
         upper_mid_pct=0.15, presence_pct=0.10, air_pct=0.10,
     )
@@ -237,6 +248,56 @@ def test_refresh_cloud_idempotent():
     second_flags = dict(repo.flags_set)
     assert first == second
     assert first_flags == second_flags
+
+
+# ---------------------------------------------------------------------------
+# #3480 Layer 1 — listening-behavior reference weighting
+# ---------------------------------------------------------------------------
+
+def test_compute_reference_weight_unplayed_non_favorite_equals_base_score():
+    """No behavioral signal -> weight is exactly the base quality score."""
+    fp = _fp(track_id=1)  # play_count/favorite absent -> defaults via _attr_getter
+    assert compute_reference_weight(fp, base_score=0.8) == pytest.approx(0.8)
+
+
+def test_compute_reference_weight_increases_with_play_count():
+    quiet = _orm_fp(1, play_count=0, favorite=False)
+    played = _orm_fp(2, play_count=200, favorite=False)
+    w_quiet = compute_reference_weight(quiet, base_score=0.8)
+    w_played = compute_reference_weight(played, base_score=0.8)
+    assert w_played > w_quiet
+
+
+def test_compute_reference_weight_favorite_multiplier():
+    plain = _orm_fp(1, play_count=10, favorite=False)
+    fav = _orm_fp(2, play_count=10, favorite=True)
+    w_plain = compute_reference_weight(plain, base_score=0.8)
+    w_fav = compute_reference_weight(fav, base_score=0.8)
+    assert w_fav == pytest.approx(w_plain * 1.5)
+
+
+def test_compute_reference_weight_play_count_has_diminishing_returns():
+    """log1p scaling: going from 0->50 plays should matter more than 500->550."""
+    w0 = compute_reference_weight(_orm_fp(1, play_count=0), base_score=0.8)
+    w50 = compute_reference_weight(_orm_fp(2, play_count=50), base_score=0.8)
+    w500 = compute_reference_weight(_orm_fp(3, play_count=500), base_score=0.8)
+    w550 = compute_reference_weight(_orm_fp(4, play_count=550), base_score=0.8)
+    assert (w50 - w0) > (w550 - w500)
+
+
+def test_refresh_cloud_writes_reference_weights():
+    """Selected references get a nonzero weight; heavily-played ones score higher."""
+    pool = [
+        _orm_fp(1, play_count=0),      # baseline candidate
+        _orm_fp(2, play_count=500),    # heavily played, otherwise identical
+        _orm_fp(3, lufs=-25.0),        # disqualified — never selected, never weighted
+    ]
+    repo = _FakeRepo(pool)
+    refresh_cloud(repo, SeederConfig(max_references_library_fraction=1.0))
+
+    assert repo.weights_set[1] > 0.0
+    assert repo.weights_set[2] > repo.weights_set[1]
+    assert 3 not in repo.weights_set
 
 
 def test_band_fields_match_seven_band_schema():

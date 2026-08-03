@@ -318,6 +318,41 @@ class FingerprintRepository(BaseRepository):
                 session.expunge(fp)
             return fingerprints
 
+    def get_all_with_track_stats(self, limit: int | None = None, offset: int = 0) -> list[TrackFingerprint]:
+        """Like get_all(), but each returned row also carries `.play_count`
+        and `.favorite` copied from its Track (#3480 Layer 1).
+
+        The reference-cloud seeder weighs references by listening behavior,
+        which track_fingerprints doesn't store. Rather than eager-loading
+        the full `track` relationship (touched by every get_all() caller —
+        similarity, K-NN graph, the normalizer — none of which need it),
+        this is a separate, seeder-only read path with its own join.
+
+        Args:
+            limit: Maximum number of fingerprints to return (see get_all()).
+            offset: Number of fingerprints to skip.
+
+        Returns:
+            List of TrackFingerprint objects with play_count/favorite attached.
+        """
+        with self._session_scope() as session:
+            stmt = (
+                select(TrackFingerprint, Track.play_count, Track.favorite)
+                .join(Track, Track.id == TrackFingerprint.track_id)
+                .where(_current_fingerprint_clause())
+                .order_by(TrackFingerprint.created_at.desc())
+            )
+            if limit is not None:
+                stmt = stmt.limit(limit).offset(offset)
+
+            fingerprints = []
+            for fp, play_count, favorite in session.execute(stmt).all():
+                session.expunge(fp)
+                fp.play_count = play_count or 0
+                fp.favorite = bool(favorite)
+                fingerprints.append(fp)
+            return fingerprints
+
     def get_count(self) -> int:
         """
         Get total count of fingerprints
@@ -388,15 +423,47 @@ class FingerprintRepository(BaseRepository):
         finally:
             session.close()
 
+    def set_reference_weights(self, weights: dict[int, float]) -> int:
+        """Bulk set reference_weight for the given track_ids (#3480 Layer 1).
+
+        Used by reference_seeder.refresh_cloud() immediately after
+        set_reference_flags() flags the selected references — a separate
+        call so weight computation (which needs listening-behavior data)
+        stays decoupled from the flag-only path other callers may still use.
+
+        Args:
+            weights: {track_id: reference_weight} for each reference to update.
+
+        Returns:
+            Number of rows updated.
+        """
+        if not weights:
+            return 0
+        from sqlalchemy import case, update
+        session = self.get_session()
+        try:
+            result = session.execute(
+                update(TrackFingerprint)
+                .where(TrackFingerprint.track_id.in_(weights.keys()))
+                .values(reference_weight=case(weights, value=TrackFingerprint.track_id))
+            )
+            session.commit()
+            return int(result.rowcount or 0)
+        finally:
+            session.close()
+
     def clear_all_reference_flags(self) -> int:
-        """Set is_reference=False on every fingerprint. Returns rows updated."""
+        """Set is_reference=False and reference_weight=0.0 on every fingerprint.
+
+        Returns rows updated.
+        """
         from sqlalchemy import update
         session = self.get_session()
         try:
             result = session.execute(
                 update(TrackFingerprint)
                 .where(TrackFingerprint.is_reference == True)  # noqa: E712
-                .values(is_reference=False)
+                .values(is_reference=False, reference_weight=0.0)
             )
             session.commit()
             return int(result.rowcount or 0)

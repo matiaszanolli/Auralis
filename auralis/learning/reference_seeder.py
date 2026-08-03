@@ -23,6 +23,7 @@ scoring logic can be tested without a live database.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -46,6 +47,13 @@ DEFAULT_MAX_REFERENCES_LIBRARY_FRACTION = 0.05    # cap at 5% of library
 # missed. 10 000 covers nearly all personal libraries fully; larger
 # libraries get a bounded most-recent slice.
 DEFAULT_MAX_CANDIDATES = 10_000
+
+# #3480 Layer 1: reference_weight formula tuning. Diminishing-returns curve
+# on play_count (log1p, not linear) so a track played 500 times doesn't
+# dominate the target derivation over one played 50 times — it's a signal
+# of "genuinely reached-for", not a linear vote count.
+PLAY_COUNT_WEIGHT_FACTOR = 0.3
+FAVORITE_WEIGHT_MULTIPLIER = 1.5
 
 
 @dataclass(frozen=True)
@@ -118,6 +126,32 @@ def score_fingerprint(fp: Any, config: SeederConfig = SeederConfig()) -> float:
     return (lufs_score + crest_score + balance_score) / 3.0
 
 
+def compute_reference_weight(fp: Any, base_score: float) -> float:
+    """Weight a selected reference by listening behavior (#3480 Layer 1).
+
+    weight = base_score * (1 + log1p(play_count) * PLAY_COUNT_WEIGHT_FACTOR)
+                         * (FAVORITE_WEIGHT_MULTIPLIER if favorite else 1.0)
+
+    `base_score` is the objective quality score from `score_fingerprint()` —
+    this only ever amplifies an already-qualified reference; it cannot turn
+    a heavily-played-but-poorly-mastered track into a reference (that gate
+    is `score_fingerprint()` returning 0.0 and `select_references()` never
+    including it here in the first place).
+
+    `fp` is expected to expose `play_count` (int) and `favorite` (bool),
+    e.g. via FingerprintRepository.get_all_with_track_stats(). Missing
+    values default to unplayed/non-favorite (weight == base_score).
+    """
+    g = _attr_getter(fp)
+    play_count = g('play_count') or 0
+    favorite = bool(g('favorite'))
+
+    weight = base_score * (1.0 + math.log1p(play_count) * PLAY_COUNT_WEIGHT_FACTOR)
+    if favorite:
+        weight *= FAVORITE_WEIGHT_MULTIPLIER
+    return weight
+
+
 def select_references(
     fingerprints: list[Any],
     config: SeederConfig = SeederConfig(),
@@ -145,9 +179,10 @@ def select_references(
 class _FingerprintRepoLike(Protocol):
     """Minimum protocol required from the repository for refresh_cloud."""
 
-    def get_all(self, limit: int | None = ..., offset: int = ...) -> list[Any]: ...
+    def get_all_with_track_stats(self, limit: int | None = ..., offset: int = ...) -> list[Any]: ...
     def clear_all_reference_flags(self) -> int: ...
     def set_reference_flags(self, track_ids_flagged: dict[int, bool]) -> int: ...
+    def set_reference_weights(self, weights: dict[int, float]) -> int: ...
 
 
 def refresh_cloud(
@@ -160,6 +195,12 @@ def refresh_cloud(
     flags the top-N. The clear and re-flag happen in separate transactions
     but the seeder is idempotent (running it twice produces the same flags).
 
+    Selected references also get a reference_weight (#3480 Layer 1) — the
+    base quality score scaled by listening behavior (play_count, favorite)
+    — so heavily-played/favorited references pull the soft k-NN mastering
+    target toward themselves more strongly than a same-quality reference
+    the user never plays.
+
     Args:
         repository: FingerprintRepository instance.
         config: Selection thresholds.
@@ -169,13 +210,15 @@ def refresh_cloud(
     """
     cleared = repository.clear_all_reference_flags()
     # #3680: bounded candidate pool to prevent OOM on very large libraries.
-    # `get_all()` returns rows ordered by created_at DESC so the cap takes
-    # the most recent slice, which is the sensible default for "what should
-    # the reference cloud represent right now".
-    all_fps = repository.get_all(limit=config.max_candidates)
+    # get_all_with_track_stats() returns rows ordered by created_at DESC so
+    # the cap takes the most recent slice, which is the sensible default for
+    # "what should the reference cloud represent right now".
+    all_fps = repository.get_all_with_track_stats(limit=config.max_candidates)
     selected = select_references(all_fps, config)
     flags = {fp.track_id: True for fp, _score in selected}
     repository.set_reference_flags(flags)
+    weights = {fp.track_id: compute_reference_weight(fp, score) for fp, score in selected}
+    repository.set_reference_weights(weights)
     logger.info(
         "Reference cloud rebuilt: %d cleared, %d selected from %d candidates",
         cleared, len(selected), len(all_fps),
@@ -198,6 +241,7 @@ def _attr_getter(fp: Any):
 __all__ = [
     "SeederConfig",
     "score_fingerprint",
+    "compute_reference_weight",
     "select_references",
     "refresh_cloud",
     "BAND_FIELDS",

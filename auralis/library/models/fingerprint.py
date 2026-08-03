@@ -86,6 +86,12 @@ class TrackFingerprint(Base, TimestampMixin):
     # pipeline. Set programmatically by auralis/learning/reference_seeder.py.
     is_reference: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    # Reference weight (schema v17, #3480 Layer 1). How strongly this
+    # reference pulls the soft k-NN target toward itself — base quality
+    # score scaled by listening behavior (play_count, favorite). 0.0 for
+    # non-references and any reference not yet reweighted by a seeder run.
+    reference_weight: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+
     # Phase 3A: 8-bit quantized fingerprint storage (25 bytes, 8x compression)
     # Stores quantized uint8 values for space efficiency
     # Auto-dequantized on retrieval to restore float values (~1% accuracy loss)

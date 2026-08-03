@@ -125,6 +125,7 @@ def derive_target(
     stats: DistanceStats,
     *,
     k: int = 10,
+    use_reference_weights: bool = True,
 ) -> TargetDerivation | None:
     """Derive a continuous target spectrum from soft k-NN over the reference cloud.
 
@@ -133,6 +134,14 @@ def derive_target(
         references: Reference cloud (list of fingerprints).
         stats: Per-feature normalization stats (from DistanceStats.from_references).
         k: How many nearest neighbors to weight in the target.
+        use_reference_weights: Scale each matched reference's softmax weight
+            by its `reference_weight` (#3480 Layer 1 — listening-behavior
+            weighting from auralis/learning/reference_seeder.py) before
+            summing the target. Heavily-played/favorited references pull the
+            target toward themselves more strongly than an equally-scored
+            reference the user never plays. Set False to fall back to pure
+            distance-based weighting (e.g. for A/B comparison or a cloud
+            that hasn't been reweighted by a seeder run yet).
 
     Returns:
         TargetDerivation, or None if the cloud is empty (caller falls back).
@@ -145,6 +154,8 @@ def derive_target(
     nearest = distances[:k] if k < len(distances) else distances
 
     weights = _softmax_weights(d for d, _ in nearest)
+    if use_reference_weights:
+        weights = _apply_reference_weights(weights, nearest)
 
     target: dict[str, float] = {}
     for feat in TARGET_FEATURES:
@@ -207,6 +218,29 @@ def _softmax_weights(distances) -> list[float]:
     exps = [math.exp(x - mx) for x in neg_scaled]
     total = sum(exps)
     return [e / total for e in exps]
+
+
+def _apply_reference_weights(
+    weights: list[float],
+    nearest: list[tuple[float, Any]],
+) -> list[float]:
+    """Scale softmax weights by each reference's `reference_weight`, then
+    renormalize back to summing to 1.0 (#3480 Layer 1).
+
+    Falls back to the original (unscaled) softmax weights if every matched
+    reference has reference_weight <= 0 — either genuinely unweighted (a
+    reference the seeder hasn't run listening-behavior scoring on yet, e.g.
+    freshly migrated rows default to 0.0) or nothing matched. Treating "no
+    behavioral signal" as "suppress this reference" would collapse the
+    target to zero instead of degrading gracefully to pure quality-based
+    distance weighting.
+    """
+    ref_weights = [max(_safe_get(ref, 'reference_weight', 0.0), 0.0) for _, ref in nearest]
+    combined = [w * rw for w, rw in zip(weights, ref_weights)]
+    total = sum(combined)
+    if total <= _EPSILON:
+        return weights
+    return [c / total for c in combined]
 
 
 __all__ = [

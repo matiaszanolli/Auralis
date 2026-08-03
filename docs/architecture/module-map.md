@@ -49,7 +49,7 @@ auralis/
 │   ├── repositories/             14 repos + base.py (BaseRepository) + factory.py
 │   ├── scanner.py                Folder scanning
 │   ├── sidecar_manager.py        Per-file .25d sidecars
-│   └── migration_manager.py      DB migrations (schema v16)
+│   └── migration_manager.py      DB migrations (schema v17)
 ├── io/                         unified_loader.py (FFmpeg/SoundFile), results.py (PCM output)
 ├── player/                     enhanced_audio_player, gapless engine, queue_controller
 ├── services/                   Background: fingerprint_queue, fingerprint_extractor, artwork
