@@ -10,10 +10,17 @@ Regression tests for content-based config hashing (issue #2707).
 :license: GPLv3, see LICENSE for more details.
 """
 
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, patch
 
+from core.processor_factory import (
+    _PROCESSOR_CACHE_MAX,
+    ProcessorCacheKey,
+    ProcessorFactory,
+)
+
 from auralis.core.config.unified_config import UnifiedConfig
-from core.processor_factory import ProcessorFactory, ProcessorCacheKey, _PROCESSOR_CACHE_MAX
 
 
 def test_config_hash_identical_for_equal_configs():
@@ -52,6 +59,87 @@ def test_get_or_create_reuses_processor_for_equal_configs():
 
     assert processor_a is processor_b
     assert len(factory._processor_cache) == 1
+
+
+def test_factory_does_not_mutate_caller_owned_config():
+    factory = ProcessorFactory()
+    config = UnifiedConfig()
+    config.mastering_profile = "gentle"
+
+    with patch("auralis.core.hybrid_processor.HybridProcessor") as processor_cls:
+        factory.get_or_create(preset="bright", config=config)
+
+    owned_config = processor_cls.call_args.args[0]
+    assert owned_config is not config
+    assert owned_config.mastering_profile == "bright"
+    assert config.mastering_profile == "gentle"
+
+
+def test_config_mode_selection_does_not_mutate_caller_owned_config():
+    factory = ProcessorFactory()
+    config = UnifiedConfig()
+
+    with patch("auralis.core.hybrid_processor.HybridProcessor") as processor_cls:
+        factory.get_or_create_from_config(config, mode="reference")
+
+    owned_config = processor_cls.call_args.args[0]
+    assert owned_config is not config
+    assert owned_config.adaptive.mode == "reference"
+    assert config.adaptive.mode == "adaptive"
+
+
+def test_different_cold_keys_construct_without_global_lock_serialization():
+    factory = ProcessorFactory()
+    first_started = threading.Event()
+    release_first = threading.Event()
+
+    def create(config):
+        if config.mastering_profile == "first":
+            first_started.set()
+            assert release_first.wait(timeout=2.0)
+        return MagicMock(name=f"processor-{config.mastering_profile}")
+
+    with patch("auralis.core.hybrid_processor.HybridProcessor", side_effect=create):
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first_future = executor.submit(factory.get_or_create, preset="first")
+            assert first_started.wait(timeout=1.0)
+            second_future = executor.submit(factory.get_or_create, preset="second")
+            try:
+                second = second_future.result(timeout=0.5)
+            finally:
+                release_first.set()
+            first = first_future.result(timeout=1.0)
+
+    assert first is not second
+
+
+def test_same_cold_key_keeps_one_processor_and_closes_race_loser():
+    factory = ProcessorFactory()
+    construction_barrier = threading.Barrier(2)
+    created: list[MagicMock] = []
+    created_lock = threading.Lock()
+
+    def create(_config):
+        processor = MagicMock(name="racing-processor")
+        with created_lock:
+            created.append(processor)
+        construction_barrier.wait(timeout=1.0)
+        return processor
+
+    with patch("auralis.core.hybrid_processor.HybridProcessor", side_effect=create):
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(factory.get_or_create, preset="adaptive")
+                for _ in range(2)
+            ]
+            first, second = [future.result(timeout=2.0) for future in futures]
+
+    assert first is second
+    assert list(factory._processor_cache.values()) == [first]
+    assert len(created) == 2
+    loser = next(processor for processor in created if processor is not first)
+    loser.close.assert_called_once()
+    first.close.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

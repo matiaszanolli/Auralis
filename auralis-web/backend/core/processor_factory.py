@@ -17,6 +17,7 @@ import json
 import logging
 import threading
 from collections import OrderedDict
+from copy import deepcopy
 from typing import Any, NamedTuple
 
 from .env_config import get_int_env
@@ -200,8 +201,8 @@ class ProcessorFactory:
         Returns:
             HybridProcessor instance
         """
-        from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
+        from auralis.core.hybrid_processor import HybridProcessor
 
         # #3720: include the targets content in the cache key so two
         # callers with different targets land on different cached
@@ -216,63 +217,84 @@ class ProcessorFactory:
         )
 
         with self._lock:
-            # Check cache — move-to-end so the LRU policy tracks recency.
-            if cache_key in self._processor_cache:
-                logger.debug(f"Retrieved cached processor: track_id={track_id}, preset={preset}")
+            cached = self._processor_cache.get(cache_key)
+            if cached is not None:
                 self._processor_cache.move_to_end(cache_key)
-                cached = self._processor_cache[cache_key]
-                # #3720: no re-apply on cache hit. Identical key means
-                # identical (config, preset, intensity, targets) so the
-                # cached processor is already configured correctly.
-                # Different targets get a different key above, so they
-                # land in a different cache slot.
+                logger.debug(
+                    "Retrieved cached processor: track_id=%s, preset=%s",
+                    track_id,
+                    preset,
+                )
                 return cached
 
-            # Create new processor
-            logger.info(f"Creating new processor: track_id={track_id}, preset={preset}, intensity={intensity}")
+        # Construction takes 200-500 ms and does not touch cache state. Keep it
+        # outside the global factory lock so unrelated cold keys can construct
+        # concurrently (#4689). The processor receives its own config snapshot;
+        # factory preset changes must never mutate caller-owned state (#4827).
+        logger.info(
+            "Creating new processor: track_id=%s, preset=%s, intensity=%s",
+            track_id,
+            preset,
+            intensity,
+        )
+        try:
+            owned_config = deepcopy(config) if config is not None else UnifiedConfig()
+            owned_config.mastering_profile = preset.lower()
+            processor = HybridProcessor(owned_config)
 
-            try:
-                # Use provided config or create default
-                if config is None:
-                    config = UnifiedConfig()
+            if mastering_targets is not None:
+                processor.set_fixed_mastering_targets(deepcopy(mastering_targets))
+                logger.debug("Applied fixed mastering targets to processor")
+        except Exception as error:
+            logger.error("Failed to create processor for track %s: %s", track_id, error)
+            raise
 
-                # Set preset on config
-                config.mastering_profile = preset.lower()
-
-                # Create processor
-                processor = HybridProcessor(config)
-
-                # Apply fixed mastering targets if provided (8x faster processing)
-                if mastering_targets is not None:
-                    processor.set_fixed_mastering_targets(mastering_targets)
-                    logger.debug(f"Applied fixed mastering targets to processor")
-
-                # Cache processor + evict oldest if over cap (LRU; fixes #3515).
+        evicted: list[tuple[ProcessorCacheKey, Any]] = []
+        with self._lock:
+            # Another thread may have populated this key while construction was
+            # in flight. Keep the established cached instance and reclaim the
+            # redundant build so exactly one live processor survives per key.
+            cached = self._processor_cache.get(cache_key)
+            if cached is not None:
+                self._processor_cache.move_to_end(cache_key)
+                cache_size = len(self._processor_cache)
+            else:
                 self._processor_cache[cache_key] = processor
                 while len(self._processor_cache) > _PROCESSOR_CACHE_MAX:
-                    evicted_key, _evicted_proc = self._processor_cache.popitem(last=False)
-                    # Also drop from _active_processors if the evicted one was tracked.
-                    evicted_track_id = evicted_key[0]
-                    if evicted_track_id > 0 and self._active_processors.get(evicted_track_id) is _evicted_proc:
-                        self._active_processors.pop(evicted_track_id, None)
-                    # Release the evicted instance's thread pools (fixes #3746) —
-                    # otherwise its fingerprint_analyzer executor leaks 5 idle
-                    # threads that are never reclaimed.
-                    _evicted_proc.close()
-                    logger.info(
-                        f"ProcessorFactory: LRU-evicted processor for cache_key {evicted_key}"
+                    evicted_key, evicted_processor = self._processor_cache.popitem(
+                        last=False
                     )
+                    evicted.append((evicted_key, evicted_processor))
+                    if (
+                        evicted_key.track_id > 0
+                        and self._active_processors.get(evicted_key.track_id)
+                        is evicted_processor
+                    ):
+                        self._active_processors.pop(evicted_key.track_id, None)
 
-                # Track active processor by track_id
                 if track_id > 0:
                     self._active_processors[track_id] = processor
+                cache_size = len(self._processor_cache)
 
-                logger.info(f"Processor created and cached: {len(self._processor_cache)} total in cache")
-                return processor
+        if cached is not None:
+            processor.close()
+            logger.debug(
+                "Closed redundant processor build: track_id=%s, preset=%s",
+                track_id,
+                preset,
+            )
+            return cached
 
-            except Exception as e:
-                logger.error(f"Failed to create processor for track {track_id}: {e}")
-                raise
+        for evicted_key, evicted_processor in evicted:
+            # Release evicted thread pools outside the cache lock (#3746).
+            evicted_processor.close()
+            logger.info(
+                "ProcessorFactory: LRU-evicted processor for cache_key %s",
+                evicted_key,
+            )
+
+        logger.info("Processor created and cached: %s total in cache", cache_size)
+        return processor
 
     def get_or_create_from_config(
         self,
@@ -294,19 +316,19 @@ class ProcessorFactory:
         """
         from auralis.core.config import UnifiedConfig
 
-        # Use config hash as cache key, track_id=0 for config-based
-        if config is None:
-            config = UnifiedConfig()
-
-        # Set processing mode
-        config.set_processing_mode(mode)  # type: ignore[arg-type]
+        # Mode selection belongs to the processor snapshot, not the caller's
+        # potentially shared config (#4827). get_or_create takes one more
+        # snapshot before constructing so all public factory paths have the
+        # same ownership guarantee.
+        owned_config = deepcopy(config) if config is not None else UnifiedConfig()
+        owned_config.set_processing_mode(mode)  # type: ignore[arg-type]
 
         # Use get_or_create with track_id=0 for config-based caching
         return self.get_or_create(
             track_id=0,
-            preset=config.mastering_profile,
+            preset=owned_config.mastering_profile,
             intensity=1.0,
-            config=config
+            config=owned_config
         )
 
     def release(self, track_id: int) -> None:

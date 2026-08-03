@@ -7,14 +7,15 @@ entry when the limit is exceeded, preventing unbounded memory growth in
 long-running server instances.
 """
 
+import threading
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 import auralis.core.hybrid_processor as hp_module
 from auralis.core.hybrid_processor import _PROCESSOR_CACHE_MAX_SIZE
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -71,16 +72,16 @@ class TestCacheEviction:
         total = _PROCESSOR_CACHE_MAX_SIZE + extra
 
         mock_processor = MagicMock()
+        configs = []
 
         with patch.object(hp_module, 'HybridProcessor', return_value=mock_processor), \
              patch.object(hp_module, 'UnifiedConfig') as MockConfig:
             MockConfig.return_value = MagicMock()
-            for i in range(total):
-                # Produce unique cache keys by supplying distinct config objects
+            for _ in range(total):
+                # Retain each object so CPython cannot reuse its identity.
                 cfg = MagicMock()
-                cfg_id = i  # stable id for this loop iteration
-                with patch('builtins.id', side_effect=lambda x, _i=cfg_id: _i if x is cfg else id.__wrapped__(x)):
-                    hp_module._get_or_create_processor(cfg, "adaptive")
+                configs.append(cfg)
+                hp_module._get_or_create_processor(cfg, "adaptive")
 
         assert len(hp_module._processor_cache) <= _PROCESSOR_CACHE_MAX_SIZE
 
@@ -200,6 +201,57 @@ class TestGetOrCreateProcessorCaching:
 
         assert pa is not pr
 
+    def test_each_mode_owns_a_config_snapshot(self):
+        """A mode cache miss must not mutate or share caller-owned config (#4827)."""
+        config = hp_module.UnifiedConfig()
+
+        def create(owned_config):
+            processor = MagicMock()
+            processor.config = owned_config
+            return processor
+
+        with patch.object(hp_module, "HybridProcessor", side_effect=create):
+            adaptive = hp_module._get_or_create_processor(config, "adaptive")
+            reference = hp_module._get_or_create_processor(config, "reference")
+
+        assert config.adaptive.mode == "adaptive"
+        assert adaptive.config is not config
+        assert reference.config is not config
+        assert adaptive.config is not reference.config
+        assert adaptive.config.adaptive.mode == "adaptive"
+        assert reference.config.adaptive.mode == "reference"
+
+    def test_same_cold_key_closes_duplicate_construction(self):
+        """Concurrent misses retain one cached instance without serializing build."""
+        config = hp_module.UnifiedConfig()
+        construction_barrier = threading.Barrier(2)
+        created: list[MagicMock] = []
+        created_lock = threading.Lock()
+
+        def create(_owned_config):
+            processor = MagicMock(name="racing-processor")
+            with created_lock:
+                created.append(processor)
+            construction_barrier.wait(timeout=1.0)
+            return processor
+
+        with patch.object(hp_module, "HybridProcessor", side_effect=create):
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = [
+                    executor.submit(
+                        hp_module._get_or_create_processor, config, "adaptive"
+                    )
+                    for _ in range(2)
+                ]
+                first, second = [future.result(timeout=2.0) for future in futures]
+
+        assert first is second
+        assert list(hp_module._processor_cache.values()) == [first]
+        assert len(created) == 2
+        loser = next(processor for processor in created if processor is not first)
+        loser.close.assert_called_once()
+        first.close.assert_not_called()
+
     def test_cache_size_bounded_after_many_calls(self):
         """
         Calling _get_or_create_processor with many unique config objects
@@ -242,13 +294,14 @@ class TestEvictedProcessorIsClosed:
     def test_evicted_processor_close_is_called(self):
         """The LRU-evicted HybridProcessor must have close() called on it."""
         mock_processors = [MagicMock(name=f"processor_{i}") for i in range(_PROCESSOR_CACHE_MAX_SIZE + 1)]
+        configs = []
 
         with patch.object(hp_module, 'HybridProcessor', side_effect=mock_processors), \
              patch.object(hp_module, 'UnifiedConfig', return_value=MagicMock()):
-            for i in range(_PROCESSOR_CACHE_MAX_SIZE + 1):
+            for _ in range(_PROCESSOR_CACHE_MAX_SIZE + 1):
                 cfg = MagicMock()
-                with patch('builtins.id', side_effect=lambda x, _i=i: _i if x is cfg else id.__wrapped__(x)):
-                    hp_module._get_or_create_processor(cfg, "adaptive")
+                configs.append(cfg)
+                hp_module._get_or_create_processor(cfg, "adaptive")
 
         # The first-created processor (oldest, LRU) must have been evicted
         # and closed; the rest remain in cache and must not be closed.
@@ -258,8 +311,8 @@ class TestEvictedProcessorIsClosed:
 
     def test_hybrid_processor_close_closes_fingerprint_analyzer(self):
         """HybridProcessor.close() must propagate to fingerprint_analyzer.close()."""
-        from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
+        from auralis.core.hybrid_processor import HybridProcessor
 
         processor = HybridProcessor(UnifiedConfig())
         with patch.object(processor.fingerprint_analyzer, 'close') as mock_close:

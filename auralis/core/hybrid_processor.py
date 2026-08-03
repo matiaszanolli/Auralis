@@ -12,6 +12,7 @@ Main processing engine that bridges Matchering and Auralis systems
 
 import threading
 from collections import OrderedDict
+from copy import deepcopy
 from typing import Any
 
 import numpy as np
@@ -646,35 +647,54 @@ def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridP
     Returns:
         Cached or newly created HybridProcessor instance
     """
-    # Use config object id if provided, otherwise use mode as cache key
-    cache_key: str = f"{id(config)}_{mode}" if config else f"default_{mode}"
+    # Preserve identity-based cache compatibility while giving each cached
+    # processor its own config snapshot below (#4827).
+    cache_key = f"{id(config)}_{mode}" if config is not None else f"default_{mode}"
 
-    # The entire check-and-insert is wrapped in a single lock acquisition so
-    # concurrent callers cannot both pass the cache-miss check and create
-    # duplicate HybridProcessor instances (fixes #2314).
     with _processor_cache_lock:
-        if cache_key in _processor_cache:
-            # Move to end so it is considered most-recently-used
+        cached = _processor_cache.get(cache_key)
+        if cached is not None:
             _processor_cache.move_to_end(cache_key)
             debug(f"Using cached HybridProcessor for mode={mode}")
-            return _processor_cache[cache_key]
+            return cached
 
-        if config is None:
-            config = UnifiedConfig()
-        config.set_processing_mode(mode)  # type: ignore[arg-type]
-        _processor_cache[cache_key] = HybridProcessor(config)
+    # HybridProcessor initialization is expensive and does not touch cache
+    # state. Construct outside the global lock so a cold key cannot serialize
+    # unrelated callers (#4689). Never mutate a caller-owned config: the same
+    # object may back processors for several modes (#4827).
+    owned_config = deepcopy(config) if config is not None else UnifiedConfig()
+    owned_config.set_processing_mode(mode)  # type: ignore[arg-type]
+    processor = HybridProcessor(owned_config)
+
+    evicted: list[tuple[str, HybridProcessor]] = []
+    with _processor_cache_lock:
+        # A same-key caller may have won the construction race. Keep its
+        # established instance and close this redundant processor below.
+        cached = _processor_cache.get(cache_key)
+        if cached is not None:
+            _processor_cache.move_to_end(cache_key)
+        else:
+            _processor_cache[cache_key] = processor
 
         # Evict oldest entry when the cache exceeds its maximum size (#2161)
         while len(_processor_cache) > _PROCESSOR_CACHE_MAX_SIZE:
             evicted_key, evicted_processor = _processor_cache.popitem(last=False)
-            # Release the evicted instance's thread pools (fixes #3746) —
-            # otherwise its fingerprint_analyzer executor leaks 5 idle
-            # threads that are never reclaimed.
-            evicted_processor.close()
-            debug(f"Evicted cached HybridProcessor (cache full): key={evicted_key}")
+            evicted.append((evicted_key, evicted_processor))
 
-        debug(f"Created cached HybridProcessor for mode={mode} (cache size: {len(_processor_cache)})")
-        return _processor_cache[cache_key]
+        cache_size = len(_processor_cache)
+
+    if cached is not None:
+        processor.close()
+        debug(f"Closed redundant HybridProcessor build for mode={mode}")
+        return cached
+
+    for evicted_key, evicted_processor in evicted:
+        # Release thread pools outside the cache lock (fixes #3746).
+        evicted_processor.close()
+        debug(f"Evicted cached HybridProcessor (cache full): key={evicted_key}")
+
+    debug(f"Created cached HybridProcessor for mode={mode} (cache size: {cache_size})")
+    return processor
 
 
 def process_adaptive(target: np.ndarray,
