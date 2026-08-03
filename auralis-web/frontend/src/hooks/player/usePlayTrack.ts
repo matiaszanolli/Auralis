@@ -1,36 +1,29 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
-import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { usePlaybackSession } from '@/contexts/PlaybackSessionContext';
 import { getApiUrl } from '@/config/api';
 import type { Track } from '@/types/domain';
 
 /**
- * Minimal track shape usePlayTrack needs: `id` for the queue + stream, `title`
- * for the toast. `Track` / `LibraryTrack` / `DetailTrack` all satisfy it, so
- * every call site type-checks without conversion.
+ * Minimal track shape usePlayTrack needs. `Track` / `LibraryTrack` /
+ * `DetailTrack` all satisfy it, so every call site type-checks without
+ * conversion.
  */
-export type PlayableTrack = Pick<Track, 'id' | 'title'>;
+export type PlayableTrack = Pick<Track, 'id'>;
 
 /**
  * usePlayTrack — the single source of truth for "play this track now".
  *
- * Sets the player queue to the track (REST) and starts enhanced playback via a
- * `play_enhanced` WebSocket message, then toasts. Call it directly at the leaf
- * (a track row, "Play All", etc.) instead of drilling an `onTrackPlay` callback
- * down through the component tree (#3940).
- *
- * The WS message is sent directly rather than through `usePlayEnhanced` for the
- * reason documented in the former `usePlaybackState`: the Player component owns
- * the single streaming instance, and `usePlayEnhanced`'s cleanup effects would
- * interfere with the stream when library components mount/unmount.
+ * Sets the player queue over REST, then delegates playback to the single shared
+ * browser session. That session chooses normal/enhanced from live settings and
+ * owns stream confirmation/error state (#4812/#4813/#4829).
  */
 export const usePlayTrack = () => {
-  const wsContext = useWebSocketContext();
-  const { success, error: errorToast } = useToast();
+  const { startTrack } = usePlaybackSession();
+  const { error: errorToast } = useToast();
 
-  // #4161: abort the queue POST on unmount so a stray play_enhanced (and a
-  // success toast in the wrong view) doesn't fire after the user navigates away
-  // mid-click.
+  // #4161: abort the queue POST on unmount so a stray playback start doesn't
+  // fire after the user navigates away mid-click.
   const abortRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -45,9 +38,8 @@ export const usePlayTrack = () => {
     async (track: PlayableTrack): Promise<void> => {
       // #4426: abort the previous invocation before replacing the ref. Without
       // this, two rapid clicks both ran to completion and whichever queue POST
-      // *resolved* last sent its play_enhanced last — reverting playback to the
-      // older track, with the losing track's title in the success toast. Same
-      // ordering as useEnhancedPlayCommand / usePlayNormal / useSimilarTracks.
+      // *resolved* last started its track last — reverting playback to the
+      // older selection. Same ordering as the lower-level play commands.
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -67,23 +59,13 @@ export const usePlayTrack = () => {
           );
         }
 
-        // Skip the stream + toast if the component unmounted while the POST was
-        // in flight.
+        // Skip the stream if the component unmounted while the POST was in flight.
         if (controller.signal.aborted || !isMountedRef.current) return;
 
-        // 2. Start enhanced playback. The Player's usePlayEnhanced instance
-        //    handles the actual stream; Redux state syncs via the player_state
-        //    WebSocket broadcast.
-        wsContext.send({
-          type: 'play_enhanced',
-          data: {
-            track_id: track.id,
-            preset: 'adaptive',
-            intensity: 1.0,
-          },
-        });
-
-        success(`Now playing: ${track.title}`);
+        // 2. Start through PlaybackSession so every entry point shares one PCM
+        // engine and the current enhancement settings. Do not announce success
+        // before the backend confirms the stream (#4829).
+        await startTrack(track.id);
       } catch (err) {
         // Aborted by unmount — not user-facing.
         if ((err as Error).name === 'AbortError') return;
@@ -91,7 +73,7 @@ export const usePlayTrack = () => {
         errorToast(err instanceof Error ? err.message : 'Failed to play track');
       }
     },
-    [wsContext, success, errorToast]
+    [startTrack, errorToast]
   );
 
   return { playTrack };

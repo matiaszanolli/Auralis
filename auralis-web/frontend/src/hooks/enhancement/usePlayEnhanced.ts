@@ -30,7 +30,7 @@
  * @module hooks/enhancement/usePlayEnhanced
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch } from '@/store';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
@@ -56,6 +56,9 @@ export interface UsePlayEnhancedReturn {
    * @param intensity Enhancement intensity (0.0-1.0)
    */
   playEnhanced: (trackId: number, preset: EnhancementPreset, intensity: number) => Promise<void>;
+
+  /** Start original, unprocessed playback in this same browser audio session. */
+  playNormal: (trackId: number) => Promise<void>;
 
   /** Seek to a specific position (seconds) in the current track. */
   seekTo: (position: number) => void;
@@ -132,6 +135,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
   const core = useAudioStreamingCore(wsContext, {
     streamType: 'enhanced',
+    acceptNormalStream: true,
     sendType: 'play_enhanced',
     logPrefix: '[usePlayEnhanced]',
     // Auto-start once the engine's own minimum is satisfied — avoids the engine
@@ -156,13 +160,22 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
   const { seekTo } = useEnhancedSeek({ wsContext, core, currentTrackInfoRef, setIsSeeking });
 
-  const playEnhanced = useEnhancedPlayCommand({
+  const startPlayback = useEnhancedPlayCommand({
     wsContext,
     dispatch,
     core,
     currentTrackInfoRef,
     resetFingerprint: fingerprint.resetFingerprint,
   });
+  const playEnhanced = useCallback(
+    (trackId: number, preset: EnhancementPreset, intensity: number) =>
+      startPlayback(trackId, preset, intensity, 'enhanced'),
+    [startPlayback]
+  );
+  const playNormal = useCallback(
+    (trackId: number) => startPlayback(trackId, 'adaptive', 1.0, 'normal'),
+    [startPlayback]
+  );
 
   /**
    * Reset Redux streaming state on MOUNT to clear any stale state left by a
@@ -192,6 +205,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
   return {
     playEnhanced,
+    playNormal,
     seekTo,
     stopPlayback: core.stopPlayback,
     pausePlayback: core.pausePlayback,

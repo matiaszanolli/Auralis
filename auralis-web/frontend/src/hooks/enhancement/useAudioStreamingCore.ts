@@ -68,6 +68,8 @@ export type StreamType = 'normal' | 'enhanced';
 export interface StreamingCoreOptions {
   /** Redux streaming slice this stream drives ('normal' | 'enhanced'). */
   streamType: StreamType;
+  /** Let one shared session consume normal PCM as well as enhanced PCM. */
+  acceptNormalStream?: boolean;
   /** Key used for `wsContext.setResumePositionGetter` (e.g. 'play_normal'). */
   sendType: string;
   /** Console log prefix, e.g. '[usePlayNormal]'. */
@@ -136,6 +138,7 @@ export function useAudioStreamingCore(
 ): StreamingCoreReturn {
   const {
     streamType,
+    acceptNormalStream = false,
     sendType,
     logPrefix,
     getStartThreshold,
@@ -163,6 +166,14 @@ export function useAudioStreamingCore(
 
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+
+  const acceptsStreamType = useCallback(
+    (incoming: StreamType | undefined) =>
+      incoming === undefined ||
+      incoming === streamType ||
+      (acceptNormalStream && incoming === 'normal'),
+    [acceptNormalStream, streamType]
+  );
 
   // Watchdog for the first stream message after a play command (#4433).
   const streamStartWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -216,7 +227,7 @@ export function useAudioStreamingCore(
   const handleChunk = useCallback((message: AudioChunkMessage) => {
     try {
       // Only process messages intended for this stream (#2104)
-      if (message.data.stream_type && message.data.stream_type !== streamType) return;
+      if (!acceptsStreamType(message.data.stream_type)) return;
 
       // Drop frames from a stream that has already been superseded (#4563).
       // On seek the client resets its PCM buffer before sending the `seek`
@@ -355,11 +366,11 @@ export function useAudioStreamingCore(
       console.error(logPrefix, errorMsg);
       dispatch(setStreamingError({ streamType, error: errorMsg }));
     }
-  }, [dispatch, wsContext, streamType, logPrefix, throttleProgress, detectOutOfSequence, getStartThreshold]);
+  }, [dispatch, wsContext, streamType, logPrefix, throttleProgress, detectOutOfSequence, getStartThreshold, acceptsStreamType]);
 
   const handleStreamEnd = useCallback((message: AudioStreamEndMessage) => {
     // Only process messages intended for this stream (#2104)
-    if (message.data.stream_type && message.data.stream_type !== streamType) return;
+    if (!acceptsStreamType(message.data.stream_type)) return;
 
     DEBUG && console.log(`${logPrefix} Stream ended:`, {
       trackId: message.data.track_id,
@@ -370,11 +381,11 @@ export function useAudioStreamingCore(
     // Pass track_id so a stale 'end' from a superseded track after a rapid
     // skip doesn't prematurely mark the new track complete (#4434).
     dispatch(completeStreaming({ streamType, trackId: message.data.track_id }));
-  }, [dispatch, streamType, logPrefix]);
+  }, [dispatch, streamType, logPrefix, acceptsStreamType]);
 
   const handleStreamError = useCallback((message: AudioStreamErrorMessage) => {
     // Only process messages intended for this stream (#2104)
-    if (message.data.stream_type && message.data.stream_type !== streamType) return;
+    if (!acceptsStreamType(message.data.stream_type)) return;
 
     const errorMsg = `Streaming error: ${message.data.error} (${message.data.code})`;
     console.error(logPrefix, errorMsg);
@@ -382,7 +393,7 @@ export function useAudioStreamingCore(
     // skip isn't shown on the new track (#4434).
     dispatch(setStreamingError({ streamType, error: errorMsg, trackId: message.data.track_id }));
     cleanupStreaming();
-  }, [dispatch, streamType, logPrefix, cleanupStreaming]);
+  }, [dispatch, streamType, logPrefix, cleanupStreaming, acceptsStreamType]);
 
   // #3588/#2532: ref indirection so handler identity changes don't force a
   // resubscribe — the only valid resubscribe trigger is wsContext changing
@@ -414,12 +425,11 @@ export function useAudioStreamingCore(
         // the same way the callers' handlers do, so a concurrently-mounted core
         // of the other type does not adopt this stream's epoch; dispatch itself
         // is left unfiltered, exactly as before.
-        const forThisStream =
-          !start.data?.stream_type || start.data.stream_type === streamType;
+        const forThisStream = acceptsStreamType(start.data?.stream_type);
         if (forThisStream) {
           streamEpochRef.current = start.data?.stream_epoch ?? null;
+          handleStreamStartRef.current?.(start);
         }
-        handleStreamStartRef.current?.(start);
       }
     );
     const unsubscribeChunk = wsContext.subscribe(
@@ -444,7 +454,7 @@ export function useAudioStreamingCore(
     };
     // streamType is a per-instance constant, so listing it cannot cause the
     // resubscribe the comment above warns against.
-  }, [wsContext, clearStreamStartWatchdog, streamType]);
+  }, [wsContext, clearStreamStartWatchdog, streamType, acceptsStreamType]);
 
   const stopPlayback = useCallback(() => {
     playbackEngineRef.current?.stopPlayback();
@@ -509,11 +519,19 @@ export function useAudioStreamingCore(
 
   // Register resume position getter for WS reconnect (#3185)
   useEffect(() => {
-    wsContext.setResumePositionGetter(sendType, () =>
-      playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0
-    );
-    return () => wsContext.setResumePositionGetter(sendType, null);
-  }, [wsContext, sendType]);
+    const getPosition = () =>
+      playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0;
+    wsContext.setResumePositionGetter(sendType, getPosition);
+    if (acceptNormalStream) {
+      wsContext.setResumePositionGetter('play_normal', getPosition);
+    }
+    return () => {
+      wsContext.setResumePositionGetter(sendType, null);
+      if (acceptNormalStream) {
+        wsContext.setResumePositionGetter('play_normal', null);
+      }
+    };
+  }, [wsContext, sendType, acceptNormalStream]);
 
   // On WS disconnect: preserve playback engine and buffer so buffered audio
   // continues playing while reconnect happens (#3185, replaces #2847 teardown).

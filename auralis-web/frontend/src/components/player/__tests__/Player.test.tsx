@@ -9,15 +9,19 @@
  * what the user sees.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import { PlaybackSessionProvider } from '@/contexts/PlaybackSessionContext';
 import Player from '../Player';
 
-// Captured across renders so tests can assert on the exact playEnhanced args.
-const { mockPlayEnhanced } = vi.hoisted(() => ({ mockPlayEnhanced: vi.fn() }));
+// Captured across renders so tests can assert on the exact wire-mode choice.
+const { mockPlayEnhanced, mockPlayNormal, enhancementSettings } = vi.hoisted(() => ({
+  mockPlayEnhanced: vi.fn(),
+  mockPlayNormal: vi.fn(),
+  enhancementSettings: { enabled: true },
+}));
 
 // Heavy hooks remain stubbed — they pull in WebSocket / AudioContext
 // machinery that has no analog in jsdom. The Redux integration tests
@@ -30,6 +34,7 @@ const { mockPlayEnhanced } = vi.hoisted(() => ({ mockPlayEnhanced: vi.fn() }));
 vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
   usePlayEnhanced: () => ({
     playEnhanced: mockPlayEnhanced,
+    playNormal: mockPlayNormal,
     seekTo: vi.fn(),
     pausePlayback: vi.fn(),
     resumePlayback: vi.fn(),
@@ -49,7 +54,11 @@ vi.mock('@/hooks/enhancement/usePlayEnhanced', () => ({
 // Current enhancement selection — Player must pass this to playEnhanced on
 // track transitions instead of hardcoded adaptive/1.0 (#4410).
 vi.mock('@/hooks/enhancement/useEnhancementControl', () => ({
-  useEnhancementControl: () => ({ preset: 'warm', intensity: 0.5 }),
+  useEnhancementControl: () => ({
+    enabled: enhancementSettings.enabled,
+    preset: 'warm',
+    intensity: 0.5,
+  }),
 }));
 
 function renderPlayer(...args: Parameters<typeof render>) {
@@ -69,6 +78,12 @@ const mockTrack = {
 };
 
 describe('Player', () => {
+  beforeEach(() => {
+    enhancementSettings.enabled = true;
+    mockPlayEnhanced.mockClear();
+    mockPlayNormal.mockClear();
+  });
+
   it('should render the play button when no track is loaded', () => {
     renderPlayer(<Player />);
     expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
@@ -99,7 +114,6 @@ describe('Player', () => {
   });
 
   it('Next passes the current preset/intensity, not hardcoded adaptive/1.0 (#4410)', async () => {
-    mockPlayEnhanced.mockClear();
     renderPlayer(<Player />, {
       preloadedState: {
         player: { currentTrack: mockTrack } as never,
@@ -114,6 +128,24 @@ describe('Player', () => {
 
     await waitFor(() => expect(mockPlayEnhanced).toHaveBeenCalled());
     expect(mockPlayEnhanced).toHaveBeenCalledWith(2, 'warm', 0.5);
+  });
+
+  it('Next uses normal playback when enhancement is disabled (#4812)', async () => {
+    enhancementSettings.enabled = false;
+    renderPlayer(<Player />, {
+      preloadedState: {
+        player: { currentTrack: mockTrack } as never,
+        queue: {
+          tracks: [mockTrack, { ...mockTrack, id: 2, title: 'Next' }],
+          currentIndex: 0,
+        } as never,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+
+    await waitFor(() => expect(mockPlayNormal).toHaveBeenCalledWith(2));
+    expect(mockPlayEnhanced).not.toHaveBeenCalled();
   });
 
   it('should render the queue panel toggle', () => {

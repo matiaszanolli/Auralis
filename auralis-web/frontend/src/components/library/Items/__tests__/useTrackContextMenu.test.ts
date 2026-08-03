@@ -49,6 +49,7 @@ vi.mock('@/components/shared/ContextMenu', () => ({
 }));
 
 import * as playlistService from '@/services/playlistService';
+import { getTrackContextActions } from '@/components/shared/ContextMenu';
 
 // Create a test store
 const createTestStore = () => {
@@ -107,6 +108,27 @@ describe('useTrackContextMenu', () => {
       expect(result.current.contextMenuPosition).toBeNull();
       expect(result.current.playlists).toEqual([]);
       expect(result.current.isLoadingPlaylists).toBe(false);
+    });
+  });
+
+  describe('Playback feedback (#4829)', () => {
+    it('delegates play without claiming success before stream confirmation', () => {
+      renderHook(
+        () =>
+          useTrackContextMenu({
+            track: mockTrack,
+            onPlay: mockOnPlay,
+          }),
+        { wrapper: createWrapper() }
+      );
+
+      const calls = vi.mocked(getTrackContextActions).mock.calls;
+      const callbacks = calls[calls.length - 1]?.[2];
+      expect(callbacks).toBeDefined();
+      callbacks!.onPlay!();
+
+      expect(mockOnPlay).toHaveBeenCalledWith(mockTrack.id);
+      expect(mockToastInfo).not.toHaveBeenCalled();
     });
   });
 

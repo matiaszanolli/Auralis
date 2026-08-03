@@ -56,8 +56,14 @@ export function useEnhancedStreamStart({
 }: UseEnhancedStreamStartParams): void {
   const handleStreamStart = useCallback((message: AudioStreamStartMessage) => {
     try {
-      // Only process messages intended for this hook (#2104)
-      if (message.data.stream_type && message.data.stream_type !== 'enhanced') return;
+      // PlaybackSession owns one browser audio engine for both enhanced and
+      // normal PCM. The shared core filters unrelated stream types before
+      // dispatching here (#4812).
+      if (
+        message.data.stream_type &&
+        message.data.stream_type !== 'enhanced' &&
+        message.data.stream_type !== 'normal'
+      ) return;
 
       // Check if this is a seek operation
       const isSeek = message.data.is_seek === true;

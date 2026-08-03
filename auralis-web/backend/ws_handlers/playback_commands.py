@@ -16,9 +16,8 @@ import logging
 import math
 from typing import Any
 
-from fastapi import WebSocket
-
 from core.audio_stream_controller import ws_id as _ws_id
+from fastapi import WebSocket
 from helpers import spawn_background_task
 from schemas import (  # single source of truth (#4424, #4600)
     VALID_PRESETS,
@@ -189,14 +188,9 @@ async def handle_play_enhanced(
 
     ws_id = _ws_id(websocket)
 
-    # Deduplicate: if the same track is already streaming, skip
-    async with state.active_tasks_lock:
-        existing_track = state.active_track_ids.get(ws_id)
-        existing_task = state.active_tasks.get(ws_id)
-        if (existing_track == track_id and existing_task is not None and not existing_task.done()):
-            logger.info(f"Ignoring duplicate play_enhanced for track {track_id} (already streaming on ws {ws_id})")
-            return
-
+    # Every command is authoritative, including a same-track reissue with a
+    # new preset/intensity or resume position. Mirror play_normal by replacing
+    # the active task instead of deduplicating solely by track_id (#4726).
     await _cancel_prior_task(ws_id, state)
 
     async with state.active_tasks_lock:

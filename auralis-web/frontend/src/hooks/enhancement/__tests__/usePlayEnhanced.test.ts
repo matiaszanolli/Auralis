@@ -373,11 +373,11 @@ describe('usePlayEnhanced – audio_stream_start', () => {
     expect(streamingState.totalChunks).toBe(20);
   });
 
-  it('ignores messages with stream_type other than "enhanced"', () => {
+  it('accepts normal stream starts in the shared playback session (#4812)', () => {
     fireHandler('audio_stream_start', makeStreamStartMsg({ stream_type: 'normal' }));
 
-    expect(vi.mocked(PCMStreamBuffer)).not.toHaveBeenCalled();
-    expect(store.getState().player.streaming.enhanced.state).toBe('idle');
+    expect(vi.mocked(PCMStreamBuffer)).toHaveBeenCalledOnce();
+    expect(store.getState().player.streaming.enhanced.state).toBe('buffering');
   });
 
   it('passes through when stream_type is absent (no filter applied)', () => {
@@ -521,10 +521,11 @@ describe('usePlayEnhanced – audio_chunk', () => {
     expect(mockEngineInstance.startPlayback).not.toHaveBeenCalled();
   });
 
-  it('ignores chunk with stream_type other than "enhanced"', () => {
+  it('accepts normal chunks in the shared playback session (#4812)', () => {
     fireHandler('audio_chunk', makeChunkMsg({ stream_type: 'normal' }));
 
-    expect(pcmDecoding.decodeAudioChunkMessage).not.toHaveBeenCalled();
+    expect(pcmDecoding.decodeAudioChunkMessage).toHaveBeenCalledOnce();
+    expect(mockBufferInstance.append).toHaveBeenCalledOnce();
   });
 
   it('resets buffer on out-of-sequence chunk', () => {
@@ -577,11 +578,10 @@ describe('usePlayEnhanced – audio_stream_end', () => {
     expect(store.getState().player.streaming.enhanced.progress).toBe(100);
   });
 
-  it('ignores end message with stream_type other than "enhanced"', () => {
+  it('accepts normal stream completion in the shared playback session (#4812)', () => {
     fireHandler('audio_stream_end', makeStreamEndMsg({ stream_type: 'normal' }));
 
-    // State stays at 'buffering' (set by startStreaming), not 'complete'
-    expect(store.getState().player.streaming.enhanced.state).toBe('buffering');
+    expect(store.getState().player.streaming.enhanced.state).toBe('complete');
   });
 
   it('passes through when stream_type is absent', () => {
@@ -632,11 +632,10 @@ describe('usePlayEnhanced – audio_stream_error', () => {
     expect(pcmDecoding.decodeAudioChunkMessage).not.toHaveBeenCalled();
   });
 
-  it('ignores error message with stream_type other than "enhanced"', () => {
+  it('accepts normal stream errors in the shared playback session (#4812)', () => {
     fireHandler('audio_stream_error', makeStreamErrorMsg({ stream_type: 'normal' }));
 
-    // State should not change to error
-    expect(store.getState().player.streaming.enhanced.state).not.toBe('error');
+    expect(store.getState().player.streaming.enhanced.state).toBe('error');
   });
 });
 
@@ -1057,6 +1056,21 @@ describe('usePlayEnhanced – playEnhanced', () => {
     });
   });
 
+  it('sends play_normal without enhancement parameters', async () => {
+    const { result } = renderHook(() => usePlayEnhanced(), {
+      wrapper: makeWrapper(store),
+    });
+
+    await act(async () => {
+      await result.current.playNormal(3);
+    });
+
+    expect(mockSend).toHaveBeenCalledWith({
+      type: 'play_normal',
+      data: { track_id: 3 },
+    });
+  });
+
   it('dispatches setStreamingError when WebSocket is not connected', async () => {
     vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue({
       isConnected: false,
@@ -1096,7 +1110,7 @@ describe('usePlayEnhanced – WS disconnect cleanup', () => {
     vi.unstubAllGlobals();
   });
 
-  it('stops engine and resets Redux streaming state on disconnect', async () => {
+  it('keeps buffered playback alive while WebSocket reconnects (#3185)', () => {
     setupMocks();
     store = createTestStore();
 
@@ -1125,9 +1139,7 @@ describe('usePlayEnhanced – WS disconnect cleanup', () => {
       rerender();
     });
 
-    expect(mockEngineInstance.stopPlayback).toHaveBeenCalledOnce();
-    await waitFor(() =>
-      expect(store.getState().player.streaming.enhanced.state).toBe('idle')
-    );
+    expect(mockEngineInstance.stopPlayback).not.toHaveBeenCalled();
+    expect(store.getState().player.streaming.enhanced.state).toBe('buffering');
   });
 });

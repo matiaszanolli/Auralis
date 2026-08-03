@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { getPlaylistContextActions } from '@/components/shared/ContextMenu';
 import { useToast } from '@/components/shared/Toast';
-import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { usePlaybackSession } from '@/contexts/PlaybackSessionContext';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import * as playlistService from '@/services/playlistService';
 
@@ -24,9 +24,9 @@ export const usePlaylistContextActions = ({
   onDelete,
   onEdit,
 }: UsePlaylistContextActionsProps) => {
-  const { info, success, error: errorToast } = useToast();
+  const { info, error: errorToast } = useToast();
   const { setQueue } = usePlaybackQueue();
-  const wsContext = useWebSocketContext();
+  const { startTrack } = usePlaybackSession();
 
   return useMemo(() => {
     if (!playlist) return [];
@@ -45,14 +45,11 @@ export const usePlaylistContextActions = ({
 
           // setQueue dispatches the Redux queue action AND posts to the backend.
           await setQueue(tracks, 0);
-          // Begin playback of the first track; the Player's usePlayEnhanced
-          // instance handles the stream and Redux syncs via player_state.
-          wsContext.send({
-            type: 'play_enhanced',
-            data: { track_id: tracks[0].id, preset: 'adaptive', intensity: 1.0 },
-          });
+          // Begin through the shared session so enabled/preset/intensity remain
+          // live and the UI does not report success before stream confirmation
+          // (#4812/#4813/#4829).
+          await startTrack(tracks[0].id);
 
-          success(`Playing playlist: ${playlist.name}`);
           if (onPlaylistSelect) {
             onPlaylistSelect(playlist.id);
           }
@@ -68,5 +65,5 @@ export const usePlaylistContextActions = ({
         onDelete(playlist.id, playlist.name);
       },
     });
-  }, [playlist, onPlaylistSelect, onDelete, onEdit, info, success, errorToast, setQueue, wsContext]);
+  }, [playlist, onPlaylistSelect, onDelete, onEdit, info, errorToast, setQueue, startTrack]);
 };

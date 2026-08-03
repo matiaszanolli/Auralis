@@ -3,33 +3,31 @@
  *
  * usePlayTrack is the single "play this track now" entry point (replaces
  * onTrackPlay prop drilling, #3940). It combines a REST queue POST with a
- * `play_enhanced` WebSocket send, gated by an ok-guard so a failed queue POST
+ * shared PlaybackSession start, gated by an ok-guard so a failed queue POST
  * never starts a ghost stream (#3953). It also aborts the in-flight POST on
- * unmount so a stray stream/toast doesn't fire after navigating away (#4161).
+ * unmount so a stray stream doesn't fire after navigating away (#4161).
  *
  * These tests pin that contract:
- *   - success: POST then send(play_enhanced) then success toast
- *   - failed queue POST: NO send, error toast (ghost-stream guard)
- *   - correct play_enhanced payload (track_id / preset / intensity)
- *   - network rejection: error toast, no send
- *   - AbortError: silent (no toast, no send)
- *   - unmount mid-POST: no send, no toast
+ *   - success: POST then shared-session start, with no premature success toast
+ *   - failed queue POST: NO start, error toast (ghost-stream guard)
+ *   - network rejection: error toast, no start
+ *   - AbortError: silent (no toast, no start)
+ *   - unmount mid-POST: no start
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePlayTrack } from '../usePlayTrack';
-import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { usePlaybackSession } from '@/contexts/PlaybackSessionContext';
 import { useToast } from '@/components/shared/Toast';
 
 // Mock collaborators. getApiUrl is mocked to identity so the fetch URL is
 // asserted as the bare path regardless of the configured API base.
-vi.mock('@/contexts/WebSocketContext', () => ({ useWebSocketContext: vi.fn() }));
+vi.mock('@/contexts/PlaybackSessionContext', () => ({ usePlaybackSession: vi.fn() }));
 vi.mock('@/components/shared/Toast', () => ({ useToast: vi.fn() }));
 vi.mock('@/config/api', () => ({ getApiUrl: (path: string) => path }));
 
-const mockSend = vi.fn();
-const mockSuccess = vi.fn();
+const mockStartTrack = vi.fn().mockResolvedValue(undefined);
 const mockError = vi.fn();
 let mockFetch: ReturnType<typeof vi.fn>;
 
@@ -37,8 +35,8 @@ const track = { id: 42, title: 'Test Song' };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(useWebSocketContext).mockReturnValue({ send: mockSend } as any);
-  vi.mocked(useToast).mockReturnValue({ success: mockSuccess, error: mockError } as any);
+  vi.mocked(usePlaybackSession).mockReturnValue({ startTrack: mockStartTrack } as any);
+  vi.mocked(useToast).mockReturnValue({ error: mockError } as any);
   mockFetch = vi.fn();
   vi.stubGlobal('fetch', mockFetch);
 });
@@ -48,7 +46,7 @@ afterEach(() => {
 });
 
 describe('usePlayTrack', () => {
-  it('on success: POSTs the queue, then sends play_enhanced, then toasts', async () => {
+  it('on success: POSTs the queue, then starts through the shared session', async () => {
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
 
     const { result } = renderHook(() => usePlayTrack());
@@ -63,15 +61,11 @@ describe('usePlayTrack', () => {
         body: JSON.stringify({ tracks: [42], start_index: 0 }),
       })
     );
-    expect(mockSend).toHaveBeenCalledWith({
-      type: 'play_enhanced',
-      data: { track_id: 42, preset: 'adaptive', intensity: 1.0 },
-    });
-    expect(mockSuccess).toHaveBeenCalledWith('Now playing: Test Song');
+    expect(mockStartTrack).toHaveBeenCalledWith(42);
     expect(mockError).not.toHaveBeenCalled();
   });
 
-  it('does NOT send and shows an error toast when the queue POST fails (ghost-stream guard)', async () => {
+  it('does NOT start and shows an error toast when the queue POST fails (ghost-stream guard)', async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 500, statusText: 'Internal Server Error' });
 
     const { result } = renderHook(() => usePlayTrack());
@@ -79,25 +73,20 @@ describe('usePlayTrack', () => {
       await result.current.playTrack(track);
     });
 
-    expect(mockSend).not.toHaveBeenCalled();
-    expect(mockSuccess).not.toHaveBeenCalled();
+    expect(mockStartTrack).not.toHaveBeenCalled();
     expect(mockError).toHaveBeenCalledTimes(1);
     expect(mockError).toHaveBeenCalledWith(expect.stringContaining('500'));
   });
 
-  it('sends the correct play_enhanced payload (track_id / preset / intensity)', async () => {
+  it('delegates the selected track id to PlaybackSession', async () => {
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
 
     const { result } = renderHook(() => usePlayTrack());
     await act(async () => {
-      await result.current.playTrack({ id: 7, title: 'Another' });
+      await result.current.playTrack({ id: 7 });
     });
 
-    expect(mockSend.mock.calls[0][0].data).toEqual({
-      track_id: 7,
-      preset: 'adaptive',
-      intensity: 1.0,
-    });
+    expect(mockStartTrack).toHaveBeenCalledWith(7);
   });
 
   it('shows an error toast and does not send on a network rejection', async () => {
@@ -108,7 +97,7 @@ describe('usePlayTrack', () => {
       await result.current.playTrack(track);
     });
 
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockStartTrack).not.toHaveBeenCalled();
     expect(mockError).toHaveBeenCalledWith('network down');
   });
 
@@ -122,9 +111,8 @@ describe('usePlayTrack', () => {
       await result.current.playTrack(track);
     });
 
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockStartTrack).not.toHaveBeenCalled();
     expect(mockError).not.toHaveBeenCalled();
-    expect(mockSuccess).not.toHaveBeenCalled();
   });
 
   it('does not send or toast if unmounted while the POST is in flight (#4161)', async () => {
@@ -148,17 +136,15 @@ describe('usePlayTrack', () => {
       await pending;
     });
 
-    expect(mockSend).not.toHaveBeenCalled();
-    expect(mockSuccess).not.toHaveBeenCalled();
+    expect(mockStartTrack).not.toHaveBeenCalled();
   });
 });
 
 describe('usePlayTrack — rapid switches abort the previous request (#4426)', () => {
   // playTrack assigned a new AbortController to abortRef on every call but
   // never aborted the previous one, so two rapid clicks both ran to completion
-  // and whichever queue POST *resolved* last sent its play_enhanced last —
-  // reverting playback to the older track, with the losing track's title in the
-  // success toast and no error surfaced.
+  // and whichever queue POST *resolved* last started its track last — reverting
+  // playback to the older selection with no error surfaced.
 
   const trackA = { id: 1, title: 'Track A' };
   const trackB = { id: 2, title: 'Track B' };
@@ -198,7 +184,7 @@ describe('usePlayTrack — rapid switches abort the previous request (#4426)', (
     expect(signals[1].aborted).toBe(false);
   });
 
-  it('sends play_enhanced only for the second track when both POSTs resolve', async () => {
+  it('starts only the second track when both POSTs resolve', async () => {
     const { signals, resolvers } = deferredFetch();
     const { result } = renderHook(() => usePlayTrack());
 
@@ -217,15 +203,11 @@ describe('usePlayTrack — rapid switches abort the previous request (#4426)', (
       await Promise.resolve();
     });
 
-    const sentTrackIds = mockSend.mock.calls
-      .filter(([msg]) => msg.type === 'play_enhanced')
-      .map(([msg]) => msg.data.track_id);
-
-    expect(sentTrackIds).toEqual([trackB.id]);
+    expect(mockStartTrack.mock.calls.map(([trackId]) => trackId)).toEqual([trackB.id]);
     expect(signals[0].aborted).toBe(true);
   });
 
-  it('does not toast the superseded track', async () => {
+  it('does not surface an abort as a user-facing failure', async () => {
     const { resolvers } = deferredFetch();
     const { result } = renderHook(() => usePlayTrack());
 
@@ -242,9 +224,7 @@ describe('usePlayTrack — rapid switches abort the previous request (#4426)', (
       await Promise.resolve();
     });
 
-    expect(mockSuccess).toHaveBeenCalledTimes(1);
-    expect(mockSuccess).toHaveBeenCalledWith(`Now playing: ${trackB.title}`);
-    // An abort is not a user-facing failure.
+    expect(mockStartTrack).toHaveBeenCalledTimes(1);
     expect(mockError).not.toHaveBeenCalled();
   });
 
@@ -256,9 +236,6 @@ describe('usePlayTrack — rapid switches abort the previous request (#4426)', (
       await result.current.playTrack(trackA);
     });
 
-    expect(mockSend).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'play_enhanced' })
-    );
-    expect(mockSuccess).toHaveBeenCalledWith(`Now playing: ${trackA.title}`);
+    expect(mockStartTrack).toHaveBeenCalledWith(trackA.id);
   });
 });

@@ -42,11 +42,17 @@ export interface UseEnhancedPlayCommandParams {
   resetFingerprint: () => void;
 }
 
-export type PlayEnhanced = (
+export type PlaybackWireType = 'enhanced' | 'normal';
+
+export type StartPlayback = (
   trackId: number,
   preset: EnhancementPreset,
-  intensity: number
+  intensity: number,
+  wireType?: PlaybackWireType
 ) => Promise<void>;
+
+/** Backward-compatible public name for consumers of the hook barrel. */
+export type PlayEnhanced = StartPlayback;
 
 export function useEnhancedPlayCommand({
   wsContext,
@@ -54,9 +60,14 @@ export function useEnhancedPlayCommand({
   core,
   currentTrackInfoRef,
   resetFingerprint,
-}: UseEnhancedPlayCommandParams): PlayEnhanced {
+}: UseEnhancedPlayCommandParams): StartPlayback {
   return useCallback(
-    async (trackId: number, preset: EnhancementPreset, intensity: number) => {
+    async (
+      trackId: number,
+      preset: EnhancementPreset,
+      intensity: number,
+      wireType: PlaybackWireType = 'enhanced'
+    ) => {
       try {
         // Stop any existing playback
         core.playbackEngineRef.current?.stopPlayback();
@@ -114,29 +125,39 @@ export function useEnhancedPlayCommand({
           intensity,
         }));
 
-        // Send play_enhanced message to backend
-        // Subscriptions are already set up on mount
-        wsContext.send({
-          type: 'play_enhanced',
-          data: {
-            track_id: trackId,
-            preset,
-            intensity,
-          },
-        });
+        // One browser audio session consumes either backend stream. Route the
+        // wire command from the stored enhancement flag at the session layer
+        // while preserving live preset/intensity for enhanced playback
+        // (#4812/#4813).
+        if (wireType === 'enhanced') {
+          wsContext.send({
+            type: 'play_enhanced',
+            data: {
+              track_id: trackId,
+              preset,
+              intensity,
+            },
+          });
+        } else {
+          wsContext.send({
+            type: 'play_normal',
+            data: { track_id: trackId },
+          });
+        }
 
         // Arm the first-stream watchdog so a hung worker that never emits any
         // stream message surfaces an error instead of leaving the UI stuck in
         // 'buffering' (#4433). Cleared by the core on the first stream message.
         core.armStreamStartWatchdog();
 
-        DEBUG && console.log('[usePlayEnhanced] Play enhanced requested (buffering...):', {
+        DEBUG && console.log('[usePlayEnhanced] Playback requested (buffering...):', {
           trackId,
           preset,
           intensity,
+          wireType,
         });
       } catch (error) {
-        const errorMsg = `Failed to start enhanced playback: ${error instanceof Error ? error.message : String(error)}`;
+        const errorMsg = `Failed to start playback: ${error instanceof Error ? error.message : String(error)}`;
         console.error('[usePlayEnhanced]', errorMsg);
         dispatch(setStreamingError({ streamType: 'enhanced', error: errorMsg }));
       }

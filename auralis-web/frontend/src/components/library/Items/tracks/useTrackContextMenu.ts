@@ -123,7 +123,6 @@ export const useTrackContextMenu = ({
       getTrackContextActions(track.id, track.favorite || false, {
         onPlay: () => {
           onPlay(track.id);
-          info(`Now playing: ${track.title}`);
         },
         onAddToQueue: handleAddToQueue,
         onAddToPlaylist: handleCloseContextMenu,

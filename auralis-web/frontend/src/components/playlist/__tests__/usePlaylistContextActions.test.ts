@@ -12,20 +12,19 @@ import { usePlaylistContextActions } from '../usePlaylistContextActions';
 import * as playlistService from '@/services/playlistService';
 
 const mockSetQueue = vi.fn().mockResolvedValue(undefined);
-const mockSend = vi.fn();
+const mockStartTrack = vi.fn().mockResolvedValue(undefined);
 const mockInfo = vi.fn();
-const mockSuccess = vi.fn();
 const mockError = vi.fn();
 
 vi.mock('@/services/playlistService', () => ({ getPlaylist: vi.fn() }));
 vi.mock('@/hooks/player/usePlaybackQueue', () => ({
   usePlaybackQueue: () => ({ setQueue: mockSetQueue }),
 }));
-vi.mock('@/contexts/WebSocketContext', () => ({
-  useWebSocketContext: () => ({ send: mockSend }),
+vi.mock('@/contexts/PlaybackSessionContext', () => ({
+  usePlaybackSession: () => ({ startTrack: mockStartTrack }),
 }));
 vi.mock('@/components/shared/Toast', () => ({
-  useToast: () => ({ info: mockInfo, success: mockSuccess, error: mockError }),
+  useToast: () => ({ info: mockInfo, error: mockError }),
 }));
 
 const playlist = { id: 7, name: 'Roadtrip' } as any;
@@ -58,12 +57,8 @@ describe('usePlaylistContextActions.onPlay (#4040)', () => {
     expect(playlistService.getPlaylist).toHaveBeenCalledWith(7);
     // Redux queue dispatch with the fetched tracks.
     expect(mockSetQueue).toHaveBeenCalledWith(tracks, 0);
-    // Playback started for the first track.
-    expect(mockSend).toHaveBeenCalledWith({
-      type: 'play_enhanced',
-      data: { track_id: 11, preset: 'adaptive', intensity: 1.0 },
-    });
-    expect(mockSuccess).toHaveBeenCalledWith(expect.stringContaining('Roadtrip'));
+    // Playback starts through the one shared browser session.
+    expect(mockStartTrack).toHaveBeenCalledWith(11);
     expect(onPlaylistSelect).toHaveBeenCalledWith(7);
   });
 
@@ -77,8 +72,7 @@ describe('usePlaylistContextActions.onPlay (#4040)', () => {
 
     expect(mockInfo).toHaveBeenCalledWith(expect.stringContaining('no tracks'));
     expect(mockSetQueue).not.toHaveBeenCalled();
-    expect(mockSend).not.toHaveBeenCalled();
-    expect(mockSuccess).not.toHaveBeenCalled();
+    expect(mockStartTrack).not.toHaveBeenCalled();
   });
 
   it('shows an error toast when fetching the playlist fails', async () => {

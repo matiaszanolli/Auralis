@@ -41,6 +41,9 @@ interface PlaybackSessionContextValue {
   isSeeking: boolean;
   error: string | null;
 
+  /** Start a track using the current enhancement enabled/preset/intensity state. */
+  startTrack: (trackId: number) => Promise<void>;
+
   /** Seek to a position (seconds) in the current track. */
   handleSeek: (position: number) => void;
   /** Play/pause/resume the current track — the single entry point for both
@@ -73,6 +76,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
 
   const {
     playEnhanced,
+    playNormal,
     seekTo,
     pausePlayback,
     resumePlayback,
@@ -88,9 +92,21 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     error,
   } = usePlayEnhanced();
 
-  // Current enhancement selection (preset/intensity) — the transport paths must
-  // preserve it across track changes instead of resetting to adaptive/1.0 (#4410).
-  const { preset: enhancementPreset, intensity: enhancementIntensity } = useEnhancementControl();
+  // Every entry point reads the same live enhancement state. Disabled playback
+  // uses the normal wire command; enabled playback preserves preset/intensity
+  // instead of resetting to adaptive/1.0 (#4812/#4813).
+  const {
+    enabled: enhancementEnabled,
+    preset: enhancementPreset,
+    intensity: enhancementIntensity,
+  } = useEnhancementControl();
+
+  const startTrack = useCallback(
+    (trackId: number) => enhancementEnabled
+      ? playEnhanced(trackId, enhancementPreset, enhancementIntensity)
+      : playNormal(trackId),
+    [enhancementEnabled, enhancementPreset, enhancementIntensity, playEnhanced, playNormal]
+  );
 
   const handleSeek = useCallback((position: number) => {
     if (!isStreaming && !currentTrack?.id) {
@@ -117,11 +133,11 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
       stopPlayback();
       dispatch(setCurrentTrackAndSyncQueue(nextTrackData));
 
-      await playEnhanced(nextTrackData.id, enhancementPreset, enhancementIntensity);
+      await startTrack(nextTrackData.id);
     } catch (err) {
       console.error('[PlaybackSession] Next command error:', err);
     }
-  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced, enhancementPreset, enhancementIntensity]);
+  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, startTrack]);
 
   const handlePrevious = useCallback(async () => {
     try {
@@ -139,11 +155,11 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
       stopPlayback();
       dispatch(setCurrentTrackAndSyncQueue(prevTrackData));
 
-      await playEnhanced(prevTrackData.id, enhancementPreset, enhancementIntensity);
+      await startTrack(prevTrackData.id);
     } catch (err) {
       console.error('[PlaybackSession] Previous command error:', err);
     }
-  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced, enhancementPreset, enhancementIntensity]);
+  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, startTrack]);
 
   const handlePlayPause = useCallback(async () => {
     if (!currentTrack?.id) {
@@ -161,12 +177,12 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
           pausePlayback();
         }
       } else {
-        await playEnhanced(currentTrack.id, enhancementPreset, enhancementIntensity);
+        await startTrack(currentTrack.id);
       }
     } catch (err) {
       console.error('[PlaybackSession] Play/Pause command error:', err);
     }
-  }, [currentTrack?.id, isStreaming, isPaused, resumePlayback, pausePlayback, playEnhanced, enhancementPreset, enhancementIntensity]);
+  }, [currentTrack?.id, isStreaming, isPaused, resumePlayback, pausePlayback, startTrack]);
 
   const handleVolumeChange = useCallback(async (vol: number) => {
     try {
@@ -222,6 +238,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     isPaused,
     isSeeking,
     error,
+    startTrack,
     handleSeek,
     handlePlayPause,
     handleNext,
@@ -230,7 +247,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     handleMuteToggle,
   }), [
     isStreaming, streamingState, processedChunks, totalChunks,
-    currentTime, isPaused, isSeeking, error,
+    currentTime, isPaused, isSeeking, error, startTrack,
     handleSeek, handlePlayPause, handleNext, handlePrevious, handleVolumeChange, handleMuteToggle,
   ]);
 
