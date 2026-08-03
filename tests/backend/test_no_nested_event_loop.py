@@ -8,6 +8,7 @@ Verifies that:
 """
 
 import asyncio
+import inspect
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -47,7 +48,7 @@ def test_process_chunk_synchronized_removed():
 
 def test_get_full_processed_audio_path_is_async():
     """get_full_processed_audio_path() must be a coroutine function."""
-    assert asyncio.iscoroutinefunction(ChunkedAudioProcessor.get_full_processed_audio_path), (
+    assert inspect.iscoroutinefunction(ChunkedAudioProcessor.get_full_processed_audio_path), (
         "get_full_processed_audio_path() must be async (fixes #2318)"
     )
 

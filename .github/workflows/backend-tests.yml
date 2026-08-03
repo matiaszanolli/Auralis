@@ -72,7 +72,7 @@ jobs:
           # pytest MUST stay at 9.0.x: 9.1 removed the legacy
           # pytest_ignore_collect(path, config) hook signature that
           # tests/conftest.py still uses, which crashes collection entirely.
-          pip install 'pytest==9.0.1' pytest-asyncio
+          pip install 'pytest==9.0.1' pytest-asyncio pytest-timeout httpx2
 
       # Always exits 0 — a failing suite is expected while the baseline is
       # non-empty. The baseline check below is what decides the job.

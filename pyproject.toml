@@ -81,14 +81,17 @@ dev = [
     "pytest>=9.0.1",
     "pytest-asyncio>=0.17.0",
     "pytest-cov>=3.0.0",
+    "pytest-timeout>=2.4",
     # Moved out of [project.dependencies] in #4528 — each of these has zero
     # importers in auralis/ or auralis-web/ and is reached only from tests:
     #   sounddevice -> tests/conftest.py::_ensure_portaudio
     #   websockets  -> tests/integration/test_phase4_player_workflow.py
-    #   httpx       -> 5 files, via fastapi.testclient.TestClient
+    #   httpx       -> direct AsyncClient/ASGITransport test call sites
+    #   httpx2      -> Starlette 1.x TestClient's maintained transport
     "sounddevice>=0.4.5",
     "websockets>=10.0",
     "httpx>=0.28",
+    "httpx2>=2.9",
     "black>=22.0.0",
     "isort>=5.10.0",
     "mypy>=0.950",

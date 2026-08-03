@@ -11,6 +11,7 @@ Tests for FastAPI async patterns, WebSocket concurrency, and background tasks.
 """
 
 import asyncio
+import inspect
 import time
 from typing import List
 
@@ -527,7 +528,7 @@ class TestBackgroundTasks:
 
         # Execute tasks (simulate FastAPI execution)
         for task in background_tasks.tasks:
-            if asyncio.iscoroutinefunction(task.func):
+            if inspect.iscoroutinefunction(task.func):
                 await task.func(*task.args, **task.kwargs)
             else:
                 task.func(*task.args, **task.kwargs)
