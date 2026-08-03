@@ -55,6 +55,22 @@ class QueueManager:
             self.tracks.append(track_info)
             self._invalidate_shuffle_snapshot_unlocked()
 
+    def insert_track(self, index: int, track_info: dict[str, Any]) -> int:
+        """Insert a track atomically and keep the current track selected.
+
+        Returns the normalized insertion index.  QueueService previously
+        rebuilt the whole queue with ``set_queue`` for positional inserts,
+        which reused a stale numeric current index and changed the playing
+        track whenever an item was inserted before it (#4776).
+        """
+        with self._lock:
+            normalized_index = min(max(index, 0), len(self.tracks))
+            self.tracks.insert(normalized_index, track_info)
+            if self.current_index >= 0 and normalized_index <= self.current_index:
+                self.current_index += 1
+            self._invalidate_shuffle_snapshot_unlocked()
+            return normalized_index
+
     def add_tracks(self, track_list: list[dict[str, Any]]) -> None:
         """Add multiple tracks to the queue"""
         with self._lock:
@@ -279,28 +295,40 @@ class QueueManager:
             if set(new_order) != set(range(len(self.tracks))):
                 return False
 
-            # Read current track ID directly (we already hold self._lock)
-            current_track_id = None
-            if 0 <= self.current_index < len(self.tracks):
-                current_track_id = self.tracks[self.current_index].get('id')
+            # Preserve the exact queue item, including filepath-only entries
+            # and duplicate track IDs. QueueController.set_queue commonly
+            # stores entries without an id, for which the old implementation
+            # always reset current_index to zero (#4776).
+            current_track = self._get_current_track_unlocked()
 
             # Reorder tracks
             self.tracks = [self.tracks[i] for i in new_order]
             self._invalidate_shuffle_snapshot_unlocked()
 
-            # Update current_index to point to the same track (#2159)
-            if current_track_id is not None:
-                found = False
-                for i, track in enumerate(self.tracks):
-                    if track.get('id') == current_track_id:
-                        self.current_index = i
-                        found = True
-                        break
-                if not found:
-                    self.current_index = 0
-            else:
-                self.current_index = 0
+            # Update current_index to point to the same object (#2159/#4776).
+            if current_track is not None:
+                self.current_index = next(
+                    i for i, track in enumerate(self.tracks) if track is current_track
+                )
 
+            return True
+
+    def move_track(self, from_index: int, to_index: int) -> bool:
+        """Move one queue item atomically while preserving the current item."""
+        with self._lock:
+            queue_size = len(self.tracks)
+            if not (0 <= from_index < queue_size and 0 <= to_index < queue_size):
+                return False
+
+            current_track = self._get_current_track_unlocked()
+            moved_track = self.tracks.pop(from_index)
+            self.tracks.insert(to_index, moved_track)
+            self._invalidate_shuffle_snapshot_unlocked()
+
+            if current_track is not None:
+                self.current_index = next(
+                    i for i, track in enumerate(self.tracks) if track is current_track
+                )
             return True
 
     def shuffle(self) -> None:

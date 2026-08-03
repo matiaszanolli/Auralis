@@ -8,8 +8,8 @@ Data access layer for track operations
 :license: GPLv3, see LICENSE for more details.
 """
 
+from collections.abc import Callable, Iterator
 from typing import Any
-from collections.abc import Callable
 
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -61,6 +61,17 @@ _METADATA_WRITABLE_COLUMNS: frozenset[str] = frozenset({
 _VALID_TRACK_ORDER_COLUMNS: frozenset[str] = frozenset({
     'title', 'created_at', 'play_count', 'duration', 'year', 'last_played'
 })
+
+# Keep IN clauses comfortably below SQLite's variable limit. Eager relationship
+# loaders may issue their own IN queries for every batch, so leave headroom for
+# future predicates rather than relying on a build-specific maximum (#4690).
+_SQLITE_IN_BATCH_SIZE = 500
+
+
+def _iter_in_batches(values: list[Any]) -> Iterator[list[Any]]:
+    """Yield bounded slices for repository ``WHERE ... IN (...)`` queries."""
+    for start in range(0, len(values), _SQLITE_IN_BATCH_SIZE):
+        yield values[start:start + _SQLITE_IN_BATCH_SIZE]
 
 
 def _filter_metadata_fields(track_id: int, fields: dict[str, Any]) -> dict[str, Any]:
@@ -301,22 +312,24 @@ class TrackRepository(BaseRepository):
             return track
 
     def get_by_ids(self, track_ids: list[int]) -> dict[int, Track]:
-        """Get multiple tracks by ID in a single query (WHERE IN).
+        """Get multiple tracks by ID using bounded ``WHERE IN`` queries.
 
         Returns a dict mapping track_id -> Track for found tracks.
         """
         if not track_ids:
             return {}
+        unique_ids = list(dict.fromkeys(track_ids))
         with self._session_scope() as session:
-            tracks = session.execute(
-                select(Track)
-                .options(*_track_eager_options())
-                .where(Track.id.in_(track_ids))
-            ).scalars().unique().all()
-            result = {}
-            for track in tracks:
-                session.expunge(track)
-                result[track.id] = track
+            result: dict[int, Track] = {}
+            for batch in _iter_in_batches(unique_ids):
+                tracks = session.execute(
+                    select(Track)
+                    .options(*_track_eager_options())
+                    .where(Track.id.in_(batch))
+                ).scalars().unique().all()
+                for track in tracks:
+                    session.expunge(track)
+                    result[track.id] = track
             return result
 
     def get_by_path(self, filepath: str) -> Track | None:
@@ -330,6 +343,24 @@ class TrackRepository(BaseRepository):
             if track:
                 session.expunge(track)
             return track
+
+    def get_by_paths(self, filepaths: list[str]) -> dict[str, Track]:
+        """Get tracks by filepath using bounded ``WHERE IN`` queries."""
+        if not filepaths:
+            return {}
+        unique_paths = list(dict.fromkeys(filepaths))
+        with self._session_scope() as session:
+            result: dict[str, Track] = {}
+            for batch in _iter_in_batches(unique_paths):
+                tracks = session.execute(
+                    select(Track)
+                    .options(*_track_eager_options())
+                    .where(Track.filepath.in_(batch))
+                ).scalars().unique().all()
+                for track in tracks:
+                    session.expunge(track)
+                    result[track.filepath] = track
+            return result
 
     # #4621: get_by_filepath() removed — it was a pure alias for get_by_path()
     # kept "for backward compatibility" with callers that no longer exist.

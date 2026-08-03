@@ -27,10 +27,12 @@ def _queue(n: int) -> QueueManager:
     "mutate",
     [
         pytest.param(lambda q: q.add_track(_track(99)), id="add_track"),
+        pytest.param(lambda q: q.insert_track(1, _track(99)), id="insert_track"),
         pytest.param(lambda q: q.add_tracks([_track(98), _track(99)]), id="add_tracks"),
         pytest.param(lambda q: q.remove_track(0), id="remove_track"),
         pytest.param(lambda q: q.remove_tracks([0, 1]), id="remove_tracks"),
         pytest.param(lambda q: q.reorder_tracks(list(reversed(range(4)))), id="reorder_tracks"),
+        pytest.param(lambda q: q.move_track(0, 3), id="move_track"),
         pytest.param(lambda q: q.clear(), id="clear"),
     ],
 )
@@ -81,3 +83,41 @@ def test_clean_shuffle_unshuffle_round_trip_restores_order():
 def test_unshuffle_without_prior_shuffle_returns_false():
     q = _queue(3)
     assert q.unshuffle() is False
+
+
+def test_insert_before_current_track_preserves_current_identity():
+    q = QueueManager()
+    tracks = [{'filepath': f'/music/{name}.flac'} for name in ('a', 'b', 'c')]
+    q.add_tracks(tracks)
+    q.current_index = 1
+
+    position = q.insert_track(0, {'filepath': '/music/x.flac'})
+
+    assert position == 0
+    assert q.get_current_track() is tracks[1]
+    assert q.current_index == 2
+
+
+def test_move_filepath_only_track_preserves_current_identity():
+    q = QueueManager()
+    tracks = [{'filepath': f'/music/{name}.flac'} for name in ('a', 'b', 'c')]
+    q.add_tracks(tracks)
+    q.current_index = 1
+
+    assert q.move_track(2, 0) is True
+
+    assert q.get_queue() == [tracks[2], tracks[0], tracks[1]]
+    assert q.get_current_track() is tracks[1]
+    assert q.current_index == 2
+
+
+def test_reorder_filepath_only_tracks_preserves_current_identity():
+    q = QueueManager()
+    tracks = [{'filepath': f'/music/{name}.flac'} for name in ('a', 'b', 'c')]
+    q.add_tracks(tracks)
+    q.current_index = 1
+
+    assert q.reorder_tracks([2, 0, 1]) is True
+
+    assert q.get_current_track() is tracks[1]
+    assert q.current_index == 2

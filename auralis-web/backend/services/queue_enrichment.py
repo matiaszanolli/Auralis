@@ -82,12 +82,12 @@ class QueueEnricher:
         filepaths = [entry_filepath(e) for e in entries]
 
         # 2) Resolve filepaths missing from the state map via the library.
-        missing = {fp for fp in filepaths if fp and fp not in by_fp}
+        missing = list(dict.fromkeys(fp for fp in filepaths if fp and fp not in by_fp))
         if missing and self.library_manager is not None:
             def _lookup() -> dict[str, TrackInfo]:
                 found: dict[str, TrackInfo] = {}
-                for fp in missing:
-                    track = self.library_manager.tracks.get_by_path(fp)
+                tracks = self.library_manager.tracks.get_by_paths(missing)
+                for fp, track in tracks.items():
                     ti = self.create_track_info_fn(track) if track else None
                     if ti is not None:
                         found[fp] = ti

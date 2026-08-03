@@ -34,20 +34,36 @@ class QueueManager(Protocol):
         """Set queue with start index."""
         ...
 
-    def add_to_queue(self, item: Any) -> None:
-        """Add item to queue."""
+    def add_track(self, item: dict[str, Any]) -> None:
+        """Append an item to the queue."""
+        ...
+
+    def insert_track(self, index: int, item: dict[str, Any]) -> int:
+        """Insert an item and return its normalized position."""
         ...
 
     def remove_track(self, index: int) -> bool:
         """Remove track at index."""
         ...
 
+    def get_current_track(self) -> dict[str, Any] | None:
+        """Get the currently selected queue item."""
+        ...
+
     def reorder_tracks(self, new_order: list[int]) -> bool:
         """Reorder tracks."""
         ...
 
+    def move_track(self, from_index: int, to_index: int) -> bool:
+        """Move one track within the queue."""
+        ...
+
     def shuffle(self) -> None:
         """Shuffle queue."""
+        ...
+
+    def unshuffle(self) -> bool:
+        """Restore the pre-shuffle queue order."""
         ...
 
     def clear(self) -> None:

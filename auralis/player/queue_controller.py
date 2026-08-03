@@ -8,8 +8,8 @@ Responsibilities:
 - Playlist loading
 """
 
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 
 from ..utils.logging import error, info, warning
 from .components import QueueManager
@@ -184,6 +184,12 @@ class QueueController:
         self.queue.add_track(track_info)
         info(f"Added to queue: {track_info.get('title', 'Unknown')}")
 
+    def insert_track(self, index: int, track_info: dict[str, Any]) -> int:
+        """Insert a track and return its normalized queue position."""
+        position: int = self.queue.insert_track(index, track_info)
+        info(f"Inserted into queue at {position}: {track_info.get('title', 'Unknown')}")
+        return position
+
     def add_track_from_library(self, track_id: int) -> bool:
         """
         Add a track from library by ID.
@@ -329,6 +335,10 @@ class QueueController:
     def reorder_tracks(self, new_order: list[int]) -> bool:
         """Reorder tracks according to new index order"""
         return self.queue.reorder_tracks(new_order)  # type: ignore[no-any-return]
+
+    def move_track(self, from_index: int, to_index: int) -> bool:
+        """Move one track while preserving the currently selected track."""
+        return self.queue.move_track(from_index, to_index)  # type: ignore[no-any-return]
 
     def set_queue(self, track_list: list[str | dict[str, Any]], start_index: int = 0) -> None:
         """Set queue with track list (for backward compatibility)"""

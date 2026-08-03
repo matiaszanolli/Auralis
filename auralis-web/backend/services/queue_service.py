@@ -10,10 +10,8 @@ Coordinates with AudioPlayer and PlayerStateManager to keep queue state synchron
 
 import asyncio
 import logging
-from typing import Any
 from collections.abc import Callable
-
-from player_state import TrackInfo
+from typing import Any
 
 from .queue_enrichment import QueueEnricher
 from .queue_protocols import AudioPlayerWithQueue, QueueManager
@@ -94,7 +92,7 @@ class QueueService:
             if hasattr(self.audio_player, 'queue'):
                 queue_obj = self.audio_player.queue
                 if hasattr(queue_obj, 'get_queue_info'):
-                    info = queue_obj.get_queue_info()
+                    info = await asyncio.to_thread(queue_obj.get_queue_info)
                     raw_tracks = info.get('tracks', [])
                     current_index = info.get('current_index', -1)
                 else:
@@ -108,18 +106,43 @@ class QueueService:
             raw_tracks = []
             current_index = -1
 
+        track_ids: list[int] = []
+        for entry in raw_tracks:
+            if not isinstance(entry, dict):
+                continue
+            tid = entry.get('id')
+            if tid is None:
+                tid = entry.get('track_id')
+            if isinstance(tid, int) and not isinstance(tid, bool):
+                track_ids.append(tid)
+
+        by_id: dict[int, Any] = {}
+        if track_ids and self.library_manager is not None:
+            try:
+                unique_ids = list(dict.fromkeys(track_ids))
+                by_id = await asyncio.to_thread(
+                    self.library_manager.tracks.get_by_ids, unique_ids
+                ) or {}
+            except Exception as exc:
+                logger.debug(f"queue_changed batch hydration failed: {exc}")
+
         hydrated: list[Any] = []
         for entry in raw_tracks:
             track_dict: Any | None = None
             try:
                 if isinstance(entry, dict):
-                    tid = entry.get('id') or entry.get('track_id')
-                    if tid is not None and self.library_manager is not None:
-                        db_track = self.library_manager.tracks.get_by_id(tid)
-                        if db_track is not None:
-                            ti = self.create_track_info_fn(db_track)
-                            if ti is not None and hasattr(ti, 'model_dump'):
-                                track_dict = ti.model_dump()
+                    tid = entry.get('id')
+                    if tid is None:
+                        tid = entry.get('track_id')
+                    db_track = (
+                        by_id.get(tid)
+                        if isinstance(tid, int) and not isinstance(tid, bool)
+                        else None
+                    )
+                    if db_track is not None:
+                        ti = self.create_track_info_fn(db_track)
+                        if ti is not None and hasattr(ti, 'model_dump'):
+                            track_dict = ti.model_dump()
                 if track_dict is None:
                     # Fall back to raw queue entry shape
                     if isinstance(entry, dict):
@@ -315,19 +338,20 @@ class QueueService:
                 raise ValueError(f"Track {track_id} not found")
 
             queue_manager = self.audio_player.queue
+            track_info = {'id': track.id, 'filepath': track.filepath}
 
             # Add to queue at position
             if position is not None:
-                # Insert at specific position
-                current_queue = queue_manager.get_queue()
-                current_queue.insert(position, track.filepath)
-                queue_manager.set_queue(current_queue, queue_manager.current_index)
+                position = await asyncio.to_thread(
+                    queue_manager.insert_track, position, track_info
+                )
             else:
-                # Append to end
-                queue_manager.add_to_queue(track.filepath)
+                # QueueController exposes add_track; add_to_queue never existed
+                # and made every default append request fail (#4870).
+                await asyncio.to_thread(queue_manager.add_track, track_info)
 
             # Get updated queue for broadcasting
-            updated_queue = queue_manager.get_queue()
+            updated_queue = await asyncio.to_thread(queue_manager.get_queue)
 
             # Broadcast queue update (fixes #3492 — was `queue_updated` which
             # the frontend never subscribed to)
@@ -492,7 +516,7 @@ class QueueService:
 
         try:
             queue_manager = self.audio_player.queue
-            current_queue = queue_manager.get_queue()
+            current_queue = await asyncio.to_thread(queue_manager.get_queue)
 
             # Validate indices
             queue_size = len(current_queue)
@@ -501,12 +525,13 @@ class QueueService:
             if to_index < 0 or to_index >= queue_size:
                 raise ValueError(f"Invalid to_index: {to_index}")
 
-            # Move track
-            track = current_queue.pop(from_index)
-            current_queue.insert(to_index, track)
-
-            # Update queue
-            queue_manager.set_queue(current_queue, queue_manager.current_index)
+            # Move under QueueManager's lock so the playing track is preserved
+            # by identity and no stale current_index is reapplied (#4776).
+            success = await asyncio.to_thread(
+                queue_manager.move_track, from_index, to_index
+            )
+            if not success:
+                raise ValueError("Failed to move track")
 
             # Broadcast queue update (fixes #3492)
             await self._broadcast_queue_changed(
