@@ -19,8 +19,8 @@ import hashlib
 import logging
 from collections.abc import Awaitable, Callable
 
-from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
+from auralis.core.hybrid_processor import HybridProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +39,9 @@ class ProcessorPool:
         # keep intercepting instantiation after this extraction (#4250).
         self._create_processor = create_processor
         self.processors: dict[str, HybridProcessor] = {}
-        # Serialises cache access so concurrent jobs with identical config share
-        # one instance and FIFO eviction never interleaves with a read/write
-        # ("dictionary changed size during iteration", #2320).
+        # Serialises cache dictionary access. Processor construction deliberately
+        # happens after releasing it so unrelated cold keys do not block one
+        # another (#4689).
         self._lock: asyncio.Lock = asyncio.Lock()
         self._max_cached: int = max_cached
 
@@ -82,26 +82,41 @@ class ProcessorPool:
 
         The instance is POPPED from the cache so no concurrent job shares it
         (#3201). The caller must return it via return_to_cache() after use.
-        HybridProcessor.__init__ (200-500 ms, CPU-bound) is offloaded to a thread
-        so the event loop stays responsive while the lock is held.
+        HybridProcessor.__init__ (200-500 ms, CPU-bound) runs outside the cache
+        lock so a cold key cannot stall acquisitions for other keys (#4689).
         """
+        key = self.cache_key(mode, config)
         async with self._lock:
-            key = self.cache_key(mode, config)
+            cached = self.processors.pop(key, None)
+        if cached is not None:
+            return cached
 
-            if key in self.processors:
-                return self.processors.pop(key)
+        processor = await self._create_processor(config)
 
-            # Construction is CPU-bound (200-500 ms); the factory offloads it to
-            # a thread so the event loop stays responsive while the lock is held.
-            processor = await self._create_processor(config)
-            return processor
+        # A processor may have been returned for this key while construction
+        # was in flight. Prefer that warm cached lease and close the redundant
+        # new instance rather than leaking its fingerprint executor.
+        async with self._lock:
+            cached = self.processors.pop(key, None)
+        if cached is not None:
+            try:
+                processor.close()
+            except Exception as close_err:  # pragma: no cover - defensive
+                logger.warning("Failed to close redundant processor: %s", close_err)
+            return cached
+
+        return processor
 
     async def return_to_cache(
         self, mode: str, config: UnifiedConfig, processor: HybridProcessor
     ) -> None:
         """Return a processor to the cache after job completion (#3201)."""
+        to_close: list[HybridProcessor] = []
         async with self._lock:
             key = self.cache_key(mode, config)
+            replaced = self.processors.get(key)
+            if replaced is not None and replaced is not processor:
+                to_close.append(replaced)
             self.processors[key] = processor
 
             # Keep cache size bounded (max N different processor configurations).
@@ -126,13 +141,19 @@ class ProcessorPool:
                 cache_keys = list(self.processors)
                 if cache_keys:
                     evicted = self.processors.pop(cache_keys[0], None)
-                    if evicted is not None:
-                        try:
-                            evicted.close()
-                        except Exception as close_err:  # pragma: no cover - defensive
-                            logger.warning(
-                                "Failed to close evicted processor: %s", close_err
-                            )
+                    if evicted is not None and all(
+                        evicted is not stale for stale in to_close
+                    ):
+                        to_close.append(evicted)
+
+        # close() shuts down sub-component executors and should not extend the
+        # cache critical section. This also reclaims an idle same-key instance
+        # replaced by a later exclusive lease.
+        for stale_processor in to_close:
+            try:
+                stale_processor.close()
+            except Exception as close_err:  # pragma: no cover - defensive
+                logger.warning("Failed to close evicted processor: %s", close_err)
 
     async def discard(self, processor: HybridProcessor) -> None:
         """Close a processor without caching it (#4727).

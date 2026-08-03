@@ -1,6 +1,6 @@
 """
-Every process_job exit path returns the processor it owns (#4567)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Every process_job exit path reclaims the processor it owns (#4567)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 `ProcessorPool.get_or_create()` POPS the instance out of the cache so no
 concurrent job shares it (#3201); whoever takes it must give it back.
@@ -11,9 +11,9 @@ that the threading module keeps reachable, so GC never reclaims it (#3746): N
 failing jobs accumulated 5N idle threads, and the next job with the same config
 paid the full 200-500 ms `HybridProcessor.__init__` again.
 
-The return is now hoisted into `finally` — the failure mode was precisely
-"someone added a branch and forgot", so a fourth copy of the guard would have
-been the wrong fix.
+Cleanup is hoisted into `finally`: reusable processors return to the cache,
+while timed-out or cancelled processors are closed because an abandoned worker
+thread may still be mutating them (#4727/#4759).
 
 Also covers #4370: `return_to_cache`'s FIFO eviction dropped the evicted
 processor without closing it, which would have leaked a *different* instance
@@ -26,6 +26,7 @@ right back.
 import asyncio
 import inspect
 import sys
+import threading
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -87,7 +88,7 @@ def _prepared(engine, processor, config=None):
     )
 
 
-class TestProcessorIsNeverDropped:
+class TestProcessorIsAlwaysReclaimed:
     async def test_generic_exception_returns_the_processor(self):
         """The regression: a ValueError used to drop the processor entirely."""
         engine = _make_engine()
@@ -102,7 +103,7 @@ class TestProcessorIsNeverDropped:
         assert job.status == ProcessingStatus.FAILED
         assert processor in engine._pool.processors.values()
 
-    async def test_timeout_path_still_returns_exactly_once(self):
+    async def test_timeout_path_discards_poisoned_processor(self):
         engine = _make_engine()
         job = _make_job()
         processor = MagicMock()
@@ -113,9 +114,10 @@ class TestProcessorIsNeverDropped:
             await engine.process_job(job)
 
         assert job.status == ProcessingStatus.FAILED
-        assert list(engine._pool.processors.values()).count(processor) == 1
+        assert processor not in engine._pool.processors.values()
+        processor.close.assert_called_once()
 
-    async def test_cancelled_path_still_returns_exactly_once(self):
+    async def test_cancelled_path_discards_possibly_active_processor(self):
         engine = _make_engine()
         job = _make_job()
         job.status = ProcessingStatus.PROCESSING
@@ -128,7 +130,8 @@ class TestProcessorIsNeverDropped:
                 await engine.process_job(job)
 
         assert job.status == ProcessingStatus.CANCELLED
-        assert list(engine._pool.processors.values()).count(processor) == 1
+        assert processor not in engine._pool.processors.values()
+        processor.close.assert_called_once()
 
     async def test_success_path_still_returns_exactly_once(self):
         engine = _make_engine()
@@ -189,6 +192,38 @@ class TestProcessorIsNeverDropped:
         # And the original failure is still what the job reports.
         assert job.status == ProcessingStatus.FAILED
 
+    async def test_cancellation_during_pool_return_finishes_cleanup(self):
+        engine = _make_engine()
+        job = _make_job()
+        processor = MagicMock()
+        cleanup_started = asyncio.Event()
+        release_cleanup = asyncio.Event()
+        cleanup_finished = asyncio.Event()
+
+        async def _contended_return(*_args):
+            cleanup_started.set()
+            await release_cleanup.wait()
+            cleanup_finished.set()
+
+        engine._cancel_events[job.job_id] = threading.Event()
+        with _prepared(engine, processor), patch.object(
+            engine, "_execute_job", AsyncMock(return_value=np.zeros(8, dtype=np.float32))
+        ), patch.object(engine, "_finalize_job", MagicMock()), patch.object(
+            engine, "_return_processor", side_effect=_contended_return
+        ):
+            task = asyncio.create_task(engine.process_job(job))
+            await asyncio.wait_for(cleanup_started.wait(), timeout=1.0)
+            task.cancel()
+            await asyncio.sleep(0)
+            assert not task.done()
+
+            release_cleanup.set()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+        assert cleanup_finished.is_set()
+        assert job.job_id not in engine._cancel_events
+
 
 class TestPoolEvictionClosesTheEvicted:
     """#4370 — a FIFO eviction that drops without closing leaks the same way."""
@@ -247,13 +282,10 @@ class TestPoolEvictionClosesTheEvicted:
 class TestSingleReturnSite:
     """#4567 CONSISTENCY — one call site, so a new branch cannot miss it."""
 
-    def test_process_job_returns_the_processor_from_finally_only(self):
+    async def test_process_job_reclaims_the_processor_from_finally_only(self):
         src = inspect.getsource(ProcessingEngine.process_job)
 
-        assert src.count("_return_processor(") == 1, (
-            "the processor return must live in exactly one place (the finally "
-            "block) — per-branch copies are how the generic-exception path was "
-            "missed in the first place (#4567)"
-        )
+        assert src.count("_cleanup_processor(") == 1
         finally_body = src.split("finally:", 1)[1]
-        assert "_return_processor(" in finally_body
+        assert "_cleanup_processor(" in finally_body
+        assert "asyncio.shield(cleanup_task)" in finally_body

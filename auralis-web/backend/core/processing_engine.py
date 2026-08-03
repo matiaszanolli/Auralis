@@ -17,10 +17,10 @@ import sys
 import tempfile
 import threading
 import uuid
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
 
 import numpy as np
 
@@ -28,8 +28,8 @@ import numpy as np
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
 
-from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
+from auralis.core.hybrid_processor import HybridProcessor
 from auralis.io.processing import resample_audio
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
@@ -39,8 +39,8 @@ from auralis.io.unified_loader import load_audio
 # `from core.processing_engine import ProcessingJob, ProcessingStatus` keeps
 # working (#4250).
 from core.job_models import ProcessingJob, ProcessingStatus
-from core.processor_pool import ProcessorPool
 from core.job_worker import JobWorker
+from core.processor_pool import ProcessorPool
 
 __all__ = [
     "ProcessingEngine",
@@ -285,6 +285,36 @@ class ProcessingEngine:
     async def _discard_processor(self, processor: HybridProcessor) -> None:
         """Close and drop a processor without returning it to the pool (#4727)."""
         await self._pool.discard(processor)
+
+    async def _cleanup_processor(
+        self,
+        job: ProcessingJob,
+        config: UnifiedConfig,
+        processor: HybridProcessor,
+        poisoned: bool,
+    ) -> None:
+        """Return or discard an owned processor without leaking it."""
+        if poisoned:
+            try:
+                await self._discard_processor(processor)
+            except Exception:
+                logger.warning(
+                    "Failed to discard poisoned processor for job %s",
+                    job.job_id, exc_info=True,
+                )
+            return
+
+        try:
+            await self._return_processor(job.mode, config, processor)
+        except Exception as return_err:
+            logger.warning(
+                "Failed to return processor for job %s: %s",
+                job.job_id, return_err,
+            )
+            try:
+                processor.close()
+            except Exception:
+                logger.debug("Processor close() also failed", exc_info=True)
 
     def _create_processor_config(self, job: ProcessingJob) -> UnifiedConfig:
         """
@@ -589,6 +619,10 @@ class ProcessingEngine:
         except asyncio.CancelledError:
             # task.cancel() was called — mark cancelled and re-raise so asyncio
             # correctly records the task as cancelled (fixes #2217).
+            # Conservatively discard any acquired processor: cancellation may
+            # have abandoned an uncancellable to_thread DSP call just like a
+            # timeout does (#4727/#4759).
+            processor_poisoned = processor is not None
             if job.status == ProcessingStatus.PROCESSING:
                 job.status = ProcessingStatus.CANCELLED
                 job.completed_at = datetime.now()
@@ -619,36 +653,28 @@ class ProcessingEngine:
             # HybridProcessor.__init__ again. Hoisting it means a future branch
             # cannot reintroduce the same omission.
             #
-            # A poisoned (timed-out) processor is the one exception: it must
+            # A timed-out or cancelled processor is the one exception: it must
             # be closed and discarded, never cached, since an orphaned thread
-            # may still be running inside it (#4727).
-            if processor is not None and config is not None:
-                if processor_poisoned:
-                    try:
-                        await self._discard_processor(processor)
-                    except Exception:
-                        logger.warning(
-                            "Failed to discard poisoned processor for job %s",
-                            job.job_id, exc_info=True,
+            # may still be running inside it (#4727/#4759).
+            try:
+                if processor is not None and config is not None:
+                    cleanup_task = asyncio.create_task(
+                        self._cleanup_processor(
+                            job, config, processor, processor_poisoned
                         )
-                else:
+                    )
                     try:
-                        await self._return_processor(job.mode, config, processor)
-                    except Exception as return_err:
-                        # Never let cleanup mask the original failure — and never
-                        # leave the processor un-reclaimed either.
-                        logger.warning(
-                            "Failed to return processor for job %s: %s",
-                            job.job_id, return_err,
-                        )
-                        try:
-                            processor.close()
-                        except Exception:
-                            logger.debug("Processor close() also failed", exc_info=True)
-
-            # Drop the cancellation token now the job is terminal so the
-            # registry cannot leak an entry per job (#4496).
-            self._cancel_events.pop(job.job_id, None)
+                        # Cleanup owns a popped processor and must finish even
+                        # if cancellation lands while it waits for the pool
+                        # lock (#4759).
+                        await asyncio.shield(cleanup_task)
+                    except asyncio.CancelledError:
+                        await cleanup_task
+                        raise
+            finally:
+                # Never let a cancellation during cleanup skip registry
+                # removal (#4496/#4759).
+                self._cancel_events.pop(job.job_id, None)
 
 
     async def stop_worker(self) -> None:
