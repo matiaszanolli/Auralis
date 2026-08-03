@@ -75,6 +75,12 @@ class QueueService:
         # own narrow snapshot under the existing audio_player.queue
         # _lock and are not in the same race class.
         self._set_queue_lock = asyncio.Lock()
+        self._next_set_queue_generation = 0
+        self._set_queue_generation = 0
+        # Player calls still need ordered execution to preserve the original
+        # #3721 engine consistency guarantee, but this lock never covers a WS
+        # broadcast and does not block queue-state mutation (#4825).
+        self._set_queue_engine_lock = asyncio.Lock()
 
     async def _broadcast_queue_changed(
         self,
@@ -214,10 +220,9 @@ class QueueService:
         """
         Set the playback queue from track IDs (updates single source of truth).
 
-        #3721: serialised by `_set_queue_lock` so two near-simultaneous
-        callers cannot interleave their 7 awaitable steps and leave the
-        state-manager pointing at one track while the engine plays a
-        different one.
+        #3721/#4825: requests receive a generation under `_set_queue_lock`.
+        Slow lookups, broadcasts, and player calls run after release; stale
+        generations stop before they can overwrite a newer request.
 
         Args:
             track_ids: List of track IDs to add to queue
@@ -237,10 +242,14 @@ class QueueService:
             raise ValueError("Library manager not available")
 
         async with self._set_queue_lock:
-            return await self._set_queue_impl(track_ids, start_index)
+            self._next_set_queue_generation += 1
+            generation = self._next_set_queue_generation
+        return await self._set_queue_impl(track_ids, start_index, generation)
 
-    async def _set_queue_impl(self, track_ids: list[int], start_index: int) -> dict[str, Any]:
-        """Inner implementation of set_queue, called under `_set_queue_lock` (#3721)."""
+    async def _set_queue_impl(
+        self, track_ids: list[int], start_index: int, generation: int
+    ) -> dict[str, Any]:
+        """Resolve and commit one generation of a set-queue request."""
         try:
             # Get tracks from library by IDs — single batched query via
             # get_by_ids when available, otherwise individual lookups in a
@@ -274,37 +283,83 @@ class QueueService:
             track_infos = [self.create_track_info_fn(t) for t in db_tracks]
             track_infos = [t for t in track_infos if t is not None]
 
-            # Update state manager (broadcasts automatically)
-            await self.player_state_manager.set_queue(track_infos, start_index)
-
-            # Set queue in actual player — sync engine call, offload.
-            if hasattr(self.audio_player, 'queue'):
-                await asyncio.to_thread(
-                    self.audio_player.queue.set_queue,
-                    [t.filepath for t in db_tracks],
-                    start_index,
-                )
-
-            # Load and start playing if requested
-            if start_index >= 0 and start_index < len(db_tracks):
-                current_track = db_tracks[start_index]
-
-                # Update state with current track
-                await self.player_state_manager.set_track(current_track, self.library_manager)
-
-                # Load + play — sync engine calls; offload (#3554).
-                await asyncio.to_thread(self.audio_player.load_file, current_track.filepath)
-                await asyncio.to_thread(self.audio_player.play)
-
-                # Update playing state
-                await self.player_state_manager.set_playing(True)
-
-            logger.info(f"Queue set to {len(track_infos)} tracks, starting at index {start_index}")
-            return {
+            result = {
                 "message": "Queue set successfully",
                 "track_count": len(track_infos),
                 "start_index": start_index
             }
+
+            # Only the sequenced state mutation belongs in _set_queue_lock.
+            # The snapshot broadcast happens after release (#4825).
+            async with self._set_queue_lock:
+                if generation < self._set_queue_generation:
+                    return result
+                # Only a request that resolved at least one valid track can
+                # supersede an earlier request. A later invalid request must
+                # not cancel a valid transition already in flight.
+                self._set_queue_generation = generation
+                queue_snapshot = await self.player_state_manager.set_queue(
+                    track_infos, start_index, broadcast=False
+                )
+
+            if queue_snapshot is not None:
+                await self.player_state_manager.broadcast_state(queue_snapshot)
+
+            deferred_snapshots: list[Any] = []
+            async with self._set_queue_engine_lock:
+                async with self._set_queue_lock:
+                    if generation != self._set_queue_generation:
+                        return result
+
+                # Sync player calls remain ordered, but never hold the state
+                # mutation lock or a lock that also covers a broadcast.
+                if hasattr(self.audio_player, 'queue'):
+                    await asyncio.to_thread(
+                        self.audio_player.queue.set_queue,
+                        [t.filepath for t in db_tracks],
+                        start_index,
+                    )
+
+                async with self._set_queue_lock:
+                    if generation != self._set_queue_generation:
+                        return result
+
+                if start_index >= 0 and start_index < len(db_tracks):
+                    current_track = db_tracks[start_index]
+
+                    async with self._set_queue_lock:
+                        if generation != self._set_queue_generation:
+                            return result
+                        track_snapshot = await self.player_state_manager.set_track(
+                            current_track,
+                            self.library_manager,
+                            broadcast=False,
+                        )
+                    if track_snapshot is not None:
+                        deferred_snapshots.append(track_snapshot)
+
+                    await asyncio.to_thread(
+                        self.audio_player.load_file, current_track.filepath
+                    )
+                    async with self._set_queue_lock:
+                        if generation != self._set_queue_generation:
+                            return result
+
+                    await asyncio.to_thread(self.audio_player.play)
+                    async with self._set_queue_lock:
+                        if generation != self._set_queue_generation:
+                            return result
+                        playing_snapshot = await self.player_state_manager.set_playing(
+                            True, broadcast=False
+                        )
+                    if playing_snapshot is not None:
+                        deferred_snapshots.append(playing_snapshot)
+
+            for snapshot in deferred_snapshots:
+                await self.player_state_manager.broadcast_state(snapshot)
+
+            logger.info(f"Queue set to {len(track_infos)} tracks, starting at index {start_index}")
+            return result
 
         except Exception as e:
             logger.error(f"Failed to set queue: {e}")

@@ -8,10 +8,10 @@ serialisation. Two concurrent requests could interleave their state
 updates, leaving the UI flashed at the wrong transport state until the
 next `player_state` broadcast settled it.
 
-Post-fix: an `asyncio.Lock` (`self._playback_lock`) wraps the body of
-`play`/`pause`/`stop`/`seek` so concurrent requests serialise. The last
-caller's `set_playing` and `broadcast` therefore land contiguously, in
-the same order the requests were dispatched.
+Post-fix: an `asyncio.Lock` (`self._playback_lock`) serialises each engine
+call with its state mutation and monotonic seq assignment. Both the deferred
+state snapshot and event-specific message broadcast after lock release, so a
+slow client cannot freeze later transport transitions (#4751).
 
 These tests pin the new contract by interleaving asyncio tasks against
 collaborators that record the order of calls.
@@ -42,8 +42,8 @@ def _build_service() -> tuple[PlaybackService, list[str]]:
 
     The returned `events` list captures `(method, side)` strings in the
     order operations actually fire on the event loop. With the
-    service-level lock in place, all three steps of any one method
-    (engine → set_playing → broadcast) must be contiguous.
+    service-level lock keeps engine → set_playing transition pairs ordered;
+    broadcasts may interleave after those pairs release the lock.
     """
     events: list[str] = []
 
@@ -65,14 +65,22 @@ def _build_service() -> tuple[PlaybackService, list[str]]:
     audio_player.stop = MagicMock(side_effect=_engine_stop)
     audio_player.seek = MagicMock(side_effect=_engine_seek)
 
-    async def _set_playing(value: bool) -> None:
+    async def _set_playing(value: bool, *, broadcast: bool = True) -> dict[str, bool]:
         # Yield so the next-method's engine call has a chance to
         # interleave if the lock were missing.
         await asyncio.sleep(0)
+        assert broadcast is False
         events.append(f"state:set_playing({value})")
+        return {"playing": value}
 
     state_manager = MagicMock()
     state_manager.set_playing = _set_playing
+
+    async def _broadcast_state(snapshot: dict[str, bool]) -> None:
+        await asyncio.sleep(0)
+        events.append(f"state_broadcast:{snapshot['playing']}")
+
+    state_manager.broadcast_state = _broadcast_state
 
     async def _broadcast(msg: dict[str, Any]) -> None:
         await asyncio.sleep(0)
@@ -87,34 +95,30 @@ def _build_service() -> tuple[PlaybackService, list[str]]:
 
 @pytest.mark.asyncio
 async def test_play_then_pause_run_contiguously_under_concurrency() -> None:
-    """Two simultaneous requests must not interleave their three steps."""
+    """Two simultaneous requests keep engine/state transitions ordered."""
     service, events = _build_service()
 
     await asyncio.gather(service.play(), service.pause())
 
-    # Each method emits exactly three events (engine, state, broadcast),
-    # and the lock guarantees the three events for one method are
-    # contiguous — never interleaved with the other.
-    play_idx = events.index("engine:play")
-    pause_idx = events.index("engine:pause")
-    play_block = events[play_idx:play_idx + 3]
-    pause_block = events[pause_idx:pause_idx + 3]
-
-    assert play_block == [
+    transitions = [
+        event for event in events
+        if event.startswith("engine:") or event.startswith("state:set_playing")
+    ]
+    assert transitions == [
         "engine:play",
         "state:set_playing(True)",
-        "broadcast:playback_started",
-    ]
-    assert pause_block == [
         "engine:pause",
         "state:set_playing(False)",
-        "broadcast:playback_paused",
     ]
+    assert events.count("state_broadcast:True") == 1
+    assert events.count("state_broadcast:False") == 1
+    assert events.count("broadcast:playback_started") == 1
+    assert events.count("broadcast:playback_paused") == 1
 
 
 @pytest.mark.asyncio
 async def test_rapid_alternating_play_pause_serialises() -> None:
-    """10 alternating play/pause calls in flight produce contiguous blocks.
+    """10 alternating calls preserve engine/state transition pairs.
 
     Pre-fix the events would interleave (e.g. play-engine, pause-engine,
     play-set-playing, pause-set-playing, …). The lock collapses that to
@@ -129,17 +133,19 @@ async def test_rapid_alternating_play_pause_serialises() -> None:
         ))
     await asyncio.gather(*tasks)
 
-    # Walk the event log in groups of 3; each group must be a coherent
-    # method block (engine + state + broadcast for the same op).
-    assert len(events) == 30
+    transitions = [
+        event for event in events
+        if event.startswith("engine:") or event.startswith("state:set_playing")
+    ]
     valid_blocks = {
-        ("engine:play", "state:set_playing(True)", "broadcast:playback_started"),
-        ("engine:pause", "state:set_playing(False)", "broadcast:playback_paused"),
+        ("engine:play", "state:set_playing(True)"),
+        ("engine:pause", "state:set_playing(False)"),
     }
-    for i in range(0, 30, 3):
-        block = tuple(events[i:i + 3])
+    assert len(transitions) == 20
+    for i in range(0, 20, 2):
+        block = tuple(transitions[i:i + 2])
         assert block in valid_blocks, (
-            f"events {i}-{i + 2} interleaved: {block} not a valid block"
+            f"transition {i // 2} interleaved: {block} not a valid block"
         )
 
 
@@ -164,6 +170,34 @@ async def test_stop_and_seek_also_serialise() -> None:
     # straggler from another method came in before the first one
     # finished its inner steps).
     assert events[0].startswith("engine:")
+
+
+@pytest.mark.asyncio
+async def test_slow_state_broadcast_does_not_hold_playback_lock() -> None:
+    service, events = _build_service()
+    broadcast_started = asyncio.Event()
+
+    async def _blocked_state_broadcast(_snapshot: dict[str, bool]) -> None:
+        broadcast_started.set()
+        await asyncio.Event().wait()
+
+    service.player_state_manager.broadcast_state = _blocked_state_broadcast
+
+    play_task = asyncio.create_task(service.play())
+    await asyncio.wait_for(broadcast_started.wait(), timeout=1.0)
+
+    pause_task = asyncio.create_task(service.pause())
+    try:
+        for _ in range(100):
+            if "engine:pause" in events:
+                break
+            await asyncio.sleep(0.01)
+        else:
+            pytest.fail("pause could not acquire the lock during a state broadcast")
+    finally:
+        play_task.cancel()
+        pause_task.cancel()
+        await asyncio.gather(play_task, pause_task, return_exceptions=True)
 
 
 @pytest.mark.asyncio

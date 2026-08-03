@@ -43,8 +43,14 @@ class AudioPlayer(Protocol):
 class PlayerStateManager(Protocol):
     """Protocol for player state manager interface."""
 
-    async def set_playing(self, playing: bool) -> None:
+    async def set_playing(
+        self, playing: bool, *, broadcast: bool = True
+    ) -> Any:
         """Update playing state."""
+        ...
+
+    async def broadcast_state(self, state: Any) -> None:
+        """Broadcast a previously sequenced state snapshot."""
         ...
 
     async def set_track(self, track: Any, library_manager: Any) -> None:
@@ -104,15 +110,16 @@ class PlaybackService:
         # OUTSIDE this lock — the transition is committed before them, so the
         # lock guarded nothing they read.
         #
-        # `player_state_manager.set_playing()` deliberately stays INSIDE it,
-        # even though update_state() broadcasts. Moving it out would let two
-        # concurrent transitions assign their monotonic `seq` in an order that
-        # disagrees with the order the engine actually changed state, so the
-        # last snapshot the frontend applies could contradict the engine (the
-        # exact staleness #3734 added this lock to prevent). Its broadcast is
-        # instead bounded by ConnectionManager.BROADCAST_SEND_TIMEOUT, so the
-        # worst-case hold is a short timeout rather than unbounded.
+        # #4751: state mutation and seq assignment stay INSIDE this lock so
+        # their order still matches the engine transitions. The resulting
+        # snapshot is broadcast after release, and clients use seq to discard
+        # a late older snapshot.
         self._playback_lock: asyncio.Lock = asyncio.Lock()
+
+    async def _broadcast_state_snapshot(self, snapshot: Any) -> None:
+        """Send a deferred state snapshot when the collaborator returned one."""
+        if snapshot is not None:
+            await self.player_state_manager.broadcast_state(snapshot)
 
     async def get_status(self) -> dict[str, Any]:
         """
@@ -157,8 +164,13 @@ class PlaybackService:
                 # any future heavy work landing inside the engine method.
                 await asyncio.to_thread(self.audio_player.play)
 
-                # Update state (broadcasts automatically)
-                await self.player_state_manager.set_playing(True)
+                # Mutate state and assign seq under the transition lock, but
+                # defer the potentially slow WebSocket send (#4751).
+                state_snapshot = await self.player_state_manager.set_playing(
+                    True, broadcast=False
+                )
+
+            await self._broadcast_state_snapshot(state_snapshot)
 
             # #4581: broadcast OUTSIDE the lock. The transition is already
             # committed by this point, so the lock protects nothing the
@@ -196,8 +208,11 @@ class PlaybackService:
                 # #3716: offload the sync engine call.
                 await asyncio.to_thread(self.audio_player.pause)
 
-                # Update state (broadcasts automatically)
-                await self.player_state_manager.set_playing(False)
+                state_snapshot = await self.player_state_manager.set_playing(
+                    False, broadcast=False
+                )
+
+            await self._broadcast_state_snapshot(state_snapshot)
 
             # Broadcast outside the lock (#4581) — see play().
             await self.connection_manager.broadcast({
@@ -226,13 +241,18 @@ class PlaybackService:
             raise ValueError("Audio player not available")
 
         try:
+            state_snapshot: Any = None
             async with self._playback_lock:  # #3734
                 # #3716: offload the sync engine call.
                 await asyncio.to_thread(self.audio_player.stop)
 
                 # Update state to stopped and clear
                 if self.player_state_manager:
-                    await self.player_state_manager.set_playing(False)
+                    state_snapshot = await self.player_state_manager.set_playing(
+                        False, broadcast=False
+                    )
+
+            await self._broadcast_state_snapshot(state_snapshot)
 
             # Broadcast outside the lock (#4581) — see play().
             await self.connection_manager.broadcast({

@@ -117,6 +117,7 @@ class TestPlaybackLockNotHeldAcrossBroadcast:
 
         state_manager = Mock()
         state_manager.set_playing = AsyncMock()
+        state_manager.broadcast_state = AsyncMock()
         svc.player_state_manager = state_manager
         return svc
 
@@ -177,14 +178,20 @@ class TestPlaybackLockNotHeldAcrossBroadcast:
         svc = self._service(_RecordingManager())
         svc.audio_player.play = lambda: order.append("engine")
 
-        async def _set_playing(_value):
+        async def _set_playing(_value, *, broadcast=True):
+            assert broadcast is False
             order.append("state")
+            return "snapshot"
+
+        async def _broadcast_state(_snapshot):
+            order.append("state_broadcast")
 
         svc.player_state_manager.set_playing = _set_playing
+        svc.player_state_manager.broadcast_state = _broadcast_state
 
         await svc.play()
 
-        assert order == ["engine", "state", "broadcast"], (
+        assert order == ["engine", "state", "state_broadcast", "broadcast"], (
             f"transition order changed: {order}"
         )
 
@@ -196,6 +203,7 @@ class TestPlaybackLockNotHeldAcrossBroadcast:
         no send under the lock to move.
         """
         import inspect
+
         from services import playback_service
 
         source = inspect.getsource(playback_service.PlaybackService)
@@ -226,6 +234,7 @@ class TestPlaybackLockNotHeldAcrossBroadcast:
 
     def test_seek_has_no_broadcast_to_move(self):
         import inspect
+
         from services import playback_service
 
         source = inspect.getsource(playback_service.PlaybackService.seek)

@@ -68,6 +68,7 @@ def _build_service(repo_returns: object) -> QueueService:
     state_manager.set_queue = AsyncMock()
     state_manager.set_track = AsyncMock()
     state_manager.set_playing = AsyncMock()
+    state_manager.broadcast_state = AsyncMock()
 
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()
@@ -155,6 +156,7 @@ async def test_set_queue_falls_back_when_get_by_ids_missing():
     state_manager.set_queue = AsyncMock()
     state_manager.set_track = AsyncMock()
     state_manager.set_playing = AsyncMock()
+    state_manager.broadcast_state = AsyncMock()
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()
 

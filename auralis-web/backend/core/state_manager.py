@@ -13,8 +13,8 @@ import asyncio
 import logging
 from typing import Any
 
-from player_state import PlaybackState, PlayerState, TrackInfo, create_track_info
 from helpers import spawn_background_task
+from player_state import PlaybackState, PlayerState, TrackInfo, create_track_info
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,27 @@ class PlayerStateManager:
         """Get current player state snapshot"""
         return self.state.model_copy(deep=True)
 
+    async def _mutate_state(self, **kwargs: Any) -> PlayerState:
+        """Apply a state mutation and return its sequenced snapshot."""
+        async with self._lock:
+            for key, value in kwargs.items():
+                if hasattr(self.state, key):
+                    setattr(self.state, key, value)
+
+            self.state.is_playing = (self.state.state == PlaybackState.PLAYING)
+            self.state.is_paused = (self.state.state == PlaybackState.PAUSED)
+
+            if self.state.current_track:
+                self.state.duration = self.state.current_track.duration
+
+            self._update_seq += 1
+            self.state.seq = self._update_seq
+            return self.state.model_copy(deep=True)
+
+    async def broadcast_state(self, state: PlayerState) -> None:
+        """Broadcast a snapshot previously returned by a deferred mutation."""
+        await self._broadcast_state(state)
+
     async def update_state(self, **kwargs: Any) -> None:
         """
         Update player state and broadcast changes.
@@ -63,30 +84,15 @@ class PlayerStateManager:
         Args:
             **kwargs: Fields to update in PlayerState
         """
-        async with self._lock:
-            # Update state fields
-            for key, value in kwargs.items():
-                if hasattr(self.state, key):
-                    setattr(self.state, key, value)
-
-            # Sync dependent fields
-            self.state.is_playing = (self.state.state == PlaybackState.PLAYING)
-            self.state.is_paused = (self.state.state == PlaybackState.PAUSED)
-
-            if self.state.current_track:
-                self.state.duration = self.state.current_track.duration
-
-            self._update_seq += 1
-            self.state.seq = self._update_seq
-
-            # Get snapshot for broadcasting
-            state_snapshot = self.state.model_copy(deep=True)
+        state_snapshot = await self._mutate_state(**kwargs)
 
         # Broadcast outside the lock (#3732) — a slow/stalled WS client no
         # longer blocks concurrent update_state() callers.
-        await self._broadcast_state(state_snapshot)
+        await self.broadcast_state(state_snapshot)
 
-    async def set_track(self, track: Any, library_manager: Any) -> None:
+    async def set_track(
+        self, track: Any, library_manager: Any, *, broadcast: bool = True
+    ) -> PlayerState:
         """
         Set current track and broadcast
 
@@ -95,34 +101,41 @@ class PlayerStateManager:
             library_manager: Library manager to fetch track details
         """
         if track is None:
-            await self.update_state(
+            state_snapshot = await self._mutate_state(
                 current_track=None,
                 current_time=0.0,
                 duration=0.0,
                 state=PlaybackState.STOPPED
             )
-            return
+        else:
+            track_info = create_track_info(track)
+            state_snapshot = await self._mutate_state(
+                current_track=track_info,
+                current_time=0.0,
+                duration=track_info.duration if track_info else 0.0,
+                state=PlaybackState.LOADING
+            )
 
-        # Convert to TrackInfo
-        track_info = create_track_info(track)
+        if broadcast:
+            await self.broadcast_state(state_snapshot)
+        return state_snapshot
 
-        await self.update_state(
-            current_track=track_info,
-            current_time=0.0,
-            duration=track_info.duration if track_info else 0.0,
-            state=PlaybackState.LOADING
-        )
-
-    async def set_playing(self, playing: bool) -> None:
-        """Set playing state"""
+    async def set_playing(
+        self, playing: bool, *, broadcast: bool = True
+    ) -> PlayerState:
+        """Set playing state, optionally deferring its sequenced broadcast."""
         new_state = PlaybackState.PLAYING if playing else PlaybackState.PAUSED
-        await self.update_state(state=new_state)
+        state_snapshot = await self._mutate_state(state=new_state)
+
+        if broadcast:
+            await self.broadcast_state(state_snapshot)
 
         # Start/stop position updates
         if playing:
             self._start_position_updates()
         else:
             await self._stop_position_updates()
+        return state_snapshot
 
     async def set_position(self, position: float) -> None:
         """Set playback position"""
@@ -135,15 +148,24 @@ class PlayerStateManager:
             is_muted=(volume == 0)
         )
 
-    async def set_queue(self, tracks: list[TrackInfo], start_index: int = 0) -> None:
-        """Set playback queue"""
+    async def set_queue(
+        self,
+        tracks: list[TrackInfo],
+        start_index: int = 0,
+        *,
+        broadcast: bool = True,
+    ) -> PlayerState:
+        """Set playback queue, optionally deferring its sequenced broadcast."""
         current_track = tracks[start_index] if tracks and 0 <= start_index < len(tracks) else None
-        await self.update_state(
+        state_snapshot = await self._mutate_state(
             queue=tracks,
             queue_size=len(tracks),
             queue_index=start_index,
             current_track=current_track
         )
+        if broadcast:
+            await self.broadcast_state(state_snapshot)
+        return state_snapshot
 
     async def next_track(self) -> TrackInfo | None:
         """Move to next track in queue"""
