@@ -2,7 +2,7 @@
 Adaptive Compressor
 ~~~~~~~~~~~~~~~~~~~
 
-Content-aware compressor with multiple detection modes
+Content-aware compressor with a linked peak envelope
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -27,7 +27,7 @@ except ImportError:
 
 
 class AdaptiveCompressor:
-    """Content-aware compressor with multiple detection modes"""
+    """Content-aware compressor with deterministic per-sample peak detection."""
 
     def __init__(self, settings: CompressorSettings, sample_rate: int) -> None:
         """
@@ -83,7 +83,10 @@ class AdaptiveCompressor:
         # Below knee: gain_reduction stays 0.0 (already initialized)
         return gain_reduction
 
-    def process(self, audio: np.ndarray, detection_mode: str = "rms") -> tuple[np.ndarray, dict[str, float]]:
+    def process(
+        self,
+        audio: np.ndarray,
+    ) -> tuple[np.ndarray, dict[str, float]]:
         """
         Process audio through compressor with per-sample gain envelope.
 
@@ -93,7 +96,6 @@ class AdaptiveCompressor:
 
         Args:
             audio: Input audio
-            detection_mode: Unused, kept for API compatibility
 
         Returns:
             Tuple of (processed_audio, compression_info)

@@ -141,13 +141,15 @@ class DynamicsProcessor:
                 processing_info['gate'] = gate_info
 
             # Apply compression
-            if self.compressor is not None:
-                detection_mode = self._get_detection_mode(content_info)
-                processed_audio, comp_info = self.compressor.process(processed_audio, detection_mode)
+            if self.settings.enable_compressor and self.compressor is not None:
+                # AdaptiveCompressor deliberately uses one linked, per-sample
+                # peak envelope so transient protection is consistent across
+                # content types; genre still adapts threshold and ratio below.
+                processed_audio, comp_info = self.compressor.process(processed_audio)
                 processing_info['compressor'] = comp_info
 
             # Apply limiting
-            if self.limiter is not None:
+            if self.settings.enable_limiter and self.limiter is not None:
                 processed_audio, limit_info = self.limiter.process(processed_audio)
                 processing_info['limiter'] = limit_info
 
@@ -180,20 +182,6 @@ class DynamicsProcessor:
         }
 
         return gated_audio, gate_info
-
-    def _get_detection_mode(self, content_info: dict[str, Any] | None) -> str:
-        """Determine optimal detection mode based on content"""
-        if not content_info:
-            return "rms"  # Default
-
-        genre = content_info.get('genre_info', {}).get('primary', 'pop')
-
-        if genre in ['classical', 'jazz', 'acoustic']:
-            return "rms"  # Better for musical content
-        elif genre in ['electronic', 'hip_hop', 'metal']:
-            return "peak"  # Better for transient-heavy content
-        else:
-            return "hybrid"  # Balanced approach
 
     def _adapt_to_content(self, content_info: dict[str, Any]) -> None:
         """Adapt dynamics settings based on content analysis and processing targets"""

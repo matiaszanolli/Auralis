@@ -84,6 +84,12 @@ class DynamicsSettings:
     target_lra: float = 7.0  # Loudness Range
 
     def __post_init__(self) -> None:
+        self.gate_threshold_db = max(-80.0, min(0.0, self.gate_threshold_db))
+        self.gate_ratio = max(1.0, min(100.0, self.gate_ratio))
+        self.adaptation_speed = max(0.0, min(1.0, self.adaptation_speed))
+        self.target_lufs = max(-70.0, min(0.0, self.target_lufs))
+        self.target_lra = max(0.0, min(25.0, self.target_lra))
+
         if self.compressor is None:
             self.compressor = CompressorSettings()
         if self.limiter is None:

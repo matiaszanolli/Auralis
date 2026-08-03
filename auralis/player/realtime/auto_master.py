@@ -37,8 +37,8 @@ class AutoMasterProcessor:
         self.profile = "balanced"  # balanced, warm, bright, punchy
 
         # Fingerprint and adaptive parameters
-        self.fingerprint: dict | None = None
-        self.adaptive_params: dict | None = None
+        self.fingerprint: dict[str, Any] | None = None
+        self.adaptive_params: dict[str, Any] | None = None
 
         # Fallback profile-based EQ parameters
         self.profiles = {
@@ -90,7 +90,7 @@ class AutoMasterProcessor:
             self.use_transient_enhancement = enabled
             info(f"Transient enhancement {'enabled' if enabled else 'disabled'}")
 
-    def set_fingerprint(self, fingerprint: dict) -> None:
+    def set_fingerprint(self, fingerprint: dict[str, Any]) -> None:
         """
         Set 25D fingerprint for adaptive processing.
 
@@ -105,7 +105,10 @@ class AutoMasterProcessor:
         info(f"Auto-master fingerprint set: LUFS {fingerprint.get('lufs', 0):.1f}, "
              f"crest {fingerprint.get('crest_db', 0):.1f} dB")
 
-    def _generate_adaptive_parameters(self, fingerprint: dict) -> dict:
+    def _generate_adaptive_parameters(
+        self,
+        fingerprint: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Generate content-aware processing parameters from fingerprint.
 
@@ -156,10 +159,10 @@ class AutoMasterProcessor:
 
         processed = audio.copy()
 
-        # Apply stateful compression with proper envelope tracking
-        # Use hybrid detection (70% RMS + 30% peak) for balanced transient preservation
-        # Peak-only was too responsive; pure RMS was too slow. Hybrid balances both.
-        processed, comp_stats = self.compressor.process(processed, detection_mode="hybrid")
+        # Apply stateful compression with the compressor's linked per-sample
+        # peak envelope. Its gentle settings preserve transients without an
+        # inert, caller-selected detection mode.
+        processed, _ = self.compressor.process(processed)
 
         # Determine which gain to apply
         if self.adaptive_params is not None:
