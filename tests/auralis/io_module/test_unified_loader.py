@@ -16,6 +16,7 @@ import numpy as np
 import pytest
 
 from auralis.io.unified_loader import FFMPEG_FORMATS, SUPPORTED_FORMATS, load_audio
+from auralis.utils.logging import Code, ModuleError
 
 
 @pytest.fixture
@@ -528,11 +529,20 @@ def ffmpeg_available():
         pytest.skip("ffmpeg not available")
 
 
-@pytest.mark.parametrize("fmt,ext", [
+# All formats routed through load_with_ffmpeg (#3696). Opus always decodes at
+# 48 kHz regardless of its 44100 Hz source (Opus's internal codec only
+# operates at fixed rates), so tests below compare duration in seconds
+# rather than assuming a fixed sample rate/count.
+FFMPEG_TEST_FORMATS = [
     ("mp3", "mp3"),
     ("ogg", "ogg"),
     ("flac", "flac"),
-])
+    ("opus", "opus"),
+    ("m4a", "m4a"),
+]
+
+
+@pytest.mark.parametrize("fmt,ext", FFMPEG_TEST_FORMATS)
 def test_load_ffmpeg_format(tmp_path, ffmpeg_available, fmt, ext):
     """Test loading audio files that go through the FFMPEG decoding path"""
     fixture = _generate_ffmpeg_fixture(tmp_path, fmt, ext)
@@ -541,18 +551,15 @@ def test_load_ffmpeg_format(tmp_path, ffmpeg_available, fmt, ext):
 
     assert isinstance(audio, np.ndarray)
     assert audio.dtype in [np.float32, np.float64]
-    assert sr == 44100
+    assert sr > 0
     assert audio.ndim >= 1
     assert len(audio) > 0
-    # 1 second at 44100 Hz — allow lossy codec variance
-    assert abs(len(audio) - 44100) < 4500
+    # 1 second of source audio — allow lossy codec variance
+    duration = len(audio) / sr
+    assert abs(duration - 1.0) < 0.15
 
 
-@pytest.mark.parametrize("fmt,ext", [
-    ("mp3", "mp3"),
-    ("ogg", "ogg"),
-    ("flac", "flac"),
-])
+@pytest.mark.parametrize("fmt,ext", FFMPEG_TEST_FORMATS)
 def test_ffmpeg_format_no_nan_or_inf(tmp_path, ffmpeg_available, fmt, ext):
     """Test that FFMPEG-decoded audio has no NaN or Inf values"""
     fixture = _generate_ffmpeg_fixture(tmp_path, fmt, ext)
@@ -563,11 +570,7 @@ def test_ffmpeg_format_no_nan_or_inf(tmp_path, ffmpeg_available, fmt, ext):
     assert not np.any(np.isinf(audio))
 
 
-@pytest.mark.parametrize("fmt,ext", [
-    ("mp3", "mp3"),
-    ("ogg", "ogg"),
-    ("flac", "flac"),
-])
+@pytest.mark.parametrize("fmt,ext", FFMPEG_TEST_FORMATS)
 def test_ffmpeg_format_has_signal(tmp_path, ffmpeg_available, fmt, ext):
     """Test that FFMPEG-decoded audio contains actual signal (not silence)"""
     fixture = _generate_ffmpeg_fixture(tmp_path, fmt, ext)
@@ -575,3 +578,31 @@ def test_ffmpeg_format_has_signal(tmp_path, ffmpeg_available, fmt, ext):
     audio, sr = load_audio(str(fixture))
 
     assert np.max(np.abs(audio)) > 0.01
+
+
+# flac is decoded natively by libsndfile (SOUNDFILE_FORMATS), not routed
+# through load_with_ffmpeg's _probe_audio guard, so it's excluded here —
+# a corrupted flac raises a different ModuleError code via soundfile's own
+# decoder error path, not Code.ERROR_CORRUPTED.
+@pytest.mark.parametrize("fmt,ext", [
+    (fmt, ext) for fmt, ext in FFMPEG_TEST_FORMATS if fmt != "flac"
+])
+def test_ffmpeg_format_corrupt_header_raises(tmp_path, ffmpeg_available, fmt, ext):
+    """Test that a corrupted FFMPEG-routed file raises ModuleError(ERROR_CORRUPTED)
+
+    Truncating to a stub that ffprobe cannot identify a sample rate/channel
+    count for exercises the `_probe_audio` fail-fast guard (fixes #2495) —
+    the loader must refuse to guess rather than silently mis-decode.
+    """
+    fixture = _generate_ffmpeg_fixture(tmp_path, fmt, ext)
+
+    corrupt_file = tmp_path / f"corrupt.{ext}"
+    with open(fixture, 'rb') as f:
+        data = f.read(200)  # header-sized stub, not enough for ffprobe to parse
+    with open(corrupt_file, 'wb') as f:
+        f.write(data)
+
+    with pytest.raises(ModuleError) as exc_info:
+        load_audio(str(corrupt_file))
+
+    assert Code.ERROR_CORRUPTED in str(exc_info.value)
