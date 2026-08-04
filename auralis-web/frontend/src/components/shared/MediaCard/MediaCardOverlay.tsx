@@ -6,7 +6,7 @@
  * Appears on hover or when playing.
  */
 
-import { MouseEvent, ReactNode } from 'react';
+import { MouseEvent, ReactNode, useState } from 'react';
 import { Box, IconButton } from '@mui/material';
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import { tokens } from '@/design-system';
@@ -40,7 +40,8 @@ export const MediaCardOverlay = ({
   badgeContent,
   title,
 }: MediaCardOverlayProps) => {
-  const showOverlay = isHovered || isPlaying;
+  const [isPlayFocused, setIsPlayFocused] = useState(false);
+  const showOverlay = isHovered || isPlaying || isPlayFocused;
 
   return (
     <>
@@ -61,6 +62,7 @@ export const MediaCardOverlay = ({
 
       {/* Play button (centered) */}
       <Box
+        data-testid="media-card-play-overlay"
         sx={{
           position: 'absolute',
           top: '50%',
@@ -72,6 +74,8 @@ export const MediaCardOverlay = ({
       >
         <IconButton
           onClick={onPlay}
+          onFocus={() => setIsPlayFocused(true)}
+          onBlur={() => setIsPlayFocused(false)}
           aria-label={title ? `Play ${title}` : 'Play'}
           sx={{
             background: tokens.colors.accent.primary,

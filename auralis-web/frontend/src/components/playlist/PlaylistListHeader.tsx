@@ -1,4 +1,4 @@
-import { MouseEvent, useCallback } from 'react';
+import { KeyboardEvent, MouseEvent, useCallback } from 'react';
 import QueueMusic from '@mui/icons-material/QueueMusic';
 import Add from '@mui/icons-material/Add';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -44,10 +44,26 @@ export const PlaylistListHeader = ({
     [onCreateClick]
   );
 
+  const handleHeaderKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      // The create button is nested inside the header. Let it handle its own
+      // keyboard activation instead of also toggling the playlist section.
+      if (e.target !== e.currentTarget) return;
+
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onExpandToggle();
+      }
+    },
+    [onExpandToggle]
+  );
+
   return (
     <SectionHeader
       onClick={onExpandToggle}
+      onKeyDown={handleHeaderKeyDown}
       role="button"
+      tabIndex={0}
       aria-label={expanded ? 'Collapse playlists' : 'Expand playlists'}
       aria-expanded={expanded}
     >

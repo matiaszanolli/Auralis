@@ -32,6 +32,10 @@ export const SectionHeader = styled(Box)({
     background: tokens.glass.subtle.background,           // Glass effect on hover
     backdropFilter: 'blur(12px)',                         // Light blur
   },
+  '&:focus-visible': {
+    outline: `2px solid ${tokens.colors.accent.primary}`,
+    outlineOffset: '-2px',
+  },
   transition: `background ${tokens.transitions.base}, backdrop-filter ${tokens.transitions.base}`,
 });
 

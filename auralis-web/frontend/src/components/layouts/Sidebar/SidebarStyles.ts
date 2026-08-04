@@ -1,4 +1,4 @@
-import { Box, ListItemButton, Typography, styled } from '@mui/material';
+import { Box, ListItemButton, styled } from '@mui/material';
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -28,7 +28,8 @@ export const SidebarContainer = styled(Box)({
   // No edge glow - sidebar should fade from conscious awareness (§4.3)
 });
 
-export const SectionLabel = styled(Typography)({
+export const SectionLabel = styled('h2')({
+  margin: 0,
   fontSize: tokens.typography.fontSize.xs,
   fontWeight: tokens.typography.fontWeight.medium, // Reduced from semibold
   // text.metadata (60% white) is validated for WCAG AA 4.5:1 on small text;
