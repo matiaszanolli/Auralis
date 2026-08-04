@@ -115,6 +115,19 @@ describe('useAlbumFingerprints (batch)', () => {
     expect(result.current.error).toBeNull();
   });
 
+  it('does not reorder the caller-owned albumIds array', () => {
+    setupFetch(mockAlbumFpResponse);
+    const albumIds = [3, 1, 2];
+    const originalReference = albumIds;
+
+    renderHook(() => useAlbumFingerprints(albumIds), {
+      wrapper: createWrapper(),
+    });
+
+    expect(albumIds).toBe(originalReference);
+    expect(albumIds).toEqual([3, 1, 2]);
+  });
+
   it('should handle empty albumIds array', async () => {
     const { result } = renderHook(() => useAlbumFingerprints([]), {
       wrapper: createWrapper(),

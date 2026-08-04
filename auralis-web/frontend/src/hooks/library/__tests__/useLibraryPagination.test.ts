@@ -164,3 +164,71 @@ describe('useLibraryPagination.fetchTracks (#4185)', () => {
     expect(signal!.aborted).toBe(true);
   });
 });
+
+describe('useLibraryPagination request ownership (#4891)', () => {
+  it('lets a view refresh supersede an in-flight loadMore and discards the stale page', async () => {
+    let resolveStalePage!: (response: unknown) => void;
+    const stalePage = new Promise((resolve) => {
+      resolveStalePage = resolve;
+    });
+
+    mockFetch
+      // Old "all" view loadMore. Deliberately ignores the abort signal so the
+      // request-id guard, rather than the mock transport, must reject it.
+      .mockImplementationOnce(() => stalePage)
+      // New "favourites" view refresh.
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          tracks: [{ id: 2, title: 'Favourite track' }],
+          has_more: false,
+          total: 1,
+        }),
+      });
+
+    const { result, rerender } = renderHook(
+      ({ view }: { view: string }) => useLibraryPagination({ view }),
+      { initialProps: { view: 'all' } }
+    );
+
+    let staleLoadMore!: Promise<void>;
+    act(() => {
+      staleLoadMore = result.current.loadMore();
+    });
+    expect(result.current.isLoadingMore).toBe(true);
+
+    rerender({ view: 'favourites' });
+    await act(async () => {
+      await result.current.fetchTracks();
+    });
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      '/api/library/tracks/favorites?limit=50&offset=0',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+    expect(result.current.tracks.map((track) => track.title)).toEqual([
+      'Favourite track',
+    ]);
+
+    await act(async () => {
+      resolveStalePage({
+        ok: true,
+        json: async () => ({
+          tracks: [{ id: 1, title: 'Stale all-view track' }],
+          has_more: true,
+          total: 100,
+        }),
+      });
+      await staleLoadMore;
+    });
+
+    expect(result.current.tracks.map((track) => track.title)).toEqual([
+      'Favourite track',
+    ]);
+    expect(result.current.offset).toBe(0);
+    expect(result.current.hasMore).toBe(false);
+    expect(result.current.totalTracks).toBe(1);
+    expect(result.current.isLoadingMore).toBe(false);
+  });
+});

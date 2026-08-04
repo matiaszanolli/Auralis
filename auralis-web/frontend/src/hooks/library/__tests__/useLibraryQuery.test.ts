@@ -164,6 +164,9 @@ describe('useLibraryQuery', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
+      expect(mockGet.mock.calls[0][0]).toBe(
+        '/api/library/tracks?limit=50&offset=0'
+      );
       expect(result.current.offset).toBe(0);
       expect(result.current.hasMore).toBe(true);
     });
@@ -193,6 +196,9 @@ describe('useLibraryQuery', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
+      expect(mockGet.mock.calls[0][0]).toBe(
+        '/api/library/tracks?limit=50&offset=0'
+      );
       // (offset + data.length) < total = (0 + 2) < 100 = true
       expect(result.current.hasMore).toBe(true);
     });
@@ -222,6 +228,9 @@ describe('useLibraryQuery', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
+      expect(mockGet.mock.calls[0][0]).toBe(
+        '/api/library/tracks?limit=50&offset=0'
+      );
       expect(result.current.hasMore).toBe(false);
     });
   });
@@ -272,25 +281,33 @@ describe('useLibraryQuery', () => {
         await result.current.fetchMore();
       });
 
+      expect(mockGet.mock.calls[0][0]).toBe(
+        '/api/library/tracks?limit=50&offset=0'
+      );
+      expect(mockGet.mock.calls[1][0]).toBe(
+        '/api/library/tracks?limit=50&offset=50'
+      );
       // Both pages should be present
       expect(result.current.data).toEqual([...firstPageTracks, ...secondPageTracks]);
     });
 
     it('should not fetch more when already loading', async () => {
-      const mockGet = vi.fn().mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            setTimeout(() => {
-              resolve({
-                items: [mockTrack],
-                total: 200,
-                offset: 0,
-                limit: 50,
-                hasMore: true,
-              });
-            }, 100);
-          })
-      );
+      let resolveFetchMore!: (response: unknown) => void;
+      const mockGet = vi
+        .fn()
+        .mockResolvedValueOnce({
+          items: [mockTrack],
+          total: 200,
+          offset: 0,
+          limit: 50,
+          hasMore: true,
+        })
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveFetchMore = resolve;
+            })
+        );
 
       vi.mocked(useRestAPI).mockReturnValue({
         get: mockGet,
@@ -308,19 +325,34 @@ describe('useLibraryQuery', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      // Attempt to fetch more while "loading"
+      let pendingFetchMore!: Promise<void>;
+      act(() => {
+        pendingFetchMore = result.current.fetchMore();
+      });
+      await waitFor(() => expect(result.current.isLoadingMore).toBe(true));
+
       await act(async () => {
-        // Don't await, so isLoading might still be true
-        result.current.fetchMore();
-        // Manually set isLoading state check
-        if (result.current.isLoading) {
-          // Second call should return early
-          await result.current.fetchMore();
-        }
+        await result.current.fetchMore();
       });
 
-      // get should still have been called only twice (initial + one fetchMore)
-      expect(mockGet.mock.calls.length).toBeLessThanOrEqual(2);
+      expect(mockGet).toHaveBeenCalledTimes(2);
+      expect(mockGet.mock.calls[0][0]).toBe(
+        '/api/library/tracks?limit=50&offset=0'
+      );
+      expect(mockGet.mock.calls[1][0]).toBe(
+        '/api/library/tracks?limit=50&offset=50'
+      );
+
+      await act(async () => {
+        resolveFetchMore({
+          items: [mockTrack],
+          total: 200,
+          offset: 50,
+          limit: 50,
+          hasMore: true,
+        });
+        await pendingFetchMore;
+      });
     });
 
     it('should not fetch more when hasMore is false', async () => {
@@ -355,6 +387,9 @@ describe('useLibraryQuery', () => {
 
       // Should only have one call (initial fetch)
       expect(mockGet).toHaveBeenCalledTimes(1);
+      expect(mockGet.mock.calls[0][0]).toBe(
+        '/api/library/tracks?limit=50&offset=0'
+      );
     });
 
     it('pages to the final item when the backend omits has_more (#4407)', async () => {

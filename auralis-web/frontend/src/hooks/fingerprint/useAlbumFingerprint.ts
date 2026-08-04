@@ -103,7 +103,7 @@ const FINGERPRINT_BATCH_CONCURRENCY = 10;
 
 export function useAlbumFingerprints(albumIds: number[]) {
   const queries = useQuery({
-    queryKey: ['album-fingerprints-batch', albumIds.sort().join(',')],
+    queryKey: ['album-fingerprints-batch', [...albumIds].sort().join(',')],
     queryFn: async () => {
       const fingerprintMap = new Map<number, AudioFingerprint | null>();
 

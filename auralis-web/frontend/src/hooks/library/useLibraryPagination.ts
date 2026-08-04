@@ -31,7 +31,12 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const fetchInProgressRef = useRef(false);
+  const loadMoreInProgressRef = useRef(false);
   const fetchAbortRef = useRef<AbortController | null>(null);
+  // A refresh supersedes every older request. This prevents a stale page from
+  // appending after the user switches views, even if a fetch mock or transport
+  // ignores AbortController cancellation (#4891).
+  const requestIdRef = useRef(0);
 
   // Mirror `offset` into a ref so fetchTracks(false) can read the live value
   // without `offset` in useCallback deps — avoids recreating fetchTracks on
@@ -52,11 +57,8 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
 
   const fetchTracks = useCallback(
     async (resetPagination = true) => {
-      if (fetchInProgressRef.current) {
-        DEBUG && console.log('[useLibraryPagination] Fetch already in progress, skipping');
-        return;
-      }
-
+      const requestId = ++requestIdRef.current;
+      const isStale = () => requestIdRef.current !== requestId;
       fetchInProgressRef.current = true;
       setLoading(true);
       setError(null);
@@ -64,6 +66,8 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
       if (resetPagination) {
         setOffset(0);
         setTracks([]);
+        setHasMore(true);
+        setTotalTracks(0);
       }
 
       try {
@@ -79,8 +83,12 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
         fetchAbortRef.current = controller;
 
         const response = await fetch(endpoint, { signal: controller.signal });
+        if (isStale()) return;
+
         if (response.ok) {
           const data: { tracks?: TrackApiResponse[]; has_more?: boolean; total?: number } = await response.json();
+          if (isStale()) return;
+
           const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
 
           setHasMore(data.has_more || false);
@@ -107,13 +115,19 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
+        if (isStale()) return;
+
         console.error('Error fetching tracks:', err);
         const errorMsg = 'Failed to connect to server';
         setError(errorMsg);
         toastRef.current.toastError(errorMsg);
       } finally {
-        setLoading(false);
-        fetchInProgressRef.current = false;
+        // A superseded request must not clear the active refresh's loading
+        // state or guard.
+        if (!isStale()) {
+          setLoading(false);
+          fetchInProgressRef.current = false;
+        }
       }
     },
     // Toast fns read via toastRef, so only 'view' affects identity (#3943 / #3378).
@@ -121,12 +135,14 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
   );
 
   const loadMore = useCallback(async () => {
-    if (fetchInProgressRef.current) {
+    if (loadMoreInProgressRef.current || fetchInProgressRef.current) {
       DEBUG && console.log('[useLibraryPagination] loadMore already in progress, skipping');
       return;
     }
 
-    fetchInProgressRef.current = true;
+    loadMoreInProgressRef.current = true;
+    const requestId = ++requestIdRef.current;
+    const isStale = () => requestIdRef.current !== requestId;
     setIsLoadingMore(true);
 
     try {
@@ -143,8 +159,12 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
       fetchAbortRef.current = controller;
 
       const response = await fetch(endpoint, { signal: controller.signal });
+      if (isStale()) return;
+
       if (response.ok) {
         const data: { tracks?: TrackApiResponse[]; has_more?: boolean; total?: number } = await response.json();
+        if (isStale()) return;
+
         const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
 
         // Commit offset advance only after successful fetch
@@ -166,6 +186,8 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (isStale()) return;
+
       console.error('Error loading more tracks:', err);
       const errorMsg = 'Failed to connect to server';
       setError(errorMsg);
@@ -174,7 +196,7 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
       setHasMore(false);
     } finally {
       setIsLoadingMore(false);
-      fetchInProgressRef.current = false;
+      loadMoreInProgressRef.current = false;
     }
   }, [view]);
 

@@ -205,12 +205,14 @@ describe('useLibraryWithStats', () => {
       expect(result.current.error).toBe('Failed to load library');
     });
 
-    it('prevents concurrent fetches', async () => {
+    it('lets a newer refresh supersede an in-flight refresh', async () => {
       let resolveFirst: (v: any) => void;
       const slowResponse = new Promise((resolve) => {
         resolveFirst = resolve;
       });
-      mockFetch.mockReturnValueOnce(slowResponse);
+      mockFetch
+        .mockReturnValueOnce(slowResponse)
+        .mockResolvedValueOnce(makeTracksResponse(2, 2, false));
 
       const { result } = renderHook(() =>
         useLibraryWithStats({ view: 'all', autoLoad: false })
@@ -222,17 +224,23 @@ describe('useLibraryWithStats', () => {
         result.current.fetchTracks().then(() => { firstDone = true; });
       });
 
-      // Try second fetch while first is in progress
+      // A newer refresh must not be dropped while the old view/request is
+      // still pending.
       await act(async () => {
         await result.current.fetchTracks();
       });
 
-      // Only one fetch call should have been made
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      const firstSignal = mockFetch.mock.calls[0][1].signal as AbortSignal;
+      expect(firstSignal.aborted).toBe(true);
+      expect(result.current.tracks).toHaveLength(2);
+      expect(result.current.totalTracks).toBe(2);
 
-      // Cleanup: resolve the pending fetch
+      // Even a transport that ignores abort cannot let the old response win.
       resolveFirst!(makeTracksResponse(1, 1, false));
       await waitFor(() => expect(firstDone).toBe(true));
+      expect(result.current.tracks).toHaveLength(2);
+      expect(result.current.totalTracks).toBe(2);
     });
 
     it('shows info toast when favourites view has no results', async () => {
