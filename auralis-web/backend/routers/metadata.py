@@ -74,6 +74,32 @@ class BatchMetadataRequest(BaseModel):
     updates: list[BatchMetadataUpdateRequest] = Field(..., description="List of updates")
 
 
+# MetadataUpdateRequest fields whose Pydantic name is a mutagen tag name, not
+# the Track DB column name (#4731). ``track``/``disc`` have an explicit
+# ``alias=`` already; ``comment`` has none, since it doubles as the file-tag
+# name in write_metadata's tag dict and only diverges for the DB column.
+_METADATA_FIELD_TO_COLUMN: dict[str, str] = {
+    'track': 'track_number',
+    'disc': 'disc_number',
+    'comment': 'comments',
+}
+
+
+def _tag_dict_to_db_columns(tag_updates: dict[str, Any]) -> dict[str, Any]:
+    """Translate a mutagen-tag-keyed update dict to Track DB column names.
+
+    ``write_metadata`` needs the tag-named keys (``track``, ``disc``,
+    ``comment``) verbatim; the repository's writable-columns allowlist is
+    keyed on DB column names (``track_number``, ``disc_number``,
+    ``comments``), so passing the tag-named dict straight through silently
+    drops those three fields (#4731). Fields with no DB column (``artist``,
+    ``album``, ``genre``, ...) pass through unchanged here and are dropped
+    downstream by the repository's own allowlist — they're file-only tags,
+    not a translation gap.
+    """
+    return {_METADATA_FIELD_TO_COLUMN.get(k, k): v for k, v in tag_updates.items()}
+
+
 def create_metadata_router(
     get_repository_factory: Callable[[], Any],
     broadcast_manager: Any,
@@ -240,9 +266,12 @@ def create_metadata_router(
             if not success:
                 raise HTTPException(status_code=500, detail="Failed to write metadata to file")
 
-            # Update database record using repository
+            # Update database record using repository. metadata_updates is
+            # tag-keyed (matches write_metadata above); translate to DB
+            # column names first or track/disc/comment silently vanish (#4731).
+            db_metadata_updates = _tag_dict_to_db_columns(metadata_updates)
             updated_track = await asyncio.to_thread(
-                lambda: repos.tracks.update_metadata(track_id, **metadata_updates)
+                lambda: repos.tracks.update_metadata(track_id, **db_metadata_updates)
             )
             if not updated_track:
                 raise NotFoundError("Track", detail="Track not found for update")
@@ -250,7 +279,11 @@ def create_metadata_router(
             # Use the updated track for subsequent operations
             track = updated_track
 
-            # Broadcast metadata updated event
+            # Broadcast metadata updated event. updated_fields lists what was
+            # written to the FILE (tag names); fields with no Track DB
+            # column (artist, album, albumartist, genre, bpm, composer,
+            # publisher, copyright) are intentionally file-only and don't
+            # appear in db_metadata_updates above (#4731).
             if broadcast_manager:
                 await broadcast_manager.broadcast({
                     "type": "metadata_updated",
@@ -358,7 +391,10 @@ def create_metadata_router(
             for result in results.get('results', []):
                 if result.get('success'):
                     track_id = result['track_id']
-                    updates = result.get('updates', {})
+                    # updates is tag-keyed (echoed from the MetadataUpdate we
+                    # built above) — translate before the DB write, mirroring
+                    # the single-track route's fix (#4731).
+                    updates = _tag_dict_to_db_columns(result.get('updates', {}))
                     if updates:
                         db_updates.append((track_id, updates))
 

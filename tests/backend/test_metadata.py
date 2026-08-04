@@ -100,7 +100,7 @@ def mock_metadata_editor():
 
 
 @pytest.fixture(scope="function", autouse=False)
-def client(mock_track, mock_broadcast_manager, mock_metadata_editor):
+def client(mock_track, mock_broadcast_manager, mock_metadata_editor, monkeypatch):
     """Create test client with mocked dependencies
 
     IMPORTANT: This fixture creates a NEW router for EACH test.
@@ -117,12 +117,18 @@ def client(mock_track, mock_broadcast_manager, mock_metadata_editor):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    # Break circular import: routers -> services -> config -> routers
-    # Pre-populate config.routes with a stub that has setup_routers
+    # Break circular import: routers -> services -> config -> routers.
+    # Pre-populate config.routes with a stub that has setup_routers.
+    # monkeypatch.setitem (not a bare sys.modules assignment) so this stub is
+    # undone at the end of THIS test — a bare assignment leaked a permanent
+    # no-op config.routes into sys.modules for the rest of the pytest
+    # session, which silently broke every other test file's real-app
+    # `client` fixture (main.py's own setup_routers() call resolved to this
+    # stub and registered zero routers) if it happened to run afterward.
     if 'config.routes' not in sys.modules:
         routes_stub = ModuleType('config.routes')
         routes_stub.setup_routers = lambda app: None  # Stub function
-        sys.modules['config.routes'] = routes_stub
+        monkeypatch.setitem(sys.modules, 'config.routes', routes_stub)
 
     from routers.metadata import create_metadata_router
 
