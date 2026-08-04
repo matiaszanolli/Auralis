@@ -22,6 +22,7 @@ import { ErrorBoundary } from './components/core/ErrorBoundary';
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 import DesktopPlatformNotice from '@/components/platform/DesktopPlatformNotice';
+import { AppViewAnnouncement } from '@/components/core/AppViewAnnouncement';
 
 // Custom hooks for business logic
 import { useAppLayout } from '@/hooks/app/useAppLayout';
@@ -257,6 +258,7 @@ function ComfortableApp() {
       }}
     >
       <DesktopPlatformNotice />
+      <AppViewAnnouncement view={currentView} />
       <AppContainer onDragEnd={handleDragEnd}>
         {/* Sidebar (desktop or mobile drawer) */}
         <AppSidebar

@@ -91,7 +91,12 @@ export const TrackListViewContent = ({
 
   return (
     <ListViewContainer elevation={2}>
-      <div ref={listContainerRef}>
+      <div
+        ref={listContainerRef}
+        role="listbox"
+        aria-label="Track list"
+        aria-multiselectable="true"
+      >
         <div
           style={{
             height: virtualizer.getTotalSize(),

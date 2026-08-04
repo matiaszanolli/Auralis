@@ -54,7 +54,8 @@ export const StatusIndicator = styled(Box)<{ color: string }>(({ color }) => ({
   minWidth: tokens.spacing.md,
 }));
 
-export const TitleBox = styled(Box)({
+export const TitleBox = styled('h1')({
+  margin: 0,
   fontSize: tokens.typography.fontSize.xl,
   fontWeight: tokens.typography.fontWeight.semibold,
   color: themeVars.textPrimary,

@@ -3,6 +3,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import { LeftSection, TitleBox } from './AppTopBar.styles';
 import { IconButton } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
+import { screenReaderOnly } from './accessibilityStyles';
 
 interface AppTopBarLeftSectionProps {
   showMobileMenu: boolean;
@@ -38,7 +39,11 @@ export const AppTopBarLeftSection = ({
         </IconButton>
       )}
 
-      {!showMobileMenu && <TitleBox>{title}</TitleBox>}
+      <TitleBox
+        sx={showMobileMenu ? screenReaderOnly : undefined}
+      >
+        {title}
+      </TitleBox>
     </LeftSection>
   );
 };
