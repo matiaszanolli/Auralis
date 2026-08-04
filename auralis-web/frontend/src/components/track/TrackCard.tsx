@@ -11,6 +11,7 @@
 
 import { memo } from 'react';
 import { MediaCard } from '@/components/shared/MediaCard';
+import { withArtworkSize } from '@/services/artworkService';
 
 interface TrackCardProps {
   id: number;
@@ -20,6 +21,7 @@ interface TrackCardProps {
   albumId?: number;
   duration: number;
   albumArt?: string;
+  artworkSize?: number;
   isPlaying?: boolean;
   onPlay: (id: number) => void;
 }
@@ -38,6 +40,7 @@ export const TrackCard = memo(function TrackCard({
   albumId,
   duration,
   albumArt,
+  artworkSize = 216,
   isPlaying = false,
   onPlay,
 }: TrackCardProps) {
@@ -55,7 +58,7 @@ export const TrackCard = memo(function TrackCard({
       album={album}
       albumId={albumId}
       duration={duration}
-      artworkUrl={albumArt}
+      artworkUrl={withArtworkSize(albumArt, artworkSize)}
       isPlaying={isPlaying}
       onPlay={onPlay}
       onClick={handleClick}

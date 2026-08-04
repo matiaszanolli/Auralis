@@ -58,6 +58,21 @@ describe('TrackCard', () => {
       expect(screen.getByText('Amazing Artist')).toBeInTheDocument();
     });
 
+    it('requests a size-hinted URL for same-origin artwork (#4901)', () => {
+      const { container } = render(
+        <TrackCard
+          {...defaultProps}
+          albumArt="/api/albums/1/artwork"
+          artworkSize={216}
+        />
+      );
+
+      expect(container.querySelector('img')).toHaveAttribute(
+        'src',
+        '/api/albums/1/artwork?size=216'
+      );
+    });
+
     it('should render with placeholder when no album art', () => {
       render(
         <TrackCard {...defaultProps} albumArt={undefined} />
@@ -128,9 +143,9 @@ describe('TrackCard', () => {
     });
 
     it('should handle very long duration', () => {
-      // 3661 seconds = 61 minutes and 1 second
+      // 3661 seconds = 1 hour, 1 minute, and 1 second
       render(<TrackCard {...defaultProps} duration={3661} />);
-      expect(screen.getByText(/61:01/)).toBeInTheDocument();
+      expect(screen.getByText('1:01:01')).toBeInTheDocument();
     });
   });
 

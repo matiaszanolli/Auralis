@@ -25,12 +25,13 @@ import {
   type ArtworkPalette,
 } from '@/utils/colorExtraction';
 import { getArtworkUrl } from '@/services/artworkService';
+import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
 
 /**
  * In-memory cache for artwork palettes
- * Key: albumId, Value: extracted palette
+ * Each album retains only the palette for its current artwork revision.
  */
-const paletteCache = new Map<number, ArtworkPalette>();
+const paletteCache = new Map<number, { revision: number; palette: ArtworkPalette }>();
 
 /**
  * Hook return type
@@ -64,6 +65,7 @@ export function useArtworkPalette(
   albumId: number | null | undefined,
   enabled: boolean = true
 ): UseArtworkPaletteReturn {
+  const artworkRevision = useArtworkRevision(albumId ?? 0);
   const [palette, setPalette] = useState<ArtworkPalette | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +85,8 @@ export function useArtworkPalette(
 
     // Check cache first
     const cached = paletteCache.get(albumId);
-    if (cached) {
-      setPalette(cached);
+    if (cached?.revision === artworkRevision) {
+      setPalette(cached.palette);
       setLoading(false);
       setError(null);
       return;
@@ -96,13 +98,16 @@ export function useArtworkPalette(
     let isActive = true;
 
     const extractColors = async () => {
+      // Do not keep displaying the previous revision's colours while a new
+      // image loads or after artwork deletion makes extraction fail (#4530).
+      setPalette(null);
       setLoading(true);
       setError(null);
 
       try {
         // Colour extraction downsamples heavily, so a small thumbnail is more
         // than enough — never fetch the full-resolution bitmap for this (#4447).
-        const artworkUrl = getArtworkUrl(albumId, { size: 64 });
+        const artworkUrl = getArtworkUrl(albumId, { size: 64, revision: artworkRevision });
         const extractedPalette = await extractArtworkColors(artworkUrl, {
           colorCount: 5,
           sampleRate: 10,
@@ -112,7 +117,7 @@ export function useArtworkPalette(
         if (!isActive) return;
         if (currentAlbumIdRef.current === albumId) {
           setPalette(extractedPalette);
-          paletteCache.set(albumId, extractedPalette);
+          paletteCache.set(albumId, { revision: artworkRevision, palette: extractedPalette });
           setLoading(false);
         }
       } catch (err) {
@@ -130,7 +135,7 @@ export function useArtworkPalette(
     return () => {
       isActive = false;
     };
-  }, [albumId, enabled]);
+  }, [albumId, enabled, artworkRevision]);
 
   // Generate CSS values from palette
   const gradient = palette ? generateArtworkGradient(palette, 0.08) : 'transparent';

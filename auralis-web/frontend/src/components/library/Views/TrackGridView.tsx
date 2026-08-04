@@ -112,6 +112,7 @@ export const TrackGridView = ({
         albumId={track.albumId ?? undefined}
         duration={track.duration}
         albumArt={track.artworkUrl ?? undefined}
+        artworkSize={MIN_COLUMN_WIDTH}
         onPlay={handlePlay}
       />
     </div>

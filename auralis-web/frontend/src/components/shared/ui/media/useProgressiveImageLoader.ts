@@ -62,7 +62,8 @@ export const useProgressiveImageLoader = ({
     };
 
     // Add cache busting for retries
-    img.src = retryCount > 0 ? `${src}?retry=${retryCount}` : src;
+    const retrySeparator = src.includes('?') ? '&' : '?';
+    img.src = retryCount > 0 ? `${src}${retrySeparator}retry=${retryCount}` : src;
 
     // Cleanup
     return () => {

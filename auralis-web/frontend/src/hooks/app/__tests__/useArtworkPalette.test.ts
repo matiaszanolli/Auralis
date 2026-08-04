@@ -1,12 +1,15 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useArtworkPalette } from '../useArtworkPalette';
 import type { ArtworkPalette } from '@/utils/colorExtraction';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { _internal as artworkUpdatesInternal } from '@/hooks/library/useArtworkUpdates';
 
 vi.mock('@/utils/colorExtraction', () => ({
   extractArtworkColors: vi.fn(),
   generateArtworkGradient: vi.fn(),
   generateArtworkGlow: vi.fn(),
 }));
+vi.mock('@/contexts/WebSocketContext');
 
 import {
   extractArtworkColors,
@@ -45,8 +48,17 @@ const fakePalette: ArtworkPalette = {
 };
 
 describe('useArtworkPalette', () => {
+  let capturedArtworkUpdate: ((message: unknown) => void) | null;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    artworkUpdatesInternal.reset();
+    capturedArtworkUpdate = null;
+    const subscribe = vi.fn((_type: string, handler: (message: unknown) => void) => {
+      capturedArtworkUpdate = handler;
+      return vi.fn();
+    });
+    vi.mocked(useWebSocketContext).mockReturnValue({ subscribe } as never);
     // Clear the module-level paletteCache between tests by re-importing would be
     // complex, so we just use unique albumIds per test to avoid cache hits.
     mockGradient.mockReturnValue('linear-gradient(#1e1e3c, #000)');
@@ -105,6 +117,64 @@ describe('useArtworkPalette', () => {
     expect(result.current.error).toBe('Network error');
     expect(result.current.gradient).toBe('transparent');
     expect(result.current.glow).toBe('none');
+  });
+
+  it('re-extracts and caches a distinct palette after artwork_updated (#4530)', async () => {
+    const revisedPalette: ArtworkPalette = {
+      ...fakePalette,
+      vibrant: { ...fakePalette.vibrant, hex: '#ff5500' },
+    };
+    mockExtract
+      .mockResolvedValueOnce(fakePalette)
+      .mockResolvedValueOnce(revisedPalette);
+
+    const { result } = renderHook(() => useArtworkPalette(303));
+    await waitFor(() => expect(result.current.palette).toEqual(fakePalette));
+
+    act(() => {
+      capturedArtworkUpdate?.({ type: 'artwork_updated', data: { album_id: 303 } });
+    });
+
+    await waitFor(() => expect(result.current.palette).toEqual(revisedPalette));
+    expect(mockExtract).toHaveBeenNthCalledWith(
+      2,
+      '/api/albums/303/artwork?size=64&v=1',
+      expect.any(Object)
+    );
+  });
+
+  it('clears the old palette when revised artwork cannot be extracted (#4530)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockExtract
+      .mockResolvedValueOnce(fakePalette)
+      .mockRejectedValueOnce(new Error('Artwork deleted'));
+
+    const { result } = renderHook(() => useArtworkPalette(404));
+    await waitFor(() => expect(result.current.palette).toEqual(fakePalette));
+
+    act(() => {
+      capturedArtworkUpdate?.({
+        type: 'artwork_updated',
+        data: { album_id: 404, action: 'deleted' },
+      });
+    });
+
+    await waitFor(() => expect(result.current.error).toBe('Artwork deleted'));
+    expect(result.current.palette).toBeNull();
+    expect(result.current.accentColor).toBe('#7366f0');
+  });
+
+  it('does not invalidate another album palette on unrelated updates (#4530)', async () => {
+    mockExtract.mockResolvedValue(fakePalette);
+    const { result } = renderHook(() => useArtworkPalette(505));
+    await waitFor(() => expect(result.current.palette).toEqual(fakePalette));
+
+    act(() => {
+      capturedArtworkUpdate?.({ type: 'artwork_updated', data: { album_id: 999 } });
+    });
+
+    expect(mockExtract).toHaveBeenCalledOnce();
+    expect(result.current.palette).toEqual(fakePalette);
   });
 
   it('does not attempt extraction when albumId is undefined', () => {

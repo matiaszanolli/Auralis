@@ -102,6 +102,20 @@ describe('TrackGridView', () => {
     expect((cards[10] as HTMLElement).style.animationDelay).toBe('');
   });
 
+  it('passes the grid column width as the artwork size hint (#4901)', () => {
+    const track = {
+      ...makeTrack(1),
+      albumId: 1,
+      artworkUrl: '/api/albums/1/artwork',
+    };
+    const { container } = render(<TrackGridView tracks={[track]} {...baseProps} />);
+
+    expect(container.querySelector('img')).toHaveAttribute(
+      'src',
+      '/api/albums/1/artwork?size=216'
+    );
+  });
+
   it('bounds rendered card count via row virtualization for a large track list', async () => {
     const scrollEl = document.createElement('div');
     scrollEl.id = 'app-main-content-scroll';
