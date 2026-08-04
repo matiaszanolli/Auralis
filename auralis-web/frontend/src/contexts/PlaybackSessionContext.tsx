@@ -17,7 +17,7 @@
  * @module contexts/PlaybackSessionContext
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { AppDispatch } from '@/store';
 import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
@@ -39,6 +39,8 @@ interface PlaybackSessionContextValue {
   currentTime: number;
   isPaused: boolean;
   isSeeking: boolean;
+  /** True while a transport command is waiting for its playback request. */
+  isCommandPending: boolean;
   error: string | null;
 
   /** Start a track using the current enhancement enabled/preset/intensity state. */
@@ -73,6 +75,8 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
 
   // Store pre-mute volume so unmute restores the user's prior level.
   const preMuteVolumeRef = useRef<number>(0.5);
+  const commandPendingRef = useRef(false);
+  const [isCommandPending, setIsCommandPending] = useState(false);
 
   const {
     playEnhanced,
@@ -101,11 +105,32 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     intensity: enhancementIntensity,
   } = useEnhancementControl();
 
-  const startTrack = useCallback(
+  const startTrackForSettings = useCallback(
     (trackId: number) => enhancementEnabled
       ? playEnhanced(trackId, enhancementPreset, enhancementIntensity)
       : playNormal(trackId),
     [enhancementEnabled, enhancementPreset, enhancementIntensity, playEnhanced, playNormal]
+  );
+
+  // The ref closes the gap before React can render disabled controls. This
+  // coalesces double-clicks and keyboard repeats into the first command while
+  // its playback request is still pending (#4835).
+  const runTransportCommand = useCallback(async (command: () => void | Promise<void>) => {
+    if (commandPendingRef.current) return;
+
+    commandPendingRef.current = true;
+    setIsCommandPending(true);
+    try {
+      await command();
+    } finally {
+      commandPendingRef.current = false;
+      setIsCommandPending(false);
+    }
+  }, []);
+
+  const startTrack = useCallback(
+    (trackId: number) => runTransportCommand(() => startTrackForSettings(trackId)),
+    [runTransportCommand, startTrackForSettings]
   );
 
   const handleSeek = useCallback((position: number) => {
@@ -116,7 +141,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     seekTo(position);
   }, [isStreaming, currentTrack?.id, seekTo]);
 
-  const handleNext = useCallback(async () => {
+  const handleNext = useCallback(() => runTransportCommand(async () => {
     try {
       const nextIndex = currentQueueIndex + 1;
       if (nextIndex >= queueTracks.length) {
@@ -133,13 +158,13 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
       stopPlayback();
       dispatch(setCurrentTrackAndSyncQueue(nextTrackData));
 
-      await startTrack(nextTrackData.id);
+      await startTrackForSettings(nextTrackData.id);
     } catch (err) {
       console.error('[PlaybackSession] Next command error:', err);
     }
-  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, startTrack]);
+  }), [currentQueueIndex, queueTracks, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
 
-  const handlePrevious = useCallback(async () => {
+  const handlePrevious = useCallback(() => runTransportCommand(async () => {
     try {
       const prevIndex = currentQueueIndex - 1;
       if (prevIndex < 0) {
@@ -155,13 +180,13 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
       stopPlayback();
       dispatch(setCurrentTrackAndSyncQueue(prevTrackData));
 
-      await startTrack(prevTrackData.id);
+      await startTrackForSettings(prevTrackData.id);
     } catch (err) {
       console.error('[PlaybackSession] Previous command error:', err);
     }
-  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, startTrack]);
+  }), [currentQueueIndex, queueTracks, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
 
-  const handlePlayPause = useCallback(async () => {
+  const handlePlayPause = useCallback(() => runTransportCommand(async () => {
     if (!currentTrack?.id) {
       DEBUG && console.warn('[PlaybackSession] No track loaded, cannot play');
       return;
@@ -177,12 +202,15 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
           pausePlayback();
         }
       } else {
-        await startTrack(currentTrack.id);
+        await startTrackForSettings(currentTrack.id);
       }
     } catch (err) {
       console.error('[PlaybackSession] Play/Pause command error:', err);
     }
-  }, [currentTrack?.id, isStreaming, isPaused, resumePlayback, pausePlayback, startTrack]);
+  }), [
+    currentTrack?.id, isStreaming, isPaused, resumePlayback, pausePlayback,
+    runTransportCommand, startTrackForSettings,
+  ]);
 
   const handleVolumeChange = useCallback(async (vol: number) => {
     try {
@@ -237,6 +265,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     currentTime,
     isPaused,
     isSeeking,
+    isCommandPending,
     error,
     startTrack,
     handleSeek,
@@ -247,7 +276,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     handleMuteToggle,
   }), [
     isStreaming, streamingState, processedChunks, totalChunks,
-    currentTime, isPaused, isSeeking, error, startTrack,
+    currentTime, isPaused, isSeeking, isCommandPending, error, startTrack,
     handleSeek, handlePlayPause, handleNext, handlePrevious, handleVolumeChange, handleMuteToggle,
   ]);
 

@@ -11,7 +11,7 @@
 
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import { PlaybackSessionProvider } from '@/contexts/PlaybackSessionContext';
 import Player from '../Player';
@@ -80,8 +80,8 @@ const mockTrack = {
 describe('Player', () => {
   beforeEach(() => {
     enhancementSettings.enabled = true;
-    mockPlayEnhanced.mockClear();
-    mockPlayNormal.mockClear();
+    mockPlayEnhanced.mockReset();
+    mockPlayNormal.mockReset();
   });
 
   it('should render the play button when no track is loaded', () => {
@@ -146,6 +146,39 @@ describe('Player', () => {
 
     await waitFor(() => expect(mockPlayNormal).toHaveBeenCalledWith(2));
     expect(mockPlayEnhanced).not.toHaveBeenCalled();
+  });
+
+  it('coalesces rapid Next clicks while the playback request is pending (#4835)', async () => {
+    let resolvePlayback!: () => void;
+    mockPlayEnhanced.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      resolvePlayback = resolve;
+    }));
+
+    renderPlayer(<Player />, {
+      preloadedState: {
+        player: { currentTrack: mockTrack } as never,
+        queue: {
+          tracks: [
+            mockTrack,
+            { ...mockTrack, id: 2, title: 'Next' },
+            { ...mockTrack, id: 3, title: 'Later' },
+          ],
+          currentIndex: 0,
+        } as never,
+      },
+    });
+
+    const nextButton = screen.getByRole('button', { name: /next/i });
+    fireEvent.click(nextButton);
+    fireEvent.click(nextButton);
+
+    expect(mockPlayEnhanced).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(nextButton).toBeDisabled());
+
+    await act(async () => {
+      resolvePlayback();
+    });
+    await waitFor(() => expect(nextButton).not.toBeDisabled());
   });
 
   it('should render the queue panel toggle', () => {

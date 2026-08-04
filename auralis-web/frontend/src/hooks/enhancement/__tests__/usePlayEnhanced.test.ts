@@ -20,6 +20,7 @@ import { ReactNode, createElement } from 'react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { usePlayEnhanced } from '../usePlayEnhanced';
+import { STREAM_START_WATCHDOG_MS } from '../useAudioStreamingCore';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import * as pcmDecoding from '@/utils/audio/pcmDecoding';
@@ -640,10 +641,10 @@ describe('usePlayEnhanced – audio_stream_error', () => {
 });
 
 // ============================================================================
-// 5b. PCM buffer disposal (#4147)
+// 5b. Streaming resource disposal (#4147, #4869)
 // ============================================================================
 
-describe('usePlayEnhanced – PCM buffer disposal (#4147)', () => {
+describe('usePlayEnhanced – streaming resource disposal (#4147, #4869)', () => {
   let store: TestStore;
 
   beforeEach(() => {
@@ -652,34 +653,60 @@ describe('usePlayEnhanced – PCM buffer disposal (#4147)', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
-  it('disposes the buffer on unmount (not just nulls the ref)', () => {
+  it('disposes the buffer and engine on unmount (not just nulls the refs)', () => {
     const { unmount } = renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
     fireHandler('audio_stream_start', makeStreamStartMsg());
     expect(mockBufferInstance.dispose).not.toHaveBeenCalled();
+    expect(mockEngineInstance.dispose).not.toHaveBeenCalled();
 
     unmount();
     expect(mockBufferInstance.dispose).toHaveBeenCalled();
+    expect(mockEngineInstance.dispose).toHaveBeenCalled();
   });
 
-  it('disposes the buffer when cleanupStreaming runs (stream_error)', () => {
+  it('disposes the buffer and engine when cleanupStreaming runs (stream_error)', () => {
     renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
     fireHandler('audio_stream_start', makeStreamStartMsg());
 
     fireHandler('audio_stream_error', makeStreamErrorMsg());
     expect(mockBufferInstance.dispose).toHaveBeenCalled();
+    expect(mockEngineInstance.dispose).toHaveBeenCalled();
   });
 
-  it('disposes the previous buffer before a new stream replaces it', () => {
+  it('disposes the engine when the stream-start watchdog cleans up', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const stableWsContext = vi.mocked(WebSocketContextModule.useWebSocketContext)();
+    vi.mocked(WebSocketContextModule.useWebSocketContext).mockReturnValue(stableWsContext);
+    const { result } = renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    fireHandler('audio_stream_start', makeStreamStartMsg());
+    mockEngineInstance.dispose.mockClear();
+
+    await act(async () => {
+      await result.current.playEnhanced(99, 'adaptive', 1);
+    });
+    expect(mockEngineInstance.dispose).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(STREAM_START_WATCHDOG_MS + 1);
+    });
+    expect(mockEngineInstance.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('disposes the previous buffer and engine before a new stream replaces them', () => {
     renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
     fireHandler('audio_stream_start', makeStreamStartMsg());
     mockBufferInstance.dispose.mockClear();
+    mockEngineInstance.dispose.mockClear();
 
     // A fresh (non-seek) stream_start must release the prior buffer.
     fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 99 }));
     expect(mockBufferInstance.dispose).toHaveBeenCalled();
+    expect(mockEngineInstance.dispose).toHaveBeenCalled();
   });
 });
 
@@ -939,6 +966,7 @@ describe('usePlayEnhanced – playback controls', () => {
     });
 
     expect(mockEngineInstance.stopPlayback).toHaveBeenCalledOnce();
+    expect(mockEngineInstance.dispose).toHaveBeenCalledOnce();
     await waitFor(() =>
       expect(testStore.getState().player.streaming.enhanced.state).toBe('idle')
     );

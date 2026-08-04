@@ -190,6 +190,7 @@ export function useAudioStreamingCore(
 
     pcmBufferRef.current?.dispose();
     pcmBufferRef.current = null;
+    playbackEngineRef.current?.dispose();
     playbackEngineRef.current = null;
     streamingMetadataRef.current = null;
     pendingChunksRef.current = [];

@@ -46,6 +46,7 @@ const Player = () => {
     currentTime: wsCurrentTime,
     isPaused,
     isSeeking,
+    isCommandPending,
     error: streamingError,
     handleSeek,
     handlePlayPause,
@@ -92,7 +93,7 @@ const Player = () => {
           duration={currentTrack?.duration ?? 0}
           bufferedPercentage={wsBufferedPercentage}
           onSeek={handleSeek}
-          disabled={hasError || isSeeking}  /* Disable during errors or while seeking */
+          disabled={hasError || isSeeking || isCommandPending}
         />
       </Box>
 
@@ -120,7 +121,7 @@ const Player = () => {
           onPause={handlePlayPause}
           onNext={handleNext}
           onPrevious={handlePrevious}
-          isLoading={isBuffering}
+          isLoading={isBuffering || isCommandPending}
           disabled={hasError}
         />
 
