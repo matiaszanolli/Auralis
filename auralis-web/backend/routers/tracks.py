@@ -177,12 +177,18 @@ def create_tracks_router(
                         lyrics_text = audio_file.get('LYRICS', [None])[0] or audio_file.get('UNSYNCEDLYRICS', [None])[0]
 
                 if lyrics_text:
-                    await asyncio.to_thread(repos.tracks.update, track_id, lyrics=lyrics_text)
-                    return {
+                    result = {
                         "track_id": track_id,
                         "lyrics": lyrics_text,
                         "format": "lrc" if "[" in lyrics_text and "]" in lyrics_text else "plain",
                     }
+                    try:
+                        await asyncio.to_thread(repos.tracks.update_metadata, track_id, lyrics=lyrics_text)
+                    except Exception as persist_exc:
+                        # Extraction already succeeded — a persistence failure should not
+                        # discard a result already computed in this request (#4730).
+                        logger.error(f"Failed to persist extracted lyrics for track {track_id}: {persist_exc}")
+                    return result
             except Exception as e:
                 logger.error(f"Failed to extract lyrics from file: {e}")
 
