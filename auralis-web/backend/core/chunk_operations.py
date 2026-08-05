@@ -190,6 +190,14 @@ class ChunkOperations:
         Returns:
             Extracted segment ready for encoding
         """
+        if chunk_index < 0:
+            raise ValueError(f"chunk_index {chunk_index} out of range")
+        if total_chunks is not None and chunk_index >= total_chunks:
+            raise ValueError(
+                f"chunk_index {chunk_index} out of range "
+                f"(valid: 0..{total_chunks - 1})"
+            )
+
         is_last = (total_chunks is not None) and (chunk_index == total_chunks - 1)
         overlap_samples = int(round(overlap_duration * sample_rate))
 
