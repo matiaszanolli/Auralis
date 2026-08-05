@@ -72,23 +72,38 @@ class AdaptiveLimiter:
         # Oversample if enabled
         if self.settings.oversampling > 1:
             audio_os = self._oversample(audio)
-            processed_os, limit_info = self._process_core(audio_os)
+            processed_os, limit_info = self._process_core(audio_os, oversampling=self.settings.oversampling)
             processed_audio = self._downsample(processed_os)
         else:
             processed_audio, limit_info = self._process_core(audio)
 
         return processed_audio, limit_info
 
-    def _process_core(self, audio: np.ndarray) -> tuple[np.ndarray, dict[str, float]]:
-        """Core limiting processing with per-sample gain envelope"""
+    def _process_core(self, audio: np.ndarray, oversampling: int = 1) -> tuple[np.ndarray, dict[str, float]]:
+        """Core limiting processing with per-sample gain envelope.
+
+        #4913: the gain curve is computed from a forward-looking peak-envelope
+        window over `audio` and applied directly to that same (undelayed)
+        `audio` — matching `BrickWallLimiter`'s non-causal batch convention
+        (the whole buffer is already available; there is no streaming reason
+        to pay lookahead as *output* latency). The previous code instead
+        multiplied the gain curve into `_apply_lookahead_delay(audio)`,
+        double-applying the lookahead: the gain computed from window
+        [k, k+L) ended up multiplying `audio[k-L]`, not `audio[k]` — the
+        limiter both missed the peaks it was supposed to catch and ducked
+        unrelated material L samples early. `_apply_lookahead_delay`/
+        `_lookahead` are kept as directly-tested helpers (see
+        tests/regression/test_lookahead_buffer_dedup_4309.py) but are no
+        longer part of this signal path.
+        """
         threshold_linear = 10 ** (self.settings.threshold_db / 20)
         num_samples = len(audio)
 
-        # Apply lookahead delay
-        delayed_audio = self._apply_lookahead_delay(audio)
-
-        # Compute per-sample peak envelope using lookahead window
-        peak_envelope = self._compute_peak_envelope(audio)
+        # Compute per-sample peak envelope using lookahead window. `oversampling`
+        # scales lookahead_samples (computed at the base rate in __init__) to
+        # the actual rate of `audio`, which may be the oversampled signal —
+        # without this the effective lookahead was lookahead_ms / oversampling.
+        peak_envelope = self._compute_peak_envelope(audio, oversampling)
 
         # Per-sample target gains: reduce only where peaks exceed threshold
         safe_envelope = np.maximum(peak_envelope, 1e-10)
@@ -102,11 +117,12 @@ class AdaptiveLimiter:
         gain_curve = self.gain_smoother.process_buffer(target_gains)
         self.current_gain = float(gain_curve[-1]) if num_samples > 0 else self.current_gain
 
-        # Apply per-sample gain curve
+        # Apply per-sample gain curve to the same (undelayed) audio the
+        # envelope was computed from.
         if audio.ndim == 2:
-            limited_audio = delayed_audio * gain_curve.reshape(-1, 1)
+            limited_audio = audio * gain_curve.reshape(-1, 1)
         else:
-            limited_audio = delayed_audio * gain_curve
+            limited_audio = audio * gain_curve
 
         # Update peak hold
         peak_level = float(np.max(peak_envelope))
@@ -124,10 +140,17 @@ class AdaptiveLimiter:
 
         return limited_audio, limit_info
 
-    def _compute_peak_envelope(self, audio: np.ndarray) -> np.ndarray:
-        """Compute per-sample peak envelope with lookahead window"""
+    def _compute_peak_envelope(self, audio: np.ndarray, oversampling: int = 1) -> np.ndarray:
+        """Compute per-sample peak envelope with lookahead window.
+
+        #4913: `oversampling` scales `self.lookahead_samples` (computed at the
+        base sample rate in `__init__`) to the rate `audio` is actually at —
+        `_process_core` may be called with the oversampled signal, and without
+        this scaling the effective lookahead window was `lookahead_ms /
+        oversampling` instead of the configured `lookahead_ms`.
+        """
         num_samples = len(audio)
-        lookahead = max(self.lookahead_samples, 1)
+        lookahead = max(self.lookahead_samples * oversampling, 1)
 
         # Get per-sample absolute values, collapsing channels
         if audio.ndim == 2:

@@ -103,19 +103,26 @@ class AdaptiveCompressor:
         if len(audio) == 0:
             return audio.copy(), {}
 
-        # Handle lookahead — check the settings flag instead of the buffer,
-        # since the buffer is lazily initialized inside _apply_lookahead() (fixes #2592).
-        if self.settings.enable_lookahead and self.lookahead_samples > 0:
-            delayed_audio = self._apply_lookahead(audio)
-        else:
-            delayed_audio = audio
+        # #4913: previously, when enable_lookahead was set, `sample_levels`
+        # (the gain computer's input) and the signal actually multiplied by
+        # the resulting gain envelope were the SAME delayed signal —
+        # self-consistent, but the delay bought nothing: the gain computer
+        # never saw material any earlier than the audio it gated, so
+        # lookahead was pure added output latency with zero gain-computer
+        # benefit. Compute levels from, and apply gain to, the same
+        # undelayed `audio` instead (mirrors the AdaptiveLimiter fix, which
+        # drops its lookahead delay from the signal path for the same
+        # reason). `_apply_lookahead`/`_lookahead` are kept as
+        # directly-tested helpers (see
+        # tests/regression/test_compressor_lookahead_buffer.py) but are no
+        # longer part of this signal path.
 
         # Compute per-sample input levels for the gain envelope (#2214).
         # Mono: use absolute value; stereo: max across channels.
-        if delayed_audio.ndim == 1:
-            sample_levels = np.abs(delayed_audio)
+        if audio.ndim == 1:
+            sample_levels = np.abs(audio)
         else:
-            sample_levels = np.max(np.abs(delayed_audio), axis=1)
+            sample_levels = np.max(np.abs(audio), axis=1)
 
         # Convert to dB
         sample_levels_db = 20 * np.log10(sample_levels + 1e-10)
@@ -140,10 +147,10 @@ class AdaptiveCompressor:
         gain_envelope = gain_envelope * makeup_gain
 
         # Apply per-sample gain to audio
-        if delayed_audio.ndim == 2:
-            processed_audio = delayed_audio * gain_envelope[:, np.newaxis]
+        if audio.ndim == 2:
+            processed_audio = audio * gain_envelope[:, np.newaxis]
         else:
-            processed_audio = delayed_audio * gain_envelope
+            processed_audio = audio * gain_envelope
 
         self.previous_gain = float(gain_envelope[-1])
 
