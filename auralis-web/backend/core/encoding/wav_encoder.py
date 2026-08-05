@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 
 from auralis.io.saver import save as save_audio
+from encoding.wav_encoder import WAVEncoderError
 
 from .atomic_io import atomic_save_audio, is_partial_path
 
@@ -118,7 +119,9 @@ class WAVEncoder:
 
         Raises:
             ValueError: If audio invalid
-            IOError: If write fails
+            WAVEncoderError: If the write fails (#4919 — was a bare OSError,
+                misclassified by processing_engine._ERROR_CATEGORIES as a
+                read failure since WAVEncoderError is checked first there).
         """
         if subtype is None:
             subtype = self.default_subtype
@@ -155,7 +158,7 @@ class WAVEncoder:
 
         except Exception as e:
             logger.error(f"Failed to save WAV chunk: {e}")
-            raise OSError(f"WAV encoding failed: {e}") from e
+            raise WAVEncoderError(f"WAV encoding failed: {e}") from e
 
     def encode_and_save_from_path(
         self,

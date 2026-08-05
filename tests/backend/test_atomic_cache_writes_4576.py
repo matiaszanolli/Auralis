@@ -209,6 +209,55 @@ class TestPartialCleanup:
         assert final.name in matches
 
 
+class TestEncodeAndSaveErrorClassification:
+    """A write failure inside WAVEncoder.encode_and_save must classify as an
+    encoding failure, not a generic read failure (#4919).
+
+    core/encoding/wav_encoder.py used to raise a bare OSError on write
+    failure, identical to the exception type processing_engine's
+    _ERROR_CATEGORIES uses for read failures — and WAVEncoderError (checked
+    FIRST, specifically so encoding failures beat the generic OSError
+    classification) was never raised, so the misclassification always won.
+    """
+
+    def test_write_failure_raises_wav_encoder_error_not_bare_oserror(self, tmp_path, monkeypatch):
+        from core.encoding.wav_encoder import WAVEncoder
+        from encoding.wav_encoder import WAVEncoderError
+
+        encoder = WAVEncoder(tmp_path)
+        audio = np.zeros((128, 2), dtype=np.float32)
+
+        monkeypatch.setattr(
+            "core.encoding.wav_encoder.save_audio",
+            lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")),
+        )
+
+        with pytest.raises(WAVEncoderError):
+            encoder.encode_and_save(audio, 44100, tmp_path / "chunk.wav")
+
+    def test_error_taxonomy_reports_encoding_failure_not_read_failure(self, tmp_path, monkeypatch):
+        from core.encoding.wav_encoder import WAVEncoder
+        from core.processing_engine import _safe_error_message
+
+        encoder = WAVEncoder(tmp_path)
+        audio = np.zeros((128, 2), dtype=np.float32)
+
+        monkeypatch.setattr(
+            "core.encoding.wav_encoder.save_audio",
+            lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")),
+        )
+
+        try:
+            encoder.encode_and_save(audio, 44100, tmp_path / "chunk.wav")
+            pytest.fail("expected encode_and_save to raise")
+        except Exception as e:
+            message = _safe_error_message(e)
+
+        assert message == "Audio encoding failed", (
+            f"got {message!r} — a write failure must not surface as a read failure"
+        )
+
+
 class TestCacheManagerGatesAgree:
     """Both gates must treat a truncated file the same way (#4576)."""
 
