@@ -198,6 +198,7 @@ def _probe_audio(file_path: Path) -> dict:
             '-print_format', 'json',
             '-show_format',
             '-show_streams',
+            '--',
             str(file_path)
         ]
 

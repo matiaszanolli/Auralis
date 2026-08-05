@@ -221,6 +221,7 @@ def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
             '-print_format', 'json',
             '-show_format',
             '-show_streams',
+            '--',
             str(file_path)
         ]
 
