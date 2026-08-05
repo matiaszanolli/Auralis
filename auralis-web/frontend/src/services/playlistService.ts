@@ -86,17 +86,12 @@ const crudService = createCrudService<Playlist, CreatePlaylistRequest, number, P
 });
 
 /**
- * Get a page of playlists (defaults to the maximum page size, see
+ * Fetch a single page of playlists (defaults to the maximum page size, see
  * PLAYLISTS_PAGE_LIMIT).
- *
- * @param signal - Optional AbortSignal for cancelling the request (#4614),
- *   e.g. from a `useEffect` cleanup. An aborted request rejects with
- *   `AbortError`, which `apiRequest` re-throws without surfacing it as a
- *   user-facing error — callers should ignore it rather than render it.
  */
-export async function getPlaylists(
-  params?: PlaylistListParams,
-  signal?: AbortSignal,
+async function fetchPlaylistsPage(
+  params: PlaylistListParams | undefined,
+  signal: AbortSignal | undefined,
 ): Promise<PlaylistsResponse> {
   const response = await crudService.list(params, { signal });
   // Runtime shape validation — response may be a bare array or {playlists: [...]}
@@ -120,6 +115,61 @@ export async function getPlaylists(
     offset: envelope?.offset,
     limit: envelope?.limit,
     has_more: envelope?.has_more,
+  };
+}
+
+// #4832: GET /api/playlists caps each page at PLAYLISTS_PAGE_LIMIT (200); a
+// library with more playlists than that silently lost the 201st+ one because
+// no consumer read has_more/offset to fetch a second page. Defensive bound on
+// how many pages getPlaylists() will aggregate internally — at 200/page this
+// covers 200,000 playlists, comfortably above anything a user could actually
+// create, so it only guards against a server that never reports has_more:
+// false rather than a real usage ceiling.
+const MAX_PLAYLIST_PAGES = 1000;
+
+/**
+ * Get playlists. With no explicit `offset`, aggregates every page from the
+ * server until `has_more` is false — playlists are a bounded, user-curated
+ * collection (unlike tracks), so it's reasonable to fetch the whole thing
+ * here rather than pushing "load more" pagination onto every consumer
+ * (#4832). Pass an explicit `offset` to fetch just one page instead.
+ *
+ * @param signal - Optional AbortSignal for cancelling the request (#4614),
+ *   e.g. from a `useEffect` cleanup. An aborted request rejects with
+ *   `AbortError`, which `apiRequest` re-throws without surfacing it as a
+ *   user-facing error — callers should ignore it rather than render it.
+ */
+export async function getPlaylists(
+  params?: PlaylistListParams,
+  signal?: AbortSignal,
+): Promise<PlaylistsResponse> {
+  if (params?.offset !== undefined) {
+    return fetchPlaylistsPage(params, signal);
+  }
+
+  const limit = params?.limit ?? PLAYLISTS_PAGE_LIMIT;
+  const allPlaylists: Playlist[] = [];
+  let total = 0;
+  let offset = 0;
+
+  for (let page = 0; page < MAX_PLAYLIST_PAGES; page++) {
+    const response = await fetchPlaylistsPage({ ...params, limit, offset }, signal);
+    allPlaylists.push(...response.playlists);
+    total = response.total;
+
+    // No forward progress (empty page) — stop rather than loop forever.
+    if (response.playlists.length === 0 || !response.has_more) {
+      break;
+    }
+    offset += response.playlists.length;
+  }
+
+  return {
+    playlists: allPlaylists,
+    total,
+    offset: 0,
+    limit,
+    has_more: false,
   };
 }
 

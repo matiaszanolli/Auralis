@@ -35,14 +35,13 @@ describe('PlaylistService', () => {
   })
 
   describe('getPlaylists', () => {
-    it('fetches all playlists successfully', async () => {
+    it('fetches a single page when it is the whole collection', async () => {
       const mockResponse = {
         playlists: [mockPlaylist],
-        // #4554: total is the server-side COUNT, which may exceed the page.
-        total: 7,
+        total: 1,
         offset: 0,
         limit: 200,
-        has_more: true,
+        has_more: false,
       }
 
       vi.mocked(apiRequest.get).mockResolvedValue(mockResponse)
@@ -55,14 +54,36 @@ describe('PlaylistService', () => {
       expect(apiRequest.get).toHaveBeenCalledWith('/api/playlists?limit=200&offset=0', {
         validate: expect.any(Function),
       })
-      // The server's total is preserved, NOT recomputed as the page length.
+      expect(apiRequest.get).toHaveBeenCalledTimes(1)
       expect(result).toEqual({
         playlists: [mockPlaylist],
-        total: 7,
+        total: 1,
         offset: 0,
         limit: 200,
-        has_more: true,
+        has_more: false,
       })
+    })
+
+    it('aggregates every page until has_more is false (#4832)', async () => {
+      const secondPlaylist = { ...mockPlaylist, id: 2 }
+      vi.mocked(apiRequest.get)
+        .mockResolvedValueOnce({ playlists: [mockPlaylist], total: 2, offset: 0, limit: 200, has_more: true })
+        .mockResolvedValueOnce({ playlists: [secondPlaylist], total: 2, offset: 1, limit: 200, has_more: false })
+
+      const result = await playlistService.getPlaylists()
+
+      expect(apiRequest.get).toHaveBeenNthCalledWith(1, '/api/playlists?limit=200&offset=0', {
+        validate: expect.any(Function),
+      })
+      // Second page's offset advances by the first page's actual length, not
+      // a fixed page size — correct even if a page returns fewer than `limit`.
+      expect(apiRequest.get).toHaveBeenNthCalledWith(2, '/api/playlists?limit=200&offset=1', {
+        validate: expect.any(Function),
+      })
+      expect(apiRequest.get).toHaveBeenCalledTimes(2)
+      expect(result.playlists).toEqual([mockPlaylist, secondPlaylist])
+      expect(result.total).toBe(2)
+      expect(result.has_more).toBe(false)
     })
 
     it('passes explicit pagination params through (#4554)', async () => {
