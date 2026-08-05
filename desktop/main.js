@@ -219,7 +219,14 @@ class AuralisApp {
       this.pythonProcess.stdout.on('data', (data) => {
         const output = data.toString();
         startupOutput += output;
-        console.log('[Backend]', output.trim());
+        // #4920: route through electron-log (not console.log) so backend
+        // output — including security-relevant lines like rejected
+        // path-traversal attempts and WS origin rejections — lands in the
+        // same rotated on-disk log file already used by the auto-updater,
+        // instead of vanishing when there's no attached terminal in a
+        // packaged build. electron-log's default transports still echo to
+        // the console too, so dev-mode visibility is unchanged.
+        log.info('[Backend]', output.trim());
         checkReadiness(output, 'stdout');
       });
 
@@ -227,7 +234,7 @@ class AuralisApp {
       this.pythonProcess.stderr.on('data', (data) => {
         const output = data.toString();
         startupOutput += output;
-        console.error('[Backend Error]', output.trim());
+        log.error('[Backend Error]', output.trim());
         checkReadiness(output, 'stderr');
 
         // Detect fatal bind errors
