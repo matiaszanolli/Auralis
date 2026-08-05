@@ -120,3 +120,26 @@ class TestGetWavChunkPathRejectsOutOfRange:
 
         wav_path = processor.get_wav_chunk_path(0)
         assert Path(wav_path).exists()
+
+
+class TestAllChunkProcessingRejectsOutOfRange:
+    @pytest.mark.parametrize("chunk_index", [-1, 3])
+    def test_process_chunk_rejects_before_cache_lookup(self, chunk_index):
+        from core.chunked_processor import ChunkedAudioProcessor
+
+        processor = ChunkedAudioProcessor.__new__(ChunkedAudioProcessor)
+        processor.total_chunks = 3
+
+        with pytest.raises(ValueError, match="out of range"):
+            processor.process_chunk(chunk_index)
+
+    @pytest.mark.parametrize("chunk_index", [-1, 3])
+    def test_extract_chunk_segment_rejects_out_of_range(self, chunk_index):
+        with pytest.raises(ValueError, match="out of range"):
+            ChunkOperations.extract_chunk_segment(
+                processed_chunk=np.zeros((SR, 2), dtype=np.float32),
+                chunk_index=chunk_index,
+                sample_rate=SR,
+                total_chunks=3,
+                total_duration=25.0,
+            )

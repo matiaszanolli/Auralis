@@ -242,9 +242,22 @@ class StreamlinedCacheWorker:
             )
             return
 
+        status = self.cache_manager.get_track_cache_status(track_id)
+        if status is None:
+            logger.debug(f"Track {track_id} cache status is not initialized; skipping tick")
+            return
+
         # Priority 1: Ensure next chunk is cached (Tier 1)
         next_chunk_idx = current_chunk + 1
-        await self._ensure_tier1_chunk(track, track_id, next_chunk_idx, preset, intensity)
+        if 0 <= next_chunk_idx < status.total_chunks:
+            await self._ensure_tier1_chunk(
+                track, track_id, next_chunk_idx, preset, intensity
+            )
+        else:
+            logger.debug(
+                f"Track {track_id} has no chunk after {current_chunk} "
+                f"({status.total_chunks} total); skipping Tier 1 prefetch"
+            )
 
         # Priority 2: Build full track cache in background (Tier 2)
         if not self.cache_manager.is_track_fully_cached(track_id):
@@ -559,6 +572,20 @@ class StreamlinedCacheWorker:
         Returns:
             True if processing succeeded
         """
+        status = self.cache_manager.get_track_cache_status(track_id)
+        if status is None:
+            logger.warning(
+                f"Cannot process chunk {chunk_idx} for track {track_id}: "
+                "cache status is not initialized"
+            )
+            return False
+        if chunk_idx < 0 or chunk_idx >= status.total_chunks:
+            logger.warning(
+                f"Cannot process chunk {chunk_idx} for track {track_id}: "
+                f"valid range is 0..{status.total_chunks - 1}"
+            )
+            return False
+
         track = await asyncio.to_thread(self.library_manager.tracks.get_by_id, track_id)
         if not track:
             return False

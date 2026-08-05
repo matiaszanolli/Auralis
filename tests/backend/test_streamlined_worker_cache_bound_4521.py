@@ -42,6 +42,7 @@ def mock_cache_manager():
     cm.add_chunk = AsyncMock(return_value=True)
     cm.warm_tier1_immediately = AsyncMock()
     cm.get_chunk = AsyncMock(return_value=(None, None))
+    cm.get_track_cache_status = Mock(return_value=Mock(total_chunks=100))
     return cm
 
 

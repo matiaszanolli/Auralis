@@ -271,6 +271,16 @@ class ChunkedAudioProcessor:
         """Get chunk duration in seconds for crossfade calculations"""
         return CHUNK_DURATION
 
+    def _validate_chunk_index(self, chunk_index: int) -> None:
+        """Reject indices outside this track's content-carrying chunks."""
+        if self.total_chunks is None:
+            raise RuntimeError("Processor metadata missing: total_chunks is None")
+        if chunk_index < 0 or chunk_index >= self.total_chunks:
+            raise ValueError(
+                f"chunk_index {chunk_index} out of range "
+                f"(valid: 0..{self.total_chunks - 1})"
+            )
+
 
 
     def _load_metadata(self) -> None:
@@ -481,6 +491,7 @@ class ChunkedAudioProcessor:
         Returns:
             Processed audio chunk (context trimmed, intensity blended, levels smoothed)
         """
+        self._validate_chunk_index(chunk_index)
         assert self.sample_rate is not None
         # Load chunk with context
         audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
@@ -541,6 +552,11 @@ class ChunkedAudioProcessor:
         if locked:
             with self._processor_lock:
                 return self.process_chunk(chunk_index, fast_start, locked=False)
+
+        # Keep the range check below every public processing entry point. This
+        # must happen before cache lookup so a stale out-of-range cache file can
+        # never bypass the authoritative processor bound (#4733).
+        self._validate_chunk_index(chunk_index)
 
         # Check cache first (Phase 5.1: Using ChunkCacheManager)
         cache_key = ChunkCacheManager.get_chunk_cache_key(
@@ -755,15 +771,10 @@ class ChunkedAudioProcessor:
             Path to WAV chunk file
         """
         assert self.sample_rate is not None and self.total_chunks is not None and self.total_duration is not None
-        # Enforce the ceiling here so every caller is protected regardless of
-        # whether it pre-checks total_chunks itself — an out-of-range index
-        # would otherwise reach load_chunk_from_file's uncached full-file-decode
-        # fallback, a small-request -> large-work amplifier (#4342).
-        if chunk_index < 0 or chunk_index >= self.total_chunks:
-            raise ValueError(
-                f"chunk_index {chunk_index} out of range "
-                f"(valid: 0..{self.total_chunks - 1})"
-            )
+        # Validate before cache/disk lookup. The shared validator is also used
+        # by process_chunk and _process_chunk_core so worker-driven processing
+        # cannot bypass the ceiling (#4342, #4733).
+        self._validate_chunk_index(chunk_index)
         # _sync_cache_lock serialises the full check→process→cache cycle so that
         # two concurrent thread-pool calls for the same chunk cannot both miss the
         # cache, both process the chunk, and produce conflicting results.
