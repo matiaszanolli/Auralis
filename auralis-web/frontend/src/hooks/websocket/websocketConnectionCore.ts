@@ -187,6 +187,21 @@ export function handleSocketFrame(
       return;
     }
 
+    // The meta+binary frame pair is not sent atomically (#4782): if the
+    // server sends audio_chunk_meta successfully but the following binary
+    // PCM frame then fails to send, pendingMeta above is left set with
+    // nothing to clear it — the NEXT binary frame that arrives (from a
+    // later, unrelated chunk or stream) gets silently fused with this stale
+    // metadata instead. Every live chunk-delivery path on the backend sends
+    // audio_stream_error whenever a chunk fails to fully deliver, so treat
+    // any stream error as a signal to drop whatever frame pairing was in
+    // flight — covers both the ArrayBuffer and Blob paths above, since both
+    // read the same `pendingMeta` slot.
+    if (message.type === 'audio_stream_error' && connState.pendingMeta) {
+      console.warn('[WebSocket] Clearing stale pendingMeta after audio_stream_error');
+      connState.pendingMeta = null;
+    }
+
     // Answer the server heartbeat. The backend arms a pending-pong on every
     // `ping` and force-closes the socket (~60s) if no `pong` clears it; a
     // `heartbeat` frame only touches liveness, not the pending-pong slot, so it
