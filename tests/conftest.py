@@ -257,25 +257,27 @@ def session_factory(temp_test_db):
 
 @pytest.fixture
 def library_manager(temp_test_db):
-    """Create LibraryManager instance with temporary database.
+    """Create a LibraryDatabase instance with a temporary database.
 
-    This fixture provides backward compatibility for tests using
-    LibraryManager pattern. Use session_factory and repository_factory
-    for new tests.
+    #4915: previously yielded the deprecated LibraryManager facade, which had
+    zero production callers. Yields LibraryDatabase directly now — it exposes
+    the same repository-convenience properties (.tracks, .playlists, .stats,
+    etc.) that LibraryManager forwarded to, so any test written against those
+    (rather than LibraryManager's now-deleted facade methods like
+    add_track()/get_all_tracks()) is unaffected by this fixture change.
 
     Yields:
-        LibraryManager: Configured manager instance
+        LibraryDatabase: Configured database instance
     """
-    from auralis.library.manager import LibraryManager
+    from auralis.library.database import LibraryDatabase
 
     db_path, temp_dir = temp_test_db
 
-    manager = LibraryManager(database_path=db_path)
+    manager = LibraryDatabase(database_path=db_path)
     yield manager
 
     # Cleanup
     try:
-        # LibraryManager handles session cleanup internally
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
     except Exception:
@@ -416,11 +418,14 @@ def temp_library(temp_test_db):
     """Create temporary library for E2E tests with separate audio directory.
 
     This fixture is used by integration tests that need to create test audio
-    files and access them through a LibraryManager instance.
+    files and access them through a LibraryDatabase instance.
 
     Yields:
         tuple: (library_manager, audio_dir, temp_dir)
-            - library_manager: LibraryManager instance with test database
+            - library_manager: LibraryDatabase instance with test database
+              (#4915: was LibraryManager — see the library_manager fixture
+              above for why callers using repository-style access are
+              unaffected)
             - audio_dir: Path to directory for test audio files
             - temp_dir: Root temporary directory path
 
@@ -430,16 +435,13 @@ def temp_library(temp_test_db):
             # Create and process audio files in audio_dir
             # Use manager to add/query tracks
     """
-    # Local import like the library_manager fixture above — conftest has no
-    # module-level LibraryManager, so temp_library raised NameError for every
-    # E2E test that used it (#4049 / fixture fix).
-    from auralis.library.manager import LibraryManager
+    from auralis.library.database import LibraryDatabase
 
     db_path, temp_dir = temp_test_db
     audio_dir = str(temp_dir / "audio")
     os.makedirs(audio_dir, exist_ok=True)
 
-    manager = LibraryManager(database_path=str(db_path))
+    manager = LibraryDatabase(database_path=str(db_path))
 
     yield manager, audio_dir, str(temp_dir)
 

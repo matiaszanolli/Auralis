@@ -273,7 +273,7 @@ class TestAudioPlayerComprehensive:
                 'duration': 180,
                 'sample_rate': 44100
             }
-            library_manager.add_track(library_track_info)
+            library_manager.tracks.add(library_track_info)
 
             # Search and add to queue
             enhanced_player.search_and_add_to_queue('Library Track', limit=5)
@@ -358,7 +358,7 @@ class TestAudioPlayerComprehensive:
                     'duration': 120 + i*10,
                     'sample_rate': 44100
                 }
-                track = library_manager.add_track(track_info)
+                track = library_manager.tracks.add(track_info)
                 if track:
                     library_tracks.append(track)
 
@@ -377,7 +377,7 @@ class TestAudioPlayerComprehensive:
             assert len(queue_info['tracks']) >= 1  # Use len(tracks) instead of track_count
 
             # Test load_playlist (create playlist first)
-            playlist = library_manager.create_playlist(
+            playlist = library_manager.playlists.create(
                 name='Test Playlist',
                 description='Test playlist for player',
                 track_ids=[track.id for track in library_tracks[:2]]

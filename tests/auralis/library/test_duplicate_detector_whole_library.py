@@ -2,9 +2,9 @@
 Regression tests for DuplicateDetector.find_duplicates(directories=None) (#4241).
 
 Previously the "check entire library" branch was a `pass` no-op that always
-returned an empty duplicates list. It now pages through the library via
-LibraryManager and hashes each track's file on disk, or raises
-NotImplementedError if constructed without a library_manager.
+returned an empty duplicates list. It now pages through the library and
+hashes each track's file on disk, or raises NotImplementedError if
+constructed without a library_manager.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def test_finds_duplicates_across_entire_library(tmp_path, library_manager, _dete
     unique = _write_temp_file(tmp_path, "c.wav", b"different-content" * 1000)
 
     for filepath in (dup_a, dup_b, unique):
-        track = library_manager.add_track({'filepath': filepath, 'title': os.path.basename(filepath)})
+        track = library_manager.tracks.add({'filepath': filepath, 'title': os.path.basename(filepath)})
         assert track is not None
 
     duplicates = _detector.find_duplicates(directories=None)
@@ -46,7 +46,7 @@ def test_finds_duplicates_across_entire_library(tmp_path, library_manager, _dete
 
 def test_no_duplicates_returns_empty_list(tmp_path, library_manager, _detector):
     only = _write_temp_file(tmp_path, "solo.wav", b"solo-content")
-    track = library_manager.add_track({'filepath': only, 'title': 'solo'})
+    track = library_manager.tracks.add({'filepath': only, 'title': 'solo'})
     assert track is not None
 
     assert _detector.find_duplicates(directories=None) == []
@@ -58,7 +58,7 @@ def test_missing_file_on_disk_is_skipped_not_fatal(tmp_path, library_manager, _d
     now_missing = _write_temp_file(tmp_path, "gone.wav", b"will be deleted")
 
     for filepath in (dup_a, dup_b, now_missing):
-        track = library_manager.add_track({'filepath': filepath, 'title': os.path.basename(filepath)})
+        track = library_manager.tracks.add({'filepath': filepath, 'title': os.path.basename(filepath)})
         assert track is not None
 
     # Simulate the file having moved/been deleted since it was added to the
