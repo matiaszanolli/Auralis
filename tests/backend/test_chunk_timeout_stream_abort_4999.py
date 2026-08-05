@@ -52,6 +52,7 @@ def _make_websocket(sent_messages: list) -> MagicMock:
         sent_messages.append(json.loads(text))
 
     ws.send_text = AsyncMock(side_effect=fake_send_text)
+    ws.send_bytes = AsyncMock()
     return ws
 
 

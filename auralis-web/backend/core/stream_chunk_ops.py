@@ -158,7 +158,7 @@ async def stream_processed_chunk(
     chunk_index: int,
     processor: 'ChunkedAudioProcessor',
     websocket: WebSocket,
-) -> None:
+) -> bool:
     """
     Stream already-processed PCM samples to client.
 
@@ -178,13 +178,16 @@ async def stream_processed_chunk(
         chunk_index: Index of this chunk
         processor: ChunkedProcessor instance (for metadata)
         websocket: WebSocket connection
+
+    Returns:
+        True only when the complete PCM chunk reached the WebSocket.
     """
     if processor.total_chunks is None:
         raise ValueError("Processor metadata missing: total_chunks is None")
     if processor.sample_rate is None:
         raise ValueError("Processor metadata missing: sample_rate is None")
 
-    await controller._send_pcm_chunk(
+    return await controller._send_pcm_chunk(
         websocket,
         pcm_samples=pcm_samples,
         chunk_index=chunk_index,
@@ -198,10 +201,12 @@ async def process_and_stream_chunk(
     processor: 'ChunkedAudioProcessor',
     websocket: WebSocket,
     on_progress: Callable[[int, float, str], Any] | None = None,
-) -> None:
+) -> bool:
     """Process single chunk and stream PCM samples to client (legacy entry point)."""
     pcm_samples, _sr = await controller._process_chunk_only(chunk_index, processor, websocket)
-    await controller._stream_processed_chunk(pcm_samples, chunk_index, processor, websocket)
+    return await controller._stream_processed_chunk(
+        pcm_samples, chunk_index, processor, websocket
+    )
 
 
 async def drain_cancelled_task(task: asyncio.Task[Any] | None) -> None:
@@ -228,4 +233,3 @@ async def drain_cancelled_task(task: asyncio.Task[Any] | None) -> None:
     task.cancel()
     with contextlib.suppress(asyncio.CancelledError, Exception):
         await task
-

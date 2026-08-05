@@ -84,17 +84,22 @@ class RealtimeProcessor:
             if self.auto_master:
                 self.auto_master.set_profile(profile)
 
-    def set_fingerprint(self, fingerprint: dict | None) -> None:
+    def set_fingerprint(self, fingerprint: dict[str, Any] | None) -> None:
         """
-        Set 25D fingerprint for adaptive processing.
+        Set or clear the 25D fingerprint used for adaptive processing.
 
         Args:
             fingerprint: 25D fingerprint dictionary from FingerprintService
         """
         with self.lock:
-            if self.auto_master and fingerprint:
+            if self.auto_master is None:
+                return
+            if fingerprint is None:
+                self.auto_master.clear_fingerprint()
+                info("Fingerprint cleared; using profile-based mastering")
+            else:
                 self.auto_master.set_fingerprint(fingerprint)
-                info(f"Fingerprint set for adaptive mastering")
+                info("Fingerprint set for adaptive mastering")
 
     def process_chunk(self, audio: np.ndarray, sample_rate: int | None = None) -> np.ndarray:
         """

@@ -105,6 +105,13 @@ class AutoMasterProcessor:
         info(f"Auto-master fingerprint set: LUFS {fingerprint.get('lufs', 0):.1f}, "
              f"crest {fingerprint.get('crest_db', 0):.1f} dB")
 
+    def clear_fingerprint(self) -> None:
+        """Clear track-specific adaptive state and use profile mastering."""
+        with self._lock:
+            self.fingerprint = None
+            self.adaptive_params = None
+        info("Auto-master fingerprint cleared; using profile-based mastering")
+
     def _generate_adaptive_parameters(
         self,
         fingerprint: dict[str, Any],

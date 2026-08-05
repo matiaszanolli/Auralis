@@ -120,7 +120,7 @@ async def send_pcm_chunk(
     pcm_samples: np.ndarray,
     chunk_index: int,
     total_chunks: int,
-) -> None:
+) -> bool:
     """
     Send PCM samples to client as binary WebSocket frames.
 
@@ -137,6 +137,9 @@ async def send_pcm_chunk(
         pcm_samples: NumPy array of PCM samples (mono or stereo)
         chunk_index: Index of this chunk
         total_chunks: Total number of chunks
+
+    Returns:
+        True only when every metadata and binary frame was sent.
     """
     # Ensure native float32 for the wire format. astype(copy=False) returns
     # the array untouched when it is already native float32 — the case for
@@ -257,3 +260,4 @@ async def send_pcm_chunk(
             )
 
     await asyncio.gather(_producer(), _consumer())
+    return not abort_event.is_set()
