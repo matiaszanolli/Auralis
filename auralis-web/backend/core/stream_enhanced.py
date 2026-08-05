@@ -232,7 +232,20 @@ async def stream_enhanced_audio(
                     )
 
                 # Stream current chunk
-                await controller._stream_processed_chunk(pcm_samples, chunk_idx, processor, websocket)
+                delivered = await controller._stream_processed_chunk(
+                    pcm_samples, chunk_idx, processor, websocket
+                )
+                if not delivered:
+                    await controller._drain_cancelled_task(lookahead_task)
+                    lookahead_task = None
+                    await controller._send_error(
+                        websocket,
+                        track_id,
+                        f"Failed to send audio chunk {chunk_idx}",
+                        recovery_position=emitted_chunk_start(chunk_idx),
+                    )
+                    stopped_early = True
+                    break
                 delivered_samples += int(pcm_samples.shape[0])
 
                 # Progress update

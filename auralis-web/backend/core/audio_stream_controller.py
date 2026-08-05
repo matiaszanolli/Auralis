@@ -225,9 +225,9 @@ class AudioStreamController:
         pcm_samples: np.ndarray,
         chunk_index: int,
         total_chunks: int,
-    ) -> None:
+    ) -> bool:
         from . import stream_protocol
-        await stream_protocol.send_pcm_chunk(
+        return await stream_protocol.send_pcm_chunk(
             self, websocket, pcm_samples, chunk_index, total_chunks
         )
 
@@ -276,9 +276,11 @@ class AudioStreamController:
 
     async def _stream_processed_chunk(
         self, pcm_samples: np.ndarray, chunk_index: int, processor: ChunkedAudioProcessor, websocket: WebSocket
-    ) -> None:
+    ) -> bool:
         from . import stream_chunk_ops
-        await stream_chunk_ops.stream_processed_chunk(self, pcm_samples, chunk_index, processor, websocket)
+        return await stream_chunk_ops.stream_processed_chunk(
+            self, pcm_samples, chunk_index, processor, websocket
+        )
 
     async def _process_and_stream_chunk(
         self,
@@ -286,9 +288,11 @@ class AudioStreamController:
         processor: ChunkedAudioProcessor,
         websocket: WebSocket,
         on_progress: Callable[[int, float, str], Any] | None = None,
-    ) -> None:
+    ) -> bool:
         from . import stream_chunk_ops
-        await stream_chunk_ops.process_and_stream_chunk(self, chunk_index, processor, websocket, on_progress)
+        return await stream_chunk_ops.process_and_stream_chunk(
+            self, chunk_index, processor, websocket, on_progress
+        )
 
     async def _prefetch_next_track(self, current_track_id: int, preset: str, intensity: float) -> None:
         from . import stream_prefetch

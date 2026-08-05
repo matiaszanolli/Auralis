@@ -670,6 +670,7 @@ class TestNormalPathLookaheadWiring:
 
         async def _capture_send(_ws, pcm_samples, **_kwargs):
             sent_chunks.append(pcm_samples)
+            return True
 
         controller._send_pcm_chunk = _capture_send
 

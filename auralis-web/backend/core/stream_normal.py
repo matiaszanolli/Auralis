@@ -74,6 +74,11 @@ async def stream_normal_audio(
     # even on early-exit paths (fixes #3493 unbound-var hazard).
     lookahead_read: asyncio.Task[np.ndarray] | None = None
 
+    # Track whether the client received the whole stream. A failed binary
+    # frame must not be reported as a completed track (#4732).
+    stopped_early: bool = False
+    delivered_samples: int = 0
+
     # temp_dir is declared before the guard so the finally cleanup can see it
     # regardless of where control leaves the try below. It is the *directory*
     # we remove, never the WAV path — the #4365 rule.
@@ -271,6 +276,7 @@ async def stream_normal_audio(
                 logger.info(f"WebSocket disconnected, stopping stream")
                 await controller._drain_cancelled_task(lookahead_read)
                 lookahead_read = None
+                stopped_early = True
                 break
 
             try:
@@ -281,6 +287,7 @@ async def stream_normal_audio(
                     except ConnectionError:
                         # Client disconnected during the look-ahead read (#3874).
                         # Clean exit — not a chunk failure, so don't log it as one.
+                        stopped_early = True
                         break
                     lookahead_read = None
                 else:
@@ -309,12 +316,28 @@ async def stream_normal_audio(
                     )
 
                 # Stream the chunk
-                await controller._send_pcm_chunk(
+                delivered = await controller._send_pcm_chunk(
                     websocket,
                     pcm_samples=chunk_audio,
                     chunk_index=chunk_idx,
                     total_chunks=total_chunks,
                 )
+                if not delivered:
+                    await controller._drain_cancelled_task(lookahead_read)
+                    lookahead_read = None
+                    await controller._send_error(
+                        websocket,
+                        track_id,
+                        f"Failed to send audio chunk {chunk_idx}",
+                        recovery_position=(
+                            start_position
+                            if chunk_idx == start_chunk
+                            else float(chunk_idx * chunk_duration)
+                        ),
+                    )
+                    stopped_early = True
+                    break
+                delivered_samples += int(chunk_audio.shape[0])
 
                 # Progress update
                 if on_progress:
@@ -338,21 +361,28 @@ async def stream_normal_audio(
                 # Skip failed chunk and continue with remaining chunks (#3190)
                 continue
 
-        # Stream complete.
-        # #4659: unlike the enhanced/seek paths this loop has no
-        # early-break-with-partial-content case — both of its breaks are
-        # disconnect-driven, where _send_stream_end fails the connectivity check
-        # and never reaches a client. So `reason` is unconditionally "completed"
-        # here; it is passed explicitly rather than defaulted so every call site
-        # states its intent.
-        logger.info(f"Normal audio stream complete: track={track_id}")
-        await controller._send_stream_end(
-            websocket,
-            track_id=track_id,
-            total_samples=total_frames,
-            duration=duration,
-            reason="completed",
-        )
+        if stopped_early:
+            delivered_duration = delivered_samples / sample_rate
+            logger.info(
+                f"Normal audio stream stopped early: track={track_id}, "
+                f"delivered={delivered_duration:.2f}s"
+            )
+            await controller._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=delivered_samples,
+                duration=delivered_duration,
+                reason="stopped",
+            )
+        else:
+            logger.info(f"Normal audio stream complete: track={track_id}")
+            await controller._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=total_frames,
+                duration=duration,
+                reason="completed",
+            )
 
     except WebSocketDisconnect:
         # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53).

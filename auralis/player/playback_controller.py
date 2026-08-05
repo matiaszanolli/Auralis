@@ -250,16 +250,18 @@ class PlaybackController:
         """Atomically transition from current state through LOADING to STOPPED.
 
         Prevents concurrent observers from seeing the intermediate LOADING
-        state, which caused previous_track() to skip resume (#3293).
+        state, which caused previous_track() to skip resume (#3293). Position
+        is reset even when the controller is already stopped because a stopped
+        seek may have left it non-zero before the next track load (#4945).
 
         Returns:
             True if the transition succeeded, False if already stopped.
         """
         with self._lock:
+            self.position = 0
             if self.state == PlaybackState.STOPPED:
                 return False
             self.state = PlaybackState.STOPPED
-            self.position = 0
             info("Playback stopped (atomic load)")
             state_info = {"state": self.state.value, "action": "stop"}
 

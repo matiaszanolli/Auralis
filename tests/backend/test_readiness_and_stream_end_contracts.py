@@ -324,17 +324,11 @@ class TestStreamEndReason:
 
         assert not offenders, "call sites missing an explicit reason=: " + "; ".join(offenders)
 
-    def test_enhanced_and_seek_paths_track_early_exit(self):
-        """Both truncatable loops must account for early exit (#4659 SIBLING)."""
-        for name in ("stream_enhanced.py", "stream_seek.py"):
+    def test_all_stream_paths_track_early_exit(self):
+        """Every producer must report a mid-send failure as stopped (#4732)."""
+        for name in ("stream_enhanced.py", "stream_seek.py", "stream_normal.py"):
             source = (_BACKEND / "core" / name).read_text()
             assert "stopped_early" in source, f"{name} does not track early exit"
             assert 'reason="stopped"' in source, f"{name} never reports a stopped stream"
             assert "delivered_samples" in source, f"{name} does not count delivered audio"
-
-    def test_normal_path_is_documented_as_unaffected(self):
-        """stream_normal has no partial-content break — record that, don't fake it."""
-        source = (_BACKEND / "core" / "stream_normal.py").read_text()
-        assert 'reason="completed"' in source
-        # It must NOT grow early-exit bookkeeping it has no use for.
-        assert "stopped_early" not in source
+            assert "if not delivered:" in source, f"{name} ignores failed chunk sends"
