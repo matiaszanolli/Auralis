@@ -1,10 +1,12 @@
-import { DragEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { QueueTrackItem } from './QueueTrackItem';
 import { QueueControlBar } from './QueueControlBar';
 import { ClearQueueDialog } from './ClearQueueDialog';
-import { styles, QUEUE_ITEM_HEIGHT, DRAG_EDGE_ZONE, DRAG_SCROLL_SPEED } from './styles';
+import { useQueueAutoScroll } from './useQueueAutoScroll';
+import { useQueueKeyboardReorder } from './useQueueKeyboardReorder';
+import { styles, QUEUE_ITEM_HEIGHT } from './styles';
 
 interface QueuePanelProps {
   collapsed?: boolean;
@@ -33,20 +35,6 @@ export const QueuePanel = ({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const dragTargetRef = useRef<number | null>(null);
-
-  // Keyboard reorder (#4536): index whose row should receive focus after the
-  // next render, and the message mirrored into the live region. State rather
-  // than a ref so setting it is itself enough to run the restoring effect --
-  // keying only on `queue` would silently skip restoration whenever the queue
-  // array keeps its identity across the reorder.
-  const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
-  const [announcement, setAnnouncement] = useState('');
-
-  // Read inside handleKeyboardReorder so the callback stays stable — depending
-  // on `queue` would give every row a new handler on each queue change and
-  // defeat QueueTrackItem's memo (#4177).
-  const queueRef = useRef(queue);
-  queueRef.current = queue;
 
   // Stable per-row React keys (#4428).
   //
@@ -79,56 +67,27 @@ export const QueuePanel = ({
     overscan: 5,
   });
 
-  const scrollDirectionRef = useRef<number>(0);
-  const rafIdRef = useRef<number | null>(null);
+  const { handleContainerDragOver, stopAutoScroll } = useQueueAutoScroll({
+    scrollElementRef: queueScrollRef,
+    isDragActive: draggingIndex !== null,
+  });
 
-  const autoScrollLoop = useCallback(() => {
-    const el = queueScrollRef.current;
-    if (!el || scrollDirectionRef.current === 0) {
-      rafIdRef.current = null;
-      return;
+  const handleReorderTrack = useCallback(async (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+
+    try {
+      await reorderTrack(fromIndex, toIndex);
+    } catch (err) {
+      console.error('Failed to reorder track:', err);
     }
-    el.scrollTop += scrollDirectionRef.current * DRAG_SCROLL_SPEED;
-    rafIdRef.current = requestAnimationFrame(autoScrollLoop);
-  }, []);
+  }, [reorderTrack]);
 
-  const handleContainerDragOver = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
-      if (draggingIndex === null) return;
-      e.preventDefault();
-      const rect = e.currentTarget.getBoundingClientRect();
-      const y = e.clientY - rect.top;
-
-      if (y < DRAG_EDGE_ZONE) {
-        scrollDirectionRef.current = -1;
-      } else if (y > rect.height - DRAG_EDGE_ZONE) {
-        scrollDirectionRef.current = 1;
-      } else {
-        scrollDirectionRef.current = 0;
-      }
-
-      if (scrollDirectionRef.current !== 0 && rafIdRef.current === null) {
-        rafIdRef.current = requestAnimationFrame(autoScrollLoop);
-      }
-    },
-    [draggingIndex, autoScrollLoop],
-  );
-
-  const stopAutoScroll = useCallback(() => {
-    scrollDirectionRef.current = 0;
-    if (rafIdRef.current !== null) {
-      cancelAnimationFrame(rafIdRef.current);
-      rafIdRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-      }
-    };
-  }, []);
+  const { handleKeyboardReorder, announcement } = useQueueKeyboardReorder({
+    queue,
+    reorderTrack,
+    scrollElementRef: queueScrollRef,
+    virtualizer,
+  });
 
   if (collapsed) {
     return (
@@ -182,16 +141,6 @@ export const QueuePanel = ({
     }
   }, [clearQueue]);
 
-  const handleReorderTrack = useCallback(async (fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex) return;
-
-    try {
-      await reorderTrack(fromIndex, toIndex);
-    } catch (err) {
-      console.error('Failed to reorder track:', err);
-    }
-  }, [reorderTrack]);
-
   // Stable callbacks for virtualized list items (avoid per-render recreation)
   const handleDragEnd = useCallback(() => {
     if (draggingIndex !== null && dragTargetRef.current !== null && draggingIndex !== dragTargetRef.current) {
@@ -200,76 +149,11 @@ export const QueuePanel = ({
     setDraggingIndex(null);
     dragTargetRef.current = null;
     stopAutoScroll();
-  }, [draggingIndex, stopAutoScroll]);
+  }, [draggingIndex, handleReorderTrack, stopAutoScroll]);
 
   const handleDragOver = useCallback((toIndex: number) => {
     dragTargetRef.current = toIndex;
   }, []);
-
-  /**
-   * Keyboard reorder (#4536).
-   *
-   * Bounds are checked here rather than in the row, which does not know the
-   * queue length. `reorderTrack` is optimistic: it dispatches to Redux before
-   * the PUT resolves, so the list re-renders — and, because the row key embeds
-   * the index (#4428), the moved row unmounts and remounts — while this is
-   * still awaiting. Focus therefore cannot be restored after the await; it is
-   * handed to the layout effect below, which runs on every queue change.
-   */
-  const handleKeyboardReorder = useCallback(
-    async (fromIndex: number, toIndex: number) => {
-      const track = queueRef.current[fromIndex];
-      if (!track) return;
-      if (toIndex < 0 || toIndex >= queueRef.current.length) {
-        // At an end of the queue: announce rather than failing silently, since
-        // there is no visual cue that the key press did nothing.
-        setAnnouncement(
-          `${track.title} is already ${toIndex < 0 ? 'first' : 'last'} in the queue`,
-        );
-        return;
-      }
-
-      setPendingFocusIndex(toIndex);
-      try {
-        await reorderTrack(fromIndex, toIndex);
-        setAnnouncement(
-          `${track.title} moved to position ${toIndex + 1} of ${queueRef.current.length}`,
-        );
-      } catch (err) {
-        // runOptimistic rolls the queue back, so the row is at its original
-        // index again — follow it there instead of leaving focus on whichever
-        // track now occupies the target slot.
-        console.error('Failed to reorder track:', err);
-        setPendingFocusIndex(fromIndex);
-        setAnnouncement(`Could not move ${track.title}`);
-      }
-    },
-    [reorderTrack],
-  );
-
-  // Restore focus to the moved row once it has re-rendered at its new index.
-  // Done in an effect rather than inline after the await because the row
-  // unmounts and remounts (its key embeds the index, #4428) during the
-  // optimistic update, which would drop focus set beforehand.
-  useLayoutEffect(() => {
-    if (pendingFocusIndex === null) return;
-
-    const focusRow = () => {
-      const row = queueScrollRef.current?.querySelector<HTMLElement>(
-        `[data-queue-index="${pendingFocusIndex}"]`,
-      );
-      row?.focus();
-      return Boolean(row);
-    };
-
-    if (!focusRow()) {
-      // Outside the virtual window (reachable only if the row scrolled out
-      // between keypress and commit) — scroll it in, then retry once.
-      virtualizer.scrollToIndex(pendingFocusIndex);
-      requestAnimationFrame(focusRow);
-    }
-    setPendingFocusIndex(null);
-  }, [pendingFocusIndex, queue, virtualizer]);
 
   // Stable per-item handlers (take the index) so QueueTrackItem's React.memo
   // holds across hover/drag — passing inline closures per row would defeat it
