@@ -165,6 +165,28 @@ describe('useLibraryPagination.fetchTracks (#4185)', () => {
   });
 });
 
+describe('useLibraryPagination track transform (#4830)', () => {
+  it('surfaces genre from the backend genres array, not a nonexistent singular field', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tracks: [
+          { id: 1, title: 'A', album: 'Album A', duration: 100, artists: ['Artist A'], genres: ['Rock', 'Indie'] },
+        ],
+        has_more: false,
+        total: 1,
+      }),
+    });
+
+    const { result } = renderHook(() => useLibraryPagination({ view: 'all' }));
+    await act(async () => {
+      await result.current.fetchTracks(true);
+    });
+
+    expect(result.current.tracks[0].genre).toBe('Rock');
+  });
+});
+
 describe('useLibraryPagination request ownership (#4891)', () => {
   it('lets a view refresh supersede an in-flight loadMore and discards the stale page', async () => {
     let resolveStalePage!: (response: unknown) => void;

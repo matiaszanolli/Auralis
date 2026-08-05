@@ -2,7 +2,8 @@ const DEBUG = import.meta.env.DEV;
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
-import { transformBackendTrack, type LibraryTrack, type TrackApiResponse } from '@/types/domain';
+import { transformTracks, type TrackApiResponse } from '@/api/transformers';
+import type { LibraryTrack } from '@/types/domain';
 
 export interface UseLibraryPaginationOptions {
   view: string;
@@ -89,7 +90,7 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
           const data: { tracks?: TrackApiResponse[]; has_more?: boolean; total?: number } = await response.json();
           if (isStale()) return;
 
-          const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
+          const transformedTracks: LibraryTrack[] = transformTracks(data.tracks || []);
 
           setHasMore(data.has_more || false);
           setTotalTracks(data.total || 0);
@@ -165,7 +166,7 @@ export const useLibraryPagination = ({ view }: UseLibraryPaginationOptions): Use
         const data: { tracks?: TrackApiResponse[]; has_more?: boolean; total?: number } = await response.json();
         if (isStale()) return;
 
-        const transformedTracks: LibraryTrack[] = (data.tracks || []).map(transformBackendTrack);
+        const transformedTracks: LibraryTrack[] = transformTracks(data.tracks || []);
 
         // Commit offset advance only after successful fetch
         setOffset(newOffset);

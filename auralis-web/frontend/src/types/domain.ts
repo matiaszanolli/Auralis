@@ -390,48 +390,12 @@ export function isEnhancementPreset(value: unknown): value is EnhancementPreset 
   return ENHANCEMENT_PRESETS.includes(value as EnhancementPreset);
 }
 
-// ============================================================================
-// Backend → Frontend Transformers
-// ============================================================================
-
-/** Shape of a track object as returned by the backend API (snake_case). */
-export interface TrackApiResponse {
-  id: number;
-  title?: string;
-  artist?: string;
-  artists?: string[];
-  album?: string;
-  album_id?: number;
-  duration?: number;
-  filepath?: string;
-  file_path?: string;
-  artwork_url?: string | null;
-  album_art?: string | null;
-  genre?: string | null;
-  year?: number | null;
-  favorite?: boolean;
-}
-
-/**
- * Transform a raw backend track object (snake_case) to a LibraryTrack (camelCase).
- * Single source of truth for backend→frontend track mapping.
- */
-export function transformBackendTrack(track: TrackApiResponse): LibraryTrack {
-  return {
-    id: track.id,
-    title: track.title ?? '',
-    artist: Array.isArray(track.artists) && track.artists.length > 0
-      ? track.artists[0] : track.artist || 'Unknown Artist',
-    album: track.album ?? '',
-    albumId: track.album_id ?? undefined,
-    duration: track.duration ?? 0,
-    filepath: track.filepath ?? track.file_path ?? '',
-    artworkUrl: track.artwork_url ?? track.album_art ?? null,
-    genre: track.genre ?? null,
-    year: track.year ?? null,
-    favorite: track.favorite ?? undefined,
-  };
-}
+// #4830: the local TrackApiResponse/transformBackendTrack pair that used to
+// live here duplicated (and diverged from) the canonical transformer at
+// @/api/transformers/trackTransformer.ts — its `genre` field never read the
+// backend's `genres` array, so useLibraryPagination always got `genre: null`.
+// Its sole consumer (useLibraryPagination.ts) now imports transformTracks
+// from '@/api/transformers' directly; nothing else referenced either symbol.
 
 // ============================================================================
 // Utility Functions
