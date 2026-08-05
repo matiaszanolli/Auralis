@@ -104,13 +104,17 @@ describe('SettingsService', () => {
   describe('updateSettings', () => {
     it('should update settings successfully', async () => {
       const updates: SettingsUpdate = { theme: 'light', volume: 0.9 };
-      const expectedResponse = { message: 'Settings updated', settings: { ...mockSettings, ...updates } };
-      mockPut.mockResolvedValueOnce(expectedResponse);
+      const expectedSettings = { ...mockSettings, ...updates };
+      mockPut.mockResolvedValueOnce({ message: 'Settings updated', settings: expectedSettings });
 
       const result = await settingsService.updateSettings(updates);
 
       expect(mockPut).toHaveBeenCalledWith('/api/settings', updates);
-      expect(result).toEqual(expectedResponse);
+      // #4783: PUT /api/settings returns a {message, settings} envelope;
+      // updateSettings() must unwrap it, not hand the envelope back as if
+      // it were the flat UserSettings object (this exact assertion used to
+      // require `result` to equal the envelope, codifying the bug).
+      expect(result).toEqual(expectedSettings);
     });
 
     it('should update single field', async () => {

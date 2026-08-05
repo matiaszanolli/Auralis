@@ -8,7 +8,7 @@
  */
 
 import { ENDPOINTS } from '@/config/api';
-import { post } from '@/utils/apiRequest';
+import { post, put } from '@/utils/apiRequest';
 import { createCrudService } from '@/utils/serviceFactory';
 import { isUserSettingsShape } from '@/api/responseGuards';
 
@@ -111,7 +111,13 @@ export async function getSettings(): Promise<UserSettings> {
  * Update user settings
  */
 export async function updateSettings(updates: SettingsUpdate): Promise<UserSettings> {
-  return crudService.update(0, updates);
+  // PUT /api/settings returns the {message, settings} envelope (like the
+  // reset/addScanFolder/removeScanFolder endpoints below), not a flat
+  // UserSettings — crudService.update() has no per-call type override to
+  // express that, and returning the raw envelope here silently corrupted
+  // caller state (#4783). Call the endpoint directly and unwrap.
+  const result = await put<{ message: string; settings: UserSettings }>(ENDPOINTS.SETTINGS, updates);
+  return result.settings;
 }
 
 /**
