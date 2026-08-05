@@ -10,6 +10,7 @@ Logging and debug utilities
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
+import logging as _stdlib_logging
 from collections.abc import Callable
 
 # Control characters that must not reach a log line verbatim: C0 range
@@ -104,28 +105,67 @@ def get_log_level() -> str:
 def debug(message: str) -> None:
     """Log a debug message"""
     if _log_handler:
-        _log_handler(f"DEBUG: {message}")
+        _log_handler(f"DEBUG: {sanitize_log_value(message)}")
 
 
 def info(message: str) -> None:
     """Log an info message"""
     if _log_handler:
-        _log_handler(f"INFO: {message}")
+        _log_handler(f"INFO: {sanitize_log_value(message)}")
 
 
 def warning(message: str) -> None:
     """Log a warning message"""
     if _log_handler:
-        _log_handler(f"WARNING: {message}")
+        _log_handler(f"WARNING: {sanitize_log_value(message)}")
 
 
 def error(message: str) -> None:
     """Log an error message"""
     if _log_handler:
-        _log_handler(f"ERROR: {message}")
+        _log_handler(f"ERROR: {sanitize_log_value(message)}")
 
 
 def debug_line() -> None:
     """Log a debug separator line"""
     if _log_handler:
         _log_handler("-" * 50)
+
+
+# #4828: the explicit sanitize_log_value() call sites from #4363 (4 files) left
+# dozens of other sites across auralis/ and auralis-web/backend/ interpolating
+# untrusted filenames/tags into log messages unsanitized — sanitize_log_value()
+# was never a global hook, just a function every call site had to opt into.
+#
+# Rather than touching every site individually (an unbounded, easy-to-miss
+# list), sanitization is applied centrally at the two places log messages
+# actually get emitted:
+#   - debug/info/warning/error above, for this module's own callers.
+#   - the stdlib `logging` LogRecordFactory below, for the rest of the
+#     codebase (mainly auralis-web/backend/, which uses
+#     `logging.getLogger(__name__)` throughout rather than this module).
+# Both are idempotent (sanitize_log_value's fast path is a no-op on text with
+# no unsafe characters), so this is safe even where a call site already
+# sanitizes explicitly.
+_original_log_record_factory = _stdlib_logging.getLogRecordFactory()
+
+
+def _sanitizing_log_record_factory(*args: object, **kwargs: object) -> _stdlib_logging.LogRecord:
+    """LogRecordFactory wrapper that sanitizes a record's message/args in place.
+
+    Covers %-style logging (``logger.info("...%s...", value)``) as well as
+    pre-interpolated f-strings, without touching exception tracebacks (those
+    are formatted separately by the handler's Formatter, not via getMessage()).
+    """
+    record = _original_log_record_factory(*args, **kwargs)
+    if isinstance(record.msg, str):
+        record.msg = sanitize_log_value(record.msg)
+    if isinstance(record.args, tuple):
+        record.args = tuple(
+            sanitize_log_value(arg) if isinstance(arg, str) else arg
+            for arg in record.args
+        )
+    return record
+
+
+_stdlib_logging.setLogRecordFactory(_sanitizing_log_record_factory)

@@ -340,7 +340,8 @@ def test_empty_log_messages():
 
 
 def test_very_long_log_message():
-    """Test logging very long messages"""
+    """Very long messages are truncated by sanitize_log_value (#4828) so a huge
+    attacker-controlled value (filename/tag) can't flood the log."""
     messages = []
     set_log_handler(lambda msg: messages.append(msg))
 
@@ -348,11 +349,14 @@ def test_very_long_log_message():
     debug(long_message)
 
     assert len(messages) == 1
-    assert len(messages[0]) > 10000
+    # Truncated to 500 chars + ellipsis, plus the short "DEBUG: " prefix.
+    assert len(messages[0]) < 600
 
 
 def test_special_characters_in_logs():
-    """Test logging messages with special characters"""
+    """Control characters are escaped by sanitize_log_value (#4828) so a
+    forged \\r\\n or terminal control sequence can't reach the log verbatim;
+    ordinary printable characters (tab, backslash, quotes) pass through."""
     messages = []
     set_log_handler(lambda msg: messages.append(msg))
 
@@ -360,7 +364,10 @@ def test_special_characters_in_logs():
     info(special_msg)
 
     assert len(messages) == 1
-    assert special_msg in messages[0]
+    assert "\n" not in messages[0]      # newline escaped, not raw
+    assert "\\x0a" in messages[0]       # escaped form present
+    assert "\t" in messages[0]          # tab is allowed, passes through unescaped
+    assert "special" in messages[0]     # rest of the text intact
 
 
 def test_unicode_in_logs():
