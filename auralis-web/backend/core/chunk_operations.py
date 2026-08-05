@@ -19,6 +19,8 @@ import logging
 
 import numpy as np
 
+from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL, CONTEXT_DURATION, OVERLAP_DURATION
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,9 +43,9 @@ class ChunkOperations:
         filepath: str,
         chunk_index: int,
         sample_rate: int,
-        chunk_duration: int = 15,
-        chunk_interval: int = 10,
-        overlap_duration: int = 5,
+        chunk_duration: float = CHUNK_DURATION,
+        chunk_interval: float = CHUNK_INTERVAL,
+        overlap_duration: float = OVERLAP_DURATION,
         with_context: bool = True,
         total_duration: float | None = None
     ) -> tuple[np.ndarray, float, float]:
@@ -84,7 +86,7 @@ class ChunkOperations:
             chunk_end = min(chunk_end, total_duration)
 
         # Add context if requested
-        context_duration = 5.0 if with_context else 0.0
+        context_duration = CONTEXT_DURATION if with_context else 0.0
         load_start = max(0.0, chunk_start - context_duration)
         load_end = chunk_end + context_duration
         if total_duration is not None:
@@ -158,9 +160,9 @@ class ChunkOperations:
         processed_chunk: np.ndarray,
         chunk_index: int,
         sample_rate: int,
-        chunk_duration: int = 15,
-        chunk_interval: int = 10,
-        overlap_duration: int = 5,
+        chunk_duration: float = CHUNK_DURATION,
+        chunk_interval: float = CHUNK_INTERVAL,
+        overlap_duration: float = OVERLAP_DURATION,
         total_chunks: int | None = None,
         total_duration: float | None = None
     ) -> np.ndarray:
