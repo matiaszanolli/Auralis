@@ -5,6 +5,20 @@
 # aborts with "the configured Python interpreter version (3.14) is newer than
 # PyO3's maximum supported version (3.13)". This flag tells it to proceed.
 #
+# IMPORTANT (#4911): this doesn't just suppress a version check. Per
+# pyo3-build-config's is_abi3(), setting this env var makes the build script
+# behave exactly as if the `abi3` cargo feature were enabled: it emits
+# Py_LIMITED_API and compiles pyo3-ffi against Python's *limited* C API
+# instead of the full API. Cargo.toml declares no `abi3-pyXY` feature, so no
+# minimum Python version is pinned into this limited-API build (and it
+# couldn't be today anyway: `abi3-py314` doesn't exist at pyo3 0.23, whose
+# abi3 ceiling is 3.12). Concretely: any code path gated
+# `#[cfg(not(Py_LIMITED_API))]` compiles on a 3.13 dev build (no forward-compat
+# flag needed there) but silently disappears from the 3.14 release build. CI
+# asserts Py_LIMITED_API is actually present in the release build output
+# (see build-release.yml) so this can't flip silently between local dev and
+# release builds.
+#
 # Bumping pyo3/numpy to 0.29 to lift the cap properly is NOT the fix: it
 # compiles, but every array-accepting call then throws
 #   TypeError: 'ndarray' object is not an instance of 'ndarray'

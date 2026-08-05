@@ -127,6 +127,20 @@ jobs:
           # trusting it against 3.14 (matches the last known-working workflow).
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
+      - name: Assert Rust DSP module built against the limited API (#4911)
+        # PYO3_USE_ABI3_FORWARD_COMPATIBILITY silently compiles pyo3-ffi
+        # against Py_LIMITED_API with no abi3 floor pinned in Cargo.toml. If a
+        # future toolchain/pyo3 change makes that stop happening, the release
+        # wheel would silently flip ABI shape with no signal. Fail loudly
+        # instead of shipping that unnoticed.
+        run: |
+          out=$(find vendor/auralis-dsp/target/release/build/pyo3-ffi-*/output)
+          test -n "$out" || { echo "::error::no pyo3-ffi build script output found"; exit 1; }
+          grep -q 'Py_LIMITED_API' "$out" || {
+            echo "::error::expected Py_LIMITED_API in $out — abi3 forward-compat build no longer producing a limited-API wheel"
+            exit 1
+          }
+
       - name: Build frontend
         run: |
           cd auralis-web/frontend
@@ -257,6 +271,20 @@ jobs:
           # trusting it against 3.14 (matches the last known-working workflow).
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
+      - name: Assert Rust DSP module built against the limited API (#4911)
+        # PYO3_USE_ABI3_FORWARD_COMPATIBILITY silently compiles pyo3-ffi
+        # against Py_LIMITED_API with no abi3 floor pinned in Cargo.toml. If a
+        # future toolchain/pyo3 change makes that stop happening, the release
+        # wheel would silently flip ABI shape with no signal. Fail loudly
+        # instead of shipping that unnoticed.
+        shell: pwsh
+        run: |
+          $out = Get-ChildItem vendor/auralis-dsp/target/release/build/pyo3-ffi-*/output -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $out) { throw "no pyo3-ffi build script output found" }
+          if (-not (Select-String -Path $out -Pattern 'Py_LIMITED_API' -Quiet)) {
+            throw "expected Py_LIMITED_API in $out — abi3 forward-compat build no longer producing a limited-API wheel"
+          }
+
       - name: Build frontend
         run: |
           cd auralis-web/frontend
@@ -371,6 +399,20 @@ jobs:
           # pyo3 0.23's abi3 feature caps at Python 3.13; this opts into
           # trusting it against 3.14 (matches the last known-working workflow).
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
+
+      - name: Assert Rust DSP module built against the limited API (#4911)
+        # PYO3_USE_ABI3_FORWARD_COMPATIBILITY silently compiles pyo3-ffi
+        # against Py_LIMITED_API with no abi3 floor pinned in Cargo.toml. If a
+        # future toolchain/pyo3 change makes that stop happening, the release
+        # wheel would silently flip ABI shape with no signal. Fail loudly
+        # instead of shipping that unnoticed.
+        run: |
+          out=$(find vendor/auralis-dsp/target/release/build/pyo3-ffi-*/output)
+          test -n "$out" || { echo "::error::no pyo3-ffi build script output found"; exit 1; }
+          grep -q 'Py_LIMITED_API' "$out" || {
+            echo "::error::expected Py_LIMITED_API in $out — abi3 forward-compat build no longer producing a limited-API wheel"
+            exit 1
+          }
 
       - name: Build frontend
         run: |
