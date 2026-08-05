@@ -17,7 +17,16 @@ fastapi==0.122.0
 # and CI were exercising the pure-Python asyncio loop while users got uvloop —
 # exactly the split that lets a buffer underrun or a crossfade seam reproduce
 # only in the packaged build (#4561). Also pulls watchfiles, websockets, PyYAML.
-uvicorn[standard]==0.38.0
+#
+# >=0.52.1 is a floor, not a round number (#4784): uvicorn's WebSocket ASGI
+# protocol (websockets_sansio_impl.py) only wires transport pause_writing/
+# resume_writing into a real asyncio.Event starting at 0.52.1 — every earlier
+# version (confirmed down through 0.38.0) sets that event once at construction
+# and never clears it, so send_text()/send_bytes() never actually suspend
+# under backpressure and the app's own bounded send queue / broadcast timeout
+# guards can never trigger. Do not downgrade below this without re-verifying
+# tests/backend/test_websocket_uvicorn_backpressure_4784.py still passes.
+uvicorn[standard]==0.52.1
 pydantic==2.12.4
 pydantic-settings==2.12.0
 python-multipart==0.0.31

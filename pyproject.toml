@@ -56,7 +56,10 @@ dependencies = [
     # Extras must match both requirements manifests (#4561) — see the note
     # there on uvloop/httptools. The floor-vs-exact pinning divergence between
     # this file and requirements.txt is tracked separately by #4355.
-    "uvicorn[standard]>=0.38",
+    # >=0.52.1 (#4784): earlier versions never wire transport pause_writing/
+    # resume_writing into a real event, so WebSocket sends never actually
+    # suspend under backpressure — see requirements.txt's uvicorn comment.
+    "uvicorn[standard]>=0.52.1",
     "pydantic>=2.12",
     # No import anywhere, but load-bearing: FastAPI raises at request time on
     # the `UploadFile`/`File(...)` endpoints in routers/files.py without it.

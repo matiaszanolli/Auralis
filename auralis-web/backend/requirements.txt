@@ -23,7 +23,7 @@ mutagen==1.47.0
 
 # FastAPI Backend
 fastapi==0.122.0
-uvicorn[standard]==0.38.0
+uvicorn[standard]==0.52.1
 pydantic==2.12.4
 pydantic-settings==2.14.2
 python-multipart==0.0.31
