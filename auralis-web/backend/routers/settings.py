@@ -16,6 +16,7 @@ Endpoints:
 """
 
 import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,7 @@ from schemas import (  # shared preset enum (#4424) / intensity constraint (#460
 
 from security.path_security import (
     validate_user_chosen_directory,
+    validate_directory_list,
     register_allowed_directory,
     unregister_allowed_directory,
     clear_extra_allowed_directories,
@@ -191,9 +193,40 @@ def create_settings_router(
         through the SettingsRepository whitelist (#3837 / BE-SCH-2). Only fields the
         client actually sent are applied (``exclude_unset``), preserving partial-update
         semantics.
+
+        ``scan_folders`` is the same column POST /api/settings/scan-folders writes,
+        so it gets the identical path validation and allowlist-registration
+        treatment here (#4765) — otherwise a folder added via this generic route
+        skips both, and files under it 400 as "invalid filepath" until restart.
         """
         payload = updates.model_dump(exclude_unset=True)
+
+        if 'scan_folders' in payload and payload['scan_folders'] is not None:
+            try:
+                payload['scan_folders'] = validate_directory_list(payload['scan_folders'])
+            except PathValidationError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+
+        # Snapshot the previous list (if scan_folders is being written) so the
+        # allowlist can be diffed against it after the write — additions get
+        # registered, removals get unregistered, regardless of which route
+        # made the change (fixes the #3842 "no inverse" gap for this route too).
+        previous_folders: set[str] = set()
+        if 'scan_folders' in payload:
+            previous_settings = await asyncio.to_thread(_repo().get_settings)
+            if previous_settings and previous_settings.scan_folders:
+                raw = previous_settings.scan_folders
+                previous_folders = set(json.loads(raw) if isinstance(raw, str) else raw)
+
         settings = await asyncio.to_thread(_repo().update_settings, payload)
+
+        if 'scan_folders' in payload:
+            new_folders = set(payload['scan_folders'] or [])
+            for added in new_folders - previous_folders:
+                register_allowed_directory(Path(added))
+            for removed in previous_folders - new_folders:
+                unregister_allowed_directory(Path(removed))
+
         await _notify_scanner()
         return {"message": "Settings updated", "settings": settings.to_dict()}
 

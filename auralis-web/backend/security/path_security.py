@@ -304,6 +304,31 @@ def validate_user_chosen_directory(directory: str) -> Path:
     return resolved_path
 
 
+def validate_directory_list(directories: list[str]) -> list[str]:
+    """Validate a batch of user-chosen directory paths with
+    ``validate_user_chosen_directory``, returning the resolved, stringified
+    list.
+
+    Shared by every write path that persists ``scan_folders`` — the Pydantic
+    ``LibraryScanRequest.directories`` field_validator and ``PUT
+    /api/settings``'s ``SettingsUpdateRequest.scan_folders`` handling (#4765)
+    — so an entry rejected by one is rejected by the other identically,
+    instead of one validating and the other writing it through unchecked.
+    Raises on the first invalid entry; a mixed batch does not silently drop
+    the bad one and proceed with the rest.
+
+    Raises:
+        PathValidationError: naming the offending path, on the first invalid entry.
+    """
+    validated = []
+    for directory in directories:
+        try:
+            validated.append(str(validate_user_chosen_directory(directory)))
+        except PathValidationError as e:
+            raise PathValidationError(f"Invalid directory path '{directory}': {e}") from e
+    return validated
+
+
 def sanitize_path_for_response(path: Path | str) -> str:
     """
     Sanitize a file path for inclusion in API responses.

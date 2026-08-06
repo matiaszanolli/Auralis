@@ -176,17 +176,17 @@ class LibraryScanRequest(BaseModel):
     @field_validator('directories')
     @classmethod
     def validate_directory_paths(cls, v: list[str]) -> list[str]:
-        """Validate all directory paths to prevent path traversal."""
-        from security.path_security import PathValidationError, validate_user_chosen_directory
+        """Validate all directory paths to prevent path traversal.
 
-        validated = []
-        for path in v:
-            try:
-                validated_path = validate_user_chosen_directory(path)
-                validated.append(str(validated_path))
-            except PathValidationError as e:
-                raise ValueError(f"Invalid directory path '{path}': {e}")
-        return validated
+        Shared with PUT /api/settings' scan_folders handling via
+        validate_directory_list (#4765) — see its docstring.
+        """
+        from security.path_security import PathValidationError, validate_directory_list
+
+        try:
+            return validate_directory_list(v)
+        except PathValidationError as e:
+            raise ValueError(str(e))
 
     model_config = ConfigDict(json_schema_extra={
         "example": {

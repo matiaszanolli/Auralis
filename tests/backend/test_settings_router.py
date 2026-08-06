@@ -12,6 +12,7 @@ fields are rejected with HTTP 422, and only fields the client actually sent are
 forwarded to the repository (``exclude_unset``).
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -61,6 +62,12 @@ _DEFAULT_SETTINGS = {
 class _FakeSettings:
     def __init__(self, data: dict) -> None:
         self._data = data
+        # Mirrors the real UserSettings ORM column: scan_folders is a raw
+        # JSON string (or None) on the model itself, only parsed to a list by
+        # to_dict(). The router's scan_folders diff (#4765) reads this
+        # attribute directly, the same way it reads a real settings row.
+        folders = data.get('scan_folders')
+        self.scan_folders = json.dumps(folders) if folders else None
 
     def to_dict(self) -> dict:
         return dict(self._data)
@@ -114,18 +121,39 @@ def test_update_settings_partial_excludes_unset(client: TestClient) -> None:
     assert resp.json()["settings"]["theme"] == "light"
 
 
-def test_update_settings_accepts_multiple_known_fields(client: TestClient) -> None:
-    """A multi-field valid update passes through unchanged."""
+def test_update_settings_accepts_multiple_known_fields(client: TestClient, tmp_path) -> None:
+    """A multi-field valid update passes through unchanged.
+
+    scan_folders must be a real, existing directory — validate_user_chosen_directory
+    (#4765) now runs on this route too, so a literal "/music" 400s regardless of
+    the repo being mocked.
+    """
+    resolved = str(tmp_path.resolve())
     resp = client.put(
         "/api/settings",
-        json={"volume": 0.3, "crossfade_enabled": True, "scan_folders": ["/music"]},
+        json={"volume": 0.3, "crossfade_enabled": True, "scan_folders": [str(tmp_path)]},
     )
     assert resp.status_code == 200
     assert client._repo.updated_with == {  # type: ignore[attr-defined]
         "volume": 0.3,
         "crossfade_enabled": True,
-        "scan_folders": ["/music"],
+        "scan_folders": [resolved],
     }
+
+
+def test_update_settings_scan_folders_rejects_traversal(client: TestClient) -> None:
+    """PUT /api/settings 400s an invalid scan_folders entry, same as the
+    dedicated POST /api/settings/scan-folders route (#4765) — not a generic
+    422, since callers already branch on this route's 400 for bad paths."""
+    resp = client.put("/api/settings", json={"scan_folders": ["../../etc"]})
+    assert resp.status_code == 400
+    assert client._repo.updated_with is None  # type: ignore[attr-defined]
+
+
+def test_update_settings_scan_folders_rejects_nonexistent(client: TestClient) -> None:
+    resp = client.put("/api/settings", json={"scan_folders": ["/definitely_does_not_exist_xyz"]})
+    assert resp.status_code == 400
+    assert client._repo.updated_with is None  # type: ignore[attr-defined]
 
 
 def test_update_settings_rejects_invalid_preset(client: TestClient) -> None:
