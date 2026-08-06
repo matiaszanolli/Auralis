@@ -31,7 +31,7 @@ def mock_album():
     """Create a mock album object"""
     album = Mock(spec=['id', 'title', 'artist', 'artist_id', 'year', 'tracks', 'total_tracks', 'total_discs',
                        'artwork_path', 'avg_dr_rating', 'avg_lufs', 'mastering_consistency',
-                       'created_at', 'updated_at'])
+                       'created_at', 'updated_at', 'track_count', 'total_duration'])
     album.id = 1
     album.title = "Test Album"
 
@@ -57,6 +57,16 @@ def mock_album():
     track2 = Mock(spec=['duration'])
     track2.duration = 200
     album.tracks = [track1, track2]
+
+    # #4777: serialize_album() no longer re-derives these from `.tracks` (the
+    # real Album.to_dict() computes them via the repository's SQL aggregates
+    # or, absent those, its own `tracks` walk — either way, upstream of
+    # serialize_album). Since this Mock deliberately skips to_dict() (see
+    # serialize_object's Mock guard) and falls back to plain getattr(), set
+    # the values directly so the fallback path matches what a real
+    # Album.to_dict() output would already carry.
+    album.track_count = len(album.tracks)
+    album.total_duration = sum(t.duration for t in album.tracks)
 
     return album
 

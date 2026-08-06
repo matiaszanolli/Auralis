@@ -60,6 +60,9 @@ class _FakeModel:
         return self._dict_result
 
 
+_UNSET = object()  # sentinel: "don't set this attribute at all" vs. "set it to None"
+
+
 # ---------------------------------------------------------------------------
 # DEFAULT_TRACK_FIELDS — sensitive field exclusion
 # ---------------------------------------------------------------------------
@@ -196,47 +199,67 @@ class TestSerializeTrack:
 # ---------------------------------------------------------------------------
 
 class TestSerializeAlbum:
-    def _make_album(self, track_durations=None):
+    """#4777: total_duration/track_count are computed by Album.to_dict()
+    (preferring the repository's SQL aggregates, falling back to walking
+    `tracks` only when the query didn't supply them) — NOT re-derived here.
+    serialize_album must trust to_dict()'s values as-is and must never touch
+    `album.tracks` directly, since AlbumRepository.get_all()/.search()/
+    .get_recent() no longer eager-load that collection (#4777), and a real
+    detached ORM instance raises DetachedInstanceError (not caught by
+    `hasattr()`) on an unloaded relationship access."""
+
+    def _make_album(self, track_count: int = 0, total_duration: float = 0, tracks: object = _UNSET):
         dict_result = {
             'id': 10,
             'title': 'Album A',
             'artist': 'Artist B',
             'year': 2020,
             'artwork_path': None,
-            'track_count': 0,
-            'total_duration': 0,
+            'track_count': track_count,
+            'total_duration': total_duration,
         }
-        if track_durations is not None:
-            tracks = []
-            for d in track_durations:
-                t = types.SimpleNamespace(duration=d)
-                tracks.append(t)
-        else:
-            tracks = None
-        return _FakeModel(dict_result, tracks=tracks)
+        attrs = {} if tracks is _UNSET else {'tracks': tracks}
+        return _FakeModel(dict_result, **attrs)
 
-    def test_total_duration_summed_from_tracks(self):
-        album = self._make_album(track_durations=[120.0, 180.0, 60.0])
+    def test_total_duration_passed_through_from_to_dict(self):
+        album = self._make_album(total_duration=360.0)
         result = serialize_album(album)
         assert result['total_duration'] == 360.0
 
-    def test_track_count_derived_from_tracks(self):
-        album = self._make_album(track_durations=[100.0, 200.0])
+    def test_track_count_passed_through_from_to_dict(self):
+        album = self._make_album(track_count=2)
         result = serialize_album(album)
         assert result['track_count'] == 2
 
-    def test_total_duration_zero_when_no_tracks(self):
-        album = self._make_album(track_durations=None)
+    def test_zero_track_count_and_duration_passed_through_unchanged(self):
+        """A genuinely-empty album (to_dict() reports 0/0) must stay 0/0 —
+        not get silently re-derived from a tracks collection."""
+        album = self._make_album(track_count=0, total_duration=0)
         result = serialize_album(album)
+        assert result['track_count'] == 0
         assert result['total_duration'] == 0
 
-    def test_ignores_tracks_with_none_duration(self):
-        album = self._make_album(track_durations=[100.0, None, 50.0])
-        result = serialize_album(album)
-        assert result['total_duration'] == 150.0
+    def test_does_not_access_tracks_attribute_at_all(self):
+        """Regression guard: touching `album.tracks` on a real detached ORM
+        instance whose tracks relationship wasn't eager-loaded raises
+        DetachedInstanceError, which `hasattr()` does not catch. Simulate
+        that with a `tracks` property that raises on access — serialize_album
+        must never trigger it."""
+        class _ExplodingTracks:
+            @property
+            def tracks(self):
+                raise RuntimeError("tracks accessed — should never happen")
+
+        album = _ExplodingTracks()
+        album.to_dict = lambda: {  # type: ignore[method-assign]
+            'id': 10, 'title': 'Album A', 'track_count': 5, 'total_duration': 300.0,
+        }
+        result = serialize_album(album)  # must not raise
+        assert result['track_count'] == 5
+        assert result['total_duration'] == 300.0
 
     def test_serialize_albums_list(self):
-        albums = [self._make_album(track_durations=[60.0]) for _ in range(3)]
+        albums = [self._make_album(track_count=1, total_duration=60.0) for _ in range(3)]
         results = serialize_albums(albums)
         assert len(results) == 3
 
@@ -244,7 +267,7 @@ class TestSerializeAlbum:
 class TestSerializeAlbumDetail:
     """GET /api/albums/{id} camelCase contract (#4423)."""
 
-    def _make_album(self, extra=None, track_durations=None):
+    def _make_album(self, extra=None, track_count: int = 0, total_duration: float = 0):
         dict_result = {
             'id': 10,
             'title': 'Album A',
@@ -253,16 +276,15 @@ class TestSerializeAlbumDetail:
             'year': 2020,
             'artwork_path': None,
             'genre': 'Rock',
-            'track_count': 0,
-            'total_duration': 0,
+            'track_count': track_count,
+            'total_duration': total_duration,
         }
         if extra:
             dict_result.update(extra)
-        tracks = [types.SimpleNamespace(duration=d) for d in (track_durations or [])] or None
-        return _FakeModel(dict_result, tracks=tracks)
+        return _FakeModel(dict_result)
 
     def test_returns_camelcase_domain_keys(self):
-        album = self._make_album(track_durations=[120.0, 180.0])
+        album = self._make_album(track_count=2, total_duration=300.0)
         result = serialize_album_detail(album)
         # Matches the frontend Album domain / albumTransformer output.
         assert result == {
@@ -279,7 +301,7 @@ class TestSerializeAlbumDetail:
         }
 
     def test_never_leaks_snake_case_keys(self):
-        album = self._make_album(track_durations=[60.0])
+        album = self._make_album(track_count=1, total_duration=60.0)
         result = serialize_album_detail(album)
         for snake in ('track_count', 'artwork_url', 'total_duration', 'artist_id', 'album_id'):
             assert snake not in result

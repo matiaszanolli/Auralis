@@ -10,13 +10,38 @@ Data access layer for album operations
 
 from pathlib import Path
 from collections.abc import Callable
+from typing import Any
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload, with_expression
 
 from ..artwork import create_artwork_extractor
-from ..models import Album, Artist
+from ..models import Album, Artist, Track
 from .base import BaseRepository
+
+
+def _track_count_subquery() -> Any:
+    """Correlated COUNT of an album's tracks, evaluated per row by the DB
+    engine — no JOIN, no row multiplication. Albums with no tracks yield 0
+    (not NULL), so no COALESCE is needed. Mirrors the pattern already used
+    in ArtistRepository.get_all() / PlaylistRepository.get_all() (#4777)."""
+    return (
+        select(func.count(Track.id))
+        .where(Track.album_id == Album.id)
+        .correlate(Album)
+        .scalar_subquery()
+    )
+
+
+def _total_duration_subquery() -> Any:
+    """Correlated SUM of an album's track durations. COALESCE because SUM
+    over zero rows is NULL, unlike COUNT (#4777)."""
+    return (
+        select(func.coalesce(func.sum(Track.duration), 0.0))
+        .where(Track.album_id == Album.id)
+        .correlate(Album)
+        .scalar_subquery()
+    )
 
 
 class AlbumRepository(BaseRepository):
@@ -91,15 +116,21 @@ class AlbumRepository(BaseRepository):
             order_column = getattr(Album, order_by, Album.title)
             albums = session.execute(
                 select(Album)
-                .options(joinedload(Album.artist), selectinload(Album.tracks))
+                .options(
+                    joinedload(Album.artist),
+                    with_expression(Album.track_count_expr, _track_count_subquery()),
+                    with_expression(Album.total_duration_expr, _total_duration_subquery()),
+                )
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)
             ).scalars().unique().all()
 
-            # Expunge every album AND all eagerly-loaded related objects
-            # (fixes #2406 / #4236 — a per-item expunge(album) does not
-            # cascade to album.tracks, leaving it DetachedInstanceError-prone).
+            # Expunge every album AND its eagerly-loaded artist (fixes #2406 /
+            # #4236 — a per-item expunge(album) does not cascade to related
+            # objects, leaving them DetachedInstanceError-prone). tracks is no
+            # longer eager-loaded here (#4777) — track_count_expr/
+            # total_duration_expr cover what the serializer actually needs.
             if albums:
                 session.expunge_all()
 
@@ -113,7 +144,11 @@ class AlbumRepository(BaseRepository):
         try:
             albums = session.execute(
                 select(Album)
-                .options(joinedload(Album.artist), selectinload(Album.tracks))
+                .options(
+                    joinedload(Album.artist),
+                    with_expression(Album.track_count_expr, _track_count_subquery()),
+                    with_expression(Album.total_duration_expr, _total_duration_subquery()),
+                )
                 .order_by(Album.created_at.desc())
                 .limit(limit)
                 .offset(offset)
@@ -165,7 +200,11 @@ class AlbumRepository(BaseRepository):
                 select(Album)
                 .join(Album.artist, isouter=True)
                 .where(search_filter)
-                .options(selectinload(Album.artist), selectinload(Album.tracks))
+                .options(
+                    selectinload(Album.artist),
+                    with_expression(Album.track_count_expr, _track_count_subquery()),
+                    with_expression(Album.total_duration_expr, _total_duration_subquery()),
+                )
                 .order_by(order_column.asc())
                 .limit(limit)
                 .offset(offset)

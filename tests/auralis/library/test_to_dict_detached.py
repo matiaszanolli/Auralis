@@ -107,6 +107,101 @@ def test_create_and_update_track_count(genre_repository, caplog):
     assert result['track_count'] == 0
 
 
+@pytest.fixture
+def seeded_album(track_repository, album_repository):
+    """An album with three tracks of known durations, created through the
+    repositories (#4777)."""
+    for i, duration in enumerate((100.0, 150.0, 50.0)):
+        track = track_repository.add({
+            'title': f'AlbumDetachSeed {i}',
+            'filepath': f'/audio/albumdetachseed{i}.wav',
+            'duration': duration,
+            'sample_rate': 44100,
+            'channels': 2,
+            'format': 'WAV',
+            'artists': ['Album Detach Artist'],
+            'album': 'Album Detach Seed Album',
+        })
+        assert track is not None
+
+    album = album_repository.get_by_title('Album Detach Seed Album')
+    assert album is not None, "seed album was not created"
+    return album
+
+
+def test_get_all_track_count_and_duration_without_loading_tracks(
+    album_repository, seeded_album, caplog
+):
+    """get_all()'s track_count/total_duration come from track_count_expr/
+    total_duration_expr (#4777) — to_dict() must not fall back to the
+    _safe_collection backstop (which would mean `tracks` was touched, the
+    exact N+1 this fix removes)."""
+    albums, _total = album_repository.get_all(limit=50)
+    album = next(a for a in albums if a.id == seeded_album.id)
+    result = _to_dict_without_backstop(album, caplog)
+    assert result['track_count'] == 3
+    assert result['total_duration'] == 300.0
+
+
+def test_get_recent_track_count_and_duration_without_loading_tracks(
+    album_repository, seeded_album, caplog
+):
+    albums = album_repository.get_recent(limit=50)
+    album = next(a for a in albums if a.id == seeded_album.id)
+    result = _to_dict_without_backstop(album, caplog)
+    assert result['track_count'] == 3
+    assert result['total_duration'] == 300.0
+
+
+def test_search_track_count_and_duration_without_loading_tracks(
+    album_repository, seeded_album, caplog
+):
+    albums, _total = album_repository.search('Album Detach Seed Album')
+    album = next(a for a in albums if a.id == seeded_album.id)
+    result = _to_dict_without_backstop(album, caplog)
+    assert result['track_count'] == 3
+    assert result['total_duration'] == 300.0
+
+
+def test_album_get_all_is_not_n_plus_one(album_repository, track_repository, session_factory):
+    """track_count_expr/total_duration_expr are correlated scalar subqueries
+    on the main album SELECT — not a per-album Track fetch (#4777)."""
+    for i in range(6):
+        track_repository.add({
+            'title': f'NPlusOneAlbumTrack{i}',
+            'filepath': f'/audio/nplusonealbumtrack{i}.wav',
+            'duration': 30.0,
+            'sample_rate': 44100,
+            'channels': 2,
+            'format': 'WAV',
+            'artists': ['NPlusOne Album Artist'],
+            'album': f'NPlusOneAlbum{i}',
+        })
+
+    statements: list[str] = []
+    from sqlalchemy import event
+
+    session = session_factory()
+    engine = session.get_bind()
+    session.close()
+
+    def _record(_conn, _cursor, statement, *_args):
+        statements.append(statement)
+
+    event.listen(engine, 'before_cursor_execute', _record)
+    try:
+        albums, _total = album_repository.get_all(limit=50)
+    finally:
+        event.remove(engine, 'before_cursor_execute', _record)
+
+    # count + album SELECT (artist joinedload + the two scalar subqueries are
+    # part of that single SELECT's column list, not separate statements).
+    assert len(statements) <= 2, (
+        f"expected a bounded query count, got {len(statements)}:\n"
+        + "\n".join(statements)
+    )
+
+
 def test_album_update_artwork_path_survives_detach(album_repository, track_repository, caplog):
     """Sibling gap: the one AlbumRepository path that did not eager-load."""
     track = track_repository.add({

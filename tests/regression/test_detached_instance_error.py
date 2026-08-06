@@ -215,34 +215,51 @@ class TestAlbumRepositoryDetachedAccess:
         # Must not raise DetachedInstanceError and must actually be populated
         assert len(album.tracks) >= 1
 
+    # #4777 narrowed the eager-load contract of the three *paginated*/*list*
+    # methods below (get_all/get_recent/search): they no longer selectinload
+    # Album.tracks, since the serializer only ever reduced that collection to
+    # a count and a sum — instead they attach track_count_expr/
+    # total_duration_expr (correlated SQL aggregates, #4554's pattern applied
+    # to Album). What the list path guarantees is therefore now: album.artist
+    # and album.track_count_expr/total_duration_expr are detached-safe;
+    # album.tracks is NOT (touching it now raises DetachedInstanceError, same
+    # as the ArtistRepository narrowing in #4553). The single-row lookups
+    # (get_by_id/get_by_title above) keep the full guarantee, because the
+    # album-detail route genuinely reads album.tracks.
+
     def test_get_all_relationships_accessible(
         self, album_repository, track_repository, session_factory
     ):
-        """get_all() must return albums with accessible relationships (#4236)."""
+        """get_all() must return albums whose list-path relationships are
+        accessible after the session closes (#4236, narrowed by #4777)."""
         self._setup_album(track_repository, session_factory)
 
         albums, total = album_repository.get_all(limit=10)
         assert total >= 1
         for album in albums:
-            _ = album.artist
-            assert len(album.tracks) >= 0  # must not raise DetachedInstanceError
+            _ = album.artist  # must not raise DetachedInstanceError
+            assert album.track_count_expr >= 0
+            assert album.total_duration_expr >= 0
 
     def test_get_recent_relationships_accessible(
         self, album_repository, track_repository, session_factory
     ):
-        """get_recent() must return albums with accessible relationships (#4236)."""
+        """get_recent() must return albums whose list-path relationships are
+        accessible after the session closes (#4236, narrowed by #4777)."""
         self._setup_album(track_repository, session_factory)
 
         albums = album_repository.get_recent(limit=10)
         assert len(albums) >= 1
         for album in albums:
-            _ = album.artist
-            assert len(album.tracks) >= 0  # must not raise DetachedInstanceError
+            _ = album.artist  # must not raise DetachedInstanceError
+            assert album.track_count_expr >= 0
+            assert album.total_duration_expr >= 0
 
     def test_search_relationships_accessible(
         self, album_repository, track_repository, session_factory
     ):
-        """search() must return albums with accessible relationships (#4236).
+        """search() must return albums whose list-path relationships are
+        accessible after the session closes (#4236, narrowed by #4777).
 
         Pre-existing bug fixed while touching this test: search() returns a
         (list, total) tuple, but the test previously assigned it directly to
@@ -256,8 +273,9 @@ class TestAlbumRepositoryDetachedAccess:
         albums, total = album_repository.search('Test Album For Detached')
         assert total >= 1
         for album in albums:
-            _ = album.artist
-            assert len(album.tracks) >= 0  # must not raise DetachedInstanceError
+            _ = album.artist  # must not raise DetachedInstanceError
+            assert album.track_count_expr >= 0
+            assert album.total_duration_expr >= 0
 
 
 class TestArtistRepositoryDetachedAccess:

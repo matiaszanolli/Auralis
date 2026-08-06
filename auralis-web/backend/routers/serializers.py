@@ -200,27 +200,18 @@ def serialize_album(album: Any) -> dict[str, Any]:
         album_id = album_dict.get('id') or getattr(album, 'id', None)
         album_dict['artwork_url'] = f"/api/albums/{album_id}/artwork" if album_id else None
 
-    # Calculate total_duration from tracks if available
-    if hasattr(album, 'tracks') and album.tracks:
-        try:
-            total_duration = sum(
-                track.duration for track in album.tracks
-                if hasattr(track, 'duration') and track.duration is not None
-            )
-            album_dict['total_duration'] = total_duration
-        except (AttributeError, TypeError):
-            # Handle cases where tracks might not have duration or other issues
-            album_dict['total_duration'] = album_dict.get('total_duration', 0)
-    else:
-        album_dict['total_duration'] = album_dict.get('total_duration', 0)
-
-    # Set track_count if not already in dict
-    if 'track_count' not in album_dict or album_dict['track_count'] == 0:
-        try:
-            album_dict['track_count'] = len(album.tracks) if hasattr(album, 'tracks') else 0
-        except TypeError:
-            album_dict['track_count'] = 0
-
+    # track_count/total_duration come from Album.to_dict() above (#4777),
+    # which prefers the repository's SQL-computed aggregates
+    # (track_count_expr/total_duration_expr) when the query supplied them,
+    # falling back to walking `tracks` only when it didn't. This function
+    # used to re-derive both by reading `album.tracks` directly here too —
+    # but AlbumRepository.get_all()/.search()/.get_recent() no longer
+    # eager-load that collection (it would defeat the point of the SQL
+    # aggregates), and `hasattr(album, 'tracks')` does NOT guard against the
+    # DetachedInstanceError a real ORM instance raises on an unloaded
+    # relationship (DetachedInstanceError is not an AttributeError, so
+    # hasattr() lets it propagate) — touching `album.tracks` here would
+    # crash the endpoint the moment that eager-load was dropped.
     return album_dict
 
 
