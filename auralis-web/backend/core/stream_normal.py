@@ -78,6 +78,12 @@ async def stream_normal_audio(
     # frame must not be reported as a completed track (#4732).
     stopped_early: bool = False
     delivered_samples: int = 0
+    # Chunk indices skipped via the #3190 continue-and-keep-going recovery
+    # path below (#4790): the loop can run to its natural end with gaps in
+    # the delivered audio without stopped_early ever being set, so this loop
+    # DOES have an early-break-with-partial-content case after all — via
+    # `continue`, not `break`.
+    failed_chunks: list[int] = []
 
     # temp_dir is declared before the guard so the finally cleanup can see it
     # regardless of where control leaves the try below. It is the *directory*
@@ -358,7 +364,10 @@ async def stream_normal_audio(
                     f"Failed to stream audio chunk {chunk_idx}",
                     recovery_position=normal_recovery_position,
                 )
-                # Skip failed chunk and continue with remaining chunks (#3190)
+                # Skip failed chunk and continue with remaining chunks (#3190).
+                # Recorded so the terminal message doesn't claim
+                # reason="completed" over a stream with gaps (#4790).
+                failed_chunks.append(chunk_idx)
                 continue
 
         if stopped_early:
@@ -373,6 +382,20 @@ async def stream_normal_audio(
                 total_samples=delivered_samples,
                 duration=delivered_duration,
                 reason="stopped",
+            )
+        elif failed_chunks:
+            delivered_duration = delivered_samples / sample_rate
+            logger.info(
+                f"Normal audio stream degraded: track={track_id}, "
+                f"{len(failed_chunks)} chunk(s) failed ({failed_chunks}), "
+                f"delivered={delivered_duration:.2f}s"
+            )
+            await controller._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=delivered_samples,
+                duration=delivered_duration,
+                reason="errored",
             )
         else:
             logger.info(f"Normal audio stream complete: track={track_id}")

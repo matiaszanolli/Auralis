@@ -87,6 +87,13 @@ async def stream_enhanced_audio(
     # tell a stopped stream from a finished one (#4659).
     stopped_early: bool = False
     delivered_samples: int = 0
+    # Chunk indices that failed processing and were skipped via the #3190
+    # continue-and-keep-going recovery path. #4659 only tracked the break-driven
+    # early exits (disconnect, timeout, enhancement toggled off) — a chunk that
+    # fails and is skipped doesn't set stopped_early, so the loop can still run
+    # to its natural end with gaps in the delivered audio and still report
+    # reason="completed" with the full track's sample count (#4790).
+    failed_chunks: list[int] = []
 
     # A single try/finally from here guards the semaphore permit acquired above:
     # it is released exactly once in the finally at the end. The track lookup
@@ -329,12 +336,19 @@ async def stream_enhanced_audio(
                     f"Failed to process audio chunk {chunk_idx}",
                     recovery_position=recovery_position,
                 )
-                # Skip failed chunk and continue with remaining chunks (#3190)
+                # Skip failed chunk and continue with remaining chunks (#3190).
+                # Recorded so the terminal message doesn't claim reason="completed"
+                # over a stream with gaps (#4790).
+                failed_chunks.append(chunk_idx)
                 continue
 
         # Stream finished — report whether the loop ran to the end, and how much
         # audio actually reached the client, so a truncated stream is not
-        # indistinguishable from a completed one (#4659).
+        # indistinguishable from a completed one (#4659). A stream that ran to
+        # the end but skipped one or more failed chunks (#3190) is neither: it
+        # didn't stop early, but it also didn't deliver the whole track, so
+        # reason="completed" with the full track's sample count would be a lie
+        # (#4790).
         if stopped_early:
             _sample_rate = processor.sample_rate or 0
             _delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
@@ -348,6 +362,21 @@ async def stream_enhanced_audio(
                 total_samples=delivered_samples,
                 duration=_delivered_duration,
                 reason="stopped",
+            )
+        elif failed_chunks:
+            _sample_rate = processor.sample_rate or 0
+            _delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
+            logger.info(
+                f"Audio stream degraded: track={track_id}, "
+                f"{len(failed_chunks)} chunk(s) failed ({failed_chunks}), "
+                f"delivered={_delivered_duration:.2f}s of {processor.duration}s"
+            )
+            await controller._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=delivered_samples,
+                duration=_delivered_duration,
+                reason="errored",
             )
         else:
             logger.info(f"Audio stream complete: track={track_id}")

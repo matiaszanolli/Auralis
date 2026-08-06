@@ -91,6 +91,11 @@ async def stream_enhanced_audio_from_position(
     # by a mid-stream enhancement toggle must not report the full track length.
     stopped_early: bool = False
     delivered_samples: int = 0
+    # Chunk indices skipped via the #3190 continue-and-keep-going recovery
+    # path (#4790) — see stream_enhanced.py's identical field for the full
+    # rationale: the loop can run to its natural end with gaps in the
+    # delivered audio without stopped_early ever being set.
+    failed_chunks: list[int] = []
 
     # A single try/finally from here guards the semaphore permit acquired above:
     # it is released exactly once in the finally at the end. The track lookup
@@ -326,11 +331,18 @@ async def stream_enhanced_audio_from_position(
                     f"Failed to process audio chunk {chunk_idx}",
                     recovery_position=recovery_position,
                 )
-                # Skip failed chunk and continue (#3190)
+                # Skip failed chunk and continue (#3190). Recorded so the
+                # terminal message doesn't claim reason="completed" over a
+                # stream with gaps (#4790).
+                failed_chunks.append(chunk_idx)
                 continue
 
-        # Stream finished — distinguish a truncated seek stream from a completed
-        # one and report what was actually delivered (#4659).
+        # Stream finished — distinguish a truncated seek stream from a
+        # completed one and report what was actually delivered (#4659). A
+        # stream that ran to the end but skipped one or more failed chunks
+        # (#3190) is neither: it didn't stop early, but it also didn't
+        # deliver the whole seek range, so reason="completed" with the full
+        # track's sample count would be a lie (#4790).
         if stopped_early:
             _sample_rate = processor.sample_rate or 0
             _delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
@@ -344,6 +356,21 @@ async def stream_enhanced_audio_from_position(
                 total_samples=delivered_samples,
                 duration=_delivered_duration,
                 reason="stopped",
+            )
+        elif failed_chunks:
+            _sample_rate = processor.sample_rate or 0
+            _delivered_duration = delivered_samples / _sample_rate if _sample_rate else 0.0
+            logger.info(
+                f"Seek stream degraded: track={track_id}, "
+                f"{len(failed_chunks)} chunk(s) failed ({failed_chunks}), "
+                f"delivered={_delivered_duration:.2f}s"
+            )
+            await controller._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=delivered_samples,
+                duration=_delivered_duration,
+                reason="errored",
             )
         else:
             logger.info(f"Seek stream complete: track={track_id}")

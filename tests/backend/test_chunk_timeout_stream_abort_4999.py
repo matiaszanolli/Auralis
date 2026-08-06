@@ -203,4 +203,11 @@ class TestChunkTimeoutAbortsStream:
             f"non-timeout failures must still skip-and-continue: {calls}"
         )
         end_msgs = [m for m in sent if m.get("type") == "audio_stream_end"]
-        assert end_msgs and end_msgs[0]["data"]["reason"] == "completed"
+        assert end_msgs
+        # #4790: a stream that skip-and-continues past a failed chunk is not
+        # "completed" — only TOTAL_CHUNKS - 1 chunks were actually delivered
+        # (chunk TIMEOUT_AT_CHUNK failed), so the terminal message must say
+        # so and report only what was delivered, not the full track.
+        end_data = end_msgs[0]["data"]
+        assert end_data["reason"] == "errored"
+        assert end_data["total_samples"] == (TOTAL_CHUNKS - 1) * SAMPLE_RATE * int(CHUNK_DURATION)

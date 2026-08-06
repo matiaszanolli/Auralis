@@ -69,17 +69,24 @@ export interface AudioStreamEndMessage extends WebSocketMessage {
     total_samples?: number;
     duration?: number;
     stream_type?: 'enhanced' | 'normal';
-    /** Why the stream ended (#4659).
+    /** Why the stream ended (#4659, #4790).
      *
      * `'completed'` — the chunk loop delivered the whole track.
      * `'stopped'`   — it exited early (e.g. enhancement toggled off mid-stream),
      *                 in which case `total_samples`/`duration` describe what was
      *                 actually delivered, NOT the full track.
+     * `'errored'`   — the chunk loop ran to its natural end, but one or more
+     *                 chunks failed processing and were skipped (#4790) — the
+     *                 stream has gaps (or, if every chunk failed, delivered no
+     *                 audio at all). `total_samples`/`duration` describe what
+     *                 was actually delivered, NOT the full track. Distinct from
+     *                 `'stopped'` so a client can tell "stopped by user/backend"
+     *                 apart from "aborted by chunk failures".
      *
      * Optional so pre-#4659 backends (which always sent a success-shaped end
      * message) still type-check; treat a missing value as `'completed'`.
      */
-    reason?: 'completed' | 'stopped';
+    reason?: 'completed' | 'stopped' | 'errored';
   };
 }
 

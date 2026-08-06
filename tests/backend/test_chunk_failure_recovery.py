@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 import numpy as np
 import pytest
+import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -53,6 +54,12 @@ def _make_websocket(sent_messages: list) -> MagicMock:
         sent_messages.append(json.loads(text))
 
     ws.send_text = AsyncMock(side_effect=fake_send_text)
+    # send_bytes carries the PCM payload (stream_protocol.safe_send_bytes).
+    # Without an AsyncMock here, MagicMock's auto-attribute returns a plain
+    # MagicMock that can't be awaited, so every _stream_processed_chunk call
+    # fails at delivery (not processing) — masking the exact
+    # process-vs-deliver distinction these tests need (#4790).
+    ws.send_bytes = AsyncMock()
     return ws
 
 
@@ -244,3 +251,204 @@ class TestChunkFailureRecovery:
             preset="adaptive",
             intensity=1.0,
         )
+
+
+# ============================================================================
+# #4790: the terminal audio_stream_end after the #3190 continue-and-keep-going
+# recovery path must not claim reason="completed" over a stream with gaps.
+# ============================================================================
+
+class TestChunkFailureDoesNotReportCompleted:
+    """The chunk-failure `except Exception: ... continue` path (#3190) lets the
+    loop reach its natural end having skipped one or more chunks. #4659 only
+    guarded the break-driven early exits (stopped_early) — this covers the
+    continue-driven one, which #4659 did not reach.
+    """
+
+    async def _run_stream(self, fail_at: int):
+        sent: list[dict] = []
+        ws = _make_websocket(sent)
+        processor = _make_processor(fail_at=fail_at)
+
+        controller = AudioStreamController(
+            chunked_processor_class=MagicMock(return_value=processor),
+        )
+        controller._send_stream_start = AsyncMock(return_value=True)
+        controller.chunked_processor_class = MagicMock(return_value=processor)
+
+        mock_track = MagicMock()
+        mock_track.filepath = "/tmp/fake.wav"
+        factory = MagicMock()
+        factory.tracks.get_by_id.return_value = mock_track
+        factory.fingerprints.exists.return_value = False
+        controller._get_repository_factory = MagicMock(return_value=factory)
+
+        with patch("core.stream_enhanced.Path.exists", return_value=True), \
+             patch.object(controller, "_check_or_queue_fingerprint",
+                          new=AsyncMock(return_value=False)):
+            await controller.stream_enhanced_audio(
+                track_id=TRACK_ID,
+                preset=PRESET,
+                intensity=INTENSITY,
+                websocket=ws,
+            )
+        return sent
+
+    @pytest.mark.asyncio
+    async def test_some_chunks_failing_reports_errored_not_completed(self):
+        """Chunks 3-9 fail (7 of 10); the loop still runs to its natural end
+        (no break), so this is the continue-only path, not stopped_early."""
+        sent = await self._run_stream(fail_at=FAIL_AT_CHUNK)
+
+        end_msgs = [m for m in sent if m.get("type") == "audio_stream_end"]
+        assert end_msgs, "Expected an audio_stream_end message"
+        end_data = end_msgs[0]["data"]
+
+        assert end_data["reason"] != "completed", (
+            "a stream with skipped chunks must not report reason='completed' (#4790)"
+        )
+        assert end_data["reason"] == "errored"
+
+        # Only chunks 0, 1, 2 succeeded.
+        expected_samples = FAIL_AT_CHUNK * SAMPLE_RATE * int(CHUNK_DURATION)
+        assert end_data["total_samples"] == expected_samples, (
+            "total_samples must reflect only the delivered chunks, not the "
+            "full track (#4790)"
+        )
+        assert end_data["total_samples"] < int(
+            (TOTAL_CHUNKS * CHUNK_DURATION) * SAMPLE_RATE
+        ), "must be less than the full track's sample count"
+
+    @pytest.mark.asyncio
+    async def test_every_chunk_failing_delivers_zero_samples(self):
+        """If every chunk fails, the client must not see a completed-shaped
+        end with the full track duration despite receiving no audio at all —
+        the worst case named in the issue's acceptance criteria."""
+        sent = await self._run_stream(fail_at=0)
+
+        end_msgs = [m for m in sent if m.get("type") == "audio_stream_end"]
+        assert end_msgs, "Expected an audio_stream_end message"
+        end_data = end_msgs[0]["data"]
+
+        assert end_data["reason"] != "completed"
+        assert end_data["reason"] == "errored"
+        assert end_data["total_samples"] == 0
+        assert end_data["duration"] == 0
+
+    @pytest.mark.asyncio
+    async def test_no_chunk_failures_still_reports_completed(self):
+        """Regression guard: a fully successful stream must be unaffected —
+        still reports reason='completed' with the full track."""
+        sent = await self._run_stream(fail_at=TOTAL_CHUNKS)  # never fails
+
+        end_msgs = [m for m in sent if m.get("type") == "audio_stream_end"]
+        assert end_msgs, "Expected an audio_stream_end message"
+        end_data = end_msgs[0]["data"]
+
+        assert end_data["reason"] == "completed"
+        assert end_data["total_samples"] == int(
+            (TOTAL_CHUNKS * CHUNK_DURATION) * SAMPLE_RATE
+        )
+
+
+class TestSeekChunkFailureDoesNotReportCompleted:
+    """SIBLING of TestChunkFailureDoesNotReportCompleted for the seek entry
+    point (stream_enhanced_audio_from_position) — identical continue-path
+    shape, same #4790 bug."""
+
+    @pytest.mark.asyncio
+    async def test_some_chunks_failing_reports_errored_not_completed(self):
+        sent: list[dict] = []
+        ws = _make_websocket(sent)
+        processor = _make_processor(fail_at=FAIL_AT_CHUNK)
+
+        controller = AudioStreamController(
+            chunked_processor_class=MagicMock(return_value=processor),
+        )
+        controller._send_stream_start = AsyncMock(return_value=True)
+        controller.chunked_processor_class = MagicMock(return_value=processor)
+
+        mock_track = MagicMock()
+        mock_track.filepath = "/tmp/fake.wav"
+        factory = MagicMock()
+        factory.tracks.get_by_id.return_value = mock_track
+        factory.fingerprints.exists.return_value = False
+        controller._get_repository_factory = MagicMock(return_value=factory)
+
+        with patch("core.stream_seek.Path.exists", return_value=True):
+            await controller.stream_enhanced_audio_from_position(
+                track_id=TRACK_ID,
+                preset=PRESET,
+                intensity=INTENSITY,
+                websocket=ws,
+                start_position=0.0,
+            )
+
+        end_msgs = [m for m in sent if m.get("type") == "audio_stream_end"]
+        assert end_msgs, "Expected an audio_stream_end message"
+        end_data = end_msgs[0]["data"]
+
+        assert end_data["reason"] != "completed"
+        assert end_data["reason"] == "errored"
+        expected_samples = FAIL_AT_CHUNK * SAMPLE_RATE * int(CHUNK_DURATION)
+        assert end_data["total_samples"] == expected_samples
+
+
+class TestNormalChunkFailureDoesNotReportCompleted:
+    """SIBLING of TestChunkFailureDoesNotReportCompleted for the normal
+    (unprocessed) entry point (stream_normal_audio) — identical continue-path
+    shape, same #4790 bug. Reads chunks straight off disk rather than via a
+    ChunkedAudioProcessor, so chunk-read failures are injected by patching
+    core.stream_normal.sf.SoundFile to fail from the second open onward
+    (chunk 0 succeeds, every chunk after it fails)."""
+
+    @pytest.mark.asyncio
+    async def test_chunks_after_the_first_failing_reports_errored_not_completed(
+        self, tmp_path
+    ):
+        wav_path = tmp_path / "track.wav"
+        sample_rate = 10
+        # 3 chunks' worth of frames at CHUNK_INTERVAL=10s / sample_rate=10Hz.
+        sf.write(wav_path, np.zeros((300, 2), dtype=np.float32), samplerate=sample_rate)
+
+        sent: list[dict] = []
+        ws = _make_websocket(sent)
+
+        controller = AudioStreamController()
+        track = MagicMock(filepath=str(wav_path))
+        factory = MagicMock()
+        factory.tracks.get_by_id.return_value = track
+        controller._get_repository_factory = MagicMock(return_value=factory)
+        controller._send_stream_start = AsyncMock(return_value=True)
+
+        real_soundfile_cls = sf.SoundFile
+        open_count = {"n": 0}
+
+        class _FlakySoundFile:
+            """Real SoundFile for the first two opens (the metadata probe at
+            stream_normal.py:163 and chunk 0's read); raises after."""
+            def __init__(self, filepath, *args, **kwargs):
+                open_count["n"] += 1
+                if open_count["n"] > 2:
+                    raise RuntimeError("simulated read failure")
+                self._real = real_soundfile_cls(filepath, *args, **kwargs)
+
+            def __enter__(self):
+                return self._real.__enter__()
+
+            def __exit__(self, *exc_info):
+                return self._real.__exit__(*exc_info)
+
+        with patch("core.stream_normal.sf.SoundFile", _FlakySoundFile):
+            await controller.stream_normal_audio(track_id=TRACK_ID, websocket=ws)
+
+        end_msgs = [m for m in sent if m.get("type") == "audio_stream_end"]
+        assert end_msgs, "Expected an audio_stream_end message"
+        end_data = end_msgs[0]["data"]
+
+        assert end_data["reason"] != "completed"
+        assert end_data["reason"] == "errored"
+        # Only chunk 0 was delivered — a full CHUNK_DURATION read (150 frames
+        # at 10Hz), not the full 300-frame file.
+        assert end_data["total_samples"] == 150
+        assert 0 < end_data["total_samples"] < 300
