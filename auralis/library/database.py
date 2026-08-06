@@ -151,8 +151,10 @@ class LibraryDatabase:
             # Set synchronous to NORMAL (safer than OFF, faster than FULL)
             # Ensures fingerprints are durably written to WAL before returning
             cursor.execute("PRAGMA synchronous=NORMAL")
-            # 64MB page cache per connection (reasonable for up to 10 connections)
-            cursor.execute("PRAGMA cache_size=-65536")  # 64MB cache per connection
+            # SQLite applies cache_size PER CONNECTION, not as an aggregate. With
+            # pool_size=5 + max_overflow=5 (up to 10 connections), 8MB/connection
+            # caps the worst-case aggregate at 80MB instead of 640MB. (#4779)
+            cursor.execute("PRAGMA cache_size=-8192")  # 8MB cache per connection
             # Optimize for frequent writes
             cursor.execute("PRAGMA temp_store=MEMORY")
             # Foreign key enforcement for data integrity

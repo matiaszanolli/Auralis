@@ -86,6 +86,52 @@ class TestPoolConfiguration:
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
+    def test_cache_size_aggregate_within_bounds(self):
+        """PRAGMA cache_size is per-connection, not aggregate (#4779).
+
+        pool_size + max_overflow connections can all be alive at once, each
+        holding its own page cache, so the worst-case aggregate is
+        per-connection cache * (pool_size + max_overflow). That aggregate must
+        stay within a reasonable ceiling for a desktop app.
+        """
+        from auralis.library.manager import LibraryManager
+
+        temp_dir = tempfile.mkdtemp(prefix="auralis_cache_size_check_")
+        db_path = os.path.join(temp_dir, "check.db")
+        AGGREGATE_CEILING_MB = 100
+
+        try:
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                manager = LibraryManager(database_path=db_path)
+
+            pool = manager.engine.pool
+            max_connections = pool.size() + pool._max_overflow
+
+            with manager.engine.connect() as conn:
+                cache_size_pages_or_kb = conn.exec_driver_sql(
+                    "PRAGMA cache_size"
+                ).scalar()
+
+            # Negative value = size in KiB; positive = number of pages.
+            assert cache_size_pages_or_kb < 0, (
+                "cache_size should be configured in KiB (negative value) "
+                "for a size-based, not page-count-based, ceiling"
+            )
+            per_connection_mb = abs(cache_size_pages_or_kb) / 1024
+            aggregate_mb = per_connection_mb * max_connections
+
+            assert aggregate_mb <= AGGREGATE_CEILING_MB, (
+                f"Worst-case aggregate SQLite page cache is {aggregate_mb:.0f}MB "
+                f"({per_connection_mb:.0f}MB/conn x {max_connections} conns), "
+                f"exceeding the {AGGREGATE_CEILING_MB}MB ceiling for a desktop app"
+            )
+
+            manager.shutdown()
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
 
 class TestConcurrentWrites:
     """Verify no write timeout under normal load with reduced pool"""
