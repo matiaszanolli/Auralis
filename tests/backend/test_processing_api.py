@@ -379,6 +379,116 @@ class TestProcessingSettings:
         assert response.status_code == 200
 
 
+class TestOutputFormatBitDepthValidation:
+    """#4746: output_format/bit_depth were unvalidated free str/int fields
+    whose docstring advertised (format, bit_depth) combinations libsndfile
+    cannot actually write (verified against soundfile.available_subtypes:
+    FLAC has no 32-bit PCM subtype; MP3 has no PCM subtype at all). A bad
+    combination used to reach libsndfile and fail deep inside the save step
+    as a generic, misleading job failure instead of a 422 at submission."""
+
+    @pytest.mark.parametrize("output_format,bit_depth", [
+        ("wav", 16), ("wav", 24), ("wav", 32),
+        ("flac", 16), ("flac", 24),
+    ])
+    def test_valid_combinations_are_accepted(
+        self, client, mock_engine, tmp_path, output_format, bit_depth
+    ):
+        audio_file = tmp_path / "song.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
+        mock_engine.create_job.return_value = mock_engine.get_job.return_value
+
+        with patch("routers.processing_api.validate_file_path", return_value=audio_file):
+            response = client.post(
+                "/api/processing/process",
+                json={
+                    "input_path": str(audio_file),
+                    "settings": {"output_format": output_format, "bit_depth": bit_depth},
+                },
+            )
+
+        assert response.status_code == 200, response.json()
+
+    def test_unrecognized_output_format_rejected_with_422(self, client, mock_engine, tmp_path):
+        audio_file = tmp_path / "song.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
+
+        response = client.post(
+            "/api/processing/process",
+            json={"input_path": str(audio_file), "settings": {"output_format": "ogg"}},
+        )
+
+        assert response.status_code == 422
+        mock_engine.create_job.assert_not_called()
+
+    def test_unrecognized_bit_depth_rejected_with_422(self, client, mock_engine, tmp_path):
+        audio_file = tmp_path / "song.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
+
+        response = client.post(
+            "/api/processing/process",
+            json={"input_path": str(audio_file), "settings": {"bit_depth": 8}},
+        )
+
+        assert response.status_code == 422
+        mock_engine.create_job.assert_not_called()
+
+    def test_flac_32bit_combo_rejected_with_specific_message(self, client, mock_engine, tmp_path):
+        """FLAC's maximum PCM subtype is 24-bit — 32 is a real Literal value
+        (valid for wav) but an invalid combination with flac."""
+        audio_file = tmp_path / "song.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
+
+        response = client.post(
+            "/api/processing/process",
+            json={
+                "input_path": str(audio_file),
+                "settings": {"output_format": "flac", "bit_depth": 32},
+            },
+        )
+
+        assert response.status_code == 422
+        mock_engine.create_job.assert_not_called()
+        detail = json.dumps(response.json())
+        assert "flac" in detail.lower() and "32" in detail
+
+    def test_mp3_rejected_regardless_of_bit_depth(self, client, mock_engine, tmp_path):
+        """MP3 has no PCM subtype at all, so every (mp3, bit_depth)
+        combination is currently unsupported by the save pipeline."""
+        audio_file = tmp_path / "song.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
+
+        response = client.post(
+            "/api/processing/process",
+            json={"input_path": str(audio_file), "settings": {"output_format": "mp3"}},
+        )
+
+        assert response.status_code == 422
+        mock_engine.create_job.assert_not_called()
+        detail = json.dumps(response.json())
+        assert "mp3" in detail.lower()
+
+    def test_upload_and_process_surfaces_invalid_combo_as_400(self, client, mock_engine):
+        """upload-and-process parses settings manually (not via FastAPI's
+        automatic body validation), so a ValidationError from the same
+        model_validator surfaces as 400 there instead of 422 — pre-existing
+        behavior for this route (see the ValidationError catch a few lines
+        above), unaffected by this fix beyond now actually catching the bad
+        combination in the first place."""
+        audio_data = b"RIFF" + b"\x00" * 40
+        files = {"file": ("test.wav", io.BytesIO(audio_data), "audio/wav")}
+        data = {"settings": json.dumps({"output_format": "mp3"})}
+
+        response = client.post(
+            "/api/processing/upload-and-process",
+            files=files,
+            data=data,
+        )
+
+        assert response.status_code == 400
+        assert "mp3" in response.json()["detail"].lower()
+
+
 class TestErrorHandling:
     """Test error handling"""
 

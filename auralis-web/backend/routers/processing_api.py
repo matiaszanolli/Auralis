@@ -21,7 +21,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from core.processing_engine import ProcessingEngine, ProcessingStatus
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, model_validator
 from security.path_security import PathValidationError, validate_file_path
 
 from .errors import NotFoundError
@@ -63,8 +63,14 @@ class ProcessingSettings(BaseModel):
     # set_processing_mode() entirely and ran adaptive under whatever mode the
     # config defaulted to. Now a 422 at the route boundary.
     mode: Literal["adaptive", "reference", "hybrid"] = "adaptive"
-    output_format: str = "wav"  # "wav", "flac", "mp3"
-    bit_depth: int = 16  # 16, 24, 32
+    # Literal, not a bare str (#4746): output_format is interpolated straight
+    # into the output filename extension, and bit_depth is mapped through a
+    # subtype table (core/processing_engine.py) with a silent PCM_16
+    # fallback for anything unrecognised — a bad value used to reach
+    # libsndfile and fail deep inside the save step as a generic job
+    # failure, not a 422 at submit time.
+    output_format: Literal["wav", "flac", "mp3"] = "wav"
+    bit_depth: Literal[16, 24, 32] = 16
     sample_rate: int | None = None  # None = keep original
 
     # EQ settings
@@ -78,6 +84,34 @@ class ProcessingSettings(BaseModel):
 
     # Genre override
     genre_override: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_format_bit_depth_combo(self) -> "ProcessingSettings":
+        """Reject (output_format, bit_depth) pairs libsndfile cannot
+        actually write, rather than letting them fail deep inside the save
+        step (core/processing_engine.py's subtype_map) as a generic,
+        misleading job failure (#4746).
+
+        Verified against the installed libsndfile (soundfile.available_subtypes):
+        - WAV:  PCM_16 / PCM_24 / PCM_32 all valid.
+        - FLAC: PCM_16 / PCM_24 valid; FLAC has no 32-bit PCM subtype.
+        - MP3:  only MPEG_LAYER_I/II/III subtypes exist — none of the PCM_*
+          subtypes bit_depth maps to are valid for MP3, so no (mp3, bit_depth)
+          combination can currently succeed via this pipeline.
+        """
+        if self.output_format == "mp3":
+            raise ValueError(
+                "output_format='mp3' is not currently supported — MP3 is a "
+                "lossy format with no PCM bit depth, and the save pipeline "
+                "only writes PCM subtypes. Use 'wav' or 'flac'."
+            )
+        if self.output_format == "flac" and self.bit_depth == 32:
+            raise ValueError(
+                "output_format='flac' does not support bit_depth=32 "
+                "(FLAC's maximum is 24-bit PCM). Use bit_depth=16 or 24, "
+                "or output_format='wav' for 32-bit."
+            )
+        return self
 
 
 class ProcessRequest(BaseModel):
