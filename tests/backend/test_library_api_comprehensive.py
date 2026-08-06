@@ -48,6 +48,30 @@ def mock_repos():
     return repos
 
 
+@pytest.fixture
+def client(client):
+    """Override the shared ``client`` fixture (conftest.py) so every
+    state-changing request in this module carries a trusted Origin header.
+
+    Every POST/PUT/DELETE/PATCH under /api is state-changing, so
+    OriginCheckMiddleware (#4893) 403s them unless Origin is either
+    absent-from-loopback or in the trusted allowlist. Starlette's TestClient
+    sends neither, so without this override every such call in this file
+    observes the middleware's 403 instead of the endpoint behavior under
+    test (matches the #4788 pattern in test_metadata_api.py).
+    """
+    for method in ("put", "post", "delete", "patch"):
+        original = getattr(client, method)
+
+        def _with_origin(url, *, _original=original, **kwargs):
+            headers = dict(kwargs.pop("headers", {}) or {})
+            headers.setdefault("origin", "http://localhost:8765")
+            return _original(url, headers=headers, **kwargs)
+
+        setattr(client, method, _with_origin)
+    return client
+
+
 class TestLibraryStats:
     """Test GET /api/library/stats"""
 
@@ -145,14 +169,12 @@ class TestMarkFavorite:
     """Test POST /api/library/tracks/{track_id}/favorite"""
 
     def test_mark_favorite_track_not_found(self, client):
-        """Test marking non-existent track as favorite.
-
-        Note: endpoint calls set_favorite() directly without checking track
-        existence, so a no-op 200 is valid for non-existent tracks.
-        """
+        """Marking a non-existent track as favorite 404s (#4763): set_favorite
+        returns False when no row matches track_id, and the route raises
+        NotFoundError on that instead of silently reporting success."""
         response = client.post("/api/library/tracks/999/favorite")
 
-        assert response.status_code in [200, 404]
+        assert response.status_code == 404
 
     def test_mark_favorite_accepts_post_only(self, client):
         """Test that mark favorite only accepts POST"""
@@ -163,21 +185,18 @@ class TestMarkFavorite:
         """Test marking favorite with negative track ID"""
         response = client.post("/api/library/tracks/-1/favorite")
 
-        assert response.status_code in [200, 404, 422]
+        assert response.status_code == 404
 
 
 class TestRemoveFavorite:
     """Test DELETE /api/library/tracks/{track_id}/favorite"""
 
     def test_remove_favorite_track_not_found(self, client):
-        """Test removing favorite for non-existent track.
-
-        Note: endpoint calls set_favorite() directly without checking track
-        existence, so a no-op 200 is valid for non-existent tracks.
-        """
+        """Removing a non-existent track from favorites 404s (#4763), same
+        as the POST route above."""
         response = client.delete("/api/library/tracks/999/favorite")
 
-        assert response.status_code in [200, 404]
+        assert response.status_code == 404
 
     def test_remove_favorite_accepts_delete_only(self, client):
         """Test that remove favorite only accepts DELETE"""
@@ -185,15 +204,13 @@ class TestRemoveFavorite:
         assert response.status_code in [404, 405]
 
     def test_remove_favorite_idempotent(self, client):
-        """Test that removing favorite multiple times is idempotent"""
-        # First remove
+        """Removing a favorite twice: the track doesn't exist in this test's
+        DB, so both calls 404 rather than the first succeeding (#4763)."""
         response1 = client.delete("/api/library/tracks/1/favorite")
-
-        # Second remove (should also succeed or return 404)
         response2 = client.delete("/api/library/tracks/1/favorite")
 
-        assert response1.status_code in [200, 404]
-        assert response2.status_code in [200, 404]
+        assert response1.status_code == 404
+        assert response2.status_code == 404
 
 
 class TestGetLyrics:
@@ -501,8 +518,9 @@ class TestLibrarySecurityValidation:
         response = client.post("/api/library/tracks/invalid/favorite")
         assert response.status_code == 422
 
-        # Extremely large ID (endpoint doesn't validate track existence, so
-        # set_track_favorite() silently no-ops when the track isn't found —
-        # #4788)
+        # Extremely large ID — no track can match, so this 404s (#4763:
+        # set_track_favorite() used to silently no-op and report 200 for a
+        # nonexistent track; set_favorite() now returns False when no row
+        # matched and the route raises NotFoundError on that).
         response = client.post("/api/library/tracks/999999999999/favorite")
-        assert response.status_code == 200
+        assert response.status_code == 404

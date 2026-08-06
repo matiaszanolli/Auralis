@@ -666,18 +666,31 @@ class TrackRepository(BaseRepository):
         finally:
             session.close()
 
-    def set_favorite(self, track_id: int, favorite: bool = True) -> None:
-        """Set track favorite status"""
+    def set_favorite(self, track_id: int, favorite: bool = True) -> bool:
+        """Set track favorite status
+
+        Returns:
+            True if the track was found and updated, False if no track
+            matched track_id.
+
+        Raises:
+            Exception: If the commit fails (#4763 — callers must be able to
+                distinguish "not found" from "write failed" instead of both
+                looking like silent success).
+        """
         session = self.get_session()
         try:
             track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
-            if track:
-                track.favorite = favorite
-                session.commit()
-                debug(f"Set favorite={favorite} for track: {track.title}")
+            if not track:
+                return False
+            track.favorite = favorite
+            session.commit()
+            debug(f"Set favorite={favorite} for track: {track.title}")
+            return True
         except Exception as e:
             session.rollback()
             error(f"Failed to set favorite: {e}")
+            raise
         finally:
             session.close()
 

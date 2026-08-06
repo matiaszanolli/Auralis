@@ -111,7 +111,9 @@ def create_tracks_router(
         """Mark track as favorite."""
         try:
             repos = require_repository_factory(get_repository_factory)
-            await asyncio.to_thread(repos.tracks.set_favorite, track_id, True)
+            found = await asyncio.to_thread(repos.tracks.set_favorite, track_id, True)
+            if not found:
+                raise NotFoundError("Track", track_id)
             logger.info(f"Track {track_id} marked as favorite")
             return {"message": "Track marked as favorite", "track_id": track_id, "favorite": True}
         except HTTPException:
@@ -124,7 +126,9 @@ def create_tracks_router(
         """Remove track from favorites."""
         try:
             repos = require_repository_factory(get_repository_factory)
-            await asyncio.to_thread(repos.tracks.set_favorite, track_id, False)
+            found = await asyncio.to_thread(repos.tracks.set_favorite, track_id, False)
+            if not found:
+                raise NotFoundError("Track", track_id)
             logger.info(f"Track {track_id} removed from favorites")
             return {"message": "Track removed from favorites", "track_id": track_id, "favorite": False}
         except HTTPException:
