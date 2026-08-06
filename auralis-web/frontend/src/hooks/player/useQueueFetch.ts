@@ -47,8 +47,16 @@ export function useQueueFetch(): void {
           dispatch(reduxSetCurrentIndex(
             (response.current_index as number) ?? (response.currentIndex as number) ?? 0
           ));
+          // Backend (QueueManager.get_queue_info) only ever emits
+          // shuffle_enabled — is_shuffled/isShuffled are phantom keys the
+          // backend never sends, so reading them always resolved to the
+          // `?? false` fallback regardless of actual server state (#4787).
+          // Kept as a fallback in case a legacy payload shape is ever seen.
           dispatch(reduxSetIsShuffled(
-            (response.is_shuffled as boolean) ?? (response.isShuffled as boolean) ?? false
+            (response.shuffle_enabled as boolean)
+            ?? (response.is_shuffled as boolean)
+            ?? (response.isShuffled as boolean)
+            ?? false
           ));
           const initialRepeatMode = isRepeatMode(response.repeat_mode)
             ? response.repeat_mode

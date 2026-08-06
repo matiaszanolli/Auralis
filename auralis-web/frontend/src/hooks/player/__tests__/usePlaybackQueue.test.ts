@@ -60,7 +60,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: [],
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -101,7 +101,7 @@ describe('usePlaybackQueue', () => {
     const mockGet = vi.fn().mockResolvedValue({
       tracks: mockTracks,
       currentIndex: 1,
-      isShuffled: false,
+      shuffle_enabled: false,
       repeatMode: 'all',
       lastUpdated: Date.now(),
     });
@@ -160,7 +160,7 @@ describe('usePlaybackQueue', () => {
       resolveGet({
         tracks: mockTracks,
         currentIndex: 1,
-        isShuffled: true,
+        shuffle_enabled: true,
         repeatMode: 'all',
         lastUpdated: Date.now(),
       });
@@ -177,7 +177,7 @@ describe('usePlaybackQueue', () => {
     const mockGet = vi.fn().mockResolvedValue({
       tracks: mockTracks,
       currentIndex: 1,
-      isShuffled: false,
+      shuffle_enabled: false,
       repeatMode: 'off',
       lastUpdated: Date.now(),
     });
@@ -211,7 +211,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: [],
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -243,7 +243,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: [],
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -276,7 +276,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: [],
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -314,7 +314,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks.slice(0, 2),
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -350,7 +350,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -399,7 +399,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -436,7 +436,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -475,7 +475,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -514,7 +514,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -554,7 +554,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
         currentIndex: 0,
-        isShuffled: true,
+        shuffle_enabled: true,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -598,7 +598,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -635,7 +635,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -689,7 +689,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -728,7 +728,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: [],
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       }),
@@ -769,7 +769,7 @@ describe('usePlaybackQueue', () => {
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
         currentIndex: 1,
-        isShuffled: true,
+        shuffle_enabled: true,
         repeatMode: 'all',
         lastUpdated: Date.now(),
       }),
@@ -803,7 +803,7 @@ describe('usePlaybackQueue', () => {
       const mockGet = vi.fn().mockResolvedValue({
         tracks: [],
         currentIndex: 0,
-        isShuffled: false,
+        shuffle_enabled: false,
         repeatMode: 'off',
         lastUpdated: Date.now(),
       });
@@ -854,7 +854,7 @@ describe('usePlaybackQueue', () => {
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
           currentIndex: 0,
-          isShuffled: false,
+          shuffle_enabled: false,
           repeatMode: 'off',
           lastUpdated: Date.now(),
         }),
@@ -899,7 +899,7 @@ describe('usePlaybackQueue', () => {
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
           currentIndex: 0,
-          isShuffled: false,
+          shuffle_enabled: false,
           repeatMode: 'off',
           lastUpdated: Date.now(),
         }),
@@ -944,7 +944,7 @@ describe('usePlaybackQueue', () => {
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
           currentIndex: 0,
-          isShuffled: false,
+          shuffle_enabled: false,
           repeatMode: 'off',
           lastUpdated: Date.now(),
         }),
@@ -995,7 +995,7 @@ describe('usePlaybackQueue', () => {
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
           currentIndex: 1,
-          isShuffled: true,
+          shuffle_enabled: true,
           repeatMode: 'all',
           lastUpdated: Date.now(),
         }),
@@ -1043,7 +1043,7 @@ describe('usePlaybackQueue', () => {
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
           currentIndex: 0,
-          isShuffled: false,
+          shuffle_enabled: false,
           repeatMode: 'off',
           lastUpdated: Date.now(),
         }),
@@ -1085,7 +1085,7 @@ describe('usePlaybackQueue', () => {
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
           currentIndex: 0,
-          isShuffled: false,
+          shuffle_enabled: false,
           repeatMode: 'off',
           lastUpdated: Date.now(),
         }),
@@ -1127,7 +1127,7 @@ describe('usePlaybackQueue', () => {
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
           currentIndex: 1,
-          isShuffled: true,
+          shuffle_enabled: true,
           repeatMode: 'all',
           lastUpdated: Date.now(),
         }),

@@ -126,6 +126,19 @@ describe('responseGuards (#4607)', () => {
     expect(isQueueResponseShape({ tracks: [], current_index: 'first' })).toBe(false);
   });
 
+  it('isQueueResponseShape accepts a boolean shuffle_enabled (#4787)', () => {
+    expect(isQueueResponseShape({ tracks: [], shuffle_enabled: true })).toBe(true);
+    expect(isQueueResponseShape({ tracks: [], shuffle_enabled: false })).toBe(true);
+  });
+
+  it('isQueueResponseShape rejects a wrong-typed shuffle_enabled (#4787)', () => {
+    expect(isQueueResponseShape({ tracks: [], shuffle_enabled: 'yes' })).toBe(false);
+  });
+
+  it('isQueueResponseShape accepts a missing shuffle_enabled (field is optional)', () => {
+    expect(isQueueResponseShape({ tracks: [] })).toBe(true);
+  });
+
   it('isTracksListShape accepts either the named key or the generic items key', () => {
     expect(isTracksListShape({ tracks: [{ id: 1 }] })).toBe(true);
     expect(isTracksListShape({ items: [{ id: 1 }] })).toBe(true);

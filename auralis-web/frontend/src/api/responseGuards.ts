@@ -88,6 +88,10 @@ export function isQueueResponseShape(v: unknown): boolean {
   if (!isItemArray(o.tracks)) return false;
   if (o.current_index !== undefined && typeof o.current_index !== 'number') return false;
   if (o.track_count !== undefined && typeof o.track_count !== 'number') return false;
+  // #4787: shuffle_enabled is the one true field name QueueManager emits — a
+  // wrong-typed value here is the same class of drift that let useQueueFetch
+  // silently read a phantom is_shuffled/isShuffled key for months.
+  if (o.shuffle_enabled !== undefined && typeof o.shuffle_enabled !== 'boolean') return false;
   return true;
 }
 
