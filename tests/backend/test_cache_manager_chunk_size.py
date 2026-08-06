@@ -55,24 +55,40 @@ class TestChunkSizeConstant:
 
 
 class TestTier2EvictionFiresAtCorrectedBudget:
-    """The Tier 2 size-based eviction check must trigger once the corrected
-    per-chunk estimate crosses TIER2_MAX_SIZE_MB — not 3.4x later, as it did
-    under the old undercounted constant."""
+    """The Tier 2 size-based eviction check must trigger once the REAL
+    on-disk chunk sizes cross TIER2_MAX_SIZE_MB.
+
+    #4793 superseded the "nominal per-chunk estimate" accounting this class
+    used to test (chunk COUNT × CHUNK_SIZE_MB) — that estimate itself was
+    still wrong: it assumed every chunk is CHUNK_DURATION (15s) long, true
+    only for chunk 0, over-accounting every regular CHUNK_INTERVAL (10s)
+    chunk by ~50%. CachedChunk now stat()s its real file size at insert time
+    (size_bytes) and tier size is the real sum of those — so these tests
+    write realistically-sized dummy files instead of 1-byte stubs, or a
+    monkeypatched budget small enough that tiny files still cross it.
+    """
+
+    @staticmethod
+    def _write_chunk(path: Path, num_bytes: int) -> None:
+        path.write_bytes(b"\x00" * num_bytes)
 
     @pytest.mark.asyncio
-    async def test_evicts_when_corrected_chunk_count_exceeds_budget(self, tmp_path):
+    async def test_evicts_when_real_chunk_sizes_exceed_budget(self, tmp_path, monkeypatch):
+        """A small monkeypatched budget crossed by real (tiny but nonzero)
+        on-disk file sizes must still trigger eviction — proving the check
+        is driven by actual bytes, not chunk count."""
+        import cache.manager as cache_manager_module
+        monkeypatch.setattr(cache_manager_module, "TIER2_MAX_SIZE_MB", 0.01)  # ~10 KB
+
         manager = StreamlinedCacheManager()
-        # The eviction check runs BEFORE each insert (evaluating the count
-        # already present), so the trigger only fires on the add AFTER the
-        # budget is first crossed. Add a comfortable margin past the exact
-        # boundary so the test isn't sensitive to that off-by-one.
-        chunks_added = int(TIER2_MAX_SIZE_MB / CHUNK_SIZE_MB) + 10
+        chunk_bytes = 4096  # 4 KB per chunk — real stat()'d size, not nominal
+        chunks_added = 20   # 20 × 4 KB = 80 KB, well past the 10 KB budget
 
         # Distinct chunk indices far from the "current chunk" window so
         # add_chunk's auto-detect logic always routes them to tier2.
         for i in range(chunks_added):
             chunk_path = tmp_path / f"chunk_{i}.wav"
-            chunk_path.write_bytes(b"\x00")
+            self._write_chunk(chunk_path, chunk_bytes)
             await manager.add_chunk(
                 track_id=1,
                 chunk_idx=i + 100,
@@ -82,15 +98,22 @@ class TestTier2EvictionFiresAtCorrectedBudget:
 
         # Eviction must have kept tier2 bounded — it must NOT have grown to
         # chunks_added entries unbounded (an eviction fired at some point
-        # once the corrected estimate crossed the budget).
+        # once real on-disk usage crossed the budget).
         assert len(manager.tier2_cache) < chunks_added
 
     @pytest.mark.asyncio
-    async def test_stats_report_size_consistent_with_corrected_constant(self, tmp_path):
+    async def test_stats_report_real_on_disk_size_not_nominal_estimate(self, tmp_path):
+        """get_stats()'s size_mb must reflect real file sizes. Using
+        CHUNK_SIZE_MB-sized files here would pass under either the old or
+        new accounting, so this deliberately writes a DIFFERENT, distinct
+        size to prove the nominal estimate isn't secretly still driving it."""
         manager = StreamlinedCacheManager()
-        for i in range(5):
+        chunk_bytes = 12345  # arbitrary, deliberately not CHUNK_SIZE_MB-derived
+        num_chunks = 5
+
+        for i in range(num_chunks):
             chunk_path = tmp_path / f"chunk_{i}.wav"
-            chunk_path.write_bytes(b"\x00")
+            self._write_chunk(chunk_path, chunk_bytes)
             await manager.add_chunk(
                 track_id=1,
                 chunk_idx=i + 100,
@@ -99,4 +122,44 @@ class TestTier2EvictionFiresAtCorrectedBudget:
             )
 
         stats = manager.get_stats()
-        assert stats["tier2"]["size_mb"] == pytest.approx(5 * CHUNK_SIZE_MB, rel=0.001)
+        expected_mb = (num_chunks * chunk_bytes) / (1024 * 1024)
+        assert stats["tier2"]["size_mb"] == pytest.approx(expected_mb, rel=0.001)
+        # Sanity: the nominal-estimate figure this used to report is a very
+        # different number from the tiny real file sizes used here.
+        assert stats["tier2"]["size_mb"] != pytest.approx(num_chunks * CHUNK_SIZE_MB, rel=0.1)
+
+
+class TestTier2EvictionEnforcesSingleTrackBudget:
+    """_evict_tier2_lru() must not no-op when the ONLY track with Tier 2
+    entries is the current (protected) track — the common single-track-
+    playing case (#4793). It used to protect current_track_id and return
+    early when no other track was evictable, while add_chunk kept inserting
+    regardless, so a single long track's Tier 2 map grew without bound."""
+
+    @pytest.mark.asyncio
+    async def test_single_current_track_is_evicted_from_not_grown_unbounded(self, tmp_path, monkeypatch):
+        import cache.manager as cache_manager_module
+        monkeypatch.setattr(cache_manager_module, "TIER2_MAX_SIZE_MB", 0.01)  # ~10 KB
+
+        manager = StreamlinedCacheManager()
+        manager.current_track_id = 1  # the bug scenario: playing == only cached track
+        chunk_bytes = 4096
+        chunks_added = 20
+
+        for i in range(chunks_added):
+            chunk_path = tmp_path / f"chunk_{i}.wav"
+            self._write_chunk(chunk_path, chunk_bytes)
+            await manager.add_chunk(
+                track_id=1,
+                chunk_idx=i + 100,
+                chunk_path=chunk_path,
+                tier="tier2",
+            )
+
+        # Before the fix this stayed at `chunks_added` forever — eviction
+        # no-op'd because the only track present was current_track_id.
+        assert len(manager.tier2_cache) < chunks_added
+
+    @staticmethod
+    def _write_chunk(path: Path, num_bytes: int) -> None:
+        path.write_bytes(b"\x00" * num_bytes)

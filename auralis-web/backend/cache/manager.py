@@ -55,6 +55,12 @@ TIER1_MAX_CHUNKS = 2   # Current + next
 TIER1_MAX_SIZE_MB = TIER1_MAX_CHUNKS * CHUNK_SIZE_MB * 2  # × 2 for original + processed (~10 MB)
 
 # Tier 2: Warm cache (full track)
+# NOTE (#4793 sibling, not fixed here): eviction is purely size-driven
+# (TIER2_MAX_SIZE_MB via _evict_tier2_lru) — this constant is exported but
+# never read, so the "keep last 2 tracks" count-based policy the class
+# docstring advertises isn't actually implemented. However many tracks fit
+# in the 240 MB budget stay cached; a 3rd track is not specifically evicted
+# just for being a 3rd track. Flagged as a separate follow-up.
 TIER2_MAX_TRACKS = 2   # Keep last 2 tracks fully cached
 TIER2_MAX_SIZE_MB = 240  # Max 240 MB total (~95 chunks at the corrected CHUNK_SIZE_MB)
 
@@ -70,6 +76,22 @@ class CachedChunk:
     timestamp: float = field(default_factory=time.time)
     access_count: int = 0
     last_access: float = field(default_factory=time.time)
+    # Real on-disk size, stat()'d once at insert time (#4793) rather than the
+    # old nominal CHUNK_SIZE_MB-per-chunk estimate, which assumed every chunk
+    # is CHUNK_DURATION (15s) long — true only for chunk 0; every regular
+    # chunk is CHUNK_INTERVAL (10s), so the estimate over-accounted actual
+    # disk usage by ~50%. stat()-ing once here (not on every accounting
+    # check) keeps size lookups O(1) after insertion.
+    size_bytes: int = 0
+
+    def __post_init__(self) -> None:
+        if self.size_bytes == 0:
+            try:
+                self.size_bytes = self.chunk_path.stat().st_size
+            except OSError:
+                # Path doesn't exist yet / was already cleaned up — best-effort,
+                # matches the rest of this cache's graceful-degradation style.
+                self.size_bytes = 0
 
     def key(self) -> str:
         """Generate unique cache key."""
@@ -132,11 +154,15 @@ class StreamlinedCacheManager:
     - Instant auto-mastering toggle
     - Always active
 
-    Tier 2 (Warm): Full track cache (240 MB budget across up to 2 tracks)
+    Tier 2 (Warm): Full track cache (240 MB budget, real on-disk chunk sizes)
     - Instant seeking anywhere in track
     - Instant previous track navigation
     - Built in background while playing
-    - LRU eviction (keep last 2 tracks)
+    - LRU eviction: whole non-current track preferred; falls back to
+      per-chunk LRU within the current track when it's the only one present
+      (#4793), so a single long track's budget is enforced too. Purely
+      size-driven (TIER2_MAX_SIZE_MB) — TIER2_MAX_TRACKS is not a separate
+      eviction trigger; see its definition above.
     """
 
     def __init__(self) -> None:
@@ -173,6 +199,17 @@ class StreamlinedCacheManager:
         self._lock: asyncio.Lock = asyncio.Lock()
 
         logger.info(f"StreamlinedCacheManager initialized ({TIER1_MAX_SIZE_MB:.1f} MB Tier 1)")
+
+    @staticmethod
+    def _tier_size_mb(cache: dict[str, CachedChunk]) -> float:
+        """Real accumulated size of a tier's cached chunks, in MB (#4793).
+
+        Sums each entry's stat()'d size_bytes rather than multiplying chunk
+        count by the nominal CHUNK_SIZE_MB estimate, which assumed every
+        chunk is CHUNK_DURATION long (true only for chunk 0) and over-counted
+        every regular CHUNK_INTERVAL-length chunk by ~50%.
+        """
+        return sum(chunk.size_bytes for chunk in cache.values()) / (1024 * 1024)
 
     def _get_current_chunk(self, position: float) -> int:
         """Calculate chunk index from playback position.
@@ -375,8 +412,8 @@ class StreamlinedCacheManager:
                 logger.debug(f"Added to Tier 1: {cache_key}")
 
             else:  # tier2
-                # Check Tier 2 size limit
-                tier2_size_mb = len(self.tier2_cache) * CHUNK_SIZE_MB
+                # Check Tier 2 size limit against real on-disk sizes (#4793)
+                tier2_size_mb = self._tier_size_mb(self.tier2_cache)
                 if tier2_size_mb >= TIER2_MAX_SIZE_MB:
                     await self._evict_tier2_lru()
 
@@ -411,16 +448,24 @@ class StreamlinedCacheManager:
         logger.debug(f"Evicted from Tier 1: {lru_key}")
 
     async def _evict_tier2_lru(self) -> None:
-        """Evict least recently used track from Tier 2."""
+        """Evict from Tier 2 to bring it back under TIER2_MAX_SIZE_MB.
+
+        Prefers evicting an entire non-current track — that's the "keep the
+        current + recent tracks warm" navigation promise. When the current
+        track is the ONLY track with Tier 2 entries (the common
+        single-track-playing case), there is no other track to evict:
+        add_chunk still inserted the new entry regardless, so the budget was
+        never actually enforced for a single long track (#4793). Falls back
+        to evicting the single least-recently-used chunk within the current
+        track instead of no-op'ing.
+        """
         if not self.tier2_cache:
             return
 
         # Find oldest track
         track_ids = {chunk.track_id for chunk in self.tier2_cache.values()}
-        if not track_ids:
-            return
 
-        # Keep current and previous track
+        # Keep current track
         protected_tracks = {self.current_track_id}
         track_ages = {
             tid: min(chunk.last_access for chunk in self.tier2_cache.values()
@@ -428,25 +473,42 @@ class StreamlinedCacheManager:
             for tid in track_ids if tid not in protected_tracks
         }
 
-        if not track_ages:
+        if track_ages:
+            # Evict oldest non-current track
+            oldest_track = min(track_ages.keys(), key=lambda k: track_ages[k])
+
+            keys_to_remove = [
+                k for k, chunk in self.tier2_cache.items()
+                if chunk.track_id == oldest_track
+            ]
+
+            for key in keys_to_remove:
+                del self.tier2_cache[key]
+
+            # Remove from track status
+            if oldest_track in self.track_status:
+                del self.track_status[oldest_track]
+
+            logger.info(f"Evicted track {oldest_track} from Tier 2 ({len(keys_to_remove)} chunks)")
             return
 
-        # Evict oldest track
-        oldest_track = min(track_ages.keys(), key=lambda k: track_ages[k])
+        # Only the current (protected) track has entries — fall back to
+        # per-chunk LRU within it so a single long track's budget is still
+        # enforced (#4793) instead of growing without bound.
+        lru_key = min(self.tier2_cache.keys(), key=lambda k: self.tier2_cache[k].last_access)
+        evicted = self.tier2_cache.pop(lru_key)
 
-        keys_to_remove = [
-            k for k, chunk in self.tier2_cache.items()
-            if chunk.track_id == oldest_track
-        ]
+        status = self.track_status.get(evicted.track_id)
+        if status is not None:
+            if evicted.is_original():
+                status.cached_chunks_original.discard(evicted.chunk_idx)
+            else:
+                status.cached_chunks_processed.discard(evicted.chunk_idx)
+            status.cache_complete = False
 
-        for key in keys_to_remove:
-            del self.tier2_cache[key]
-
-        # Remove from track status
-        if oldest_track in self.track_status:
-            del self.track_status[oldest_track]
-
-        logger.info(f"Evicted track {oldest_track} from Tier 2 ({len(keys_to_remove)} chunks)")
+        logger.debug(
+            f"Evicted chunk from Tier 2 (intra-track LRU, single-track budget): {lru_key}"
+        )
 
     async def _clear_tier1_cache(self) -> None:
         """Clear entire Tier 1 cache."""
@@ -478,8 +540,10 @@ class StreamlinedCacheManager:
 
     def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
-        tier1_size_mb = len(self.tier1_cache) * CHUNK_SIZE_MB
-        tier2_size_mb = len(self.tier2_cache) * CHUNK_SIZE_MB
+        # Real on-disk sizes (#4793), not the nominal per-chunk estimate —
+        # see _tier_size_mb.
+        tier1_size_mb = self._tier_size_mb(self.tier1_cache)
+        tier2_size_mb = self._tier_size_mb(self.tier2_cache)
 
         total_requests = (self.tier1_hits + self.tier1_misses +
                          self.tier2_hits + self.tier2_misses)
