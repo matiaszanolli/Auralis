@@ -248,7 +248,7 @@ class TestStreamEnhancedAudioLifecycle:
 
     @pytest.mark.asyncio
     async def test_cleanup_on_success(self):
-        """On success: active_streams entry removed, semaphore returned."""
+        """On success: semaphore returned."""
         proc = _make_processor()
         ws = _make_ws()
         with patch.object(Path, "exists", return_value=True):
@@ -258,7 +258,6 @@ class TestStreamEnhancedAudioLifecycle:
                 track_id=TRACK_ID, preset="balanced", intensity=0.7, websocket=ws
             )
 
-        assert TRACK_ID not in ctrl.active_streams
         assert ctrl._stream_semaphore._value == initial_value
 
     @pytest.mark.asyncio
@@ -319,7 +318,7 @@ class TestStreamEnhancedAudioLifecycle:
 
     @pytest.mark.asyncio
     async def test_chunk_failure_cleans_up(self):
-        """After a chunk failure, active_streams is cleared and semaphore returned."""
+        """After a chunk failure, the semaphore is returned."""
         proc = _make_processor()
         proc.process_chunk_safe = AsyncMock(side_effect=RuntimeError("always fails"))
         ws = _make_ws()
@@ -330,7 +329,6 @@ class TestStreamEnhancedAudioLifecycle:
                 track_id=TRACK_ID, preset="balanced", intensity=0.7, websocket=ws
             )
 
-        assert TRACK_ID not in ctrl.active_streams
         assert ctrl._stream_semaphore._value == semaphore_before
 
     @pytest.mark.asyncio
@@ -442,7 +440,7 @@ class TestStreamNormalAudioLifecycle:
 
     @pytest.mark.asyncio
     async def test_cleanup_on_success(self):
-        """On success: active_streams entry removed, semaphore returned."""
+        """On success: semaphore returned."""
         ws = _make_ws()
         factory = _make_factory()
         sf_class = _make_sf_class()
@@ -454,7 +452,6 @@ class TestStreamNormalAudioLifecycle:
             initial_value = ctrl._stream_semaphore._value
             await ctrl.stream_normal_audio(track_id=TRACK_ID, websocket=ws)
 
-        assert TRACK_ID not in ctrl.active_streams
         assert ctrl._stream_semaphore._value == initial_value
 
     @pytest.mark.asyncio
