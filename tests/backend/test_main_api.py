@@ -23,6 +23,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 # All tests automatically use the fixture from parent conftest.py
 
 
+def _with_trusted_origin(client, method, url, **kwargs):
+    """OriginCheckMiddleware (#4893) 403s state-changing /api requests from
+    Starlette's TestClient unless they carry a trusted Origin (matches the
+    #4788 pattern used elsewhere for PUT/POST/DELETE)."""
+    headers = dict(kwargs.pop("headers", {}) or {})
+    headers.setdefault("origin", "http://localhost:8765")
+    return getattr(client, method)(url, headers=headers, **kwargs)
+
+
 class TestHealthEndpoint:
     """Test health check endpoint"""
 
@@ -969,11 +978,11 @@ class TestFavoritesEndpoints:
         mock_track2.duration = 200
         mock_track2.format = "Unknown"
 
-        mock_library = Mock()
-        # Endpoint calls get_favorite_tracks() not tracks.get_favorites()
-        mock_library.get_favorite_tracks.return_value = [mock_track1, mock_track2]
+        mock_factory = Mock()
+        # Endpoint calls repos.tracks.get_favorites(), which returns (tracks, total)
+        mock_factory.tracks.get_favorites.return_value = ([mock_track1, mock_track2], 2)
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
             response = client.get("/api/library/tracks/favorites")
 
             assert response.status_code == 200
@@ -983,11 +992,11 @@ class TestFavoritesEndpoints:
 
     def test_add_favorite_success(self, client):
         """Test adding track to favorites"""
-        mock_library = Mock()
-        mock_library.tracks.set_favorite.return_value = None
+        mock_factory = Mock()
+        mock_factory.tracks.set_favorite.return_value = True
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
-            response = client.post("/api/library/tracks/1/favorite")
+        with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
+            response = _with_trusted_origin(client, "post", "/api/library/tracks/1/favorite")
 
             assert response.status_code == 200
             data = response.json()
@@ -996,27 +1005,38 @@ class TestFavoritesEndpoints:
             assert data["favorite"] is True
 
     def test_add_favorite_track_not_found(self, client):
-        """Test adding non-existent track to favorites.
+        """Adding a non-existent track to favorites 404s (#4763): set_favorite
+        returns False when no row matches track_id, and the route now checks
+        that instead of always reporting success."""
+        mock_factory = Mock()
+        mock_factory.tracks.set_favorite.return_value = False
 
-        Note: endpoint calls set_favorite() directly without checking track
-        existence, so a no-op 200 is valid for non-existent tracks.
-        """
-        response = client.post("/api/library/tracks/999/favorite")
-        assert response.status_code == 200
+        with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
+            response = _with_trusted_origin(client, "post", "/api/library/tracks/999/favorite")
+            assert response.status_code == 404
 
     def test_remove_favorite_success(self, client):
         """Test removing track from favorites"""
-        mock_library = Mock()
-        mock_library.tracks.set_favorite.return_value = None
+        mock_factory = Mock()
+        mock_factory.tracks.set_favorite.return_value = True
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
-            response = client.delete("/api/library/tracks/1/favorite")
+        with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
+            response = _with_trusted_origin(client, "delete", "/api/library/tracks/1/favorite")
 
             assert response.status_code == 200
             data = response.json()
             assert data["message"] == "Track removed from favorites"
             assert data["track_id"] == 1
             assert data["favorite"] is False
+
+    def test_remove_favorite_track_not_found(self, client):
+        """Removing a non-existent track from favorites 404s (#4763)."""
+        mock_factory = Mock()
+        mock_factory.tracks.set_favorite.return_value = False
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
+            response = _with_trusted_origin(client, "delete", "/api/library/tracks/999/favorite")
+            assert response.status_code == 404
 
 
 class TestSettingsEndpoints:
@@ -1057,11 +1077,76 @@ class TestSettingsEndpoints:
         mock_repo.update_settings.return_value = self._mock_settings()
 
         with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
-            response = client.put("/api/settings", json={"theme": "light"})
+            response = _with_trusted_origin(client, "put", "/api/settings", json={"theme": "light"})
 
         assert response.status_code == 200
         assert "Settings updated" in response.json()["message"]
         mock_repo.update_settings.assert_called_once_with({"theme": "light"})
+
+    def test_update_settings_scan_folders_rejects_invalid_path(self, client):
+        """PUT /api/settings 400s an invalid scan_folders entry instead of
+        writing it through unchecked, matching POST /api/settings/scan-folders'
+        validation (#4765)."""
+        mock_repo = Mock()
+
+        with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+            response = _with_trusted_origin(
+                client, "put", "/api/settings", json={"scan_folders": ["../../etc"]}
+            )
+
+        assert response.status_code == 400
+        mock_repo.update_settings.assert_not_called()
+
+    def test_update_settings_scan_folders_registers_allowed_directory(self, client, tmp_path):
+        """PUT /api/settings with a new valid scan_folders entry registers it
+        via register_allowed_directory immediately, same as the dedicated
+        POST /api/settings/scan-folders route (#4765)."""
+        from security.path_security import _extra_allowed_dirs
+
+        resolved = str(tmp_path.resolve())
+        mock_repo = Mock()
+        mock_repo.get_settings.return_value = Mock(scan_folders=None)
+        mock_repo.update_settings.return_value = self._mock_settings()
+
+        with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+            response = _with_trusted_origin(
+                client, "put", "/api/settings", json={"scan_folders": [str(tmp_path)]}
+            )
+
+        try:
+            assert response.status_code == 200
+            mock_repo.update_settings.assert_called_once_with({"scan_folders": [resolved]})
+            assert tmp_path.resolve() in _extra_allowed_dirs
+        finally:
+            if tmp_path.resolve() in _extra_allowed_dirs:
+                _extra_allowed_dirs.remove(tmp_path.resolve())
+
+    def test_update_settings_scan_folders_unregisters_removed_directory(self, client, tmp_path):
+        """PUT /api/settings that drops a previously-configured folder
+        unregisters it from the allowlist too (#4765)."""
+        import json as json_module
+        from security.path_security import _extra_allowed_dirs, register_allowed_directory
+
+        resolved = str(tmp_path.resolve())
+        register_allowed_directory(tmp_path)
+
+        mock_repo = Mock()
+        mock_repo.get_settings.return_value = Mock(scan_folders=json_module.dumps([resolved]))
+        mock_repo.update_settings.return_value = self._mock_settings()
+
+        try:
+            assert tmp_path.resolve() in _extra_allowed_dirs
+
+            with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
+                response = _with_trusted_origin(
+                    client, "put", "/api/settings", json={"scan_folders": []}
+                )
+
+            assert response.status_code == 200
+            assert tmp_path.resolve() not in _extra_allowed_dirs
+        finally:
+            if tmp_path.resolve() in _extra_allowed_dirs:
+                _extra_allowed_dirs.remove(tmp_path.resolve())
 
     def test_reset_settings_success(self, client):
         """POST /api/settings/reset returns defaults."""
@@ -1069,7 +1154,7 @@ class TestSettingsEndpoints:
         mock_repo.reset_to_defaults.return_value = self._mock_settings()
 
         with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
-            response = client.post("/api/settings/reset")
+            response = _with_trusted_origin(client, "post", "/api/settings/reset")
 
         assert response.status_code == 200
         assert "reset to defaults" in response.json()["message"]
@@ -1089,7 +1174,9 @@ class TestSettingsEndpoints:
         resolved = str(tmp_path.resolve())
 
         with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
-            response = client.post("/api/settings/scan-folders", json={"folder": str(tmp_path)})
+            response = _with_trusted_origin(
+                client, "post", "/api/settings/scan-folders", json={"folder": str(tmp_path)}
+            )
 
         try:
             assert response.status_code == 200
@@ -1107,7 +1194,9 @@ class TestSettingsEndpoints:
         mock_repo.remove_scan_folder.return_value = self._mock_settings()
 
         with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
-            response = client.post("/api/settings/scan-folders/delete", json={"folder": "/music"})
+            response = _with_trusted_origin(
+                client, "post", "/api/settings/scan-folders/delete", json={"folder": "/music"}
+            )
 
         assert response.status_code == 200
         assert "Scan folder removed" in response.json()["message"]
@@ -1127,7 +1216,9 @@ class TestSettingsEndpoints:
             assert removed_dir.resolve() in _extra_allowed_dirs
 
             with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
-                response = client.post(
+                response = _with_trusted_origin(
+                    client,
+                    "post",
                     "/api/settings/scan-folders/delete",
                     json={"folder": str(removed_dir)},
                 )
@@ -1152,7 +1243,7 @@ class TestSettingsEndpoints:
             assert stale_dir.resolve() in _extra_allowed_dirs
 
             with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
-                response = client.post("/api/settings/reset")
+                response = _with_trusted_origin(client, "post", "/api/settings/reset")
 
             assert response.status_code == 200
             assert _extra_allowed_dirs == []
