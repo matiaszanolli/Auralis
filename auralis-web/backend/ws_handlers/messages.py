@@ -26,7 +26,13 @@ from .context import WSDeps
 logger = logging.getLogger(__name__)
 
 
-async def handle_ping(websocket: WebSocket) -> None:
+async def handle_ping(websocket: WebSocket, heartbeat: HeartbeatManager, connection_id: str) -> None:
+    # A client-initiated ping proves liveness — use mark_alive (not
+    # mark_pong) since it is not a response to a server-issued ping and must
+    # not clear an outstanding pending_pongs slot (#3866 / BE-WS-5, same
+    # rationale as handle_heartbeat below). Sibling gap fixed alongside
+    # #4786: client pings previously did not count as liveness at all.
+    heartbeat.mark_alive(connection_id)
     await websocket.send_text(json.dumps({"type": "pong"}))
 
 

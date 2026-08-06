@@ -44,6 +44,12 @@ _stream_flow_events: dict[str, asyncio.Event] = {}
 # Global rate limiter for all WebSocket connections (fixes #2156)
 _rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
 
+# Protocol-critical control frames, exempt from rate limiting (#4786). They
+# are small, fixed-size, and a dropped one has an outsized effect: a
+# rate-limited pong never reaches heartbeat.mark_pong(), so the connection
+# gets force-closed by the next heartbeat tick as if it had gone stale.
+_RATE_LIMIT_EXEMPT_TYPES = frozenset({"ping", "pong", "heartbeat"})
+
 router = APIRouter(tags=["system"])
 
 # ============================================================================
@@ -335,17 +341,29 @@ def create_system_router(
                 # extracted per-message below (fixes #2312).
                 raw_data = await websocket.receive_text()
 
-                # Security: Check rate limit (fixes #2156)
-                allowed, error_msg = _rate_limiter.check_rate_limit(websocket)
-                if not allowed:
-                    logger.warning(f"Rate limit exceeded for WebSocket {_ws_id(websocket)}: {error_msg}")
-                    await send_error_response(websocket, "rate_limit_exceeded", error_msg)
-                    continue
-
-                # Security: Validate message size and structure (fixes #2156)
+                # Security: Validate message size and structure (fixes #2156).
+                # Parsed BEFORE rate-limiting (#4786) so the type is known:
+                # ping/pong/heartbeat are protocol-critical and exempt from
+                # the rate limit below. Rate-limiting on the raw text used to
+                # run first and applied uniformly to every message type,
+                # including replies to the server's own heartbeat ping — a
+                # burst of unrelated messages (e.g. buffer_full/buffer_ready
+                # during a seek-bar drag) could silently drop the client's
+                # pong, and since heartbeat.mark_pong() then never ran, the
+                # next heartbeat tick force-closed the connection as if it
+                # had gone stale.
                 message, error = await validate_and_parse_message(raw_data, websocket)
                 if error or not message:
                     continue
+
+                # Security: Check rate limit (fixes #2156), except for
+                # protocol-critical control frames (#4786).
+                if message.get("type") not in _RATE_LIMIT_EXEMPT_TYPES:
+                    allowed, error_msg = _rate_limiter.check_rate_limit(websocket)
+                    if not allowed:
+                        logger.warning(f"Rate limit exceeded for WebSocket {_ws_id(websocket)}: {error_msg}")
+                        await send_error_response(websocket, "rate_limit_exceeded", error_msg)
+                        continue
 
                 await ws_connection.dispatch_message(
                     websocket, message, state, deps, heartbeat, connection_id, subscribed_job_ids

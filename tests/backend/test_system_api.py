@@ -25,6 +25,8 @@ import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -221,11 +223,17 @@ class TestWebSocketMessageValidation:
             assert "size" in data.get("message", "").lower()
 
     def test_websocket_rate_limiting(self, client):
-        """Test WebSocket rate limiting (security)"""
+        """Test WebSocket rate limiting (security)
+
+        Uses "buffer_full" rather than "ping" (#4786: ping/pong/heartbeat are
+        protocol-critical control frames exempt from the rate limiter, so a
+        burst of pings would never trigger it — see
+        TestWebSocketRateLimitExemptsControlFrames below for that guarantee).
+        """
         with client.websocket_connect("/ws") as websocket:
             # Send messages rapidly to trigger rate limit
             for i in range(15):  # Limit is 10/sec
-                websocket.send_text(json.dumps({"type": "ping"}))
+                websocket.send_text(json.dumps({"type": "buffer_full"}))
 
             # Should receive rate limit error
             # Note: Some pongs may come through before rate limit kicks in
@@ -242,6 +250,111 @@ class TestWebSocketMessageValidation:
 
             # Rate limiting should have triggered
             assert response_received, "Rate limiting did not trigger"
+
+
+class TestWebSocketRateLimitExemptsControlFrames:
+    """#4786: ping/pong/heartbeat must never be dropped by the rate limiter,
+    regardless of how many other messages preceded them in the same window.
+    A dropped pong never reaches heartbeat.mark_pong(), so the connection
+    gets force-closed by the next heartbeat tick as if it had gone stale."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_rate_limiter(self):
+        """_rate_limiter is a module-level singleton shared by every
+        connection in the process (routers/system.py), and its per-IP
+        bucket deliberately survives across connections/reconnects (#3811).
+        Each burst test here intentionally exhausts the per-connection limit
+        (10/s), which also charges ~10 messages against the shared per-IP
+        bucket (30/s) — three such tests in quick succession would exhaust
+        that shared bucket and spuriously rate-limit whatever test happens
+        to run next. Reset before and after so this class neither inherits
+        pollution from other rate-limit tests nor leaves any behind."""
+        import routers.system as system_module
+
+        def _clear():
+            system_module._rate_limiter.message_log.clear()
+            system_module._rate_limiter.ip_message_log.clear()
+
+        _clear()
+        yield
+        _clear()
+
+    def test_ping_survives_a_rate_limit_exceeding_burst(self, client):
+        """A burst that exhausts the rate limit (proven by
+        test_websocket_rate_limiting above) must not also swallow a ping
+        sent immediately after — a real pong reply must still arrive.
+
+        The burst itself legitimately produces real rate_limit_exceeded
+        errors (for the non-exempt buffer_full messages) queued ahead of the
+        pong — those are drained, not asserted against; only the pong's
+        eventual arrival is the assertion.
+        """
+        with client.websocket_connect("/ws") as websocket:
+            # Exhaust the per-connection rate limit (10 msg/s) — same burst
+            # shape proven to trigger it in test_websocket_rate_limiting.
+            for _ in range(15):
+                websocket.send_text(json.dumps({"type": "buffer_full"}))
+
+            # ping is exempt: must still get a real pong, even though the
+            # limiter is exhausted from the burst above.
+            websocket.send_text(json.dumps({"type": "ping"}))
+
+            for _ in range(30):
+                data = json.loads(websocket.receive_text())
+                if data.get("type") == "pong":
+                    break
+            else:
+                raise AssertionError(
+                    "No pong received after the rate-limited burst — ping was "
+                    "likely dropped by the rate limiter (#4786)"
+                )
+
+    def test_pong_survives_a_rate_limit_exceeding_burst_and_keeps_connection_alive(
+        self, client
+    ):
+        """A pong sent inside a rate-limit-exceeding burst must still reach
+        the heartbeat handler — proven indirectly here by the connection
+        staying responsive to a ping sent right after (a dropped pong alone
+        produces no observable symptom until the next heartbeat tick, which
+        this test cannot wait 30s for — see the integration-level
+        assertion in TestWebSocketFlowControl for the direct handling
+        check)."""
+        with client.websocket_connect("/ws") as websocket:
+            for _ in range(15):
+                websocket.send_text(json.dumps({"type": "buffer_full"}))
+            websocket.send_text(json.dumps({"type": "pong"}))  # exempt, no reply
+            websocket.send_text(json.dumps({"type": "ping"}))
+
+            for _ in range(30):
+                data = json.loads(websocket.receive_text())
+                if data.get("type") == "pong":
+                    break
+            else:
+                raise AssertionError(
+                    "No pong received after the rate-limited burst — pong/ping "
+                    "were likely dropped by the rate limiter (#4786)"
+                )
+
+    @pytest.mark.asyncio
+    async def test_handle_ping_marks_heartbeat_alive(self):
+        """SIBLING gap fixed alongside #4786: handle_ping replied pong but
+        never recorded liveness, so a client-initiated ping did not count
+        towards the connection's is_alive() state (unlike handle_heartbeat,
+        which already called mark_alive)."""
+        from ws_handlers.messages import handle_ping
+        from websocket.websocket_protocol import HeartbeatManager
+
+        heartbeat = HeartbeatManager()
+        connection_id = "test-conn-1"
+        ws = AsyncMock()
+
+        assert connection_id not in heartbeat.last_heartbeat
+        await handle_ping(ws, heartbeat, connection_id)
+
+        assert connection_id in heartbeat.last_heartbeat
+        ws.send_text.assert_awaited_once()
+        sent = json.loads(ws.send_text.call_args[0][0])
+        assert sent["type"] == "pong"
 
 
 class TestWebSocketPlayback:

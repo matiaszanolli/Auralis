@@ -112,7 +112,7 @@ async def dispatch_message(
     msg_type = message.get("type")
 
     if msg_type == "ping":
-        await msg_handlers.handle_ping(websocket)
+        await msg_handlers.handle_ping(websocket, heartbeat, connection_id)
     elif msg_type == "pong":
         msg_handlers.handle_pong(heartbeat, connection_id)
     elif msg_type == "heartbeat":
