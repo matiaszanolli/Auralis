@@ -528,6 +528,46 @@ class ChunkedAudioProcessor:
 
         return processed_chunk
 
+    def _lookup_cached_chunk(self, chunk_index: int) -> Path | None:
+        """Check the in-memory cache, then the on-disk WAV cache, for chunk_index.
+
+        process_chunk() and get_wav_chunk_path() write the exact same on-disk
+        file (both resolve through WAVEncoder.get_chunk_path() with identical
+        arguments) but used to check disk-existence in only one of the two
+        callers — the disk tier was write-only from process_chunk()'s side, so
+        every replay re-ran the full DSP pipeline even though a byte-identical
+        WAV was already sitting on disk (#4792). A single collapsed cache key
+        (get_chunk_cache_key — get_wav_cache_key was removed as a duplicate of
+        the same on-disk artifact) means a hit recorded by either caller is
+        visible to both.
+
+        A disk hit is recorded into the in-memory cache before returning, so
+        the next lookup for this chunk takes the fast in-memory path.
+
+        Returns the cached Path, or None on a genuine miss (must be processed).
+        """
+        cache_key = ChunkCacheManager.get_chunk_cache_key(
+            self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
+        )
+        # self._cache_manager is typed Any (pre-existing), so annotate this
+        # local to keep the method's own Path | None contract mypy-checked.
+        cached_path: Path | None = self._cache_manager.get_cached_chunk_path(cache_key)
+        if cached_path is not None:
+            return cached_path
+
+        wav_chunk_path = self._get_wav_chunk_path(chunk_index)
+        # A bare exists() check would serve a WAV truncated by an interrupted
+        # write forever, since the cache key is stable across restarts (#4576).
+        if wav_chunk_path.exists():
+            if is_wav_complete(wav_chunk_path):
+                self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
+                return wav_chunk_path
+            logger.warning(
+                f"Discarding truncated WAV chunk {chunk_index} at "
+                f"{wav_chunk_path.name}; regenerating"
+            )
+        return None
+
     def process_chunk(
         self, chunk_index: int, fast_start: bool = False, locked: bool = False
     ) -> tuple[str, np.ndarray]:
@@ -558,11 +598,12 @@ class ChunkedAudioProcessor:
         # never bypass the authoritative processor bound (#4733).
         self._validate_chunk_index(chunk_index)
 
-        # Check cache first (Phase 5.1: Using ChunkCacheManager)
-        cache_key = ChunkCacheManager.get_chunk_cache_key(
-            self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
-        )
-        cached_path = self._cache_manager.get_cached_chunk_path(cache_key)
+        # Check cache first — in-memory, then on-disk WAV (#4792: this used to
+        # check only the in-memory dict, so a fresh in-memory cache (every new
+        # stream) always re-ran the full DSP pipeline even when a byte-identical
+        # WAV from a previous stream of this track/preset/intensity was already
+        # on disk).
+        cached_path = self._lookup_cached_chunk(chunk_index)
 
         if cached_path is not None:
             assert self.total_chunks is not None
@@ -617,6 +658,9 @@ class ChunkedAudioProcessor:
         )
 
         # Cache the path (Phase 5.1: Using ChunkCacheManager)
+        cache_key = ChunkCacheManager.get_chunk_cache_key(
+            self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
+        )
         self._cache_manager.cache_chunk_path(cache_key, chunk_path)
 
         logger.info(f"Chunk {chunk_index} processed and saved to {Path(chunk_path).name}")
@@ -779,31 +823,17 @@ class ChunkedAudioProcessor:
         # two concurrent thread-pool calls for the same chunk cannot both miss the
         # cache, both process the chunk, and produce conflicting results.
         with self._sync_cache_lock:
-            # Check cache first (Phase 5.1: Using ChunkCacheManager)
-            cache_key = ChunkCacheManager.get_wav_cache_key(
-                self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
-            )
-            cached_path = self._cache_manager.get_cached_chunk_path(cache_key)
+            # Check cache — in-memory, then on-disk WAV (#4792: shared with
+            # process_chunk() via _lookup_cached_chunk, since both write the
+            # exact same on-disk file under what used to be two different
+            # cache keys — a hit recorded by one was invisible to the other).
+            cached_path = self._lookup_cached_chunk(chunk_index)
             if cached_path is not None:
                 logger.info(f"Serving cached WAV chunk {chunk_index}")
                 return str(cached_path)
 
             # Get WAV output path
             wav_chunk_path = self._get_wav_chunk_path(chunk_index)
-
-            # Check if a *complete* file already exists on disk. A bare
-            # exists() check served truncated WAVs left by an interrupted
-            # write forever, since the cache key is stable across restarts
-            # (#4576). A short file is discarded and regenerated below.
-            if wav_chunk_path.exists():
-                if is_wav_complete(wav_chunk_path):
-                    logger.info(f"WAV chunk {chunk_index} already exists on disk")
-                    self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
-                    return str(wav_chunk_path)
-                logger.warning(
-                    f"Discarding truncated WAV chunk {chunk_index} at "
-                    f"{wav_chunk_path.name}; regenerating"
-                )
 
             logger.info(f"Processing chunk {chunk_index} directly to WAV")
 
@@ -837,7 +867,11 @@ class ChunkedAudioProcessor:
                 logger.error(f"WAV encoding failed for chunk {chunk_index}: {e}")
                 raise RuntimeError(f"Failed to encode chunk to WAV: {e}")
 
-            # Cache the path (Phase 5.1: Using ChunkCacheManager)
+            # Cache the path under the same collapsed key process_chunk() uses
+            # (#4792), so this write is visible to both callers.
+            cache_key = ChunkCacheManager.get_chunk_cache_key(
+                self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
+            )
             self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
 
         # Store last_content_profile globally for visualizer API access

@@ -518,6 +518,67 @@ def test_cached_chunks_are_reused(processor):
     assert cache_key in processor.chunk_cache, "Chunk should be in cache"
 
 
+@pytest.mark.integration
+def test_process_chunk_reuses_on_disk_wav_with_empty_memory_cache(processor, test_audio_file):
+    """
+    INVARIANT (#4792): process_chunk() must check the on-disk WAV cache, not
+    just the in-memory dict. Every new stream constructs a fresh in-memory
+    cache (AudioStreamController hands each stream a fresh SimpleChunkCache),
+    so relying on the in-memory dict alone means every replay re-runs the
+    full DSP pipeline even though a byte-identical, signature/preset/intensity
+    -keyed WAV from a previous stream is already sitting on disk.
+    """
+    from unittest.mock import patch
+
+    # First processor call writes both the in-memory cache entry and the
+    # on-disk WAV chunk file.
+    path1, _ = processor.process_chunk(0)
+    assert Path(path1).exists()
+
+    # A second processor for the SAME track/signature/preset/intensity/file,
+    # constructed with a FRESH (empty) in-memory cache — this is the bug
+    # scenario: nothing in memory, but the disk artifact from the first
+    # processor is right there.
+    filepath, _sample_rate, _duration = test_audio_file
+    fresh_processor = ChunkedAudioProcessor(
+        track_id=1,
+        filepath=filepath,
+        preset="adaptive",
+        intensity=1.0,
+        chunk_cache={},
+    )
+
+    with patch(
+        "core.chunked_processor.AudioProcessingPipeline.process_audio"
+    ) as mock_process_audio:
+        path2, _ = fresh_processor.process_chunk(0)
+
+    mock_process_audio.assert_not_called()
+    assert path2 == path1, "Must serve the existing on-disk WAV, not a reprocessed one"
+
+
+@pytest.mark.integration
+def test_process_chunk_and_get_wav_chunk_path_share_one_cache_key(processor):
+    """
+    INVARIANT (#4792): a chunk cached via process_chunk() must be visible to
+    get_wav_chunk_path() and vice versa — they used to derive two different
+    cache-dict keys (get_chunk_cache_key vs get_wav_cache_key) for what is
+    the exact same on-disk WAV file, so a hit under one was invisible to the
+    other.
+    """
+    from unittest.mock import patch
+
+    process_chunk_path, _ = processor.process_chunk(0)
+
+    with patch(
+        "core.chunked_processor.AudioProcessingPipeline.process_audio"
+    ) as mock_process_audio:
+        wav_chunk_path = processor.get_wav_chunk_path(0)
+
+    mock_process_audio.assert_not_called()
+    assert wav_chunk_path == process_chunk_path
+
+
 # ============================================================================
 # Level Smoothing Invariant Tests (P1 Priority)
 # ============================================================================
