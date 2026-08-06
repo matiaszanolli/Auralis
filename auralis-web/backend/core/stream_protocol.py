@@ -60,19 +60,31 @@ def is_websocket_connected(websocket: WebSocket) -> bool:
         return False
 
 
-async def safe_send(controller: 'AudioStreamController', websocket: WebSocket, message: dict[str, Any]) -> bool:
+async def safe_send(
+    controller: 'AudioStreamController | None', websocket: WebSocket, message: dict[str, Any]
+) -> bool:
     """
     Safely send a message to WebSocket, handling disconnection gracefully.
 
     Args:
-        controller: AudioStreamController instance
+        controller: AudioStreamController instance, or None for callers with
+            no controller context (e.g. ws_handlers/ control-message
+            handlers) — falls back to the free is_websocket_connected()
+            check directly (#4771). Prefer safe_send_text() for those callers.
         websocket: WebSocket connection
         message: Message dict to send as JSON
 
     Returns:
         True if message was sent, False if WebSocket was disconnected.
     """
-    if not controller._is_websocket_connected(websocket):
+    def _connected() -> bool:
+        return (
+            controller._is_websocket_connected(websocket)
+            if controller is not None
+            else is_websocket_connected(websocket)
+        )
+
+    if not _connected():
         logger.debug("WebSocket disconnected, skipping send")
         return False
     try:
@@ -83,7 +95,7 @@ async def safe_send(controller: 'AudioStreamController', websocket: WebSocket, m
         # (#3850 — sibling of #3511). A send-after-close leaves client_state
         # != CONNECTED, so a disconnect logs at debug; anything else is a
         # genuine error worth a warning.
-        if not controller._is_websocket_connected(websocket):
+        if not _connected():
             logger.debug(f"WebSocket closed during send: {e}")
         else:
             logger.warning(f"WebSocket send failed: {e}")
@@ -91,6 +103,14 @@ async def safe_send(controller: 'AudioStreamController', websocket: WebSocket, m
     except Exception as e:
         logger.warning(f"Unexpected error sending WebSocket message: {e}")
         return False
+
+
+async def safe_send_text(websocket: WebSocket, message: dict[str, Any]) -> bool:
+    """safe_send() for callers with no AudioStreamController context — the
+    common case in ws_handlers/ control-message handlers, which previously
+    used bare websocket.send_text() with no disconnection/error guard
+    (#4771)."""
+    return await safe_send(None, websocket, message)
 
 
 async def safe_send_bytes(controller: 'AudioStreamController', websocket: WebSocket, data: bytes) -> bool:

@@ -18,6 +18,7 @@ from typing import Any
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
 
+from core.stream_protocol import safe_send_text
 from websocket.websocket_protocol import HeartbeatManager
 from websocket.websocket_security import send_error_response
 
@@ -33,7 +34,7 @@ async def handle_ping(websocket: WebSocket, heartbeat: HeartbeatManager, connect
     # rationale as handle_heartbeat below). Sibling gap fixed alongside
     # #4786: client pings previously did not count as liveness at all.
     heartbeat.mark_alive(connection_id)
-    await websocket.send_text(json.dumps({"type": "pong"}))
+    await safe_send_text(websocket, {"type": "pong"})
 
 
 def handle_pong(heartbeat: HeartbeatManager, connection_id: str) -> None:

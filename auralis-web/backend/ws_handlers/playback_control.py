@@ -11,12 +11,12 @@ websocket_endpoint dispatch loop in routers/system.py (#4074).
 """
 
 import asyncio
-import json
 import logging
 
 from fastapi import WebSocket
 
 from core.audio_stream_controller import ws_id as _ws_id
+from core.stream_protocol import safe_send_text
 
 from .context import StreamState
 
@@ -31,7 +31,7 @@ async def handle_pause(websocket: WebSocket, state: StreamState) -> None:
         pause_evt.clear()
         logger.info("Paused streaming task (event cleared)")
     # Use {state} shape the frontend type expects (#3503 / BE-NEW-45).
-    await websocket.send_text(json.dumps({"type": "playback_paused", "data": {"state": "paused"}}))
+    await safe_send_text(websocket, {"type": "playback_paused", "data": {"state": "paused"}})
 
 
 async def handle_resume(websocket: WebSocket, state: StreamState) -> None:
@@ -41,7 +41,7 @@ async def handle_resume(websocket: WebSocket, state: StreamState) -> None:
     if pause_evt is not None:
         pause_evt.set()
         logger.info("Resumed streaming task (event set)")
-    await websocket.send_text(json.dumps({"type": "playback_resumed", "data": {"state": "playing"}}))
+    await safe_send_text(websocket, {"type": "playback_resumed", "data": {"state": "playing"}})
 
 
 async def handle_buffer_full(websocket: WebSocket, state: StreamState) -> None:
@@ -78,4 +78,4 @@ async def handle_stop(websocket: WebSocket, state: StreamState) -> None:
         except (asyncio.CancelledError, Exception):
             pass
         logger.info("Cancelled active streaming task")
-    await websocket.send_text(json.dumps({"type": "playback_stopped", "data": {"state": "stopped"}}))
+    await safe_send_text(websocket, {"type": "playback_stopped", "data": {"state": "stopped"}})

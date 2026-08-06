@@ -310,32 +310,44 @@ def create_system_router(
         live in ws_handlers/ (#4074); this function wires them together for
         one connection.
         """
-        connection_id, heartbeat, heartbeat_task = await ws_connection.setup_connection(
-            websocket, manager, get_enhancement_settings, get_state_manager
-        )
-        state = StreamState(
-            active_tasks=_active_streaming_tasks,
-            active_tasks_lock=_active_streaming_tasks_lock,
-            active_track_ids=_active_streaming_track_ids,
-            pause_events=_stream_pause_events,
-            flow_events=_stream_flow_events,
-        )
-        deps = WSDeps(
-            get_repository_factory=get_repository_factory,
-            get_enhancement_settings=get_enhancement_settings,
-            get_cache_manager=get_cache_manager,
-            get_processing_engine=get_processing_engine,
-            stream_audio=stream_audio,
-            stream_normal=stream_normal,
-            stream_from_position=stream_from_position,
-            # #4542: the play handlers broadcast mastering_recommendation, which
-            # goes to every client rather than just this socket.
-            broadcast_manager=manager,
-        )
+        # Populated once setup_connection() returns; guards the finally
+        # block below so a setup failure (before state/deps exist) doesn't
+        # attempt a teardown that needs them (#4771).
+        heartbeat_task: asyncio.Task[None] | None = None
+        state: StreamState | None = None
         # Track job IDs this WS subscribed to, for cleanup on disconnect (#3325)
         subscribed_job_ids: set[str] = set()
 
         try:
+            # setup_connection() now runs INSIDE the try (was previously
+            # before it): if manager.connect() or the initial sync pushes
+            # ever raised after accept(), teardown_connection would never
+            # run and the spawned heartbeat_task would leak for the process
+            # lifetime. setup_connection() also self-guards by cancelling
+            # its own heartbeat_task on internal failure (#4771).
+            connection_id, heartbeat, heartbeat_task = await ws_connection.setup_connection(
+                websocket, manager, get_enhancement_settings, get_state_manager
+            )
+            state = StreamState(
+                active_tasks=_active_streaming_tasks,
+                active_tasks_lock=_active_streaming_tasks_lock,
+                active_track_ids=_active_streaming_track_ids,
+                pause_events=_stream_pause_events,
+                flow_events=_stream_flow_events,
+            )
+            deps = WSDeps(
+                get_repository_factory=get_repository_factory,
+                get_enhancement_settings=get_enhancement_settings,
+                get_cache_manager=get_cache_manager,
+                get_processing_engine=get_processing_engine,
+                stream_audio=stream_audio,
+                stream_normal=stream_normal,
+                stream_from_position=stream_from_position,
+                # #4542: the play handlers broadcast mastering_recommendation, which
+                # goes to every client rather than just this socket.
+                broadcast_manager=manager,
+            )
+
             while True:
                 # Named raw_data to avoid shadowing the inner payload dicts
                 # extracted per-message below (fixes #2312).
@@ -365,9 +377,29 @@ def create_system_router(
                         await send_error_response(websocket, "rate_limit_exceeded", error_msg)
                         continue
 
-                await ws_connection.dispatch_message(
-                    websocket, message, state, deps, heartbeat, connection_id, subscribed_job_ids
-                )
+                try:
+                    await ws_connection.dispatch_message(
+                        websocket, message, state, deps, heartbeat, connection_id, subscribed_job_ids
+                    )
+                except (WebSocketDisconnect, RuntimeError):
+                    # Genuinely fatal transport errors — let the outer
+                    # handler's dedicated branches deal with them.
+                    raise
+                except Exception as e:
+                    # #4771: an exception inside any single handler (e.g.
+                    # handle_seek) used to unwind all the way to the outer
+                    # except below, which falls into `finally:
+                    # teardown_connection` and silently kills the whole
+                    # connection — the client sees an abrupt close with no
+                    # explanation and its reconnect path misdiagnoses it as
+                    # a network drop. Report the failure and keep the
+                    # connection (and any other in-flight streams) alive.
+                    logger.error(
+                        f"WebSocket handler error for message type "
+                        f"{message.get('type')!r}: {e}", exc_info=True
+                    )
+                    await send_error_response(websocket, "internal_error", "Command failed")
+                    continue
 
         except WebSocketDisconnect:
             logger.info("WebSocket client disconnected normally")
@@ -376,10 +408,16 @@ def create_system_router(
         except Exception as e:
             logger.error(f"Unexpected WebSocket error: {e}", exc_info=True)
         finally:
-            await ws_connection.teardown_connection(
-                websocket, heartbeat_task, state, get_processing_engine,
-                subscribed_job_ids, manager, _rate_limiter,
-            )
+            if state is not None and heartbeat_task is not None:
+                await ws_connection.teardown_connection(
+                    websocket, heartbeat_task, state, get_processing_engine,
+                    subscribed_job_ids, manager, _rate_limiter,
+                )
+            elif heartbeat_task is not None:
+                # setup_connection() returned a heartbeat_task but raised
+                # before state could be constructed — nothing else to tear
+                # down, but the task must not leak (#4771).
+                heartbeat_task.cancel()
 
     return router
 

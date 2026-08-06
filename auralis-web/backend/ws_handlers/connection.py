@@ -61,40 +61,48 @@ async def setup_connection(
 
     heartbeat_task = spawn_background_task(_heartbeat_loop(), name=f"ws_heartbeat_{connection_id}")
 
-    # Immediately send current enhancement settings so a reconnecting
-    # frontend syncs its Redux store without waiting for the next broadcast
-    # (fixes #2507).
-    if get_enhancement_settings is not None:
-        try:
-            _settings = get_enhancement_settings()
-            await websocket.send_text(json.dumps({
-                "type": "enhancement_settings_changed",
-                "data": {
-                    "enabled": _settings.get("enabled", True),
-                    "preset": _settings.get("preset", "adaptive"),
-                    "intensity": _settings.get("intensity", 1.0),
-                }
-            }))
-        except Exception:
-            # Best-effort: don't fail the connection (#4368 — was a bare pass,
-            # hiding genuine send failures from debugging).
-            logger.debug("Initial enhancement-settings push failed", exc_info=True)
-
-    # Push full player state on connect so reconnecting clients sync
-    # their Redux store immediately (fixes #2606).
-    if get_state_manager is not None:
-        try:
-            _state_mgr = get_state_manager()
-            if _state_mgr is not None:
-                _state = _state_mgr.get_state()
+    # Everything below is best-effort (each push is already independently
+    # guarded) and should never actually raise — but if it ever does, don't
+    # leak heartbeat_task: the caller has no access to it once this function
+    # raises, so it can never be cancelled from outside (#4771).
+    try:
+        # Immediately send current enhancement settings so a reconnecting
+        # frontend syncs its Redux store without waiting for the next
+        # broadcast (fixes #2507).
+        if get_enhancement_settings is not None:
+            try:
+                _settings = get_enhancement_settings()
                 await websocket.send_text(json.dumps({
-                    "type": "player_state",
-                    "data": _state.model_dump(),
+                    "type": "enhancement_settings_changed",
+                    "data": {
+                        "enabled": _settings.get("enabled", True),
+                        "preset": _settings.get("preset", "adaptive"),
+                        "intensity": _settings.get("intensity", 1.0),
+                    }
                 }))
-        except Exception:
-            # Best-effort: don't fail the connection (#4368 — was a bare pass,
-            # hiding genuine send failures from debugging).
-            logger.debug("Initial player-state push failed", exc_info=True)
+            except Exception:
+                # Best-effort: don't fail the connection (#4368 — was a bare
+                # pass, hiding genuine send failures from debugging).
+                logger.debug("Initial enhancement-settings push failed", exc_info=True)
+
+        # Push full player state on connect so reconnecting clients sync
+        # their Redux store immediately (fixes #2606).
+        if get_state_manager is not None:
+            try:
+                _state_mgr = get_state_manager()
+                if _state_mgr is not None:
+                    _state = _state_mgr.get_state()
+                    await websocket.send_text(json.dumps({
+                        "type": "player_state",
+                        "data": _state.model_dump(),
+                    }))
+            except Exception:
+                # Best-effort: don't fail the connection (#4368 — was a bare
+                # pass, hiding genuine send failures from debugging).
+                logger.debug("Initial player-state push failed", exc_info=True)
+    except Exception:
+        heartbeat_task.cancel()
+        raise
 
     return connection_id, heartbeat, heartbeat_task
 

@@ -12,7 +12,7 @@ teardown_connection.
 """
 
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -36,6 +36,12 @@ def _fresh_state() -> StreamState:
 async def test_handle_stop_clears_all_four_registries():
     state = _fresh_state()
     websocket = AsyncMock()
+    # handle_stop now sends via safe_send_text (#4771), which checks
+    # is_websocket_connected(ws) — client_state.name must read "CONNECTED"
+    # for the send to go through (established pattern, e.g.
+    # test_audio_stream_crossfade.py).
+    websocket.client_state = Mock()
+    websocket.client_state.name = "CONNECTED"
     ws_id = _ws_id(websocket)
 
     # Populate every per-ws registry as an active stream would.

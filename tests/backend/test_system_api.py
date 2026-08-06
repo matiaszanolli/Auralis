@@ -347,6 +347,12 @@ class TestWebSocketRateLimitExemptsControlFrames:
         heartbeat = HeartbeatManager()
         connection_id = "test-conn-1"
         ws = AsyncMock()
+        # handle_ping now sends via safe_send_text (#4771), which checks
+        # is_websocket_connected(ws) — client_state.name must read
+        # "CONNECTED" for the send to go through (established pattern, e.g.
+        # test_audio_stream_crossfade.py).
+        ws.client_state = Mock()
+        ws.client_state.name = "CONNECTED"
 
         assert connection_id not in heartbeat.last_heartbeat
         await handle_ping(ws, heartbeat, connection_id)
@@ -975,6 +981,71 @@ class TestWebSocketCleanup:
             # frame left in a connection's queue wedges the next test (#4781).
             for ws in connections:
                 ws.__exit__(None, None, None)
+
+
+class TestWebSocketHandlerExceptionResilience:
+    """#4771: an unhandled exception inside a single WS message handler used
+    to unwind past dispatch_message() to the outer except in
+    routers/system.py, which falls into `finally: teardown_connection` and
+    silently kills the whole connection — no error frame, the client's
+    reconnect path misdiagnoses it as a network drop. dispatch_message() is
+    now wrapped in its own try/except that reports 'internal_error' and
+    keeps the loop (and connection) alive."""
+
+    def test_handler_exception_sends_internal_error_and_keeps_connection_alive(self, client):
+        # A generic bug in a handler (e.g. a KeyError from malformed internal
+        # state) — NOT RuntimeError/WebSocketDisconnect, which the outer
+        # handler still treats as genuinely fatal transport errors and tears
+        # the connection down for (unchanged, pre-existing behavior).
+        with patch(
+            "ws_handlers.playback_control.handle_pause",
+            side_effect=KeyError("boom — some internal detail"),
+        ):
+            with client.websocket_connect("/ws") as websocket:
+                websocket.send_text(json.dumps({"type": "pause"}))
+
+                data = _recv_until_type(websocket, "error")
+                assert data["error"] == "internal_error"
+                # Never leak the raw exception text to the client (#3825-style
+                # guarantee — same rationale as _safe_error_message).
+                assert "boom" not in data.get("message", "")
+
+                # The connection must still be alive and processing OTHER
+                # message types afterward — not silently torn down. Matches
+                # the acceptance criteria's integration test: "a subsequent
+                # ping on the same connection still gets a pong".
+                websocket.send_text(json.dumps({"type": "ping"}))
+                pong = _recv_until_type(websocket, "pong")
+                assert pong["type"] == "pong"
+
+    def test_transport_errors_still_reraise_to_outer_handler(self):
+        """Static regression guard: WebSocketDisconnect/RuntimeError raised
+        inside a handler must still be re-raised out of the per-message
+        try/except (not swallowed as an 'internal_error') so the outer
+        handler's dedicated branches — disconnect logging, runtime-error
+        logging, and (for RuntimeError specifically) still tearing the
+        connection down — keep running exactly as before #4771.
+
+        Not exercised live over a real TestClient socket: WebSocketDisconnect
+        is only ever raised by Starlette when reading from an
+        already-disconnected transport, so a handler-side raise (the only
+        way to simulate "a handler raises it" in a unit test) leaves the
+        server with no actual close frame to send back — the client-side
+        receive_text() then blocks forever waiting for one that will never
+        arrive, which is a TestClient artifact, not a real code path.
+        """
+        import inspect
+        import routers.system as system_module
+
+        source = inspect.getsource(system_module.create_system_router)
+        assert "except (WebSocketDisconnect, RuntimeError):" in source, (
+            "dispatch_message's per-message try/except must re-raise "
+            "WebSocketDisconnect/RuntimeError rather than swallow them"
+        )
+        assert '"internal_error"' in source, (
+            "Expected an internal_error frame sent for other, non-transport "
+            "handler exceptions"
+        )
 
 
 class TestSystemIntegration:

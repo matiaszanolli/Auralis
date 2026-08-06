@@ -17,6 +17,7 @@ import math
 from typing import Any
 
 from core.audio_stream_controller import ws_id as _ws_id
+from core.stream_protocol import safe_send_text
 from fastapi import WebSocket
 from helpers import spawn_background_task
 from schemas import (  # single source of truth (#4424, #4600)
@@ -332,10 +333,10 @@ async def handle_seek(
         except (asyncio.CancelledError, Exception):
             pass
 
-    await websocket.send_text(json.dumps({
+    await safe_send_text(websocket, {
         "type": "seek_started",
         "data": {"track_id": track_id, "position": position},
-    }))
+    })
 
     enhancement_enabled = True
     if deps.get_enhancement_settings is not None:
