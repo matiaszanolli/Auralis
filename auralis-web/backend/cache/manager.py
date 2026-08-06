@@ -486,17 +486,20 @@ class StreamlinedCacheManager:
                 "hits": self.tier2_hits,
                 "misses": self.tier2_misses,
                 "hit_rate": self.tier2_hits / max(1, total_requests) if total_requests > 0 else 0.0,
-                "tracks_cached": len({c.track_id for c in self.tier2_cache.values()})
             },
             "overall": {
                 "total_chunks": len(self.tier1_cache) + len(self.tier2_cache),
                 "total_size_mb": tier1_size_mb + tier2_size_mb,
                 "total_hits": self.tier1_hits + self.tier2_hits,
                 "total_misses": self.tier1_misses + self.tier2_misses,
-                "overall_hit_rate": (self.tier1_hits + self.tier2_hits) / max(1, total_requests)
+                "overall_hit_rate": (self.tier1_hits + self.tier2_hits) / max(1, total_requests),
+                # (#4785) Belongs under "overall", not "tier2" — schemas.OverallCacheStats,
+                # standardizedAPIClient.ts and types/api.ts all read it from here.
+                "tracks_cached": len({c.track_id for c in self.tier2_cache.values()})
             },
             "tracks": {
                 track_id: {
+                    "track_id": track_id,
                     "completion_percent": status.get_completion_percent(),
                     "fully_cached": status.is_fully_cached(),
                     "total_chunks": status.total_chunks,
