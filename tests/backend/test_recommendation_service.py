@@ -13,7 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from services.recommendation_service import RecommendationService
+from services.recommendation_service import RecommendationService  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -121,3 +121,49 @@ class TestGetRecommendationForTrack:
         with patch("services.recommendation_service.asyncio.to_thread", side_effect=ValueError("bad")):
             with pytest.raises(ValueError, match="bad"):
                 await service.get_recommendation_for_track(7, "/music/track.mp3")
+
+
+class TestAnalyzeDoesNotMutateSysPath:
+    """#4745: both _analyze() closures used to unconditionally
+    sys.path.insert(0, ...) on every call with no removal — an unbounded,
+    unnecessary mutation of process-global sys.path. core.chunked_processor
+    already ensures the backend dir is importable (idempotently), and other
+    callers (proactive_buffer.py, streamlined_worker.py, chunk_mastering.py,
+    audio_stream_controller.py) already do a bare import with no path
+    juggling — so the import must keep resolving with no insert at all.
+
+    Unlike the other test classes here, this does NOT mock
+    asyncio.to_thread — it must actually run the real _analyze() closure so
+    the `from core.chunked_processor import ChunkedAudioProcessor` line
+    executes for real.
+    """
+
+    @pytest.mark.asyncio
+    async def test_generate_and_broadcast_does_not_grow_sys_path(self):
+        service, _ = _make_service()
+
+        with patch("core.chunked_processor.ChunkedAudioProcessor") as mock_cls:
+            mock_cls.return_value.get_mastering_recommendation.return_value = None
+
+            before = list(sys.path)
+            for _ in range(3):
+                result = await service.generate_and_broadcast_recommendation(1, "/music/track.mp3")
+            after = list(sys.path)
+
+        assert result == {}
+        assert after == before, "sys.path must be unchanged after repeated calls (#4745)"
+
+    @pytest.mark.asyncio
+    async def test_get_recommendation_does_not_grow_sys_path(self):
+        service, _ = _make_service()
+
+        with patch("core.chunked_processor.ChunkedAudioProcessor") as mock_cls:
+            mock_cls.return_value.get_mastering_recommendation.return_value = None
+
+            before = list(sys.path)
+            for _ in range(3):
+                result = await service.get_recommendation_for_track(1, "/music/track.mp3")
+            after = list(sys.path)
+
+        assert result is None
+        assert after == before, "sys.path must be unchanged after repeated calls (#4745)"

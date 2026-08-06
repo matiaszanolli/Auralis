@@ -10,8 +10,6 @@ Performs background analysis of loaded tracks to suggest optimal audio profiles.
 
 import asyncio
 import logging
-import os
-import sys
 from typing import Any, Protocol, cast
 
 logger = logging.getLogger(__name__)
@@ -76,7 +74,6 @@ class RecommendationService:
         # async coroutines on the SAME event loop as the request — without
         # this offload, every track-load froze the backend.
         def _analyze() -> dict[str, Any] | None:
-            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             from core.chunked_processor import ChunkedAudioProcessor
 
             processor = ChunkedAudioProcessor(
@@ -136,7 +133,6 @@ class RecommendationService:
         # Same offload pattern as generate_and_broadcast_recommendation
         # (fixes #3553 / BE-NEW-95) — sync work runs in a thread.
         def _analyze() -> dict[str, Any] | None:
-            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             from core.chunked_processor import ChunkedAudioProcessor
 
             processor = ChunkedAudioProcessor(
