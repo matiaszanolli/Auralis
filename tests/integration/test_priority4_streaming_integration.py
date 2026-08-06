@@ -13,10 +13,7 @@ Tests:
 6. Full playback flow with recommendations
 """
 
-import asyncio
-import json
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -210,48 +207,6 @@ class TestWebSocketMessageFormat:
         # Verify weights sum to approximately 1.0
         total_weight = sum(p["weight"] for p in data["weighted_profiles"])
         assert abs(total_weight - 1.0) < 0.01
-
-
-class TestEnhancementRouterEndpoint:
-    """Test enhancement router mastering recommendation endpoint."""
-
-    def test_mastering_recommendation_endpoint_parameters(self):
-        """Test endpoint parameters and expected response."""
-
-        # This would be tested with a real FastAPI test client
-        # Example of expected behavior:
-
-        # Endpoint: GET /api/player/mastering/recommendation/{track_id}
-        # Parameters:
-        #   - track_id (path): Track database ID
-        #   - filepath (query): Audio file path
-        #   - confidence_threshold (query, optional): Default 0.4
-
-        # Expected responses:
-        #   - 400: Missing filepath parameter
-        #   - 404: Track not found
-        #   - 500: Analysis failed
-        #   - 200: Returns MasteringRecommendation JSON
-
-        assert True  # Placeholder for integration test
-
-
-class TestPlayerRouterTrackLoading:
-    """Test player router with mastering recommendations."""
-
-    def test_load_track_generates_recommendation(self):
-        """Test that load_track generates recommendation in background."""
-
-        # Mock the background task function
-        mock_broadcast = AsyncMock()
-
-        # Expected behavior:
-        # 1. load_track called with track_id
-        # 2. Track loaded immediately
-        # 3. Background task scheduled for recommendation generation
-        # 4. Recommendation broadcasted via WebSocket when ready
-
-        assert True  # Placeholder for integration test
 
 
 class TestHybridMasteringDetection:
