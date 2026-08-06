@@ -127,3 +127,50 @@ async def test_auto_scan_start_log_omits_full_folder_paths(caplog):
     assert not any(sensitive_folder in r.message for r in info_records), (
         "INFO log must not contain the user's absolute library folder path"
     )
+
+
+# ---------------------------------------------------------------------------
+# main.py — sys.path bootstrap (#4778)
+#
+# The three branches (PyInstaller-frozen, Electron-unfrozen, plain dev) run
+# at module-import time, before uvicorn installs a root-logger handler
+# (a separate finding, BE6-4) — so triggering them live and asserting on
+# caplog would exercise the whole app-creation import chain for very little
+# extra signal beyond a static check of the source. #4366/#4376 already
+# established the pattern for this exact file (see the `frontend_path` case
+# at :167-169 / :204-205): the fix is a source-shape guarantee (no
+# f-string interpolating auralis_parent into logger.info), which a regex
+# over the source verifies directly and cheaply.
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+
+def _main_py_source() -> str:
+    main_py = Path(__file__).parent.parent.parent / "auralis-web" / "backend" / "main.py"
+    return main_py.read_text()
+
+
+def test_main_py_sys_path_bootstrap_never_logs_path_at_info():
+    """None of the three sys.path bootstrap branches may interpolate
+    auralis_parent into a logger.info(...) call."""
+    source = _main_py_source()
+    assert not _re.search(r'logger\.info\(f?["\'][^"\']*\{auralis_parent\}', source), (
+        "logger.info(...) in main.py must not interpolate auralis_parent — "
+        "it embeds the OS username + install layout (#4351/#4366/#4778); "
+        "log it at DEBUG only"
+    )
+
+
+def test_main_py_sys_path_bootstrap_still_logs_path_at_debug():
+    """The path must still be reachable for diagnostics, just at DEBUG —
+    guards against the fix regressing to dropping the information entirely."""
+    source = _main_py_source()
+    debug_calls_with_path = _re.findall(
+        r'logger\.debug\(f["\'][^"\']*\{auralis_parent\}[^"\']*["\']\)', source
+    )
+    assert len(debug_calls_with_path) == 3, (
+        "expected all 3 sys.path bootstrap branches (PyInstaller-frozen, "
+        "Electron-unfrozen, dev) to log auralis_parent at DEBUG; "
+        f"found {len(debug_calls_with_path)}"
+    )
