@@ -10,6 +10,7 @@ Coordinates with AudioPlayer and PlayerStateManager for state synchronization.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
@@ -72,7 +73,7 @@ class NavigationService:
         try:
             # Check if player has next_track method
             if hasattr(self.audio_player, 'next_track'):
-                success = self.audio_player.next_track()
+                success = await asyncio.to_thread(self.audio_player.next_track)
 
                 if success:
                     # Broadcast track change if queue is available
@@ -118,7 +119,7 @@ class NavigationService:
         try:
             # Check if player has previous_track method
             if hasattr(self.audio_player, 'previous_track'):
-                success = self.audio_player.previous_track()
+                success = await asyncio.to_thread(self.audio_player.previous_track)
 
                 if success:
                     # Broadcast track change if queue is available
@@ -172,7 +173,7 @@ class NavigationService:
                 raise ValueError("Queue not available")
 
             queue_manager = self.audio_player.queue
-            queue_size = queue_manager.get_queue_size()
+            queue_size = await asyncio.to_thread(queue_manager.get_queue_size)
 
             # Validate index
             if track_index < 0 or track_index >= queue_size:
@@ -180,18 +181,18 @@ class NavigationService:
 
             # Set queue position
             if hasattr(queue_manager, 'set_current_index'):
-                queue_manager.set_current_index(track_index)
+                await asyncio.to_thread(queue_manager.set_current_index, track_index)
             else:
                 # Fallback: manually get queue and load track
-                queue = queue_manager.get_queue()
+                queue = await asyncio.to_thread(queue_manager.get_queue)
                 if track_index < len(queue):
                     track_path = queue[track_index]
                     if hasattr(self.audio_player, 'load_file'):
-                        self.audio_player.load_file(track_path)  # type: ignore[arg-type]
+                        await asyncio.to_thread(self.audio_player.load_file, track_path)  # type: ignore[arg-type]
 
             # Start playback
             if hasattr(self.audio_player, 'play'):
-                self.audio_player.play()
+                await asyncio.to_thread(self.audio_player.play)
 
             # Update state
             await self.player_state_manager.set_playing(True)
