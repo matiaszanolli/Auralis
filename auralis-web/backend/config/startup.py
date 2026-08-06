@@ -19,6 +19,7 @@ import logging
 import shutil
 import tempfile
 import threading
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -231,6 +232,39 @@ def reclaim_leftover_stream_temps(temp_root: Path) -> int:
             logger.warning(f"Failed to remove leftover temp stream dir {leftover}: {e}")
     if reclaimed:
         logger.info(f"🧹 Reclaimed {reclaimed} leftover temp stream dir(s)")
+    return reclaimed
+
+
+def reclaim_stale_temp_entries(dir_path: Path, max_age_hours: float) -> int:
+    """Age-sweep stale files/dirs directly under ``dir_path``.
+
+    ``auralis_processing`` (rendered job outputs) and ``auralis_uploads``
+    (uploaded inputs, up to 500MB each) are otherwise only reclaimed by
+    ``ProcessingEngine.cleanup_old_jobs()``, which is driven off the
+    in-memory ``self.jobs`` registry — empty after any crash or restart, so
+    anything left on disk at that point becomes permanently unreferenced
+    (#4762). Sweeping by mtime age instead of registry membership catches
+    those too.
+
+    Returns the number of entries successfully reclaimed.
+    """
+    if not dir_path.exists():
+        return 0
+    reclaimed = 0
+    cutoff = time.time() - (max_age_hours * 3600)
+    for entry in dir_path.iterdir():
+        try:
+            if entry.stat().st_mtime >= cutoff:
+                continue
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+            reclaimed += 1
+        except Exception as e:
+            logger.warning(f"Failed to remove stale temp entry {entry}: {e}")
+    if reclaimed:
+        logger.info(f"🧹 Reclaimed {reclaimed} stale entr{'y' if reclaimed == 1 else 'ies'} from {dir_path.name}")
     return reclaimed
 
 
@@ -568,6 +602,15 @@ def create_lifespan(deps: dict[str, Any]):
                 from core.processing_engine import ProcessingEngine
 
                 globals_dict['processing_engine'] = ProcessingEngine(max_concurrent_jobs=2)
+
+                # Age-sweep auralis_processing/auralis_uploads: cleanup_old_jobs()
+                # is driven off the in-memory jobs registry, which is empty right
+                # after a crash or restart, so leftovers from a previous run were
+                # never reclaimed until now (#4762).
+                _ttl = globals_dict['processing_engine'].completed_job_ttl_hours
+                reclaim_stale_temp_entries(globals_dict['processing_engine'].temp_dir, _ttl)
+                reclaim_stale_temp_entries(Path(tempfile.gettempdir()) / "auralis_uploads", _ttl)
+
                 # Start the processing worker — retain strong reference to prevent GC,
                 # and attach a done-callback so a silently-failing start_worker is
                 # logged rather than disappearing (fixes #3512 / BE-NEW-54).

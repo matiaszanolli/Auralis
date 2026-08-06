@@ -1,5 +1,6 @@
 """
-Regression tests for the startup temp-stream sweep (#3877).
+Regression tests for the startup temp-stream sweep (#3877) and the
+startup temp-file age sweep (#4762).
 
 stream_normal_audio writes a temp WAV under `auralis_stream_*` and cleans it in
 its finally block, but a crash or a locked file (Windows AV / cloud-sync) can
@@ -7,15 +8,22 @@ orphan one. `reclaim_leftover_stream_temps` sweeps and counts these on startup
 so any leak surfaces in the log and stays bounded — and, unlike the old
 `rmtree(..., ignore_errors=True)` + `except: pass`, a removal failure is logged
 rather than silently swallowed.
+
+`auralis_processing` (rendered job outputs) and `auralis_uploads` (uploaded
+inputs) are otherwise only reclaimed by `ProcessingEngine.cleanup_old_jobs()`,
+which is driven off the in-memory jobs registry — empty after any crash or
+restart. `reclaim_stale_temp_entries` age-sweeps those directories by mtime
+instead, independent of any registry.
 """
 
 import logging
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from config.startup import reclaim_leftover_stream_temps
+from config.startup import reclaim_leftover_stream_temps, reclaim_stale_temp_entries
 
 
 def _make_stream_dir(root: Path, name: str) -> Path:
@@ -76,3 +84,75 @@ def test_removal_failure_is_logged_not_swallowed(tmp_path, caplog):
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert warnings, "a removal failure must be logged, not swallowed"
     assert "auralis_stream_locked" in warnings[0].message
+
+
+def _age_entry(path: Path, hours: float) -> None:
+    """Backdate an entry's mtime so it looks `hours` old to the sweep."""
+    stale_time = time.time() - (hours * 3600)
+    import os
+    os.utime(path, (stale_time, stale_time))
+
+
+def test_stale_entries_removes_only_old_files(tmp_path):
+    """Files/dirs older than max_age_hours are reclaimed; fresh ones survive
+    (#4762 — auralis_processing/auralis_uploads have no in-memory registry
+    to fall back on after a crash, so the sweep must be mtime-driven)."""
+    old_file = tmp_path / "old_job_output.wav"
+    old_file.write_bytes(b"stale")
+    _age_entry(old_file, hours=2.0)
+
+    old_dir = tmp_path / "old_upload_dir"
+    old_dir.mkdir()
+    (old_dir / "inner.bin").write_bytes(b"x")
+    _age_entry(old_dir, hours=2.0)
+
+    fresh_file = tmp_path / "fresh_job_output.wav"
+    fresh_file.write_bytes(b"fresh")
+
+    count = reclaim_stale_temp_entries(tmp_path, max_age_hours=1.0)
+
+    assert count == 2
+    assert not old_file.exists()
+    assert not old_dir.exists()
+    assert fresh_file.exists()
+
+
+def test_stale_entries_missing_dir_returns_zero(tmp_path):
+    """A dir_path that doesn't exist (processing never ran) is a silent no-op."""
+    missing = tmp_path / "does_not_exist"
+
+    count = reclaim_stale_temp_entries(missing, max_age_hours=1.0)
+
+    assert count == 0
+
+
+def test_stale_entries_logs_reclaimed_count(tmp_path, caplog):
+    old_file = tmp_path / "old.wav"
+    old_file.write_bytes(b"stale")
+    _age_entry(old_file, hours=2.0)
+
+    with caplog.at_level(logging.INFO, logger="config.startup"):
+        count = reclaim_stale_temp_entries(tmp_path, max_age_hours=1.0)
+
+    assert count == 1
+    assert [r for r in caplog.records if "Reclaimed" in r.message]
+
+
+def test_stale_entries_removal_failure_is_logged_not_swallowed(tmp_path, caplog, monkeypatch):
+    """A removal failure logs a WARNING and is excluded from the count."""
+    old_file = tmp_path / "locked.wav"
+    old_file.write_bytes(b"stale")
+    _age_entry(old_file, hours=2.0)
+
+    def _raise_unlink(*_args, **_kwargs):
+        raise OSError("locked by another process")
+
+    monkeypatch.setattr(Path, "unlink", _raise_unlink)
+
+    with caplog.at_level(logging.WARNING, logger="config.startup"):
+        count = reclaim_stale_temp_entries(tmp_path, max_age_hours=1.0)
+
+    assert count == 0
+    assert old_file.exists()
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert warnings, "a removal failure must be logged, not swallowed"
