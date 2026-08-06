@@ -139,14 +139,6 @@ export interface PlaylistsApiResponse {
 }
 
 // ============================================================================
-// Album Detail API Response (with tracks)
-// ============================================================================
-
-export interface AlbumDetailApiResponse extends AlbumApiResponse {
-  tracks: TrackApiResponse[];
-}
-
-// ============================================================================
 // Artist Detail API Response (#2844: matches backend ArtistDetailResponse shape)
 // ============================================================================
 
