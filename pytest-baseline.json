@@ -1,7 +1,7 @@
 {
   "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update",
   "generatedFrom": {
-    "totalTests": 6068,
+    "totalTests": 6109,
     "failedTests": 487
   },
   "failures": [
@@ -173,9 +173,6 @@
     "tests.backend.test_main_api.TestSettingsEndpoints::test_reset_settings_clears_extra_allowed_directories",
     "tests.backend.test_main_api.TestSettingsEndpoints::test_reset_settings_success",
     "tests.backend.test_main_api.TestSettingsEndpoints::test_update_settings_success",
-    "tests.backend.test_main_api.TestWebSocketConnection::test_websocket_connection",
-    "tests.backend.test_main_api.TestWebSocketConnection::test_websocket_multiple_connections",
-    "tests.backend.test_main_api.TestWebSocketConnection::test_websocket_subscribe_job_progress",
     "tests.backend.test_metadata.TestBatchUpdateMetadata::test_batch_update_partial_success",
     "tests.backend.test_metadata.TestBatchUpdateMetadata::test_batch_update_success",
     "tests.backend.test_metadata.TestGetEditableFields::test_get_editable_fields_file_not_found",
@@ -306,6 +303,9 @@
     "tests.backend.test_stream_disconnect_toctou.TestProcessAndStreamChunkDisconnectGuard::test_process_chunk_safe_skipped_when_disconnected",
     "tests.backend.test_stream_disconnect_toctou.TestSeekFinallyCleanup::test_active_stream_cleared_after_seek_exception",
     "tests.backend.test_stream_disconnect_toctou.TestSeekFinallyCleanup::test_active_stream_cleared_after_seek_stream",
+    "tests.backend.test_system_api.TestHealthCheck::test_health_check_accepts_get_only",
+    "tests.backend.test_system_api.TestVersionEndpoint::test_version_accepts_get_only",
+    "tests.backend.test_system_api.TestWebSocketPlayback::test_play_enhanced_releases_lock_before_awaiting_old_task",
     "tests.backend.test_track_artwork_field_naming.TestAPIContractCompliance::test_track_dict_matches_TrackApiResponse_contract",
     "tests.boundaries.test_audio_processing_boundaries::test_sample_count_invariant",
     "tests.concurrency.test_async_operations.TestFastAPIAsyncPatterns::test_async_file_operations",

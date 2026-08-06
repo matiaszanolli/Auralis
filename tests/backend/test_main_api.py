@@ -705,32 +705,35 @@ class TestWebSocketConnection:
             init_msg = websocket.receive_json()
             assert init_msg["type"] == "enhancement_settings_changed"
 
+            # Also drain the player_state sync frame that immediately follows
+            # it on connect (#2606) before asserting on the ping response.
+            player_state_msg = websocket.receive_json()
+            assert player_state_msg["type"] == "player_state"
+
             # Test ping/pong
             websocket.send_json({"type": "ping"})
             response = websocket.receive_json()
 
             assert response["type"] == "pong"
 
-    def test_websocket_subscribe_job_progress(self, client):
-        """Test subscribing to job progress updates"""
-        with client.websocket_connect("/ws") as websocket:
-            # Subscribe to job progress - WebSocket should accept the message without error
-            # (actual processing engine integration is tested elsewhere)
-            websocket.send_json({
-                "type": "subscribe_job_progress",
-                "job_id": "test-job-123"
-            })
-
-            # Test passes if no exception is raised
-            # The WebSocket remains open and functional
+    # test_websocket_subscribe_job_progress removed (#4781): it sent job_id at
+    # the top level instead of nested under "data" (the shape the handler
+    # actually reads — see ws_handlers/messages.py), so it always hit the
+    # rejection branch, and it asserted nothing regardless. The real,
+    # assertion-bearing version is
+    # test_system_api.py::TestWebSocketJobProgress::test_subscribe_job_progress_registers_callback.
 
     def test_websocket_multiple_connections(self, client):
         """Test multiple simultaneous WebSocket connections"""
         with client.websocket_connect("/ws") as ws1, \
              client.websocket_connect("/ws") as ws2:
 
-            # Consume initial enhancement_settings_changed messages
+            # Consume initial enhancement_settings_changed + player_state
+            # sync frames sent on connect (#2507/#2606) before asserting on
+            # the ping response.
             ws1.receive_json()
+            ws1.receive_json()
+            ws2.receive_json()
             ws2.receive_json()
 
             # Send from first connection

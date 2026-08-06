@@ -11,11 +11,19 @@ name: Backend Tests
 # failures that are NOT already known. The baseline can shrink but never grow.
 # Once it reaches zero, replace the baseline step with a plain pytest invocation.
 #
-# Two files are excluded because they HANG when run as whole files rather than
-# as scoped classes — they would burn the runner's whole allowance instead of
+# One file is excluded because it HANGS when run as a whole file rather than
+# as scoped classes — it would burn the runner's whole allowance instead of
 # failing. Removing an exclusion requires fixing the hang first:
-#   tests/backend/test_system_api.py
 #   tests/concurrency/test_thread_safety.py
+#
+# tests/backend/test_system_api.py used to be excluded for the same reason
+# (#4781): the `client` fixture's websocket_connect() defaulted the Origin
+# header to a Vite dev-server URL that ALLOWED_WS_ORIGINS only allows in dev
+# mode, and several tests asserted on the first frame received without
+# draining the unsolicited enhancement_settings_changed/player_state sync
+# frames every `/ws` connection sends on accept — leaving those frames
+# unread in the connection's queue past test teardown wedged the next test.
+# Both root causes are fixed; the file now completes in ~4s.
 
 on:
   push:
@@ -79,7 +87,6 @@ jobs:
       - name: Run pytest
         run: |
           python -m pytest -q -m "not slow" -p no:randomly \
-            --ignore=tests/backend/test_system_api.py \
             --ignore=tests/concurrency/test_thread_safety.py \
             --junitxml=pytest-results.xml || true
 

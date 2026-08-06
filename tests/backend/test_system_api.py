@@ -29,6 +29,26 @@ from unittest.mock import AsyncMock, Mock, patch
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 
+def _recv_until_type(websocket, target: str, max_reads: int = 10) -> dict:
+    """Drain frames until one matches ``target`` type and return it.
+
+    Every `/ws` connection is immediately sent unsolicited sync frames
+    (`enhancement_settings_changed`, `player_state` — see
+    ws_handlers/connection.py:setup_connection, #2507/#2606) before any
+    client-initiated message gets a response, so tests must drain past them
+    rather than asserting on the first frame received. (#4781: tests that
+    skipped this drain asserted directly on the first frame, which was
+    reliably one of these sync frames instead of the expected response, and
+    left the extra unread frames sitting in the connection's receive queue
+    past test teardown.)
+    """
+    for _ in range(max_reads):
+        data = json.loads(websocket.receive_text())
+        if data.get("type") == target:
+            return data
+    raise AssertionError(f"No {target!r} frame received within {max_reads} reads")
+
+
 class TestHealthCheck:
     """Test GET /api/health"""
 
@@ -183,12 +203,9 @@ class TestWebSocketMessageValidation:
             # Send invalid JSON
             websocket.send_text("invalid json {")
 
-            # Should receive error message
-            response = websocket.receive_text()
-            data = json.loads(response)
-
-            assert data["type"] == "error"
-            assert "code" in data
+            # Should receive error message (after the connect-handshake frames)
+            data = _recv_until_type(websocket, "error")
+            assert data["error"] == "invalid_json"
 
     def test_websocket_oversized_message(self, client):
         """Test that oversized messages are rejected (security)"""
@@ -199,11 +216,8 @@ class TestWebSocketMessageValidation:
 
             websocket.send_text(message)
 
-            # Should receive error message
-            response = websocket.receive_text()
-            data = json.loads(response)
-
-            assert data["type"] == "error"
+            # Should receive error message (after the connect-handshake frames)
+            data = _recv_until_type(websocket, "error")
             assert "size" in data.get("message", "").lower()
 
     def test_websocket_rate_limiting(self, client):
@@ -319,9 +333,15 @@ class TestWebSocketPlayback:
                 }
             }))
 
-            # Should receive error about invalid preset
-            response = websocket.receive_text()
-            data = json.loads(response)
+            # Should receive error about invalid preset (after the
+            # connect-handshake frames: enhancement_settings_changed, player_state)
+            handshake_types = {"enhancement_settings_changed", "player_state"}
+            for _ in range(10):
+                data = json.loads(websocket.receive_text())
+                if data.get("type") not in handshake_types:
+                    break
+            else:
+                raise AssertionError("No response received within 10 frames")
 
             # Should either reject immediately or fail gracefully
             # Not crash the processing engine
@@ -373,24 +393,20 @@ class TestWebSocketPlayback:
         with client.websocket_connect("/ws") as websocket:
             websocket.send_text(json.dumps({"type": "pause"}))
 
-            # Should receive pause acknowledgment
-            response = websocket.receive_text()
-            data = json.loads(response)
+            # Should receive pause acknowledgment (after connect-handshake frames)
+            data = _recv_until_type(websocket, "playback_paused")
 
-            assert data["type"] == "playback_paused"
-            assert data["data"]["success"] is True
+            assert data["data"]["state"] == "paused"
 
     def test_stop_playback(self, client):
         """Test stop message"""
         with client.websocket_connect("/ws") as websocket:
             websocket.send_text(json.dumps({"type": "stop"}))
 
-            # Should receive stop acknowledgment
-            response = websocket.receive_text()
-            data = json.loads(response)
+            # Should receive stop acknowledgment (after connect-handshake frames)
+            data = _recv_until_type(websocket, "playback_stopped")
 
-            assert data["type"] == "playback_stopped"
-            assert data["data"]["success"] is True
+            assert data["data"]["state"] == "stopped"
 
     def test_seek_playback(self, client):
         """Test seek message"""
@@ -403,11 +419,9 @@ class TestWebSocketPlayback:
                 }
             }))
 
-            # Should receive seek acknowledgment
-            response = websocket.receive_text()
-            data = json.loads(response)
+            # Should receive seek acknowledgment (after connect-handshake frames)
+            data = _recv_until_type(websocket, "seek_started")
 
-            assert data["type"] == "seek_started"
             assert data["data"]["position"] == 30.0
 
     def test_seek_awaits_old_task_before_starting_new_one(self, client):
@@ -820,14 +834,12 @@ class TestWebSocketCleanup:
         # Connect and disconnect
         with client.websocket_connect("/ws") as websocket:
             websocket.send_text(json.dumps({"type": "ping"}))
-            response = websocket.receive_text()
-            assert json.loads(response)["type"] == "pong"
+            _recv_until_type(websocket, "pong")
 
         # Reconnect should work (no resource leaks)
         with client.websocket_connect("/ws") as websocket:
             websocket.send_text(json.dumps({"type": "ping"}))
-            response = websocket.receive_text()
-            assert json.loads(response)["type"] == "pong"
+            _recv_until_type(websocket, "pong")
 
     def test_multiple_concurrent_connections(self, client):
         """Test multiple WebSocket connections simultaneously"""
@@ -835,20 +847,21 @@ class TestWebSocketCleanup:
         # This tests sequential connections
         connections = []
 
-        for i in range(3):
-            ws = client.websocket_connect("/ws")
-            ws.__enter__()
-            connections.append(ws)
+        try:
+            for i in range(3):
+                ws = client.websocket_connect("/ws")
+                ws.__enter__()
+                connections.append(ws)
 
-        # All connections should be active
-        for ws in connections:
-            ws.send_text(json.dumps({"type": "ping"}))
-            response = ws.receive_text()
-            assert json.loads(response)["type"] == "pong"
-
-        # Cleanup
-        for ws in connections:
-            ws.__exit__(None, None, None)
+            # All connections should be active
+            for ws in connections:
+                ws.send_text(json.dumps({"type": "ping"}))
+                _recv_until_type(ws, "pong")
+        finally:
+            # Cleanup — must run even on assertion failure, or an unread
+            # frame left in a connection's queue wedges the next test (#4781).
+            for ws in connections:
+                ws.__exit__(None, None, None)
 
 
 class TestSystemIntegration:
@@ -879,5 +892,4 @@ class TestSystemIntegration:
         # Then connect WebSocket
         with client.websocket_connect("/ws") as websocket:
             websocket.send_text(json.dumps({"type": "ping"}))
-            response = websocket.receive_text()
-            assert json.loads(response)["type"] == "pong"
+            _recv_until_type(websocket, "pong")
