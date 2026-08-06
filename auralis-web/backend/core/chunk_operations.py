@@ -114,11 +114,13 @@ class ChunkOperations:
 
             with sf.SoundFile(filepath) as f:
                 f.seek(start_frame)
-                audio = f.read(frames_to_read)
-
-                # Ensure 2D array (samples, channels)
-                if audio.ndim == 1:
-                    audio = audio[:, np.newaxis]
+                # dtype defaults to float64 with no dtype= arg (#4794) — every
+                # other read/fallback in this pipeline (load_audio below,
+                # stream_normal.py, the silence fallbacks) is float32, so an
+                # unspecified dtype here silently double-precisions the DSP
+                # working set on the primary (non-fallback) load path.
+                # always_2d=True replaces the manual ndim fix-up below.
+                audio = f.read(frames_to_read, dtype='float32', always_2d=True)
 
         except Exception as e:
             logger.warning(f"Soundfile loading failed, using fallback: {e}")
