@@ -112,7 +112,7 @@ class TestGetAlbums:
         """Test getting albums with default pagination"""
         response = client.get("/api/albums")
 
-        assert response.status_code in [200, 503]
+        assert response.status_code == 200
 
         if response.status_code == 200:
             data = response.json()
@@ -127,7 +127,7 @@ class TestGetAlbums:
         """Test getting albums with custom limit"""
         response = client.get("/api/albums?limit=5")
 
-        assert response.status_code in [200, 503]
+        assert response.status_code == 200
 
         if response.status_code == 200:
             data = response.json()
@@ -138,7 +138,7 @@ class TestGetAlbums:
         """Test getting albums with offset"""
         response = client.get("/api/albums?limit=10&offset=5")
 
-        assert response.status_code in [200, 503]
+        assert response.status_code == 200
 
         if response.status_code == 200:
             data = response.json()
@@ -149,7 +149,7 @@ class TestGetAlbums:
         """Test searching albums by name"""
         response = client.get("/api/albums?search=test")
 
-        assert response.status_code in [200, 503]
+        assert response.status_code == 200
 
         if response.status_code == 200:
             data = response.json()
@@ -159,7 +159,7 @@ class TestGetAlbums:
         """Test ordering albums by title"""
         response = client.get("/api/albums?order_by=title")
 
-        assert response.status_code in [200, 503]
+        assert response.status_code == 200
 
         if response.status_code == 200:
             data = response.json()
@@ -169,21 +169,23 @@ class TestGetAlbums:
         """Test ordering albums by year"""
         response = client.get("/api/albums?order_by=year")
 
-        assert response.status_code in [200, 503]
+        assert response.status_code == 200
 
     def test_get_albums_invalid_limit(self, client):
         """Test getting albums with invalid limit (too high)"""
         response = client.get("/api/albums?limit=500")
 
-        # Should reject or clamp to max
-        assert response.status_code in [200, 422, 503]
+        # limit is a Query(..., le=200) — FastAPI/Pydantic rejects this at
+        # the framework level before the handler ever runs.
+        assert response.status_code == 422
 
     def test_get_albums_negative_offset(self, client):
         """Test getting albums with negative offset"""
         response = client.get("/api/albums?offset=-1")
 
-        # Should reject negative offset
-        assert response.status_code in [200, 422, 503]
+        # offset is a Query(..., ge=0) — FastAPI/Pydantic rejects this at
+        # the framework level before the handler ever runs.
+        assert response.status_code == 422
 
     def test_get_albums_with_mocked_data(self, client, mock_album, mock_repos):
         """Test albums endpoint with mocked repository factory"""
@@ -371,7 +373,7 @@ class TestAlbumsAPIIntegration:
         with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             # Search for album
             response = client.get("/api/albums?search=Test")
-            assert response.status_code in [200, 503]
+            assert response.status_code == 200
 
             if response.status_code == 200:
                 data = response.json()

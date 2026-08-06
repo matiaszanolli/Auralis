@@ -53,8 +53,9 @@ class TestLibraryEndpoints:
         """Test getting library statistics"""
         response = client.get("/api/library/stats")
 
-        # May return 503 if library not initialized, or 200 with stats
-        assert response.status_code in [200, 503]
+        # Repository factory is always initialized in the test client's real
+        # startup, so this is unconditionally 200 (#4788).
+        assert response.status_code == 200
 
         if response.status_code == 200:
             data = response.json()
@@ -92,7 +93,9 @@ class TestLibraryEndpoints:
         """Test getting tracks from library"""
         response = client.get("/api/library/tracks?limit=10&offset=0")
 
-        assert response.status_code in [200, 503]
+        # Repository factory is always initialized in the test client's real
+        # startup, so this is unconditionally 200 (#4788).
+        assert response.status_code == 200
 
         if response.status_code == 200:
             data = response.json()
@@ -127,7 +130,9 @@ class TestLibraryEndpoints:
         """Test searching tracks"""
         response = client.get("/api/library/tracks?search=test")
 
-        assert response.status_code in [200, 503]
+        # Repository factory is always initialized in the test client's real
+        # startup, so this is unconditionally 200 (#4788).
+        assert response.status_code == 200
 
     def test_get_tracks_with_search_mock(self, client):
         """Test track search with mocked data"""
@@ -168,7 +173,9 @@ class TestLibraryEndpoints:
         """Test getting artists list"""
         response = client.get("/api/artists")
 
-        assert response.status_code in [200, 503]
+        # Repository factory is always initialized in the test client's real
+        # startup, so this is unconditionally 200 (#4788).
+        assert response.status_code == 200
 
     def test_scan_directory(self, client, tmp_path):
         """Test directory scanning"""
@@ -210,9 +217,9 @@ class TestLibraryEndpoints:
     def test_scan_directory_no_library(self, client, tmp_path):
         """Test scan when library manager not available.
 
-        Note: endpoint checks get_library_manager callable (always truthy),
-        not the returned value. When library_manager=None, the scanner is
-        constructed with None and may still succeed or raise at scan time.
+        Note: endpoint checks the *resolved* library_manager (#4656), not just
+        the get_library_manager callable (which is always truthy), so a None
+        library_manager is rejected with 503 before the scanner is ever built.
         """
         scan_dir = str(tmp_path)
 
@@ -223,8 +230,10 @@ class TestLibraryEndpoints:
                 json={"directories": [scan_dir]}
             )
 
-            # Endpoint doesn't validate library_manager=None before constructing scanner
-            assert response.status_code in [200, 500, 503]
+            # #4656: the endpoint guards the *resolved* library_manager (not just
+            # the getter callable) and returns 503 when it's None, before ever
+            # constructing the scanner.
+            assert response.status_code == 503
 
 
 class TestAudioFormats:
@@ -472,7 +481,9 @@ class TestPlayerEndpoints:
         """Test getting player status"""
         response = client.get("/api/player/status")
 
-        assert response.status_code in [200, 503]
+        # Player state manager is always initialized in the test client's real
+        # startup, so this is unconditionally 200 (#4788).
+        assert response.status_code == 200
 
         if response.status_code == 200:
             data = response.json()
@@ -591,18 +602,20 @@ class TestPlayerEndpoints:
         """Test getting playback queue"""
         response = client.get("/api/player/queue")
 
-        assert response.status_code in [200, 503]
+        # Queue service is always initialized in the test client's real
+        # startup, so this is unconditionally 200 (#4788).
+        assert response.status_code == 200
 
-        if response.status_code == 200:
-            data = response.json()
-            assert "tracks" in data or "current_index" in data
+        data = response.json()
+        assert "tracks" in data or "current_index" in data
 
     def test_add_to_queue(self, client):
         """Test adding track to queue via add-track endpoint (#2725: legacy /queue/add removed)"""
         response = client.post("/api/player/queue/add-track", json={"track_id": 1})
 
-        # May return 404 (track not found) or 503 (service unavailable) in test env
-        assert response.status_code in [200, 404, 500, 503]
+        # track_id=1 isn't seeded in the test DB, so the endpoint's
+        # not-found path is the correct, single outcome (#4788).
+        assert response.status_code == 404
 
 
 @pytest.mark.skip(reason="Processing control endpoints not implemented - /api/processing/enable_matching, /api/processing/load_reference, /api/processing/apply_preset do not exist")
@@ -613,12 +626,9 @@ class TestProcessingControlEndpoints:
         """Test getting audio analysis"""
         response = client.get("/api/processing/analysis")
 
-        assert response.status_code in [200, 503]
-
-        if response.status_code == 200:
-            data = response.json()
-            # Should contain analysis metrics
-            assert isinstance(data, dict)
+        # Route isn't registered (class-level skip: endpoint not implemented),
+        # so FastAPI's unmatched-route 404 is the only outcome (#4788).
+        assert response.status_code == 404
 
     def test_enable_level_matching(self, client):
         """Test enabling level matching"""
@@ -828,15 +838,17 @@ class TestIntegrationFlows:
 
     def test_processing_workflow_endpoints_exist(self, client):
         """Test that processing workflow endpoints exist"""
-        # These should all be registered, even if they return 503 without setup
+        # Both are registered and their dependencies (a hardcoded preset dict,
+        # the processing engine) are always available in the test client's
+        # real startup, so both are unconditionally 200 (#4788).
 
         # Get presets
         response = client.get("/api/processing/presets")
-        assert response.status_code in [200, 503]
+        assert response.status_code == 200
 
         # Get queue status
         response = client.get("/api/processing/queue/status")
-        assert response.status_code in [200, 503]
+        assert response.status_code == 200
 
 
 class TestLyricsEndpoint:
@@ -990,7 +1002,7 @@ class TestFavoritesEndpoints:
         existence, so a no-op 200 is valid for non-existent tracks.
         """
         response = client.post("/api/library/tracks/999/favorite")
-        assert response.status_code in [200, 404, 500]
+        assert response.status_code == 200
 
     def test_remove_favorite_success(self, client):
         """Test removing track from favorites"""

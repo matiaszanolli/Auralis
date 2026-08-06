@@ -80,71 +80,65 @@ class TestGetArtists:
         """Test getting artists with default pagination"""
         response = client.get("/api/artists")
 
-        # 503 if library not initialized, 500 if DB issues, 200 if OK
-        assert response.status_code in [200, 500, 503]
+        assert response.status_code == 200
 
-        if response.status_code == 200:
-            data = response.json()
-            assert "artists" in data
-            assert "total" in data
-            assert "offset" in data
-            assert "limit" in data
-            assert "has_more" in data
-            assert isinstance(data["artists"], list)
+        data = response.json()
+        assert "artists" in data
+        assert "total" in data
+        assert "offset" in data
+        assert "limit" in data
+        assert "has_more" in data
+        assert isinstance(data["artists"], list)
 
     def test_get_artists_with_limit(self, client):
         """Test getting artists with custom limit"""
         response = client.get("/api/artists?limit=10")
 
-        assert response.status_code in [200, 500, 503]
+        assert response.status_code == 200
 
-        if response.status_code == 200:
-            data = response.json()
-            assert data["limit"] == 10
-            assert len(data["artists"]) <= 10
+        data = response.json()
+        assert data["limit"] == 10
+        assert len(data["artists"]) <= 10
 
     def test_get_artists_with_offset(self, client):
         """Test getting artists with offset"""
         response = client.get("/api/artists?limit=20&offset=10")
 
-        assert response.status_code in [200, 500, 503]
+        assert response.status_code == 200
 
-        if response.status_code == 200:
-            data = response.json()
-            assert data["offset"] == 10
-            assert data["limit"] == 20
+        data = response.json()
+        assert data["offset"] == 10
+        assert data["limit"] == 20
 
     def test_get_artists_with_search(self, client):
         """Test searching artists by name"""
         response = client.get("/api/artists?search=test")
 
-        assert response.status_code in [200, 500, 503]
+        assert response.status_code == 200
 
-        if response.status_code == 200:
-            data = response.json()
-            assert "artists" in data
+        data = response.json()
+        assert "artists" in data
 
     def test_get_artists_order_by_name(self, client):
         """Test ordering artists by name"""
         response = client.get("/api/artists?order_by=name")
 
-        assert response.status_code in [200, 500, 503]
+        assert response.status_code == 200
 
-        if response.status_code == 200:
-            data = response.json()
-            assert "artists" in data
+        data = response.json()
+        assert "artists" in data
 
     def test_get_artists_order_by_album_count(self, client):
         """Test ordering artists by album count"""
         response = client.get("/api/artists?order_by=album_count")
 
-        assert response.status_code in [200, 500, 503]
+        assert response.status_code == 200
 
     def test_get_artists_order_by_track_count(self, client):
         """Test ordering artists by track count"""
         response = client.get("/api/artists?order_by=track_count")
 
-        assert response.status_code in [200, 500, 503]
+        assert response.status_code == 200
 
     def test_get_artists_invalid_limit(self, client):
         """Test getting artists with invalid limit (too high)"""
@@ -483,17 +477,16 @@ class TestArtistsAPIIntegration:
         """Test searching for artist and retrieving details"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.search.return_value = [mock_artist]
+        mock_repo_factory.artists.search.return_value = ([mock_artist], 1)
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             # Search for artist
             response = client.get("/api/artists?search=Test")
-            assert response.status_code in [200, 500, 503]
+            assert response.status_code == 200
 
-            if response.status_code == 200:
-                data = response.json()
-                assert "artists" in data
+            data = response.json()
+            assert "artists" in data
 
     def test_pagination_consistency(self, client, mock_artist):
         """Test pagination consistency across multiple requests"""
@@ -512,7 +505,7 @@ class TestArtistsAPIIntegration:
             # Second page
             response2 = client.get("/api/artists?limit=25&offset=25")
 
-            assert response2.status_code in [200, 503]
+            assert response2.status_code == 200
 
 
 class TestArtistsErrorHandling:

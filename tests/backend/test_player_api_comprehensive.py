@@ -82,10 +82,11 @@ class TestLoadTrack:
 
     def test_load_track_nonexistent(self, client):
         """Test loading non-existent track"""
+        client.headers["origin"] = "http://localhost:8765"
         response = client.post("/api/player/load", json={"track_id": 999999})
 
-        # Should return 404 or 500
-        assert response.status_code in [404, 500]
+        # Nonexistent track_id -> NotFoundError (404)
+        assert response.status_code == 404
 
     def test_load_track_accepts_post_only(self, client):
         """Test that load only accepts POST"""
@@ -272,10 +273,12 @@ class TestSeekPosition:
 
     def test_seek_valid_position(self, client):
         """Test seeking to valid position"""
+        client.headers["origin"] = "http://localhost:8765"
         response = client.post("/api/player/seek", json={"position": 30.5})
 
-        # May fail if no track loaded, but validates parameter
-        assert response.status_code in [200, 400, 500]
+        # No track loaded (duration 0), so the duration-bound check is
+        # skipped and the seek succeeds
+        assert response.status_code == 200
 
     def test_seek_accepts_post_only(self, client):
         """Test that seek only accepts POST"""
@@ -317,10 +320,12 @@ class TestSetQueue:
 
     def test_set_queue_with_tracks(self, client):
         """Test setting queue with track IDs"""
+        client.headers["origin"] = "http://localhost:8765"
         response = client.post("/api/player/queue", json={"tracks": [1, 2, 3]})
 
-        # May fail if tracks don't exist
-        assert response.status_code in [200, 404, 500]
+        # None of the track IDs exist in the test library -> "No valid
+        # tracks found" (400)
+        assert response.status_code == 400
 
     def test_set_queue_invalid_format(self, client):
         """Test setting queue with invalid format"""
@@ -373,13 +378,16 @@ class TestReorderQueue:
 
     def test_reorder_queue_valid(self, client):
         """Test reordering with valid indices"""
+        client.headers["origin"] = "http://localhost:8765"
         response = client.put(
             "/api/player/queue/reorder",
             json={"from_index": 0, "to_index": 2}
         )
 
-        # May fail if queue is empty, or 422 if schema expects different fields
-        assert response.status_code in [200, 400, 422, 500]
+        # ReorderQueueRequest actually requires `new_order: list[int]`, not
+        # from_index/to_index -> always a validation error regardless of
+        # queue state
+        assert response.status_code == 422
 
     def test_reorder_queue_accepts_put_only(self, client):
         """Test that reorder only accepts PUT"""
@@ -424,9 +432,11 @@ class TestAddTrackToQueue:
 
     def test_add_track_valid(self, client):
         """Test adding valid track"""
+        client.headers["origin"] = "http://localhost:8765"
         response = client.post("/api/player/queue/add-track", json={"track_id": 1})
 
-        assert response.status_code in [200, 404, 500]
+        # track_id 1 does not exist in the test library -> 404
+        assert response.status_code == 404
 
     def test_add_track_accepts_post_only(self, client):
         """Test that add-track only accepts POST"""
@@ -445,13 +455,14 @@ class TestMoveQueueItem:
 
     def test_move_queue_item_valid(self, client):
         """Test moving with valid indices"""
+        client.headers["origin"] = "http://localhost:8765"
         response = client.put(
             "/api/player/queue/move",
             json={"from_index": 0, "to_index": 1}
         )
 
-        # May fail if queue is empty
-        assert response.status_code in [200, 400, 500]
+        # Queue is empty, so from_index 0 is out of range -> 400
+        assert response.status_code == 400
 
     def test_move_queue_item_accepts_put_only(self, client):
         """Test that move only accepts PUT"""
@@ -464,16 +475,20 @@ class TestShuffleQueue:
 
     def test_shuffle_queue_success(self, client):
         """Test shuffling the queue"""
-        response = client.post("/api/player/queue/shuffle")
+        client.headers["origin"] = "http://localhost:8765"
+        # ShuffleRequest's fields are all optional, but the body itself is
+        # still required by FastAPI — omitting it entirely (as this test
+        # previously did) 422s before ever reaching the shuffle logic.
+        response = client.post("/api/player/queue/shuffle", json={})
 
-        # 200 if player available, 500/503 if no player in test environment
-        assert response.status_code in [200, 500, 503]
+        assert response.status_code == 200
 
     def test_shuffle_queue_multiple_times(self, client):
         """Test shuffling multiple times"""
+        client.headers["origin"] = "http://localhost:8765"
         for _ in range(3):
-            response = client.post("/api/player/queue/shuffle")
-            assert response.status_code in [200, 500, 503]
+            response = client.post("/api/player/queue/shuffle", json={})
+            assert response.status_code == 200
 
     def test_shuffle_queue_accepts_post_only(self, client):
         """Test that shuffle only accepts POST"""
@@ -486,10 +501,12 @@ class TestPlayNext:
 
     def test_play_next_success(self, client):
         """Test playing next track"""
+        client.headers["origin"] = "http://localhost:8765"
         response = client.post("/api/player/next")
 
-        # May fail if no next track
-        assert response.status_code in [200, 400, 500]
+        # No next track available -> still 200 with an informational message,
+        # not an error (NavigationService.next_track never raises for this)
+        assert response.status_code == 200
 
     def test_play_next_accepts_post_only(self, client):
         """Test that next only accepts POST"""
@@ -502,10 +519,13 @@ class TestPlayPrevious:
 
     def test_play_previous_success(self, client):
         """Test playing previous track"""
+        client.headers["origin"] = "http://localhost:8765"
         response = client.post("/api/player/previous")
 
-        # May fail if no previous track
-        assert response.status_code in [200, 400, 500]
+        # No previous track available -> still 200 with an informational
+        # message, not an error (NavigationService.previous_track never
+        # raises for this)
+        assert response.status_code == 200
 
     def test_play_previous_accepts_post_only(self, client):
         """Test that previous only accepts POST"""
@@ -528,6 +548,7 @@ class TestPlayerIntegration:
 
     def test_workflow_queue_operations(self, client):
         """Test workflow: clear → add → shuffle → get queue"""
+        client.headers["origin"] = "http://localhost:8765"
         # 1. Clear queue
         clear_response = client.post("/api/player/queue/clear")
         assert clear_response.status_code == 200
@@ -542,9 +563,10 @@ class TestPlayerIntegration:
             if add_response.status_code != 200:
                 break
 
-        # 3. Shuffle queue (may fail in test env without audio player)
-        shuffle_response = client.post("/api/player/queue/shuffle")
-        assert shuffle_response.status_code in [200, 500, 503]
+        # 3. Shuffle queue (audio player is always available in-process; the
+        # body is required even though every field is optional)
+        shuffle_response = client.post("/api/player/queue/shuffle", json={})
+        assert shuffle_response.status_code == 200
 
         # 4. Get queue
         queue_response = client.get("/api/player/queue")
@@ -552,18 +574,20 @@ class TestPlayerIntegration:
 
     def test_workflow_navigation(self, client):
         """Test workflow: add to queue → next → previous"""
+        client.headers["origin"] = "http://localhost:8765"
         # 1. Clear and add tracks
         client.post("/api/player/queue/clear")
         client.post("/api/player/queue/add-track", json={"track_id": 1})
         client.post("/api/player/queue/add-track", json={"track_id": 2})
 
-        # 2. Play next
+        # 2. Play next — always 200, even with nothing to skip to (see
+        # TestPlayNext.test_play_next_success)
         next_response = client.post("/api/player/next")
-        assert next_response.status_code in [200, 400, 500]
+        assert next_response.status_code == 200
 
-        # 3. Play previous
+        # 3. Play previous — same as above
         prev_response = client.post("/api/player/previous")
-        assert prev_response.status_code in [200, 400, 500]
+        assert prev_response.status_code == 200
 
     def test_workflow_reorder_queue(self, client):
         """Test workflow: set queue → reorder → get queue"""
@@ -600,13 +624,16 @@ class TestPlayerSecurityValidation:
 
     def test_seek_overflow_protection(self, client):
         """Test seek position with extremely large value"""
+        client.headers["origin"] = "http://localhost:8765"
         response = client.post(
             "/api/player/seek",
             json={"position": 999999999.0}
         )
 
-        # Should handle gracefully (may clamp or reject)
-        assert response.status_code in [200, 400, 500]
+        # No track loaded (duration 0), so the duration-bound check is
+        # skipped and the seek is passed straight through to the engine,
+        # which does not itself reject an out-of-range position
+        assert response.status_code == 200
 
     def test_queue_operations_race_conditions(self, client):
         """Test rapid queue operations"""

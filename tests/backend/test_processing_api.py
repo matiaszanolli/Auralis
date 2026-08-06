@@ -407,8 +407,11 @@ class TestErrorHandling:
             data=data
         )
 
-        # Should handle JSON parsing error
-        assert response.status_code in [400, 422, 500]
+        # Client sent malformed JSON — a well-behaved endpoint rejects this as
+        # a 400 Bad Request, not a 500 (#4788). NOTE: the router currently
+        # lets json.JSONDecodeError fall through to the generic `except
+        # Exception` handler and returns 500 instead — see final report.
+        assert response.status_code == 400
 
 
 class TestPresetApplication:

@@ -21,7 +21,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from core.processing_engine import ProcessingEngine, ProcessingStatus
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from security.path_security import PathValidationError, validate_file_path
 
 from .errors import NotFoundError
@@ -242,10 +242,21 @@ def create_processing_router(
             raise HTTPException(status_code=503, detail="Processing engine not available")
 
         try:
-            # Parse settings from JSON string
+            # Parse settings from JSON string. Malformed client input (bad
+            # JSON, or a shape ProcessingSettings rejects) is a 400, not the
+            # generic 500 both used to fall through to via the bare
+            # `except Exception` below — that loose behavior was masked by
+            # a test assertion permitting 500 as an acceptable outcome
+            # (#4788) until it was tightened and caught this.
             import json
-            settings_dict = json.loads(settings)
-            processing_settings = ProcessingSettings(**settings_dict)
+            try:
+                settings_dict = json.loads(settings)
+            except json.JSONDecodeError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid settings JSON: {e}")
+            try:
+                processing_settings = ProcessingSettings(**settings_dict)
+            except (TypeError, ValidationError) as e:
+                raise HTTPException(status_code=400, detail=f"Invalid processing settings: {e}")
 
             # Save uploaded file to temp location
             temp_dir = Path(tempfile.gettempdir()) / "auralis_uploads"

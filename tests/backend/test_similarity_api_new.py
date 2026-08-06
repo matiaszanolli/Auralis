@@ -77,8 +77,8 @@ class TestGetSimilarTracks:
         # Test with custom limit
         response = client.get("/api/similarity/tracks/1/similar?limit=5")
 
-        # Will fail if track doesn't exist, but validates parameter parsing
-        assert response.status_code in [400, 404, 500]
+        # Track 1 doesn't exist in the test library, but validates parameter parsing
+        assert response.status_code == 404
 
     def test_get_similar_tracks_limit_validation(self, client):
         """Test limit parameter validation"""
@@ -94,13 +94,13 @@ class TestGetSimilarTracks:
         """Test use_graph parameter"""
         response = client.get("/api/similarity/tracks/1/similar?use_graph=false")
 
-        assert response.status_code in [400, 404, 500]
+        assert response.status_code == 404
 
     def test_get_similar_tracks_include_details(self, client):
         """Test include_details parameter"""
         response = client.get("/api/similarity/tracks/1/similar?include_details=true")
 
-        assert response.status_code in [400, 404, 500]
+        assert response.status_code == 404
 
 
 class TestCompareTracks:
@@ -120,8 +120,8 @@ class TestCompareTracks:
         """Test comparing track to itself"""
         response = client.get("/api/similarity/tracks/1/compare/1")
 
-        # Should handle gracefully (may return 0 distance or error)
-        assert response.status_code in [200, 400, 404, 500]
+        # Track 1 doesn't exist in the test library
+        assert response.status_code == 404
 
     def test_compare_tracks_negative_ids(self, client):
         """Test comparing with negative track IDs"""
@@ -164,8 +164,8 @@ class TestFitModel:
         """Test fitting the similarity model"""
         response = client.post("/api/similarity/fit")
 
-        # May require fingerprints to exist
-        assert response.status_code in [200, 400, 500]
+        # Test library has fewer than min_samples fingerprints
+        assert response.status_code == 400
 
     def test_fit_model_accepts_post_only(self, client):
         """Test that fit endpoint only accepts POST"""
@@ -180,8 +180,8 @@ class TestBuildGraph:
         """Test building the similarity graph"""
         response = client.post("/api/similarity/graph/build")
 
-        # May require fitted model or fingerprints
-        assert response.status_code in [200, 400, 500]
+        # No fitted similarity system in the test library
+        assert response.status_code == 503
 
     def test_build_graph_accepts_post_only(self, client):
         """Test that build endpoint only accepts POST"""
@@ -280,8 +280,8 @@ class TestEnqueueTrack:
         """Test enqueueing a track for fingerprinting"""
         response = client.post("/api/similarity/fingerprint-queue/enqueue/1")
 
-        # May succeed or fail if track doesn't exist
-        assert response.status_code in [200, 404, 500]
+        # Track 1 doesn't exist in the test library
+        assert response.status_code == 404
 
     def test_enqueue_track_accepts_post_only(self, client):
         """Test that enqueue endpoint only accepts POST"""
@@ -303,7 +303,7 @@ class TestEnqueueAll:
         response = client.post("/api/similarity/fingerprint-queue/enqueue-all")
 
         # Should process (may be slow if many tracks)
-        assert response.status_code in [200, 500]
+        assert response.status_code == 200
 
     def test_enqueue_all_accepts_post_only(self, client):
         """Test that enqueue-all endpoint only accepts POST"""
@@ -390,7 +390,7 @@ class TestSimilaritySecurityValidation:
         response = client.post(f"/api/similarity/fingerprint-queue/enqueue/{large_id}")
 
         # Should handle gracefully (404, not crash)
-        assert response.status_code in [404, 500]
+        assert response.status_code == 404
 
     def test_similar_tracks_limit_overflow(self, client):
         """Test limit parameter with overflow values"""

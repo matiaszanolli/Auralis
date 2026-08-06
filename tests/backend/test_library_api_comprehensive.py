@@ -501,6 +501,8 @@ class TestLibrarySecurityValidation:
         response = client.post("/api/library/tracks/invalid/favorite")
         assert response.status_code == 422
 
-        # Extremely large ID (endpoint doesn't validate track existence)
+        # Extremely large ID (endpoint doesn't validate track existence, so
+        # set_track_favorite() silently no-ops when the track isn't found —
+        # #4788)
         response = client.post("/api/library/tracks/999999999999/favorite")
-        assert response.status_code in [200, 404, 500]
+        assert response.status_code == 200

@@ -85,6 +85,31 @@ def mock_broadcast_manager():
     return manager
 
 
+@pytest.fixture
+def client(client):
+    """Override the shared ``client`` fixture (conftest.py) so every
+    state-changing request in this module carries a trusted Origin header.
+
+    All metadata endpoints live under /api and PUT/POST are state-changing,
+    so OriginCheckMiddleware (#4893) 403s them unless Origin is either
+    absent-from-loopback or in the trusted allowlist. Starlette's TestClient
+    sends `Host: testserver`/no real client host, which isn't loopback, so
+    every PUT/POST/DELETE/PATCH call in this file needs an explicit trusted
+    Origin or every scenario below observes the middleware's 403 instead of
+    the endpoint behavior under test.
+    """
+    for method in ("put", "post", "delete", "patch"):
+        original = getattr(client, method)
+
+        def _with_origin(url, *, _original=original, **kwargs):
+            headers = dict(kwargs.pop("headers", {}) or {})
+            headers.setdefault("origin", "http://localhost:8765")
+            return _original(url, headers=headers, **kwargs)
+
+        setattr(client, method, _with_origin)
+    return client
+
+
 class TestGetEditableFields:
     """Test GET /api/metadata/tracks/{track_id}/fields"""
 
@@ -108,8 +133,10 @@ class TestGetEditableFields:
 
         response = client.get("/api/metadata/tracks/1/fields")
 
-        # Should return 400 (path validation), 404 (file not found), or 500
-        assert response.status_code in [400, 404, 500]
+        # "/nonexistent/file.mp3" is outside the allowed base directories
+        # (~/Music, ~/Documents), so validate_file_path() always rejects it
+        # before any file-existence check runs — deterministically 400.
+        assert response.status_code == 400
 
     def test_get_editable_fields_accepts_get_only(self, client):
         """Test that endpoint only accepts GET"""
@@ -139,8 +166,9 @@ class TestGetTrackMetadata:
 
         response = client.get("/api/metadata/tracks/1")
 
-        # 400 from path validation, 404 from file not found, or 500
-        assert response.status_code in [400, 404, 500]
+        # "/nonexistent/file.mp3" is outside the allowed base directories,
+        # so validate_file_path() always rejects it first — deterministically 400.
+        assert response.status_code == 400
 
     def test_get_metadata_accepts_get_only(self, client):
         """Test that endpoint only accepts GET"""
@@ -215,8 +243,9 @@ class TestUpdateTrackMetadata:
             json={"title": "New Title"}
         )
 
-        # Should return 400 (path validation), 404 (file not found), or 500
-        assert response.status_code in [400, 404, 500]
+        # "/nonexistent/file.mp3" is outside the allowed base directories,
+        # so validate_file_path() always rejects it first — deterministically 400.
+        assert response.status_code == 400
 
     def test_update_metadata_accepts_put_only(self, client):
         """Test that endpoint only accepts PUT"""
@@ -239,8 +268,10 @@ class TestUpdateTrackMetadata:
             json={"title": "New Title"}
         )
 
-        # Will fail because file doesn't exist, but validates parameter passing
-        assert response.status_code in [400, 404, 500]
+        # mock_track.filepath ("/path/to/test.mp3") is outside the allowed base
+        # directories, so validate_file_path() always rejects it — deterministically
+        # 400, regardless of the backup query param under test.
+        assert response.status_code == 400
 
 
 class TestBatchUpdateMetadata:
@@ -280,8 +311,10 @@ class TestBatchUpdateMetadata:
             }
         )
 
-        # Should process but report failure for missing track
-        assert response.status_code in [200, 500]
+        # Missing tracks are dropped from batch_updates (a logged warning,
+        # not an exception) — the endpoint always returns 200 with an empty
+        # results set, never a failure status.
+        assert response.status_code == 200
 
     @patch('routers.metadata.require_repository_factory')
     def test_batch_update_mixed_success_failure(self, mock_require_repos, client, mock_repos):
@@ -308,8 +341,10 @@ class TestBatchUpdateMetadata:
             }
         )
 
-        # Should process and return results
-        assert response.status_code in [200, 500]
+        # Both the missing track and the found-but-outside-allowed-directories
+        # track are dropped from batch_updates (logged warnings, not
+        # exceptions) — the endpoint always returns 200.
+        assert response.status_code == 200
 
     @patch('routers.metadata.require_repository_factory')
     def test_batch_update_backup_disabled(self, mock_require_repos, client, mock_repos):
@@ -327,8 +362,10 @@ class TestBatchUpdateMetadata:
             }
         )
 
-        # Validates that backup parameter is accepted
-        assert response.status_code in [200, 500]
+        # Missing track is dropped from batch_updates (a logged warning, not
+        # an exception) — the endpoint always returns 200 regardless of the
+        # backup flag under test.
+        assert response.status_code == 200
 
     def test_batch_update_invalid_metadata_structure(self, client):
         """Test batch update with invalid metadata structure"""
@@ -377,8 +414,11 @@ class TestMetadataValidation:
             json=valid_updates
         )
 
-        # Will fail because file doesn't exist, but validates field types
-        assert response.status_code in [400, 404, 500]
+        # mock_track.filepath ("/path/to/test.mp3") is outside the allowed base
+        # directories, so validate_file_path() always rejects it — deterministically
+        # 400 — but this test's purpose is confirming the field types themselves
+        # cleared Pydantic validation, hence the explicit != 422 below.
+        assert response.status_code == 400
         # Should NOT be validation error (422)
         assert response.status_code != 422
 
@@ -394,8 +434,9 @@ class TestMetadataValidation:
             json={"title": "New Title Only"}
         )
 
-        # Will fail because file doesn't exist, but validates partial update
-        assert response.status_code in [400, 404, 500]
+        # mock_track.filepath ("/path/to/test.mp3") is outside the allowed base
+        # directories, so validate_file_path() always rejects it — deterministically 400.
+        assert response.status_code == 400
         assert response.status_code != 422
 
 
@@ -414,8 +455,10 @@ class TestMetadataSecurityValidation:
             json={"title": "'; DROP TABLE tracks; --"}
         )
 
-        # Should handle safely (not execute SQL)
-        assert response.status_code in [400, 404, 500]
+        # Should handle safely (not execute SQL). mock_track.filepath is
+        # outside the allowed base directories, so validate_file_path()
+        # always rejects it — deterministically 400.
+        assert response.status_code == 400
 
     @patch('routers.metadata.require_repository_factory')
     def test_metadata_xss_attempt(self, mock_require_repos, client, mock_repos, mock_track):
@@ -429,8 +472,10 @@ class TestMetadataSecurityValidation:
             json={"title": "<script>alert('XSS')</script>"}
         )
 
-        # Should accept (metadata can contain special chars) but not execute
-        assert response.status_code in [400, 404, 500]
+        # Should accept (metadata can contain special chars) but not execute.
+        # mock_track.filepath is outside the allowed base directories, so
+        # validate_file_path() always rejects it — deterministically 400.
+        assert response.status_code == 400
 
     @patch('routers.metadata.require_repository_factory')
     def test_metadata_extremely_long_strings(self, mock_require_repos, client, mock_repos, mock_track):
@@ -446,8 +491,10 @@ class TestMetadataSecurityValidation:
             json={"title": long_title}
         )
 
-        # Should handle safely (may accept or reject based on limits)
-        assert response.status_code in [400, 404, 500]
+        # Should handle safely. mock_track.filepath is outside the allowed
+        # base directories, so validate_file_path() always rejects it —
+        # deterministically 400 — before any length limit could apply.
+        assert response.status_code == 400
 
 
 class TestMetadataIntegration:
@@ -468,9 +515,11 @@ class TestMetadataIntegration:
             json={"title": "Updated Title"}
         )
 
-        # Both should fail consistently (400 from path validation, 404/500 from file I/O)
-        assert fields_response.status_code in [400, 404, 500]
-        assert update_response.status_code in [400, 404, 500]
+        # Both fail consistently: mock_track.filepath ("/path/to/test.mp3") is
+        # outside the allowed base directories, so validate_file_path() always
+        # rejects it first — deterministically 400 for both calls.
+        assert fields_response.status_code == 400
+        assert update_response.status_code == 400
 
     @patch('routers.metadata.require_repository_factory')
     def test_workflow_single_then_batch_update(self, mock_require_repos, client, mock_repos):
@@ -495,6 +544,8 @@ class TestMetadataIntegration:
             }
         )
 
-        # Both should process (may fail due to missing tracks)
-        assert single_response.status_code in [400, 404, 500]
-        assert batch_response.status_code in [200, 500]
+        # Single update: track 1 isn't found (get_by_id returns None) — 404.
+        # Batch update: missing tracks are dropped from batch_updates (a
+        # logged warning, not an exception) — always 200.
+        assert single_response.status_code == 404
+        assert batch_response.status_code == 200
