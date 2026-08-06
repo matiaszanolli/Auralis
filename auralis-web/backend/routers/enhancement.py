@@ -28,7 +28,7 @@ from .errors import NotFoundError
 from pydantic import BaseModel, field_validator
 
 from core.chunk_boundaries import (  # single source of truth (#2564)
-    CHUNK_INTERVAL,
+    chunk_for_position,
     content_chunk_count,
 )
 from helpers import spawn_background_task
@@ -150,20 +150,24 @@ def create_enhancement_router(
             import soundfile as sf
             from core.chunked_processor import ChunkedAudioProcessor
 
-            # Calculate current chunk and next 3 chunks to pre-process.
-            # Use CHUNK_INTERVAL (not CHUNK_DURATION) to match ChunkedAudioProcessor
-            # indexing — chunks start every CHUNK_INTERVAL seconds (fixes #2607).
-            current_chunk_idx = int(current_time / CHUNK_INTERVAL)
-            chunks_to_process = [current_chunk_idx + i for i in range(1, 4)]  # Next 3 chunks
-
-            logger.info(f"🎯 Pre-processing chunks {chunks_to_process} for track {track_id} (current chunk: {current_chunk_idx})")
-
             # Get audio duration to avoid processing non-existent chunks
             info = await asyncio.to_thread(sf.info, filepath)
             total_duration = info.duration
             # Match ChunkedAudioProcessor's content-chunk count so we don't
             # pre-process a spurious trailing chunk (#4124).
             total_chunks = content_chunk_count(total_duration)
+
+            # Calculate current chunk and next 3 chunks to pre-process, via
+            # chunk_for_position() (#4557/#4791) — the mapping onto the chunk
+            # that actually EMITS current_time, not a naive core-timeline
+            # division by CHUNK_INTERVAL, which is off by one for roughly
+            # the first half of every emitted chunk window and was skipping
+            # the immediately-next chunk (the one whose absence causes the
+            # stall this pre-fetch exists to prevent).
+            current_chunk_idx = chunk_for_position(current_time, total_chunks)[0]
+            chunks_to_process = [current_chunk_idx + i for i in range(1, 4)]  # Next 3 chunks
+
+            logger.info(f"🎯 Pre-processing chunks {chunks_to_process} for track {track_id} (current chunk: {current_chunk_idx})")
 
             # Create processor (may perform file I/O — run in thread)
             processor = await asyncio.to_thread(

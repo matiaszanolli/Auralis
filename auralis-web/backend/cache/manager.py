@@ -26,6 +26,7 @@ from typing import Any, NamedTuple
 from core.chunk_boundaries import (  # noqa: F401
     CHUNK_DURATION,
     CHUNK_INTERVAL,
+    chunk_for_position,
     content_chunk_count,
 )
 
@@ -175,8 +176,19 @@ class StreamlinedCacheManager:
 
     def _get_current_chunk(self, position: float) -> int:
         """Calculate chunk index from playback position.
-        Uses CHUNK_INTERVAL (10s) since chunks start every 10s."""
-        return int(position // CHUNK_INTERVAL)
+
+        Uses chunk_for_position() (#4557/#4791) — the mapping onto the chunk
+        that actually EMITS this position, not the naive core-timeline
+        floor-division by CHUNK_INTERVAL, which is off by one for roughly
+        the first half of every emitted chunk window (every chunk after the
+        first is offset by OVERLAP_DURATION from the core timeline; see
+        chunk_boundaries.emitted_chunk_start).
+        """
+        total_chunks = 1
+        status = self.track_status.get(self.current_track_id) if self.current_track_id else None
+        if status is not None:
+            total_chunks = status.total_chunks
+        return chunk_for_position(position, total_chunks)[0]
 
     def _calculate_total_chunks(self, duration: float) -> int:
         """Content-carrying chunk count — delegates to the chunk-model SoT.

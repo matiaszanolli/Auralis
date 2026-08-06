@@ -158,6 +158,56 @@ class TestSliverAvoidance:
         assert idx == total - 1
 
 
+class TestCacheManagerCurrentChunkMatchesChunkForPosition:
+    """#4791: StreamlinedCacheManager._get_current_chunk used to derive the
+    chunk index via the naive core-timeline ``position // CHUNK_INTERVAL``,
+    disagreeing with chunk_for_position() (what stream_seek.py already used,
+    #4557) for roughly the first half of every emitted chunk window. This
+    fed PlaybackSnapshot.chunk_idx (Tier-1 warming / add_chunk's tier
+    auto-detect), so the "hot" cache tier was one chunk ahead of the live
+    position for those windows.
+    """
+
+    @staticmethod
+    def _make_manager(total_chunks: int):
+        import sys
+        if _BACKEND not in sys.path:
+            sys.path.insert(0, _BACKEND)
+        from cache.manager import StreamlinedCacheManager, TrackCacheStatus
+
+        manager = StreamlinedCacheManager()
+        manager.current_track_id = 1
+        manager.track_status[1] = TrackCacheStatus(track_id=1, total_chunks=total_chunks)
+        return manager
+
+    # Kept clear of [24.5, 25) — inside SEEK_MIN_CHUNK_REMAINDER of chunk 1's
+    # end, where chunk_for_position's sliver-avoidance rule legitimately
+    # advances to chunk 2 (tested separately in TestSliverAvoidance above).
+    @pytest.mark.parametrize("position", [20.0, 21.0, 23.0, 24.4])
+    def test_first_half_of_chunk_1_window(self, position):
+        """p in [20,25) must map to chunk 1, not the naive chunk 2."""
+        manager = self._make_manager(TOTAL_CHUNKS)
+        expected = chunk_for_position(position, TOTAL_CHUNKS)[0]
+        assert manager._get_current_chunk(position) == expected == 1
+
+    @pytest.mark.parametrize("position", [30.0, 31.0, 33.0, 34.4])
+    def test_first_half_of_chunk_2_window(self, position):
+        """p in [30,35) must map to chunk 2, not the naive chunk 3."""
+        manager = self._make_manager(TOTAL_CHUNKS)
+        expected = chunk_for_position(position, TOTAL_CHUNKS)[0]
+        assert manager._get_current_chunk(position) == expected == 2
+
+    def test_matches_chunk_for_position_across_a_full_sweep(self):
+        manager = self._make_manager(TOTAL_CHUNKS)
+        position = 0.0
+        while position < emitted_chunk_start(TOTAL_CHUNKS - 1):
+            expected = chunk_for_position(position, TOTAL_CHUNKS)[0]
+            assert manager._get_current_chunk(position) == expected, (
+                f"mismatch at position={position}"
+            )
+            position += 0.3
+
+
 class TestSeekMathUsesSharedConstants:
     """CONSISTENCY: the seek derivation and the extraction must be provably
     sourced from the same constants."""
@@ -186,3 +236,39 @@ class TestSeekMathUsesSharedConstants:
 
     def test_constants_are_self_consistent(self):
         assert CHUNK_INTERVAL == CHUNK_DURATION - OVERLAP_DURATION
+
+    @pytest.mark.parametrize("module_path", [
+        "cache/manager.py",
+        "routers/enhancement.py",
+    ])
+    def test_position_to_chunk_derivations_use_chunk_for_position(self, module_path):
+        """#4791: cache/manager.py's _get_current_chunk and routers/
+        enhancement.py's pre-fetch chunk index used to derive the chunk
+        index via the naive core-timeline
+        ``position // CHUNK_INTERVAL``/``position / CHUNK_INTERVAL`` —
+        off by one for roughly the first half of every emitted chunk
+        window, same root cause #4557 fixed in stream_seek.py. Extends
+        test_stream_seek_imports_the_helper's guard to these two files.
+
+        Checks for the exact prior expressions rather than banning the
+        ``CHUNK_INTERVAL`` substring generally — both files legitimately
+        reference it elsewhere (re-exports, an unrelated total-chunk-COUNT
+        formula in a #4124 docstring), same rationale as
+        test_stream_seek_imports_the_helper's own "checked against code
+        only" note.
+        """
+        source = (Path(_BACKEND) / module_path).read_text()
+        assert "chunk_for_position" in source, (
+            f"{module_path} must derive the chunk index from the emitted "
+            "timeline via chunk_for_position() (#4557/#4791)"
+        )
+        for forbidden in (
+            "position // CHUNK_INTERVAL",
+            "position / CHUNK_INTERVAL",
+            "current_time / CHUNK_INTERVAL",
+            "current_time // CHUNK_INTERVAL",
+        ):
+            assert forbidden not in source, (
+                f"{module_path} still contains the naive core-timeline "
+                f"position -> chunk derivation ({forbidden!r}) (#4791)"
+            )
