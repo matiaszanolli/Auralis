@@ -33,6 +33,7 @@ from auralis.core.hybrid_processor import HybridProcessor
 from auralis.io.processing import resample_audio
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
+from auralis.utils.logging import Code, ModuleError
 
 # ProcessingJob / ProcessingStatus live in job_models so the worker can import
 # them without a circular dependency; re-exported here so existing
@@ -68,13 +69,44 @@ try:
 except ImportError:
     pass
 
+# auralis.io.unified_loader (and its loaders/ siblings) raise ModuleError — a
+# bare Exception subclass — for every load failure instead of a stdlib
+# exception type, so it never matched _ERROR_CATEGORIES above and every load
+# failure collapsed into the generic fallback (#4769). ModuleError.code is the
+# formatted "<Code.* value>: <detail>" string, so match on its prefix rather
+# than isinstance. Order matters: first match wins.
+_MODULE_ERROR_CATEGORIES: list[tuple[str, str]] = [
+    (Code.ERROR_FILE_NOT_FOUND, "Audio file not found"),
+    (Code.ERROR_EMPTY_FILE, "Audio file is empty"),
+    (Code.ERROR_EMPTY_AUDIO, "Audio file contains no audio data"),
+    (Code.ERROR_UNSUPPORTED_FORMAT, "Unsupported audio format"),
+    (Code.ERROR_INVALID_SAMPLE_RATE, "Invalid audio sample rate"),
+    (Code.ERROR_INVALID_AUDIO, "Invalid or corrupted audio data"),
+    (Code.ERROR_TRUNCATED_FILE, "Audio file appears to be truncated or incomplete"),
+    (Code.ERROR_CORRUPTED, "Audio file is corrupted or unsupported"),
+    (Code.ERROR_FFMPEG_NOT_FOUND, "Audio decoder unavailable on server"),
+    (Code.ERROR_FFMPEG_TIMEOUT, "Audio conversion timed out"),
+    (Code.ERROR_FFMPEG_CONVERSION, "Audio file could not be converted"),
+    (Code.ERROR_LOADING, "Audio file could not be loaded"),
+    (Code.ERROR_VALIDATION, "Audio validation failed"),
+    (Code.ERROR_NAN_DETECTED, "Audio file contains invalid sample values"),
+]
+
 
 def _safe_error_message(exc: Exception) -> str:
     """Return a user-safe error category for *exc*.
 
     The raw exception is intentionally NOT included — callers must log
     it separately so internal paths / library internals stay server-side.
+    This also applies to ModuleError.code, which can embed absolute paths
+    or raw FFmpeg stderr; only the mapped category string is ever returned.
     """
+    if isinstance(exc, ModuleError):
+        code = getattr(exc, "code", "") or ""
+        for prefix, message in _MODULE_ERROR_CATEGORIES:
+            if code.startswith(prefix):
+                return message
+        return "Audio file could not be processed"
     for exc_type, message in _ERROR_CATEGORIES:
         if isinstance(exc, exc_type):
             return message

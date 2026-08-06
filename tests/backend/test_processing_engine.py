@@ -21,6 +21,7 @@ from core.processing_engine import (
     ProcessingEngine,
     ProcessingJob,
     ProcessingStatus,
+    _safe_error_message,
 )
 
 
@@ -751,6 +752,68 @@ class TestResetProcessorState:
             # would have starved while the 0.3s sleep ran on the loop thread.
             assert ticks == 20
             assert job.status == ProcessingStatus.COMPLETED
+
+
+class TestSafeErrorMessageModuleError:
+    """#4769: ModuleError never matched _ERROR_CATEGORIES, so every audio-load
+    failure (missing file, unsupported format, FFmpeg timeout, truncated
+    file...) collapsed into the generic catch-all message."""
+
+    def test_file_not_found_maps_to_specific_message(self):
+        from auralis.utils.logging import Code, ModuleError
+
+        exc = ModuleError(f"{Code.ERROR_FILE_NOT_FOUND}: /some/absolute/path.wav")
+        message = _safe_error_message(exc)
+
+        assert message == "Audio file not found"
+        assert message != "An unexpected error occurred during processing"
+
+    @pytest.mark.parametrize(
+        "code_attr,expected_message",
+        [
+            ("ERROR_FILE_NOT_FOUND", "Audio file not found"),
+            ("ERROR_EMPTY_FILE", "Audio file is empty"),
+            ("ERROR_EMPTY_AUDIO", "Audio file contains no audio data"),
+            ("ERROR_UNSUPPORTED_FORMAT", "Unsupported audio format"),
+            ("ERROR_INVALID_SAMPLE_RATE", "Invalid audio sample rate"),
+            ("ERROR_INVALID_AUDIO", "Invalid or corrupted audio data"),
+            ("ERROR_TRUNCATED_FILE", "Audio file appears to be truncated or incomplete"),
+            ("ERROR_CORRUPTED", "Audio file is corrupted or unsupported"),
+            ("ERROR_FFMPEG_NOT_FOUND", "Audio decoder unavailable on server"),
+            ("ERROR_FFMPEG_TIMEOUT", "Audio conversion timed out"),
+            ("ERROR_FFMPEG_CONVERSION", "Audio file could not be converted"),
+            ("ERROR_LOADING", "Audio file could not be loaded"),
+        ],
+    )
+    def test_each_module_error_code_maps_to_distinct_message(
+        self, code_attr, expected_message
+    ):
+        from auralis.utils.logging import Code, ModuleError
+
+        code_value = getattr(Code, code_attr)
+        exc = ModuleError(f"{code_value}: some detail")
+
+        assert _safe_error_message(exc) == expected_message
+
+    def test_unknown_module_error_code_falls_back_safely(self):
+        from auralis.utils.logging import ModuleError
+
+        exc = ModuleError("No audio stream found")
+
+        assert _safe_error_message(exc) == "Audio file could not be processed"
+
+    def test_module_error_never_leaks_raw_path_or_stderr(self):
+        """The raw code text (absolute paths, FFmpeg stderr) must never be
+        passed through — only the mapped category string is returned."""
+        from auralis.utils.logging import Code, ModuleError
+
+        leaky_detail = "/home/deploy/secret/tracks/original_master.wav"
+        exc = ModuleError(f"{Code.ERROR_FILE_NOT_FOUND}: {leaky_detail}")
+
+        message = _safe_error_message(exc)
+
+        assert leaky_detail not in message
+        assert "/home/" not in message
 
 
 if __name__ == "__main__":
