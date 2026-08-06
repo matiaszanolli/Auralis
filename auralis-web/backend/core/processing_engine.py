@@ -790,21 +790,27 @@ class ProcessingEngine:
                 if job_id in self.progress_callbacks:
                     del self.progress_callbacks[job_id]
 
-        # Phase 2: filesystem checks and deletions outside the lock (#3327)
-        for output_path, input_path in candidate_paths:
-            try:
-                if output_path.exists():
-                    files_to_delete.append(output_path)
-                if input_path.exists() and input_path.is_relative_to(upload_dir):
-                    files_to_delete.append(input_path)
-            except OSError:
-                pass  # Path check failed — skip
+        # Phase 2: filesystem checks and deletions outside the lock (#3327).
+        # Offloaded via asyncio.to_thread (#4754) — an unbounded per-job
+        # loop of stat()/unlink() calls that grows with job count, running
+        # directly on the event loop.
+        def _delete_expired_files() -> None:
+            for output_path, input_path in candidate_paths:
+                try:
+                    if output_path.exists():
+                        files_to_delete.append(output_path)
+                    if input_path.exists() and input_path.is_relative_to(upload_dir):
+                        files_to_delete.append(input_path)
+                except OSError:
+                    pass  # Path check failed — skip
 
-        for file_path in files_to_delete:
-            try:
-                file_path.unlink(missing_ok=True)
-            except OSError as e:
-                logger.warning(f"Failed to delete {file_path}: {e}")
+            for file_path in files_to_delete:
+                try:
+                    file_path.unlink(missing_ok=True)
+                except OSError as e:
+                    logger.warning(f"Failed to delete {file_path}: {e}")
+
+        await asyncio.to_thread(_delete_expired_files)
 
         return len(jobs_to_remove)
 

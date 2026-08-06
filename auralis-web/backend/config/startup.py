@@ -310,11 +310,13 @@ def create_lifespan(deps: dict[str, Any]):
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # === Startup ===
 
-        # Clear chunk files from disk to avoid serving stale chunks with old presets
+        # Clear chunk files from disk to avoid serving stale chunks with old presets.
+        # Offloaded via asyncio.to_thread (#4754) — up to 512 MB of cached WAVs,
+        # previously removed directly on the event loop during lifespan startup.
         chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
         if chunk_dir.exists():
             try:
-                shutil.rmtree(chunk_dir)
+                await asyncio.to_thread(shutil.rmtree, chunk_dir)
                 chunk_dir.mkdir(exist_ok=True)
                 logger.info(f"🧹 Cleared chunk directory: {chunk_dir.name}")
             except Exception as e:

@@ -207,6 +207,34 @@ class TestProcessingEngine:
         assert job.job_id not in engine.jobs
 
     @pytest.mark.asyncio
+    async def test_cleanup_old_jobs_file_deletion_offloaded_via_to_thread(
+        self, engine, temp_audio_file
+    ):
+        """#4754: the per-job filesystem check/delete loop (Phase 2, outside
+        _jobs_lock per #3327) is unbounded — grows with job count — and used
+        to run directly on the event loop."""
+        from datetime import datetime, timedelta
+
+        job = await engine.create_job(
+            input_path=str(temp_audio_file), settings={"mode": "adaptive"}
+        )
+        job.status = ProcessingStatus.COMPLETED
+        job.completed_at = datetime.now() - timedelta(hours=25)
+        engine.jobs[job.job_id] = job
+
+        with patch(
+            "core.processing_engine.asyncio.to_thread", wraps=asyncio.to_thread
+        ) as mock_to_thread:
+            removed = await engine.cleanup_old_jobs(max_age_hours=24)
+
+        assert removed == 1
+        assert mock_to_thread.called, (
+            "cleanup_old_jobs's filesystem check/delete phase must be "
+            "offloaded via asyncio.to_thread, not run directly on the "
+            "event loop (#4754)"
+        )
+
+    @pytest.mark.asyncio
     async def test_multiple_jobs(self, engine, temp_audio_file):
         """Test submitting multiple jobs"""
         jobs = []

@@ -17,6 +17,7 @@ Extracted from audio_stream_controller.py (#4071).
 
 import asyncio
 import logging
+import shutil
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -427,9 +428,13 @@ async def stream_normal_audio(
         # Log on failure instead of swallowing it (#3877): an EBUSY/EACCES
         # holdout is swept and counted at next startup (config/startup.py).
         if temp_dir:
-            import shutil
+            # Offloaded via asyncio.to_thread (#4754) — temp_dir holds a
+            # full decoded WAV (can be hundreds of MB), and this ran
+            # directly on the event loop for every compressed-format
+            # normal stream.
             try:
-                shutil.rmtree(
+                await asyncio.to_thread(
+                    shutil.rmtree,
                     temp_dir,
                     onexc=lambda _func, path, exc: logger.warning(
                         f"Failed to remove temp stream file {path}: {exc}"
