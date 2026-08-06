@@ -155,6 +155,19 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
         except Exception as artwork_err:
             logger.warning(f"⚠️  Artwork downloader shutdown error: {artwork_err}")
 
+        # Shut down the fingerprint ThreadPoolExecutor — previously only
+        # reachable via atexit, which runs after this whole function (and
+        # thus after the library database shutdown below), letting an
+        # in-flight fingerprint computation race the WAL checkpoint /
+        # engine dispose (#4756). Ordered before the database step, bounded
+        # so a slow computation can't stall shutdown indefinitely.
+        try:
+            from analysis.fingerprint_generator import shutdown_fingerprint_executor_bounded
+            await shutdown_fingerprint_executor_bounded()
+            logger.info("✅ Fingerprint executor shutdown step complete")
+        except Exception as fp_err:
+            logger.warning(f"⚠️  Fingerprint executor shutdown error: {fp_err}")
+
         # Shut down the library database last — WAL checkpoint + engine dispose (#3210)
         if globals_dict.get('library_manager'):
             try:

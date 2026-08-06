@@ -75,7 +75,15 @@ def _get_fingerprint_executor() -> ThreadPoolExecutor:
 
 
 def shutdown_fingerprint_executor() -> None:
-    """Shutdown the fingerprint executor gracefully."""
+    """Shutdown the fingerprint executor gracefully.
+
+    Synchronous, non-blocking (wait=False) — this is the atexit safety net
+    for abnormal exits where the FastAPI lifespan never ran shutdown, so it
+    must not risk stalling interpreter exit. The normal path is
+    shutdown_fingerprint_executor_bounded() below, called explicitly from
+    the lifespan (#4756); by the time atexit fires, _fingerprint_executor is
+    already None and this is a no-op.
+    """
     global _fingerprint_executor
     if _fingerprint_executor is not None:
         logger.info("🛑 Shutting down fingerprint ThreadPoolExecutor...")
@@ -83,7 +91,48 @@ def shutdown_fingerprint_executor() -> None:
         _fingerprint_executor = None
 
 
-# Register cleanup on exit
+async def shutdown_fingerprint_executor_bounded(timeout: float = 10.0) -> None:
+    """Bounded-wait shutdown for the FastAPI lifespan (#4756).
+
+    Every other worker/pool in config/startup.py's _shutdown_components()
+    is explicitly torn down there, in a fixed order relative to the library
+    database shutdown; the fingerprint executor was the one component only
+    reachable via atexit — which runs *after* the lifespan (so after the
+    library database is already WAL-checkpointed and disposed) and blocks
+    process exit until every in-flight fingerprint computation finishes
+    (ThreadPoolExecutor threads cannot be force-killed, and stdlib's own
+    atexit hook joins them regardless of cancel_futures).
+
+    Unlike the atexit path, this waits (wait=True) so an in-flight
+    computation cannot race the library-database shutdown that follows it —
+    but bounded by `timeout`, offloaded via asyncio.to_thread so the event
+    loop stays responsive, so a pathologically slow computation cannot stall
+    process shutdown indefinitely. If the bound is exceeded, the worker
+    thread keeps running in the background (join() cannot be aborted) and
+    the stdlib's own interpreter-exit hook still guarantees it's joined
+    before the process actually exits.
+    """
+    global _fingerprint_executor
+    if _fingerprint_executor is None:
+        return
+    executor = _fingerprint_executor
+    _fingerprint_executor = None
+    logger.info("🛑 Shutting down fingerprint ThreadPoolExecutor...")
+    try:
+        await asyncio.wait_for(
+            asyncio.to_thread(executor.shutdown, wait=True, cancel_futures=True),
+            timeout=timeout,
+        )
+        logger.info("✅ Fingerprint ThreadPoolExecutor shut down")
+    except asyncio.TimeoutError:
+        logger.warning(
+            f"⚠️  Fingerprint ThreadPoolExecutor shutdown exceeded {timeout}s bound — "
+            "an in-flight computation may still be running; continuing shutdown"
+        )
+
+
+# Register cleanup on exit — safety net for abnormal exits that skip the
+# lifespan's shutdown_fingerprint_executor_bounded() call above.
 atexit.register(shutdown_fingerprint_executor)
 
 

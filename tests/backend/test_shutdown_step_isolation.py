@@ -44,16 +44,17 @@ def _globals(**overrides):
 
 
 def _quiet_externals():
-    """Patch the two module-level imports the shutdown path reaches for."""
+    """Patch the three module-level imports the shutdown path reaches for."""
     return (
         patch("core.processor_factory.get_processor_factory", MagicMock()),
         patch("services.artwork_downloader.close_artwork_downloader", AsyncMock()),
+        patch("analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded", AsyncMock()),
     )
 
 
 async def _run(globals_dict):
-    factory, artwork = _quiet_externals()
-    with factory, artwork:
+    factory, artwork, fingerprint = _quiet_externals()
+    with factory, artwork, fingerprint:
         await _shutdown_components(globals_dict)
 
 
@@ -145,6 +146,56 @@ class TestHappyPath:
     async def test_absent_components_are_skipped(self):
         """An empty globals_dict (startup failed early) must not raise."""
         await _run({})
+
+
+class TestFingerprintExecutorShutdown:
+    """#4756: the fingerprint ThreadPoolExecutor used to be torn down only
+    via atexit — never by the lifespan — so it ran after (not before) the
+    library-database shutdown step, and could race an in-flight fingerprint
+    computation against the WAL checkpoint. shutdown_fingerprint_executor_bounded()
+    must now run as its own guarded step, ordered before library_manager.shutdown()."""
+
+    async def test_called_before_library_shutdown(self):
+        order: list[str] = []
+        g = _globals()
+        g['library_manager'].shutdown = Mock(side_effect=lambda: order.append("library"))
+
+        factory, artwork, _ = _quiet_externals()
+        fingerprint_mock = AsyncMock(side_effect=lambda **kw: order.append("fingerprint"))
+        with factory, artwork, patch(
+            "analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded",
+            fingerprint_mock,
+        ):
+            await _shutdown_components(g)
+
+        assert order == ["fingerprint", "library"], (
+            "fingerprint executor shutdown must run before the library database "
+            "shutdown step (#4756)"
+        )
+
+    async def test_fingerprint_shutdown_is_awaited(self):
+        g = _globals()
+        factory, artwork, _ = _quiet_externals()
+        with factory, artwork, patch(
+            "analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded",
+            new_callable=AsyncMock,
+        ) as fingerprint_mock:
+            await _shutdown_components(g)
+
+        fingerprint_mock.assert_awaited_once()
+
+    async def test_failing_fingerprint_shutdown_does_not_skip_library_shutdown(self):
+        """A raising fingerprint-shutdown step must not abort the rest —
+        matching every other step's isolation guarantee (#4569's pattern)."""
+        g = _globals()
+        factory, artwork, _ = _quiet_externals()
+        with factory, artwork, patch(
+            "analysis.fingerprint_generator.shutdown_fingerprint_executor_bounded",
+            AsyncMock(side_effect=RuntimeError("executor wedged")),
+        ):
+            await _shutdown_components(g)  # must not raise
+
+        g['library_manager'].shutdown.assert_called_once()
 
 
 class TestSingleSourceOfTruth:
