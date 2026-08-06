@@ -104,6 +104,69 @@ class TestLifecycle:
 
 
 # ---------------------------------------------------------------------------
+# Watchdog teardown must not block the event loop (#4775)
+# ---------------------------------------------------------------------------
+
+class TestWatchdogTeardownDoesNotBlockEventLoop:
+    """_stop_watchdog() calls the blocking Observer.join(timeout=5). Both
+    call sites (stop(), _sync_watchdog() reached via _run_cycle()) must
+    offload it so a slow/stuck observer thread doesn't stall every other
+    coroutine on the event loop."""
+
+    @pytest.mark.asyncio
+    async def test_stop_offloads_blocking_join_to_a_thread(self):
+        scanner, *_ = _make_scanner()
+
+        blocking_observer = MagicMock()
+        blocking_observer.join = MagicMock(side_effect=lambda timeout=None: time.sleep(0.3))
+        scanner._observer = blocking_observer
+
+        other_coro_ticks = 0
+
+        async def _other_coro() -> None:
+            nonlocal other_coro_ticks
+            for _ in range(10):
+                await asyncio.sleep(0.01)
+                other_coro_ticks += 1
+
+        await asyncio.gather(scanner.stop(), _other_coro())
+
+        # If stop() blocked the loop synchronously for 0.3s, _other_coro's
+        # sleep(0.01) x 10 ticks (0.1s of real time) would still complete —
+        # the real signal is that the observer's own blocking join ran
+        # concurrently with, not serialized before, the other coroutine.
+        assert other_coro_ticks == 10
+        blocking_observer.join.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_sync_watchdog_offloads_blocking_join_to_a_thread(self):
+        scanner, *_ = _make_scanner()
+
+        blocking_observer = MagicMock()
+        blocking_observer.is_alive.return_value = True
+        watch = MagicMock()
+        watch.path = "/old"
+        blocking_observer._watches = [watch]
+        blocking_observer.join = MagicMock(side_effect=lambda timeout=None: time.sleep(0.3))
+        scanner._observer = blocking_observer
+
+        other_coro_ticks = 0
+
+        async def _other_coro() -> None:
+            nonlocal other_coro_ticks
+            for _ in range(10):
+                await asyncio.sleep(0.01)
+                other_coro_ticks += 1
+
+        with patch("services.library_auto_scanner.HAS_WATCHDOG", True), \
+             patch("services.library_auto_scanner.Observer", MagicMock()):
+            await asyncio.gather(scanner._sync_watchdog(["/new"]), _other_coro())
+
+        assert other_coro_ticks == 10
+        blocking_observer.join.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
 # reload_config()
 # ---------------------------------------------------------------------------
 
@@ -283,7 +346,7 @@ class TestSyncWatchdog:
 
         with patch("services.library_auto_scanner.HAS_WATCHDOG", True), \
              patch("services.library_auto_scanner.Observer", mock_observer_cls):
-            scanner._sync_watchdog(["/music"])
+            await scanner._sync_watchdog(["/music"])
 
         mock_observer_cls.assert_called_once()
         mock_observer_instance.schedule.assert_called_once()
@@ -303,7 +366,7 @@ class TestSyncWatchdog:
 
         with patch("services.library_auto_scanner.HAS_WATCHDOG", True), \
              patch("services.library_auto_scanner.Observer") as mock_observer_cls:
-            scanner._sync_watchdog(["/music"])
+            await scanner._sync_watchdog(["/music"])
 
         mock_observer_cls.assert_not_called()
         mock_observer_instance.stop.assert_not_called()
@@ -325,17 +388,18 @@ class TestSyncWatchdog:
 
         with patch("services.library_auto_scanner.HAS_WATCHDOG", True), \
              patch("services.library_auto_scanner.Observer", mock_observer_cls):
-            scanner._sync_watchdog(["/new"])
+            await scanner._sync_watchdog(["/new"])
 
         old_observer.stop.assert_called_once()
         mock_observer_cls.assert_called_once()
         new_observer_instance.schedule.assert_called_once()
         assert scanner._observer is new_observer_instance
 
-    def test_sync_watchdog_is_noop_without_watchdog_installed(self):
+    @pytest.mark.asyncio
+    async def test_sync_watchdog_is_noop_without_watchdog_installed(self):
         """When HAS_WATCHDOG is False (package not installed), _sync_watchdog
         must not touch self._observer at all."""
         scanner, *_ = _make_scanner()
         with patch("services.library_auto_scanner.HAS_WATCHDOG", False):
-            scanner._sync_watchdog(["/music"])
+            await scanner._sync_watchdog(["/music"])
         assert scanner._observer is None

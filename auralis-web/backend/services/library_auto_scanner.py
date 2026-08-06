@@ -127,7 +127,9 @@ class LibraryAutoScanner:
         """Signal the scanner to stop and wait for it to finish."""
         self._stop_event.set()
         self._trigger_event.set()  # wake up any sleeping wait
-        self._stop_watchdog()
+        # Observer.join(timeout=5) blocks; offload so shutdown doesn't stall
+        # the event loop for up to 5s (#4775).
+        await asyncio.to_thread(self._stop_watchdog)
         if self._task and not self._task.done():
             self._task.cancel()
             try:
@@ -179,7 +181,7 @@ class LibraryAutoScanner:
         scan_interval: int = int(settings.scan_interval) if settings and settings.scan_interval else 3600
 
         # Restart watchdog if folder list changed
-        self._sync_watchdog(scan_folders)
+        await self._sync_watchdog(scan_folders)
 
         if not auto_scan or not scan_folders:
             logger.debug("Auto-scan disabled or no folders configured — waiting for trigger")
@@ -387,7 +389,7 @@ class LibraryAutoScanner:
     # Watchdog management
     # ------------------------------------------------------------------
 
-    def _sync_watchdog(self, scan_folders: list[str]) -> None:
+    async def _sync_watchdog(self, scan_folders: list[str]) -> None:
         """Start or restart the watchdog observer for the given folders."""
         if not HAS_WATCHDOG:
             return
@@ -401,7 +403,9 @@ class LibraryAutoScanner:
         if current_dirs == new_dirs:
             return  # No change
 
-        self._stop_watchdog()
+        # Observer.join(timeout=5) blocks; offload so a scan-folder settings
+        # change doesn't stall the event loop for up to 5s (#4775).
+        await asyncio.to_thread(self._stop_watchdog)
         if not scan_folders:
             return
 
