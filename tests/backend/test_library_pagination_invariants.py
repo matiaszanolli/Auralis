@@ -384,11 +384,19 @@ def test_pagination_large_limit_returns_all_items(populated_db):
 # ============================================================================
 
 @pytest.mark.integration
-def test_album_pagination_completeness(album_repo):
+def test_album_pagination_completeness(populated_db, album_repo):
     """
     INVARIANT: Album pagination must return all albums exactly once.
 
     Same invariant as tracks, but for albums.
+
+    #4789: album_repo alone is backed by a fresh, empty in-memory DB (the
+    bare test_db fixture) — total was always 0 and this test always hit the
+    skip guard below, unconditionally, on every run. populated_db shares the
+    same underlying test_db session factory as album_repo (both request it
+    as a fixture dependency, so pytest resolves it once per test and both
+    repos read/write the same in-memory database) and inserts 100 tracks
+    across 20 albums, so total is now real.
     """
     # Get total count
     _, total = album_repo.get_all(limit=1, offset=0)
@@ -418,9 +426,12 @@ def test_album_pagination_completeness(album_repo):
 
 
 @pytest.mark.integration
-def test_album_pagination_ordering(album_repo):
+def test_album_pagination_ordering(populated_db, album_repo):
     """
     INVARIANT: Albums must be ordered consistently across pages.
+
+    #4789: see test_album_pagination_completeness — populated_db shares
+    album_repo's underlying in-memory DB so total is no longer always 0.
     """
     _, total = album_repo.get_all(limit=1, offset=0)
 
@@ -447,9 +458,14 @@ def test_album_pagination_ordering(album_repo):
 # ============================================================================
 
 @pytest.mark.integration
-def test_artist_pagination_completeness(artist_repo):
+def test_artist_pagination_completeness(populated_db, artist_repo):
     """
     INVARIANT: Artist pagination must return all artists exactly once.
+
+    #4789: artist_repo alone is backed by a fresh, empty in-memory DB — total
+    was always 0 and this test always hit the skip guard below. populated_db
+    shares artist_repo's underlying test_db session factory and inserts 100
+    tracks across 10 artists, so total is now real.
     """
     # Get total count
     _, total = artist_repo.get_all(limit=1, offset=0)
