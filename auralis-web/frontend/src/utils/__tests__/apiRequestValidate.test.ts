@@ -18,6 +18,8 @@ import { apiRequest, get, APIRequestError } from '../apiRequest';
 import {
   isQueueResponseShape,
   isTracksListShape,
+  isAlbumsListShape,
+  isArtistsListShape,
   isArtistTracksResponseShape,
   isPlaylistsListShape,
 } from '@/api/responseGuards';
@@ -152,6 +154,26 @@ describe('responseGuards (#4607)', () => {
     expect(isTracksListShape({ tracks: [], total: 'many' })).toBe(false);
   });
 
+  // #5026: isAlbumsListShape/isArtistsListShape existed but were never wired
+  // to a real fetch call — now wired in useLibraryQuery.ts's QUERY_TYPE_GUARD.
+  it('isAlbumsListShape accepts either the named key or the generic items key', () => {
+    expect(isAlbumsListShape({ albums: [{ id: 1 }] })).toBe(true);
+    expect(isAlbumsListShape({ items: [{ id: 1 }] })).toBe(true);
+  });
+
+  it('isAlbumsListShape rejects entries missing a numeric id', () => {
+    expect(isAlbumsListShape({ albums: [{ title: 'no id' }] })).toBe(false);
+  });
+
+  it('isArtistsListShape accepts either the named key or the generic items key', () => {
+    expect(isArtistsListShape({ artists: [{ id: 1 }] })).toBe(true);
+    expect(isArtistsListShape({ items: [{ id: 1 }] })).toBe(true);
+  });
+
+  it('isArtistsListShape rejects a non-numeric total', () => {
+    expect(isArtistsListShape({ artists: [], total: 'many' })).toBe(false);
+  });
+
   it('isArtistTracksResponseShape requires id, name and a track array', () => {
     expect(
       isArtistTracksResponseShape({ id: 1, name: 'A', tracks: [{ id: 2 }] })
@@ -167,7 +189,13 @@ describe('responseGuards (#4607)', () => {
   });
 
   it('guards reject null and primitives rather than throwing', () => {
-    for (const guard of [isQueueResponseShape, isTracksListShape, isArtistTracksResponseShape]) {
+    for (const guard of [
+      isQueueResponseShape,
+      isTracksListShape,
+      isAlbumsListShape,
+      isArtistsListShape,
+      isArtistTracksResponseShape,
+    ]) {
       expect(guard(null)).toBe(false);
       expect(guard(undefined)).toBe(false);
       expect(guard('a string')).toBe(false);

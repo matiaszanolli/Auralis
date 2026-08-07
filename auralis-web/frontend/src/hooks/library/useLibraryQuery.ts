@@ -39,6 +39,7 @@ import type { Track, Album, Artist } from '@/types/domain';
 import { ApiErrorHandler } from '@/types/api';
 import { transformAlbums, transformArtists, transformTracks } from '@/api/transformers';
 import type { AlbumApiResponse, ArtistApiResponse, TrackApiResponse } from '@/api/transformers';
+import { isAlbumsListShape, isArtistsListShape, isTracksListShape } from '@/api/responseGuards';
 
 /**
  * Query type for library queries
@@ -125,6 +126,19 @@ const QUERY_TYPE_ENDPOINT: Record<LibraryQueryType, string> = {
   tracks: '/api/library/tracks',
   albums: '/api/albums',
   artists: '/api/artists',
+};
+
+/**
+ * Runtime shape guard per query type (#5026) — these three list responses
+ * are this hook's only fetch call sites, so wiring them here is the one
+ * place that covers every consumer (useLibraryQuery, useTracksQuery,
+ * useAlbumsQuery, useArtistsQuery, useInfiniteScroll) at once. See
+ * `@/api/responseGuards` for what each guard checks.
+ */
+const QUERY_TYPE_GUARD: Record<LibraryQueryType, (v: unknown) => boolean> = {
+  tracks: isTracksListShape,
+  albums: isAlbumsListShape,
+  artists: isArtistsListShape,
 };
 
 /**
@@ -308,7 +322,9 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       setError(null);
 
       try {
-        const response = await get<LibraryQueryResponse<T>>(url);
+        const response = await get<LibraryQueryResponse<T>>(url, {
+          validate: QUERY_TYPE_GUARD[queryType],
+        });
 
         if (isStale()) {
           // A newer query has taken over — abandon this response entirely
@@ -387,7 +403,9 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
     const nextOffset = offset + limit;
 
     try {
-      const response = await get<LibraryQueryResponse<T>>(buildEndpoint(nextOffset));
+      const response = await get<LibraryQueryResponse<T>>(buildEndpoint(nextOffset), {
+        validate: QUERY_TYPE_GUARD[queryType],
+      });
 
       if (isStale()) {
         // A newer query has taken over — discard this page rather than

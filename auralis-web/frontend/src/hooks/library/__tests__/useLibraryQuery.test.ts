@@ -23,6 +23,7 @@ import {
   useInfiniteScroll,
 } from '@/hooks/library/useLibraryQuery';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
+import { isTracksListShape, isAlbumsListShape, isArtistsListShape } from '@/api/responseGuards';
 import type { Track, Album, Artist } from '@/types/domain';
 
 // Mock useRestAPI hook
@@ -1175,6 +1176,59 @@ describe('useLibraryQuery', () => {
 
       const callUrl = mockGet.mock.calls[0][0];
       expect(callUrl).toBe('/api/custom/endpoint');
+    });
+  });
+
+  // #5026: isAlbumsListShape/isArtistsListShape (and isTracksListShape) existed
+  // in responseGuards.ts but were never passed to a real fetch call — this is
+  // the WIRING completeness check confirming each queryType's real call site
+  // now supplies its matching guard.
+  describe('response shape guard wiring (#5026)', () => {
+    const mockRest = (payload: Record<string, unknown>) => {
+      const mockGet = vi.fn().mockResolvedValue(payload);
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+      return mockGet;
+    };
+
+    it.each([
+      ['tracks', isTracksListShape],
+      ['albums', isAlbumsListShape],
+      ['artists', isArtistsListShape],
+    ] as const)('passes %s validate guard to get()', async (queryType, guard) => {
+      const mockGet = mockRest({ items: [], total: 0, offset: 0, limit: 50, hasMore: false });
+
+      renderHook(() => useLibraryQuery(queryType));
+      await waitFor(() => expect(mockGet).toHaveBeenCalled());
+
+      expect(mockGet.mock.calls[0][1]).toEqual({ validate: guard });
+    });
+
+    it('rejects a malformed albums response the same way a real fetch would', async () => {
+      // `guard` isn't invoked by the mock automatically — assert directly,
+      // mirroring what useRestAPI.get() does internally with the option.
+      expect(isAlbumsListShape({ albums: [{ title: 'no id' }] })).toBe(false);
+      expect(isAlbumsListShape({ albums: [{ id: 1 }] })).toBe(true);
+    });
+
+    it('fetchMore also passes the matching guard, not just the initial fetch', async () => {
+      const mockGet = mockRest({
+        artists: [{ id: 1 }], total: 2, offset: 0, limit: 1, hasMore: true,
+      });
+
+      const { result } = renderHook(() => useLibraryQuery('artists', { limit: 1 }));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      mockGet.mockResolvedValueOnce({
+        artists: [{ id: 2 }], total: 2, offset: 1, limit: 1, hasMore: false,
+      });
+      await act(async () => {
+        await result.current.fetchMore();
+      });
+
+      const fetchMoreCall = mockGet.mock.calls[1];
+      expect(fetchMoreCall[1]).toEqual({ validate: isArtistsListShape });
     });
   });
 

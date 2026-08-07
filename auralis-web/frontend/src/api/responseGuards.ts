@@ -68,10 +68,10 @@ function makeListGuard(collectionKey: string) {
 /** `GET /api/library/tracks` — see #4611 for the transformer this feeds. */
 export const isTracksListShape = makeListGuard('tracks');
 
-/** `GET /api/library/albums` */
+/** `GET /api/albums` — see `useLibraryQuery.ts`'s `QUERY_TYPE_ENDPOINT` (NOT `/api/library/albums`, renamed per #2379). */
 export const isAlbumsListShape = makeListGuard('albums');
 
-/** `GET /api/library/artists` */
+/** `GET /api/artists` — see `useLibraryQuery.ts`'s `QUERY_TYPE_ENDPOINT` (NOT `/api/library/artists`, renamed per #2379). */
 export const isArtistsListShape = makeListGuard('artists');
 
 /**
@@ -142,19 +142,5 @@ export function isUserSettingsShape(v: unknown): boolean {
   if (o.scan_folders !== undefined && !Array.isArray(o.scan_folders)) return false;
   if (o.auto_scan !== undefined && typeof o.auto_scan !== 'boolean') return false;
   if (o.crossfade_enabled !== undefined && typeof o.crossfade_enabled !== 'boolean') return false;
-  return true;
-}
-
-/**
- * `GET /api/player/status` — the player state consumers poll.
- *
- * Only `state` is required; position/duration are absent before a track loads.
- */
-export function isPlayerStatusShape(v: unknown): boolean {
-  const o = asObject(v);
-  if (!o) return false;
-  if (typeof o.state !== 'string' && typeof o.status !== 'string') return false;
-  if (o.position !== undefined && typeof o.position !== 'number') return false;
-  if (o.duration !== undefined && typeof o.duration !== 'number') return false;
   return true;
 }
