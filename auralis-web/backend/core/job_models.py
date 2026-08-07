@@ -50,6 +50,12 @@ class ProcessingJob:
         self.progress = 0.0
         self.error_message: str | None = None
         self.result_data: dict[str, Any] | None = None
+        # Settings accepted and validated but not consumed by the offline
+        # pipeline (e.g. eq/dynamics/level_matching/genre_override/sample_rate
+        # today — see ProcessingEngine._create_processor_config). Populated
+        # once processing starts; surfaced in result_data so a client can tell
+        # "applied" from "silently ignored" (#5060).
+        self.ignored_settings: list[str] = []
 
         self.created_at = datetime.now()
         self.started_at: datetime | None = None

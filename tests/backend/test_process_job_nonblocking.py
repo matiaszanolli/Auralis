@@ -54,6 +54,9 @@ def _make_job(mode: str = "adaptive", reference_path: str | None = None) -> Proc
     job.completed_at = None
     job.result_data = None
     job.error_message = None
+    # __new__ bypasses ProcessingJob.__init__, so attributes it sets as
+    # defaults (#5060) must be set here too — _finalize_job reads this one.
+    job.ignored_settings = []
     return job
 
 

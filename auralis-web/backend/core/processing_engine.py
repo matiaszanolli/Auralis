@@ -412,8 +412,23 @@ class ProcessingEngine:
         level_settings = job.settings.get("level_matching") or job.settings.get("levelMatching")
         if level_settings and level_settings.get("enabled"):
             unsupported.append("level_matching")
-        if "genre_override" in job.settings:
+        # Value check, not key presence (#5060 fix): ProcessingSettings.model_dump()
+        # always includes "genre_override" with a None default even when the
+        # client never set it (same trap #3819 already fixed for "fingerprint"
+        # above), so `"genre_override" in job.settings` was True — and thus
+        # reported as ignored — on every single job, not just ones that set it.
+        if job.settings.get("genre_override") is not None:
             unsupported.append("genre_override")
+        # sample_rate: None means "keep original" (router default) and is a
+        # legitimate no-op, not an ignored request; any other value is accepted
+        # by the API but never actually applied — the offline pipeline writes
+        # at the input file's rate (#5060).
+        if job.settings.get("sample_rate") is not None:
+            unsupported.append("sample_rate")
+
+        # Surfaced in result_data (#5060) so a client can tell "applied" from
+        # "accepted but silently ignored" instead of only via this INFO log.
+        job.ignored_settings = unsupported
 
         if unsupported:
             logger.info(
@@ -646,6 +661,9 @@ class ProcessingEngine:
             "processing_time": processing_time,
             "genre_detected": genre_detected,
             "lufs": lufs,
+            # Settings accepted at submit time but not consumed by the
+            # offline pipeline (#5060) — see _create_processor_config.
+            "ignored_settings": job.ignored_settings,
         }
 
         job.status = ProcessingStatus.COMPLETED

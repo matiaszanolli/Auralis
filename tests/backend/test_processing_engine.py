@@ -900,5 +900,115 @@ class TestSafeErrorMessageModuleError:
         assert "/home/" not in message
 
 
+class TestIgnoredSettingsSurfaced:
+    """#5060: eq/dynamics/level_matching/genre_override/sample_rate are
+    accepted and validated by the API but not consumed by the offline
+    pipeline — _create_processor_config must surface exactly which ones were
+    ignored on the job, and it must reach result_data so a client can tell
+    "applied" from "silently ignored"."""
+
+    def test_eq_enabled_is_reported_ignored(self, engine):
+        job = ProcessingJob(
+            job_id="j1", input_path="in.wav", output_path="out.wav",
+            settings={"mode": "adaptive", "eq": {"enabled": True}},
+        )
+        engine._create_processor_config(job)
+        assert job.ignored_settings == ["eq"]
+
+    def test_dynamics_and_level_matching_enabled_are_reported(self, engine):
+        job = ProcessingJob(
+            job_id="j2", input_path="in.wav", output_path="out.wav",
+            settings={
+                "mode": "adaptive",
+                "dynamics": {"enabled": True},
+                "level_matching": {"enabled": True},
+            },
+        )
+        engine._create_processor_config(job)
+        assert set(job.ignored_settings) == {"dynamics", "level_matching"}
+
+    def test_eq_present_but_disabled_is_not_reported(self, engine):
+        """Matches the eq/dynamics/level_matching contract: presence alone
+        isn't enough, "enabled" must be truthy."""
+        job = ProcessingJob(
+            job_id="j3", input_path="in.wav", output_path="out.wav",
+            settings={"mode": "adaptive", "eq": {"enabled": False}},
+        )
+        engine._create_processor_config(job)
+        assert job.ignored_settings == []
+
+    def test_genre_override_set_is_reported(self, engine):
+        job = ProcessingJob(
+            job_id="j4", input_path="in.wav", output_path="out.wav",
+            settings={"mode": "adaptive", "genre_override": "rock"},
+        )
+        engine._create_processor_config(job)
+        assert job.ignored_settings == ["genre_override"]
+
+    def test_genre_override_defaulted_to_none_is_not_reported(self):
+        """Regression for the presence-check bug this fix corrects:
+        ProcessingSettings.model_dump() always includes "genre_override"
+        with a None default even when the client never set it, so
+        `"genre_override" in job.settings` was True — and thus reported as
+        ignored — on EVERY job, not just ones that actually requested it."""
+        engine = ProcessingEngine(max_concurrent_jobs=1)
+        job = ProcessingJob(
+            job_id="j5", input_path="in.wav", output_path="out.wav",
+            settings={"mode": "adaptive", "genre_override": None},
+        )
+        engine._create_processor_config(job)
+        assert job.ignored_settings == []
+
+    def test_non_default_sample_rate_is_reported(self, engine):
+        job = ProcessingJob(
+            job_id="j6", input_path="in.wav", output_path="out.wav",
+            settings={"mode": "adaptive", "sample_rate": 96000},
+        )
+        engine._create_processor_config(job)
+        assert job.ignored_settings == ["sample_rate"]
+
+    def test_sample_rate_none_keeps_original_and_is_not_reported(self, engine):
+        job = ProcessingJob(
+            job_id="j7", input_path="in.wav", output_path="out.wav",
+            settings={"mode": "adaptive", "sample_rate": None},
+        )
+        engine._create_processor_config(job)
+        assert job.ignored_settings == []
+
+    @pytest.mark.asyncio
+    async def test_completed_job_result_data_lists_ignored_settings(self, temp_audio_file):
+        """End-to-end: a client reading result_data must see the gap without
+        parsing server logs."""
+        engine = ProcessingEngine(max_concurrent_jobs=1)
+
+        with patch('core.processing_engine.load_audio') as mock_load, \
+             patch('core.processing_engine.HybridProcessor') as mock_processor, \
+             patch('core.processing_engine.save') as mock_save:
+
+            mock_load.return_value = (np.zeros((1000, 2), dtype=np.float32), 44100)
+            mock_proc_instance = Mock()
+            mock_proc_instance.process.return_value = np.zeros((1000, 2), dtype=np.float32)
+            mock_proc_instance.last_content_profile = {}
+            mock_proc_instance.continuous_mode.last_fingerprint = None
+            mock_processor.return_value = mock_proc_instance
+
+            job = await engine.create_job(
+                input_path=str(temp_audio_file),
+                settings={
+                    "mode": "adaptive",
+                    "output_format": "wav",
+                    "bit_depth": 16,
+                    "eq": {"enabled": True},
+                    "sample_rate": 96000,
+                },
+            )
+            await engine.process_job(job)
+
+            assert job.status == ProcessingStatus.COMPLETED
+            assert job.result_data is not None
+            assert set(job.result_data["ignored_settings"]) == {"eq", "sample_rate"}
+            mock_save.assert_called_once()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
