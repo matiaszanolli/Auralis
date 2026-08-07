@@ -12,7 +12,6 @@ Also includes monitoring and endpoint utilities for cache-aware operations.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .adapter import StreamlinedCacheAdapter
 from .endpoints import (
     CacheAwareEndpoint,
     CacheQueryBuilder,
@@ -52,8 +51,6 @@ __all__ = [
     "TIER1_MAX_SIZE_MB",
     "TIER2_MAX_TRACKS",
     "TIER2_MAX_SIZE_MB",
-    # Adapter exports
-    "StreamlinedCacheAdapter",
     # Monitoring exports
     "CacheMonitor",
     "CacheMetrics",
