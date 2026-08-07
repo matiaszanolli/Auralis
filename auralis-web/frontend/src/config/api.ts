@@ -59,7 +59,6 @@ export const ENDPOINTS = {
 
   // Settings
   SETTINGS: '/api/settings',
-  ENHANCEMENT_SETTINGS: '/api/settings/enhancement',
 
   // Library
   LIBRARY_STATS: '/api/library/stats',
@@ -81,9 +80,6 @@ export const ENDPOINTS = {
   // Player
   PLAYER_STATUS: '/api/player/status',
   PLAYER_LOAD: '/api/player/load',
-  PLAYER_PLAY: '/api/player/play',
-  PLAYER_PAUSE: '/api/player/pause',
-  PLAYER_STOP: '/api/player/stop',
   PLAYER_NEXT: '/api/player/next',
   PLAYER_PREVIOUS: '/api/player/previous',
   PLAYER_SEEK: '/api/player/seek',

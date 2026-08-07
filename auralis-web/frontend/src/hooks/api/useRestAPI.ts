@@ -6,8 +6,8 @@
  *
  * Usage:
  *   const api = useRestAPI();
- *   const response = await api.get<PlayerState>('/api/player/state');
- *   await api.post('/api/player/play', { track_path: '/music/song.wav' });
+ *   const response = await api.get<PlayerState>('/api/player/status');
+ *   await api.post('/api/player/queue', { tracks: ['/music/song.wav'], start_index: 0 });
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';

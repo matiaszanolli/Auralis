@@ -40,12 +40,6 @@ export const handlers = [
     });
   }),
 
-  // POST /api/player/pause - Pause playback
-  http.post(`${API_BASE}/player/pause`, async () => {
-    await delay(50);
-    return HttpResponse.json({ success: true });
-  }),
-
   // POST /api/player/resume - Resume playback
   http.post(`${API_BASE}/player/resume`, async () => {
     await delay(50);
@@ -833,11 +827,6 @@ export const handlers = [
     });
   }),
 
-  http.post(`${API_RELATIVE}/player/pause`, async () => {
-    await delay(50);
-    return HttpResponse.json({ success: true });
-  }),
-
   http.post(`${API_RELATIVE}/player/queue/add-track`, async ({ request }) => {
     const body = await request.json();
     await delay(100);
@@ -1207,12 +1196,6 @@ export const handlers = [
       success: true,
       track_id: (body as any).track_id
     });
-  }),
-
-  // POST /api/player/pause - Pause playback (relative URL)
-  http.post('/api/player/pause', async () => {
-    await delay(50);
-    return HttpResponse.json({ success: true });
   }),
 
   // POST /api/player/seek - Seek to position (relative URL)
