@@ -128,6 +128,89 @@ class TestPathsAgree:
         assert fp is not None and len(fp) == 25
         assert all(isinstance(v, (int, float)) for v in fp.values())
 
+    def test_preloaded_audio_branch_agrees_with_fresh_load_branch(self, tmp_path):
+        """#4994: compute_windowed_fingerprint()'s two internal branches
+        (audio is None vs. pre-loaded audio) must apply the exact same
+        body+probe windowing strategy, not just share the same call site.
+
+        Before the fix, the pre-loaded-audio branch instead cropped the
+        first 90s from the start with no probe-based lufs/crest_db
+        correction — exactly the less-accurate strategy #4595 eliminated
+        elsewhere."""
+        import soundfile as sf
+
+        from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+            AudioFingerprintAnalyzer,
+        )
+        from auralis.analysis.fingerprint.windowed_compute import (
+            compute_windowed_fingerprint,
+        )
+
+        path = _synth(tmp_path / "preloaded.wav", seconds=200.0)
+        raw_audio, raw_sr = sf.read(str(path), always_2d=True)
+        raw_audio = raw_audio.T  # (samples, channels) -> (channels, samples)
+
+        fresh = compute_windowed_fingerprint(AudioFingerprintAnalyzer(), path)
+        preloaded = compute_windowed_fingerprint(
+            AudioFingerprintAnalyzer(), path, audio=raw_audio, sr=raw_sr
+        )
+
+        # Both must be genuine, complete 25D fingerprints — not just equal to
+        # each other, or two empty dicts (e.g. from a missing DSP backend)
+        # would vacuously satisfy every assertion below.
+        assert fresh is not None and len(fresh) == 25
+        assert preloaded is not None and len(preloaded) == 25
+        assert set(fresh) == set(preloaded)
+        for key in fresh:
+            assert fresh[key] == pytest.approx(preloaded[key], rel=1e-6, abs=1e-9), (
+                f"{key} differs between the fresh-load and pre-loaded-audio branches"
+            )
+
+    def test_preloaded_audio_branch_selects_identical_window_as_fresh_load(self, tmp_path):
+        """#4994, DSP-backend-independent variant of the test above.
+
+        Captures the exact audio array each branch hands to `analyzer.analyze()`
+        via a stub analyzer, so this verifies the windowing math itself (the
+        actual root cause) without depending on AudioFingerprintAnalyzer's
+        real DSP backend being built/importable."""
+        import numpy as np
+        import soundfile as sf
+
+        from auralis.analysis.fingerprint.windowed_compute import (
+            compute_windowed_fingerprint,
+        )
+
+        class _StubAnalyzer:
+            def __init__(self):
+                self.calls: list[tuple] = []
+
+            def analyze(self, audio, sr):
+                self.calls.append((audio.copy(), sr))
+                return {f"d{i}": 0.0 for i in range(25)}
+
+        path = _synth(tmp_path / "stub_preloaded.wav", seconds=200.0)
+        raw_audio, raw_sr = sf.read(str(path), always_2d=True)
+        raw_audio = raw_audio.T  # (samples, channels) -> (channels, samples)
+
+        fresh_analyzer = _StubAnalyzer()
+        compute_windowed_fingerprint(fresh_analyzer, path)
+
+        preloaded_analyzer = _StubAnalyzer()
+        compute_windowed_fingerprint(preloaded_analyzer, path, audio=raw_audio, sr=raw_sr)
+
+        assert len(fresh_analyzer.calls) == 1 and len(preloaded_analyzer.calls) == 1
+        (audio_fresh, sr_fresh) = fresh_analyzer.calls[0]
+        (audio_preloaded, sr_preloaded) = preloaded_analyzer.calls[0]
+
+        assert sr_fresh == sr_preloaded
+        assert audio_fresh.shape == audio_preloaded.shape
+        np.testing.assert_allclose(
+            audio_fresh, audio_preloaded, rtol=1e-6, atol=1e-9,
+            err_msg="The body window selected by the pre-loaded-audio branch "
+                    "differs from the fresh-load branch's — the two internal "
+                    "strategies have drifted apart again (#4994)."
+        )
+
 
 # ---------------------------------------------------------------------------
 # The version bump must actually invalidate old rows

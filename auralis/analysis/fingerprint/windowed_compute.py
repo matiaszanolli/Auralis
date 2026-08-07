@@ -16,6 +16,11 @@ almost always ran first, so essentially every track in a scanned library was
 stamped with the less accurate fingerprint.
 
 Both paths now call `compute_windowed_fingerprint()`, so they cannot drift again.
+This holds at the call-site level only if the function's own internal branches
+also agree — #4994 fixed a case where they didn't: the `audio is None` branch
+used the body+probe strategy below, but the pre-loaded-audio branch instead did
+a plain start-crop with no probe correction. Both branches now share the exact
+same windowing math (see `_crop_and_resample()` below).
 
 Windowing strategy (validated June 2026, 34 tracks): full 25D analysis on the
 BODY window at 50 % of duration, plus two lightweight 30 s probes at 25 % / 75 %;
@@ -100,11 +105,11 @@ def compute_windowed_fingerprint(
         # The body window (50 %) is used for the full spectral analysis because
         # it is most likely to represent the track's timbral character.  The 25 %
         # and 75 % probes are mono + fast — no full 25D analysis needed.
-        if audio is None or sr is None:
-            _target_sr = 22050
-            _probe_s   = 30.0   # length of each lightweight probe window
-            _body_s    = 90.0   # length of the full-analysis (body) window
+        _target_sr = 22050
+        _probe_s   = 30.0   # length of each lightweight probe window
+        _body_s    = 90.0   # length of the full-analysis (body) window
 
+        if audio is None or sr is None:
             # Get total duration without loading audio
             try:
                 import soundfile as _sf
@@ -171,31 +176,47 @@ def compute_windowed_fingerprint(
                         except Exception:
                             pass
         else:
-            # Normalize pre-loaded audio to match file-load parameters (#2457).
-            # Ensures fingerprints are comparable regardless of loading path.
-            _target_sr = 22050
-            _max_samples = int(_target_sr * 90.0)
-            # Crop to ~90 s at the ORIGINAL sample rate BEFORE resampling.
-            # Resampling the whole buffer and cropping afterwards was an
-            # O(duration) resample + full-duration float32 allocation on a
-            # multi-hour pre-loaded buffer, only to discard all but the first
-            # 90 s — reopening the #4116 OOM/latency class (#4499). This
-            # matches the crop-then-resample order at every other entry point
-            # (MasteringFingerprint.from_audio_file, AudioFingerprintAnalyzer).
-            audio = audio[..., :int(sr * 90.0)]
-            if sr != _target_sr:
-                # Resample to target sr.
-                if audio.ndim == 1:
-                    audio = librosa.resample(audio.astype(np.float32), orig_sr=sr, target_sr=_target_sr)
-                else:
-                    audio = np.stack([
-                        librosa.resample(audio[ch].astype(np.float32), orig_sr=sr, target_sr=_target_sr)
-                        for ch in range(audio.shape[0])
-                    ])
-                sr = _target_sr
-            # Final exact cap at 90 s in the target rate (rounding safety;
-            # works for both 1-D and 2-D audio).
-            audio = audio[..., :_max_samples]
+            # #4994: share the exact body+probe windowing strategy the
+            # fresh-load branch above uses, instead of the less-accurate
+            # start-crop + no correction this branch used to do — the two
+            # branches disagreeing defeated #4595's "cannot drift again"
+            # guarantee for any future caller that passes pre-loaded audio.
+            _orig_sr = sr
+            _raw_audio = audio
+            _total_s = _raw_audio.shape[-1] / _orig_sr
+
+            def _crop_and_resample(buf: np.ndarray, offset_s: float, dur_s: float) -> np.ndarray:
+                """Crop [offset_s, offset_s + dur_s) at the ORIGINAL sample
+                rate, then resample to _target_sr. Crop-before-resample
+                avoids an O(duration) resample + full-duration float32
+                allocation on a multi-hour buffer — the same #4116/#4499
+                OOM/latency class the old start-crop-only code avoided."""
+                start = int(_orig_sr * offset_s)
+                end = start + int(_orig_sr * dur_s)
+                cropped = buf[..., start:end]
+                if _orig_sr == _target_sr:
+                    return cropped
+                if cropped.ndim == 1:
+                    return librosa.resample(cropped.astype(np.float32), orig_sr=_orig_sr, target_sr=_target_sr)
+                return np.stack([
+                    librosa.resample(cropped[ch].astype(np.float32), orig_sr=_orig_sr, target_sr=_target_sr)
+                    for ch in range(cropped.shape[0])
+                ])
+
+            # Body window: centred on 50 % of duration, same as fresh-load.
+            _body_offset = min(_total_s * 0.50, max(0.0, _total_s - _body_s))
+            audio = _crop_and_resample(_raw_audio, _body_offset, _body_s)
+            sr = _target_sr
+            # Rounding safety at the target rate (works for 1-D and 2-D).
+            audio = audio[..., :int(_target_sr * _body_s)]
+
+            # Lightweight LUFS/crest probes at 25 % / 75 %, cropped from the
+            # same pre-loaded buffer — feeds the multi-window correction
+            # below exactly like the fresh-load branch's _probe_audios.
+            _probe_audios = []
+            for _frac in [0.25, 0.75]:
+                _poff = min(_frac * _total_s, max(0.0, _total_s - _probe_s))
+                _probe_audios.append(_crop_and_resample(_raw_audio, _poff, _probe_s))
 
         # Ensure float64 for PyO3 compatibility
         audio = audio.astype(np.float64)
