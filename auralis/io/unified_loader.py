@@ -21,7 +21,12 @@ import soundfile as sf
 
 from ..utils.logging import Code, ModuleError, debug, info, warning
 from .formats import FFMPEG_FORMATS, SUPPORTED_FORMATS
-from .loaders import check_ffmpeg, check_ffprobe, load_with_ffmpeg, load_with_soundfile
+from .loaders import check_ffprobe, load_with_ffmpeg, load_with_soundfile
+# check_ffmpeg is unused within this module's own logic (post-#4119, the
+# ffprobe guard uses check_ffprobe exclusively — see #4540) but is re-exported
+# so test_ffprobe_error_masking_4540.py can monkeypatch unified_loader.check_ffmpeg
+# to isolate that regression guard from real ffmpeg-binary detection in CI (#4888).
+from .loaders import check_ffmpeg  # noqa: F401
 from .processing import resample_audio, validate_audio
 
 # SUPPORTED_FORMATS / FFMPEG_FORMATS live in auralis.io.formats (the single

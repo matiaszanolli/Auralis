@@ -331,10 +331,6 @@ def create_lifespan(deps: dict[str, Any]):
                 from core.state_manager import PlayerStateManager
 
                 from auralis.library import LibraryDatabase
-                from auralis.library.repositories.settings_repository import (
-                    SettingsRepository,
-                )
-                from auralis.library.scanner import LibraryScanner
                 from auralis.player.config import PlayerConfig
                 from auralis.player import AudioPlayer
 

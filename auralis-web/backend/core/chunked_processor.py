@@ -45,8 +45,11 @@ from core.chunk_boundaries import (  # noqa: F401 — CONTEXT_DURATION re-export
 from core.chunk_cache_manager import ChunkCacheManager  # Phase 5.1: Cache management
 from core.chunk_operations import ChunkOperations  # Phase 3: Unified chunk operations
 # Crossfade math + mastering recommendation extracted to their own modules (#4245).
-# apply_crossfade_between_chunks is re-exported so existing imports keep working.
-from core.chunk_crossfade import apply_crossfade_between_chunks
+# apply_crossfade_between_chunks is re-exported so existing imports keep working
+# (test_equal_power_crossfade.py imports it from here; test_no_nested_event_loop.py
+# patches it as core.chunked_processor.apply_crossfade_between_chunks) — unused
+# within this module itself, hence the explicit noqa (#4888).
+from core.chunk_crossfade import apply_crossfade_between_chunks  # noqa: F401
 from core.chunk_mastering import compute_mastering_recommendation
 from core.seekable_source import SeekableSource
 from core.encoding import WAVEncoder

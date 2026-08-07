@@ -123,7 +123,7 @@ def compute_windowed_fingerprint(
             if audio_path.suffix.lower() in FFMPEG_FORMATS:
                 # libsndfile can't decode AAC/MP3/etc — load via ffmpeg then resample.
                 from auralis.io.loaders import load_with_ffmpeg
-                import tempfile, os
+                import tempfile
                 with tempfile.TemporaryDirectory() as tmp:
                     raw_audio, raw_sr = load_with_ffmpeg(audio_path, tmp)
                 # raw_audio is (samples, channels) or (samples,); convert to (channels, samples)
