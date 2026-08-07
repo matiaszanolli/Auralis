@@ -4,8 +4,13 @@
 Chunked Audio Processor
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Processes audio in 10-second chunks for fast streaming start and instant toggle.
-Applies crossfade between chunks to avoid audible jumps.
+Processes audio in 15-second render windows (CHUNK_DURATION) with 5 seconds
+of context on each side (CONTEXT_DURATION), for fast streaming start and
+instant toggle. Each rendered chunk is trimmed and emitted as a 10-second
+non-overlapping segment (CHUNK_INTERVAL) — chunks tile the timeline exactly,
+with no boundary crossfade anywhere in the emitted path (crossfade support
+was removed in #2750/#3514/#4642). `core/chunk_boundaries.py` is the single
+source of truth for these geometry constants; never hardcode them here.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3
