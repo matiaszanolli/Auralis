@@ -58,7 +58,7 @@ from core.encoding.atomic_io import (
 from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
 from core.level_manager import LevelManager
 from core.mastering_target_service import (
-    MasteringTargetService,  # Phase 4: Unified fingerprint/target management
+    get_mastering_target_service,  # Singleton accessor (#4749: was constructed fresh per instance)
 )
 from core.processor_factory import (
     get_processor_factory,  # Singleton accessor (ProcessorFactory is injected, not constructed here)
@@ -190,9 +190,13 @@ class ChunkedAudioProcessor:
         self._level_manager: Any = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)
         self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
         self._processor_factory: Any = get_processor_factory()  # Phase 2: Use singleton
-        self._mastering_target_service: Any = MasteringTargetService(
-            get_fingerprints_repository=_default_get_fingerprints_repository,
-        )  # Phase 4: Unified fingerprint/target management; Tier-1 DB lookup wired (#3836)
+        self._mastering_target_service: Any = get_mastering_target_service()
+        # Phase 4: Unified fingerprint/target management; Tier-1 DB lookup wired
+        # (#3836). Uses the process-wide singleton (#4749) instead of
+        # constructing a fresh instance per processor — the service's own
+        # 256-entry LRU cache is designed to be shared across the session
+        # (see #3532 / BE-NEW-74's bound), and a per-instance service
+        # discarded the cache on every processor construction.
         self._cache_manager: Any = ChunkCacheManager(self.chunk_cache)  # Phase 5.1: Cache management
         # CRITICAL: Threading lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
