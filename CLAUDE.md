@@ -1,11 +1,9 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-> `AGENTS.md` is a near-duplicate of this file and is already drifting (it still
-> says 1.5.0, and still describes `LibraryManager` as current). Update both or
-> collapse one into the other — per the No-variants principle below, two copies
-> of the same brief is exactly the shape that rots.
+This file provides guidance to Claude Code (claude.ai/code) — and, via the
+pointer in `AGENTS.md`, other agent tooling — when working with code in this
+repository. This is the single hand-maintained source of truth; `AGENTS.md`
+is a thin stub that points here rather than an independent copy (#5027).
 
 **Project**: Auralis — Music player with real-time audio enhancement
 **Version**: 1.5.1 recovery milestone (`auralis/version.py` is source of truth; not tagged)
