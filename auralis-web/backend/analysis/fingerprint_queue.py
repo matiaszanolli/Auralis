@@ -244,8 +244,16 @@ def get_fingerprint_queue() -> FingerprintQueue | None:
     return _fingerprint_queue
 
 
-def set_fingerprint_queue(queue: FingerprintQueue) -> None:
-    """Set the global fingerprint queue instance."""
+def set_fingerprint_queue(queue: FingerprintQueue | None) -> None:
+    """Set (or clear, with None) the global fingerprint queue instance.
+
+    Called with None on rollback/shutdown (#4803) so get_fingerprint_queue()
+    correctly reports unavailable instead of returning a stopped queue object
+    that all 8 real consumers would otherwise keep enqueueing dead work into.
+    """
     global _fingerprint_queue
     _fingerprint_queue = queue
-    logger.info("📋 Global fingerprint queue initialized")
+    if queue is not None:
+        logger.info("📋 Global fingerprint queue initialized")
+    else:
+        logger.info("📋 Global fingerprint queue cleared")

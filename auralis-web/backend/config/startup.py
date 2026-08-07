@@ -83,6 +83,31 @@ async def _rollback_partial_startup(globals_dict: dict[str, Any]) -> None:
     for _component in _ROLLBACK_COMPONENTS_TO_NULL:
         globals_dict[_component] = None
 
+    # #4803: the on-demand fingerprint queue is installed in two places —
+    # this registry (nulled by the loop above) and a module-level global via
+    # set_fingerprint_queue(), which all 8 real consumers actually read
+    # through get_fingerprint_queue(). Rollback only knew about the registry
+    # entry, so the module global kept returning the same (now-stopped)
+    # FingerprintQueue object post-rollback and consumers silently enqueued
+    # work onto a queue that will never run instead of taking their
+    # unavailable branch.
+    _clear_module_level_fingerprint_queue()
+
+
+def _clear_module_level_fingerprint_queue() -> None:
+    """Null analysis.fingerprint_queue's module-global singleton (#4803).
+
+    Deferred import mirrors the try/except-wrapped import used where the
+    queue is created (startup may run with HAS_AURALIS False / the analysis
+    package unavailable, e.g. demo mode) — this must never itself raise and
+    abort the rollback/shutdown sequence it's called from.
+    """
+    try:
+        from analysis.fingerprint_queue import set_fingerprint_queue
+        set_fingerprint_queue(None)
+    except Exception as _fq_exc:
+        logger.warning(f"⚠️  Error clearing module-level fingerprint queue: {_fq_exc}")
+
 
 async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
     """Tear down every long-lived component, best-effort.
@@ -107,6 +132,12 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
         # auto_scanner first (it may be mid-scan and enqueue into the queues).
         for worker_key in await stop_background_workers(globals_dict.get):
             logger.info(f"✅ Background worker stopped: {worker_key}")
+        # #4803: clear the module-global mirror too — see
+        # _clear_module_level_fingerprint_queue's docstring. Inert once the
+        # process is actually exiting, but keeps this path consistent with
+        # _rollback_partial_startup rather than only fixing one of the two
+        # places that stop this worker.
+        _clear_module_level_fingerprint_queue()
 
         # Stop streamlined cache worker
         if globals_dict.get('streamlined_worker'):
