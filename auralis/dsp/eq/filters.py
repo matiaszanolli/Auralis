@@ -14,6 +14,7 @@ import numpy as np
 from scipy.fft import fft, ifft
 
 from ..utils import create_triangular_filterbank
+from .padding import pad_for_fft
 
 
 def apply_eq_gains(audio_chunk: np.ndarray,
@@ -35,14 +36,7 @@ def apply_eq_gains(audio_chunk: np.ndarray,
     original_len = len(audio_chunk)
 
     if original_len < fft_size:
-        # Pad with zeros for processing; preserve dtype so float32 isn't promoted.
-        padded = np.zeros((fft_size, audio_chunk.shape[1] if audio_chunk.ndim == 2 else 1),
-                          dtype=audio_chunk.dtype)
-        if audio_chunk.ndim == 2:
-            padded[:original_len, :] = audio_chunk
-        else:
-            padded[:original_len, 0] = audio_chunk
-        audio_chunk = padded.squeeze()
+        audio_chunk = pad_for_fft(audio_chunk, fft_size)
 
     # Process each channel
     if audio_chunk.ndim == 1:

@@ -14,6 +14,7 @@ import numpy as np
 from scipy.fft import fft, ifft
 
 from ....utils.logging import debug
+from ..padding import pad_for_fft
 
 
 class VectorizedEQProcessor:
@@ -48,17 +49,7 @@ class VectorizedEQProcessor:
         # Handle padding
         original_length = len(audio_chunk)
         if len(audio_chunk) < fft_size:
-            # #3659: dtype=audio_chunk.dtype so float32 input is not silently
-            # promoted to float64. Matches the correct pattern in filters.py:39.
-            padded = np.zeros(
-                (fft_size, audio_chunk.shape[1] if audio_chunk.ndim == 2 else 1),
-                dtype=audio_chunk.dtype,
-            )
-            if audio_chunk.ndim == 2:
-                padded[:len(audio_chunk), :] = audio_chunk
-            else:
-                padded[:len(audio_chunk), 0] = audio_chunk
-            audio_chunk = padded.squeeze()
+            audio_chunk = pad_for_fft(audio_chunk, fft_size)
 
         # Process each channel
         if audio_chunk.ndim == 1:
