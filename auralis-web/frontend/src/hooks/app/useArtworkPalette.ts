@@ -30,8 +30,36 @@ import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
 /**
  * In-memory cache for artwork palettes
  * Each album retains only the palette for its current artwork revision.
+ *
+ * Bounded with LRU eviction (#5020) — entries were previously only ever
+ * added or replaced, never removed for albums no longer displayed. A `Map`
+ * preserves insertion order, so re-inserting an entry on every access moves
+ * it to the end; the oldest (first) key is evicted once the cap is exceeded.
  */
+const MAX_PALETTE_CACHE_ENTRIES = 500;
 const paletteCache = new Map<number, { revision: number; palette: ArtworkPalette }>();
+
+function getCachedPalette(
+  albumId: number
+): { revision: number; palette: ArtworkPalette } | undefined {
+  const entry = paletteCache.get(albumId);
+  if (entry) {
+    paletteCache.delete(albumId);
+    paletteCache.set(albumId, entry);
+  }
+  return entry;
+}
+
+function setCachedPalette(albumId: number, revision: number, palette: ArtworkPalette): void {
+  paletteCache.delete(albumId);
+  paletteCache.set(albumId, { revision, palette });
+  if (paletteCache.size > MAX_PALETTE_CACHE_ENTRIES) {
+    const oldestKey = paletteCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      paletteCache.delete(oldestKey);
+    }
+  }
+}
 
 /**
  * Hook return type
@@ -84,7 +112,7 @@ export function useArtworkPalette(
     currentAlbumIdRef.current = albumId;
 
     // Check cache first
-    const cached = paletteCache.get(albumId);
+    const cached = getCachedPalette(albumId);
     if (cached?.revision === artworkRevision) {
       setPalette(cached.palette);
       setLoading(false);
@@ -117,7 +145,7 @@ export function useArtworkPalette(
         if (!isActive) return;
         if (currentAlbumIdRef.current === albumId) {
           setPalette(extractedPalette);
-          paletteCache.set(albumId, { revision: artworkRevision, palette: extractedPalette });
+          setCachedPalette(albumId, artworkRevision, extractedPalette);
           setLoading(false);
         }
       } catch (err) {
@@ -153,3 +181,12 @@ export function useArtworkPalette(
 }
 
 export default useArtworkPalette;
+
+// Test/debug helpers
+export const _internal = {
+  cache: paletteCache,
+  maxEntries: MAX_PALETTE_CACHE_ENTRIES,
+  reset() {
+    paletteCache.clear();
+  },
+};

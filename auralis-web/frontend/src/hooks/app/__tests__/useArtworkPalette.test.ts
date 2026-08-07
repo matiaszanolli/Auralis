@@ -1,5 +1,5 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useArtworkPalette } from '../useArtworkPalette';
+import { useArtworkPalette, _internal as artworkPaletteInternal } from '../useArtworkPalette';
 import type { ArtworkPalette } from '@/utils/colorExtraction';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { _internal as artworkUpdatesInternal } from '@/hooks/library/useArtworkUpdates';
@@ -59,8 +59,10 @@ describe('useArtworkPalette', () => {
       return vi.fn();
     });
     vi.mocked(useWebSocketContext).mockReturnValue({ subscribe } as never);
-    // Clear the module-level paletteCache between tests by re-importing would be
-    // complex, so we just use unique albumIds per test to avoid cache hits.
+    // Belt-and-suspenders: explicitly clear the module-level paletteCache
+    // between tests (via _internal.reset(), #5020) in addition to using
+    // unique albumIds per test to avoid cache hits.
+    artworkPaletteInternal.reset();
     mockGradient.mockReturnValue('linear-gradient(#1e1e3c, #000)');
     mockGlow.mockReturnValue('0 0 40px rgba(115,102,240,0.15)');
   });
@@ -184,5 +186,28 @@ describe('useArtworkPalette', () => {
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeNull();
     expect(mockExtract).not.toHaveBeenCalled();
+  });
+
+  it('caps paletteCache at maxEntries, evicting the least-recently-used entry (#5020)', async () => {
+    mockExtract.mockResolvedValue(fakePalette);
+    const { maxEntries, cache } = artworkPaletteInternal;
+
+    // Fill the cache to its cap.
+    for (let albumId = 1; albumId <= maxEntries; albumId++) {
+      const { result, unmount } = renderHook(() => useArtworkPalette(albumId));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      unmount();
+    }
+    expect(cache.size).toBe(maxEntries);
+    expect(cache.has(1)).toBe(true);
+
+    // One more distinct album pushes the cache past its cap.
+    const { result, unmount } = renderHook(() => useArtworkPalette(maxEntries + 1));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    unmount();
+
+    expect(cache.size).toBe(maxEntries);
+    expect(cache.has(1)).toBe(false); // oldest (least-recently-used) evicted
+    expect(cache.has(maxEntries + 1)).toBe(true);
   });
 });
