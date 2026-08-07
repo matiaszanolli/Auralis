@@ -61,52 +61,6 @@ def is_valid_intensity(value: Any) -> bool:
 
 
 # ============================================================================
-# Generic Response Wrappers
-# ============================================================================
-
-class ErrorResponse(BaseModel):
-    """Error API response wrapper."""
-    status: str = Field(default="error", description="Response status")
-    error: str = Field(description="Error type/code")
-    message: str = Field(description="Human-readable error message")
-    details: dict[str, Any] | None = Field(default=None, description="Additional error details")
-    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
-
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "status": "error",
-            "error": "validation_error",
-            "message": "Invalid request parameters",
-            "details": {"field": "limit", "issue": "Must be positive"},
-            "timestamp": "2024-11-28T10:00:00Z"
-        }
-    })
-
-
-
-
-
-
-
-
-
-# ============================================================================
-# Status Enums
-# ============================================================================
-
-class ErrorType(str, Enum):
-    """Error type codes."""
-    VALIDATION_ERROR = "validation_error"
-    NOT_FOUND = "not_found"
-    UNAUTHORIZED = "unauthorized"
-    FORBIDDEN = "forbidden"
-    CONFLICT = "conflict"
-    INTERNAL_ERROR = "internal_error"
-    SERVICE_UNAVAILABLE = "service_unavailable"
-    TIMEOUT = "timeout"
-
-
-# ============================================================================
 # WebSocket Message Models (Security: #2156)
 # ============================================================================
 
@@ -231,34 +185,6 @@ class WebSocketErrorResponse(BaseModel):
 
 
 # ============================================================================
-# Entity Base Models
-# ============================================================================
-
-class TrackBase(BaseModel):
-    """Minimal track representation for API responses."""
-    id: int = Field(description="Track identifier")
-    title: str = Field(description="Track title")
-    artist: str = Field(description="Artist name")
-    album: str = Field(description="Album name")
-    duration: float = Field(description="Duration in seconds")
-
-
-class ArtistBase(BaseModel):
-    """Minimal artist representation for API responses."""
-    id: int = Field(description="Artist identifier")
-    name: str = Field(description="Artist name")
-    track_count: int = Field(description="Number of tracks by this artist")
-
-
-class AlbumBase(BaseModel):
-    """Minimal album representation for API responses."""
-    id: int = Field(description="Album identifier")
-    title: str = Field(description="Album title")
-    artist: str = Field(description="Artist name")
-    track_count: int = Field(description="Number of tracks in this album")
-
-
-# ============================================================================
 # Request Parameter Models
 # ============================================================================
 
@@ -268,30 +194,9 @@ class PaginationParams(BaseModel):
     offset: int = Field(default=0, ge=0, description="Number of items to skip")
 
 
-class CursorPaginationParams(BaseModel):
-    """Cursor-based pagination parameters."""
-    limit: int = Field(default=50, ge=1, le=500, description="Items per page (1–500)")
-    cursor: str | None = Field(default=None, description="Opaque cursor from previous response")
-
-
-class SearchRequest(BaseModel):
-    """Generic search request."""
-    query: str = Field(description="Search query string")
-    fields: list[str] | None = Field(default=None, description="Fields to search in")
-    limit: int = Field(default=20, ge=1, le=100, description="Maximum number of results")
-    offset: int = Field(default=0, ge=0, description="Number of results to skip")
-
-
 # ============================================================================
 # System / Health Response Models
 # ============================================================================
-
-class ResponseStatus(str, Enum):
-    """Standard response status values."""
-    SUCCESS = "success"
-    ERROR = "error"
-    PARTIAL = "partial"
-
 
 # Typed response models for /api/health and /api/version (fixes #3863 / BE-RH-18).
 
@@ -319,24 +224,6 @@ class VersionInfoResponse(BaseModel):
 # ============================================================================
 # Cache Schemas (Phase B.2)
 # ============================================================================
-
-class CacheSource(str, Enum):
-    """Cache tier source indicator."""
-    TIER1 = "tier1"
-    TIER2 = "tier2"
-    MISS = "miss"
-
-
-class ChunkCacheMetadata(BaseModel):
-    """Metadata for a single cached audio chunk."""
-    track_id: int = Field(description="Track identifier")
-    chunk_index: int = Field(description="Zero-based chunk index")
-    preset: str = Field(description="Processing preset name")
-    intensity: float = Field(description="Processing intensity value")
-    source: CacheSource = Field(description="Which cache tier served this chunk")
-    timestamp: datetime.datetime = Field(description="When the chunk was cached")
-    access_count: int = Field(default=0, description="Number of times this chunk was accessed")
-
 
 class TrackCacheStatusResponse(BaseModel):
     """Per-track cache status summary."""
@@ -383,8 +270,6 @@ class CacheHealthResponse(BaseModel):
     memory_healthy: bool = Field(description="Memory pressure indicator")
     tier1_hit_rate: float = Field(description="Tier 1 hit rate (0–1)")
     overall_hit_rate: float = Field(description="Overall hit rate across all tiers (0–1)")
-
-
 
 
 class CacheStatsResponse(BaseModel):

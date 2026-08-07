@@ -14,9 +14,7 @@ Test Coverage:
 """
 
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
 
 import pytest
 from pydantic import ValidationError
@@ -25,16 +23,8 @@ from pydantic import ValidationError
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
 from schemas import (
-    AlbumBase,
-    ArtistBase,
-    CursorPaginationParams,
-    ErrorResponse,
-    ErrorType,
     LibraryScanRequest,
     PaginationParams,
-    ResponseStatus,
-    SearchRequest,
-    TrackBase,
     WebSocketErrorResponse,
     WebSocketMessageBase,
     WebSocketMessageType,
@@ -43,44 +33,6 @@ from schemas import (
 # ============================================================================
 # Schema Tests
 # ============================================================================
-
-
-
-class TestErrorResponse:
-    """Test ErrorResponse schema."""
-
-    def test_error_response_creation(self):
-        """Test creating an error response."""
-        response = ErrorResponse(
-            status="error",
-            error=ErrorType.VALIDATION_ERROR,
-            message="Validation failed"
-        )
-        assert response.status == "error"
-        assert response.error == ErrorType.VALIDATION_ERROR
-        assert response.message == "Validation failed"
-        assert response.timestamp is not None
-
-    def test_error_response_with_details(self):
-        """Test error response with additional details."""
-        response = ErrorResponse(
-            status="error",
-            error=ErrorType.NOT_FOUND,
-            message="Track not found",
-            details={"track_id": "123"}
-        )
-        assert response.details == {"track_id": "123"}
-        json_data = response.model_dump()
-        assert json_data["details"]["track_id"] == "123"
-
-    def test_error_response_types(self):
-        """Test all error response types."""
-        for error_type in ErrorType:
-            response = ErrorResponse(
-                error=error_type,
-                message=f"Test {error_type}"
-            )
-            assert response.error == error_type
 
 
 class TestPaginationSchemas:
@@ -116,46 +68,6 @@ class TestPaginationSchemas:
         with pytest.raises(ValueError):
             PaginationParams(offset=-1)
 
-
-
-
-
-
-class TestDataModelSchemas:
-    """Test data model schemas."""
-
-    def test_track_base_schema(self):
-        """Test TrackBase schema."""
-        track = TrackBase(
-            id="track_1",
-            title="Song Name",
-            artist="Artist Name",
-            album="Album Name",
-            duration=180.5
-        )
-        assert track.title == "Song Name"
-        assert track.duration == 180.5
-
-    def test_artist_base_schema(self):
-        """Test ArtistBase schema."""
-        artist = ArtistBase(
-            id="artist_1",
-            name="Artist Name",
-            track_count=25
-        )
-        assert artist.name == "Artist Name"
-        assert artist.track_count == 25
-
-    def test_album_base_schema(self):
-        """Test AlbumBase schema."""
-        album = AlbumBase(
-            id="album_1",
-            title="Album Name",
-            artist="Artist Name",
-            track_count=12
-        )
-        assert album.title == "Album Name"
-        assert album.track_count == 12
 
 
 # ============================================================================

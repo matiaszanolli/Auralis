@@ -15,24 +15,19 @@ Test Coverage:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import asyncio
 import sys
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict
 
 import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from cache.monitoring import CacheAlert, CacheMetrics, CacheMonitor, HealthStatus
+from cache.monitoring import CacheMetrics, CacheMonitor, HealthStatus
 from schemas import (
     CacheHealthResponse,
-    CacheSource,
     CacheStatsResponse,
     CacheTierStats,
-    ChunkCacheMetadata,
     OverallCacheStats,
     TrackCacheStatusResponse,
 )
@@ -43,28 +38,6 @@ from schemas import (
 
 class TestCacheSchemas:
     """Test cache integration schemas."""
-
-    def test_cache_source_enum(self):
-        """Test CacheSource enum values."""
-        assert CacheSource.TIER1.value == "tier1"
-        assert CacheSource.TIER2.value == "tier2"
-        assert CacheSource.MISS.value == "miss"
-
-    def test_chunk_cache_metadata_creation(self):
-        """Test creating chunk cache metadata."""
-        metadata = ChunkCacheMetadata(
-            track_id=123,
-            chunk_index=0,
-            preset="adaptive",
-            intensity=1.0,
-            source=CacheSource.TIER1,
-            timestamp=datetime.now(timezone.utc),
-            access_count=5
-        )
-        assert metadata.track_id == 123
-        assert metadata.preset == "adaptive"
-        assert metadata.source == CacheSource.TIER1
-        assert metadata.access_count == 5
 
     def test_track_cache_status_response(self):
         """Test track cache status response."""

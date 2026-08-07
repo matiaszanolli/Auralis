@@ -33,10 +33,22 @@ def client():
     from routers.cache_streamlined import create_streamlined_cache_router
 
     mock_cache = Mock()
+    # Field-complete per the actual StreamlinedCacheManager.get_stats() shape
+    # (see cache/manager.py) — #4755 wired GET /api/cache/stats to the fully
+    # typed schemas.CacheStatsResponse (CacheTierStats/OverallCacheStats
+    # require chunks/total_chunks/total_hits/total_misses/tracks_cached; the
+    # old local dict[str, Any] model silently accepted any subset).
     mock_cache.get_stats = Mock(return_value={
-        "tier1": {"hit_rate": 0.0, "size_mb": 0.0, "hits": 0, "misses": 0},
-        "tier2": {"hit_rate": 0.0, "size_mb": 0.0, "hits": 0, "misses": 0},
-        "overall": {"overall_hit_rate": 0.0, "total_size_mb": 0.0},
+        "tier1": {"hit_rate": 0.0, "size_mb": 0.0, "hits": 0, "misses": 0, "chunks": 0},
+        "tier2": {"hit_rate": 0.0, "size_mb": 0.0, "hits": 0, "misses": 0, "chunks": 0},
+        "overall": {
+            "overall_hit_rate": 0.0,
+            "total_size_mb": 0.0,
+            "total_chunks": 0,
+            "total_hits": 0,
+            "total_misses": 0,
+            "tracks_cached": 0,
+        },
         "tracks": {},
     })
     mock_cache.get_track_cache_status = Mock(return_value=None)
@@ -467,3 +479,42 @@ class TestCacheSecurityValidation:
 
         # Health check should be fast (< 1 second)
         assert duration < 1.0
+
+
+class TestCanonicalSchemasWired:
+    """#4755: cache_streamlined.py used to declare its own same-named
+    CacheStatsResponse/TrackCacheStatus with dict[str, Any] fields — two
+    classes with the same name existed in the process, and the fully-typed
+    schemas.py versions (imported only by tests) were never what actually
+    went on the wire. Pin that exactly one definition of each is now
+    importable, and that it's the schemas.py one."""
+
+    def test_router_module_has_no_local_duplicate_classes(self):
+        import routers.cache_streamlined as mod
+
+        assert not hasattr(mod, "TrackCacheStatus"), (
+            "a local TrackCacheStatus duplicate must not be reintroduced "
+            "(#4755) — use schemas.TrackCacheStatusResponse"
+        )
+
+    def test_stats_and_health_routes_use_the_schemas_module_classes(self):
+        import schemas
+        from routers.cache_streamlined import CacheHealthResponse, CacheStatsResponse
+
+        assert CacheStatsResponse is schemas.CacheStatsResponse
+        assert CacheHealthResponse is schemas.CacheHealthResponse
+
+    def test_get_stats_output_validates_against_the_wired_response_model(self):
+        """The real (not mocked) StreamlinedCacheManager.get_stats() shape
+        must satisfy schemas.CacheStatsResponse once tier_name is filled in
+        by the router — the one verified gap between the two shapes."""
+        from cache.manager import StreamlinedCacheManager
+        from schemas import CacheStatsResponse
+
+        manager = StreamlinedCacheManager()
+        stats = manager.get_stats()
+        stats["tier1"]["tier_name"] = "tier1"
+        stats["tier2"]["tier_name"] = "tier2"
+
+        validated = CacheStatsResponse(**stats)  # raises ValidationError if any field is missing/wrong-typed
+        assert validated.tier1.tier_name == "tier1"

@@ -15,36 +15,18 @@ from collections.abc import Callable
 
 from cache import StreamlinedCacheManager
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+
+# The canonical, fully-typed contracts (#3548 / BE-NEW-90, #4755): this router
+# used to declare its own same-named CacheStatsResponse/TrackCacheStatus with
+# dict[str, Any] fields, absorbing StreamlinedCacheManager.get_stats()'s shape
+# verbatim without ever validating it against the typed schema — two classes
+# with the same name existed in the process, and the typed one was never what
+# actually went on the wire. get_stats()'s shape has been verified
+# field-for-field against these models: the one gap (CacheTierStats.tier_name,
+# which get_stats() doesn't produce) is filled in below before validation.
+from schemas import CacheHealthResponse, CacheStatsResponse, TrackCacheStatusResponse
 
 logger = logging.getLogger(__name__)
-
-
-class CacheStatsResponse(BaseModel):
-    """Response model for cache statistics.
-
-    NOTE: schemas.CacheStatsResponse / CacheTierStats / OverallCacheStats
-    expose properly-typed nested fields (#3548 / BE-NEW-90). This local
-    copy uses dict[str, Any] to absorb the StreamlinedCacheManager.get_stats()
-    return shape verbatim. Migrating to the schemas.py version is a
-    follow-up that needs to verify the get_stats() dict matches the
-    typed model field-for-field.
-    """
-    tier1: dict[str, Any]
-    tier2: dict[str, Any]
-    overall: dict[str, Any]
-    tracks: dict[int, dict[str, Any]]
-
-
-class TrackCacheStatus(BaseModel):
-    """Model for track cache status (see schemas.TrackCacheStatusResponse
-    for the canonical fully-typed version, #3548 / BE-NEW-90)."""
-    track_id: int
-    total_chunks: int
-    cached_original: int
-    cached_processed: int
-    completion_percent: float
-    fully_cached: bool
 
 
 def _require_cache(
@@ -91,14 +73,20 @@ def create_streamlined_cache_router(
         cache_manager = _require_cache(get_cache_manager)
         try:
             stats = await asyncio.to_thread(cache_manager.get_stats)
+            # get_stats()'s tier1/tier2 dicts don't carry a tier_name field
+            # (there's nothing to derive it from once the two dicts are
+            # separate) — CacheTierStats requires it, so fill it in here at
+            # the one place that knows which dict is which.
+            stats["tier1"]["tier_name"] = "tier1"
+            stats["tier2"]["tier_name"] = "tier2"
             return CacheStatsResponse(**stats)
         except Exception:
             # Don't leak DB / filesystem details to the client (#3500 / BE-27).
             logger.exception("Error getting cache stats")
             raise HTTPException(status_code=500, detail="Failed to get cache stats")
 
-    @router.get("/track/{track_id}/status", response_model=TrackCacheStatus)
-    async def get_track_cache_status(track_id: int) -> TrackCacheStatus:
+    @router.get("/track/{track_id}/status", response_model=TrackCacheStatusResponse)
+    async def get_track_cache_status(track_id: int) -> TrackCacheStatusResponse:
         """
         Get cache status for a specific track.
 
@@ -118,7 +106,7 @@ def create_streamlined_cache_router(
                     detail=f"Track {track_id} not found in cache"
                 )
 
-            return TrackCacheStatus(
+            return TrackCacheStatusResponse(
                 track_id=status.track_id,
                 total_chunks=status.total_chunks,
                 cached_original=len(status.cached_chunks_original),
@@ -168,8 +156,8 @@ def create_streamlined_cache_router(
             logger.exception("Error clearing cache")
             raise HTTPException(status_code=500, detail="Failed to clear cache")
 
-    @router.get("/health")
-    async def cache_health() -> dict[str, Any]:
+    @router.get("/health", response_model=CacheHealthResponse)
+    async def cache_health() -> CacheHealthResponse:
         """
         Get cache system health status.
 
@@ -189,17 +177,17 @@ def create_streamlined_cache_router(
             tier2_healthy = tier2["size_mb"] <= 250  # Max 240 MB
             memory_healthy = overall["total_size_mb"] <= 260
 
-            return {
-                "healthy": tier1_healthy and tier2_healthy and memory_healthy,
-                "tier1_size_mb": tier1["size_mb"],
-                "tier1_healthy": tier1_healthy,
-                "tier2_size_mb": tier2["size_mb"],
-                "tier2_healthy": tier2_healthy,
-                "total_size_mb": overall["total_size_mb"],
-                "memory_healthy": memory_healthy,
-                "tier1_hit_rate": tier1["hit_rate"],
-                "overall_hit_rate": overall["overall_hit_rate"]
-            }
+            return CacheHealthResponse(
+                healthy=tier1_healthy and tier2_healthy and memory_healthy,
+                tier1_size_mb=tier1["size_mb"],
+                tier1_healthy=tier1_healthy,
+                tier2_size_mb=tier2["size_mb"],
+                tier2_healthy=tier2_healthy,
+                total_size_mb=overall["total_size_mb"],
+                memory_healthy=memory_healthy,
+                tier1_hit_rate=tier1["hit_rate"],
+                overall_hit_rate=overall["overall_hit_rate"],
+            )
         except Exception:
             logger.exception("Error checking cache health")
             raise HTTPException(status_code=500, detail="Failed to check cache health")
