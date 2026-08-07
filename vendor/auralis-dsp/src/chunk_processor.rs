@@ -91,12 +91,24 @@ impl ChunkProcessor {
             let write_samples = write_end - write_start;
 
             // In the overlap region (first `overlap` samples of non-first chunks),
-            // accumulate rather than overwrite for correct OLA reconstruction.
+            // accumulate rather than overwrite for correct OLA reconstruction —
+            // UNLESS `apply_crossfade` already ran above, in which case
+            // `processed[..ola_samples]` is already the complete blend of this
+            // chunk and the previous chunk's tail (`overlap_buffer`); `output`
+            // already holds that same previous tail from the prior iteration, so
+            // accumulating here would count the previous chunk's contribution
+            // twice (e.g. a constant 1.0 signal jumps to 2.0 at every boundary).
             if chunk_idx > 0 && overlap > 0 {
                 let ola_samples = overlap.min(write_samples);
-                output
-                    .slice_mut(ndarray::s![.., write_start..write_start + ola_samples])
-                    .scaled_add(1.0, &processed.slice(ndarray::s![.., ..ola_samples]));
+                if self.config.crossfade_samples > 0 {
+                    output
+                        .slice_mut(ndarray::s![.., write_start..write_start + ola_samples])
+                        .assign(&processed.slice(ndarray::s![.., ..ola_samples]));
+                } else {
+                    output
+                        .slice_mut(ndarray::s![.., write_start..write_start + ola_samples])
+                        .scaled_add(1.0, &processed.slice(ndarray::s![.., ..ola_samples]));
+                }
                 // Write remaining non-overlap region
                 if write_samples > ola_samples {
                     output
@@ -243,6 +255,36 @@ mod tests {
 
         // Output should match input size
         assert_eq!(output.shape(), audio.shape());
+
+        // Identity pass-through of a constant signal must stay flat across
+        // chunk boundaries — regression test for #4989 (crossfade region was
+        // double-counted, doubling the amplitude at every boundary).
+        for &v in output.iter() {
+            assert!((v - 1.0).abs() < 1e-10, "expected 1.0, got {v}");
+        }
+    }
+
+    #[test]
+    fn test_chunk_processing_identity_no_boundary_doubling_production_sizes() {
+        // Same regression as above, at production-matching chunk/overlap
+        // sizes (see ChunkConfig::default() and #4989).
+        let config = ChunkConfig {
+            chunk_size: 131072,
+            overlap: 2205,
+            num_channels: 2,
+            crossfade_samples: 2205,
+        };
+
+        let mut processor = ChunkProcessor::new(config);
+        let audio = Array2::ones((2, 300_000));
+
+        let output = processor.process_chunks(&audio.view(), |chunk| chunk.to_owned());
+
+        let max = output.iter().cloned().fold(0.0_f64, f64::max);
+        assert!(
+            (max - 1.0).abs() < 1e-10,
+            "constant-1.0 pass-through should stay at 1.0 everywhere, got max={max}"
+        );
     }
 
     #[test]
