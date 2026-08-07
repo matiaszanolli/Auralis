@@ -256,52 +256,6 @@ class ChunkBoundaryManager:
         """Get the number of overlap samples between adjacent chunks."""
         return round(OVERLAP_DURATION * self.sample_rate)
 
-    def get_segment_boundaries(
-        self,
-        chunk_index: int,
-        full_processed_samples: int
-    ) -> tuple[int, int]:
-        """
-        Calculate segment boundaries for extracting final output from processed chunk.
-
-        The processed chunk includes context, so we need to extract the right segment
-        for final output (WAV file or streaming).
-
-        Args:
-            chunk_index: Index of chunk
-            full_processed_samples: Total samples in processed chunk (with context)
-
-        Returns:
-            Tuple of (segment_start, segment_end) in samples
-        """
-        is_last = self.is_last_chunk(chunk_index)
-        self.get_overlap_samples()
-        context_samples = round(CONTEXT_DURATION * self.sample_rate)
-
-        # Start point in processed chunk (skip leading context)
-        if chunk_index == 0:
-            segment_start = 0  # First chunk: use from start
-        else:
-            segment_start = context_samples  # Skip leading context
-
-        # End point in processed chunk
-        chunk_duration_samples = round(CHUNK_DURATION * self.sample_rate)
-        if is_last:
-            # Last chunk: calculate from remaining duration
-            chunk_start_time = chunk_index * CHUNK_INTERVAL
-            remaining_duration = max(0, self.total_duration - chunk_start_time)
-            remaining_samples = round(remaining_duration * self.sample_rate)
-            segment_end = segment_start + remaining_samples
-        else:
-            # Regular chunk: extract CHUNK_DURATION
-            segment_end = segment_start + chunk_duration_samples
-
-        # Ensure bounds
-        segment_end = min(segment_end, full_processed_samples)
-        segment_start = min(segment_start, full_processed_samples)
-
-        return segment_start, segment_end
-
     def trim_context(
         self,
         audio_chunk: np.ndarray,
