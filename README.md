@@ -379,7 +379,7 @@ desktop lifecycle behavior are available.
 ### Essential Docs
 - **[MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md)** - Complete project roadmap and what's actually shipped
 - **[CLAUDE.md](CLAUDE.md)** - Full technical reference (for developers)
-- **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** - Complete user guide
+- **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** - Complete user guide (describes v1.0.0-beta.1; download filenames/screenshots are stale — current binary is v1.2.0-beta.2, see the release table above)
 
 ### Testing Documentation
 - **[TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)** - **MANDATORY** - Test quality principles
