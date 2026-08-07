@@ -43,7 +43,7 @@ auralis/                          Core Python audio engine
 │   ├── config/                     Processing configuration (UnifiedConfig)
 │   └── recording_type_detector.py  Content type detection
 ├── dsp/                          Signal processing
-│   ├── stages.py                   DSP pipeline entry (main())
+│   ├── stages.py                   Standalone target/reference matching CLI (main()), not part of the runtime pipeline — real entry point is core/hybrid_processor.py
 │   ├── basic.py                    DSP primitives
 │   ├── advanced_dynamics.py        Dynamics control
 │   ├── eq/                         Psychoacoustic EQ (psychoacoustic_eq.py)
