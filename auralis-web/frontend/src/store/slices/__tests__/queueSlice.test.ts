@@ -67,6 +67,21 @@ describe('queueSlice', () => {
     expect(state.lastUpdated).toBeGreaterThan(0);
   });
 
+  it('addTrack shifts currentIndex when inserting at or before it (#4927)', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = { ...state, currentIndex: 1 }; // playing track 2
+    state = reducer(state, addTrack(mockTrack(99), 0));
+    expect(state.currentIndex).toBe(2);
+    expect(selectCurrentQueueTrack({ queue: state } as never)?.id).toBe(2);
+  });
+
+  it('addTrack leaves currentIndex unchanged when inserting after it (#4927)', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2), mockTrack(3)]));
+    state = { ...state, currentIndex: 1 };
+    state = reducer(state, addTrack(mockTrack(99), 5));
+    expect(state.currentIndex).toBe(1);
+  });
+
   it('addTracks appends multiple tracks', () => {
     const state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2)]));
     expect(state.tracks).toHaveLength(2);

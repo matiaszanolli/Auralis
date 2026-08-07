@@ -58,6 +58,13 @@ const queueSlice = createSlice({
         const pos = action.meta.position;
         if (pos !== undefined && pos >= 0 && pos <= state.tracks.length) {
           state.tracks.splice(pos, 0, action.payload);
+          // Mirror reorderTrack/removeTrack (#4927): everything from `pos`
+          // onward just shifted right one slot, so currentIndex must too or
+          // it silently points at the newly inserted track instead of the
+          // track that was actually playing.
+          if (pos <= state.currentIndex) {
+            state.currentIndex += 1;
+          }
         } else {
           state.tracks.push(action.payload);
         }
