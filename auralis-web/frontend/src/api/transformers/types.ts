@@ -142,10 +142,22 @@ export interface PlaylistsApiResponse {
 // Artist Detail API Response (#2844: matches backend ArtistDetailResponse shape)
 // ============================================================================
 
+// Deliberately NOT AlbumApiResponse (#4752): the backend's nested
+// `AlbumInArtist` model (routers/artists.py) only carries these 5 fields —
+// response_model strips artist/artist_id/artwork_url before they ever reach
+// the wire, so promising the full AlbumApiResponse shape here is a type lie.
+export interface AlbumInArtistApiResponse {
+  id: number;
+  title: string;
+  year: number | null;
+  track_count: number;
+  total_duration: number;
+}
+
 export interface ArtistDetailApiResponse {
   id: number;
   name: string;
-  albums: AlbumApiResponse[];
+  albums: AlbumInArtistApiResponse[];
   total_albums: number;
   total_tracks: number;
   artwork_url?: string | null;
