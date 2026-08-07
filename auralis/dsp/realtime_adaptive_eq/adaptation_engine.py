@@ -13,6 +13,7 @@ from typing import Any
 
 import numpy as np
 
+from ..eq.critical_bands import create_critical_bands
 from ..utils.adaptive import smooth_parameter_transition
 from .settings import RealtimeEQSettings
 
@@ -24,10 +25,11 @@ class AdaptationEngine:
         self.settings = settings
         self.analysis_history: deque[Any] = deque(maxlen=10)  # Store last 10 analysis frames
         self.gain_history: deque[np.ndarray] = deque(maxlen=5)  # Store last 5 gain calculations
+        num_bands = len(create_critical_bands())
         self.adaptation_state = {
-            'target_gains': np.zeros(26),  # 26 critical bands
-            'current_gains': np.zeros(26),
-            'adaptation_speed': np.ones(26) * settings.adaptation_rate
+            'target_gains': np.zeros(num_bands),
+            'current_gains': np.zeros(num_bands),
+            'adaptation_speed': np.ones(num_bands) * settings.adaptation_rate
         }
 
     def analyze_and_adapt(self, spectrum_analysis: dict[str, np.ndarray],
@@ -54,7 +56,7 @@ class AdaptationEngine:
         # Update adaptation state
         self._update_adaptation_state(smoothed_gains)
 
-        return self.adaptation_state['current_gains']
+        return self.adaptation_state['current_gains'].copy()
 
     def _calculate_target_gains(self, spectrum_analysis: dict[str, np.ndarray],
                                content_info: dict[str, Any] | None) -> np.ndarray:
